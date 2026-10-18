@@ -76,6 +76,12 @@ class VerifiedProject(ProfileSchema):
     description: LongText | None = None
     url: WebURL | None = None
     technologies: StringList = Field(default_factory=list)
+    purpose: LongText | None = None
+    contribution: LongText | None = None
+    implementation_details: LongText | None = None
+    engineering_challenges: LongText | None = None
+    solutions: LongText | None = None
+    measurable_results: LongText | None = None
     achievements: Annotated[list[LongText], Field(max_length=20)] = Field(default_factory=list)
 
 

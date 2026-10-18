@@ -33,6 +33,7 @@ def get_engine() -> AsyncEngine:
             _engine = create_async_engine(
                 settings.DATABASE_URL,
                 echo=settings.DB_ECHO,
+                hide_parameters=True,
                 pool_size=settings.DB_POOL_SIZE,
                 max_overflow=settings.DB_MAX_OVERFLOW,
                 connect_args=connect_args,
@@ -42,6 +43,7 @@ def get_engine() -> AsyncEngine:
             _engine = create_async_engine(
                 settings.DATABASE_URL,
                 echo=settings.DB_ECHO,
+                hide_parameters=True,
             )
         logger.info(f"Database engine initialized for schema: {settings.DATABASE_SCHEMA}")
     return _engine

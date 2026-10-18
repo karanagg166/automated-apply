@@ -16,6 +16,7 @@ from backend.app.repositories.job import JobRepository
 from backend.app.schemas.credit import CreditBudgetStatus
 from backend.app.schemas.job import JobRead
 from backend.app.services.credit_manager import CreditManager, CreditBudgetExhaustedError
+from backend.app.api.v1.application_answers import router as application_answers_router
 
 settings = get_settings()
 
@@ -151,3 +152,7 @@ try:
     logger.info(f"FastMCP server mounted at {settings.FASTMCP_MOUNT_PATH}")
 except Exception as e:
     logger.warning(f"Could not mount FastMCP as sub-app (will run standalone): {e}")
+
+
+# Candidate facts and answer drafts share the Phase 1 authentication boundary.
+app.include_router(application_answers_router)

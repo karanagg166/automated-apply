@@ -223,3 +223,25 @@ application-assistant adapter. Only titles, skills, location and known experienc
 existing score. Additional stored preferences are available for future filtering/ranking;
 they are not falsely represented as scoring factors today. Matching results are returned without
 being saved to the publicly readable jobs endpoint. Deployment is not configured in this repository.
+
+## Phase 2A: resources, candidate knowledge and application answers
+
+The existing backend now supports authenticated profile/resource link resolution, confirmed
+professional evidence, deterministic factual answers, optional server-side Gemini narrative drafts,
+and explicitly saved answer drafts. Resume links are metadata; file-upload questions return
+`file_upload_required`. No applications are submitted and no emails or messages are sent.
+
+Read [the application answer engine guide](docs/ai-application-answer-engine.md) for all endpoints,
+fictional API examples, provider configuration, evidence confirmation, limits and offline tests.
+Migration 003 is additive and requires 001/002 first; production execution needs separate approval.
+All new endpoints reuse `JOB_AGENT_API_TOKEN` and fail closed when it is unset. Gemini credentials
+are optional for deterministic features and independent of Codex/Chrome extension credentials.
+Environment defaults are read fallbacks; import explicitly with:
+
+```bash
+python -m backend.scripts.import_candidate_resources --dry-run
+python -m backend.scripts.import_candidate_resources --apply
+```
+
+Review dry-run output first. Saved profile fields are never silently overwritten. See the guide
+for explicit standard-link confirmation and additional-resource confirmation semantics.

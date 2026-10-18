@@ -20,3 +20,5 @@ __all__ = [
     "ProviderUsageLog",
     "OutreachLog",
 ]
+
+from backend.app.models.application_answer import CandidateResource, CandidateEvidence, ApplicationAnswerDraft, LLMMonthlyUsage

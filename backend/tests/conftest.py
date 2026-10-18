@@ -16,7 +16,10 @@ os.environ["DATABASE_SCHEMA"] = "job_agent"
 os.environ["LOG_LEVEL"] = "WARNING"
 os.environ["SECRET_KEY"] = "test-secret-key-32-chars-long-for-testing"
 # Environment overrides prevent loading local account credentials from .env files.
-for name in ("JOB_AGENT_API_TOKEN", "HUNTER_API_KEY", "APOLLO_API_KEY", "SERPER_API_KEY",
+for name in ("GEMINI_API_KEY", "LLM_MODEL", "CANDIDATE_RESUME_DRIVE_URL", "CANDIDATE_GITHUB_URL",
+             "CANDIDATE_ORIGINAL_LINKEDIN_URL", "CANDIDATE_PORTFOLIO_URL", "CANDIDATE_LEETCODE_URL",
+             "CANDIDATE_CODEFORCES_URL", "CANDIDATE_GFG_URL", "CANDIDATE_HACKERRANK_URL", "JOB_AGENT_API_TOKEN",
+             "HUNTER_API_KEY", "APOLLO_API_KEY", "SERPER_API_KEY",
              "SIGNALHIRE_API_KEY", "APIFY_API_TOKEN", "GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET",
              "GMAIL_REFRESH_TOKEN", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY"):
     os.environ[name] = ""
@@ -88,3 +91,33 @@ def block_external_http(monkeypatch):
 
     monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", deny_async)
     monkeypatch.setattr(httpx.HTTPTransport, "handle_request", deny_sync)
+
+
+@pytest_asyncio.fixture
+async def phase2_profile(db_session):
+    from backend.app.repositories.candidate_profile import CandidateProfileRepository
+    from backend.app.schemas.candidate_profile import CandidateProfileCreate
+    from backend.tests.phase2a_fakes import PROJECT
+    profile = await CandidateProfileRepository(db_session).create_primary_profile(CandidateProfileCreate(
+        full_name="Alex Example", email="alex@example.com", github_url="https://github.com/example",
+        linkedin_url="https://www.linkedin.com/in/example", portfolio_url="https://example.com/portfolio",
+        verified_experience_years=2, verified_skills=["Python", "FastAPI"], projects=[PROJECT],
+        preferences={"notice_period_days": 30},
+    ))
+    await db_session.commit()
+    return profile
+
+
+@pytest.fixture
+def phase2_settings():
+    from backend.app.core.config import Settings
+    return Settings(_env_file=None, LLM_MODEL="gemini-test-model", GEMINI_API_KEY="fictional-test-key")
+
+
+@pytest.fixture
+def phase2_auth(monkeypatch):
+    from backend.app.core.config import get_settings
+    monkeypatch.setenv("JOB_AGENT_API_TOKEN", "phase2-fictional-token")
+    get_settings.cache_clear()
+    yield {"Authorization": "Bearer phase2-fictional-token"}
+    get_settings.cache_clear()
