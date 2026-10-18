@@ -15,6 +15,11 @@ os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["DATABASE_SCHEMA"] = "job_agent"
 os.environ["LOG_LEVEL"] = "WARNING"
 os.environ["SECRET_KEY"] = "test-secret-key-32-chars-long-for-testing"
+# Environment overrides prevent loading local account credentials from .env files.
+for name in ("JOB_AGENT_API_TOKEN", "HUNTER_API_KEY", "APOLLO_API_KEY", "SERPER_API_KEY",
+             "SIGNALHIRE_API_KEY", "APIFY_API_TOKEN", "GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET",
+             "GMAIL_REFRESH_TOKEN", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY"):
+    os.environ[name] = ""
 
 from collections.abc import AsyncGenerator
 import pytest
@@ -68,3 +73,18 @@ async def async_client() -> AsyncGenerator[AsyncClient, None]:
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
+
+
+@pytest.fixture(autouse=True)
+def block_external_http(monkeypatch):
+    """All HTTP tests must use MockTransport/ASGITransport, never live accounts."""
+    import httpx
+
+    async def deny_async(*args, **kwargs):
+        pytest.fail("Real HTTP is disabled in unit tests; inject MockTransport")
+
+    def deny_sync(*args, **kwargs):
+        pytest.fail("Real HTTP is disabled in unit tests; inject MockTransport")
+
+    monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", deny_async)
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", deny_sync)

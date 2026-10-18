@@ -20,13 +20,13 @@ class CandidateProfile(BaseModel):
     github_url: str | None = None
     portfolio_url: str | None = None
     verified_skills: list[str] = Field(default_factory=list)
-    verified_experience_years: float = 0.0
+    verified_experience_years: float | None = Field(default=None, ge=0)
     verified_roles: list[dict[str, str]] = Field(default_factory=list)
     preferred_locations: list[str] = Field(default_factory=list)
-    remote_preference: str = "remote_only"  # 'remote_only', 'hybrid', 'any'
+    remote_preference: str | None = None
     target_titles: list[str] = Field(default_factory=list)
-    notice_period_days: int = 30
-    work_authorization: str = "Authorized to work in resident country without sponsorship"
+    notice_period_days: int | None = Field(default=None, ge=0)
+    work_authorization: str | None = None
 
 
 class JobMatchResult(BaseModel):
@@ -110,11 +110,11 @@ class ApplicationAssistant:
             if job.is_remote:
                 location_points = 20.0
                 location_match = True
-        elif profile.remote_preference in ("hybrid", "any"):
-            if job.is_remote:
+        elif profile.remote_preference in ("hybrid", "any", "onsite"):
+            if job.is_remote and profile.remote_preference != "onsite":
                 location_points = 20.0
                 location_match = True
-            elif job.location:
+            elif not job.is_remote and job.location:
                 for pref in profile.preferred_locations:
                     if pref.lower() in job.location.lower():
                         location_points = 20.0
@@ -122,8 +122,8 @@ class ApplicationAssistant:
                         break
 
         # 4. Seniority / Experience baseline (up to 10 points)
-        exp_points = 10.0
-        if job.experience_level:
+        exp_points = 0.0 if profile.verified_experience_years is None else 10.0
+        if job.experience_level and profile.verified_experience_years is not None:
             exp_low = job.experience_level.lower()
             if "senior" in exp_low and profile.verified_experience_years < 3.0:
                 exp_points = 2.0
@@ -138,6 +138,9 @@ class ApplicationAssistant:
             f"Location/Remote match: {'Yes' if location_match else 'No'} ({location_points:.1f}/20). "
             f"Seniority alignment: {exp_points:.1f}/10."
         )
+
+        if profile.verified_experience_years is None:
+            explanation += " Experience is unknown; no seniority points awarded."
 
         return JobMatchResult(
             job_id=str(job.id),
@@ -167,35 +170,40 @@ class ApplicationAssistant:
             else "HUMAN APPROVAL REQUIRED: Review materials before final submission."
         )
 
-        # Build tailored cover letter exclusively from verified roles and skills
-        skill_mentions = ", ".join(profile.verified_skills[:5]) if profile.verified_skills else "software engineering"
-        role_summaries = []
-        for r in profile.verified_roles[:2]:
-            role_summaries.append(f"At {r.get('company', 'my previous team')}, I worked as {r.get('role', 'an engineer')} focusing on {r.get('highlight', 'backend systems')}.")
-        roles_text = " ".join(role_summaries)
-
+        if not profile.full_name.strip() or not profile.email.strip():
+            raise ValueError("Name and email are required to prepare an application")
+        facts = []
+        if profile.verified_experience_years is not None:
+            facts.append(f"I have {profile.verified_experience_years:g} years of experience.")
+        if profile.verified_skills:
+            facts.append(f"My technical skills include {', '.join(profile.verified_skills[:5])}.")
+        for role in profile.verified_roles[:2]:
+            if role.get("company") and role.get("role"):
+                sentence = f"At {role['company']}, I worked as {role['role']}."
+                if role.get("highlight"):
+                    sentence += f" {role['highlight']}"
+                facts.append(sentence)
         cover_letter = (
             f"Dear Hiring Team at {company_name},\n\n"
-            f"I am writing to express my enthusiastic interest in the {job.title} role. "
-            f"With over {profile.verified_experience_years:g} years of hands-on software development experience, "
-            f"my technical background in {skill_mentions} closely aligns with the technical goals of your team.\n\n"
-            f"{roles_text}\n\n"
-            f"I would welcome the opportunity to discuss how my verified background and engineering experience can support {company_name}.\n\n"
-            f"Sincerely,\n{profile.full_name}\n{profile.email}"
+            f"I am interested in the {job.title} role. "
+            + " ".join(facts)
+            + f"\n\nI would welcome the opportunity to discuss this position.\n\n"
+              f"Sincerely,\n{profile.full_name}\n{profile.email}"
         )
-
-        # Standard application questions answered strictly from verified candidate facts
         prepared_answers = {
             "Full Name": profile.full_name,
             "Email Address": profile.email,
-            "Phone Number": profile.phone or "Available upon request",
-            "LinkedIn Profile": profile.linkedin_url or "N/A",
-            "GitHub / Code Portfolio": profile.github_url or profile.portfolio_url or "N/A",
-            "Total Years of Experience": f"{profile.verified_experience_years:g} years",
-            "Notice Period": f"{profile.notice_period_days} days",
-            "Work Authorization": profile.work_authorization,
-            "Remote Work Preference": "Open to remote work" if job.is_remote else "Open to onsite/hybrid work",
         }
+        optional_answers = {
+            "Phone Number": profile.phone,
+            "LinkedIn Profile": profile.linkedin_url,
+            "GitHub / Code Portfolio": profile.github_url or profile.portfolio_url,
+            "Total Years of Experience": f"{profile.verified_experience_years:g} years" if profile.verified_experience_years is not None else None,
+            "Notice Period": f"{profile.notice_period_days} days" if profile.notice_period_days is not None else None,
+            "Work Authorization": profile.work_authorization,
+            "Remote Work Preference": profile.remote_preference,
+        }
+        prepared_answers.update({key: value for key, value in optional_answers.items() if value is not None})
 
         return ApplicationDraft(
             job_id=str(job.id),

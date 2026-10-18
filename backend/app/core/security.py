@@ -2,6 +2,9 @@
 
 import base64
 import hashlib
+import secrets
+from fastapi import HTTPException, Request, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from cryptography.fernet import Fernet, InvalidToken
 from backend.app.core.config import get_settings
 
@@ -39,3 +42,23 @@ def decrypt_secret(ciphertext: str) -> str:
         return fernet.decrypt(ciphertext.encode("utf-8")).decode("utf-8")
     except (InvalidToken, Exception) as exc:
         raise ValueError(f"Failed to decrypt secret: {exc}") from exc
+
+
+profile_bearer = HTTPBearer(auto_error=False, scheme_name="ProfileBearer")
+
+
+async def require_api_token(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Security(profile_bearer),
+) -> None:
+    """Replaceable single-user authentication boundary; never logs credentials."""
+    configured = get_settings().JOB_AGENT_API_TOKEN
+    token = configured.get_secret_value() if configured else ""
+    if not token.strip():
+        raise HTTPException(503, "Profile API authentication is not configured")
+    authorization = request.headers.get("Authorization", "")
+    scheme, _, supplied = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not supplied or not secrets.compare_digest(
+        supplied.encode("utf-8"), token.encode("utf-8")
+    ):
+        raise HTTPException(401, "Invalid or missing bearer token", headers={"WWW-Authenticate": "Bearer"})

@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 from sqlalchemy import String, Text, Boolean, Numeric, DateTime, ForeignKey, JSON
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.app.models.base import Base, GUID, TimestampMixin
 
@@ -31,7 +32,7 @@ class Job(Base, TimestampMixin):
     is_remote: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     experience_level: Mapped[str | None] = mapped_column(String(50), nullable=True)
     salary_range: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    skills_required: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    skills_required: Mapped[list[str]] = mapped_column(JSON().with_variant(ARRAY(Text), "postgresql"), default=list, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     match_score: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True, index=True)
     match_explanation: Mapped[str | None] = mapped_column(Text, nullable=True)
