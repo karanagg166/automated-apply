@@ -29,7 +29,7 @@ async def list_resources(offset: int = Query(0, ge=0, le=100000), limit: int = Q
                          session: AsyncSession = Depends(get_db_session)):
     repo = CandidateKnowledgeRepository(session)
     profile = await repo.profile()
-    all_resources = await repo.resources(profile.id)
+    all_resources = await repo.resolution_resources(profile.id)
     resolver = ProfileLinkResolver(profile, all_resources, get_settings())
     return ResourceList(resources=await repo.resources(profile.id, offset, limit),
                         resolved_links=[resolver.resolved(kind) for kind in ALIASES], offset=offset, limit=limit)
@@ -44,7 +44,7 @@ async def save_resource(data: ResourceWrite, session: AsyncSession = Depends(get
 async def resolve_resource(data: ResolveRequest, session: AsyncSession = Depends(get_db_session)):
     repo = CandidateKnowledgeRepository(session)
     profile = await repo.profile()
-    return ProfileLinkResolver(profile, await repo.resources(profile.id), get_settings()).resolve(data.question)
+    return ProfileLinkResolver(profile, await repo.resolution_resources(profile.id), get_settings()).resolve(data.question)
 
 
 @router.get("/candidate/evidence", response_model=EvidenceList)

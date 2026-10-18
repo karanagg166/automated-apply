@@ -11,7 +11,7 @@ from backend.app.services.profile_link_resolver import ENV_FIELDS
 
 async def import_defaults(repo, settings, apply=False):
     profile = await repo.profile()
-    existing = await repo.resources(profile.id)
+    existing = await repo.resolution_resources(profile.id)
     actions = []
     for kind, env_name in ENV_FIELDS.items():
         value = getattr(settings, env_name)

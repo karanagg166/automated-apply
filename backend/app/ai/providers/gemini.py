@@ -1,4 +1,5 @@
 """Current google-genai async structured output API. No tools or URL retrieval."""
+import math
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 
@@ -17,7 +18,8 @@ def retry_after_seconds(response):
     if not raw:
         return None
     try:
-        return max(0, float(raw))
+        value = float(raw)
+        return max(0, value) if math.isfinite(value) else None
     except ValueError:
         try:
             return max(0, (parsedate_to_datetime(raw) - datetime.now(timezone.utc)).total_seconds())

@@ -32,6 +32,18 @@ class CandidateKnowledgeRepository:
             CandidateResource.candidate_profile_id == profile_id
         ).order_by(CandidateResource.created_at, CandidateResource.id).offset(offset).limit(limit))).all())
 
+    async def resolution_resources(self, profile_id):
+        # Include every saved type and every primary even beyond the first API page.
+        # Two matching confirmed items suffice to detect ambiguity; 101 per type also
+        # leaves room for custom labels without an unbounded database-to-prompt load.
+        ranked = select(CandidateResource.id, func.row_number().over(
+            partition_by=CandidateResource.resource_type,
+            order_by=(CandidateResource.is_primary.desc(), CandidateResource.user_confirmed.desc(),
+                      CandidateResource.created_at, CandidateResource.id),
+        ).label("position")).where(CandidateResource.candidate_profile_id == profile_id).subquery()
+        return list((await self.session.scalars(select(CandidateResource).join(
+            ranked, ranked.c.id == CandidateResource.id).where(ranked.c.position <= 101))).all())
+
     async def save_resource(self, data: ResourceWrite):
         profile = await self.profile()
         if data.resource_type in STANDARD_FIELDS:

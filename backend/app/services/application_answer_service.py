@@ -40,7 +40,7 @@ class ApplicationAnswerService:
             })
         classification = ApplicationQuestionClassifier().classify(request.question)
         category = classification.question_type
-        resources = await self.repo.resources(profile.id)
+        resources = await self.repo.resolution_resources(profile.id)
         resolver = ProfileLinkResolver(profile, resources, self.settings)
         result = AnswerGenerationResult(question_type=category, writing_style=request.writing_style)
         # A limit embedded in the question can only tighten the explicitly supplied API limit.

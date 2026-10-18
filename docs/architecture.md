@@ -181,6 +181,7 @@ deduplication are database-enforced. New tables have RLS and no Supabase client 
 Request/draft transactions remain caller-owned. The deliberate exception is `LLMUsageManager`,
 which atomically reserves each provider attempt and records reported token usage in independent
 transactions. This makes the UTC monthly cap durable across failures and shared across workers.
+Durable provider cooldowns honor Retry-After across workers and month boundaries.
 The overall timeout includes queuing and retries; concurrency is bounded per worker. Drafts are
 saved only on explicit request, and profile-version staleness never rewrites reviewed content.
 

@@ -96,7 +96,9 @@ Fictional additional-resource payload:
 ```
 
 Multiple resume variants are supported. A partial unique database index prevents competing primaries
-for one profile/type; another unique constraint prevents duplicate URLs within a type. Conflicts
+for one profile/type; another unique constraint prevents duplicate URLs within a type. Resolution
+considers up to 101 resources per type with primaries first, independently of API pagination.
+Custom labels outside that bounded set require a more specific resource update/selection. Conflicts
 return 409. To change the primary, update the existing record by `id` with `is_primary: false`, then
 promote the selected record. Every resource update supplies its full new values and explicit
 confirmation, so a changed URL cannot inherit an old approval. Standard resource POSTs require
@@ -216,8 +218,10 @@ independently of draft/profile transactions. A crash after reservation can conse
 one request without a provider call. It is not a dollar-spend cap.
 
 There are at most two attempts, with a bounded delay only for transient connection/5xx failures.
-429 is returned immediately with parsed Retry-After metadata and no automatic retry. A long
-Retry-After also prevents transient retries; the client must respect it before a later request.
+429 is returned immediately with parsed Retry-After metadata and no automatic retry. A durable
+provider cooldown prevents later calls across workers until that deadline (60 seconds when no
+usable instruction is supplied). A long Retry-After also prevents transient retries. Cooldowns are
+checked across monthly rows so a month boundary does not clear an active pause.
 Queue time and retry delay count against the same deadline. No fallback model/key rotation or
 regeneration loop is used. Provider authentication, unavailable model, timeout, rate limit,
 monthly cap and invalid structured responses have distinct safe error codes. Raw provider errors,

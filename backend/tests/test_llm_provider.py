@@ -133,3 +133,33 @@ def test_retry_after_http_date():
     response = httpx.Response(429, headers={"retry-after": format_datetime(datetime.now(timezone.utc) + timedelta(seconds=60))})
     assert 58 <= retry_after_seconds(response) <= 60
     assert retry_after_seconds(httpx.Response(429, headers={"retry-after": "invalid"})) is None
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_cooldown_blocks_later_requests_across_managers(phase2_settings):
+    first = LLMUsageManager(get_session_factory(), phase2_settings)
+    provider = FakeProvider(error=ProviderError("rate_limited", retry_after=60))
+    with pytest.raises(ProviderError, match="rate_limited"):
+        await first.generate(provider, "q", {}, {})
+    second = LLMUsageManager(get_session_factory(), phase2_settings)
+    with pytest.raises(ProviderError, match="rate_limited") as error:
+        await second.generate(provider, "q", {}, {})
+    assert len(provider.calls) == 1 and error.value.retry_after > 0 and not error.value.attempted
+    async with get_session_factory()() as session:
+        row = (await session.scalars(select(LLMMonthlyUsage))).one()
+        assert row.requests == 1 and row.cooldown_until is not None
+
+
+@pytest.mark.asyncio
+async def test_prior_month_cooldown_does_not_reset_on_month_boundary(phase2_settings):
+    from datetime import datetime, timedelta, timezone
+    async with get_session_factory()() as session:
+        session.add(LLMMonthlyUsage(provider="gemini", month="2000-01", requests=1,
+                                    cooldown_until=datetime.now(timezone.utc) + timedelta(seconds=60)))
+        await session.commit()
+    with pytest.raises(ProviderError, match="rate_limited"):
+        await LLMUsageManager(get_session_factory(), phase2_settings).reserve()
+
+
+def test_nonfinite_retry_after_ignored():
+    assert retry_after_seconds(httpx.Response(429, headers={"retry-after": "inf"})) is None

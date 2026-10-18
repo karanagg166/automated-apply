@@ -1,6 +1,7 @@
 """Additive Phase 2A storage; quota reservations commit independently of drafts."""
 import uuid
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, text
+from datetime import datetime
+from sqlalchemy import DateTime, Boolean, CheckConstraint, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -64,6 +65,7 @@ class LLMMonthlyUsage(Base, TimestampMixin):
     __tablename__ = "llm_monthly_usage"
     provider: Mapped[str] = mapped_column(String(30), primary_key=True)
     month: Mapped[str] = mapped_column(String(7), primary_key=True)
+    cooldown_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     requests: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     input_tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     output_tokens: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

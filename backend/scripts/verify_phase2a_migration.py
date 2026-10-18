@@ -146,6 +146,19 @@ async def verify(url):
         assert await connection.fetchval("SELECT count(*) FROM job_agent.application_answer_drafts") == 1
         assert await connection.fetchval("SELECT requests FROM job_agent.llm_monthly_usage") == 1
         assert await connection.fetchval("SELECT input_tokens FROM job_agent.llm_monthly_usage") == 120
+        try:
+            await manager.generate(FakeProvider(error=ProviderError("rate_limited", retry_after=60)), "q", {}, {})
+        except ProviderError as error:
+            assert error.code == "rate_limited"
+        else:
+            raise AssertionError("Provider rate limit was ignored")
+        try:
+            await LLMUsageManager(factory, settings).reserve()
+        except ProviderError as error:
+            assert error.code == "rate_limited" and error.retry_after > 0
+        else:
+            raise AssertionError("Durable cooldown did not block a later provider request")
+        assert await connection.fetchval("SELECT requests FROM job_agent.llm_monthly_usage") == 2
         # Migration replay preserves every record and profile version, including new data.
         snapshots = {table: await connection.fetchval(f"SELECT jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text)::text FROM job_agent.{table} t")
                      for table in ["candidate_profiles", "candidate_resources", "candidate_evidence", "application_answer_drafts", "llm_monthly_usage"]}
@@ -154,7 +167,7 @@ async def verify(url):
             assert await connection.fetchval(f"SELECT jsonb_agg(to_jsonb(t) ORDER BY to_jsonb(t)::text)::text FROM job_agent.{table} t") == snapshot
         assert await connection.fetchval("SELECT value FROM public.phase2a_sentinel") == "preserve"
         assert await connection.fetchval("SELECT row_to_json(c)::text FROM job_agent.companies c WHERE id=$1", cid) == before_company
-        print("Phase 2A PostgreSQL: migration replay, existing records/versions, public sentinel, RLS, resource/evidence/draft persistence, FK, primary races, rollback, draft review/staleness, atomic quota and durable token usage: PASS")
+        print("Phase 2A PostgreSQL: migration replay, existing records/versions, public sentinel, RLS, resource/evidence/draft persistence, FK, primary races, rollback, draft review/staleness, atomic quota, durable cooldown and token usage: PASS")
     finally:
         if engine:
             await engine.dispose()

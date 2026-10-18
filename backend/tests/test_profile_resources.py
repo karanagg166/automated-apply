@@ -97,3 +97,14 @@ async def test_standard_default_import_is_explicit_and_idempotent(db_session, ph
     await import_defaults(repo, settings, apply=True)
     assert profile.github_url == "https://github.com/env-example" and profile.version == 3
     assert not await import_defaults(repo, settings, apply=True)
+
+
+@pytest.mark.asyncio
+async def test_resolver_finds_primary_beyond_first_list_page(db_session, phase2_profile):
+    from backend.app.services.profile_link_resolver import ProfileLinkResolver
+    db_session.add_all([CandidateResource(candidate_profile_id=phase2_profile.id, resource_type="resume", label=f"Variant {i}", url=f"https://example.com/resume/{i}", user_confirmed=True) for i in range(110)])
+    await db_session.flush()
+    repo = CandidateKnowledgeRepository(db_session)
+    await repo.save_resource(ResourceWrite(resource_type="resume", label="Selected resume", url="https://example.com/primary", user_confirmed=True, is_primary=True))
+    result = ProfileLinkResolver(phase2_profile, await repo.resolution_resources(phase2_profile.id), Settings(_env_file=None)).resolve("Resume URL")
+    assert result.answer == "https://example.com/primary"

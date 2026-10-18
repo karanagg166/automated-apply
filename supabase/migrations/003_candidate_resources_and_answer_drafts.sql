@@ -53,6 +53,7 @@ CREATE INDEX IF NOT EXISTS ix_application_answer_drafts_candidate_profile_id ON 
 CREATE TABLE IF NOT EXISTS job_agent.llm_monthly_usage (
     provider VARCHAR(30) NOT NULL CHECK (provider = 'gemini'),
     month VARCHAR(7) NOT NULL CHECK (month ~ '^[0-9]{4}-(0[1-9]|1[0-2])$'),
+    cooldown_until TIMESTAMPTZ,
     requests INTEGER NOT NULL DEFAULT 0 CHECK (requests >= 0),
     input_tokens INTEGER NOT NULL DEFAULT 0 CHECK (input_tokens >= 0),
     output_tokens INTEGER NOT NULL DEFAULT 0 CHECK (output_tokens >= 0),
