@@ -4,7 +4,8 @@ from datetime import datetime, timezone, timedelta
 from typing import Literal
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, func
+from sqlalchemy.orm import aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.app.core.security import require_api_token
 from backend.app.db.session import get_db_session, get_session_factory
@@ -159,6 +160,24 @@ async def search_jobs(
             {
                 **JobRead.model_validate(job).model_dump(mode="json"),
                 "company_name": company.name if company else None,
+                "company_domain": company.domain if company else None,
+                "company_intelligence": (company.metadata_ or {}).get(
+                    "startup_discovery", {}
+                )
+                if company
+                else {},
+                "first_observed_at": job.first_observed_at.isoformat()
+                if job.first_observed_at
+                else None,
+                "country": (job.discovery_metadata or {}).get("country"),
+                "region": (job.discovery_metadata or {}).get("region"),
+                "skills_preferred": (job.discovery_metadata or {}).get(
+                    "skills_preferred", []
+                ),
+                "equity": (job.discovery_metadata or {}).get("equity"),
+                "quality_flags": (job.discovery_metadata or {}).get(
+                    "quality_flags", []
+                ),
                 "application_url": job.application_url,
                 "remote_type": job.remote_type,
                 "employment_type": job.employment_type,
@@ -181,12 +200,47 @@ async def search_jobs(
         items.sort(key=lambda item: -item["match"]["match_score"])
     elif sort == "oldest":
         items.reverse()
-    return {
-        "total": len(items),
-        "page": page,
-        "limit": limit,
-        "jobs": items[(page - 1) * limit : page * limit],
-    }
+    selected = items[(page - 1) * limit : page * limit]
+    by_id = {item["id"]: item for item in selected}
+    for item in selected:
+        item["source_observations"] = []
+    if selected:
+        # Bound evidence output per job, without letting one frequently observed job hide others.
+        recent = (
+            select(
+                JobSourceObservation,
+                func.row_number()
+                .over(
+                    partition_by=JobSourceObservation.job_id,
+                    order_by=(
+                        JobSourceObservation.last_observed_at.desc(),
+                        JobSourceObservation.id,
+                    ),
+                )
+                .label("position"),
+            )
+            .where(JobSourceObservation.job_id.in_([UUID(key) for key in by_id]))
+            .subquery()
+        )
+        observation_model = aliased(JobSourceObservation, recent)
+        observations = (
+            await session.scalars(
+                select(observation_model).where(recent.c.position <= 20)
+            )
+        ).all()
+        for observation in observations:
+            by_id[str(observation.job_id)]["source_observations"].append(
+                {
+                    "source": observation.source,
+                    "source_job_id": observation.source_job_id,
+                    "original_url": observation.original_url,
+                    "first_observed_at": observation.first_observed_at.isoformat(),
+                    "last_observed_at": observation.last_observed_at.isoformat(),
+                    "provenance": observation.provenance,
+                    "verification_status": observation.verification_status,
+                }
+            )
+    return {"total": len(items), "page": page, "limit": limit, "jobs": selected}
 
 
 @router.post("/discovery/people/search")

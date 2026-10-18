@@ -108,6 +108,9 @@ async def test_manual_import_run_idempotency_search_and_people(async_client, hea
         stored["source_verification_status"] == "requires_review"
         and stored["match"] is None
     )
+    assert stored["company_domain"] == "example.com"
+    assert stored["source_observations"][0]["source"] == "internshala"
+    assert stored["source_observations"][0]["provenance"]["import_mode"] == "manual"
     company_id = stored["company_id"]
     people = await async_client.post(
         "/api/v1/discovery/people/search",

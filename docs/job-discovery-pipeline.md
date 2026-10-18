@@ -137,7 +137,7 @@ are preserved but new imports must use HTTPS.
 Identity hierarchy:
 
 1. Source posting identity or exact canonical job URL, including a recognizable shared ATS application URL.
-2. Same company, exact normalized title/location/remote policy and exact normalized description of at least 200 characters.
+2. Same domain-backed company identity, exact normalized title/location/remote policy and exact normalized description of at least 200 characters.
 3. Same company/title without sufficient evidence is reported as a possible duplicate and remains separate.
 
 `JobSourceObservation` keeps each platform ID and original link on the canonical job. Nullable
@@ -233,7 +233,9 @@ POST /api/v1/discovery/people/search
 GET /api/v1/companies/{uuid}/people
 ```
 
-Job search supports location/employment filters, observed freshness and explicit sort order. Ranking
+Job search returns company/startup intelligence, published equity and up to 20 recent source
+observations per job, including original listing links and provenance. It supports location/employment
+filters, observed freshness and explicit sort order. Ranking
 requires a saved profile. Rankings are computed before pagination; narrow queries to at most 5000
 jobs. No ranking updates overwrite human job records. The legacy jobs list now also requires a
 bearer token because it can expose private match information. Legacy MCP fetch/ingest/connectivity
