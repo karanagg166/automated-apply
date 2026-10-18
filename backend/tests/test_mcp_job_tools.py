@@ -13,15 +13,22 @@ from backend.app.mcp_server import (
 
 
 @pytest.mark.asyncio
-async def test_mcp_check_job_source_connection():
+async def test_mcp_check_job_source_connection(monkeypatch):
+    from unittest.mock import AsyncMock
+    from backend.app.services.job_sources.direct_api import RemotiveAdapter
+    monkeypatch.setattr(RemotiveAdapter, "test_connection", AsyncMock(return_value={"source": "remotive", "status": "passed"}))
     res = await check_job_source_connection("remotive")
     assert res["source"] == "remotive"
     assert res["status"] in ("passed", "failed")
 
 
 @pytest.mark.asyncio
-async def test_mcp_fetch_jobs_from_source():
-    # Fetch from Arbeitnow (public API)
+async def test_mcp_fetch_jobs_from_source(monkeypatch):
+    from unittest.mock import AsyncMock
+    from backend.app.services.job_sources.direct_api import ArbeitnowAdapter
+    from backend.app.schemas.normalized_job import NormalizedJob
+    job = NormalizedJob(source_name="arbeitnow", title="Example Engineer", company_name="Example Company", original_url="https://example.com/jobs/1")
+    monkeypatch.setattr(ArbeitnowAdapter, "fetch_jobs", AsyncMock(return_value=[job]))
     jobs = await fetch_jobs_from_source(source_name="arbeitnow", limit=2)
     assert isinstance(jobs, list)
     if jobs:

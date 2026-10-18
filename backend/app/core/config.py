@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 from typing import Literal
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     APP_PORT: int = 8000
 
     # Security
+    JOB_AGENT_API_TOKEN: SecretStr | None = None
     SECRET_KEY: str = Field(
         default="insecure-dev-secret-key-must-be-changed-in-production-32-chars",
         description="Key used for secret reference token encryption and internal tokens",

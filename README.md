@@ -4,19 +4,14 @@ An AI-powered job discovery, recruiter contact enrichment, and personalized cold
 
 ---
 
-## 🌟 Core Features
+## Current backend capabilities
 
-- **Automated Multi-Source Discovery:** Gmail job alerts, public ATS boards, direct company postings, and manual URLs.
-- **Explainable Matching Engine:** Multi-factor scoring against your resume, preferred titles, tech stack, and locations.
-- **5-Stage Contact Enrichment Waterfall:**
-  1. *Local Database Cache* (domain patterns, previously discovered recruiters)
-  2. *Authorized Public Search* (careers pages, public hiring announcements)
-  3. *Pattern Candidate Generation* (`first.last@company.com`, labeled strictly as `candidate`)
-  4. *Multi-Provider Enrichment* (Hunter, Apollo, etc. with quota awareness)
-  5. *High-Priority Fallback* (SignalHire adapter)
-- **Credit & Budget Manager:** Concurrency-safe quota tracking, negative lookup caching, and per-provider cost caps.
-- **Human-in-the-Loop Outreach:** Generates targeted Gmail drafts with resume attachments; **never** sends without explicit manual confirmation.
-- **FastMCP Tool Layer:** Standards-compliant Model Context Protocol server exposing tool endpoints for AI orchestrators.
+- Persistent, user-supplied candidate facts and job search preferences.
+- Authenticated profile management and deterministic saved-profile matching.
+- Existing company/job/contact repositories, credit tracking, discovery adapters and draft preparation.
+- FastMCP tools accepting explicit candidate inputs; LinkedIn submissions remain manual.
+
+Account integrations, automated submissions, outreach sending, background scheduling and a dashboard are future work. The diagrams below describe the target architecture, not deployed components.
 
 ---
 
@@ -115,3 +110,116 @@ uvicorn backend.app.main:app --reload --port 8000
 2. **Strict HITL:** The system prepares drafts and normalizes data autonomously. Emails are sent **only** after explicit human confirmation.
 3. **Cost-First Budgeting:** Cached data is reused first, free tiers are prioritized, and external API calls fail safe when budgets are reached.
 4. **Database Isolation:** All application tables reside in the `job_agent` schema, completely segregated from other projects and existing public tables.
+
+
+## Phase 1: candidate profile foundation
+
+Set `JOB_AGENT_API_TOKEN` to a strong random value in the server environment. Empty/unset
+configuration returns **503**; missing or invalid bearer credentials return **401**.
+Tokens use constant-time comparison and are never stored in the candidate record or logged
+by the API. Use HTTPS outside localhost and keep database SQL echo disabled for private data.
+This is single-user server authentication, not multi-user login. The existing MCP endpoint
+cannot read the saved profile; protect existing tools separately before exposing them publicly.
+
+| Endpoint | Behavior |
+| --- | --- |
+| `GET /api/v1/profile` | Saved profile plus ETag; 404 when absent |
+| `PUT /api/v1/profile` | 201 on creation, 200 on full replacement or equivalent request |
+| `PATCH /api/v1/profile` | 200; updates only supplied fields, recursively merges preferences |
+| `POST /api/v1/jobs/{job_id}/match` | Uses saved profile and existing scorer; 404 for absent job/profile |
+
+All four require `Authorization: Bearer <token>`. GET/PUT/PATCH return a quoted numeric
+`ETag` such as `"1"`. Use that value in `If-Match` for PATCH and changed PUT requests.
+Missing preconditions return **428**, stale versions **409**, invalid bodies/headers **422**,
+and bodies over 64 KiB **413**. Equivalent PUTs without If-Match are harmless retries;
+a supplied stale If-Match still conflicts. Concurrent creates may return 409; retrieve and retry.
+
+PUT replaces all profile fields: omitted optional values become null or empty collections.
+PATCH preserves omitted values; explicit null clears nullable fields. Required identity,
+collections and the preferences object cannot be null. Arrays are replaced as a whole.
+Within `preferences`, omitted properties are preserved. No profile is seeded automatically.
+
+Fictional example (do not copy this into your actual personal profile):
+
+```bash
+curl -i http://localhost:8000/api/v1/profile \
+  -H "Authorization: Bearer $JOB_AGENT_API_TOKEN" \
+  -H 'Content-Type: application/json' -X PUT \
+  -d '{"full_name":"Alex Example","email":"alex@example.com","verified_skills":["Python"],"preferences":{"target_titles":["Backend Engineer"],"remote_preference":"remote"}}'
+
+curl http://localhost:8000/api/v1/profile \
+  -H "Authorization: Bearer $JOB_AGENT_API_TOKEN"
+
+curl http://localhost:8000/api/v1/profile -X PATCH \
+  -H "Authorization: Bearer $JOB_AGENT_API_TOKEN" -H 'If-Match: "1"' \
+  -H 'Content-Type: application/json' \
+  -d '{"preferences":{"preferred_locations":["London"]},"phone":null}'
+
+curl -X POST "http://localhost:8000/api/v1/jobs/$JOB_ID/match" \
+  -H "Authorization: Bearer $JOB_AGENT_API_TOKEN"
+```
+
+Example response excerpt (the full response also includes UUID, timestamps, URL fields,
+empty career collections and all preferences):
+
+```json
+{
+  "singleton_key": "primary",
+  "version": 1,
+  "full_name": "Alex Example",
+  "email": "alex@example.com",
+  "verified_skills": ["Python"],
+  "verified_experience_years": null
+}
+```
+
+Preferences accept `remote`, `hybrid`, `onsite`, `any` or null; employment types are
+`full_time`, `internship`, `contract`. Salary is an optional amount with an optional
+three-letter uppercase currency code; no currency or pay period is inferred. Detailed
+experience, education, projects and certifications are documented in `/docs` OpenAPI schemas.
+Unknown experience, notice period and authorization stay null. Draft answers omit unknown facts.
+
+### Migration
+
+Apply `supabase/migrations/002_candidate_profile.sql` after migration 001 using an authorized
+server-side database owner. It adds only `job_agent` objects and preserves existing records.
+It enables RLS with no client policies, revokes client access and adds automatic version/timestamp
+maintenance. The backend database role must own the table or have BYPASSRLS and appropriate grants.
+Migration 001 remains unchanged. Do not run ORM `create_all` as a production migration.
+**Applying this migration to the shared production Supabase database requires separate explicit approval.**
+
+After that approval, a database administrator can run the migration against the approved target:
+
+```bash
+psql "$APPROVED_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/002_candidate_profile.sql
+```
+
+The migration was exercised only in an isolated local PostgreSQL database during development.
+No production profile or fictional sample record is installed by it.
+
+### Validation
+
+```bash
+source backend/venv/bin/activate
+python -m compileall -q backend/app
+pytest backend/tests -v
+```
+
+Without `PROFILE_TEST_DATABASE_URL`, the PostgreSQL test is explicitly skipped; SQLite alone
+does not verify migration compatibility. To include it, start an ephemeral PostgreSQL 16 server
+with database `candidate_profile_test`, then run:
+
+```bash
+PROFILE_TEST_DATABASE_URL=postgresql://postgres:profile_test_only@127.0.0.1:55439/candidate_profile_test pytest backend/tests -v
+```
+
+The test requires a localhost URL and that exact base database name. It creates and drops its
+own uniquely named database, checks real concurrent writes and confirms existing/public records
+are preserved. CI provisions this server automatically. Tests block real HTTP transports and
+use dummy/empty account credentials. No formatter/linter/type checker is currently configured.
+
+Later phases can consume `CandidateProfileService` for verified facts, preferences and the
+application-assistant adapter. Only titles, skills, location and known experience affect the
+existing score. Additional stored preferences are available for future filtering/ranking;
+they are not falsely represented as scoring factors today. Matching results are returned without
+being saved to the publicly readable jobs endpoint. Deployment is not configured in this repository.

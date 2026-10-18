@@ -274,7 +274,7 @@ async def match_job_against_profile(
     full_name: str,
     email: str,
     verified_skills: list[str],
-    verified_experience_years: float = 3.0,
+    verified_experience_years: float | None = None,
     preferred_locations: list[str] | None = None,
     target_titles: list[str] | None = None,
 ) -> dict[str, Any]:
@@ -316,7 +316,7 @@ async def generate_application_draft(
     full_name: str,
     email: str,
     verified_skills: list[str],
-    verified_experience_years: float = 3.0,
+    verified_experience_years: float | None = None,
     phone: str | None = None,
     linkedin_url: str | None = None,
     github_url: str | None = None,

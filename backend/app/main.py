@@ -139,6 +139,11 @@ async def list_jobs(
     return [JobRead.model_validate(j) for j in jobs]
 
 
+from backend.app.api.v1.profile import router as profile_router
+
+app.include_router(profile_router)
+
+
 # Mount FastMCP SSE Endpoint
 try:
     mcp_app = mcp.http_app(transport="sse")
