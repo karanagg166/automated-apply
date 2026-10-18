@@ -50,14 +50,23 @@ class Settings(BaseSettings):
     SERPER_MONTHLY_LIMIT: int = Field(default=100, ge=0)
     SIGNALHIRE_MONTHLY_LIMIT: int = Field(default=5, ge=0)
 
-    # Provider API Keys (Empty by default in dev/test)
+    # External Provider API Keys (Empty by default in dev/test)
     HUNTER_API_KEY: str | None = None
     APOLLO_API_KEY: str | None = None
     SERPER_API_KEY: str | None = None
     SIGNALHIRE_API_KEY: str | None = None
 
+    # Apify Integration Configuration
+    APIFY_API_TOKEN: str | None = Field(default=None, description="Apify API token for running actors")
+    APIFY_MONTHLY_LIMIT_USD: float = Field(default=5.0, ge=0.0, description="Monthly dollar spending cap for Apify actor runs")
+
+    # Gmail Integration Configuration (OAuth)
+    GMAIL_CLIENT_ID: str | None = Field(default=None, description="Google OAuth 2.0 Client ID")
+    GMAIL_CLIENT_SECRET: str | None = Field(default=None, description="Google OAuth 2.0 Client Secret")
+    GMAIL_REFRESH_TOKEN: str | None = Field(default=None, description="Google OAuth 2.0 Refresh Token")
+
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "backend/.env"),
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore",

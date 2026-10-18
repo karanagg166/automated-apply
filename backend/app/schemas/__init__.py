@@ -24,6 +24,9 @@ from backend.app.schemas.credit import (
     CreditBudgetStatus,
     ProviderUsageRecord,
 )
+from backend.app.schemas.normalized_job import (
+    NormalizedJob,
+)
 
 __all__ = [
     "CompanyCreate",
@@ -42,4 +45,5 @@ __all__ = [
     "ApiKeyPoolRead",
     "CreditBudgetStatus",
     "ProviderUsageRecord",
+    "NormalizedJob",
 ]
