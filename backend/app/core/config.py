@@ -1,9 +1,11 @@
 """Application configuration using Pydantic Settings."""
 
+import re
 from functools import lru_cache
 from typing import Literal
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from backend.app.core.urls import PublicHTTPSURL
 
 
 class Settings(BaseSettings):
@@ -40,6 +42,40 @@ class Settings(BaseSettings):
     SUPABASE_URL: str | None = None
     SUPABASE_ANON_KEY: str | None = None
     SUPABASE_SERVICE_ROLE_KEY: str | None = None
+
+    # Optional candidate defaults. Never written at startup.
+    CANDIDATE_RESUME_DRIVE_URL: PublicHTTPSURL | None = None
+    CANDIDATE_GITHUB_URL: PublicHTTPSURL | None = None
+    CANDIDATE_ORIGINAL_LINKEDIN_URL: PublicHTTPSURL | None = None
+    CANDIDATE_PORTFOLIO_URL: PublicHTTPSURL | None = None
+    CANDIDATE_LEETCODE_URL: PublicHTTPSURL | None = None
+    CANDIDATE_CODEFORCES_URL: PublicHTTPSURL | None = None
+    CANDIDATE_GFG_URL: PublicHTTPSURL | None = None
+    CANDIDATE_HACKERRANK_URL: PublicHTTPSURL | None = None
+
+    LLM_PROVIDER: Literal["gemini"] = "gemini"
+    LLM_MODEL: str | None = None
+    GEMINI_API_KEY: SecretStr | None = None
+    LLM_MAX_OUTPUT_TOKENS: int = Field(default=1000, ge=64, le=8192)
+    LLM_MAX_INPUT_CHARS: int = Field(default=16000, ge=1000, le=64000)
+    LLM_TIMEOUT_SECONDS: float = Field(default=30, ge=1, le=120, allow_inf_nan=False)
+    LLM_MONTHLY_MAX_REQUESTS: int = Field(default=200, ge=0, le=10000)
+    LLM_MAX_CONCURRENCY: int = Field(default=2, ge=1, le=8)
+
+    @field_validator("CANDIDATE_RESUME_DRIVE_URL", "CANDIDATE_GITHUB_URL",
+                     "CANDIDATE_ORIGINAL_LINKEDIN_URL", "CANDIDATE_PORTFOLIO_URL",
+                     "CANDIDATE_LEETCODE_URL", "CANDIDATE_CODEFORCES_URL",
+                     "CANDIDATE_GFG_URL", "CANDIDATE_HACKERRANK_URL", "GEMINI_API_KEY", "LLM_MODEL", mode="before")
+    @classmethod
+    def empty_optional(cls, value):
+        return None if isinstance(value, str) and not value.strip() else value
+
+    @field_validator("LLM_MODEL")
+    @classmethod
+    def model_identifier(cls, value):
+        if value is not None and not re.fullmatch(r"(?:models/)?gemini-[A-Za-z0-9][A-Za-z0-9._-]{0,119}", value):
+            raise ValueError("LLM_MODEL must be a Gemini model identifier, not a URL")
+        return value
 
     # FastMCP Server
     FASTMCP_SERVER_NAME: str = "Job Pulse Agent Tools"

@@ -155,3 +155,35 @@ Gmail outreach needs review and explicit sending approval. Naukri, Instahyre, We
 Startup and Internshala integrations and eligible submission automation are later work. Apollo,
 SignalHire and the apply-extension may consume this profile foundation in later phases. Tokens,
 passwords, provider keys, browser credentials and session cookies do not belong in profile records.
+
+## Phase 2A answer engine (implemented)
+
+The existing FastAPI application includes authenticated candidate-resource, evidence and answer
+routes, using the same `ProtectedProfileRoute` and bearer boundary as Phase 1. Existing MCP tools
+are unchanged and cannot access the new private storage through the public MCP mount.
+
+`ApplicationAnswerService` routes through the deterministic question classifier and link resolver
+before considering a provider. Exact facts require no AI credentials. Relevant confirmed facts
+are ranked deterministically; project narratives require purpose and actual contribution, plus
+challenge/solution when requested. Job descriptions are untrusted opportunity context, never
+candidate evidence. Missing facts return `needs_input` without a paid call.
+
+`ApplicationLLMProvider` isolates SDK details. `GeminiProvider` uses the supported google-genai async
+structured-output API with a configured model, separate system instructions and no tools or URL
+fetches. Length, evidence reference/quote, name, number and conservative claim checks run on the
+server. Schema validity does not establish factual correctness; every narrative requires review.
+
+Migration 003 adds candidate_resources, candidate_evidence, application_answer_drafts and
+llm_monthly_usage to `job_agent`. Standard GitHub/LinkedIn/portfolio columns remain authoritative;
+the resource table excludes duplicate standard storage. One primary per profile/type and URL
+deduplication are database-enforced. New tables have RLS and no Supabase client access policies.
+
+Request/draft transactions remain caller-owned. The deliberate exception is `LLMUsageManager`,
+which atomically reserves each provider attempt and records reported token usage in independent
+transactions. This makes the UTC monthly cap durable across failures and shared across workers.
+Durable provider cooldowns honor Retry-After across workers and month boundaries.
+The overall timeout includes queuing and retries; concurrency is bounded per worker. Drafts are
+saved only on explicit request, and profile-version staleness never rewrites reviewed content.
+
+See [the detailed API, validation and operational guide](ai-application-answer-engine.md).
+No browser filling, deployment, production DDL, OAuth, downloads, outreach or submissions are added.
