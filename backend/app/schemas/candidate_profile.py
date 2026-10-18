@@ -5,31 +5,48 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import (
-    BaseModel, ConfigDict, EmailStr, Field, HttpUrl, StringConstraints,
-    create_model, field_validator, model_validator,
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    HttpUrl,
+    StringConstraints,
+    create_model,
+    field_validator,
+    model_validator,
 )
 
-ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
-LongText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)]
+ShortText = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
+]
+LongText = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)
+]
 WebURL = Annotated[HttpUrl, Field(max_length=2048)]
 StringList = Annotated[list[ShortText], Field(max_length=100)]
 
 
 class ProfileSchema(BaseModel):
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, from_attributes=True)
+    model_config = ConfigDict(
+        extra="forbid", str_strip_whitespace=True, from_attributes=True
+    )
 
     @model_validator(mode="before")
     @classmethod
     def normalize_strings(cls, value):
         if isinstance(value, dict):
-            return {key: " ".join(item.split()) if isinstance(item, str) else item
-                    for key, item in value.items()}
+            return {
+                key: " ".join(item.split()) if isinstance(item, str) else item
+                for key, item in value.items()
+            }
         return value
 
     @field_validator("*", mode="after")
     @classmethod
     def normalize_lists(cls, value):
-        if isinstance(value, HttpUrl) and (value.username is not None or value.password is not None):
+        if isinstance(value, HttpUrl) and (
+            value.username is not None or value.password is not None
+        ):
             raise ValueError("URLs must not contain credentials")
         if isinstance(value, list) and all(isinstance(item, str) for item in value):
             result, seen = [], set()
@@ -45,7 +62,20 @@ class ProfileSchema(BaseModel):
 
     @model_validator(mode="after")
     def bound_payload(self):
-        if len(self.model_dump_json(exclude={"id", "singleton_key", "version", "created_at", "updated_at"}).encode("utf-8")) > 65536:
+        if (
+            len(
+                self.model_dump_json(
+                    exclude={
+                        "id",
+                        "singleton_key",
+                        "version",
+                        "created_at",
+                        "updated_at",
+                    }
+                ).encode("utf-8")
+            )
+            > 65536
+        ):
             raise ValueError("Profile payload must not exceed 64 KiB")
         return self
 
@@ -82,7 +112,9 @@ class VerifiedProject(ProfileSchema):
     engineering_challenges: LongText | None = None
     solutions: LongText | None = None
     measurable_results: LongText | None = None
-    achievements: Annotated[list[LongText], Field(max_length=20)] = Field(default_factory=list)
+    achievements: Annotated[list[LongText], Field(max_length=20)] = Field(
+        default_factory=list
+    )
 
 
 class Certification(ProfileSchema):
@@ -97,11 +129,18 @@ class JobSearchPreferences(ProfileSchema):
     technology_stacks: StringList = Field(default_factory=list)
     preferred_locations: StringList = Field(default_factory=list)
     remote_preference: Literal["remote", "hybrid", "onsite", "any"] | None = None
-    employment_types: list[Literal["full_time", "internship", "contract"]] = Field(default_factory=list, max_length=3)
+    employment_types: list[Literal["full_time", "internship", "contract"]] = Field(
+        default_factory=list, max_length=3
+    )
     target_industries: StringList = Field(default_factory=list)
     company_stages: StringList = Field(default_factory=list)
-    minimum_salary: float | None = Field(default=None, ge=0, le=1e12, allow_inf_nan=False)
-    salary_currency: Annotated[str, StringConstraints(pattern=r"^[A-Z]{3}$")] | None = None
+    minimum_salary: float | None = Field(
+        default=None, ge=0, le=1e12, allow_inf_nan=False
+    )
+    salary_currency: Annotated[str, StringConstraints(pattern=r"^[A-Z]{3}$")] | None = (
+        None
+    )
+    salary_period: Literal["hour", "day", "week", "month", "year"] | None = None
     notice_period_days: int | None = Field(default=None, ge=0, le=3650)
     work_authorization: ShortText | None = None
     excluded_titles: StringList = Field(default_factory=list)
@@ -118,9 +157,13 @@ class CandidateProfileCreate(ProfileSchema):
     github_url: WebURL | None = None
     portfolio_url: WebURL | None = None
     personal_website: WebURL | None = None
-    verified_experience_years: float | None = Field(default=None, ge=0, le=100, allow_inf_nan=False)
+    verified_experience_years: float | None = Field(
+        default=None, ge=0, le=100, allow_inf_nan=False
+    )
     verified_skills: StringList = Field(default_factory=list)
-    verified_roles: list[ProfessionalExperience] = Field(default_factory=list, max_length=50)
+    verified_roles: list[ProfessionalExperience] = Field(
+        default_factory=list, max_length=50
+    )
     education: list[EducationRecord] = Field(default_factory=list, max_length=30)
     projects: list[VerifiedProject] = Field(default_factory=list, max_length=50)
     certifications: list[Certification] = Field(default_factory=list, max_length=50)
@@ -131,12 +174,19 @@ class CandidateProfileCreate(ProfileSchema):
 # Derive partial fields from the complete schemas to keep their constraints identical.
 # Defaults of None express omission only; supplied null still follows the original type.
 def partial_schema(name, complete):
-    return create_model(name, __base__=ProfileSchema, **{
-        key: (field.rebuild_annotation(), None) for key, field in complete.model_fields.items()
-    })
+    return create_model(
+        name,
+        __base__=ProfileSchema,
+        **{
+            key: (field.rebuild_annotation(), None)
+            for key, field in complete.model_fields.items()
+        },
+    )
 
 
-JobSearchPreferencesUpdate = partial_schema("JobSearchPreferencesUpdate", JobSearchPreferences)
+JobSearchPreferencesUpdate = partial_schema(
+    "JobSearchPreferencesUpdate", JobSearchPreferences
+)
 _ProfileUpdate = partial_schema("_ProfileUpdate", CandidateProfileCreate)
 
 

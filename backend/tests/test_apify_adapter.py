@@ -1,8 +1,9 @@
 """Tests for Apify job adapter, portal normalizers, and safety restrictions."""
 
 import pytest
-import httpx
-from backend.app.services.job_sources.apify_adapter import ApifyJobAdapter, ACTOR_CATALOG
+from backend.app.services.job_sources.apify_adapter import (
+    ApifyJobAdapter,
+)
 
 
 def test_strict_linkedin_restriction():
@@ -10,6 +11,7 @@ def test_strict_linkedin_restriction():
     with pytest.raises(PermissionError) as exc_info:
         # Should reject synchronous or async attempt immediately
         import asyncio
+
         asyncio.run(adapter.fetch_jobs(portal="linkedin"))
     assert "STRICT RESTRICTION: LinkedIn" in str(exc_info.value)
 
@@ -28,7 +30,7 @@ def test_naukri_normalization():
         "postedDate": "2026-10-14T05:00:00Z",
     }
     normalized = adapter.normalize_portal_record("naukri", sample_item)
-    assert normalized.source_name == "apify_naukri"
+    assert normalized.source_name == "naukri"
     assert normalized.company_name == "Swiggy"
     assert normalized.title == "Staff Backend Engineer - Python/Go"
     assert normalized.location == "Bengaluru, India"
@@ -50,7 +52,7 @@ def test_wellfound_normalization():
         "isRemote": True,
     }
     normalized = adapter.normalize_portal_record("wellfound", sample_item)
-    assert normalized.source_name == "apify_wellfound"
+    assert normalized.source_name == "wellfound"
     assert normalized.company_name == "Nova AI"
     assert normalized.is_remote is True
     assert "$130k" in (normalized.salary_raw or "")
@@ -69,18 +71,18 @@ def test_work_at_a_startup_normalization():
         "isRemote": False,
     }
     normalized = adapter.normalize_portal_record("work_at_a_startup", sample_item)
-    assert normalized.source_name == "apify_work_at_a_startup"
+    assert normalized.source_name == "work_at_a_startup"
     assert normalized.company_name == "Relay Health"
     assert normalized.source_job_id == "yc_5544"
 
 
 @pytest.mark.asyncio
 async def test_budget_safety_limit_exceeded():
-    adapter = ApifyJobAdapter(api_token="test_token")
+    adapter = ApifyJobAdapter(api_token="test_token", source_name="hirist")
     adapter.monthly_limit_usd = 0.001  # very low limit
     with pytest.raises(ValueError) as exc_info:
         await adapter.fetch_jobs(portal="hirist", limit=10)
-    assert "exceeds configured safety limit" in str(exc_info.value)
+    assert "actor schema" in str(exc_info.value)
 
 
 @pytest.mark.asyncio

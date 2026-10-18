@@ -26,7 +26,7 @@ def test_naukri_alert_html_parsing():
 
     assert len(jobs) >= 1
     job = jobs[0]
-    assert job.source_name == "gmail_naukri_alert"
+    assert job.source_name == "gmail_alert"
     assert "Senior Backend Engineer" in job.title
     assert "Razorpay" in job.company_name
     assert "naukri.com" in job.original_url
@@ -53,14 +53,16 @@ def test_linkedin_alert_html_parsing():
 
     assert len(jobs) >= 1
     job = jobs[0]
-    assert job.source_name == "gmail_linkedin_alert"
+    assert job.source_name == "gmail_alert"
     assert "Staff Python Architect" in job.title
     assert "Atlassian" in job.company_name
 
 
 @pytest.mark.asyncio
 async def test_gmail_adapter_unconfigured_status():
-    adapter = GmailJobAlertAdapter(client_id=None, client_secret=None, refresh_token=None)
+    adapter = GmailJobAlertAdapter(
+        client_id=None, client_secret=None, refresh_token=None
+    )
     status = await adapter.test_connection()
     assert status["status"] == "not_attempted"
     assert status["details"]["is_parser_ready"] is True

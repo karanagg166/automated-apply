@@ -1,7 +1,6 @@
 """Repository for Company entity operations."""
 
-from uuid import UUID
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.app.models.company import Company
 from backend.app.repositories.base import BaseRepository
@@ -27,7 +26,7 @@ class CompanyRepository(BaseRepository[Company]):
         if not name:
             return None
         cleaned = name.strip()
-        stmt = select(Company).where(Company.name.ilike(cleaned))
+        stmt = select(Company).where(func.lower(Company.name) == cleaned.lower())
         result = await self.session.execute(stmt)
         return result.scalars().first()
 
@@ -46,7 +45,14 @@ class CompanyRepository(BaseRepository[Company]):
         if domain:
             existing = await self.get_by_domain(domain)
         if not existing:
-            existing = await self.get_by_name(name)
+            candidate = await self.get_by_name(name)
+            # Equal display names do not override conflicting known company domains.
+            if candidate and (
+                not domain
+                or not candidate.domain
+                or candidate.domain == domain.strip().lower()
+            ):
+                existing = candidate
 
         if existing:
             # Update missing attributes if discovered

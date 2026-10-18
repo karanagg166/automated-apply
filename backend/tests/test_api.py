@@ -33,8 +33,16 @@ async def test_credits_status_endpoint(async_client):
 
 
 @pytest.mark.asyncio
-async def test_jobs_list_endpoint(async_client):
-    response = await async_client.get("/api/v1/jobs")
+async def test_jobs_list_endpoint(async_client, monkeypatch):
+    from backend.app.core.config import get_settings
+    from pydantic import SecretStr
+
+    monkeypatch.setattr(
+        get_settings(), "JOB_AGENT_API_TOKEN", SecretStr("test-discovery-token")
+    )
+    response = await async_client.get(
+        "/api/v1/jobs", headers={"Authorization": "Bearer test-discovery-token"}
+    )
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
