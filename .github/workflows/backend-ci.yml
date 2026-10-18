@@ -1,0 +1,50 @@
+name: Backend CI
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: profile_test_only
+          POSTGRES_DB: candidate_profile_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ENVIRONMENT: testing
+      DATABASE_URL: "sqlite+aiosqlite:///:memory:"
+      DATABASE_SCHEMA: job_agent
+      SECRET_KEY: ci-dummy-secret-key-not-for-production
+      JOB_AGENT_API_TOKEN: ci-dummy-token-not-for-production
+      PROFILE_TEST_DATABASE_URL: postgresql://postgres:profile_test_only@127.0.0.1:5432/candidate_profile_test
+      HUNTER_API_KEY: ''
+      APOLLO_API_KEY: ''
+      SERPER_API_KEY: ''
+      SIGNALHIRE_API_KEY: ''
+      APIFY_API_TOKEN: ''
+      GMAIL_CLIENT_ID: ''
+      GMAIL_CLIENT_SECRET: ''
+      GMAIL_REFRESH_TOKEN: ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: python -m pip install -r backend/requirements.txt
+      - run: python -m compileall -q backend/app
+      - run: pytest backend/tests -v
