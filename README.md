@@ -8,8 +8,12 @@ An AI-powered job discovery, recruiter contact enrichment, and personalized cold
 
 - Persistent, user-supplied candidate facts and job search preferences.
 - Authenticated profile management and deterministic saved-profile matching.
-- Existing company/job/contact repositories, credit tracking, discovery adapters and draft preparation.
+- Protected multi-source discovery runs, manual imports, observation history, conservative deduplication and profile ranking.
+- Public professional URL discovery through configured search or manual evidence; LinkedIn outreach stays manual.
+- Existing company/job/contact repositories, budget reservations and factual draft preparation.
 - FastMCP tools accepting explicit candidate inputs; LinkedIn submissions remain manual.
+
+Paid platform actors require reviewed configuration and explicit budgets; no actor or account is pre-verified. See [the discovery pipeline](docs/job-discovery-pipeline.md) for source status, API examples, migration 004 and test instructions.
 
 Account integrations, automated submissions, outreach sending, background scheduling and a dashboard are future work. The diagrams below describe the target architecture, not deployed components.
 
@@ -245,3 +249,20 @@ python -m backend.scripts.import_candidate_resources --apply
 
 Review dry-run output first. Saved profile fields are never silently overwritten. See the guide
 for explicit standard-link confirmation and additional-resource confirmation semantics.
+
+## Phase 2B discovery
+
+Apply additive migrations 001–004 to an approved development database before using the current ORM.
+Discovery REST endpoints and the legacy jobs list require `JOB_AGENT_API_TOKEN`. Preview makes no
+provider calls. Source execution uses `/api/v1/discovery/runs`; the old source runner is no longer
+exposed through unauthenticated MCP. Use `/api/v1/jobs/search` for saved-profile exclusions and ranking.
+
+Greenhouse needs configured board tokens/company names. Remotive, Arbeitnow and HN use public feeds.
+Naukri, Instahyre, Wellfound and YC preserve their platform identities but remain disabled until a
+permitted actor/schema/pricing configuration is reviewed. Internshala supports validated manual import.
+LinkedIn profile discovery uses permitted public search-index results or supplied evidence links;
+no LinkedIn HTTP collection, account integration, applications, messages or connections are automated.
+
+See [job-discovery-pipeline.md](docs/job-discovery-pipeline.md) for bounded Apify/Serper budgets,
+provider failure outcomes, startup metadata, normalization, deduplication and isolated PostgreSQL tests.
+No production migration or deployment is performed.
