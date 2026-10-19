@@ -14,6 +14,8 @@ from backend.app.mcp.audit import ToolAuditMiddleware, protected
 from backend.app.mcp.auth import OwnerTokenVerifier, authentication_configured
 from backend.app.mcp.permissions import allowed_capabilities, component_authorized
 from backend.app.schemas.outreach import DraftInput
+from backend.app.services.applications.review import ApplicationReview
+from backend.app.services.applications.service import ApplicationPacketService
 from backend.app.services.candidate_profile_service import CandidateProfileService
 from backend.app.services.outreach_drafting import OutreachDraftingService
 from backend.app.services.saved_data import SavedDataService
@@ -152,6 +154,46 @@ async def get_outreach_draft(draft_id: UUID) -> dict:
     """Read a local email draft; requires the explicit draft capability."""
     async with get_db_context() as session:
         return await OutreachDraftingService(session).read(draft_id)
+
+
+@mcp.tool()
+@protected("read_applications")
+async def get_application_capabilities() -> list[dict]:
+    """Read actual platform preparation scope; no live provider calls."""
+    async with get_db_context() as session:
+        return [c.model_dump(mode="json") for c in ApplicationPacketService(session).capabilities()]
+
+
+@mcp.tool()
+@protected("read_applications")
+async def preview_job_application(job_id: UUID) -> dict:
+    """Read a saved-data application preview. No persistence, AI credits or external access."""
+    async with get_db_context() as session:
+        return (await ApplicationPacketService(session).preview(job_id)).model_dump(mode="json")
+
+
+@mcp.tool()
+@protected("read_applications")
+async def get_application_packet(packet_id: UUID) -> dict:
+    """Read the saved packet and current staleness warnings."""
+    async with get_db_context() as session:
+        return (await ApplicationPacketService(session).read(packet_id)).model_dump(mode="json")
+
+
+@mcp.tool()
+@protected("read_applications")
+async def get_application_readiness(packet_id: UUID) -> dict:
+    """Read readiness independently of any submission claim."""
+    async with get_db_context() as session:
+        return (await ApplicationPacketService(session).read(packet_id)).readiness.model_dump(mode="json")
+
+
+@mcp.tool()
+@protected("read_applications")
+async def get_application_handoff(packet_id: UUID) -> dict:
+    """Read copyable approved answers. Approval, freshness and resume checks cannot be bypassed."""
+    async with get_db_context() as session:
+        return (await ApplicationReview(ApplicationPacketService(session)).handoff(packet_id)).model_dump(mode="json")
 
 
 if __name__ == "__main__":

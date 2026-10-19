@@ -41,3 +41,7 @@ from backend.app.models.contact_enrichment import (ContactEnrichmentRun, Contact
 from backend.app.models.connected_account import ConnectedAccount, OAuthState
 
 from backend.app.models.outreach_send import OutreachSendAttempt, SendConfirmation
+
+from backend.app.models.application_packet import (
+    ApplicationPacket, ApplicationPacketField, ApplicationEvent, ApplicationSubmissionEvidence,
+)

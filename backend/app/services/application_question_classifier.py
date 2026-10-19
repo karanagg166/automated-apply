@@ -24,6 +24,7 @@ class ApplicationQuestionClassifier:
             (r"\b(years of (?:professional |work |total )?experience|experience (?:in )?years|total experience)\b", "verified_experience_years"),
             (r"\bnotice period\b", "notice_period_days"),
             (r"\b(?:verified |technical )?skills\b", "verified_skills"),
+            (r"\btechnologies (?:have you |you have )?used\b", "verified_skills"),
             (r"\beducation(?:al background)?\b", "education"),
             (r"\bcertifications?\b", "certifications"),
             (r"\bremote (?:work )?preference\b", "remote_preference"),
@@ -44,7 +45,7 @@ class ApplicationQuestionClassifier:
             return QuestionClassification("startup_interest")
         if re.search(r"\b(why|motivat\w*)\b", q):
             return QuestionClassification("motivation")
-        if re.search(r"\b(technical|implemented|engineering|experience (?:with|using|in)|worked with)\b", q):
+        if re.search(r"\b(technical|implemented|engineering|experience (?:with|using|in)|worked with|production issue)\b", q):
             return QuestionClassification("technical_experience")
         if re.search(r"\b(about yourself|introduce yourself|professional summary|short bio)\b", q):
             return QuestionClassification("short_text")

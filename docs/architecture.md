@@ -151,8 +151,8 @@ discovery runs retain profile-versioned rankings without overwriting human notes
 LinkedIn discovery must use authorized or otherwise permitted access. Connection requests, messages
 and applications remain manual; no authenticated scraping or automated account actions are introduced.
 Gmail outreach needs review and explicit sending approval. Naukri, Instahyre, Wellfound, YC Work at a
-Startup and Internshala integrations and eligible submission automation are later work. Apollo,
-SignalHire and the apply-extension may consume this profile foundation in later phases. Tokens,
+Startup and Internshala integrations and eligible submission automation are later work. Apollo and
+SignalHire use this profile foundation through the modular backend. Tokens,
 passwords, provider keys, browser credentials and session cookies do not belong in profile records.
 
 ## Phase 2A answer engine (implemented)
@@ -264,3 +264,36 @@ changing its reviewed revision. Historical messages survive suppression and disc
 Migration 007 adds confirmations/attempts and controlled OAuth upgrades, superseding the 006
 draft guard in place. No public-schema writes or deployment/migration hooks are introduced.
 See [approved Gmail sending](gmail-approved-sending.md) for protocol, limits and operations.
+
+## Phase 5A standalone application preparation
+
+Automated Apply is a modular monolith with FastAPI as its primary service, PostgreSQL as the system
+of record, the existing FastMCP instance as an authorized read interface, and Gemini as the configured
+AI provider. The `apply-extension` repository is not a dependency or part of the approved scope.
+There is no browser worker, broker, extension bridge, extra server or portal login client.
+
+`services/applications` assembles a saved-data preview and persists a separate packet domain through
+`ApplicationPacketRepository`. The platform registry supplies a Naukri capability adapter; field
+mapping, review, readiness and tracking stay platform-independent. Saved observation links can
+establish Naukri provenance even when the canonical job uses an employer ATS URL. Source-label/host
+conflicts stay visible. URLs are locally validated, retained exactly in the snapshot, and never fetched.
+
+`AnswerBuilder` delegates classification, saved facts, retrieval, Gemini budgets/validation and
+optional `ApplicationAnswerDraft` storage to the existing engine. Narrative generation is an explicit
+REST action. The packet snapshot stores typed candidate facts, resume ID/version digest, match
+results, destination and a digest of material candidate/job/company/resource/evidence dependencies.
+Readiness, approval and handoff recheck those dependencies; updates never silently rewrite approvals.
+
+Migration 008 creates `application_packets`, `application_packet_fields`, `application_events` and
+`application_submission_evidence` in `job_agent`, with RLS and no client policies. Database uniqueness
+deduplicates candidate/job packets and durable request keys; row locks plus revision CAS serialize
+edits and reports. Parent/field triggers invalidate direct edits, enforce approval prerequisites and
+reject false provider confirmations. Events and self-reported evidence are append-only. Restrictive
+foreign keys preserve jobs, profiles and selected resume resources used in audit history.
+
+REST transactions own all packet mutations; failures roll back packet, field and event together.
+Existing independent Gemini quota reservations intentionally survive a failed request. Read-only
+MCP tools use `read_applications`, confer no approval/submission/Gmail authority, and work through
+the same service. REST remains available with remote MCP disabled. A handoff GET is read-only;
+only an explicit owner report creates self-reported submission evidence. `Job.status` is unchanged.
+See [the detailed contract](application-preparation.md) for lifecycle, examples and verification.
