@@ -320,3 +320,18 @@ No production migration, crawler/browser service, broker, second database, exten
 outbound-message automation is introduced. The temporary SQLite demo is test isolation, not a new
 production datastore. See [startup documentation](live-startup-discovery.md) for exact current scope,
 including source permissions and evidence from bounded actual public checks.
+
+## Phase 6B operational boundary
+
+`operations/` composes existing services for configuration/catalog inspection, onboarding,
+provider diagnostics and bounded pilots. It does not add another discovery/LLM subsystem or
+migration history table. Pydantic reports separate configured and live evidence; operator
+commands reject production database connections and require a pinned staging identity.
+Catalog inspection is READ ONLY; migration application remains a separately reviewed owner action.
+
+The single container runs FastAPI behind trusted HTTPS ingress with PostgreSQL. Remote MCP is
+optional/off, Gmail sending defaults off, paid requests require existing per-call gates, and all
+applications end at human-reviewed manual handoff. The packet registry adds narrow public-feed
+local preparation while retaining Naukri support; explicit safe source-backed application URLs
+are necessary. No company domain/headcount/application destination is inferred to fill a gap.
+See [operational runbook](phase6b-operations.md) and [deployment security limits](security-deployment-review.md).

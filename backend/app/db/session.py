@@ -1,13 +1,16 @@
 """Database engine and async session management."""
 
+import ssl
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
+
 from backend.app.core.config import get_settings
 from backend.app.core.logging import logger
 
@@ -30,10 +33,14 @@ def get_engine() -> AsyncEngine:
                     "search_path": f"{settings.DATABASE_SCHEMA},public"
                 }
             }
+            if settings.ENVIRONMENT in {"staging", "production"} and settings.DB_REQUIRE_TLS:
+                connect_args["ssl"] = ssl.create_default_context()
             _engine = create_async_engine(
                 settings.DATABASE_URL,
                 echo=settings.DB_ECHO,
                 hide_parameters=True,
+                pool_pre_ping=True,
+                pool_recycle=300,
                 pool_size=settings.DB_POOL_SIZE,
                 max_overflow=settings.DB_MAX_OVERFLOW,
                 connect_args=connect_args,

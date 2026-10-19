@@ -67,3 +67,8 @@ Thumbs.db
 *.swp
 *.swo
 *~
+
+# Private operational artifacts and owner input; never commit pilot/profile data
+reports/
+*.private.json
+*.private.env

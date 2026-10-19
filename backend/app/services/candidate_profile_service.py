@@ -1,14 +1,31 @@
 """Deterministic access to user-verified facts. No inference or provider access."""
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.app.repositories.candidate_profile import CandidateProfileRepository, ProfileNotFoundError
-from backend.app.schemas.candidate_profile import CandidateProfileCreate, CandidateProfileRead, CandidateProfileUpdate
-from backend.app.services.application_assistant import CandidateProfile as AssistantProfile
+
+from backend.app.core.config import get_settings
+from backend.app.operations.onboarding import reject_placeholders
+from backend.app.repositories.candidate_profile import (
+    CandidateProfileRepository,
+    ProfileNotFoundError,
+)
+from backend.app.schemas.candidate_profile import (
+    CandidateProfileCreate,
+    CandidateProfileRead,
+    CandidateProfileUpdate,
+)
+from backend.app.services.application_assistant import (
+    CandidateProfile as AssistantProfile,
+)
 
 
 class CandidateProfileService:
     def __init__(self, session: AsyncSession):
         self.repository = CandidateProfileRepository(session)
+
+    @staticmethod
+    def validate_live_input(data):
+        if get_settings().ENVIRONMENT in {"staging", "production"}:
+            reject_placeholders(data)
 
     async def get_profile(self) -> CandidateProfileRead:
         profile = await self.repository.get_primary_profile()
@@ -17,12 +34,15 @@ class CandidateProfileService:
         return CandidateProfileRead.model_validate(profile)
 
     async def create_profile(self, data: CandidateProfileCreate) -> CandidateProfileRead:
+        self.validate_live_input(data)
         return CandidateProfileRead.model_validate(await self.repository.create_primary_profile(data))
 
     async def update_profile(self, data: CandidateProfileUpdate, expected_version: int) -> CandidateProfileRead:
+        self.validate_live_input(data)
         return CandidateProfileRead.model_validate(await self.repository.update_primary_profile(data, expected_version))
 
     async def upsert_profile(self, data: CandidateProfileCreate, expected_version: int | None = None):
+        self.validate_live_input(data)
         profile, created = await self.repository.upsert_primary_profile(data, expected_version)
         return CandidateProfileRead.model_validate(profile), created
 

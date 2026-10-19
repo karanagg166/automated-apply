@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     APP_HOST: str = "127.0.0.1"
     APP_PORT: int = 8000
 
+    # Deployment boundaries: REST stays single-owner, same-origin and HTTPS in live environments.
+    API_ALLOWED_HOSTS: list[str] = Field(default_factory=list)
+    API_ALLOWED_ORIGINS: list[str] = Field(default_factory=list)
+    API_REQUIRE_TLS: bool = True
+    STAGING_DATABASE_ID: str | None = None
+    APPLICATION_SUBMISSION_ENABLED: Literal[False] = False
+
     # Security
     JOB_AGENT_API_TOKEN: SecretStr | None = None
     SECRET_KEY: str = Field(
@@ -41,6 +48,7 @@ class Settings(BaseSettings):
     DB_POOL_SIZE: int = Field(default=5, ge=1, le=50)
     DB_MAX_OVERFLOW: int = Field(default=10, ge=0, le=100)
     DB_ECHO: bool = False
+    DB_REQUIRE_TLS: bool = True
 
     # Optional Supabase REST API Configuration
     SUPABASE_URL: str | None = None
@@ -105,14 +113,14 @@ class Settings(BaseSettings):
     MCP_ALLOWED_ORIGINS: list[str] = Field(default_factory=list)
     MCP_REQUIRE_TLS: bool = True
 
-    @field_validator("MCP_ALLOWED_HOSTS", "MCP_ALLOWED_ORIGINS")
+    @field_validator("MCP_ALLOWED_HOSTS", "MCP_ALLOWED_ORIGINS", "API_ALLOWED_HOSTS", "API_ALLOWED_ORIGINS")
     @classmethod
     def explicit_mcp_trust(cls, values, info):
         from urllib.parse import urlsplit
         for value in values:
             if not value or any(c.isspace() for c in value) or "*" in value:
                 raise ValueError("MCP trust lists must contain explicit hosts/origins")
-            if info.field_name == "MCP_ALLOWED_ORIGINS":
+            if info.field_name.endswith("ORIGINS"):
                 url = urlsplit(value)
                 if (url.scheme not in {"http", "https"} or not url.hostname or url.username
                         or url.password or url.path or url.query or url.fragment):
@@ -232,6 +240,19 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    @field_validator("APPLICATION_SUBMISSION_ENABLED", "GMAIL_REQUIRE_EXPLICIT_CONFIRMATION", "GMAIL_SEND_MAX_RECIPIENTS", mode="before")
+    @classmethod
+    def fixed_environment_controls(cls, value, info):
+        # dotenv values are strings; preserve the literal invariants after parsing.
+        if isinstance(value, str):
+            if info.field_name == "APPLICATION_SUBMISSION_ENABLED" and value.lower() == "false":
+                return False
+            if info.field_name == "GMAIL_REQUIRE_EXPLICIT_CONFIRMATION" and value.lower() == "true":
+                return True
+            if info.field_name == "GMAIL_SEND_MAX_RECIPIENTS" and value == "1":
+                return 1
+        return value
+
     @field_validator("DATABASE_SCHEMA")
     @classmethod
     def validate_schema_name(cls, v: str) -> str:
@@ -257,7 +278,17 @@ class Settings(BaseSettings):
         return mapping.get(provider_clean, 0)
 
 
+_operator_settings: Settings | None = None
+
+
+def configure_operator(settings: Settings) -> None:
+    """CLI bootstrap only, before ORM imports; do not implicitly load repository secrets."""
+    global _operator_settings
+    _operator_settings = settings
+    get_settings.cache_clear()
+
+
 @lru_cache()
 def get_settings() -> Settings:
     """Return a cached singleton instance of Settings."""
-    return Settings()
+    return _operator_settings or Settings()

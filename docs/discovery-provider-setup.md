@@ -55,3 +55,13 @@ Troubleshooting:
 - Too many companies/jobs: narrow the source filters; reads do not launch broad network discovery.
 
 The full fictional demo and actual bounded smoke are separate commands. See [recorded live results](phase6a-live-verification.json); do not seed those historical diagnostics into a deployment as fresh verification.
+
+## Phase 6B deployment validation
+
+Use [real provider validation](real-provider-validation.md) and [operations](phase6b-operations.md)
+for explicit pinned-staging diagnostics and existing durable source pacing. Configured credentials
+are never live verification. Free connectivity checks persist audits/windows; read-only staging
+smoke does not. Remotive retains its six-hour interval. Deliberately configure Greenhouse boards
+using employer references; never substitute arbitrary large employers as small startup evidence.
+Paid account/pricing/permission review is independent of API-key presence, actor marketplace
+visibility and Google-index availability. No automatic paid request, Gmail send or submission exists.

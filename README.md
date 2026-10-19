@@ -373,3 +373,33 @@ Migration **009 follows 001–008** and adds only `job_agent` objects; it has no
 production. Run `python backend/scripts/startup_discovery_demo.py` for a full offline demonstration,
 or explicitly select `--live --source hacker_news` for a bounded public connectivity check using a
 temporary local database. No schedule, platform write, application submission or message send is added.
+
+## Phase 6B — operation and staging preparation
+
+Operational code, an environment's readiness and a verified real pilot are separate states.
+No production deployment/migration, real Gmail send, paid request or job submission is authorized
+by this phase. This remains a standalone single-owner backend; no apply-extension or browser
+service is involved.
+
+```sh
+# Configuration only; no database or external provider connection.
+backend/venv/bin/python backend/scripts/check_environment.py
+# Offline migration plan; no DDL.
+backend/venv/bin/python backend/scripts/migration_preflight.py
+# Integrated fictional discovery → match → packet → fake grounded answer → reviewed handoff.
+backend/venv/bin/python backend/scripts/smoke_test.py --mode local-offline
+```
+
+Use [Phase 6B operations](docs/phase6b-operations.md) for typed readiness, pinned staging targets,
+profile dry-run/apply and sanitized metrics; [staging setup](docs/staging-setup.md) for the non-root
+Docker image, constrained dependencies, ingress/TLS, migrations and restore rehearsal;
+[provider validation](docs/real-provider-validation.md) and [pilot procedure](docs/end-to-end-pilot.md)
+for bounded authorized real data. Review the [security findings](docs/security-deployment-review.md)
+and [production checklist](docs/production-readiness-checklist.md) before any release.
+
+`/health` is liveness; `/ready` checks essential database access with sanitized failure output.
+Owner-only `/api/v1/operations/status` returns persisted configuration/provider evidence, not a
+live provider test. `/api/v1/credits/status` now also requires the existing owner bearer.
+Live environments reject unsafe configuration/startup failures, use certificate-verified database
+TLS, and keep sending/submission disabled. Reports and owner input files are private, ignored
+runtime artifacts. The Docker image does not include test dependencies or personal data.
