@@ -15,6 +15,10 @@ from backend.app.schemas.applications import CreatePacket, QuestionInput
 from backend.app.schemas.discovery import DiscoveryQuery
 from backend.app.services.applications.service import ApplicationPacketService
 from backend.app.services.job_discovery_matcher import JobDiscoveryMatcher
+from backend.app.services.startup_discovery.normalizer import (
+    location_allowed,
+    role_allowed,
+)
 from backend.app.services.startup_discovery.schemas import (
     StartupFilters,
     StartupRunRequest,
@@ -106,8 +110,14 @@ async def run_pilot(session, factory, settings, request):
     shortlisted = set(await session.scalars(select(StartupShortlistEntry.company_id)))
     for item in run["rankings"][: request.limit]:
         relevant = []
+        fresh_ids = {e["job_id"] for e in item["hiring_evidence"] if e["fresh"]}
         for job in jobs:
-            if str(job.company_id) != item["company_id"]:
+            if (
+                str(job.company_id) != item["company_id"]
+                or str(job.id) not in fresh_ids
+                or not role_allowed(job.title, roles)
+                or not location_allowed([job.location], [job.remote_type], filters)
+            ):
                 continue
             match = (
                 JobDiscoveryMatcher(session).match(job, profile) if profile else None
@@ -141,6 +151,8 @@ async def run_pilot(session, factory, settings, request):
         blockers.append("discovery_" + run["status"])
     if not companies:
         blockers.append("zero_relevant_companies_no_records_invented")
+    if not any(c["jobs"] for c in companies):
+        blockers.append("zero_relevant_job_opportunities")
     if profile is None:
         blockers.append("confirmed_candidate_profile_unavailable_or_use_not_approved")
     if request.prepare_packet:

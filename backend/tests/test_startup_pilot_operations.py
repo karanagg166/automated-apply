@@ -33,8 +33,13 @@ async def test_zero_results_and_idempotent_replay_are_truthful(db_session, monke
 
     config = Settings(_env_file=None)
     async with httpx.AsyncClient(transport=httpx.MockTransport(response)) as client:
-        monkeypatch.setattr(JobSourceFactory, "get_adapter", lambda *a, **kw: GreenhouseAdapter(
-            board_token="fictional", company_name="Fictional", http_client=client))
+        monkeypatch.setattr(
+            JobSourceFactory,
+            "get_adapter",
+            lambda *a, **kw: GreenhouseAdapter(
+                board_token="fictional", company_name="Fictional", http_client=client
+            ),
+        )
         request = PilotRequest(source="greenhouse", idempotency_key="zero_result_pilot")
         first = await run_pilot(db_session, get_session_factory(), config, request)
         second = await run_pilot(db_session, get_session_factory(), config, request)
@@ -54,20 +59,43 @@ async def test_zero_results_and_idempotent_replay_are_truthful(db_session, monke
 @pytest.mark.asyncio
 async def test_packet_requires_explicit_confirmed_profile(db_session):
     from backend.app.db.session import get_session_factory
+
     with pytest.raises(OperationRejected, match="profile_use"):
-        await run_pilot(db_session, get_session_factory(), Settings(_env_file=None),
-                        PilotRequest(idempotency_key="no_profile_use", prepare_packet=True))
+        await run_pilot(
+            db_session,
+            get_session_factory(),
+            Settings(_env_file=None),
+            PilotRequest(idempotency_key="no_profile_use", prepare_packet=True),
+        )
 
 
-@pytest.mark.parametrize("code,state", [(429, "rate_limited"), (503, "source_unavailable")])
+@pytest.mark.parametrize(
+    "code,state", [(429, "rate_limited"), (503, "source_unavailable")]
+)
 @pytest.mark.asyncio
-async def test_provider_failure_cannot_become_success(db_session, monkeypatch, code, state):
+async def test_provider_failure_cannot_become_success(
+    db_session, monkeypatch, code, state
+):
     from backend.app.db.session import get_session_factory
-    async with httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(code))) as client:
-        monkeypatch.setattr(JobSourceFactory, "get_adapter", lambda *a, **kw: GreenhouseAdapter(
-            board_token="fictional", company_name="Fictional", http_client=client))
-        report = await run_pilot(db_session, get_session_factory(), Settings(_env_file=None),
-                                 PilotRequest(source="greenhouse", idempotency_key="failed_pilot_" + str(code)))
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda r: httpx.Response(code))
+    ) as client:
+        monkeypatch.setattr(
+            JobSourceFactory,
+            "get_adapter",
+            lambda *a, **kw: GreenhouseAdapter(
+                board_token="fictional", company_name="Fictional", http_client=client
+            ),
+        )
+        report = await run_pilot(
+            db_session,
+            get_session_factory(),
+            Settings(_env_file=None),
+            PilotRequest(
+                source="greenhouse", idempotency_key="failed_pilot_" + str(code)
+            ),
+        )
     assert report["discovery_status"] == state
     assert report["actual_jobs"] == 0
     assert report["blockers"]
@@ -78,28 +106,74 @@ async def test_network_mode_blocks_gmail_paid_and_arbitrary_urls():
     with NetworkAudit() as audit:
         async with httpx.AsyncClient() as client:
             with pytest.raises(RuntimeError, match="forbidden"):
-                await client.get("https://gmail.googleapis.com/gmail/v1/users/me/messages/send")
+                await client.get(
+                    "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
+                )
     assert audit.attempted == 0
 
 
-@pytest.mark.parametrize("source,url,application,verification,valid", [
-    ("greenhouse", "https://job-boards.greenhouse.io/verified/jobs/1", "https://job-boards.greenhouse.io/verified/jobs/1", "source_reported", True),
-    ("greenhouse", "https://attacker.invalid/1", "https://attacker.invalid/apply", "source_reported", False),
-    ("hacker_news", "https://news.ycombinator.com/item?id=123", None, "requires_review", False),
-    ("remotive", "https://remotive.com/remote-jobs/123", None, "source_reported", False),
-    ("arbeitnow", "https://www.arbeitnow.com/jobs/123", "http://localhost/secret", "source_reported", False),
-])
-def test_public_packet_requires_attributed_explicit_safe_destination(source, url, application, verification, valid):
-    job = SimpleNamespace(source_platform=source, job_url=url, application_url=application,
-                          status="discovered", source_verification_status=verification)
+@pytest.mark.parametrize(
+    "source,url,application,verification,valid",
+    [
+        (
+            "greenhouse",
+            "https://job-boards.greenhouse.io/verified/jobs/1",
+            "https://job-boards.greenhouse.io/verified/jobs/1",
+            "source_reported",
+            True,
+        ),
+        (
+            "greenhouse",
+            "https://attacker.invalid/1",
+            "https://attacker.invalid/apply",
+            "source_reported",
+            False,
+        ),
+        (
+            "hacker_news",
+            "https://news.ycombinator.com/item?id=123",
+            None,
+            "requires_review",
+            False,
+        ),
+        (
+            "remotive",
+            "https://remotive.com/remote-jobs/123",
+            None,
+            "source_reported",
+            False,
+        ),
+        (
+            "arbeitnow",
+            "https://www.arbeitnow.com/jobs/123",
+            "http://localhost/secret",
+            "source_reported",
+            False,
+        ),
+    ],
+)
+def test_public_packet_requires_attributed_explicit_safe_destination(
+    source, url, application, verification, valid
+):
+    job = SimpleNamespace(
+        source_platform=source,
+        job_url=url,
+        application_url=application,
+        status="discovered",
+        source_verification_status=verification,
+    )
     result = PublicListingPlatform(source).destination(job)
     assert result.valid == valid
     assert not PublicListingPlatform(source).capabilities().live_verified
 
 
 def test_offline_end_to_end_never_claims_a_real_pilot(tmp_path):
-    result = subprocess.run([sys.executable, "backend/scripts/smoke_test.py", "--output", str(tmp_path)],
-                            capture_output=True, text=True, timeout=30)
+    result = subprocess.run(
+        [sys.executable, "backend/scripts/smoke_test.py", "--output", str(tmp_path)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
     assert result.returncode == 0, result.stdout + result.stderr
     report = json.loads(result.stdout)
     assert report["actual_companies"] == report["actual_jobs"] == 0
@@ -124,8 +198,19 @@ async def test_fictional_gemini_evaluation_rejects_unsupported_claims():
     class Usage:
         async def generate(self, provider, question, context, instructions):
             ref = EvidenceReference.model_validate(context["evidence"][0]["reference"])
-            return ProviderAnswer(content=ModelAnswer(answer="I scaled to 100000 users.", evidence_references=[ref],
-                claims=[SupportedClaim(text="I scaled to 100000 users.", quote="I implemented authentication using Python and FastAPI.", source=ref)]))
+            return ProviderAnswer(
+                content=ModelAnswer(
+                    answer="I scaled to 100000 users.",
+                    evidence_references=[ref],
+                    claims=[
+                        SupportedClaim(
+                            text="I scaled to 100000 users.",
+                            quote="I implemented authentication using Python and FastAPI.",
+                            source=ref,
+                        )
+                    ],
+                )
+            )
 
     result = await evaluate(Usage(), None)
     assert result["status"] == "grounding_checks_failed"
@@ -137,8 +222,57 @@ async def test_fictional_gemini_evaluation_rejects_unsupported_claims():
 @pytest.mark.asyncio
 async def test_public_network_mode_forbids_external_mutations():
     from backend.app.operations.network import PUBLIC_HOSTS
+
     with NetworkAudit(PUBLIC_HOSTS) as audit:
         async with httpx.AsyncClient() as client:
             with pytest.raises(RuntimeError, match="forbidden"):
-                await client.post("https://boards-api.greenhouse.io/v1/boards/example/jobs/1", json={})
+                await client.post(
+                    "https://boards-api.greenhouse.io/v1/boards/example/jobs/1", json={}
+                )
     assert audit.attempted == 0
+
+
+@pytest.mark.asyncio
+async def test_company_match_does_not_count_unrelated_jobs(db_session, monkeypatch):
+    from backend.app.db.session import get_session_factory
+
+    records = [
+        {
+            "id": i,
+            "title": title,
+            "absolute_url": f"https://job-boards.greenhouse.io/fictional/jobs/{i}",
+            "location": {"name": location},
+            "content": "Reported opening",
+        }
+        for i, title, location in [
+            (1, "Backend Engineer", "Bengaluru Remote"),
+            (2, "Sales Engineer", "Bengaluru Remote"),
+            (3, "Backend Engineer", "Berlin Onsite"),
+        ]
+    ]
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(
+            lambda r: httpx.Response(200, json={"jobs": records})
+        )
+    ) as client:
+        monkeypatch.setattr(
+            JobSourceFactory,
+            "get_adapter",
+            lambda *a, **kw: GreenhouseAdapter(
+                board_token="fictional",
+                company_name="Fictional Robotics",
+                http_client=client,
+            ),
+        )
+        report = await run_pilot(
+            db_session,
+            get_session_factory(),
+            Settings(_env_file=None),
+            PilotRequest(source="greenhouse", idempotency_key="multi_role_6b_pilot"),
+        )
+    assert report["actual_jobs"] == 3
+    assert report["actual_companies"] == 1
+    assert report["relevant_jobs"] == 1
+    assert [j["title"] for c in report["companies"] for j in c["jobs"]] == [
+        "Backend Engineer"
+    ]

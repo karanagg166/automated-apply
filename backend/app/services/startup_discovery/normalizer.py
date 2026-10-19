@@ -39,3 +39,26 @@ def size_allowed(size, filters):
     # A band straddling a strict maximum cannot establish eligibility.
     maximum = size["employee_count"] or BANDS[size["team_size_band"]][1]
     return maximum is not None and maximum <= filters.max_employees
+
+
+def role_allowed(title, roles):
+    return not roles or any(role.casefold() in title.casefold() for role in roles)
+
+
+def location_allowed(locations, remotes, filters):
+    """Shared explicit search filter, usable for company or individual job evidence."""
+    remote_match = filters.remote_preference == "remote" and "remote" in remotes
+    if (
+        filters.locations
+        and not remote_match
+        and not any(
+            loc.casefold() in (value or "").casefold()
+            for loc in filters.locations
+            for value in locations
+        )
+    ):
+        return False
+    return (
+        filters.remote_preference in (None, "any")
+        or filters.remote_preference in remotes
+    )
