@@ -17,6 +17,7 @@ from backend.app.api.v1.applications import router as applications_router
 from backend.app.core.config import get_settings
 from backend.app.core.logging import logger
 from backend.app.core.security import require_api_token
+from backend.app.dashboard.router import router as dashboard_router
 from backend.app.db.session import (
     close_db_engine,
     get_db_session,
@@ -99,7 +100,7 @@ async def log_requests_middleware(request: Request, call_next):
 @app.middleware("http")
 async def private_discovery_boundary(request: Request, call_next):
     private = request.url.path.startswith(
-        ("/api/v1/operations", "/api/v1/credits", "/api/v1/startups", "/api/v1/discovery", "/api/v1/jobs", "/api/v1/companies/", "/api/v1/contact-enrichment", "/api/v1/contacts/", "/api/v1/outreach", "/api/v1/integrations", "/api/v1/applications", "/api/v1/application-packets")
+        ("/api/v1/dashboard", "/api/v1/operations", "/api/v1/credits", "/api/v1/startups", "/api/v1/discovery", "/api/v1/jobs", "/api/v1/companies/", "/api/v1/contact-enrichment", "/api/v1/contacts/", "/api/v1/outreach", "/api/v1/integrations", "/api/v1/applications", "/api/v1/application-packets")
     )
     callback = request.url.path == "/api/v1/integrations/gmail/oauth/callback"
     application_request = request.url.path.startswith(
@@ -124,7 +125,7 @@ async def private_discovery_boundary(request: Request, call_next):
             async with asyncio.timeout(30):
                 async for chunk in request.stream():
                     size += len(chunk)
-                    if size > (65536 if application_request else 1048576):
+                    if size > (5 * 1024 * 1024 if request.url.path == "/api/v1/dashboard/resumes" else 65536 if application_request else 1048576):
                         return JSONResponse(
                             status_code=413,
                             content={"detail": "Application request exceeds 64 KiB" if application_request else "Discovery request exceeds 1 MiB"},
@@ -219,6 +220,7 @@ async def list_jobs(
 from backend.app.api.v1.profile import router as profile_router
 
 app.include_router(profile_router)
+app.include_router(dashboard_router)
 
 
 # Exactly one stateless Streamable HTTP endpoint; explicit native host/origin guard.

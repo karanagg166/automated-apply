@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     APPLICATION_SUBMISSION_ENABLED: Literal[False] = False
 
     # Security
+    RESUME_ENCRYPTION_KEY: SecretStr | None = None
+    UI_FIXTURE_MODE: bool = False
     JOB_AGENT_API_TOKEN: SecretStr | None = None
     SECRET_KEY: str = Field(
         default="insecure-dev-secret-key-must-be-changed-in-production-32-chars",

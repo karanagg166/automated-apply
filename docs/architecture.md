@@ -335,3 +335,12 @@ applications end at human-reviewed manual handoff. The packet registry adds narr
 local preparation while retaining Naukri support; explicit safe source-backed application URLs
 are necessary. No company domain/headcount/application destination is inferred to fill a gap.
 See [operational runbook](phase6b-operations.md) and [deployment security limits](security-deployment-review.md).
+
+
+## Phase 7 owner workspace
+
+The Next.js App Router application is in the same repository and delegates backend workflows to FastAPI. Browser → same-origin authenticated BFF → existing private owner REST services → PostgreSQL. Backend bearer and provider credentials remain server-side. Signed HttpOnly sessions, exact Host/Origin checks and session-bound CSRF protect the single-owner access boundary.
+
+Startup search extends the existing evidence service with exact numeric headcount and submission-aware filters. Application lifecycle/review and Gmail challenge protocols remain unchanged. Existing candidate resources support encrypted private-resume download references separately from public profile URLs. Migration 010 adds owner-only encrypted imports, notifications and preferences with RLS/client-grant denial. No new backend or extension integration exists.
+
+[Frontend](phase7-frontend.md) · [Security](phase7-security.md) · [Deployment](phase7-deployment.md)

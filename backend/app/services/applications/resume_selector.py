@@ -21,6 +21,8 @@ def select_resume(resources, selected_id=None):
             url=safe_url(r.url),
             confirmed=r.user_confirmed,
             primary=r.is_primary,
+            download_path=("/api/backend/dashboard/resumes/" + r.url.removeprefix("private-resume:"))
+            if getattr(r, "source_type", None) == "private_upload" and r.url.startswith("private-resume:") else None,
             resource_version=digest(
                 [
                     str(r.id),
@@ -41,7 +43,7 @@ def select_resume(resources, selected_id=None):
     )
     if selected_id:
         matches = [
-            r for r in options if r.resource_id == selected_id and r.confirmed and r.url
+            r for r in options if r.resource_id == selected_id and r.confirmed and (r.url or r.download_path)
         ]
         if matches:
             selected, reason = (
@@ -52,7 +54,7 @@ def select_resume(resources, selected_id=None):
             reason = "Selected resume is missing, unconfirmed, invalid, or belongs to another profile"
     else:
         primary = [r for r in options if r.primary]
-        if len(primary) == 1 and primary[0].confirmed and primary[0].url:
+        if len(primary) == 1 and primary[0].confirmed and (primary[0].url or primary[0].download_path):
             selected, reason = primary[0], "Unique confirmed primary resume"
         elif len(primary) > 1:
             reason = "Conflicting primary resumes; choose one explicitly"

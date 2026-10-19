@@ -101,3 +101,5 @@ zipp==4.1.1
 # Linux-only keyring dependencies verified by the runtime image build.
 SecretStorage==3.5.0
 jeepney==0.9.0
+
+pypdf==6.11.0

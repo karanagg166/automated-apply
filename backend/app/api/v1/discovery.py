@@ -1,38 +1,40 @@
 """Private discovery REST boundary. No privileged discovery runner is exposed in MCP."""
 
-from datetime import datetime, timezone, timedelta
+import asyncio
+from datetime import datetime, timedelta, timezone
 from typing import Literal
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, or_, func
-from sqlalchemy.orm import aliased
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.app.core.security import require_api_token
-from backend.app.db.session import get_db_session, get_session_factory
-from backend.app.schemas.discovery import RunRequest
-from backend.app.schemas.job import JobRead
-from backend.app.models.job import Job
-from backend.app.models.company import Company
-from backend.app.models.discovery import (
-    DiscoveryRun,
-    DiscoveredPerson,
-    JobSourceObservation,
-)
-from backend.app.services.job_sources.registry import source_registry, resolve_source
-from backend.app.services.job_discovery_service import (
-    JobDiscoveryService,
-    IdempotencyConflict,
-    run_output,
-)
-from backend.app.services.job_discovery_matcher import JobDiscoveryMatcher
-from backend.app.services.candidate_profile_service import CandidateProfileService
-from backend.app.repositories.candidate_profile import ProfileNotFoundError
-from backend.app.services.people_discovery.base import PeopleQuery
-from backend.app.services.people_discovery.service import PeopleDiscoveryService
-from backend.app.services.discovery_budget import DiscoveryBudget
+from sqlalchemy.orm import aliased
+
 from backend.app.ai.usage import concurrency_limiter
 from backend.app.core.config import get_settings
-import asyncio
+from backend.app.core.security import require_api_token
+from backend.app.db.session import get_db_session, get_session_factory
+from backend.app.models.company import Company
+from backend.app.models.discovery import (
+    DiscoveredPerson,
+    DiscoveryRun,
+    JobSourceObservation,
+)
+from backend.app.models.job import Job
+from backend.app.repositories.candidate_profile import ProfileNotFoundError
+from backend.app.schemas.discovery import RunRequest
+from backend.app.schemas.job import JobRead
+from backend.app.services.candidate_profile_service import CandidateProfileService
+from backend.app.services.discovery_budget import DiscoveryBudget
+from backend.app.services.job_discovery_matcher import JobDiscoveryMatcher
+from backend.app.services.job_discovery_service import (
+    IdempotencyConflict,
+    JobDiscoveryService,
+    run_output,
+)
+from backend.app.services.job_sources.registry import resolve_source, source_registry
+from backend.app.services.people_discovery.base import PeopleQuery
+from backend.app.services.people_discovery.service import PeopleDiscoveryService
 
 router = APIRouter(
     prefix="/api/v1", tags=["Discovery"], dependencies=[Depends(require_api_token)]
@@ -86,6 +88,8 @@ async def search_jobs(
     limit: int = Query(20, ge=1, le=100),
     platform: str | None = Query(None, max_length=100),
     role: str | None = Query(None, max_length=200),
+    skill: str | None = Query(None, max_length=100),
+    application_status: Literal["all", "not_applied", "shortlisted", "packet_prepared", "applied", "interview", "rejected"] = "all",
     location: str | None = Query(None, max_length=200),
     remote_type: Literal["remote", "hybrid", "onsite", "unknown"] | None = None,
     employment_type: str | None = Query(None, max_length=50),
@@ -149,8 +153,14 @@ async def search_jobs(
             422, "Narrow filters to at most 5000 jobs for deterministic ranking"
         )
     items = []
+    from backend.app.dashboard.states import matches_status, packet_map
+    packets = await packet_map(session, [job.id for job, _ in rows])
     matcher = JobDiscoveryMatcher(session)
     for job, company in rows:
+        if not matches_status(job, packets.get(job.id), application_status):
+            continue
+        if skill and skill.casefold() not in {s.casefold() for s in job.skills_required or []}:
+            continue
         match = matcher.match(job, profile, company) if profile else None
         if match and exclude_preferences and match.exclusion_reasons:
             continue
@@ -160,6 +170,7 @@ async def search_jobs(
             {
                 **JobRead.model_validate(job).model_dump(mode="json"),
                 "company_name": company.name if company else None,
+                "application_state": packets[job.id].lifecycle_state if job.id in packets else None,
                 "company_domain": company.domain if company else None,
                 "company_intelligence": (company.metadata_ or {}).get(
                     "startup_discovery", {}
