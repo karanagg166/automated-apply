@@ -141,11 +141,10 @@ A profile needs a name and valid email; missing optional career information does
 Unknown experience receives no seniority points and is explained as unknown. Draft generation omits
 unknown answers and uses only supplied facts, without assuming authorization, notice period or skills.
 
-The adapter feeds the existing scorer, preserving scoring weights. Onsite is supported conservatively
-using the existing remote flag and location. The job model cannot distinguish hybrid from onsite,
-and salary, exclusions, employment types, industries and company stage do not yet affect scoring.
-Matching results remain transient to prevent candidate-specific information from appearing through
-the unauthenticated jobs listing. Future service/tool access must preserve an authenticated boundary.
+The Phase 1 profile adapter preserves the legacy scorer. Phase 2B adds explicit remote policy and a
+separate discovery preference overlay for salary, exclusions, employment types and observed stage.
+Industry matching awaits reliable company evidence. The jobs list now requires authentication;
+discovery runs retain profile-versioned rankings without overwriting human notes or decisions.
 
 ## Future account boundaries
 
@@ -187,3 +186,27 @@ saved only on explicit request, and profile-version staleness never rewrites rev
 
 See [the detailed API, validation and operational guide](ai-application-answer-engine.md).
 No browser filling, deployment, production DDL, OAuth, downloads, outreach or submissions are added.
+
+## Phase 2B discovery architecture
+
+Protected REST requests enter `JobDiscoveryService`: saved-profile query defaults → typed source
+registry → bounded adapter → per-record normalization → identity resolution → savepoint ingestion
+→ deterministic preference ranking. Run claims commit independently before provider access; jobs,
+observations and successful final audit state commit together. Paid reservations commit independently
+and survive failed/cancelled requests. See [pipeline details](job-discovery-pipeline.md).
+
+`job_agent.jobs` retains legacy columns and adds v2 metadata. Separate observation rows retain every
+source link; known ATS URLs and exact company/role/location/content evidence merge conservatively.
+Possible duplicates remain separate. PostgreSQL advisory transaction locking plus unique indexes
+protect concurrent ingestion. Human application status, shortlist decisions and notes remain intact.
+
+`discovery_runs` records bounded explicit operations. `discovery_monthly_budgets` and
+`discovery_budget_reservations` account for Apify dollar caps and Serper query credits atomically.
+`discovered_company_people` stores public profile evidence independently of enriched contacts. No
+new queue, scheduler, outbound messaging or privileged MCP discovery tool is introduced. The legacy
+jobs list now requires bearer authentication to protect candidate-specific fields. Source fetch,
+ingestion and connectivity functions are no longer registered on the unauthenticated MCP transport.
+
+Public people discovery calls only a configured search API; user/company/LinkedIn URLs are validated
+and stored but never fetched. Manual action URLs and ambiguous evidence require human review.
+Existing `ApplicationAssistant` and Gemini answer-generation contracts remain separate from discovery.

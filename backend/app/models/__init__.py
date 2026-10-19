@@ -21,4 +21,17 @@ __all__ = [
     "OutreachLog",
 ]
 
-from backend.app.models.application_answer import CandidateResource, CandidateEvidence, ApplicationAnswerDraft, LLMMonthlyUsage
+from backend.app.models.application_answer import (
+    CandidateResource,
+    CandidateEvidence,
+    ApplicationAnswerDraft,
+    LLMMonthlyUsage,
+)
+
+from backend.app.models.discovery import (
+    DiscoveryRun,
+    JobSourceObservation,
+    DiscoveredPerson,
+    DiscoveryMonthlyBudget,
+    DiscoveryReservation,
+)

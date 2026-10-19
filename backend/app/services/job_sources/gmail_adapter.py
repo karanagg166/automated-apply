@@ -1,6 +1,7 @@
 """Gmail Job Alert Adapter for extracting normalized job opportunities from job alert emails."""
 
 import re
+import hashlib
 from datetime import datetime, timezone
 from typing import Any
 import httpx
@@ -59,7 +60,7 @@ class GmailJobAlertAdapter(JobSourceAdapter):
         # Look for links with anchor text or URL patterns
         # Example pattern: [Job Title] at [Company] - [Location]
         # Or HTML links: <a href="url">Job Title</a> ... Company: X
-        
+
         # Strip heavy html tags
         clean_text = re.sub(r"<[^>]+>", " ", body)
         clean_text = re.sub(r"\s+", " ", clean_text)
@@ -74,25 +75,30 @@ class GmailJobAlertAdapter(JobSourceAdapter):
         if link_matches:
             for job_url, link_text in link_matches[:10]:
                 title = link_text.strip()
-                if len(title) < 3 or "unsubscribe" in title.lower() or "view" in title.lower() or "privacy" in title.lower():
+                if (
+                    len(title) < 3
+                    or "unsubscribe" in title.lower()
+                    or "view" in title.lower()
+                    or "privacy" in title.lower()
+                ):
                     continue
 
                 # Search surrounding text for company and location
-                company_match = re.search(r'\b(?:at|with|by|company[:\s]+)\s+([A-Za-z0-9&.,]+(?:\s+[A-Za-z0-9&.,]+)?)', clean_text, re.I)
-                company_name = company_match.group(1).strip() if company_match else "Hiring Company"
+                company_match = re.search(
+                    r"\b(?:at|with|by|company[:\s]+)\s+([A-Za-z0-9&.,]+(?:\s+[A-Za-z0-9&.,]+)?)",
+                    clean_text,
+                    re.I,
+                )
+                company_name = company_match.group(1).strip() if company_match else None
 
-                # Check if company name is in URL (e.g. naukri -company-id)
-                if company_name == "Hiring Company":
-                    slug_match = re.search(r'-([a-z0-9]+)-[0-9]{4,}', job_url, re.I)
-                    if slug_match:
-                        company_name = slug_match.group(1).capitalize()
-
-                loc_match = re.search(r'\b(?:in|location[:\s]+)\s+([A-Za-z\s,]{2,30})', clean_text, re.I)
+                loc_match = re.search(
+                    r"\b(?:in|location[:\s]+)\s+([A-Za-z\s,]{2,30})", clean_text, re.I
+                )
                 location = loc_match.group(1).strip() if loc_match else None
 
                 job = NormalizedJob(
-                    source_name=f"gmail_{alert_type}",
-                    source_job_id=f"gmail_{message_id}_{hash(job_url)}",
+                    source_name="gmail_alert",
+                    source_job_id=f"gmail_{message_id}_{hashlib.sha256(job_url.encode()).hexdigest()[:24]}",
                     original_url=job_url,
                     company_name=company_name,
                     company_domain=None,
@@ -100,12 +106,14 @@ class GmailJobAlertAdapter(JobSourceAdapter):
                     description=f"Received via job alert email: '{subject}' from {sender}",
                     location=location,
                     is_remote="remote" in (str(location).lower() + title.lower()),
-                    remote_type="remote" if "remote" in (str(location).lower() + title.lower()) else "unspecified",
-                    employment_type="full_time",
+                    remote_type="remote"
+                    if "remote" in (str(location).lower() + title.lower())
+                    else "unspecified",
+                    employment_type=None,
                     salary_raw=None,
                     skills_required=[],
                     application_url=job_url,
-                    date_posted=now,
+                    date_posted=None,
                     last_observed_date=now,
                     retrieved_at=now,
                     data_provenance={
@@ -119,43 +127,6 @@ class GmailJobAlertAdapter(JobSourceAdapter):
                 )
                 normalized.append(job)
 
-        # Fallback if no specific HTML link found: parse from subject/body text
-        if not normalized:
-            # Fallback title from subject: e.g. "5 new Senior Python Engineer jobs in Bengaluru"
-            title_match = re.search(r'(\b(?:senior|junior|lead|staff|software|backend|fullstack|frontend|engineer|developer|data|ai|architect)\b[^\n,–—]+)', subject, re.I)
-            fallback_title = title_match.group(1).strip() if title_match else subject
-
-            fallback_url = f"https://mail.google.com/mail/#inbox/{message_id}"
-
-            job = NormalizedJob(
-                source_name=f"gmail_{alert_type}",
-                source_job_id=f"gmail_{message_id}",
-                original_url=fallback_url,
-                company_name="Company via Alert",
-                company_domain=None,
-                title=fallback_title[:100],
-                description=clean_text[:1000],
-                location=None,
-                is_remote="remote" in clean_text.lower(),
-                remote_type="remote" if "remote" in clean_text.lower() else "unspecified",
-                employment_type="full_time",
-                salary_raw=None,
-                skills_required=[],
-                application_url=fallback_url,
-                date_posted=now,
-                last_observed_date=now,
-                retrieved_at=now,
-                data_provenance={
-                    "adapter": "GmailJobAlertAdapter",
-                    "email_message_id": message_id,
-                    "email_sender": sender,
-                    "email_subject": subject,
-                    "alert_type": alert_type,
-                },
-                is_confirmed_current=False,
-            )
-            normalized.append(job)
-
         return normalized
 
     async def fetch_jobs(
@@ -166,7 +137,9 @@ class GmailJobAlertAdapter(JobSourceAdapter):
     ) -> list[NormalizedJob]:
         """Fetch and parse job alert messages via Gmail REST API using OAuth refresh token."""
         if not (self.client_id and self.client_secret and self.refresh_token):
-            logger.info("Gmail OAuth credentials not configured. Ingestion ready in offline/parser mode.")
+            logger.info(
+                "Gmail OAuth credentials not configured. Ingestion ready in offline/parser mode."
+            )
             return []
 
         client = self._client or httpx.AsyncClient(timeout=30.0)
@@ -185,16 +158,20 @@ class GmailJobAlertAdapter(JobSourceAdapter):
                 },
             )
             if token_resp.status_code != 200:
-                logger.error(f"Gmail token refresh failed: {token_resp.text}")
+                logger.error("Gmail token refresh failed")
                 return []
             access_token = token_resp.json()["access_token"]
 
             # 2. List matching messages
             list_url = "https://gmail.googleapis.com/gmail/v1/users/me/messages"
             headers = {"Authorization": f"Bearer {access_token}"}
-            list_resp = await client.get(list_url, headers=headers, params={"q": query, "maxResults": max_messages})
+            list_resp = await client.get(
+                list_url,
+                headers=headers,
+                params={"q": query, "maxResults": max_messages},
+            )
             if list_resp.status_code != 200:
-                logger.error(f"Failed to list Gmail messages: {list_resp.text}")
+                logger.error("Failed to list Gmail messages")
                 return []
 
             messages = list_resp.json().get("messages", [])
@@ -202,15 +179,29 @@ class GmailJobAlertAdapter(JobSourceAdapter):
 
             for msg_meta in messages:
                 msg_id = msg_meta["id"]
-                msg_url = f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{msg_id}"
-                detail_resp = await client.get(msg_url, headers=headers, params={"format": "full"})
+                msg_url = (
+                    f"https://gmail.googleapis.com/gmail/v1/users/me/messages/{msg_id}"
+                )
+                detail_resp = await client.get(
+                    msg_url, headers=headers, params={"format": "full"}
+                )
                 if detail_resp.status_code != 200:
                     continue
 
                 detail = detail_resp.json()
                 headers_list = detail.get("payload", {}).get("headers", [])
-                subject = next((h["value"] for h in headers_list if h["name"].lower() == "subject"), "No Subject")
-                sender = next((h["value"] for h in headers_list if h["name"].lower() == "from"), "Unknown Sender")
+                subject = next(
+                    (
+                        h["value"]
+                        for h in headers_list
+                        if h["name"].lower() == "subject"
+                    ),
+                    "No Subject",
+                )
+                sender = next(
+                    (h["value"] for h in headers_list if h["name"].lower() == "from"),
+                    "Unknown Sender",
+                )
                 snippet = detail.get("snippet", "")
 
                 parsed = self.parse_alert_html_or_text(
@@ -239,7 +230,12 @@ class GmailJobAlertAdapter(JobSourceAdapter):
                 "message": "Gmail OAuth credentials (client ID/secret/refresh token) not yet set in environment. Offline email alert parser is fully functional.",
                 "details": {
                     "is_parser_ready": True,
-                    "supported_email_sources": ["naukri_alerts", "indeed_alerts", "linkedin_alerts", "instahyre_alerts"],
+                    "supported_email_sources": [
+                        "naukri_alerts",
+                        "indeed_alerts",
+                        "linkedin_alerts",
+                        "instahyre_alerts",
+                    ],
                 },
             }
 
@@ -270,7 +266,7 @@ class GmailJobAlertAdapter(JobSourceAdapter):
                     "source": self.source_name,
                     "sample_count": 0,
                     "message": f"Gmail token refresh failed with HTTP {token_resp.status_code}",
-                    "details": {"response": token_resp.text},
+                    "details": {},
                 }
         except Exception as e:
             return {

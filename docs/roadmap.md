@@ -29,9 +29,8 @@ PostgreSQL URL explicitly skip that check.
 
 ## Later phases — not implemented here
 
-1. Extend discovery and filtering using saved preferences and permitted platform access.
-   Salary, exclusions, employment types, industries and company stage are stored but do not yet
-   influence the existing matching score. Hybrid/onsite distinction needs richer job data.
+1. Phase 2B adds a discovery-specific preference overlay; the legacy assistant stays compatible.
+   Industry preferences await reliably normalized company industry evidence.
 2. Add supported provider/account integrations with credential isolation and replace the single
    shared token with proper user/session authentication before multi-user use.
 3. Integrate apply-extension and supported application workflows; keep LinkedIn connections,
@@ -60,10 +59,28 @@ Implemented:
 - [ ] Configure and assess live Gemini output with the user's own approved account/data.
 - [ ] Extend staleness to revisions of individual evidence/resource dependencies.
 
-## Phase 2B — job and startup discovery (next)
+## Phase 2B — job and startup discovery
 
-Use the persisted profile, resources, evidence and reviewable answer contract when expanding
-permitted job/startup discovery. Enrich job metadata before changing matching weights or
-hybrid/onsite handling. Keep account credentials isolated and implement authenticated extension
-integration separately. Phase 2A adds no platform submissions, messaging, resume downloads,
-Drive OAuth, dashboard or deployment. GitHub checks and merge status are the release evidence.
+Implemented and covered by offline tests and disposable PostgreSQL verification:
+
+- [x] Explicit source registry; Naukri/Instahyre/Wellfound/YC preserve platform identity.
+- [x] Bounded direct feeds, structured outcomes, safe URLs and evidence-only normalization.
+- [x] Opt-in reviewed Apify mappings with pinned builds, terminal runs and durable cost caps.
+- [x] Additive migration 004; job observations, discovery runs and public people evidence.
+- [x] Conservative ATS/content identities, possible duplicates, savepoints and preserved human state.
+- [x] Saved-profile deterministic ranking, exclusions, unknown salary and explicit remote policy.
+- [x] Protected REST discovery, planning-only preview, manual import and bounded job search.
+- [x] Read-only professional URL discovery via permitted search index/manual evidence.
+- [x] Startup metadata linked to companies/jobs when actually supplied by a source.
+- [ ] Configure/review specific paid actors and verify permitted live platform connections.
+- [ ] Configure and live-verify Serper with the user's authorized account.
+- [ ] Verify a legitimate Internshala connector; currently manual import only.
+- [ ] Apply migration 004 to production after separate explicit approval.
+- [ ] Recover/reconcile crash-interrupted runs and final provider invoices if operationally needed.
+
+See [job-discovery-pipeline.md](job-discovery-pipeline.md) for the honest platform matrix and limits.
+No account passwords, LinkedIn outbound actions, applications, production migration or deployment.
+GitHub PR and CI state are release evidence, not an indication that paid accounts were connected.
+
+Next smallest milestone: approved founder/contact enrichment with Apollo/SignalHire, preserving
+public evidence and ambiguity; then a separately approved Gmail outreach draft/review workflow.

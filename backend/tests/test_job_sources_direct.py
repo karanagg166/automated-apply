@@ -26,11 +26,11 @@ async def test_greenhouse_adapter_parsing():
         ]
     }
 
-    transport = httpx.MockTransport(
-        lambda req: httpx.Response(200, json=mock_payload)
-    )
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, json=mock_payload))
     async with httpx.AsyncClient(transport=transport) as client:
-        adapter = GreenhouseAdapter(board_token="testcompany", http_client=client)
+        adapter = GreenhouseAdapter(
+            board_token="testcompany", company_name="Testcompany", http_client=client
+        )
         jobs = await adapter.fetch_jobs(limit=5)
 
         assert len(jobs) == 1
@@ -63,9 +63,7 @@ async def test_remotive_adapter_parsing():
         ]
     }
 
-    transport = httpx.MockTransport(
-        lambda req: httpx.Response(200, json=mock_payload)
-    )
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, json=mock_payload))
     async with httpx.AsyncClient(transport=transport) as client:
         adapter = RemotiveAdapter(http_client=client)
         jobs = await adapter.fetch_jobs(limit=5)
@@ -99,9 +97,7 @@ async def test_arbeitnow_adapter_parsing():
         ]
     }
 
-    transport = httpx.MockTransport(
-        lambda req: httpx.Response(200, json=mock_payload)
-    )
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, json=mock_payload))
     async with httpx.AsyncClient(transport=transport) as client:
         adapter = ArbeitnowAdapter(http_client=client)
         jobs = await adapter.fetch_jobs(limit=5)

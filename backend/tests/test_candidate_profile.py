@@ -219,7 +219,8 @@ async def test_saved_profile_matching_and_privacy(async_client, auth):
     assert response.json()["location_match"] is True
     await async_client.patch("/api/v1/profile", json={"preferences": {"remote_preference": "remote"}}, headers={**auth, "If-Match": '"1"'})
     assert (await async_client.post(f"/api/v1/jobs/{job_id}/match", headers=auth)).json()["location_match"] is False
-    jobs = (await async_client.get("/api/v1/jobs")).json()
+    assert (await async_client.get("/api/v1/jobs")).status_code == 401
+    jobs = (await async_client.get("/api/v1/jobs", headers=auth)).json()
     assert jobs[0]["match_explanation"] is None and jobs[0]["match_score"] is None
 
 

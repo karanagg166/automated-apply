@@ -53,6 +53,8 @@ async def verify(url):
         assert await connection.fetchval("SELECT row_to_json(c)::text FROM job_agent.companies c WHERE id=$1", company_id) == before
         assert await connection.fetchval("SELECT relrowsecurity FROM pg_class WHERE oid='job_agent.candidate_profiles'::regclass") is True
         assert await connection.fetchval("SELECT count(*) FROM pg_policies WHERE schemaname='job_agent' AND tablename='candidate_profiles'") == 0
+        # Current Job ORM requires the additive discovery columns.
+        await connection.execute((ROOT / "supabase/migrations/004_job_discovery.sql").read_text())
         engine = create_async_engine(os.environ["DATABASE_URL"], echo=False)
         factory = async_sessionmaker(engine, expire_on_commit=False)
         payload = CandidateProfileCreate(full_name="Alex Example", email="alex@example.com", verified_skills=["Python"], preferences={"remote_preference": "remote"})

@@ -3,6 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 from sqlalchemy import select
+from backend.app.services.discovery_budget import insert_for
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.app.models.job import Job
 from backend.app.repositories.base import BaseRepository
@@ -55,12 +56,13 @@ class JobRepository(BaseRepository[Job]):
             await self.session.flush()
             return existing, False
 
-        new_job = await self.create(
+        # A unique URL and conflict-safe insert handle concurrent legacy writers.
+        values = dict(
             title=title.strip(),
             job_url=job_url.strip(),
             source_platform=source_platform.strip(),
             company_id=company_id,
-            location=location.strip() if location else None,
+            location=location,
             is_remote=is_remote,
             experience_level=experience_level,
             salary_range=salary_range,
@@ -71,7 +73,17 @@ class JobRepository(BaseRepository[Job]):
             status=status,
             date_posted=date_posted,
         )
-        return new_job, True
+        inserted_id = (
+            await self.session.execute(
+                insert_for(self.session)(Job)
+                .values(**values)
+                .on_conflict_do_nothing(index_elements=[Job.job_url])
+                .returning(Job.id)
+            )
+        ).scalar_one_or_none()
+        if inserted_id:
+            return await self.session.get(Job, inserted_id), True
+        return await self.get_by_url(job_url), False
 
     async def list_jobs(
         self,

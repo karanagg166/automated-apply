@@ -4,7 +4,6 @@ import uuid
 from typing import Any
 from fastmcp import FastMCP
 from backend.app.core.config import get_settings
-from backend.app.core.logging import logger
 from backend.app.db.session import get_db_context
 from backend.app.repositories.company import CompanyRepository
 from backend.app.repositories.job import JobRepository
@@ -12,8 +11,10 @@ from backend.app.repositories.contact import ContactRepository
 from backend.app.services.credit_manager import CreditManager
 from backend.app.services.email_candidate_generator import EmailCandidateGenerator
 from backend.app.services.job_sources.factory import JobSourceFactory
-from backend.app.services.job_ingestion import JobIngestionService
-from backend.app.services.application_assistant import ApplicationAssistant, CandidateProfile
+from backend.app.services.application_assistant import (
+    ApplicationAssistant,
+    CandidateProfile,
+)
 
 settings = get_settings()
 mcp = FastMCP(settings.FASTMCP_SERVER_NAME)
@@ -70,7 +71,9 @@ async def get_cached_company_contacts(
     async with get_db_context() as session:
         repo = ContactRepository(session)
         cid = uuid.UUID(company_id)
-        contacts = await repo.get_cached_contacts_for_company(cid, role_filter=role_filter)
+        contacts = await repo.get_cached_contacts_for_company(
+            cid, role_filter=role_filter
+        )
         return [
             {
                 "id": str(c.id),
@@ -202,7 +205,6 @@ async def check_api_credits_status() -> dict[str, Any]:
         return status.model_dump(mode="json")
 
 
-@mcp.tool()
 async def check_job_source_connection(source_name: str) -> dict[str, Any]:
     """Perform a safe, read-only connectivity test for a job portal or source adapter.
 
@@ -216,7 +218,6 @@ async def check_job_source_connection(source_name: str) -> dict[str, Any]:
     return await adapter.test_connection()
 
 
-@mcp.tool()
 async def fetch_jobs_from_source(
     source_name: str,
     query: str = "software engineer",
@@ -236,11 +237,12 @@ async def fetch_jobs_from_source(
     """
     capped_limit = min(max(limit, 1), 25)
     adapter = JobSourceFactory.get_adapter(source_name)
-    jobs = await adapter.fetch_jobs(search_query=query, location=location, limit=capped_limit)
+    jobs = await adapter.fetch_jobs(
+        search_query=query, location=location, limit=capped_limit
+    )
     return [j.model_dump(mode="json") for j in jobs]
 
 
-@mcp.tool()
 async def ingest_jobs_from_source(
     source_name: str,
     query: str = "software engineer",
@@ -258,14 +260,9 @@ async def ingest_jobs_from_source(
     Returns:
         Ingestion summary with inserted, updated, and skipped counts.
     """
-    capped_limit = min(max(limit, 1), 25)
-    adapter = JobSourceFactory.get_adapter(source_name)
-    jobs = await adapter.fetch_jobs(search_query=query, location=location, limit=capped_limit)
-
-    async with get_db_context() as session:
-        service = JobIngestionService(session)
-        result = await service.ingest_jobs(jobs)
-        return result.model_dump(mode="json")
+    raise PermissionError(
+        "Use bearer-protected POST /api/v1/discovery/runs for source execution and ingestion"
+    )
 
 
 @mcp.tool()
@@ -388,10 +385,14 @@ async def update_job_application_status(
     """
     async with get_db_context() as session:
         assistant = ApplicationAssistant(session)
-        updated_job = await assistant.update_application_status(job_id, new_status, notes=notes)
+        updated_job = await assistant.update_application_status(
+            job_id, new_status, notes=notes
+        )
         return {
             "job_id": str(updated_job.id),
             "status": updated_job.status,
             "title": updated_job.title,
-            "updated_at": updated_job.updated_at.isoformat() if updated_job.updated_at else None,
+            "updated_at": updated_job.updated_at.isoformat()
+            if updated_job.updated_at
+            else None,
         }

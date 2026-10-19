@@ -12,7 +12,9 @@ class Settings(BaseSettings):
     """Strongly typed application settings loaded from environment variables."""
 
     # Application Environment
-    ENVIRONMENT: Literal["development", "testing", "staging", "production"] = "development"
+    ENVIRONMENT: Literal["development", "testing", "staging", "production"] = (
+        "development"
+    )
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     DEBUG: bool = False
     APP_HOST: str = "0.0.0.0"
@@ -62,10 +64,19 @@ class Settings(BaseSettings):
     LLM_MONTHLY_MAX_REQUESTS: int = Field(default=200, ge=0, le=10000)
     LLM_MAX_CONCURRENCY: int = Field(default=2, ge=1, le=8)
 
-    @field_validator("CANDIDATE_RESUME_DRIVE_URL", "CANDIDATE_GITHUB_URL",
-                     "CANDIDATE_ORIGINAL_LINKEDIN_URL", "CANDIDATE_PORTFOLIO_URL",
-                     "CANDIDATE_LEETCODE_URL", "CANDIDATE_CODEFORCES_URL",
-                     "CANDIDATE_GFG_URL", "CANDIDATE_HACKERRANK_URL", "GEMINI_API_KEY", "LLM_MODEL", mode="before")
+    @field_validator(
+        "CANDIDATE_RESUME_DRIVE_URL",
+        "CANDIDATE_GITHUB_URL",
+        "CANDIDATE_ORIGINAL_LINKEDIN_URL",
+        "CANDIDATE_PORTFOLIO_URL",
+        "CANDIDATE_LEETCODE_URL",
+        "CANDIDATE_CODEFORCES_URL",
+        "CANDIDATE_GFG_URL",
+        "CANDIDATE_HACKERRANK_URL",
+        "GEMINI_API_KEY",
+        "LLM_MODEL",
+        mode="before",
+    )
     @classmethod
     def empty_optional(cls, value):
         return None if isinstance(value, str) and not value.strip() else value
@@ -73,7 +84,9 @@ class Settings(BaseSettings):
     @field_validator("LLM_MODEL")
     @classmethod
     def model_identifier(cls, value):
-        if value is not None and not re.fullmatch(r"(?:models/)?gemini-[A-Za-z0-9][A-Za-z0-9._-]{0,119}", value):
+        if value is not None and not re.fullmatch(
+            r"(?:models/)?gemini-[A-Za-z0-9][A-Za-z0-9._-]{0,119}", value
+        ):
             raise ValueError("LLM_MODEL must be a Gemini model identifier, not a URL")
         return value
 
@@ -94,13 +107,36 @@ class Settings(BaseSettings):
     SIGNALHIRE_API_KEY: str | None = None
 
     # Apify Integration Configuration
-    APIFY_API_TOKEN: str | None = Field(default=None, description="Apify API token for running actors")
-    APIFY_MONTHLY_LIMIT_USD: float = Field(default=5.0, ge=0.0, description="Monthly dollar spending cap for Apify actor runs")
+    APIFY_API_TOKEN: str | None = Field(
+        default=None, description="Apify API token for running actors"
+    )
+    APIFY_MONTHLY_LIMIT_USD: float = Field(
+        default=0.0,
+        ge=0.0,
+        allow_inf_nan=False,
+        description="Monthly dollar spending cap for Apify actor runs",
+    )
+
+    # Discovery is opt-in for every billable source. No actor is bundled as vetted.
+    GREENHOUSE_BOARDS: dict[str, str] = Field(default_factory=dict)
+    APIFY_SOURCES: dict[str, dict] = Field(default_factory=dict)
+    APIFY_PER_RUN_CAP_USD: float = Field(default=0, ge=0, le=100, allow_inf_nan=False)
+    PEOPLE_SEARCH_ENABLED: bool = False
+    DISCOVERY_TIMEOUT_SECONDS: float = Field(
+        default=90, ge=5, le=180, allow_inf_nan=False
+    )
+    DISCOVERY_MAX_CONCURRENCY: int = Field(default=2, ge=1, le=8)
 
     # Gmail Integration Configuration (OAuth)
-    GMAIL_CLIENT_ID: str | None = Field(default=None, description="Google OAuth 2.0 Client ID")
-    GMAIL_CLIENT_SECRET: str | None = Field(default=None, description="Google OAuth 2.0 Client Secret")
-    GMAIL_REFRESH_TOKEN: str | None = Field(default=None, description="Google OAuth 2.0 Refresh Token")
+    GMAIL_CLIENT_ID: str | None = Field(
+        default=None, description="Google OAuth 2.0 Client ID"
+    )
+    GMAIL_CLIENT_SECRET: str | None = Field(
+        default=None, description="Google OAuth 2.0 Client Secret"
+    )
+    GMAIL_REFRESH_TOKEN: str | None = Field(
+        default=None, description="Google OAuth 2.0 Refresh Token"
+    )
 
     model_config = SettingsConfigDict(
         env_file=(".env", "backend/.env"),
@@ -117,7 +153,9 @@ class Settings(BaseSettings):
         if not cleaned:
             raise ValueError("DATABASE_SCHEMA cannot be empty")
         if not cleaned.replace("_", "").isalnum():
-            raise ValueError("DATABASE_SCHEMA must be alphanumeric with underscores only")
+            raise ValueError(
+                "DATABASE_SCHEMA must be alphanumeric with underscores only"
+            )
         return cleaned
 
     def get_provider_monthly_limit(self, provider: str) -> int:

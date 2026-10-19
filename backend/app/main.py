@@ -4,18 +4,22 @@ import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any
-from fastapi import FastAPI, Depends, Request, Response, status
+from fastapi import FastAPI, Depends, Request, status, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.app.core.config import get_settings
+from backend.app.core.security import require_api_token
 from backend.app.core.logging import logger
 from backend.app.db.session import get_db_session, get_engine, close_db_engine
 from backend.app.mcp_server import mcp
 from backend.app.repositories.job import JobRepository
 from backend.app.schemas.credit import CreditBudgetStatus
 from backend.app.schemas.job import JobRead
-from backend.app.services.credit_manager import CreditManager, CreditBudgetExhaustedError
+from backend.app.services.credit_manager import (
+    CreditManager,
+    CreditBudgetExhaustedError,
+)
 from backend.app.api.v1.application_answers import router as application_answers_router
 
 settings = get_settings()
@@ -28,7 +32,9 @@ async def lifespan(app: FastAPI):
     # Initialize DB engine connection
     try:
         engine = get_engine()
-        logger.info(f"Connected to database engine (schema: {settings.DATABASE_SCHEMA})")
+        logger.info(
+            f"Connected to database engine (schema: {settings.DATABASE_SCHEMA})"
+        )
     except Exception as e:
         logger.error(f"Failed to initialize database engine during startup: {e}")
 
@@ -62,9 +68,46 @@ async def log_requests_middleware(request: Request, call_next):
     return response
 
 
+@app.middleware("http")
+async def private_discovery_boundary(request: Request, call_next):
+    private = request.url.path.startswith(
+        ("/api/v1/discovery", "/api/v1/jobs", "/api/v1/companies/")
+    )
+    if private:
+        from backend.app.core.security import require_api_token
+        from fastapi import HTTPException
+
+        try:
+            await require_api_token(request, None)
+        except HTTPException as exc:
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={"detail": exc.detail},
+                headers={**(exc.headers or {}), "Cache-Control": "no-store"},
+            )
+        size = 0
+        chunks = []
+        async for chunk in request.stream():
+            size += len(chunk)
+            if size > 1048576:
+                return JSONResponse(
+                    status_code=413,
+                    content={"detail": "Discovery request exceeds 1 MiB"},
+                    headers={"Cache-Control": "no-store"},
+                )
+            chunks.append(chunk)
+        request._body = b"".join(chunks)
+    response = await call_next(request)
+    if private:
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 # Global exception handlers
 @app.exception_handler(CreditBudgetExhaustedError)
-async def credit_budget_exception_handler(request: Request, exc: CreditBudgetExhaustedError):
+async def credit_budget_exception_handler(
+    request: Request, exc: CreditBudgetExhaustedError
+):
     logger.warning(f"Credit budget check failed: {exc}")
     return JSONResponse(
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -121,16 +164,23 @@ async def readiness_check() -> dict[str, Any]:
 
 # API v1 Endpoints
 @app.get("/api/v1/credits/status", response_model=CreditBudgetStatus, tags=["Credits"])
-async def get_credits_status(session: AsyncSession = Depends(get_db_session)) -> CreditBudgetStatus:
+async def get_credits_status(
+    session: AsyncSession = Depends(get_db_session),
+) -> CreditBudgetStatus:
     """Retrieve remaining credits, monthly allocations, and cooldown status across all providers."""
     manager = CreditManager(session)
     return await manager.get_credit_status()
 
 
-@app.get("/api/v1/jobs", response_model=list[JobRead], tags=["Jobs"])
+@app.get(
+    "/api/v1/jobs",
+    response_model=list[JobRead],
+    tags=["Jobs"],
+    dependencies=[Depends(require_api_token)],
+)
 async def list_jobs(
-    limit: int = 50,
-    offset: int = 0,
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0, le=100000),
     status: str | None = None,
     session: AsyncSession = Depends(get_db_session),
 ) -> list[JobRead]:
@@ -156,3 +206,7 @@ except Exception as e:
 
 # Candidate facts and answer drafts share the Phase 1 authentication boundary.
 app.include_router(application_answers_router)
+
+from backend.app.api.v1.discovery import router as discovery_router
+
+app.include_router(discovery_router)

@@ -1,349 +1,457 @@
-"""Apify job source adapter with portal-specific normalizers, safety guards, and strict LinkedIn restrictions."""
+"""Opt-in Apify discovery. No default actor IDs, pricing assertions or invented URLs."""
 
-from datetime import datetime, timezone
-from typing import Any
+import asyncio
+import re
+import uuid
+from typing import Annotated, Any, Literal
 import httpx
-
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from backend.app.core.config import get_settings
-from backend.app.core.logging import logger
+from backend.app.core.urls import PublicHTTPSURL
+from backend.app.schemas.discovery import (
+    DiscoveryQuery,
+    DiscoveryResult,
+    DiscoveryError,
+    DiscoveryStatus as Status,
+)
 from backend.app.schemas.normalized_job import NormalizedJob
 from backend.app.services.job_sources.base import JobSourceAdapter
+from backend.app.services.job_sources.normalization import (
+    parse_date,
+    remote_policy,
+    employment,
+    salary_fields,
+)
 
-
-# Catalog of vetted Apify Actors for each portal
-ACTOR_CATALOG: dict[str, dict[str, Any]] = {
-    "naukri": {
-        "actor_id": "muhammetakkurtt/naukri-job-scraper",
-        "publisher": "muhammetakkurtt",
-        "pricing_model": "PAY_PER_EVENT",
-        "price_per_item_usd": 0.0015,
-        "capabilities": ["read_listings", "read_salary", "extract_recruiter_info"],
-        "supports_application": False,
-    },
-    "instahyre": {
-        "actor_id": "getascraper/instahyre-jobs-scraper",
-        "publisher": "getascraper",
-        "pricing_model": "PAY_PER_EVENT",
-        "price_per_item_usd": 0.00105,
-        "capabilities": ["read_listings", "read_skills", "read_salary"],
-        "supports_application": False,
-    },
-    "wellfound": {
-        "actor_id": "radeance/wellfound-job-listings-scraper",
-        "publisher": "radeance",
-        "pricing_model": "PAY_PER_EVENT",
-        "price_per_item_usd": 0.01,
-        "capabilities": ["read_listings", "read_equity", "read_company_metadata"],
-        "supports_application": False,
-    },
-    "work_at_a_startup": {
-        "actor_id": "antishock/workatastartup-jobs-scraper",
-        "publisher": "antishock",
-        "pricing_model": "PAY_PER_EVENT",
-        "price_per_item_usd": 0.004,
-        "capabilities": ["read_listings", "read_salary_equity", "read_batch_founders"],
-        "supports_application": False,
-    },
-    "cutshort": {
-        "actor_id": "getascraper/cutshort-scraper",
-        "publisher": "getascraper",
-        "pricing_model": "PAY_PER_EVENT",
-        "price_per_item_usd": 0.0013,
-        "capabilities": ["read_listings", "read_salary_bands", "read_skills"],
-        "supports_application": False,
-    },
-    "hirist": {
-        "actor_id": "crawlpilot/hirist-tech-advanced-jobs-scraper",
-        "publisher": "crawlpilot",
-        "pricing_model": "PAY_PER_EVENT",
-        "price_per_item_usd": 0.02,
-        "capabilities": ["read_listings", "read_full_jd", "read_skills"],
-        "supports_application": False,
-    },
-    "foundit": {
-        "actor_id": "shahidirfan/Foundit-Jobs-Scraper",
-        "publisher": "shahidirfan",
-        "pricing_model": "PAY_PER_EVENT",
-        "price_per_item_usd": 0.001,
-        "capabilities": ["read_listings", "read_locations", "read_descriptions"],
-        "supports_application": False,
-    },
-    "indeed": {
-        "actor_id": "misceres/indeed-scraper",
-        "publisher": "misceres",
-        "pricing_model": "PAY_PER_EVENT",
-        "price_per_item_usd": 0.006,
-        "capabilities": ["read_listings", "read_salaries", "read_company_reviews"],
-        "supports_application": False,
-    },
-    "glassdoor": {
-        "actor_id": "memo23/apify-glassdoor-reviews-scraper",
-        "publisher": "memo23",
-        "pricing_model": "PAY_PER_EVENT",
-        "price_per_item_usd": 0.004,
-        "capabilities": ["read_listings", "read_employer_intel"],
-        "supports_application": False,
-    },
+# Kept for import compatibility; nothing in this catalog is represented as vetted.
+ACTOR_CATALOG = {
+    name: {"available": False, "review_required": True}
+    for name in (
+        "naukri",
+        "instahyre",
+        "wellfound",
+        "work_at_a_startup",
+        "cutshort",
+        "hirist",
+        "foundit",
+        "indeed",
+        "glassdoor",
+    )
 }
 
 
-class ApifyJobAdapter(JobSourceAdapter):
-    """Adapter for executing and normalizing Apify job-scraping Actors."""
+class ActorConfiguration(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    actor_id: Annotated[
+        str, StringConstraints(pattern=r"^[A-Za-z0-9_-]+[~/][A-Za-z0-9_-]+$")
+    ]
+    build: Annotated[str, StringConstraints(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+$")]
+    enabled: bool = False
+    reviewed: bool = False
+    schema_evidence_url: PublicHTTPSURL
+    pricing_evidence_url: PublicHTTPSURL
+    permission_evidence_url: PublicHTTPSURL
+    # Only the actor pricing model with a documented provider-side charge cap is allowed.
+    pricing_model: Literal["PAY_PER_EVENT"]
+    estimated_per_item_usd: float = Field(ge=0, le=100, allow_inf_nan=False)
+    estimated_start_usd: float = Field(0, ge=0, le=100, allow_inf_nan=False)
+    field_map: dict[
+        Literal["query", "keywords", "location", "locations", "limit"],
+        Annotated[str, StringConstraints(pattern=r"^[A-Za-z][A-Za-z0-9_]{0,80}$")],
+    ]
+    fixed_input: dict[str, Any] = Field(default_factory=dict)
 
+    def build_input(self, query):
+        values = {
+            "query": " ".join(query.keywords),
+            "keywords": query.keywords,
+            "location": ", ".join(query.locations),
+            "locations": query.locations,
+            "limit": query.limit,
+        }
+        if "limit" not in self.field_map or len(set(self.field_map.values())) != len(
+            self.field_map
+        ):
+            raise ValueError("Actor mapping must have a unique bounded limit field")
+        return {
+            **self.fixed_input,
+            **{field: values[key] for key, field in self.field_map.items()},
+        }
+
+
+class ApifyJobAdapter(JobSourceAdapter):
     source_name = "apify"
 
     def __init__(
         self,
-        api_token: str | None = None,
-        http_client: httpx.AsyncClient | None = None,
-    ) -> None:
-        settings = get_settings()
-        self.api_token = api_token if api_token is not None else settings.APIFY_API_TOKEN
-        self.monthly_limit_usd = settings.APIFY_MONTHLY_LIMIT_USD
-        self._client = http_client
-
-    def normalize_portal_record(self, portal: str, item: dict[str, Any]) -> NormalizedJob:
-        """Transform raw actor dataset item into NormalizedJob conforming to the unified schema."""
-        portal_clean = portal.lower().replace("-", "_")
-        now = datetime.now(timezone.utc)
-
-        # 1. Title
-        title = (
-            item.get("title")
-            or item.get("jobTitle")
-            or item.get("position")
-            or item.get("role")
-            or "Software Engineer"
-        ).strip()
-
-        # 2. Company
-        company_name = (
-            item.get("company")
-            or item.get("companyName")
-            or item.get("employer")
-            or item.get("organization")
-            or "Unknown Company"
+        api_token=None,
+        http_client=None,
+        source_name=None,
+        configuration=None,
+        budget=None,
+        settings=None,
+    ):
+        self.settings = settings or get_settings()
+        self.api_token = (
+            api_token if api_token is not None else self.settings.APIFY_API_TOKEN
         )
-        if isinstance(company_name, dict):
-            company_name = company_name.get("name") or "Unknown Company"
-
-        # 3. URL
-        url = (
-            item.get("jobUrl")
-            or item.get("url")
-            or item.get("link")
-            or item.get("job_url")
-            or item.get("applyUrl")
-            or f"https://{portal_clean}.com/job/{item.get('id', hash(title + company_name))}"
+        self.source_name = source_name or "apify"
+        self.monthly_limit_usd = self.settings.APIFY_MONTHLY_LIMIT_USD
+        self._client, self.budget = http_client, budget
+        self.configuration = (
+            configuration
+            if configuration is not None
+            else self.settings.APIFY_SOURCES.get(self.source_name, {})
         )
 
-        # 4. Location & Remote
-        raw_location = item.get("location") or item.get("city") or item.get("jobLocation")
-        if isinstance(raw_location, dict):
-            raw_location = raw_location.get("name") or raw_location.get("city")
-        location_str = str(raw_location) if raw_location else None
+    def actor(self):
+        try:
+            actor = ActorConfiguration.model_validate(self.configuration)
+            actor.build_input(DiscoveryQuery())
+            return actor
+        except ValueError:
+            raise DiscoveryError(
+                Status.CONFIGURATION_REQUIRED,
+                "Reviewed actor schema, permissions, pinned build, pricing and input mapping required",
+            ) from None
 
-        is_remote = bool(
-            item.get("isRemote")
-            or item.get("remote")
-            or (location_str and "remote" in location_str.lower())
-            or ("remote" in title.lower())
-        )
+    def validate_configuration(self):
+        if not self.api_token:
+            return ["Apify token not configured"]
+        try:
+            actor = self.actor()
+        except DiscoveryError as exc:
+            return [str(exc)]
+        if not actor.enabled or not actor.reviewed:
+            return ["Paid source is disabled or actor review is incomplete"]
+        if (
+            self.settings.APIFY_PER_RUN_CAP_USD <= 0
+            or self.monthly_limit_usd < self.settings.APIFY_PER_RUN_CAP_USD
+        ):
+            return ["A positive per-run and monthly budget is required"]
+        return []
 
-        # 5. Salary
-        salary_raw = (
-            item.get("salary")
-            or item.get("salaryRange")
-            or item.get("compensation")
-            or item.get("pay")
-        )
-        if isinstance(salary_raw, dict):
-            salary_raw = f"{salary_raw.get('min', '')} - {salary_raw.get('max', '')} {salary_raw.get('currency', '')}"
-
-        # 6. Skills
-        skills = item.get("skills") or item.get("skillsRequired") or item.get("tags") or []
+    def normalize_portal_record(self, portal, item):
+        if portal not in ACTOR_CATALOG:
+            raise ValueError("Unknown Apify source")
+        if not isinstance(item, dict):
+            raise ValueError("Dataset item must be an object")
+        company = item.get("companyName") or item.get("company")
+        company_data = company if isinstance(company, dict) else {}
+        company = company_data.get("name") if company_data else company
+        skills = item.get("skills") or []
         if isinstance(skills, str):
             skills = [s.strip() for s in skills.split(",") if s.strip()]
+        location = item.get("location")
+        if isinstance(location, list):
+            location = ", ".join(location)
+        raw = item.get("salary") or item.get("compensation")
+        intelligence = {
+            key: company_data[key]
+            for key in ("stage", "batch", "technologies", "remote_policy")
+            if key in company_data
+        }
+        from backend.app.core.job_urls import canonical_job_url
 
-        # 7. Description
-        desc = (
-            item.get("description")
-            or item.get("jobDescription")
-            or item.get("jd")
-            or item.get("summary")
-        )
-
-        # 8. Date posted
-        date_posted = None
-        raw_date = item.get("postedDate") or item.get("datePosted") or item.get("createdAt")
-        if raw_date and isinstance(raw_date, str):
-            try:
-                date_posted = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
-            except Exception:
-                pass
-
-        meta = ACTOR_CATALOG.get(portal_clean, {})
-        actor_id = meta.get("actor_id", "apify-generic")
-
+        for key in ("profile_url", "founder_urls"):
+            if key in company_data:
+                urls = (
+                    company_data[key]
+                    if isinstance(company_data[key], list)
+                    else [company_data[key]]
+                )
+                intelligence[key] = [canonical_job_url(url) for url in urls[:20]]
+        if intelligence:
+            intelligence.update(
+                {"source": portal, "verification_status": "source_reported"}
+            )
         return NormalizedJob(
-            source_name=f"apify_{portal_clean}",
-            source_job_id=str(item.get("id") or item.get("jobId") or item.get("slug") or ""),
-            original_url=url,
-            company_name=str(company_name).strip(),
-            company_domain=item.get("domain") or item.get("companyDomain"),
-            title=title,
-            description=str(desc) if desc else None,
-            location=location_str,
-            is_remote=is_remote,
-            remote_type="remote" if is_remote else "unspecified",
-            employment_type=item.get("employmentType") or "full_time",
-            experience_level=item.get("experience") or item.get("seniority"),
-            salary_raw=str(salary_raw) if salary_raw else None,
-            skills_required=skills if isinstance(skills, list) else [],
-            application_url=item.get("applyUrl") or item.get("applicationUrl") or url,
-            date_posted=date_posted,
-            last_observed_date=now,
-            retrieved_at=now,
+            source_name=portal,
+            source_job_id=str(
+                item.get("id") or item.get("jobId") or item.get("slug") or ""
+            )
+            or None,
+            original_url=item.get("url")
+            or item.get("jobUrl")
+            or item.get("job_url")
+            or item.get("link"),
+            application_url=item.get("applyUrl") or item.get("applicationUrl"),
+            company_name=company,
+            company_domain=item.get("companyDomain") or company_data.get("domain"),
+            title=item.get("title") or item.get("jobTitle") or item.get("role"),
+            description=item.get("description") or item.get("jobDescription"),
+            location=location,
+            remote_type="remote"
+            if item.get("isRemote") is True
+            else remote_policy(location),
+            employment_type=employment(item.get("employmentType")),
+            experience_level=item.get("seniority"),
+            salary_raw=str(raw) if raw else None,
+            **salary_fields(raw),
+            equity=item.get("equity"),
+            skills_required=skills,
+            date_posted=parse_date(item.get("postedDate") or item.get("datePosted")),
+            company_intelligence=intelligence,
             data_provenance={
-                "adapter": "ApifyJobAdapter",
-                "portal": portal_clean,
-                "actor_id": actor_id,
-                "pricing_model": meta.get("pricing_model"),
+                "adapter": type(self).__name__,
+                "portal": portal,
+                "actor_id": self.configuration.get("actor_id"),
             },
-            is_confirmed_current=False,  # Observed via scrape, not confirmed active until verified
+            source_verification_status="source_reported",
+            is_confirmed_current=False,
         )
+
+    async def discover(self, query, *, allow_paid=False, reservation_id=None, **kwargs):
+        portal = kwargs.pop("portal", self.source_name)
+        if "linkedin" in portal:
+            raise PermissionError(
+                "STRICT RESTRICTION: LinkedIn requests are not permitted through Apify"
+            )
+        if portal != self.source_name or portal not in ACTOR_CATALOG:
+            return DiscoveryResult(
+                source=self.source_name,
+                status=Status.UNSUPPORTED,
+                errors=[
+                    "Select an explicit configured platform; platform overrides are forbidden"
+                ],
+            )
+        if query.page != 1:
+            return DiscoveryResult(
+                source=portal,
+                status=Status.UNSUPPORTED,
+                errors=[
+                    "Actor pagination is not configured; use bounded first-page discovery"
+                ],
+            )
+        errors = []
+        if not self.api_token:
+            return DiscoveryResult(
+                source=portal,
+                status=Status.MISSING_CREDENTIALS,
+                errors=["Apify token not configured"],
+            )
+        errors = self.validate_configuration()
+        if errors:
+            return DiscoveryResult(
+                source=portal, status=Status.CONFIGURATION_REQUIRED, errors=errors
+            )
+        if not allow_paid or self.budget is None:
+            return DiscoveryResult(
+                source=portal,
+                status=Status.AUTH_REQUIRED,
+                errors=[
+                    "Use authenticated REST discovery with explicit paid approval and durable budget"
+                ],
+            )
+        actor = self.actor()
+        cap = self.settings.APIFY_PER_RUN_CAP_USD
+        estimate = (
+            actor.estimated_start_usd + query.limit * actor.estimated_per_item_usd
+        )
+        if estimate > cap:
+            return DiscoveryResult(
+                source=portal,
+                status=Status.BUDGET_EXHAUSTED,
+                errors=["Estimated cost exceeds per-run cap"],
+            )
+        reservation_id = reservation_id or uuid.uuid4().hex
+        try:
+            await self.budget.reserve(
+                "apify", reservation_id, cap, self.monthly_limit_usd
+            )
+        except DiscoveryError as exc:
+            return DiscoveryResult(source=portal, status=exc.status, errors=[str(exc)])
+        result = DiscoveryResult(
+            source=portal,
+            status=Status.UPSTREAM_ERROR,
+            usage={
+                "reserved_usd": cap,
+                "estimated_usd": estimate,
+                "accounting": "full_cap_retained",
+                "billing_final": False,
+            },
+        )
+        client = self._client or httpx.AsyncClient(timeout=20, follow_redirects=False)
+        headers = {"Authorization": f"Bearer {self.api_token}"}
+        run = {}
+
+        async def request(method, path, **options):
+            response = await client.request(
+                method,
+                "https://api.apify.com/v2/" + path,
+                headers=headers,
+                timeout=20,
+                follow_redirects=False,
+                **options,
+            )
+            if response.status_code == 429:
+                await self.budget.cooldown("apify")
+                raise DiscoveryError(
+                    Status.RATE_LIMITED, "Apify rate limited; cooldown recorded"
+                )
+            if response.status_code in (401, 403):
+                raise DiscoveryError(
+                    Status.AUTH_REQUIRED, "Apify authorization required"
+                )
+            if response.status_code not in (200, 201):
+                raise DiscoveryError(
+                    Status.UPSTREAM_ERROR, f"Apify returned HTTP {response.status_code}"
+                )
+            return response.json()
+
+        try:
+            async with asyncio.timeout(70):
+                run = (
+                    await request(
+                        "POST",
+                        f"actors/{actor.actor_id.replace('/', '~')}/runs",
+                        json=actor.build_input(query),
+                        params={
+                            "build": actor.build,
+                            "waitForFinish": 15,
+                            "timeout": 60,
+                            "maxTotalChargeUsd": cap,
+                            "maxItems": query.limit,
+                            "restartOnError": "false",
+                        },
+                    )
+                )["data"]
+                run_id = run["id"]
+                if not re.fullmatch(r"[A-Za-z0-9_-]+", run_id):
+                    raise ValueError("Invalid run identifier")
+                result.provider_run_id = run_id
+                await self.budget.attach_run(reservation_id, run_id)
+                for _ in range(3):
+                    if run.get("status") not in (
+                        "READY",
+                        "QUEUED",
+                        "RUNNING",
+                        "TIMING-OUT",
+                        "ABORTING",
+                    ):
+                        break
+                    run = (
+                        await request(
+                            "GET", f"actor-runs/{run_id}", params={"waitForFinish": 10}
+                        )
+                    )["data"]
+                if run.get("status") != "SUCCEEDED":
+                    raise DiscoveryError(
+                        Status.UPSTREAM_ERROR,
+                        "Actor did not succeed: " + str(run.get("status", "UNKNOWN")),
+                    )
+                dataset = run["defaultDatasetId"]
+                if not re.fullmatch(r"[A-Za-z0-9_-]+", dataset):
+                    raise ValueError("Invalid dataset identifier")
+                offset = 0
+                while offset < query.limit:
+                    page_size = min(50, query.limit - offset)
+                    items = await request(
+                        "GET",
+                        f"datasets/{dataset}/items",
+                        params={"offset": offset, "limit": page_size, "format": "json"},
+                    )
+                    if not isinstance(items, list):
+                        raise ValueError("Dataset must be an array")
+                    for index, item in enumerate(items[:page_size]):
+                        try:
+                            job = self.normalize_portal_record(portal, item)
+                            job.data_provenance.update(
+                                {"provider_run_id": run_id, "actor_build": actor.build}
+                            )
+                            result.jobs.append(job)
+                        except (
+                            ValueError,
+                            TypeError,
+                            KeyError,
+                            AttributeError,
+                            OverflowError,
+                        ):
+                            result.rejected_count += 1
+                            result.errors.append(
+                                f"Dataset record {offset + index}: invalid listing evidence"
+                            )
+                    offset += page_size
+                    if len(items) < page_size:
+                        break
+                result.status = (
+                    Status.PARTIAL
+                    if result.rejected_count
+                    else Status.SUCCESS
+                    if result.jobs
+                    else Status.NO_RESULTS
+                )
+                actual = run.get("usageTotalUsd")
+                import math
+
+                if (
+                    isinstance(actual, (int, float))
+                    and not isinstance(actual, bool)
+                    and math.isfinite(actual)
+                    and actual >= 0
+                ):
+                    result.usage["reported_actual_usd"] = actual
+        except DiscoveryError as exc:
+            result.status = exc.status
+            result.errors.append(str(exc))
+        except (httpx.HTTPError, ValueError, KeyError, TypeError, TimeoutError):
+            result.status = Status.UPSTREAM_ERROR
+            result.errors.append("Apify transport, timeout or invalid response")
+        finally:
+            # A disconnected caller cannot leave an unbounded run. The provider timeout remains the fallback.
+            if result.provider_run_id and run.get("status") in (
+                "READY",
+                "QUEUED",
+                "RUNNING",
+                "TIMING-OUT",
+                "ABORTING",
+            ):
+                try:
+                    await asyncio.shield(
+                        request("POST", f"actor-runs/{result.provider_run_id}/abort")
+                    )
+                except (httpx.HTTPError, DiscoveryError, ValueError):
+                    result.errors.append(
+                        "Abort could not be confirmed; provider timeout and reserved cap remain"
+                    )
+            await asyncio.shield(
+                self.budget.finish(
+                    reservation_id,
+                    str(result.status),
+                    result.usage.get("reported_actual_usd"),
+                )
+            )
+            if self._client is None:
+                await client.aclose()
+        return result
 
     async def fetch_jobs(
-        self,
-        portal: str = "naukri",
-        search_query: str = "software engineer",
-        location: str = "India",
-        limit: int = 10,
-        **kwargs: Any,
-    ) -> list[NormalizedJob]:
-        portal_clean = portal.lower().replace("-", "_")
-
-        # STRICT SAFETY GUARD: LinkedIn
-        if "linkedin" in portal_clean:
+        self, portal=None, search_query="", location="", limit=20, **kwargs
+    ):
+        if portal and "linkedin" in portal:
             raise PermissionError(
-                "STRICT RESTRICTION: LinkedIn automated scraping and application submission is prohibited by Job Pulse Agent policy."
+                "STRICT RESTRICTION: LinkedIn requests are not permitted through Apify"
             )
+        result = await self.discover(
+            DiscoveryQuery(
+                keywords=[search_query] if search_query else [],
+                locations=[location] if location else [],
+                limit=limit,
+            ),
+            portal=portal or self.source_name,
+            **kwargs,
+        )
+        if result.status not in (Status.SUCCESS, Status.NO_RESULTS, Status.PARTIAL):
+            raise DiscoveryError(result.status, "; ".join(result.errors))
+        return result.jobs
 
-        if portal_clean not in ACTOR_CATALOG:
-            raise ValueError(f"Portal '{portal}' is not supported in Apify catalog. Supported: {list(ACTOR_CATALOG.keys())}")
-
-        actor_meta = ACTOR_CATALOG[portal_clean]
-        actor_id = actor_meta["actor_id"]
-
-        # Cost check: Estimate expected cost
-        expected_cost = actor_meta.get("price_per_item_usd", 0.005) * limit
-        if expected_cost > self.monthly_limit_usd:
-            raise ValueError(
-                f"Projected run cost ${expected_cost:.4f} exceeds configured safety limit ${self.monthly_limit_usd:.2f}."
-            )
-
-        if not self.api_token:
-            logger.warning(f"No Apify API token configured. Cannot run remote Actor '{actor_id}'.")
-            return []
-
-        # Run Actor via Apify HTTP API
-        client = self._client or httpx.AsyncClient(timeout=60.0)
-        close_client = self._client is None
-        username, actor_name = actor_id.split("/")
-        url = f"https://api.apify.com/v2/acts/{username}~{actor_name}/runs"
-
-        actor_input = {
-            "query": search_query,
-            "keyword": search_query,
-            "location": location,
-            "maxItems": limit,
-            "limit": limit,
+    async def test_connection(self):
+        # Checking configuration never launches a billable actor or implies a live portal connection.
+        return {
+            "status": "not_attempted",
+            "source": self.source_name,
+            "sample_count": 0,
+            "message": "; ".join(self.validate_configuration())
+            or "Configuration valid; live connection not verified",
+            "details": {"live_verified": False},
         }
-
-        try:
-            resp = await client.post(
-                url,
-                json=actor_input,
-                headers={"Authorization": f"Bearer {self.api_token}"},
-                params={"waitForFinish": 60},
-            )
-            if resp.status_code not in (200, 201):
-                logger.error(f"Apify Actor run returned HTTP {resp.status_code}: {resp.text}")
-                return []
-
-            run_data = resp.json().get("data", {})
-            dataset_id = run_data.get("defaultDatasetId")
-            if not dataset_id:
-                return []
-
-            # Retrieve items from dataset
-            items_url = f"https://api.apify.com/v2/datasets/{dataset_id}/items"
-            items_resp = await client.get(
-                items_url,
-                headers={"Authorization": f"Bearer {self.api_token}"},
-            )
-            if items_resp.status_code != 200:
-                return []
-
-            raw_items = items_resp.json()
-            return [self.normalize_portal_record(portal_clean, item) for item in raw_items]
-        except Exception as e:
-            logger.error(f"Error executing Apify Actor '{actor_id}': {e}")
-            return []
-        finally:
-            if close_client:
-                await client.aclose()
-
-    async def test_connection(self) -> dict[str, Any]:
-        """Test connectivity and token validity against Apify API."""
-        if not self.api_token:
-            return {
-                "status": "not_attempted",
-                "source": self.source_name,
-                "sample_count": 0,
-                "message": "Apify API token not configured. Set APIFY_API_TOKEN in .env or provide via MCP.",
-                "details": {
-                    "catalog_size": len(ACTOR_CATALOG),
-                    "supported_portals": list(ACTOR_CATALOG.keys()),
-                },
-            }
-
-        client = self._client or httpx.AsyncClient(timeout=15.0)
-        close_client = self._client is None
-        try:
-            resp = await client.get(
-                "https://api.apify.com/v2/users/me",
-                headers={"Authorization": f"Bearer {self.api_token}"},
-            )
-            if resp.status_code == 200:
-                user_info = resp.json().get("data", {})
-                return {
-                    "status": "passed",
-                    "source": self.source_name,
-                    "sample_count": len(ACTOR_CATALOG),
-                    "message": f"Apify connection verified for user '{user_info.get('username')}'",
-                    "details": {
-                        "username": user_info.get("username"),
-                        "plan": user_info.get("plan", {}).get("id"),
-                        "supported_portals": list(ACTOR_CATALOG.keys()),
-                    },
-                }
-            else:
-                return {
-                    "status": "failed",
-                    "source": self.source_name,
-                    "sample_count": 0,
-                    "message": f"Apify auth failed with HTTP {resp.status_code}: {resp.text}",
-                    "details": {},
-                }
-        except Exception as e:
-            return {
-                "status": "failed",
-                "source": self.source_name,
-                "sample_count": 0,
-                "message": f"Apify connection test failed: {e}",
-                "details": {},
-            }
-        finally:
-            if close_client:
-                await client.aclose()
