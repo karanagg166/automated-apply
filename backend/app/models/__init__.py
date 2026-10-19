@@ -35,3 +35,5 @@ from backend.app.models.discovery import (
     DiscoveryMonthlyBudget,
     DiscoveryReservation,
 )
+
+from backend.app.models.contact_enrichment import (ContactEnrichmentRun, ContactEvidence, ContactIdentity, ContactLookup)

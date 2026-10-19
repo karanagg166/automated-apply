@@ -46,5 +46,19 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements.txt
       - run: python -m pip install -r backend/requirements.txt
+      - run: python -m pip install ruff bandit
+      - name: Contact enrichment lint
+        run: >-
+          ruff check --isolated --select E9,F,I
+          backend/app/services/contact_enrichment
+          backend/app/api/v1/contact_enrichment.py
+          backend/app/models/contact_enrichment.py
+          backend/tests/test_contact* backend/tests/contact_enrichment_fakes.py
+          backend/scripts/*contact* backend/scripts/verify_phase3_migration.py
+      - name: Contact enrichment security scan
+        run: >-
+          bandit -q -r backend/app/services/contact_enrichment
+          backend/app/api/v1/contact_enrichment.py
+          backend/app/models/contact_enrichment.py
       - run: python -m compileall -q backend/app
       - run: pytest backend/tests -v

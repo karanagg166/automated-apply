@@ -54,7 +54,6 @@ async def lookup_or_create_company(
         }
 
 
-@mcp.tool()
 async def get_cached_company_contacts(
     company_id: str,
     role_filter: str | None = None,

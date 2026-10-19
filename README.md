@@ -11,6 +11,7 @@ An AI-powered job discovery, recruiter contact enrichment, and personalized cold
 - Protected multi-source discovery runs, manual imports, observation history, conservative deduplication and profile ranking.
 - Public professional URL discovery through configured search or manual evidence; LinkedIn outreach stays manual.
 - Existing company/job/contact repositories, budget reservations and factual draft preparation.
+- Protected founder/recruiter contact enrichment, provenance, suppression and contextual recommendations; paid providers default to disabled.
 - FastMCP tools accepting explicit candidate inputs; LinkedIn submissions remain manual.
 
 Paid platform actors require reviewed configuration and explicit budgets; no actor or account is pre-verified. See [the discovery pipeline](docs/job-discovery-pipeline.md) for source status, API examples, migration 004 and test instructions.
@@ -104,6 +105,7 @@ uvicorn backend.app.main:app --reload --port 8000
 - [Architecture & System Design](docs/architecture.md)
 - [Architectural Decision Records (ADRs)](docs/decisions.md)
 - [Implementation Roadmap & Progress](docs/roadmap.md)
+- [Phase 3 Contact Enrichment](docs/contact-enrichment.md)
 - [Phase 1 Implementation Plan](docs/plans/2026-10-14-phase-1-backend-foundation.md)
 
 ---
@@ -266,3 +268,9 @@ no LinkedIn HTTP collection, account integration, applications, messages or conn
 See [job-discovery-pipeline.md](docs/job-discovery-pipeline.md) for bounded Apify/Serper budgets,
 provider failure outcomes, startup metadata, normalization, deduplication and isolated PostgreSQL tests.
 No production migration or deployment is performed.
+
+## Phase 3 contact research
+
+Bearer-protected contact enrichment now reuses company contacts and Phase 2B people evidence, with optional Apollo and SignalHire adapters, durable credit reservations, safe identity reconciliation and explainable recommendations. Paid execution is disabled by default. Both adapters are mock-tested; no live provider authorization or enrichment has been verified. Migration 005 is additive and has only been verified in disposable PostgreSQL, with no production migration or deployment.
+
+See [contact enrichment](docs/contact-enrichment.md) for configuration, provider documentation, API examples, verification semantics, retention, tests and the fictional demonstration. No messages are sent.

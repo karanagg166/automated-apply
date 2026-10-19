@@ -210,3 +210,11 @@ ingestion and connectivity functions are no longer registered on the unauthentic
 Public people discovery calls only a configured search API; user/company/LinkedIn URLs are validated
 and stored but never fetched. Manual action URLs and ambiguous evidence require human review.
 Existing `ApplicationAssistant` and Gemini answer-generation contracts remain separate from discovery.
+
+## Phase 3 contact enrichment foundation
+
+The protected contact router uses `contact_enrichment.service` to bridge existing contacts and `DiscoveredPerson` observations. The local-first waterfall chooses explicit providers through a capability factory. Apollo matching is synchronous with reveal/waterfall disabled; SignalHire uses synchronous `withoutWaterfall`. No enrichment or cached-contact tool is exposed by MCP.
+
+`contact_enrichment_runs` records idempotency and outcomes; `contact_evidence` preserves observations and verification claims; `contact_identities` holds company-scoped provider/profile mappings. Company-row locks and unique mappings guard reconciliation. `contact_provider_lookups` commits before HTTP to prevent repeated billable work after restart. Shared `DiscoveryBudget` reservations and existing `CreditManager` usage audit commit independently of contact ingestion. Unknown actual billing stays distinct from estimates. No synthetic ApiKeyPool balance is seeded.
+
+Suppression and human corrections live on the existing contacts table. Ranking reports evidence-derived categories and contextual role relevance; guessed addresses stay separate. See [contact enrichment](contact-enrichment.md) for the provider matrix, retention maintenance and API contract. Migration 005 has no production execution hook.

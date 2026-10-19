@@ -71,7 +71,7 @@ async def log_requests_middleware(request: Request, call_next):
 @app.middleware("http")
 async def private_discovery_boundary(request: Request, call_next):
     private = request.url.path.startswith(
-        ("/api/v1/discovery", "/api/v1/jobs", "/api/v1/companies/")
+        ("/api/v1/discovery", "/api/v1/jobs", "/api/v1/companies/", "/api/v1/contact-enrichment", "/api/v1/contacts/")
     )
     if private:
         from backend.app.core.security import require_api_token
@@ -210,3 +210,7 @@ app.include_router(application_answers_router)
 from backend.app.api.v1.discovery import router as discovery_router
 
 app.include_router(discovery_router)
+
+from backend.app.api.v1.contact_enrichment import router as contact_enrichment_router
+
+app.include_router(contact_enrichment_router)

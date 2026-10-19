@@ -82,5 +82,13 @@ See [job-discovery-pipeline.md](job-discovery-pipeline.md) for the honest platfo
 No account passwords, LinkedIn outbound actions, applications, production migration or deployment.
 GitHub PR and CI state are release evidence, not an indication that paid accounts were connected.
 
-Next smallest milestone: approved founder/contact enrichment with Apollo/SignalHire, preserving
-public evidence and ambiguity; then a separately approved Gmail outreach draft/review workflow.
+Phase 3 contact enrichment is implemented below. The next milestone is the separately scoped
+Gmail outreach draft/review workflow.
+
+## Phase 3 implementation status
+
+Implemented: local-first professional contact enrichment; Phase 2B people bridge; mock-tested Apollo and SignalHire synchronous adapters; explicit cost/authorization gates; durable concurrency-safe reservations and lookup claims; contact identities and append-only evidence; suppression/human corrections; email verification guards; contextual recommendations; protected APIs; additive migration 005 and disposable PostgreSQL verification. See [contact enrichment](contact-enrichment.md).
+
+Not live verified: provider credentials, account eligibility, authentication, provider enrichment or mailbox verification. No production migration, deployment or outbound communication was performed.
+
+Next milestone: Phase 4 secondary Gmail OAuth and personalized drafts with explicit human approval and sending. This requires current identity/evidence/suppression checks and supported email verification. Phase 3 does not initiate it.
