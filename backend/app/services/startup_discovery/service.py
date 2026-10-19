@@ -295,8 +295,13 @@ class StartupDiscoveryService:
             profile,
             filters,
         )
+        if (company.metadata_ or {}).get("identity_review_required"):
+            ranking["missing_information"].append("company_identity_requires_review")
         return dict(
             company_id=str(company.id),
+            identity_review_required=bool(
+                (company.metadata_ or {}).get("identity_review_required")
+            ),
             company_name=company.name,
             company_domain=company.domain,
             attributes=attributes,

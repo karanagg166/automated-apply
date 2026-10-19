@@ -1,7 +1,8 @@
 """Repository for Company entity operations."""
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.app.models.company import Company
 from backend.app.repositories.base import BaseRepository
 
@@ -27,8 +28,8 @@ class CompanyRepository(BaseRepository[Company]):
             return None
         cleaned = name.strip()
         stmt = select(Company).where(func.lower(Company.name) == cleaned.lower())
-        result = await self.session.execute(stmt)
-        return result.scalars().first()
+        candidates = list((await self.session.scalars(stmt.limit(2))).all())
+        return candidates[0] if len(candidates) == 1 else None
 
     async def get_or_create(
         self,
@@ -44,8 +45,39 @@ class CompanyRepository(BaseRepository[Company]):
         existing = None
         if domain:
             existing = await self.get_by_domain(domain)
+        ambiguous_name = False
         if not existing:
-            candidate = await self.get_by_name(name)
+            matches = list(
+                (
+                    await self.session.scalars(
+                        select(Company)
+                        .where(func.lower(Company.name) == name.strip().lower())
+                        .limit(2)
+                    )
+                ).all()
+            )
+            ambiguous_name = len(matches) > 1
+            candidate = matches[0] if len(matches) == 1 else None
+            if ambiguous_name and not domain:
+                unresolved = list(
+                    (
+                        await self.session.scalars(
+                            select(Company)
+                            .where(
+                                func.lower(Company.name) == name.strip().lower(),
+                                Company.domain.is_(None),
+                            )
+                            .limit(2)
+                        )
+                    ).all()
+                )
+                candidate = unresolved[0] if len(unresolved) == 1 else None
+            if (
+                candidate
+                and domain
+                and (candidate.metadata_ or {}).get("identity_review_required")
+            ):
+                candidate = None
             # Equal display names do not override conflicting known company domains.
             if candidate and (
                 not domain
@@ -78,5 +110,11 @@ class CompanyRepository(BaseRepository[Company]):
             linkedin_url=linkedin_url,
             email_pattern=email_pattern,
             is_catch_all=is_catch_all,
+            metadata_={
+                "identity_review_required": True,
+                "identity_resolution": "ambiguous_name_without_domain",
+            }
+            if ambiguous_name and not domain
+            else {},
         )
         return new_company, True

@@ -44,6 +44,10 @@ async def resolve_company(session, item):
         ):
             raise ValueError("Source company identity conflicts with domain")
         if item.domain and not company.domain:
+            if (company.metadata_ or {}).get("identity_review_required"):
+                raise ValueError(
+                    "Ambiguous company association requires employer review"
+                )
             company.domain = item.domain
         return company
     if by_domain:
@@ -60,7 +64,11 @@ async def resolve_company(session, item):
         )
     ).all()
     if len(matches) == 1 and (
-        not item.domain or item.verification_status == "human_confirmed"
+        not item.domain
+        or (
+            item.verification_status == "human_confirmed"
+            and not (matches[0].metadata_ or {}).get("identity_review_required")
+        )
     ):
         if item.domain:
             matches[0].domain = item.domain

@@ -313,3 +313,67 @@ async def test_company_retention_preserves_human_evidence(db_session):
         == 1
     )
     assert await db_session.scalar(select(func.count()).select_from(Company)) == 1
+
+
+@pytest.mark.asyncio
+async def test_domainless_job_never_selects_arbitrary_namesake(db_session):
+    from backend.app.repositories.company import CompanyRepository
+
+    repo = CompanyRepository(db_session)
+    first, _ = await repo.get_or_create("Shared Fictional Name", "first.example")
+    second, _ = await repo.get_or_create("Shared Fictional Name", "second.example")
+    assert first.id != second.id
+    assert await repo.get_by_name("Shared Fictional Name") is None
+    item = job(
+        company_name="Shared Fictional Name",
+        company_domain=None,
+        source_job_id="ambiguous-job",
+        original_url="https://fictional.example/ambiguous",
+    )
+    result = await JobIngestionService(db_session).ingest_jobs([item])
+    assert result.inserted_count == 1
+    saved = await db_session.get(Job, UUID(result.job_ids[0]))
+    company = await db_session.get(Company, saved.company_id)
+    assert company.id not in {first.id, second.id} and company.domain is None
+    assert company.metadata_["identity_review_required"]
+    repeat = await JobIngestionService(db_session).ingest_jobs([item])
+    assert repeat.duplicate_count == 1 and repeat.job_ids == result.job_ids
+    assert (await StartupDiscoveryService(db_session).detail(company.id))[
+        "identity_review_required"
+    ]
+    new, _ = await repo.get_or_create("Shared Fictional Name", "third.example")
+    assert new.id != company.id and company.domain is None
+    confirmed = await ingest_company(
+        db_session,
+        observed(
+            name="Shared Fictional Name",
+            domain="fourth.example",
+            source_company_id="fourth",
+            verification_status="human_confirmed",
+        ),
+    )
+    assert confirmed.id != company.id and company.domain is None
+
+
+@pytest.mark.asyncio
+async def test_existing_job_observation_preserves_company_when_name_becomes_ambiguous(
+    db_session,
+):
+    from backend.app.repositories.company import CompanyRepository
+
+    repo = CompanyRepository(db_session)
+    item = job(
+        company_name="Shared Fictional Name",
+        company_domain="first.example",
+        source_job_id="known-job",
+        original_url="https://fictional.example/known",
+    )
+    original = await JobIngestionService(db_session).ingest_jobs([item])
+    first = await db_session.get(Job, UUID(original.job_ids[0]))
+    await repo.get_or_create("Shared Fictional Name", "second.example")
+    repeated = await JobIngestionService(db_session).ingest_jobs(
+        [item.model_copy(update={"company_domain": None})]
+    )
+    assert repeated.duplicate_count == 1 and repeated.rejected_count == 0
+    assert first.company_id == (await repo.get_by_domain("first.example")).id
+    assert await db_session.scalar(select(func.count()).select_from(Company)) == 2
