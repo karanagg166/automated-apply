@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 from typing import Any
-from sqlalchemy import String, Text, Numeric, DateTime, ForeignKey, JSON, UniqueConstraint
+from sqlalchemy import String, Text, Numeric, DateTime, ForeignKey, JSON, UniqueConstraint, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.app.models.base import Base, GUID, TimestampMixin
 
@@ -38,6 +38,13 @@ class Contact(Base, TimestampMixin):
     enrichment_source: Mapped[str | None] = mapped_column(String(100), nullable=True)
     last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     metadata_: Mapped[dict[str, Any]] = mapped_column("metadata", JSON, default=dict, nullable=False)
+
+    do_not_contact: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    suppression_reason: Mapped[str | None] = mapped_column(Text)
+    last_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    human_review_notes: Mapped[str | None] = mapped_column(Text)
+    human_corrected: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relationships
     company = relationship("Company", back_populates="contacts")

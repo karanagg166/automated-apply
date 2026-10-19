@@ -102,9 +102,22 @@ class Settings(BaseSettings):
 
     # External Provider API Keys (Empty by default in dev/test)
     HUNTER_API_KEY: str | None = None
-    APOLLO_API_KEY: str | None = None
+    APOLLO_API_KEY: SecretStr | None = None
     SERPER_API_KEY: str | None = None
-    SIGNALHIRE_API_KEY: str | None = None
+    SIGNALHIRE_API_KEY: SecretStr | None = None
+
+    APOLLO_ENRICHMENT_ENABLED: bool = False
+    SIGNALHIRE_ENRICHMENT_ENABLED: bool = False
+    APOLLO_PER_RUN_LIMIT: int = Field(default=5, ge=0, le=100)
+    SIGNALHIRE_PER_RUN_LIMIT: int = Field(default=2, ge=0, le=100)
+    # Account-specific maximum cost must be confirmed before paid execution.
+    APOLLO_CREDITS_PER_LOOKUP: int = Field(default=0, ge=0, le=100)
+    SIGNALHIRE_CREDITS_PER_LOOKUP: int = Field(default=0, ge=0, le=100)
+    CONTACT_ENRICHMENT_MAX_PEOPLE_PER_RUN: int = Field(default=10, ge=1, le=25)
+    CONTACT_ENRICHMENT_MAX_CONCURRENCY: int = Field(default=2, ge=1, le=8)
+    CONTACT_CACHE_TTL_DAYS: int = Field(default=30, ge=1, le=90)
+    CONTACT_RETENTION_DAYS: int = Field(default=90, ge=1, le=365)
+    CONTACT_PROVIDER_TIMEOUT_SECONDS: float = Field(default=20, ge=1, le=60, allow_inf_nan=False)
 
     # Apify Integration Configuration
     APIFY_API_TOKEN: str | None = Field(
