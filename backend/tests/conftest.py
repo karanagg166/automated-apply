@@ -188,3 +188,18 @@ async def sending_bundle(db_session, phase2_profile):
         sender = SendFixture()
         service = GmailSendingService(db_session, settings, connection, sender)
         yield service, draft, sender, contact, evidence, mailbox
+
+
+@pytest_asyncio.fixture
+async def application_target(db_session, phase2_profile):
+    from backend.tests.phase5a_fakes import target
+    return await target(db_session, phase2_profile)
+
+
+@pytest.fixture
+def packet_service(db_session, phase2_settings):
+    from backend.app.services.application_answer_service import ApplicationAnswerService
+    from backend.app.services.applications.service import ApplicationPacketService
+    from backend.tests.phase2a_fakes import FakeProvider
+    answer = ApplicationAnswerService(db_session, phase2_settings, FakeProvider())
+    return ApplicationPacketService(db_session, answer)

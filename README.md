@@ -13,10 +13,12 @@ An AI-powered job discovery, recruiter contact enrichment, and personalized cold
 - Existing company/job/contact repositories, budget reservations and factual draft preparation.
 - Protected founder/recruiter contact enrichment, provenance, suppression and contextual recommendations; paid providers default to disabled.
 - Authenticated, opt-in Streamable HTTP MCP tools using saved candidate facts; LinkedIn actions remain manual.
+- Reviewed Gmail sending with separate OAuth authorization, owner confirmation and durable audit history.
+- Standalone Naukri application packets: saved-profile mapping, confirmed resume selection, grounded screening drafts, revision-specific approval, manual handoff and self-reported completion.
 
 Paid platform actors require reviewed configuration and explicit budgets; no actor or account is pre-verified. See [the discovery pipeline](docs/job-discovery-pipeline.md) for source status, API examples, migration 004 and test instructions.
 
-Account integrations, automated submissions, outreach sending, background scheduling and a dashboard are future work. The diagrams below describe the target architecture, not deployed components.
+Automated submissions, background scheduling and a dashboard remain future work. The diagrams below describe the target architecture, not deployed components. Automated Apply is a modular backend; the `apply-extension` repository is not a dependency or part of its approved scope.
 
 ---
 
@@ -241,7 +243,7 @@ Read [the application answer engine guide](docs/ai-application-answer-engine.md)
 fictional API examples, provider configuration, evidence confirmation, limits and offline tests.
 Migration 003 is additive and requires 001/002 first; production execution needs separate approval.
 All new endpoints reuse `JOB_AGENT_API_TOKEN` and fail closed when it is unset. Gemini credentials
-are optional for deterministic features and independent of Codex/Chrome extension credentials.
+are optional for deterministic features and independent of Codex credentials.
 Environment defaults are read fallbacks; import explicitly with:
 
 ```bash
@@ -316,3 +318,34 @@ environment authorization. No real account was connected or email sent during im
 tests use mocks and disposable PostgreSQL. No production migration/deployment was performed.
 See [approved Gmail sending](docs/gmail-approved-sending.md) for OAuth, API examples, crash recovery,
 manual reconciliation, limits, Google verification and rollout requirements.
+
+## Phase 5A: standalone application preparation
+
+Saved Naukri jobs can produce a read-only application preview and durable packet through protected
+REST. The packet preserves the candidate version, confirmed resume resource snapshot, actual
+application URL, profile links, questions, grounded answers, review state and audit history.
+Explicit narrative generation reuses the Gemini answer engine; preview, creation and MCP reads
+make no paid calls. Missing facts stay missing. All narratives require human review.
+
+Approval enables a copy-ready `manual_handoff`; it does not open a browser or submit an application.
+The owner opens the returned URL, uploads the actual resume, completes the form, and records an
+explicit `user_reported_submitted` confirmation. Neither approval nor opening changes `Job.status`.
+No provider-confirmed submission, portal authentication, browser worker or extension is implemented.
+Naukri live access and destination availability remain unverified.
+
+- [Application architecture, lifecycle, API and migration 008](docs/application-preparation.md)
+- [Complete fictional API walkthrough and Naukri handoff](docs/naukri-application-handoff.md)
+
+Migration **008 follows 001–007**, adds only `job_agent` application objects and preserves prior
+records. No production migration or deployment is authorized. Run the full regression suite with
+`PROFILE_TEST_DATABASE_URL` as described above to include all PostgreSQL checks, or run only:
+
+```bash
+PROFILE_TEST_DATABASE_URL=postgresql://postgres:<test-password>@127.0.0.1:5432/candidate_profile_test \
+  backend/venv/bin/pytest backend/tests/test_phase5a_postgres.py -q
+backend/venv/bin/python -m backend.scripts.demo_application_preparation
+```
+
+The demonstration uses fictional data, an injected fake Gemini response, and an in-memory database.
+It performs no network calls, production writes, submissions or email sends. REST operates with
+MCP disabled; five application read tools use the separate `read_applications` capability.

@@ -85,5 +85,16 @@ jobs:
           backend/scripts/verify_phase4b_migration.py
       - name: Backend security scan
         run: bandit -q -r backend/app
+      - name: Phase 5A lint
+        run: >-
+          ruff check --isolated --select E9,F,I
+          backend/app/services/applications backend/app/api/v1/applications.py
+          backend/app/schemas/applications.py backend/app/models/application_packet.py
+          backend/app/repositories/application_packet.py
+          backend/scripts/verify_phase5a_migration.py backend/scripts/demo_application_preparation.py
+          backend/tests/phase5a_fakes.py backend/tests/test_application_packet*.py
+          backend/tests/test_application_question_mapping.py backend/tests/test_application_resume_selection.py
+          backend/tests/test_application_status_tracking.py backend/tests/test_naukri_application_capabilities.py
+          backend/tests/test_application_handoff.py backend/tests/test_phase5a_postgres.py
       - run: python -m compileall -q backend/app
       - run: pytest backend/tests -v

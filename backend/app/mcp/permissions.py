@@ -13,6 +13,7 @@ class Capability(StrEnum):
     READ_DISCOVERY = "read_discovery"
     READ_CONTACTS = "read_contacts"
     READ_INTEGRATION_STATUS = "read_integration_status"
+    READ_APPLICATIONS = "read_applications"
     PREPARE_DRAFT = "prepare_draft"
     MUTATE_JOB_STATE = "mutate_job_state"
     EXECUTE_PAID_PROVIDER = "execute_paid_provider"
@@ -33,6 +34,11 @@ TOOL_CAPABILITIES = {
     "get_integration_status": "read_integration_status",
     "get_outreach_draft": "prepare_draft",
     "prepare_founder_outreach_draft": "prepare_draft",
+    "get_application_capabilities": "read_applications",
+    "preview_job_application": "read_applications",
+    "get_application_packet": "read_applications",
+    "get_application_readiness": "read_applications",
+    "get_application_handoff": "read_applications",
 }
 # Legacy functions remain importable by trusted Python code, never registered with MCP.
 LEGACY_CAPABILITIES = {

@@ -33,7 +33,7 @@ PostgreSQL URL explicitly skip that check.
    Industry preferences await reliably normalized company industry evidence.
 2. Add supported provider/account integrations with credential isolation and replace the single
    shared token with proper user/session authentication before multi-user use.
-3. Integrate apply-extension and supported application workflows; keep LinkedIn connections,
+3. Prepare supported applications within this standalone backend; keep LinkedIn connections,
    messages and submissions manual. LinkedIn discovery must use authorized/permitted methods.
 4. Add contact enrichment and Gmail outreach with explicit review and sending approval.
 5. Add scheduling, dashboard, resume extraction and deployment only in their approved phases.
@@ -54,10 +54,10 @@ Implemented:
 - [x] Server-side evidence/claim/length validation; narratives always require review.
 - [x] Protected APIs, explicit draft persistence, review states and profile-version staleness.
 - [x] Additive migration 003 and offline SQLite/PostgreSQL migration/concurrency tests.
-- [x] Read-only extension architecture inspection and stable typed integration contract.
+- [x] Typed application answer contracts. Historical extension exploration is superseded by the standalone architecture decision below.
 - [ ] Apply migration 003 to production after separate approval.
 - [ ] Configure and assess live Gemini output with the user's own approved account/data.
-- [ ] Extend staleness to revisions of individual evidence/resource dependencies.
+- [x] Phase 5A packet staleness covers evidence/resource dependencies; historical standalone answer drafts keep profile-version staleness.
 
 ## Phase 2B — job and startup discovery
 
@@ -115,8 +115,28 @@ No Gmail send MCP tool, background scheduling, automated follow-ups or delivery/
 See [approved sending](gmail-approved-sending.md). Live OAuth/send authorization and production
 migration/deployment remain owner-operated work; implementation/CI send no real messages.
 
-## Next: Phase 5 — Supported Naukri Application Automation with MCP and Browser Extension Integration
+## Phase 5A — Naukri application preparation, review and tracking
 
-Separate supported connector/browser-extension work, permission and platform review, application
-preview/approval, idempotent submission and confirmation. No browser/session automation or
-Naukri/Instahyre/YC/Wellfound submissions are initiated by Phase 4A.
+The `apply-extension` repository is not a dependency of Automated Apply and is not part of the
+approved project scope. This supersedes historical references to extension integration.
+The existing FastAPI/PostgreSQL/FastMCP/Gemini modular backend remains the execution boundary;
+there are no additional deployable services or browser dependencies.
+
+Implemented: saved-job preview, confirmed profile/link mapping, explicit or unique confirmed primary
+resume selection, user-entered screening schemas, reuse of grounded Gemini answers, missing-data
+readiness, durable packet/field revisions, stale evidence detection, human review and exact approval,
+manual Naukri/employer URL handoff, explicit self-reported completion and independent outcome
+tracking. Five read-only MCP tools share the REST services. Migration 008 adds backend-only tables,
+append-only history, submission guards and isolated PostgreSQL concurrency verification.
+
+Not performed: production migrations/deployment, live Naukri login or endpoint calls, live Gemini
+generation, actual browser actions, file uploads or application submissions. See
+[application preparation](application-preparation.md) and [handoff](naukri-application-handoff.md).
+
+## Next: Phase 5B — Supported Browser/Application Execution Without apply-extension
+
+First independently verify a permitted integration method using authoritative provider documentation
+or an explicit authorization agreement. Browser automation needs its own architectural and
+provider-permission review. No execution architecture or implementation is pre-approved; private
+portal endpoints, imported sessions, CAPTCHA/MFA bypass and automatic mass applications remain
+outside scope. Phase 5B is not implemented automatically as part of Phase 5A.

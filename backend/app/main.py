@@ -13,6 +13,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.v1.application_answers import router as application_answers_router
+from backend.app.api.v1.applications import router as applications_router
 from backend.app.core.config import get_settings
 from backend.app.core.logging import logger
 from backend.app.core.security import require_api_token
@@ -78,9 +79,12 @@ async def log_requests_middleware(request: Request, call_next):
 @app.middleware("http")
 async def private_discovery_boundary(request: Request, call_next):
     private = request.url.path.startswith(
-        ("/api/v1/discovery", "/api/v1/jobs", "/api/v1/companies/", "/api/v1/contact-enrichment", "/api/v1/contacts/", "/api/v1/outreach", "/api/v1/integrations")
+        ("/api/v1/discovery", "/api/v1/jobs", "/api/v1/companies/", "/api/v1/contact-enrichment", "/api/v1/contacts/", "/api/v1/outreach", "/api/v1/integrations", "/api/v1/applications", "/api/v1/application-packets")
     )
     callback = request.url.path == "/api/v1/integrations/gmail/oauth/callback"
+    application_request = request.url.path.startswith(
+        ("/api/v1/applications", "/api/v1/application-packets")
+    ) or "/application-" in request.url.path
     if private and not callback:
         from fastapi import HTTPException
 
@@ -98,10 +102,10 @@ async def private_discovery_boundary(request: Request, call_next):
         chunks = []
         async for chunk in request.stream():
             size += len(chunk)
-            if size > 1048576:
+            if size > (65536 if application_request else 1048576):
                 return JSONResponse(
                     status_code=413,
-                    content={"detail": "Discovery request exceeds 1 MiB"},
+                    content={"detail": "Application request exceeds 64 KiB" if application_request else "Discovery request exceeds 1 MiB"},
                     headers={"Cache-Control": "no-store"},
                 )
             chunks.append(chunk)
@@ -214,7 +218,7 @@ app.add_middleware(MCPBoundary)
 
 @app.exception_handler(RequestValidationError)
 async def private_validation_error(request: Request, exc: RequestValidationError):
-    if request.url.path.startswith(("/api/v1/integrations", "/api/v1/outreach")):
+    if request.url.path.startswith(("/api/v1/integrations", "/api/v1/outreach", "/api/v1/applications", "/api/v1/application-packets")) or "/application-" in request.url.path:
         return JSONResponse({"detail": "Invalid request"}, status_code=422,
                             headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
     return await request_validation_exception_handler(request, exc)
@@ -222,6 +226,7 @@ async def private_validation_error(request: Request, exc: RequestValidationError
 
 # Candidate facts and answer drafts share the Phase 1 authentication boundary.
 app.include_router(application_answers_router)
+app.include_router(applications_router)
 
 from backend.app.api.v1.discovery import router as discovery_router
 
