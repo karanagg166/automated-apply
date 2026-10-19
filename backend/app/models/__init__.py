@@ -45,3 +45,5 @@ from backend.app.models.outreach_send import OutreachSendAttempt, SendConfirmati
 from backend.app.models.application_packet import (
     ApplicationPacket, ApplicationPacketField, ApplicationEvent, ApplicationSubmissionEvidence,
 )
+
+from backend.app.models.startup import (CompanySourceObservation, StartupShortlistEntry, ProviderConnectionCheck, ProviderAccessWindow)

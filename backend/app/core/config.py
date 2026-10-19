@@ -193,6 +193,13 @@ class Settings(BaseSettings):
     APIFY_SOURCES: dict[str, dict] = Field(default_factory=dict)
     APIFY_PER_RUN_CAP_USD: float = Field(default=0, ge=0, le=100, allow_inf_nan=False)
     PEOPLE_SEARCH_ENABLED: bool = False
+    # Retention rights are separate from credentials and paid authorization.
+    PUBLIC_SEARCH_RIGHTS_REVIEWED: bool = False
+    LINKEDIN_SEARCH_RETENTION_AUTHORIZED: bool = False
+    # Exact company domains mapped to operator-reviewed permission evidence URLs.
+    PUBLIC_SEARCH_ALLOWED_DOMAINS: dict[str, str] = Field(default_factory=dict)
+    PUBLIC_SEARCH_PERMISSION_EVIDENCE_URL: str | None = None
+    PROVIDER_VERIFICATION_TTL_HOURS: int = Field(24, ge=1, le=168)
     DISCOVERY_TIMEOUT_SECONDS: float = Field(
         default=90, ge=5, le=180, allow_inf_nan=False
     )

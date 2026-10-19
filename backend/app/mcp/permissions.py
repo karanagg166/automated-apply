@@ -23,6 +23,11 @@ class Capability(StrEnum):
 
 READ_CAPABILITIES = {c.value for c in Capability if c.value.startswith("read_")}
 TOOL_CAPABILITIES = {
+    "search_discovered_startups": "read_discovery",
+    "get_startup_intelligence": "read_discovery",
+    "get_startup_hiring_opportunities": "read_discovery",
+    "get_startup_professional_contacts": "read_contacts",
+    "get_startup_discovery_status": "read_integration_status",
     "list_discovery_sources": "read_discovery",
     "search_saved_jobs": "read_discovery",
     "get_job_details": "read_discovery",

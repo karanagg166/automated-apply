@@ -67,12 +67,24 @@ class SavedDataService:
             "intelligence": company.metadata_,
         }
 
-    async def contacts(self, company_id, limit=25):
+    async def contacts(self, company_id, limit=25, company_size=None):
         if not 1 <= limit <= 100:
             raise ValueError("pagination_out_of_bounds")
         company = await self.session.get(Company, company_id)
         if not company:
             raise LookupError("Company not found")
+        if company_size is not None:
+            from types import SimpleNamespace
+
+            company = SimpleNamespace(
+                name=company.name,
+                domain=company.domain,
+                metadata_={
+                    **(company.metadata_ or {}),
+                    "employee_count": company_size.get("employee_count"),
+                    "_verified_team_size_band": company_size.get("team_size_band"),
+                },
+            )
         contacts = (
             await self.session.scalars(
                 select(Contact)

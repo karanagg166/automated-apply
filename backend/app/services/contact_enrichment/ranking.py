@@ -12,7 +12,9 @@ def rank_contact(contact, company, job=None, ttl_days=30):
     metadata = contact.metadata_ or {}
     reasons, score = [], 0
     employee_count = (company.metadata_ or {}).get("employee_count")
-    small = type(employee_count) is int and employee_count <= 50
+    small = (type(employee_count) is int and employee_count <= 50) or (
+        company.metadata_ or {}
+    ).get("_verified_team_size_band") in {"1-10", "11-50"}
     large = type(employee_count) is int and employee_count >= 250
     recruiter = any(
         term in role for term in ("recruit", "talent", "human resources", "hr")
@@ -35,7 +37,7 @@ def rank_contact(contact, company, job=None, ttl_days=30):
         score += 40
         reasons.append("Reported recruiting or engineering management role")
     elif executive:
-        score += 35 if small else 10 if large else 20
+        score += 45 if small else 10 if large else 20
         reasons.append(
             "Technical or executive leadership at a known small company"
             if small
@@ -63,8 +65,6 @@ def rank_contact(contact, company, job=None, ttl_days=30):
         reasons.append("Contact evidence checked within cache lifetime")
     else:
         reasons.append("Evidence requires a freshness review")
-    if contact.linkedin_url:
-        score += 5
     review = bool(metadata.get("identity_review_required"))
     suppressed = bool(contact.do_not_contact)
     if review:
@@ -103,6 +103,7 @@ def rank_contact(contact, company, job=None, ttl_days=30):
         "manual_outreach_review_available": bool(
             not suppressed
             and not review
+            and is_fresh
             and (
                 contact.linkedin_url
                 or contact.email_status in {"provider_reported", "verified"}

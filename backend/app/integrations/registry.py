@@ -21,6 +21,9 @@ class CapabilityStatus(StrEnum):
 async def connector_registry(session, settings=None):
     settings = settings or get_settings()
     sources = source_registry(settings)
+    from backend.app.services.startup_discovery.connectivity import ProviderConnectivity
+
+    startup_status = await ProviderConnectivity(session, None, settings).status()
     output = []
     for platform in (
         "linkedin",
@@ -42,7 +45,10 @@ async def connector_registry(session, settings=None):
         if platform == "linkedin":
             status = (
                 CapabilityStatus.MOCK
-                if settings.PEOPLE_SEARCH_ENABLED and settings.SERPER_API_KEY
+                if settings.PEOPLE_SEARCH_ENABLED
+                and settings.SERPER_API_KEY
+                and settings.PUBLIC_SEARCH_RIGHTS_REVIEWED
+                and settings.LINKEDIN_SEARCH_RETENTION_AUTHORIZED
                 else CapabilityStatus.CONFIGURATION
             )
         caps = {
@@ -53,13 +59,23 @@ async def connector_registry(session, settings=None):
             else CapabilityStatus.CONFIGURATION,
         }
         if platform in {"work_at_a_startup", "wellfound"}:
-            caps["discover_companies"] = status
+            caps["discover_companies"] = CapabilityStatus.MANUAL
         if platform == "linkedin":
             caps["discover_jobs"] = CapabilityStatus.MANUAL
             caps["discover_people"] = status
             caps["send_email"] = CapabilityStatus.UNSUPPORTED
+        diagnostic = next(
+            (s for s in startup_status["providers"] if s["provider"] == platform), None
+        )
+        if diagnostic and diagnostic["live_verified"]:
+            caps["discover_jobs"] = CapabilityStatus.LIVE
         output.append(
-            {"platform": platform, "capabilities": caps, "live_verified": False}
+            {
+                "platform": platform,
+                "capabilities": caps,
+                "live_verified": bool(diagnostic and diagnostic["live_verified"]),
+                "discovery_connection": diagnostic,
+            }
         )
     for name in ("apollo", "signalhire"):
         configured = bool(getattr(settings, name.upper() + "_API_KEY")) and getattr(
@@ -105,12 +121,16 @@ async def connector_registry(session, settings=None):
                 "create_email_draft": CapabilityStatus.UNSUPPORTED,
                 "prepare_local_draft": CapabilityStatus.AVAILABLE,
                 "send_email": CapabilityStatus.AVAILABLE
-                if settings.GMAIL_SENDING_ENABLED and gmail["send_capability"] == "send_authorized"
-                else CapabilityStatus.UNSUPPORTED if not settings.GMAIL_SENDING_ENABLED
-                else CapabilityStatus.AUTHORIZATION if connected else CapabilityStatus.CONFIGURATION,
+                if settings.GMAIL_SENDING_ENABLED
+                and gmail["send_capability"] == "send_authorized"
+                else CapabilityStatus.UNSUPPORTED
+                if not settings.GMAIL_SENDING_ENABLED
+                else CapabilityStatus.AUTHORIZATION
+                if connected
+                else CapabilityStatus.CONFIGURATION,
                 "send_requires_owner_confirmation": True,
                 "submit_application": CapabilityStatus.UNSUPPORTED,
             },
         }
     )
-    return {"connectors": output}
+    return {"connectors": output, "startup_discovery": startup_status}

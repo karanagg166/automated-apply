@@ -22,7 +22,9 @@ async def prune_provider_data(session, retention_days=90):
     contacts = (
         await session.scalars(
             select(Contact).where(
-                Contact.enrichment_source.in_(["apollo", "signalhire"]),
+                Contact.enrichment_source.in_(
+                    ["apollo", "signalhire", "public_search", "official_company"]
+                ),
                 Contact.human_corrected.is_(False),
             )
         )
@@ -33,7 +35,12 @@ async def prune_provider_data(session, retention_days=90):
         )
     for contact in contacts:
         await session.refresh(contact)
-    contacts = [c for c in contacts if not c.human_corrected]
+    contacts = [
+        c
+        for c in contacts
+        if not c.human_corrected
+        and not (c.metadata_ or {}).get("identity_human_confirmed")
+    ]
     contacts = [
         c
         for c in contacts
@@ -56,6 +63,38 @@ async def prune_provider_data(session, retention_days=90):
                     hashlib.sha256(contact.email.casefold().encode()).hexdigest(),
                 )
             )
+        provider_mappings = (
+            await session.scalars(
+                select(ContactIdentity).where(
+                    ContactIdentity.contact_id == contact.id,
+                    ContactIdentity.namespace.in_(
+                        ["public_search", "official_company"]
+                    ),
+                )
+            )
+        ).all()
+        suppression_keys.extend(
+            (
+                "suppressed_provider_" + mapping.namespace,
+                hashlib.sha256(mapping.identity_key.encode()).hexdigest(),
+            )
+            for mapping in provider_mappings
+        )
+        professional = (
+            await session.scalars(
+                select(ContactIdentity).where(
+                    ContactIdentity.contact_id == contact.id,
+                    ContactIdentity.namespace == "professional_url",
+                )
+            )
+        ).all()
+        suppression_keys.extend(
+            (
+                "suppressed_professional_url",
+                hashlib.sha256(mapping.identity_key.encode()).hexdigest(),
+            )
+            for mapping in professional
+        )
         await session.execute(
             delete(ContactIdentity).where(
                 ContactIdentity.contact_id == contact.id,
