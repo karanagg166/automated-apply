@@ -16,7 +16,7 @@ def setup_logging() -> logging.Logger:
 
     # Avoid adding duplicate handlers if already configured
     if not logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
+        handler = logging.StreamHandler(sys.stderr)
         handler.setLevel(log_level)
         formatter = logging.Formatter(
             fmt="%(asctime)s [%(levelname)s] %(name)s (%(filename)s:%(lineno)d): %(message)s",

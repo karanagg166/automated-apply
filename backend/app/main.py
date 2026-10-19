@@ -4,24 +4,30 @@ import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any
-from fastapi import FastAPI, Depends, Request, status, Query
+
+from fastapi import Depends, FastAPI, Query, Request, status
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.app.api.v1.application_answers import router as application_answers_router
 from backend.app.core.config import get_settings
-from backend.app.core.security import require_api_token
 from backend.app.core.logging import logger
-from backend.app.db.session import get_db_session, get_engine, close_db_engine
-from backend.app.mcp_server import mcp
-from backend.app.repositories.job import JobRepository
+from backend.app.core.security import require_api_token
+from backend.app.db.session import close_db_engine, get_db_session, get_engine
+from backend.app.integrations.logging import install_oauth_log_filter
+from backend.app.mcp.auth import MCPBoundary
+from backend.app.mcp.registry import mcp
 from backend.app.schemas.credit import CreditBudgetStatus
 from backend.app.schemas.job import JobRead
 from backend.app.services.credit_manager import (
-    CreditManager,
     CreditBudgetExhaustedError,
+    CreditManager,
 )
-from backend.app.api.v1.application_answers import router as application_answers_router
 
+install_oauth_log_filter()
 settings = get_settings()
 
 
@@ -31,14 +37,15 @@ async def lifespan(app: FastAPI):
     logger.info(f"Starting Job Pulse Agent API in '{settings.ENVIRONMENT}' mode...")
     # Initialize DB engine connection
     try:
-        engine = get_engine()
+        get_engine()
         logger.info(
             f"Connected to database engine (schema: {settings.DATABASE_SCHEMA})"
         )
     except Exception as e:
         logger.error(f"Failed to initialize database engine during startup: {e}")
 
-    yield
+    async with mcp_app.lifespan(app):
+        yield
 
     logger.info("Shutting down Job Pulse Agent API...")
     await close_db_engine()
@@ -71,11 +78,13 @@ async def log_requests_middleware(request: Request, call_next):
 @app.middleware("http")
 async def private_discovery_boundary(request: Request, call_next):
     private = request.url.path.startswith(
-        ("/api/v1/discovery", "/api/v1/jobs", "/api/v1/companies/", "/api/v1/contact-enrichment", "/api/v1/contacts/")
+        ("/api/v1/discovery", "/api/v1/jobs", "/api/v1/companies/", "/api/v1/contact-enrichment", "/api/v1/contacts/", "/api/v1/outreach", "/api/v1/integrations")
     )
-    if private:
-        from backend.app.core.security import require_api_token
+    callback = request.url.path == "/api/v1/integrations/gmail/oauth/callback"
+    if private and not callback:
         from fastapi import HTTPException
+
+        from backend.app.core.security import require_api_token
 
         try:
             await require_api_token(request, None)
@@ -100,6 +109,7 @@ async def private_discovery_boundary(request: Request, call_next):
     response = await call_next(request)
     if private:
         response.headers["Cache-Control"] = "no-store"
+        response.headers["Referrer-Policy"] = "no-referrer"
     return response
 
 
@@ -185,9 +195,8 @@ async def list_jobs(
     session: AsyncSession = Depends(get_db_session),
 ) -> list[JobRead]:
     """List discovered jobs with optional status filter."""
-    repo = JobRepository(session)
-    jobs = await repo.list_jobs(limit=limit, offset=offset, status=status)
-    return [JobRead.model_validate(j) for j in jobs]
+    from backend.app.services.saved_data import SavedDataService
+    return await SavedDataService(session).jobs(limit, offset, status)
 
 
 from backend.app.api.v1.profile import router as profile_router
@@ -195,13 +204,20 @@ from backend.app.api.v1.profile import router as profile_router
 app.include_router(profile_router)
 
 
-# Mount FastMCP SSE Endpoint
-try:
-    mcp_app = mcp.http_app(transport="sse")
-    app.mount(settings.FASTMCP_MOUNT_PATH, mcp_app)
-    logger.info(f"FastMCP server mounted at {settings.FASTMCP_MOUNT_PATH}")
-except Exception as e:
-    logger.warning(f"Could not mount FastMCP as sub-app (will run standalone): {e}")
+# Exactly one stateless Streamable HTTP endpoint; explicit native host/origin guard.
+mcp_app = mcp.http_app(path="/", transport="http", stateless_http=True, json_response=True,
+                       host_origin_protection=True, allowed_hosts=settings.MCP_ALLOWED_HOSTS,
+                       allowed_origins=settings.MCP_ALLOWED_ORIGINS)
+app.mount("/mcp", mcp_app)
+app.add_middleware(MCPBoundary)
+
+
+@app.exception_handler(RequestValidationError)
+async def private_validation_error(request: Request, exc: RequestValidationError):
+    if request.url.path.startswith(("/api/v1/integrations", "/api/v1/outreach")):
+        return JSONResponse({"detail": "Invalid request"}, status_code=422,
+                            headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+    return await request_validation_exception_handler(request, exc)
 
 
 # Candidate facts and answer drafts share the Phase 1 authentication boundary.
@@ -214,3 +230,41 @@ app.include_router(discovery_router)
 from backend.app.api.v1.contact_enrichment import router as contact_enrichment_router
 
 app.include_router(contact_enrichment_router)
+
+from uuid import UUID
+
+from backend.app.api.v1.integrations import router as integrations_router
+from backend.app.api.v1.outreach import router as outreach_router
+from backend.app.repositories.candidate_profile import ProfileNotFoundError
+from backend.app.services.saved_data import SavedDataService
+
+app.include_router(integrations_router)
+app.include_router(outreach_router)
+
+
+@app.exception_handler(LookupError)
+@app.exception_handler(ProfileNotFoundError)
+async def missing_saved_record(request: Request, exc: Exception):
+    return JSONResponse({"detail": "Saved record or candidate profile not found"}, status_code=404,
+                        headers={"Cache-Control": "no-store"})
+
+
+@app.get("/api/v1/jobs/{job_id}", dependencies=[Depends(require_api_token)])
+async def saved_job_detail(job_id: UUID, session: AsyncSession = Depends(get_db_session)):
+    return await SavedDataService(session).job(job_id)
+
+
+@app.get("/api/v1/jobs/{job_id}/match", dependencies=[Depends(require_api_token)])
+async def saved_job_match(job_id: UUID, session: AsyncSession = Depends(get_db_session)):
+    return await SavedDataService(session).match(job_id)
+
+
+@app.get("/api/v1/companies/{company_id}/details", dependencies=[Depends(require_api_token)])
+async def saved_company_detail(company_id: UUID, session: AsyncSession = Depends(get_db_session)):
+    return await SavedDataService(session).company(company_id)
+
+
+@app.get("/api/v1/companies/{company_id}/recommended-contacts", dependencies=[Depends(require_api_token)])
+async def saved_company_contacts(company_id: UUID, limit: int = Query(25, ge=1, le=100),
+                                 session: AsyncSession = Depends(get_db_session)):
+    return await SavedDataService(session).contacts(company_id, limit)

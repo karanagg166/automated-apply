@@ -2,25 +2,23 @@
 
 import uuid
 from typing import Any
-from fastmcp import FastMCP
+
 from backend.app.core.config import get_settings
 from backend.app.db.session import get_db_context
 from backend.app.repositories.company import CompanyRepository
-from backend.app.repositories.job import JobRepository
 from backend.app.repositories.contact import ContactRepository
-from backend.app.services.credit_manager import CreditManager
-from backend.app.services.email_candidate_generator import EmailCandidateGenerator
-from backend.app.services.job_sources.factory import JobSourceFactory
+from backend.app.repositories.job import JobRepository
 from backend.app.services.application_assistant import (
     ApplicationAssistant,
     CandidateProfile,
 )
+from backend.app.services.credit_manager import CreditManager
+from backend.app.services.email_candidate_generator import EmailCandidateGenerator
+from backend.app.services.job_sources.factory import JobSourceFactory
 
 settings = get_settings()
-mcp = FastMCP(settings.FASTMCP_SERVER_NAME)
 
 
-@mcp.tool()
 async def lookup_or_create_company(
     name: str,
     domain: str | None = None,
@@ -90,7 +88,6 @@ async def get_cached_company_contacts(
         ]
 
 
-@mcp.tool()
 def generate_company_email_candidates(
     first_name: str,
     last_name: str,
@@ -121,7 +118,6 @@ def generate_company_email_candidates(
     return [c.model_dump() for c in candidates]
 
 
-@mcp.tool()
 async def save_discovered_job(
     title: str,
     job_url: str,
@@ -191,7 +187,6 @@ async def save_discovered_job(
         }
 
 
-@mcp.tool()
 async def check_api_credits_status() -> dict[str, Any]:
     """Check remaining API credits, quota limits, and cooldown status across all configured external providers.
 
@@ -264,7 +259,6 @@ async def ingest_jobs_from_source(
     )
 
 
-@mcp.tool()
 async def match_job_against_profile(
     job_id: str,
     full_name: str,
@@ -306,7 +300,6 @@ async def match_job_against_profile(
         return match_res.model_dump(mode="json")
 
 
-@mcp.tool()
 async def generate_application_draft(
     job_id: str,
     full_name: str,
@@ -364,7 +357,6 @@ async def generate_application_draft(
         return draft.model_dump(mode="json")
 
 
-@mcp.tool()
 async def update_job_application_status(
     job_id: str,
     new_status: str,
@@ -395,3 +387,7 @@ async def update_job_application_status(
             if updated_job.updated_at
             else None,
         }
+
+
+# The single authoritative instance registers only Phase 4A protected tools.
+from backend.app.mcp.registry import mcp as mcp

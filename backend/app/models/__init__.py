@@ -37,3 +37,5 @@ from backend.app.models.discovery import (
 )
 
 from backend.app.models.contact_enrichment import (ContactEnrichmentRun, ContactEvidence, ContactIdentity, ContactLookup)
+
+from backend.app.models.connected_account import ConnectedAccount, OAuthState

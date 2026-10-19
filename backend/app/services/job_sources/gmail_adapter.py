@@ -147,9 +147,9 @@ class GmailJobAlertAdapter(JobSourceAdapter):
 
         try:
             # 1. Exchange refresh token for access token
-            token_url = "https://oauth2.googleapis.com/token"
+            oauth_endpoint = "https://oauth2.googleapis.com/token"
             token_resp = await client.post(
-                token_url,
+                oauth_endpoint,
                 data={
                     "client_id": self.client_id,
                     "client_secret": self.client_secret,
@@ -242,9 +242,9 @@ class GmailJobAlertAdapter(JobSourceAdapter):
         client = self._client or httpx.AsyncClient(timeout=15.0)
         close_client = self._client is None
         try:
-            token_url = "https://oauth2.googleapis.com/token"
+            oauth_endpoint = "https://oauth2.googleapis.com/token"
             token_resp = await client.post(
-                token_url,
+                oauth_endpoint,
                 data={
                     "client_id": self.client_id,
                     "client_secret": self.client_secret,

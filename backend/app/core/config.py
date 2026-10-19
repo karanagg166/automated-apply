@@ -3,8 +3,10 @@
 import re
 from functools import lru_cache
 from typing import Literal
+
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 from backend.app.core.urls import PublicHTTPSURL
 
 
@@ -17,7 +19,7 @@ class Settings(BaseSettings):
     )
     LOG_LEVEL: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     DEBUG: bool = False
-    APP_HOST: str = "0.0.0.0"
+    APP_HOST: str = "127.0.0.1"
     APP_PORT: int = 8000
 
     # Security
@@ -93,6 +95,62 @@ class Settings(BaseSettings):
     # FastMCP Server
     FASTMCP_SERVER_NAME: str = "Job Pulse Agent Tools"
     FASTMCP_MOUNT_PATH: str = "/mcp"
+    MCP_REMOTE_ENABLED: bool = False
+    MCP_API_TOKEN: SecretStr | None = None
+    MCP_ALLOW_DRAFT_CREATION: bool = False
+    MCP_MAX_REQUEST_BYTES: int = Field(default=65536, ge=1024, le=1048576)
+    MCP_MAX_CONCURRENCY: int = Field(default=3, ge=1, le=16)
+    MCP_REQUEST_TIMEOUT_SECONDS: float = Field(default=30, ge=1, le=120, allow_inf_nan=False)
+    MCP_ALLOWED_HOSTS: list[str] = Field(default_factory=lambda: ["localhost", "127.0.0.1", "[::1]"])
+    MCP_ALLOWED_ORIGINS: list[str] = Field(default_factory=list)
+    MCP_REQUIRE_TLS: bool = True
+
+    @field_validator("MCP_ALLOWED_HOSTS", "MCP_ALLOWED_ORIGINS")
+    @classmethod
+    def explicit_mcp_trust(cls, values, info):
+        from urllib.parse import urlsplit
+        for value in values:
+            if not value or any(c.isspace() for c in value) or "*" in value:
+                raise ValueError("MCP trust lists must contain explicit hosts/origins")
+            if info.field_name == "MCP_ALLOWED_ORIGINS":
+                url = urlsplit(value)
+                if (url.scheme not in {"http", "https"} or not url.hostname or url.username
+                        or url.password or url.path or url.query or url.fragment):
+                    raise ValueError("Invalid MCP origin")
+            elif any(c in value for c in "/@?#"):
+                raise ValueError("MCP_ALLOWED_HOSTS contains an invalid hostname")
+        if info.field_name == "MCP_ALLOWED_HOSTS" and not values:
+            raise ValueError("MCP_ALLOWED_HOSTS cannot be empty")
+        return values
+
+    # Separate randomly generated Fernet keys; never derive OAuth encryption from SECRET_KEY.
+    OAUTH_ENCRYPTION_KEYS: dict[str, SecretStr] = Field(default_factory=dict)
+    OAUTH_ACTIVE_KEY_ID: str | None = None
+    GMAIL_REDIRECT_URI: str | None = None
+    GMAIL_EXPECTED_EMAIL: str | None = None
+    OAUTH_STATE_TTL_SECONDS: int = Field(default=600, ge=60, le=900)
+
+    @field_validator("GMAIL_REDIRECT_URI")
+    @classmethod
+    def oauth_redirect(cls, value):
+        from urllib.parse import urlsplit
+        if not value:
+            return None
+        url = urlsplit(value)
+        if (url.username or url.password or url.query or url.fragment
+                or url.path != "/api/v1/integrations/gmail/oauth/callback"
+                or not url.hostname
+                or (url.scheme != "https" and not
+                    (url.scheme == "http" and url.hostname in {"localhost", "127.0.0.1", "::1"}))):
+            raise ValueError("GMAIL_REDIRECT_URI must be the exact HTTPS callback (HTTP loopback only)")
+        return value
+
+    @field_validator("FASTMCP_MOUNT_PATH")
+    @classmethod
+    def fixed_mcp_path(cls, value):
+        if value != "/mcp":
+            raise ValueError("Phase 4A has one MCP endpoint at /mcp/")
+        return value
 
     # Default Monthly Credit Caps per Provider (Cost-first architecture safety)
     HUNTER_MONTHLY_LIMIT: int = Field(default=25, ge=0)
