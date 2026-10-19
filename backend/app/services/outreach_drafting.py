@@ -1,9 +1,9 @@
-"""Grounded, application-local outreach. No Gmail write client or delivery code."""
+"""Grounded, application-local outreach. Approval has no Gmail side effects."""
 
 import hashlib
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Literal
 
 from pydantic import EmailStr, TypeAdapter, ValidationError
@@ -19,6 +19,7 @@ from backend.app.models.contact_enrichment import ContactEvidence
 from backend.app.models.discovery import now
 from backend.app.models.job import Job
 from backend.app.models.outreach import OutreachLog
+from backend.app.models.outreach_send import OutreachSendAttempt
 from backend.app.repositories.candidate_knowledge import CandidateKnowledgeRepository
 from backend.app.services.application_answer_service import ApplicationAnswerService
 from backend.app.services.candidate_evidence_retrieval import retrieve
@@ -39,6 +40,11 @@ def fingerprint(value):
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, default=str, ensure_ascii=False).encode()
     ).hexdigest()
+
+
+def snapshot_value(value):
+    # SQLite drops timezone offsets on reload; keep evidence digests stable across sessions.
+    return str(value.replace(tzinfo=timezone.utc)) if isinstance(value, datetime) else str(value)
 
 
 def line(value):
@@ -101,14 +107,16 @@ class OutreachDraftingService:
                 "warnings": [],
                 "snapshot": {},
             }
-        # Lock material evidence when approving; subsequent sends must recheck again in 4B.
+        # Lock and reload material evidence during both approval and sending.
         if lock:
             for model in (CandidateEvidence, CandidateResource):
-                await self.session.scalars(
+                locked_evidence = await self.session.scalars(
                     select(model)
                     .where(model.candidate_profile_id == profile.id)
+                    .execution_options(populate_existing=True)
                     .with_for_update()
                 )
+                locked_evidence.all()
         evidence = await CandidateKnowledgeRepository(self.session).relevant_evidence(
             profile.id, "project"
         )
@@ -122,6 +130,7 @@ class OutreachDraftingService:
         facts = retrieve(profile, evidence, query, "project_explanation")
         ce_stmt = (
             select(ContactEvidence)
+            .execution_options(populate_existing=True)
             .where(ContactEvidence.contact_id == contact.id)
             .order_by(ContactEvidence.id)
             .limit(100)
@@ -194,7 +203,7 @@ class OutreachDraftingService:
             "candidate_evidence": [
                 {
                     "id": str(e.id),
-                    "updated_at": str(e.updated_at),
+                    "updated_at": snapshot_value(e.updated_at),
                     "source_url": e.source_url,
                     "user_confirmed": e.user_confirmed,
                     "content": e.content,
@@ -209,7 +218,7 @@ class OutreachDraftingService:
             ],
             "links": links,
             "contact": {
-                k: str(getattr(contact, k))
+                k: snapshot_value(getattr(contact, k))
                 for k in (
                     "id",
                     "company_id",
@@ -227,7 +236,7 @@ class OutreachDraftingService:
             "contact_metadata": contact.metadata_,
             "contact_evidence": [
                 {
-                    k: getattr(e, k) if k == "provenance" else str(getattr(e, k))
+                    k: getattr(e, k) if k == "provenance" else snapshot_value(getattr(e, k))
                     for k in (
                         "id",
                         "source",
@@ -253,7 +262,7 @@ class OutreachDraftingService:
                 "title": job.title,
                 "description": job.description,
                 "url": job.job_url,
-                "updated_at": str(job.updated_at),
+                "updated_at": snapshot_value(job.updated_at),
             }
             if job
             else None,
@@ -583,6 +592,7 @@ class OutreachDraftingService:
 
     async def read(self, draft_id):
         draft = await self.get(draft_id)
+        delivery = await self.session.scalar(select(OutreachSendAttempt).where(OutreachSendAttempt.draft_id == draft.id))
         return {
             k: getattr(draft, k)
             for k in (
@@ -610,11 +620,19 @@ class OutreachDraftingService:
             "eligibility": await self.eligibility(draft),
             "requires_review": True,
             "provider_metadata": draft.generation_metadata.get("provider_metadata", {}),
-            "outbound_messages_sent": 0,
+            "outbound_messages_sent": int(bool(delivery and delivery.status == "accepted_by_gmail")),
+            "delivery_status": delivery.status if delivery else "legacy_sent_unverified" if draft.sent_at else "not_attempted",
+            "send_attempt_id": delivery.id if delivery else None,
+            "sent_draft_revision": delivery.draft_revision if delivery else None,
         }
+
+    async def editable(self, draft):
+        if draft.sent_at or await self.session.scalar(select(OutreachSendAttempt.id).where(OutreachSendAttempt.draft_id == draft.id)):
+            raise DraftConflict("send_reserved_draft_is_immutable")
 
     async def edit(self, draft_id, changes):
         draft = await self.get(draft_id, lock=True)
+        await self.editable(draft)
         if draft.draft_revision != changes.expected_revision:
             raise DraftConflict("draft_revision_conflict")
         for key, value in changes.model_dump(
@@ -633,6 +651,7 @@ class OutreachDraftingService:
 
     async def decide(self, draft_id, expected_revision, approve):
         draft = await self.get(draft_id, lock=True)
+        await self.editable(draft)
         if draft.draft_revision != expected_revision:
             raise DraftConflict("draft_revision_conflict")
         if approve:

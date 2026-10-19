@@ -3,7 +3,9 @@
 `OutreachDraftingService` is shared by REST and the opt-in MCP draft tool. It loads the saved
 primary candidate profile, confirmed project/evidence contributions, professional links,
 company/job records and Phase 3 contact evidence. Every output requires human review.
-There is **no Gmail sending, provider draft synchronization or application submission**.
+Drafting and approval never send. Phase 4B adds a separate owner-confirmed
+[Gmail send flow](gmail-approved-sending.md); provider draft synchronization and application
+submission remain outside this phase.
 Approval is a local review record, not proof of delivery.
 
 ## Generation and grounding
@@ -104,12 +106,16 @@ suppression immediately before delivery rather than trust an old approval.
 
 Migration 006 protects direct SQL edits as well: revisions advance, material text/recipient
 changes clear approval, and new fake Gmail delivery IDs or sent transitions are rejected.
-Existing real/historical sent records are preserved. `gmail_draft_id`, `gmail_message_id`,
-`gmail_thread_id` and `sent_at` stay null for Phase 4A-created drafts. The connected account
-foreign key is available for 4B; local drafting does not require or fabricate a Gmail binding.
-There is no `/api/v1/outreach/send` route or Gmail send MCP tool.
+Existing real/historical sent records are preserved. `gmail_draft_id` stays null.
+`gmail_message_id`, `gmail_thread_id` and `sent_at` are populated only after an actual
+accepted send is recorded. The
+connected sender, approval, recipient and evidence are rechecked by the separate send service.
+There is no generic `/api/v1/outreach/send` route or Gmail send MCP tool. Use draft-specific
+`send-preview` and `send` REST actions only after reviewing the exact preview. Reserved drafts
+cannot be edited or reapproved; their immutable attempt retains the approved revision and text.
+Gmail IDs/acceptance fields do not change the human approval revision. The approval response
+includes the review state; the send preview supplies the current approval hash. History includes
+local and historical records with truthful acceptance/uncertainty states.
 
-Phase 4B must separately implement least-privilege sending authorization, sender binding,
-revision-specific consent, current eligibility checks, dispatch idempotency, provider draft
-synchronization only when authorized, and actual delivery evidence. Phase 5 application
-integration remains separate and is not started by this foundation.
+See [approved Gmail sending](gmail-approved-sending.md) for the complete workflow and migration
+007, which supersedes the 006 no-delivery guard without weakening draft approval invalidation.

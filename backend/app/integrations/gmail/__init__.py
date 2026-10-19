@@ -1,1 +1,1 @@
-"""Phase 4A identity-only Gmail API access."""
+"""Narrow Gmail sending adapter. Never used by MCP or a background worker."""

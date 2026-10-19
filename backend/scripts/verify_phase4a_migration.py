@@ -177,6 +177,9 @@ async def verify(url):
         finally:
             await connection.execute("RESET ROLE")
 
+        # Current ORM includes 4B OAuth intent columns. Preserve all 006 assertions above,
+        # then upgrade the disposable database before exercising current application code.
+        await connection.execute((ROOT / "supabase/migrations/007_gmail_sending.sql").read_text())
         engine = create_async_engine(
             os.environ["DATABASE_URL"],
             pool_size=15,

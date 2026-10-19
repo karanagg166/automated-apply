@@ -89,3 +89,13 @@ logs appropriately; no sensitive tool-parameter audit table is created.
 Official references consulted: [token verification](https://gofastmcp.com/servers/auth/token-verification),
 [authorization](https://gofastmcp.com/servers/authorization), and
 [HTTP deployment and Host/Origin protection](https://gofastmcp.com/deployment/http).
+
+## Phase 4B boundary
+
+Approved Gmail sending is available only through the owner REST preview/confirmation flow.
+MCP retains its existing read/local-draft capabilities and separate bearer; `send_email` stays
+unavailable even when Gmail is authorized. No send tool, hidden job, paid provider call or
+application-submission tool was added. The owner API bearer and send confirmation must never
+be supplied to MCP clients or agents. Status is readable through existing draft/integration
+views; send history is a protected owner REST API. LinkedIn restrictions are unchanged.
+See [approved sending](gmail-approved-sending.md).

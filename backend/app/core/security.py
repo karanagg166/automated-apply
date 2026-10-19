@@ -56,6 +56,8 @@ async def require_api_token(
     token = configured.get_secret_value() if configured else ""
     if not token.strip():
         raise HTTPException(503, "Profile API authentication is not configured")
+    if len(request.headers.getlist("Authorization")) > 1:
+        raise HTTPException(401, "Ambiguous bearer credentials")
     authorization = request.headers.get("Authorization", "")
     scheme, _, supplied = authorization.partition(" ")
     if scheme.lower() != "bearer" or not supplied or not secrets.compare_digest(

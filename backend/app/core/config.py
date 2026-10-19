@@ -198,6 +198,15 @@ class Settings(BaseSettings):
     )
     DISCOVERY_MAX_CONCURRENCY: int = Field(default=2, ge=1, le=8)
 
+    # Outbound communication always needs a fresh owner confirmation.
+    GMAIL_SENDING_ENABLED: bool = False
+    GMAIL_SEND_MAX_PER_DAY: int = Field(default=10, ge=0, le=100)
+    GMAIL_SEND_MAX_PER_HOUR: int = Field(default=3, ge=0, le=20)
+    GMAIL_SEND_MAX_RECIPIENTS: Literal[1] = 1
+    GMAIL_SEND_TIMEOUT_SECONDS: float = Field(default=20, ge=1, le=60, allow_inf_nan=False)
+    GMAIL_REQUIRE_EXPLICIT_CONFIRMATION: Literal[True] = True
+    GMAIL_CONFIRMATION_TTL_SECONDS: int = Field(default=300, ge=30, le=600)
+
     # Gmail Integration Configuration (OAuth)
     GMAIL_CLIENT_ID: str | None = Field(
         default=None, description="Google OAuth 2.0 Client ID"

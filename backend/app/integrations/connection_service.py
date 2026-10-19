@@ -9,7 +9,9 @@ from sqlalchemy import select, text, update
 
 from backend.app.core.config import get_settings
 from backend.app.integrations.google_oauth import (
+    ALLOWED_SCOPE_SETS,
     SCOPES,
+    SEND_SCOPES,
     GoogleOAuth,
     TokenResponse,
     normalized_scopes,
@@ -25,7 +27,7 @@ def digest(value):
 
 def account_output(account):
     if not account:
-        return {"status": "not_connected", "account": None, "live_verified": False}
+        return {"status": "not_connected", "authorization_state": "not_connected", "send_capability": "not_connected", "account": None, "live_verified": False}
     return {
         "id": str(account.id),
         "status": account.status,
@@ -35,6 +37,14 @@ def account_output(account):
         "connected_at": account.connected_at,
         "last_verified_at": account.last_verified_at,
         "last_refresh_at": account.last_refresh_at,
+        "authorization_state": (
+            account.status if account.status != "connected" else
+            "send_authorized" if set(account.granted_scopes) == SEND_SCOPES else "metadata_connected"
+        ),
+        "send_capability": (
+            account.status if account.status != "connected" else
+            "send_authorized" if set(account.granted_scopes) == SEND_SCOPES else "send_authorization_required"
+        ),
         "live_verified": account.status == "connected"
         and account.last_verified_at is not None,
     }
@@ -59,9 +69,9 @@ class ConnectionService:
         return await self.session.scalar(stmt.with_for_update() if lock else stmt)
 
     async def status(self):
-        return account_output(await self.account())
+        return account_output(await self.account()) | {"oauth_configured": self.google.configured(), "sending_enabled": self.settings.GMAIL_SENDING_ENABLED}
 
-    async def start(self, expected_email, browser_secret):
+    async def start(self, expected_email, browser_secret, *, send=False):
         if not self.google.configured():
             raise ConnectionError("google_oauth_not_configured")
         store = TokenStore(self.settings)
@@ -74,7 +84,12 @@ class ConnectionService:
             raise ConnectionError("expected_account_mismatch")
         await self.lock()
         account = await self.account(lock=True)
-        if account and account.status != "disconnected":
+        if send:
+            if not account or account.status not in {"connected", "reauthorization_required"} or not account.google_subject:
+                raise ConnectionError("metadata_connection_required_before_upgrade")
+            if expected != account.account_email:
+                raise ConnectionError("wrong_google_account")
+        elif account and account.status != "disconnected":
             raise ConnectionError("disconnect_before_reconnecting")
         if not account:
             account = ConnectedAccount(
@@ -94,6 +109,8 @@ class ConnectionService:
             OAuthState(
                 state_hash=state_hash,
                 actor_id="owner",
+                authorization_mode="send" if send else "metadata",
+                expected_subject=account.google_subject if send else None,
                 browser_hash=digest(browser_secret),
                 expected_email=expected,
                 encrypted_verifier=store.encrypt(verifier, state_hash),
@@ -108,7 +125,7 @@ class ConnectionService:
         await self.session.commit()
         return {
             "authorization_url": self.google.authorization_url(
-                state, verifier, expected
+                state, verifier, expected, send=send
             ),
             "expires_in": self.settings.OAUTH_STATE_TTL_SECONDS,
         }
@@ -158,16 +175,17 @@ class ConnectionService:
         if not tokens.refresh_token:
             raise ConnectionError("refresh_token_required")
         scopes = normalized_scopes(tokens.scope)
-        if scopes != SCOPES:
+        if scopes != (SEND_SCOPES if intent.authorization_mode == "send" else SCOPES):
             raise ConnectionError("unexpected_or_insufficient_scopes")
         subject, email = await self.google.identity(tokens.access_token)
-        if email != intent.expected_email:
+        if email != intent.expected_email or (intent.expected_subject and subject != intent.expected_subject):
             raise ConnectionError("wrong_google_account")
         await self.lock()
         account = await self.account(lock=True)
         if (
             not account
-            or account.status == "connected"
+            or (account.status == "connected" and intent.authorization_mode != "send")
+            or (intent.authorization_mode == "send" and (account.google_subject != subject or account.account_email != email or account.status == "disconnected"))
             or account.token_generation != intent.connection_generation
         ):
             raise ConnectionError("connection_intent_superseded")
@@ -196,6 +214,8 @@ class ConnectionService:
         account = await self.account(lock=True)
         if not account or account.status != "connected":
             raise ConnectionError("gmail_not_connected")
+        if set(account.granted_scopes) not in ALLOWED_SCOPE_SETS:
+            raise ConnectionError("unexpected_or_insufficient_scopes")
         if account.token_expires_at and account.token_expires_at.replace(
             tzinfo=now().tzinfo
         ) > now() + timedelta(seconds=60):
@@ -214,7 +234,7 @@ class ConnectionService:
                 if tokens.scope is not None
                 else set(account.granted_scopes)
             )
-            if scopes != SCOPES:
+            if scopes not in ALLOWED_SCOPE_SETS or scopes != set(account.granted_scopes):
                 raise ConnectionError("unexpected_or_insufficient_scopes")
             subject, email = await self.google.identity(tokens.access_token)
             if (subject, email) != (account.google_subject, account.account_email):

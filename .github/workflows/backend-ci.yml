@@ -35,6 +35,7 @@ jobs:
       SERPER_API_KEY: ''
       SIGNALHIRE_API_KEY: ''
       APIFY_API_TOKEN: ''
+      GMAIL_SENDING_ENABLED: 'false'
       GMAIL_CLIENT_ID: ''
       GMAIL_CLIENT_SECRET: ''
       GMAIL_REFRESH_TOKEN: ''
@@ -75,6 +76,13 @@ jobs:
           backend/tests/test_gmail_oauth.py backend/tests/test_gmail_token_store.py
           backend/tests/test_gmail_connection.py backend/tests/test_outreach*.py
           backend/tests/test_phase4a_postgres.py backend/scripts/verify_phase4a_migration.py
+      - name: Phase 4B lint
+        run: >-
+          ruff check --isolated --select E9,F,I
+          backend/app/services/gmail_sending.py backend/app/models/outreach_send.py
+          backend/tests/phase4b_fakes.py backend/tests/test_gmail_send*.py
+          backend/tests/test_gmail_mime.py backend/tests/test_phase4b_postgres.py
+          backend/scripts/verify_phase4b_migration.py
       - name: Backend security scan
         run: bandit -q -r backend/app
       - run: python -m compileall -q backend/app
