@@ -101,7 +101,8 @@ jobs:
           ruff check --isolated --select E9,F,I
           backend/app/services/startup_discovery backend/app/api/v1/startups.py
           backend/app/models/startup.py backend/app/services/people_discovery
-          backend/app/services/job_discovery_service.py
+          backend/app/services/job_discovery_service.py backend/app/services/job_ingestion.py
+          backend/app/repositories/company.py
           backend/app/services/job_sources/apify_adapter.py backend/app/services/job_sources/direct_api.py
           backend/app/services/job_sources/registry.py
           backend/tests/startup_fakes.py backend/tests/test_live_startup_discovery.py

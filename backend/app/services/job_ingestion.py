@@ -1,20 +1,22 @@
 """Savepoint-isolated ingestion preserving every human application decision."""
 
 from datetime import timezone
+
 from pydantic import BaseModel, Field
 from sqlalchemy import case
 from sqlalchemy.exc import SQLAlchemyError
+
 from backend.app.models.discovery import JobSourceObservation
 from backend.app.repositories.company import CompanyRepository
 from backend.app.repositories.job import JobRepository
 from backend.app.schemas.normalized_job import NormalizedJob
+from backend.app.services.discovery_budget import insert_for
 from backend.app.services.job_deduplication import (
     JobDeduplication,
     content_identity,
-    observation_key,
     ingestion_lock,
+    observation_key,
 )
-from backend.app.services.discovery_budget import insert_for
 
 
 class IngestionResult(BaseModel):
@@ -55,13 +57,25 @@ class JobIngestionService:
             try:
                 async with self.session.begin_nested():
                     company = None
-                    if item.company_name:
+                    deduplication = JobDeduplication(self.session)
+                    job, reason, possible = await deduplication.resolve(item, None)
+                    if job and job.company_id and not item.company_domain:
+                        # Existing source/URL identity is stronger than a newly ambiguous name.
+                        company = await self.company_repo.get_by_id(job.company_id)
+                        if item.company_name and " ".join(
+                            item.company_name.casefold().split()
+                        ) != " ".join(company.name.casefold().split()):
+                            raise ValueError(
+                                "Changed employer name requires identity review"
+                            )
+                    elif item.company_name:
                         company, _ = await self.company_repo.get_or_create(
                             item.company_name, item.company_domain
                         )
-                    job, reason, possible = await JobDeduplication(
-                        self.session
-                    ).resolve(item, company.id if company else None)
+                    if job is None:
+                        job, reason, possible = await deduplication.resolve(
+                            item, company.id if company else None
+                        )
                     if (
                         job
                         and job.company_id
