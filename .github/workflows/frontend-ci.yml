@@ -44,6 +44,11 @@ jobs:
         working-directory: frontend
         env:
           PYTHON: python
+      - name: Build standalone non-root frontend image
+        run: |
+          docker build -f frontend/Dockerfile -t automated-apply-frontend:ci frontend
+          docker run --rm --entrypoint node automated-apply-frontend:ci -e 'const fs = require("node:fs"); if (process.getuid() === 0 || !fs.existsSync("server.js")) process.exit(1)'
+          node frontend/scripts/verify-container.mjs automated-apply-frontend:ci
       - name: Browser verification artifacts (fictional isolated fixtures only)
         if: always()
         uses: actions/upload-artifact@v6

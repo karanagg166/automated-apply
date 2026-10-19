@@ -70,6 +70,32 @@ describe("single-owner boundary", () => {
     expect(verifyPassword("fictional password")).toBe(true);
     expect(verifyPassword("incorrect")).toBe(false);
   });
+  it("accepts a standalone bind address only with the configured external host and origin", () => {
+    const request = (url: string, host = "workspace.example.org") =>
+      new Request(url, {
+        method: "POST",
+        headers: {
+          host,
+          origin: "https://workspace.example.org",
+          "x-forwarded-host": "workspace.example.org",
+        },
+      });
+    expect(allowedRequest(request("https://0.0.0.0:3000/api/auth"), true)).toBe(
+      true,
+    );
+    expect(
+      allowedRequest(
+        request("https://0.0.0.0:3000/api/auth", "evil.example"),
+        true,
+      ),
+    ).toBe(false);
+    expect(allowedRequest(request("http://0.0.0.0:3000/api/auth"), true)).toBe(
+      false,
+    );
+    expect(allowedRequest(request("https://evil.example/api/auth"), true)).toBe(
+      false,
+    );
+  });
   it("globally limits single-owner login attempts", () => {
     for (let i = 0; i < 10; i++) expect(allowLogin(1000)).toBe(true);
     expect(allowLogin(1000)).toBe(false);

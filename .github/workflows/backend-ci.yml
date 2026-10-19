@@ -132,11 +132,14 @@ jobs:
           backend/scripts/check_environment.py backend/scripts/migration_preflight.py
           backend/scripts/onboard_profile.py backend/scripts/run_startup_pilot.py
           backend/scripts/check_providers.py backend/scripts/smoke_test.py
+          backend/scripts/check_workspace.py backend/scripts/local_public_pilot.py
           backend/scripts/public_source_smoke.py backend/scripts/validate_gemini.py
           backend/scripts/verify_phase6b_migration.py
           backend/tests/test_environment_readiness.py backend/tests/test_migration_preflight.py
           backend/tests/test_profile_onboarding_readiness.py backend/tests/test_operational_health.py
           backend/tests/test_startup_pilot_operations.py
+          backend/tests/test_workspace_readiness.py backend/tests/test_local_public_pilot.py
+          backend/tests/test_pilot_location_evidence.py
       - name: Phase 6B offline integrated smoke
         run: python backend/scripts/smoke_test.py --mode local-offline --output /tmp/phase6b-offline
       - name: Migration plan (no database or DDL)

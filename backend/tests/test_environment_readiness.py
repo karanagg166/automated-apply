@@ -3,6 +3,7 @@
 import json
 
 import pytest
+from cryptography.fernet import Fernet
 from pydantic import ValidationError
 
 from backend.app.core.config import Settings
@@ -105,7 +106,7 @@ def test_invalid_configuration_errors_redact_input(tmp_path, monkeypatch):
 
 
 def test_passing_static_checks_are_still_unverified():
-    config = settings(JOB_AGENT_API_TOKEN="Zx73q-5wF9ajTnsuCRv0LP8YrbD6K2eH", SECRET_KEY="F32gH7vkBZ5Nm_ae98xqP0ucTw6RjLsy", API_ALLOWED_HOSTS=["staging.invalid"])
+    config = settings(JOB_AGENT_API_TOKEN="Zx73q-5wF9ajTnsuCRv0LP8YrbD6K2eH", SECRET_KEY="F32gH7vkBZ5Nm_ae98xqP0ucTw6RjLsy", API_ALLOWED_HOSTS=["staging.invalid"], RESUME_ENCRYPTION_KEY=Fernet.generate_key().decode())
     config.STAGING_DATABASE_ID = target_identity(config)
     report = environment_readiness(config)
     assert report.status == "configured_not_verified"

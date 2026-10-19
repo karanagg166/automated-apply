@@ -10,6 +10,7 @@ from backend.app.models.discovery import DiscoveryRun
 from backend.app.models.job import Job
 from backend.app.models.startup import StartupShortlistEntry
 from backend.app.operations.configuration import OperationRejected
+from backend.app.operations.location_evidence import regional_access
 from backend.app.operations.onboarding import ProfileReadiness, profile_readiness
 from backend.app.schemas.applications import CreatePacket, QuestionInput
 from backend.app.schemas.discovery import DiscoveryQuery
@@ -72,12 +73,13 @@ async def run_pilot(session, factory, settings, request):
     )
     filters = StartupFilters(
         roles=roles,
-        locations=locations,
+        # Evaluate individual listing geography below; remote alone proves no eligibility.
+        locations=[],
         max_employees=50,
         include_unknown_size=True,
         remote_preference=profile.preferences.remote_preference
         if profile
-        else "remote",
+        else "any",
         use_profile=request.use_profile,
         limit=request.limit,
     )
@@ -106,7 +108,7 @@ async def run_pilot(session, factory, settings, request):
         if job_ids
         else []
     )
-    companies, matched = [], 0
+    companies, matched, location_review = [], 0, []
     shortlisted = set(await session.scalars(select(StartupShortlistEntry.company_id)))
     for item in run["rankings"][: request.limit]:
         relevant = []
@@ -118,6 +120,14 @@ async def run_pilot(session, factory, settings, request):
                 or not role_allowed(job.title, roles)
                 or not location_allowed([job.location], [job.remote_type], filters)
             ):
+                continue
+            region = regional_access(job.location, locations)
+            if region != "listing_location_supported":
+                location_review.append(dict(
+                    company_name=item["company_name"], job_id=str(job.id),
+                    title=job.title, source_url=job.job_url, location=job.location,
+                    regional_access=region, candidate_eligibility_verified=False,
+                ))
                 continue
             match = (
                 JobDiscoveryMatcher(session).match(job, profile) if profile else None
@@ -133,6 +143,9 @@ async def run_pilot(session, factory, settings, request):
                     source_url=job.job_url,
                     application_url=job.application_url,
                     source=job.source_platform,
+                    location=job.location,
+                    regional_access=region,
+                    candidate_eligibility_verified=False,
                     profile_match=match.model_dump() if match else None,
                     suitability="candidate_match_requires_review"
                     if suitable
@@ -198,6 +211,7 @@ async def run_pilot(session, factory, settings, request):
         actual_jobs=len(jobs),
         actual_companies=len({j.company_id for j in jobs if j.company_id}),
         relevant_jobs=sum(len(c["jobs"]) for c in companies),
+        location_review_jobs=location_review,
         candidate_matched_jobs=matched,
         company_size_evidence_coverage=sum(
             c["team_size_band"] != "unknown" for c in companies
