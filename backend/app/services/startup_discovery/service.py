@@ -348,6 +348,8 @@ class StartupDiscoveryService:
         )
 
     async def search(self, filters, company_ids=None, shortlisted=False):
+        from backend.app.dashboard.states import matches_status, packet_map
+
         statement = select(Company.id).order_by(Company.id)
         if company_ids is not None:
             statement = statement.where(Company.id.in_(company_ids))
@@ -370,8 +372,24 @@ class StartupDiscoveryService:
         if len(ids) > 500:
             raise ValueError("Narrow source filters to at most 500 companies")
         profile, items = await self.profile(filters.use_profile), []
+        packets = await packet_map(self.session)
+        shortlisted_ids = set((await self.session.scalars(select(StartupShortlistEntry.company_id))).all())
         for company_id in ids:
             item = await self.detail(company_id, filters, profile)
+            item["shortlisted"] = company_id in shortlisted_ids
+            if filters.query and filters.query.casefold() not in (item["company_name"] + " " + (item["company_domain"] or "")).casefold():
+                continue
+            company_jobs = list((await self.session.scalars(select(Job).where(Job.company_id == company_id))).all())
+            if filters.application_status != "all":
+                if filters.application_status == "not_applied" and not company_jobs:
+                    pass
+                elif filters.application_status == "shortlisted" and item["shortlisted"]:
+                    pass
+                elif not any(matches_status(j, packets.get(j.id), filters.application_status) for j in company_jobs):
+                    continue
+            item["application_history"] = [dict(job_id=str(j.id), title=j.title,
+                lifecycle_state=packets[j.id].lifecycle_state if j.id in packets else None,
+                status=j.status) for j in company_jobs]
             if (
                 not size_allowed(item, filters)
                 or item["exclusion_reasons"]
@@ -379,6 +397,16 @@ class StartupDiscoveryService:
             ):
                 continue
             attrs = item["attributes"]
+            if filters.verified_yc and not attrs.get("yc_batch"):
+                continue
+            if filters.early_stage and str(attrs.get("stage", "")).casefold() not in {"pre-seed", "seed", "early", "early-stage", "series a"}:
+                continue
+            if filters.observed_after and not any(j.last_observed_at and utc(j.last_observed_at) > utc(filters.observed_after) for j in company_jobs):
+                continue
+            if filters.has_business_email:
+                contacts = await SavedDataService(self.session).contacts(company_id, 100)
+                if not any(c.get("email_send_ready") and not c.get("do_not_contact") for c in contacts):
+                    continue
             if filters.stages and attrs.get("stage") not in filters.stages:
                 continue
             if filters.yc_batch and attrs.get("yc_batch") != filters.yc_batch:

@@ -22,6 +22,7 @@ asyncpg>=0.30.0
 
 # Security & Encryption
 cryptography>=43.0.1
+pypdf==6.11.0
 
 # Server-side Gemini structured answers (independent of extension credentials)
 google-genai>=1.47.0,<2

@@ -9,7 +9,9 @@ permissions:
 jobs:
   backend:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # The full suite rebuilds isolated schemas and verifies migrations 001–010.
+    # Keep a finite job limit with room for hosted-runner variance and Docker.
+    timeout-minutes: 30
     services:
       postgres:
         image: postgres:16-alpine
@@ -83,6 +85,13 @@ jobs:
           backend/tests/phase4b_fakes.py backend/tests/test_gmail_send*.py
           backend/tests/test_gmail_mime.py backend/tests/test_phase4b_postgres.py
           backend/scripts/verify_phase4b_migration.py
+      - name: Phase 7 lint
+        run: >-
+          ruff check --isolated --select E9,F,I
+          backend/app/dashboard backend/scripts/export_openapi.py
+          backend/scripts/phase7_ui_fixture.py backend/scripts/resolve_owner_resume.py
+          backend/scripts/configure_frontend_owner.py backend/tests/test_phase7_dashboard.py
+          backend/app/api/v1/discovery.py
       - name: Backend security scan
         run: bandit -q -r backend/app
       - name: Phase 5A lint
@@ -113,7 +122,7 @@ jobs:
       - name: Offline startup demonstration
         run: python backend/scripts/startup_discovery_demo.py > /tmp/startup-offline.json
       - run: python -m compileall -q backend/app
-      - run: pytest backend/tests -v
+      - run: pytest backend/tests -v --durations=20 -o faulthandler_timeout=120
       - name: Phase 6B operational lint
         run: >-
           ruff check --isolated --select E9,F,I

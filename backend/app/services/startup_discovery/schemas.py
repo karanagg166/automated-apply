@@ -82,6 +82,14 @@ class CompanyObservation(BaseModel):
 
 class StartupFilters(BaseModel):
     model_config = ConfigDict(extra="forbid")
+    query: str | None = Field(None, max_length=200)
+    min_employees: int | None = Field(None, ge=1, le=10000000)
+    exact_employee_count: bool = False
+    application_status: Literal["all", "not_applied", "shortlisted", "packet_prepared", "applied", "interview", "rejected"] = "all"
+    has_business_email: bool = False
+    verified_yc: bool = False
+    early_stage: bool = False
+    observed_after: datetime | None = None
     max_employees: int | None = Field(50, ge=1, le=10000000)
     size_bands: list[Band] = Field(default_factory=list, max_length=6)
     include_unknown_size: bool = True
@@ -131,3 +139,57 @@ class ShortlistInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     note: str | None = Field(None, max_length=2000)
     run_id: UUID | None = None
+
+
+class StartupAttributes(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    location: str | None = None
+    industry: str | None = None
+    description: str | None = None
+    technology_stack: list[str] = Field(default_factory=list)
+    stage: str | None = None
+    yc_batch: str | None = None
+
+
+class HiringEvidence(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    job_id: str
+    title: str
+    observed_at: str | None
+    evidence_url: str
+    fresh: bool
+
+
+class SizeEvidence(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    source_url: str
+    observed_at: str
+
+
+class StartupRead(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    company_id: str
+    company_name: str
+    company_domain: str | None
+    attributes: StartupAttributes
+    employee_count: int | None
+    team_size_band: str
+    team_size_evidence_status: str
+    hiring_status: str
+    startup_match_score: float
+    current_job_count: int
+    leader_evidence_count: int
+    professional_contact_count: int
+    sources: list[str]
+    shortlisted: bool = False
+    matching_roles: int
+    team_size_evidence: list[SizeEvidence]
+    hiring_evidence: list[HiringEvidence]
+    missing_information: list[str]
+
+
+class StartupSearchRead(BaseModel):
+    total: int
+    page: int
+    limit: int
+    startups: list[StartupRead]

@@ -30,6 +30,12 @@ def size_band(count):
 
 
 def size_allowed(size, filters):
+    if filters.exact_employee_count and size["employee_count"] is None:
+        return False
+    if filters.min_employees is not None:
+        minimum = size["employee_count"] or BANDS.get(size["team_size_band"], (None, None))[0]
+        if minimum is None or minimum < filters.min_employees:
+            return False
     if size["team_size_band"] == "unknown":
         return filters.include_unknown_size
     if filters.size_bands and size["team_size_band"] not in filters.size_bands:

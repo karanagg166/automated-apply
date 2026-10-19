@@ -94,7 +94,7 @@ async def catalog(connection, schema="job_agent"):
 
 def file_inventory():
     paths = sorted(MIGRATIONS.glob("*.sql"))
-    if [p.name[:3] for p in paths] != [f"{i:03d}" for i in range(1, 10)]:
+    if [p.name[:3] for p in paths] != [f"{i:03d}" for i in range(1, 11)]:
         raise ValueError("migration_dependency_order_invalid")
     return [
         {"file": p.name, "sha256": hashlib.sha256(p.read_bytes()).hexdigest()}

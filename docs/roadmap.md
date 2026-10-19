@@ -175,3 +175,10 @@ Production remains unauthorized. Owner hosting/staging access, confirmed profile
 provider credentials/permissions and any paid test approvals are separate operational gates.
 The recommended next milestone is authorized staging deployment and live onboarding, followed
 by review of actual results; no subsequent feature phase starts automatically.
+
+
+## Phase 7 — owner dashboard and onboarding
+
+Implemented in-repository Next.js frontend, private owner BFF, evidence-based startup/job filters, private PDF import/review, resource proposals/conflict review, application board/table and review/manual handoff, professional contact/enrichment plans, local outreach/Gmail confirmation UX, truthful connection center and in-app notification preferences. Offline verification uses actual FastAPI with explicitly fictional fixtures.
+
+Owner onboarding and approved staging remain blocked on actual resume, owner review/credentials and target authorization. No live paid-provider, Gmail-send or portal-submission claim. Browser push, Telegram/official WhatsApp delivery adapters and future authorized portal execution remain separate work. See the Phase 7 deployment document for exact prerequisites.

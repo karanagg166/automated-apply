@@ -1,3 +1,19 @@
+# Automated Apply
+
+## Phase 7 private dashboard
+
+A premium Next.js frontend now lives in `frontend/`. It connects to the existing FastAPI APIs through an authenticated server-side proxy. It includes startup/job filters, source and contact evidence, private resume onboarding, application review/manual handoff, local outreach/Gmail approval screens, connection readiness and in-app notifications.
+
+Start with [frontend setup](docs/phase7-frontend.md), [candidate onboarding](docs/phase7-profile-onboarding.md), [account connections](docs/phase7-account-connections.md), [notification boundaries](docs/phase7-notifications.md), [security](docs/phase7-security.md) and [deployment blockers](docs/phase7-deployment.md). Existing backend setup and workflows remain below. No staging environment, real profile or provider connection is implied by the UI.
+
+```sh
+npm ci --prefix frontend
+npm run build --prefix frontend
+npm run dev --prefix frontend
+```
+
+Configure the private owner login in `backend/.env` before signing in. No default login or client-side bearer token exists. For a reproducible demonstration against the actual backend with isolated fictional fixtures, see the Playwright commands in the frontend guide.
+
 # Job Pulse Agent (`job-pulse-agent`)
 
 An AI-powered job discovery, recruiter contact enrichment, and personalized cold outreach platform designed with strict Human-in-the-Loop (HITL) safety, zero-surprise cost management, and modular architecture.

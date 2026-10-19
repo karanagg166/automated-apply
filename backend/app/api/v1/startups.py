@@ -13,7 +13,9 @@ from backend.app.services.startup_discovery.connectivity import ProviderConnecti
 from backend.app.services.startup_discovery.schemas import (
     ShortlistInput,
     StartupFilters,
+    StartupRead,
     StartupRunRequest,
+    StartupSearchRead,
 )
 from backend.app.services.startup_discovery.service import StartupDiscoveryService
 from backend.app.services.startup_discovery.source_registry import startup_sources
@@ -56,7 +58,7 @@ async def run(run_id: UUID, session: AsyncSession = Depends(get_db_session)):
     return await service(session).read_run(run_id)
 
 
-@router.get("/search")
+@router.get("/search", response_model=StartupSearchRead)
 async def search(
     filters: Annotated[StartupFilters, Query()],
     session: AsyncSession = Depends(get_db_session),
@@ -65,14 +67,14 @@ async def search(
 
 
 # Lists use a typed JSON search as well; GET scalar parameters remain convenient.
-@router.post("/search")
+@router.post("/search", response_model=StartupSearchRead)
 async def filtered_search(
     filters: StartupFilters, session: AsyncSession = Depends(get_db_session)
 ):
     return await service(session).search(filters)
 
 
-@router.get("/shortlist")
+@router.get("/shortlist", response_model=StartupSearchRead)
 async def shortlist(
     filters: Annotated[StartupFilters, Query()],
     session: AsyncSession = Depends(get_db_session),
@@ -90,7 +92,7 @@ async def check(provider: str, session: AsyncSession = Depends(get_db_session)):
     return await ProviderConnectivity(session, get_session_factory()).check(provider)
 
 
-@router.get("/{company_id}")
+@router.get("/{company_id}", response_model=StartupRead)
 async def detail(company_id: UUID, session: AsyncSession = Depends(get_db_session)):
     return await service(session).detail(company_id)
 

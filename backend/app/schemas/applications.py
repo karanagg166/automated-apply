@@ -117,6 +117,7 @@ class ResumeOption(Contract):
     confirmed: bool
     primary: bool
     resource_version: str
+    download_path: str | None = None
 
 
 class ResumeSelection(Contract):
