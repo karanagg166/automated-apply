@@ -60,5 +60,22 @@ jobs:
           bandit -q -r backend/app/services/contact_enrichment
           backend/app/api/v1/contact_enrichment.py
           backend/app/models/contact_enrichment.py
+      - name: Phase 4A lint
+        run: >-
+          ruff check --isolated --select E9,F,I
+          backend/app/mcp backend/app/integrations
+          backend/app/services/outreach_drafting.py backend/app/services/saved_data.py
+          backend/app/services/contact_read.py backend/app/api/v1/integrations.py
+          backend/app/api/v1/outreach.py backend/app/models/connected_account.py
+          backend/app/schemas/outreach.py backend/app/core/config.py backend/app/main.py
+          backend/app/models/outreach.py backend/app/mcp_server.py
+          backend/scripts/setup_gmail_oauth.py
+          backend/tests/phase4a_fakes.py backend/tests/test_mcp_auth.py
+          backend/tests/test_mcp_tool_permissions.py backend/tests/test_mcp_transport.py
+          backend/tests/test_gmail_oauth.py backend/tests/test_gmail_token_store.py
+          backend/tests/test_gmail_connection.py backend/tests/test_outreach*.py
+          backend/tests/test_phase4a_postgres.py backend/scripts/verify_phase4a_migration.py
+      - name: Backend security scan
+        run: bandit -q -r backend/app
       - run: python -m compileall -q backend/app
       - run: pytest backend/tests -v

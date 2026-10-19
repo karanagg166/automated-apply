@@ -74,7 +74,7 @@
 | :--- | :--- | :--- |
 | **Frontend** | Dashboard metrics, manual job triage, outreach approval UI, AI chat. | Next.js 14, React, Tailwind, Vercel AI SDK |
 | **FastAPI Core** | REST API endpoints, health & readiness probes, middleware, authentication. | HTTP REST, OpenAPI, JSON |
-| **FastMCP Layer** | Model Context Protocol tools for AI agent orchestration. | FastMCP 4.x ASGI mount over SSE |
+| **FastMCP Layer** | Model Context Protocol tools for AI agent orchestration. | FastMCP 4.1.0 authenticated, opt-in Streamable HTTP ASGI mount |
 | **Domain Services** | Matching calculations, email candidate generation, credit quota tracking. | Pure Python, Async, Pydantic v2 |
 | **Database** | ACID transactional persistence, schema-isolated PostgreSQL tables. | SQLAlchemy 2.0 (asyncio), asyncpg |
 
@@ -118,7 +118,7 @@ flowchart TD
 authentication dependency. `JOB_AGENT_API_TOKEN` comes from server configuration, is held as
 SecretStr, compared in constant time, and is never included in responses. Missing configuration
 fails closed with 503. Authentication runs before payload parsing; requests are bounded to 64 KiB.
-Profile responses use `Cache-Control: no-store`. Existing MCP tools require explicit inputs and
+Profile responses use `Cache-Control: no-store`. At the Phase 1 milestone MCP tools required explicit inputs and
 cannot retrieve persisted candidate data through their unauthenticated mount.
 
 The route calls `CandidateProfileService`, then `CandidateProfileRepository` with an injected
@@ -218,3 +218,31 @@ The protected contact router uses `contact_enrichment.service` to bridge existin
 `contact_enrichment_runs` records idempotency and outcomes; `contact_evidence` preserves observations and verification claims; `contact_identities` holds company-scoped provider/profile mappings. Company-row locks and unique mappings guard reconciliation. `contact_provider_lookups` commits before HTTP to prevent repeated billable work after restart. Shared `DiscoveryBudget` reservations and existing `CreditManager` usage audit commit independently of contact ingestion. Unknown actual billing stays distinct from estimates. No synthetic ApiKeyPool balance is seeded.
 
 Suppression and human corrections live on the existing contacts table. Ranking reports evidence-derived categories and contextual role relevance; guessed addresses stay separate. See [contact enrichment](contact-enrichment.md) for the provider matrix, retention maintenance and API contract. Migration 005 has no production execution hook.
+
+
+## Phase 4A implementation status (supersedes earlier MCP/outreach descriptions)
+
+One FastMCP 4.1.0 instance exposes stateless Streamable HTTP at `/mcp/`, disabled by default.
+A full-path ASGI boundary plus native token/authorization middleware protects initialization,
+listing and calls; read/draft wrappers additionally authorize independently. Ordinary REST
+bearer credentials are not accepted by MCP. Legacy mutation/provider tools are unregistered.
+
+REST and MCP call shared saved-data, profile, contact read/ranking and outreach services.
+REST Gemini composition uses the Phase 2A provider/budget infrastructure; MCP drafts use exact
+saved contributions without paid calls. Contact suppression, evidence expiry, employer checks
+and speculative-email guards apply inside the service, not just in HTTP dependencies.
+
+The integrations API owns a single secondary Gmail connection. Durable hashed OAuth state,
+an encrypted PKCE verifier, browser-binding cookie and connection-generation locks protect the
+callback independently of bearer headers. Google UserInfo and Gmail profile verify identity.
+A separate versioned Fernet keyring encrypts refresh and access tokens; API/MCP views never
+serialize credential models. Scope is metadata plus OpenID/email, with no mailbox body/write API.
+
+Additive migration 006 creates `connected_accounts`/`oauth_states` and extends `outreach_logs`
+with snapshots, revisions, idempotency and approval hashes. RLS denies client roles. PostgreSQL
+triggers preserve legacy history, invalidate approvals on direct material edits and reject
+fake delivery fields/sent transitions. Approvals record review only; future sending must recheck.
+
+See [MCP security](mcp-security-and-tools.md), [Gmail OAuth](gmail-oauth-connection.md), and
+[outreach drafting](outreach-drafting.md) for current contracts and operational limits.
+No production migration/deployment or real account/provider verification is implied.

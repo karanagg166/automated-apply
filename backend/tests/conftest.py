@@ -21,8 +21,13 @@ for name in ("GEMINI_API_KEY", "LLM_MODEL", "CANDIDATE_RESUME_DRIVE_URL", "CANDI
              "CANDIDATE_CODEFORCES_URL", "CANDIDATE_GFG_URL", "CANDIDATE_HACKERRANK_URL", "JOB_AGENT_API_TOKEN",
              "HUNTER_API_KEY", "APOLLO_API_KEY", "SERPER_API_KEY",
              "SIGNALHIRE_API_KEY", "APIFY_API_TOKEN", "GMAIL_CLIENT_ID", "GMAIL_CLIENT_SECRET",
-             "GMAIL_REFRESH_TOKEN", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY"):
+             "GMAIL_REFRESH_TOKEN", "MCP_API_TOKEN", "GMAIL_REDIRECT_URI", "GMAIL_EXPECTED_EMAIL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY"):
     os.environ[name] = ""
+
+os.environ["OAUTH_ENCRYPTION_KEYS"] = "{}"
+os.environ["OAUTH_ACTIVE_KEY_ID"] = ""
+os.environ["MCP_REMOTE_ENABLED"] = "false"
+os.environ["MCP_ALLOW_DRAFT_CREATION"] = "false"
 
 from collections.abc import AsyncGenerator
 import pytest
@@ -121,3 +126,51 @@ def phase2_auth(monkeypatch):
     get_settings.cache_clear()
     yield {"Authorization": "Bearer phase2-fictional-token"}
     get_settings.cache_clear()
+
+
+@pytest.fixture
+def mcp_auth(monkeypatch):
+    monkeypatch.setenv("MCP_REMOTE_ENABLED", "true")
+    monkeypatch.setenv("MCP_API_TOKEN", "fictional-mcp-owner-token-at-least-32-characters")
+    monkeypatch.setenv("MCP_REQUIRE_TLS", "true")
+    get_settings.cache_clear()
+    yield {"Authorization": "Bearer fictional-mcp-owner-token-at-least-32-characters",
+           "Accept": "application/json, text/event-stream", "Content-Type": "application/json"}
+    get_settings.cache_clear()
+
+
+@pytest_asyncio.fixture
+async def mcp_client(mcp_auth):
+    from backend.app.main import app, mcp_app
+    import asyncio
+    ready, stop = asyncio.Event(), asyncio.Event()
+
+    async def serve_lifespan():
+        async with mcp_app.lifespan(app):
+            ready.set()
+            await stop.wait()
+
+    task = asyncio.create_task(serve_lifespan())
+    await ready.wait()
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="https://localhost") as client:
+            yield client
+    finally:
+        stop.set()
+        await task
+
+
+@pytest_asyncio.fixture
+async def outreach_target(db_session, phase2_profile):
+    from backend.tests.phase4a_fakes import target
+    return await target(db_session)
+
+
+@pytest_asyncio.fixture
+async def oauth_bundle(db_session):
+    from backend.app.integrations.connection_service import ConnectionService
+    from backend.app.integrations.google_oauth import GoogleOAuth
+    from backend.tests.phase4a_fakes import GoogleFixture, oauth_settings
+    settings, fake = oauth_settings(), GoogleFixture()
+    async with fake.client() as client:
+        yield ConnectionService(db_session, settings, GoogleOAuth(settings, client)), fake, settings
