@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -119,6 +119,14 @@ export function StartupExplorer() {
     [presetOpen, setPresetOpen] = useState(false),
     [presetName, setPresetName] = useState(""),
     [message, setMessage] = useState("");
+  const globalQuery = params.get("q");
+  useEffect(() => {
+    setFilters((current) => ({
+      ...current,
+      query: globalQuery || null,
+      page: 1,
+    }));
+  }, [globalQuery]);
   const update = (value: Partial<Schema<"StartupFilters">>) =>
     setFilters((f) => ({ ...f, ...value, page: 1 }));
   const result = useQuery({

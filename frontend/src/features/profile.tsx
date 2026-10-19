@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { ProjectsEditor } from "@/components/projects-editor";
+import { sizeFilter } from "./startups";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -327,19 +328,11 @@ export function ProfileWizard() {
           await post("dashboard/presets", {
             name: "My preferred team size",
             filters: {
-              ...(values.startup_size === "2-10"
-                ? {
-                    min_employees: 2,
-                    max_employees: 10,
-                    exact_employee_count: true,
-                    include_unknown_size: false,
-                  }
-                : values.startup_size === "any"
-                  ? {}
-                  : {
-                      size_bands: [values.startup_size],
-                      include_unknown_size: false,
-                    }),
+              ...sizeFilter(
+                values.startup_size === "any" ? "all" : values.startup_size,
+              ),
+              use_profile: false,
+              application_status: "not_applied",
             },
           });
         } catch {

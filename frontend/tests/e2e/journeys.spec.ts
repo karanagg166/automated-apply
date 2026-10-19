@@ -87,6 +87,7 @@ test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
     await page.getByRole("button", { name: "Continue", exact: true }).click();
     await page.getByLabel("Target job titles").fill("Backend Engineer");
     await page.getByLabel("Preferred locations").fill("India");
+    await page.getByLabel("Startup team size").selectOption("51-200");
     await page.getByRole("button", { name: "Continue", exact: true }).click();
     await page
       .getByRole("checkbox", { name: "I reviewed these facts", exact: false })
@@ -98,6 +99,28 @@ test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
       }),
     ).toBeVisible();
     await page.goto("/startups");
+    await page
+      .getByRole("button", { name: "My preferred team size", exact: true })
+      .click();
+    await expect(page.getByText("1 teams", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Fictional Large Team", exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Reset filters", exact: true })
+      .click();
+    await page.getByLabel("Search saved companies").fill("Northstar");
+    await page.getByLabel("Search saved companies").press("Enter");
+    await expect(page.getByText("1 teams", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Fictional Northstar Labs", exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Fictional Large Team", exact: true }),
+    ).not.toBeVisible();
+    await page.getByLabel("Search saved companies").fill("");
+    await page.getByLabel("Search saved companies").press("Enter");
+    await expect(page.getByText("4 teams", { exact: true })).toBeVisible();
     await page.getByLabel("Location", { exact: true }).selectOption("India");
     await page.getByLabel("Company size").selectOption("2-10");
     await page.getByLabel("Technology", { exact: true }).selectOption("Python");

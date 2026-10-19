@@ -72,3 +72,16 @@ it("keeps an opened application separate from submission", () => {
     }),
   ).toBe("Applied — User Reported");
 });
+
+it("preserves larger and unrestricted size presets without inheriting the default 50-person cap", () => {
+  expect(sizeFilter("51-200")).toMatchObject({
+    max_employees: null,
+    size_bands: ["51-200"],
+    include_unknown_size: false,
+  });
+  expect(sizeFilter("all")).toMatchObject({
+    max_employees: null,
+    min_employees: null,
+    size_bands: [],
+  });
+});
