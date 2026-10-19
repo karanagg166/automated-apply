@@ -349,3 +349,27 @@ backend/venv/bin/python -m backend.scripts.demo_application_preparation
 The demonstration uses fictional data, an injected fake Gemini response, and an in-memory database.
 It performs no network calls, production writes, submissions or email sends. REST operates with
 MCP disabled; five application read tools use the separate `read_applications` capability.
+
+## Phase 6A: startup discovery and professional intelligence
+
+Startup intelligence reuses the existing discovery, saved-profile matching, contacts and application
+services. Companies can be imported independently of jobs with permission-bearing evidence;
+job-led runs use existing HN, Greenhouse, Remotive and Arbeitnow adapters. Small-company filters
+preserve unknown/conflicting counts, hiring signals retain provenance, and ranked shortlists show
+reasons and missing information. Startup REST endpoints require owner bearer authentication;
+five new MCP tools perform cached reads only.
+
+Actual bounded public checks passed for all four public feeds on 2026-10-19. See the
+[UTC-timestamped source evidence](docs/phase6a-live-verification.json). This is historical test evidence,
+not deployment verification. YC automated directory discovery remains unsupported, and
+Wellfound/YC actors and Serper require operator permission/configuration/cost review. No paid
+calls or LinkedIn requests were performed. Founder end-to-end validation uses fictional fixtures.
+
+- [Startup discovery, filters, ranking, API, MCP and demonstration](docs/live-startup-discovery.md)
+- [Founder evidence, conservative identity and LinkedIn restrictions](docs/startup-founder-intelligence.md)
+- [Provider permissions, account limits, diagnostics and troubleshooting](docs/discovery-provider-setup.md)
+
+Migration **009 follows 001–008** and adds only `job_agent` objects; it has not been applied to
+production. Run `python backend/scripts/startup_discovery_demo.py` for a full offline demonstration,
+or explicitly select `--live --source hacker_news` for a bounded public connectivity check using a
+temporary local database. No schedule, platform write, application submission or message send is added.

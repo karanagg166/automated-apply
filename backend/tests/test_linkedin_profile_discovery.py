@@ -1,13 +1,14 @@
 import httpx
 import pytest
+
 from backend.app.services.people_discovery.base import PeopleQuery, PublicPerson
 from backend.app.services.people_discovery.normalizer import (
-    normalize_linkedin_url,
     mark_ambiguities,
+    normalize_linkedin_url,
 )
 from backend.app.services.people_discovery.public_search import PublicSearchAdapter
 from backend.app.services.people_discovery.service import PeopleDiscoveryService
-from backend.tests.discovery_fakes import settings, FakeBudget
+from backend.tests.discovery_fakes import FakeBudget, settings
 
 
 @pytest.mark.parametrize(
@@ -82,7 +83,13 @@ async def test_search_calls_only_search_provider_and_preserves_role_evidence(
         result = await PeopleDiscoveryService(
             db_session,
             FakeBudget(),
-            settings(PEOPLE_SEARCH_ENABLED=True, SERPER_API_KEY="fictional-key"),
+            settings(
+                PUBLIC_SEARCH_RIGHTS_REVIEWED=True,
+                PUBLIC_SEARCH_PERMISSION_EVIDENCE_URL="https://example.com/permission",
+                LINKEDIN_SEARCH_RETENTION_AUTHORIZED=True,
+                PEOPLE_SEARCH_ENABLED=True,
+                SERPER_API_KEY="fictional-key",
+            ),
             PublicSearchAdapter("fictional-key", client),
         ).search(PeopleQuery(company_name="Acme", roles=["cto"], allow_paid=True))
     assert len(requests) == 1 and len(result["people"]) == 2
@@ -118,7 +125,13 @@ async def test_search_rate_limit_sanitizes_errors(db_session):
         result = await PeopleDiscoveryService(
             db_session,
             budget,
-            settings(PEOPLE_SEARCH_ENABLED=True, SERPER_API_KEY="secret"),
+            settings(
+                PUBLIC_SEARCH_RIGHTS_REVIEWED=True,
+                PUBLIC_SEARCH_PERMISSION_EVIDENCE_URL="https://example.com/permission",
+                LINKEDIN_SEARCH_RETENTION_AUTHORIZED=True,
+                PEOPLE_SEARCH_ENABLED=True,
+                SERPER_API_KEY="secret",
+            ),
             PublicSearchAdapter("secret", client),
         ).search(PeopleQuery(company_name="Acme", allow_paid=True))
     assert result["status"] == "rate_limited" and budget.cooled

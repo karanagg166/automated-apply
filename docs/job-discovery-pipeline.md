@@ -274,3 +274,21 @@ provides disposable PostgreSQL 16 and runs all three migration/concurrency suite
 local test URL PostgreSQL tests explicitly skip; skips are not PostgreSQL verification. Live smoke
 checks are separate from fixtures, never execute paid actors and do not constitute portal account
 authorization. Later work: explicitly approved enrichment, followed by separately approved outreach.
+
+## Phase 6A startup layer
+
+Startup discovery composes the existing pipeline. Job-led requests retain their job-discovery child
+run and canonical job IDs; permission-confirmed company-first imports create companies and source
+snapshots without inventing openings. Size, hiring status and profile ranking remain independently
+explainable. Existing public adapters now reject invalid top-level JSON collections, report HTTP
+status to connectivity checks, and use shared durable source pacing for actual REST executions.
+Remotive receives at most one request per six-hour window, including failures; no automatic retry
+is made for this source. Other public sources retain a single bounded retry. Injected unit-test
+transports are explicitly mocked and do not establish live source availability.
+
+See [live startup discovery](live-startup-discovery.md) for typed filters, owner execution routes,
+company observations, migration 009 and cached MCP tools. [Provider setup](discovery-provider-setup.md)
+records current source permissions, disabled actor/search configuration, actual connectivity evidence
+and remaining operator responsibilities. Existing people research now requires separately reviewed
+retention rights before a paid public-profile query, and can process licensed official-domain evidence
+through the existing contact reconciliation workflow.

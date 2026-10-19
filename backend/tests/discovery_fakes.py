@@ -26,6 +26,8 @@ def actor_config(**updates):
         "build": "0.1.2",
         "enabled": True,
         "reviewed": True,
+        "platform_usage_included": True,
+        "account_spending_limit_verified": True,
         "schema_evidence_url": "https://example.com/input",
         "pricing_evidence_url": "https://example.com/pricing",
         "permission_evidence_url": "https://example.com/permissions",

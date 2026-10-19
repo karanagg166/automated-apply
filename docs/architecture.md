@@ -297,3 +297,26 @@ MCP tools use `read_applications`, confer no approval/submission/Gmail authority
 the same service. REST remains available with remote MCP disabled. A handoff GET is read-only;
 only an explicit owner report creates self-reported submission evidence. `Job.status` is unchanged.
 See [the detailed contract](application-preparation.md) for lifecycle, examples and verification.
+
+## Phase 6A implementation: startup intelligence
+
+`StartupDiscoveryService` composes existing `JobDiscoveryService`, `JobIngestionService`,
+`JobDiscoveryMatcher`, `CandidateProfileService`, company repositories and cached contact reads.
+Its company-first path accepts typed, permission-confirmed observations directly into canonical
+companies; it creates no fake job. Unsupported directory access is explicit. Job-led runs retain a
+child job-discovery run so source failures, reservations and provider IDs remain auditable even if
+subsequent company ranking fails. Company snapshots and parent final state commit together;
+child job runs commit independently and remain inspectable after parent failure.
+
+The protected startup router and five read-only FastMCP tools share these services. Existing people
+research and contact routes remain the execution boundaries for optional founder research/enrichment.
+`PublicSearchAdapter` is the sole Serper HTTP client. Official-domain research and separately
+permission-gated profile research feed the existing contact identity/evidence pipeline; suppression,
+human corrections, uncertain employer association, freshness and mailbox distinctions are preserved.
+
+Migration 009 adds company snapshots, reviewed shortlist entries, connector diagnostics and atomic
+provider pacing in `job_agent`; existing discovery runs, companies/jobs and contact tables are reused.
+No production migration, crawler/browser service, broker, second database, extension, auto-apply or
+outbound-message automation is introduced. The temporary SQLite demo is test isolation, not a new
+production datastore. See [startup documentation](live-startup-discovery.md) for exact current scope,
+including source permissions and evidence from bounded actual public checks.
