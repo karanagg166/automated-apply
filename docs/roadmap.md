@@ -91,4 +91,28 @@ Implemented: local-first professional contact enrichment; Phase 2B people bridge
 
 Not live verified: provider credentials, account eligibility, authentication, provider enrichment or mailbox verification. No production migration, deployment or outbound communication was performed.
 
-Next milestone: Phase 4 secondary Gmail OAuth and personalized drafts with explicit human approval and sending. This requires current identity/evidence/suppression checks and supported email verification. Phase 3 does not initiate it.
+Phase 4A implements the separately scoped connection/local-draft foundation below. Sending remains Phase 4B.
+
+
+## Phase 4A implementation status
+
+Implemented: authenticated disabled-by-default MCP, centralized permissions and audit, saved-profile
+read tools, connector capability status, secondary Gmail authorization-code/PKCE connection with
+durable replay protection and encrypted tokens, and grounded local outreach drafts with revision,
+recipient/evidence snapshots, editing, rejection and approval. Migration 006 has disposable
+PostgreSQL verification. No provider email writes, sends or application submissions are included.
+Live OAuth/Gemini/provider connectivity still requires owner-supplied credentials and explicit
+account authorization. Production migration/deployment remain separately authorized work.
+
+## Next: Phase 4B — Approved Gmail Sending and Delivery Tracking
+
+Separate scope: sender-account binding; least-privilege sending authorization; current eligibility,
+suppression and revision approval checks; send idempotency; delivery confirmation; Gmail draft
+synchronization only if separately authorized. Approval in 4A never sends. Do not treat migration
+006's no-send guards as ready-made sending logic; change them only with tested 4B implementation.
+
+## Later: Phase 5 — Supported Naukri Application Automation with MCP and Browser Extension Integration
+
+Separate supported connector/browser-extension work, permission and platform review, application
+preview/approval, idempotent submission and confirmation. No browser/session automation or
+Naukri/Instahyre/YC/Wellfound submissions are initiated by Phase 4A.

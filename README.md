@@ -12,7 +12,7 @@ An AI-powered job discovery, recruiter contact enrichment, and personalized cold
 - Public professional URL discovery through configured search or manual evidence; LinkedIn outreach stays manual.
 - Existing company/job/contact repositories, budget reservations and factual draft preparation.
 - Protected founder/recruiter contact enrichment, provenance, suppression and contextual recommendations; paid providers default to disabled.
-- FastMCP tools accepting explicit candidate inputs; LinkedIn submissions remain manual.
+- Authenticated, opt-in Streamable HTTP MCP tools using saved candidate facts; LinkedIn actions remain manual.
 
 Paid platform actors require reviewed configuration and explicit budgets; no actor or account is pre-verified. See [the discovery pipeline](docs/job-discovery-pipeline.md) for source status, API examples, migration 004 and test instructions.
 
@@ -113,7 +113,7 @@ uvicorn backend.app.main:app --reload --port 8000
 ## 🛡️ Non-Negotiable Safety Principles
 
 1. **Account Protection:** No browser automation on authenticated personal sessions, no session cookie harvesting.
-2. **Strict HITL:** The system prepares drafts and normalizes data autonomously. Emails are sent **only** after explicit human confirmation.
+2. **Strict HITL:** The system prepares drafts and normalizes data autonomously. Phase 4A records approval for local drafts; sending is reserved for Phase 4B.
 3. **Cost-First Budgeting:** Cached data is reused first, free tiers are prioritized, and external API calls fail safe when budgets are reached.
 4. **Database Isolation:** All application tables reside in the `job_agent` schema, completely segregated from other projects and existing public tables.
 
@@ -124,8 +124,8 @@ Set `JOB_AGENT_API_TOKEN` to a strong random value in the server environment. Em
 configuration returns **503**; missing or invalid bearer credentials return **401**.
 Tokens use constant-time comparison and are never stored in the candidate record or logged
 by the API. Use HTTPS outside localhost and keep database SQL echo disabled for private data.
-This is single-user server authentication, not multi-user login. The existing MCP endpoint
-cannot read the saved profile; protect existing tools separately before exposing them publicly.
+This is single-user server authentication, not multi-user login. Phase 4A adds a separately authenticated, disabled-by-default MCP endpoint; see
+[MCP security and tools](docs/mcp-security-and-tools.md). The REST token does not grant MCP access.
 
 | Endpoint | Behavior |
 | --- | --- |
@@ -274,3 +274,32 @@ No production migration or deployment is performed.
 Bearer-protected contact enrichment now reuses company contacts and Phase 2B people evidence, with optional Apollo and SignalHire adapters, durable credit reservations, safe identity reconciliation and explainable recommendations. Paid execution is disabled by default. Both adapters are mock-tested; no live provider authorization or enrichment has been verified. Migration 005 is additive and has only been verified in disposable PostgreSQL, with no production migration or deployment.
 
 See [contact enrichment](docs/contact-enrichment.md) for configuration, provider documentation, API examples, verification semantics, retention, tests and the fictional demonstration. No messages are sent.
+
+
+## Phase 4A: secure MCP, secondary Gmail connection and local outreach
+
+Implemented: disabled-by-default authenticated Streamable HTTP at `/mcp/`, centralized read/draft
+capabilities, structured audit logs, a connector capability registry, server-side Google OAuth
+with one-time durable state/PKCE/browser binding, encrypted connection storage, and evidence-grounded
+local outreach drafts with revision-specific human review. Legacy mutation tools are not registered.
+No Gmail writes, emails sent, browser automation, application submission or deployment are included.
+
+- [MCP client setup and tool permissions](docs/mcp-security-and-tools.md)
+- [Google Cloud setup, scopes and secondary-account connection](docs/gmail-oauth-connection.md)
+- [Draft generation, editing, eligibility and approval](docs/outreach-drafting.md)
+
+Migration `006_mcp_gmail_outreach_foundation.sql` follows 001–005 and is never applied at startup.
+Google/provider integrations remain mock-tested unless actual connection verification is recorded.
+Do not infer live connectivity from code/configuration or CI. Production migration and deployment
+need separate authorization.
+
+Run the complete suite with a **disposable localhost** PostgreSQL database named `candidate_profile_test`:
+
+```bash
+PROFILE_TEST_DATABASE_URL=postgresql://postgres:<test-password>@127.0.0.1:<test-port>/candidate_profile_test \
+  backend/venv/bin/pytest backend/tests -q
+```
+
+The PostgreSQL verifiers create/drop uniquely named child databases, preserve/check prior records,
+and test RLS/grants, callback/refresh races, draft idempotency and revision guards. Without this
+environment variable PostgreSQL tests skip; SQLite alone is not migration verification.
