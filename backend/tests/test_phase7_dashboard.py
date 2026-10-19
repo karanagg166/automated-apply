@@ -164,6 +164,7 @@ async def test_pdf_upload_encrypted_private_and_owner_confirmed(
         (b"bad", "text/plain", 415),
         (b"%PDF-" + b"x" * (5 * 1024 * 1024), "application/pdf", 413),
     ],
+    ids=["invalid-pdf", "wrong-content-type", "oversized-pdf"],
 )
 async def test_upload_limits(
     async_client, phase2_auth, monkeypatch, content, mime, status
