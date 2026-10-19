@@ -17,7 +17,7 @@ needed. Use staging-only secrets and no production candidate data by default.
    Optional integrations can remain unconfigured. Never set ENVIRONMENT=staging on production
    credentials as a shortcut.
 4. Make and restore-test a staging backup before DDL. Run the offline migration plan, review all
-   nine SQL files and their checksums, then inspect the target with the pinned staging preflight.
+   ten SQL files (001–010) and their checksums, then inspect the target with the pinned staging preflight.
 5. For an empty staging schema only, apply reviewed SQL in order as a separate owner action.
    Use a password-protected libpq service file named `automated_apply_staging` and a 0600 pgpass
    file; do not put database passwords on a command line. Confirm service identity independently
@@ -28,7 +28,7 @@ needed. Use staging-only secrets and no production candidate data by default.
      --single-transaction --file supabase/migrations/001_initial_schema.sql
    ```
 
-   Repeat for 002–009 in order after review, stopping on any failure. Do not run this command on
+   Repeat for 002–010 in order after review, stopping on any failure. Do not run this command on
    production in this phase. Do not use this sequence to repair a partial schema without a DBA
    reviewing the actual drift. On vanilla PostgreSQL provision the expected Supabase-compatible
    roles (`anon`, `authenticated`, `service_role`) separately with no client logins. The existing
@@ -61,7 +61,7 @@ needed. Use staging-only secrets and no production candidate data by default.
    Do not use `--forwarded-allow-ips='*'`. Restrict direct container access so public clients cannot
    reach the trusted-ingress socket. The ingress must overwrite Forwarded/X-Forwarded-* headers,
    preserve the approved Host, enforce HTTPS/HSTS, cap bodies to 1 MiB (64 KiB for profile/packet
-   paths), and limit slow uploads/connections. Runtime Host/Origin/TLS checks apply to REST;
+   paths, 5 MiB only for the private-resume upload), and limit slow uploads/connections. Runtime Host/Origin/TLS checks apply to REST;
    MCP keeps its separate stricter token/transport boundary and stays disabled in staging.
    Only loopback process probes may bypass TLS for `/health` and `/ready`, never private APIs.
 9. Inject runtime secrets through the host secret manager (Docker --env-file is suitable only

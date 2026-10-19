@@ -3,6 +3,7 @@
 from typing import Literal
 from urllib.parse import urlsplit
 
+from cryptography.fernet import Fernet
 from pydantic import BaseModel, Field
 
 from backend.app.core.config import Settings
@@ -65,7 +66,7 @@ def environment_readiness(settings: Settings) -> ReadinessReport:
         "database_schema",
         settings.DATABASE_SCHEMA == "job_agent",
         True,
-        ["Migrations 001–009 target the dedicated job_agent schema"],
+        ["Migrations 001–010 target the dedicated job_agent schema"],
     )
     if settings.ENVIRONMENT == "staging":
         add(
@@ -78,6 +79,12 @@ def environment_readiness(settings: Settings) -> ReadinessReport:
         )
     add("api_authentication", suitable_secret(settings.JOB_AGENT_API_TOKEN), live)
     add("secret_key", suitable_secret(settings.SECRET_KEY), live)
+    try:
+        Fernet(settings.RESUME_ENCRYPTION_KEY.get_secret_value().encode())
+        resume_encryption = True
+    except (AttributeError, ValueError, TypeError):
+        resume_encryption = False
+    add("private_resume_encryption", resume_encryption, live)
     try:
         TokenStore(settings)
         encryption = True

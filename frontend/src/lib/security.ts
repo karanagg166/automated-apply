@@ -81,9 +81,16 @@ export function allowedRequest(request: Request, mutation = false) {
   try {
     const { origin } = configuration();
     const url = new URL(request.url);
+    const expected = new URL(origin);
+    // Standalone Next.js constructs request URLs with its internal bind address.
+    // Authenticate the exact external Host and Origin; never trust forwarded Host.
+    const internal = ["localhost", "127.0.0.1", "[::1]", "0.0.0.0"].includes(
+      url.hostname,
+    );
     if (
-      url.origin !== origin ||
-      request.headers.get("host") !== new URL(origin).host
+      url.protocol !== expected.protocol ||
+      (!internal && url.origin !== origin) ||
+      request.headers.get("host") !== expected.host
     )
       return false;
     const supplied = request.headers.get("origin");

@@ -419,3 +419,11 @@ live provider test. `/api/v1/credits/status` now also requires the existing owne
 Live environments reject unsafe configuration/startup failures, use certificate-verified database
 TLS, and keep sending/submission disabled. Reports and owner input files are private, ignored
 runtime artifacts. The Docker image does not include test dependencies or personal data.
+
+## Phase 8 — private workspace staging readiness
+
+See [workspace staging](docs/phase8-staging.md) for the standalone non-root frontend image,
+cross-service configuration checks, exact OAuth ingress requirements, owner review and the
+durable local public-source pilot. This extends the Phase 7 dashboard; it does not provision a
+host or authorize a staging/production migration. Missing owner data or provider access remains
+explicit. External sends, submissions, paid operations and notification delivery stay gated.
