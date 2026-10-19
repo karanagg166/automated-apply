@@ -246,3 +246,21 @@ fake delivery fields/sent transitions. Approvals record review only; future send
 See [MCP security](mcp-security-and-tools.md), [Gmail OAuth](gmail-oauth-connection.md), and
 [outreach drafting](outreach-drafting.md) for current contracts and operational limits.
 No production migration/deployment or real account/provider verification is implied.
+
+## Phase 4B approved sending
+
+The owner-only REST send preview uses the existing drafting eligibility/evidence service and
+Gmail connection. It persists a hashed five-minute consent binding the exact revision, message,
+evidence, recipient, sender authorization and owner. A separate authenticated send request
+consumes consent atomically with a permanent unique attempt. PostgreSQL advisory/row locks
+serialize claims, account changes, eligibility updates and rolling sending caps across workers.
+Prepared and attempting states commit before Gmail; no worker resumes them after a crash.
+
+The narrow Gmail adapter emits plain-text RFC MIME and invokes users.messages.send once.
+Ambiguous transport/server/response/persistence outcomes require manual reconciliation; there
+is no retry, bulk send, follow-up, mailbox search or delivery/read tracking. Accepted responses
+update the immutable attempt and mirror provider IDs/acceptance time to OutreachLog without
+changing its reviewed revision. Historical messages survive suppression and disconnect.
+Migration 007 adds confirmations/attempts and controlled OAuth upgrades, superseding the 006
+draft guard in place. No public-schema writes or deployment/migration hooks are introduced.
+See [approved Gmail sending](gmail-approved-sending.md) for protocol, limits and operations.

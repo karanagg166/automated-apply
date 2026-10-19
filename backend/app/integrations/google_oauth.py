@@ -17,6 +17,10 @@ SCOPES = frozenset(
         "https://www.googleapis.com/auth/gmail.metadata",
     }
 )
+SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send"
+SEND_SCOPES = SCOPES | {SEND_SCOPE}
+ALLOWED_SCOPE_SETS = (SCOPES, SEND_SCOPES)
+
 EMAIL_ALIASES = {"email": "https://www.googleapis.com/auth/userinfo.email"}
 
 
@@ -55,7 +59,7 @@ class GoogleOAuth:
             and self.settings.GMAIL_REDIRECT_URI
         )
 
-    def authorization_url(self, state, verifier, expected_email):
+    def authorization_url(self, state, verifier, expected_email, *, send=False):
         challenge = (
             base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest())
             .decode()
@@ -66,7 +70,7 @@ class GoogleOAuth:
                 "client_id": self.settings.GMAIL_CLIENT_ID,
                 "redirect_uri": self.settings.GMAIL_REDIRECT_URI,
                 "response_type": "code",
-                "scope": " ".join(sorted(SCOPES)),
+                "scope": " ".join(sorted(SEND_SCOPES if send else SCOPES)),
                 "state": state,
                 "access_type": "offline",
                 "prompt": "consent select_account",

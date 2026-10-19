@@ -21,7 +21,7 @@ implemented in this flow. The existing alert parser remains manual-import-only i
 5. Configure the separate encryption keyring below. Keep credentials out of browser storage,
    candidate profiles, source files, MCP clients and logs.
 
-Requested scopes are exactly:
+Default metadata-connection scopes are exactly:
 
 - `openid`: stable Google subject identity.
 - `https://www.googleapis.com/auth/userinfo.email`: verified email identity (Google's `email` alias is normalized).
@@ -29,10 +29,10 @@ Requested scopes are exactly:
 
 `gmail.metadata` is **restricted**, despite not allowing bodies. The application uses it only
 to verify that the authorized Gmail mailbox matches Google's verified account email. It does
-not read message headers or labels in 4A. `gmail.send`, `gmail.compose`, `gmail.modify`,
-`gmail.readonly`, and `https://mail.google.com/` are neither requested nor accepted. Additional
-or missing granted scopes reject the connection; scope changes on refresh require authorization
-again. Do not add compose just for local drafts: it also permits sending.
+not read message headers or labels. Phase 4B adds only `gmail.send` through a separate explicit
+consent upgrade with the same secondary identity. The default connection does not request it.
+`gmail.compose`, `gmail.modify`, `gmail.readonly`, and `https://mail.google.com/` remain rejected.
+Each mode validates its exact granted set; refresh cannot expand or reduce the saved set. Do not add compose just for local drafts: it also permits sending.
 
 Google's restricted-scope verification applies to external distribution unless an applicable
 exception covers the use. Server-side storage/transmission of restricted-scope data may also
@@ -119,3 +119,12 @@ state/PKCE/identity binding and wrote refresh tokens directly to `.env`. It now 
 connection-endpoint instructions and never reads CLI credentials, opens a browser or changes
 existing configuration. The legacy parser library remains compatible with previously configured
 credentials, but is not used as an alternative account-connection or discovery route.
+
+## Phase 4B send authorization
+
+Send `authorization_mode: "send"` to the existing authenticated connect/start endpoint after
+connecting metadata. The durable PKCE state also binds the expected Google subject and mode.
+Failed consent/identity/scope checks preserve the connection. Missing new refresh tokens fail
+closed. See [approved sending](gmail-approved-sending.md) for capability states, controlled
+reconnection, explicit preview/confirmation, idempotency, limits and migration 007. Approval
+alone never sends. Google OAuth verification is an operational prerequisite where applicable.

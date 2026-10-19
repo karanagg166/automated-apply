@@ -104,14 +104,18 @@ PostgreSQL verification. No provider email writes, sends or application submissi
 Live OAuth/Gemini/provider connectivity still requires owner-supplied credentials and explicit
 account authorization. Production migration/deployment remain separately authorized work.
 
-## Next: Phase 4B — Approved Gmail Sending and Delivery Tracking
+## Phase 4B — Approved Gmail Sending and Acceptance Tracking
 
-Separate scope: sender-account binding; least-privilege sending authorization; current eligibility,
-suppression and revision approval checks; send idempotency; delivery confirmation; Gmail draft
-synchronization only if separately authorized. Approval in 4A never sends. Do not treat migration
-006's no-send guards as ready-made sending logic; change them only with tested 4B implementation.
+Implemented: explicit identity-bound gmail.send upgrade using the existing PKCE/token store;
+owner REST send preview and separate single-use exact-content confirmation; current approval,
+mailbox evidence and suppression checks; safe one-recipient MIME; one committed reservation
+per draft; cross-worker caps and idempotency; acceptance/unknown history and manual audited
+reconciliation. Migration 007 preserves prior records and supersedes the 006 guard safely.
+No Gmail send MCP tool, background scheduling, automated follow-ups or delivery/read claims.
+See [approved sending](gmail-approved-sending.md). Live OAuth/send authorization and production
+migration/deployment remain owner-operated work; implementation/CI send no real messages.
 
-## Later: Phase 5 — Supported Naukri Application Automation with MCP and Browser Extension Integration
+## Next: Phase 5 — Supported Naukri Application Automation with MCP and Browser Extension Integration
 
 Separate supported connector/browser-extension work, permission and platform review, application
 preview/approval, idempotent submission and confirmation. No browser/session automation or

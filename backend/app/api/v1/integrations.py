@@ -1,6 +1,7 @@
 """Owner APIs plus a browser-bound, durable-state Google OAuth callback."""
 
 import secrets
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, EmailStr
@@ -22,6 +23,7 @@ CALLBACK = "/api/v1/integrations/gmail/oauth/callback"
 class ConnectInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     expected_email: EmailStr | None = None
+    authorization_mode: Literal["metadata", "send"] = "metadata"
 
 
 def connection_service(session: AsyncSession = Depends(get_db_session)):
@@ -45,7 +47,8 @@ async def start(
     browser = secrets.token_urlsafe(32)
     try:
         result = await service.start(
-            str(data.expected_email) if data.expected_email else None, browser
+            str(data.expected_email) if data.expected_email else None, browser,
+            send=data.authorization_mode == "send"
         )
     except ConnectionError as exc:
         raise HTTPException(409, str(exc)) from None

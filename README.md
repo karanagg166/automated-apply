@@ -303,3 +303,16 @@ PROFILE_TEST_DATABASE_URL=postgresql://postgres:<test-password>@127.0.0.1:<test-
 The PostgreSQL verifiers create/drop uniquely named child databases, preserve/check prior records,
 and test RLS/grants, callback/refresh races, draft idempotency and revision guards. Without this
 environment variable PostgreSQL tests skip; SQLite alone is not migration verification.
+
+## Phase 4B: approved Gmail sending
+
+Implemented: separate secondary-account `gmail.send` consent; exact approved-message preview;
+short-lived single-use owner confirmation; durable one-attempt-per-draft reservation, worker
+concurrency protection and rolling hourly/daily caps; truthful Gmail acceptance/unknown history.
+Approval never sends. MCP cannot send. Timeouts and lost responses never trigger automatic retries.
+
+Sending defaults to disabled. Apply additive migration **007 after 001–006** only with separate
+environment authorization. No real account was connected or email sent during implementation;
+tests use mocks and disposable PostgreSQL. No production migration/deployment was performed.
+See [approved Gmail sending](docs/gmail-approved-sending.md) for OAuth, API examples, crash recovery,
+manual reconciliation, limits, Google verification and rollout requirements.

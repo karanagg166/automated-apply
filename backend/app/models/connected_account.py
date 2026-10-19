@@ -43,3 +43,6 @@ class OAuthState(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    authorization_mode: Mapped[str] = mapped_column(String(20), default="metadata")
+    expected_subject: Mapped[str | None] = mapped_column(String(255))

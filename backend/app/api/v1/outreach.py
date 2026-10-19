@@ -1,4 +1,4 @@
-"""Human review of local drafts only. Approval has no delivery side effects."""
+"""Owner draft review and separately confirmed sends. Approval never sends."""
 
 from uuid import UUID
 
@@ -8,8 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.security import require_api_token
 from backend.app.db.session import get_db_session
+from backend.app.integrations.gmail.schemas import SendRequest
 from backend.app.models.outreach import OutreachLog
 from backend.app.schemas.outreach import DraftDecision, DraftEdit, DraftInput
+from backend.app.services.gmail_sending import GmailSendingService
 from backend.app.services.outreach_drafting import (
     DraftConflict,
     OutreachDraftingService,
@@ -32,7 +34,12 @@ async def execute(awaitable):
     except LookupError:
         raise HTTPException(404, "Draft or contact not found") from None
     except DraftConflict as exc:
-        raise HTTPException(409, str(exc)) from None
+        detail = (
+            {"code": "send_blocked", "blockers": exc.blockers}
+            if hasattr(exc, "blockers")
+            else str(exc)
+        )
+        raise HTTPException(409, detail) from None
     except ValueError:
         raise HTTPException(422, "Invalid draft context or input") from None
 
@@ -100,3 +107,34 @@ async def eligibility(draft_id: UUID, service=Depends(drafting_service)):
         return await service.eligibility(await service.get(draft_id))
 
     return await execute(check())
+
+
+# Only this owner-facing router can initiate Gmail; no MCP registration or worker.
+
+
+def sending_service(session: AsyncSession = Depends(get_db_session)):
+    return GmailSendingService(session)
+
+
+@router.post("/drafts/{draft_id}/send-preview")
+async def send_preview(draft_id: UUID, service=Depends(sending_service)):
+    return await execute(service.preview(draft_id, actor="owner"))
+
+
+@router.post("/drafts/{draft_id}/send")
+async def send(draft_id: UUID, data: SendRequest, service=Depends(sending_service)):
+    return await execute(service.send(draft_id, data, actor="owner"))
+
+
+@router.get("/send-attempts/{attempt_id}")
+async def send_status(attempt_id: UUID, service=Depends(sending_service)):
+    return await execute(service.status(attempt_id))
+
+
+@router.get("/history")
+async def outreach_history(
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0, le=100000),
+    service=Depends(sending_service),
+):
+    return await execute(service.history(limit, offset))

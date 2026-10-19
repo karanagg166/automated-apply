@@ -26,6 +26,7 @@ for name in ("GEMINI_API_KEY", "LLM_MODEL", "CANDIDATE_RESUME_DRIVE_URL", "CANDI
 
 os.environ["OAUTH_ENCRYPTION_KEYS"] = "{}"
 os.environ["OAUTH_ACTIVE_KEY_ID"] = ""
+os.environ["GMAIL_SENDING_ENABLED"] = "false"
 os.environ["MCP_REMOTE_ENABLED"] = "false"
 os.environ["MCP_ALLOW_DRAFT_CREATION"] = "false"
 
@@ -174,3 +175,16 @@ async def oauth_bundle(db_session):
     settings, fake = oauth_settings(), GoogleFixture()
     async with fake.client() as client:
         yield ConnectionService(db_session, settings, GoogleOAuth(settings, client)), fake, settings
+
+
+@pytest_asyncio.fixture
+async def sending_bundle(db_session, phase2_profile):
+    from backend.tests.phase4b_fakes import approved_target, bundle, connect_sender, SendFixture
+    from backend.app.services.gmail_sending import GmailSendingService
+    settings, google = await bundle()
+    async with google.client() as http:
+        connection = await connect_sender(db_session, settings, google, http)
+        draft, contact, evidence, mailbox = await approved_target(db_session, settings)
+        sender = SendFixture()
+        service = GmailSendingService(db_session, settings, connection, sender)
+        yield service, draft, sender, contact, evidence, mailbox
