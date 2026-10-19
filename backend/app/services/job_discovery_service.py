@@ -3,23 +3,28 @@
 import asyncio
 import hashlib
 import json
-from datetime import datetime, timezone, timedelta
 import uuid
+from datetime import datetime, timedelta, timezone
+
 from sqlalchemy import select
+
+from backend.app.ai.usage import concurrency_limiter
 from backend.app.core.config import get_settings
 from backend.app.models.discovery import DiscoveryRun
+from backend.app.repositories.candidate_profile import ProfileNotFoundError
 from backend.app.schemas.discovery import (
+    DiscoveryError,
     DiscoveryResult,
+)
+from backend.app.schemas.discovery import (
     DiscoveryStatus as Status,
 )
 from backend.app.schemas.normalized_job import NormalizedJob
-from backend.app.services.job_sources.factory import JobSourceFactory
-from backend.app.services.job_sources.registry import resolve_source
+from backend.app.services.candidate_profile_service import CandidateProfileService
 from backend.app.services.discovery_budget import DiscoveryBudget, insert_for
 from backend.app.services.job_ingestion import JobIngestionService
-from backend.app.services.candidate_profile_service import CandidateProfileService
-from backend.app.repositories.candidate_profile import ProfileNotFoundError
-from backend.app.ai.usage import concurrency_limiter
+from backend.app.services.job_sources.factory import JobSourceFactory
+from backend.app.services.job_sources.registry import resolve_source
 
 
 class IdempotencyConflict(ValueError):
@@ -46,6 +51,7 @@ def run_output(run):
         "provider_run_id": run.provider_run_id,
         "usage": run.usage,
         "rankings": run.rankings,
+        "job_ids": (run.query_summary or {}).get("job_ids", []),
     }
 
 
@@ -163,6 +169,7 @@ class JobDiscoveryService:
             "skipped": 0,
         }
         rankings = []
+        saved_job_ids = []
         try:
             profile = None
             if request.use_profile:
@@ -226,6 +233,19 @@ class JobDiscoveryService:
                         adapter = JobSourceFactory.get_adapter(
                             request.source, **options
                         )
+                        from backend.app.services.job_sources.direct_api import (
+                            DirectAdapter,
+                        )
+                        from backend.app.services.startup_discovery.connectivity import (
+                            claim_access,
+                        )
+
+                        if (
+                            isinstance(adapter, DirectAdapter)
+                            and adapter._client is None
+                            and not adapter.validate_configuration()
+                        ):
+                            await claim_access(self.factory, request.source)
                         result = await adapter.discover(
                             query,
                             allow_paid=request.allow_paid,
@@ -295,6 +315,7 @@ class JobDiscoveryService:
                         ingested = await JobIngestionService(self.session).ingest_jobs(
                             filtered
                         )
+                        saved_job_ids = ingested.job_ids
                         for name in (
                             "inserted",
                             "updated",
@@ -305,8 +326,8 @@ class JobDiscoveryService:
                         ):
                             counts[name] += getattr(ingested, name + "_count")
                         if profile:
-                            from backend.app.models.job import Job
                             from backend.app.models.company import Company
+                            from backend.app.models.job import Job
                             from backend.app.services.job_discovery_matcher import (
                                 JobDiscoveryMatcher,
                             )
@@ -345,6 +366,7 @@ class JobDiscoveryService:
                 and not counts["updated"]
             ):
                 result.status = Status.NO_RESULTS
+            run.query_summary = {**run.query_summary, "job_ids": saved_job_ids}
             run.rankings = rankings
             run.status, run.counts, run.errors = (
                 str(result.status),
@@ -371,6 +393,8 @@ class JobDiscoveryService:
                         if isinstance(error, asyncio.CancelledError)
                         else "upstream_error"
                         if isinstance(error, TimeoutError)
+                        else str(error.status)
+                        if isinstance(error, DiscoveryError)
                         else "failed"
                     )
                     run.errors = [

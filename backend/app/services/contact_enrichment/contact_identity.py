@@ -50,6 +50,16 @@ class ContactIdentityResolver:
         email = business_email(observation.email, company.domain)
         kind = email_kind(email) if email else observation.email_kind
         keys = []
+        if observation.professional_url:
+            keys.append(("professional_url", str(observation.professional_url)))
+            keys.append(
+                (
+                    "suppressed_professional_url",
+                    hashlib.sha256(
+                        str(observation.professional_url).encode()
+                    ).hexdigest(),
+                )
+            )
         if observation.linkedin_url:
             keys.append(("linkedin", observation.linkedin_url))
             keys.append(
@@ -60,6 +70,12 @@ class ContactIdentityResolver:
             )
         if observation.provider_person_id:
             keys.append((observation.source, observation.provider_person_id))
+            keys.append(
+                (
+                    "suppressed_provider_" + observation.source,
+                    hashlib.sha256(observation.provider_person_id.encode()).hexdigest(),
+                )
+            )
         if observation.discovered_person_id:
             keys.append(("discovered_person", str(observation.discovered_person_id)))
         if email and kind == "person_specific":
@@ -212,7 +228,10 @@ class ContactIdentityResolver:
             email_added = True
             if contact.email_status == "invalid":
                 conflicts.append("conflicting_email_validity")
-        if not contact.human_corrected:
+        if not contact.human_corrected and (
+            not (contact.metadata_ or {}).get("identity_human_confirmed")
+            or observation.human_confirmed
+        ):
             if observation.role_title and (
                 observation.observed_at is None
                 or contact.last_checked_at is None
@@ -223,9 +242,14 @@ class ContactIdentityResolver:
             if observation.linkedin_url and not contact.linkedin_url:
                 contact.linkedin_url = observation.linkedin_url
         checked = observation.observed_at or now()
-        if contact.last_checked_at is None or checked.replace(
-            tzinfo=timezone.utc
-        ) > contact.last_checked_at.replace(tzinfo=timezone.utc):
+        if (
+            not (contact.metadata_ or {}).get("identity_human_confirmed")
+            or observation.human_confirmed
+        ) and (
+            contact.last_checked_at is None
+            or checked.replace(tzinfo=timezone.utc)
+            > contact.last_checked_at.replace(tzinfo=timezone.utc)
+        ):
             contact.last_checked_at = checked
         email_metadata = (
             {
@@ -276,11 +300,18 @@ class ContactIdentityResolver:
                 observed_role=observation.role_title,
                 observed_company=company.domain,
                 provider_verification_claim=observation.provider_verification_claim,
+                user_confirmed=observation.human_confirmed,
                 strength=strength,
                 collected_at=observation.observed_at or now(),
                 expires_at=(observation.observed_at or now())
                 + timedelta(days=self.ttl_days),
                 provenance={
+                    "permission_evidence_url": str(observation.permission_evidence_url)
+                    if observation.permission_evidence_url
+                    else None,
+                    "professional_url": str(observation.professional_url)
+                    if observation.professional_url
+                    else None,
                     "email": email,
                     "email_kind": kind,
                     "email_status": observation.email_status,

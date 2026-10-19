@@ -1,7 +1,9 @@
 """Typed, explicit source identities. Metadata is never evidence of a live connection."""
 
 from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
+
 from backend.app.core.config import get_settings
 from backend.app.schemas.discovery import DiscoveryQuery
 
@@ -80,6 +82,8 @@ def source_registry(settings=None):
             configured = (
                 actor.enabled
                 and actor.reviewed
+                and actor.platform_usage_included
+                and actor.account_spending_limit_verified
                 and bool(settings.APIFY_API_TOKEN)
                 and settings.APIFY_PER_RUN_CAP_USD > 0
                 and settings.APIFY_MONTHLY_LIMIT_USD >= settings.APIFY_PER_RUN_CAP_USD

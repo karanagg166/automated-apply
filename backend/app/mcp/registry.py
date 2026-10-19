@@ -19,6 +19,9 @@ from backend.app.services.applications.service import ApplicationPacketService
 from backend.app.services.candidate_profile_service import CandidateProfileService
 from backend.app.services.outreach_drafting import OutreachDraftingService
 from backend.app.services.saved_data import SavedDataService
+from backend.app.services.startup_discovery.connectivity import ProviderConnectivity
+from backend.app.services.startup_discovery.schemas import StartupFilters
+from backend.app.services.startup_discovery.service import StartupDiscoveryService
 
 mcp = FastMCP(
     get_settings().FASTMCP_SERVER_NAME,
@@ -194,6 +197,46 @@ async def get_application_handoff(packet_id: UUID) -> dict:
     """Read copyable approved answers. Approval, freshness and resume checks cannot be bypassed."""
     async with get_db_context() as session:
         return (await ApplicationReview(ApplicationPacketService(session)).handoff(packet_id)).model_dump(mode="json")
+
+
+@mcp.tool()
+@protected("read_discovery")
+async def search_discovered_startups(filters: "StartupFilters") -> dict:
+    """Search cached companies and evidence; no live requests or paid execution."""
+    async with get_db_context() as session:
+        return await StartupDiscoveryService(session).search(filters)
+
+
+@mcp.tool()
+@protected("read_discovery")
+async def get_startup_intelligence(company_id: UUID) -> dict:
+    """Read cached startup relevance, provenance and unknown information."""
+    async with get_db_context() as session:
+        return await StartupDiscoveryService(session).detail(company_id)
+
+
+@mcp.tool()
+@protected("read_discovery")
+async def get_startup_hiring_opportunities(company_id: UUID) -> dict:
+    """Read saved jobs without applying or changing platform state."""
+    async with get_db_context() as session:
+        return await StartupDiscoveryService(session).jobs(company_id)
+
+
+@mcp.tool()
+@protected("read_contacts")
+async def get_startup_professional_contacts(company_id: UUID) -> list[dict]:
+    """Read cached reconciled contacts; suppression and staleness stay visible."""
+    async with get_db_context() as session:
+        return await SavedDataService(session).contacts(company_id)
+
+
+@mcp.tool()
+@protected("read_integration_status")
+async def get_startup_discovery_status() -> dict:
+    """Read diagnostic freshness; never trigger connectivity checks."""
+    async with get_db_context() as session:
+        return await ProviderConnectivity(session, None).status()
 
 
 if __name__ == "__main__":

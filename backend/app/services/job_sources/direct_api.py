@@ -3,19 +3,23 @@
 import asyncio
 import html
 import re
+
 import httpx
+
 from backend.app.core.config import get_settings
-from backend.app.schemas.normalized_job import NormalizedJob
 from backend.app.schemas.discovery import (
-    DiscoveryQuery,
-    DiscoveryStatus as Status,
     DiscoveryError,
+    DiscoveryQuery,
 )
+from backend.app.schemas.discovery import (
+    DiscoveryStatus as Status,
+)
+from backend.app.schemas.normalized_job import NormalizedJob
 from backend.app.services.job_sources.base import JobSourceAdapter
 from backend.app.services.job_sources.normalization import (
+    employment,
     parse_date,
     remote_policy,
-    employment,
     salary_fields,
 )
 
@@ -25,21 +29,24 @@ class DirectAdapter(JobSourceAdapter):
         self._client = http_client
         self.record_errors = []
         self.next_cursor = None
+        self.last_http_status = None
 
     async def request(self, client, url, params=None):
-        for attempt in range(2):
+        attempts = 1 if self.source_name == "remotive" else 2
+        for attempt in range(attempts):
             try:
                 response = await client.get(
                     url, params=params, timeout=15, follow_redirects=False
                 )
             except httpx.TransportError:
-                if attempt == 0:
+                if attempt + 1 < attempts:
                     await asyncio.sleep(0.1)
                     continue
                 raise DiscoveryError(
                     Status.UPSTREAM_ERROR, "Provider transport failed"
                 ) from None
             code = response.status_code
+            self.last_http_status = code
             if code == 429:
                 raise DiscoveryError(
                     Status.RATE_LIMITED, "Provider rate limited; retry later"
@@ -48,7 +55,7 @@ class DirectAdapter(JobSourceAdapter):
                 raise DiscoveryError(
                     Status.AUTH_REQUIRED, "Provider authorization required"
                 )
-            if code >= 500 and attempt == 0:
+            if code >= 500 and attempt + 1 < attempts:
                 await asyncio.sleep(0.1)
                 continue
             if code != 200:
@@ -56,7 +63,10 @@ class DirectAdapter(JobSourceAdapter):
                     Status.UNAVAILABLE, f"Provider returned HTTP {code}"
                 )
             try:
-                return response.json()
+                data = response.json()
+                if not isinstance(data, dict):
+                    raise ValueError("Invalid top-level schema")
+                return data
             except ValueError:
                 raise DiscoveryError(
                     Status.UPSTREAM_ERROR, "Provider returned invalid JSON"

@@ -79,7 +79,7 @@ async def log_requests_middleware(request: Request, call_next):
 @app.middleware("http")
 async def private_discovery_boundary(request: Request, call_next):
     private = request.url.path.startswith(
-        ("/api/v1/discovery", "/api/v1/jobs", "/api/v1/companies/", "/api/v1/contact-enrichment", "/api/v1/contacts/", "/api/v1/outreach", "/api/v1/integrations", "/api/v1/applications", "/api/v1/application-packets")
+        ("/api/v1/startups", "/api/v1/discovery", "/api/v1/jobs", "/api/v1/companies/", "/api/v1/contact-enrichment", "/api/v1/contacts/", "/api/v1/outreach", "/api/v1/integrations", "/api/v1/applications", "/api/v1/application-packets")
     )
     callback = request.url.path == "/api/v1/integrations/gmail/oauth/callback"
     application_request = request.url.path.startswith(
@@ -218,7 +218,7 @@ app.add_middleware(MCPBoundary)
 
 @app.exception_handler(RequestValidationError)
 async def private_validation_error(request: Request, exc: RequestValidationError):
-    if request.url.path.startswith(("/api/v1/integrations", "/api/v1/outreach", "/api/v1/applications", "/api/v1/application-packets")) or "/application-" in request.url.path:
+    if request.url.path.startswith(("/api/v1/startups", "/api/v1/integrations", "/api/v1/outreach", "/api/v1/applications", "/api/v1/application-packets")) or "/application-" in request.url.path:
         return JSONResponse({"detail": "Invalid request"}, status_code=422,
                             headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
     return await request_validation_exception_handler(request, exc)
@@ -273,3 +273,7 @@ async def saved_company_detail(company_id: UUID, session: AsyncSession = Depends
 async def saved_company_contacts(company_id: UUID, limit: int = Query(25, ge=1, le=100),
                                  session: AsyncSession = Depends(get_db_session)):
     return await SavedDataService(session).contacts(company_id, limit)
+
+from backend.app.api.v1.startups import router as startups_router
+
+app.include_router(startups_router)

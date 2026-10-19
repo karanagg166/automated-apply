@@ -1,7 +1,11 @@
+from datetime import datetime
 from typing import Literal
-from pydantic import BaseModel, Field, ConfigDict, field_validator
-from backend.app.schemas.discovery import Text
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
 from backend.app.core.job_urls import canonical_job_url
+from backend.app.core.urls import PublicHTTPSURL
+from backend.app.schemas.discovery import Text
 
 Role = Literal[
     "founder",
@@ -10,6 +14,7 @@ Role = Literal[
     "cto",
     "head of engineering",
     "engineering manager",
+    "vp engineering",
     "technical recruiter",
     "talent acquisition",
     "recruiter",
@@ -44,6 +49,24 @@ class PublicPerson(BaseModel):
         return canonical_job_url(value)
 
 
+class OfficialPersonEvidence(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    full_name: Text
+    role_title: Text
+    evidence_url: PublicHTTPSURL
+    professional_url: PublicHTTPSURL | None = None
+    permission_evidence_url: PublicHTTPSURL
+    observed_at: datetime
+    human_confirmed: bool = False
+
+    @field_validator("observed_at")
+    @classmethod
+    def actual_time(cls, value):
+        from backend.app.services.startup_discovery.schemas import CompanyObservation
+
+        return CompanyObservation.timestamp(value)
+
+
 class PeopleQuery(BaseModel):
     model_config = ConfigDict(extra="forbid")
     company_name: Text
@@ -51,12 +74,17 @@ class PeopleQuery(BaseModel):
     roles: list[Role] = Field(
         default_factory=lambda: ["founder", "cto", "recruiter"],
         min_length=1,
-        max_length=9,
+        max_length=10,
     )
     location: Text | None = None
     source: Literal["public_search", "manual", "linkedin"] = "public_search"
     limit: int = Field(10, ge=1, le=20)
     allow_paid: bool = False
+    research_mode: Literal["public_profiles", "official_company"] = "public_profiles"
+    permission_confirmed: bool = False
+    official_people: list[OfficialPersonEvidence] = Field(
+        default_factory=list, max_length=20
+    )
     manual_people: list[PublicPerson] = Field(default_factory=list, max_length=20)
 
     @field_validator("company_domain")

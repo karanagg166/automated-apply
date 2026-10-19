@@ -17,7 +17,7 @@ from backend.app.schemas.discovery import DiscoveryQuery
         (401, "authentication_required", 1),
         (403, "authentication_required", 1),
         (404, "source_unavailable", 1),
-        (503, "source_unavailable", 2),
+        (503, "source_unavailable", 1),  # Remotive calls are not retried within its daily quota.
     ],
 )
 async def test_http_failures_never_look_like_empty_results(code, status, attempts):

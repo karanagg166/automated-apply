@@ -140,3 +140,22 @@ or an explicit authorization agreement. Browser automation needs its own archite
 provider-permission review. No execution architecture or implementation is pre-approved; private
 portal endpoints, imported sessions, CAPTCHA/MFA bypass and automatic mass applications remain
 outside scope. Phase 5B is not implemented automatically as part of Phase 5A.
+
+## Phase 6A — startup discovery and professional intelligence
+
+Implemented with focused mock tests and disposable PostgreSQL verification:
+
+- Company-first permission-confirmed observations without jobs; job-led discovery composes existing services.
+- Small-company bands, explicit unknown/conflict handling, historical evidence, conservative identities.
+- Hiring signals, saved-profile relevance, reviewed shortlists, bounded deterministic search.
+- Existing official/public professional research client with separate retention-rights and paid-call gates.
+- Existing contact identity reconciliation, suppression and evidence; cached read-only startup MCP tools.
+- Protected REST and durable, expiring provider diagnostics with atomic cross-worker source pacing.
+- Additive migration 009, offline full-flow demonstration, actual bounded HN/Greenhouse/Remotive/Arbeitnow checks.
+
+Not verified or enabled: automated YC directory access, a licensed Wellfound/YC actor, real Serper
+professional research, account-specific paid pricing/permissions, production data ingestion or deployment.
+Company-first automated collection honestly reports unsupported; permitted manual imports work.
+Apply migration 009 and configure real profile/source rights only under separate environment authorization.
+Historical actual smoke evidence is in [the source report](phase6a-live-verification.json); current
+availability is determined by fresh checks in the operator's database.

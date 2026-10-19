@@ -1,5 +1,6 @@
 import re
-from urllib.parse import urlsplit, urlunsplit, unquote
+from urllib.parse import unquote, urlsplit, urlunsplit
+
 from backend.app.core.job_urls import canonical_job_url
 
 

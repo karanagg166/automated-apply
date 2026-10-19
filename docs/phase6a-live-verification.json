@@ -1,0 +1,89 @@
+{
+  "mode": "actual_live_read_only",
+  "environment": "temporary local SQLite; no production reads or writes",
+  "checked_at_utc": "2026-10-19T16:55:10.859567+00:00",
+  "check_scope": "One normalized listing per source; sample presence does not verify company size, role suitability, or a professional identity",
+  "greenhouse_configuration": {
+    "board_token": "razorpaysoftwareprivatelimited",
+    "company_name": "Razorpay Software Private Limited",
+    "reference": "https://razorpay.com/careers/",
+    "scope": "one-off smoke configuration only; deployment defaults remain unconfigured"
+  },
+  "checks": [
+    {
+      "id": "31882364-f875-4846-aa9a-e3ce85c1444a",
+      "provider": "hacker_news",
+      "operation": "sample_jobs",
+      "state": "live_verified",
+      "checked_at": "2026-10-19T16:54:29.817460+00:00",
+      "finished_at": "2026-10-19T16:54:30.979827+00:00",
+      "http_status": 200,
+      "result_count": 1,
+      "schema_valid": true,
+      "is_live": true,
+      "evidence_urls": [
+        "https://news.ycombinator.com/item?id=50104234"
+      ],
+      "error_category": null
+    },
+    {
+      "id": "54927101-731d-45ad-9b15-d0fd598f9304",
+      "provider": "arbeitnow",
+      "operation": "sample_jobs",
+      "state": "live_verified",
+      "checked_at": "2026-10-19T16:54:30.982062+00:00",
+      "finished_at": "2026-10-19T16:54:31.480225+00:00",
+      "http_status": 200,
+      "result_count": 1,
+      "schema_valid": true,
+      "is_live": true,
+      "evidence_urls": [
+        "https://www.arbeitnow.com/jobs/companies/reverion-gmbh/teamlead-service-eresing-25018"
+      ],
+      "error_category": null
+    },
+    {
+      "id": "ee069d94-dcc9-47cf-93d9-55ba12367733",
+      "provider": "remotive",
+      "operation": "sample_jobs",
+      "state": "live_verified",
+      "checked_at": "2026-10-19T16:54:31.481828+00:00",
+      "finished_at": "2026-10-19T16:54:31.671333+00:00",
+      "http_status": 200,
+      "result_count": 1,
+      "schema_valid": true,
+      "is_live": true,
+      "evidence_urls": [
+        "https://remotive.com/remote-jobs/software-development/software-engineer-ai-coding-tasks-2091158"
+      ],
+      "error_category": null
+    },
+    {
+      "id": "2d80b2d2-5440-46c2-832d-c0453d7e8a70",
+      "provider": "greenhouse",
+      "operation": "sample_jobs",
+      "state": "live_verified",
+      "checked_at": "2026-10-19T16:55:10.378005+00:00",
+      "finished_at": "2026-10-19T16:55:10.857998+00:00",
+      "http_status": 200,
+      "result_count": 1,
+      "schema_valid": true,
+      "is_live": true,
+      "evidence_urls": [
+        "https://job-boards.greenhouse.io/razorpaysoftwareprivatelimited/jobs/4740728005"
+      ],
+      "error_category": null
+    }
+  ],
+  "not_live_tested": [
+    "yc_directory",
+    "wellfound",
+    "work_at_a_startup",
+    "public_search",
+    "apollo",
+    "signalhire"
+  ],
+  "paid_calls": 0,
+  "messages_sent": 0,
+  "applications_submitted": 0
+}

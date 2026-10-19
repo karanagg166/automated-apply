@@ -4,22 +4,26 @@ import asyncio
 import re
 import uuid
 from typing import Annotated, Any, Literal
+
 import httpx
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+
 from backend.app.core.config import get_settings
 from backend.app.core.urls import PublicHTTPSURL
 from backend.app.schemas.discovery import (
+    DiscoveryError,
     DiscoveryQuery,
     DiscoveryResult,
-    DiscoveryError,
+)
+from backend.app.schemas.discovery import (
     DiscoveryStatus as Status,
 )
 from backend.app.schemas.normalized_job import NormalizedJob
 from backend.app.services.job_sources.base import JobSourceAdapter
 from backend.app.services.job_sources.normalization import (
+    employment,
     parse_date,
     remote_policy,
-    employment,
     salary_fields,
 )
 
@@ -48,6 +52,8 @@ class ActorConfiguration(BaseModel):
     build: Annotated[str, StringConstraints(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+$")]
     enabled: bool = False
     reviewed: bool = False
+    platform_usage_included: bool = False
+    account_spending_limit_verified: bool = False
     schema_evidence_url: PublicHTTPSURL
     pricing_evidence_url: PublicHTTPSURL
     permission_evidence_url: PublicHTTPSURL
@@ -124,6 +130,13 @@ class ApifyJobAdapter(JobSourceAdapter):
             return [str(exc)]
         if not actor.enabled or not actor.reviewed:
             return ["Paid source is disabled or actor review is incomplete"]
+        if (
+            not actor.platform_usage_included
+            or not actor.account_spending_limit_verified
+        ):
+            return [
+                "Account-wide hard spending limit and inclusive platform/dataset pricing review required"
+            ]
         if (
             self.settings.APIFY_PER_RUN_CAP_USD <= 0
             or self.monthly_limit_usd < self.settings.APIFY_PER_RUN_CAP_USD

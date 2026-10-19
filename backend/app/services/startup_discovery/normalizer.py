@@ -1,0 +1,41 @@
+"""No estimated headcounts or stage-to-size conversions."""
+
+from datetime import timezone
+
+BANDS = {
+    "1-10": (1, 10),
+    "11-50": (11, 50),
+    "51-200": (51, 200),
+    "201-500": (201, 500),
+    "500+": (501, None),
+}
+
+
+def utc(value):
+    return (
+        value.replace(tzinfo=timezone.utc)
+        if value.tzinfo is None
+        else value.astimezone(timezone.utc)
+    )
+
+
+def size_band(count):
+    if count is None:
+        return "unknown"
+    return next(
+        b
+        for b, (low, high) in BANDS.items()
+        if count >= low and (high is None or count <= high)
+    )
+
+
+def size_allowed(size, filters):
+    if size["team_size_band"] == "unknown":
+        return filters.include_unknown_size
+    if filters.size_bands and size["team_size_band"] not in filters.size_bands:
+        return False
+    if filters.max_employees is None:
+        return True
+    # A band straddling a strict maximum cannot establish eligibility.
+    maximum = size["employee_count"] or BANDS[size["team_size_band"]][1]
+    return maximum is not None and maximum <= filters.max_employees
