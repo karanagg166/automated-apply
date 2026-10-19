@@ -1,0 +1,16 @@
+.git
+**/.env*
+**/*.private.*
+**/venv
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+**/*.db
+**/*.sqlite*
+**/*.log
+**/*.pem
+**/*.key
+reports
+backend/tests
+node_modules

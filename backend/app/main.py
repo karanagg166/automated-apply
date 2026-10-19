@@ -1,5 +1,6 @@
 """FastAPI application entry point for Job Pulse Agent."""
 
+import asyncio
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -9,7 +10,6 @@ from fastapi import Depends, FastAPI, Query, Request, status
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.v1.application_answers import router as application_answers_router
@@ -17,10 +17,18 @@ from backend.app.api.v1.applications import router as applications_router
 from backend.app.core.config import get_settings
 from backend.app.core.logging import logger
 from backend.app.core.security import require_api_token
-from backend.app.db.session import close_db_engine, get_db_session, get_engine
+from backend.app.db.session import (
+    close_db_engine,
+    get_db_session,
+    get_engine,
+    get_session_factory,
+)
 from backend.app.integrations.logging import install_oauth_log_filter
 from backend.app.mcp.auth import MCPBoundary
 from backend.app.mcp.registry import mcp
+from backend.app.operations.boundary import transport_error
+from backend.app.operations.health import database_health
+from backend.app.operations.readiness import require_safe_startup
 from backend.app.schemas.credit import CreditBudgetStatus
 from backend.app.schemas.job import JobRead
 from backend.app.services.credit_manager import (
@@ -36,20 +44,22 @@ settings = get_settings()
 async def lifespan(app: FastAPI):
     """Manage application startup and shutdown lifecycle."""
     logger.info(f"Starting Job Pulse Agent API in '{settings.ENVIRONMENT}' mode...")
-    # Initialize DB engine connection
+    require_safe_startup(settings)
     try:
-        get_engine()
-        logger.info(
-            f"Connected to database engine (schema: {settings.DATABASE_SCHEMA})"
-        )
-    except Exception as e:
-        logger.error(f"Failed to initialize database engine during startup: {e}")
+        await database_health(get_engine(), settings)
+        logger.info("Database connectivity and required schema checked")
+    except Exception:
+        logger.error("Database startup probe failed")
+        if settings.ENVIRONMENT in {"staging", "production"}:
+            await close_db_engine()
+            raise RuntimeError("Database startup probe failed") from None
 
-    async with mcp_app.lifespan(app):
-        yield
-
-    logger.info("Shutting down Job Pulse Agent API...")
-    await close_db_engine()
+    try:
+        async with mcp_app.lifespan(app):
+            yield
+    finally:
+        logger.info("Shutting down Job Pulse Agent API...")
+        await close_db_engine()
 
 
 app = FastAPI(
@@ -64,7 +74,17 @@ app = FastAPI(
 @app.middleware("http")
 async def log_requests_middleware(request: Request, call_next):
     start_time = time.time()
-    response = await call_next(request)
+    local_probe = (request.url.path in {"/health", "/ready"}
+                   and request.client is not None and request.client.host in {"127.0.0.1", "::1"})
+    error = None if local_probe else transport_error(
+        settings, request.url.scheme, request.headers.get("host", ""), request.headers.getlist("origin"))
+    if error:
+        return JSONResponse({"detail": error}, status_code=403, headers={"Cache-Control": "no-store"})
+    try:
+        async with asyncio.timeout(120):
+            response = await call_next(request)
+    except TimeoutError:
+        return JSONResponse({"detail": "Request timeout"}, status_code=504)
     duration_ms = (time.time() - start_time) * 1000
     response.headers["X-Process-Time"] = f"{duration_ms:.2f}ms"
 
@@ -79,7 +99,7 @@ async def log_requests_middleware(request: Request, call_next):
 @app.middleware("http")
 async def private_discovery_boundary(request: Request, call_next):
     private = request.url.path.startswith(
-        ("/api/v1/startups", "/api/v1/discovery", "/api/v1/jobs", "/api/v1/companies/", "/api/v1/contact-enrichment", "/api/v1/contacts/", "/api/v1/outreach", "/api/v1/integrations", "/api/v1/applications", "/api/v1/application-packets")
+        ("/api/v1/operations", "/api/v1/credits", "/api/v1/startups", "/api/v1/discovery", "/api/v1/jobs", "/api/v1/companies/", "/api/v1/contact-enrichment", "/api/v1/contacts/", "/api/v1/outreach", "/api/v1/integrations", "/api/v1/applications", "/api/v1/application-packets")
     )
     callback = request.url.path == "/api/v1/integrations/gmail/oauth/callback"
     application_request = request.url.path.startswith(
@@ -100,15 +120,20 @@ async def private_discovery_boundary(request: Request, call_next):
             )
         size = 0
         chunks = []
-        async for chunk in request.stream():
-            size += len(chunk)
-            if size > (65536 if application_request else 1048576):
-                return JSONResponse(
-                    status_code=413,
-                    content={"detail": "Application request exceeds 64 KiB" if application_request else "Discovery request exceeds 1 MiB"},
-                    headers={"Cache-Control": "no-store"},
-                )
-            chunks.append(chunk)
+        try:
+            async with asyncio.timeout(30):
+                async for chunk in request.stream():
+                    size += len(chunk)
+                    if size > (65536 if application_request else 1048576):
+                        return JSONResponse(
+                            status_code=413,
+                            content={"detail": "Application request exceeds 64 KiB" if application_request else "Discovery request exceeds 1 MiB"},
+                            headers={"Cache-Control": "no-store"},
+                        )
+                    chunks.append(chunk)
+        except TimeoutError:
+            return JSONResponse({"detail": "Request body timeout"}, status_code=408,
+                                headers={"Cache-Control": "no-store"})
         request._body = b"".join(chunks)
     response = await call_next(request)
     if private:
@@ -133,7 +158,7 @@ async def credit_budget_exception_handler(
 async def value_error_exception_handler(request: Request, exc: ValueError):
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
-        content={"detail": str(exc), "error_type": "invalid_argument"},
+        content={"detail": "Invalid argument", "error_type": "invalid_argument"},
     )
 
 
@@ -153,31 +178,19 @@ async def health_check() -> dict[str, Any]:
 @app.get("/ready", tags=["System"])
 async def readiness_check() -> dict[str, Any]:
     """Readiness probe verifying database connectivity."""
-    engine = get_engine()
     try:
-        async with engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
-        return {
-            "status": "ready",
-            "database": "connected",
-            "schema": settings.DATABASE_SCHEMA,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-    except Exception as e:
-        logger.error(f"Readiness database probe failed: {e}")
-        return JSONResponse(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={
-                "status": "unhealthy",
-                "database": "disconnected",
-                "error": str(e),
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            },
-        )
+        await database_health(get_engine(), settings)
+        return {"status": "ready", "database": "connected", "schema": settings.DATABASE_SCHEMA,
+                "timestamp": datetime.now(timezone.utc).isoformat()}
+    except Exception:
+        logger.error("Readiness database probe failed")
+        return JSONResponse(status_code=503, content={"status": "unhealthy", "database": "disconnected",
+            "error": "database_unavailable", "timestamp": datetime.now(timezone.utc).isoformat()})
 
 
 # API v1 Endpoints
-@app.get("/api/v1/credits/status", response_model=CreditBudgetStatus, tags=["Credits"])
+@app.get("/api/v1/credits/status", response_model=CreditBudgetStatus, tags=["Credits"],
+         dependencies=[Depends(require_api_token)])
 async def get_credits_status(
     session: AsyncSession = Depends(get_db_session),
 ) -> CreditBudgetStatus:
@@ -218,7 +231,7 @@ app.add_middleware(MCPBoundary)
 
 @app.exception_handler(RequestValidationError)
 async def private_validation_error(request: Request, exc: RequestValidationError):
-    if request.url.path.startswith(("/api/v1/startups", "/api/v1/integrations", "/api/v1/outreach", "/api/v1/applications", "/api/v1/application-packets")) or "/application-" in request.url.path:
+    if request.url.path.startswith("/api/v1/"):
         return JSONResponse({"detail": "Invalid request"}, status_code=422,
                             headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
     return await request_validation_exception_handler(request, exc)
@@ -277,3 +290,9 @@ async def saved_company_contacts(company_id: UUID, limit: int = Query(25, ge=1, 
 from backend.app.api.v1.startups import router as startups_router
 
 app.include_router(startups_router)
+
+
+@app.get("/api/v1/operations/status", dependencies=[Depends(require_api_token)])
+async def operations_status(session: AsyncSession = Depends(get_db_session)):
+    from backend.app.operations.diagnostics import operational_status
+    return await operational_status(session, get_session_factory(), settings)

@@ -24,8 +24,8 @@ async def test_ready_endpoint(async_client):
 
 
 @pytest.mark.asyncio
-async def test_credits_status_endpoint(async_client):
-    response = await async_client.get("/api/v1/credits/status")
+async def test_credits_status_endpoint(async_client, phase2_auth):
+    response = await async_client.get("/api/v1/credits/status", headers=phase2_auth)
     assert response.status_code == 200
     data = response.json()
     assert "providers" in data

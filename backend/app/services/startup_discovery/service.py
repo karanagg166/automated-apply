@@ -23,7 +23,12 @@ from backend.app.services.startup_discovery.intelligence import (
     company_size,
     hiring_intelligence,
 )
-from backend.app.services.startup_discovery.normalizer import size_allowed, utc
+from backend.app.services.startup_discovery.normalizer import (
+    location_allowed,
+    role_allowed,
+    size_allowed,
+    utc,
+)
 from backend.app.services.startup_discovery.ranking import rank_startup
 from backend.app.services.startup_discovery.schemas import StartupFilters
 from backend.app.services.startup_discovery.source_registry import startup_sources
@@ -282,7 +287,7 @@ class StartupDiscoveryService:
         relevant_jobs = [
             j
             for j in fresh_jobs
-            if not roles or any(role.casefold() in j.title.casefold() for role in roles)
+            if role_allowed(j.title, roles)
         ]
         ranking = rank_startup(
             self.session,
@@ -417,21 +422,7 @@ class StartupDiscoveryService:
             remotes = [attrs.get("remote_policy")] + [
                 e["remote_policy"] for e in item["hiring_evidence"] if e["fresh"]
             ]
-            remote_match = filters.remote_preference == "remote" and "remote" in remotes
-            if (
-                filters.locations
-                and not remote_match
-                and not any(
-                    loc.casefold() in value.casefold()
-                    for loc in filters.locations
-                    for value in locations
-                )
-            ):
-                continue
-            if (
-                filters.remote_preference not in (None, "any")
-                and filters.remote_preference not in remotes
-            ):
+            if not location_allowed(locations, remotes, filters):
                 continue
             items.append(item)
         items.sort(

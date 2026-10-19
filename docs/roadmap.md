@@ -159,3 +159,19 @@ Company-first automated collection honestly reports unsupported; permitted manua
 Apply migration 009 and configure real profile/source rights only under separate environment authorization.
 Historical actual smoke evidence is in [the source report](phase6a-live-verification.json); current
 availability is determined by fresh checks in the operator's database.
+
+## Phase 6B — operational readiness and startup pilot
+
+Implemented preparation: typed secret-free environment checks, explicit staging target pins,
+001–009 read-only catalog comparison and disposable verification, owner profile validation/API
+import, existing-provider diagnostics, bounded startup/packet runner, fake integrated offline
+smoke, optional tiny Gemini probe, non-root deployment image, dependency constraints, sanitized
+operational status and deployment/security/backup runbooks. No migration 010 was necessary.
+
+Real public fallback evidence is limited to temporary SQLite: Arbeitnow diagnostic and partial
+HN ingestion, 9 jobs/companies, 2 filter candidates, no supported headcounts or candidate matching.
+That is not a deployed staging environment or a completed real-profile application pilot.
+Production remains unauthorized. Owner hosting/staging access, confirmed profile/resources,
+provider credentials/permissions and any paid test approvals are separate operational gates.
+The recommended next milestone is authorized staging deployment and live onboarding, followed
+by review of actual results; no subsequent feature phase starts automatically.
