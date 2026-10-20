@@ -9,15 +9,21 @@ import json
 import signal
 
 from backend.app.core.config import get_settings
-from backend.app.db.session import close_db_engine, get_session_factory
+from backend.app.db.session import close_db_engine, get_engine, get_session_factory
+from backend.app.operations.health import database_health
+from backend.app.operations.readiness import require_safe_startup
 from backend.app.resume_sync.scheduler import serve, tick
 from backend.app.resume_sync.service import ResumeSyncService
 
 
 async def run(args):
     settings = get_settings()
+    if settings.ENVIRONMENT == "testing":
+        raise ValueError("real_drive_sync_requires_non_test_database")
+    require_safe_startup(settings)
     factory = get_session_factory()
     try:
+        await database_health(get_engine(), settings)
         if args.serve:
             stop = asyncio.Event()
             loop = asyncio.get_running_loop()

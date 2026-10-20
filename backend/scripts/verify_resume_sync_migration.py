@@ -1,6 +1,7 @@
 """Disposable-localhost PostgreSQL: migration, races, approval and crash recovery."""
 
 import asyncio
+import hashlib
 import os
 import sys
 import uuid
@@ -41,6 +42,15 @@ async def verify(url):
             assert await connection.fetchval("SELECT relrowsecurity FROM pg_class WHERE oid=$1::regclass", "job_agent." + table)
             assert not await connection.fetchval("SELECT has_table_privilege('authenticated',$1,'SELECT')", "job_agent." + table)
             assert await connection.fetchval("SELECT has_table_privilege('service_role',$1,'SELECT,INSERT,UPDATE,DELETE')", "job_agent." + table)
+        await connection.execute("SET ROLE anon")
+        try:
+            await connection.fetch("SELECT * FROM job_agent.private_resumes LIMIT 1")
+        except asyncpg.InsufficientPrivilegeError:
+            pass
+        else:
+            raise AssertionError("Browser client role must not read private resumes")
+        finally:
+            await connection.execute("RESET ROLE")
 
         from cryptography.fernet import Fernet
         from sqlalchemy import func, select
@@ -91,6 +101,24 @@ async def verify(url):
         async with factory() as session, session.begin():
             for model in (PrivateResume, DriveResumeVersion, ResumeProfileReview, Notification):
                 assert await session.scalar(select(func.count()).select_from(model)) == 1
+        # Recreate the pool, as after an API process restart. Pending state and
+        # encrypted bytes must survive independently of a session/engine cache.
+        await engine.dispose()
+        engine = create_async_engine(settings.DATABASE_URL, hide_parameters=True)
+        factory = async_sessionmaker(engine, expire_on_commit=False)
+        async with factory() as session, session.begin():
+            saved = await session.scalar(select(PrivateResume))
+            decrypted = Fernet(settings.RESUME_ENCRYPTION_KEY.get_secret_value().encode()).decrypt(saved.ciphertext)
+            assert decrypted == raw and hashlib.sha256(decrypted).hexdigest() == saved.sha256
+            assert (await status(session, settings)).pending_changes
+            assert await session.scalar(select(CandidateProfile.version)) == 1
+        from backend.app.operations.health import database_health
+
+        evidence = await database_health(engine, settings.model_copy(update={
+            "ENVIRONMENT": "development", "DB_REMOTE_ONLY": False, "DB_REQUIRE_TLS": False,
+        }))
+        assert evidence["migration_011"] == "catalog_compatible_history_untracked"
+        assert evidence["schema"] == "job_agent"
         async def approve(version_id):
             async with factory() as session, session.begin():
                 review = await review_changes(session, settings, version_id)

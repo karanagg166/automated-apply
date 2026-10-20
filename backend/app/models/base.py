@@ -45,7 +45,7 @@ class Base(DeclarativeBase):
     settings = get_settings()
     # In postgres, tables belong to the job_agent schema.
     # In sqlite, schema is empty.
-    schema_name = settings.DATABASE_SCHEMA if settings.DATABASE_URL.startswith("postgresql") else None
+    schema_name = None if settings.ENVIRONMENT == "testing" and settings.DATABASE_URL.startswith("sqlite+aiosqlite:") else settings.DATABASE_SCHEMA
     metadata = MetaData(schema=schema_name)
 
 

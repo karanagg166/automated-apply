@@ -129,3 +129,10 @@ Browser push needs HTTPS, permission opt-in, a service worker, subscription life
 and unsubscribe support. WhatsApp needs the official Cloud API, verified business setup,
 recipient opt-in, applicable templates and current pricing/cost approval. Each channel needs
 separate authorization and implementation verification. No external delivery is enabled here.
+# Online persistence correction
+
+The former local live SQLite pilot described below is retired. All genuine jobs
+and workflow state now require approved online Supabase PostgreSQL. Use
+`run_startup_pilot.py` with its existing staging approval gates; see
+[online database setup](online-postgresql.md). Historical local results do not
+establish online persistence.

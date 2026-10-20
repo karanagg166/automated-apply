@@ -1,7 +1,6 @@
-"""Authorized free discovery in durable local SQLite; no credentials or candidate data.
+"""Legacy local pilot retained only for isolated fictional regression fixtures.
 
-This is a local live-source pilot, never staging/PostgreSQL verification. Retain the
-state directory: its existing source windows and idempotency records prevent replay.
+Real discovery must use run_startup_pilot.py with approved online PostgreSQL.
 """
 
 import argparse
@@ -20,6 +19,8 @@ from backend.app.operations.reports import execution_metadata, write_report
 
 
 def public_settings(database):
+    if os.environ.get("ENVIRONMENT") != "testing":
+        raise OperationRejected("sqlite_fixtures_require_testing_environment")
     return Settings(
         _env_file=None, ENVIRONMENT="testing", UI_FIXTURE_MODE=False,
         DATABASE_URL="sqlite+aiosqlite:///" + str(database), DATABASE_SCHEMA="job_agent",
@@ -33,14 +34,16 @@ def public_settings(database):
     )
 
 
-async def execute(args):
+async def execute(args, *, fixture_settings=None):
     if not args.authorize_public_read:
         raise OperationRejected("explicit_free_source_authorization_required")
+    if fixture_settings is None or fixture_settings.ENVIRONMENT != "testing":
+        raise OperationRejected("online_postgresql_required_use_run_startup_pilot")
     directory = Path(args.state_dir)
     if directory.is_symlink():
         raise OperationRejected("private_local_state_directory_required")
     # Configure before importing ORM models, without loading either repository .env.
-    settings = public_settings(directory.resolve() / "public.sqlite")
+    settings = fixture_settings
     configure_operator(settings)
     from backend.app.operations.pilot import PilotRequest
 

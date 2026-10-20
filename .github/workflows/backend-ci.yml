@@ -149,6 +149,8 @@ jobs:
           ruff check --isolated --select E9,F,I
           backend/app/operations backend/app/core/config.py backend/app/core/logging.py
           backend/app/db/session.py backend/app/services/candidate_profile_service.py
+          backend/app/db/safety.py backend/tests/test_database_safety.py
+          backend/scripts/check_database.py
           backend/app/services/applications/platforms/public_listing.py
           backend/scripts/check_environment.py backend/scripts/migration_preflight.py
           backend/scripts/onboard_profile.py backend/scripts/run_startup_pilot.py

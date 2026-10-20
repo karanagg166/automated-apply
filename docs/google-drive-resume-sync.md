@@ -1,5 +1,10 @@
 # Google Drive resume sync
 
+Genuine resume versions, metadata and pending reviews must use the approved online
+Supabase PostgreSQL database. Local SQLite is only a fictional test fixture. Complete
+the [online database approval and migration procedure](online-postgresql.md) before
+running a real sync. The worker checks connectivity and 001–011 compatibility first.
+
 Use **My Profile → Resume Sync → Sync Now** to download the exact saved Google Drive PDF. A source default is read from ignored `backend/.env`; configuration does not fetch, confirm facts or launch a job. The unresolved short URL is not used. A new upload to Drive normally has a new file ID: use **Change Resume Source / Settings**, save the explicit viewing URL, then sync. No Drive-wide search occurs. Replacing the contents of the same file preserves its stable ID.
 
 ## Download and storage

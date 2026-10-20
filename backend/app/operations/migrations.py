@@ -6,7 +6,6 @@ schema state, never proof that a historical migration was executed or committed.
 
 import hashlib
 import json
-import ssl
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -57,9 +56,14 @@ QUERIES = {
     "policies": """SELECT tablename||'.'||policyname AS key,
         cmd||'|'||roles::text||'|'||coalesce(qual,'')||'|'||coalesce(with_check,'') AS value
         FROM pg_policies WHERE schemaname=$1 ORDER BY 1""",
-    "service_grants": """SELECT table_name||'.'||privilege_type AS key, 'granted' AS value
-        FROM information_schema.role_table_grants
-        WHERE table_schema=$1 AND grantee='service_role' ORDER BY 1""",
+    # information_schema.role_table_grants hides grants to roles the runtime user
+    # does not belong to. Read the public catalogs so a dedicated runtime login
+    # can verify service-role boundaries without administrator membership.
+    "service_grants": """SELECT c.relname||'.'||a.privilege_type AS key, 'granted' AS value
+        FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+        CROSS JOIN LATERAL aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a
+        JOIN pg_roles r ON r.oid=a.grantee
+        WHERE n.nspname=$1 AND c.relkind='r' AND r.rolname='service_role' ORDER BY 1""",
 }
 
 
@@ -142,9 +146,11 @@ def compare_catalog(actual, manifest=None):
 async def inspect_database(settings):
     import asyncpg
 
+    from backend.app.db.safety import database_connect_args, database_target
+
+    database_target(settings)
     url = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://", 1)
-    connection = await asyncpg.connect(url, timeout=10, command_timeout=15,
-        ssl=ssl.create_default_context() if settings.DB_REQUIRE_TLS else False)
+    connection = await asyncpg.connect(url, **database_connect_args(settings))
     try:
         async with connection.transaction(readonly=True):
             return compare_catalog(await catalog(connection, settings.DATABASE_SCHEMA))

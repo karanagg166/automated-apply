@@ -40,7 +40,8 @@ class Settings(BaseSettings):
 
     # Supabase / PostgreSQL Direct Database Connection
     DATABASE_URL: str = Field(
-        default="postgresql+asyncpg://postgres:postgres@localhost:5432/postgres",
+        default="",
+        repr=False,
         description="Async SQLAlchemy database connection string",
     )
     DATABASE_SCHEMA: str = Field(
@@ -51,6 +52,8 @@ class Settings(BaseSettings):
     DB_MAX_OVERFLOW: int = Field(default=10, ge=0, le=100)
     DB_ECHO: bool = False
     DB_REQUIRE_TLS: bool = True
+    DB_REMOTE_ONLY: bool = True
+    DB_SSL_ROOT_CERT: str | None = None
 
     # Optional Supabase REST API Configuration
     SUPABASE_URL: str | None = None
@@ -81,6 +84,7 @@ class Settings(BaseSettings):
     LLM_MAX_CONCURRENCY: int = Field(default=2, ge=1, le=8)
 
     @field_validator(
+        "DB_SSL_ROOT_CERT",
         "CANDIDATE_RESUME_DRIVE_URL",
         "CANDIDATE_RESUME_DRIVE_FILE_ID",
         "RESUME_ENCRYPTION_KEY",

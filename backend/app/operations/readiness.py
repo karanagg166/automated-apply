@@ -7,6 +7,7 @@ from cryptography.fernet import Fernet
 from pydantic import BaseModel, Field
 
 from backend.app.core.config import Settings
+from backend.app.db.safety import DatabaseConfigurationError, database_target
 from backend.app.integrations.token_store import TokenStore
 from backend.app.operations.configuration import (
     OperationRejected,
@@ -57,16 +58,17 @@ def environment_readiness(settings: Settings) -> ReadinessReport:
 
     identity = None
     try:
+        database_target(settings)
         identity = target_identity(settings)
-    except OperationRejected:
+    except (OperationRejected, DatabaseConfigurationError):
         pass
     add("database", bool(identity), True, ["No connection attempted"])
-    add("database_tls", settings.DB_REQUIRE_TLS, live, missing="unsafe_configuration")
+    add("database_tls", settings.DB_REQUIRE_TLS, settings.ENVIRONMENT != "testing", missing="unsafe_configuration")
     add(
         "database_schema",
         settings.DATABASE_SCHEMA == "job_agent",
         True,
-        ["Migrations 001–010 target the dedicated job_agent schema"],
+        ["Migrations 001–011 target the dedicated job_agent schema"],
     )
     if settings.ENVIRONMENT == "staging":
         add(
@@ -199,6 +201,8 @@ def environment_readiness(settings: Settings) -> ReadinessReport:
 
 
 def require_safe_startup(settings: Settings) -> None:
+    if settings.ENVIRONMENT == "development":
+        database_target(settings)
     if settings.ENVIRONMENT not in {"staging", "production"}:
         return
     failed = [

@@ -52,7 +52,7 @@ async def lifespan(app: FastAPI):
         logger.info("Database connectivity and required schema checked")
     except Exception:
         logger.error("Database startup probe failed")
-        if settings.ENVIRONMENT in {"staging", "production"}:
+        if settings.ENVIRONMENT != "testing":
             await close_db_engine()
             raise RuntimeError("Database startup probe failed") from None
 

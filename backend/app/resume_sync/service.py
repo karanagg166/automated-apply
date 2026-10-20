@@ -14,6 +14,7 @@ from backend.app.dashboard.models import (
     NotificationDelivery,
     PrivateResume,
 )
+from backend.app.db.safety import require_session_target
 from backend.app.repositories.candidate_profile import CandidateProfileRepository
 from backend.app.resume_sync.download import ERRORS, fetch_pdf
 from backend.app.resume_sync.download_worker import DownloadError
@@ -47,6 +48,7 @@ class ResumeSyncService:
         self.extractor = extractor or extract_pdf
 
     async def sync(self, expected_generation=None, *, scheduled=False):
+        require_session_target(self.session, self.settings)
         encryption = require_cipher()
         source = await lock_source(self.session, self.settings)
         if expected_generation is not None:
