@@ -1,5 +1,9 @@
 # Database correction evidence — 2026-10-20
 
+Follow-up: [combined release and hosted CI evidence](release-ci-evidence.md) records
+the subsequent hosted success and safe PR integration strategy. The observations
+below describe the earlier correction, before that CI investigation.
+
 This is a partial implementation and discovery record. Online persistence has **not**
 been established. No cloud project was changed, no remote SQL was applied and no
 genuine PDF was synced during this correction.
