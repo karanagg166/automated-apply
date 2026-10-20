@@ -128,7 +128,10 @@ jobs:
       - name: Offline startup demonstration
         run: python backend/scripts/startup_discovery_demo.py > /tmp/startup-offline.json
       - run: python -m compileall -q backend/app
-      - run: pytest backend/tests -v --durations=20 -o faulthandler_timeout=120
+      - name: Full backend regression suite
+        # Bound the process group so a hung test/child cannot consume the whole job
+        # or prevent final diagnostics from being uploaded. Every test still runs.
+        run: timeout --kill-after=20s 6m pytest backend/tests -v --durations=20 -o faulthandler_timeout=120
       - name: Phase 6B operational lint
         run: >-
           ruff check --isolated --select E9,F,I
