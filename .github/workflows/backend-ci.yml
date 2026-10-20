@@ -1,7 +1,7 @@
 name: Backend CI
 on:
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
     branches: [main]
 permissions:
@@ -9,7 +9,7 @@ permissions:
 jobs:
   backend:
     runs-on: ubuntu-latest
-    # The full suite rebuilds isolated schemas and verifies migrations 001–010.
+    # The full suite rebuilds isolated schemas and verifies migrations 001–011.
     # Keep a finite job limit with room for hosted-runner variance and Docker.
     timeout-minutes: 30
     services:
@@ -94,6 +94,13 @@ jobs:
           backend/app/api/v1/discovery.py
       - name: Backend security scan
         run: bandit -q -r backend/app
+      - name: Resume sync lint
+        run: >-
+          ruff check --isolated --select E9,F,I
+          backend/scripts/run_backend_ci.py backend/tests/test_backend_ci_supervisor.py
+          backend/app/resume_sync backend/scripts/sync_drive_resume.py
+          backend/scripts/verify_resume_sync_migration.py
+          backend/tests/test_resume_sync*.py backend/tests/test_resume_drive_download.py
       - name: Phase 5A lint
         run: >-
           ruff check --isolated --select E9,F,I
@@ -122,12 +129,41 @@ jobs:
       - name: Offline startup demonstration
         run: python backend/scripts/startup_discovery_demo.py > /tmp/startup-offline.json
       - run: python -m compileall -q backend/app
-      - run: pytest backend/tests -v --durations=20 -o faulthandler_timeout=120
+      - name: Record isolated PostgreSQL baseline
+        run: |
+          mkdir -p /tmp/backend-diagnostics
+          docker inspect --format '{{.State.Status}} {{.State.Health.Status}}' '${{ job.services.postgres.id }}' > /tmp/backend-diagnostics/postgres-before.log
+          docker exec '${{ job.services.postgres.id }}' psql -U postgres -d candidate_profile_test -X -c 'SELECT version(), current_database(), current_user' >> /tmp/backend-diagnostics/postgres-before.log
+      - name: Full backend regression suite
+        # Regular-file child output avoids inherited-pipe hangs. Keep every test
+        # and the original collection order; never equate local results with CI.
+        timeout-minutes: 8
+        shell: bash
+        run: |
+          python -u backend/scripts/run_backend_ci.py --output /tmp/backend-diagnostics --seconds 360 python -u -m pytest backend/tests -v --durations=20 -o faulthandler_timeout=60 --junitxml=/tmp/backend-diagnostics/pytest.xml
+      - name: Record isolated PostgreSQL final state
+        if: always()
+        timeout-minutes: 1
+        run: |
+          mkdir -p /tmp/backend-diagnostics
+          timeout 10s docker logs --timestamps '${{ job.services.postgres.id }}' > /tmp/backend-diagnostics/postgres-container.log 2>&1
+          timeout 10s docker exec '${{ job.services.postgres.id }}' psql -U postgres -d candidate_profile_test -X -c 'SELECT pid, datname, usename, state, wait_event_type, wait_event, backend_start, xact_start, query_start FROM pg_stat_activity' > /tmp/backend-diagnostics/postgres-after.log 2>&1
+      - name: Retain backend regression diagnostics
+        if: always()
+        uses: actions/upload-artifact@v6
+        timeout-minutes: 2
+        with:
+          name: backend-regression-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/backend-diagnostics/
+          if-no-files-found: error
+          retention-days: 7
       - name: Phase 6B operational lint
         run: >-
           ruff check --isolated --select E9,F,I
           backend/app/operations backend/app/core/config.py backend/app/core/logging.py
           backend/app/db/session.py backend/app/services/candidate_profile_service.py
+          backend/app/db/safety.py backend/tests/test_database_safety.py
+          backend/scripts/check_database.py
           backend/app/services/applications/platforms/public_listing.py
           backend/scripts/check_environment.py backend/scripts/migration_preflight.py
           backend/scripts/onboard_profile.py backend/scripts/run_startup_pilot.py

@@ -31,17 +31,18 @@ async def test_durable_state_prevents_replay_and_preserves_source_windows(tmp_pa
     state = tmp_path / "private-state"
     args = SimpleNamespace(authorize_public_read=True, state_dir=str(state),
                            source="arbeitnow", idempotency_key="first-local-pilot")
+    settings = script.public_settings(state / "public.sqlite")
     async with httpx.AsyncClient(transport=httpx.MockTransport(response)) as client:
         # Keep _client=None so the production pacing path runs; replace only I/O.
         monkeypatch.setattr(ArbeitnowAdapter, "client", lambda self: client)
         monkeypatch.setattr(JobSourceFactory, "get_adapter", lambda *a, **kw: ArbeitnowAdapter())
-        await script.execute(args)
+        await script.execute(args, fixture_settings=settings)
         first = json.loads(capsys.readouterr().out)
-        await script.execute(args)
+        await script.execute(args, fixture_settings=settings)
         replay = json.loads(capsys.readouterr().out)
         assert first["run_id"] == replay["run_id"]
         args.idempotency_key = "second-local-pilot"
-        await script.execute(args)
+        await script.execute(args, fixture_settings=settings)
         paced = json.loads(capsys.readouterr().out)
     assert len(calls) == 1
     assert paced["discovery_status"] == "rate_limited"

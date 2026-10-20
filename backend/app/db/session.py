@@ -1,6 +1,5 @@
 """Database engine and async session management."""
 
-import ssl
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -13,6 +12,7 @@ from sqlalchemy.ext.asyncio import (
 
 from backend.app.core.config import get_settings
 from backend.app.core.logging import logger
+from backend.app.db.safety import database_connect_args, database_target
 
 _engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
@@ -21,20 +21,16 @@ _session_factory: async_sessionmaker[AsyncSession] | None = None
 def get_engine() -> AsyncEngine:
     """Initialize or return the cached async SQLAlchemy engine."""
     global _engine
+    settings = get_settings()
+    target = database_target(settings)
+    if _engine is not None and _engine.url != target:
+        from backend.app.db.safety import DatabaseConfigurationError
+
+        raise DatabaseConfigurationError("database_target_changed_restart_required")
     if _engine is None:
-        settings = get_settings()
-        connect_args = {}
         
         # Dialect specific configuration
-        if settings.DATABASE_URL.startswith("postgresql"):
-            # Set search_path so unqualified queries or schema references work natively
-            connect_args = {
-                "server_settings": {
-                    "search_path": f"{settings.DATABASE_SCHEMA},public"
-                }
-            }
-            if settings.ENVIRONMENT in {"staging", "production"} and settings.DB_REQUIRE_TLS:
-                connect_args["ssl"] = ssl.create_default_context()
+        if target.drivername == "postgresql+asyncpg":
             _engine = create_async_engine(
                 settings.DATABASE_URL,
                 echo=settings.DB_ECHO,
@@ -43,7 +39,8 @@ def get_engine() -> AsyncEngine:
                 pool_recycle=300,
                 pool_size=settings.DB_POOL_SIZE,
                 max_overflow=settings.DB_MAX_OVERFLOW,
-                connect_args=connect_args,
+                connect_args=database_connect_args(settings),
+                pool_timeout=10,
             )
         else:
             # SQLite / In-memory for testing
@@ -59,8 +56,8 @@ def get_engine() -> AsyncEngine:
 def get_session_factory() -> async_sessionmaker[AsyncSession]:
     """Initialize or return the cached async session factory."""
     global _session_factory
+    engine = get_engine()
     if _session_factory is None:
-        engine = get_engine()
         _session_factory = async_sessionmaker(
             bind=engine,
             class_=AsyncSession,
@@ -86,6 +83,10 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 async def get_db_context() -> AsyncGenerator[AsyncSession, None]:
     """Context manager for standalone services, scripts, and background workers."""
     factory = get_session_factory()
+    if get_settings().ENVIRONMENT != "testing":
+        from backend.app.operations.health import database_health
+
+        await database_health(get_engine(), get_settings())
     async with factory() as session:
         try:
             yield session

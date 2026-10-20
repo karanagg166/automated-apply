@@ -36,7 +36,10 @@ must wait until next_allowed_at. Do not delete the window or reset budget reserv
 requests. There are no paid-provider diagnostics hidden behind this command. Configured but
 untested sources remain so; old successful checks expire by PROVIDER_VERIFICATION_TTL_HOURS.
 
-With no staging, `public_source_smoke.py --authorize-public-read` uses isolated temporary SQLite:
+Historical local fallback (retired): `public_source_smoke.py` now rejects live
+execution because real job/workflow state must use approved online PostgreSQL.
+Use the existing `run_startup_pilot.py` with an approved staging target. The prior
+temporary-SQLite result below is historical evidence only:
 one Arbeitnow sample and one HN job discovery capped at 20 records. It excludes Remotive, writes
 an attempt marker before HTTP, and refuses to overwrite that marker. Use durable staging pacing
 for further runs rather than removing reports. It is not PostgreSQL or deployment verification.

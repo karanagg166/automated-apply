@@ -82,7 +82,7 @@ async def verify(url, write_manifest=False):
         assert "tables:provider_connection_checks" in drift.drift
         assert "candidate_profiles" in drift.unsafe_grants
         print(
-            "Phase 6B PostgreSQL PASS: 001–010 catalog parity; drift, RLS, effective grants; read-only DDL rejected"
+            "Phase 6B PostgreSQL PASS: current migration catalog parity; drift, RLS, effective grants; read-only DDL rejected"
         )
     finally:
         if connection:

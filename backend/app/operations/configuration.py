@@ -31,7 +31,9 @@ def target_identity(settings):
         if (url.drivername != "postgresql+asyncpg" or not url.host or not url.database or url.query):
             raise ValueError
         # Password-independent identity; intentionally does not reveal host/user/database.
-        identity = f"{url.host.lower()}:{url.port or 5432}/{url.database}/{settings.DATABASE_SCHEMA}"
+        # Supabase session pooler hosts/databases are shared across projects.
+        # The username (postgres.<project-ref>) is part of the actual target.
+        identity = f"{url.username}@{url.host.lower()}:{url.port or 5432}/{url.database}/{settings.DATABASE_SCHEMA}"
         return hashlib.sha256(identity.encode()).hexdigest()
     except (ValueError, TypeError, ArgumentError):
         raise OperationRejected("postgresql_target_required") from None
@@ -44,6 +46,9 @@ def require_staging(settings, confirmation):
         )
     if settings.DATABASE_SCHEMA != "job_agent":
         raise OperationRejected("migrations_require_job_agent_schema")
+    from backend.app.db.safety import database_target
+
+    database_target(settings)
     identity = target_identity(settings)
     if (
         not settings.STAGING_DATABASE_ID

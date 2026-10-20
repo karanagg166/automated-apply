@@ -11,6 +11,25 @@ import {
   verifyPassword,
 } from "@/lib/security";
 import { permittedRoute } from "@/lib/gateway";
+it("limits resume sync proxy routes to exact owner operations", () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  expect(permittedRoute("dashboard/resume-sync", "GET")).toBe(true);
+  expect(permittedRoute("dashboard/resume-sync/source", "PUT")).toBe(true);
+  expect(permittedRoute("dashboard/resume-sync/sync", "POST")).toBe(true);
+  expect(
+    permittedRoute(`dashboard/resume-sync/versions/${id}/review`, "GET"),
+  ).toBe(true);
+  expect(
+    permittedRoute(`dashboard/resume-sync/versions/${id}/approve`, "POST"),
+  ).toBe(true);
+  expect(permittedRoute("dashboard/resume-sync/sync", "GET")).toBe(false);
+  expect(
+    permittedRoute(`dashboard/resume-sync/versions/${id}/approve`, "GET"),
+  ).toBe(false);
+  expect(permittedRoute("dashboard/resume-sync/../../operations", "POST")).toBe(
+    false,
+  );
+});
 beforeEach(() => {
   process.env.FRONTEND_ORIGIN = "https://workspace.example.org";
   process.env.FRONTEND_SESSION_SECRET =

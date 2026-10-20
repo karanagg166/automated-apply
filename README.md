@@ -1,5 +1,13 @@
 # Automated Apply
 
+## Persistent database requirement
+
+All genuine application data uses owner-approved online Supabase PostgreSQL in
+`job_agent`. SQLite is restricted to automated tests and fictional fixtures.
+Missing/unsafe database configuration or an unavailable database fails closed;
+the API never falls back to SQLite. See the [online database setup and acceptance
+procedure](docs/online-postgresql.md) and [current evidence/blockers](docs/database-correction-evidence.md).
+
 ## Phase 7 private dashboard
 
 A premium Next.js frontend now lives in `frontend/`. It connects to the existing FastAPI APIs through an authenticated server-side proxy. It includes startup/job filters, source and contact evidence, private resume onboarding, application review/manual handoff, local outreach/Gmail approval screens, connection readiness and in-app notifications.
@@ -13,6 +21,8 @@ npm run dev --prefix frontend
 ```
 
 Configure the private owner login in `backend/.env` before signing in. No default login or client-side bearer token exists. For a reproducible demonstration against the actual backend with isolated fictional fixtures, see the Playwright commands in the frontend guide.
+
+My Profile also supports [Google Drive resume sync](docs/google-drive-resume-sync.md): explicit secure PDF download, encrypted version history, deterministic evidence differences and owner-approved profile/resource activation. A separately invoked, opt-in worker can check the same file every 24 hours. No worker is started by configuration or API startup; the dashboard reports its actual heartbeat.
 
 # Job Pulse Agent (`job-pulse-agent`)
 

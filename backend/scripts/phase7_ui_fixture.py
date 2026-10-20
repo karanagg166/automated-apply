@@ -42,6 +42,7 @@ def setup_environment(directory):
         GMAIL_SENDING_ENABLED="false",
         MCP_REMOTE_ENABLED="false",
         LOG_LEVEL="WARNING",
+        CANDIDATE_RESUME_DRIVE_URL="https://drive.google.com/file/d/fictional_drive_resume_001/view?usp=drivesdk",
     )
     from cryptography.fernet import Fernet
 
@@ -60,6 +61,21 @@ def setup_environment(directory):
     httpx.HTTPTransport.handle_request = lambda *args, **kwargs: (_ for _ in ()).throw(
         RuntimeError("Live HTTP disabled")
     )
+    from backend.app.resume_sync import service as resume_service
+    from backend.app.resume_sync.download import DownloadedPDF
+    from backend.tests.test_phase7_dashboard import pdf_bytes
+
+    resume_checks = 0
+
+    async def fictional_drive(file_id):
+        nonlocal resume_checks
+        if file_id != "fictional_drive_resume_001":
+            raise RuntimeError("Only the exact fictional Drive fixture is allowed")
+        resume_checks += 1
+        skill = "Docker" if resume_checks <= 2 else "Redis"
+        return DownloadedPDF(pdf_bytes(f"Alex Sample | alex@sample.org | Python {skill}"), "fictional_drive_resume.pdf")
+
+    resume_service.fetch_pdf = fictional_drive
 
 
 async def seed():

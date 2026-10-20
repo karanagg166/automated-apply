@@ -86,6 +86,10 @@ async def extract_pdf(raw):
         await process.wait()
         raise HTTPException(422, "PDF parsing exceeded its safety limit") from None
     finally:
+        if process.returncode is None:
+            with suppress(ProcessLookupError):
+                process.kill()
+            await process.wait()
         watcher.cancel()
         with suppress(asyncio.CancelledError):
             await watcher

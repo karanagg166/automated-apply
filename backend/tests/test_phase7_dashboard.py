@@ -180,7 +180,7 @@ async def test_upload_limits(
 
 
 async def test_resume_needs_dedicated_key(async_client, phase2_auth, monkeypatch):
-    monkeypatch.delenv("RESUME_ENCRYPTION_KEY", raising=False)
+    monkeypatch.setenv("RESUME_ENCRYPTION_KEY", "")
     get_settings.cache_clear()
     response = await async_client.post(
         "/api/v1/dashboard/resumes",

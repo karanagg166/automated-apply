@@ -40,7 +40,8 @@ class Settings(BaseSettings):
 
     # Supabase / PostgreSQL Direct Database Connection
     DATABASE_URL: str = Field(
-        default="postgresql+asyncpg://postgres:postgres@localhost:5432/postgres",
+        default="",
+        repr=False,
         description="Async SQLAlchemy database connection string",
     )
     DATABASE_SCHEMA: str = Field(
@@ -51,6 +52,8 @@ class Settings(BaseSettings):
     DB_MAX_OVERFLOW: int = Field(default=10, ge=0, le=100)
     DB_ECHO: bool = False
     DB_REQUIRE_TLS: bool = True
+    DB_REMOTE_ONLY: bool = True
+    DB_SSL_ROOT_CERT: str | None = None
 
     # Optional Supabase REST API Configuration
     SUPABASE_URL: str | None = None
@@ -59,6 +62,10 @@ class Settings(BaseSettings):
 
     # Optional candidate defaults. Never written at startup.
     CANDIDATE_RESUME_DRIVE_URL: PublicHTTPSURL | None = None
+    CANDIDATE_RESUME_DRIVE_FILE_ID: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{10,200}$")
+    RESUME_DRIVE_SYNC_ENABLED: bool = False
+    RESUME_DRIVE_SYNC_INTERVAL_HOURS: int = Field(default=24, ge=1, le=168)
+    RESUME_DRIVE_SYNC_REQUIRES_REVIEW: Literal[True] = True
     CANDIDATE_GITHUB_URL: PublicHTTPSURL | None = None
     CANDIDATE_ORIGINAL_LINKEDIN_URL: PublicHTTPSURL | None = None
     CANDIDATE_PORTFOLIO_URL: PublicHTTPSURL | None = None
@@ -77,7 +84,10 @@ class Settings(BaseSettings):
     LLM_MAX_CONCURRENCY: int = Field(default=2, ge=1, le=8)
 
     @field_validator(
+        "DB_SSL_ROOT_CERT",
         "CANDIDATE_RESUME_DRIVE_URL",
+        "CANDIDATE_RESUME_DRIVE_FILE_ID",
+        "RESUME_ENCRYPTION_KEY",
         "CANDIDATE_GITHUB_URL",
         "CANDIDATE_ORIGINAL_LINKEDIN_URL",
         "CANDIDATE_PORTFOLIO_URL",
@@ -242,7 +252,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    @field_validator("APPLICATION_SUBMISSION_ENABLED", "GMAIL_REQUIRE_EXPLICIT_CONFIRMATION", "GMAIL_SEND_MAX_RECIPIENTS", mode="before")
+    @field_validator("APPLICATION_SUBMISSION_ENABLED", "GMAIL_REQUIRE_EXPLICIT_CONFIRMATION", "GMAIL_SEND_MAX_RECIPIENTS", "RESUME_DRIVE_SYNC_REQUIRES_REVIEW", mode="before")
     @classmethod
     def fixed_environment_controls(cls, value, info):
         # dotenv values are strings; preserve the literal invariants after parsing.
@@ -250,6 +260,8 @@ class Settings(BaseSettings):
             if info.field_name == "APPLICATION_SUBMISSION_ENABLED" and value.lower() == "false":
                 return False
             if info.field_name == "GMAIL_REQUIRE_EXPLICIT_CONFIRMATION" and value.lower() == "true":
+                return True
+            if info.field_name == "RESUME_DRIVE_SYNC_REQUIRES_REVIEW" and value.lower() == "true":
                 return True
             if info.field_name == "GMAIL_SEND_MAX_RECIPIENTS" and value == "1":
                 return 1

@@ -21,6 +21,9 @@ class CandidateProfile(Base, TimestampMixin):
     id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
     singleton_key: Mapped[str] = mapped_column(String(20), default="primary", unique=True, nullable=False)
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    # Loaded only by the new resume workflow; historical migration verifiers and
+    # existing profile contracts do not need this additive relationship.
+    active_resume_version_id: Mapped[uuid.UUID | None] = mapped_column(GUID, deferred=True)
     full_name: Mapped[str] = mapped_column(String(200), nullable=False)
     email: Mapped[str] = mapped_column(String(254), nullable=False)
     phone: Mapped[str | None] = mapped_column(String(50))
