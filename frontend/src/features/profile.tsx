@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { ProjectsEditor } from "@/components/projects-editor";
+import { ResumeSync } from "./resume-sync";
 import { sizeFilter } from "./startups";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -386,6 +387,7 @@ export function ProfileWizard() {
           </button>
         ))}
       </div>
+      <ResumeSync />
       <form
         onSubmit={form.handleSubmit(
           (v) => save.mutate(v),

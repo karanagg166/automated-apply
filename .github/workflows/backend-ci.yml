@@ -9,7 +9,7 @@ permissions:
 jobs:
   backend:
     runs-on: ubuntu-latest
-    # The full suite rebuilds isolated schemas and verifies migrations 001–010.
+    # The full suite rebuilds isolated schemas and verifies migrations 001–011.
     # Keep a finite job limit with room for hosted-runner variance and Docker.
     timeout-minutes: 30
     services:
@@ -94,6 +94,12 @@ jobs:
           backend/app/api/v1/discovery.py
       - name: Backend security scan
         run: bandit -q -r backend/app
+      - name: Resume sync lint
+        run: >-
+          ruff check --isolated --select E9,F,I
+          backend/app/resume_sync backend/scripts/sync_drive_resume.py
+          backend/scripts/verify_resume_sync_migration.py
+          backend/tests/test_resume_sync*.py backend/tests/test_resume_drive_download.py
       - name: Phase 5A lint
         run: >-
           ruff check --isolated --select E9,F,I

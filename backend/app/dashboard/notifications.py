@@ -22,22 +22,30 @@ async def preferences(session):
     return NotificationPreferences.model_validate(item.value if item else {})
 
 
+def notification_window(prefs):
+    if prefs.paused or not prefs.in_app:
+        return "paused"
+    current = datetime.now(timezone.utc).astimezone(ZoneInfo(prefs.timezone))
+    start, end, hour = prefs.quiet_start, prefs.quiet_end, current.hour
+    quiet = (start <= hour < end if start < end else (hour >= start or hour < end) if start != end else False)
+    return "quiet_hours" if quiet else "available"
+
+
 async def synchronize(session):
     prefs = await preferences(session)
     current = datetime.now(timezone.utc).astimezone(ZoneInfo(prefs.timezone))
-    if prefs.paused or not prefs.in_app:
-        return {"status": "paused", "created": 0}
-    start, end, hour = prefs.quiet_start, prefs.quiet_end, current.hour
-    quiet = (
-        start <= hour < end
-        if start < end
-        else (hour >= start or hour < end)
-        if start != end
-        else False
-    )
-    if quiet:
-        return {"status": "quiet_hours", "created": 0}
+    window = notification_window(prefs)
+    if window != "available":
+        return {"status": window, "created": 0}
     events = []
+    from backend.app.resume_sync.models import ResumeDriveSource, ResumeProfileReview
+
+    source = await session.get(ResumeDriveSource, "primary")
+    if source and source.latest_version_id and source.latest_version_id != source.active_version_id:
+        review = await session.scalar(select(ResumeProfileReview).where(ResumeProfileReview.version_id == source.latest_version_id))
+        events.append((f"resume_review:{source.latest_version_id}:{review.review_cycle}", "resume_review",
+                       "A resume version needs your review",
+                       "Review the private PDF and profile differences before activating this version.", "/profile"))
     jobs = (
         await session.scalars(
             select(Job)

@@ -14,6 +14,8 @@ npm run dev --prefix frontend
 
 Configure the private owner login in `backend/.env` before signing in. No default login or client-side bearer token exists. For a reproducible demonstration against the actual backend with isolated fictional fixtures, see the Playwright commands in the frontend guide.
 
+My Profile also supports [Google Drive resume sync](docs/google-drive-resume-sync.md): explicit secure PDF download, encrypted version history, deterministic evidence differences and owner-approved profile/resource activation. A separately invoked, opt-in worker can check the same file every 24 hours. No worker is started by configuration or API startup; the dashboard reports its actual heartbeat.
+
 # Job Pulse Agent (`job-pulse-agent`)
 
 An AI-powered job discovery, recruiter contact enrichment, and personalized cold outreach platform designed with strict Human-in-the-Loop (HITL) safety, zero-surprise cost management, and modular architecture.

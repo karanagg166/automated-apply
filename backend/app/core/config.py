@@ -59,6 +59,10 @@ class Settings(BaseSettings):
 
     # Optional candidate defaults. Never written at startup.
     CANDIDATE_RESUME_DRIVE_URL: PublicHTTPSURL | None = None
+    CANDIDATE_RESUME_DRIVE_FILE_ID: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{10,200}$")
+    RESUME_DRIVE_SYNC_ENABLED: bool = False
+    RESUME_DRIVE_SYNC_INTERVAL_HOURS: int = Field(default=24, ge=1, le=168)
+    RESUME_DRIVE_SYNC_REQUIRES_REVIEW: Literal[True] = True
     CANDIDATE_GITHUB_URL: PublicHTTPSURL | None = None
     CANDIDATE_ORIGINAL_LINKEDIN_URL: PublicHTTPSURL | None = None
     CANDIDATE_PORTFOLIO_URL: PublicHTTPSURL | None = None
@@ -78,6 +82,8 @@ class Settings(BaseSettings):
 
     @field_validator(
         "CANDIDATE_RESUME_DRIVE_URL",
+        "CANDIDATE_RESUME_DRIVE_FILE_ID",
+        "RESUME_ENCRYPTION_KEY",
         "CANDIDATE_GITHUB_URL",
         "CANDIDATE_ORIGINAL_LINKEDIN_URL",
         "CANDIDATE_PORTFOLIO_URL",
@@ -242,7 +248,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    @field_validator("APPLICATION_SUBMISSION_ENABLED", "GMAIL_REQUIRE_EXPLICIT_CONFIRMATION", "GMAIL_SEND_MAX_RECIPIENTS", mode="before")
+    @field_validator("APPLICATION_SUBMISSION_ENABLED", "GMAIL_REQUIRE_EXPLICIT_CONFIRMATION", "GMAIL_SEND_MAX_RECIPIENTS", "RESUME_DRIVE_SYNC_REQUIRES_REVIEW", mode="before")
     @classmethod
     def fixed_environment_controls(cls, value, info):
         # dotenv values are strings; preserve the literal invariants after parsing.
@@ -250,6 +256,8 @@ class Settings(BaseSettings):
             if info.field_name == "APPLICATION_SUBMISSION_ENABLED" and value.lower() == "false":
                 return False
             if info.field_name == "GMAIL_REQUIRE_EXPLICIT_CONFIRMATION" and value.lower() == "true":
+                return True
+            if info.field_name == "RESUME_DRIVE_SYNC_REQUIRES_REVIEW" and value.lower() == "true":
                 return True
             if info.field_name == "GMAIL_SEND_MAX_RECIPIENTS" and value == "1":
                 return 1

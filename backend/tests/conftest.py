@@ -16,7 +16,7 @@ os.environ["DATABASE_SCHEMA"] = "job_agent"
 os.environ["LOG_LEVEL"] = "WARNING"
 os.environ["SECRET_KEY"] = "test-secret-key-32-chars-long-for-testing"
 # Environment overrides prevent loading local account credentials from .env files.
-for name in ("GEMINI_API_KEY", "LLM_MODEL", "CANDIDATE_RESUME_DRIVE_URL", "CANDIDATE_GITHUB_URL",
+for name in ("GEMINI_API_KEY", "LLM_MODEL", "CANDIDATE_RESUME_DRIVE_URL", "CANDIDATE_RESUME_DRIVE_FILE_ID", "RESUME_ENCRYPTION_KEY", "CANDIDATE_GITHUB_URL",
              "CANDIDATE_ORIGINAL_LINKEDIN_URL", "CANDIDATE_PORTFOLIO_URL", "CANDIDATE_LEETCODE_URL",
              "CANDIDATE_CODEFORCES_URL", "CANDIDATE_GFG_URL", "CANDIDATE_HACKERRANK_URL", "JOB_AGENT_API_TOKEN",
              "HUNTER_API_KEY", "APOLLO_API_KEY", "SERPER_API_KEY",
@@ -27,6 +27,7 @@ for name in ("GEMINI_API_KEY", "LLM_MODEL", "CANDIDATE_RESUME_DRIVE_URL", "CANDI
 os.environ["OAUTH_ENCRYPTION_KEYS"] = "{}"
 os.environ["OAUTH_ACTIVE_KEY_ID"] = ""
 os.environ["GMAIL_SENDING_ENABLED"] = "false"
+os.environ["RESUME_DRIVE_SYNC_ENABLED"] = "false"
 os.environ["MCP_REMOTE_ENABLED"] = "false"
 os.environ["MCP_ALLOW_DRAFT_CREATION"] = "false"
 
@@ -97,6 +98,9 @@ def block_external_http(monkeypatch):
 
     monkeypatch.setattr(httpx.AsyncHTTPTransport, "handle_async_request", deny_async)
     monkeypatch.setattr(httpx.HTTPTransport, "handle_request", deny_sync)
+    from backend.app.resume_sync import service as resume_sync_service
+
+    monkeypatch.setattr(resume_sync_service, "fetch_pdf", deny_async)
 
 
 @pytest_asyncio.fixture

@@ -362,6 +362,91 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/dashboard/resume-sync": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Status */
+    get: operations["get_status_api_v1_dashboard_resume_sync_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/dashboard/resume-sync/source": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Change Source */
+    put: operations["change_source_api_v1_dashboard_resume_sync_source_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/dashboard/resume-sync/sync": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Sync Now */
+    post: operations["sync_now_api_v1_dashboard_resume_sync_sync_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/dashboard/resume-sync/versions/{version_id}/review": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Changes */
+    get: operations["get_changes_api_v1_dashboard_resume_sync_versions__version_id__review_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/dashboard/resume-sync/versions/{version_id}/approve": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Approve */
+    post: operations["approve_api_v1_dashboard_resume_sync_versions__version_id__approve_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/candidate/resources": {
     parameters: {
       query?: never;
@@ -1680,6 +1765,31 @@ export interface components {
        */
       created_at: string;
     };
+    /** ApproveResume */
+    ApproveResume: {
+      /**
+       * Owner Confirmed
+       * @constant
+       */
+      owner_confirmed: true;
+      /**
+       * Primary
+       * @default false
+       */
+      primary: boolean;
+      /** Expected Generation */
+      expected_generation: number;
+      /** Expected Profile Version */
+      expected_profile_version?: number | null;
+      profile: components["schemas"]["CandidateProfileCreate"];
+      /**
+       * Allow Skill Removals
+       * @default false
+       */
+      allow_skill_removals: boolean;
+      /** Evidence */
+      evidence?: components["schemas"]["EvidenceWrite"][];
+    };
     /** CandidateProfileCreate */
     CandidateProfileCreate: {
       /** Full Name */
@@ -2312,6 +2422,21 @@ export interface components {
        */
       user_confirmed: boolean;
       project?: components["schemas"]["VerifiedProject"] | null;
+    };
+    /** FactDifference */
+    FactDifference: {
+      /** Category */
+      category: string;
+      /** Before */
+      before: string[];
+      /** After */
+      after: string[];
+      /** Added */
+      added: string[];
+      /** Removed */
+      removed: string[];
+      /** Current Verified */
+      current_verified?: string[];
     };
     /** GenerateRequest */
     GenerateRequest: {
@@ -3472,6 +3597,27 @@ export interface components {
       /** Download Path */
       download_path?: string | null;
     };
+    /** ResumeReviewRead */
+    ResumeReviewRead: {
+      version: components["schemas"]["ResumeVersionRead"];
+      /** Expected Generation */
+      expected_generation: number;
+      /** Expected Profile Version */
+      expected_profile_version: number | null;
+      current_profile: components["schemas"]["CandidateProfileCreate"] | null;
+      suggested_identity: components["schemas"]["ResumeSuggestions"];
+      proposed_profile: components["schemas"]["CandidateProfileCreate"] | null;
+      /** Differences */
+      differences: components["schemas"]["FactDifference"][];
+      /** Text */
+      text: string;
+      /** Warnings */
+      warnings: string[];
+      /** Stale Packet Count */
+      stale_packet_count: number;
+      /** Stale Answer Count */
+      stale_answer_count: number;
+    };
     /** ResumeSelection */
     ResumeSelection: {
       selected?: components["schemas"]["ResumeOption"] | null;
@@ -3485,6 +3631,58 @@ export interface components {
        * @constant
        */
       upload_status: "manual_resume_upload_required";
+    };
+    /** ResumeSuggestions */
+    ResumeSuggestions: {
+      /** Full Name */
+      full_name: string;
+      /** Email */
+      email: string;
+      /** Verified Skills */
+      verified_skills: string[];
+    };
+    /** ResumeVersionRead */
+    ResumeVersionRead: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** File Id */
+      file_id: string;
+      /** Canonical Url */
+      canonical_url: string;
+      /** File Name */
+      file_name: string;
+      /** Sha256 */
+      sha256: string;
+      /** Source Modified At */
+      source_modified_at: string | null;
+      /** Source Etag */
+      source_etag: string | null;
+      /** Drive Revision */
+      drive_revision: string | null;
+      /**
+       * Downloaded At
+       * Format: date-time
+       */
+      downloaded_at: string;
+      /**
+       * Private Resume Id
+       * Format: uuid
+       */
+      private_resume_id: string;
+      /**
+       * Review Status
+       * @enum {string}
+       */
+      review_status: "pending" | "approved";
+      /** Review Cycle */
+      review_cycle: number;
+      /** Candidate Profile Version */
+      candidate_profile_version: number | null;
+      /** Approved Profile Version */
+      approved_profile_version: number | null;
     };
     /** ReviewInput */
     ReviewInput: {
@@ -3567,6 +3765,23 @@ export interface components {
       observed_at: string;
     } & {
       [key: string]: unknown;
+    };
+    /** SourceSettings */
+    SourceSettings: {
+      /** Canonical Url */
+      canonical_url: string;
+      /** Expected Generation */
+      expected_generation: number;
+      /**
+       * Sync Enabled
+       * @default false
+       */
+      sync_enabled: boolean;
+      /**
+       * Interval Hours
+       * @default 24
+       */
+      interval_hours: number;
     };
     /** StartupAttributes */
     StartupAttributes: {
@@ -3835,6 +4050,81 @@ export interface components {
        * Format: date-time
        */
       created_at: string;
+    };
+    /** SyncNow */
+    SyncNow: {
+      /** Expected Generation */
+      expected_generation: number;
+    };
+    /** SyncResult */
+    SyncResult: {
+      /**
+       * Outcome
+       * @enum {string}
+       */
+      outcome:
+        "pending_review" | "unchanged" | "failed" | "disabled_or_not_due";
+      state: components["schemas"]["SyncStatus"];
+    };
+    /** SyncStatus */
+    SyncStatus: {
+      /**
+       * Source
+       * @default Google Drive
+       * @constant
+       */
+      source: "Google Drive";
+      /** Canonical Url */
+      canonical_url: string | null;
+      /** File Id */
+      file_id: string | null;
+      /** File Name */
+      file_name: string | null;
+      /** Last Downloaded At */
+      last_downloaded_at: string | null;
+      /** Source Modified At */
+      source_modified_at: string | null;
+      /** Source Etag */
+      source_etag: string | null;
+      /** Drive Revision */
+      drive_revision: string | null;
+      /** Generation */
+      generation: number;
+      /** Sync Enabled */
+      sync_enabled: boolean;
+      /** Interval Hours */
+      interval_hours: number;
+      /**
+       * Requires Review
+       * @default true
+       * @constant
+       */
+      requires_review: true;
+      /** Connected */
+      connected: boolean;
+      /** Status */
+      status: string;
+      /** Last Error */
+      last_error: string | null;
+      /** Last Checked At */
+      last_checked_at: string | null;
+      /** Last Changed At */
+      last_changed_at: string | null;
+      latest: components["schemas"]["ResumeVersionRead"] | null;
+      active: components["schemas"]["ResumeVersionRead"] | null;
+      /** History */
+      history: components["schemas"]["ResumeVersionRead"][];
+      /** Pending Changes */
+      pending_changes: boolean;
+      /** Scheduler Active */
+      scheduler_active: boolean;
+      /** Scheduler Message */
+      scheduler_message: string;
+      /**
+       * Metadata Note
+       * @default Public downloads expose Last-Modified/ETag only when provided. Drive revision metadata may be unavailable; checks always verify PDF SHA-256.
+       */
+      metadata_note: string;
     };
     /** TokenUsage */
     TokenUsage: {
@@ -4768,6 +5058,158 @@ export interface operations {
         };
         content: {
           "application/json": unknown;
+        };
+      };
+    };
+  };
+  get_status_api_v1_dashboard_resume_sync_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SyncStatus"];
+        };
+      };
+    };
+  };
+  change_source_api_v1_dashboard_resume_sync_source_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SourceSettings"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SyncStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  sync_now_api_v1_dashboard_resume_sync_sync_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SyncNow"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SyncResult"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_changes_api_v1_dashboard_resume_sync_versions__version_id__review_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        version_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ResumeReviewRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  approve_api_v1_dashboard_resume_sync_versions__version_id__approve_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        version_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ApproveResume"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SyncStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

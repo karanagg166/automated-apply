@@ -30,6 +30,7 @@ from backend.app.mcp.registry import mcp
 from backend.app.operations.boundary import transport_error
 from backend.app.operations.health import database_health
 from backend.app.operations.readiness import require_safe_startup
+from backend.app.resume_sync.router import router as resume_sync_router
 from backend.app.schemas.credit import CreditBudgetStatus
 from backend.app.schemas.job import JobRead
 from backend.app.services.credit_manager import (
@@ -221,6 +222,7 @@ from backend.app.api.v1.profile import router as profile_router
 
 app.include_router(profile_router)
 app.include_router(dashboard_router)
+app.include_router(resume_sync_router)
 
 
 # Exactly one stateless Streamable HTTP endpoint; explicit native host/origin guard.

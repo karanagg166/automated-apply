@@ -361,6 +361,81 @@ test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
       );
     }
   });
+  test("syncs an encrypted fictional Drive resume, reviews it, deduplicates and preserves the active version", async ({
+    page,
+  }) => {
+    await login(page);
+    await page.goto("/profile");
+    await expect(
+      page.getByText("Awaiting successful validation"),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/Automatic periodic checking is inactive/),
+    ).toBeVisible();
+    const before = await (
+      await page.request.get("/api/backend/profile")
+    ).json();
+    await page.getByRole("button", { name: "Sync Now", exact: true }).click();
+    await expect(
+      page.getByText("Fetched and validated", { exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Review Changes", exact: true })
+      .click();
+    const approve = page.getByRole("button", {
+      name: "Approve New Resume Version",
+      exact: true,
+    });
+    await expect(approve).toBeDisabled();
+    await expect(page.getByLabel("Reviewed skills")).toHaveValue(/FastAPI/);
+    await expect(page.getByLabel("Reviewed skills")).toHaveValue(/Docker/);
+    await page
+      .getByRole("checkbox", { name: /I reviewed the PDF, differences/ })
+      .check();
+    await approve.click();
+    await expect(
+      page.getByText(/Pending changes need your review/),
+    ).not.toBeVisible();
+    let state = await (
+      await page.request.get("/api/backend/dashboard/resume-sync")
+    ).json();
+    expect(state.active.id).toBe(state.latest.id);
+    const active = state.active.id;
+    expect(state.history).toHaveLength(1);
+    expect(
+      (await (await page.request.get("/api/backend/profile")).json()).version,
+    ).toBe(before.version + 1);
+    const firstCheck = state.last_checked_at;
+    await page.getByRole("button", { name: "Sync Now", exact: true }).click();
+    await expect
+      .poll(
+        async () =>
+          (
+            await (
+              await page.request.get("/api/backend/dashboard/resume-sync")
+            ).json()
+          ).last_checked_at,
+      )
+      .not.toBe(firstCheck);
+    state = await (
+      await page.request.get("/api/backend/dashboard/resume-sync")
+    ).json();
+    expect(state.history).toHaveLength(1);
+    expect(state.status).toBe("unchanged");
+    await page.getByRole("button", { name: "Sync Now", exact: true }).click();
+    await expect(
+      page.getByText(/Pending changes need your review/),
+    ).toBeVisible();
+    state = await (
+      await page.request.get("/api/backend/dashboard/resume-sync")
+    ).json();
+    expect(state.history).toHaveLength(2);
+    expect(state.active.id).toBe(active);
+    expect(state.latest.id).not.toBe(active);
+    expect(
+      (await (await page.request.get("/api/backend/profile")).json()).version,
+    ).toBe(before.version + 1);
+  });
   test("shows unavailable providers without invented results", async ({
     page,
   }) => {

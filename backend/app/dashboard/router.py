@@ -252,6 +252,10 @@ async def confirm_resume(
     data: ResumeConfirm,
     session: AsyncSession = Depends(get_db_session),
 ):
+    from backend.app.resume_sync.models import DriveResumeVersion
+
+    if await session.scalar(select(DriveResumeVersion.id).where(DriveResumeVersion.private_resume_id == resume_id)):
+        raise HTTPException(409, "Drive imports require the Resume Sync profile-review approval")
     profile = await CandidateKnowledgeRepository(session).profile()
     resume = await session.get(PrivateResume, resume_id, with_for_update=True)
     if resume is None:
