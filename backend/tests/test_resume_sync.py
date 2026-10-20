@@ -153,7 +153,8 @@ async def test_failure_status_no_version_and_safe_retry(resume_bundle, db_sessio
     assert (await service.sync(1))["state"].connected
 
 
-@pytest.mark.parametrize("raw", [b"<html>sign in</html>", b"%PDF-1.7\nmalformed", b"%PDF-" + b"x" * (5 * 1024 * 1024)])
+@pytest.mark.parametrize("raw", [b"<html>sign in</html>", b"%PDF-1.7\nmalformed", b"%PDF-" + b"x" * (5 * 1024 * 1024)],
+                         ids=["html-response", "malformed-pdf", "oversized-pdf"])
 async def test_malformed_or_oversized_pdf_is_not_persisted(resume_bundle, db_session, raw):
     service, drive, _ = resume_bundle
     drive.raw = raw

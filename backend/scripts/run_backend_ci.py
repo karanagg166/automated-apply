@@ -25,13 +25,16 @@ def snapshot(directory):
     with (directory / "processes.log").open("a") as output:
         output.write(f"\n{datetime.now(timezone.utc).isoformat()}\n")
         output.flush()
-        subprocess.run(
-            ["ps", "-eo", "pid,ppid,pgid,sid,stat,wchan:32,comm"],
-            stdout=output,
-            stderr=subprocess.STDOUT,
-            timeout=5,
-            check=False,
-        )
+        try:
+            subprocess.run(
+                ["ps", "-eo", "pid,ppid,pgid,sid,stat,wchan:32,comm"],
+                stdout=output,
+                stderr=subprocess.STDOUT,
+                timeout=5,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            output.write(f"Process snapshot unavailable: {type(exc).__name__}\n")
 
 
 def run(directory, seconds, command):

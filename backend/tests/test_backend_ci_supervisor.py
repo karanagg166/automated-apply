@@ -1,5 +1,6 @@
 """The CI watchdog must preserve failures and bound subprocess descendants."""
 
+import os
 import subprocess
 import sys
 import time
@@ -76,3 +77,25 @@ def test_supervisor_timeout_is_a_failure(tmp_path):
     assert result.returncode == 124
     assert "started" in (tmp_path / "pytest.log").read_text()
     assert "exit_code=124" in (tmp_path / "supervisor.txt").read_text()
+
+
+def test_missing_snapshot_utility_does_not_change_test_result(tmp_path):
+    result = subprocess.run(
+        [
+            sys.executable,
+            SCRIPT,
+            "--output",
+            str(tmp_path),
+            sys.executable,
+            "-c",
+            "print('completed')",
+        ],
+        env={**os.environ, "PATH": "/nonexistent"},
+        capture_output=True,
+        text=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 0
+    assert "completed" in (tmp_path / "pytest.log").read_text()
+    assert "FileNotFoundError" in (tmp_path / "processes.log").read_text()
