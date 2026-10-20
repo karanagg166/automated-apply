@@ -15,6 +15,9 @@ class NotificationPreferences(BaseModel):
     in_app: bool = True
     paused: bool = False
     daily_digest: bool = True
+    minimum_job_score: int = Field(75, ge=0, le=100)
+    minimum_startup_score: int = Field(70, ge=0, le=100)
+    automation_failures: bool = True
     quiet_start: int = Field(22, ge=0, le=23)
     quiet_end: int = Field(8, ge=0, le=23)
     timezone: str = Field("Asia/Kolkata", max_length=100)

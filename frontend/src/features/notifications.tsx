@@ -177,6 +177,9 @@ export function Settings() {
         in_app: true,
         paused: false,
         daily_digest: true,
+        minimum_job_score: 75,
+        minimum_startup_score: 70,
+        automation_failures: true,
         quiet_start: 22,
         quiet_end: 8,
         timezone: "Asia/Kolkata",
@@ -248,6 +251,11 @@ export function Settings() {
                     "Daily summary",
                     "At most one digest per local calendar day, when you check saved activity.",
                   ],
+                  [
+                    "automation_failures",
+                    "Discovery failure alerts",
+                    "At most one alert per source per local day.",
+                  ],
                 ].map(([key, title, description]) => (
                   <label className="preference-row" key={key}>
                     <div>
@@ -268,6 +276,34 @@ export function Settings() {
                   </label>
                 ))}
                 <div className="form-grid spaced">
+                  <Field label="Minimum job relevance score">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={preferences.minimum_job_score}
+                      onChange={(e) =>
+                        setPreferences({
+                          ...preferences,
+                          minimum_job_score: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </Field>
+                  <Field label="Minimum startup relevance score">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={preferences.minimum_startup_score}
+                      onChange={(e) =>
+                        setPreferences({
+                          ...preferences,
+                          minimum_startup_score: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </Field>
                   <Field label="Quiet hours start (0–23)">
                     <Input
                       type="number"
@@ -310,9 +346,9 @@ export function Settings() {
                   </Field>
                 </div>
                 <Notice>
-                  Quiet hours defer on-demand in-app generation. Set equal
-                  start/end hours to disable quiet hours. No background delivery
-                  is running.
+                  Quiet hours defer in-app generation. Set equal start/end hours
+                  to disable quiet hours. Scheduled checks require a separately
+                  activated discovery worker.
                 </Notice>
                 <Button type="submit" variant="primary" busy={save.isPending}>
                   Save preferences

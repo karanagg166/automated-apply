@@ -22,16 +22,18 @@ async def preferences(session):
     return NotificationPreferences.model_validate(item.value if item else {})
 
 
-def notification_window(prefs):
+def notification_window(prefs, now=None):
     if prefs.paused or not prefs.in_app:
         return "paused"
-    current = datetime.now(timezone.utc).astimezone(ZoneInfo(prefs.timezone))
+    current = (now or datetime.now(timezone.utc)).astimezone(ZoneInfo(prefs.timezone))
     start, end, hour = prefs.quiet_start, prefs.quiet_end, current.hour
     quiet = (start <= hour < end if start < end else (hour >= start or hour < end) if start != end else False)
     return "quiet_hours" if quiet else "available"
 
 
-async def synchronize(session):
+async def synchronize(session, *, automation=False):
+    if automation and await session.get(OwnerPreference, "notifications") is None:
+        return {"status": "awaiting_in_app_opt_in", "created": 0, "external_deliveries": 0}
     prefs = await preferences(session)
     current = datetime.now(timezone.utc).astimezone(ZoneInfo(prefs.timezone))
     window = notification_window(prefs)
@@ -49,11 +51,47 @@ async def synchronize(session):
     jobs = (
         await session.scalars(
             select(Job)
-            .where(Job.match_score >= 75)
+            .where(Job.match_score >= prefs.minimum_job_score)
             .order_by(Job.created_at.desc())
             .limit(100)
         )
     ).all()
+    approved = True
+    if automation:
+        from backend.app.automation.models import AutomationExecution
+        from backend.app.automation.store import (
+            approved_profile,
+            configuration,
+            current_matches,
+            schedule,
+        )
+
+        config = configuration(await schedule(session))
+        approved = bool(await approved_profile(session, config))
+        matches = await current_matches(session, config)
+        ids = [m.job_id for m in matches if m.result["match_score"] >= prefs.minimum_job_score
+               and not m.result.get("exclusion_reasons")]
+        jobs = (await session.scalars(select(Job).where(Job.id.in_(ids)))).all() if ids else []
+        if not approved:
+            events.append((f"automation_profile:{config.approved_profile_id}:{config.approved_profile_version}",
+                           "stale_match_profile", "Matching needs your review",
+                           "Approve the current saved profile to refresh personalized results.", "/discover"))
+        if prefs.automation_failures:
+            failures = (await session.scalars(select(AutomationExecution).where(
+                AutomationExecution.state.in_(["failed", "blocked", "partial"]),
+            ).order_by(AutomationExecution.created_at.desc()).limit(50))).all()
+            # One per source and owner-local day keeps repeated failures quiet.
+            for failure in failures:
+                occurred = (failure.finished_at or failure.created_at).replace(tzinfo=timezone.utc) if (failure.finished_at or failure.created_at).tzinfo is None else (failure.finished_at or failure.created_at)
+                failure_day = occurred.astimezone(ZoneInfo(prefs.timezone)).date()
+                events.append((f"automation_failure:{failure.source}:{failure_day}", "scheduled_discovery_failed",
+                               "Discovery needs attention", "Review the execution history and source cooldown before retrying.", "/discover"))
+        reviewable = await session.scalar(select(Job.id).where(
+            Job.status == "discovered",
+        ).limit(1))
+        if reviewable and not jobs:
+            events.append((f"automation_review:{current.date()}", "jobs_awaiting_review", "Saved opportunities await review",
+                           "Inspect listing evidence before shortlisting or preparing an application.", "/jobs"))
     for job in jobs:
         events.append(
             (
@@ -161,12 +199,27 @@ async def synchronize(session):
 
     partial_errors = []
     try:
-        matches = await StartupDiscoveryService(session).search(
+        matching_companies = set()
+        if automation and approved:
+            cached = await current_matches(session, config)
+            matching_ids = [m.job_id for m in cached if m.result["match_score"] >= prefs.minimum_startup_score
+                            and not m.result.get("exclusion_reasons")]
+            matching_companies = set((await session.scalars(select(Job.company_id).where(Job.id.in_(matching_ids)))).all())
+        startup_scan = await StartupDiscoveryService(session).search(
             StartupFilters(
-                max_employees=None, minimum_score=70, use_profile=True, limit=100
-            )
+                max_employees=200 if automation else None,
+                include_unknown_size=not automation,
+                minimum_score=0 if automation else prefs.minimum_startup_score,
+                use_profile=approved and not automation, limit=100
+            ),
+            company_ids=list(matching_companies) if automation else None,
         )
-        for startup in matches["startups"]:
+        for startup in startup_scan["startups"]:
+            if not approved:
+                continue
+            if automation and (startup["company_id"] not in {str(c) for c in matching_companies}
+                               or startup["hiring_status"] == "hiring_unknown"):
+                continue
             events.append(
                 (
                     f"startup:{startup['company_id']}",

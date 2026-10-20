@@ -29,13 +29,15 @@ async def verify(url):
             if not await connection.fetchval("SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=$1)", role):
                 await connection.execute(f'CREATE ROLE "{role}" NOLOGIN' + (" BYPASSRLS" if role == "service_role" else ""))
         paths = sorted((ROOT / "supabase/migrations").glob("*.sql"))
-        for path in paths[:-1]:
+        for path in paths[:10]:
             await connection.execute(path.read_text())
         await connection.execute("CREATE TABLE public.resume_preservation_probe(value text)")
         await connection.execute("INSERT INTO public.resume_preservation_probe VALUES ('unchanged')")
         await connection.execute("INSERT INTO job_agent.candidate_profiles(full_name,email,verified_skills) VALUES ('Alex Fictional','alex@example.org','[\"Python\",\"FastAPI\"]')")
         profile_id = await connection.fetchval("SELECT id FROM job_agent.candidate_profiles")
-        await connection.execute(paths[-1].read_text())
+        await connection.execute(paths[10].read_text())
+        for path in paths[11:]:
+            await connection.execute(path.read_text())
         assert await connection.fetchval("SELECT value FROM public.resume_preservation_probe") == "unchanged"
         assert await connection.fetchval("SELECT version FROM job_agent.candidate_profiles WHERE id=$1", profile_id) == 1
         for table in ("resume_drive_sources", "drive_resume_versions", "resume_profile_reviews"):

@@ -1,5 +1,13 @@
 # System Architecture — Job Pulse Agent
 
+Phase 10 adds an explicitly launched discovery worker sharing PostgreSQL with the existing
+API. A singleton schedule lock bounds global admission; source executions use durable
+leases/fences, existing adapters/pacing/ingestion and approved-profile matching. The
+existing Next.js Discover page manages it. No API-startup recurring task or message broker
+is introduced. See [Phase 10](phase10-automation.md) for the current execution diagram,
+failure semantics, new tables and separately reviewed security overlay. Live activation
+remains disabled and unauthorized.
+
 > The diagrams include future components. See the implementation status below and the roadmap for what exists today.
 
 ## 1. Executive Summary

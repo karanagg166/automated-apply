@@ -62,6 +62,7 @@ async def verify(url):
         for path in sorted((ROOT / "supabase/migrations").glob("*.sql")):
             await admin.execute(path.read_text())
         await admin.execute((ROOT / "docs/sql/phase9-runtime-hardening.sql").read_text())
+        await admin.execute((ROOT / "docs/sql/phase10-runtime-addendum.sql").read_text())
         await admin.execute("RESET ROLE")
         # SCRAM containers require a password even for this disposable runtime.
         # Quote it server-side and never print the credential or connection URL.
@@ -97,6 +98,14 @@ async def verify(url):
                 company = await runtime.fetchval("INSERT INTO job_agent.companies(name) VALUES ('Fictional Phase9') RETURNING id")
                 assert await runtime.fetchval("SELECT name FROM job_agent.companies WHERE id=$1", company) == "Fictional Phase9"
                 await runtime.execute("UPDATE job_agent.companies SET name='Fictional Updated' WHERE id=$1", company)
+                # Phase 10's separately proposed addendum supports real runtime
+                # schedule/task DML and row locking without granting delete/DDL.
+                await runtime.execute("INSERT INTO job_agent.automation_schedule(key) VALUES ('primary')")
+                await runtime.fetchrow("SELECT * FROM job_agent.automation_schedule WHERE key='primary' FOR UPDATE")
+                await runtime.execute("UPDATE job_agent.automation_schedule SET version=2 WHERE key='primary'")
+                execution = await runtime.fetchval("INSERT INTO job_agent.automation_executions(request_key,source,trigger_type,schedule_version,configuration) VALUES ('fictional_runtime','arbeitnow','manual',2,'{}') RETURNING id")
+                await runtime.execute("UPDATE job_agent.automation_executions SET state='claimed',fence=1 WHERE id=$1", execution)
+                assert await runtime.fetchval("SELECT fence FROM job_agent.automation_executions WHERE id=$1", execution) == 1
             for sql in ["SELECT * FROM public.phase9_other_app", "DELETE FROM job_agent.companies",
                         "TRUNCATE job_agent.companies", "CREATE TABLE job_agent.forbidden(id int)",
                         "SET ROLE job_agent_owner", "UPDATE job_agent.application_events SET event_type='bad'"]:
@@ -117,6 +126,8 @@ async def verify(url):
                     raise AssertionError("Shared role could access private resumes")
                 finally:
                     await admin.execute("RESET ROLE")
+                for table in ("automation_schedule", "automation_executions", "automation_matches"):
+                    assert not await admin.fetchval("SELECT has_table_privilege($1,$2,'SELECT,INSERT,UPDATE')", role, "job_agent." + table)
             assert await admin.fetchval("SELECT value FROM public.phase9_other_app") == "preserved"
             # Each injected fault is explicitly reversed in this disposable cluster.
             faults = [

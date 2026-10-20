@@ -1,5 +1,20 @@
 # Automated Apply roadmap
 
+## Phase 10 — discovery automation (local implementation)
+
+Implemented on the Phase 10 feature branch: disabled-by-default standalone PostgreSQL
+worker, durable schedules/source tasks, atomic quota/dispatch, two-worker admission,
+leases/fencing/recovery, owner API and existing Discover dashboard controls, approved
+profile-version matching/cache, existing in-app notification deduplication and preferences,
+additive migration 012 and separately proposed restricted-runtime addendum. Tests use
+fictional fixtures, mocked HTTP and disposable PostgreSQL 17. See
+[implementation and operations](phase10-automation.md) for assumptions and verification.
+
+Phase 9 remains incomplete. R1 authorization is retained, execution remains blocked by
+private credentials/recovery setup; R2 is unauthorized. No production access, migration,
+personal-data import, worker activation, paid calls, messages or applications are included.
+Live automation requires Phase 9 completion and new explicit authorization.
+
 ## Baseline
 
 The existing repository contains FastAPI/FastMCP, async SQLAlchemy repositories, isolated

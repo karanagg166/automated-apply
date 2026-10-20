@@ -224,6 +224,10 @@ app.include_router(profile_router)
 app.include_router(dashboard_router)
 app.include_router(resume_sync_router)
 
+from backend.app.automation.router import router as automation_router
+
+app.include_router(automation_router)
+
 
 # Exactly one stateless Streamable HTTP endpoint; explicit native host/origin guard.
 mcp_app = mcp.http_app(path="/", transport="http", stateless_http=True, json_response=True,

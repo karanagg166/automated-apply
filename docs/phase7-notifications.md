@@ -1,5 +1,11 @@
 # Notification foundation
 
+Phase 10 extends this foundation with an opt-in standalone scheduler. It reuses these
+same rows/delivery keys/digest keys and adds score thresholds and redacted discovery
+failure/stale-profile/review alerts. Scheduled generation requires saved in-app opt-in,
+honors pause/quiet hours, and uses approved cached match results. Existing on-demand
+checks remain available. See [Phase 10](phase10-automation.md); no live worker is activated.
+
 In-app notifications are private PostgreSQL rows with a unique deduplication key, event type, redacted title/body, workspace destination, read state and timestamps. Owner preferences are durable and independently validated. This phase starts no worker or scheduled delivery in a real environment.
 
 The explicit “Check saved activity” action evaluates saved high-match jobs/startups, current contact evidence, provider failures, reviewable application packets and local drafts, then adds at most one daily summary per owner-local calendar date. Generation respects in-app opt-in, global pause and IANA-timezone quiet hours; equal start/end hours disable quiet hours. Deferred events can be generated on a later check. Titles and summaries avoid candidate contact details, resume text, email contents or sensitive opportunity descriptions.

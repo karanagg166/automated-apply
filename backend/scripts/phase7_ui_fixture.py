@@ -39,6 +39,7 @@ def setup_environment(directory):
         JOB_AGENT_API_TOKEN="fictional-phase7-backend-token-never-client",
         SECRET_KEY="fictional-test-secret-for-isolated-ui-only",  # pragma: allowlist secret — isolated fixture only
         UI_FIXTURE_MODE="true",
+        AUTOMATION_EXECUTION_ENABLED="false",
         GMAIL_SENDING_ENABLED="false",
         MCP_REMOTE_ENABLED="false",
         LOG_LEVEL="WARNING",
@@ -79,6 +80,7 @@ def setup_environment(directory):
 
 
 async def seed():
+    import backend.app.automation.models  # noqa: F401 — register isolated fixture tables
     from backend.app.db.session import get_engine, get_session_factory
     from backend.app.models.base import Base
     from backend.app.models.contact import Contact
