@@ -25,6 +25,9 @@ Inspected other local worktree/branch diffs and their evidence documents without
 Readiness checks inspected local configuration without printing values or querying private data.
 No fresh remote SQL, personal-data import, provider smoke, account login or notification occurred.
 A documented historical check is labeled historical; a fixture is never live evidence.
+The README still has an older sentence saying the dashboard remains future work, despite the
+merged frontend above it. Its target diagrams and Phase1-scoped roadmap statements are historical;
+use the source-backed inventory below for current capability, not that obsolete sentence.
 
 Status vocabulary: **IMPLEMENTED** = code exists; **TESTED** = identified executed checks;
 **MERGED** = main ancestry/GitHub merge; **DEPLOYED** = running selected release/host evidence;
@@ -105,18 +108,18 @@ flowchart TD
   P10 --> SQL12[Review and separately authorize 012 plus role addendum]
   R2 --> SQL12
   R2 --> P11[11: actual owner onboarding]
-  SQL12 --> P11
+  SQL12 -. if using automation release .-> P11
   P11 --> P12a[12A: existing free-source real pilot and packet]
   P0 --> P13[13: local AI engineering and synthetic evaluation]
   P12a --> P14[14: Telegram minimal slice and verified delivery]
   P14 --> P15a[15A: manual handoff and truthful tracking pilot]
   P12a --> P12b[12B: Lever and Ashby expansion; optional Gmail intake]
-  P13 --> P15b[15B: conditional supported execution]
+  P13 -. optional generated answers .-> P15b[15B: conditional supported execution]
   P15a --> P15b
   P12b --> P16[16: startup and contact evidence expansion]
   P15a --> P17[17: reliability and personal pilot]
-  P15b --> P17
-  P16 --> P17
+  P15b -. if selected .-> P17
+  P16 -. if selected .-> P17
 ```
 
 Numbering follows the requested 9–17 sequence; **execution can take small slices out of numerical
