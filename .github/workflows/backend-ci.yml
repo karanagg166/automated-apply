@@ -97,6 +97,7 @@ jobs:
       - name: Resume sync lint
         run: >-
           ruff check --isolated --select E9,F,I
+          backend/scripts/run_backend_ci.py backend/tests/test_backend_ci_supervisor.py
           backend/app/resume_sync backend/scripts/sync_drive_resume.py
           backend/scripts/verify_resume_sync_migration.py
           backend/tests/test_resume_sync*.py backend/tests/test_resume_drive_download.py
@@ -128,21 +129,33 @@ jobs:
       - name: Offline startup demonstration
         run: python backend/scripts/startup_discovery_demo.py > /tmp/startup-offline.json
       - run: python -m compileall -q backend/app
+      - name: Record isolated PostgreSQL baseline
+        run: |
+          mkdir -p /tmp/backend-diagnostics
+          docker inspect --format '{{.State.Status}} {{.State.Health.Status}}' '${{ job.services.postgres.id }}' > /tmp/backend-diagnostics/postgres-before.log
+          docker exec '${{ job.services.postgres.id }}' psql -U postgres -d candidate_profile_test -X -c 'SELECT version(), current_database(), current_user' >> /tmp/backend-diagnostics/postgres-before.log
       - name: Full backend regression suite
-        # Bound the process group so a hung test/child cannot consume the whole job
-        # or prevent final diagnostics from being uploaded. Every test still runs.
+        # Regular-file child output avoids inherited-pipe hangs. Keep every test
+        # and the original collection order; never equate local results with CI.
         timeout-minutes: 8
         shell: bash
         run: |
-          set -o pipefail
-          timeout --kill-after=20s 6m python -u -m pytest backend/tests -v --durations=20 -o faulthandler_timeout=120 2>&1 | tee /tmp/backend-regression.log
+          python -u backend/scripts/run_backend_ci.py --output /tmp/backend-diagnostics --seconds 360 python -u -m pytest backend/tests -v --durations=20 -o faulthandler_timeout=60 --junitxml=/tmp/backend-diagnostics/pytest.xml
+      - name: Record isolated PostgreSQL final state
+        if: always()
+        timeout-minutes: 1
+        run: |
+          mkdir -p /tmp/backend-diagnostics
+          timeout 10s docker logs --timestamps '${{ job.services.postgres.id }}' > /tmp/backend-diagnostics/postgres-container.log 2>&1
+          timeout 10s docker exec '${{ job.services.postgres.id }}' psql -U postgres -d candidate_profile_test -X -c 'SELECT pid, datname, usename, state, wait_event_type, wait_event, backend_start, xact_start, query_start FROM pg_stat_activity' > /tmp/backend-diagnostics/postgres-after.log 2>&1
       - name: Retain backend regression diagnostics
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
+        timeout-minutes: 2
         with:
-          name: backend-regression-${{ github.run_id }}
-          path: /tmp/backend-regression.log
-          if-no-files-found: ignore
+          name: backend-regression-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/backend-diagnostics/
+          if-no-files-found: error
           retention-days: 7
       - name: Phase 6B operational lint
         run: >-
