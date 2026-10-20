@@ -3,6 +3,7 @@
 import asyncio
 import json
 import os
+import secrets
 import subprocess
 import sys
 import uuid
@@ -62,14 +63,20 @@ async def verify(url):
             await admin.execute(path.read_text())
         await admin.execute((ROOT / "docs/sql/phase9-runtime-hardening.sql").read_text())
         await admin.execute("RESET ROLE")
-        # This isolated container uses loopback trust auth; no real credential is used.
-        await admin.execute("ALTER ROLE job_agent_runtime LOGIN")
+        # SCRAM containers require a password even for this disposable runtime.
+        # Quote it server-side and never print the credential or connection URL.
+        runtime_password = secrets.token_urlsafe(32)
+        login_sql = await admin.fetchval(
+            "SELECT format('ALTER ROLE job_agent_runtime LOGIN PASSWORD %L', $1::text)",
+            runtime_password,
+        )
+        await admin.execute(login_sql)
         from backend.app.core.config import Settings, configure_operator
         from backend.app.operations.health import database_health
         from backend.app.operations.migrations import MANIFEST, catalog, compare_catalog
         from backend.app.operations.runtime_security import verify_restricted_runtime
 
-        runtime_url = f"postgresql://job_agent_runtime@127.0.0.1:{parsed.port}/{database}"
+        runtime_url = f"postgresql://job_agent_runtime:{runtime_password}@127.0.0.1:{parsed.port}/{database}"
         runtime = await asyncpg.connect(runtime_url)
         try:
             async with runtime.transaction(readonly=True):
@@ -78,8 +85,7 @@ async def verify(url):
                 plan = compare_catalog(await catalog(runtime), restricted_runtime=True)
                 assert plan.status == "verified", plan.model_dump()
             settings = Settings(_env_file=None, ENVIRONMENT="development",
-                DATABASE_URL=runtime_url.replace("postgresql://", "postgresql+asyncpg://").replace(
-                    "job_agent_runtime@", "job_agent_runtime:local-test-unused@"),
+                DATABASE_URL=runtime_url.replace("postgresql://", "postgresql+asyncpg://"),
                 DB_REMOTE_ONLY=False, DB_REQUIRE_TLS=False, DB_POOL_SIZE=1, DB_MAX_OVERFLOW=0)
             configure_operator(settings)
             from sqlalchemy.ext.asyncio import create_async_engine
