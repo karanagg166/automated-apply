@@ -106,8 +106,12 @@ def file_inventory():
     ]
 
 
-def compare_catalog(actual, manifest=None):
+def compare_catalog(actual, manifest=None, *, restricted_runtime=False):
     expected = manifest or json.loads(MANIFEST.read_text())
+    if restricted_runtime:
+        from backend.app.operations.runtime_security import restricted_manifest
+
+        expected = restricted_manifest(expected)
     missing, drift = [], []
     for category, objects in expected["catalog"].items():
         if category == "unsafe_grants":
@@ -132,7 +136,9 @@ def compare_catalog(actual, manifest=None):
     status = (
         "verified" if not (missing or drift or unsafe) else "inconsistent_or_partial"
     )
-    if not actual.get("tables"):
+    if not actual.get("tables") and not any(actual.get(k) for k in (
+        "columns", "constraints", "indexes", "triggers", "functions", "policies",
+    )):
         status = "empty_schema"
     return MigrationPlan(
         status=status,
@@ -153,6 +159,19 @@ async def inspect_database(settings):
     connection = await asyncpg.connect(url, **database_connect_args(settings))
     try:
         async with connection.transaction(readonly=True):
-            return compare_catalog(await catalog(connection, settings.DATABASE_SCHEMA))
+            from backend.app.operations.runtime_security import (
+                RUNTIME_ROLE,
+                verify_restricted_runtime,
+            )
+
+            restricted = await connection.fetchval("SELECT current_user") == RUNTIME_ROLE
+            if restricted:
+                await verify_restricted_runtime(
+                    connection, json.loads(MANIFEST.read_text())["catalog"]["tables"],
+                )
+            return compare_catalog(
+                await catalog(connection, settings.DATABASE_SCHEMA),
+                restricted_runtime=restricted,
+            )
     finally:
         await connection.close()

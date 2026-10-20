@@ -27,7 +27,21 @@ async def database_health(engine, settings):
             )
 
             raw = await connection.get_raw_connection()
-            plan = compare_catalog(await catalog(raw.driver_connection, settings.DATABASE_SCHEMA))
+            driver = raw.driver_connection
+            from backend.app.operations.runtime_security import (
+                RUNTIME_ROLE,
+                runtime_privileges,
+                verify_restricted_runtime,
+            )
+
+            restricted = await driver.fetchval("SELECT current_user") == RUNTIME_ROLE
+            expected = json.loads(MANIFEST.read_text())["catalog"]
+            if restricted:
+                await verify_restricted_runtime(driver, expected["tables"])
+            plan = compare_catalog(
+                await catalog(driver, settings.DATABASE_SCHEMA),
+                restricted_runtime=restricted,
+            )
             if plan.status != "verified":
                 raise RuntimeError("database_schema_migration_or_grants_incompatible")
             access = await connection.execute(text("""
@@ -40,9 +54,8 @@ async def database_health(engine, settings):
                 WHERE n.nspname=:schema AND c.relkind='r'
             """), {"schema": settings.DATABASE_SCHEMA})
             for row in access.mappings():
-                if not row["schema_access"] or not row["rls_access"]:
+                if not row["schema_access"] or (not restricted and not row["rls_access"]):
                     raise RuntimeError("database_runtime_access_incompatible")
-            expected = json.loads(MANIFEST.read_text())["catalog"]
             privileges = {name: {"SELECT"} for name in expected["tables"]}
             for grant in expected["service_grants"]:
                 name, privilege = grant.split(".")
@@ -52,6 +65,8 @@ async def database_health(engine, settings):
             for name in privileges:
                 if not any(key.startswith(name + ".") for key in expected["service_grants"]):
                     privileges[name].update({"INSERT", "UPDATE"})
+            if restricted:
+                privileges = runtime_privileges(expected["tables"])
             required = [{"table_name": name, "privilege": privilege}
                         for name, values in privileges.items() for privilege in values]
             allowed = await connection.scalar(text("""
@@ -73,4 +88,5 @@ async def database_health(engine, settings):
                 "schema": settings.DATABASE_SCHEMA,
                 "migration_011": "catalog_compatible_history_untracked",
                 "tls_required": settings.DB_REQUIRE_TLS,
+                "runtime_security": "restricted_v1" if restricted else "historical",
             }
