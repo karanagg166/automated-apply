@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from uuid import UUID
 
 from backend.app.schemas.applications import ResumeOption, ResumeSelection
 from backend.app.services.applications.platforms.base import safe_url
@@ -13,16 +14,31 @@ def digest(value):
     ).hexdigest()
 
 
+def private_resume_id(resource):
+    if getattr(resource, "source_type", None) != "private_upload":
+        return None
+    prefix = "private-resume:"
+    if not resource.url.startswith(prefix):
+        return None
+    value = resource.url.removeprefix(prefix)
+    try:
+        return value if str(UUID(value)) == value else None
+    except ValueError:
+        return None
+
+
 def select_resume(resources, selected_id=None):
     options = [
         ResumeOption(
             resource_id=r.id,
             label=r.label,
-            url=safe_url(r.url),
+            # The pinned PostgreSQL approval guard binds the snapshot to the exact
+            # saved reference. Private references are served only by the owner BFF.
+            url=r.url if private_resume_id(r) else safe_url(r.url),
             confirmed=r.user_confirmed,
             primary=r.is_primary,
-            download_path=("/api/backend/dashboard/resumes/" + r.url.removeprefix("private-resume:"))
-            if getattr(r, "source_type", None) == "private_upload" and r.url.startswith("private-resume:") else None,
+            download_path=("/api/backend/dashboard/resumes/" + private_resume_id(r))
+            if private_resume_id(r) else None,
             resource_version=digest(
                 [
                     str(r.id),

@@ -577,11 +577,12 @@ export function ApplicationDetail({ id }: { id: string }) {
                 Download selected private resume
               </a>
             )}
-            {p.snapshot.resume.selected?.url && (
-              <External href={p.snapshot.resume.selected.url}>
-                Review selected resume
-              </External>
-            )}
+            {p.snapshot.resume.selected?.url &&
+              !p.snapshot.resume.selected.download_path && (
+                <External href={p.snapshot.resume.selected.url}>
+                  Review selected resume
+                </External>
+              )}
             <div className="stack spaced">
               <label className="check-label">
                 <input

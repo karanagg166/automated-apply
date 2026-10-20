@@ -147,7 +147,8 @@ async def test_pdf_upload_encrypted_private_and_owner_confirmed(
     assert confirmed.status_code == 200, confirmed.text
     resources = (await db_session.scalars(select(CandidateResource))).all()
     choice = select_resume(resources).selected
-    assert choice and choice.url is None and choice.download_path.endswith(item["id"])
+    assert choice and choice.url == "private-resume:" + item["id"]
+    assert choice.download_path.endswith(item["id"])
     assert (
         await async_client.post(
             private_url + "/confirm",
