@@ -8,7 +8,7 @@ permissions:
   contents: read
 jobs:
   backend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The full suite rebuilds isolated schemas and verifies migrations 001–011.
     # Keep a finite job limit with room for hosted-runner variance and Docker.
     timeout-minutes: 30
