@@ -136,7 +136,7 @@ class ResumeSelection(Contract):
 class Provenance(Contract):
     origin: Literal["packet_core", "user_provided"] = "user_provided"
     source: Literal[
-        "candidate_profile", "candidate_resource", "gemini", "ollama", "cohere", "human", "missing"
+        "candidate_profile", "candidate_resource", "gemini", "ollama", "cohere", "approved_answer", "human", "missing"
     ] = "missing"
     resolver: Literal[
         "deterministic",

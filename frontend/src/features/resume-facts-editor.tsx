@@ -4,7 +4,7 @@ import { Button, Field, Input } from "@/components/ui";
 import { ProjectsEditor } from "@/components/projects-editor";
 import type { Schema } from "@/lib/api";
 
-type Profile = Schema<"CandidateProfileCreate">;
+type Profile = Schema<"CandidateProfileCreate-Input">;
 export function ResumeFactsEditor({
   value,
   onChange,

@@ -11,6 +11,20 @@ import {
   verifyPassword,
 } from "@/lib/security";
 import { permittedRoute } from "@/lib/gateway";
+it("limits answer reuse routes to saved drafts and explicit approval operations", () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  expect(permittedRoute("application-answers/drafts", "GET")).toBe(true);
+  expect(
+    permittedRoute(`application-answers/drafts/${id}/approve-reuse`, "POST"),
+  ).toBe(true);
+  expect(
+    permittedRoute(`application-answers/drafts/${id}/approve-reuse`, "GET"),
+  ).toBe(false);
+  expect(
+    permittedRoute(`application-answers/drafts/${id}/execute`, "POST"),
+  ).toBe(false);
+  expect(permittedRoute("application-answers/generate", "POST")).toBe(false);
+});
 it("limits resume sync proxy routes to exact owner operations", () => {
   const id = "11111111-1111-4111-8111-111111111111";
   expect(permittedRoute("dashboard/resume-sync", "GET")).toBe(true);

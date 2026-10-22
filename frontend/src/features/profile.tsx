@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import { ProjectsEditor } from "@/components/projects-editor";
 import { ResumeSync } from "./resume-sync";
+import { CareerFacts } from "./career-facts";
+import { ApprovedAnswers } from "./approved-answers";
 import { sizeFilter } from "./startups";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -188,7 +190,7 @@ export function ProfileWizard() {
       if (!Array.isArray(projects))
         throw new Error("Projects must be an array.");
       const existing = profile.data;
-      const body: Schema<"CandidateProfileCreate"> = {
+      const body: Schema<"CandidateProfileCreate-Input"> = {
         full_name: values.full_name,
         email: values.email,
         summary: values.summary || null,
@@ -388,6 +390,12 @@ export function ProfileWizard() {
         ))}
       </div>
       <ResumeSync />
+      {profile.data && (
+        <>
+          <CareerFacts key={profile.data.version} profile={profile.data} />
+          <ApprovedAnswers profileVersion={profile.data.version} />
+        </>
+      )}
       <form
         onSubmit={form.handleSubmit(
           (v) => save.mutate(v),

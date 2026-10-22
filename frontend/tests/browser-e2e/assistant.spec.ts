@@ -156,3 +156,69 @@ test("owner authorizes a mock application and sees the independently verified re
     page.getByRole("status").filter({ hasText: "Mock submission: verified" }),
   ).toBeVisible();
 });
+
+test("owner manages protected career facts and signed answer reuse with PostgreSQL persistence", async ({
+  page,
+}) => {
+  await page.goto("/login");
+  await page
+    .getByLabel("Owner passphrase")
+    .fill("fictional-ui-owner-passphrase");
+  await page.getByRole("button", { name: "Enter workspace" }).click();
+  await expect(page).toHaveURL("/");
+  await page.goto("/profile");
+  await page.getByText("Reviewed application answers", { exact: true }).click();
+  await page
+    .getByRole("checkbox", {
+      name: "I reviewed this answer, its evidence and reuse scope.",
+    })
+    .check();
+  await page.getByRole("button", { name: "Approve answer reuse" }).click();
+  await expect(
+    page.getByRole("button", { name: "Revoke reuse approval" }),
+  ).toBeVisible();
+  await page.reload();
+  await page.getByText("Reviewed application answers", { exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Revoke reuse approval" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Revoke reuse approval" }).click();
+  await expect(
+    page.getByRole("button", { name: "Approve answer reuse" }),
+  ).toBeVisible();
+  await page.getByText("Private application facts", { exact: true }).click();
+  await page
+    .getByLabel("Current compensation amount", { exact: true })
+    .fill("1200000");
+  await page
+    .getByLabel("Current compensation currency", { exact: true })
+    .fill("INR");
+  await page
+    .getByLabel("Current compensation period", { exact: true })
+    .selectOption("year");
+  await page
+    .getByLabel("Current compensation type", { exact: true })
+    .selectOption("ctc");
+  await page
+    .getByRole("checkbox", {
+      name: "I reviewed these private career facts and their units.",
+    })
+    .check();
+  await page
+    .getByRole("button", { name: "Save reviewed career facts" })
+    .click();
+  await expect(page.getByText("Saved · version 2")).toBeVisible();
+  await page.reload();
+  await page.getByText("Private application facts", { exact: true }).click();
+  await expect(
+    page.getByLabel("Current compensation amount", { exact: true }),
+  ).toHaveValue("1200000");
+  await expect(
+    page.getByLabel("Expected compensation amount", { exact: true }),
+  ).toHaveValue("");
+  await page.getByText("Reviewed application answers", { exact: true }).click();
+  await expect(page.getByText("Stale profile", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Approve answer reuse" }),
+  ).toHaveCount(0);
+});

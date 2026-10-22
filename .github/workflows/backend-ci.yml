@@ -102,6 +102,11 @@ jobs:
           backend/tests/test_browser_submissions.py backend/tests/test_browser_submission_postgres.py
           backend/scripts/verify_browser_submission.py
           backend/tests/browser_employers.py
+          backend/app/knowledge backend/app/ai/fallback.py
+          backend/app/ai/provider_factory.py backend/app/ai/providers/gemini.py
+          backend/app/services/application_answer_service.py backend/app/api/v1/application_answers.py
+          backend/app/schemas/candidate_profile.py backend/app/ai/schemas.py
+          backend/tests/test_answer_reuse.py backend/tests/test_career_facts.py backend/tests/test_local_ai_fallback.py
       - name: PostgreSQL browser lifecycle demonstration
         run: python backend/scripts/browser_mock_demo.py
       - name: Backend security scan

@@ -44,6 +44,12 @@ async def test_local_ollama_structured_contract_and_no_private_resume():
 
     async def handler(request):
         requests.append(request)
+        if request.url.path == "/api/status":
+            return httpx.Response(200, json={"cloud": {"disabled": True}})
+        if request.url.path == "/api/show":
+            return httpx.Response(
+                200, json={"model_info": {"general.architecture": "fixture"}}
+            )
         return httpx.Response(
             200,
             json={
@@ -59,10 +65,16 @@ async def test_local_ollama_structured_contract_and_no_private_resume():
             "Describe your work", {"evidence": []}, INSTRUCTIONS
         )
     assert result.content.answer == ANSWER["answer"]
-    assert str(requests[0].url) == "http://127.0.0.1:11434/api/generate"
-    assert b"candidate_facts" in requests[0].content
-    assert "authorization" not in requests[0].headers
-    assert json.loads(requests[0].content)["stream"] is False
+    assert [r.url.path for r in requests] == [
+        "/api/status",
+        "/api/show",
+        "/api/generate",
+    ]
+    assert all(str(r.url).startswith("http://127.0.0.1:11434/") for r in requests)
+    assert b"candidate_facts" in requests[-1].content
+    assert "authorization" not in requests[-1].headers
+    assert json.loads(requests[-1].content)["stream"] is False
+    assert b"Describe your work" not in requests[1].content
 
 
 @pytest.mark.parametrize(
@@ -82,7 +94,7 @@ def test_cohere_requires_each_independent_permission(missing):
         COHERE_EVALUATION_ENABLED=True,
         COHERE_TRIAL_KEY_CONFIRMED=True,
         COHERE_DATA_SHARING_APPROVED=True,
-        COHERE_API_KEY="fixture-key", # pragma: allowlist secret — fictional local test value
+        COHERE_API_KEY="fixture-key",  # pragma: allowlist secret — fictional local test value
         COHERE_MODEL="fixture-model",
     )
     values[missing] = None if missing in {"COHERE_API_KEY", "COHERE_MODEL"} else False
@@ -100,7 +112,7 @@ def test_cohere_never_enabled_for_real_operation():
                 COHERE_EVALUATION_ENABLED=True,
                 COHERE_TRIAL_KEY_CONFIRMED=True,
                 COHERE_DATA_SHARING_APPROVED=True,
-                COHERE_API_KEY="fixture", # pragma: allowlist secret — fictional local test value
+                COHERE_API_KEY="fixture",  # pragma: allowlist secret — fictional local test value
                 COHERE_MODEL="fixture",
             )
         )
@@ -121,9 +133,16 @@ def test_cohere_never_enabled_for_real_operation():
     ],
 )
 async def test_optional_failures_are_sanitized(status, body, code):
-    async with httpx.AsyncClient(
-        transport=httpx.MockTransport(lambda r: httpx.Response(status, json=body))
-    ) as client:
+    def handler(request):
+        if request.url.path == "/api/status":
+            return httpx.Response(200, json={"cloud": {"disabled": True}})
+        if request.url.path == "/api/show":
+            return httpx.Response(
+                200, json={"model_info": {"general.architecture": "fixture"}}
+            )
+        return httpx.Response(status, json=body)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         with pytest.raises(ProviderError) as error:
             await OptionalProvider(settings(), client).generate_structured_answer(
                 "q", {}, INSTRUCTIONS
@@ -133,8 +152,52 @@ async def test_optional_failures_are_sanitized(status, body, code):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "cloud,metadata",
+    [
+        ({"disabled": False}, {"model_info": {"architecture": "fixture"}}),
+        ({}, {"model_info": {"architecture": "fixture"}}),
+        (
+            {"disabled": True},
+            {
+                "remote_host": "https://ollama.com",
+                "model_info": {"architecture": "fixture"},
+            },
+        ),
+        (
+            {"disabled": True},
+            {"remote_model": "cloud-alias", "model_info": {"architecture": "fixture"}},
+        ),
+        ({"disabled": True}, {"model_info": {}}),
+    ],
+)
+async def test_ollama_rejects_cloud_aliases_and_unverified_daemons_before_private_data(
+    cloud, metadata
+):
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        assert request.url.path != "/api/generate"
+        assert b"PRIVATE-CANDIDATE" not in request.content
+        return httpx.Response(
+            200,
+            json={"cloud": cloud} if request.url.path == "/api/status" else metadata,
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+        with pytest.raises(ProviderError, match="local_model_unverified"):
+            await OptionalProvider(settings(), client).generate_structured_answer(
+                "PRIVATE-CANDIDATE", {}, INSTRUCTIONS
+            )
+    assert requests
+
+
+@pytest.mark.asyncio
 async def test_optional_quota_persists_and_never_retries(db_session):
-    test_session_factory = async_sessionmaker(db_session.bind, expire_on_commit=False, autoflush=False)
+    test_session_factory = async_sessionmaker(
+        db_session.bind, expire_on_commit=False, autoflush=False
+    )
     manager = OptionalUsageManager(
         test_session_factory, settings(LLM_MONTHLY_MAX_REQUESTS=1)
     )

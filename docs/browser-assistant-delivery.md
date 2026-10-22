@@ -7,8 +7,8 @@ are not all complete. No real employer adapter has automated submission authoriz
 |---|---|---|
 | 1 Audit | Existing modules, PR #15/#16 and unpublished branches inspected; isolated feature worktree; private changes preserved | Reconcile other branches separately if requested; no merges or production activation |
 | 2 Browser | Real Playwright dedicated profile, native form inventory, factual mapping, reviewed filling, validation, manual takeover/cancel | Wider custom widgets, cross-origin ATS frames, destination-reviewed multistep navigation and submission |
-| 3 Knowledge | Reuses protected structured profile, projects/evidence, resources, encrypted resumes and packet answers | Structured current/expected compensation, availability/relocation fields and approved reusable answer management |
-| 4 AI | Reuses grounding; optional local Ollama and gated Cohere evaluation adapters, deadlines, private request budgets and quota cooldown | Semantic approved-answer reuse, bounded trusted company research, explicit automatic local fallback and live local model verification |
+| 3 Knowledge | Protected profile/projects/evidence, encrypted resumes; structured compensation, availability, relocation and country authorization; dashboard answer-bank review/approval/revocation | Real owner onboarding and broader reusable question coverage |
+| 4 AI | Existing grounding; supported-paraphrase answer reuse bound to facts/evidence/job; independently gated remote models and opt-in local-only fallback with cloud-mode preflight | Bounded trustworthy company research, broader semantic retrieval and live local model verification |
 | 5 Execution | Existing idempotent packets/job dedup, exact private PDF selection, revision locking, sanitized structure, manual receipt tracking, no replay | Mock-only exact owner grants, durable single dispatch, independent multipart/receipt validation, unknown outcome recovery and separate local-only migration proposal are implemented; real employer adapter permission and runtime activation remain pending |
 | 6 AGY | Installed 1.4.4 inspected; authenticated loopback CLI reuses application APIs; no personal Chrome attachment | Optional MCP packaging and an owner-controlled AGY invocation demonstration |
 | 7 Discovery | Existing discovery interfaces preserved, manual employer URL intake added; no LinkedIn/Gmail collection added | Integrate separately reviewed scheduling branch when authorized; future provider activation remains separate |
@@ -49,10 +49,10 @@ A symlinked dependency directory could not be built by Turbopack; a normal isola
 
 ## Next implementation order
 
-1. Finish structured current/expected compensation, availability and relocation,
-   followed by approved, context-bound reusable answers.
-2. Implement semantic reuse, bounded trustworthy company/job retrieval and an
-   explicit privacy-preserving local model fallback; verify Ollama separately.
+1. Implement bounded trustworthy company/job retrieval for company-specific
+   motivation, with separately typed evidence and candidate-claim validation.
+2. Broaden supported-paraphrase retrieval beyond the conservative intent matcher;
+   verify an actual cloud-disabled Ollama daemon/model separately.
 3. Broaden dynamic controls, custom widgets, embedded ATS navigation and multi-step
    policies with mock tests and owner handoff at uncertain boundaries.
 4. Add a real employer execution adapter only after its applicant-side permission,
@@ -90,8 +90,41 @@ operational gates. No code-complete label in this document satisfies those gates
   and recovers a wrong-receipt outcome in a separate interpreter with no browser state.
   Receipt recovery performs no application POST. The updated extension remains local-only.
 
-Next implementation work: finish structured career preferences and approved answer
-reuse, model fallback and trustworthy company/job context, then broaden eligible
+Next implementation work: trustworthy company/job context, then broaden eligible
 employer adapters and dynamic controls. Real submission support requires documented
 applicant-side permission and independently verifiable receipts, not employer API
 credentials or an allowlisted URL alone.
+
+## Career knowledge and local fallback follow-up
+
+- Existing profile JSON storage and version checks now support current and expected
+  compensation with exact decimal units/currency/period/type, actual availability,
+  current location, approved relocation destinations and country authorization.
+  Unknown facts remain unknown, and factual answers never call a model. Ambiguous
+  compensation and country-authorization questions require individual review.
+- My Profile exposes these facts and saved draft review/reuse/revocation. Reuse
+  approval needs a separate dashboard owner signature; it does not grant browser
+  consent or submission authority. Approval binds the current answer, profile,
+  evidence and saved job context. Supported-paraphrase reuse retains required review.
+- Optional local fallback shares one deadline with the primary model and preserves
+  durable budgets and actual provider attribution. Before receiving private prompts,
+  Ollama must report cloud disabled and local model metadata. Remote aliases and
+  unverified/older daemons fail closed. Gemini needs independent enablement and an
+  approved request cap; a configured API key alone never enables paid usage.
+- Three Next.js/BFF/FastAPI/PostgreSQL/dedicated-Chromium journeys passed, including
+  protected fact persistence and signed reuse approval/revocation. All six legacy
+  dashboard journeys and 39 frontend unit tests passed. The first concurrent browser
+  run exposed shared Playwright artifact-directory cleanup; separate output paths
+  fixed it, and the full three-journey browser suite passed afterward.
+- Final full backend regression: **1,281 passed, no skips**, including disposable
+  PostgreSQL 17, runtime access restrictions, mock receipts and restart recovery;
+  only two existing pypdf deprecation warnings. Frontend type checks, formatting,
+  production build, targeted Ruff, whole-application Bandit, Python compilation,
+  dependency consistency, npm audit (zero findings), whitespace and whole tracked
+  secret scanning passed. One fictional test API-key literal has a narrow inline
+  allowlist; no private key or new secret-baseline finding was added.
+- Hosted workflows passed for the preceding `f1e3738` mock-submission commit.
+  Hosted checks for this follow-up are reported separately in PR #17.
+- No local model was installed or live generation verified. The laptop had about
+  5 GiB free when checked; model installation remains a separate operating step.
+  Cohere/account/production activation and real employer submission remain disabled.

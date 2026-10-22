@@ -97,6 +97,7 @@ async def run(url, serve=False, submission_demo=False, receipt_mode="valid"):
                 LLM_MODEL=None,
                 COHERE_EVALUATION_ENABLED=False,
                 OLLAMA_ENABLED=False,
+                APPROVED_ANSWER_REUSE_ENABLED=True,
                 UI_FIXTURE_MODE=True,
             )
             # Settings' origin format contains an explicit port for all destinations.
@@ -105,7 +106,10 @@ async def run(url, serve=False, submission_demo=False, receipt_mode="valid"):
             from backend.app.dashboard.models import PrivateResume
             from backend.app.db.session import close_db_engine, get_session_factory
             from backend.app.main import app
-            from backend.app.models.application_answer import CandidateResource
+            from backend.app.models.application_answer import (
+                ApplicationAnswerDraft,
+                CandidateResource,
+            )
             from backend.app.repositories.candidate_profile import (
                 CandidateProfileRepository,
             )
@@ -121,7 +125,31 @@ async def run(url, serve=False, submission_demo=False, receipt_mode="valid"):
                         email="alex@example.com",
                         phone="+15550000000",
                         verified_skills=["Python", "FastAPI"],
+                        projects=[
+                            {
+                                "name": "Fictional Relay",
+                                "purpose": "A task update service.",
+                                "contribution": "I built backend authentication using Python and FastAPI.",
+                            }
+                        ],
                         preferences={"notice_period_days": 30},
+                    )
+                )
+                session.add(
+                    ApplicationAnswerDraft(
+                        candidate_profile_id=profile.id,
+                        question="Describe a project you built",
+                        answer="I built backend authentication using Python and FastAPI.",
+                        question_category="project_explanation",
+                        writing_style="professional",
+                        candidate_profile_version=profile.version,
+                        review_status="reviewed",
+                        evidence_references=[
+                            {
+                                "source_type": "verified_project",
+                                "source_id": f"{profile.id}:project:0",
+                            }
+                        ],
                     )
                 )
                 resume_id = uuid4()

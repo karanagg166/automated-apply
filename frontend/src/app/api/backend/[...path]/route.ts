@@ -64,9 +64,12 @@ async function proxy(
       : undefined;
     if (
       mutation &&
-      /^browser-applications\/[a-f0-9-]{36}\/(authorize-submission|consent)$/.test(
+      (/^browser-applications\/[a-f0-9-]{36}\/(authorize-submission|consent)$/.test(
         path,
-      )
+      ) ||
+        /^application-answers\/drafts\/[a-f0-9-]{36}\/approve-reuse$/.test(
+          path,
+        ))
     ) {
       const approvalKey = process.env.BROWSER_OWNER_APPROVAL_KEY;
       if (!approvalKey || approvalKey.length < 32)

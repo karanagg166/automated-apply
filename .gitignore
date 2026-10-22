@@ -83,3 +83,4 @@ frontend/tsconfig.tsbuildinfo
 # Local feature-worktree dependency links
 /backend/venv
 /frontend/node_modules
+frontend/test-results-browser/

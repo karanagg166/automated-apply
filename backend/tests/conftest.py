@@ -121,7 +121,7 @@ async def phase2_profile(db_session):
 @pytest.fixture
 def phase2_settings():
     from backend.app.core.config import Settings
-    return Settings(_env_file=None, LLM_MODEL="gemini-test-model", GEMINI_API_KEY="fictional-test-key")
+    return Settings(_env_file=None, LLM_MODEL="gemini-test-model", GEMINI_API_KEY="fictional-test-key", GEMINI_ENABLED=True, GEMINI_APPROVED_MONTHLY_REQUESTS=200)
 
 
 @pytest.fixture

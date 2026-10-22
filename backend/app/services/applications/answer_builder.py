@@ -180,7 +180,7 @@ class AnswerBuilder:
             if result.used_llm and result.answer
             else (
                 result.source
-                if result.source in {"candidate_profile", "candidate_resource"}
+                if result.source in {"candidate_profile", "candidate_resource", "approved_answer"}
                 else "missing"
             ),
             resolver="grounded_answer_service" if narrative else "deterministic",

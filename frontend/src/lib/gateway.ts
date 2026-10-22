@@ -1,5 +1,11 @@
 // This fixed route list prevents the server-side bearer from becoming a general proxy.
 const routes: Array<[RegExp, string[]]> = [
+  [/^application-answers\/(drafts|reuse-approvals)$/, ["GET"]],
+  [/^application-answers\/drafts\/[a-f0-9-]{36}$/, ["PATCH"]],
+  [
+    /^application-answers\/drafts\/[a-f0-9-]{36}\/(approve-reuse|revoke-reuse)$/,
+    ["POST"],
+  ],
   [/^browser-applications$/, ["POST"]],
   [/^browser-applications\/[a-f0-9-]{36}$/, ["GET"]],
   [

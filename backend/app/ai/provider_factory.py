@@ -19,5 +19,7 @@ def create_provider(settings: Settings) -> ApplicationLLMProvider:
         raise ProviderError("unsupported_provider")
     if not settings.GEMINI_API_KEY or not settings.GEMINI_API_KEY.get_secret_value().strip() or not settings.LLM_MODEL:
         raise ProviderError("llm_not_configured")
+    if not settings.GEMINI_ENABLED or settings.GEMINI_APPROVED_MONTHLY_REQUESTS<=0:
+        raise ProviderError("provider_permission_required")
     from backend.app.ai.providers.gemini import GeminiProvider
     return GeminiProvider(settings)

@@ -5,6 +5,7 @@ const salt = "0123456789abcdef0123456789abcdef"; // pragma: allowlist secret —
 const password = "fictional-ui-owner-passphrase"; // pragma: allowlist secret — fixture only
 export default defineConfig({
   testDir: "./tests/browser-e2e",
+  outputDir: "./test-results-browser",
   workers: 1,
   timeout: 90000,
   retries: 0,

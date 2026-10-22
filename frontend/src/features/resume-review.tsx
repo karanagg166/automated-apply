@@ -42,7 +42,9 @@ function ReviewForm({
   reload: () => void;
 }) {
   const client = useQueryClient();
-  const [profile, setProfile] = useState<Schema<"CandidateProfileCreate">>(
+  const [profile, setProfile] = useState<
+    Schema<"CandidateProfileCreate-Input">
+  >(
     review.proposed_profile || {
       full_name: review.suggested_identity.full_name,
       email: review.suggested_identity.email,

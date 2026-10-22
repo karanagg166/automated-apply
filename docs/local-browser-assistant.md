@@ -4,8 +4,7 @@ This feature adds working **Analyze → reviewed Fill → Review → Take Over**
 explicitly permitted employer forms. It reuses saved candidate profiles, confirmed
 resources, encrypted private PDFs, packet answers, revisions, audit events,
 readiness and owner-reported submission tracking. It does **not** enable automatic
-real employer submission. A separately gated fictional submission extension is described below. The Submit control is disabled, its API returns 403, and the
-existing PostgreSQL guard against provider-confirmed submission remains intact.
+real employer submission. A separately gated fictional submission extension is described below. For real employers the Submit control is disabled and its API returns 403. Historical PostgreSQL safety guards and the R1/R2 gates remain intact.
 
 ## Checkout and integration audit
 
@@ -74,6 +73,11 @@ npm run dev --prefix frontend
 
 1. Save and review your candidate profile. Unknown values remain absent. Confirm
    the intended resume in My Profile; PDFs stay encrypted in database storage.
+   **Private application facts** stores current/expected compensation with explicit
+   currency, period and type, actual availability, current location, approved
+   relocation destinations and country-specific authorization/sponsorship. Blank
+   means unknown; salary search minimums never supply current or expected pay.
+   Saving checks the profile version and makes old drafts/packets require review.
 2. In Applications, paste the employer application URL and identify the company
    and job. Prepare the packet and open its detail page. Existing saved-job packets
    can also use the assistant when their destination has explicit permission.
@@ -125,7 +129,21 @@ answer generation validates citations, quoted claims, names, numbers, output siz
 and unsupported accomplishments. Website/job strings are untrusted data, never
 instructions or tools. Review remains mandatory; grounding checks are conservative
 safeguards rather than proof. This milestone uses saved company/job context; it
-adds no company scraper, semantic approved-answer reuse or automatic research.
+adds no company scraper or automatic research. A conflicting company name or
+description for a saved job is rejected before any model call.
+
+**Reviewed application answers** in My Profile lists saved drafts and supports
+review, explicit reuse approval and revocation. Enable `APPROVED_ANSWER_REUSE_ENABLED`
+only with the existing protected owner-preferences storage available. Approval
+requires the same separate server-only owner key used by the dashboard consent
+bridge; ordinary AGY/API bearer access cannot approve reuse. The bank uses bounded,
+conservative intent matching for supported paraphrases with explicit skill/project
+anchors, not general embeddings. Unknown wording falls through to normal grounded
+generation. Factual answers and consent never use it. Reuse checks the current
+profile version, all saved evidence, answer digest, style and output limits.
+Company motivation is restricted to the exact saved job/company/description;
+general profile narratives require an explicit general scope. A reused proposal
+still requires review for every new application. Approvals do not authorize submission.
 
 For a zero-subscription provider, install and run Ollama separately and select an
 already installed local model:
@@ -138,11 +156,23 @@ LLM_MONTHLY_MAX_REQUESTS=200
 LLM_TIMEOUT_SECONDS=30
 ```
 
-The adapter calls only `http://127.0.0.1:11434/api/generate`, disables environment
-proxies and redirects, and asks for the existing grounded JSON schema. Missing
+Start the Ollama **daemon** with `OLLAMA_NO_CLOUD=1` and restart it after changing
+that setting; putting it in this application's environment alone cannot configure
+the daemon. See [Ollama's local-only instructions](https://docs.ollama.com/faq#how-do-i-disable-ollamas-cloud-features).
+Before sending a prompt the adapter queries loopback `/api/status` and `/api/show`:
+cloud features must be explicitly disabled, local model metadata must exist and
+remote model/host fields must be absent. Older daemons lacking the status endpoint
+fail closed. Ollama's [official API types](https://github.com/ollama/ollama/blob/main/api/types.go)
+describe those fields. Loopback alone does not prove local inference. Generation
+calls only `http://127.0.0.1:11434/api/generate`, disables environment proxies and
+redirects, and asks for the existing grounded JSON schema. Missing
 models, malformed output and timeout return a reviewable failure, never invented
 answers. No model was downloaded or live generation verified during implementation.
-Ollama is an explicit operating alternative, not an automatic fallback in this slice.
+With `LLM_LOCAL_FALLBACK_ENABLED=true`, an explicitly configured remote primary can
+fall back only to this verified local Ollama service after a provider/quota failure.
+Both attempts share one deadline and retain separate durable usage budgets. No
+local-to-remote fallback or model download is automatic. Results identify the actual
+model used; validation failures never relax grounding to obtain an answer.
 
 Cohere is **evaluation-only in ENVIRONMENT=testing**. Its factory and transport both
 require `COHERE_EVALUATION_ENABLED`, `COHERE_TRIAL_KEY_CONFIRMED`,
@@ -161,7 +191,9 @@ paid. Trial keys are not permitted for production/commercial use. See official
 account. A 429 persists a cooldown and never retries automatically; request budgets
 reserve before transport in protected owner storage. All optional models retain the
 existing concurrency/deadline controls. Gemini remains the independent existing
-explicit-generation path with its existing durable budget; no paid provider is
+explicit-generation path. It now additionally requires `GEMINI_ENABLED=true` and
+`GEMINI_APPROVED_MONTHLY_REQUESTS` greater than zero. Its request budget is capped
+at the smaller of that approval and `LLM_MONTHLY_MAX_REQUESTS`. No paid provider is
 required by browser analysis or filling.
 
 ## AGY orchestration

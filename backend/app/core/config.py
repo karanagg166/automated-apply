@@ -81,6 +81,10 @@ class Settings(BaseSettings):
     CANDIDATE_GFG_URL: PublicHTTPSURL | None = None
     CANDIDATE_HACKERRANK_URL: PublicHTTPSURL | None = None
 
+    APPROVED_ANSWER_REUSE_ENABLED: bool = False
+    LLM_LOCAL_FALLBACK_ENABLED: bool = False
+    GEMINI_ENABLED: bool = False
+    GEMINI_APPROVED_MONTHLY_REQUESTS: int = Field(default=0, ge=0, le=10000)
     LLM_PROVIDER: Literal["gemini", "ollama", "cohere"] = "gemini"
     OLLAMA_ENABLED: bool = False
     OLLAMA_MODEL: str | None = Field(default=None, max_length=150, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:/-]*$")

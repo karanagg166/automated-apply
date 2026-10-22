@@ -1,8 +1,13 @@
 """Conservative question routing. Unrecognized facts never reach a model."""
 import re
 from dataclasses import dataclass
+
 from backend.app.ai.schemas import QuestionType
-from backend.app.services.profile_link_resolver import normalize, resource_types, is_file_upload
+from backend.app.services.profile_link_resolver import (
+    is_file_upload,
+    normalize,
+    resource_types,
+)
 
 
 @dataclass(frozen=True)
@@ -31,6 +36,8 @@ class ApplicationQuestionClassifier:
         ]
         matched = [field for pattern, field in fields if re.search(pattern, q)]
         if matched:
+            if re.search(r"\b(salary|compensation|ctc|sponsorship|visa|authorization|authorisation|relocation|availability)\b", q):
+                return QuestionClassification("unknown")
             if len(matched) != 1 or re.search(r"\b(explain|describe|tell|why|project|using|with|in python|in java)\b", q):
                 return QuestionClassification("unknown")
             return QuestionClassification("personal_details", matched[0])

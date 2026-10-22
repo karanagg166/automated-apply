@@ -59,6 +59,7 @@ class AnswerGenerationResult(Contract):
     warnings: list[str] = Field(default_factory=list)
     resources: list[dict] = Field(default_factory=list)
     draft_id: UUID | None = None
+    reused_draft_id: UUID | None = None
 
 
 class SupportedClaim(Contract):

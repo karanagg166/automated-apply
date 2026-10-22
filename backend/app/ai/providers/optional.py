@@ -19,6 +19,47 @@ class OptionalProvider:
     def __init__(self, settings, client=None):
         self.settings, self.client = settings, client
 
+    async def _local_metadata(self, client):
+        """No private prompt leaves the process until the daemon proves local mode.
+
+        Older daemons without /api/status fail closed. A loopback URL alone does
+        not establish locality: Ollama can proxy cloud models through that URL.
+        """
+        try:
+            for method, endpoint, body in [
+                ("GET", "status", None),
+                ("POST", "show", {"model": self.settings.OLLAMA_MODEL}),
+            ]:
+                async with client.stream(
+                    method,
+                    "http://127.0.0.1:11434/api/" + endpoint,
+                    **({"json": body} if body is not None else {}),
+                ) as response:
+                    if response.status_code != 200:
+                        raise ProviderError("local_model_unverified")
+                    raw = bytearray()
+                    async for chunk in response.aiter_bytes():
+                        raw.extend(chunk)
+                        if len(raw) > 262144:
+                            raise ProviderError("local_model_unverified")
+                    data = json.loads(raw)
+                if endpoint == "status":
+                    if data.get("cloud", {}).get("disabled") is not True:
+                        raise ProviderError("local_model_unverified")
+                elif (
+                    data.get("remote_host")
+                    or data.get("remote_model")
+                    or not isinstance(data.get("model_info"), dict)
+                    or not data["model_info"]
+                ):
+                    raise ProviderError("local_model_unverified")
+        except (httpx.TimeoutException, TimeoutError):
+            raise ProviderError("timeout") from None
+        except httpx.TransportError:
+            raise ProviderError("connection_error") from None
+        except (ValueError, TypeError, AttributeError):
+            raise ProviderError("local_model_unverified") from None
+
     async def generate_structured_answer(
         self, question, grounded_context, instructions
     ):
@@ -42,6 +83,7 @@ class OptionalProvider:
         if local:
             if not settings.OLLAMA_MODEL or not settings.OLLAMA_ENABLED:
                 raise ProviderError("llm_not_configured")
+            await self._local_metadata(client)
             url = "http://127.0.0.1:11434/api/generate"
             headers = {}
             body = {
@@ -105,6 +147,8 @@ class OptionalProvider:
                         raise ProviderError("invalid_structured_response")
                 data = json.loads(raw)
             if local:
+                if data.get("remote_host") or data.get("remote_model"):
+                    raise ProviderError("local_model_unverified")
                 if data.get("done") is not True:
                     raise ProviderError("invalid_structured_response")
                 content = ModelAnswer.model_validate_json(data["response"])

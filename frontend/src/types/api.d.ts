@@ -568,6 +568,57 @@ export interface paths {
     patch: operations["review_draft_api_v1_application_answers_drafts__draft_id__patch"];
     trace?: never;
   };
+  "/api/v1/application-answers/drafts/{draft_id}/approve-reuse": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Approve Answer Reuse */
+    post: operations["approve_answer_reuse_api_v1_application_answers_drafts__draft_id__approve_reuse_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/application-answers/drafts/{draft_id}/revoke-reuse": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Revoke Answer Reuse */
+    post: operations["revoke_answer_reuse_api_v1_application_answers_drafts__draft_id__revoke_reuse_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/application-answers/reuse-approvals": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Answer Reuse Approvals */
+    get: operations["answer_reuse_approvals_api_v1_application_answers_reuse_approvals_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/applications/platforms": {
     parameters: {
       query?: never;
@@ -1854,6 +1905,8 @@ export interface components {
       }[];
       /** Draft Id */
       draft_id?: string | null;
+      /** Reused Draft Id */
+      reused_draft_id?: string | null;
     };
     /** ApplicationEventRead */
     ApplicationEventRead: {
@@ -1938,7 +1991,7 @@ export interface components {
       expected_generation: number;
       /** Expected Profile Version */
       expected_profile_version?: number | null;
-      profile: components["schemas"]["CandidateProfileCreate"];
+      profile: components["schemas"]["CandidateProfileCreate-Input"];
       /**
        * Allow Skill Removals
        * @default false
@@ -1946,6 +1999,15 @@ export interface components {
       allow_skill_removals: boolean;
       /** Evidence */
       evidence?: components["schemas"]["EvidenceWrite"][];
+    };
+    /** ApproveReuse */
+    ApproveReuse: {
+      /** Expected Profile Version */
+      expected_profile_version: number;
+      /** Scope */
+      scope: string;
+      /** Confirm Reviewed Answer */
+      confirm_reviewed_answer: boolean;
     };
     /** BrowserAction */
     BrowserAction: {
@@ -1969,7 +2031,7 @@ export interface components {
       confirm_page_context: boolean;
     };
     /** CandidateProfileCreate */
-    CandidateProfileCreate: {
+    "CandidateProfileCreate-Input": {
       /** Full Name */
       full_name: string;
       /**
@@ -2001,7 +2063,42 @@ export interface components {
       certifications?: components["schemas"]["Certification"][];
       /** Summary */
       summary?: string | null;
-      preferences?: components["schemas"]["JobSearchPreferences"];
+      preferences?: components["schemas"]["JobSearchPreferences-Input"];
+    };
+    /** CandidateProfileCreate */
+    "CandidateProfileCreate-Output": {
+      /** Full Name */
+      full_name: string;
+      /**
+       * Email
+       * Format: email
+       */
+      email: string;
+      /** Phone */
+      phone?: string | null;
+      /** Linkedin Url */
+      linkedin_url?: string | null;
+      /** Github Url */
+      github_url?: string | null;
+      /** Portfolio Url */
+      portfolio_url?: string | null;
+      /** Personal Website */
+      personal_website?: string | null;
+      /** Verified Experience Years */
+      verified_experience_years?: number | null;
+      /** Verified Skills */
+      verified_skills?: string[];
+      /** Verified Roles */
+      verified_roles?: components["schemas"]["ProfessionalExperience"][];
+      /** Education */
+      education?: components["schemas"]["EducationRecord"][];
+      /** Projects */
+      projects?: components["schemas"]["VerifiedProject"][];
+      /** Certifications */
+      certifications?: components["schemas"]["Certification"][];
+      /** Summary */
+      summary?: string | null;
+      preferences?: components["schemas"]["JobSearchPreferences-Output"];
     };
     /** CandidateProfileRead */
     CandidateProfileRead: {
@@ -2036,7 +2133,7 @@ export interface components {
       certifications?: components["schemas"]["Certification"][];
       /** Summary */
       summary?: string | null;
-      preferences?: components["schemas"]["JobSearchPreferences"];
+      preferences?: components["schemas"]["JobSearchPreferences-Output"];
       /**
        * Id
        * Format: uuid
@@ -2184,6 +2281,40 @@ export interface components {
        */
       authoritative_statement: boolean;
     };
+    /** CompensationFact */
+    "CompensationFact-Input": {
+      /** Amount */
+      amount: number | string;
+      /** Currency */
+      currency: string;
+      /**
+       * Period
+       * @enum {string}
+       */
+      period: "hour" | "month" | "year";
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "ctc" | "base_salary" | "total_compensation";
+    };
+    /** CompensationFact */
+    "CompensationFact-Output": {
+      /** Amount */
+      amount: string;
+      /** Currency */
+      currency: string;
+      /**
+       * Period
+       * @enum {string}
+       */
+      period: "hour" | "month" | "year";
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "ctc" | "base_salary" | "total_compensation";
+    };
     /** ConnectInput */
     ConnectInput: {
       /** Expected Email */
@@ -2235,6 +2366,17 @@ export interface components {
       suppression_reason?: string | null;
       /** Human Review Notes */
       human_review_notes?: string | null;
+    };
+    /** CountryAuthorization */
+    CountryAuthorization: {
+      /** Country Code */
+      country_code: string;
+      /** Country Name */
+      country_name: string;
+      /** Authorized To Work */
+      authorized_to_work: boolean;
+      /** Requires Sponsorship Now Or Future */
+      requires_sponsorship_now_or_future?: boolean | null;
     };
     /** CreatePacket */
     CreatePacket: {
@@ -2821,7 +2963,70 @@ export interface components {
       updated_at: string;
     };
     /** JobSearchPreferences */
-    JobSearchPreferences: {
+    "JobSearchPreferences-Input": {
+      current_compensation?:
+        components["schemas"]["CompensationFact-Input"] | null;
+      expected_compensation?:
+        components["schemas"]["CompensationFact-Input"] | null;
+      /** Availability Date */
+      availability_date?: string | null;
+      /** Current Location */
+      current_location?: string | null;
+      /** Open To Relocation */
+      open_to_relocation?: boolean | null;
+      /** Relocation Locations */
+      relocation_locations?: string[];
+      /** Work Authorizations */
+      work_authorizations?: components["schemas"]["CountryAuthorization"][];
+      /** Target Titles */
+      target_titles?: string[];
+      /** Technology Stacks */
+      technology_stacks?: string[];
+      /** Preferred Locations */
+      preferred_locations?: string[];
+      /** Remote Preference */
+      remote_preference?: ("remote" | "hybrid" | "onsite" | "any") | null;
+      /** Employment Types */
+      employment_types?: ("full_time" | "internship" | "contract")[];
+      /** Target Industries */
+      target_industries?: string[];
+      /** Company Stages */
+      company_stages?: string[];
+      /** Minimum Salary */
+      minimum_salary?: number | null;
+      /** Salary Currency */
+      salary_currency?: string | null;
+      /** Salary Period */
+      salary_period?: ("hour" | "day" | "week" | "month" | "year") | null;
+      /** Notice Period Days */
+      notice_period_days?: number | null;
+      /** Work Authorization */
+      work_authorization?: string | null;
+      /** Excluded Titles */
+      excluded_titles?: string[];
+      /** Excluded Companies */
+      excluded_companies?: string[];
+      /** Excluded Keywords */
+      excluded_keywords?: string[];
+      /** Prioritize Startups */
+      prioritize_startups?: boolean | null;
+    };
+    /** JobSearchPreferences */
+    "JobSearchPreferences-Output": {
+      current_compensation?:
+        components["schemas"]["CompensationFact-Output"] | null;
+      expected_compensation?:
+        components["schemas"]["CompensationFact-Output"] | null;
+      /** Availability Date */
+      availability_date?: string | null;
+      /** Current Location */
+      current_location?: string | null;
+      /** Open To Relocation */
+      open_to_relocation?: boolean | null;
+      /** Relocation Locations */
+      relocation_locations?: string[];
+      /** Work Authorizations */
+      work_authorizations?: components["schemas"]["CountryAuthorization"][];
       /** Target Titles */
       target_titles?: string[];
       /** Technology Stacks */
@@ -2857,6 +3062,20 @@ export interface components {
     };
     /** JobSearchPreferencesUpdate */
     JobSearchPreferencesUpdate: {
+      current_compensation?:
+        components["schemas"]["CompensationFact-Input"] | null;
+      expected_compensation?:
+        components["schemas"]["CompensationFact-Input"] | null;
+      /** Availability Date */
+      availability_date?: string | null;
+      /** Current Location */
+      current_location?: string | null;
+      /** Open To Relocation */
+      open_to_relocation?: boolean | null;
+      /** Relocation Locations */
+      relocation_locations?: string[];
+      /** Work Authorizations */
+      work_authorizations?: components["schemas"]["CountryAuthorization"][];
       /** Target Titles */
       target_titles?: string[];
       /** Technology Stacks */
@@ -3259,7 +3478,7 @@ export interface components {
       /** Source Observation Urls */
       source_observation_urls?: string[];
       destination: components["schemas"]["Destination"];
-      candidate?: components["schemas"]["CandidateProfileCreate"] | null;
+      candidate?: components["schemas"]["CandidateProfileCreate-Output"] | null;
       /** Professional Links */
       professional_links?: {
         [key: string]: string;
@@ -3441,6 +3660,7 @@ export interface components {
         | "gemini"
         | "ollama"
         | "cohere"
+        | "approved_answer"
         | "human"
         | "missing";
       /**
@@ -3824,9 +4044,11 @@ export interface components {
       expected_generation: number;
       /** Expected Profile Version */
       expected_profile_version: number | null;
-      current_profile: components["schemas"]["CandidateProfileCreate"] | null;
+      current_profile:
+        components["schemas"]["CandidateProfileCreate-Output"] | null;
       suggested_identity: components["schemas"]["ResumeSuggestions"];
-      proposed_profile: components["schemas"]["CandidateProfileCreate"] | null;
+      proposed_profile:
+        components["schemas"]["CandidateProfileCreate-Output"] | null;
       /** Differences */
       differences: components["schemas"]["FactDifference"][];
       /** Text */
@@ -4625,7 +4847,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["CandidateProfileCreate"];
+        "application/json": components["schemas"]["CandidateProfileCreate-Input"];
       };
     };
     responses: {
@@ -5763,6 +5985,92 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  approve_answer_reuse_api_v1_application_answers_drafts__draft_id__approve_reuse_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        draft_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ApproveReuse"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  revoke_answer_reuse_api_v1_application_answers_drafts__draft_id__revoke_reuse_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        draft_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  answer_reuse_approvals_api_v1_application_answers_reuse_approvals_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
         };
       };
     };
