@@ -176,7 +176,7 @@ class AnswerBuilder:
         field.proposed_answer = result.answer
         field.provenance = Provenance(
             origin=origin,
-            source="gemini"
+            source=result.provider or "gemini"
             if result.used_llm and result.answer
             else (
                 result.source

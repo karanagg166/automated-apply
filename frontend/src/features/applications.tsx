@@ -27,6 +27,7 @@ import {
   Select,
   Skeleton,
 } from "@/components/ui";
+import { BrowserAssistant, BrowserIntake } from "@/features/browser-assistant";
 type Packet = Schema<"PacketRead">;
 export function pipelineColumn(
   packet: Pick<Packet, "tracking_state" | "lifecycle_state">,
@@ -105,6 +106,7 @@ export function Applications() {
           </div>
         }
       />
+      <BrowserIntake />
       {query.isPending ? (
         <Skeleton />
       ) : query.isError ? (
@@ -489,6 +491,7 @@ export function ApplicationDetail({ id }: { id: string }) {
           }
         />
       </div>
+      <BrowserAssistant packet={p} />
       {notice && <Notice>{notice}</Notice>}
       <div className="detail-grid">
         <section className="panel">

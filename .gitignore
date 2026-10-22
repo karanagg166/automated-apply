@@ -79,3 +79,7 @@ frontend/tsconfig.tsbuildinfo
 
 !frontend/src/lib/
 !frontend/src/lib/**
+
+# Local feature-worktree dependency links
+/backend/venv
+/frontend/node_modules

@@ -91,7 +91,7 @@ class PlatformCapability(Contract):
     application_preparation: Literal["supported"] = "supported"
     resume_selection: Literal["supported"] = "supported"
     screening_answer_generation: Literal["supported"] = "supported"
-    browser_autofill: Literal["not_implemented"] = "not_implemented"
+    browser_autofill: Literal["not_implemented", "assisted_native_fields"] = "not_implemented"
     automated_submission: Literal["not_authorized_or_verified"] = (
         "not_authorized_or_verified"
     )
@@ -132,7 +132,7 @@ class ResumeSelection(Contract):
 class Provenance(Contract):
     origin: Literal["packet_core", "user_provided"] = "user_provided"
     source: Literal[
-        "candidate_profile", "candidate_resource", "gemini", "human", "missing"
+        "candidate_profile", "candidate_resource", "gemini", "ollama", "cohere", "human", "missing"
     ] = "missing"
     resolver: Literal[
         "deterministic",

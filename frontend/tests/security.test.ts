@@ -163,3 +163,19 @@ it("bounds slow request bodies", async () => {
     status: 408,
   });
 });
+
+it("browser gateway exposes only authenticated application operations", () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  expect(permittedRoute("browser-applications", "POST")).toBe(true);
+  expect(permittedRoute(`browser-applications/${id}/open`, "POST")).toBe(true);
+  expect(permittedRoute(`browser-applications/${id}/actions`, "POST")).toBe(
+    true,
+  );
+  expect(permittedRoute(`browser-applications/${id}`, "GET")).toBe(true);
+  for (const path of ["cookies", "tabs", "evaluate", "filesystem"]) {
+    expect(permittedRoute(`browser-applications/${id}/${path}`, "POST")).toBe(
+      false,
+    );
+  }
+  expect(permittedRoute(`browser-applications/${id}/open`, "GET")).toBe(false);
+});

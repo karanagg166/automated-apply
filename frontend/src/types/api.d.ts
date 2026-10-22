@@ -1610,6 +1610,74 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/browser-applications": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Prepare Application */
+    post: operations["prepare_application_api_v1_browser_applications_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser-applications/{packet_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Application Status */
+    get: operations["get_application_status_api_v1_browser_applications__packet_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser-applications/{packet_id}/open": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Open Application */
+    post: operations["open_application_api_v1_browser_applications__packet_id__open_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser-applications/{packet_id}/actions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Application Action */
+    post: operations["application_action_api_v1_browser_applications__packet_id__actions_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1789,6 +1857,27 @@ export interface components {
       allow_skill_removals: boolean;
       /** Evidence */
       evidence?: components["schemas"]["EvidenceWrite"][];
+    };
+    /** BrowserAction */
+    BrowserAction: {
+      /** Expected Revision */
+      expected_revision: number;
+      /**
+       * Action
+       * @enum {string}
+       */
+      action:
+        "analyze" | "fill" | "preview" | "take_over" | "cancel" | "submit";
+      /**
+       * Confirm Reviewed Values
+       * @default false
+       */
+      confirm_reviewed_values: boolean;
+      /**
+       * Confirm Page Context
+       * @default false
+       */
+      confirm_page_context: boolean;
     };
     /** CandidateProfileCreate */
     CandidateProfileCreate: {
@@ -2812,6 +2901,15 @@ export interface components {
        */
       human_confirmed: boolean;
     };
+    /** OpenBrowser */
+    OpenBrowser: {
+      /** Expected Revision */
+      expected_revision: number;
+      /** Approve Dedicated Profile */
+      approve_dedicated_profile: boolean;
+      /** Confirm Destination Permission */
+      confirm_destination_permission: boolean;
+    };
     /** PacketEdit */
     PacketEdit: {
       /** Expected Revision */
@@ -3151,9 +3249,9 @@ export interface components {
       /**
        * Browser Autofill
        * @default not_implemented
-       * @constant
+       * @enum {string}
        */
-      browser_autofill: "not_implemented";
+      browser_autofill: "not_implemented" | "assisted_native_fields";
       /**
        * Automated Submission
        * @default not_authorized_or_verified
@@ -3178,6 +3276,19 @@ export interface components {
        * @constant
        */
       live_verified: false;
+    };
+    /** PrepareBrowser */
+    PrepareBrowser: {
+      /** Application Url */
+      application_url: string;
+      /** Company Name */
+      company_name: string;
+      /** Job Title */
+      job_title: string;
+      /** Idempotency Key */
+      idempotency_key: string;
+      /** Resume Resource Id */
+      resume_resource_id?: string | null;
     };
     /** PrepareInput */
     PrepareInput: {
@@ -3222,6 +3333,8 @@ export interface components {
         | "candidate_profile"
         | "candidate_resource"
         | "gemini"
+        | "ollama"
+        | "cohere"
         | "human"
         | "missing";
       /**
@@ -7664,6 +7777,140 @@ export interface operations {
         };
         content: {
           "application/json": unknown;
+        };
+      };
+    };
+  };
+  prepare_application_api_v1_browser_applications_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PrepareBrowser"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_application_status_api_v1_browser_applications__packet_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packet_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  open_application_api_v1_browser_applications__packet_id__open_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packet_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["OpenBrowser"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  application_action_api_v1_browser_applications__packet_id__actions_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packet_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BrowserAction"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

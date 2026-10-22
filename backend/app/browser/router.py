@@ -1,0 +1,137 @@
+"""Authenticated local orchestration. Owner bearer and dashboard CSRF remain mandatory."""
+
+import asyncio
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from backend.app.api.v1.applications import ProtectedApplicationRoute
+from backend.app.browser.contracts import BrowserAction, OpenBrowser, PrepareBrowser
+from backend.app.browser.runner import browser
+from backend.app.browser.service import analyze, fill, metadata, prepare, status
+from backend.app.core.config import get_settings
+from backend.app.core.security import require_api_token
+from backend.app.db.session import get_db_session
+from backend.app.services.applications.service import ApplicationPacketService
+
+
+async def local_boundary(request: Request):
+    settings = get_settings()
+    if not settings.BROWSER_ASSISTANT_ENABLED:
+        raise HTTPException(503, "Local browser assistant is disabled")
+    if not request.client or request.client.host not in {
+        "127.0.0.1",
+        "::1",
+        "testclient",
+    }:
+        raise HTTPException(403, "Browser operations require a loopback connection")
+    if request.headers.get("origin"):
+        raise HTTPException(403, "Use the authenticated dashboard gateway or local CLI")
+
+
+router = APIRouter(
+    prefix="/api/v1/browser-applications",
+    tags=["Local browser assistance"],
+    route_class=ProtectedApplicationRoute,
+    dependencies=[Depends(require_api_token), Depends(local_boundary)],
+)
+
+
+@router.post("")
+async def prepare_application(
+    data: PrepareBrowser, session: AsyncSession = Depends(get_db_session)
+):
+    return await prepare(session, data)
+
+
+@router.get("/{packet_id}")
+async def get_application_status(
+    packet_id: UUID, session: AsyncSession = Depends(get_db_session)
+):
+    return await status(session, packet_id)
+
+
+@router.post("/{packet_id}/open")
+async def open_application(
+    packet_id: UUID, data: OpenBrowser, session: AsyncSession = Depends(get_db_session)
+):
+    if not data.approve_dedicated_profile or not data.confirm_destination_permission:
+        raise HTTPException(
+            422,
+            "Explicit dedicated-profile and destination permission approval required",
+        )
+    async with browser.lock(packet_id):
+        service = ApplicationPacketService(session)
+        packet, _, _ = await service.locked(packet_id, data.expected_revision)
+        if not packet.application_url:
+            raise HTTPException(409, "No saved employer application URL")
+        try:
+            await browser.open(packet_id, packet.application_url, get_settings())
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(
+                409, "Browser launch or navigation failed; no submission attempted"
+            ) from None
+        return await status(session, packet_id)
+
+
+@router.post("/{packet_id}/actions")
+async def application_action(
+    packet_id: UUID,
+    data: BrowserAction,
+    session: AsyncSession = Depends(get_db_session),
+):
+    # Fail closed independently of current state or caller. No adapter authorizes submissions yet.
+    if data.action == "submit":
+        raise HTTPException(
+            403,
+            "Automated submission is not enabled for any destination; submit manually after review",
+        )
+    async with browser.lock(packet_id):
+        service = ApplicationPacketService(session)
+        if data.action == "preview":
+            return await status(session, packet_id)
+        packet, _, _ = await service.locked(packet_id, data.expected_revision)
+        if data.action == "cancel":
+            await browser.close(packet_id)
+            saved = await metadata(session, packet_id)
+            if saved:
+                saved.value = {**saved.value, "diagnostic": "cancelled"}
+            return await status(session, packet_id)
+        runtime = browser.sessions.get(str(packet_id))
+        if runtime is None or runtime.page.is_closed():
+            raise HTTPException(
+                409,
+                "Browser disconnected; reopen and analyze. Nothing will be replayed",
+            )
+        if data.action == "take_over":
+            runtime.manual = True
+            await runtime.page.evaluate("window.__aaManual = true")
+            return await status(session, packet_id)
+        if runtime.manual:
+            if data.action != "analyze":
+                raise HTTPException(
+                    409, "Owner controls the browser; analyze to resume assistance"
+                )
+            runtime.manual = False
+            await runtime.page.evaluate("window.__aaManual = false")
+        try:
+            async with asyncio.timeout(45):
+                if data.action == "analyze":
+                    return await analyze(session, packet, service, runtime)
+                return await fill(
+                    session,
+                    packet,
+                    service,
+                    runtime,
+                    data.confirm_reviewed_values,
+                    data.confirm_page_context,
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(
+                409, "Browser operation interrupted; inspect the page and reanalyze"
+            ) from None

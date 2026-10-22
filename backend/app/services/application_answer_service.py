@@ -25,7 +25,9 @@ class ApplicationAnswerService:
         self.repo = CandidateKnowledgeRepository(session)
         self.settings = settings or get_settings()
         self.provider = provider
-        self.usage = usage_manager or LLMUsageManager(get_session_factory(), self.settings)
+        from backend.app.ai.optional_usage import OptionalUsageManager
+        usage_type = OptionalUsageManager if self.settings.LLM_PROVIDER in {"ollama", "cohere"} else LLMUsageManager
+        self.usage = usage_manager or usage_type(get_session_factory(), self.settings)
 
     async def generate(self, request):
         profile = await self.repo.profile()
@@ -115,7 +117,7 @@ class ApplicationAnswerService:
 
     async def _compose(self, request, category, facts, max_chars, max_words):
         result = AnswerGenerationResult(question_type=category, writing_style=request.writing_style,
-                                       provider=self.settings.LLM_PROVIDER, model=self.settings.LLM_MODEL)
+                                       provider=self.settings.LLM_PROVIDER, model=(self.settings.OLLAMA_MODEL if self.settings.LLM_PROVIDER == "ollama" else self.settings.COHERE_MODEL if self.settings.LLM_PROVIDER == "cohere" else self.settings.LLM_MODEL))
         context = {"evidence": facts}
         instructions = {"style_instruction": STYLE_INSTRUCTIONS[request.writing_style],
                         "max_characters": max_chars, "max_words": max_words,
@@ -138,7 +140,7 @@ class ApplicationAnswerService:
                 result.retry_after_seconds = exc.retry_after
             if exc.code in {"llm_not_configured", "unsupported_provider"}:
                 result.used_llm = False
-                result.missing_information = ["Configure server-side GEMINI_API_KEY and LLM_MODEL to generate narrative drafts"]
+                result.missing_information = ["Enable a configured local Ollama model or an independently authorized remote provider to generate narrative drafts"]
             return result
         except ValidationError:
             result.status, result.error_code = "validation_failed", "invalid_structured_response"

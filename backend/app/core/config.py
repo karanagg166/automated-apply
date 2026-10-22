@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     API_REQUIRE_TLS: bool = True
     STAGING_DATABASE_ID: str | None = None
     APPLICATION_SUBMISSION_ENABLED: Literal[False] = False
+    BROWSER_ASSISTANT_ENABLED: bool = False
+    BROWSER_ALLOWED_ORIGINS: list[str] = Field(default_factory=list)
+    BROWSER_PROFILE_ROOT: str = "reports/browser-profiles"
+    BROWSER_CHANNEL: Literal["chrome", "chromium"] = "chrome"
+    BROWSER_HEADLESS: bool = False
 
     # Security
     RESUME_ENCRYPTION_KEY: SecretStr | None = None
@@ -74,7 +79,14 @@ class Settings(BaseSettings):
     CANDIDATE_GFG_URL: PublicHTTPSURL | None = None
     CANDIDATE_HACKERRANK_URL: PublicHTTPSURL | None = None
 
-    LLM_PROVIDER: Literal["gemini"] = "gemini"
+    LLM_PROVIDER: Literal["gemini", "ollama", "cohere"] = "gemini"
+    OLLAMA_ENABLED: bool = False
+    OLLAMA_MODEL: str | None = Field(default=None, max_length=150, pattern=r"^[A-Za-z0-9][A-Za-z0-9._:/-]*$")
+    COHERE_EVALUATION_ENABLED: bool = False
+    COHERE_TRIAL_KEY_CONFIRMED: bool = False
+    COHERE_DATA_SHARING_APPROVED: bool = False
+    COHERE_API_KEY: SecretStr | None = None
+    COHERE_MODEL: str | None = Field(default=None, max_length=150, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
     LLM_MODEL: str | None = None
     GEMINI_API_KEY: SecretStr | None = None
     LLM_MAX_OUTPUT_TOKENS: int = Field(default=1000, ge=64, le=8192)
@@ -96,6 +108,9 @@ class Settings(BaseSettings):
         "CANDIDATE_GFG_URL",
         "CANDIDATE_HACKERRANK_URL",
         "GEMINI_API_KEY",
+        "OLLAMA_MODEL",
+        "COHERE_MODEL",
+        "COHERE_API_KEY",
         "LLM_MODEL",
         mode="before",
     )

@@ -1,5 +1,7 @@
 # Automated Apply
 
+The opt-in [local browser assistant](docs/local-browser-assistant.md) now supports dedicated Chrome analysis, reviewed filling and manual handoff using existing application packets. [Delivery status](docs/browser-assistant-delivery.md) records the unfinished submission/adapter phases. Automated employer submission remains disabled.
+
 ## Persistent database requirement
 
 All genuine application data uses owner-approved online Supabase PostgreSQL in

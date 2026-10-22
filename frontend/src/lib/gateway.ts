@@ -1,5 +1,8 @@
 // This fixed route list prevents the server-side bearer from becoming a general proxy.
 const routes: Array<[RegExp, string[]]> = [
+  [/^browser-applications$/, ["POST"]],
+  [/^browser-applications\/[a-f0-9-]{36}$/, ["GET"]],
+  [/^browser-applications\/[a-f0-9-]{36}\/(open|actions)$/, ["POST"]],
   [/^dashboard\/resume-sync$/, ["GET"]],
   [/^dashboard\/resume-sync\/source$/, ["PUT"]],
   [/^dashboard\/resume-sync\/sync$/, ["POST"]],
