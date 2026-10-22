@@ -111,6 +111,7 @@ async def status(session, packet_id):
         "automated_submission_enabled": adapter.submission_enabled,
         "real_employer_submission_enabled": False,
         "owner_consent_available": bool(get_settings().BROWSER_OWNER_APPROVAL_KEY),
+        "opportunity_context_available": get_settings().OPPORTUNITY_CONTEXT_ENABLED,
         "execution": execution,
         "recovery": recovery,
     }

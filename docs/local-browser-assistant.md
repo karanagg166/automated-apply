@@ -132,6 +132,46 @@ safeguards rather than proof. This milestone uses saved company/job context; it
 adds no company scraper or automatic research. A conflicting company name or
 description for a saved job is rejected before any model call.
 
+With `OPPORTUNITY_CONTEXT_ENABLED=true`, an open dedicated session offers
+**Company and job evidence for AI answers → Capture job context**. Only explicit,
+visible public job/company description sections are captured (for example
+`#job-description`, `[itemprop="description"]`, `#company-description`). There is
+no whole-page fallback, off-site crawler, private form-value collection or automatic
+account access. Multiple conflicting sections or missing company/role identity in
+the page heading/title require manual preparation.
+
+Check the source and excerpts, shorten them if necessary, and approve them using
+the dashboard's separate owner-signing key. New text cannot be attributed to the
+website. The server recaptures the page and compares the exact digest before
+saving; changed content requires fresh review. This updates protected existing
+job metadata, preserves a protected evidence snapshot for saved answers, refreshes
+the packet revision and invalidates old answer approvals. It does not overwrite
+the discovery description or create candidate facts. Evidence expires after 14 days
+and becomes unusable when the saved company, domain, role, URL or description changes.
+
+Company-specific generation retrieves relevant verified candidate projects plus
+this separately typed opportunity evidence. Applicant claims are validated against
+candidate evidence only. Employer claims currently require complete verbatim source
+sentences without first/second-person pronouns, in separate sentences with their own
+references; mixed clauses or employer paraphrases require manual editing. Known
+instruction-like text is rejected, all website text remains untrusted, and the model
+has no browser tools or secret access. Source URLs (which may contain invitation tokens) remain local and are omitted
+from provider prompts; opaque evidence IDs link proposals back to saved sources.
+These checks are conservative safeguards; the owner must review the answer. Saved answer drafts expose their source excerpts
+under **View employer evidence**. Existing general answer generation remains usable
+when this opt-in feature is disabled; it cannot cite employer evidence as applicant history.
+
+For manually entered browser destinations, use **Save field review** before filling
+review-required answers. Capturing source text does not upgrade source confidence
+or authorize the stricter packet handoff/submission gate. The existing database
+guard for independently consistent posting sources remains unchanged.
+
+The complete fictional context/fill proof can be run against disposable PG17 with
+`backend/venv/bin/python backend/scripts/verify_browser_opportunity.py` and the
+`PROFILE_TEST_DATABASE_URL` shown below. It uses an injected fictional provider,
+not live Ollama or a paid service. It verifies signed context approval, generation,
+field review, the actual filled browser value and durable source evidence.
+
 **Reviewed application answers** in My Profile lists saved drafts and supports
 review, explicit reuse approval and revocation. Enable `APPROVED_ANSWER_REUSE_ENABLED`
 only with the existing protected owner-preferences storage available. Approval

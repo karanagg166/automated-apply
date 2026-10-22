@@ -82,6 +82,7 @@ class Settings(BaseSettings):
     CANDIDATE_HACKERRANK_URL: PublicHTTPSURL | None = None
 
     APPROVED_ANSWER_REUSE_ENABLED: bool = False
+    OPPORTUNITY_CONTEXT_ENABLED: bool = False
     LLM_LOCAL_FALLBACK_ENABLED: bool = False
     GEMINI_ENABLED: bool = False
     GEMINI_APPROVED_MONTHLY_REQUESTS: int = Field(default=0, ge=0, le=10000)

@@ -8,7 +8,7 @@ are not all complete. No real employer adapter has automated submission authoriz
 | 1 Audit | Existing modules, PR #15/#16 and unpublished branches inspected; isolated feature worktree; private changes preserved | Reconcile other branches separately if requested; no merges or production activation |
 | 2 Browser | Real Playwright dedicated profile, native form inventory, factual mapping, reviewed filling, validation, manual takeover/cancel | Wider custom widgets, cross-origin ATS frames, destination-reviewed multistep navigation and submission |
 | 3 Knowledge | Protected profile/projects/evidence, encrypted resumes; structured compensation, availability, relocation and country authorization; dashboard answer-bank review/approval/revocation | Real owner onboarding and broader reusable question coverage |
-| 4 AI | Existing grounding; supported-paraphrase answer reuse bound to facts/evidence/job; independently gated remote models and opt-in local-only fallback with cloud-mode preflight | Bounded trustworthy company research, broader semantic retrieval and live local model verification |
+| 4 AI | Existing grounding; supported-paraphrase reuse; independently gated models/local-only fallback; owner-reviewed bounded employer-page evidence with separate applicant/employer claim validation | Broader company-source research, semantic retrieval and live local model verification |
 | 5 Execution | Existing idempotent packets/job dedup, exact private PDF selection, revision locking, sanitized structure, manual receipt tracking, no replay | Mock-only exact owner grants, durable single dispatch, independent multipart/receipt validation, unknown outcome recovery and separate local-only migration proposal are implemented; real employer adapter permission and runtime activation remain pending |
 | 6 AGY | Installed 1.4.4 inspected; authenticated loopback CLI reuses application APIs; no personal Chrome attachment | Optional MCP packaging and an owner-controlled AGY invocation demonstration |
 | 7 Discovery | Existing discovery interfaces preserved, manual employer URL intake added; no LinkedIn/Gmail collection added | Integrate separately reviewed scheduling branch when authorized; future provider activation remains separate |
@@ -49,8 +49,8 @@ A symlinked dependency directory could not be built by Turbopack; a normal isola
 
 ## Next implementation order
 
-1. Implement bounded trustworthy company/job retrieval for company-specific
-   motivation, with separately typed evidence and candidate-claim validation.
+1. Broaden company-source coverage beyond reviewed explicit sections on the current
+   employer page, retaining separate opportunity/applicant evidence and permissions.
 2. Broaden supported-paraphrase retrieval beyond the conservative intent matcher;
    verify an actual cloud-disabled Ollama daemon/model separately.
 3. Broaden dynamic controls, custom widgets, embedded ATS navigation and multi-step
@@ -90,8 +90,8 @@ operational gates. No code-complete label in this document satisfies those gates
   and recovers a wrong-receipt outcome in a separate interpreter with no browser state.
   Receipt recovery performs no application POST. The updated extension remains local-only.
 
-Next implementation work: trustworthy company/job context, then broaden eligible
-employer adapters and dynamic controls. Real submission support requires documented
+Next implementation work: broader company/job sources, eligible employer adapters
+and dynamic controls. Real submission support requires documented
 applicant-side permission and independently verifiable receipts, not employer API
 credentials or an allowlisted URL alone.
 
@@ -128,3 +128,50 @@ credentials or an allowlisted URL alone.
 - No local model was installed or live generation verified. The laptop had about
   5 GiB free when checked; model installation remains a separate operating step.
   Cohere/account/production activation and real employer submission remain disabled.
+
+## Reviewed employer context follow-up
+
+- Dedicated-browser capture now retrieves bounded public job/company description
+  sections from the current permitted application page. It never falls back to
+  whole-page text, forms or input values. Saved company and role must appear in the
+  title/heading; conflicting/missing sections require manual preparation.
+- Exact source review uses the separate owner signature, a current packet revision
+  and a fresh capture digest. Approved excerpts remain distinct from candidate facts,
+  expire after 14 days and become stale when job/company/domain/URL/description changes.
+  The existing protected job metadata and owner-preference storage hold the current
+  context and durable historical sources; no new migration or runtime ACL is added.
+- Company-specific proposals combine separately cited employer statements with
+  relevant verified candidate work. Candidate grounding never uses employer facts.
+  Employer statements currently require separate complete verbatim sentences; this
+  conservative limitation and broader source coverage remain documented acceptance
+  work. Known instruction-like content is rejected, and source URLs are excluded
+  from model prompts. Saved evidence checks its full content hash before display.
+- Approved answer reuse checks that employer evidence remains current, enabled and
+  bound to the same saved job. Context review refreshes packet answers and requires
+  new review; it does not upgrade source confidence or authorize application submission.
+  Manually entered destinations use **Save field review** for reviewed filling.
+- Four actual Next.js/BFF/FastAPI/PostgreSQL/dedicated-Chromium journeys passed,
+  including capture → signed context approval → fictional grounded generation →
+  field review → filling the form → saved source retrieval. Six legacy dashboard
+  browser journeys, 39 frontend unit tests, type checks and production build passed.
+  The model provider in this demonstration is explicitly injected and fictional.
+- The first PG-backed context journey exposed an evidence key exceeding the existing
+  50-character column. A short lookup key with a checked full content hash corrected
+  it without a migration. The initial demonstration also attempted the stricter
+  packet approval gate for an unverified manual source; it now uses the existing
+  field-review workflow. Database approval guards and historical migrations stay intact.
+- Hosted backend/frontend CI passed for `c33fc04`, the preceding career-knowledge
+  milestone. Hosted verification for this follow-up is reported separately in PR #17.
+- Full regression: **1,291 backend tests passed, no skips**, including disposable
+  PG17 source persistence, signed approval, fictional generation, field review,
+  actual browser filling and durable evidence retrieval. Two existing pypdf
+  deprecation warnings remain. A focused 44-test answer/context check also passed
+  after source-URL omission and evidence-display integrity hardening. Ruff,
+  whole-application Bandit, Python compilation, frontend formatting/types/build,
+  dependency checks, npm audit (zero findings), tracked secret scanning and
+  whitespace checks passed. No new secret-baseline findings were added.
+
+Next unfinished work: wider dynamic/custom/multi-step control support, additional
+permission-reviewed company sources and employer execution adapters, followed by
+the controlled AGY invocation and remaining account/production acceptance work.
+Live Ollama inference and real employer automatic submission remain unverified.

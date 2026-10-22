@@ -568,6 +568,23 @@ export interface paths {
     patch: operations["review_draft_api_v1_application_answers_drafts__draft_id__patch"];
     trace?: never;
   };
+  "/api/v1/application-answers/drafts/{draft_id}/opportunity-evidence": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Saved Opportunity Evidence */
+    get: operations["saved_opportunity_evidence_api_v1_application_answers_drafts__draft_id__opportunity_evidence_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/application-answers/drafts/{draft_id}/approve-reuse": {
     parameters: {
       query?: never;
@@ -1661,6 +1678,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/browser-applications/{packet_id}/opportunity-preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview Opportunity */
+    post: operations["preview_opportunity_api_v1_browser_applications__packet_id__opportunity_preview_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser-applications/{packet_id}/opportunity-approve": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Approve Opportunity */
+    post: operations["approve_opportunity_api_v1_browser_applications__packet_id__opportunity_approve_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/browser-applications": {
     parameters: {
       query?: never;
@@ -2730,7 +2781,9 @@ export interface components {
         | "verified_role"
         | "candidate_evidence"
         | "candidate_profile"
-        | "candidate_preferences";
+        | "candidate_preferences"
+        | "opportunity_job"
+        | "opportunity_company";
       /** Source Id */
       source_id: string;
     };
@@ -4148,6 +4201,22 @@ export interface components {
        * @default false
        */
       confirm_destination: boolean;
+    };
+    /** ReviewOpportunity */
+    ReviewOpportunity: {
+      /** Expected Revision */
+      expected_revision: number;
+      /** Capture Digest */
+      capture_digest: string;
+      /** Job Text */
+      job_text: string;
+      /**
+       * Company Text
+       * @default
+       */
+      company_text: string;
+      /** Confirm Company Job And Source */
+      confirm_company_job_and_source: boolean;
     };
     /** RevisionInput */
     RevisionInput: {
@@ -5976,6 +6045,37 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["DraftRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  saved_opportunity_evidence_api_v1_application_answers_drafts__draft_id__opportunity_evidence_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        draft_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
         };
       };
       /** @description Validation Error */
@@ -8227,6 +8327,76 @@ export interface operations {
         };
         content: {
           "application/json": unknown;
+        };
+      };
+    };
+  };
+  preview_opportunity_api_v1_browser_applications__packet_id__opportunity_preview_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packet_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RevisionInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  approve_opportunity_api_v1_browser_applications__packet_id__opportunity_approve_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packet_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReviewOpportunity"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

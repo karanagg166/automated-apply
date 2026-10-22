@@ -105,6 +105,9 @@ async def job_digest(session, job_id):
             "title": job.title,
             "url": job.application_url or job.job_url,
             "description": job.description,
+            "reviewed_opportunity": (job.discovery_metadata or {}).get(
+                "application_opportunity"
+            ),
             "company_id": str(job.company_id),
             "company": company.name if company else None,
             "domain": company.domain if company else None,
@@ -162,6 +165,38 @@ async def approve(session, draft_id, data):
         raise HTTPException(
             422, "Company motivation can only be reused for the exact saved job"
         )
+    if data.scope == "general_profile" and any(
+        r.get("source_type", "").startswith("opportunity_")
+        for r in draft.evidence_references
+    ):
+        raise HTTPException(
+            422, "Employer evidence can only be reused for the exact saved job"
+        )
+    refs = {
+        (r["source_type"], r["source_id"])
+        for r in draft.evidence_references
+        if r.get("source_type", "").startswith("opportunity_")
+    }
+    if refs:
+        if not get_settings().OPPORTUNITY_CONTEXT_ENABLED:
+            raise HTTPException(503, "Reviewed opportunity context is disabled")
+        from backend.app.knowledge.opportunity import reviewed_context
+
+        job = await session.get(Job, draft.job_id) if draft.job_id else None
+        company = (
+            await session.get(Company, job.company_id)
+            if job and job.company_id
+            else None
+        )
+        current = reviewed_context(job, company) if job else []
+        if not refs <= {
+            (f["reference"]["source_type"], f["reference"]["source_id"])
+            for f in current
+        }:
+            raise HTTPException(
+                409,
+                "Employer evidence changed or expired; generate and review a fresh answer",
+            )
     key = "answer:" + str(draft.id)
     saved = await session.get(OwnerPreference, key)
     if not saved:
@@ -198,7 +233,16 @@ async def revoke(session, draft_id):
     return {"draft_id": str(draft_id), "approved": False}
 
 
-async def reuse(session, profile, request, category, max_chars, max_words):
+async def reuse(
+    session,
+    profile,
+    request,
+    category,
+    max_chars,
+    max_words,
+    *,
+    allow_opportunity=False,
+):
     intent = semantic_intent(request.question, category, profile)
     if not intent:
         return None
@@ -225,6 +269,28 @@ async def reuse(session, profile, request, category, max_chars, max_words):
     evidence_hash = await evidence_digest(session, profile)
     context_hash = await job_digest(session, request.job_id)
     for draft, stored in rows:
+        opportunity_refs = {
+            (r["source_type"], r["source_id"])
+            for r in draft.evidence_references
+            if r.get("source_type", "").startswith("opportunity_")
+        }
+        if opportunity_refs:
+            if not allow_opportunity:
+                continue
+            from backend.app.knowledge.opportunity import reviewed_context
+
+            job = await session.get(Job, request.job_id) if request.job_id else None
+            company = (
+                await session.get(Company, job.company_id)
+                if job and job.company_id
+                else None
+            )
+            current = reviewed_context(job, company) if job else []
+            if not opportunity_refs <= {
+                (f["reference"]["source_type"], f["reference"]["source_id"])
+                for f in current
+            }:
+                continue
         binding = stored.value
         if (
             not binding.get("approved")

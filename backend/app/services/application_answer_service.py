@@ -52,6 +52,7 @@ class ApplicationAnswerService:
 
     async def generate(self, request):
         profile = await self.repo.profile()
+        opportunity = []
         if request.job_id:
             job = await JobRepository(self.repo.session).get_by_id(request.job_id)
             if job is None:
@@ -95,6 +96,14 @@ class ApplicationAnswerService:
                     "job_description": request.job_description or job.description,
                 }
             )
+            if self.settings.OPPORTUNITY_CONTEXT_ENABLED:
+                from backend.app.knowledge.opportunity import reviewed_context
+
+                opportunity = reviewed_context(job, company)
+                if opportunity and not request.job_description:
+                    request = request.model_copy(
+                        update={"job_description": opportunity[0]["facts"]}
+                    )
         classification = ApplicationQuestionClassifier().classify(request.question)
         category = classification.question_type
         resources = await self.repo.resolution_resources(profile.id)
@@ -206,6 +215,26 @@ class ApplicationAnswerService:
         else:
             evidence = await self.repo.relevant_evidence(profile.id, request.question)
             facts = retrieve(profile, evidence, request.question, category)
+            if opportunity and category in {"motivation", "startup_interest"}:
+                # Work must be attributable to the candidate, never copied from
+                # the role's desired skills. Rank existing verified projects.
+                work = retrieve(
+                    profile,
+                    evidence,
+                    request.job_description or request.question,
+                    "project_explanation",
+                )
+                import json
+
+                from backend.app.services.candidate_evidence_retrieval import tokens
+
+                target_tokens = tokens(" ".join(f["facts"] for f in opportunity))
+                work = [
+                    f for f in work if target_tokens & tokens(json.dumps(f["facts"]))
+                ]
+                facts += work[:3]
+                if not work:
+                    facts = []
             if not facts:
                 result.missing_information = [self._missing(category)]
             elif category in {"motivation", "startup_interest"} and not (
@@ -225,13 +254,21 @@ class ApplicationAnswerService:
                         category,
                         max_chars,
                         max_words,
+                        allow_opportunity=self.settings.OPPORTUNITY_CONTEXT_ENABLED,
                     )
                     if self.settings.APPROVED_ANSWER_REUSE_ENABLED
                     else None
                 )
                 if result is None:
                     result = await self._compose(
-                        request, category, facts, max_chars, max_words
+                        request,
+                        category,
+                        facts,
+                        max_chars,
+                        max_words,
+                        opportunity
+                        if category in {"motivation", "startup_interest"}
+                        else [],
                     )
         if result.answer is not None and (
             len(result.answer) > max_chars
@@ -261,7 +298,9 @@ class ApplicationAnswerService:
             return "Save your actual role, industry, technology or company-stage preferences explaining why this opportunity interests you"
         return "Supply a reviewed professional summary or career evidence relevant to this question"
 
-    async def _compose(self, request, category, facts, max_chars, max_words):
+    async def _compose(
+        self, request, category, facts, max_chars, max_words, opportunity=()
+    ):
         result = AnswerGenerationResult(
             question_type=category,
             writing_style=request.writing_style,
@@ -276,6 +315,11 @@ class ApplicationAnswerService:
         )
         context = {"evidence": facts}
         instructions = {
+            # URLs can carry private invitation/query tokens. Provider citations
+            # use opaque source IDs; source URLs remain in protected local storage.
+            "opportunity_evidence": [
+                {"reference": f["reference"], "facts": f["facts"]} for f in opportunity
+            ],
             "style_instruction": STYLE_INSTRUCTIONS[request.writing_style],
             "max_characters": max_chars,
             "max_words": max_words,
@@ -339,7 +383,22 @@ class ApplicationAnswerService:
                 "invalid_structured_response",
             )
             return result
-        error = validate_grounding(response.content, facts, max_chars, max_words)
+        if opportunity and (
+            not response.content.opportunity_claims
+            or not any(
+                r.source_type
+                in {"verified_project", "verified_role", "candidate_evidence"}
+                for r in response.content.evidence_references
+            )
+        ):
+            result.status, result.error_code = (
+                "validation_failed",
+                "company_and_candidate_evidence_required",
+            )
+            return result
+        error = validate_grounding(
+            response.content, facts, max_chars, max_words, opportunity
+        )
         if error:
             result.status, result.error_code = "validation_failed", error
             return result

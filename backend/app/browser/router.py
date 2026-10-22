@@ -8,12 +8,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.v1.applications import ProtectedApplicationRoute
 from backend.app.browser.contracts import BrowserAction, OpenBrowser, PrepareBrowser
+from backend.app.browser.opportunity import ReviewOpportunity
 from backend.app.browser.owner_approval import require_owner_approval
 from backend.app.browser.runner import browser
 from backend.app.browser.service import analyze, fill, metadata, prepare, status
 from backend.app.core.config import get_settings
 from backend.app.core.security import require_api_token
 from backend.app.db.session import get_db_session
+from backend.app.schemas.applications import RevisionInput
 from backend.app.services.applications.service import ApplicationPacketService
 
 
@@ -37,6 +39,44 @@ router = APIRouter(
     route_class=ProtectedApplicationRoute,
     dependencies=[Depends(require_api_token), Depends(local_boundary)],
 )
+
+
+@router.post("/{packet_id}/opportunity-preview")
+async def preview_opportunity(
+    packet_id: UUID,
+    data: RevisionInput,
+    session: AsyncSession = Depends(get_db_session),
+):
+    from backend.app.browser.opportunity import capture
+
+    async with browser.lock(packet_id):
+        try:
+            async with asyncio.timeout(15):
+                return await capture(session, packet_id, data.expected_revision)
+        except TimeoutError:
+            raise HTTPException(
+                409, "Context capture timed out; take over manually"
+            ) from None
+
+
+@router.post(
+    "/{packet_id}/opportunity-approve", dependencies=[Depends(require_owner_approval)]
+)
+async def approve_opportunity(
+    packet_id: UUID,
+    data: ReviewOpportunity,
+    session: AsyncSession = Depends(get_db_session),
+):
+    from backend.app.browser.opportunity import approve
+
+    async with browser.lock(packet_id):
+        try:
+            async with asyncio.timeout(20):
+                return await approve(session, packet_id, data)
+        except TimeoutError:
+            raise HTTPException(
+                409, "Context approval timed out; check saved state before retrying"
+            ) from None
 
 
 @router.post("")
@@ -183,7 +223,9 @@ async def submission_preview(
         )
 
 
-@router.post("/{packet_id}/authorize-submission", dependencies=[Depends(require_owner_approval)])
+@router.post(
+    "/{packet_id}/authorize-submission", dependencies=[Depends(require_owner_approval)]
+)
 async def authorize_submission(
     packet_id: UUID,
     data: SubmissionAuthorization,

@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 
-async def run(url, serve=False, submission_demo=False, receipt_mode="valid"):
+async def run(url, serve=False, submission_demo=False, receipt_mode="valid", opportunity_demo=False):
     import asyncpg
     import httpx
     import uvicorn
@@ -98,6 +98,7 @@ async def run(url, serve=False, submission_demo=False, receipt_mode="valid"):
                 COHERE_EVALUATION_ENABLED=False,
                 OLLAMA_ENABLED=False,
                 APPROVED_ANSWER_REUSE_ENABLED=True,
+                OPPORTUNITY_CONTEXT_ENABLED=True,
                 UI_FIXTURE_MODE=True,
             )
             # Settings' origin format contains an explicit port for all destinations.
@@ -115,6 +116,38 @@ async def run(url, serve=False, submission_demo=False, receipt_mode="valid"):
             )
             from backend.app.schemas.candidate_profile import CandidateProfileCreate
             from backend.tests.test_phase7_dashboard import pdf_bytes
+
+            if serve or opportunity_demo:
+                from fastapi import Depends
+
+                from backend.app.api.v1.applications import application_service
+                from backend.app.db.session import get_db_session
+                from backend.app.services.application_answer_service import (
+                    ApplicationAnswerService,
+                )
+                from backend.app.services.applications.service import (
+                    ApplicationPacketService,
+                )
+                from backend.tests.opportunity_fakes import OpportunityFixtureProvider
+
+                def fictional_application_service(session=Depends(get_db_session)):
+                    return ApplicationPacketService(
+                        session,
+                        ApplicationAnswerService(
+                            session,
+                            settings.model_copy(
+                                update={
+                                    "LLM_PROVIDER": "ollama",
+                                    "OLLAMA_MODEL": "fictional-injected-provider-no-live-model",
+                                }
+                            ),
+                            OpportunityFixtureProvider(),
+                        ),
+                    )
+
+                app.dependency_overrides[application_service] = (
+                    fictional_application_service
+                )
 
             async with get_session_factory()() as session:
                 profile = await CandidateProfileRepository(
@@ -202,7 +235,7 @@ async def run(url, serve=False, submission_demo=False, receipt_mode="valid"):
             ) as client:
                 payload = {
                     "application_url": employer
-                    + ("/mock/apply" if submission_demo else "/basic"),
+                    + ("/opportunity" if opportunity_demo else "/mock/apply" if submission_demo else "/basic"),
                     "company_name": "Example Circuit",
                     "job_title": "Backend Engineer",
                     "idempotency_key": "browser-pg-demo-001",
@@ -227,6 +260,16 @@ async def run(url, serve=False, submission_demo=False, receipt_mode="valid"):
                         assert assisted.status_code == 200, assisted.text
                         packet = assisted.json()
                     # This fictional URL/packet manifest contains no credentials or personal data.
+                    context_packet = await client.post(
+                        "/api/v1/browser-applications",
+                        json={
+                            "application_url": employer + "/opportunity-demo",
+                            "company_name": "Example Circuit Context",
+                            "job_title": "Backend Engineer context fixture",
+                            "idempotency_key": "browser-opportunity-001",
+                        },
+                    )
+                    assert context_packet.status_code == 200, context_packet.text
                     output = ROOT / "reports/browser-mock.private.json"
                     output.parent.mkdir(exist_ok=True)
                     output.write_text(
@@ -235,6 +278,7 @@ async def run(url, serve=False, submission_demo=False, receipt_mode="valid"):
                                 "packet_id": packet["id"],
                                 "employer_url": employer + "/basic",
                                 "mock_packet_id": mock_packet_id,
+                                "opportunity_packet_id": context_packet.json()["id"],
                             }
                         )
                     )
@@ -243,6 +287,10 @@ async def run(url, serve=False, submission_demo=False, receipt_mode="valid"):
                         flush=True,
                     )
                     await task
+                    app.dependency_overrides.pop(application_service, None)
+                elif opportunity_demo:
+                    from backend.scripts.verify_browser_opportunity import verify
+                    await verify(client, packet, settings)
                 else:
                     route = "/api/v1/browser-applications/" + packet["id"]
                     response = await client.post(

@@ -153,6 +153,51 @@ async def review_draft(
     return draft_read(item, await repo.profile())
 
 
+@router.get("/application-answers/drafts/{draft_id}/opportunity-evidence")
+async def saved_opportunity_evidence(
+    draft_id: UUID, session: AsyncSession = Depends(get_db_session)
+):
+    from fastapi import HTTPException
+
+    from backend.app.dashboard.models import OwnerPreference
+    from backend.app.knowledge.opportunity import evidence_key
+    from backend.app.models.application_answer import ApplicationAnswerDraft
+    from backend.app.services.applications.resume_selector import digest
+
+    profile = await CandidateKnowledgeRepository(session).profile()
+    draft = await session.get(ApplicationAnswerDraft, draft_id)
+    if not draft or draft.candidate_profile_id != profile.id:
+        raise HTTPException(404, "Saved answer draft not found")
+    result = []
+    for reference in draft.evidence_references:
+        if reference.get("source_type") not in {
+            "opportunity_job",
+            "opportunity_company",
+        }:
+            continue
+        key = reference["source_id"].split(":", 1)[0]
+        saved = await session.get(OwnerPreference, evidence_key(key))
+        if (
+            saved
+            and saved.value.get("digest") == key
+            and saved.value.get("job_id") == str(draft.job_id)
+            and digest(
+                {k: v for k, v in saved.value.items() if k not in {"digest", "job_id"}}
+            )
+            == key
+        ):
+            kind = reference["source_type"].removeprefix("opportunity_")
+            result.append(
+                {
+                    "reference": reference,
+                    "source_url": saved.value["source_url"],
+                    "reviewed_at": saved.value["reviewed_at"],
+                    "excerpt": saved.value[kind + "_text"],
+                }
+            )
+    return {"evidence": result}
+
+
 @router.post(
     "/application-answers/drafts/{draft_id}/approve-reuse",
     dependencies=[Depends(require_owner_approval)],

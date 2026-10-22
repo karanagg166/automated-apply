@@ -157,6 +157,85 @@ test("owner authorizes a mock application and sees the independently verified re
   ).toBeVisible();
 });
 
+test("reviewed employer context grounds an AI proposal and fills the actual fictional form", async ({
+  page,
+}) => {
+  const { opportunity_packet_id } = JSON.parse(
+    readFileSync("../reports/browser-mock.private.json", "utf8"),
+  );
+  await page.goto("/login");
+  await page
+    .getByLabel("Owner passphrase")
+    .fill("fictional-ui-owner-passphrase");
+  await page.getByRole("button", { name: "Enter workspace" }).click();
+  await expect(page).toHaveURL("/");
+  await page.goto(`/applications/${opportunity_packet_id}`);
+  await page
+    .getByLabel("I approve a dedicated browser profile", { exact: false })
+    .check();
+  await page.getByRole("button", { name: "Open dedicated browser" }).click();
+  await expect(
+    page.getByRole("button", { name: "Analyze Application" }),
+  ).toBeEnabled({ timeout: 45000 });
+  await page.getByRole("button", { name: "Analyze Application" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: /^analyzed$/ }),
+  ).toBeVisible();
+  await page
+    .getByText("Company and job evidence for AI answers", { exact: true })
+    .click();
+  await page.getByRole("button", { name: "Capture job context" }).click();
+  await expect(page.getByLabel("Reviewed company excerpt")).toHaveValue(
+    "Example Circuit Context builds task management tools.",
+  );
+  await page
+    .getByLabel("I checked the company, job, source and selected excerpts.")
+    .check();
+  await page.getByRole("button", { name: "Save reviewed job context" }).click();
+  await expect(
+    page.getByText("Reviewed context saved.", { exact: false }),
+  ).toBeVisible();
+  const question = page
+    .locator(".evidence-item")
+    .filter({ hasText: "Why do you want to join our company?" })
+    .first();
+  await question
+    .getByRole("button", { name: "Generate with configured AI" })
+    .click();
+  await expect(question.getByLabel("Reviewable answer")).toHaveValue(
+    "Example Circuit Context builds task management tools. I built backend authentication using Python and FastAPI.",
+  );
+  for (const checkbox of await page
+    .getByLabel("I reviewed this exact answer")
+    .all())
+    await checkbox.check();
+  await page.getByLabel("I reviewed the selected resume variant.").check();
+  await page
+    .getByLabel("I verified this is the official application destination.")
+    .check();
+  await page.getByRole("button", { name: "Save field review" }).click();
+  await page
+    .getByLabel(
+      "I reviewed the current answers, destination and selected resume below.",
+    )
+    .check();
+  await page
+    .getByLabel("I confirmed the actual page belongs to this company and job.")
+    .check();
+  await page.getByRole("button", { name: "Fill supported fields" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "filled review on website" }),
+  ).toBeVisible();
+  await page.goto("/profile");
+  await page.getByText("Reviewed application answers", { exact: true }).click();
+  await page.getByRole("button", { name: "View employer evidence" }).click();
+  await expect(
+    page.locator("blockquote").filter({
+      hasText: "Example Circuit Context builds task management tools.",
+    }),
+  ).toBeVisible();
+});
+
 test("owner manages protected career facts and signed answer reuse with PostgreSQL persistence", async ({
   page,
 }) => {
@@ -217,7 +296,9 @@ test("owner manages protected career facts and signed answer reuse with PostgreS
     page.getByLabel("Expected compensation amount", { exact: true }),
   ).toHaveValue("");
   await page.getByText("Reviewed application answers", { exact: true }).click();
-  await expect(page.getByText("Stale profile", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Stale profile", { exact: true }).first(),
+  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Approve answer reuse" }),
   ).toHaveCount(0);

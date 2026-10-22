@@ -31,6 +31,19 @@ function SavedAnswer({
   );
   const [confirmed, setConfirmed] = useState(false);
   const approved = bank.approvals[draft.id]?.approved;
+  const [showEvidence, setShowEvidence] = useState(false);
+  const employerEvidence = useQuery({
+    queryKey: ["draft-opportunity-evidence", draft.id],
+    queryFn: () =>
+      api<{
+        evidence: {
+          source_url: string;
+          reviewed_at: string;
+          excerpt: string;
+        }[];
+      }>(`application-answers/drafts/${draft.id}/opportunity-evidence`),
+    enabled: showEvidence,
+  });
   const action = useMutation({
     mutationFn: async (operation: "review" | "approve" | "revoke") => {
       if (operation === "review")
@@ -76,6 +89,28 @@ function SavedAnswer({
           </small>
         </p>
       ))}
+      {draft.evidence_references.some((ref) =>
+        ref.source_type.startsWith("opportunity_"),
+      ) && (
+        <>
+          <Button onClick={() => setShowEvidence((value) => !value)}>
+            {showEvidence ? "Hide employer evidence" : "View employer evidence"}
+          </Button>
+          {showEvidence &&
+            employerEvidence.data?.evidence.map((item, index) => (
+              <blockquote key={index}>
+                <p>{item.excerpt}</p>
+                <small>
+                  Employer source: {item.source_url} · reviewed{" "}
+                  {item.reviewed_at}
+                </small>
+              </blockquote>
+            ))}
+          {showEvidence && employerEvidence.error && (
+            <ErrorState error={employerEvidence.error} />
+          )}
+        </>
+      )}
       {approved ? (
         <>
           <Notice>

@@ -7,6 +7,7 @@ import { api, post, Schema } from "@/lib/api";
 import { Button, Field, Input, Notice, ErrorState } from "@/components/ui";
 
 import { BrowserSubmission, Execution } from "@/features/browser-submission";
+import { OpportunityContext } from "@/features/opportunity-context";
 
 type BrowserStatus = {
   packet: Schema<"PacketRead">;
@@ -15,6 +16,7 @@ type BrowserStatus = {
   recovery: string | null;
   automated_submission_enabled: boolean;
   owner_consent_available: boolean;
+  opportunity_context_available: boolean;
   execution: Execution | null;
   analysis: {
     diagnostic: string;
@@ -245,6 +247,23 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
           )
         }
       />
+      {state?.opportunity_context_available && (
+        <OpportunityContext
+          packetId={packet.id}
+          revision={packet.revision}
+          blocked={busy || !state.connected || state.manual}
+          ownerAvailable={state.owner_consent_available}
+          setBusy={setBusy}
+          onSaved={async () => {
+            setReviewed(false);
+            setContextConfirmed(false);
+            await client.invalidateQueries();
+            setState(
+              await api<BrowserStatus>(`browser-applications/${packet.id}`),
+            );
+          }}
+        />
+      )}
       {error && <ErrorState error={error} />}
       {state?.recovery && <Notice>{state.recovery}</Notice>}
       {state?.analysis && (

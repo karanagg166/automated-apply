@@ -3,13 +3,17 @@ const routes: Array<[RegExp, string[]]> = [
   [/^application-answers\/(drafts|reuse-approvals)$/, ["GET"]],
   [/^application-answers\/drafts\/[a-f0-9-]{36}$/, ["PATCH"]],
   [
+    /^application-answers\/drafts\/[a-f0-9-]{36}\/opportunity-evidence$/,
+    ["GET"],
+  ],
+  [
     /^application-answers\/drafts\/[a-f0-9-]{36}\/(approve-reuse|revoke-reuse)$/,
     ["POST"],
   ],
   [/^browser-applications$/, ["POST"]],
   [/^browser-applications\/[a-f0-9-]{36}$/, ["GET"]],
   [
-    /^browser-applications\/[a-f0-9-]{36}\/(open|actions|submission-preview|authorize-submission|submit|recover-submission|consent)$/,
+    /^browser-applications\/[a-f0-9-]{36}\/(open|actions|submission-preview|authorize-submission|submit|recover-submission|consent|opportunity-preview|opportunity-approve)$/,
     ["POST"],
   ],
   [/^dashboard\/resume-sync$/, ["GET"]],

@@ -1,6 +1,6 @@
 # Automated Apply
 
-The opt-in [local browser assistant](docs/local-browser-assistant.md) supports dedicated Chrome analysis, reviewed filling and manual handoff using existing application packets. My Profile includes private career facts and approved reusable answers, with optional local AI fallback. [Delivery status](docs/browser-assistant-delivery.md) records verified mock submission and unfinished employer/adapter phases. Automated real employer submission remains disabled.
+The opt-in [local browser assistant](docs/local-browser-assistant.md) supports dedicated Chrome analysis, reviewed filling and manual handoff using existing application packets. It can capture employer-page evidence for reviewed company-specific answers. My Profile includes private career facts and approved reusable answers, with optional local AI fallback. [Delivery status](docs/browser-assistant-delivery.md) records verified mock submission and unfinished employer/adapter phases. Automated real employer submission remains disabled.
 
 ## Persistent database requirement
 

@@ -10,6 +10,11 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from uuid import UUID
 
 FORMS = {
+    "/opportunity": """<h1>Example Circuit — Backend Engineer</h1>
+      <section id="job-description">The Backend Engineer role focuses on Python services.</section>
+      <section id="company-description">Example Circuit builds task management tools.</section>
+      <form><label>Why do you want to join our company?<textarea required></textarea></label>
+      <label>Private salary<input value="PRIVATE-FORM-VALUE"></label></form>""",
     "/basic": """<h1>Example Circuit careers</h1><form method="post" action="/receipt">
       <label>Full name<input name="name" required></label>
       <label>Email<input name="email" type="email" required></label>
@@ -34,6 +39,12 @@ FORMS = {
     "/false-success": "<h1>Thank you for applying</h1><form><label>Email<input></label></form>",
     "/captcha": '<div id="captcha">Verify you are human</div>',
 }
+
+FORMS["/opportunity-demo"] = (
+    FORMS["/opportunity"]
+    .replace("Example Circuit", "Example Circuit Context")
+    .replace("Backend Engineer", "Backend Engineer context fixture")
+)
 
 
 @contextmanager

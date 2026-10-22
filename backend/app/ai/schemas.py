@@ -17,7 +17,7 @@ class Contract(BaseModel):
 
 
 class EvidenceReference(Contract):
-    source_type: Literal["verified_project", "verified_role", "candidate_evidence", "candidate_profile", "candidate_preferences"]
+    source_type: Literal["verified_project", "verified_role", "candidate_evidence", "candidate_profile", "candidate_preferences", "opportunity_job", "opportunity_company"]
     source_id: str = Field(min_length=1, max_length=100)
 
 
@@ -72,6 +72,7 @@ class ModelAnswer(Contract):
     answer: str = Field(min_length=1, max_length=10000)
     evidence_references: list[EvidenceReference] = Field(min_length=1, max_length=12)
     claims: list[SupportedClaim] = Field(min_length=1, max_length=30)
+    opportunity_claims: list[SupportedClaim] = Field(default_factory=list, max_length=5)
 
 
 class ProviderAnswer(Contract):
