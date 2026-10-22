@@ -95,12 +95,49 @@ npm run dev --prefix frontend
    remain incomplete. A changing form interrupts filling and requires reanalysis.
 6. Review the actual website, including its validation errors. **Take Over** permits
    manual actions on that origin and suspends automated filling. Complete required
-   consent, CAPTCHA, MFA, custom widgets and further steps yourself. Analyze again
+   consent, CAPTCHA, MFA and unsupported controls yourself. Analyze again
    for an in-page step at the original URL. Redirected steps require manual work.
 7. Submit manually on the employer website. A click, success text, or navigation
    never marks the packet submitted. Record your actual receipt using the existing
    explicit submission report. It remains `user_reported_submitted`, not provider
    verification. **Cancel** closes the browser session; packet history remains.
+
+Labelled native radio groups and bounded ARIA radiogroups can use reviewed answers.
+Custom comboboxes are supported when a unique `aria-controls` relationship points to
+one single-select listbox with known, distinct choices. The engine selects only an
+exact displayed option and checks the resulting browser value. Unlabelled/ambiguous
+groups, missing or remotely loaded dropdown options, rich text editors and consent
+or attestation choices stay manual. Native consent checkboxes still use the direct
+owner control; no answer model or fill plan grants consent.
+
+For a supported client-only multi-step form, use **Review next application step →
+Preview next step** after filling. The preview shows actual browser values and
+validation, including selected consents. Review these, then explicitly authorize
+the displayed Next/Continue action. Only a single visible `button[type=button]`
+labelled Next, Next step or Continue is eligible; submit controls, embedded forms
+and ambiguous buttons require manual navigation. This operation needs the separate
+dashboard owner signature and cannot be authorized by AGY's bearer alone.
+Configuration rejects reusing the delegated API token as the owner signing key.
+
+Filling and step review isolate **all page network requests**, including GET, until explicit
+Take Over. This prevents a client step from silently saving or submitting through
+another HTTP method or delayed callback. Steps needing server saves or navigation
+require manual work. A changed form is reanalyzed after an observed stable in-page
+transition; the next answers are not automatically filled. No final submission is
+authorized by a step approval.
+
+The exact preview, values, form structure and revision bind each step action. Intent
+and an idempotency record are committed before the click; a repeated request or a
+restart never clicks again. Unchanged, interrupted, unstable or network-dependent
+steps show manual handoff. Inspect with Take Over and analyze again before a fresh
+review. Automatic progression is limited to 20 reviewed steps per application.
+
+To verify this path with fictional forms and disposable local PG17, run
+`backend/venv/bin/python backend/scripts/verify_browser_steps.py` with
+`PROFILE_TEST_DATABASE_URL` configured as in the demonstration section. It checks
+native radios → signed Next → custom dropdown/date filling and durable step history;
+it performs no application submission or model call.
+
 
 Analysis stores a sanitized structural inventory, observed URL/title/heading,
 field-to-packet links and validation diagnostics in protected `owner_preferences`.
@@ -238,7 +275,8 @@ required by browser analysis or filling.
 
 ## AGY orchestration
 
-The installed AGY reports **1.4.4**. `agy --help` exposes shell-based agent operation
+The installed AGY reports **1.4.5** on the latest local check (the initial audit saw
+1.4.4). `agy --help` exposes shell-based agent operation
 and `agy mcp --help` exposes MCP configuration. This audit did not establish a direct
 Chrome-control capability or modify AGY's configuration. Use its shell integration
 with our narrow CLI; no browser MCP or unrestricted filesystem/cookie tools are

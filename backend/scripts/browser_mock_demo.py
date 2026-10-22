@@ -19,7 +19,14 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 
-async def run(url, serve=False, submission_demo=False, receipt_mode="valid", opportunity_demo=False):
+async def run(
+    url,
+    serve=False,
+    submission_demo=False,
+    receipt_mode="valid",
+    opportunity_demo=False,
+    steps_demo=False,
+):
     import asyncpg
     import httpx
     import uvicorn
@@ -235,7 +242,15 @@ async def run(url, serve=False, submission_demo=False, receipt_mode="valid", opp
             ) as client:
                 payload = {
                     "application_url": employer
-                    + ("/opportunity" if opportunity_demo else "/mock/apply" if submission_demo else "/basic"),
+                    + (
+                        "/guided"
+                        if steps_demo
+                        else "/opportunity"
+                        if opportunity_demo
+                        else "/mock/apply"
+                        if submission_demo
+                        else "/basic"
+                    ),
                     "company_name": "Example Circuit",
                     "job_title": "Backend Engineer",
                     "idempotency_key": "browser-pg-demo-001",
@@ -270,6 +285,16 @@ async def run(url, serve=False, submission_demo=False, receipt_mode="valid", opp
                         },
                     )
                     assert context_packet.status_code == 200, context_packet.text
+                    guided_packet = await client.post(
+                        "/api/v1/browser-applications",
+                        json={
+                            "application_url": employer + "/guided",
+                            "company_name": "Example Circuit",
+                            "job_title": "Backend Engineer guided fixture",
+                            "idempotency_key": "browser-guided-001",
+                        },
+                    )
+                    assert guided_packet.status_code == 200, guided_packet.text
                     output = ROOT / "reports/browser-mock.private.json"
                     output.parent.mkdir(exist_ok=True)
                     output.write_text(
@@ -279,6 +304,7 @@ async def run(url, serve=False, submission_demo=False, receipt_mode="valid", opp
                                 "employer_url": employer + "/basic",
                                 "mock_packet_id": mock_packet_id,
                                 "opportunity_packet_id": context_packet.json()["id"],
+                                "guided_packet_id": guided_packet.json()["id"],
                             }
                         )
                     )
@@ -288,8 +314,13 @@ async def run(url, serve=False, submission_demo=False, receipt_mode="valid", opp
                     )
                     await task
                     app.dependency_overrides.pop(application_service, None)
+                elif steps_demo:
+                    from backend.scripts.verify_browser_steps import verify
+
+                    await verify(client, packet, settings)
                 elif opportunity_demo:
                     from backend.scripts.verify_browser_opportunity import verify
+
                     await verify(client, packet, settings)
                 else:
                     route = "/api/v1/browser-applications/" + packet["id"]

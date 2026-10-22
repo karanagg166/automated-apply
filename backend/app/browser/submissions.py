@@ -517,6 +517,9 @@ async def set_consent(session, packet_id, data):
             "Only an unambiguous detected native checkbox supports this owner action",
         )
     field = matches[0][0]
+    # Selecting a consent value authorizes that value only, never a background
+    # submission through an input/change handler or a delayed callback.
+    runtime.in_page_mode = True
     await runtime.page.locator(f'[data-aa-field="{field["key"]}"]').set_checked(
         data.checked
     )

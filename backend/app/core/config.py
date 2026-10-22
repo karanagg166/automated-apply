@@ -4,7 +4,7 @@ import re
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from backend.app.core.urls import PublicHTTPSURL
@@ -302,6 +302,12 @@ class Settings(BaseSettings):
                 "DATABASE_SCHEMA must be alphanumeric with underscores only"
             )
         return cleaned
+
+    @model_validator(mode="after")
+    def separate_owner_authority(self):
+        if self.BROWSER_OWNER_APPROVAL_KEY and self.JOB_AGENT_API_TOKEN and self.BROWSER_OWNER_APPROVAL_KEY.get_secret_value() == self.JOB_AGENT_API_TOKEN.get_secret_value():
+            raise ValueError("Owner approval key must differ from the delegated API token")
+        return self
 
     def get_provider_monthly_limit(self, provider: str) -> int:
         """Retrieve configured monthly limit for a given provider name."""

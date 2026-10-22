@@ -1678,6 +1678,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/browser-applications/{packet_id}/step-preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview Step */
+    post: operations["preview_step_api_v1_browser_applications__packet_id__step_preview_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser-applications/{packet_id}/advance-step": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Advance Application Step */
+    post: operations["advance_application_step_api_v1_browser_applications__packet_id__advance_step_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/browser-applications/{packet_id}/opportunity-preview": {
     parameters: {
       query?: never;
@@ -1869,6 +1903,17 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** AdvanceStep */
+    AdvanceStep: {
+      /** Expected Revision */
+      expected_revision: number;
+      /** Preview Digest */
+      preview_digest: string;
+      /** Idempotency Key */
+      idempotency_key: string;
+      /** Confirm Values And Consents */
+      confirm_values_and_consents: boolean;
+    };
     /** AnswerEdit */
     AnswerEdit: {
       /** Expected Revision */
@@ -8327,6 +8372,76 @@ export interface operations {
         };
         content: {
           "application/json": unknown;
+        };
+      };
+    };
+  };
+  preview_step_api_v1_browser_applications__packet_id__step_preview_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packet_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RevisionInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  advance_application_step_api_v1_browser_applications__packet_id__advance_step_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packet_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AdvanceStep"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

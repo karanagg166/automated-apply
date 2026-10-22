@@ -12,6 +12,7 @@ from backend.app.browser.opportunity import ReviewOpportunity
 from backend.app.browser.owner_approval import require_owner_approval
 from backend.app.browser.runner import browser
 from backend.app.browser.service import analyze, fill, metadata, prepare, status
+from backend.app.browser.steps import AdvanceStep
 from backend.app.core.config import get_settings
 from backend.app.core.security import require_api_token
 from backend.app.db.session import get_db_session
@@ -39,6 +40,42 @@ router = APIRouter(
     route_class=ProtectedApplicationRoute,
     dependencies=[Depends(require_api_token), Depends(local_boundary)],
 )
+
+
+@router.post("/{packet_id}/step-preview")
+async def preview_step(
+    packet_id: UUID,
+    data: RevisionInput,
+    session: AsyncSession = Depends(get_db_session),
+):
+    from backend.app.browser.steps import preview
+
+    async with browser.lock(packet_id):
+        try:
+            async with asyncio.timeout(15):
+                return await preview(session, packet_id, data.expected_revision)
+        except TimeoutError:
+            raise HTTPException(
+                409, "Step review timed out; take over manually"
+            ) from None
+
+
+@router.post(
+    "/{packet_id}/advance-step", dependencies=[Depends(require_owner_approval)]
+)
+async def advance_application_step(
+    packet_id: UUID, data: AdvanceStep, session: AsyncSession = Depends(get_db_session)
+):
+    from backend.app.browser.steps import advance
+
+    async with browser.lock(packet_id):
+        try:
+            async with asyncio.timeout(35):
+                return await advance(session, packet_id, data)
+        except TimeoutError:
+            raise HTTPException(
+                409, "Step interrupted; inspect operation status and take over manually"
+            ) from None
 
 
 @router.post("/{packet_id}/opportunity-preview")
@@ -178,6 +215,7 @@ async def application_action(
                     409, "Owner controls the browser; analyze to resume assistance"
                 )
             runtime.manual = False
+            runtime.blocked_step_requests = 0
             await runtime.page.evaluate("window.__aaManual = false")
         try:
             async with asyncio.timeout(45):

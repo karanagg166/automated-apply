@@ -29,7 +29,7 @@ class BrowserAction(RevisionInput):
 
 
 class DetectedField(Contract):
-    key: str
+    key: str = Field(pattern=r"^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$")
     question: str = Field(max_length=2000)
     kind: str
     accept: str = Field(default="", max_length=200)
@@ -39,3 +39,9 @@ class DetectedField(Contract):
     supported: bool = False
     manual_reason: str | None = None
     field_id: str | None = None
+
+
+class StepControl(Contract):
+    key: str = Field(pattern=r"^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$")
+    label: str = Field(min_length=1, max_length=200)
+    supported: bool

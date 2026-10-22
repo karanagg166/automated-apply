@@ -6,11 +6,11 @@ are not all complete. No real employer adapter has automated submission authoriz
 | Phase | Delivered in this slice | Remaining acceptance work |
 |---|---|---|
 | 1 Audit | Existing modules, PR #15/#16 and unpublished branches inspected; isolated feature worktree; private changes preserved | Reconcile other branches separately if requested; no merges or production activation |
-| 2 Browser | Real Playwright dedicated profile, native form inventory, factual mapping, reviewed filling, validation, manual takeover/cancel | Wider custom widgets, cross-origin ATS frames, destination-reviewed multistep navigation and submission |
+| 2 Browser | Dedicated Playwright profile; native controls, labelled native/ARIA radios, bounded ARIA comboboxes; reviewed client-only Next steps, validation, takeover/cancel | Wider custom widgets, remotely loaded choices, cross-origin ATS frames, server-dependent navigation and verified employer submission |
 | 3 Knowledge | Protected profile/projects/evidence, encrypted resumes; structured compensation, availability, relocation and country authorization; dashboard answer-bank review/approval/revocation | Real owner onboarding and broader reusable question coverage |
 | 4 AI | Existing grounding; supported-paraphrase reuse; independently gated models/local-only fallback; owner-reviewed bounded employer-page evidence with separate applicant/employer claim validation | Broader company-source research, semantic retrieval and live local model verification |
 | 5 Execution | Existing idempotent packets/job dedup, exact private PDF selection, revision locking, sanitized structure, manual receipt tracking, no replay | Mock-only exact owner grants, durable single dispatch, independent multipart/receipt validation, unknown outcome recovery and separate local-only migration proposal are implemented; real employer adapter permission and runtime activation remain pending |
-| 6 AGY | Installed 1.4.4 inspected; authenticated loopback CLI reuses application APIs; no personal Chrome attachment | Optional MCP packaging and an owner-controlled AGY invocation demonstration |
+| 6 AGY | Installed 1.4.5 rechecked (initial audit 1.4.4); authenticated loopback CLI reuses application APIs; no personal Chrome attachment | Optional MCP packaging and an owner-controlled AGY invocation demonstration |
 | 7 Discovery | Existing discovery interfaces preserved, manual employer URL intake added; no LinkedIn/Gmail collection added | Integrate separately reviewed scheduling branch when authorized; future provider activation remains separate |
 | 8 Dashboard | URL intake, dedicated browser open, Analyze/Fill/Review/Take Over/Cancel; answers/resume use existing editor; Submit disabled | Mock authorization, receipts and unknown-outcome UI added; documented real-employer policy and broader destination support remain pending |
 | 9 Tests | Real Chromium fixtures, full backend/frontend regressions, PostgreSQL demo and Next.js/BFF browser journey | Mock consent/signature/body changes, receipt mismatch, interruption and restart recovery tests added; wider adapter and independent-worker matrix remains pending |
@@ -171,7 +171,62 @@ credentials or an allowlisted URL alone.
   dependency checks, npm audit (zero findings), tracked secret scanning and
   whitespace checks passed. No new secret-baseline findings were added.
 
-Next unfinished work: wider dynamic/custom/multi-step control support, additional
+Next unfinished work: wider dynamic/custom/server-dependent step support, additional
 permission-reviewed company sources and employer execution adapters, followed by
 the controlled AGY invocation and remaining account/production acceptance work.
 Live Ollama inference and real employer automatic submission remain unverified.
+
+## Grouped choices and reviewed in-page steps
+
+- Form analysis groups unambiguous labelled native radios and ARIA radiogroups into
+  one question with exact choices. Bounded single-select ARIA combobox/listbox
+  relationships support reviewed selection and browser-value validation. Invalid,
+  duplicated, disabled or missing choices stay manual; consent/attestation choices
+  cannot be selected by the answer engine. Rich-text editors are detected as manual.
+- The dashboard previews actual current-step values and validation before a separate
+  signed owner authorization clicks one explicit non-submit Next/Continue button.
+  Filling and step review isolate all page networking, including GET, until Take Over; server-save or
+  redirected steps remain manual. Unstable, invalid and interrupted steps pause.
+- Exact values/form/revision hashes, pre-click durable intent, idempotency history,
+  a step limit and no replay on restart protect progression. After an observed stable
+  transition the next form is analyzed; filling requires fresh review. Opaque handles
+  are validated before they can address DOM controls. Configuration rejects using
+  the delegated API bearer as the separate owner signing key.
+- A disposable PG17/FastAPI/Chromium verifier exercises native radios → signed
+  in-page Next → custom dropdown/date filling → durable step history without a model
+  call or submission. No new schema, migration, external account or provider is needed.
+- Initial parallel local runs exposed resource-sensitive timeouts and a dashboard
+  test cleanup gap: completed journeys retained dedicated sessions until the two-session
+  cap was reached. Browser suites now close their own sessions after each journey;
+  the company-answer journey waits for its bounded generation response. Final browser
+  verification runs sequentially rather than multiplying browser workloads.
+- Hosted backend/frontend CI passed for preceding commit `b6913fc`. Verification
+  for this follow-up is reported separately and does not imply production activation.
+- Choice text as well as question labels is checked for consent/attestation. Filling
+  blocks background GET/POST requests before any answer or resume reaches a page
+  control; detected network activity pauses further filling for explicit manual
+  takeover. This also covers delayed callbacks because isolation remains active.
+- The expanded full suite exceeded the former 550-second local watchdog without an
+  assertion failure. Its finite budget is now 900 seconds; no tests were removed,
+  skipped, reordered or given automatic retries.
+- Local verification: **1,302 full backend tests passed, no skips** in 354 seconds
+  before the final input/checkbox network-isolation follow-up. After that change,
+  **39 targeted browser and PG17 tests passed**, including the three new isolation
+  cases and submission/receipt recovery. The final collection contains 1,305 tests;
+  full hosted verification for the committed head is reported in PR #17 rather
+  than inferred from the earlier local full run.
+- **Five PG17-backed dashboard journeys and six existing dashboard journeys
+  passed sequentially** against the actual FastAPI/BFF/Next.js services and real
+  Chromium. These include reviewed radio selection → signed Next → dropdown/date
+  filling, fictional grounded answers, protected career facts/reuse and the exact
+  mock submission receipt. No real employer submission or live model inference
+  was performed. Frontend unit tests (39), production build, types/formatting,
+  Ruff, Bandit, compilation, dependency checks, npm audit (zero findings), tracked
+  secret scanning and whitespace checks passed. Two existing pypdf deprecation
+  warnings remain in the full backend run.
+
+Next unfinished work: server-dependent navigation and in-flight cancellation,
+broader permitted company sources/custom controls, a permission-reviewed real
+employer adapter, controlled AGY invocation and genuine local-model/account
+acceptance. The grouped-choice and client-only-step milestone does not complete
+the ten requested phases or authorize production activation.

@@ -1,6 +1,38 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 
+test.afterEach(async ({ page }) => {
+  const manifest = JSON.parse(
+    readFileSync("../reports/browser-mock.private.json", "utf8"),
+  );
+  const csrf = (await page.context().cookies()).find(
+    (cookie) => cookie.name === "aa_csrf",
+  )?.value;
+  if (!csrf) return;
+  for (const id of [
+    manifest.packet_id,
+    manifest.mock_packet_id,
+    manifest.opportunity_packet_id,
+    manifest.guided_packet_id,
+  ].filter(Boolean)) {
+    const response = await page.request.get(
+      `/api/backend/browser-applications/${id}`,
+    );
+    if (response.status() !== 200) continue;
+    const state = await response.json();
+    if (state.connected) {
+      const closed = await page.request.post(
+        `/api/backend/browser-applications/${id}/actions`,
+        {
+          headers: { Origin: "http://localhost:3101", "X-CSRF-Token": csrf },
+          data: { action: "cancel", expected_revision: state.packet.revision },
+        },
+      );
+      expect(closed.status()).toBe(200);
+    }
+  }
+});
+
 test("owner dashboard analyzes and fills using real FastAPI, PostgreSQL and a dedicated browser", async ({
   page,
   request,
@@ -199,9 +231,19 @@ test("reviewed employer context grounds an AI proposal and fills the actual fict
     .locator(".evidence-item")
     .filter({ hasText: "Why do you want to join our company?" })
     .first();
+  const generated = page.waitForResponse(
+    (response) =>
+      response
+        .url()
+        .includes(`/application-packets/${opportunity_packet_id}/questions/`) &&
+      response.url().endsWith("/generate") &&
+      response.request().method() === "POST",
+    { timeout: 45000 },
+  );
   await question
     .getByRole("button", { name: "Generate with configured AI" })
     .click();
+  expect((await generated).status()).toBe(200);
   await expect(question.getByLabel("Reviewable answer")).toHaveValue(
     "Example Circuit Context builds task management tools. I built backend authentication using Python and FastAPI.",
   );
@@ -234,6 +276,113 @@ test("reviewed employer context grounds an AI proposal and fills the actual fict
       hasText: "Example Circuit Context builds task management tools.",
     }),
   ).toBeVisible();
+});
+
+test("owner fills grouped choices and explicitly advances an in-page application step", async ({
+  page,
+}) => {
+  const { guided_packet_id } = JSON.parse(
+    readFileSync("../reports/browser-mock.private.json", "utf8"),
+  );
+  await page.goto("/login");
+  await page
+    .getByLabel("Owner passphrase")
+    .fill("fictional-ui-owner-passphrase");
+  await page.getByRole("button", { name: "Enter workspace" }).click();
+  await expect(page).toHaveURL("/");
+  await page.goto(`/applications/${guided_packet_id}`);
+  await page
+    .getByLabel("I approve a dedicated browser profile", { exact: false })
+    .check();
+  await page.getByRole("button", { name: "Open dedicated browser" }).click();
+  await expect(
+    page.getByRole("button", { name: "Analyze Application" }),
+  ).toBeEnabled({ timeout: 45000 });
+  await page.getByRole("button", { name: "Analyze Application" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: /^analyzed$/ }),
+  ).toBeVisible();
+  async function answer(question: string, value: string) {
+    const field = page
+      .locator(".evidence-item")
+      .filter({ hasText: question })
+      .first();
+    await field.getByLabel("Reviewable answer").fill(value);
+    const saved = page.waitForResponse(
+      (response) =>
+        response
+          .url()
+          .includes(`/application-packets/${guided_packet_id}/questions/`) &&
+        response.request().method() === "PATCH",
+    );
+    await field
+      .getByRole("button", { name: "Save answer", exact: true })
+      .click();
+    const response = await saved;
+    expect(response.status()).toBe(200);
+    const updated = await response.json();
+    await expect(
+      page.getByText(`Revision ${updated.revision}`, { exact: false }).first(),
+    ).toBeVisible();
+  }
+  async function reviewAndFill() {
+    for (const checkbox of await page
+      .getByLabel("I reviewed this exact answer")
+      .all())
+      await checkbox.check();
+    const reviewed = page.waitForResponse(
+      (response) =>
+        response
+          .url()
+          .endsWith(`/application-packets/${guided_packet_id}/review`) &&
+        response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Save field review" }).click();
+    const response = await reviewed;
+    expect(response.status()).toBe(200);
+    const updated = await response.json();
+    await expect(
+      page.getByText(`Revision ${updated.revision}`, { exact: false }).first(),
+    ).toBeVisible();
+    await page
+      .getByLabel(
+        "I reviewed the current answers, destination and selected resume below.",
+      )
+      .check();
+    await page
+      .getByLabel(
+        "I confirmed the actual page belongs to this company and job.",
+      )
+      .check();
+    await page.getByRole("button", { name: "Fill supported fields" }).click();
+    await expect(
+      page.getByRole("status").filter({ hasText: "filled review on website" }),
+    ).toBeVisible();
+  }
+  await answer("Remote work preference", "remote");
+  await reviewAndFill();
+  await page.getByText("Review next application step", { exact: true }).click();
+  await page.getByRole("button", { name: "Preview next step" }).click();
+  await expect(
+    page.getByRole("cell", { name: "remote", exact: true }),
+  ).toBeVisible();
+  const next = page.getByRole("button", { name: "Authorize Next step" });
+  await expect(next).toBeDisabled();
+  await page
+    .getByLabel(
+      "I reviewed the actual values and every selected consent before advancing this step.",
+    )
+    .check();
+  await next.click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "next step analyzed" }),
+  ).toBeVisible();
+  await answer("Department", "Engineering");
+  await answer("Availability date", "2050-01-01");
+  await reviewAndFill();
+  await expect(
+    page.getByRole("button", { name: "Submit", exact: true }),
+  ).toBeDisabled();
 });
 
 test("owner manages protected career facts and signed answer reuse with PostgreSQL persistence", async ({

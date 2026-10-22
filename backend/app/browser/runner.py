@@ -13,20 +13,21 @@ from urllib.parse import urlsplit
 
 from fastapi import HTTPException
 
-from backend.app.browser.contracts import DetectedField
+from backend.app.browser.contracts import DetectedField, StepControl
 from backend.app.services.applications.resume_selector import digest
 
 DETECT = Path(__file__).with_name("dom.js").read_text()
 GUARD = """(() => {
   window.__aaManual = false;
-  const stop = e => { if (!window.__aaManual) {e.preventDefault(); e.stopImmediatePropagation();} };
+  window.__aaSubmissionBlocks = 0;
+  const stop = e => { if (!window.__aaManual) {window.__aaSubmissionBlocks++; e.preventDefault(); e.stopImmediatePropagation();} };
   document.addEventListener('submit', stop, true);
   document.addEventListener('click', e => {if(e.target.closest('button[type="submit"],input[type="submit"],button:not([type])')) stop(e);}, true);
   document.addEventListener('keydown', e => {if(e.key === 'Enter') stop(e);}, true);
   const submit = HTMLFormElement.prototype.submit;
   const request = HTMLFormElement.prototype.requestSubmit;
-  HTMLFormElement.prototype.submit = function(...a){if(window.__aaManual) return submit.apply(this,a);};
-  HTMLFormElement.prototype.requestSubmit = function(...a){if(window.__aaManual) return request.apply(this,a);};
+  HTMLFormElement.prototype.submit = function(...a){if(window.__aaManual) return submit.apply(this,a); window.__aaSubmissionBlocks++;};
+  HTMLFormElement.prototype.requestSubmit = function(...a){if(window.__aaManual) return request.apply(this,a); window.__aaSubmissionBlocks++;};
 })();"""
 
 
@@ -92,9 +93,22 @@ class BrowserSession:
         self.signature = None
         self.context_evidence = {}
         self.fields = []
+        self.steps = []
+        self.blocked_mutations = 0
+        self.has_frames = False
+        self.in_page_mode = False
+        self.blocked_step_requests = 0
 
     async def route(self, route):
         request = route.request
+        # Reviewed filling and client-only steps cannot save/submit through GET, POST or delayed
+        # callbacks. Explicit manual takeover releases this network isolation.
+        if self.in_page_mode and not self.manual and self.submission is None:
+            self.blocked_step_requests += 1
+            if request.method not in {"GET", "HEAD"}:
+                self.blocked_mutations += 1
+            await route.abort("blockedbyclient")
+            return
         try:
             allowed = origin(request.url) == self.target
         except HTTPException:
@@ -143,6 +157,8 @@ class BrowserSession:
         if allowed:
             await route.continue_()
         else:
+            if request.method not in {"GET", "HEAD"}:
+                self.blocked_mutations += 1
             await route.abort("blockedbyclient")
 
     async def scan(self):
@@ -160,7 +176,13 @@ class BrowserSession:
             "url": self.page.url,
             "title": result["title"],
             "heading": result["heading"],
+            "step": result.get("step_heading", ""),
         }
+        self.steps = [
+            StepControl.model_validate(step).model_dump()
+            for step in result.get("steps", [])
+        ]
+        self.has_frames = result["has_frames"]
         self.signature = digest(
             {"form": result["signature"], "context": self.context_evidence}
         )
@@ -179,6 +201,9 @@ class BrowserSession:
         return fields, warnings
 
     async def fill(self, field, value=None, upload=None):
+        # Input/change handlers are untrusted and may submit through any method.
+        # Keep isolation after filling, including delayed callbacks, until takeover.
+        self.in_page_mode = True
         element = self.page.locator(f'[data-aa-field="{field["key"]}"]')
         if await element.count() != 1:
             raise HTTPException(409, "Form changed; analyze again")
@@ -186,6 +211,36 @@ class BrowserSession:
             await element.set_input_files(upload)
         elif field["kind"] == "select":
             await element.select_option(label=value)
+        elif field["kind"] == "radio_group":
+            choice = element.get_by_role("radio", name=value, exact=True)
+            if await choice.count() != 1:
+                raise HTTPException(409, "Radio options changed; analyze again")
+            if await choice.evaluate("e => e.matches('input[type=radio]')"):
+                await choice.check(timeout=5000)
+            else:
+                await choice.click(timeout=5000)
+            selected = await choice.evaluate(
+                "e => e.matches('input[type=radio]') ? e.checked && e.validity.valid : e.getAttribute('aria-checked') === 'true'"
+            )
+            count = await element.evaluate(
+                "e => [...e.querySelectorAll('input[type=radio],[role=radio]')].filter(r => r.checked || r.getAttribute('aria-checked') === 'true').length"
+            )
+            return selected and count == 1
+        elif field["kind"] == "combobox":
+            if value not in field["options"]:
+                raise HTTPException(
+                    409, "Custom dropdown choice changed; analyze again"
+                )
+            await element.click(timeout=5000)
+            options = self.page.locator(f'[data-aa-options="{field["key"]}"]')
+            choice = options.get_by_role("option", name=value, exact=True)
+            if await options.count() != 1 or await choice.count() != 1:
+                raise HTTPException(409, "Custom dropdown changed; take over manually")
+            await choice.click(timeout=5000)
+            return await element.evaluate(
+                "(e, expected) => e.getAttribute('aria-expanded') === 'false' && (e.tagName === 'INPUT' ? e.value === expected && e.validity.valid : e.innerText.trim() === expected)",
+                value,
+            )
         else:
             await element.fill(value)
         # DOM validity is evidence of completeness, never proof of submission.

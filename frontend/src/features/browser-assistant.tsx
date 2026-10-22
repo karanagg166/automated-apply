@@ -8,11 +8,13 @@ import { Button, Field, Input, Notice, ErrorState } from "@/components/ui";
 
 import { BrowserSubmission, Execution } from "@/features/browser-submission";
 import { OpportunityContext } from "@/features/opportunity-context";
+import { BrowserSteps } from "@/features/browser-steps";
 
 type BrowserStatus = {
   packet: Schema<"PacketRead">;
   connected: boolean;
   manual: boolean;
+  in_page_network_isolation?: boolean;
   recovery: string | null;
   automated_submission_enabled: boolean;
   owner_consent_available: boolean;
@@ -29,6 +31,7 @@ type BrowserStatus = {
       kind: string;
       manual_reason: string | null;
     }[];
+    steps?: { label: string; supported: boolean }[];
     validation: {
       field_id: string;
       complete: boolean;
@@ -247,6 +250,24 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
           )
         }
       />
+      <BrowserSteps
+        packetId={packet.id}
+        revision={packet.revision}
+        enabled={
+          state?.analysis?.steps?.some((step) => step.supported) || false
+        }
+        ownerAvailable={state?.owner_consent_available || false}
+        blocked={busy || !state?.connected || !!state?.manual}
+        setBusy={setBusy}
+        refresh={async () => {
+          setReviewed(false);
+          setContextConfirmed(false);
+          setState(
+            await api<BrowserStatus>(`browser-applications/${packet.id}`),
+          );
+          await client.invalidateQueries();
+        }}
+      />
       {state?.opportunity_context_available && (
         <OpportunityContext
           packetId={packet.id}
@@ -266,6 +287,13 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
       )}
       {error && <ErrorState error={error} />}
       {state?.recovery && <Notice>{state.recovery}</Notice>}
+      {state?.in_page_network_isolation && (
+        <Notice>
+          During filling and in-page step review, this browser pauses page
+          network activity. Use Take Over for steps that need a server save or
+          navigation.
+        </Notice>
+      )}
       {state?.analysis && (
         <>
           <p>
@@ -336,10 +364,10 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
               ))}
           </ul>
           <p>
-            Edit and review detected answers in Application fields below. For
-            another step, use Take Over to navigate, then Analyze again. After
-            manual submission, record the receipt using the existing submission
-            report.
+            Edit and review detected answers in Application fields below. Use
+            next-step review for supported in-page forms. Use Take Over for
+            server-dependent navigation or unsupported controls. After manual
+            submission, record the receipt using the existing submission report.
           </p>
         </>
       )}

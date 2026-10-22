@@ -94,6 +94,15 @@ async def status(session, packet_id):
     recovery = None
     if packet.lifecycle_state in {"submitting", "submission_unknown"}:
         recovery = "Check the saved submission receipt; do not resubmit or reopen this application."
+    elif (current and current.blocked_step_requests and not current.manual) or (
+        saved and saved.value.get("diagnostic") == "network_activity_requires_takeover"
+    ):
+        recovery = "This form tried to send data during assistance. Requests were blocked; never replay interrupted actions. Take Over to continue manually, then analyze again."
+    elif saved and saved.value.get("diagnostic") in {
+        "step_started",
+        "step_handoff_required",
+    }:
+        recovery = "A step was interrupted or needs manual work. Inspect the website with Take Over and analyze again; never replay the previous step action."
     elif (
         packet.lifecycle_state
         not in {"provider_confirmed_submitted", "user_reported_submitted"}
@@ -104,6 +113,9 @@ async def status(session, packet_id):
         "packet": packet.model_dump(mode="json"),
         "connected": bool(current and not current.page.is_closed()),
         "manual": bool(current and current.manual),
+        "in_page_network_isolation": bool(
+            current and current.in_page_mode and not current.manual
+        ),
         "analysis": saved.value if saved else None,
         "submission_mode": "mock_only"
         if adapter.submission_enabled
@@ -151,7 +163,7 @@ async def analyze(session, packet, service, runtime):
                 field_type="yes_no"
                 if kind == "checkbox"
                 else "multiple_choice"
-                if kind == "select" and field["options"]
+                if kind in {"select", "radio_group", "combobox"} and field["options"]
                 else "file"
                 if kind == "file"
                 else "textarea"
@@ -160,7 +172,7 @@ async def analyze(session, packet, service, runtime):
                 options=["Yes", "No"]
                 if kind == "checkbox"
                 else field["options"]
-                if kind == "select"
+                if kind in {"select", "radio_group", "combobox"}
                 else [],
                 max_characters=field["max_characters"],
             )
@@ -189,6 +201,10 @@ async def analyze(session, packet, service, runtime):
         "diagnostic": "analyzed",
         "filled_field_ids": [],
         "validation": [],
+        "steps": [
+            {k: v for k, v in step.items() if k != "key"} for step in runtime.steps
+        ],
+        "step_history": old.value.get("step_history", []),
     }
     # finish() runs the existing readiness evaluator and emits an existing audited event type.
     await service.finish(
@@ -326,6 +342,8 @@ async def fill(session, packet, service, runtime, confirm, confirm_context=False
     await service.locked(packet.id, packet.revision)
     filled = []
     try:
+        if runtime.blocked_step_requests:
+            raise HTTPException(409, "Network-dependent form requires manual takeover")
         for actual, item, value, upload in plan:
             # Dynamic questions may appear after any change. Stop before addressing a changed form.
             fresh, _ = await runtime.unchanged(saved.value["signature"])
@@ -336,6 +354,8 @@ async def fill(session, packet, service, runtime, confirm, confirm_context=False
             )
             valid = await runtime.fill(fresh[index], value=value, upload=upload)
             filled.append(str(item.id))
+            if runtime.blocked_step_requests:
+                raise HTTPException(409, "Network-dependent form requires manual takeover")
             validation.append(
                 {
                     "field_id": str(item.id),
@@ -344,9 +364,15 @@ async def fill(session, packet, service, runtime, confirm, confirm_context=False
                 }
             )
         await runtime.unchanged(saved.value["signature"])
+        if runtime.blocked_step_requests:
+            raise HTTPException(409, "Network-dependent form requires manual takeover")
         diagnostic = "filled_review_on_website"
     except Exception:
-        diagnostic = "interrupted_reanalyze_before_retry"
+        diagnostic = (
+            "network_activity_requires_takeover"
+            if runtime.blocked_step_requests
+            else "interrupted_reanalyze_before_retry"
+        )
     saved.value = {
         **saved.value,
         "diagnostic": diagnostic,
