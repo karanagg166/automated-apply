@@ -82,3 +82,77 @@ test("owner dashboard analyzes and fills using real FastAPI, PostgreSQL and a de
   const body = await page.locator("body").innerText();
   expect(body).not.toContain("fictional-browser-demo-owner-token");
 });
+
+test("owner authorizes a mock application and sees the independently verified receipt", async ({
+  page,
+}) => {
+  const { mock_packet_id } = JSON.parse(
+    readFileSync("../reports/browser-mock.private.json", "utf8"),
+  );
+  await page.goto("/login");
+  await page
+    .getByLabel("Owner passphrase")
+    .fill("fictional-ui-owner-passphrase");
+  await page.getByRole("button", { name: "Enter workspace" }).click();
+  await expect(page).toHaveURL("/");
+  await page.goto(`/applications/${mock_packet_id}`);
+  await page
+    .getByLabel("I approve a dedicated browser profile", { exact: false })
+    .check();
+  await page.getByRole("button", { name: "Open dedicated browser" }).click();
+  await expect(
+    page.getByRole("button", { name: "Analyze Application" }),
+  ).toBeEnabled({ timeout: 45000 });
+  await page.getByRole("button", { name: "Analyze Application" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: /^analyzed$/ }),
+  ).toBeVisible({ timeout: 45000 });
+  await page
+    .getByLabel(
+      "I reviewed the current answers, destination and selected resume below.",
+    )
+    .check();
+  await page
+    .getByLabel("I confirmed the actual page belongs to this company and job.")
+    .check();
+  await page.getByRole("button", { name: "Fill supported fields" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "filled review on website" }),
+  ).toBeVisible({ timeout: 45000 });
+  await page
+    .getByLabel("I confirmed the actual page belongs to this company and job.")
+    .check();
+  await page
+    .getByRole("button", {
+      name: "Select on website: I consent to data processing",
+    })
+    .click();
+  await page.getByRole("button", { name: "Review exact submission" }).click();
+  await expect(
+    page.getByText("I consent to data processing", { exact: false }).last(),
+  ).toBeVisible();
+  await page
+    .getByLabel("I reviewed this selected consent or answer:", { exact: false })
+    .check();
+  await page
+    .getByLabel("I authorize this exact fictional application", {
+      exact: false,
+    })
+    .check();
+  await page.getByRole("button", { name: "Authorize mock submission" }).click();
+  await expect(
+    page.getByRole("button", { name: "Submit", exact: true }),
+  ).toBeEnabled();
+  await page.getByRole("button", { name: "Submit", exact: true }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Mock submission: verified" }),
+  ).toBeVisible({ timeout: 45000 });
+  await expect(
+    page.getByText("Verified mock receipt: MOCK-", { exact: false }),
+  ).toBeVisible();
+  await page.reload();
+  await page.getByRole("button", { name: "Get status" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Mock submission: verified" }),
+  ).toBeVisible();
+});

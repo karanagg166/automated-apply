@@ -29,12 +29,15 @@ Lifecycle = Literal[
     "external_application_opened",
     "user_reported_submitted",
     "provider_confirmed_submitted",
+    "submitting",
+    "submission_unknown",
     "withdrawn",
     "abandoned",
 ]
 Tracking = Literal[
     "not_applied",
     "applied_manually",
+    "applied_verified",
     "application_incomplete",
     "application_rejected",
     "interview_scheduled",
@@ -49,6 +52,7 @@ ReadinessState = Literal[
     "ready_for_manual_handoff",
     "manual_action_required",
     "completed_by_user",
+    "completed_verified",
     "unsupported",
 ]
 FieldCategory = Literal[
@@ -317,10 +321,10 @@ class SubmissionRead(Contract):
     id: UUID
     packet_id: UUID
     packet_revision: int
-    confirmation_source: Literal["user_reported"]
+    confirmation_source: Literal["user_reported", "mock_employer"]
     receipt_reference: str | None
-    evidence_confidence: Literal["self_reported_unverified"]
-    human_confirmed: Literal[True]
+    evidence_confidence: Literal["self_reported_unverified", "mock_receipt_verified"]
+    human_confirmed: bool
     created_at: datetime
 
 

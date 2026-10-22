@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 
-async def run(url, serve=False):
+async def run(url, serve=False, submission_demo=False, receipt_mode="valid"):
     import asyncpg
     import httpx
     import uvicorn
@@ -51,6 +51,17 @@ async def run(url, serve=False):
                     await connection.execute(f'CREATE ROLE "{role}" NOLOGIN')
             for migration in sorted((ROOT / "supabase/migrations").glob("*.sql")):
                 await connection.execute(migration.read_text())
+            if submission_demo:
+                await connection.execute(
+                    (
+                        ROOT / "backend/app/browser/migrations/001_mock_submission.sql"
+                    ).read_text()
+                )
+                for role in ("anon", "authenticated", "service_role"):
+                    assert not await connection.fetchval(
+                        "SELECT has_table_privilege($1,'job_agent.browser_submission_attempts','SELECT,INSERT,UPDATE,DELETE')",
+                        role,
+                    )
             assert not await connection.fetchval(
                 "SELECT has_table_privilege('anon','job_agent.owner_preferences','SELECT')"
             )
@@ -72,9 +83,11 @@ async def run(url, serve=False):
                 ENVIRONMENT="testing",
                 LOG_LEVEL="WARNING",
                 DATABASE_URL=child.replace("postgresql://", "postgresql+asyncpg://", 1),
-                SECRET_KEY="fictional-browser-demo-only", # pragma: allowlist secret — fictional local test value
+                SECRET_KEY="fictional-browser-demo-only",  # pragma: allowlist secret — fictional local test value
                 JOB_AGENT_API_TOKEN="fictional-browser-demo-owner-token",
                 BROWSER_ASSISTANT_ENABLED=True,
+                BROWSER_MOCK_SUBMISSION_ENABLED=submission_demo,
+                BROWSER_OWNER_APPROVAL_KEY="fictional-owner-approval-separate-from-cli-token",  # pragma: allowlist secret — isolated fixture only
                 BROWSER_ALLOWED_ORIGINS=[employer],
                 BROWSER_PROFILE_ROOT=str(Path(directory).resolve() / "profiles"),
                 BROWSER_CHANNEL="chromium",
@@ -138,23 +151,30 @@ async def run(url, serve=False):
                 )
                 await session.commit()
             server = uvicorn.Server(
-                uvicorn.Config(app, host="127.0.0.1", port=8767, log_level="warning")
+                uvicorn.Config(
+                    app,
+                    host="127.0.0.1",
+                    port=8767 if serve else 0,
+                    log_level="warning",
+                )
             )
             task = asyncio.create_task(server.serve())
+            for _ in range(100):
+                if server.started:
+                    break
+                await asyncio.sleep(0.1)
+            else:
+                raise RuntimeError("Local API did not start")
+            actual_port = server.servers[0].sockets[0].getsockname()[1]
             async with httpx.AsyncClient(
-                base_url="http://127.0.0.1:8767",
+                base_url=f"http://127.0.0.1:{actual_port}",
                 timeout=60,
                 headers={"Authorization": "Bearer fictional-browser-demo-owner-token"},
                 trust_env=False,
             ) as client:
-                for _ in range(100):
-                    if server.started:
-                        break
-                    await asyncio.sleep(0.1)
-                else:
-                    raise RuntimeError("Local API did not start")
                 payload = {
-                    "application_url": employer + "/basic",
+                    "application_url": employer
+                    + ("/mock/apply" if submission_demo else "/basic"),
                     "company_name": "Example Circuit",
                     "job_title": "Backend Engineer",
                     "idempotency_key": "browser-pg-demo-001",
@@ -165,6 +185,19 @@ async def run(url, serve=False):
                 assert response.status_code == 200, response.text
                 packet = response.json()
                 if serve:
+                    mock_packet_id = packet["id"] if submission_demo else None
+                    if submission_demo:
+                        assisted = await client.post(
+                            "/api/v1/browser-applications",
+                            json={
+                                "application_url": employer + "/basic",
+                                "company_name": "Example Circuit",
+                                "job_title": "Backend Engineer assisted fixture",
+                                "idempotency_key": "browser-assisted-001",
+                            },
+                        )
+                        assert assisted.status_code == 200, assisted.text
+                        packet = assisted.json()
                     # This fictional URL/packet manifest contains no credentials or personal data.
                     output = ROOT / "reports/browser-mock.private.json"
                     output.parent.mkdir(exist_ok=True)
@@ -173,6 +206,7 @@ async def run(url, serve=False):
                             {
                                 "packet_id": packet["id"],
                                 "employer_url": employer + "/basic",
+                                "mock_packet_id": mock_packet_id,
                             }
                         )
                     )
@@ -253,45 +287,175 @@ async def run(url, serve=False):
                     )
                     assert sum(isinstance(r, str) for r in reservations) == 1
                     assert sum(isinstance(r, ProviderError) for r in reservations) == 4
-                    # Actual manual submission in a fictional site, with real receipt and explicit owner report.
-                    await client.post(
-                        route + "/actions",
-                        json={"expected_revision": revision, "action": "take_over"},
-                    )
-                    await page.locator("[name=ctc]").fill(
-                        "Fictional value supplied manually"
-                    )
-                    await page.locator("[type=checkbox]").check()
-                    await page.locator("[type=submit]").click()
-                    await page.wait_for_url(employer + "/receipt")
-                    assert "MOCK-ONLY-123" in await page.inner_text("body")
-                    assert writes == ["/receipt"]
-                    response = await client.post(
-                        "/api/v1/application-packets/"
-                        + packet["id"]
-                        + "/report-submission",
-                        json={
+                    if submission_demo:
+                        await page.locator("[type=checkbox]").check()
+                        response = await client.post(
+                            route + "/submission-preview",
+                            json={
+                                "expected_revision": revision,
+                                "confirm_page_context": True,
+                            },
+                        )
+                        assert response.status_code == 200, response.text
+                        preview = response.json()
+                        import json
+                        import time
+
+                        from backend.app.browser.owner_approval import approval_header
+
+                        owner_body = {
                             "expected_revision": revision,
-                            "idempotency_key": "mock-owner-receipt-001",
-                            "human_confirmed": True,
-                            "confirmation": "I submitted this application on the official website",
-                            "receipt_reference": "MOCK-ONLY-123",
-                        },
-                    )
-                    assert response.status_code == 200, response.text
-                    await browser.close(packet["id"])
-                    await close_db_engine()
-                    # A new engine reads durable evidence after the browser and connections are closed.
-                    response = await client.get(route)
-                    assert response.status_code == 200, response.text
-                    assert (
-                        response.json()["packet"]["lifecycle_state"]
-                        == "user_reported_submitted"
-                    )
-                    assert not response.json()["connected"]
-                    print(
-                        "PASS: PG17 + TCP FastAPI + real Chromium analysis/fill + manual mock receipt + durable owner report; no automated submission"
-                    )
+                            "preview_digest": preview["preview_digest"],
+                            "confirm_exact_application": True,
+                            "reviewed_consent_ids": [
+                                c["consent_id"]
+                                for c in preview["consents"]
+                                if c["checked"]
+                            ],
+                        }
+                        raw_body = json.dumps(owner_body).encode()
+                        proof = approval_header(
+                            settings.BROWSER_OWNER_APPROVAL_KEY.get_secret_value(),
+                            route + "/authorize-submission",
+                            raw_body,
+                            nonce=uuid4().hex,
+                            timestamp=int(time.time()),
+                        )
+                        response = await client.post(
+                            route + "/authorize-submission",
+                            content=raw_body,
+                            headers={
+                                "Content-Type": "application/json",
+                                "X-Browser-Owner-Approval": proof,
+                            },
+                        )
+                        assert response.status_code == 200, response.text
+                        grant = response.json()
+                        command = {
+                            "expected_revision": revision,
+                            "grant_id": grant["grant_id"],
+                            "grant_token": grant["grant_token"],
+                            "idempotency_key": "mock-authorized-dispatch-001",
+                        }
+                        writes.mode = receipt_mode
+                        from uuid import UUID
+
+                        from backend.app.browser.submission_contracts import (
+                            SubmitApproved,
+                        )
+                        from backend.app.browser.submissions import submit
+
+                        async def independent_worker():
+                            async with get_session_factory()() as worker_session:
+                                outcome = await submit(
+                                    worker_session,
+                                    UUID(packet["id"]),
+                                    SubmitApproved.model_validate(command),
+                                )
+                                await worker_session.commit()
+                                return outcome
+
+                        # No shared Python browser lock: PostgreSQL serializes independent transactions.
+                        attempts = await asyncio.gather(
+                            independent_worker(), independent_worker()
+                        )
+                        expected_outcome = (
+                            "verified" if receipt_mode == "valid" else "unknown"
+                        )
+                        assert any(
+                            outcome["state"] == expected_outcome for outcome in attempts
+                        ), attempts
+                        assert attempts[0]["attempt_id"] == attempts[1]["attempt_id"]
+                        assert writes == ["/mock/applications"]
+                        await browser.close(packet["id"])
+                        await close_db_engine()
+                        state = (await client.get(route)).json()
+                        if receipt_mode != "valid":
+                            assert (
+                                state["packet"]["lifecycle_state"]
+                                == "submission_unknown"
+                            )
+                            replay = await client.post(route + "/submit", json=command)
+                            assert replay.json()["state"] == "unknown"
+                            writes.mode = "valid"
+                            worker = await asyncio.create_subprocess_exec(
+                                sys.executable,
+                                str(
+                                    ROOT
+                                    / "backend/scripts/verify_browser_submission.py"
+                                ),
+                                "--recover-worker",
+                                packet["id"],
+                                env={
+                                    **os.environ,
+                                    "BROWSER_FIXTURE_DATABASE_URL": child,
+                                    "BROWSER_FIXTURE_ORIGIN": employer,
+                                },
+                                stdout=asyncio.subprocess.PIPE,
+                                stderr=asyncio.subprocess.PIPE,
+                            )
+                            output, error = await asyncio.wait_for(
+                                worker.communicate(), timeout=30
+                            )
+                            assert worker.returncode == 0, error.decode()
+                            assert json.loads(output)["state"] == "verified", (
+                                output.decode()
+                            )
+                            state = (await client.get(route)).json()
+                            assert writes == ["/mock/applications"]
+                        assert (
+                            state["packet"]["lifecycle_state"]
+                            == "provider_confirmed_submitted"
+                        )
+                        assert (
+                            state["execution"]["receipt"]["fixture"]
+                            == "automated-apply-employer-v1"
+                        )
+                        assert state["real_employer_submission_enabled"] is False
+                        print(
+                            "PASS: PG17 durable owner grant + concurrent one-dispatch admission + actual mock POST + independent receipt + restart persistence; no real employer submission"
+                        )
+                    else:
+                        # Actual manual submission in a fictional site, with real receipt and explicit owner report.
+                        await client.post(
+                            route + "/actions",
+                            json={"expected_revision": revision, "action": "take_over"},
+                        )
+                        await page.locator("[name=ctc]").fill(
+                            "Fictional value supplied manually"
+                        )
+                        await page.locator("[type=checkbox]").check()
+                        await page.locator("[type=submit]").click()
+                        await page.wait_for_url(employer + "/receipt")
+                        assert "MOCK-ONLY-123" in await page.inner_text("body")
+                        assert writes == ["/receipt"]
+                        response = await client.post(
+                            "/api/v1/application-packets/"
+                            + packet["id"]
+                            + "/report-submission",
+                            json={
+                                "expected_revision": revision,
+                                "idempotency_key": "mock-owner-receipt-001",
+                                "human_confirmed": True,
+                                "confirmation": "I submitted this application on the official website",
+                                "receipt_reference": "MOCK-ONLY-123",
+                            },
+                        )
+                        assert response.status_code == 200, response.text
+                        await browser.close(packet["id"])
+                        await close_db_engine()
+                        # A new engine reads durable evidence after the browser and connections are closed.
+                        response = await client.get(route)
+                        assert response.status_code == 200, response.text
+                        assert (
+                            response.json()["packet"]["lifecycle_state"]
+                            == "user_reported_submitted"
+                        )
+                        assert not response.json()["connected"]
+                        print(
+                            "PASS: PG17 + TCP FastAPI + real Chromium analysis/fill + manual mock receipt + durable owner report; no automated submission"
+                        )
+
             for key in list(browser.sessions):
                 await browser.close(key)
             await close_db_engine()

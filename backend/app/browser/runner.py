@@ -88,6 +88,7 @@ class BrowserSession:
         self.context, self.page = context, page
         self.target, self.url, self.playwright = target, url, playwright
         self.manual, self.navigating = False, True
+        self.submission = None
         self.signature = None
         self.context_evidence = {}
         self.fields = []
@@ -98,6 +99,43 @@ class BrowserSession:
             allowed = origin(request.url) == self.target
         except HTTPException:
             allowed = False
+        if self.submission and request.method == "POST":
+            dispatch = self.submission
+            from backend.app.browser.payload import reviewed_multipart
+
+            try:
+                exact_body = reviewed_multipart(
+                    request.post_data_buffer,
+                    request.headers.get("content-type", ""),
+                    dispatch["id"],
+                    dispatch["digest"],
+                )
+            except Exception:
+                exact_body = False
+            allowed = (
+                allowed
+                and not dispatch["used"]
+                and request.url == dispatch["action"]
+                and exact_body
+            )
+            if allowed:
+                dispatch["used"] = True
+            if allowed:
+                await route.continue_()
+            else:
+                await route.abort("blockedbyclient")
+            return
+        if self.submission and request.is_navigation_request():
+            allowed = (
+                allowed
+                and request.method == "GET"
+                and request.url == self.submission["receipt_url"]
+            )
+            if allowed:
+                await route.continue_()
+            else:
+                await route.abort("blockedbyclient")
+            return
         if not self.manual:
             allowed = allowed and request.method in {"GET", "HEAD"}
             if request.is_navigation_request():
@@ -152,6 +190,34 @@ class BrowserSession:
             await element.fill(value)
         # DOM validity is evidence of completeness, never proof of submission.
         return await element.evaluate("(e) => e.validity ? e.validity.valid : false")
+
+    async def submit_mock(self, adapter, attempt_id, payload_digest):
+        # The route allows only one exact mock POST and its exact receipt navigation.
+        self.submission = {
+            "id": attempt_id,
+            "digest": payload_digest,
+            "action": adapter.action,
+            "receipt_url": adapter.base + "/mock/receipt/" + str(attempt_id),
+            "used": False,
+        }
+        try:
+            await self.page.evaluate(
+                """data => {
+              const f = document.forms[0];
+              f.elements.namedItem('_aa_attempt_id').value = data.id;
+              f.elements.namedItem('_aa_payload_digest').value = data.digest;
+              window.__aaManual = true;
+            }""",
+                {"id": str(attempt_id), "digest": payload_digest},
+            )
+            await self.page.locator(
+                'form[data-aa-mock-fixture] button[type="submit"]'
+            ).click(timeout=5000)
+            await self.page.wait_for_url(self.submission["receipt_url"], timeout=10000)
+        finally:
+            self.submission = None
+            if not self.page.is_closed():
+                await self.page.evaluate("window.__aaManual = false")
 
     async def close(self):
         await self.context.close()

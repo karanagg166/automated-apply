@@ -56,6 +56,10 @@ async def lifespan(app: FastAPI):
             await close_db_engine()
             raise RuntimeError("Database startup probe failed") from None
 
+    if settings.ENVIRONMENT == "testing" and settings.BROWSER_MOCK_SUBMISSION_ENABLED:
+        from backend.app.browser.submissions import reconcile_expired
+        async with get_session_factory()() as session:
+            await reconcile_expired(session)
     try:
         async with mcp_app.lifespan(app):
             yield

@@ -43,6 +43,8 @@ export function pipelineColumn(
     {
       created: "Preparing",
       preparing: "Preparing",
+      submitting: "Submitting",
+      submission_unknown: "Submission Unknown",
       needs_input: "Preparing",
       ready_for_review: "Ready for Review",
       reviewed: "Ready for Review",
@@ -69,6 +71,8 @@ export function Applications() {
   const columns = [
     "Preparing",
     "Ready for Review",
+    "Submitting",
+    "Submission Unknown",
     "Approved / Manual Handoff",
     "Applied — User Reported",
     "Applied — Provider Confirmed",
@@ -260,6 +264,8 @@ function AnswerField({
   const terminal = [
     "user_reported_submitted",
     "provider_confirmed_submitted",
+    "submitting",
+    "submission_unknown",
   ].includes(packet.lifecycle_state);
   return (
     <div className="evidence-item">
@@ -472,6 +478,8 @@ export function ApplicationDetail({ id }: { id: string }) {
   const terminal = [
     "user_reported_submitted",
     "provider_confirmed_submitted",
+    "submitting",
+    "submission_unknown",
   ].includes(p.lifecycle_state);
   return (
     <>

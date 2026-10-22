@@ -24,6 +24,8 @@ from backend.app.services.applications.resume_selector import digest
 TERMINAL = {
     "user_reported_submitted",
     "provider_confirmed_submitted",
+    "submitting",
+    "submission_unknown",
     "withdrawn",
     "abandoned",
 }
@@ -128,6 +130,12 @@ class ApplicationPacketService:
                 "manual_action_required",
                 ["This packet is closed; no handoff is available"],
             )
+        if packet.lifecycle_state == "provider_confirmed_submitted":
+            eligible.state = "completed_verified"
+            eligible.warnings = [w for w in eligible.warnings if "self-reported" not in w]
+        if packet.lifecycle_state in {"submitting", "submission_unknown"}:
+            eligible.state = "manual_action_required"
+            eligible.blockers = ["Submission outcome must be reconciled; never resubmit this application"]
         return PacketRead(
             id=packet.id,
             job_id=packet.job_id,

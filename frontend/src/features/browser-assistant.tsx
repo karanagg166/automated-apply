@@ -6,11 +6,16 @@ import { useQueryClient } from "@tanstack/react-query";
 import { api, post, Schema } from "@/lib/api";
 import { Button, Field, Input, Notice, ErrorState } from "@/components/ui";
 
+import { BrowserSubmission, Execution } from "@/features/browser-submission";
+
 type BrowserStatus = {
   packet: Schema<"PacketRead">;
   connected: boolean;
   manual: boolean;
   recovery: string | null;
+  automated_submission_enabled: boolean;
+  owner_consent_available: boolean;
+  execution: Execution | null;
   analysis: {
     diagnostic: string;
     page_context: { url: string; title: string; heading: string };
@@ -19,6 +24,7 @@ type BrowserStatus = {
       field_id: string;
       question: string;
       supported: boolean;
+      kind: string;
       manual_reason: string | null;
     }[];
     validation: {
@@ -93,6 +99,29 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
   const [permission, setPermission] = useState(false);
   const [reviewed, setReviewed] = useState(false);
   const [contextConfirmed, setContextConfirmed] = useState(false);
+  async function consent(fieldId: string, checked: boolean) {
+    setBusy(true);
+    setError(null);
+    try {
+      if (!contextConfirmed)
+        throw new Error(
+          "Confirm the actual company and job before selecting consent.",
+        );
+      setState(
+        await post<BrowserStatus>(`browser-applications/${packet.id}/consent`, {
+          expected_revision: packet.revision,
+          field_id: fieldId,
+          checked,
+          confirm_page_context: contextConfirmed,
+        }),
+      );
+      await client.invalidateQueries();
+    } catch (e) {
+      setError(e as Error);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function run(action: string) {
     setBusy(true);
     setError(null);
@@ -173,9 +202,6 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
         <Button disabled={busy} onClick={() => run("cancel")}>
           Cancel
         </Button>
-        <Button disabled title="No employer submission adapter is authorized">
-          Submit
-        </Button>
       </div>
       <label>
         <input
@@ -206,6 +232,19 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
       >
         Fill supported fields
       </Button>
+      <BrowserSubmission
+        key={packet.revision}
+        packetId={packet.id}
+        revision={packet.revision}
+        enabled={state?.automated_submission_enabled || false}
+        blocked={busy}
+        execution={state?.execution || null}
+        refresh={async () =>
+          setState(
+            await api<BrowserStatus>(`browser-applications/${packet.id}`),
+          )
+        }
+      />
       {error && <ErrorState error={error} />}
       {state?.recovery && <Notice>{state.recovery}</Notice>}
       {state?.analysis && (
@@ -226,6 +265,40 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
               <li key={f.field_id}>
                 {f.question}
                 {!f.supported && ` — ${f.manual_reason}`}
+                {f.kind === "checkbox" && state.owner_consent_available && (
+                  <span className="actions">
+                    <Button
+                      disabled={
+                        busy ||
+                        !contextConfirmed ||
+                        state.manual ||
+                        [
+                          "submitting",
+                          "submission_unknown",
+                          "provider_confirmed_submitted",
+                        ].includes(packet.lifecycle_state)
+                      }
+                      onClick={() => consent(f.field_id, true)}
+                    >
+                      Select on website: {f.question}
+                    </Button>
+                    <Button
+                      disabled={
+                        busy ||
+                        !contextConfirmed ||
+                        state.manual ||
+                        [
+                          "submitting",
+                          "submission_unknown",
+                          "provider_confirmed_submitted",
+                        ].includes(packet.lifecycle_state)
+                      }
+                      onClick={() => consent(f.field_id, false)}
+                    >
+                      Clear on website: {f.question}
+                    </Button>
+                  </span>
+                )}
               </li>
             ))}
           </ul>

@@ -80,16 +80,39 @@ async def status(session, packet_id):
     packet = await ApplicationPacketService(session).read(packet_id)
     saved = await metadata(session, packet_id)
     current = browser.sessions.get(str(packet_id))
+    from backend.app.browser.adapters import execution_adapter
+
+    adapter = execution_adapter(
+        packet.snapshot.destination.application_url, get_settings()
+    )
+    execution = None
+    if adapter.submission_enabled:
+        from backend.app.browser.submissions import attempt_for, attempt_output
+
+        attempt = await attempt_for(session, packet_id)
+        execution = attempt_output(attempt) if attempt else None
+    recovery = None
+    if packet.lifecycle_state in {"submitting", "submission_unknown"}:
+        recovery = "Check the saved submission receipt; do not resubmit or reopen this application."
+    elif (
+        packet.lifecycle_state
+        not in {"provider_confirmed_submitted", "user_reported_submitted"}
+        and not current
+    ):
+        recovery = "Open a dedicated session and reanalyze; no action is replayed"
     return {
         "packet": packet.model_dump(mode="json"),
         "connected": bool(current and not current.page.is_closed()),
         "manual": bool(current and current.manual),
         "analysis": saved.value if saved else None,
-        "submission_mode": "manual_handoff",
-        "automated_submission_enabled": False,
-        "recovery": None
-        if current
-        else "Open a dedicated session and reanalyze; no action is replayed",
+        "submission_mode": "mock_only"
+        if adapter.submission_enabled
+        else "manual_handoff",
+        "automated_submission_enabled": adapter.submission_enabled,
+        "real_employer_submission_enabled": False,
+        "owner_consent_available": bool(get_settings().BROWSER_OWNER_APPROVAL_KEY),
+        "execution": execution,
+        "recovery": recovery,
     }
 
 
@@ -124,14 +147,20 @@ async def analyze(session, packet, service, runtime):
             question = QuestionInput(
                 question=field["question"],
                 required=field["required"],
-                field_type="multiple_choice"
+                field_type="yes_no"
+                if kind == "checkbox"
+                else "multiple_choice"
                 if kind == "select" and field["options"]
                 else "file"
                 if kind == "file"
                 else "textarea"
                 if kind == "textarea"
                 else "text",
-                options=field["options"] if kind == "select" else [],
+                options=["Yes", "No"]
+                if kind == "checkbox"
+                else field["options"]
+                if kind == "select"
+                else [],
                 max_characters=field["max_characters"],
             )
             answer = await service.builder.answers.build(

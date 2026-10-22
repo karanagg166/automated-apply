@@ -13,7 +13,7 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
     {
-      command: `${process.env.PYTHON || "../backend/venv/bin/python"} ../backend/scripts/browser_mock_demo.py --serve`,
+      command: `${process.env.PYTHON || "../backend/venv/bin/python"} ../backend/scripts/verify_browser_submission.py --serve`,
       url: "http://127.0.0.1:8767/health",
       reuseExistingServer: false,
       timeout: 60000,
@@ -33,6 +33,8 @@ export default defineConfig({
         FRONTEND_LOCAL_HTTP: "true",
         BACKEND_ORIGIN: "http://127.0.0.1:8767",
         JOB_AGENT_API_TOKEN: "fictional-browser-demo-owner-token",
+        BROWSER_OWNER_APPROVAL_KEY:
+          "fictional-owner-approval-separate-from-cli-token", // pragma: allowlist secret — fixture only
         FRONTEND_SESSION_SECRET: "fictional-browser-workspace-session-secret", // pragma: allowlist secret — fictional test configuration
         FRONTEND_PASSWORD_HASH: `${salt}:${scryptSync(password, salt, 64).toString("hex")}`,
       },

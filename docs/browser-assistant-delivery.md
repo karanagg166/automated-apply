@@ -1,7 +1,7 @@
 # Browser assistant delivery and ordered backlog
 
 This is the first safe, testable assisted-browser slice. The ten requested phases
-are not all complete. No employer adapter has automated submission authorization.
+are not all complete. No real employer adapter has automated submission authorization. A separately gated fictional loopback adapter now exercises exact authorization, durable dispatch and independent receipt verification.
 
 | Phase | Delivered in this slice | Remaining acceptance work |
 |---|---|---|
@@ -9,11 +9,11 @@ are not all complete. No employer adapter has automated submission authorization
 | 2 Browser | Real Playwright dedicated profile, native form inventory, factual mapping, reviewed filling, validation, manual takeover/cancel | Wider custom widgets, cross-origin ATS frames, destination-reviewed multistep navigation and submission |
 | 3 Knowledge | Reuses protected structured profile, projects/evidence, resources, encrypted resumes and packet answers | Structured current/expected compensation, availability/relocation fields and approved reusable answer management |
 | 4 AI | Reuses grounding; optional local Ollama and gated Cohere evaluation adapters, deadlines, private request budgets and quota cooldown | Semantic approved-answer reuse, bounded trusted company research, explicit automatic local fallback and live local model verification |
-| 5 Execution | Existing idempotent packets/job dedup, exact private PDF selection, revision locking, sanitized structure, manual receipt tracking, no replay | **Next task:** supported mock/employer adapter contract with revision-bound owner submission grants, durable attempt/outcome state, receipt verification and unknown-outcome recovery, with reviewed additive migration/ACL proposal |
+| 5 Execution | Existing idempotent packets/job dedup, exact private PDF selection, revision locking, sanitized structure, manual receipt tracking, no replay | Mock-only exact owner grants, durable single dispatch, independent multipart/receipt validation, unknown outcome recovery and separate local-only migration proposal are implemented; real employer adapter permission and runtime activation remain pending |
 | 6 AGY | Installed 1.4.4 inspected; authenticated loopback CLI reuses application APIs; no personal Chrome attachment | Optional MCP packaging and an owner-controlled AGY invocation demonstration |
 | 7 Discovery | Existing discovery interfaces preserved, manual employer URL intake added; no LinkedIn/Gmail collection added | Integrate separately reviewed scheduling branch when authorized; future provider activation remains separate |
-| 8 Dashboard | URL intake, dedicated browser open, Analyze/Fill/Review/Take Over/Cancel; answers/resume use existing editor; Submit disabled | Submission authorization, adapter receipts/failures and explicit unknown-outcome UI after Phase 5 |
-| 9 Tests | Real Chromium fixtures, full backend/frontend regressions, PostgreSQL demo and Next.js/BFF browser journey | Expand concurrency/crash/failure matrix for future automated submission and destination adapters |
+| 8 Dashboard | URL intake, dedicated browser open, Analyze/Fill/Review/Take Over/Cancel; answers/resume use existing editor; Submit disabled | Mock authorization, receipts and unknown-outcome UI added; documented real-employer policy and broader destination support remain pending |
+| 9 Tests | Real Chromium fixtures, full backend/frontend regressions, PostgreSQL demo and Next.js/BFF browser journey | Mock consent/signature/body changes, receipt mismatch, interruption and restart recovery tests added; wider adapter and independent-worker matrix remains pending |
 | 10 Delivery | Feature branch, code/tests/docs and reviewable PR | Remaining phases and genuine owner/account/production acceptance |
 
 ## Verification record
@@ -49,19 +49,49 @@ A symlinked dependency directory could not be built by Turbopack; a normal isola
 
 ## Next implementation order
 
-1. Define durable submission attempts and exact revision/URL/form/value/resume
-   authorization; preserve Phase 9 SQL and propose any new migration separately.
-2. Implement a mock-only submission adapter first. Persist dispatch before click;
-   verify the mock's server receipt, recover unknown outcomes without replay, test
-   independent concurrent workers, owner grant expiry/cancellation and false positives.
-3. Extend the existing packet lifecycle and dashboard with the reviewed states,
-   keeping self-report and verified receipts distinct. No real destination activation.
-4. Add a documented employer adapter only after its applicant-side access rules and
-   receipt semantics are verified; do not infer permission from an employer API.
-5. Complete knowledge/semantic reuse and company-context retrieval, then broader
-   custom widgets/navigation and optional AGY/MCP demonstration. Keep restricted
-   portals, paid providers, LinkedIn collection and new Gmail ingestion disabled.
+1. Finish structured current/expected compensation, availability and relocation,
+   followed by approved, context-bound reusable answers.
+2. Implement semantic reuse, bounded trustworthy company/job retrieval and an
+   explicit privacy-preserving local model fallback; verify Ollama separately.
+3. Broaden dynamic controls, custom widgets, embedded ATS navigation and multi-step
+   policies with mock tests and owner handoff at uncertain boundaries.
+4. Add a real employer execution adapter only after its applicant-side permission,
+   form semantics and independent receipt protocol are documented and verified.
+   The mock extension is not production runtime/ACL approval.
+5. Reconcile separately reviewed discovery scheduling, complete the controlled AGY
+   demonstration and finish the remaining acceptance matrix. Keep restricted portals,
+   paid providers, LinkedIn collection and new Gmail ingestion disabled.
 
 R1/R2, real candidate onboarding, employer permission, account authorization,
 provider entitlement, production migration and live acceptance remain separate
 operational gates. No code-complete label in this document satisfies those gates.
+
+
+## Authorized mock submission follow-up
+
+- Hosted backend/frontend workflows passed for `1e55522` after pinning Ubuntu 24.04;
+  the first attempt on `ubuntu-latest` failed before tests because Playwright 1.58
+  did not support the newly selected Ubuntu 26.04 image.
+- New code adds a separate owner-signing boundary to consent/grant operations;
+  the delegated CLI bearer alone cannot authorize either. Signatures bind exact
+  bodies, expire after 30 seconds and use protected single-use nonce records.
+- A proposed local-only SQL extension adds execution records while extending the
+  existing packet statuses. It is not a production migration or a Phase 9 approval.
+- The PostgreSQL/Next.js/Chromium dashboard now tests both assisted filling and
+  owner-authorized mock submission with independent receipt verification.
+- Missing/wrong receipts, changed outgoing bodies and interrupted dispatches stay
+  unknown. Recovering a receipt never submits again.
+- Follow-up local verification: **1,256 backend tests passed with PostgreSQL checks
+  included and no skips**, **34 frontend unit tests**, **six existing browser journeys**,
+  **two PG17/Next.js/BFF/dedicated-browser journeys**, production build, type checks,
+  formatting, Ruff, Bandit, compilation, dependency checks and secret checks passed.
+  A final recovery-message clarification is covered by focused unknown-outcome tests.
+- The PostgreSQL verifier races independent sessions without the Python browser lock
+  and recovers a wrong-receipt outcome in a separate interpreter with no browser state.
+  Receipt recovery performs no application POST. The updated extension remains local-only.
+
+Next implementation work: finish structured career preferences and approved answer
+reuse, model fallback and trustworthy company/job context, then broaden eligible
+employer adapters and dynamic controls. Real submission support requires documented
+applicant-side permission and independently verifiable receipts, not employer API
+credentials or an allowlisted URL alone.

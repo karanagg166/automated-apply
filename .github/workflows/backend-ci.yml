@@ -99,6 +99,8 @@ jobs:
           backend/app/ai/optional_usage.py backend/app/ai/providers/optional.py
           backend/scripts/browser_assistant.py backend/scripts/browser_mock_demo.py
           backend/tests/test_browser_assistant.py backend/tests/test_optional_ai.py
+          backend/tests/test_browser_submissions.py backend/tests/test_browser_submission_postgres.py
+          backend/scripts/verify_browser_submission.py
           backend/tests/browser_employers.py
       - name: PostgreSQL browser lifecycle demonstration
         run: python backend/scripts/browser_mock_demo.py
@@ -147,10 +149,10 @@ jobs:
       - name: Full backend regression suite
         # Regular-file child output avoids inherited-pipe hangs. Keep every test
         # and the original collection order; never equate local results with CI.
-        timeout-minutes: 8
+        timeout-minutes: 10
         shell: bash
         run: |
-          python -u backend/scripts/run_backend_ci.py --output /tmp/backend-diagnostics --seconds 360 python -u -m pytest backend/tests -v --durations=20 -o faulthandler_timeout=60 --junitxml=/tmp/backend-diagnostics/pytest.xml
+          python -u backend/scripts/run_backend_ci.py --output /tmp/backend-diagnostics --seconds 550 python -u -m pytest backend/tests -v --durations=20 -o faulthandler_timeout=60 --junitxml=/tmp/backend-diagnostics/pytest.xml
       - name: Record isolated PostgreSQL final state
         if: always()
         timeout-minutes: 1

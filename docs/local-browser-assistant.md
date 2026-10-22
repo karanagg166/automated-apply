@@ -4,7 +4,7 @@ This feature adds working **Analyze → reviewed Fill → Review → Take Over**
 explicitly permitted employer forms. It reuses saved candidate profiles, confirmed
 resources, encrypted private PDFs, packet answers, revisions, audit events,
 readiness and owner-reported submission tracking. It does **not** enable automatic
-employer submission. The Submit control is disabled, its API returns 403, and the
+real employer submission. A separately gated fictional submission extension is described below. The Submit control is disabled, its API returns 403, and the
 existing PostgreSQL guard against provider-confirmed submission remains intact.
 
 ## Checkout and integration audit
@@ -182,7 +182,7 @@ backend/venv/bin/python -m backend.scripts.browser_assistant cancel_application 
 
 `prepare_application` and `open_application` read bounded JSON from stdin, using
 the same contracts as the API. `preview_application`, `take_over_application` and
-`submit_approved_application` are also exposed. Submission always returns the
+`submit_approved_application` are also exposed. Real employer submission always returns the
 backend's unsupported/unauthorized response. Default CLI output contains status
 and IDs only; `--include-private-answers` explicitly includes protected answer data.
 Do not grant AGY broad Chrome access or use its permission-bypass flag. Instructions
@@ -196,7 +196,7 @@ docker run --detach --name automated-apply-browser-pg17 \
   --env POSTGRES_PASSWORD=browser_test_only \
   --env POSTGRES_DB=candidate_profile_test postgres:17-alpine
 backend/venv/bin/python -m playwright install chromium
-export PROFILE_TEST_DATABASE_URL=postgresql://postgres:browser_test_only@127.0.0.1:55447/candidate_profile_test # pragma: allowlist secret — fictional local test value
+export PROFILE_TEST_DATABASE_URL=postgresql://postgres:browser_test_only@127.0.0.1:55447/candidate_profile_test # pragma: allowlist secret — fictional local test value # pragma: allowlist secret — fictional local test value
 backend/venv/bin/python backend/scripts/browser_mock_demo.py
 backend/venv/bin/pytest backend/tests -q
 npm run build --prefix frontend
@@ -218,3 +218,87 @@ unsafe destinations, wrong context, disconnected browsers, expired authorization
 replays, prompt injection, POST exfiltration and misleading confirmation text.
 See [delivery status and next tasks](browser-assistant-delivery.md) for exact results
 and the unfinished phases. Local verification is not Supabase or account activation.
+
+## Authorized mock submission extension
+
+The next milestone adds a complete authorized submission lifecycle **only for the
+fictional loopback employer fixture**. Real employer adapters remain disabled.
+The base Phase 9 catalog, migrations 001–011 and pinned R1/R2 SQL are unchanged.
+A separate proposal at `backend/app/browser/migrations/001_mock_submission.sql`
+adds execution grants/attempts and extends the existing packet lifecycle/evidence
+constraints. It is deliberately outside the automatic migration inventory. The
+local verifier applies it only in a newly created disposable PG17 child database.
+Installing it in a real database or accepting its runtime ACL/catalog would require
+separate review/authorization; current production readiness rejects that drift.
+
+Run the fully integrated fictional lifecycle, including wrong-receipt recovery:
+
+```sh
+PROFILE_TEST_DATABASE_URL="$PROFILE_TEST_DATABASE_URL" \
+  backend/venv/bin/python backend/scripts/verify_browser_submission.py --receipt-mode wrong
+# Two dashboard journeys: assisted handoff, then exact authorization and mock receipt.
+PROFILE_TEST_DATABASE_URL="$PROFILE_TEST_DATABASE_URL" \
+  npm run e2e:browser --prefix frontend
+```
+
+`BROWSER_MOCK_SUBMISSION_ENABLED` defaults off. Even when true, it works only in
+`ENVIRONMENT=testing`, on an explicitly allowed literal `127.0.0.1` origin, at the
+exact `/mock/apply` route with the documented mock form and receipt protocol.
+No environment flag enables a real employer destination.
+
+The workflow is Analyze → Fill → explicit owner consent → Review exact submission
+→ Authorize mock submission → Submit → Verify independent receipt. Consent is
+never inferred by Fill. A direct owner action can select/clear a detected native
+checkbox through the dashboard; this updates the existing packet answer/revision
+and audit history. Each selected consent/radio answer is reviewed again in the
+exact submission preview. Missing required consent or browser validation blocks
+submission. Other unsupported controls require manual handoff.
+
+A two-minute, single-use grant binds the packet revision, saved candidate/job
+context, exact destination, form structure, actual values, resume SHA256 and selected
+consents. The outgoing multipart body is independently checked against that digest
+before the runner permits its one allowed POST. Changed values, a wrong resume,
+expired/revoked grants or mismatched proof never authorize a different application.
+No raw resume bytes, hidden form tokens or grant tokens are retained in evidence.
+
+### Owner review and delegated AGY access
+
+The application bearer is insufficient to mint a grant or select consent. These
+operations additionally require a fresh single-use proof from the authenticated,
+CSRF-protected Next.js gateway, using a separate server-only
+`BROWSER_OWNER_APPROVAL_KEY` (at least 32 characters). Configure the same secret
+in the backend and frontend processes when activating owner consent controls;
+never export it to the AGY process or a client bundle. Keep keys in ignored private
+configuration, not candidate facts. The fictional fixture supplies its own test key.
+
+The gateway signs the exact operation, body digest, timestamp and random nonce.
+The backend rejects changed bodies, expired signatures and consumed nonces. The
+CLI can prepare/fill/preview and execute an already approved grant supplied through
+bounded stdin; it cannot authorize a submission. Neither AGY nor a website string
+may turn its normal API bearer into owner approval.
+
+```sh
+# Read-only exact preview: JSON with expected_revision and confirm_page_context on stdin.
+backend/venv/bin/python -m backend.scripts.browser_assistant review_submission --packet-id UUID
+# Owner-approved expected_revision/grant_id/grant_token/idempotency_key JSON on stdin.
+backend/venv/bin/python -m backend.scripts.browser_assistant submit_approved_application --packet-id UUID
+backend/venv/bin/python -m backend.scripts.browser_assistant recover_submission --packet-id UUID
+```
+
+### Durable outcomes and recovery
+
+Dispatch is committed before browser I/O. A unique packet/attempt/grant constraint
+plus PostgreSQL locks prevents duplicate dispatch, including requests with different
+idempotency keys. A successful click or receipt-looking page is insufficient: the
+adapter queries an independent server receipt and matches its attempt ID and digest.
+The mock server computes that digest from the actual uploaded multipart contents.
+
+The existing packet transitions through `submitting` to
+`provider_confirmed_submitted` or `submission_unknown`. Verified mock evidence is
+explicitly `mock_employer` / `mock_receipt_verified`, distinct from the historical
+`user_reported` / `self_reported_unverified` evidence. It does not imply a real
+employer application. Unknown submissions cannot be edited, reauthorized or replayed.
+Receipt recovery can promote unknown → verified without opening a browser or clicking
+again. At startup, expired dispatch leases become unknown; no submission is resumed.
+Cancelling before dispatch revokes unused grants. Cancelling after dispatch retains
+an unknown/verified outcome rather than pretending an external action was undone.

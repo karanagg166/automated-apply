@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.v1.applications import ProtectedApplicationRoute
 from backend.app.browser.contracts import BrowserAction, OpenBrowser, PrepareBrowser
+from backend.app.browser.owner_approval import require_owner_approval
 from backend.app.browser.runner import browser
 from backend.app.browser.service import analyze, fill, metadata, prepare, status
 from backend.app.core.config import get_settings
@@ -93,13 +94,34 @@ async def application_action(
         service = ApplicationPacketService(session)
         if data.action == "preview":
             return await status(session, packet_id)
-        packet, _, _ = await service.locked(packet_id, data.expected_revision)
         if data.action == "cancel":
+            packet = await service.repo.get(packet_id, lock=True)
+            if packet.revision != data.expected_revision:
+                raise HTTPException(
+                    409, "Packet revision changed; reload before cancelling"
+                )
+            from backend.app.browser.adapters import execution_adapter
+
+            if execution_adapter(
+                packet.application_url, get_settings()
+            ).submission_enabled:
+                from backend.app.browser.submissions import attempt_for, finish, revoke
+
+                await revoke(session, packet_id)
+                attempt = await attempt_for(session, packet_id)
+                if attempt and attempt.state != "verified":
+                    await finish(
+                        session,
+                        attempt.id,
+                        None,
+                        diagnostic="owner_cancelled_after_dispatch_outcome_unknown",
+                    )
             await browser.close(packet_id)
             saved = await metadata(session, packet_id)
             if saved:
                 saved.value = {**saved.value, "diagnostic": "cancelled"}
             return await status(session, packet_id)
+        packet, _, _ = await service.locked(packet_id, data.expected_revision)
         runtime = browser.sessions.get(str(packet_id))
         if runtime is None or runtime.page.is_closed():
             raise HTTPException(
@@ -135,3 +157,76 @@ async def application_action(
             raise HTTPException(
                 409, "Browser operation interrupted; inspect the page and reanalyze"
             ) from None
+
+
+from backend.app.browser.submission_contracts import (
+    SubmissionAuthorization,
+    SubmissionPreviewRequest,
+    SubmitApproved,
+)
+
+
+@router.post("/{packet_id}/submission-preview")
+async def submission_preview(
+    packet_id: UUID,
+    data: SubmissionPreviewRequest,
+    session: AsyncSession = Depends(get_db_session),
+):
+    from backend.app.browser.submissions import preview
+
+    async with browser.lock(packet_id):
+        return await preview(
+            session,
+            packet_id,
+            data.expected_revision,
+            confirm_context=data.confirm_page_context,
+        )
+
+
+@router.post("/{packet_id}/authorize-submission", dependencies=[Depends(require_owner_approval)])
+async def authorize_submission(
+    packet_id: UUID,
+    data: SubmissionAuthorization,
+    session: AsyncSession = Depends(get_db_session),
+):
+    from backend.app.browser.submissions import authorize
+
+    async with browser.lock(packet_id):
+        return await authorize(session, packet_id, data)
+
+
+@router.post("/{packet_id}/submit")
+async def submit_approved_application(
+    packet_id: UUID,
+    data: SubmitApproved,
+    session: AsyncSession = Depends(get_db_session),
+):
+    from backend.app.browser.submissions import submit
+
+    async with browser.lock(packet_id):
+        return await submit(session, packet_id, data)
+
+
+@router.post("/{packet_id}/recover-submission")
+async def recover_submission(
+    packet_id: UUID, session: AsyncSession = Depends(get_db_session)
+):
+    from backend.app.browser.submissions import recover
+
+    async with browser.lock(packet_id):
+        return await recover(session, packet_id)
+
+
+from backend.app.browser.submission_contracts import ConsentAction
+
+
+@router.post("/{packet_id}/consent", dependencies=[Depends(require_owner_approval)])
+async def owner_consent(
+    packet_id: UUID,
+    data: ConsentAction,
+    session: AsyncSession = Depends(get_db_session),
+):
+    from backend.app.browser.submissions import set_consent
+
+    async with browser.lock(packet_id):
+        return await set_consent(session, packet_id, data)

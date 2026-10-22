@@ -2,7 +2,10 @@
 const routes: Array<[RegExp, string[]]> = [
   [/^browser-applications$/, ["POST"]],
   [/^browser-applications\/[a-f0-9-]{36}$/, ["GET"]],
-  [/^browser-applications\/[a-f0-9-]{36}\/(open|actions)$/, ["POST"]],
+  [
+    /^browser-applications\/[a-f0-9-]{36}\/(open|actions|submission-preview|authorize-submission|submit|recover-submission|consent)$/,
+    ["POST"],
+  ],
   [/^dashboard\/resume-sync$/, ["GET"]],
   [/^dashboard\/resume-sync\/source$/, ["PUT"]],
   [/^dashboard\/resume-sync\/sync$/, ["POST"]],

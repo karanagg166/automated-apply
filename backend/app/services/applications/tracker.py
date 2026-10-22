@@ -21,6 +21,7 @@ from backend.app.services.applications.resume_selector import digest
 
 POST_SUBMISSION = {
     "applied_manually",
+    "applied_verified",
     "application_rejected",
     "interview_scheduled",
     "offer_received",
@@ -62,6 +63,8 @@ class ApplicationTracker:
             "withdrawn",
             "abandoned",
             "provider_confirmed_submitted",
+            "submitting",
+            "submission_unknown",
         }:
             raise ApplicationConflict("Closed packets cannot record a new submission")
         key_owner = await self.session.scalar(
@@ -108,6 +111,17 @@ class ApplicationTracker:
         if packet.revision != request.expected_revision:
             raise ApplicationConflict(
                 "Packet revision changed; reload before updating tracking"
+            )
+        if packet.lifecycle_state in {"submitting", "submission_unknown"}:
+            raise ApplicationConflict(
+                "Reconcile the dispatched submission before changing tracking"
+            )
+        if (
+            request.tracking_state == "applied_verified"
+            and packet.lifecycle_state != "provider_confirmed_submitted"
+        ):
+            raise ApplicationConflict(
+                "Verified tracking requires a verified employer receipt"
             )
         submitted = await self.repo.submission(packet_id) is not None
         if request.tracking_state in POST_SUBMISSION and not submitted:

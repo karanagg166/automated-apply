@@ -1678,6 +1678,91 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/browser-applications/{packet_id}/submission-preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Submission Preview */
+    post: operations["submission_preview_api_v1_browser_applications__packet_id__submission_preview_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser-applications/{packet_id}/authorize-submission": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Authorize Submission */
+    post: operations["authorize_submission_api_v1_browser_applications__packet_id__authorize_submission_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser-applications/{packet_id}/submit": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Submit Approved Application */
+    post: operations["submit_approved_application_api_v1_browser_applications__packet_id__submit_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser-applications/{packet_id}/recover-submission": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Recover Submission */
+    post: operations["recover_submission_api_v1_browser_applications__packet_id__recover_submission_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser-applications/{packet_id}/consent": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Owner Consent */
+    post: operations["owner_consent_api_v1_browser_applications__packet_id__consent_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1796,6 +1881,8 @@ export interface components {
             | "external_application_opened"
             | "user_reported_submitted"
             | "provider_confirmed_submitted"
+            | "submitting"
+            | "submission_unknown"
             | "withdrawn"
             | "abandoned"
           )
@@ -1814,6 +1901,8 @@ export interface components {
         | "external_application_opened"
         | "user_reported_submitted"
         | "provider_confirmed_submitted"
+        | "submitting"
+        | "submission_unknown"
         | "withdrawn"
         | "abandoned";
       /** Packet Revision */
@@ -2105,6 +2194,20 @@ export interface components {
        * @enum {string}
        */
       authorization_mode: "metadata" | "send";
+    };
+    /** ConsentAction */
+    ConsentAction: {
+      /** Expected Revision */
+      expected_revision: number;
+      /**
+       * Field Id
+       * Format: uuid
+       */
+      field_id: string;
+      /** Checked */
+      checked: boolean;
+      /** Confirm Page Context */
+      confirm_page_context: boolean;
     };
     /** ContactCorrection */
     ContactCorrection: {
@@ -3097,6 +3200,8 @@ export interface components {
         | "external_application_opened"
         | "user_reported_submitted"
         | "provider_confirmed_submitted"
+        | "submitting"
+        | "submission_unknown"
         | "withdrawn"
         | "abandoned";
       /**
@@ -3106,6 +3211,7 @@ export interface components {
       tracking_state:
         | "not_applied"
         | "applied_manually"
+        | "applied_verified"
         | "application_incomplete"
         | "application_rejected"
         | "interview_scheduled"
@@ -3494,6 +3600,7 @@ export interface components {
         | "ready_for_manual_handoff"
         | "manual_action_required"
         | "completed_by_user"
+        | "completed_verified"
         | "unsupported";
       /** Blockers */
       blockers?: string[];
@@ -4106,6 +4213,17 @@ export interface components {
       /** Startups */
       startups: components["schemas"]["StartupRead"][];
     };
+    /** SubmissionAuthorization */
+    SubmissionAuthorization: {
+      /** Expected Revision */
+      expected_revision: number;
+      /** Preview Digest */
+      preview_digest: string;
+      /** Confirm Exact Application */
+      confirm_exact_application: boolean;
+      /** Reviewed Consent Ids */
+      reviewed_consent_ids?: string[];
+    };
     /** SubmissionInput */
     SubmissionInput: {
       /** Expected Revision */
@@ -4127,6 +4245,13 @@ export interface components {
       /** Note */
       note?: string | null;
     };
+    /** SubmissionPreviewRequest */
+    SubmissionPreviewRequest: {
+      /** Expected Revision */
+      expected_revision: number;
+      /** Confirm Page Context */
+      confirm_page_context: boolean;
+    };
     /** SubmissionRead */
     SubmissionRead: {
       /**
@@ -4143,26 +4268,40 @@ export interface components {
       packet_revision: number;
       /**
        * Confirmation Source
-       * @constant
+       * @enum {string}
        */
-      confirmation_source: "user_reported";
+      confirmation_source: "user_reported" | "mock_employer";
       /** Receipt Reference */
       receipt_reference: string | null;
       /**
        * Evidence Confidence
-       * @constant
+       * @enum {string}
        */
-      evidence_confidence: "self_reported_unverified";
-      /**
-       * Human Confirmed
-       * @constant
-       */
-      human_confirmed: true;
+      evidence_confidence: "self_reported_unverified" | "mock_receipt_verified";
+      /** Human Confirmed */
+      human_confirmed: boolean;
       /**
        * Created At
        * Format: date-time
        */
       created_at: string;
+    };
+    /** SubmitApproved */
+    SubmitApproved: {
+      /** Expected Revision */
+      expected_revision: number;
+      /**
+       * Grant Id
+       * Format: uuid
+       */
+      grant_id: string;
+      /**
+       * Grant Token
+       * Format: password
+       */
+      grant_token: string;
+      /** Idempotency Key */
+      idempotency_key: string;
     };
     /** SyncNow */
     SyncNow: {
@@ -4255,6 +4394,7 @@ export interface components {
         | (
             | "not_applied"
             | "applied_manually"
+            | "applied_verified"
             | "application_incomplete"
             | "application_rejected"
             | "interview_scheduled"
@@ -5735,6 +5875,8 @@ export interface operations {
               | "external_application_opened"
               | "user_reported_submitted"
               | "provider_confirmed_submitted"
+              | "submitting"
+              | "submission_unknown"
               | "withdrawn"
               | "abandoned"
             )
@@ -7892,6 +8034,177 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["BrowserAction"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  submission_preview_api_v1_browser_applications__packet_id__submission_preview_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packet_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SubmissionPreviewRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  authorize_submission_api_v1_browser_applications__packet_id__authorize_submission_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packet_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SubmissionAuthorization"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  submit_approved_application_api_v1_browser_applications__packet_id__submit_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packet_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SubmitApproved"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  recover_submission_api_v1_browser_applications__packet_id__recover_submission_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packet_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  owner_consent_api_v1_browser_applications__packet_id__consent_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packet_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ConsentAction"];
       };
     };
     responses: {

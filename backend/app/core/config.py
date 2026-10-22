@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     STAGING_DATABASE_ID: str | None = None
     APPLICATION_SUBMISSION_ENABLED: Literal[False] = False
     BROWSER_ASSISTANT_ENABLED: bool = False
+    BROWSER_MOCK_SUBMISSION_ENABLED: bool = False
+    BROWSER_OWNER_APPROVAL_KEY: SecretStr | None = Field(default=None, min_length=32)
     BROWSER_ALLOWED_ORIGINS: list[str] = Field(default_factory=list)
     BROWSER_PROFILE_ROOT: str = "reports/browser-profiles"
     BROWSER_CHANNEL: Literal["chrome", "chromium"] = "chrome"
@@ -111,6 +113,7 @@ class Settings(BaseSettings):
         "OLLAMA_MODEL",
         "COHERE_MODEL",
         "COHERE_API_KEY",
+        "BROWSER_OWNER_APPROVAL_KEY",
         "LLM_MODEL",
         mode="before",
     )

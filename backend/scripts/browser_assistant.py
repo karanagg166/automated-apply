@@ -16,7 +16,9 @@ OPERATIONS = {
     "fill_application": ("POST", "/{packet_id}/actions", "fill"),
     "preview_application": ("GET", "/{packet_id}"),
     "get_application_status": ("GET", "/{packet_id}"),
-    "submit_approved_application": ("POST", "/{packet_id}/actions", "submit"),
+    "review_submission": ("POST", "/{packet_id}/submission-preview"),
+    "submit_approved_application": ("POST", "/{packet_id}/submit"),
+    "recover_submission": ("POST", "/{packet_id}/recover-submission"),
     "take_over_application": ("POST", "/{packet_id}/actions", "take_over"),
     "cancel_application": ("POST", "/{packet_id}/actions", "cancel"),
 }
@@ -54,7 +56,12 @@ def main():
         parser.error("--packet-id is required")
     path = path.format(packet_id=args.packet_id)
     payload = None
-    if args.operation in {"prepare_application", "open_application"}:
+    if args.operation in {
+        "prepare_application",
+        "open_application",
+        "review_submission",
+        "submit_approved_application",
+    }:
         # Owner inputs from stdin, never from a website, command line secret or arbitrary file read.
         raw = sys.stdin.read(65537)
         if len(raw) > 65536:
@@ -63,6 +70,8 @@ def main():
             payload = json.loads(raw)
         except ValueError:
             parser.error("Provide JSON on stdin")
+    elif args.operation == "recover_submission":
+        payload = {}
     elif method == "POST":
         if args.revision is None:
             parser.error("--revision is required")
@@ -102,7 +111,9 @@ def main():
                 json.dumps(
                     {
                         "ok": True,
-                        "packet_id": packet.get("id"),
+                        "packet_id": packet.get("id") or data.get("packet_id"),
+                        "attempt_id": data.get("attempt_id"),
+                        "submission_state": data.get("state"),
                         "revision": packet.get("revision"),
                         "lifecycle_state": packet.get("lifecycle_state"),
                         "connected": data.get("connected"),
