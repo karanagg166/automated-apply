@@ -76,5 +76,6 @@ jobs:
           path: |
             frontend/playwright-report/
             frontend/test-results/
+            frontend/test-results-browser/
             reports/phase7-*.png
           retention-days: 7
