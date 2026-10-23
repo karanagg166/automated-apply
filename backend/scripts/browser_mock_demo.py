@@ -26,6 +26,7 @@ async def run(
     receipt_mode="valid",
     opportunity_demo=False,
     steps_demo=False,
+    navigation_demo=False,
     cancellation_demo=False,
     live_ollama_model=None,
 ):
@@ -259,6 +260,8 @@ async def run(
                     + (
                         "/guided"
                         if steps_demo
+                        else "/server-step-one"
+                        if navigation_demo
                         else "/opportunity"
                         if opportunity_demo
                         else "/mock/apply"
@@ -275,6 +278,47 @@ async def run(
                 assert response.status_code == 200, response.text
                 packet = response.json()
                 if serve:
+                    # A fixed fictional owner action for the dashboard harness.
+                    # This route exists only in this subprocess fixture, never in
+                    # the normal app. No packet/selector/script input is accepted.
+                    from fastapi import Depends, HTTPException
+
+                    from backend.app.browser.router import local_boundary
+                    from backend.app.browser.runner import browser
+                    from backend.app.core.security import require_api_token
+
+                    @app.post(
+                        "/_fictional_test/owner-server-step",
+                        dependencies=[
+                            Depends(require_api_token),
+                            Depends(local_boundary),
+                        ],
+                    )
+                    async def fictional_owner_server_step():
+                        runtime = browser.sessions.get(navigation_packet.json()["id"])
+                        if (
+                            not runtime
+                            or not runtime.manual
+                            or runtime.page.url != employer + "/server-step-one"
+                        ):
+                            raise HTTPException(
+                                409, "Fictional owner takeover is required"
+                            )
+                        await runtime.page.locator("[name=name]").fill(
+                            "Fictional manual UI owner"
+                        )
+                        await runtime.page.get_by_role(
+                            "button", name="Save and continue"
+                        ).click()
+                        await runtime.page.wait_for_url("**/server-step-two")
+                        await runtime.page.wait_for_function(
+                            "window.__aaManual === true"
+                        )
+                        return {
+                            "simulated_owner_action": True,
+                            "server_save_count": writes.count("/server-save"),
+                        }
+
                     mock_packet_id = packet["id"] if submission_demo else None
                     if submission_demo:
                         assisted = await client.post(
@@ -319,6 +363,16 @@ async def run(
                         },
                     )
                     assert slow_packet.status_code == 200, slow_packet.text
+                    navigation_packet = await client.post(
+                        "/api/v1/browser-applications",
+                        json={
+                            "application_url": employer + "/server-step-one",
+                            "company_name": "Example Circuit",
+                            "job_title": "Backend Engineer navigation fixture",
+                            "idempotency_key": "browser-navigation-001",
+                        },
+                    )
+                    assert navigation_packet.status_code == 200, navigation_packet.text
                     output = ROOT / "reports/browser-mock.private.json"
                     output.parent.mkdir(exist_ok=True)
                     output.write_text(
@@ -330,6 +384,7 @@ async def run(
                                 "opportunity_packet_id": context_packet.json()["id"],
                                 "guided_packet_id": guided_packet.json()["id"],
                                 "slow_packet_id": slow_packet.json()["id"],
+                                "navigation_packet_id": navigation_packet.json()["id"],
                             }
                         )
                     )
@@ -350,6 +405,10 @@ async def run(
                         employer,
                         after_dispatch=cancellation_demo == "after_dispatch",
                     )
+                elif navigation_demo:
+                    from backend.scripts.verify_browser_navigation import verify
+
+                    await verify(client, packet, settings, writes)
                 elif steps_demo:
                     from backend.scripts.verify_browser_steps import verify
 

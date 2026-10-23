@@ -118,6 +118,14 @@ async def status(session, packet_id):
         "in_page_network_isolation": bool(
             current and current.in_page_mode and not current.manual
         ),
+        "page_review_required": bool(
+            current
+            and (
+                current.paused_for_resume
+                or current.page.url != current.url
+                or current.document_epoch != current.assisted_document_epoch
+            )
+        ),
         "analysis": saved.value if saved else None,
         "submission_mode": "mock_only"
         if adapter.submission_enabled
@@ -207,6 +215,7 @@ async def analyze(session, packet, service, runtime):
             {k: v for k, v in step.items() if k != "key"} for step in runtime.steps
         ],
         "step_history": old.value.get("step_history", []),
+        "navigation_history": old.value.get("navigation_history", []),
     }
     # finish() runs the existing readiness evaluator and emits an existing audited event type.
     await service.finish(
@@ -215,6 +224,7 @@ async def analyze(session, packet, service, runtime):
         "questions_added",
         note="Dedicated browser form analyzed without submission",
     )
+    runtime.assisted_document_epoch = runtime.document_epoch
     return await status(session, packet.id)
 
 
@@ -357,7 +367,9 @@ async def fill(session, packet, service, runtime, confirm, confirm_context=False
             valid = await runtime.fill(fresh[index], value=value, upload=upload)
             filled.append(str(item.id))
             if runtime.blocked_step_requests:
-                raise HTTPException(409, "Network-dependent form requires manual takeover")
+                raise HTTPException(
+                    409, "Network-dependent form requires manual takeover"
+                )
             validation.append(
                 {
                     "field_id": str(item.id),

@@ -9,11 +9,13 @@ import { Button, Field, Input, Notice, ErrorState } from "@/components/ui";
 import { BrowserSubmission, Execution } from "@/features/browser-submission";
 import { OpportunityContext } from "@/features/opportunity-context";
 import { BrowserSteps } from "@/features/browser-steps";
+import { BrowserPage } from "@/features/browser-page";
 
 type BrowserStatus = {
   packet: Schema<"PacketRead">;
   connected: boolean;
   manual: boolean;
+  page_review_required?: boolean;
   in_page_network_isolation?: boolean;
   cancellation_pending?: boolean;
   recovery: string | null;
@@ -105,6 +107,7 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
   const [cancelling, setCancelling] = useState(false);
   const [cancelled, setCancelled] = useState(false);
   const epoch = useRef(0);
+  const renderEpoch = epoch.current;
   const busy = working || cancelling;
   const [permission, setPermission] = useState(false);
   const [reviewed, setReviewed] = useState(false);
@@ -233,7 +236,7 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
           Get status
         </Button>
         <Button
-          disabled={busy || !state?.connected}
+          disabled={busy || !state?.connected || state.page_review_required}
           onClick={() => run("analyze")}
         >
           Analyze Application
@@ -293,6 +296,7 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
           !state?.connected ||
           !state.analysis ||
           state.manual ||
+          state.page_review_required ||
           !reviewed ||
           !contextConfirmed
         }
@@ -300,6 +304,35 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
       >
         Fill supported fields
       </Button>
+      {state?.connected && (
+        <BrowserPage
+          key={`${packet.revision}:${epoch.current}`}
+          packetId={packet.id}
+          revision={packet.revision}
+          blocked={busy}
+          ownerAvailable={state.owner_consent_available}
+          setBusy={(value) => {
+            if (renderEpoch === epoch.current) setBusy(value);
+          }}
+          refresh={async () => {
+            if (renderEpoch !== epoch.current) return;
+            const fresh = await api<BrowserStatus>(
+              `browser-applications/${packet.id}`,
+            );
+            if (renderEpoch !== epoch.current) return;
+            setReviewed(false);
+            setContextConfirmed(false);
+            setState(fresh);
+            await client.invalidateQueries();
+          }}
+        />
+      )}
+      {state?.page_review_required && (
+        <Notice>
+          The browser reached another document. Preview and authorize the
+          current page before resuming assistance.
+        </Notice>
+      )}
       <BrowserSubmission
         key={packet.revision}
         packetId={packet.id}
@@ -429,7 +462,8 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
           <p>
             Edit and review detected answers in Application fields below. Use
             next-step review for supported in-page forms. Use Take Over for
-            server-dependent navigation or unsupported controls. After manual
+            server-dependent navigation or unsupported controls, then use Resume
+            after manual navigation to review the page you reached. After manual
             submission, record the receipt using the existing submission report.
           </p>
         </>

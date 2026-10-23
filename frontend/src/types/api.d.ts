@@ -1678,6 +1678,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/browser-applications/{packet_id}/page-preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview Current Page */
+    post: operations["preview_current_page_api_v1_browser_applications__packet_id__page_preview_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser-applications/{packet_id}/resume-page": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Resume Current Page */
+    post: operations["resume_current_page_api_v1_browser_applications__packet_id__resume_page_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/browser-applications/{packet_id}/step-preview": {
     parameters: {
       query?: never;
@@ -4153,6 +4187,15 @@ export interface components {
       resource_version: string;
       /** Download Path */
       download_path?: string | null;
+    };
+    /** ResumePage */
+    ResumePage: {
+      /** Expected Revision */
+      expected_revision: number;
+      /** Capture Digest */
+      capture_digest: string;
+      /** Confirm Same Application */
+      confirm_same_application: boolean;
     };
     /** ResumeReviewRead */
     ResumeReviewRead: {
@@ -8391,6 +8434,76 @@ export interface operations {
         };
         content: {
           "application/json": unknown;
+        };
+      };
+    };
+  };
+  preview_current_page_api_v1_browser_applications__packet_id__page_preview_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packet_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RevisionInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  resume_current_page_api_v1_browser_applications__packet_id__resume_page_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packet_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ResumePage"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

@@ -112,6 +112,8 @@ jobs:
           backend/tests/test_browser_opportunity_postgres.py backend/scripts/verify_browser_opportunity.py
           backend/tests/test_browser_choices.py backend/tests/test_browser_steps.py
           backend/tests/test_browser_steps_postgres.py backend/scripts/verify_browser_steps.py
+          backend/tests/test_browser_navigation.py backend/tests/test_browser_navigation_postgres.py
+          backend/scripts/verify_browser_navigation.py
           backend/tests/test_browser_cancellation.py backend/tests/test_browser_cancellation_postgres.py
           backend/scripts/verify_browser_cancellation.py
           backend/scripts/verify_live_ollama.py

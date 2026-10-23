@@ -10,6 +10,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from uuid import UUID
 
 FORMS = {
+    "/server-step-one": """<h1>Example Circuit — Backend Engineer navigation fixture</h1><h2>Step 1</h2>
+      <form method=post action=/server-save><label>Full name<input name=name required></label>
+      <button type=submit>Save and continue</button></form>""",
+    "/server-step-two": """<h1>Example Circuit — Backend Engineer navigation fixture</h1><h2>Step 2</h2>
+      <form method=post action=/receipt><label>Email<input name=email type=email required></label>
+      <button type=submit>Submit application</button></form>""",
+    "/server-step-wrong": """<h1>Other Company — Sales Director</h1><form><label>Email<input type=email></label></form>""",
     "/slow-open": '<h1>Example Circuit careers</h1><script src="/slow-script"></script><form><label>Full name<input name=name></label></form>',
     "/choices": """<h1>Example Circuit careers</h1><form>
       <fieldset><legend>Remote work preference</legend><label>remote<input id=remote type=radio name=remote value=remote required></label><label>onsite<input type=radio name=remote value=onsite></label></fieldset>
@@ -126,6 +133,12 @@ def employer_site():
 
         def do_POST(self):
             writes.append(self.path)
+            if self.path == "/server-save":
+                self.rfile.read(int(self.headers.get("Content-Length", "0")))
+                self.send_response(303)
+                self.send_header("Location", "/server-step-two")
+                self.end_headers()
+                return
             if self.path == "/mock/applications":
                 maximum = 6 * 1024 * 1024
                 length = int(self.headers.get("Content-Length", "0"))

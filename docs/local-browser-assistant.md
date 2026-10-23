@@ -84,8 +84,9 @@ npm run dev --prefix frontend
 3. Approve the dedicated browser profile and permitted destination, then click
    **Open dedicated browser**. This launches a new app-owned Chrome profile. It
    never attaches to your default Chrome, unrelated tabs or an exposed CDP port.
-   You can navigate manually after Take Over; assistance resumes only on the exact
-   original URL. Pasting a URL is the supported entry point in this milestone.
+   You can navigate manually after Take Over, then explicitly review and authorize
+   a supported page on the same permitted origin to resume assistance. Pasting a
+   URL is the supported entry point in this milestone.
 4. Click **Analyze Application**. Visible native controls and unsupported custom
    controls appear in the browser panel and in the existing Application fields.
    Inspect each proposed answer and source; edit using the existing answer editor.
@@ -95,8 +96,10 @@ npm run dev --prefix frontend
    remain incomplete. A changing form interrupts filling and requires reanalysis.
 6. Review the actual website, including its validation errors. **Take Over** permits
    manual actions on that origin and suspends automated filling. Complete required
-   consent, CAPTCHA, MFA and unsupported controls yourself. Analyze again
-   for an in-page step at the original URL. Redirected steps require manual work.
+   consent, CAPTCHA, MFA and unsupported controls yourself. Analyze again for
+   changes within the same document. After navigation or a reload, use **Resume
+   after manual navigation → Preview current page → Authorize page and analyze**.
+   Review fresh answers before filling the next step. Server saves remain manual.
 7. Submit manually on the employer website. A click, success text, or navigation
    never marks the packet submitted. Record your actual receipt using the existing
    explicit submission report. It remains `user_reported_submitted`, not provider
@@ -151,6 +154,39 @@ To verify this path with fictional forms and disposable local PG17, run
 `PROFILE_TEST_DATABASE_URL` configured as in the demonstration section. It checks
 native radios → signed Next → custom dropdown/date filling and durable step history;
 it performs no application submission or model call.
+
+For a server-dependent step, **Take Over** lets you perform the website's save or
+navigation yourself. The runner does not choose or click that action. Then open
+**Resume after manual navigation** and preview the page you reached. Preview pauses
+all page networking and checks the saved company and role against the page title
+and heading. It shows the destination without its query string and the detected
+questions. Confirm this is the same application, then authorize fresh analysis.
+The separate owner signature binds the packet revision, full current URL, form
+structure and current document. Changed questions, URLs and same-URL reloads
+invalidate old previews. AGY's delegated bearer alone cannot resume a new page.
+
+New documents start with submission guards enabled. During explicit manual takeover
+the runner's main-frame-only mode binding restores owner control after loading;
+older replies cannot undo a newer review pause. Approval enables analysis of that
+page, leaves networking isolated and requires an explicit answer review before
+filling. It never infers that the previous step was saved or the application was
+submitted. Cross-origin pages, embedded forms, missing company/role context and
+CAPTCHA/authentication challenges still require manual handoff. Cancel closes the
+dedicated resources as usual.
+
+The canonical job/application URL remains unchanged. Protected analysis stores a
+bounded resumption history with capture/URL hashes and revisions, without saving
+browser actions or form values. After a process restart, opening the browser starts
+at the canonical URL; no prior server save, navigation or submission is replayed.
+Navigate to your saved step manually and review it again. At most 20 page resumptions
+are accepted per packet. Submitted and unknown-outcome packets remain locked.
+
+`backend/venv/bin/python backend/scripts/verify_browser_navigation.py` demonstrates
+this with the actual local API, disposable PG17 and Chromium. Its fictional owner
+performs one server save; signed resumption analyzes and fills step two while final
+submission remains blocked. The dashboard test uses a fixed fixture-only action
+to simulate that owner save. That test route accepts no browser/script/selector
+input and is never installed by the normal application.
 
 
 Analysis stores a sanitized structural inventory, observed URL/title/heading,
@@ -383,6 +419,8 @@ backend/venv/bin/python -m playwright install chromium
 export PROFILE_TEST_DATABASE_URL=postgresql://postgres:browser_test_only@127.0.0.1:55447/candidate_profile_test # pragma: allowlist secret — fictional local test value # pragma: allowlist secret — fictional local test value
 backend/venv/bin/python backend/scripts/browser_mock_demo.py
 backend/venv/bin/pytest backend/tests -q
+PYTHON="$PWD/backend/venv/bin/python" npm --prefix frontend run e2e
+PYTHON="$PWD/backend/venv/bin/python" npm --prefix frontend run e2e:browser
 npm run build --prefix frontend
 npm run e2e:browser --prefix frontend
 ```

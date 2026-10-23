@@ -6,17 +6,20 @@ are not all complete. No real employer adapter has automated submission authoriz
 | Phase | Delivered in this slice | Remaining acceptance work |
 |---|---|---|
 | 1 Audit | Existing modules, PR #15/#16 and unpublished branches inspected; isolated feature worktree; private changes preserved | Reconcile other branches separately if requested; no merges or production activation |
-| 2 Browser | Dedicated Playwright profile; native controls, labelled native/ARIA radios, bounded ARIA comboboxes; reviewed client-only Next steps, validation, takeover/cancel | Wider custom widgets, remotely loaded choices, cross-origin ATS frames, server-dependent navigation and verified employer submission |
+| 2 Browser | Dedicated Playwright profile; native controls, labelled native/ARIA radios, bounded ARIA comboboxes; reviewed client-only Next steps, manual server navigation with signed same-origin resumption, validation, takeover/cancel | Wider custom widgets, remotely loaded choices, cross-origin ATS frames, permitted server-step automation and verified employer submission |
 | 3 Knowledge | Protected profile/projects/evidence, encrypted resumes; structured compensation, availability, relocation and country authorization; dashboard answer-bank review/approval/revocation | Real owner onboarding and broader reusable question coverage |
 | 4 AI | Existing grounding; supported-paraphrase reuse; independently gated providers/local-only fallback; reviewed employer-page evidence with separate claim validation; explicit local Ollama acceptance on fictional data | Broader company-source research, semantic retrieval, other model/hardware coverage and real owner activation |
 | 5 Execution | Existing idempotent packets/job dedup, exact private PDF selection, revision locking, sanitized structure, manual receipt tracking, no replay | Mock-only exact owner grants, durable single dispatch, independent multipart/receipt validation, unknown outcome recovery and separate local-only migration proposal are implemented; real employer adapter permission and runtime activation remain pending |
 | 6 AGY | Installed 1.4.5 rechecked (initial audit 1.4.4); authenticated loopback CLI reuses application APIs; no personal Chrome attachment | Optional MCP packaging and an owner-controlled AGY invocation demonstration |
 | 7 Discovery | Existing discovery interfaces preserved, manual employer URL intake added; no LinkedIn/Gmail collection added | Integrate separately reviewed scheduling branch when authorized; future provider activation remains separate |
 | 8 Dashboard | URL intake, dedicated browser open, Analyze/Fill/Review/Take Over/Cancel; answers/resume use existing editor; Submit disabled | Mock authorization, receipts and unknown-outcome UI added; documented real-employer policy and broader destination support remain pending |
-| 9 Tests | Real Chromium fixtures, full backend/frontend regressions, PostgreSQL demo and Next.js/BFF browser journey | Mock consent/signature/body changes, receipt mismatch, interruption and restart recovery tests added; wider adapter and independent-worker matrix remains pending |
+| 9 Tests | Real Chromium fixtures, full backend/frontend regressions, PostgreSQL demo and Next.js/BFF browser journeys; separate grounded-answer and exact mock-submission flows | Combine grounded generation and authorized mock submission in one versioned mock journey; wider adapter and independent-worker matrix remains pending |
 | 10 Delivery | Feature branch, code/tests/docs and reviewable PR | Remaining phases and genuine owner/account/production acceptance |
 
 ## Verification record
+
+Entries are chronological milestone records. Later entries supersede earlier
+limitations and test counts.
 
 Results are recorded after the final checks below. They use fictional fixtures and
 disposable local PostgreSQL 17 only. No private candidate import, real application,
@@ -49,12 +52,16 @@ A symlinked dependency directory could not be built by Turbopack; a normal isola
 
 ## Next implementation order
 
-1. Broaden company-source coverage beyond reviewed explicit sections on the current
-   employer page, retaining separate opportunity/applicant evidence and permissions.
-2. Broaden supported-paraphrase retrieval beyond the conservative intent matcher;
-   verify an actual cloud-disabled Ollama daemon/model separately.
-3. Broaden dynamic controls, custom widgets, embedded ATS navigation and multi-step
-   policies with mock tests and owner handoff at uncertain boundaries.
+1. Complete one combined URL → analysis → grounded generation → reviewed filling →
+   authorized mock submission → independent receipt → durable tracking journey.
+   Extend the exact mock protocol with a separately documented version that includes
+   a narrative question; retain V1's strict payload checks. Current grounded-answer
+   and mock-submission demonstrations are separate flows.
+2. Broaden dynamic controls, custom widgets, permitted asset dependencies, embedded
+   ATS navigation and multi-step policies with owner handoff at uncertain boundaries.
+3. Broaden permission-reviewed company sources and supported-paraphrase retrieval,
+   preserving separate opportunity/applicant evidence and extending local-model
+   coverage. One cloud-disabled Ollama configuration has passed fictional acceptance.
 4. Add a real employer execution adapter only after its applicant-side permission,
    form semantics and independent receipt protocol are documented and verified.
    The mock extension is not production runtime/ACL approval.
@@ -316,3 +323,52 @@ Next unfinished work remains owner-controlled server navigation, broader custom
 controls/company sources and semantic retrieval, a permission-reviewed real employer
 adapter, controlled AGY invocation and actual owner profile/account acceptance. Live
 local inference with fictional facts does not satisfy account/production activation.
+
+## Owner navigation and reviewed page resumption
+
+- After Take Over, the owner can perform a server-dependent save or navigation.
+  A separate dashboard preview pauses page networking and identifies supported
+  questions on a same-origin page that establishes the saved company and role.
+  Signed approval binds the packet revision, actual URL, form, browser instance
+  and document epoch. Changed questions/URLs, reloads and reopened browsers
+  invalidate previews. The approval analyzes the new page; filling still needs
+  explicit answer review. The runner never performs or replays the manual save.
+- New documents start guarded and restore explicit owner mode through a narrow
+  main-frame binding. Mode generations prevent a delayed reply from releasing a
+  newer review pause. The initial browser test exposed undefined binding/init-script
+  ordering; reading the mode at DOM readiness corrected the issue. Network controls
+  remain authoritative and final employer submission remains manual.
+- The canonical job URL and application tracker are retained. Protected analysis
+  stores a bounded resumption history of capture/URL hashes, revision and outcome.
+  Reopening starts at the original URL and performs no saved action automatically.
+  Unknown/submitted packets, cross-origin pages, frames and access challenges remain
+  gated. No schema, migration, runtime ACL, provider or account activation was added.
+- A new PG17/TCP/FastAPI/Chromium verifier simulates one fictional manual server save,
+  rejects unsigned resumption, fills step two and reads durable history after closing
+  the browser. The final application submit control remains blocked. Real-browser
+  tests cover stale forms/URLs/reloads, mismatched company, CAPTCHA, false success
+  text, absent takeover, network isolation and delayed mode replies.
+- Seven actual Next.js/BFF/FastAPI/PG17/Chromium dashboard journeys passed, including
+  manual server save → signed page resumption → fresh analysis → reviewed filling.
+  A fixture-only fixed owner action simulates the human save; it accepts no arbitrary
+  browser input and is absent from the normal app. An initial harness failure sent
+  that action before Take Over completed. The corrected test awaits its response.
+  Forty-two frontend unit tests, types/formatting and production build passed.
+- Final full regression: **1,332 backend tests passed, no skips**, in 303 seconds,
+  including 12 new navigation cases and the PG17 verifier. Two existing pypdf
+  deprecation warnings remain. The first full run was deliberately stopped to add
+  interruption cleanup; the replacement full run passed. The new dashboard journey
+  was checked again against the final backend and passed. **All six legacy browser
+  journeys passed**, using the project Python interpreter (the global interpreter
+  lacked the fixture's cryptography dependency). Browser suites ran sequentially.
+- Generated API types, Ruff, whole-app Bandit, compilation, dependency consistency,
+  npm audit (zero findings), tracked secret scanning and whitespace checks passed.
+  No secret-baseline changes or production/Phase 9 SQL changes were introduced.
+- Both hosted workflows passed for preceding local-model commit `7dcffaf`. Hosted
+  results for this follow-up are reported separately in PR #17.
+
+Next unfinished work: the combined grounded-answer-to-mock-submission lifecycle,
+broader custom widgets and permitted company sources/semantic retrieval, a
+permission-reviewed real employer adapter, controlled AGY invocation and actual
+owner profile/account acceptance. Server saves and cross-origin SSO remain manual.
+These milestones do not complete all ten requested phases.

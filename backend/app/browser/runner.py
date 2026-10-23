@@ -10,6 +10,7 @@ import os
 import socket
 from pathlib import Path
 from urllib.parse import urlsplit
+from uuid import uuid4
 
 from fastapi import HTTPException
 
@@ -19,6 +20,19 @@ from backend.app.services.applications.resume_selector import digest
 DETECT = Path(__file__).with_name("dom.js").read_text()
 GUARD = """(() => {
   window.__aaManual = false;
+  window.__aaModeGeneration = -1;
+  // A new document starts guarded. Only the runner can report owner takeover;
+  // a delayed reply cannot undo a newer explicit pause on this document.
+  const readMode = () => {
+    if (window.__aaOwnerMode) window.__aaOwnerMode().then(state => {
+      if (state.generation >= window.__aaModeGeneration) {
+        window.__aaModeGeneration = state.generation;
+        window.__aaManual = state.manual;
+      }
+    }).catch(() => {});
+  };
+  // Playwright does not promise ordering between binding and user init scripts.
+  document.addEventListener('DOMContentLoaded', readMode, {once: true});
   window.__aaSubmissionBlocks = 0;
   const stop = e => { if (!window.__aaManual) {window.__aaSubmissionBlocks++; e.preventDefault(); e.stopImmediatePropagation();} };
   document.addEventListener('submit', stop, true);
@@ -124,6 +138,42 @@ class BrowserSession:
         self.has_frames = False
         self.in_page_mode = False
         self.blocked_step_requests = 0
+        self.mode_generation = self.document_epoch = 0
+        self.assisted_document_epoch = 0
+        self.paused_for_resume = False
+        self.instance_id = uuid4().hex
+
+    def owner_mode(self, source):
+        main = source["page"] == self.page and source["frame"] == self.page.main_frame
+        return {"manual": self.manual and main, "generation": self.mode_generation}
+
+    def navigated(self, frame):
+        if frame == self.page.main_frame:
+            self.document_epoch += 1
+
+    async def set_manual(self, manual):
+        # Revoke network permission before awaiting any browser command.
+        self.manual = manual
+        self.mode_generation += 1
+        if not manual:
+            self.in_page_mode = True
+        from playwright.async_api import Error
+
+        try:
+            await self.page.evaluate(
+                """state => {
+                  if (state.generation >= (window.__aaModeGeneration ?? -1)) {
+                    window.__aaModeGeneration = state.generation;
+                    window.__aaManual = state.manual;
+                  }
+                }""",
+                {"manual": manual, "generation": self.mode_generation},
+            )
+        except Error:
+            # Navigation can destroy this context; the next init script reads
+            # the current mode from our binding. Closed sessions need recovery.
+            if self.page.is_closed():
+                raise HTTPException(409, "Dedicated browser disconnected") from None
 
     async def route(self, route):
         request = route.request
@@ -191,6 +241,10 @@ class BrowserSession:
             await route.abort("blockedbyclient")
 
     async def scan(self):
+        if self.paused_for_resume:
+            raise HTTPException(
+                409, "Review the current page before resuming assistance"
+            )
         if self.cancelled or self.page.is_closed() or self.page.url != self.url:
             raise HTTPException(
                 409,
@@ -279,7 +333,9 @@ class BrowserSession:
 
     async def submit_mock(self, adapter, attempt_id, payload_digest):
         if self.cancelled:
-            raise HTTPException(409, "Browser dispatch was cancelled; inspect its receipt")
+            raise HTTPException(
+                409, "Browser dispatch was cancelled; inspect its receipt"
+            )
         # The route allows only one exact mock POST and its exact receipt navigation.
         self.submission = {
             "id": attempt_id,
@@ -397,12 +453,15 @@ class LocalBrowser:
                     await old.close()
             page.set_default_timeout(5000)
             session = BrowserSession(context, page, target, url, playwright, resources)
+            await context.expose_binding("__aaOwnerMode", session.owner_mode)
+            page.on("framenavigated", session.navigated)
             await context.route("**/*", session.route)
             response = await page.goto(
                 url, wait_until="domcontentloaded", timeout=15000
             )
             resources.checkpoint()
             session.navigating = False
+            session.assisted_document_epoch = session.document_epoch
             if response is None or response.status >= 400:
                 raise HTTPException(409, "Destination unavailable; take over manually")
             self.sessions[key] = session

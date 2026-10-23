@@ -193,6 +193,14 @@ it("browser gateway exposes only authenticated application operations", () => {
     true,
   );
   expect(permittedRoute(`browser-applications/${id}`, "GET")).toBe(true);
+  for (const operation of ["page-preview", "resume-page"]) {
+    expect(
+      permittedRoute(`browser-applications/${id}/${operation}`, "POST"),
+    ).toBe(true);
+    expect(
+      permittedRoute(`browser-applications/${id}/${operation}`, "GET"),
+    ).toBe(false);
+  }
   for (const path of ["cookies", "tabs", "evaluate", "filesystem"]) {
     expect(permittedRoute(`browser-applications/${id}/${path}`, "POST")).toBe(
       false,

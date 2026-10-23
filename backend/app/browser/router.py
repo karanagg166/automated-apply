@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.v1.applications import ProtectedApplicationRoute
 from backend.app.browser.contracts import BrowserAction, OpenBrowser, PrepareBrowser
+from backend.app.browser.navigation import ResumePage
 from backend.app.browser.opportunity import ReviewOpportunity
 from backend.app.browser.owner_approval import require_owner_approval
 from backend.app.browser.runner import browser
@@ -40,6 +41,47 @@ router = APIRouter(
     route_class=ProtectedApplicationRoute,
     dependencies=[Depends(require_api_token), Depends(local_boundary)],
 )
+
+
+@router.post("/{packet_id}/page-preview")
+async def preview_current_page(
+    packet_id: UUID,
+    data: RevisionInput,
+    session: AsyncSession = Depends(get_db_session),
+):
+    from backend.app.browser.navigation import preview
+
+    async with browser.operations.run(
+        packet_id, "page_preview", data.expected_revision
+    ):
+        try:
+            async with asyncio.timeout(15):
+                return await preview(session, packet_id, data.expected_revision)
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(
+                409, "Page review interrupted; inspect the browser manually"
+            ) from None
+
+
+@router.post("/{packet_id}/resume-page", dependencies=[Depends(require_owner_approval)])
+async def resume_current_page(
+    packet_id: UUID, data: ResumePage, session: AsyncSession = Depends(get_db_session)
+):
+    from backend.app.browser.navigation import resume
+
+    async with browser.operations.run(packet_id, "resume_page", data.expected_revision):
+        try:
+            async with asyncio.timeout(45):
+                return await resume(session, packet_id, data)
+        except HTTPException:
+            raise
+        except Exception:
+            raise HTTPException(
+                409,
+                "Page resumption interrupted; inspect saved status before continuing",
+            ) from None
 
 
 @router.post("/{packet_id}/step-preview")
@@ -205,17 +247,25 @@ async def application_action(
                 "Browser disconnected; reopen and analyze. Nothing will be replayed",
             )
         if data.action == "take_over":
-            runtime.manual = True
-            await runtime.page.evaluate("window.__aaManual = true")
+            runtime.paused_for_resume = False
+            await runtime.set_manual(True)
             return await status(session, packet_id)
+        if (
+            runtime.paused_for_resume
+            or runtime.page.url != runtime.url
+            or runtime.document_epoch != runtime.assisted_document_epoch
+        ):
+            raise HTTPException(
+                409,
+                "The page changed; preview and authorize the current page to resume assistance",
+            )
         if runtime.manual:
             if data.action != "analyze":
                 raise HTTPException(
                     409, "Owner controls the browser; analyze to resume assistance"
                 )
-            runtime.manual = False
+            await runtime.set_manual(False)
             runtime.blocked_step_requests = 0
-            await runtime.page.evaluate("window.__aaManual = false")
         try:
             async with asyncio.timeout(45):
                 if data.action == "analyze":

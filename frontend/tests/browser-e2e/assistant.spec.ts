@@ -15,6 +15,7 @@ test.afterEach(async ({ page }) => {
     manifest.opportunity_packet_id,
     manifest.guided_packet_id,
     manifest.slow_packet_id,
+    manifest.navigation_packet_id,
   ].filter(Boolean)) {
     const response = await page.request.get(
       `/api/backend/browser-applications/${id}/operation`,
@@ -115,7 +116,13 @@ test("owner dashboard analyzes and fills using real FastAPI, PostgreSQL and a de
     packet_id,
   );
   expect(status).toBe(403);
+  const takeover = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/actions") &&
+      response.request().postDataJSON()?.action === "take_over",
+  );
   await page.getByRole("button", { name: "Take Over", exact: true }).click();
+  expect((await takeover).status()).toBe(200);
   await expect(
     page.getByRole("button", { name: "Fill supported fields" }),
   ).toBeDisabled();
@@ -444,6 +451,102 @@ test("owner cancels an opening browser while its navigation is still in flight",
   expect(state.active_operation).toBeNull();
   expect(state.cancellation_pending).toBe(false);
   expect(state.packet.tracking_state).toBe("not_applied");
+});
+
+test("owner resumes after a manual server step through the signed dashboard review", async ({
+  page,
+  request,
+}) => {
+  const { navigation_packet_id } = JSON.parse(
+    readFileSync("../reports/browser-mock.private.json", "utf8"),
+  );
+  await page.goto("/login");
+  await page
+    .getByLabel("Owner passphrase")
+    .fill("fictional-ui-owner-passphrase");
+  await page.getByRole("button", { name: "Enter workspace" }).click();
+  await expect(page).toHaveURL("/");
+  await page.goto(`/applications/${navigation_packet_id}`);
+  await page
+    .getByLabel("I approve a dedicated browser profile", { exact: false })
+    .check();
+  await page.getByRole("button", { name: "Open dedicated browser" }).click();
+  await expect(
+    page.getByRole("button", { name: "Analyze Application" }),
+  ).toBeEnabled({ timeout: 45000 });
+  await page.getByRole("button", { name: "Analyze Application" }).click();
+  await expect(page.getByText("analyzed", { exact: true })).toBeVisible();
+  const takeover = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/actions") &&
+      response.request().postDataJSON()?.action === "take_over",
+  );
+  await page.getByRole("button", { name: "Take Over", exact: true }).click();
+  expect((await takeover).status()).toBe(200);
+  // The testing-only fixture controls its own dedicated page to simulate the
+  // human's save. This fixed action is absent from the production application.
+  const manual = await request.post(
+    "http://127.0.0.1:8767/_fictional_test/owner-server-step",
+    {
+      headers: { Authorization: "Bearer fictional-browser-demo-owner-token" },
+    },
+  );
+  expect(manual.status()).toBe(200);
+  expect((await manual.json()).server_save_count).toBe(1);
+  await page.getByRole("button", { name: "Get status" }).click();
+  await expect(
+    page.getByRole("button", { name: "Analyze Application" }),
+  ).toBeDisabled();
+  await page
+    .getByText("Resume after manual navigation", { exact: true })
+    .click();
+  await page.getByRole("button", { name: "Preview current page" }).click();
+  const authorize = page.getByRole("button", {
+    name: "Authorize page and analyze",
+  });
+  await expect(authorize).toBeVisible();
+  await expect(authorize).toBeDisabled();
+  await page
+    .getByLabel("I checked this page is part of the same company", {
+      exact: false,
+    })
+    .check();
+  const resumed = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/resume-page") &&
+      response.request().method() === "POST",
+  );
+  await authorize.click();
+  expect((await resumed).status()).toBe(200);
+  await expect(
+    page.getByText("owner page resumed", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByLabel(
+      "I reviewed the current answers, destination and selected resume below.",
+    )
+    .check();
+  await page
+    .getByLabel("I confirmed the actual page belongs to this company and job.")
+    .check();
+  await page.getByRole("button", { name: "Fill supported fields" }).click();
+  await expect(
+    page.getByText("filled review on website", { exact: true }),
+  ).toBeVisible();
+  const state = await (
+    await page.request.get(
+      `/api/backend/browser-applications/${navigation_packet_id}`,
+    )
+  ).json();
+  expect(state.analysis.page_context.url).toMatch(/\/server-step-two$/);
+  expect(state.analysis.navigation_history).toHaveLength(1);
+  expect(
+    state.analysis.validation.some(
+      (field: { complete: boolean }) => field.complete,
+    ),
+  ).toBe(true);
+  expect(state.packet.tracking_state).toBe("not_applied");
+  expect(state.automated_submission_enabled).toBe(false);
 });
 
 test("owner manages protected career facts and signed answer reuse with PostgreSQL persistence", async ({
