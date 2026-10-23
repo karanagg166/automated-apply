@@ -117,6 +117,32 @@ async def preview(session, packet_id, expected_revision, *, confirm_context):
         item = items[mapped["field_id"]]
         if control["key"] != actual["key"] or control["disabled"]:
             raise HTTPException(409, "Ambiguous or disabled application control")
+        if actual["kind"] != "file":
+            # A formdata listener can replace a value without changing its
+            # visible control. Never authorize such an invisible substitution.
+            if not isinstance(control.get("value"), str):
+                raise HTTPException(
+                    409, "Unsupported application value; use manual handoff"
+                )
+            outgoing = [
+                value for name, value in state["entries"] if name == control["name"]
+            ]
+            wire_value = (
+                control["value"]
+                .replace("\r\n", "\n")
+                .replace("\r", "\n")
+                .replace("\n", "\r\n")
+            )
+            expected = (
+                []
+                if actual["kind"] in {"checkbox", "radio"} and not control["checked"]
+                else [wire_value]
+            )
+            if outgoing != expected:
+                raise HTTPException(
+                    409,
+                    "Outgoing form values differ from the reviewed controls; use manual handoff",
+                )
         if actual["kind"] in {"checkbox", "radio"}:
             # The assistant never checks consent. Every checked consent is separately reviewed.
             consent_id = digest(

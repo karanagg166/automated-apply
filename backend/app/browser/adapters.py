@@ -11,7 +11,7 @@ import httpx
 from fastapi import HTTPException
 
 from backend.app.browser.runner import origin
-from backend.app.browser.submission_contracts import MockReceipt
+from backend.app.browser.submission_contracts import MockNarrativeReceipt, MockReceipt
 
 FORM_STATE = Path(__file__).with_name("form_state.js").read_text()
 
@@ -24,16 +24,25 @@ class ManualHandoffAdapter:
 class LocalMockEmployerAdapter:
     key = "local_mock_v1"
     submission_enabled = True
+    fixture = "automated-apply-employer-v1"
+    action_path = "/mock/applications"
+    receipt_schema = MockReceipt
+    expected_controls = (
+        ("name", "text"),
+        ("email", "email"),
+        ("resume", "file"),
+        ("consent", "checkbox"),
+    )
 
     def __init__(self, application_url):
         # Derive the origin from parsed fields, never a path found on the website.
         parsed = urlsplit(application_url)
         self.base = f"http://127.0.0.1:{parsed.port}"
-        self.action = self.base + "/mock/applications"
+        self.action = self.base + self.action_path
 
     def validate_form(self, state):
         if (
-            state["fixture"] != "automated-apply-employer-v1"
+            state["fixture"] != self.fixture
             or state["action"] != self.action
             or state["method"] != "POST"
             or state["enctype"] != "multipart/form-data"
@@ -41,15 +50,10 @@ class LocalMockEmployerAdapter:
             raise HTTPException(
                 409, "The form does not match the documented mock adapter"
             )
-        expected = [
-            ("name", "text"),
-            ("email", "email"),
-            ("resume", "file"),
-            ("consent", "checkbox"),
-        ]
+        expected = list(self.expected_controls)
         controls = [(control["name"], control["kind"]) for control in state["controls"]]
         entry_names = [name for name, _ in state["entries"]]
-        # V1 has no hidden payload fields except the two reserved dispatch identifiers.
+        # Each version has only its documented controls and two reserved identifiers.
         # Reject unknown/duplicate uploads or data rather than approving invisible contents.
         if controls != expected or sorted(entry_names) != sorted(
             name for name, _ in expected
@@ -76,13 +80,29 @@ class LocalMockEmployerAdapter:
                     raw.extend(chunk)
                     if len(raw) > 8192:
                         raise ValueError("receipt_too_large")
-        receipt = MockReceipt.model_validate_json(raw)
+        receipt = self.receipt_schema.model_validate_json(raw)
         if (
             str(receipt.attempt_id) != str(attempt_id)
             or receipt.payload_digest != payload_digest
         ):
             raise ValueError("receipt_mismatch")
         return receipt.model_dump(mode="json")
+
+
+class LocalMockNarrativeAdapter(LocalMockEmployerAdapter):
+    """Testing-only V2 adds one reviewed narrative; V1's protocol stays exact."""
+
+    key = "local_mock_v2"
+    fixture = "automated-apply-employer-v2"
+    action_path = "/mock/v2/applications"
+    receipt_schema = MockNarrativeReceipt
+    expected_controls = (
+        ("name", "text"),
+        ("email", "email"),
+        ("motivation", "textarea"),
+        ("resume", "file"),
+        ("consent", "checkbox"),
+    )
 
 
 def execution_adapter(application_url, settings):
@@ -93,12 +113,17 @@ def execution_adapter(application_url, settings):
         and parsed.scheme == "http"
         and parsed.hostname == "127.0.0.1"
         and parsed.port is not None
-        and parsed.path == "/mock/apply"
+        and parsed.path in {"/mock/apply", "/mock/v2/apply"}
         and not parsed.query
         and not parsed.fragment
         and not parsed.username
         and not parsed.password
         and origin(application_url) in settings.BROWSER_ALLOWED_ORIGINS
     ):
-        return LocalMockEmployerAdapter(application_url)
+        adapter = (
+            LocalMockNarrativeAdapter
+            if parsed.path == "/mock/v2/apply"
+            else LocalMockEmployerAdapter
+        )
+        return adapter(application_url)
     return ManualHandoffAdapter()

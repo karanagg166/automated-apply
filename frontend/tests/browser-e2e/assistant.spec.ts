@@ -16,6 +16,7 @@ test.afterEach(async ({ page }) => {
     manifest.guided_packet_id,
     manifest.slow_packet_id,
     manifest.navigation_packet_id,
+    manifest.complete_packet_id,
   ].filter(Boolean)) {
     const response = await page.request.get(
       `/api/backend/browser-applications/${id}/operation`,
@@ -274,7 +275,22 @@ test("reviewed employer context grounds an AI proposal and fills the actual fict
   await page
     .getByLabel("I verified this is the official application destination.")
     .check();
+  const savedReview = page.waitForResponse(
+    (response) =>
+      response
+        .url()
+        .endsWith(`/application-packets/${opportunity_packet_id}/review`) &&
+      response.request().method() === "POST",
+  );
   await page.getByRole("button", { name: "Save field review" }).click();
+  const reviewResponse = await savedReview;
+  expect(reviewResponse.status()).toBe(200);
+  const reviewedPacket = await reviewResponse.json();
+  await expect(
+    page
+      .getByText(`Revision ${reviewedPacket.revision}`, { exact: false })
+      .first(),
+  ).toBeVisible();
   await page
     .getByLabel(
       "I reviewed the current answers, destination and selected resume below.",
@@ -547,6 +563,181 @@ test("owner resumes after a manual server step through the signed dashboard revi
   ).toBe(true);
   expect(state.packet.tracking_state).toBe("not_applied");
   expect(state.automated_submission_enabled).toBe(false);
+});
+
+test("owner generates a grounded company answer and completes one authorized mock application", async ({
+  page,
+}) => {
+  const { complete_packet_id } = JSON.parse(
+    readFileSync("../reports/browser-mock.private.json", "utf8"),
+  );
+  await page.goto("/login");
+  await page
+    .getByLabel("Owner passphrase")
+    .fill("fictional-ui-owner-passphrase");
+  await page.getByRole("button", { name: "Enter workspace" }).click();
+  await expect(page).toHaveURL("/");
+  await page.goto(`/applications/${complete_packet_id}`);
+  await page
+    .getByLabel("I approve a dedicated browser profile", { exact: false })
+    .check();
+  await page.getByRole("button", { name: "Open dedicated browser" }).click();
+  await expect(
+    page.getByRole("button", { name: "Analyze Application" }),
+  ).toBeEnabled({ timeout: 45000 });
+  await page.getByRole("button", { name: "Analyze Application" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: /^analyzed$/ }),
+  ).toBeVisible();
+  await page
+    .getByText("Company and job evidence for AI answers", { exact: true })
+    .click();
+  await page.getByRole("button", { name: "Capture job context" }).click();
+  await expect(page.getByLabel("Reviewed company excerpt")).toHaveValue(
+    "Example Circuit AI builds task management tools.",
+  );
+  await page
+    .getByLabel("I checked the company, job, source and selected excerpts.")
+    .check();
+  await page.getByRole("button", { name: "Save reviewed job context" }).click();
+  await expect(
+    page.getByText("Reviewed context saved.", { exact: false }),
+  ).toBeVisible();
+  const analyzed = page.waitForResponse(
+    (response) =>
+      response
+        .url()
+        .endsWith(`/browser-applications/${complete_packet_id}/actions`) &&
+      response.request().postDataJSON()?.action === "analyze",
+  );
+  await page.getByRole("button", { name: "Analyze Application" }).click();
+  const analyzedResponse = await analyzed;
+  expect(analyzedResponse.status()).toBe(200);
+  const analyzedState = await analyzedResponse.json();
+  await expect(
+    page
+      .getByText(`Revision ${analyzedState.packet.revision}`, { exact: false })
+      .first(),
+  ).toBeVisible();
+  const question = page
+    .locator(".evidence-item")
+    .filter({ hasText: "Why do you want to join our company?" })
+    .first();
+  const generated = page.waitForResponse(
+    (response) =>
+      response
+        .url()
+        .includes(`/application-packets/${complete_packet_id}/questions/`) &&
+      response.url().endsWith("/generate") &&
+      response.request().method() === "POST",
+    { timeout: 45000 },
+  );
+  await question
+    .getByRole("button", { name: "Generate with configured AI" })
+    .click();
+  expect((await generated).status()).toBe(200);
+  const proposed =
+    "Example Circuit AI builds task management tools. I built backend authentication using Python and FastAPI.";
+  await expect(question.getByLabel("Reviewable answer")).toHaveValue(proposed);
+  for (const checkbox of await page
+    .getByLabel("I reviewed this exact answer")
+    .all())
+    await checkbox.check();
+  await page.getByLabel("I reviewed the selected resume variant.").check();
+  await page
+    .getByLabel("I verified this is the official application destination.")
+    .check();
+  const savedReview = page.waitForResponse(
+    (response) =>
+      response
+        .url()
+        .endsWith(`/application-packets/${complete_packet_id}/review`) &&
+      response.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "Save field review" }).click();
+  const reviewResponse = await savedReview;
+  expect(reviewResponse.status()).toBe(200);
+  const reviewedPacket = await reviewResponse.json();
+  await expect(
+    page
+      .getByText(`Revision ${reviewedPacket.revision}`, { exact: false })
+      .first(),
+  ).toBeVisible();
+  await page
+    .getByLabel(
+      "I reviewed the current answers, destination and selected resume below.",
+    )
+    .check();
+  await page
+    .getByLabel("I confirmed the actual page belongs to this company and job.")
+    .check();
+  await page.getByRole("button", { name: "Fill supported fields" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: /^filled review on website$/ }),
+  ).toBeVisible();
+  await page
+    .getByLabel("I confirmed the actual page belongs to this company and job.")
+    .check();
+  await page
+    .getByRole("button", {
+      name: "Select on website: I consent to data processing",
+    })
+    .click();
+  await page.getByRole("button", { name: "Review exact submission" }).click();
+  await expect(
+    page
+      .getByRole("region", { name: "Mock submission review" })
+      .getByText(proposed, { exact: false }),
+  ).toBeVisible();
+  await page
+    .getByLabel("I reviewed this selected consent or answer:", { exact: false })
+    .check();
+  await page
+    .getByLabel("I authorize this exact fictional application", {
+      exact: false,
+    })
+    .check();
+  await page.getByRole("button", { name: "Authorize mock submission" }).click();
+  await expect(
+    page.getByRole("button", { name: "Submit", exact: true }),
+  ).toBeEnabled();
+  await page.getByRole("button", { name: "Submit", exact: true }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Mock submission: verified" }),
+  ).toBeVisible({ timeout: 45000 });
+  await page.reload();
+  await page.getByRole("button", { name: "Get status" }).click();
+  await expect(
+    page.getByText("Verified mock receipt: MOCK-", { exact: false }),
+  ).toBeVisible();
+  const state = await (
+    await page.request.get(
+      `/api/backend/browser-applications/${complete_packet_id}`,
+    )
+  ).json();
+  expect(state.packet.lifecycle_state).toBe("provider_confirmed_submitted");
+  expect(state.packet.tracking_state).toBe("applied_verified");
+  expect(state.execution.adapter).toBe("local_mock_v2");
+  expect(state.page_review_required).toBe(false);
+  await expect(
+    page.getByRole("button", { name: "Analyze Application" }),
+  ).toBeDisabled();
+  await expect(
+    page.getByText("Resume after manual navigation", { exact: true }),
+  ).toHaveCount(0);
+  expect(state.execution.receipt.fixture).toBe("automated-apply-employer-v2");
+  const saved = state.packet.fields.find(
+    (field: { question: string }) =>
+      field.question === "Why do you want to join our company?",
+  );
+  expect(saved.effective_answer).toBe(proposed);
+  expect(saved.provenance.answer_draft_id).toBeTruthy();
+  const evidence = await page.request.get(
+    `/api/backend/application-answers/drafts/${saved.provenance.answer_draft_id}/opportunity-evidence`,
+  );
+  expect(evidence.status()).toBe(200);
+  expect((await evidence.json()).evidence.length).toBeGreaterThan(0);
+  expect(state.real_employer_submission_enabled).toBe(false);
 });
 
 test("owner manages protected career facts and signed answer reuse with PostgreSQL persistence", async ({

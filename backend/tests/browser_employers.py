@@ -88,6 +88,7 @@ FORMS["/opportunity-demo"] = (
 def employer_site():
     class Requests(list):
         receipts = {}
+        accepted_entries = {}
         mode = "valid"
         reads = []
         slow_started = threading.Event()
@@ -139,7 +140,8 @@ def employer_site():
                 self.send_header("Location", "/server-step-two")
                 self.end_headers()
                 return
-            if self.path == "/mock/applications":
+            if self.path in {"/mock/applications", "/mock/v2/applications"}:
+                narrative = self.path == "/mock/v2/applications"
                 maximum = 6 * 1024 * 1024
                 length = int(self.headers.get("Content-Length", "0"))
                 if length > maximum:
@@ -158,8 +160,19 @@ def employer_site():
                     value = part.get_payload(decode=True)
                     filename = part.get_filename()
                     if name in {"_aa_attempt_id", "_aa_payload_digest"}:
+                        if name in reserved:
+                            self.send_error(422)
+                            return
                         reserved[name] = value.decode()
                     elif filename is not None:
+                        if narrative and (
+                            name != "resume"
+                            or filename != "resume.pdf"
+                            or part.get_content_type() != "application/pdf"
+                            or not value.startswith(b"%PDF-")
+                        ):
+                            self.send_error(422)
+                            return
                         entries.append(
                             [
                                 name,
@@ -179,6 +192,30 @@ def employer_site():
                     attempt_id = str(UUID(reserved["_aa_attempt_id"]))
                     if actual_digest != reserved["_aa_payload_digest"]:
                         raise ValueError("payload mismatch")
+                    if narrative:
+                        if [name for name, _ in entries] != [
+                            "name",
+                            "email",
+                            "motivation",
+                            "resume",
+                            "consent",
+                        ]:
+                            raise ValueError("unexpected narrative payload")
+                        fields = dict(entries)
+                        if (
+                            not isinstance(fields["name"], str)
+                            or not fields["name"].strip()
+                            or not isinstance(fields["email"], str)
+                            or "@" not in fields["email"]
+                            or not isinstance(fields["motivation"], str)
+                            or not 1
+                            <= len(fields["motivation"].replace("\r\n", "\n").strip())
+                            <= 1000
+                            or not isinstance(fields["resume"], dict)
+                            or not fields["resume"]["size"]
+                            or fields["consent"] != "yes"
+                        ):
+                            raise ValueError("invalid narrative fields")
                 except (ValueError, KeyError):
                     self.send_error(422)
                     return
@@ -187,8 +224,11 @@ def employer_site():
                     "attempt_id": attempt_id,
                     "payload_digest": actual_digest,
                     "receipt_reference": "MOCK-" + UUID(attempt_id).hex,
-                    "fixture": "automated-apply-employer-v1",
+                    "fixture": "automated-apply-employer-v2"
+                    if narrative
+                    else "automated-apply-employer-v1",
                 }
+                writes.accepted_entries[attempt_id] = entries
                 self.send_response(303)
                 self.send_header("Location", "/mock/receipt/" + attempt_id)
                 self.end_headers()
@@ -224,6 +264,18 @@ FORMS["/mock/apply"] = """<h1>Example Circuit careers — fictional employer</h1
 <form data-aa-mock-fixture="automated-apply-employer-v1" method="post" action="/mock/applications" enctype="multipart/form-data">
 <label>Full name<input name="name" required></label>
 <label>Email<input name="email" type="email" required></label>
+<label>Upload resume<input name="resume" type="file" accept=".pdf" required></label>
+<label>I consent to data processing<input name="consent" type="checkbox" value="yes" required></label>
+<input name="_aa_attempt_id" type="hidden"><input name="_aa_payload_digest" type="hidden">
+<button type="submit">Submit application</button></form>"""
+
+FORMS["/mock/v2/apply"] = """<h1>Example Circuit AI — Backend Engineer AI fixture</h1>
+<section id="job-description">The Backend Engineer AI fixture role focuses on Python services.</section>
+<section id="company-description">Example Circuit AI builds task management tools.</section>
+<form data-aa-mock-fixture="automated-apply-employer-v2" method="post" action="/mock/v2/applications" enctype="multipart/form-data">
+<label>Full name<input name="name" required></label>
+<label>Email<input name="email" type="email" required></label>
+<label>Why do you want to join our company?<textarea name="motivation" required maxlength="1000"></textarea></label>
 <label>Upload resume<input name="resume" type="file" accept=".pdf" required></label>
 <label>I consent to data processing<input name="consent" type="checkbox" value="yes" required></label>
 <input name="_aa_attempt_id" type="hidden"><input name="_aa_payload_digest" type="hidden">

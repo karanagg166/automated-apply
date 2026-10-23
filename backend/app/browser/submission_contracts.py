@@ -33,6 +33,10 @@ class MockReceipt(Contract):
     fixture: Literal["automated-apply-employer-v1"]
 
 
+class MockNarrativeReceipt(MockReceipt):
+    fixture: Literal["automated-apply-employer-v2"]
+
+
 class ConsentAction(RevisionInput):
     field_id: UUID
     checked: StrictBool

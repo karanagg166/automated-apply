@@ -337,6 +337,26 @@ reuse/submission approval is not automatic. The observed run took 73.7 seconds i
 total with an 80-second limit per model call. Other hardware/models need their own
 verification. The test-owned daemon was stopped after acceptance; there is no
 automatic service/account activation. CI continues to use injected fictional models.
+
+The complete generation-to-submission path has a separate explicit opt-in:
+
+```sh
+backend/venv/bin/python backend/scripts/verify_live_ollama.py --model qwen3:4b-instruct --complete-mock-application
+```
+
+This submits **one fictional application to the local V2 mock employer**, using
+the actual local model and application services. It captures and approves the mock
+company/job source, generates a grounded answer, verifies that unreviewed output
+cannot fill the textarea, explicitly reviews the answer/PDF, selects consent through
+the signed owner operation, authorizes the exact application and verifies the
+independent server receipt. Repeated commands do not dispatch again; the saved draft,
+source evidence, selected PDF digest and `applied_verified` packet survive browser
+closure. The local usage ledger records exactly one model request. On the same
+Ollama/model/M1 configuration, the observed total was **71.9 seconds**. Review is
+simulated explicitly by the fixture API; no real candidate/account was activated.
+The test-owned daemon was stopped afterward. The default command without this flag
+retains its generation-only, no-submission behavior.
+
 Ollama's [structured-output guide](https://docs.ollama.com/capabilities/structured-outputs)
 describes supplying the schema in both prompt and format. Unaccepted local drafts
 remain validation failures; earlier free-prose probes were rejected rather than filled.
@@ -443,7 +463,7 @@ and the unfinished phases. Local verification is not Supabase or account activat
 
 ## Authorized mock submission extension
 
-The next milestone adds a complete authorized submission lifecycle **only for the
+This extension provides an authorized submission lifecycle **only for the
 fictional loopback employer fixture**. Real employer adapters remain disabled.
 The base Phase 9 catalog, migrations 001–011 and pinned R1/R2 SQL are unchanged.
 A separate proposal at `backend/app/browser/migrations/001_mock_submission.sql`
@@ -453,20 +473,54 @@ local verifier applies it only in a newly created disposable PG17 child database
 Installing it in a real database or accepting its runtime ACL/catalog would require
 separate review/authorization; current production readiness rejects that drift.
 
+The separate local proposal `backend/app/browser/migrations/002_mock_narrative.sql`
+adds V2 alongside V1 only in fresh disposable fixtures. It preserves the original
+V1 proposal, binds the signed grant's adapter to the execution record, and requires
+the corresponding receipt version in both execution and packet guards. It adds no
+roles, grants or policies and is also outside the production migration inventory.
+
 Run the fully integrated fictional lifecycle, including wrong-receipt recovery:
 
 ```sh
 PROFILE_TEST_DATABASE_URL="$PROFILE_TEST_DATABASE_URL" \
   backend/venv/bin/python backend/scripts/verify_browser_submission.py --receipt-mode wrong
-# Two dashboard journeys: assisted handoff, then exact authorization and mock receipt.
+# Eight dashboard journeys, including grounded generation through a verified V2 receipt.
 PROFILE_TEST_DATABASE_URL="$PROFILE_TEST_DATABASE_URL" \
   npm run e2e:browser --prefix frontend
 ```
 
 `BROWSER_MOCK_SUBMISSION_ENABLED` defaults off. Even when true, it works only in
 `ENVIRONMENT=testing`, on an explicitly allowed literal `127.0.0.1` origin, at the
-exact `/mock/apply` route with the documented mock form and receipt protocol.
+exact `/mock/apply` or `/mock/v2/apply` route with its documented form and receipt protocol.
 No environment flag enables a real employer destination.
+
+| Protocol | Controls in exact order | POST path | Receipt fixture |
+|---|---|---|---|
+| V1 | name, email, approved PDF, consent | `/mock/applications` | `automated-apply-employer-v1` |
+| V2 | name, email, company-specific narrative (maximum 1,000 characters), approved PDF, consent | `/mock/v2/applications` | `automated-apply-employer-v2` |
+
+Only the two reserved attempt/digest identifiers are additional hidden fields. V1
+does not accept a narrative or V2 receipt. V2 does not accept missing/extra controls
+or a V1 receipt. The fictional receiver independently validates its V2 field set,
+required narrative/consent and PDF content/type before recording a receipt.
+
+The combined deterministic proof uses an explicitly injected fictional provider:
+
+```sh
+backend/venv/bin/python backend/scripts/verify_complete_application.py
+backend/venv/bin/python backend/scripts/verify_complete_application.py --receipt-mode wrong
+backend/venv/bin/python backend/scripts/verify_complete_application.py --multiline-answer
+backend/venv/bin/python backend/scripts/verify_complete_application.py --receiver-contract
+```
+
+The first three commands use `PROFILE_TEST_DATABASE_URL`, actual TCP FastAPI,
+dedicated Chromium and a fresh PG17 child. They cover source approval, grounded
+generation, answer review, selected encrypted PDF, signed consent/grant, concurrent
+idempotent requests, one actual mock POST, receipt verification and persisted
+tracking/drafts/evidence. The wrong-receipt case remains unknown, rejects resubmission
+and verifies receipt-only recovery in a new interpreter. Direct SQL negative checks
+prove adapter/grant and cross-version receipt guards reject substitutions. The last
+command exercises only the independent loopback receiver and needs no database.
 
 The workflow is Analyze → Fill → explicit owner consent → Review exact submission
 → Authorize mock submission → Submit → Verify independent receipt. Consent is
@@ -482,6 +536,13 @@ consents. The outgoing multipart body is independently checked against that dige
 before the runner permits its one allowed POST. Changed values, a wrong resume,
 expired/revoked grants or mismatched proof never authorize a different application.
 No raw resume bytes, hidden form tokens or grant tokens are retained in evidence.
+
+Payload hashing follows the browser's [native multipart newline normalization](https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#multipart/form-data-encoding-algorithm)
+so multi-paragraph answers match the outgoing bytes. Submitted text and consent
+values must also match their visible reviewed controls: a `formdata` listener cannot
+replace an answer, email or checkbox value invisibly before authorization. After
+submission or an unknown outcome, preparation/filling controls remain disabled;
+status, receipt-only recovery and cancellation retain their existing roles.
 
 ### Owner review and delegated AGY access
 

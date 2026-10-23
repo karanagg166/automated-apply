@@ -5,7 +5,9 @@ async () => {
   const entries = [];
   for (const [name, value] of new FormData(form).entries()) {
     if (['_aa_attempt_id','_aa_payload_digest'].includes(name)) continue;
-    if (typeof value === 'string') entries.push([name, value]);
+    // Hash the bytes' text representation used by native multipart encoding.
+    // Visible control values below retain their original textarea API newlines.
+    if (typeof value === 'string') entries.push([name, value.replace(/\r\n|\r|\n/g, '\r\n')]);
     else {
       if (value.size > 5*1024*1024) throw new Error('oversized_upload');
       const hash = [...new Uint8Array(await crypto.subtle.digest('SHA-256', await value.arrayBuffer()))].map(n => n.toString(16).padStart(2,'0')).join('');

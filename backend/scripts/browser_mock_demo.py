@@ -29,11 +29,15 @@ async def run(
     navigation_demo=False,
     cancellation_demo=False,
     live_ollama_model=None,
+    complete_application_demo=False,
+    multiline_answer=False,
 ):
     import asyncpg
     import httpx
     import uvicorn
     from cryptography.fernet import Fernet
+
+    submission_demo = submission_demo or complete_application_demo
 
     parsed = urlsplit(url)
     if (
@@ -67,6 +71,13 @@ async def run(
                         ROOT / "backend/app/browser/migrations/001_mock_submission.sql"
                     ).read_text()
                 )
+                if complete_application_demo or serve:
+                    await connection.execute(
+                        (
+                            ROOT
+                            / "backend/app/browser/migrations/002_mock_narrative.sql"
+                        ).read_text()
+                    )
                 for role in ("anon", "authenticated", "service_role"):
                     assert not await connection.fetchval(
                         "SELECT has_table_privilege($1,'job_agent.browser_submission_attempts','SELECT,INSERT,UPDATE,DELETE')",
@@ -139,7 +150,9 @@ async def run(
             from backend.app.schemas.candidate_profile import CandidateProfileCreate
             from backend.tests.test_phase7_dashboard import pdf_bytes
 
-            if (serve or opportunity_demo) and not live_ollama_model:
+            if (
+                serve or opportunity_demo or complete_application_demo
+            ) and not live_ollama_model:
                 from fastapi import Depends
 
                 from backend.app.api.v1.applications import application_service
@@ -163,7 +176,9 @@ async def run(
                                     "OLLAMA_MODEL": "fictional-injected-provider-no-live-model",
                                 }
                             ),
-                            OpportunityFixtureProvider(),
+                            OpportunityFixtureProvider(
+                                separator="\n\n" if multiline_answer else " "
+                            ),
                         ),
                     )
 
@@ -264,12 +279,18 @@ async def run(
                         if navigation_demo
                         else "/opportunity"
                         if opportunity_demo
+                        else "/mock/v2/apply"
+                        if complete_application_demo
                         else "/mock/apply"
                         if submission_demo
                         else "/basic"
                     ),
-                    "company_name": "Example Circuit",
-                    "job_title": "Backend Engineer",
+                    "company_name": "Example Circuit AI"
+                    if complete_application_demo
+                    else "Example Circuit",
+                    "job_title": "Backend Engineer AI fixture"
+                    if complete_application_demo
+                    else "Backend Engineer",
                     "idempotency_key": "browser-pg-demo-001",
                 }
                 response = await client.post(
@@ -373,6 +394,16 @@ async def run(
                         },
                     )
                     assert navigation_packet.status_code == 200, navigation_packet.text
+                    complete_packet = await client.post(
+                        "/api/v1/browser-applications",
+                        json={
+                            "application_url": employer + "/mock/v2/apply",
+                            "company_name": "Example Circuit AI",
+                            "job_title": "Backend Engineer AI fixture",
+                            "idempotency_key": "browser-complete-application-001",
+                        },
+                    )
+                    assert complete_packet.status_code == 200, complete_packet.text
                     output = ROOT / "reports/browser-mock.private.json"
                     output.parent.mkdir(exist_ok=True)
                     output.write_text(
@@ -385,6 +416,7 @@ async def run(
                                 "guided_packet_id": guided_packet.json()["id"],
                                 "slow_packet_id": slow_packet.json()["id"],
                                 "navigation_packet_id": navigation_packet.json()["id"],
+                                "complete_packet_id": complete_packet.json()["id"],
                             }
                         )
                     )
@@ -404,6 +436,17 @@ async def run(
                         writes,
                         employer,
                         after_dispatch=cancellation_demo == "after_dispatch",
+                    )
+                elif complete_application_demo:
+                    from backend.scripts.verify_complete_application import verify
+
+                    await verify(
+                        client,
+                        packet,
+                        settings,
+                        writes,
+                        receipt_mode=receipt_mode,
+                        live_model=live_ollama_model,
                     )
                 elif navigation_demo:
                     from backend.scripts.verify_browser_navigation import verify

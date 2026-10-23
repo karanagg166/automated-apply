@@ -16,7 +16,7 @@ from backend.app.models.job import Job
 from backend.app.schemas.applications import CreatePacket, QuestionInput
 from backend.app.services.applications.answer_builder import value_error
 from backend.app.services.applications.resume_selector import digest
-from backend.app.services.applications.service import ApplicationPacketService
+from backend.app.services.applications.service import TERMINAL, ApplicationPacketService
 
 
 def metadata_key(packet_id):
@@ -120,6 +120,7 @@ async def status(session, packet_id):
         ),
         "page_review_required": bool(
             current
+            and packet.lifecycle_state not in TERMINAL
             and (
                 current.paused_for_resume
                 or current.page.url != current.url

@@ -9,6 +9,9 @@ from backend.app.ai.schemas import (
 
 
 class OpportunityFixtureProvider:
+    def __init__(self, separator=" "):
+        self.separator = separator
+
     async def generate_structured_answer(self, question, context, instructions):
         work = next(
             f
@@ -21,7 +24,7 @@ class OpportunityFixtureProvider:
         employer_ref = EvidenceReference.model_validate(employer["reference"])
         return ProviderAnswer(
             content=ModelAnswer(
-                answer=employer["facts"] + " " + applicant,
+                answer=self.separator.join([employer["facts"], applicant]),
                 evidence_references=[candidate_ref, employer_ref],
                 claims=[
                     SupportedClaim(

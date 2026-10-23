@@ -43,6 +43,15 @@ type BrowserStatus = {
   } | null;
 };
 
+const closedPackets = new Set<Schema<"PacketRead">["lifecycle_state"]>([
+  "user_reported_submitted",
+  "provider_confirmed_submitted",
+  "submitting",
+  "submission_unknown",
+  "withdrawn",
+  "abandoned",
+]);
+
 export function BrowserIntake() {
   const [url, setUrl] = useState("");
   const [company, setCompany] = useState("");
@@ -109,6 +118,9 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
   const epoch = useRef(0);
   const renderEpoch = epoch.current;
   const busy = working || cancelling;
+  const closed =
+    closedPackets.has(packet.lifecycle_state) ||
+    (!!state && closedPackets.has(state.packet.lifecycle_state));
   const [permission, setPermission] = useState(false);
   const [reviewed, setReviewed] = useState(false);
   const [contextConfirmed, setContextConfirmed] = useState(false);
@@ -229,14 +241,19 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
         permits assistance.
       </label>
       <div className="actions">
-        <Button disabled={busy || !permission} onClick={() => run("open")}>
+        <Button
+          disabled={busy || closed || !permission}
+          onClick={() => run("open")}
+        >
           Open dedicated browser
         </Button>
         <Button disabled={busy} onClick={() => run("status")}>
           Get status
         </Button>
         <Button
-          disabled={busy || !state?.connected || state.page_review_required}
+          disabled={
+            busy || closed || !state?.connected || state.page_review_required
+          }
           onClick={() => run("analyze")}
         >
           Analyze Application
@@ -248,7 +265,7 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
           Review
         </Button>
         <Button
-          disabled={busy || !state?.connected}
+          disabled={busy || closed || !state?.connected}
           onClick={() => run("take_over")}
         >
           Take Over
@@ -293,6 +310,7 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
       <Button
         disabled={
           busy ||
+          closed ||
           !state?.connected ||
           !state.analysis ||
           state.manual ||
@@ -304,7 +322,7 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
       >
         Fill supported fields
       </Button>
-      {state?.connected && (
+      {state?.connected && !closed && (
         <BrowserPage
           key={`${packet.revision}:${epoch.current}`}
           packetId={packet.id}
@@ -327,7 +345,7 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
           }}
         />
       )}
-      {state?.page_review_required && (
+      {state?.page_review_required && !closed && (
         <Notice>
           The browser reached another document. Preview and authorize the
           current page before resuming assistance.
@@ -353,7 +371,7 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
           state?.analysis?.steps?.some((step) => step.supported) || false
         }
         ownerAvailable={state?.owner_consent_available || false}
-        blocked={busy || !state?.connected || !!state?.manual}
+        blocked={busy || closed || !state?.connected || !!state?.manual}
         setBusy={setBusy}
         refresh={async () => {
           setReviewed(false);
@@ -368,7 +386,7 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
         <OpportunityContext
           packetId={packet.id}
           revision={packet.revision}
-          blocked={busy || !state.connected || state.manual}
+          blocked={busy || closed || !state.connected || state.manual}
           ownerAvailable={state.owner_consent_available}
           setBusy={setBusy}
           onSaved={async () => {
@@ -412,14 +430,7 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
                   <span className="actions">
                     <Button
                       disabled={
-                        busy ||
-                        !contextConfirmed ||
-                        state.manual ||
-                        [
-                          "submitting",
-                          "submission_unknown",
-                          "provider_confirmed_submitted",
-                        ].includes(packet.lifecycle_state)
+                        busy || closed || !contextConfirmed || state.manual
                       }
                       onClick={() => consent(f.field_id, true)}
                     >
@@ -427,14 +438,7 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
                     </Button>
                     <Button
                       disabled={
-                        busy ||
-                        !contextConfirmed ||
-                        state.manual ||
-                        [
-                          "submitting",
-                          "submission_unknown",
-                          "provider_confirmed_submitted",
-                        ].includes(packet.lifecycle_state)
+                        busy || closed || !contextConfirmed || state.manual
                       }
                       onClick={() => consent(f.field_id, false)}
                     >

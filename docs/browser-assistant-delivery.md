@@ -1,6 +1,6 @@
 # Browser assistant delivery and ordered backlog
 
-This is the first safe, testable assisted-browser slice. The ten requested phases
+This is a tested assisted-browser milestone. The ten requested phases
 are not all complete. No real employer adapter has automated submission authorization. A separately gated fictional loopback adapter now exercises exact authorization, durable dispatch and independent receipt verification.
 
 | Phase | Delivered in this slice | Remaining acceptance work |
@@ -9,11 +9,11 @@ are not all complete. No real employer adapter has automated submission authoriz
 | 2 Browser | Dedicated Playwright profile; native controls, labelled native/ARIA radios, bounded ARIA comboboxes; reviewed client-only Next steps, manual server navigation with signed same-origin resumption, validation, takeover/cancel | Wider custom widgets, remotely loaded choices, cross-origin ATS frames, permitted server-step automation and verified employer submission |
 | 3 Knowledge | Protected profile/projects/evidence, encrypted resumes; structured compensation, availability, relocation and country authorization; dashboard answer-bank review/approval/revocation | Real owner onboarding and broader reusable question coverage |
 | 4 AI | Existing grounding; supported-paraphrase reuse; independently gated providers/local-only fallback; reviewed employer-page evidence with separate claim validation; explicit local Ollama acceptance on fictional data | Broader company-source research, semantic retrieval, other model/hardware coverage and real owner activation |
-| 5 Execution | Existing idempotent packets/job dedup, exact private PDF selection, revision locking, sanitized structure, manual receipt tracking, no replay | Mock-only exact owner grants, durable single dispatch, independent multipart/receipt validation, unknown outcome recovery and separate local-only migration proposal are implemented; real employer adapter permission and runtime activation remain pending |
+| 5 Execution | Existing idempotent packets/job dedup, exact PDF selection, revision locking, manual receipts; mock-only signed grants, one durable dispatch, versioned payload/receipt checks and unknown-outcome recovery | Real employer adapter permission and runtime activation; optional mock SQL proposals are not production approval |
 | 6 AGY | Installed 1.4.5 rechecked (initial audit 1.4.4); authenticated loopback CLI reuses application APIs; no personal Chrome attachment | Optional MCP packaging and an owner-controlled AGY invocation demonstration |
 | 7 Discovery | Existing discovery interfaces preserved, manual employer URL intake added; no LinkedIn/Gmail collection added | Integrate separately reviewed scheduling branch when authorized; future provider activation remains separate |
-| 8 Dashboard | URL intake, dedicated browser open, Analyze/Fill/Review/Take Over/Cancel; answers/resume use existing editor; Submit disabled | Mock authorization, receipts and unknown-outcome UI added; documented real-employer policy and broader destination support remain pending |
-| 9 Tests | Real Chromium fixtures, full backend/frontend regressions, PostgreSQL demo and Next.js/BFF browser journeys; separate grounded-answer and exact mock-submission flows | Combine grounded generation and authorized mock submission in one versioned mock journey; wider adapter and independent-worker matrix remains pending |
+| 8 Dashboard | URL intake, dedicated browser, Analyze/Fill/Review/Take Over/Cancel; existing answer/resume editors; mock authorization, receipt/recovery UI and closed-packet controls | Real employer Submit remains disabled; broader destination support and genuine owner/account acceptance remain pending |
+| 9 Tests | Real Chromium fixtures, full regressions, PG17/API/Next.js journeys; combined grounded generation through exact V2 mock submission/receipt/tracking, including live local-model acceptance | Wider custom control/adapter and independent-worker acceptance matrix remains pending |
 | 10 Delivery | Feature branch, code/tests/docs and reviewable PR | Remaining phases and genuine owner/account/production acceptance |
 
 ## Verification record
@@ -52,20 +52,15 @@ A symlinked dependency directory could not be built by Turbopack; a normal isola
 
 ## Next implementation order
 
-1. Complete one combined URL → analysis → grounded generation → reviewed filling →
-   authorized mock submission → independent receipt → durable tracking journey.
-   Extend the exact mock protocol with a separately documented version that includes
-   a narrative question; retain V1's strict payload checks. Current grounded-answer
-   and mock-submission demonstrations are separate flows.
-2. Broaden dynamic controls, custom widgets, permitted asset dependencies, embedded
+1. Broaden dynamic controls, custom widgets, permitted asset dependencies, embedded
    ATS navigation and multi-step policies with owner handoff at uncertain boundaries.
-3. Broaden permission-reviewed company sources and supported-paraphrase retrieval,
+2. Broaden permission-reviewed company sources and supported-paraphrase retrieval,
    preserving separate opportunity/applicant evidence and extending local-model
    coverage. One cloud-disabled Ollama configuration has passed fictional acceptance.
-4. Add a real employer execution adapter only after its applicant-side permission,
+3. Add a real employer execution adapter only after its applicant-side permission,
    form semantics and independent receipt protocol are documented and verified.
    The mock extension is not production runtime/ACL approval.
-5. Reconcile separately reviewed discovery scheduling, complete the controlled AGY
+4. Reconcile separately reviewed discovery scheduling, complete the controlled AGY
    demonstration and finish the remaining acceptance matrix. Keep restricted portals,
    paid providers, LinkedIn collection and new Gmail ingestion disabled.
 
@@ -372,3 +367,63 @@ broader custom widgets and permitted company sources/semantic retrieval, a
 permission-reviewed real employer adapter, controlled AGY invocation and actual
 owner profile/account acceptance. Server saves and cross-origin SSO remain manual.
 These milestones do not complete all ten requested phases.
+
+## Combined grounded application and versioned mock receipt
+
+- One continuous workflow now covers URL intake → actual form analysis → signed
+  employer-source review → grounded generation → explicit answer/PDF review → fill
+  → signed consent → exact submission preview/grant → one mock POST → independent
+  receipt verification → durable packet tracking, draft and source retrieval.
+  Existing services, packet states, protected resources and resume storage are reused.
+- A separate testing-only V2 adapter adds a bounded company-specific textarea to
+  V1's name/email/PDF/consent controls. Its own action and receipt marker are exact;
+  neither version accepts the other's schema or receipt. The fictional employer
+  independently checks its multipart field set, required text/consent and PDF.
+- PostgreSQL initially rejected V2 under the correct V1-only constraint. A separate
+  **local proposal** `002_mock_narrative.sql` extends only fresh disposable fixtures,
+  binding adapter → signed grant → versioned receipt in database guards. The original
+  local V1 proposal, historical migrations 001–011, Phase 9 manifest/SQL and runtime
+  ACLs remain unchanged. No production installation or acceptance is implied.
+- Preview now rejects invisible `formdata` rewrites of answers, email and consent,
+  in addition to checking visible values against reviewed packet answers. Multiline
+  testing exposed native multipart newline conversion causing a blocked body/unknown
+  outcome; preview hashing now matches native encoding while keeping visible review
+  and byte-exact dispatch checks. The real browser multiline flow passes.
+- Three PG17/TCP/FastAPI/Chromium cases cover the valid receipt, a wrong receipt with
+  new-interpreter recovery, and a grounded multiline answer. They reject filling an
+  unreviewed generated answer, missing consent, unsigned authorization, post-approval
+  answer changes, revoked grants and a new attempt after an unknown outcome. Concurrent
+  calls dispatch once. Direct SQL attempts to swap adapter/receipt versions fail.
+  Separate loopback receiver checks reject hidden fields, empty narratives, bad
+  PDF/MIME and duplicate identifiers. Unit HTTP guards remain intact.
+- Eight actual Next.js/BFF/FastAPI/PG17/Chromium dashboard journeys passed, including
+  the combined flow. Initial harness assumptions about provenance shape, consent
+  revisions, field selectors and completion timing were corrected. Tests await
+  confirmed packet revisions before dependent operations; no stale-revision guard
+  was relaxed. Completed/unknown packets disable preparation/filling controls and
+  do not suggest resuming on the receipt page. Receipt recovery and Cancel remain.
+- Explicit **live local acceptance passed in 71.9 seconds** with Ollama 0.40.9,
+  `qwen3:4b-instruct`, cloud disabled, 4,096-token context and an 8 GB Apple M1.
+  No provider was injected: one actual model request generated the separately grounded
+  candidate/employer answer, which was reviewed/filled/submitted to the fictional
+  local V2 employer. Its receipt matched the selected PDF and actual narrative,
+  persisted as `applied_verified`, and retained draft/source/provider identity.
+  All candidate data, resumes and pages were fictional; review was simulated through
+  explicit owner API operations. The test daemon was stopped. Default live-model
+  verification remains generation-only unless the separate mock-submission flag is set.
+- Final local full regression: **1,345 backend tests passed, no skips**, in 299 seconds,
+  including all new protocol/guard/receiver/PG17 cases and V1 hidden-rewrite protection.
+  The two existing pypdf deprecation warnings remain. **Eight PG-backed dashboard
+  journeys and six legacy browser journeys passed sequentially**. **42 frontend unit tests**, types,
+  formatting, production build, generated API contract (no diff), Ruff, whole-app
+  Bandit, compilation, dependency checks, npm audit (zero findings), tracked secret
+  scanning and whitespace checks passed. No secret-baseline suppressions were added.
+- Hosted backend/frontend workflows passed for preceding commit `86db4d6`. Current-head
+  hosted results are reported separately in PR #17; no account/production activation
+  or successful live Supabase migration is implied by local evidence.
+
+Next unfinished work: wider custom controls and permitted asset/embedded-form
+dependencies, broader company sources/semantic retrieval, a permission-reviewed real
+employer adapter, controlled AGY invocation and actual owner profile/account acceptance.
+Real employer submission, cross-origin SSO and server saves remain manual. The ten
+requested phases remain incomplete.

@@ -170,6 +170,27 @@ async def ready(bundle):
     return route, packet
 
 
+@pytest.mark.asyncio
+async def test_formdata_rewrite_of_a_visible_reviewed_value_is_rejected(submission_api):
+    client, _, writes, _ = submission_api
+    route, packet = await ready(submission_api)
+    page = browser.sessions[packet["id"]].page
+    visible = await page.locator("[name=email]").input_value()
+    await page.evaluate("""() => document.forms[0].addEventListener('formdata',
+        event => event.formData.set('email', 'unreviewed@example.invalid'))""")
+    response = await client.post(
+        route + "/submission-preview",
+        json={
+            "expected_revision": packet["revision"],
+            "confirm_page_context": True,
+        },
+    )
+    assert response.status_code == 409, response.text
+    assert "Outgoing form values" in response.json()["detail"]
+    assert await page.locator("[name=email]").input_value() == visible
+    assert writes == []
+
+
 async def grant(bundle, route, packet):
     client = bundle[0]
     response = await client.post(
