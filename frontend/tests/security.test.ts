@@ -11,6 +11,13 @@ import {
   verifyPassword,
 } from "@/lib/security";
 import { permittedRoute } from "@/lib/gateway";
+it("allows only the authenticated read path for browser operation status", () => {
+  const path =
+    "browser-applications/11111111-1111-4111-8111-111111111111/operation";
+  expect(permittedRoute(path, "GET")).toBe(true);
+  expect(permittedRoute(path, "POST")).toBe(false);
+  expect(permittedRoute(path + "/execute", "GET")).toBe(false);
+});
 it("limits answer reuse routes to saved drafts and explicit approval operations", () => {
   const id = "11111111-1111-4111-8111-111111111111";
   expect(permittedRoute("application-answers/drafts", "GET")).toBe(true);

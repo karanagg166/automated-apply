@@ -26,6 +26,7 @@ async def run(
     receipt_mode="valid",
     opportunity_demo=False,
     steps_demo=False,
+    cancellation_demo=False,
 ):
     import asyncpg
     import httpx
@@ -295,6 +296,16 @@ async def run(
                         },
                     )
                     assert guided_packet.status_code == 200, guided_packet.text
+                    slow_packet = await client.post(
+                        "/api/v1/browser-applications",
+                        json={
+                            "application_url": employer + "/slow-open",
+                            "company_name": "Example Circuit",
+                            "job_title": "Backend Engineer slow opening fixture",
+                            "idempotency_key": "browser-slow-opening-001",
+                        },
+                    )
+                    assert slow_packet.status_code == 200, slow_packet.text
                     output = ROOT / "reports/browser-mock.private.json"
                     output.parent.mkdir(exist_ok=True)
                     output.write_text(
@@ -305,6 +316,7 @@ async def run(
                                 "mock_packet_id": mock_packet_id,
                                 "opportunity_packet_id": context_packet.json()["id"],
                                 "guided_packet_id": guided_packet.json()["id"],
+                                "slow_packet_id": slow_packet.json()["id"],
                             }
                         )
                     )
@@ -314,6 +326,10 @@ async def run(
                     )
                     await task
                     app.dependency_overrides.pop(application_service, None)
+                elif cancellation_demo:
+                    from backend.scripts.verify_browser_cancellation import verify
+
+                    await verify(client, packet, settings, writes, employer, after_dispatch=cancellation_demo == "after_dispatch")
                 elif steps_demo:
                     from backend.scripts.verify_browser_steps import verify
 

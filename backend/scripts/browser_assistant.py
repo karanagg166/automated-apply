@@ -16,6 +16,7 @@ OPERATIONS = {
     "fill_application": ("POST", "/{packet_id}/actions", "fill"),
     "preview_application": ("GET", "/{packet_id}"),
     "get_application_status": ("GET", "/{packet_id}"),
+    "get_browser_operation": ("GET", "/{packet_id}/operation"),
     "review_submission": ("POST", "/{packet_id}/submission-preview"),
     "submit_approved_application": ("POST", "/{packet_id}/submit"),
     "recover_submission": ("POST", "/{packet_id}/recover-submission"),
@@ -85,6 +86,27 @@ def main():
         with httpx.Client(
             timeout=60, trust_env=False, follow_redirects=False
         ) as client:
+            if args.operation == "cancel_application":
+                control = client.get(
+                    args.origin
+                    + "/api/v1/browser-applications"
+                    + path.removesuffix("/actions")
+                    + "/operation",
+                    headers={"Authorization": "Bearer " + token},
+                )
+                if control.status_code >= 400:
+                    print(
+                        json.dumps(
+                            {
+                                "ok": False,
+                                "status": control.status_code,
+                                "detail": "Cannot inspect local browser operation",
+                            }
+                        )
+                    )
+                    return 1
+                active = control.json().get("active_operation")
+                payload["operation_id"] = active["id"] if active else None
             response = client.request(
                 method,
                 args.origin + "/api/v1/browser-applications" + path,
@@ -111,10 +133,14 @@ def main():
                 json.dumps(
                     {
                         "ok": True,
-                        "packet_id": packet.get("id") or data.get("packet_id"),
+                        "packet_id": packet.get("id")
+                        or data.get("packet_id")
+                        or (str(args.packet_id) if args.packet_id else None),
                         "attempt_id": data.get("attempt_id"),
                         "submission_state": data.get("state"),
-                        "revision": packet.get("revision"),
+                        "revision": packet.get("revision", data.get("packet_revision")),
+                        "active_operation": data.get("active_operation"),
+                        "cancellation_pending": data.get("cancellation_pending", False),
                         "lifecycle_state": packet.get("lifecycle_state"),
                         "connected": data.get("connected"),
                         "diagnostic": (data.get("analysis") or {}).get("diagnostic"),

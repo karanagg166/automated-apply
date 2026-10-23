@@ -70,10 +70,11 @@ async def validate_destination(url, settings, *, return_addresses=False):
     if len(url) > 2048 or any(ord(c) < 32 for c in url) or "\\" in url:
         raise HTTPException(422, "Invalid browser URL")
     try:
-        addresses = await asyncio.get_running_loop().getaddrinfo(
-            parsed.hostname, parsed.port or 443, type=socket.SOCK_STREAM
-        )
-    except OSError:
+        async with asyncio.timeout(5):
+            addresses = await asyncio.get_running_loop().getaddrinfo(
+                parsed.hostname, parsed.port or 443, type=socket.SOCK_STREAM
+            )
+    except (OSError, TimeoutError):
         raise HTTPException(422, "Browser destination cannot be resolved") from None
     if not addresses or (
         not mock and any(not ipaddress.ip_address(a[4][0]).is_global for a in addresses)
@@ -84,9 +85,34 @@ async def validate_destination(url, settings, *, return_addresses=False):
     )
 
 
+class BrowserResources:
+    def __init__(self):
+        self.playwright = self.context = None
+        self.stop_requested = self.closed = False
+        self.lock = asyncio.Lock()
+
+    def checkpoint(self):
+        if self.stop_requested:
+            raise HTTPException(409, "Dedicated browser opening was cancelled")
+
+    async def close(self):
+        self.stop_requested = True
+        async with self.lock:
+            if self.closed or self.playwright is None:
+                return
+            self.closed = True
+            try:
+                if self.context:
+                    await self.context.close()
+            finally:
+                await self.playwright.stop()
+
+
 class BrowserSession:
-    def __init__(self, context, page, target, url, playwright):
+    def __init__(self, context, page, target, url, playwright, resources):
         self.context, self.page = context, page
+        self.resources = resources
+        self.cancelled = False
         self.target, self.url, self.playwright = target, url, playwright
         self.manual, self.navigating = False, True
         self.submission = None
@@ -101,6 +127,9 @@ class BrowserSession:
 
     async def route(self, route):
         request = route.request
+        if self.cancelled:
+            await route.abort("blockedbyclient")
+            return
         # Reviewed filling and client-only steps cannot save/submit through GET, POST or delayed
         # callbacks. Explicit manual takeover releases this network isolation.
         if self.in_page_mode and not self.manual and self.submission is None:
@@ -162,7 +191,7 @@ class BrowserSession:
             await route.abort("blockedbyclient")
 
     async def scan(self):
-        if self.page.is_closed() or self.page.url != self.url:
+        if self.cancelled or self.page.is_closed() or self.page.url != self.url:
             raise HTTPException(
                 409,
                 "Browser disconnected or destination changed; take over and reanalyze",
@@ -201,6 +230,8 @@ class BrowserSession:
         return fields, warnings
 
     async def fill(self, field, value=None, upload=None):
+        if self.cancelled:
+            raise HTTPException(409, "Browser filling was cancelled")
         # Input/change handlers are untrusted and may submit through any method.
         # Keep isolation after filling, including delayed callbacks, until takeover.
         self.in_page_mode = True
@@ -247,6 +278,8 @@ class BrowserSession:
         return await element.evaluate("(e) => e.validity ? e.validity.valid : false")
 
     async def submit_mock(self, adapter, attempt_id, payload_digest):
+        if self.cancelled:
+            raise HTTPException(409, "Browser dispatch was cancelled; inspect its receipt")
         # The route allows only one exact mock POST and its exact receipt navigation.
         self.submission = {
             "id": attempt_id,
@@ -275,15 +308,19 @@ class BrowserSession:
                 await self.page.evaluate("window.__aaManual = false")
 
     async def close(self):
-        await self.context.close()
-        await self.playwright.stop()
+        self.cancelled = True
+        await self.resources.close()
 
 
 class LocalBrowser:
     def __init__(self):
         self.sessions = {}
         self.opening = set()
+        self.opening_resources = {}
         self.locks = {}
+        from backend.app.browser.operations import BrowserOperations
+
+        self.operations = BrowserOperations(self.lock)
 
     def lock(self, packet_id):
         return self.locks.setdefault(str(packet_id), asyncio.Lock())
@@ -292,6 +329,7 @@ class LocalBrowser:
         target, addresses = await validate_destination(
             url, settings, return_addresses=True
         )
+        self.operations.checkpoint(packet_id)
         key = str(packet_id)
         if key in self.sessions:
             return self.sessions[key]
@@ -323,9 +361,13 @@ class LocalBrowser:
 
         # Reserve admission before the first browser-launch await, including other packets.
         self.opening.add(key)
+        resources = BrowserResources()
+        self.opening_resources[key] = resources
         playwright = context = None
         try:
             playwright = await async_playwright().start()
+            resources.playwright = playwright
+            resources.checkpoint()
             context = await playwright.chromium.launch_persistent_context(
                 str(directory),
                 # Pin the approved hostname to its validated address for the entire session.
@@ -341,6 +383,8 @@ class LocalBrowser:
                 service_workers="block",
                 timeout=30000,
             )
+            resources.context = context
+            resources.checkpoint()
             await context.add_init_script(GUARD)
             await context.route_web_socket("**/*", lambda websocket: websocket.close())
             context.on(
@@ -352,29 +396,31 @@ class LocalBrowser:
                 if old != page:
                     await old.close()
             page.set_default_timeout(5000)
-            session = BrowserSession(context, page, target, url, playwright)
+            session = BrowserSession(context, page, target, url, playwright, resources)
             await context.route("**/*", session.route)
             response = await page.goto(
                 url, wait_until="domcontentloaded", timeout=15000
             )
+            resources.checkpoint()
             session.navigating = False
             if response is None or response.status >= 400:
                 raise HTTPException(409, "Destination unavailable; take over manually")
             self.sessions[key] = session
             return session
         except BaseException:
-            if context:
-                await context.close()
-            if playwright:
-                await playwright.stop()
+            await resources.close()
             raise
         finally:
             self.opening.discard(key)
+            self.opening_resources.pop(key, None)
 
     async def close(self, packet_id):
         session = self.sessions.pop(str(packet_id), None)
         if session:
             await session.close()
+        resources = self.opening_resources.get(str(packet_id))
+        if resources:
+            await resources.close()
 
 
 browser = LocalBrowser()

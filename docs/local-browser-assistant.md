@@ -102,6 +102,20 @@ npm run dev --prefix frontend
    explicit submission report. It remains `user_reported_submitted`, not provider
    verification. **Cancel** closes the browser session; packet history remains.
 
+**Cancel remains available while a browser command is running**, including opening,
+filling, a reviewed step or an authorized mock dispatch. The dashboard reads the
+current operation ID through an authenticated endpoint, stops only that operation,
+closes the app-owned browser resources and reconciles saved state. Commands already
+queued before cancellation are discarded. A stale operation ID cannot stop a newer
+command. Earlier responses cannot overwrite the dashboard's cancellation result.
+
+If a mock dispatch was reserved, cancellation preserves `submission_unknown` until
+independent receipt recovery proves acceptance. It never grants another dispatch;
+existing verified receipts remain verified. Cancelling browser work preserves the
+application packet for review. If shutdown or reconciliation exceeds 20 seconds,
+the current runner refuses new browser commands. Inspect saved status and restart
+the local runner; restarting never replays a command. The runner requires one worker.
+
 Labelled native radio groups and bounded ARIA radiogroups can use reviewed answers.
 Custom comboboxes are supported when a unique `aria-controls` relationship points to
 one single-select listbox with known, distinct choices. The engine selects only an
@@ -285,10 +299,30 @@ required. AGY must use the same application authorization and revisions as the U
 ```sh
 # Existing API token supplied in the private process environment, never on argv.
 backend/venv/bin/python -m backend.scripts.browser_assistant get_application_status --packet-id UUID
+backend/venv/bin/python -m backend.scripts.browser_assistant get_browser_operation --packet-id UUID
 backend/venv/bin/python -m backend.scripts.browser_assistant analyze_application --packet-id UUID --revision N
 backend/venv/bin/python -m backend.scripts.browser_assistant fill_application --packet-id UUID --revision N --reviewed-values --confirmed-page-context
 backend/venv/bin/python -m backend.scripts.browser_assistant cancel_application --packet-id UUID --revision N
 ```
+
+For an active command, use its `expected_revision` from `get_browser_operation`;
+when that value is null, use the reported packet revision.
+The cancellation CLI retrieves and binds the active operation ID itself. It cannot
+cancel a newer operation with a stale revision/ID. Idle cancellation uses the current
+packet revision. Operation status exposes command IDs and flags, without private answers.
+
+The disposable PG17 cancellation demonstration also runs the real CLI as a narrow
+subprocess against the actual local API:
+
+```sh
+backend/venv/bin/python backend/scripts/verify_browser_cancellation.py
+backend/venv/bin/python backend/scripts/verify_browser_cancellation.py --after-dispatch
+```
+
+Set `PROFILE_TEST_DATABASE_URL` to the disposable `candidate_profile_test` database
+described below. These commands create and remove child databases, use fictional
+facts and local mock employers, and verify unknown-outcome persistence/receipt-only
+recovery. They perform no real employer submissions or model calls.
 
 `prepare_application` and `open_application` read bounded JSON from stdin, using
 the same contracts as the API. `preview_application`, `take_over_application` and

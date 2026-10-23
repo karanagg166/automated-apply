@@ -207,7 +207,11 @@ async def approve_answer_reuse(
 ):
     from backend.app.knowledge.reuse import approve
 
-    return await approve(session, draft_id, data)
+    result = await approve(session, draft_id, data)
+    # A successful owner acknowledgment must be visible to subsequent requests.
+    # Request-scope dependency cleanup can run after the HTTP response is sent.
+    await session.commit()
+    return result
 
 
 @router.post("/application-answers/drafts/{draft_id}/revoke-reuse")
@@ -216,7 +220,9 @@ async def revoke_answer_reuse(
 ):
     from backend.app.knowledge.reuse import revoke
 
-    return await revoke(session, draft_id)
+    result = await revoke(session, draft_id)
+    await session.commit()
+    return result
 
 
 @router.get("/application-answers/reuse-approvals")

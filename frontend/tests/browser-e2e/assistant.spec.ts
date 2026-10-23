@@ -14,18 +14,30 @@ test.afterEach(async ({ page }) => {
     manifest.mock_packet_id,
     manifest.opportunity_packet_id,
     manifest.guided_packet_id,
+    manifest.slow_packet_id,
   ].filter(Boolean)) {
     const response = await page.request.get(
-      `/api/backend/browser-applications/${id}`,
+      `/api/backend/browser-applications/${id}/operation`,
     );
     if (response.status() !== 200) continue;
-    const state = await response.json();
-    if (state.connected) {
+    const control = await response.json();
+    const state = control.active_operation
+      ? null
+      : await (
+          await page.request.get(`/api/backend/browser-applications/${id}`)
+        ).json();
+    if (control.active_operation || state?.connected) {
       const closed = await page.request.post(
         `/api/backend/browser-applications/${id}/actions`,
         {
           headers: { Origin: "http://localhost:3101", "X-CSRF-Token": csrf },
-          data: { action: "cancel", expected_revision: state.packet.revision },
+          data: {
+            action: "cancel",
+            expected_revision:
+              control.active_operation?.expected_revision ??
+              control.packet_revision,
+            operation_id: control.active_operation?.id ?? null,
+          },
         },
       );
       expect(closed.status()).toBe(200);
@@ -385,6 +397,55 @@ test("owner fills grouped choices and explicitly advances an in-page application
   ).toBeDisabled();
 });
 
+test("owner cancels an opening browser while its navigation is still in flight", async ({
+  page,
+}) => {
+  const { slow_packet_id } = JSON.parse(
+    readFileSync("../reports/browser-mock.private.json", "utf8"),
+  );
+  await page.goto("/login");
+  await page
+    .getByLabel("Owner passphrase")
+    .fill("fictional-ui-owner-passphrase");
+  await page.getByRole("button", { name: "Enter workspace" }).click();
+  await expect(page).toHaveURL("/");
+  await page.goto(`/applications/${slow_packet_id}`);
+  await page
+    .getByLabel("I approve a dedicated browser profile", { exact: false })
+    .check();
+  await page.getByRole("button", { name: "Open dedicated browser" }).click();
+  await expect(
+    page.getByRole("button", { name: "Open dedicated browser" }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: "Cancel", exact: true }),
+  ).toBeEnabled();
+  await expect
+    .poll(async () => {
+      const response = await page.request.get(
+        `/api/backend/browser-applications/${slow_packet_id}/operation`,
+      );
+      return (await response.json()).active_operation?.kind;
+    })
+    .toBe("open");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Open dedicated browser" }),
+  ).toBeEnabled({ timeout: 15000 });
+  await expect(
+    page.getByRole("button", { name: "Analyze Application" }),
+  ).toBeDisabled();
+  const state = await (
+    await page.request.get(
+      `/api/backend/browser-applications/${slow_packet_id}`,
+    )
+  ).json();
+  expect(state.connected).toBe(false);
+  expect(state.active_operation).toBeNull();
+  expect(state.cancellation_pending).toBe(false);
+  expect(state.packet.tracking_state).toBe("not_applied");
+});
+
 test("owner manages protected career facts and signed answer reuse with PostgreSQL persistence", async ({
   page,
 }) => {
@@ -401,7 +462,13 @@ test("owner manages protected career facts and signed answer reuse with PostgreS
       name: "I reviewed this answer, its evidence and reuse scope.",
     })
     .check();
+  const approval = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/approve-reuse") &&
+      response.request().method() === "POST",
+  );
   await page.getByRole("button", { name: "Approve answer reuse" }).click();
+  expect((await approval).status()).toBe(200);
   await expect(
     page.getByRole("button", { name: "Revoke reuse approval" }),
   ).toBeVisible();

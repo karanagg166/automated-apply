@@ -24,6 +24,7 @@ class OpenBrowser(RevisionInput):
 
 class BrowserAction(RevisionInput):
     action: Literal["analyze", "fill", "preview", "take_over", "cancel", "submit"]
+    operation_id: UUID | None = None
     confirm_reviewed_values: StrictBool = False
     confirm_page_context: StrictBool = False
 

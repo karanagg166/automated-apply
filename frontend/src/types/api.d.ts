@@ -1780,6 +1780,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/browser-applications/{packet_id}/operation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Browser Operation */
+    get: operations["get_browser_operation_api_v1_browser_applications__packet_id__operation_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/browser-applications/{packet_id}/open": {
     parameters: {
       query?: never;
@@ -2115,6 +2132,8 @@ export interface components {
        */
       action:
         "analyze" | "fill" | "preview" | "take_over" | "cancel" | "submit";
+      /** Operation Id */
+      operation_id?: string | null;
       /**
        * Confirm Reviewed Values
        * @default false
@@ -8550,6 +8569,37 @@ export interface operations {
     };
   };
   get_application_status_api_v1_browser_applications__packet_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packet_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_browser_operation_api_v1_browser_applications__packet_id__operation_get: {
     parameters: {
       query?: never;
       header?: never;

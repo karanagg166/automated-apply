@@ -11,7 +11,7 @@ from backend.app.browser.contracts import BrowserAction, OpenBrowser, PrepareBro
 from backend.app.browser.opportunity import ReviewOpportunity
 from backend.app.browser.owner_approval import require_owner_approval
 from backend.app.browser.runner import browser
-from backend.app.browser.service import analyze, fill, metadata, prepare, status
+from backend.app.browser.service import analyze, fill, prepare, status
 from backend.app.browser.steps import AdvanceStep
 from backend.app.core.config import get_settings
 from backend.app.core.security import require_api_token
@@ -50,7 +50,9 @@ async def preview_step(
 ):
     from backend.app.browser.steps import preview
 
-    async with browser.lock(packet_id):
+    async with browser.operations.run(
+        packet_id, "step_preview", data.expected_revision
+    ):
         try:
             async with asyncio.timeout(15):
                 return await preview(session, packet_id, data.expected_revision)
@@ -68,7 +70,9 @@ async def advance_application_step(
 ):
     from backend.app.browser.steps import advance
 
-    async with browser.lock(packet_id):
+    async with browser.operations.run(
+        packet_id, "advance_step", data.expected_revision
+    ):
         try:
             async with asyncio.timeout(35):
                 return await advance(session, packet_id, data)
@@ -86,7 +90,9 @@ async def preview_opportunity(
 ):
     from backend.app.browser.opportunity import capture
 
-    async with browser.lock(packet_id):
+    async with browser.operations.run(
+        packet_id, "opportunity_preview", data.expected_revision
+    ):
         try:
             async with asyncio.timeout(15):
                 return await capture(session, packet_id, data.expected_revision)
@@ -106,7 +112,9 @@ async def approve_opportunity(
 ):
     from backend.app.browser.opportunity import approve
 
-    async with browser.lock(packet_id):
+    async with browser.operations.run(
+        packet_id, "opportunity_approve", data.expected_revision
+    ):
         try:
             async with asyncio.timeout(20):
                 return await approve(session, packet_id, data)
@@ -120,7 +128,9 @@ async def approve_opportunity(
 async def prepare_application(
     data: PrepareBrowser, session: AsyncSession = Depends(get_db_session)
 ):
-    return await prepare(session, data)
+    result = await prepare(session, data)
+    await session.commit()
+    return result
 
 
 @router.get("/{packet_id}")
@@ -128,6 +138,18 @@ async def get_application_status(
     packet_id: UUID, session: AsyncSession = Depends(get_db_session)
 ):
     return await status(session, packet_id)
+
+
+@router.get("/{packet_id}/operation")
+async def get_browser_operation(
+    packet_id: UUID, session: AsyncSession = Depends(get_db_session)
+):
+    packet = await ApplicationPacketService(session).repo.get(packet_id)
+    return {
+        "packet_revision": packet.revision,
+        "active_operation": browser.operations.public(packet_id),
+        "cancellation_pending": str(packet_id) in browser.operations.stopping,
+    }
 
 
 @router.post("/{packet_id}/open")
@@ -139,7 +161,7 @@ async def open_application(
             422,
             "Explicit dedicated-profile and destination permission approval required",
         )
-    async with browser.lock(packet_id):
+    async with browser.operations.run(packet_id, "open", data.expected_revision):
         service = ApplicationPacketService(session)
         packet, _, _ = await service.locked(packet_id, data.expected_revision)
         if not packet.application_url:
@@ -161,42 +183,19 @@ async def application_action(
     data: BrowserAction,
     session: AsyncSession = Depends(get_db_session),
 ):
-    # Fail closed independently of current state or caller. No adapter authorizes submissions yet.
+    # This assisted action never authorizes submission; the mock dispatch has separate gates.
     if data.action == "submit":
         raise HTTPException(
             403,
             "Automated submission is not enabled for any destination; submit manually after review",
         )
-    async with browser.lock(packet_id):
+    if data.action == "cancel":
+        from backend.app.browser.cancellation import cancel
+
+        return await cancel(session, packet_id, data)
+    async with browser.operations.run(packet_id, data.action, data.expected_revision):
         service = ApplicationPacketService(session)
         if data.action == "preview":
-            return await status(session, packet_id)
-        if data.action == "cancel":
-            packet = await service.repo.get(packet_id, lock=True)
-            if packet.revision != data.expected_revision:
-                raise HTTPException(
-                    409, "Packet revision changed; reload before cancelling"
-                )
-            from backend.app.browser.adapters import execution_adapter
-
-            if execution_adapter(
-                packet.application_url, get_settings()
-            ).submission_enabled:
-                from backend.app.browser.submissions import attempt_for, finish, revoke
-
-                await revoke(session, packet_id)
-                attempt = await attempt_for(session, packet_id)
-                if attempt and attempt.state != "verified":
-                    await finish(
-                        session,
-                        attempt.id,
-                        None,
-                        diagnostic="owner_cancelled_after_dispatch_outcome_unknown",
-                    )
-            await browser.close(packet_id)
-            saved = await metadata(session, packet_id)
-            if saved:
-                saved.value = {**saved.value, "diagnostic": "cancelled"}
             return await status(session, packet_id)
         packet, _, _ = await service.locked(packet_id, data.expected_revision)
         runtime = browser.sessions.get(str(packet_id))
@@ -252,7 +251,9 @@ async def submission_preview(
 ):
     from backend.app.browser.submissions import preview
 
-    async with browser.lock(packet_id):
+    async with browser.operations.run(
+        packet_id, "submission_preview", data.expected_revision
+    ):
         return await preview(
             session,
             packet_id,
@@ -271,8 +272,12 @@ async def authorize_submission(
 ):
     from backend.app.browser.submissions import authorize
 
-    async with browser.lock(packet_id):
-        return await authorize(session, packet_id, data)
+    async with browser.operations.run(
+        packet_id, "authorize_submission", data.expected_revision
+    ):
+        result = await authorize(session, packet_id, data)
+        await session.commit()
+        return result
 
 
 @router.post("/{packet_id}/submit")
@@ -283,7 +288,7 @@ async def submit_approved_application(
 ):
     from backend.app.browser.submissions import submit
 
-    async with browser.lock(packet_id):
+    async with browser.operations.run(packet_id, "submit", data.expected_revision):
         return await submit(session, packet_id, data)
 
 
@@ -293,7 +298,7 @@ async def recover_submission(
 ):
     from backend.app.browser.submissions import recover
 
-    async with browser.lock(packet_id):
+    async with browser.operations.run(packet_id, "recover_submission"):
         return await recover(session, packet_id)
 
 
@@ -308,5 +313,5 @@ async def owner_consent(
 ):
     from backend.app.browser.submissions import set_consent
 
-    async with browser.lock(packet_id):
+    async with browser.operations.run(packet_id, "consent", data.expected_revision):
         return await set_consent(session, packet_id, data)

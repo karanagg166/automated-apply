@@ -113,6 +113,8 @@ async def status(session, packet_id):
         "packet": packet.model_dump(mode="json"),
         "connected": bool(current and not current.page.is_closed()),
         "manual": bool(current and current.manual),
+        "active_operation": browser.operations.public(packet_id),
+        "cancellation_pending": str(packet_id) in browser.operations.stopping,
         "in_page_network_isolation": bool(
             current and current.in_page_mode and not current.manual
         ),

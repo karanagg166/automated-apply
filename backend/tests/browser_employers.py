@@ -10,6 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from uuid import UUID
 
 FORMS = {
+    "/slow-open": '<h1>Example Circuit careers</h1><script src="/slow-script"></script><form><label>Full name<input name=name></label></form>',
     "/choices": """<h1>Example Circuit careers</h1><form>
       <fieldset><legend>Remote work preference</legend><label>remote<input id=remote type=radio name=remote value=remote required></label><label>onsite<input type=radio name=remote value=onsite></label></fieldset>
       <div role=radiogroup aria-label=Department aria-required=true><button id=engineering type=button role=radio aria-checked=false onclick="this.setAttribute('aria-checked','true')">Engineering</button><button type=button role=radio aria-checked=false>Product</button></div>
@@ -82,12 +83,25 @@ def employer_site():
         receipts = {}
         mode = "valid"
         reads = []
+        slow_started = threading.Event()
+        slow_release = threading.Event()
 
     writes = Requests()
 
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             writes.reads.append(self.path)
+            if self.path == "/slow-script":
+                writes.slow_started.set()
+                writes.slow_release.wait(timeout=30)
+                try:
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/javascript")
+                    self.end_headers()
+                    self.wfile.write(b"/* fictional slow-load cancellation fixture */")
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
+                return
             if self.path.startswith("/mock/receipts/"):
                 receipt = writes.receipts.get(self.path.rsplit("/", 1)[1])
                 if writes.mode == "missing":
@@ -179,6 +193,7 @@ def employer_site():
     try:
         yield f"http://127.0.0.1:{server.server_port}", writes
     finally:
+        writes.slow_release.set()
         server.shutdown()
         server.server_close()
         thread.join()

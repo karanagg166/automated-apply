@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { api, post, Schema } from "@/lib/api";
@@ -15,6 +15,7 @@ type BrowserStatus = {
   connected: boolean;
   manual: boolean;
   in_page_network_isolation?: boolean;
+  cancellation_pending?: boolean;
   recovery: string | null;
   automated_submission_enabled: boolean;
   owner_consent_available: boolean;
@@ -100,11 +101,16 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
   const client = useQueryClient();
   const [state, setState] = useState<BrowserStatus | null>(null);
   const [error, setError] = useState<Error | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [working, setBusy] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelled, setCancelled] = useState(false);
+  const epoch = useRef(0);
+  const busy = working || cancelling;
   const [permission, setPermission] = useState(false);
   const [reviewed, setReviewed] = useState(false);
   const [contextConfirmed, setContextConfirmed] = useState(false);
   async function consent(fieldId: string, checked: boolean) {
+    const generation = epoch.current;
     setBusy(true);
     setError(null);
     try {
@@ -112,23 +118,62 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
         throw new Error(
           "Confirm the actual company and job before selecting consent.",
         );
-      setState(
-        await post<BrowserStatus>(`browser-applications/${packet.id}/consent`, {
+      const result = await post<BrowserStatus>(
+        `browser-applications/${packet.id}/consent`,
+        {
           expected_revision: packet.revision,
           field_id: fieldId,
           checked,
           confirm_page_context: contextConfirmed,
+        },
+      );
+      if (generation !== epoch.current) return;
+      setState(result);
+      await client.invalidateQueries();
+    } catch (e) {
+      if (generation === epoch.current) setError(e as Error);
+    } finally {
+      if (generation === epoch.current) setBusy(false);
+    }
+  }
+  async function cancel() {
+    epoch.current++;
+    setCancelling(true);
+    setCancelled(false);
+    setError(null);
+    try {
+      const route = `browser-applications/${packet.id}`;
+      const control = await api<{
+        packet_revision: number;
+        active_operation: {
+          id: string;
+          expected_revision: number | null;
+        } | null;
+      }>(`${route}/operation`);
+      setState(
+        await post<BrowserStatus>(`${route}/actions`, {
+          action: "cancel",
+          expected_revision:
+            control.active_operation?.expected_revision ??
+            control.packet_revision,
+          operation_id: control.active_operation?.id ?? null,
         }),
       );
+      setReviewed(false);
+      setContextConfirmed(false);
+      setCancelled(true);
       await client.invalidateQueries();
     } catch (e) {
       setError(e as Error);
     } finally {
       setBusy(false);
+      setCancelling(false);
     }
   }
   async function run(action: string) {
+    const generation = epoch.current;
     setBusy(true);
+    if (action === "open") setCancelled(false);
     setError(null);
     try {
       const result =
@@ -152,14 +197,15 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
                   confirm_page_context: contextConfirmed,
                 },
               );
+      if (generation !== epoch.current) return;
       setState(result);
       setReviewed(false);
       setContextConfirmed(false);
       await client.invalidateQueries();
     } catch (e) {
-      setError(e as Error);
+      if (generation === epoch.current) setError(e as Error);
     } finally {
-      setBusy(false);
+      if (generation === epoch.current) setBusy(false);
     }
   }
   return (
@@ -204,10 +250,27 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
         >
           Take Over
         </Button>
-        <Button disabled={busy} onClick={() => run("cancel")}>
+        <Button disabled={cancelling} onClick={cancel}>
           Cancel
         </Button>
       </div>
+      {cancelling && (
+        <p role="status">
+          Cancelling browser work and checking durable status…
+        </p>
+      )}
+      {cancelled && (
+        <Notice>
+          Browser work closed. Your application history and saved receipts are
+          retained.
+        </Notice>
+      )}
+      {state?.cancellation_pending && (
+        <Notice>
+          Cancellation needs reconciliation. Inspect status before starting new
+          browser work.
+        </Notice>
+      )}
       <label>
         <input
           type="checkbox"

@@ -225,8 +225,49 @@ Live Ollama inference and real employer automatic submission remain unverified.
   secret scanning and whitespace checks passed. Two existing pypdf deprecation
   warnings remain in the full backend run.
 
-Next unfinished work: server-dependent navigation and in-flight cancellation,
+Next unfinished work after the grouped-choice milestone: server-dependent navigation and in-flight cancellation,
 broader permitted company sources/custom controls, a permission-reviewed real
 employer adapter, controlled AGY invocation and genuine local-model/account
 acceptance. The grouped-choice and client-only-step milestone does not complete
 the ten requested phases or authorize production activation.
+
+## Running-operation cancellation and durable acknowledgments
+
+- Cancel stays available during browser work. An authenticated non-locking control
+  read identifies the current operation; its ID and starting revision bind the stop
+  request. A per-packet generation fence discards commands queued before cancellation
+  and blocks new commands while reconciliation is pending. Stale IDs and revisions
+  cannot stop a newer operation. This remains a single-worker local runner.
+- Dedicated browser resources, including a launch/navigation still in progress,
+  close cooperatively. Waiting Playwright calls unwind normally; driver cleanup is
+  performed once. Browser requests are blocked after cancellation. The dashboard
+  ignores older responses after Cancel, while saved packet history remains available.
+- Reserved dispatches remain unknown until receipt-only recovery verifies them;
+  cancellation cannot authorize a retry or erase an existing verified receipt.
+  A bounded cancellation timeout leaves new browser work blocked for manual recovery.
+- Hosted backend CI for `b4556e0` passed **1,305 tests**. Its frontend workflow
+  passed four PG-backed journeys and failed answer-reuse refresh: the retained
+  trace showed approval returning `approved: true`, followed by an empty bank.
+  Request-scope database cleanup was committing after HTTP acknowledgment. Reuse
+  approval/revocation, browser preparation and submission grants now commit before
+  success is returned. Existing authorization and revision checks are retained.
+- PostgreSQL regression fixtures deliberately delay request cleanup to verify that
+  acknowledged approval, revocation, prepared packets and grants are already visible
+  from independent requests/sessions. The actual TCP/Chromium cancellation verifier
+  covers filling, opening, cancellation before/after mock POST, CLI orchestration,
+  durable unknown outcomes, receipt-only recovery and verified-receipt preservation.
+- Local verification: **1,311 full backend tests passed, no skips** in 375 seconds,
+  followed by **17 focused tests** after the final preparation/grant acknowledgment
+  hardening. **Six PG-backed dashboard journeys plus six existing journeys passed
+  sequentially**; the new journey cancels an opening browser while its command is
+  running. Frontend unit tests (40), production build, generated API types, type and
+  formatting checks, Ruff, Bandit, compilation, dependency checks, npm audit (zero
+  findings), tracked secret scanning and whitespace checks passed. The two existing
+  pypdf deprecation warnings remain. Hosted verification for the committed follow-up
+  is reported separately in PR #17; no live model or real employer was exercised.
+
+Next unfinished work: assistance across owner-controlled server navigation, wider
+company sources/custom controls, a permission-reviewed real employer adapter,
+controlled AGY invocation and live local-model/profile/account acceptance. The ten
+requested phases remain incomplete; no production migration or account activation
+is implied by these code milestones.
