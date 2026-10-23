@@ -122,6 +122,10 @@ jobs:
           backend/tests/dropdown_employers.py backend/tests/test_browser_dropdowns.py
           backend/tests/test_browser_dropdowns_postgres.py backend/scripts/verify_browser_dropdowns.py
           backend/tests/test_browser_field_reuse.py
+          backend/app/services/applications/multi_select.py
+          backend/tests/test_multi_select_answers.py backend/tests/test_browser_multiple.py
+          backend/tests/multiple_employers.py backend/scripts/verify_browser_multiple.py
+          backend/tests/test_browser_multiple_postgres.py
           backend/tests/test_browser_cancellation.py backend/tests/test_browser_cancellation_postgres.py
           backend/scripts/verify_browser_cancellation.py
           backend/scripts/verify_live_ollama.py

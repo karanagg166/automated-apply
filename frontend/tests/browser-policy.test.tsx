@@ -105,3 +105,62 @@ it("invalidates the asset approval if the advertised policy changes", async () =
   ).toBeDisabled();
   expect(post).not.toHaveBeenCalled();
 });
+
+it("blocks filling unsaved edits and requires fresh value/context review after saving", async () => {
+  vi.mocked(post).mockResolvedValue({
+    packet,
+    connected: true,
+    manual: false,
+    analysis: {
+      fields: [],
+      warnings: [],
+      validation: [],
+      diagnostic: "analyzed",
+    },
+  });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const node = (dirty: boolean) => (
+    <QueryClientProvider client={client}>
+      <BrowserAssistant packet={packet} hasUnsavedAnswers={dirty} />
+    </QueryClientProvider>
+  );
+  const { rerender } = render(node(false));
+  await userEvent.click(
+    screen.getByLabelText("I approve a dedicated browser profile", {
+      exact: false,
+    }),
+  );
+  await screen.findByText(/static\.employer\.example/);
+  await userEvent.click(
+    screen.getByLabelText("I approve credential-free loading", {
+      exact: false,
+    }),
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "Open dedicated browser" }),
+  );
+  await screen.findByText("analyzed", { exact: true });
+  const reviewed = () =>
+    screen.getByLabelText(
+      "I reviewed the current answers, destination and selected resume below.",
+    );
+  const context = () =>
+    screen.getByLabelText(
+      "I confirmed the actual page belongs to this company and job.",
+    );
+  await userEvent.click(reviewed());
+  await userEvent.click(context());
+  const fill = screen.getByRole("button", { name: "Fill supported fields" });
+  expect(fill).toBeEnabled();
+  rerender(node(true));
+  await userEvent.click(reviewed());
+  await userEvent.click(context());
+  expect(fill).toBeDisabled();
+  rerender(node(false));
+  await waitFor(() => expect(reviewed()).not.toBeChecked());
+  expect(context()).not.toBeChecked();
+  expect(fill).toBeDisabled();
+  expect(post).toHaveBeenCalledTimes(1);
+});

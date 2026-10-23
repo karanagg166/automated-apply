@@ -3451,7 +3451,13 @@ export interface components {
        * @enum {string}
        */
       field_type:
-        "text" | "textarea" | "url" | "file" | "multiple_choice" | "yes_no";
+        | "text"
+        | "textarea"
+        | "url"
+        | "file"
+        | "multiple_choice"
+        | "yes_no"
+        | "multi_select";
       /**
        * Required
        * @default true
@@ -3945,7 +3951,13 @@ export interface components {
        * @enum {string}
        */
       field_type:
-        "text" | "textarea" | "url" | "file" | "multiple_choice" | "yes_no";
+        | "text"
+        | "textarea"
+        | "url"
+        | "file"
+        | "multiple_choice"
+        | "yes_no"
+        | "multi_select";
       /**
        * Required
        * @default true

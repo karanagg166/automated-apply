@@ -30,6 +30,9 @@ async def inspect(session, packet_id, revision):
         raise HTTPException(
             409, "Analyze the connected application before reviewing the next step"
         )
+    from backend.app.services.applications.multi_select import available
+
+    runtime.multi_enabled = await available(session)
     fields, _ = await runtime.unchanged(saved.value["signature"])
     if runtime.has_frames:
         raise HTTPException(409, "Embedded forms require manual step navigation")

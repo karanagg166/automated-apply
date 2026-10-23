@@ -73,7 +73,9 @@ FieldCategory = Literal[
     "yes_no",
     "unknown",
 ]
-FieldType = Literal["text", "textarea", "url", "file", "multiple_choice", "yes_no"]
+FieldType = Literal[
+    "text", "textarea", "url", "file", "multiple_choice", "yes_no", "multi_select"
+]
 ValidationState = Literal[
     "draft_ready",
     "needs_input",
@@ -172,10 +174,19 @@ class QuestionInput(Contract):
     def valid_options(self):
         if len({x.casefold() for x in self.options}) != len(self.options):
             raise ValueError("Options must be unique")
-        if self.field_type in {"multiple_choice", "yes_no"} and not self.options:
+        if (
+            self.field_type in {"multiple_choice", "yes_no", "multi_select"}
+            and not self.options
+        ):
             raise ValueError("Supply the actual form options")
-        if self.options and self.field_type not in {"multiple_choice", "yes_no"}:
+        if self.options and self.field_type not in {
+            "multiple_choice",
+            "yes_no",
+            "multi_select",
+        }:
             raise ValueError("Options require a choice field")
+        if self.field_type == "multi_select" and any(not option.strip() for option in self.options):
+            raise ValueError("Multiple-selection options must be nonblank")
         return self
 
 

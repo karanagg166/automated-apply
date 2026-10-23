@@ -224,6 +224,10 @@ class PacketBuilder:
         return job, profile, snapshot
 
     async def preview(self, job_id, request):
+        if any(question.field_type == "multi_select" for question in request.questions):
+            from backend.app.services.applications.multi_select import require_available
+
+            await require_available(self.session)
         job, profile, snapshot = await self.context(job_id, request.resume_resource_id)
         fields = []
         for i, question in enumerate([*core_questions(), *request.questions]):

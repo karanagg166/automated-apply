@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, post, Schema } from "@/lib/api";
@@ -115,7 +115,13 @@ export function BrowserIntake() {
   );
 }
 
-export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
+export function BrowserAssistant({
+  packet,
+  hasUnsavedAnswers = false,
+}: {
+  packet: Schema<"PacketRead">;
+  hasUnsavedAnswers?: boolean;
+}) {
   const client = useQueryClient();
   const [state, setState] = useState<BrowserStatus | null>(null);
   const [error, setError] = useState<Error | null>(null);
@@ -131,6 +137,10 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
   const [permission, setPermission] = useState(false);
   const [reviewed, setReviewed] = useState(false);
   const [contextConfirmed, setContextConfirmed] = useState(false);
+  useEffect(() => {
+    setReviewed(false);
+    setContextConfirmed(false);
+  }, [packet.revision, hasUnsavedAnswers]);
   const [approvedAssetPolicy, setApprovedAssetPolicy] = useState<string | null>(
     null,
   );
@@ -372,6 +382,7 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
           state.manual ||
           state.page_review_required ||
           !reviewed ||
+          hasUnsavedAnswers ||
           !contextConfirmed
         }
         onClick={() => run("fill")}
@@ -383,7 +394,7 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
           key={`${packet.revision}:${epoch.current}`}
           packetId={packet.id}
           revision={packet.revision}
-          blocked={busy}
+          blocked={busy || hasUnsavedAnswers}
           ownerAvailable={state.owner_consent_available}
           setBusy={(value) => {
             if (renderEpoch === epoch.current) setBusy(value);
@@ -412,7 +423,7 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
         packetId={packet.id}
         revision={packet.revision}
         enabled={state?.automated_submission_enabled || false}
-        blocked={busy}
+        blocked={busy || hasUnsavedAnswers}
         execution={state?.execution || null}
         refresh={async () =>
           setState(
@@ -427,7 +438,13 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
           state?.analysis?.steps?.some((step) => step.supported) || false
         }
         ownerAvailable={state?.owner_consent_available || false}
-        blocked={busy || closed || !state?.connected || !!state?.manual}
+        blocked={
+          busy ||
+          hasUnsavedAnswers ||
+          closed ||
+          !state?.connected ||
+          !!state?.manual
+        }
         setBusy={setBusy}
         refresh={async () => {
           setReviewed(false);

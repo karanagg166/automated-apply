@@ -39,6 +39,7 @@ class DetectedField(Contract):
     required: bool
     options: list[str] = Field(default_factory=list, max_length=50)
     choices_on_open: bool = False
+    options_binding: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     max_characters: int = Field(default=1500, ge=1, le=10000)
     supported: bool = False
     manual_reason: str | None = None

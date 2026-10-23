@@ -153,6 +153,55 @@ groups, rich text editors and consent or attestation choices stay manual. Native
 consent checkboxes still use the direct
 owner control; no answer model or fill plan grants consent.
 
+Multiple selections are an **opt-in local development capability**. The existing
+packet type `multi_select` stores a JSON array of exact option labels, such as
+`["Python","FastAPI"]`, through the same answer, review, revision and tracking APIs.
+It supports native `select multiple` and bounded labelled native/ARIA checkbox
+groups. Checkbox groups need distinct labels, unambiguous membership and enabled
+controls; native members must share a name/form and have distinct values. Groups
+with consent/attestation language or individually required checkboxes remain manual.
+Other custom multiple-choice widgets still require manual completion.
+
+`MULTI_SELECT_FIELDS_ENABLED` defaults to false. PostgreSQL additionally requires
+the separately reviewed capability constraint and execution permission on its
+validator. The flag alone grants neither. The local-only proposal
+[`003_multi_select.sql`](../backend/app/browser/migrations/003_multi_select.sql)
+extends fresh disposable fixtures; it is outside production migration/ACL inventory
+and supplies no runtime grant. Its validator is not executable by public/client
+roles. Installing it in an application database requires a separate migration and
+runtime-permission review; this task does not authorize that installation or R1/R2
+activation. Existing packet reads remain available when the feature is disabled.
+
+For plain technical-skill questions, proposals use only exact matches from saved
+verified skills. They never infer years, proficiency or certifications, and invoke
+no model. Other questions or unknown skills require human selections. Every set
+requires explicit answer review, including proposals derived from profile facts.
+Unchecked options remain unknown facts. Filling replaces the existing selection
+set only after review; an explicit empty set is allowed only for optional fields.
+The editor prevents filling/reviewing unsaved changes and resets global review
+confirmation when the packet revision changes. Save edits, review the stored answer,
+then confirm the actual page before filling.
+
+The runner binds underlying choice values as well as labels, rechecks the form
+between checkbox changes, pauses networking and validates the final browser state.
+Changed codes/questions, revoked capability and invalid controls stop or remain
+incomplete. Reviewed Next previews include actual multiple values and native/ARIA
+validation; a stale set cannot authorize a step. Unknown outcomes never authorize
+submission or replay. Real employer submission remains manual.
+
+The actual PG17/TCP/FastAPI/Chromium demonstration checks all three control types,
+review-before-fill, durable tracking, invalid direct SQL answers and denied client
+access. It also verifies that an enablement flag without the schema stays manual:
+
+```sh
+backend/venv/bin/python backend/scripts/verify_browser_multiple.py
+backend/venv/bin/python backend/scripts/verify_browser_multiple.py --without-schema
+```
+
+Use only the disposable `PROFILE_TEST_DATABASE_URL` described below. The fixture
+installs the proposal in its own child database and removes that database afterward.
+No real account, model request or employer submission occurs.
+
 For a supported client-only multi-step form, use **Review next application step →
 Preview next step** after filling. The preview shows actual browser values and
 validation, including selected consents. Review these, then explicitly authorize

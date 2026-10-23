@@ -22,7 +22,14 @@ async fields => {
     if (elements.length !== 1) throw new Error('changed_step');
     const e = elements[0];
     let value = e.value ?? '', complete = !e.validity || e.validity.valid;
-    if (field.kind === 'radio_group') {
+    if (['multi_select','checkbox_group'].includes(field.kind)) {
+      let selected;
+      if (field.kind === 'multi_select') selected = [...e.selectedOptions].map(o=>o.label.trim());
+      else selected = [...e.querySelectorAll('input[type="checkbox"],[role="checkbox"]')].filter(c=>c.checked || c.getAttribute('aria-checked')==='true').map(c=>(c.labels ? [...c.labels].map(l=>l.innerText).join(' ') : '') || c.getAttribute('aria-label') || c.innerText.trim());
+      value = JSON.stringify(selected);
+      const valid = field.kind === 'multi_select' ? e.validity.valid : e.getAttribute('aria-invalid') !== 'true' && [...e.querySelectorAll('input[type=checkbox],[role=checkbox]')].every(c=>(!c.validity || c.validity.valid) && c.getAttribute('aria-invalid') !== 'true');
+      complete = valid && field.supported && (!field.required || selected.length > 0) && selected.every(label=>field.options.includes(label));
+    } else if (field.kind === 'radio_group') {
       const selected = [...e.querySelectorAll('input[type="radio"],[role="radio"]')].filter(r => r.checked || r.getAttribute('aria-checked') === 'true');
       value = selected.map(r => (r.labels ? [...r.labels].map(l => l.innerText).join(' ') : '') || r.getAttribute('aria-label') || r.innerText || '').join(', ').trim();
       complete = selected.length <= 1 && (!field.required || selected.length === 1);
@@ -34,7 +41,7 @@ async fields => {
     else if (field.kind === 'combobox') value = e.tagName === 'INPUT' ? e.value : e.innerText.trim();
     if (String(value).length > 10000) throw new Error('oversized_value');
     if (field.required && !String(value).trim()) complete = false;
-    if (field.options.length && !['checkbox','radio'].includes(field.kind) && value && !field.options.includes(value)) complete = false;
+    if (field.options.length && !['checkbox','radio','multi_select','checkbox_group'].includes(field.kind) && value && !field.options.includes(value)) complete = false;
     if (field.required && !field.supported && !['checkbox','radio_group'].includes(field.kind)) complete = false;
     values.push({question: field.question, kind: field.kind, value: String(value), complete, required: field.required,
       consent: !field.supported && ['checkbox','radio_group'].includes(field.kind)});

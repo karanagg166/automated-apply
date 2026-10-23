@@ -6,7 +6,7 @@ are not all complete. No real employer adapter has automated submission authoriz
 | Phase | Delivered in this slice | Remaining acceptance work |
 |---|---|---|
 | 1 Audit | Existing modules, PR #15/#16 and unpublished branches inspected; isolated feature worktree; private changes preserved | Reconcile other branches separately if requested; no merges or production activation |
-| 2 Browser | Dedicated Playwright profile; native controls, labelled native/ARIA radios, bounded ARIA comboboxes including lists mounted on open and cached after owner loading; separately approved credential-free public asset bootstrap; reviewed client-only Next steps, manual server navigation with signed same-origin resumption, validation, takeover/cancel | Multiple-selection and wider custom widgets, uncached/search-dependent choices, late asset dependencies, cross-origin ATS frames, permitted server-step automation and verified employer submission |
+| 2 Browser | Dedicated Playwright profile; native controls, labelled native/ARIA radios, bounded ARIA comboboxes including lists mounted on open and cached after owner loading; opt-in native multiple selects and labelled native/ARIA checkbox sets; separately approved credential-free public asset bootstrap; reviewed client-only Next steps, manual server navigation with signed same-origin resumption, validation, takeover/cancel | Other custom multiple widgets/date controls, uncached/search-dependent choices, late asset dependencies, cross-origin ATS frames, permitted server-step automation and verified employer submission |
 | 3 Knowledge | Protected profile/projects/evidence, encrypted resumes; structured compensation, availability, relocation and country authorization; dashboard answer-bank review/approval/revocation | Real owner onboarding and broader reusable question coverage |
 | 4 AI | Existing grounding; supported-paraphrase reuse; independently gated providers/local-only fallback; reviewed employer-page evidence with separate claim validation; explicit local Ollama acceptance on fictional data | Broader company-source research, semantic retrieval, other model/hardware coverage and real owner activation |
 | 5 Execution | Existing idempotent packets/job dedup, exact PDF selection, revision locking, manual receipts; mock-only signed grants, one durable dispatch, versioned payload/receipt checks and unknown-outcome recovery | Real employer adapter permission and runtime activation; optional mock SQL proposals are not production approval |
@@ -52,11 +52,12 @@ A symlinked dependency directory could not be built by Turbopack; a normal isola
 
 ## Next implementation order
 
-1. Broaden multiple-selection controls, custom widgets, permitted late asset dependencies, embedded
-   ATS navigation and multi-step policies with owner handoff at uncertain boundaries.
-2. Broaden permission-reviewed company sources and supported-paraphrase retrieval,
+1. Broaden permission-reviewed company sources and semantic answer retrieval,
    preserving separate opportunity/applicant evidence and extending local-model
    coverage. One cloud-disabled Ollama configuration has passed fictional acceptance.
+2. Extend additional custom multiple/date widgets, permitted late asset dependencies,
+   embedded ATS navigation and multi-step policies as needed for eligible destinations.
+   Keep explicit owner handoff at unsupported or uncertain boundaries.
 3. Add a real employer execution adapter only after its applicant-side permission,
    form semantics and independent receipt protocol are documented and verified.
    The mock extension is not production runtime/ACL approval.
@@ -545,3 +546,67 @@ preserving manual handoff for uncached/search-dependent choices and embedded ATS
 forms. Broader company-source/semantic retrieval, a permission-reviewed real employer
 adapter, controlled AGY invocation and genuine owner profile/account acceptance also
 remain. This milestone does not complete the ten requested phases.
+
+## Reviewed multiple selections with gated database support
+
+- Added the canonical packet field type `multi_select`, using JSON arrays of exact
+  displayed labels through the existing answer/review/revision/tracking services.
+  Native multiple selects and bounded labelled native/ARIA checkbox groups share
+  these contracts. Invalid/scalar/duplicate/unknown selections are rejected; an
+  explicit empty set is valid only for optional fields. No parallel status system
+  or selection-answer store was introduced.
+- Plain technical-skill proposals intersect actual form options with saved verified
+  skills, retain profile evidence and always require answer review. Duration,
+  proficiency, certifications and other unknown claims stay unknown. This path
+  never calls a model, including explicit Generate requests. Unselected options
+  are not saved as verified negative facts.
+- Filling replaces the exact reviewed set, checks underlying option bindings,
+  rechecks the form between checkbox changes and validates native/ARIA state.
+  Dynamic fields and attempted network activity interrupt before later answers.
+  Consent, individually required/readonly/ambiguous choices, and submit controls
+  disguised as checkboxes remain manual. Signed Next previews include actual
+  multiple values/validation; changed sets invalidate approval and replay never
+  clicks again. Existing scalar field identities/answers remain compatible.
+- The checkbox editor shows exact choices, permits explicit clearing and blocks
+  review/filling while any answer changes are unsaved. Packet revisions and dirty
+  state reset global review/context confirmations. Saved sets still require exact
+  field review. Unknown values are not automatically converted to empty sets.
+- `MULTI_SELECT_FIELDS_ENABLED` defaults off. PostgreSQL additionally checks its
+  capability marker and validator execution permission. A flag without schema
+  stays manual and rejects canonical multiple-field writes. Optional local proposal
+  `003_multi_select.sql` extends only fresh disposable fixtures, validates JSON sets
+  at the database boundary and denies public validator execution. It adds no
+  runtime grant or production inventory entry; migration/runtime permission review
+  and Phase 9 R1/R2 authorization remain separate. No production installation is
+  implied, and disabled capability remains readable for manual handoff.
+- The actual PG17/TCP/FastAPI/Chromium verifier covers all three control types,
+  review-before-fill, durable answer/review/tracking, raw SQL rejection and denied
+  client access. A separate run proves missing-schema rejection with the flag on.
+  Both passed. **Eleven PG17-backed dashboard journeys passed**, including editing
+  a saved selection set and the unsaved-edit guard; **six legacy journeys passed**.
+  **45 frontend unit tests**, types/formatting and the production build passed.
+  All browser groups ran sequentially with fictional facts, accounts and employers.
+- Final full regression: **1,470 backend tests passed, no skips**, in 552 seconds,
+  including 23 new set-answer cases, 23 new Chromium cases and two PG17 runs. The
+  two existing pypdf deprecation warnings remain. This was a complete passing run
+  after the focused fixes, with original test collection/order and all safety tests.
+  Ruff, whole-app Bandit, compilation, generated API types, dependency consistency,
+  npm audit (zero findings), tracked secret scanning and whitespace checks passed.
+  No secret-baseline changes were required.
+- Adding the eleventh owner journey exposed the existing ten-login limit. The
+  fixture now reuses one actual UI-created fictional owner session in memory;
+  production login limits and separate anonymous/CSRF checks are unchanged. Native
+  multiple-label extraction was also corrected to exclude its option text before
+  resolving verified facts. An initial new unit mock omitted warnings; its complete
+  fixture now passes without weakening application validation.
+- Both hosted workflows passed for preceding head `16029e9`. Current-head hosted
+  checks are recorded separately in PR #17. This milestone made no model request,
+  real application, account activation, remote SQL or production/runtime grant.
+  Historical migrations 001–011, the Phase 9 manifest/SQL, original mock proposals
+  001/002 and original checkout changes remain preserved.
+
+Next unfinished task: broader permitted company-source and semantic answer retrieval.
+Other custom widgets/embedded ATS forms, a permission-reviewed real
+employer adapter, controlled AGY invocation and genuine owner profile/account
+acceptance. Restricted portals and unverified server steps stay manual. These
+changes do not complete all ten requested phases.

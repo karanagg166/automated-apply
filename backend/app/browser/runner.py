@@ -147,6 +147,7 @@ class BrowserSession:
         self.paused_for_resume = False
         self.instance_id = uuid4().hex
         self.assets = resources.assets or PublicAssets({})
+        self.multi_enabled = False
 
     def owner_mode(self, source):
         main = source["page"] == self.page and source["frame"] == self.page.main_frame
@@ -326,11 +327,34 @@ class BrowserSession:
         ]
         self.has_frames = result["has_frames"]
         self.signature = digest(
-            {"form": result["signature"], "context": self.context_evidence}
+            {
+                "form": result["signature"],
+                "context": self.context_evidence,
+                **(
+                    {"multi_policy": self.multi_enabled}
+                    if any(
+                        f["kind"] in {"multi_select", "checkbox_group"}
+                        for f in result["fields"]
+                    )
+                    else {}
+                ),
+            }
         )
-        self.fields = [
-            DetectedField.model_validate(f).model_dump() for f in result["fields"]
-        ]
+        self.fields = []
+        for field in result["fields"]:
+            parsed = DetectedField.model_validate(field).model_dump()
+            if parsed["options_binding"] is None:
+                del parsed["options_binding"]
+            if (
+                not self.multi_enabled
+                and parsed["kind"] in {"multi_select", "checkbox_group"}
+                and parsed["supported"]
+            ):
+                parsed["supported"] = False
+                parsed["manual_reason"] = (
+                    "Multiple selections require enabled database capability; complete manually"
+                )
+            self.fields.append(parsed)
         return self.fields, ["Embedded forms require manual review"] if result[
             "has_frames"
         ] else []
@@ -353,6 +377,25 @@ class BrowserSession:
             raise HTTPException(409, "Form changed; analyze again")
         if field["kind"] == "file":
             await element.set_input_files(upload)
+        elif field["kind"] in {"multi_select", "checkbox_group"}:
+            from backend.app.services.applications.multi_select import decode
+
+            if not self.multi_enabled or not field["supported"]:
+                raise HTTPException(
+                    409, "Multiple selections are unavailable; use manual handoff"
+                )
+            selected = decode(value, field["options"], required=field["required"])
+            if field["kind"] == "checkbox_group":
+                from backend.app.browser.multiple import fill_group
+
+                return await fill_group(self, field, selected)
+            await element.select_option(label=selected)
+            actual = await element.evaluate(
+                "e=>[...e.selectedOptions].map(o=>o.label.trim())"
+            )
+            return set(actual) == set(selected) and await element.evaluate(
+                "e=>e.validity.valid"
+            )
         elif field["kind"] == "select":
             await element.select_option(label=value)
         elif field["kind"] == "radio_group":

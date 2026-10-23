@@ -1,5 +1,24 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type BrowserContext } from "@playwright/test";
 import { readFileSync } from "node:fs";
+
+// Reuse one real UI login for this fictional owner-only workflow suite.
+// State stays in memory; login limits and anonymous checks remain exercised separately.
+let ownerCookies: Awaited<ReturnType<BrowserContext["cookies"]>> | null = null;
+async function loginOwner(page: Page) {
+  if (ownerCookies) {
+    await page.context().addCookies(ownerCookies);
+    await page.goto("/");
+    await expect(page).toHaveURL("/");
+    return;
+  }
+  await page.goto("/login");
+  await page
+    .getByLabel("Owner passphrase")
+    .fill("fictional-ui-owner-passphrase");
+  await page.getByRole("button", { name: "Enter workspace" }).click();
+  await expect(page).toHaveURL("/");
+  ownerCookies = await page.context().cookies();
+}
 
 async function approveBrowser(page: Page) {
   await page
@@ -28,6 +47,7 @@ test.afterEach(async ({ page }) => {
     manifest.complete_packet_id,
     manifest.asset_packet_id,
     manifest.dropdown_packet_id,
+    manifest.multiple_packet_id,
   ].filter(Boolean)) {
     const response = await page.request.get(
       `/api/backend/browser-applications/${id}/operation`,
@@ -70,12 +90,7 @@ test("owner dashboard analyzes and fills using real FastAPI, PostgreSQL and a de
       await request.get(`/api/backend/browser-applications/${packet_id}`)
     ).status(),
   ).toBe(401);
-  await page.goto("/login");
-  await page
-    .getByLabel("Owner passphrase")
-    .fill("fictional-ui-owner-passphrase");
-  await page.getByRole("button", { name: "Enter workspace" }).click();
-  await expect(page).toHaveURL("/");
+  await loginOwner(page);
   await page.goto(`/applications/${packet_id}`);
   await expect(
     page.getByRole("heading", { name: "Local browser assistant" }),
@@ -150,12 +165,7 @@ test("owner authorizes a mock application and sees the independently verified re
   const { mock_packet_id } = JSON.parse(
     readFileSync("../reports/browser-mock.private.json", "utf8"),
   );
-  await page.goto("/login");
-  await page
-    .getByLabel("Owner passphrase")
-    .fill("fictional-ui-owner-passphrase");
-  await page.getByRole("button", { name: "Enter workspace" }).click();
-  await expect(page).toHaveURL("/");
+  await loginOwner(page);
   await page.goto(`/applications/${mock_packet_id}`);
   await approveBrowser(page);
   await page.getByRole("button", { name: "Open dedicated browser" }).click();
@@ -222,12 +232,7 @@ test("reviewed employer context grounds an AI proposal and fills the actual fict
   const { opportunity_packet_id } = JSON.parse(
     readFileSync("../reports/browser-mock.private.json", "utf8"),
   );
-  await page.goto("/login");
-  await page
-    .getByLabel("Owner passphrase")
-    .fill("fictional-ui-owner-passphrase");
-  await page.getByRole("button", { name: "Enter workspace" }).click();
-  await expect(page).toHaveURL("/");
+  await loginOwner(page);
   await page.goto(`/applications/${opportunity_packet_id}`);
   await approveBrowser(page);
   await page.getByRole("button", { name: "Open dedicated browser" }).click();
@@ -324,12 +329,7 @@ test("owner fills grouped choices and explicitly advances an in-page application
   const { guided_packet_id } = JSON.parse(
     readFileSync("../reports/browser-mock.private.json", "utf8"),
   );
-  await page.goto("/login");
-  await page
-    .getByLabel("Owner passphrase")
-    .fill("fictional-ui-owner-passphrase");
-  await page.getByRole("button", { name: "Enter workspace" }).click();
-  await expect(page).toHaveURL("/");
+  await loginOwner(page);
   await page.goto(`/applications/${guided_packet_id}`);
   await approveBrowser(page);
   await page.getByRole("button", { name: "Open dedicated browser" }).click();
@@ -429,12 +429,7 @@ test("owner cancels an opening browser while its navigation is still in flight",
   const { slow_packet_id } = JSON.parse(
     readFileSync("../reports/browser-mock.private.json", "utf8"),
   );
-  await page.goto("/login");
-  await page
-    .getByLabel("Owner passphrase")
-    .fill("fictional-ui-owner-passphrase");
-  await page.getByRole("button", { name: "Enter workspace" }).click();
-  await expect(page).toHaveURL("/");
+  await loginOwner(page);
   await page.goto(`/applications/${slow_packet_id}`);
   await approveBrowser(page);
   await page.getByRole("button", { name: "Open dedicated browser" }).click();
@@ -477,12 +472,7 @@ test("owner resumes after a manual server step through the signed dashboard revi
   const { navigation_packet_id } = JSON.parse(
     readFileSync("../reports/browser-mock.private.json", "utf8"),
   );
-  await page.goto("/login");
-  await page
-    .getByLabel("Owner passphrase")
-    .fill("fictional-ui-owner-passphrase");
-  await page.getByRole("button", { name: "Enter workspace" }).click();
-  await expect(page).toHaveURL("/");
+  await loginOwner(page);
   await page.goto(`/applications/${navigation_packet_id}`);
   await approveBrowser(page);
   await page.getByRole("button", { name: "Open dedicated browser" }).click();
@@ -570,12 +560,7 @@ test("owner generates a grounded company answer and completes one authorized moc
   const { complete_packet_id } = JSON.parse(
     readFileSync("../reports/browser-mock.private.json", "utf8"),
   );
-  await page.goto("/login");
-  await page
-    .getByLabel("Owner passphrase")
-    .fill("fictional-ui-owner-passphrase");
-  await page.getByRole("button", { name: "Enter workspace" }).click();
-  await expect(page).toHaveURL("/");
+  await loginOwner(page);
   await page.goto(`/applications/${complete_packet_id}`);
   await approveBrowser(page);
   await page.getByRole("button", { name: "Open dedicated browser" }).click();
@@ -743,12 +728,7 @@ test("owner approves public asset origins before inspecting and filling an exter
   const { asset_packet_id } = JSON.parse(
     readFileSync("../reports/browser-mock.private.json", "utf8"),
   );
-  await page.goto("/login");
-  await page
-    .getByLabel("Owner passphrase")
-    .fill("fictional-ui-owner-passphrase");
-  await page.getByRole("button", { name: "Enter workspace" }).click();
-  await expect(page).toHaveURL("/");
+  await loginOwner(page);
   await page.goto(`/applications/${asset_packet_id}`);
   await page
     .getByLabel("I approve a dedicated browser profile", { exact: false })
@@ -808,12 +788,7 @@ test("owner manually loads remote choices then reviews and fills a transient dro
   const { dropdown_packet_id } = JSON.parse(
     readFileSync("../reports/browser-mock.private.json", "utf8"),
   );
-  await page.goto("/login");
-  await page
-    .getByLabel("Owner passphrase")
-    .fill("fictional-ui-owner-passphrase");
-  await page.getByRole("button", { name: "Enter workspace" }).click();
-  await expect(page).toHaveURL("/");
+  await loginOwner(page);
   await page.goto(`/applications/${dropdown_packet_id}`);
   await approveBrowser(page);
   await page.getByRole("button", { name: "Open dedicated browser" }).click();
@@ -922,15 +897,124 @@ test("owner manually loads remote choices then reviews and fills a transient dro
   expect(state.automated_submission_enabled).toBe(false);
 });
 
+test("owner edits and reviews an exact multiple-selection set before browser filling", async ({
+  page,
+}) => {
+  const { multiple_packet_id } = JSON.parse(
+    readFileSync("../reports/browser-mock.private.json", "utf8"),
+  );
+  await loginOwner(page);
+  await page.goto(`/applications/${multiple_packet_id}`);
+  await approveBrowser(page);
+  await page.getByRole("button", { name: "Open dedicated browser" }).click();
+  await expect(
+    page.getByRole("button", { name: "Analyze Application" }),
+  ).toBeEnabled({ timeout: 45000 });
+  await page.getByRole("button", { name: "Analyze Application" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: /^analyzed$/ }),
+  ).toBeVisible();
+  const field = page
+    .locator(".evidence-item")
+    .filter({ hasText: "Technical skills" })
+    .first();
+  await expect(field.getByLabel("Python", { exact: true })).toBeChecked();
+  await expect(field.getByLabel("FastAPI", { exact: true })).toBeChecked();
+  await expect(field.getByLabel("Go", { exact: true })).not.toBeChecked();
+  await field.getByLabel("FastAPI", { exact: true }).uncheck();
+  await expect(
+    page.getByRole("button", { name: "Save field review" }),
+  ).toBeDisabled();
+  await expect(
+    field.getByText(
+      "Save answer changes before reviewing or filling this application.",
+    ),
+  ).toBeVisible();
+  await page
+    .getByLabel(
+      "I reviewed the current answers, destination and selected resume below.",
+    )
+    .check();
+  await page
+    .getByLabel("I confirmed the actual page belongs to this company and job.")
+    .check();
+  await expect(
+    page.getByRole("button", { name: "Fill supported fields" }),
+  ).toBeDisabled();
+  const saving = page.waitForResponse(
+    (response) =>
+      response
+        .url()
+        .includes(`/application-packets/${multiple_packet_id}/questions/`) &&
+      response.request().method() === "PATCH",
+  );
+  await field.getByRole("button", { name: "Save answer", exact: true }).click();
+  const saved = await saving;
+  expect(saved.status()).toBe(200);
+  await expect(
+    page
+      .getByText(`Revision ${(await saved.json()).revision}`, { exact: false })
+      .first(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Save field review" }),
+  ).toBeEnabled();
+  for (const checkbox of await page
+    .getByLabel("I reviewed this exact answer")
+    .all())
+    await checkbox.check();
+  const reviewing = page.waitForResponse(
+    (response) =>
+      response
+        .url()
+        .endsWith(`/application-packets/${multiple_packet_id}/review`) &&
+      response.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "Save field review" }).click();
+  const reviewed = await reviewing;
+  expect(reviewed.status()).toBe(200);
+  await expect(
+    page
+      .getByText(`Revision ${(await reviewed.json()).revision}`, {
+        exact: false,
+      })
+      .first(),
+  ).toBeVisible();
+  await page
+    .getByLabel(
+      "I reviewed the current answers, destination and selected resume below.",
+    )
+    .check();
+  await page
+    .getByLabel("I confirmed the actual page belongs to this company and job.")
+    .check();
+  await page.getByRole("button", { name: "Fill supported fields" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: /^filled review on website$/ }),
+  ).toBeVisible();
+  const state = await (
+    await page.request.get(
+      `/api/backend/browser-applications/${multiple_packet_id}`,
+    )
+  ).json();
+  const multi = state.packet.fields.find(
+    (item: { field_type: string }) => item.field_type === "multi_select",
+  );
+  expect(JSON.parse(multi.effective_answer)).toEqual(["Python"]);
+  expect(multi.review_status).toBe("reviewed");
+  expect(
+    state.analysis.validation.find(
+      (item: { field_id: string }) => item.field_id === multi.id,
+    ).complete,
+  ).toBe(true);
+  expect(state.packet.tracking_state).toBe("not_applied");
+  expect(state.automated_submission_enabled).toBe(false);
+});
+
 test("owner manages protected career facts and signed answer reuse with PostgreSQL persistence", async ({
   page,
 }) => {
-  await page.goto("/login");
-  await page
-    .getByLabel("Owner passphrase")
-    .fill("fictional-ui-owner-passphrase");
-  await page.getByRole("button", { name: "Enter workspace" }).click();
-  await expect(page).toHaveURL("/");
+  await loginOwner(page);
   await page.goto("/profile");
   await page.getByText("Reviewed application answers", { exact: true }).click();
   await page

@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     BROWSER_PROFILE_ROOT: str = "reports/browser-profiles"
     BROWSER_CHANNEL: Literal["chrome", "chromium"] = "chrome"
     BROWSER_HEADLESS: bool = False
+    MULTI_SELECT_FIELDS_ENABLED: bool = False
 
     # Security
     RESUME_ENCRYPTION_KEY: SecretStr | None = None

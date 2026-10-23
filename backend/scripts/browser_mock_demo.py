@@ -34,6 +34,7 @@ async def run(
     multiline_answer=False,
     asset_demo=False,
     dropdown_demo=False,
+    multiple_demo=False,
 ):
     import asyncpg
     import httpx
@@ -68,6 +69,8 @@ async def run(
                     await connection.execute(f'CREATE ROLE "{role}" NOLOGIN')
             for migration in sorted((ROOT / "supabase/migrations").glob("*.sql")):
                 await connection.execute(migration.read_text())
+            if (multiple_demo or serve) and multiple_demo != "without_schema":
+                await connection.execute((ROOT / "backend/app/browser/migrations/003_multi_select.sql").read_text())
             if submission_demo:
                 await connection.execute(
                     (
@@ -114,6 +117,15 @@ async def run(
                 from backend.tests.dropdown_employers import application
 
                 FORMS["/dropdown-demo"] = application(mode="remote")
+            if serve or multiple_demo:
+                from backend.tests.browser_employers import FORMS
+                from backend.tests.multiple_employers import (
+                    application as multiple_form,
+                )
+
+                FORMS["/multiple-demo"] = multiple_form()
+                FORMS["/multiple-checkbox"] = multiple_form("checkbox")
+                FORMS["/multiple-aria"] = multiple_form("aria")
             from backend.app.core.config import Settings, configure_operator
 
             settings = Settings(
@@ -131,6 +143,7 @@ async def run(
                 BROWSER_PROFILE_ROOT=str(Path(directory).resolve() / "profiles"),
                 BROWSER_CHANNEL="chromium",
                 BROWSER_HEADLESS=True,
+                MULTI_SELECT_FIELDS_ENABLED=bool(serve or multiple_demo),
                 RESUME_ENCRYPTION_KEY=Fernet.generate_key().decode(),
                 GEMINI_API_KEY=None,
                 LLM_MODEL=None,
@@ -293,6 +306,8 @@ async def run(
                     + (
                         "/guided"
                         if steps_demo
+                        else "/multiple-demo"
+                        if multiple_demo
                         else "/dropdown-demo"
                         if dropdown_demo
                         else "/assets"
@@ -312,6 +327,8 @@ async def run(
                     else "Example Circuit",
                     "job_title": "Backend Engineer AI fixture"
                     if complete_application_demo
+                    else "Backend Engineer multiple fixture"
+                    if multiple_demo
                     else "Backend Engineer dropdown fixture"
                     if dropdown_demo
                     else "Backend Engineer asset fixture"
@@ -477,6 +494,16 @@ async def run(
                         },
                     )
                     assert dropdown_packet.status_code == 200, dropdown_packet.text
+                    multiple_packet = await client.post(
+                        "/api/v1/browser-applications",
+                        json={
+                            "application_url": employer + "/multiple-demo",
+                            "company_name": "Example Circuit",
+                            "job_title": "Backend Engineer multiple fixture",
+                            "idempotency_key": "browser-multiple-001",
+                        },
+                    )
+                    assert multiple_packet.status_code == 200, multiple_packet.text
                     output = ROOT / "reports/browser-mock.private.json"
                     output.parent.mkdir(exist_ok=True)
                     output.write_text(
@@ -492,6 +519,7 @@ async def run(
                                 "complete_packet_id": complete_packet.json()["id"],
                                 "asset_packet_id": asset_packet.json()["id"],
                                 "dropdown_packet_id": dropdown_packet.json()["id"],
+                                "multiple_packet_id": multiple_packet.json()["id"],
                             }
                         )
                     )
@@ -520,6 +548,10 @@ async def run(
                     from backend.scripts.verify_browser_dropdowns import verify
 
                     await verify(client, packet, settings, writes)
+                elif multiple_demo:
+                    from backend.scripts.verify_browser_multiple import verify
+
+                    await verify(client, packet, settings, writes, child, without_schema=multiple_demo == "without_schema")
                 elif complete_application_demo:
                     from backend.scripts.verify_complete_application import verify
 

@@ -142,6 +142,9 @@ async def status(session, packet_id):
 
 
 async def analyze(session, packet, service, runtime):
+    from backend.app.services.applications.multi_select import available
+
+    runtime.multi_enabled = multi_enabled = await available(session)
     fields, warnings = await runtime.scan()
     if not fields:
         raise HTTPException(
@@ -185,6 +188,10 @@ async def analyze(session, packet, service, runtime):
                 required=field["required"],
                 field_type="yes_no"
                 if kind == "checkbox"
+                else "multi_select"
+                if kind in {"multi_select", "checkbox_group"}
+                and multi_enabled
+                and field["options"]
                 else "multiple_choice"
                 if kind in {"select", "radio_group", "combobox"} and field["options"]
                 else "file"
@@ -196,6 +203,11 @@ async def analyze(session, packet, service, runtime):
                 if kind == "checkbox"
                 else field["options"]
                 if kind in {"select", "radio_group", "combobox"}
+                or (
+                    kind in {"multi_select", "checkbox_group"}
+                    and multi_enabled
+                    and field["options"]
+                )
                 else [],
                 max_characters=field["max_characters"],
             )
@@ -254,6 +266,9 @@ async def fill(session, packet, service, runtime, confirm, confirm_context=False
     saved = await metadata(session, packet.id)
     if not saved:
         raise HTTPException(409, "Analyze the form before filling")
+    from backend.app.services.applications.multi_select import available
+
+    runtime.multi_enabled = multi_enabled = await available(session)
     fields, _ = await runtime.unchanged(saved.value["signature"])
     items = {
         str(f.id): service.repo.field_read(f)
@@ -262,7 +277,14 @@ async def fill(session, packet, service, runtime, confirm, confirm_context=False
     plan, validation = [], []
     for actual, mapped in zip(fields, saved.value["fields"], strict=True):
         item = items[mapped["field_id"]]
-        if not actual["supported"]:
+        if (
+            not actual["supported"]
+            or not mapped["supported"]
+            or (
+                actual["kind"] in {"multi_select", "checkbox_group"}
+                and not multi_enabled
+            )
+        ):
             validation.append(
                 {
                     "field_id": str(item.id),
