@@ -1,9 +1,14 @@
-() => {
+(catalog = []) => {
   const visible = el => !!(el.getClientRects().length && getComputedStyle(el).visibility !== 'hidden');
   const labelled = el => (el.getAttribute('aria-labelledby') || '').split(' ').map(id => document.getElementById(id)?.innerText || '').join(' ').trim();
   const label = el => ((el.labels ? [...el.labels].map(l => l.innerText).join(' ') : '') || labelled(el) || el.getAttribute('aria-label') || el.placeholder || el.name || '').trim();
   const consent = text => /\b(consent|agree|agreement|terms|privacy|certify|attest|acknowledge|subscribe|permission|affirm|declare|accept)\b/i.test(text);
   const unique = values => values.every(v => v && v.length <= 200) && new Set(values.map(v => v.toLowerCase())).size === values.length;
+  const inspected = new Map();
+  for (const item of catalog || []) {
+    const matches = [...document.querySelectorAll('[data-aa-field]')].filter(e => e.getAttribute('data-aa-field') === item.key);
+    if (matches.length === 1) inspected.set(matches[0], item);
+  }
   document.querySelectorAll('[data-aa-field],[data-aa-options],[data-aa-step]').forEach(el => {
     el.removeAttribute('data-aa-field'); el.removeAttribute('data-aa-options'); el.removeAttribute('data-aa-step');
   });
@@ -16,7 +21,7 @@
     let kind = el.tagName === 'SELECT' ? 'select' : el.tagName === 'TEXTAREA' ? 'textarea' : el.getAttribute('role') || el.type || 'text';
     if (el.isContentEditable) kind = 'rich_text';
     if (['hidden','submit','reset','button','image'].includes(kind)) continue;
-    let question = label(el).slice(0,2000), options = [], manual = null;
+    let question = label(el).slice(0,2000), options = [], manual = null, choices_on_open = false;
     let required = el.required || el.getAttribute('aria-required') === 'true';
     if (kind === 'radio') {
       const native = el.matches('input[type="radio"]');
@@ -48,10 +53,15 @@
           list.getAttribute('aria-multiselectable') === 'true' || choices.some(o => o.getAttribute('aria-disabled') === 'true') ||
           !(el.matches('input:not([type]),input[type="text"],input[type="search"],button[type="button"]')) ||
           !['true','false'].includes(el.getAttribute('aria-expanded'))) manual = 'Unsupported or ambiguous custom dropdown: complete manually';
+      const known = inspected.get(el);
+      if (!choices.length && known) {
+        choices_on_open = true; options = known.options;
+        manual = known.error || (!unique(options) || !options.length ? 'Unsupported dropdown choices' : null);
+      }
     }
     const key = crypto.randomUUID();
     el.setAttribute('data-aa-field', key);
-    if (kind === 'combobox' && !manual) {
+    if (kind === 'combobox' && !manual && !choices_on_open) {
       [...document.querySelectorAll('[role="listbox"]')].find(l => l.id === el.getAttribute('aria-controls')).setAttribute('data-aa-options', key);
     }
     if (!question) manual = 'Unlabelled field';
@@ -62,7 +72,7 @@
     if (!['radio_group'].includes(kind) && controls.filter(other => other !== el && other.name && other.name === el.name).length) manual = 'Repeated control name: confirm manually';
     if (seen.has(question)) manual = 'Repeated label: confirm manually';
     seen.add(question);
-    fields.push({key, accept: (el.accept || '').slice(0,200), question: question || 'Unlabelled field', kind, required, options: unique(options) && options.length <= 50 ? options : [], max_characters: el.maxLength > 0 ? Math.min(el.maxLength,10000) : 1500, supported: !manual, manual_reason: manual});
+    fields.push({key, accept: (el.accept || '').slice(0,200), question: question || 'Unlabelled field', kind, required, options: unique(options) && options.length <= 50 ? options : [], choices_on_open, max_characters: el.maxLength > 0 ? Math.min(el.maxLength,10000) : 1500, supported: !manual, manual_reason: manual});
   }
   const next = [...document.querySelectorAll('button[type="button"]')].filter(el => visible(el) && !el.disabled && el.getAttribute('aria-disabled') !== 'true' && !['radio','checkbox','combobox','option'].includes(el.getAttribute('role')) && !el.closest('[role="listbox"],[role="radiogroup"],[role="menu"]') && /^(next(?: step)?|continue)$/i.test((el.getAttribute('aria-label') || el.innerText).trim()));
   const steps = next.map(el => {

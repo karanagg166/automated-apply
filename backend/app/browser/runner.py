@@ -278,6 +278,10 @@ class BrowserSession:
 
     async def scan(self):
         self.assets.seal()
+        if not self.manual:
+            # Marking DOM handles can run website MutationObservers. Pause before
+            # any page evaluation, not only before interactive choice inspection.
+            self.in_page_mode = True
         if self.paused_for_resume:
             raise HTTPException(
                 409, "Review the current page before resuming assistance"
@@ -288,9 +292,27 @@ class BrowserSession:
                 "Browser disconnected or destination changed; take over and reanalyze",
             )
         result = await self.page.evaluate(DETECT)
+        if not self.manual and self.blocked_step_requests:
+            raise HTTPException(
+                409, "Analysis requires network activity; take over manually"
+            )
         if result["blocked"]:
             raise HTTPException(
                 409, "Access challenge or authentication required; take over manually"
+            )
+        if not result["has_frames"]:
+            from backend.app.browser.dropdowns import discover
+
+            catalog = await discover(self, result["fields"])
+            if catalog:
+                result = await self.page.evaluate(DETECT, catalog)
+                if result["blocked"] or result["has_frames"]:
+                    raise HTTPException(
+                        409, "Page changed during choice inspection; take over manually"
+                    )
+        if not self.manual and self.blocked_step_requests:
+            raise HTTPException(
+                409, "Analysis requires network activity; take over manually"
             )
         self.context_evidence = {
             "url": self.page.url,
@@ -353,7 +375,9 @@ class BrowserSession:
                 raise HTTPException(
                     409, "Custom dropdown choice changed; analyze again"
                 )
-            await element.click(timeout=5000)
+            from backend.app.browser.dropdowns import open_reviewed
+
+            element = await open_reviewed(self, field)
             options = self.page.locator(f'[data-aa-options="{field["key"]}"]')
             choice = options.get_by_role("option", name=value, exact=True)
             if await options.count() != 1 or await choice.count() != 1:

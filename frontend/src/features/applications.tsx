@@ -285,6 +285,9 @@ function AnswerField({
         {readable(field.provenance?.source)} · {field.max_characters} characters
         maximum
       </p>
+      {!!field.options?.length && (
+        <p>Choose one exact option: {field.options.join(" · ")}</p>
+      )}
       {field.field_type === "file" ? (
         <Notice>
           Download the selected private resume and upload the actual file on the

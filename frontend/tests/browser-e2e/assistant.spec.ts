@@ -27,6 +27,7 @@ test.afterEach(async ({ page }) => {
     manifest.navigation_packet_id,
     manifest.complete_packet_id,
     manifest.asset_packet_id,
+    manifest.dropdown_packet_id,
   ].filter(Boolean)) {
     const response = await page.request.get(
       `/api/backend/browser-applications/${id}/operation`,
@@ -796,6 +797,127 @@ test("owner approves public asset origins before inspecting and filling an exter
       (field: { complete: boolean }) => field.complete,
     ),
   ).toBe(true);
+  expect(state.packet.tracking_state).toBe("not_applied");
+  expect(state.automated_submission_enabled).toBe(false);
+});
+
+test("owner manually loads remote choices then reviews and fills a transient dropdown", async ({
+  page,
+  request,
+}) => {
+  const { dropdown_packet_id } = JSON.parse(
+    readFileSync("../reports/browser-mock.private.json", "utf8"),
+  );
+  await page.goto("/login");
+  await page
+    .getByLabel("Owner passphrase")
+    .fill("fictional-ui-owner-passphrase");
+  await page.getByRole("button", { name: "Enter workspace" }).click();
+  await expect(page).toHaveURL("/");
+  await page.goto(`/applications/${dropdown_packet_id}`);
+  await approveBrowser(page);
+  await page.getByRole("button", { name: "Open dedicated browser" }).click();
+  const analyze = page.getByRole("button", { name: "Analyze Application" });
+  await expect(analyze).toBeEnabled({ timeout: 45000 });
+  const blocked = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/actions") &&
+      response.request().postDataJSON()?.action === "analyze",
+  );
+  await analyze.click();
+  expect((await blocked).status()).toBe(409);
+  const takeover = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/actions") &&
+      response.request().postDataJSON()?.action === "take_over",
+  );
+  await page.getByRole("button", { name: "Take Over", exact: true }).click();
+  expect((await takeover).status()).toBe(200);
+  const manual = await request.post(
+    "http://127.0.0.1:8767/_fictional_test/owner-load-choices",
+    {
+      headers: { Authorization: "Bearer fictional-browser-demo-owner-token" },
+    },
+  );
+  expect(manual.status()).toBe(200);
+  expect((await manual.json()).choice_loads).toBe(1);
+  await analyze.click();
+  await expect(
+    page.getByRole("status").filter({ hasText: /^analyzed$/ }),
+  ).toBeVisible();
+  const field = page
+    .locator(".evidence-item")
+    .filter({ hasText: "Preferred city" })
+    .first();
+  await expect(
+    field.getByText("Choose one exact option: Pune · Bengaluru"),
+  ).toBeVisible();
+  await field.getByLabel("Reviewable answer").fill("Bengaluru");
+  const saved = page.waitForResponse(
+    (response) =>
+      response
+        .url()
+        .includes(`/application-packets/${dropdown_packet_id}/questions/`) &&
+      response.request().method() === "PATCH",
+  );
+  await field.getByRole("button", { name: "Save answer", exact: true }).click();
+  const edited = await saved;
+  expect(edited.status()).toBe(200);
+  await expect(
+    page
+      .getByText(`Revision ${(await edited.json()).revision}`, { exact: false })
+      .first(),
+  ).toBeVisible();
+  for (const checkbox of await page
+    .getByLabel("I reviewed this exact answer")
+    .all())
+    await checkbox.check();
+  const reviewed = page.waitForResponse(
+    (response) =>
+      response
+        .url()
+        .endsWith(`/application-packets/${dropdown_packet_id}/review`) &&
+      response.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: "Save field review" }).click();
+  const review = await reviewed;
+  expect(review.status()).toBe(200);
+  await expect(
+    page
+      .getByText(`Revision ${(await review.json()).revision}`, { exact: false })
+      .first(),
+  ).toBeVisible();
+  await page
+    .getByLabel(
+      "I reviewed the current answers, destination and selected resume below.",
+    )
+    .check();
+  await page
+    .getByLabel("I confirmed the actual page belongs to this company and job.")
+    .check();
+  await page.getByRole("button", { name: "Fill supported fields" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: /^filled review on website$/ }),
+  ).toBeVisible();
+  const state = await (
+    await page.request.get(
+      `/api/backend/browser-applications/${dropdown_packet_id}`,
+    )
+  ).json();
+  const city = state.analysis.fields.find(
+    (item: { question: string }) => item.question === "Preferred city",
+  );
+  expect(city.choices_on_open).toBe(true);
+  expect(
+    state.analysis.validation.find(
+      (item: { field_id: string }) => item.field_id === city.field_id,
+    ).complete,
+  ).toBe(true);
+  expect(
+    state.packet.fields.find(
+      (item: { id: string }) => item.id === city.field_id,
+    ).effective_answer,
+  ).toBe("Bengaluru");
   expect(state.packet.tracking_state).toBe("not_applied");
   expect(state.automated_submission_enabled).toBe(false);
 });

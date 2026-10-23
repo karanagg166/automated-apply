@@ -163,6 +163,17 @@ async def analyze(session, packet, service, runtime):
             {k: v for k, v in field.items() if k not in {"key", "field_id"}}
         )
         field_id = previous_map.get(identity)
+        if field_id is None and not field.get("choices_on_open"):
+            # Older saved analyses predate this capability flag. Preserve exact
+            # unchanged fields and their human answers/reviews across upgrades.
+            legacy = digest(
+                {
+                    k: v
+                    for k, v in field.items()
+                    if k not in {"key", "field_id", "choices_on_open"}
+                }
+            )
+            field_id = previous_map.get(legacy)
         if field_id not in existing:
             if len(existing) >= 100:
                 raise HTTPException(

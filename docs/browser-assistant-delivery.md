@@ -6,7 +6,7 @@ are not all complete. No real employer adapter has automated submission authoriz
 | Phase | Delivered in this slice | Remaining acceptance work |
 |---|---|---|
 | 1 Audit | Existing modules, PR #15/#16 and unpublished branches inspected; isolated feature worktree; private changes preserved | Reconcile other branches separately if requested; no merges or production activation |
-| 2 Browser | Dedicated Playwright profile; native controls, labelled native/ARIA radios, bounded ARIA comboboxes; separately approved credential-free public asset bootstrap; reviewed client-only Next steps, manual server navigation with signed same-origin resumption, validation, takeover/cancel | Wider custom widgets, remotely loaded choices, late asset dependencies, cross-origin ATS frames, permitted server-step automation and verified employer submission |
+| 2 Browser | Dedicated Playwright profile; native controls, labelled native/ARIA radios, bounded ARIA comboboxes including lists mounted on open and cached after owner loading; separately approved credential-free public asset bootstrap; reviewed client-only Next steps, manual server navigation with signed same-origin resumption, validation, takeover/cancel | Multiple-selection and wider custom widgets, uncached/search-dependent choices, late asset dependencies, cross-origin ATS frames, permitted server-step automation and verified employer submission |
 | 3 Knowledge | Protected profile/projects/evidence, encrypted resumes; structured compensation, availability, relocation and country authorization; dashboard answer-bank review/approval/revocation | Real owner onboarding and broader reusable question coverage |
 | 4 AI | Existing grounding; supported-paraphrase reuse; independently gated providers/local-only fallback; reviewed employer-page evidence with separate claim validation; explicit local Ollama acceptance on fictional data | Broader company-source research, semantic retrieval, other model/hardware coverage and real owner activation |
 | 5 Execution | Existing idempotent packets/job dedup, exact PDF selection, revision locking, manual receipts; mock-only signed grants, one durable dispatch, versioned payload/receipt checks and unknown-outcome recovery | Real employer adapter permission and runtime activation; optional mock SQL proposals are not production approval |
@@ -52,7 +52,7 @@ A symlinked dependency directory could not be built by Turbopack; a normal isola
 
 ## Next implementation order
 
-1. Broaden dynamic controls, custom widgets, permitted late asset dependencies, embedded
+1. Broaden multiple-selection controls, custom widgets, permitted late asset dependencies, embedded
    ATS navigation and multi-step policies with owner handoff at uncertain boundaries.
 2. Broaden permission-reviewed company sources and supported-paraphrase retrieval,
    preserving separate opportunity/applicant evidence and extending local-model
@@ -479,3 +479,69 @@ asset/embedded-form dependencies, broader company sources/semantic retrieval,
 a permission-reviewed real employer adapter, controlled AGY invocation and actual
 owner profile/account acceptance. Real employer submission and server saves remain
 manual. Asset bootstrap does not complete all ten requested phases.
+
+## Transient dropdowns and owner-loaded choices
+
+- The browser can inspect a bounded class of input/button ARIA comboboxes whose
+  list is mounted only when opened. It opens the control without selecting an
+  answer, reads a stable uniquely owned single-select list and closes with Escape.
+  Each scan inspects current choices; filling rechecks the actually reopened list
+  before selecting one exact reviewed option. No durable opaque handle or stale
+  catalog grants selection authority. Canonical packet fields/revisions, answer
+  validation, review and protected persistence are reused without SQL schema changes.
+- A legacy identity lookup preserves exact unchanged fields from saved analyses
+  created before the new capability flag. Its regression test first caught field
+  recreation; it now verifies stable field IDs/count, retained human answers and
+  retained answer review. Newly inspected transient choices still require fresh
+  mapping/review; changed questions or options do not receive this compatibility
+  fallback.
+- Inspection pauses all page networking before DOM handle assignment, since DOM
+  MutationObservers can issue requests even before a click. Value/consent/document
+  hashes and bounded uploaded file hashes must match before/after inspection.
+  Same-name/size/timestamp file replacement is detected. Changed values, navigation,
+  blocked requests and unclosable lists stop for manual review; no automatic rollback
+  or replay is attempted. State hashing avoids FormData events and exposes no raw
+  value/file contents in API diagnostics.
+- Inspection permits at most three transient dropdowns per scan and 50 visible,
+  enabled distinct options per list, with bounded waits and the existing operation
+  deadline. Duplicate/disabled/multiple-select lists, frames, authentication pages
+  and consent choices remain manual. Dynamic dependent questions interrupt filling
+  before later answers. The dashboard answer editor shows exact available options.
+- Remote choices still require explicit Take Over. The owner loads/closes the
+  dropdown, then requests fresh analysis; a cached list can be inspected with
+  networking paused. No applicant-side permission is inferred from an API, and no
+  automatic choice API/search/pagination or cross-origin access was introduced.
+  The new PG17/TCP/FastAPI/Chromium verifier proves one simulated owner source load,
+  rejects unreviewed selection and reads durable answer/review/manual-handoff state
+  after closing the browser/database engine. Its fixed test-only owner action is
+  absent from the normal application and accepts no browser parameters.
+- **Ten PG17-backed dashboard journeys passed** against the production Next.js
+  build/BFF, TCP FastAPI and Chromium, including blocked remote choices → explicit
+  Take Over → one simulated owner load → Analyze → exact answer review → Fill.
+  **All six legacy browser journeys passed** in 15 seconds. Groups ran sequentially.
+  The same-name resume substitution and normal input/button/delayed-control cases
+  also passed after adding content hashing. All data and websites were fictional.
+- Final full regression: **1,422 backend tests passed, no skips**, in 456 seconds,
+  including 21 new dropdown cases, the legacy-field preservation case and one new
+  PG17 lifecycle check. The two existing
+  pypdf deprecation warnings remain. Two preliminary full runs were deliberately
+  stopped to add the DOM-callback and file-content checks; only the final complete
+  run is counted as passing. The new callback test initially demonstrated blocked
+  requests with a successful analysis response; analysis now also stops for owner
+  handoff when it observes those callbacks. No network guard was relaxed.
+- **44 frontend unit tests**, generated API contract (no diff), type/format checks,
+  production build, Ruff, whole-app Bandit, compilation, dependency consistency,
+  npm audit (zero findings), tracked secret scanning and whitespace checks passed.
+  Type checking caught an optional options array in the new display; its guard
+  now handles absence. No secret-baseline changes were added.
+- Both hosted workflows passed for preceding head `68478e6`. Hosted checks for
+  this follow-up are reported separately in PR #17. No paid/cloud/local model call,
+  real application, account activation or remote database write was made. Historical
+  migrations, Phase 9 SQL/manifest, runtime ACLs and local mock SQL proposals remain
+  unchanged. Original checkout changes remain preserved.
+
+Next unfinished task: multiple-selection controls and wider custom widgets, while
+preserving manual handoff for uncached/search-dependent choices and embedded ATS
+forms. Broader company-source/semantic retrieval, a permission-reviewed real employer
+adapter, controlled AGY invocation and genuine owner profile/account acceptance also
+remain. This milestone does not complete the ten requested phases.

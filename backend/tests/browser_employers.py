@@ -99,6 +99,12 @@ def employer_site():
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             writes.reads.append(self.path)
+            if self.path == "/choice-options":
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b'["Pune","Bengaluru"]')
+                return
             if self.path == "/slow-script":
                 writes.slow_started.set()
                 writes.slow_release.wait(timeout=30)

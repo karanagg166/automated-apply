@@ -249,7 +249,10 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
       <Notice>
         Assisted filling uses a dedicated Chrome profile. Submission is manual.
         Required consent, custom controls, embedded forms and additional steps
-        need your review on the website.
+        need your review on the website. Supported dropdowns may open briefly
+        during analysis. Analysis pauses page networking and selects no answer.
+        If a page changes values or needs server-loaded choices, use Take Over,
+        inspect the values and load the choices yourself before analyzing again.
       </Notice>
       <label>
         <input

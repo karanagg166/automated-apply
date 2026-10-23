@@ -119,6 +119,9 @@ jobs:
           backend/app/core/pinned_http.py backend/app/resume_sync/download_worker.py
           backend/tests/test_public_assets.py backend/tests/test_browser_assets.py backend/tests/asset_employers.py
           backend/tests/test_browser_assets_postgres.py backend/scripts/verify_browser_assets.py
+          backend/tests/dropdown_employers.py backend/tests/test_browser_dropdowns.py
+          backend/tests/test_browser_dropdowns_postgres.py backend/scripts/verify_browser_dropdowns.py
+          backend/tests/test_browser_field_reuse.py
           backend/tests/test_browser_cancellation.py backend/tests/test_browser_cancellation_postgres.py
           backend/scripts/verify_browser_cancellation.py
           backend/scripts/verify_live_ollama.py

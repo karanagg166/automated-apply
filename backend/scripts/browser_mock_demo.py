@@ -33,6 +33,7 @@ async def run(
     complete_application_demo=False,
     multiline_answer=False,
     asset_demo=False,
+    dropdown_demo=False,
 ):
     import asyncpg
     import httpx
@@ -108,6 +109,11 @@ async def run(
                 from backend.tests.browser_employers import FORMS
 
                 FORMS["/assets"] = application_html(asset_host)
+            if serve or dropdown_demo:
+                from backend.tests.browser_employers import FORMS
+                from backend.tests.dropdown_employers import application
+
+                FORMS["/dropdown-demo"] = application(mode="remote")
             from backend.app.core.config import Settings, configure_operator
 
             settings = Settings(
@@ -287,6 +293,8 @@ async def run(
                     + (
                         "/guided"
                         if steps_demo
+                        else "/dropdown-demo"
+                        if dropdown_demo
                         else "/assets"
                         if asset_demo
                         else "/server-step-one"
@@ -304,6 +312,8 @@ async def run(
                     else "Example Circuit",
                     "job_title": "Backend Engineer AI fixture"
                     if complete_application_demo
+                    else "Backend Engineer dropdown fixture"
+                    if dropdown_demo
                     else "Backend Engineer asset fixture"
                     if asset_demo
                     else "Backend Engineer",
@@ -354,6 +364,33 @@ async def run(
                         return {
                             "simulated_owner_action": True,
                             "server_save_count": writes.count("/server-save"),
+                        }
+
+                    @app.post(
+                        "/_fictional_test/owner-load-choices",
+                        dependencies=[
+                            Depends(require_api_token),
+                            Depends(local_boundary),
+                        ],
+                    )
+                    async def fictional_owner_load_choices():
+                        runtime = browser.sessions.get(dropdown_packet.json()["id"])
+                        if (
+                            not runtime
+                            or not runtime.manual
+                            or runtime.page.url != employer + "/dropdown-demo"
+                        ):
+                            raise HTTPException(
+                                409, "Fictional owner takeover is required"
+                            )
+                        await runtime.page.locator("#city").click()
+                        await runtime.page.get_by_role(
+                            "option", name="Pune", exact=True
+                        ).wait_for()
+                        await runtime.page.locator("#city").press("Escape")
+                        return {
+                            "simulated_owner_action": True,
+                            "choice_loads": writes.reads.count("/choice-options"),
                         }
 
                     mock_packet_id = packet["id"] if submission_demo else None
@@ -430,6 +467,16 @@ async def run(
                         },
                     )
                     assert asset_packet.status_code == 200, asset_packet.text
+                    dropdown_packet = await client.post(
+                        "/api/v1/browser-applications",
+                        json={
+                            "application_url": employer + "/dropdown-demo",
+                            "company_name": "Example Circuit",
+                            "job_title": "Backend Engineer dropdown fixture",
+                            "idempotency_key": "browser-dropdown-001",
+                        },
+                    )
+                    assert dropdown_packet.status_code == 200, dropdown_packet.text
                     output = ROOT / "reports/browser-mock.private.json"
                     output.parent.mkdir(exist_ok=True)
                     output.write_text(
@@ -444,6 +491,7 @@ async def run(
                                 "navigation_packet_id": navigation_packet.json()["id"],
                                 "complete_packet_id": complete_packet.json()["id"],
                                 "asset_packet_id": asset_packet.json()["id"],
+                                "dropdown_packet_id": dropdown_packet.json()["id"],
                             }
                         )
                     )
@@ -468,6 +516,10 @@ async def run(
                     from backend.scripts.verify_browser_assets import verify
 
                     await verify(client, packet, settings, asset_reads, writes)
+                elif dropdown_demo:
+                    from backend.scripts.verify_browser_dropdowns import verify
+
+                    await verify(client, packet, settings, writes)
                 elif complete_application_demo:
                     from backend.scripts.verify_complete_application import verify
 

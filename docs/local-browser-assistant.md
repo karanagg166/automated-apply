@@ -126,9 +126,31 @@ the local runner; restarting never replays a command. The runner requires one wo
 Labelled native radio groups and bounded ARIA radiogroups can use reviewed answers.
 Custom comboboxes are supported when a unique `aria-controls` relationship points to
 one single-select listbox with known, distinct choices. The engine selects only an
-exact displayed option and checks the resulting browser value. Unlabelled/ambiguous
-groups, missing or remotely loaded dropdown options, rich text editors and consent
-or attestation choices stay manual. Native consent checkboxes still use the direct
+exact displayed option and checks the resulting browser value. For a bounded class
+of native input/button comboboxes whose list is created only when opened, analysis
+can briefly open the control, inspect the choices and close it with Escape. It
+selects no answer. It checks a hash of application values, hidden fields, selections,
+consents, bounded uploaded file contents and document context before/after, without invoking FormData or persisting
+those raw values. A changed value, blocked request, navigation or failure to close
+stops inspection for manual review. No automatic rollback is attempted on a page
+that changed its values. Review the actual website before continuing.
+
+Inspection is limited to three such dropdowns per scan, at most 50 visible, enabled,
+distinct choices per list, bounded rendering waits and the existing operation
+deadline. Lists with ambiguous ownership, disabled/duplicate choices, multiple
+selection, frames, access challenges or unrecognized controls stay manual. Every
+fresh scan inspects the current catalog; reopening immediately before filling
+checks it again. Changed choices invalidate the saved analysis/review. The dashboard
+answer editor displays the exact available options.
+
+If choices need an employer server request, analysis blocks that request. Use
+**Take Over**, load and close the dropdown yourself without selecting an answer,
+then click **Analyze Application** again. A cached list that can now open without
+networking can be inspected and filled after answer review. There is no automatic
+choice API access or replay of the blocked request. Choices that fetch again or
+need searches/pagination still require manual completion. Unlabelled/ambiguous
+groups, rich text editors and consent or attestation choices stay manual. Native
+consent checkboxes still use the direct
 owner control; no answer model or fill plan grants consent.
 
 For a supported client-only multi-step form, use **Review next application step →
@@ -140,7 +162,7 @@ and ambiguous buttons require manual navigation. This operation needs the separa
 dashboard owner signature and cannot be authorized by AGY's bearer alone.
 Configuration rejects reusing the delegated API token as the owner signing key.
 
-Filling and step review isolate **all page network requests**, including GET, until explicit
+Analysis, filling and step review isolate **all page network requests**, including GET, until explicit
 Take Over. This prevents a client step from silently saving or submitting through
 another HTTP method or delayed callback. Steps needing server saves or navigation
 require manual work. A changed form is reanalyzed after an observed stable in-page
@@ -158,6 +180,14 @@ To verify this path with fictional forms and disposable local PG17, run
 `PROFILE_TEST_DATABASE_URL` configured as in the demonstration section. It checks
 native radios → signed Next → custom dropdown/date filling and durable step history;
 it performs no application submission or model call.
+
+`backend/venv/bin/python backend/scripts/verify_browser_dropdowns.py` checks a
+transient server-loaded list against PG17, actual TCP FastAPI and Chromium. It
+simulates the owner's one explicit source load, rejects unreviewed choice filling,
+fills the reviewed option and reads durable answer/review/manual-handoff state
+after closing the browser and database engine. Its fixed fictional manual action
+is absent from the normal application; no real employer, model or production SQL
+is used. The dashboard suite exercises the same owner handoff through Next.js.
 
 For a server-dependent step, **Take Over** lets you perform the website's save or
 navigation yourself. The runner does not choose or click that action. Then open
