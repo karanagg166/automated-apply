@@ -930,14 +930,16 @@ test("owner edits and reviews an exact multiple-selection set before browser fil
       "Save answer changes before reviewing or filling this application.",
     ),
   ).toBeVisible();
-  await page
-    .getByLabel(
+  await expect(
+    page.getByLabel(
       "I reviewed the current answers, destination and selected resume below.",
-    )
-    .check();
-  await page
-    .getByLabel("I confirmed the actual page belongs to this company and job.")
-    .check();
+    ),
+  ).toBeDisabled();
+  await expect(
+    page.getByLabel(
+      "I confirmed the actual page belongs to this company and job.",
+    ),
+  ).toBeDisabled();
   await expect(
     page.getByRole("button", { name: "Fill supported fields" }),
   ).toBeDisabled();
@@ -1037,6 +1039,32 @@ test("owner manages protected career facts and signed answer reuse with PostgreS
   await expect(
     page.getByRole("button", { name: "Revoke reuse approval" }),
   ).toBeVisible();
+  const { packet_id } = JSON.parse(
+    readFileSync("../reports/browser-mock.private.json", "utf8"),
+  );
+  await page.goto(`/applications/${packet_id}`);
+  const paraphrase = "Walk us through a project you built";
+  await page
+    .getByLabel("Add an actual question from the application form")
+    .fill(paraphrase);
+  await page.getByRole("button", { name: "Add question", exact: true }).click();
+  const question = page
+    .locator(".evidence-item")
+    .filter({ hasText: paraphrase });
+  await question
+    .getByRole("button", { name: "Generate with configured AI" })
+    .click();
+  await expect(question.getByText(/source: approved answer/)).toBeVisible();
+  await expect(question.getByLabel("Reviewable answer")).toHaveValue(
+    "I built backend authentication using Python and FastAPI.",
+  );
+  await expect(
+    question.getByLabel("I reviewed this exact answer"),
+  ).not.toBeChecked();
+  await page.reload();
+  await expect(question.getByText(/source: approved answer/)).toBeVisible();
+  await page.goto("/profile");
+  await page.getByText("Reviewed application answers", { exact: true }).click();
   await page.getByRole("button", { name: "Revoke reuse approval" }).click();
   await expect(
     page.getByRole("button", { name: "Approve answer reuse" }),

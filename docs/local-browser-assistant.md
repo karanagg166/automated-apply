@@ -355,6 +355,22 @@ Company motivation is restricted to the exact saved job/company/description;
 general profile narratives require an explicit general scope. A reused proposal
 still requires review for every new application. Approvals do not authorize submission.
 
+Common full-question paraphrases also share those existing intents: for example,
+“Walk us through a project you built” can retrieve an approved project overview,
+and “What attracts you to this role?” can retrieve motivation approved for that
+exact saved job. Short professional introductions and challenging-project questions
+have separate intents. This is a closed local grammar, with no embedding download,
+network research or model call for a reuse hit. Extra employer names, dates,
+experience qualifications, negation, salary questions or website instructions are
+not stripped to make a match. Unrecognized wording follows normal grounding and
+provider gates, or stays unanswered. Original questions and approval records remain
+unchanged; factual questions continue to use structured facts.
+
+Review/context checkboxes stay disabled while a browser operation refreshes its
+packet and while answers have unsaved edits. Revision and dirty-state changes reset
+these confirmations before the updated controls are displayed. Wait for an
+operation to finish before confirming the current answers and company/job.
+
 For a zero-subscription provider, install and run Ollama separately and select an
 already installed local model:
 
@@ -572,15 +588,17 @@ found in job descriptions/forms must never become shell commands or approvals.
 docker run --detach --name automated-apply-browser-pg17 \
   --publish 127.0.0.1:55447:5432 \
   --env POSTGRES_PASSWORD=browser_test_only \
-  --env POSTGRES_DB=candidate_profile_test postgres:17-alpine
+  --env POSTGRES_DB=candidate_profile_test \
+  --tmpfs /var/lib/postgresql/data postgres:17-alpine
+# Continue when this reports accepting connections.
+docker exec automated-apply-browser-pg17 pg_isready -U postgres
 backend/venv/bin/python -m playwright install chromium
 export PROFILE_TEST_DATABASE_URL=postgresql://postgres:browser_test_only@127.0.0.1:55447/candidate_profile_test # pragma: allowlist secret — fictional local test value # pragma: allowlist secret — fictional local test value
 backend/venv/bin/python backend/scripts/browser_mock_demo.py
 backend/venv/bin/pytest backend/tests -q
+npm run build --prefix frontend
 PYTHON="$PWD/backend/venv/bin/python" npm --prefix frontend run e2e
 PYTHON="$PWD/backend/venv/bin/python" npm --prefix frontend run e2e:browser
-npm run build --prefix frontend
-npm run e2e:browser --prefix frontend
 ```
 
 The demo refuses non-loopback/non-test databases and non-PG17 servers, creates a
@@ -591,6 +609,10 @@ manual mock submission, receipt `MOCK-ONLY-123`, owner reporting, and persistenc
 after closing the browser/database engine. It checks anonymous/client access is
 absent. The dashboard journey uses the same fictional PG fixture and real Next.js
 production server/BFF. No CI test submits a real job application.
+Use the backend virtual environment for both browser suites; the system Python may
+lack the application's dependencies. Run browser groups sequentially. After all
+commands stop, remove only the disposable container created above with
+`docker rm --force automated-apply-browser-pg17`.
 
 Other fixtures exercise changing questions, native choices/date inputs, custom
 widgets, multi-step handoff, consent, CAPTCHA/password pages, resume accept rules,
@@ -622,7 +644,7 @@ Run the fully integrated fictional lifecycle, including wrong-receipt recovery:
 ```sh
 PROFILE_TEST_DATABASE_URL="$PROFILE_TEST_DATABASE_URL" \
   backend/venv/bin/python backend/scripts/verify_browser_submission.py --receipt-mode wrong
-# Eight dashboard journeys, including grounded generation through a verified V2 receipt.
+# Eleven dashboard journeys, including grounded generation through a verified V2 receipt.
 PROFILE_TEST_DATABASE_URL="$PROFILE_TEST_DATABASE_URL" \
   npm run e2e:browser --prefix frontend
 ```

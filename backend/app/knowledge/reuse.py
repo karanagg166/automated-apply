@@ -13,6 +13,7 @@ from sqlalchemy import String, cast, select
 from backend.app.ai.schemas import AnswerGenerationResult, Contract, EvidenceReference
 from backend.app.core.config import get_settings
 from backend.app.dashboard.models import OwnerPreference
+from backend.app.knowledge.narrative_phrases import canonical_question
 from backend.app.models.application_answer import (
     ApplicationAnswerDraft,
     CandidateEvidence,
@@ -44,7 +45,7 @@ class ApproveReuse(Contract):
 def semantic_intent(question, category, profile):
     if category not in NARRATIVES:
         return None
-    q = normalize(question)
+    q = normalize(canonical_question(question) or question)
     skills = sorted(
         s.casefold()
         for s in profile.verified_skills

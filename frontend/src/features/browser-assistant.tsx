@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, post, Schema } from "@/lib/api";
@@ -137,7 +137,7 @@ export function BrowserAssistant({
   const [permission, setPermission] = useState(false);
   const [reviewed, setReviewed] = useState(false);
   const [contextConfirmed, setContextConfirmed] = useState(false);
-  useEffect(() => {
+  useLayoutEffect(() => {
     setReviewed(false);
     setContextConfirmed(false);
   }, [packet.revision, hasUnsavedAnswers]);
@@ -361,6 +361,7 @@ export function BrowserAssistant({
         <input
           type="checkbox"
           checked={reviewed}
+          disabled={busy || hasUnsavedAnswers || closed}
           onChange={(e) => setReviewed(e.target.checked)}
         />{" "}
         I reviewed the current answers, destination and selected resume below.
@@ -369,6 +370,7 @@ export function BrowserAssistant({
         <input
           type="checkbox"
           checked={contextConfirmed}
+          disabled={busy || hasUnsavedAnswers || closed}
           onChange={(e) => setContextConfirmed(e.target.checked)}
         />{" "}
         I confirmed the actual page belongs to this company and job.

@@ -610,3 +610,58 @@ Other custom widgets/embedded ATS forms, a permission-reviewed real
 employer adapter, controlled AGY invocation and genuine owner profile/account
 acceptance. Restricted portals and unverified server steps stay manual. These
 changes do not complete all ten requested phases.
+
+## Approved narrative paraphrases and stable dashboard review
+
+- Expanded the existing local intent matcher with a closed full-question grammar
+  for common project walkthroughs, challenging projects, short professional
+  introductions and company/job motivation. Routing and reuse share the same
+  grammar. Original saved questions, prompts and owner approvals are unchanged.
+  No embedding/model download, cloud request or schema change was introduced.
+- Extra named employers, dates, qualifications, negation, salary/visa clauses and
+  instructions are not discarded to manufacture a match. Project overviews and
+  engineering challenges remain distinct. Existing skill/project anchors, exact-job
+  motivation scope, profile/evidence/answer digests, style/length constraints,
+  revocation and fresh per-form review remain authoritative. Unknown wording still
+  requires ordinary grounded generation or manual input.
+- Added 27 backend cases covering equivalent wording, changed meaning and actual
+  approved reuse with a provider/usage boundary that must remain untouched. The
+  existing PG17/TCP/FastAPI/Chromium source verifier now also reviews a saved draft,
+  rejects bearer-only approval, stores a signed same-job approval, closes the
+  database engine, analyzes a fresh fictional question, retrieves the existing
+  approved draft, reviews/fills it and verifies durable values/provenance before
+  revocation. A fixed test-only DOM change represents the second form wording;
+  no script/selector operation was added to application or AGY APIs.
+- Hosted backend verification passed for `197d980`. Hosted frontend verification
+  passed ten dashboard journeys and failed the first review-checkbox interaction:
+  Analyze displayed its result while packet refresh was still pending, allowing a
+  click before a revision reset. Review/context controls now stay disabled during
+  work and unsaved edits, with revision/dirty resets before display. A focused
+  delayed-refresh unit test verifies that no confirmation can be lost that way.
+  Production authentication and owner-authorization checks remain unchanged.
+- Complete backend regression: **1,497 tests passed, no skips**, in 704 seconds;
+  the two existing pypdf deprecation warnings remain. **46 frontend unit tests**,
+  production build, generated API types (unchanged), type/format checks, Ruff,
+  whole-app Bandit, compilation, dependency consistency, npm audit (zero findings),
+  tracked secret scanning and whitespace checks passed.
+- **Eleven PG17-backed Next.js/BFF/FastAPI/Chromium journeys passed** in 1.2 minutes,
+  including the review timing fix and signed approval → paraphrased question →
+  approved-answer proposal → reload/persisted provenance with review still pending.
+  The existing multiple-selection journey now asserts that unsaved answers disable
+  the review controls; its first rerun awaited a formerly permitted checkbox click
+  and timed out. The complete eleven-journey rerun passed after updating that
+  expectation. No production guard was relaxed. The isolated PG verifier initially
+  used a nonexistent fixture field; it now checks the canonical `review_status`.
+- **All six legacy browser journeys passed** in 16 seconds using the backend
+  virtual environment. An initial launch used system Python without cryptography;
+  the documented `PYTHON` override resolved it. The operating guide now builds the
+  frontend before these journeys, removes a duplicate invocation and documents
+  sequential groups, tmpfs PostgreSQL and disposal. No model request, real employer
+  submission, account activation, remote SQL or production/runtime grant occurred.
+  Historical migrations, Phase 9 SQL/manifest and existing local SQL proposals are
+  unchanged; original checkout edits remain preserved.
+
+Broader permission-reviewed company sources and semantic retrieval beyond supported
+intents remain the next core work. Real employer adapter permission, controlled AGY
+invocation and genuine owner/account acceptance remain unfinished. These changes
+do not complete the requested ten phases.

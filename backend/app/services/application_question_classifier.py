@@ -18,7 +18,9 @@ class QuestionClassification:
 
 class ApplicationQuestionClassifier:
     def classify(self, question: str) -> QuestionClassification:
-        q = normalize(question)
+        from backend.app.knowledge.narrative_phrases import canonical_question
+
+        q = normalize(canonical_question(question) or question)
         if is_file_upload(q):
             return QuestionClassification("file_upload")
         if resource_types(q) and not re.search(r"\b(explain|describe|experience|built|challeng\w*|tell us|why|how did)\b", q):

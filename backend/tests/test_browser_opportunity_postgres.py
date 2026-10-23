@@ -21,3 +21,4 @@ def test_reviewed_opportunity_postgres_generation_fill_and_evidence():
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "PASS: PG17 + TCP FastAPI + Chromium capture" in result.stdout
+    assert "PASS: durable owner-approved paraphrase reuse" in result.stdout

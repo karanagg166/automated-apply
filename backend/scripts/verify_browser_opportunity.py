@@ -12,6 +12,129 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 
+async def verify_paraphrase_reuse(client, packet, draft, settings):
+    """Fictional owner approves reuse, then a fresh form asks a paraphrase.
+
+    The fixed DOM change is a test fixture operation, never an application API.
+    The new packet request must return the existing approved draft and source;
+    fresh generated output cannot satisfy these assertions.
+    """
+    from backend.app.browser.owner_approval import approval_header
+    from backend.app.browser.runner import browser
+    from backend.app.db.session import close_db_engine
+
+    response = await client.patch(
+        f"/api/v1/application-answers/drafts/{draft}",
+        json={"review_status": "reviewed"},
+    )
+    assert response.status_code == 200, response.text
+    data = {
+        "expected_profile_version": response.json()["candidate_profile_version"],
+        "scope": "same_job",
+        "confirm_reviewed_answer": True,
+    }
+    path = f"/api/v1/application-answers/drafts/{draft}/approve-reuse"
+    assert (await client.post(path, json=data)).status_code == 403
+    raw = json.dumps(data).encode()
+    response = await client.post(
+        path,
+        content=raw,
+        headers={
+            "Content-Type": "application/json",
+            "X-Browser-Owner-Approval": approval_header(
+                settings.BROWSER_OWNER_APPROVAL_KEY.get_secret_value(),
+                path,
+                raw,
+                nonce=uuid4().hex,
+                timestamp=int(time.time()),
+            ),
+        },
+    )
+    assert response.status_code == 200, response.text
+    await close_db_engine()
+    bank = await client.get("/api/v1/application-answers/reuse-approvals")
+    assert bank.json()["approvals"][draft]["approved"]
+
+    route = "/api/v1/browser-applications/" + packet["id"]
+    state = (await client.get(route)).json()
+    response = await client.post(
+        route + "/open",
+        json={
+            "expected_revision": state["packet"]["revision"],
+            "approve_dedicated_profile": True,
+            "confirm_destination_permission": True,
+        },
+    )
+    assert response.status_code == 200, response.text
+    page = browser.sessions[packet["id"]].page
+    await page.locator("form label").first.evaluate(
+        "label => { label.firstChild.textContent = 'What attracts you to this role?'; }"
+    )
+    response = await client.post(
+        route + "/actions",
+        json={"expected_revision": state["packet"]["revision"], "action": "analyze"},
+    )
+    assert response.status_code == 200, response.text
+    state = response.json()
+    question = next(
+        f
+        for f in state["analysis"]["fields"]
+        if f["question"] == "What attracts you to this role?"
+    )
+    response = await client.post(
+        f"/api/v1/application-packets/{packet['id']}/questions/{question['field_id']}/generate",
+        json={"expected_revision": state["packet"]["revision"]},
+    )
+    assert response.status_code == 200, response.text
+    current = response.json()
+    field = next(f for f in current["fields"] if f["id"] == question["field_id"])
+    assert field["validation_status"] == "draft_ready", field
+    assert field["requires_review"] and field["review_status"] == "pending"
+    assert field["provenance"]["source"] == "approved_answer", field
+    assert field["provenance"]["answer_draft_id"] == draft
+    assert await page.locator("textarea").input_value() == ""
+    response = await client.post(
+        f"/api/v1/application-packets/{packet['id']}/review",
+        json={
+            "expected_revision": current["revision"],
+            "action": "review",
+            "confirm_resume": True,
+            "confirm_destination": True,
+            "reviewed_field_ids": [
+                f["id"] for f in current["fields"] if f["effective_answer"]
+            ],
+        },
+    )
+    assert response.status_code == 200, response.text
+    response = await client.post(
+        route + "/actions",
+        json={
+            "expected_revision": response.json()["revision"],
+            "action": "fill",
+            "confirm_reviewed_values": True,
+            "confirm_page_context": True,
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert await page.locator("textarea").input_value() == field["effective_answer"]
+    await browser.close(packet["id"])
+    await close_db_engine()
+    saved = (await client.get(route)).json()["packet"]
+    restored = next(f for f in saved["fields"] if f["id"] == field["id"])
+    assert restored["review_status"] == "reviewed"
+    assert restored["provenance"]["source"] == "approved_answer"
+    assert restored["effective_answer"] == field["effective_answer"]
+    assert (
+        await client.post(path.replace("approve-reuse", "revoke-reuse"))
+    ).status_code == 200
+    bank = await client.get("/api/v1/application-answers/reuse-approvals")
+    assert not bank.json()["approvals"][draft]["approved"]
+    print(
+        "PASS: durable owner-approved paraphrase reuse, fresh form review and actual fill without a model request",
+        flush=True,
+    )
+
+
 async def verify(client, packet, settings, *, live_model=None):
     from backend.app.browser.owner_approval import approval_header
     from backend.app.browser.runner import browser
@@ -183,6 +306,7 @@ async def verify(client, packet, settings, *, live_model=None):
         )
     else:
         assert "Example Circuit" in evidence[0]["excerpt"]
+        await verify_paraphrase_reuse(client, packet, draft, settings)
         print(
             "PASS: PG17 + TCP FastAPI + Chromium capture, signed source review, fictional grounded proposal, reviewed fill and durable evidence; no live model or employer submission",
             flush=True,

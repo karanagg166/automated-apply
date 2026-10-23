@@ -164,3 +164,57 @@ it("blocks filling unsaved edits and requires fresh value/context review after s
   expect(fill).toBeDisabled();
   expect(post).toHaveBeenCalledTimes(1);
 });
+
+it("waits for the refreshed packet before accepting review of an analysis result", async () => {
+  const client = mount();
+  await screen.findByText(/static\.employer\.example/);
+  await userEvent.click(
+    screen.getByLabelText("I approve a dedicated browser profile", {
+      exact: false,
+    }),
+  );
+  await userEvent.click(
+    screen.getByLabelText("I approve credential-free loading", {
+      exact: false,
+    }),
+  );
+  let finishRefresh!: () => void;
+  const refresh = new Promise<void>((resolve) => {
+    finishRefresh = resolve;
+  });
+  vi.spyOn(client, "invalidateQueries").mockReturnValueOnce(refresh);
+  vi.mocked(post).mockResolvedValueOnce({
+    packet,
+    connected: true,
+    manual: false,
+    analysis: {
+      fields: [],
+      warnings: [],
+      validation: [],
+      diagnostic: "analyzed",
+    },
+  });
+  await userEvent.click(
+    screen.getByRole("button", { name: "Open dedicated browser" }),
+  );
+  await screen.findByText("analyzed", { exact: true });
+  const reviewed = screen.getByLabelText(
+    "I reviewed the current answers, destination and selected resume below.",
+  );
+  const context = screen.getByLabelText(
+    "I confirmed the actual page belongs to this company and job.",
+  );
+  expect(reviewed).toBeDisabled();
+  expect(context).toBeDisabled();
+  await userEvent.click(reviewed);
+  expect(reviewed).not.toBeChecked();
+  await act(async () => finishRefresh());
+  await waitFor(() => expect(reviewed).toBeEnabled());
+  await userEvent.click(reviewed);
+  await userEvent.click(context);
+  expect(reviewed).toBeChecked();
+  expect(context).toBeChecked();
+  expect(
+    screen.getByRole("button", { name: "Fill supported fields" }),
+  ).toBeEnabled();
+});
