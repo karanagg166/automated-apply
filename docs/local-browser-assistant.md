@@ -31,14 +31,21 @@ at `/private/tmp/automated-apply-browser`. The original checkout and its staged
 
 ## Local setup
 
-Use Python 3.11+, Node 22+, local Chrome, and a separately authorized database.
+Use Python 3.11+, Node 22+, pnpm 12.14.0, local Chrome, and a separately authorized database.
 The feature does not change the existing database safety checks or configure a
 production database. Develop and test using disposable PostgreSQL 17 as below.
 
 ```sh
 backend/venv/bin/pip install -r backend/requirements-browser.txt
-npm ci --prefix frontend
+pnpm --dir frontend install --frozen-lockfile
 ```
+
+The frontend pins pnpm 12.14.0 in `package.json` and commits only
+`pnpm-lock.yaml`. Install that pnpm version using your local package manager or
+the [official standalone installer](https://pnpm.io/installation). Use pnpm for
+installation, scripts, browser tools and dependency audits. CI uses the same
+version and frozen lockfile; the Docker build copies the pinned official pnpm
+image. Only the existing esbuild/sharp dependency build scripts are allowed.
 
 Put configuration/API secrets in an ignored private environment file; keep career
 facts in the protected profile/resource APIs. Never commit cookies or browser data.
@@ -68,7 +75,7 @@ Do not expose the local browser API through public ingress.
 
 ```sh
 backend/venv/bin/uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
-npm run dev --prefix frontend
+pnpm --dir frontend run dev
 ```
 
 ## Operating the assistant
@@ -298,14 +305,17 @@ Factual fields use approved saved facts and never need a model. Existing grounde
 answer generation validates citations, quoted claims, names, numbers, output size,
 and unsupported accomplishments. Website/job strings are untrusted data, never
 instructions or tools. Review remains mandatory; grounding checks are conservative
-safeguards rather than proof. This milestone uses saved company/job context; it
-adds no company scraper or automatic research. A conflicting company name or
+safeguards rather than proof. Generation uses saved or separately reviewed
+company/job context. External source reading requires its own explicit approval.
+A conflicting company name or
 description for a saved job is rejected before any model call.
 
 With `OPPORTUNITY_CONTEXT_ENABLED=true`, an open dedicated session offers
 **Company and job evidence for AI answers → Capture job context**. Only explicit,
 visible public job/company description sections are captured (for example
-`#job-description`, `[itemprop="description"]`, `#company-description`). There is
+`#job-description`, `[itemprop="description"]`, `#company-description`) or bounded
+sections under known headings such as “About the role” and “About us”. Repeated
+heading labels and conflicting explicit descriptions require manual review. There is
 no whole-page fallback, off-site crawler, private form-value collection or automatic
 account access. Multiple conflicting sections or missing company/role identity in
 the page heading/title require manual preparation.
@@ -341,6 +351,62 @@ The complete fictional context/fill proof can be run against disposable PG17 wit
 `PROFILE_TEST_DATABASE_URL` shown below. It uses an injected fictional provider,
 not live Ollama or a paid service. It verifies signed context approval, generation,
 field review, the actual filled browser value and durable source evidence.
+
+For an official company page separate from the application, explicitly configure
+up to eight exact public URLs after reviewing their access rules:
+
+```dotenv
+COMPANY_SOURCE_FETCH_ENABLED=true
+COMPANY_SOURCE_URLS=["https://official-employer.example/about"]
+```
+
+Keep `OPPORTUNITY_CONTEXT_ENABLED=true`. In the same evidence panel, select the
+configured page, confirm that it belongs to this employer and permits automated
+reading, and click **Read approved company source**. This requires a separate
+single-use owner signature; the delegated AGY/API bearer cannot authorize it.
+Then review the company excerpt alongside the application-page job excerpt and
+save them. The saved notice appears after the packet refresh completes; generating
+immediately afterward uses the current revision. A company source never establishes
+candidate experience or an account connection. Unknown employer domains stay unknown.
+
+The reader sends at most two credential-free GETs: `/robots.txt` and the exact
+configured document. It forwards no Chrome cookies, authorization, referrer, resume
+or candidate facts. All DNS answers must be public and the connection stays pinned
+to a validated address with hostname/TLS checking. Production sources require HTTPS;
+literal loopback HTTP is reserved for testing. Query strings, fragments, credentials,
+account/API paths and restricted portals are rejected. Redirects, authentication,
+CAPTCHA/MFA markers, rate-limit responses, unsupported encodings/types and dynamic
+descriptions pause for manual reading. There is no script execution or link following.
+
+Robots rules do not grant access permission ([RFC 9309](https://www.rfc-editor.org/rfc/rfc9309.html#section-1)).
+The implementation is deliberately stricter: it applies disallow rules from every
+group, never overrides them with allow rules, and hands off when rate directives or
+unsupported rule syntax occur. A missing robots file still requires the configured
+operator permission and the explicit owner confirmation. It is not a general crawler.
+
+Responses are bounded to 64 KiB for robots and 512 KiB for UTF-8 HTML, with bounded
+worker lifetime, element/depth limits and at most 4,000 characters of extracted
+company text. Forms, scripts and inline-hidden content are excluded. External CSS
+and JavaScript are not rendered; unsupported layouts remain manual. The worker
+inherits no application secrets. Cancellation closes and reaps it, including a
+process that finishes starting after cancellation.
+
+The current preview is reusable for ten minutes only while the packet revision,
+application capture, browser instance/document and configured URL still match.
+Identical preview retries do not fetch again. A protected database reservation
+limits new reads to four per saved job per hour, at least sixty seconds apart;
+restarting the browser does not reset this limit. Interrupted reads are never
+replayed. Only final owner review saves the excerpt in existing protected job and
+answer-evidence storage, with a distinct company-source URL and timestamp. No schema,
+runtime grant or production migration was added. Disabling source fetching does not
+erase already reviewed evidence; normal expiry/context checks continue to apply.
+
+`backend/venv/bin/python backend/scripts/verify_company_source.py` demonstrates the
+actual PG17/TCP/FastAPI/Chromium path from a fictional public source through signed
+review, a grounded answer, PDF filling, one authorized mock application POST and an
+independently verified V2 receipt with durable source attribution. It uses the same
+disposable `PROFILE_TEST_DATABASE_URL` below and an injected fictional provider,
+with no real account, model request or employer submission.
 
 **Reviewed application answers** in My Profile lists saved drafts and supports
 review, explicit reuse approval and revocation. Enable `APPROVED_ANSWER_REUSE_ENABLED`
@@ -596,9 +662,9 @@ backend/venv/bin/python -m playwright install chromium
 export PROFILE_TEST_DATABASE_URL=postgresql://postgres:browser_test_only@127.0.0.1:55447/candidate_profile_test # pragma: allowlist secret — fictional local test value # pragma: allowlist secret — fictional local test value
 backend/venv/bin/python backend/scripts/browser_mock_demo.py
 backend/venv/bin/pytest backend/tests -q
-npm run build --prefix frontend
-PYTHON="$PWD/backend/venv/bin/python" npm --prefix frontend run e2e
-PYTHON="$PWD/backend/venv/bin/python" npm --prefix frontend run e2e:browser
+pnpm --dir frontend run build
+PYTHON="$PWD/backend/venv/bin/python" pnpm --dir frontend run e2e
+PYTHON="$PWD/backend/venv/bin/python" pnpm --dir frontend run e2e:browser
 ```
 
 The demo refuses non-loopback/non-test databases and non-PG17 servers, creates a
@@ -644,9 +710,9 @@ Run the fully integrated fictional lifecycle, including wrong-receipt recovery:
 ```sh
 PROFILE_TEST_DATABASE_URL="$PROFILE_TEST_DATABASE_URL" \
   backend/venv/bin/python backend/scripts/verify_browser_submission.py --receipt-mode wrong
-# Eleven dashboard journeys, including grounded generation through a verified V2 receipt.
+# Twelve dashboard journeys, including grounded generation through a verified V2 receipt.
 PROFILE_TEST_DATABASE_URL="$PROFILE_TEST_DATABASE_URL" \
-  npm run e2e:browser --prefix frontend
+  pnpm --dir frontend run e2e:browser
 ```
 
 `BROWSER_MOCK_SUBMISSION_ENABLED` defaults off. Even when true, it works only in

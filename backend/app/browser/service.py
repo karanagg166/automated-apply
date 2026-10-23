@@ -136,6 +136,7 @@ async def status(session, packet_id):
         "real_employer_submission_enabled": False,
         "owner_consent_available": bool(get_settings().BROWSER_OWNER_APPROVAL_KEY),
         "opportunity_context_available": get_settings().OPPORTUNITY_CONTEXT_ENABLED,
+        "company_source_urls": get_settings().COMPANY_SOURCE_URLS if get_settings().COMPANY_SOURCE_FETCH_ENABLED and get_settings().OPPORTUNITY_CONTEXT_ENABLED else [],
         "execution": execution,
         "recovery": recovery,
     }

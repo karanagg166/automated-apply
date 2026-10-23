@@ -64,7 +64,7 @@ async function proxy(
       : undefined;
     if (
       mutation &&
-      (/^browser-applications\/[a-f0-9-]{36}\/(authorize-submission|consent|opportunity-approve|advance-step|resume-page)$/.test(
+      (/^browser-applications\/[a-f0-9-]{36}\/(authorize-submission|consent|opportunity-approve|company-source-preview|advance-step|resume-page)$/.test(
         path,
       ) ||
         /^application-answers\/drafts\/[a-f0-9-]{36}\/approve-reuse$/.test(

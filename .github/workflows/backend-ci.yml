@@ -109,6 +109,9 @@ jobs:
           backend/app/schemas/candidate_profile.py backend/app/ai/schemas.py
           backend/tests/test_answer_reuse.py backend/tests/test_career_facts.py backend/tests/test_local_ai_fallback.py
           backend/tests/test_narrative_paraphrases.py
+          backend/app/core/text.py backend/tests/company_source_employers.py
+          backend/tests/test_company_source.py backend/tests/test_company_source_postgres.py
+          backend/scripts/verify_company_source.py
           backend/tests/test_opportunity_context.py backend/tests/opportunity_fakes.py
           backend/tests/test_browser_opportunity_postgres.py backend/scripts/verify_browser_opportunity.py
           backend/tests/test_browser_choices.py backend/tests/test_browser_steps.py

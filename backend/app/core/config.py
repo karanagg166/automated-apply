@@ -85,6 +85,8 @@ class Settings(BaseSettings):
 
     APPROVED_ANSWER_REUSE_ENABLED: bool = False
     OPPORTUNITY_CONTEXT_ENABLED: bool = False
+    COMPANY_SOURCE_FETCH_ENABLED: bool = False
+    COMPANY_SOURCE_URLS: list[str] = Field(default_factory=list, max_length=8)
     LLM_LOCAL_FALLBACK_ENABLED: bool = False
     GEMINI_ENABLED: bool = False
     GEMINI_APPROVED_MONTHLY_REQUESTS: int = Field(default=0, ge=0, le=10000)
@@ -309,8 +311,10 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def separate_owner_authority(self):
         from backend.app.browser.asset_policy import asset_origin
+        from backend.app.browser.company_source_policy import source_url
 
         self.BROWSER_ASSET_ORIGINS = sorted(set(asset_origin(value, testing=self.ENVIRONMENT == "testing") for value in self.BROWSER_ASSET_ORIGINS))
+        self.COMPANY_SOURCE_URLS = sorted(set(source_url(value, testing=self.ENVIRONMENT == "testing") for value in self.COMPANY_SOURCE_URLS))
         if self.BROWSER_OWNER_APPROVAL_KEY and self.JOB_AGENT_API_TOKEN and self.BROWSER_OWNER_APPROVAL_KEY.get_secret_value() == self.JOB_AGENT_API_TOKEN.get_secret_value():
             raise ValueError("Owner approval key must differ from the delegated API token")
         return self

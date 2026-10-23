@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.v1.applications import ProtectedApplicationRoute
+from backend.app.browser.company_source import ReadCompanySource
 from backend.app.browser.contracts import BrowserAction, OpenBrowser, PrepareBrowser
 from backend.app.browser.navigation import ResumePage
 from backend.app.browser.opportunity import ReviewOpportunity
@@ -152,6 +153,29 @@ async def preview_opportunity(
 
 
 @router.post(
+    "/{packet_id}/company-source-preview",
+    dependencies=[Depends(require_owner_approval)],
+)
+async def preview_company_source(
+    packet_id: UUID,
+    data: ReadCompanySource,
+    session: AsyncSession = Depends(get_db_session),
+):
+    from backend.app.browser.company_source import preview
+
+    async with browser.operations.run(
+        packet_id, "company_source_preview", data.expected_revision
+    ):
+        try:
+            async with asyncio.timeout(30):
+                return await preview(session, packet_id, data)
+        except TimeoutError:
+            raise HTTPException(
+                409, "Company source reading timed out; read it manually"
+            ) from None
+
+
+@router.post(
     "/{packet_id}/opportunity-approve", dependencies=[Depends(require_owner_approval)]
 )
 async def approve_opportunity(
@@ -166,7 +190,9 @@ async def approve_opportunity(
     ):
         try:
             async with asyncio.timeout(20):
-                return await approve(session, packet_id, data)
+                result = await approve(session, packet_id, data)
+                await session.commit()
+                return result
         except TimeoutError:
             raise HTTPException(
                 409, "Context approval timed out; check saved state before retrying"

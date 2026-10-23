@@ -48,6 +48,7 @@ test.afterEach(async ({ page }) => {
     manifest.asset_packet_id,
     manifest.dropdown_packet_id,
     manifest.multiple_packet_id,
+    manifest.company_source_packet_id,
   ].filter(Boolean)) {
     const response = await page.request.get(
       `/api/backend/browser-applications/${id}/operation`,
@@ -1009,6 +1010,119 @@ test("owner edits and reviews an exact multiple-selection set before browser fil
       (item: { field_id: string }) => item.field_id === multi.id,
     ).complete,
   ).toBe(true);
+  expect(state.packet.tracking_state).toBe("not_applied");
+  expect(state.automated_submission_enabled).toBe(false);
+});
+
+test("owner reviews a public company source and fills a separately grounded application answer", async ({
+  page,
+}) => {
+  const { company_source_packet_id, company_source_url } = JSON.parse(
+    readFileSync("../reports/browser-mock.private.json", "utf8"),
+  );
+  await loginOwner(page);
+  await page.goto(`/applications/${company_source_packet_id}`);
+  await approveBrowser(page);
+  await page.getByRole("button", { name: "Open dedicated browser" }).click();
+  await expect(
+    page.getByRole("button", { name: "Analyze Application" }),
+  ).toBeEnabled({ timeout: 45000 });
+  await page.getByRole("button", { name: "Analyze Application" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: /^analyzed$/ }),
+  ).toBeVisible();
+  await page
+    .getByText("Company and job evidence for AI answers", { exact: true })
+    .click();
+  await page
+    .getByLabel("Official public company page")
+    .selectOption(company_source_url);
+  await expect(
+    page.getByRole("button", { name: "Read approved company source" }),
+  ).toBeDisabled();
+  await page
+    .getByLabel(
+      "I checked that this official page belongs to this employer and permits automated reading.",
+    )
+    .check();
+  await page
+    .getByRole("button", { name: "Read approved company source" })
+    .click();
+  await expect(page.getByLabel("Reviewed company excerpt")).toHaveValue(
+    "Example Circuit builds reliable Python task management tools.",
+  );
+  await page
+    .getByLabel("I checked the company, job, source and selected excerpts.")
+    .check();
+  await page.getByRole("button", { name: "Save reviewed job context" }).click();
+  await expect(
+    page.getByText("Reviewed context saved.", { exact: false }),
+  ).toBeVisible();
+  const field = page
+    .locator(".evidence-item")
+    .filter({ hasText: "Why do you want to join our company?" })
+    .first();
+  const generating = page.waitForResponse(
+    (response) =>
+      response
+        .url()
+        .includes(
+          `/application-packets/${company_source_packet_id}/questions/`,
+        ) && response.url().endsWith("/generate"),
+  );
+  await field
+    .getByRole("button", { name: "Generate with configured AI" })
+    .click();
+  const generated = await generating;
+  expect(generated.status()).toBe(200);
+  const packet = await generated.json();
+  const answer = packet.fields.find(
+    (item: { question: string }) =>
+      item.question === "Why do you want to join our company?",
+  );
+  await expect(field.getByLabel("Reviewable answer")).toHaveValue(
+    "Example Circuit builds reliable Python task management tools. I built backend authentication using Python and FastAPI.",
+  );
+  await field.getByLabel("I reviewed this exact answer").check();
+  await page.getByRole("button", { name: "Save field review" }).click();
+  await expect(
+    page.getByText(`Revision ${packet.revision + 1}`, { exact: false }).first(),
+  ).toBeVisible();
+  await page
+    .getByLabel(
+      "I reviewed the current answers, destination and selected resume below.",
+    )
+    .check();
+  await page
+    .getByLabel("I confirmed the actual page belongs to this company and job.")
+    .check();
+  await page.getByRole("button", { name: "Fill supported fields" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: /^filled review on website$/ }),
+  ).toBeVisible();
+  const evidence = await page.request.get(
+    `/api/backend/application-answers/drafts/${answer.provenance.answer_draft_id}/opportunity-evidence`,
+  );
+  expect(evidence.status()).toBe(200);
+  const sources = (await evidence.json()).evidence;
+  expect(
+    sources.find(
+      (item: { reference: { source_type: string } }) =>
+        item.reference.source_type === "opportunity_company",
+    ).source_url,
+  ).toBe(company_source_url);
+  const jobSource = sources.find(
+    (item: { reference: { source_type: string } }) =>
+      item.reference.source_type === "opportunity_job",
+  );
+  // Saved draft citations describe claims the answer actually used. A company
+  // claim plus a candidate contribution need not invent a separate job claim.
+  if (jobSource) expect(jobSource.source_url).toContain("/company-source-demo");
+  const state = await (
+    await page.request.get(
+      `/api/backend/browser-applications/${company_source_packet_id}`,
+    )
+  ).json();
   expect(state.packet.tracking_state).toBe("not_applied");
   expect(state.automated_submission_enabled).toBe(false);
 });

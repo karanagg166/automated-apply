@@ -28,6 +28,7 @@ class ReviewOpportunity(RevisionInput):
     job_text: str = Field(min_length=1, max_length=4000)
     company_text: str = Field(default="", max_length=4000)
     confirm_company_job_and_source: StrictBool
+    company_source_token: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
 
 async def capture(session, packet_id, revision):
@@ -85,6 +86,10 @@ async def approve(session, packet_id, data):
             422, "Review the actual company, job and source before saving"
         )
     current = await capture(session, packet_id, data.expected_revision)
+    if data.company_source_token:
+        from backend.app.browser.company_source import enrich
+
+        current = enrich(packet_id, current, data.company_source_token)
     if data.capture_digest != current["capture_digest"]:
         raise HTTPException(
             409, "Page or job context changed; capture and review again"
@@ -113,6 +118,17 @@ async def approve(session, packet_id, data):
         "company_text": data.company_text,
         "reviewed_at": datetime.now(timezone.utc).isoformat(),
     }
+    if data.company_source_token and data.company_text:
+        reviewed.update(
+            {
+                key: current[key]
+                for key in (
+                    "company_source_url",
+                    "company_source_title",
+                    "company_source_fetched_at",
+                )
+            }
+        )
     reviewed["digest"] = digest(reviewed)
     from backend.app.dashboard.models import OwnerPreference
 

@@ -4,7 +4,7 @@ The Next.js App Router application lives in `frontend/` and uses the existing Fa
 
 ## Run locally
 
-Use Node 22+ and Python 3.11+. Install `backend/requirements.txt` into a virtual environment and run `npm ci --prefix frontend`. Keep the existing `backend/.env`; do not replace it with the example. Configure an explicitly selected local PostgreSQL database using the documented migration process. Migration 010 adds only owner dashboard tables; no production database was changed during implementation.
+Use Node 22+, pnpm 12.14.0 and Python 3.11+. Install `backend/requirements.txt` into a virtual environment and run `pnpm --dir frontend install --frozen-lockfile`. Keep the existing `backend/.env`; do not replace it with the example. Configure an explicitly selected local PostgreSQL database using the documented migration process. Migration 010 adds only owner dashboard tables; no production database was changed during implementation.
 
 Generate owner-login material privately with `python backend/scripts/configure_frontend_owner.py`. This prompts for a passphrase and creates a new, ignored, mode-0600 `backend/frontend.private.env`. Review and add the entries to `backend/.env` using a local editor after backing it up. Preserve an existing resume encryption key. No values are printed and existing files are never replaced. Create `frontend/.env.local` from `frontend/.env.example` with origins only.
 
@@ -12,7 +12,7 @@ From the repository root:
 
 ```sh
 python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
-npm run dev --prefix frontend
+pnpm --dir frontend run dev
 ```
 
 Open `http://localhost:3000`. `frontend/run.mjs` loads `backend/.env` into the Next.js **server** process. Browser code only calls the same-origin BFF. The login requires the owner passphrase; there is no default password and no anonymous development bypass.
@@ -49,13 +49,13 @@ Exports include only company name/domain/source references whose retained source
 
 ```sh
 python backend/scripts/export_openapi.py
-npm run api:types --prefix frontend
-npm run typecheck --prefix frontend
-npm test --prefix frontend
-npm run build --prefix frontend
+pnpm --dir frontend run api:types
+pnpm --dir frontend run typecheck
+pnpm --dir frontend test
+pnpm --dir frontend run build
 cd frontend
-npx playwright install chromium
-PYTHON=/absolute/path/to/venv/bin/python npm run e2e
+pnpm exec playwright install chromium
+PYTHON=/absolute/path/to/venv/bin/python pnpm run e2e
 ```
 
 Playwright starts a temporary SQLite database and the actual FastAPI application, blocks outbound provider HTTP, uploads a synthetic PDF, reviews links, saves a fictional profile, searches India + numeric 2–10 + Python + Backend Engineer + Not Applied, opens hiring/contact evidence, prepares and approves a local outreach draft with Gmail sending disabled, prepares and edits a packet, approves it and records manual handoff/submission. Separate checks exercise auth/CSRF, unavailable-provider feedback, notification persistence, desktop/mobile layout, theme, accessibility and secret exposure. Screenshots go to ignored `reports/phase7-*.png`; CI uploads only isolated artifacts. These are not a live-data pilot.
@@ -73,4 +73,4 @@ All images below show the actual frontend and FastAPI with **fictional test fixt
 - [Owner link review](screenshots/phase7/phase7-onboarding.png)
 - [Application review and manual handoff](screenshots/phase7/phase7-application-review.png)
 
-Verified locally: 1,048 backend tests (zero failures/skips, including disposable PostgreSQL), 26 frontend unit/component/security tests, five Playwright journeys, zero axe violations in light/dark startup views, type checking, production build, Ruff, Bandit, npm audit, secret checks and non-root Docker build/import plus Linux PDF-worker verification. CI must additionally pass on the PR head.
+Verified locally: 1,048 backend tests (zero failures/skips, including disposable PostgreSQL), 26 frontend unit/component/security tests, five Playwright journeys, zero axe violations in light/dark startup views, type checking, production build, Ruff, Bandit, dependency audit, secret checks and non-root Docker build/import plus Linux PDF-worker verification. CI must additionally pass on the PR head.

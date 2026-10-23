@@ -17,9 +17,9 @@ A premium Next.js frontend now lives in `frontend/`. It connects to the existing
 Start with [frontend setup](docs/phase7-frontend.md), [candidate onboarding](docs/phase7-profile-onboarding.md), [account connections](docs/phase7-account-connections.md), [notification boundaries](docs/phase7-notifications.md), [security](docs/phase7-security.md) and [deployment blockers](docs/phase7-deployment.md). Existing backend setup and workflows remain below. No staging environment, real profile or provider connection is implied by the UI.
 
 ```sh
-npm ci --prefix frontend
-npm run build --prefix frontend
-npm run dev --prefix frontend
+pnpm --dir frontend install --frozen-lockfile
+pnpm --dir frontend run build
+pnpm --dir frontend run dev
 ```
 
 Configure the private owner login in `backend/.env` before signing in. No default login or client-side bearer token exists. For a reproducible demonstration against the actual backend with isolated fictional fixtures, see the Playwright commands in the frontend guide.

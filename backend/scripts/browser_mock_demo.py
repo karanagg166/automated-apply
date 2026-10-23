@@ -35,12 +35,14 @@ async def run(
     asset_demo=False,
     dropdown_demo=False,
     multiple_demo=False,
+    company_source_demo=False,
 ):
     import asyncpg
     import httpx
     import uvicorn
     from cryptography.fernet import Fernet
 
+    complete_application_demo = complete_application_demo or company_source_demo
     submission_demo = submission_demo or complete_application_demo
 
     parsed = urlsplit(url)
@@ -70,7 +72,11 @@ async def run(
             for migration in sorted((ROOT / "supabase/migrations").glob("*.sql")):
                 await connection.execute(migration.read_text())
             if (multiple_demo or serve) and multiple_demo != "without_schema":
-                await connection.execute((ROOT / "backend/app/browser/migrations/003_multi_select.sql").read_text())
+                await connection.execute(
+                    (
+                        ROOT / "backend/app/browser/migrations/003_multi_select.sql"
+                    ).read_text()
+                )
             if submission_demo:
                 await connection.execute(
                     (
@@ -99,6 +105,7 @@ async def run(
             await connection.close()
         from backend.tests.asset_employers import application_html, static_site
         from backend.tests.browser_employers import employer_site
+        from backend.tests.company_source_employers import company_site
 
         with (
             tempfile.TemporaryDirectory(prefix="automated-apply-browser-") as directory,
@@ -107,7 +114,20 @@ async def run(
                 asset_host,
                 asset_reads,
             ),
+            company_site(
+                "Example Circuit AI" if company_source_demo else "Example Circuit"
+            )
+            if serve or company_source_demo
+            else nullcontext((None, None)) as (company_host, company_reads),
         ):
+            if serve:
+                from backend.tests.browser_employers import FORMS
+
+                FORMS[
+                    "/company-source-demo"
+                ] = """<h1>Example Circuit — Backend Engineer public source fixture</h1><main>
+                  <h2>About the role</h2><p>The Backend Engineer role focuses on Python services.</p></main>
+                  <form><label>Why do you want to join our company?<textarea required></textarea></label></form>"""
             if asset_host:
                 from backend.tests.browser_employers import FORMS
 
@@ -158,6 +178,8 @@ async def run(
                 OLLAMA_MODEL=live_ollama_model,
                 APPROVED_ANSWER_REUSE_ENABLED=True,
                 OPPORTUNITY_CONTEXT_ENABLED=True,
+                COMPANY_SOURCE_FETCH_ENABLED=bool(company_host),
+                COMPANY_SOURCE_URLS=[company_host + "/about"] if company_host else [],
                 UI_FIXTURE_MODE=True,
                 **{
                     key: None
@@ -504,6 +526,16 @@ async def run(
                         },
                     )
                     assert multiple_packet.status_code == 200, multiple_packet.text
+                    company_packet = await client.post(
+                        "/api/v1/browser-applications",
+                        json={
+                            "application_url": employer + "/company-source-demo",
+                            "company_name": "Example Circuit",
+                            "job_title": "Backend Engineer public source fixture",
+                            "idempotency_key": "browser-public-company-source-001",
+                        },
+                    )
+                    assert company_packet.status_code == 200, company_packet.text
                     output = ROOT / "reports/browser-mock.private.json"
                     output.parent.mkdir(exist_ok=True)
                     output.write_text(
@@ -520,6 +552,8 @@ async def run(
                                 "asset_packet_id": asset_packet.json()["id"],
                                 "dropdown_packet_id": dropdown_packet.json()["id"],
                                 "multiple_packet_id": multiple_packet.json()["id"],
+                                "company_source_packet_id": company_packet.json()["id"],
+                                "company_source_url": company_host + "/about",
                             }
                         )
                     )
@@ -551,7 +585,39 @@ async def run(
                 elif multiple_demo:
                     from backend.scripts.verify_browser_multiple import verify
 
-                    await verify(client, packet, settings, writes, child, without_schema=multiple_demo == "without_schema")
+                    await verify(
+                        client,
+                        packet,
+                        settings,
+                        writes,
+                        child,
+                        without_schema=multiple_demo == "without_schema",
+                    )
+                elif company_source_demo:
+                    from backend.scripts.verify_complete_application import verify
+
+                    await verify(
+                        client,
+                        packet,
+                        settings,
+                        writes,
+                        company_source_url=company_host + "/about",
+                    )
+                    assert [item["path"] for item in company_reads] == [
+                        "/robots.txt",
+                        "/about",
+                    ]
+                    for item in company_reads:
+                        assert not {
+                            "cookie",
+                            "authorization",
+                            "referer",
+                            "proxy-authorization",
+                        } & {key.lower() for key in item["headers"]}
+                    print(
+                        "PASS: credential-free public company source, signed excerpt review, grounded answer, PDF fill, one authorized V2 mock POST, independent receipt and durable PG17 attribution",
+                        flush=True,
+                    )
                 elif complete_application_demo:
                     from backend.scripts.verify_complete_application import verify
 

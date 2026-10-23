@@ -104,6 +104,9 @@ class BrowserResources:
         self.stop_requested = self.closed = False
         self.lock = asyncio.Lock()
         self.assets = None
+        from backend.app.browser.company_source_fetch import SourceFetch
+
+        self.company_source = SourceFetch()
 
     def checkpoint(self):
         if self.stop_requested:
@@ -113,11 +116,13 @@ class BrowserResources:
         self.stop_requested = True
         if self.assets:
             self.assets.seal()
+        self.company_source.seal()
         async with self.lock:
             if self.closed or self.playwright is None:
                 return
             self.closed = True
             try:
+                await self.company_source.close()
                 if self.assets:
                     await self.assets.close()
                 if self.context:
@@ -148,6 +153,7 @@ class BrowserSession:
         self.instance_id = uuid4().hex
         self.assets = resources.assets or PublicAssets({})
         self.multi_enabled = False
+        self.company_capture = None
 
     def owner_mode(self, source):
         main = source["page"] == self.page and source["frame"] == self.page.main_frame

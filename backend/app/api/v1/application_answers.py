@@ -194,7 +194,11 @@ async def saved_opportunity_evidence(
             result.append(
                 {
                     "reference": reference,
-                    "source_url": saved.value["source_url"],
+                    "source_url": saved.value.get(
+                        "company_source_url", saved.value["source_url"]
+                    )
+                    if kind == "company"
+                    else saved.value["source_url"],
                     "reviewed_at": saved.value["reviewed_at"],
                     "excerpt": saved.value[kind + "_text"],
                 }

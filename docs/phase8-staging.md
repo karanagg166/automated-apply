@@ -53,7 +53,7 @@ docker build --build-arg SOURCE_REVISION=REVIEWED_SHA -t automated-apply:staging
 docker build -f frontend/Dockerfile -t automated-apply-frontend:staging frontend
 ```
 
-Both images run without root. The frontend uses pinned Node 22, the committed npm lockfile and
+Both images run without root. The frontend uses pinned Node 22, the committed pnpm lockfile and
 Next.js standalone output. Its allowlisted build context excludes environment files, PDFs,
 reports, node_modules and the backend. Supply secrets at runtime. It starts `node server.js` on
 port 3000. Use one Node instance and one FastAPI worker until shared login throttling, session

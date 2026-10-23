@@ -11,6 +11,13 @@ import {
   verifyPassword,
 } from "@/lib/security";
 import { permittedRoute } from "@/lib/gateway";
+it("allows only the exact owner-mediated company source operation", () => {
+  const route =
+    "browser-applications/11111111-1111-4111-8111-111111111111/company-source-preview";
+  expect(permittedRoute(route, "POST")).toBe(true);
+  expect(permittedRoute(route, "GET")).toBe(false);
+  expect(permittedRoute(route + "/fetch", "POST")).toBe(false);
+});
 it("allows only the authenticated read path for browser operation status", () => {
   const path =
     "browser-applications/11111111-1111-4111-8111-111111111111/operation";

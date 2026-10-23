@@ -18,7 +18,14 @@ sys.path.insert(0, str(ROOT))
 
 
 async def verify(
-    client, packet, settings, writes, *, receipt_mode="valid", live_model=None
+    client,
+    packet,
+    settings,
+    writes,
+    *,
+    receipt_mode="valid",
+    live_model=None,
+    company_source_url=None,
 ):
     from backend.app.browser.owner_approval import approval_header
     from backend.app.browser.runner import browser
@@ -61,15 +68,29 @@ async def verify(
         {"expected_revision": packet["revision"], "action": "analyze"},
     )
     assert len(state["analysis"]["fields"]) == 5
-    source = await post(
-        route + "/opportunity-preview",
-        {"expected_revision": state["packet"]["revision"]},
-    )
+    if company_source_url:
+        source_request = {
+            "expected_revision": state["packet"]["revision"],
+            "source_url": company_source_url,
+            "confirm_public_source_permission": True,
+        }
+        await post(route + "/company-source-preview", source_request, status=403)
+        source = await post(
+            route + "/company-source-preview", source_request, owner=True
+        )
+        assert source["company_source_url"].endswith("/about")
+    else:
+        source = await post(
+            route + "/opportunity-preview",
+            {"expected_revision": state["packet"]["revision"]},
+        )
     approval = {
         k: source[k]
         for k in ("expected_revision", "capture_digest", "job_text", "company_text")
     }
     approval["confirm_company_job_and_source"] = True
+    if company_source_url:
+        approval["company_source_token"] = source["company_source_token"]
     await post(route + "/opportunity-approve", approval, owner=True)
     state = (await client.get(route)).json()
     state = await post(
@@ -266,6 +287,13 @@ async def verify(
         f"/api/v1/application-answers/drafts/{draft_id}/opportunity-evidence"
     )
     assert evidence.status_code == 200 and evidence.json()["evidence"], evidence.text
+    if company_source_url:
+        sources = evidence.json()["evidence"]
+        assert any(
+            item["reference"]["source_type"] == "opportunity_company"
+            and item["source_url"].endswith("/about")
+            for item in sources
+        )
     drafts = (await client.get("/api/v1/application-answers/drafts")).json()
     draft = next(d for d in drafts if d["id"] == draft_id)
     assert draft["answer"] == proposed and draft["review_status"] == "draft"

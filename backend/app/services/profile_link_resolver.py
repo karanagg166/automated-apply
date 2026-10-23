@@ -2,8 +2,10 @@
 import re
 
 from pydantic import TypeAdapter, ValidationError
+
 from backend.app.ai.schemas import AnswerGenerationResult
 from backend.app.core.config import Settings
+from backend.app.core.text import normalize, phrase_in
 from backend.app.core.urls import PublicHTTPSURL
 from backend.app.repositories.candidate_knowledge import STANDARD_FIELDS
 from backend.app.schemas.candidate_resources import ResolvedLink
@@ -21,14 +23,6 @@ ENV_FIELDS = {
     "leetcode": "CANDIDATE_LEETCODE_URL", "codeforces": "CANDIDATE_CODEFORCES_URL",
     "geeksforgeeks": "CANDIDATE_GFG_URL", "hackerrank": "CANDIDATE_HACKERRANK_URL",
 }
-
-
-def normalize(text):
-    return " ".join(re.sub(r"[^\w]+", " ", text.casefold()).split())
-
-
-def phrase_in(phrase, text):
-    return f" {normalize(phrase)} " in f" {normalize(text)} "
 
 
 def resource_types(question):

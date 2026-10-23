@@ -1780,6 +1780,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/browser-applications/{packet_id}/company-source-preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview Company Source */
+    post: operations["preview_company_source_api_v1_browser_applications__packet_id__company_source_preview_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/browser-applications/{packet_id}/opportunity-approve": {
     parameters: {
       query?: never;
@@ -3993,6 +4010,15 @@ export interface components {
       /** Questions */
       questions: components["schemas"]["QuestionInput"][];
     };
+    /** ReadCompanySource */
+    ReadCompanySource: {
+      /** Expected Revision */
+      expected_revision: number;
+      /** Source Url */
+      source_url: string;
+      /** Confirm Public Source Permission */
+      confirm_public_source_permission: boolean;
+    };
     /** Readiness */
     Readiness: {
       /**
@@ -4360,6 +4386,8 @@ export interface components {
       company_text: string;
       /** Confirm Company Job And Source */
       confirm_company_job_and_source: boolean;
+      /** Company Source Token */
+      company_source_token?: string | null;
     };
     /** RevisionInput */
     RevisionInput: {
@@ -8646,6 +8674,41 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["RevisionInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  preview_company_source_api_v1_browser_applications__packet_id__company_source_preview_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packet_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReadCompanySource"];
       };
     };
     responses: {

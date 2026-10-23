@@ -8,7 +8,7 @@ are not all complete. No real employer adapter has automated submission authoriz
 | 1 Audit | Existing modules, PR #15/#16 and unpublished branches inspected; isolated feature worktree; private changes preserved | Reconcile other branches separately if requested; no merges or production activation |
 | 2 Browser | Dedicated Playwright profile; native controls, labelled native/ARIA radios, bounded ARIA comboboxes including lists mounted on open and cached after owner loading; opt-in native multiple selects and labelled native/ARIA checkbox sets; separately approved credential-free public asset bootstrap; reviewed client-only Next steps, manual server navigation with signed same-origin resumption, validation, takeover/cancel | Other custom multiple widgets/date controls, uncached/search-dependent choices, late asset dependencies, cross-origin ATS frames, permitted server-step automation and verified employer submission |
 | 3 Knowledge | Protected profile/projects/evidence, encrypted resumes; structured compensation, availability, relocation and country authorization; dashboard answer-bank review/approval/revocation | Real owner onboarding and broader reusable question coverage |
-| 4 AI | Existing grounding; supported-paraphrase reuse; independently gated providers/local-only fallback; reviewed employer-page evidence with separate claim validation; explicit local Ollama acceptance on fictional data | Broader company-source research, semantic retrieval, other model/hardware coverage and real owner activation |
+| 4 AI | Existing grounding; supported-paraphrase reuse; independently gated providers/local-only fallback; reviewed application-page evidence plus optional signed, credential-free reads of configured official company pages; separate candidate/employer claim validation; explicit local Ollama acceptance on fictional data | Semantic retrieval beyond supported intents, wider source/model coverage and real owner activation |
 | 5 Execution | Existing idempotent packets/job dedup, exact PDF selection, revision locking, manual receipts; mock-only signed grants, one durable dispatch, versioned payload/receipt checks and unknown-outcome recovery | Real employer adapter permission and runtime activation; optional mock SQL proposals are not production approval |
 | 6 AGY | Installed 1.4.5 rechecked (initial audit 1.4.4); authenticated loopback CLI reuses application APIs; no personal Chrome attachment | Optional MCP packaging and an owner-controlled AGY invocation demonstration |
 | 7 Discovery | Existing discovery interfaces preserved, manual employer URL intake added; no LinkedIn/Gmail collection added | Integrate separately reviewed scheduling branch when authorized; future provider activation remains separate |
@@ -35,7 +35,7 @@ provider/account activation, paid call, email, deployment or remote SQL was run.
 - Frontend: **34 unit tests**, type checking, formatting and production build passed;
   **six existing browser journeys** passed in addition to the new PG-backed journey.
 - Ruff, whole-application Bandit, Python compilation, generated OpenAPI/TypeScript
-  contract, dependency consistency, npm audit (zero vulnerabilities), staged
+  contract, dependency consistency, dependency audit (zero vulnerabilities), staged
   whitespace and secret checks passed. No new secret baseline suppressions were
   added; the baseline only refreshes an existing README finding's line number.
 - This is local evidence; hosted GitHub workflow results are separate from these
@@ -47,12 +47,12 @@ was invalid. It was replaced with an unsupported-provider case; separate tests n
 verify each Cohere approval gate and reject Cohere outside evaluation mode. The
 initial dashboard journey's five-second assertion expired while a browser was
 starting; its launch assertion now matches the bounded browser launch deadline.
-A symlinked dependency directory could not be built by Turbopack; a normal isolated
-`npm ci` resolved it. These are corrected findings, not successful first-run claims.
+A symlinked dependency directory could not be built by Turbopack; a clean isolated
+dependency installation resolved it. These are corrected findings, not successful first-run claims.
 
 ## Next implementation order
 
-1. Broaden permission-reviewed company sources and semantic answer retrieval,
+1. Extend semantic answer retrieval beyond supported intents and remaining permitted source layouts,
    preserving separate opportunity/applicant evidence and extending local-model
    coverage. One cloud-disabled Ollama configuration has passed fictional acceptance.
 2. Extend additional custom multiple/date widgets, permitted late asset dependencies,
@@ -123,7 +123,7 @@ credentials or an allowlisted URL alone.
   PostgreSQL 17, runtime access restrictions, mock receipts and restart recovery;
   only two existing pypdf deprecation warnings. Frontend type checks, formatting,
   production build, targeted Ruff, whole-application Bandit, Python compilation,
-  dependency consistency, npm audit (zero findings), whitespace and whole tracked
+  dependency consistency, dependency audit (zero findings), whitespace and whole tracked
   secret scanning passed. One fictional test API-key literal has a narrow inline
   allowlist; no private key or new secret-baseline finding was added.
 - Hosted workflows passed for the preceding `f1e3738` mock-submission commit.
@@ -171,7 +171,7 @@ credentials or an allowlisted URL alone.
   deprecation warnings remain. A focused 44-test answer/context check also passed
   after source-URL omission and evidence-display integrity hardening. Ruff,
   whole-application Bandit, Python compilation, frontend formatting/types/build,
-  dependency checks, npm audit (zero findings), tracked secret scanning and
+  dependency checks, dependency audit (zero findings), tracked secret scanning and
   whitespace checks passed. No new secret-baseline findings were added.
 
 Next unfinished work: wider dynamic/custom/server-dependent step support, additional
@@ -224,7 +224,7 @@ Live Ollama inference and real employer automatic submission remain unverified.
   filling, fictional grounded answers, protected career facts/reuse and the exact
   mock submission receipt. No real employer submission or live model inference
   was performed. Frontend unit tests (39), production build, types/formatting,
-  Ruff, Bandit, compilation, dependency checks, npm audit (zero findings), tracked
+  Ruff, Bandit, compilation, dependency checks, dependency audit (zero findings), tracked
   secret scanning and whitespace checks passed. Two existing pypdf deprecation
   warnings remain in the full backend run.
 
@@ -264,7 +264,7 @@ the ten requested phases or authorize production activation.
   hardening. **Six PG-backed dashboard journeys plus six existing journeys passed
   sequentially**; the new journey cancels an opening browser while its command is
   running. Frontend unit tests (40), production build, generated API types, type and
-  formatting checks, Ruff, Bandit, compilation, dependency checks, npm audit (zero
+  formatting checks, Ruff, Bandit, compilation, dependency checks, dependency audit (zero
   findings), tracked secret scanning and whitespace checks passed. The two existing
   pypdf deprecation warnings remain. Hosted verification for the committed follow-up
   is reported separately in PR #17; no live model or real employer was exercised.
@@ -307,7 +307,7 @@ is implied by these code milestones.
   **Six PG-backed dashboard journeys and six existing browser journeys passed**,
   together with 40 frontend unit tests, generated API contract/type checks,
   formatting, production build, Ruff, whole-app Bandit, compilation, dependency
-  checks, npm audit (zero findings), tracked secret scanning and whitespace checks.
+  checks, dependency audit (zero findings), tracked secret scanning and whitespace checks.
   The two existing pypdf deprecation warnings remain. The real-model acceptance
   script is opt-in and separate from CI's deterministic injected-model tests.
 - Both hosted workflows passed at preceding head `a71a71a` (1,311 backend tests,
@@ -358,7 +358,7 @@ local inference with fictional facts does not satisfy account/production activat
   journeys passed**, using the project Python interpreter (the global interpreter
   lacked the fixture's cryptography dependency). Browser suites ran sequentially.
 - Generated API types, Ruff, whole-app Bandit, compilation, dependency consistency,
-  npm audit (zero findings), tracked secret scanning and whitespace checks passed.
+  dependency audit (zero findings), tracked secret scanning and whitespace checks passed.
   No secret-baseline changes or production/Phase 9 SQL changes were introduced.
 - Both hosted workflows passed for preceding local-model commit `7dcffaf`. Hosted
   results for this follow-up are reported separately in PR #17.
@@ -417,7 +417,7 @@ These milestones do not complete all ten requested phases.
   The two existing pypdf deprecation warnings remain. **Eight PG-backed dashboard
   journeys and six legacy browser journeys passed sequentially**. **42 frontend unit tests**, types,
   formatting, production build, generated API contract (no diff), Ruff, whole-app
-  Bandit, compilation, dependency checks, npm audit (zero findings), tracked secret
+  Bandit, compilation, dependency checks, dependency audit (zero findings), tracked secret
   scanning and whitespace checks passed. No secret-baseline suppressions were added.
 - Hosted backend/frontend workflows passed for preceding commit `86db4d6`. Current-head
   hosted results are reported separately in PR #17; no account/production activation
@@ -460,7 +460,7 @@ requested phases remain incomplete.
   and the new disposable PG17 asset-loaded lifecycle. The two existing pypdf
   deprecation warnings remain. **44 frontend unit tests**, generated API contract,
   type/format checks, production build, Ruff, whole-app Bandit, compilation,
-  dependency consistency, npm audit (zero findings), tracked secret scanning and
+  dependency consistency, dependency audit (zero findings), tracked secret scanning and
   whitespace checks passed. No secret-baseline change was needed.
 - **Nine PG17-backed dashboard journeys passed** against the final production
   Next.js build/BFF, TCP FastAPI and Chromium in 58 seconds. They include separate
@@ -532,7 +532,7 @@ manual. Asset bootstrap does not complete all ten requested phases.
   handoff when it observes those callbacks. No network guard was relaxed.
 - **44 frontend unit tests**, generated API contract (no diff), type/format checks,
   production build, Ruff, whole-app Bandit, compilation, dependency consistency,
-  npm audit (zero findings), tracked secret scanning and whitespace checks passed.
+  dependency audit (zero findings), tracked secret scanning and whitespace checks passed.
   Type checking caught an optional options array in the new display; its guard
   now handles absence. No secret-baseline changes were added.
 - Both hosted workflows passed for preceding head `68478e6`. Hosted checks for
@@ -591,7 +591,7 @@ remain. This milestone does not complete the ten requested phases.
   two existing pypdf deprecation warnings remain. This was a complete passing run
   after the focused fixes, with original test collection/order and all safety tests.
   Ruff, whole-app Bandit, compilation, generated API types, dependency consistency,
-  npm audit (zero findings), tracked secret scanning and whitespace checks passed.
+  dependency audit (zero findings), tracked secret scanning and whitespace checks passed.
   No secret-baseline changes were required.
 - Adding the eleventh owner journey exposed the existing ten-login limit. The
   fixture now reuses one actual UI-created fictional owner session in memory;
@@ -642,7 +642,7 @@ changes do not complete all ten requested phases.
 - Complete backend regression: **1,497 tests passed, no skips**, in 704 seconds;
   the two existing pypdf deprecation warnings remain. **46 frontend unit tests**,
   production build, generated API types (unchanged), type/format checks, Ruff,
-  whole-app Bandit, compilation, dependency consistency, npm audit (zero findings),
+  whole-app Bandit, compilation, dependency consistency, dependency audit (zero findings),
   tracked secret scanning and whitespace checks passed.
 - **Eleven PG17-backed Next.js/BFF/FastAPI/Chromium journeys passed** in 1.2 minutes,
   including the review timing fix and signed approval → paraphrased question →
@@ -665,3 +665,76 @@ Broader permission-reviewed company sources and semantic retrieval beyond suppor
 intents remain the next core work. Real employer adapter permission, controlled AGY
 invocation and genuine owner/account acceptance remain unfinished. These changes
 do not complete the requested ten phases.
+
+## Reviewed public company sources and pnpm tooling
+
+- Added an optional credential-free public company reader to the existing
+  opportunity evidence workflow. Exact operator-configured URLs and a distinct
+  single-use owner signature authorize a robots/document read. Public DNS pins,
+  TLS checks, strict URL/MIME/size/deadline limits, no redirects or account
+  credentials, access/challenge handoff and conservative robots rules bound the
+  operation. The worker executes no website scripts and follows no links.
+- Current application pages also support bounded description extraction under
+  known semantic headings. Forms/hidden content and repeated/conflicting sections
+  remain excluded. A separate source must establish the saved company in its title
+  or heading and match a known employer domain. Unknown domains are not invented.
+- Reading is a preview: only owner-reviewed exact excerpts become protected
+  employer evidence. Job and external company sources retain distinct URLs and
+  timestamps through saved draft evidence. Existing profile facts, packet revisions,
+  answer generation/grounding, storage and statuses are reused. Candidate history
+  never comes from a company page. No schema/ACL/migration changes were required.
+- Preview tokens expire after ten minutes and bind the current packet revision,
+  application capture, browser/document and configured URL. Cached retries do not
+  fetch again. A database reservation limits new reads to four per job per hour,
+  sixty seconds apart, across browser restarts. Cancellation closes/reaps workers,
+  including late births; interrupted reads are not automatically replayed.
+- Hosted backend passed for preceding `ff3b3eb`; hosted frontend passed ten journeys
+  but returned 409 when Generate followed the early context-saved notice. Context
+  approval now commits before acknowledgment, and the notice waits for packet
+  refresh. A delayed-refresh frontend test covers this timing. Old context controls
+  are also fenced when browser cancellation advances the operation generation.
+- At the owner's request, frontend tooling now uses pnpm 12.14.0 exclusively.
+  Removed the legacy lockfile and dependency tree, imported the dependency graph,
+  pinned the manager and recorded its own lock metadata, and verified frozen/offline
+  installs. Direct dependency versions are unchanged. CI, Docker, current docs and
+  project instructions use pnpm. Dependency build scripts are limited to the existing
+  esbuild/sharp packages. The Docker build copies a digest-pinned official pnpm image
+  and removes the legacy installer binaries from build/runtime stages.
+- Final backend regression: **1,552 tests passed with no skips** in 781 seconds;
+  the two existing pypdf deprecation warnings remain. This adds 54 public-source
+  cases and a PG17/TCP/FastAPI/Chromium proof through grounded generation, reviewed
+  PDF filling, one authorized mock POST, independent V2 receipt and durable source
+  attribution. Coverage includes missing authority/policy, wrong employer, private
+  DNS, robots/access/type/size failures, CAPTCHA/auth walls, unknown/expired previews,
+  malicious instructions, cancellation/late workers, restart budgets and ambiguous
+  description sections.
+- **Twelve PG17-backed dashboard journeys passed** in 2.8 minutes using pnpm and
+  the production build/BFF, actual TCP FastAPI and Chromium. The new journey reviews
+  an external company page alongside a heading-based job description, generates a
+  grounded draft, reviews/fills it and checks its distinct company citation and
+  durable not-applied tracking. An initial assertion required an unused job citation;
+  the test now checks sources the answer actually cites, without adding false
+  evidence to the provider or weakening grounding. **50 frontend unit tests**,
+  TypeScript/format checks, generated API types, production build and pnpm audit
+  (zero findings) passed after a clean pnpm install. Offline/frozen installation
+  passed too. The initial frozen install needed pnpm's manager-version lock document;
+  regeneration fixed it while CI/image frozen checks remain enforced.
+- **Six legacy browser journeys passed** in 18 seconds using pnpm and the backend
+  virtual environment. Browser groups ran sequentially. Ruff, whole-app Bandit,
+  compilation, dependency consistency, tracked secret scanning and whitespace
+  checks passed. One deliberately rejected fixture URL needed its explicit fictional
+  secret allowlist comment; the baseline remains unchanged. All accounts, candidate
+  data and employers were fictional. No model request, remote SQL, runtime grant,
+  account activation or real application was made. Historical SQL/manifest and
+  existing mock proposals remain unchanged; original checkout edits are preserved.
+- The **Linux arm64 Docker build and standalone smoke check passed** with Node 22
+  and pnpm 12.14.0. The image installed the frozen lockfile and built Next.js after
+  removing the legacy installer; the non-root runtime verifies those binaries are
+  absent and passes login, anonymous/origin rejection, HttpOnly session-cookie and
+  missing-backend fail-closed checks. The owned smoke-test container and disposable
+  PostgreSQL container were removed. No image was deployed or pushed to a registry.
+
+Semantic retrieval beyond supported intents, additional permitted source layouts,
+controlled AGY invocation, a permission-reviewed real employer submission adapter
+and genuine owner/profile/account acceptance remain unfinished. The ten phases are
+not complete, and no local fixture result establishes production activation.

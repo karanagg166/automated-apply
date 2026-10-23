@@ -70,7 +70,9 @@ def reviewed_context(job, company):
                         "source_id": saved["digest"] + ":" + kind,
                     },
                     "facts": quote,
-                    "source_url": saved["source_url"],
+                    "source_url": saved.get("company_source_url", saved["source_url"])
+                    if kind == "company"
+                    else saved["source_url"],
                     "reviewed_at": saved["reviewed_at"],
                     "verification": "owner_reviewed_page_excerpt",
                 }

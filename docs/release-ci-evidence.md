@@ -81,7 +81,7 @@ failure and an unavailable optional diagnostic utility.
 | Migration and concurrency checks | All 001–011 verified, including resume deduplication/concurrent approval, restart persistence, rollback, grants/RLS and direct anon SELECT rejection |
 | Ruff / Bandit / secret scanning | All backend workflow checks passed locally and hosted |
 | Formatting / API contract | Frontend Prettier passed; new CI files passed Ruff format; regenerated API types unchanged |
-| Frontend | Typecheck, production build and npm high-severity audit passed; zero audit vulnerabilities |
+| Frontend | Typecheck, production build and dependency high-severity audit passed; zero audit vulnerabilities |
 | Images | Backend and frontend built locally and hosted; non-root runtime checks and standalone frontend boundary checks passed |
 | Runtime database rejection | Actual backend container exits before readiness for missing configuration and development SQLite |
 | Actual TLS handshakes against disposable PostgreSQL | Untrusted certificate rejected; hostname mismatch rejected; trusted matching certificate accepted and server confirmed TLS/database identity |

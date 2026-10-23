@@ -29,6 +29,7 @@ type BrowserStatus = {
   automated_submission_enabled: boolean;
   owner_consent_available: boolean;
   opportunity_context_available: boolean;
+  company_source_urls?: string[];
   execution: Execution | null;
   analysis: {
     diagnostic: string;
@@ -459,18 +460,24 @@ export function BrowserAssistant({
       />
       {state?.opportunity_context_available && (
         <OpportunityContext
+          key={epoch.current}
+          sourceUrls={state.company_source_urls || []}
           packetId={packet.id}
           revision={packet.revision}
           blocked={busy || closed || !state.connected || state.manual}
           ownerAvailable={state.owner_consent_available}
-          setBusy={setBusy}
+          setBusy={(value) => {
+            if (renderEpoch === epoch.current) setBusy(value);
+          }}
           onSaved={async () => {
+            if (renderEpoch !== epoch.current) return;
             setReviewed(false);
             setContextConfirmed(false);
             await client.invalidateQueries();
-            setState(
-              await api<BrowserStatus>(`browser-applications/${packet.id}`),
+            const fresh = await api<BrowserStatus>(
+              `browser-applications/${packet.id}`,
             );
+            if (renderEpoch === epoch.current) setState(fresh);
           }}
         />
       )}

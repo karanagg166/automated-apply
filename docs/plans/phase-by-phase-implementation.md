@@ -37,7 +37,7 @@ recovery identity; existing encryption keys preserved. No optional API account r
 **E. Engineering tasks:** P0-01 inventories versions/config-presence without values; P0-02
 reproduces synthetic PG17 fixtures without touching host PG14 or shared DB; P0-03 privately
 completes prerequisites. Backend: use 3.11/import/dependency checks. Frontend: use installed
-Node24/npm lockfile/tests. DB: distinguish A/B/C and recovery scratch. Integrations: none live.
+Node24/pnpm lockfile/tests. DB: distinguish A/B/C and recovery scratch. Integrations: none live.
 Security: permission/ignore checks and no generated key replacement. Documentation: runbook
 with exact supported commands; optional persistent B remains synthetic and unprovisioned until needed.
 
