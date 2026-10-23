@@ -11,7 +11,7 @@ import httpx
 from pydantic import ValidationError
 
 from backend.app.ai.base import ProviderError
-from backend.app.ai.prompts import SYSTEM_INSTRUCTION, build_payload
+from backend.app.ai.prompts import provider_prompt
 from backend.app.ai.schemas import ModelAnswer, ProviderAnswer, TokenUsage
 
 
@@ -76,10 +76,12 @@ class OptionalProvider:
 
     async def _call(self, client, question, context, instructions):
         settings = self.settings
-        payload = build_payload(question, context, instructions)
-        if len(payload) + len(SYSTEM_INSTRUCTION) > settings.LLM_MAX_INPUT_CHARS:
-            raise ProviderError("input_limit_exceeded")
         local = settings.LLM_PROVIDER == "ollama"
+        system, payload, contract = provider_prompt(
+            question, context, instructions, settings.LLM_PROVIDER
+        )
+        if len(payload) + len(system) > settings.LLM_MAX_INPUT_CHARS:
+            raise ProviderError("input_limit_exceeded")
         if local:
             if not settings.OLLAMA_MODEL or not settings.OLLAMA_ENABLED:
                 raise ProviderError("llm_not_configured")
@@ -89,11 +91,11 @@ class OptionalProvider:
             body = {
                 "model": settings.OLLAMA_MODEL,
                 "stream": False,
-                "system": SYSTEM_INSTRUCTION,
+                "system": system,
                 "prompt": payload,
-                "format": ModelAnswer.model_json_schema(),
+                "format": contract,
                 "options": {
-                    "temperature": 0.2,
+                    "temperature": 0,
                     "num_predict": settings.LLM_MAX_OUTPUT_TOKENS,
                 },
             }
@@ -118,7 +120,7 @@ class OptionalProvider:
                 "messages": [
                     {
                         "role": "system",
-                        "content": SYSTEM_INSTRUCTION + "\nReturn JSON only.",
+                        "content": system + "\nReturn JSON only.",
                     },
                     {"role": "user", "content": payload},
                 ],

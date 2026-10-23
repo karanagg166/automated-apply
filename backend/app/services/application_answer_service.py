@@ -5,7 +5,7 @@ import re
 from pydantic import ValidationError
 
 from backend.app.ai.base import ProviderError
-from backend.app.ai.prompts import STYLE_INSTRUCTIONS, SYSTEM_INSTRUCTION, build_payload
+from backend.app.ai.prompts import STYLE_INSTRUCTIONS, provider_prompt
 from backend.app.ai.schemas import (
     AnswerGenerationResult,
     EvidenceReference,
@@ -329,11 +329,14 @@ class ApplicationAnswerService:
             },
         }
         # Bound the whole provider payload, not just the question or job description.
-        if (
-            len(SYSTEM_INSTRUCTION)
-            + len(build_payload(request.question, context, instructions))
-            > self.settings.LLM_MAX_INPUT_CHARS
-        ):
+        try:
+            system, payload, _ = provider_prompt(
+                request.question, context, instructions, self.settings.LLM_PROVIDER
+            )
+        except ProviderError as error:
+            result.status, result.error_code = "validation_failed", error.code
+            return result
+        if len(system) + len(payload) > self.settings.LLM_MAX_INPUT_CHARS:
             result.status, result.error_code = (
                 "validation_failed",
                 "input_limit_exceeded",

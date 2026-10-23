@@ -1,4 +1,5 @@
 """Instructions stay separate from untrusted form and company text."""
+
 SYSTEM_INSTRUCTION = """You draft job application answers for review. Write naturally in the first person.
 Only the supplied candidate_facts are evidence about the applicant. Never infer accomplishments
 from skills. No invented employers, titles, dates, metrics, users, revenue, scale, team size,
@@ -29,12 +30,33 @@ STYLE_INSTRUCTIONS = {
 }
 
 
-def build_payload(question, grounded_context, instructions):
+def build_payload(question, grounded_context, instructions, *, output_contract=None):
     """Shared serialization keeps the input limit aligned with the actual provider request."""
     import json
-    return json.dumps({"question": question, "candidate_facts": grounded_context,
-                       "reviewed_opportunity_evidence": instructions.get("opportunity_evidence", []),
-                       "untrusted_job_context": instructions.get("job_context"),
-                       "writing_style": instructions["style_instruction"],
-                       "max_characters": instructions["max_characters"],
-                       "max_words": instructions.get("max_words")}, ensure_ascii=False)
+
+    payload = {
+        "question": question,
+        "candidate_facts": grounded_context,
+        "reviewed_opportunity_evidence": instructions.get("opportunity_evidence", []),
+        "untrusted_job_context": instructions.get("job_context"),
+        "writing_style": instructions["style_instruction"],
+        "max_characters": instructions["max_characters"],
+        "max_words": instructions.get("max_words"),
+    }
+    if output_contract is not None:
+        payload["output_contract"] = output_contract
+    return json.dumps(payload, ensure_ascii=False)
+
+
+def provider_prompt(question, context, instructions, provider):
+    contract, system = None, SYSTEM_INSTRUCTION
+    if provider == "ollama":
+        from backend.app.ai.output_contract import LOCAL_PLANNING, local_contract
+
+        contract = local_contract(context, instructions)
+        system += LOCAL_PLANNING
+    return (
+        system,
+        build_payload(question, context, instructions, output_contract=contract),
+        contract,
+    )

@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from fastapi import Request
+from fastapi import Depends, Request
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
@@ -41,12 +41,20 @@ async def verify(client, packet, settings, writes, employer, *, after_dispatch=F
 
     # Hold dependency teardown after the HTTP response. Acknowledged approval
     # and revocation must already be committed for an independent GET to see.
+    from backend.app.api.v1.application_answers import answer_service
     from backend.app.db.session import get_db_session, get_session_factory
     from backend.app.main import app
+    from backend.app.services.application_answer_service import ApplicationAnswerService
+    from backend.tests.phase2a_fakes import FakeProvider
 
     releases = {
         name: asyncio.Event()
-        for name in ("approve-reuse", "revoke-reuse", "browser-applications")
+        for name in (
+            "approve-reuse",
+            "revoke-reuse",
+            "browser-applications",
+            "generate",
+        )
     }
     reached = {name: asyncio.Event() for name in releases}
 
@@ -64,6 +72,20 @@ async def verify(client, packet, settings, writes, employer, *, after_dispatch=F
                 raise
 
     app.dependency_overrides[get_db_session] = delayed_teardown
+
+    def fictional_answer_service(session=Depends(get_db_session)):
+        return ApplicationAnswerService(
+            session,
+            settings.model_copy(
+                update={
+                    "LLM_PROVIDER": "ollama",
+                    "OLLAMA_MODEL": "fictional-fixture-provider",
+                }
+            ),
+            FakeProvider(),
+        )
+
+    app.dependency_overrides[answer_service] = fictional_answer_service
     try:
         drafts = (await client.get("/api/v1/application-answers/drafts")).json()
         draft = next(
@@ -102,10 +124,31 @@ async def verify(client, packet, settings, writes, employer, *, after_dispatch=F
             "/api/v1/browser-applications/" + prepared.json()["id"]
         )
         assert visible.status_code == 200, visible.text
+        generated = await client.post(
+            "/api/v1/application-answers/generate",
+            json={
+                "question": "Describe a project you built",
+                "save_draft": True,
+            },
+        )
+        assert (
+            generated.status_code == 200 and generated.json()["status"] == "draft_ready"
+        ), generated.text
+        await asyncio.wait_for(reached["generate"].wait(), 3)
+        from backend.app.models.application_answer import ApplicationAnswerDraft
+
+        async with get_session_factory()() as observer:
+            assert (
+                await observer.get(
+                    ApplicationAnswerDraft, UUID(generated.json()["draft_id"])
+                )
+                is not None
+            )
     finally:
         for event in releases.values():
             event.set()
         app.dependency_overrides.pop(get_db_session, None)
+        app.dependency_overrides.pop(answer_service, None)
 
     async def open_analyze():
         current = (await client.get(route)).json()["packet"]

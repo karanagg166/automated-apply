@@ -242,9 +242,9 @@ already installed local model:
 ```dotenv
 LLM_PROVIDER=ollama
 OLLAMA_ENABLED=true
-OLLAMA_MODEL=your-installed-model
+OLLAMA_MODEL=qwen3:4b-instruct
 LLM_MONTHLY_MAX_REQUESTS=200
-LLM_TIMEOUT_SECONDS=30
+LLM_TIMEOUT_SECONDS=80
 ```
 
 Start the Ollama **daemon** with `OLLAMA_NO_CLOUD=1` and restart it after changing
@@ -258,12 +258,52 @@ describe those fields. Loopback alone does not prove local inference. Generation
 calls only `http://127.0.0.1:11434/api/generate`, disables environment proxies and
 redirects, and asks for the existing grounded JSON schema. Missing
 models, malformed output and timeout return a reviewable failure, never invented
-answers. No model was downloaded or live generation verified during implementation.
+answers. The local adapter plans cited sentences before composing prose, constrains
+reference IDs to the supplied candidate/employer evidence domains, and includes the
+same schema in its prompt. Applicant/employer grounding checks still validate the
+complete answer after generation. Input limits count the planning/schema overhead.
 With `LLM_LOCAL_FALLBACK_ENABLED=true`, an explicitly configured remote primary can
 fall back only to this verified local Ollama service after a provider/quota failure.
 Both attempts share one deadline and retain separate durable usage budgets. No
 local-to-remote fallback or model download is automatic. Results identify the actual
 model used; validation failures never relax grounding to obtain an answer.
+
+Live local acceptance was verified with **Ollama 0.40.9 and
+`qwen3:4b-instruct` on an 8 GB Apple M1**. The model is separately downloaded;
+see its [official model page](https://ollama.com/library/qwen3:4b-instruct) and
+[Ollama download](https://ollama.com/download). Start the daemon explicitly with
+cloud inference disabled, then pull the model in another terminal:
+
+```sh
+OLLAMA_NO_CLOUD=1 OLLAMA_HOST=127.0.0.1:11434 OLLAMA_CONTEXT_LENGTH=4096 OLLAMA_NUM_PARALLEL=1 OLLAMA_MAX_LOADED_MODELS=1 ollama serve
+# In another terminal, while the daemon is running:
+ollama pull qwen3:4b-instruct
+```
+
+On the implementation machine, the verified standalone binary and model cache are
+in ignored `reports/local-ollama/v0.40.9/bin/` and `reports/local-ollama/models/`.
+They are not included in Git. To use that cache from this worktree, invoke the
+standalone binary's `serve` command with `OLLAMA_MODELS="$PWD/reports/local-ollama/models"`
+and the same daemon settings above. No personal Chrome or AGY configuration is used.
+
+With disposable local PG17 available, run:
+
+```sh
+backend/venv/bin/python backend/scripts/verify_live_ollama.py --model qwen3:4b-instruct
+```
+
+This opt-in command uses fictional candidate facts, a fresh child database, actual
+TCP FastAPI and Chromium, and the real local model. It verifies source capture and
+signed review, a grounded company draft, explicit field review/filling, persisted
+draft/evidence/provider identity, a separate project answer, unknown compensation
+and factual notice-period bypass. Two model requests are recorded durably; draft
+reuse/submission approval is not automatic. The observed run took 73.7 seconds in
+total with an 80-second limit per model call. Other hardware/models need their own
+verification. The test-owned daemon was stopped after acceptance; there is no
+automatic service/account activation. CI continues to use injected fictional models.
+Ollama's [structured-output guide](https://docs.ollama.com/capabilities/structured-outputs)
+describes supplying the schema in both prompt and format. Unaccepted local drafts
+remain validation failures; earlier free-prose probes were rejected rather than filled.
 
 Cohere is **evaluation-only in ENVIRONMENT=testing**. Its factory and transport both
 require `COHERE_EVALUATION_ENABLED`, `COHERE_TRIAL_KEY_CONFIRMED`,

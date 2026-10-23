@@ -97,6 +97,7 @@ jobs:
         run: >-
           ruff check --isolated --select E9,F,I backend/app/browser
           backend/app/ai/optional_usage.py backend/app/ai/providers/optional.py
+          backend/app/ai/output_contract.py backend/tests/test_ollama_contract.py
           backend/scripts/browser_assistant.py backend/scripts/browser_mock_demo.py
           backend/tests/test_browser_assistant.py backend/tests/test_optional_ai.py
           backend/tests/test_browser_submissions.py backend/tests/test_browser_submission_postgres.py
@@ -113,6 +114,7 @@ jobs:
           backend/tests/test_browser_steps_postgres.py backend/scripts/verify_browser_steps.py
           backend/tests/test_browser_cancellation.py backend/tests/test_browser_cancellation_postgres.py
           backend/scripts/verify_browser_cancellation.py
+          backend/scripts/verify_live_ollama.py
           backend/app/ai/validation.py backend/app/ai/prompts.py
       - name: PostgreSQL browser lifecycle demonstration
         run: python backend/scripts/browser_mock_demo.py

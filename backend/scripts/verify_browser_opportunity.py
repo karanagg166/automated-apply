@@ -1,4 +1,4 @@
-"""Disposable PG17 proof of reviewed employer context and fictional grounded generation."""
+"""Disposable PG17 employer-context proof with injected or explicit live local generation."""
 
 import asyncio
 import json
@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 
-async def verify(client, packet, settings):
+async def verify(client, packet, settings, *, live_model=None):
     from backend.app.browser.owner_approval import approval_header
     from backend.app.browser.runner import browser
 
@@ -70,10 +70,14 @@ async def verify(client, packet, settings):
     current = response.json()
     field = next(f for f in current["fields"] if f["id"] == question["field_id"])
     assert field["validation_status"] == "draft_ready", field
-    assert (
-        "Example Circuit" in field["effective_answer"]
-        and "I built backend" in field["effective_answer"]
-    )
+    if live_model:
+        assert field["requires_review"] and field["effective_answer"]
+        assert "PRIVATE-FORM-VALUE" not in field["effective_answer"]
+    else:
+        assert (
+            "Example Circuit" in field["effective_answer"]
+            and "I built backend" in field["effective_answer"]
+        )
     response = await client.post(
         f"/api/v1/application-packets/{packet['id']}/review",
         json={
@@ -110,11 +114,79 @@ async def verify(client, packet, settings):
     assert response.status_code == 200, response.text
     evidence = response.json()["evidence"]
     assert evidence and evidence[0]["source_url"].endswith("/opportunity")
-    assert "Example Circuit" in evidence[0]["excerpt"]
-    print(
-        "PASS: PG17 + TCP FastAPI + Chromium capture, signed source review, fictional grounded proposal, reviewed fill and durable evidence; no live model or employer submission",
-        flush=True,
-    )
+    if live_model:
+        from datetime import datetime, timezone
+
+        from backend.app.dashboard.models import OwnerPreference
+        from backend.app.db.session import close_db_engine, get_session_factory
+
+        await close_db_engine()
+        drafts = (await client.get("/api/v1/application-answers/drafts")).json()
+        saved = next(d for d in drafts if d["id"] == draft)
+        assert saved["provider"] == "ollama" and saved["model"] == live_model
+        assert saved["review_status"] == "draft" and not saved["stale"]
+        project = await client.post(
+            "/api/v1/application-answers/generate",
+            json={
+                "question": "Describe a project you built",
+                "writing_style": "concise",
+                "max_characters": 600,
+                "max_words": 90,
+                "save_draft": True,
+            },
+        )
+        assert project.status_code == 200, project.text
+        project_answer = project.json()
+        assert (
+            project_answer["status"] == "draft_ready" and project_answer["used_llm"]
+        ), project_answer
+        assert (
+            project_answer["provider"] == "ollama"
+            and project_answer["model"] == live_model
+        )
+        assert project_answer["requires_review"] and not any(
+            r["source_type"].startswith("opportunity_")
+            for r in project_answer["evidence_references"]
+        )
+        for question_text, expected_status in [
+            ("What is your current CTC?", "needs_input"),
+            ("What is your notice period?", "draft_ready"),
+        ]:
+            resolved = await client.post(
+                "/api/v1/application-answers/generate", json={"question": question_text}
+            )
+            assert resolved.status_code == 200, resolved.text
+            assert (
+                resolved.json()["status"] == expected_status
+                and not resolved.json()["used_llm"]
+            ), resolved.text
+        key = "ai:ollama:" + datetime.now(timezone.utc).strftime("%Y-%m")
+        async with get_session_factory()() as observer:
+            row = await observer.get(OwnerPreference, key)
+            assert row.value["requests"] == 2, row.value
+        print(
+            "PASS: PG17 + TCP FastAPI + Chromium + live cloud-disabled Ollama, grounded company proposal, explicit field review, actual filling, persisted draft/evidence and factual bypass; fictional data and no submission",
+            flush=True,
+        )
+        print(
+            json.dumps(
+                {
+                    "model": live_model,
+                    "answer": field["effective_answer"],
+                    "provider": saved["provider"],
+                    "review_status": saved["review_status"],
+                    "employer_sources": len(evidence),
+                    "project_answer": project_answer["answer"],
+                }
+            ),
+            flush=True,
+        )
+    else:
+        assert "Example Circuit" in evidence[0]["excerpt"]
+        print(
+            "PASS: PG17 + TCP FastAPI + Chromium capture, signed source review, fictional grounded proposal, reviewed fill and durable evidence; no live model or employer submission",
+            flush=True,
+        )
 
 
 if __name__ == "__main__":

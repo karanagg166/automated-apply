@@ -115,9 +115,13 @@ async def patch_evidence(
 
 @router.post("/application-answers/generate", response_model=AnswerGenerationResult)
 async def generate_answer(
-    data: GenerateRequest, service: ApplicationAnswerService = Depends(answer_service)
+    data: GenerateRequest,
+    service: ApplicationAnswerService = Depends(answer_service),
+    session: AsyncSession = Depends(get_db_session),
 ):
-    return await service.generate(data)
+    result = await service.generate(data)
+    await session.commit()
+    return result
 
 
 def draft_read(item, profile):

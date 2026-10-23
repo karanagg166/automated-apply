@@ -27,6 +27,7 @@ async def run(
     opportunity_demo=False,
     steps_demo=False,
     cancellation_demo=False,
+    live_ollama_model=None,
 ):
     import asyncpg
     import httpx
@@ -103,11 +104,23 @@ async def run(
                 RESUME_ENCRYPTION_KEY=Fernet.generate_key().decode(),
                 GEMINI_API_KEY=None,
                 LLM_MODEL=None,
+                LLM_PROVIDER="ollama" if live_ollama_model else "gemini",
+                LLM_TIMEOUT_SECONDS=80 if live_ollama_model else 30,
+                LLM_MONTHLY_MAX_REQUESTS=5 if live_ollama_model else 200,
+                LLM_LOCAL_FALLBACK_ENABLED=False,
                 COHERE_EVALUATION_ENABLED=False,
-                OLLAMA_ENABLED=False,
+                COHERE_API_KEY=None,
+                COHERE_MODEL=None,
+                OLLAMA_ENABLED=bool(live_ollama_model),
+                OLLAMA_MODEL=live_ollama_model,
                 APPROVED_ANSWER_REUSE_ENABLED=True,
                 OPPORTUNITY_CONTEXT_ENABLED=True,
                 UI_FIXTURE_MODE=True,
+                **{
+                    key: None
+                    for key in Settings.model_fields
+                    if key.startswith("CANDIDATE_")
+                },
             )
             # Settings' origin format contains an explicit port for all destinations.
             configure_operator(settings)
@@ -125,7 +138,7 @@ async def run(
             from backend.app.schemas.candidate_profile import CandidateProfileCreate
             from backend.tests.test_phase7_dashboard import pdf_bytes
 
-            if serve or opportunity_demo:
+            if (serve or opportunity_demo) and not live_ollama_model:
                 from fastapi import Depends
 
                 from backend.app.api.v1.applications import application_service
@@ -237,7 +250,7 @@ async def run(
             actual_port = server.servers[0].sockets[0].getsockname()[1]
             async with httpx.AsyncClient(
                 base_url=f"http://127.0.0.1:{actual_port}",
-                timeout=60,
+                timeout=95 if live_ollama_model else 60,
                 headers={"Authorization": "Bearer fictional-browser-demo-owner-token"},
                 trust_env=False,
             ) as client:
@@ -329,7 +342,14 @@ async def run(
                 elif cancellation_demo:
                     from backend.scripts.verify_browser_cancellation import verify
 
-                    await verify(client, packet, settings, writes, employer, after_dispatch=cancellation_demo == "after_dispatch")
+                    await verify(
+                        client,
+                        packet,
+                        settings,
+                        writes,
+                        employer,
+                        after_dispatch=cancellation_demo == "after_dispatch",
+                    )
                 elif steps_demo:
                     from backend.scripts.verify_browser_steps import verify
 
@@ -337,7 +357,7 @@ async def run(
                 elif opportunity_demo:
                     from backend.scripts.verify_browser_opportunity import verify
 
-                    await verify(client, packet, settings)
+                    await verify(client, packet, settings, live_model=live_ollama_model)
                 else:
                     route = "/api/v1/browser-applications/" + packet["id"]
                     response = await client.post(

@@ -8,7 +8,7 @@ are not all complete. No real employer adapter has automated submission authoriz
 | 1 Audit | Existing modules, PR #15/#16 and unpublished branches inspected; isolated feature worktree; private changes preserved | Reconcile other branches separately if requested; no merges or production activation |
 | 2 Browser | Dedicated Playwright profile; native controls, labelled native/ARIA radios, bounded ARIA comboboxes; reviewed client-only Next steps, validation, takeover/cancel | Wider custom widgets, remotely loaded choices, cross-origin ATS frames, server-dependent navigation and verified employer submission |
 | 3 Knowledge | Protected profile/projects/evidence, encrypted resumes; structured compensation, availability, relocation and country authorization; dashboard answer-bank review/approval/revocation | Real owner onboarding and broader reusable question coverage |
-| 4 AI | Existing grounding; supported-paraphrase reuse; independently gated models/local-only fallback; owner-reviewed bounded employer-page evidence with separate applicant/employer claim validation | Broader company-source research, semantic retrieval and live local model verification |
+| 4 AI | Existing grounding; supported-paraphrase reuse; independently gated providers/local-only fallback; reviewed employer-page evidence with separate claim validation; explicit local Ollama acceptance on fictional data | Broader company-source research, semantic retrieval, other model/hardware coverage and real owner activation |
 | 5 Execution | Existing idempotent packets/job dedup, exact private PDF selection, revision locking, sanitized structure, manual receipt tracking, no replay | Mock-only exact owner grants, durable single dispatch, independent multipart/receipt validation, unknown outcome recovery and separate local-only migration proposal are implemented; real employer adapter permission and runtime activation remain pending |
 | 6 AGY | Installed 1.4.5 rechecked (initial audit 1.4.4); authenticated loopback CLI reuses application APIs; no personal Chrome attachment | Optional MCP packaging and an owner-controlled AGY invocation demonstration |
 | 7 Discovery | Existing discovery interfaces preserved, manual employer URL intake added; no LinkedIn/Gmail collection added | Integrate separately reviewed scheduling branch when authorized; future provider activation remains separate |
@@ -268,6 +268,51 @@ the ten requested phases or authorize production activation.
 
 Next unfinished work: assistance across owner-controlled server navigation, wider
 company sources/custom controls, a permission-reviewed real employer adapter,
-controlled AGY invocation and live local-model/profile/account acceptance. The ten
+controlled AGY invocation and real owner profile/account acceptance. The ten
 requested phases remain incomplete; no production migration or account activation
 is implied by these code milestones.
+
+## Live local model and constrained citation planning
+
+- Local Ollama output plans candidate and employer claims before composing the final
+  prose. Reference IDs are constrained to each supplied evidence domain and request;
+  reviewed employer claims cannot be declared without employer evidence. The same
+  schema is visible in the prompt and enforced by `format`. Complete prompt limits
+  include planning/schema overhead. The post-generation grounding validator remains
+  unchanged; accepted output still requires review.
+- Actual free-prose probes produced unsupported enthusiasm, mixed employer/applicant
+  citations and incorrect source IDs. Validation rejected them. Claim-first generation
+  with `qwen3:4b-instruct` produced a draft that passed the existing validator. This
+  demonstrates one tested configuration, not universal model reliability.
+- An opt-in acceptance script reuses the existing PG17/FastAPI/Chromium fixture and
+  actual application services, disables injected providers, clears legacy candidate
+  environment fallbacks and requires the daemon's cloud-disabled/local-model proofs.
+  It does not download models, sign in, ingest a real profile or submit applications.
+- Ollama **0.40.9**, `qwen3:4b-instruct`, an 8 GB Apple M1 and a 4,096-token daemon
+  context passed the real-model workflow: capture employer context → signed source
+  review → generate → explicit field review → fill → retrieve saved draft/evidence.
+  A separate project answer also passed. Unknown CTC remained unknown; notice period
+  used the approved structured value. The local usage ledger recorded exactly two
+  model requests, and saved drafts retained provider/model identity and review status.
+  The observed total was **73.7 seconds**. All facts, resumes and employer pages were
+  fictional. The test-owned daemon was stopped afterward; caches remain ignored.
+- Saved answer generation now commits before HTTP acknowledgment. The PostgreSQL
+  regression fixture delays request cleanup and checks draft visibility from an
+  independent session. No production schema or historical safety-gate changes occur.
+- Local regression: **1,319 backend tests passed, no skips**, including eight new
+  output-contract/budget/isolation cases and the PG17 delayed-acknowledgment checks.
+  **Six PG-backed dashboard journeys and six existing browser journeys passed**,
+  together with 40 frontend unit tests, generated API contract/type checks,
+  formatting, production build, Ruff, whole-app Bandit, compilation, dependency
+  checks, npm audit (zero findings), tracked secret scanning and whitespace checks.
+  The two existing pypdf deprecation warnings remain. The real-model acceptance
+  script is opt-in and separate from CI's deterministic injected-model tests.
+- Both hosted workflows passed at preceding head `a71a71a` (1,311 backend tests,
+  40 frontend unit tests and twelve browser journeys). Current-head hosted results
+  are recorded in PR #17. Code/test completion remains separate from real owner,
+  employer permission, account and production activation.
+
+Next unfinished work remains owner-controlled server navigation, broader custom
+controls/company sources and semantic retrieval, a permission-reviewed real employer
+adapter, controlled AGY invocation and actual owner profile/account acceptance. Live
+local inference with fictional facts does not satisfy account/production activation.
