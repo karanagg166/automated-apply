@@ -8,12 +8,15 @@ import asyncio
 import ipaddress
 import os
 import socket
+from contextlib import suppress
 from pathlib import Path
 from urllib.parse import urlsplit
 from uuid import uuid4
 
 from fastapi import HTTPException
 
+from backend.app.browser.asset_policy import RESTRICTED_HOSTS, policy
+from backend.app.browser.assets import AssetUnavailable, PublicAssets
 from backend.app.browser.contracts import DetectedField, StepControl
 from backend.app.services.applications.resume_selector import digest
 
@@ -55,26 +58,22 @@ def origin(url):
         raise HTTPException(422, "Invalid browser destination") from None
 
 
-async def validate_destination(url, settings, *, return_addresses=False):
+async def validate_destination(
+    url, settings, *, return_addresses=False, allowed_origins=None
+):
     target = origin(url)
     parsed = urlsplit(url)
-    restricted = {
-        "linkedin.com",
-        "naukri.com",
-        "wellfound.com",
-        "instahyre.com",
-        "internshala.com",
-        "accounts.google.com",
-    }
     if any(
         parsed.hostname == host or parsed.hostname.endswith("." + host)
-        for host in restricted
+        for host in RESTRICTED_HOSTS
     ):
         raise HTTPException(
             403,
             "This platform requires manual handoff; no portal browser adapter is verified",
         )
-    if target not in settings.BROWSER_ALLOWED_ORIGINS:
+    if target not in (
+        settings.BROWSER_ALLOWED_ORIGINS if allowed_origins is None else allowed_origins
+    ):
         raise HTTPException(
             403, "Destination has no configured browser permission; use manual handoff"
         )
@@ -104,6 +103,7 @@ class BrowserResources:
         self.playwright = self.context = None
         self.stop_requested = self.closed = False
         self.lock = asyncio.Lock()
+        self.assets = None
 
     def checkpoint(self):
         if self.stop_requested:
@@ -111,11 +111,15 @@ class BrowserResources:
 
     async def close(self):
         self.stop_requested = True
+        if self.assets:
+            self.assets.seal()
         async with self.lock:
             if self.closed or self.playwright is None:
                 return
             self.closed = True
             try:
+                if self.assets:
+                    await self.assets.close()
                 if self.context:
                     await self.context.close()
             finally:
@@ -142,6 +146,7 @@ class BrowserSession:
         self.assisted_document_epoch = 0
         self.paused_for_resume = False
         self.instance_id = uuid4().hex
+        self.assets = resources.assets or PublicAssets({})
 
     def owner_mode(self, source):
         main = source["page"] == self.page and source["frame"] == self.page.main_frame
@@ -154,6 +159,7 @@ class BrowserSession:
     async def set_manual(self, manual):
         # Revoke network permission before awaiting any browser command.
         self.manual = manual
+        self.assets.seal()
         self.mode_generation += 1
         if not manual:
             self.in_page_mode = True
@@ -229,6 +235,36 @@ class BrowserSession:
             else:
                 await route.abort("blockedbyclient")
             return
+        if not allowed and self.assets.pins:
+            try:
+                if (
+                    self.manual
+                    or self.submission
+                    or request.method != "GET"
+                    or request.is_navigation_request()
+                    or request.frame != self.page.main_frame
+                ):
+                    self.assets.blocked += 1
+                    raise AssetUnavailable()
+                # Only a public application origin may be forwarded for native
+                # CORS negotiation. No browser header/cookie set is forwarded.
+                source = request.headers.get("origin")
+                source = source if source and origin(source) == self.target else None
+                raw, headers = await self.assets.fetch(
+                    request.url, request.resource_type, source
+                )
+                if self.cancelled or self.assets.sealed or self.in_page_mode:
+                    self.assets.blocked += 1
+                    raise AssetUnavailable()
+                await route.fulfill(status=200, body=raw, headers=headers)
+            except Exception as error:
+                from playwright.async_api import Error
+
+                if not isinstance(error, AssetUnavailable):
+                    self.assets.blocked += 1
+                with suppress(Error):
+                    await route.abort("blockedbyclient")
+            return
         if not self.manual:
             allowed = allowed and request.method in {"GET", "HEAD"}
             if request.is_navigation_request():
@@ -241,6 +277,7 @@ class BrowserSession:
             await route.abort("blockedbyclient")
 
     async def scan(self):
+        self.assets.seal()
         if self.paused_for_resume:
             raise HTTPException(
                 409, "Review the current page before resuming assistance"
@@ -385,6 +422,20 @@ class LocalBrowser:
         target, addresses = await validate_destination(
             url, settings, return_addresses=True
         )
+        asset_origins = [
+            value for value in policy(settings)["origins"] if value != target
+        ]
+        resolved_assets = await asyncio.gather(
+            *[
+                validate_destination(
+                    value,
+                    settings,
+                    return_addresses=True,
+                    allowed_origins=asset_origins,
+                )
+                for value in asset_origins
+            ]
+        )
         self.operations.checkpoint(packet_id)
         key = str(packet_id)
         if key in self.sessions:
@@ -418,6 +469,9 @@ class LocalBrowser:
         # Reserve admission before the first browser-launch await, including other packets.
         self.opening.add(key)
         resources = BrowserResources()
+        resources.assets = PublicAssets(
+            dict(resolved_assets), testing=settings.ENVIRONMENT == "testing"
+        )
         self.opening_resources[key] = resources
         playwright = context = None
         try:

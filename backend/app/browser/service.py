@@ -127,6 +127,7 @@ async def status(session, packet_id):
                 or current.document_epoch != current.assisted_document_epoch
             )
         ),
+        "assets": current.assets.state() if current else None,
         "analysis": saved.value if saved else None,
         "submission_mode": "mock_only"
         if adapter.submission_enabled

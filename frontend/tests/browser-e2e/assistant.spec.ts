@@ -1,5 +1,14 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+
+async function approveBrowser(page: Page) {
+  await page
+    .getByLabel("I approve a dedicated browser profile", { exact: false })
+    .check();
+  await page
+    .getByLabel("I approve credential-free loading", { exact: false })
+    .check();
+}
 
 test.afterEach(async ({ page }) => {
   const manifest = JSON.parse(
@@ -17,6 +26,7 @@ test.afterEach(async ({ page }) => {
     manifest.slow_packet_id,
     manifest.navigation_packet_id,
     manifest.complete_packet_id,
+    manifest.asset_packet_id,
   ].filter(Boolean)) {
     const response = await page.request.get(
       `/api/backend/browser-applications/${id}/operation`,
@@ -72,9 +82,7 @@ test("owner dashboard analyzes and fills using real FastAPI, PostgreSQL and a de
   await expect(
     page.getByRole("button", { name: "Open dedicated browser" }),
   ).toBeDisabled();
-  await page
-    .getByLabel("I approve a dedicated browser profile", { exact: false })
-    .check();
+  await approveBrowser(page);
   await page.getByRole("button", { name: "Open dedicated browser" }).click();
   await expect(
     page.getByRole("button", { name: "Analyze Application" }),
@@ -148,9 +156,7 @@ test("owner authorizes a mock application and sees the independently verified re
   await page.getByRole("button", { name: "Enter workspace" }).click();
   await expect(page).toHaveURL("/");
   await page.goto(`/applications/${mock_packet_id}`);
-  await page
-    .getByLabel("I approve a dedicated browser profile", { exact: false })
-    .check();
+  await approveBrowser(page);
   await page.getByRole("button", { name: "Open dedicated browser" }).click();
   await expect(
     page.getByRole("button", { name: "Analyze Application" }),
@@ -222,9 +228,7 @@ test("reviewed employer context grounds an AI proposal and fills the actual fict
   await page.getByRole("button", { name: "Enter workspace" }).click();
   await expect(page).toHaveURL("/");
   await page.goto(`/applications/${opportunity_packet_id}`);
-  await page
-    .getByLabel("I approve a dedicated browser profile", { exact: false })
-    .check();
+  await approveBrowser(page);
   await page.getByRole("button", { name: "Open dedicated browser" }).click();
   await expect(
     page.getByRole("button", { name: "Analyze Application" }),
@@ -326,9 +330,7 @@ test("owner fills grouped choices and explicitly advances an in-page application
   await page.getByRole("button", { name: "Enter workspace" }).click();
   await expect(page).toHaveURL("/");
   await page.goto(`/applications/${guided_packet_id}`);
-  await page
-    .getByLabel("I approve a dedicated browser profile", { exact: false })
-    .check();
+  await approveBrowser(page);
   await page.getByRole("button", { name: "Open dedicated browser" }).click();
   await expect(
     page.getByRole("button", { name: "Analyze Application" }),
@@ -433,9 +435,7 @@ test("owner cancels an opening browser while its navigation is still in flight",
   await page.getByRole("button", { name: "Enter workspace" }).click();
   await expect(page).toHaveURL("/");
   await page.goto(`/applications/${slow_packet_id}`);
-  await page
-    .getByLabel("I approve a dedicated browser profile", { exact: false })
-    .check();
+  await approveBrowser(page);
   await page.getByRole("button", { name: "Open dedicated browser" }).click();
   await expect(
     page.getByRole("button", { name: "Open dedicated browser" }),
@@ -483,9 +483,7 @@ test("owner resumes after a manual server step through the signed dashboard revi
   await page.getByRole("button", { name: "Enter workspace" }).click();
   await expect(page).toHaveURL("/");
   await page.goto(`/applications/${navigation_packet_id}`);
-  await page
-    .getByLabel("I approve a dedicated browser profile", { exact: false })
-    .check();
+  await approveBrowser(page);
   await page.getByRole("button", { name: "Open dedicated browser" }).click();
   await expect(
     page.getByRole("button", { name: "Analyze Application" }),
@@ -578,9 +576,7 @@ test("owner generates a grounded company answer and completes one authorized moc
   await page.getByRole("button", { name: "Enter workspace" }).click();
   await expect(page).toHaveURL("/");
   await page.goto(`/applications/${complete_packet_id}`);
-  await page
-    .getByLabel("I approve a dedicated browser profile", { exact: false })
-    .check();
+  await approveBrowser(page);
   await page.getByRole("button", { name: "Open dedicated browser" }).click();
   await expect(
     page.getByRole("button", { name: "Analyze Application" }),
@@ -738,6 +734,70 @@ test("owner generates a grounded company answer and completes one authorized moc
   expect(evidence.status()).toBe(200);
   expect((await evidence.json()).evidence.length).toBeGreaterThan(0);
   expect(state.real_employer_submission_enabled).toBe(false);
+});
+
+test("owner approves public asset origins before inspecting and filling an external-script form", async ({
+  page,
+}) => {
+  const { asset_packet_id } = JSON.parse(
+    readFileSync("../reports/browser-mock.private.json", "utf8"),
+  );
+  await page.goto("/login");
+  await page
+    .getByLabel("Owner passphrase")
+    .fill("fictional-ui-owner-passphrase");
+  await page.getByRole("button", { name: "Enter workspace" }).click();
+  await expect(page).toHaveURL("/");
+  await page.goto(`/applications/${asset_packet_id}`);
+  await page
+    .getByLabel("I approve a dedicated browser profile", { exact: false })
+    .check();
+  await expect(
+    page.getByLabel("I approve credential-free loading", { exact: false }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Open dedicated browser" }),
+  ).toBeDisabled();
+  await page
+    .getByLabel("I approve credential-free loading", { exact: false })
+    .check();
+  await page.getByRole("button", { name: "Open dedicated browser" }).click();
+  await expect(
+    page.getByRole("button", { name: "Analyze Application" }),
+  ).toBeEnabled({ timeout: 45000 });
+  await page.getByRole("button", { name: "Analyze Application" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: /^analyzed$/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Public asset loading closed:", { exact: false }),
+  ).toBeVisible();
+  await page
+    .getByLabel(
+      "I reviewed the current answers, destination and selected resume below.",
+    )
+    .check();
+  await page
+    .getByLabel("I confirmed the actual page belongs to this company and job.")
+    .check();
+  await page.getByRole("button", { name: "Fill supported fields" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: /^filled review on website$/ }),
+  ).toBeVisible();
+  const response = await page.request.get(
+    `/api/backend/browser-applications/${asset_packet_id}`,
+  );
+  const state = await response.json();
+  expect(state.assets.sealed).toBe(true);
+  expect(state.assets.requests).toBe(2);
+  expect(state.assets.bytes).toBeGreaterThan(0);
+  expect(
+    state.analysis.validation.some(
+      (field: { complete: boolean }) => field.complete,
+    ),
+  ).toBe(true);
+  expect(state.packet.tracking_state).toBe("not_applied");
+  expect(state.automated_submission_enabled).toBe(false);
 });
 
 test("owner manages protected career facts and signed answer reuse with PostgreSQL persistence", async ({

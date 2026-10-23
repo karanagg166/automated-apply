@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, post, Schema } from "@/lib/api";
 import { Button, Field, Input, Notice, ErrorState } from "@/components/ui";
 
@@ -18,6 +18,13 @@ type BrowserStatus = {
   page_review_required?: boolean;
   in_page_network_isolation?: boolean;
   cancellation_pending?: boolean;
+  assets?: {
+    sealed: boolean;
+    requests: number;
+    bytes: number;
+    blocked: number;
+    pending: number;
+  } | null;
   recovery: string | null;
   automated_submission_enabled: boolean;
   owner_consent_available: boolean;
@@ -124,6 +131,17 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
   const [permission, setPermission] = useState(false);
   const [reviewed, setReviewed] = useState(false);
   const [contextConfirmed, setContextConfirmed] = useState(false);
+  const [approvedAssetPolicy, setApprovedAssetPolicy] = useState<string | null>(
+    null,
+  );
+  const browserPolicy = useQuery({
+    queryKey: ["browser-policy"],
+    queryFn: () =>
+      api<{ origins: string[]; digest: string }>("browser-applications/policy"),
+    retry: false,
+  });
+  const assetPermission =
+    !!browserPolicy.data && approvedAssetPolicy === browserPolicy.data.digest;
   async function consent(fieldId: string, checked: boolean) {
     const generation = epoch.current;
     setBusy(true);
@@ -201,6 +219,8 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
                   expected_revision: packet.revision,
                   approve_dedicated_profile: permission,
                   confirm_destination_permission: permission,
+                  confirm_asset_permissions: assetPermission,
+                  asset_policy_digest: browserPolicy.data?.digest,
                 },
               )
             : await post<BrowserStatus>(
@@ -240,9 +260,42 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
         I approve a dedicated browser profile and have checked this destination
         permits assistance.
       </label>
+      {!!browserPolicy.data?.origins.length && (
+        <div>
+          <p>
+            Approved public script, style and font origins:{" "}
+            {browserPolicy.data.origins.join(", ")}
+          </p>
+          <label>
+            <input
+              type="checkbox"
+              checked={assetPermission}
+              onChange={(event) =>
+                setApprovedAssetPolicy(
+                  event.target.checked ? browserPolicy.data!.digest : null,
+                )
+              }
+            />{" "}
+            I approve credential-free loading from these origins before
+            analysis. This does not approve third-party APIs or account access.
+          </label>
+        </div>
+      )}
+      {browserPolicy.isError && (
+        <Notice>
+          Browser policy is unavailable. Check the local assistant configuration
+          before opening a session.
+        </Notice>
+      )}
       <div className="actions">
         <Button
-          disabled={busy || closed || !permission}
+          disabled={
+            busy ||
+            closed ||
+            !permission ||
+            !browserPolicy.data ||
+            (!!browserPolicy.data.origins.length && !assetPermission)
+          }
           onClick={() => run("open")}
         >
           Open dedicated browser
@@ -406,6 +459,14 @@ export function BrowserAssistant({ packet }: { packet: Schema<"PacketRead"> }) {
           During filling and in-page step review, this browser pauses page
           network activity. Use Take Over for steps that need a server save or
           navigation.
+        </Notice>
+      )}
+      {state?.assets && state.assets.requests > 0 && (
+        <Notice>
+          Public asset loading {state.assets.sealed ? "closed" : "open"}:{" "}
+          {state.assets.requests} requests, {state.assets.blocked} blocked.
+          Analysis and Take Over close this loading phase; later external assets
+          require manual handoff.
         </Notice>
       )}
       {state?.analysis && (

@@ -11,6 +11,7 @@ const routes: Array<[RegExp, string[]]> = [
     ["POST"],
   ],
   [/^browser-applications$/, ["POST"]],
+  [/^browser-applications\/policy$/, ["GET"]],
   [/^browser-applications\/[a-f0-9-]{36}$/, ["GET"]],
   [/^browser-applications\/[a-f0-9-]{36}\/operation$/, ["GET"]],
   [

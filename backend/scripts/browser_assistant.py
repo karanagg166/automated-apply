@@ -10,6 +10,7 @@ from uuid import UUID
 import httpx
 
 OPERATIONS = {
+    "get_browser_policy": ("GET", "/policy"),
     "prepare_application": ("POST", ""),
     "open_application": ("POST", "/{packet_id}/open"),
     "analyze_application": ("POST", "/{packet_id}/actions", "analyze"),
@@ -53,7 +54,7 @@ def main():
         )
     operation = OPERATIONS[args.operation]
     method, path = operation[:2]
-    if path and not args.packet_id:
+    if "{packet_id}" in path and not args.packet_id:
         parser.error("--packet-id is required")
     path = path.format(packet_id=args.packet_id)
     payload = None
@@ -125,7 +126,7 @@ def main():
             )
             return 1
         data = response.json()
-        if args.include_private_answers:
+        if args.include_private_answers or args.operation == "get_browser_policy":
             print(json.dumps(data))
         else:
             packet = data.get("packet", data)

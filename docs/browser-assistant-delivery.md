@@ -6,13 +6,13 @@ are not all complete. No real employer adapter has automated submission authoriz
 | Phase | Delivered in this slice | Remaining acceptance work |
 |---|---|---|
 | 1 Audit | Existing modules, PR #15/#16 and unpublished branches inspected; isolated feature worktree; private changes preserved | Reconcile other branches separately if requested; no merges or production activation |
-| 2 Browser | Dedicated Playwright profile; native controls, labelled native/ARIA radios, bounded ARIA comboboxes; reviewed client-only Next steps, manual server navigation with signed same-origin resumption, validation, takeover/cancel | Wider custom widgets, remotely loaded choices, cross-origin ATS frames, permitted server-step automation and verified employer submission |
+| 2 Browser | Dedicated Playwright profile; native controls, labelled native/ARIA radios, bounded ARIA comboboxes; separately approved credential-free public asset bootstrap; reviewed client-only Next steps, manual server navigation with signed same-origin resumption, validation, takeover/cancel | Wider custom widgets, remotely loaded choices, late asset dependencies, cross-origin ATS frames, permitted server-step automation and verified employer submission |
 | 3 Knowledge | Protected profile/projects/evidence, encrypted resumes; structured compensation, availability, relocation and country authorization; dashboard answer-bank review/approval/revocation | Real owner onboarding and broader reusable question coverage |
 | 4 AI | Existing grounding; supported-paraphrase reuse; independently gated providers/local-only fallback; reviewed employer-page evidence with separate claim validation; explicit local Ollama acceptance on fictional data | Broader company-source research, semantic retrieval, other model/hardware coverage and real owner activation |
 | 5 Execution | Existing idempotent packets/job dedup, exact PDF selection, revision locking, manual receipts; mock-only signed grants, one durable dispatch, versioned payload/receipt checks and unknown-outcome recovery | Real employer adapter permission and runtime activation; optional mock SQL proposals are not production approval |
 | 6 AGY | Installed 1.4.5 rechecked (initial audit 1.4.4); authenticated loopback CLI reuses application APIs; no personal Chrome attachment | Optional MCP packaging and an owner-controlled AGY invocation demonstration |
 | 7 Discovery | Existing discovery interfaces preserved, manual employer URL intake added; no LinkedIn/Gmail collection added | Integrate separately reviewed scheduling branch when authorized; future provider activation remains separate |
-| 8 Dashboard | URL intake, dedicated browser, Analyze/Fill/Review/Take Over/Cancel; existing answer/resume editors; mock authorization, receipt/recovery UI and closed-packet controls | Real employer Submit remains disabled; broader destination support and genuine owner/account acceptance remain pending |
+| 8 Dashboard | URL intake, dedicated browser and separate public-asset approval, Analyze/Fill/Review/Take Over/Cancel; existing answer/resume editors; mock authorization, receipt/recovery UI and closed-packet controls | Real employer Submit remains disabled; broader destination support and genuine owner/account acceptance remain pending |
 | 9 Tests | Real Chromium fixtures, full regressions, PG17/API/Next.js journeys; combined grounded generation through exact V2 mock submission/receipt/tracking, including live local-model acceptance | Wider custom control/adapter and independent-worker acceptance matrix remains pending |
 | 10 Delivery | Feature branch, code/tests/docs and reviewable PR | Remaining phases and genuine owner/account/production acceptance |
 
@@ -52,7 +52,7 @@ A symlinked dependency directory could not be built by Turbopack; a normal isola
 
 ## Next implementation order
 
-1. Broaden dynamic controls, custom widgets, permitted asset dependencies, embedded
+1. Broaden dynamic controls, custom widgets, permitted late asset dependencies, embedded
    ATS navigation and multi-step policies with owner handoff at uncertain boundaries.
 2. Broaden permission-reviewed company sources and supported-paraphrase retrieval,
    preserving separate opportunity/applicant evidence and extending local-model
@@ -427,3 +427,55 @@ dependencies, broader company sources/semantic retrieval, a permission-reviewed 
 employer adapter, controlled AGY invocation and actual owner profile/account acceptance.
 Real employer submission, cross-origin SSO and server saves remain manual. The ten
 requested phases remain incomplete.
+
+## Approved public assets for initial form rendering
+
+- Operator configuration can now list at most eight exact public HTTPS script,
+  stylesheet and font origins. The dashboard displays them and requires separate
+  owner approval of the current policy digest before opening Chrome. A changed
+  policy invalidates that approval. The authenticated loopback CLI exposes
+  `get_browser_policy` without a packet ID or owner-signing key.
+- Asset GETs use a separate bounded subprocess with no inherited application
+  secrets, browser cookies, authentication or referrer. Public DNS is validated
+  and pinned while preserving hostname/TLS checks. A small shared transport helper
+  also retains the existing Drive download policy; all its regression tests pass.
+  Native CORS/resource headers are preserved, while response cookies are stripped.
+  No redirect, third-party API, query string, frame, image, worker, compressed
+  response or authenticated asset is allowed. No website can extend the allowlist.
+- Admission ends permanently at analysis or Take Over, before reviewed filling.
+  Later requests remain blocked. Cancellation seals admission, kills admitted
+  workers and reaps late-spawning children before completing cleanup. Per-session
+  limits are 128 attempts, 32 MiB, 4 MiB per asset, four concurrent fetches and a
+  ten-second parent deadline. Dashboard status exposes only safe numeric counters.
+- A separate fictional JS/CSS employer fixture installs an actual form in Chromium.
+  Tests check rendered styles, approved facts/PDF filling, absent outbound account
+  credentials, preserved employer session cookies, rejected asset response cookies,
+  stale/missing approval, blocked APIs/queries/redirects/auth/MIME and late loading,
+  cancellation during a slow asset and worker-birth/timeout/budget boundaries.
+  The PG17/TCP/FastAPI verifier also invokes the actual narrow policy CLI and reads
+  durable manual-handoff tracking after browser/database-engine closure.
+- Final full regression: **1,399 backend tests passed, no skips**, in 384 seconds.
+  This includes 45 public-asset policy/worker cases, eight new real-browser cases
+  and the new disposable PG17 asset-loaded lifecycle. The two existing pypdf
+  deprecation warnings remain. **44 frontend unit tests**, generated API contract,
+  type/format checks, production build, Ruff, whole-app Bandit, compilation,
+  dependency consistency, npm audit (zero findings), tracked secret scanning and
+  whitespace checks passed. No secret-baseline change was needed.
+- **Nine PG17-backed dashboard journeys passed** against the final production
+  Next.js build/BFF, TCP FastAPI and Chromium in 58 seconds. They include separate
+  asset approval → real external-script form rendering → Analyze → reviewed Fill,
+  the combined grounded V2 mock receipt lifecycle, cancellation and signed page
+  resumption. **All six legacy browser journeys passed** in 33 seconds. Browser
+  suites ran sequentially. All candidate facts, sessions and employers were fictional.
+- Both hosted workflows passed for preceding combined-lifecycle head `f9ea283`.
+  Hosted checks for this follow-up are reported separately in PR #17. No model
+  request, account activation, real application or remote database write was made
+  for this milestone. Historical migrations, Phase 9 SQL/manifest, runtime ACLs
+  and local mock SQL proposals remain unchanged; original checkout changes remain
+  preserved.
+
+Next unfinished work: broader custom controls, permitted remote choices and late
+asset/embedded-form dependencies, broader company sources/semantic retrieval,
+a permission-reviewed real employer adapter, controlled AGY invocation and actual
+owner profile/account acceptance. Real employer submission and server saves remain
+manual. Asset bootstrap does not complete all ten requested phases.

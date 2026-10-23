@@ -186,6 +186,8 @@ it("bounds slow request bodies", async () => {
 });
 
 it("browser gateway exposes only authenticated application operations", () => {
+  expect(permittedRoute("browser-applications/policy", "GET")).toBe(true);
+  expect(permittedRoute("browser-applications/policy", "POST")).toBe(false);
   const id = "11111111-1111-4111-8111-111111111111";
   expect(permittedRoute("browser-applications", "POST")).toBe(true);
   expect(permittedRoute(`browser-applications/${id}/open`, "POST")).toBe(true);

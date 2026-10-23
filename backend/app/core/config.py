@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     BROWSER_MOCK_SUBMISSION_ENABLED: bool = False
     BROWSER_OWNER_APPROVAL_KEY: SecretStr | None = Field(default=None, min_length=32)
     BROWSER_ALLOWED_ORIGINS: list[str] = Field(default_factory=list)
+    BROWSER_ASSET_ORIGINS: list[str] = Field(default_factory=list, max_length=8)
     BROWSER_PROFILE_ROOT: str = "reports/browser-profiles"
     BROWSER_CHANNEL: Literal["chrome", "chromium"] = "chrome"
     BROWSER_HEADLESS: bool = False
@@ -273,6 +274,7 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore",
+        hide_input_in_errors=True,
     )
 
     @field_validator("APPLICATION_SUBMISSION_ENABLED", "GMAIL_REQUIRE_EXPLICIT_CONFIRMATION", "GMAIL_SEND_MAX_RECIPIENTS", "RESUME_DRIVE_SYNC_REQUIRES_REVIEW", mode="before")
@@ -305,6 +307,9 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def separate_owner_authority(self):
+        from backend.app.browser.asset_policy import asset_origin
+
+        self.BROWSER_ASSET_ORIGINS = sorted(set(asset_origin(value, testing=self.ENVIRONMENT == "testing") for value in self.BROWSER_ASSET_ORIGINS))
         if self.BROWSER_OWNER_APPROVAL_KEY and self.JOB_AGENT_API_TOKEN and self.BROWSER_OWNER_APPROVAL_KEY.get_secret_value() == self.JOB_AGENT_API_TOKEN.get_secret_value():
             raise ValueError("Owner approval key must differ from the delegated API token")
         return self

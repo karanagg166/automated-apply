@@ -43,6 +43,13 @@ router = APIRouter(
 )
 
 
+@router.get("/policy")
+async def get_browser_policy():
+    from backend.app.browser.asset_policy import policy
+
+    return policy(get_settings())
+
+
 @router.post("/{packet_id}/page-preview")
 async def preview_current_page(
     packet_id: UUID,
@@ -202,6 +209,16 @@ async def open_application(
         raise HTTPException(
             422,
             "Explicit dedicated-profile and destination permission approval required",
+        )
+    from backend.app.browser.asset_policy import policy
+
+    assets = policy(get_settings())
+    if assets["origins"] and (
+        not data.confirm_asset_permissions
+        or data.asset_policy_digest != assets["digest"]
+    ):
+        raise HTTPException(
+            422, "Review and approve the current public asset origins before opening"
         )
     async with browser.operations.run(packet_id, "open", data.expected_revision):
         service = ApplicationPacketService(session)

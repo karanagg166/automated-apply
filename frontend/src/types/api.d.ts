@@ -1678,6 +1678,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/browser-applications/policy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Browser Policy */
+    get: operations["get_browser_policy_api_v1_browser_applications_policy_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/browser-applications/{packet_id}/page-preview": {
     parameters: {
       query?: never;
@@ -3382,6 +3399,13 @@ export interface components {
       approve_dedicated_profile: boolean;
       /** Confirm Destination Permission */
       confirm_destination_permission: boolean;
+      /**
+       * Confirm Asset Permissions
+       * @default false
+       */
+      confirm_asset_permissions: boolean;
+      /** Asset Policy Digest */
+      asset_policy_digest?: string | null;
     };
     /** PacketEdit */
     PacketEdit: {
@@ -8419,6 +8443,26 @@ export interface operations {
     };
   };
   operations_status_api_v1_operations_status_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  get_browser_policy_api_v1_browser_applications_policy_get: {
     parameters: {
       query?: never;
       header?: never;

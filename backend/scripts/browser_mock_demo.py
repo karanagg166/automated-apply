@@ -11,6 +11,7 @@ import hashlib
 import os
 import sys
 import tempfile
+from contextlib import nullcontext
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
@@ -31,6 +32,7 @@ async def run(
     live_ollama_model=None,
     complete_application_demo=False,
     multiline_answer=False,
+    asset_demo=False,
 ):
     import asyncpg
     import httpx
@@ -91,12 +93,21 @@ async def run(
             )
         finally:
             await connection.close()
+        from backend.tests.asset_employers import application_html, static_site
         from backend.tests.browser_employers import employer_site
 
         with (
             tempfile.TemporaryDirectory(prefix="automated-apply-browser-") as directory,
             employer_site() as (employer, writes),
+            static_site() if serve or asset_demo else nullcontext((None, None)) as (
+                asset_host,
+                asset_reads,
+            ),
         ):
+            if asset_host:
+                from backend.tests.browser_employers import FORMS
+
+                FORMS["/assets"] = application_html(asset_host)
             from backend.app.core.config import Settings, configure_operator
 
             settings = Settings(
@@ -110,6 +121,7 @@ async def run(
                 BROWSER_MOCK_SUBMISSION_ENABLED=submission_demo,
                 BROWSER_OWNER_APPROVAL_KEY="fictional-owner-approval-separate-from-cli-token",  # pragma: allowlist secret — isolated fixture only
                 BROWSER_ALLOWED_ORIGINS=[employer],
+                BROWSER_ASSET_ORIGINS=[asset_host] if asset_host else [],
                 BROWSER_PROFILE_ROOT=str(Path(directory).resolve() / "profiles"),
                 BROWSER_CHANNEL="chromium",
                 BROWSER_HEADLESS=True,
@@ -275,6 +287,8 @@ async def run(
                     + (
                         "/guided"
                         if steps_demo
+                        else "/assets"
+                        if asset_demo
                         else "/server-step-one"
                         if navigation_demo
                         else "/opportunity"
@@ -290,6 +304,8 @@ async def run(
                     else "Example Circuit",
                     "job_title": "Backend Engineer AI fixture"
                     if complete_application_demo
+                    else "Backend Engineer asset fixture"
+                    if asset_demo
                     else "Backend Engineer",
                     "idempotency_key": "browser-pg-demo-001",
                 }
@@ -404,6 +420,16 @@ async def run(
                         },
                     )
                     assert complete_packet.status_code == 200, complete_packet.text
+                    asset_packet = await client.post(
+                        "/api/v1/browser-applications",
+                        json={
+                            "application_url": employer + "/assets",
+                            "company_name": "Example Circuit",
+                            "job_title": "Backend Engineer asset fixture",
+                            "idempotency_key": "browser-assets-001",
+                        },
+                    )
+                    assert asset_packet.status_code == 200, asset_packet.text
                     output = ROOT / "reports/browser-mock.private.json"
                     output.parent.mkdir(exist_ok=True)
                     output.write_text(
@@ -417,6 +443,7 @@ async def run(
                                 "slow_packet_id": slow_packet.json()["id"],
                                 "navigation_packet_id": navigation_packet.json()["id"],
                                 "complete_packet_id": complete_packet.json()["id"],
+                                "asset_packet_id": asset_packet.json()["id"],
                             }
                         )
                     )
@@ -437,6 +464,10 @@ async def run(
                         employer,
                         after_dispatch=cancellation_demo == "after_dispatch",
                     )
+                elif asset_demo:
+                    from backend.scripts.verify_browser_assets import verify
+
+                    await verify(client, packet, settings, asset_reads, writes)
                 elif complete_application_demo:
                     from backend.scripts.verify_complete_application import verify
 

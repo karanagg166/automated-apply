@@ -20,6 +20,8 @@ class PrepareBrowser(Contract):
 class OpenBrowser(RevisionInput):
     approve_dedicated_profile: StrictBool
     confirm_destination_permission: StrictBool
+    confirm_asset_permissions: StrictBool = False
+    asset_policy_digest: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
 
 class BrowserAction(RevisionInput):

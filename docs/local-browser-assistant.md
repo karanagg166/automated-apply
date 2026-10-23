@@ -47,6 +47,7 @@ With the existing owner token and frontend login configured, add:
 ```dotenv
 BROWSER_ASSISTANT_ENABLED=true
 BROWSER_ALLOWED_ORIGINS=["https://careers.example.com:443"]
+BROWSER_ASSET_ORIGINS=[]
 BROWSER_CHANNEL=chrome
 BROWSER_HEADLESS=false
 BROWSER_PROFILE_ROOT=reports/browser-profiles
@@ -56,8 +57,9 @@ APPLICATION_SUBMISSION_ENABLED=false
 The example hostname is a placeholder, not verified permission. Review the actual
 employer's access rules before configuring its exact origin. Known restricted
 portals (LinkedIn, Naukri, Wellfound, Instahyre, Internshala) remain manual-only,
-even if added to this list. Cross-origin assets and embedded application frames
-are unsupported in this milestone. No API key establishes an account connection.
+even if added to this list. Public static assets can be separately approved as
+described below. Embedded application frames and third-party APIs still require
+manual handoff. No API key establishes an account connection.
 
 Run the existing FastAPI backend with **one worker**, bound to `127.0.0.1`, and the
 existing Next.js dashboard. Browser commands require loopback plus the existing
@@ -82,7 +84,9 @@ npm run dev --prefix frontend
    and job. Prepare the packet and open its detail page. Existing saved-job packets
    can also use the assistant when their destination has explicit permission.
 3. Approve the dedicated browser profile and permitted destination, then click
-   **Open dedicated browser**. This launches a new app-owned Chrome profile. It
+   **Open dedicated browser**. If public asset origins are configured, inspect the
+   displayed list and explicitly approve their limited loading policy as well.
+   This launches a new app-owned Chrome profile. It
    never attaches to your default Chrome, unrelated tabs or an exposed CDP port.
    You can navigate manually after Take Over, then explicitly review and authorize
    a supported page on the same permitted origin to resume assistance. Pasting a
@@ -383,6 +387,60 @@ explicit-generation path. It now additionally requires `GEMINI_ENABLED=true` and
 at the smaller of that approval and `LLM_MONTHLY_MAX_REQUESTS`. No paid provider is
 required by browser analysis or filling.
 
+## Public assets needed to render a form
+
+Some permitted employer pages render their form using public scripts, stylesheets
+or fonts served from a separate origin. After checking those origins' access rules,
+the operator can configure at most eight exact HTTPS origins:
+
+```dotenv
+BROWSER_ASSET_ORIGINS=["https://static.example.com:443"]
+```
+
+The placeholder above establishes no permission. The default is an empty list;
+website text cannot extend it. The authenticated local policy endpoint exposes the
+configured origins and bounds without opening Chrome. The dashboard requires a
+separate owner checkbox before opening, and sends the current policy digest.
+Changing the policy invalidates that approval. CLI clients first retrieve the
+policy and include `confirm_asset_permissions: true` and `asset_policy_digest` in
+the reviewed `open_application` JSON. Neither approval enables submission.
+
+During initial loading only, a separate subprocess retrieves permitted main-frame
+GET requests for `.js`/`.mjs`, `.css`, or `.woff`/`.woff2`/`.ttf`/`.otf` files with
+matching MIME types. It receives no browser cookies, authentication or referrer;
+it inherits no application secrets. It connects to a validated public numeric IP
+while retaining hostname/TLS verification. Only the public application Origin is
+forwarded when needed for native CORS. The browser must still honor the server's
+CORS/resource policies; the relay never invents permission headers. Cookies and
+redirect/authentication headers from asset responses are discarded.
+
+Bounds are 4 MiB per asset, 32 MiB and 128 attempts per session, four concurrent
+fetches and a ten-second parent deadline. Queries, redirects, private/mixed DNS,
+authenticated responses, compressed bodies, unsupported MIME types, fetch/XHR,
+images, workers and embedded documents are blocked. Literal loopback HTTP is
+accepted only by testing fixtures. Relay failures expose fixed categories and
+numeric counters, without remote bodies or private URL/header diagnostics.
+
+Analysis, filling, review and Take Over permanently close this asset-loading
+phase for the session. Closing/cancelling also kills and reaps admitted workers,
+including workers still spawning. Later external dependencies remain blocked;
+Take Over does not reopen their access. Use the normal employer page manually
+outside the runner if it requires these dependencies. This supports a bounded
+class of public asset-loaded forms, not arbitrary ATS integrations.
+
+The PG17/TCP/FastAPI/Chromium demonstration uses fictional separate-origin JS/CSS,
+checks absent outbound credentials and rejected response cookies, fills approved
+facts/PDF, and verifies durable manual-handoff tracking. It also invokes the real
+policy CLI without an owner-signing key:
+
+```sh
+backend/venv/bin/python backend/scripts/verify_browser_assets.py
+```
+
+Set the disposable `PROFILE_TEST_DATABASE_URL` described below. No real employer
+submission or model request occurs. The Next.js browser suite includes the owner
+policy approval and actual rendered-form filling path.
+
 ## AGY orchestration
 
 The installed AGY reports **1.4.5** on the latest local check (the initial audit saw
@@ -394,6 +452,7 @@ required. AGY must use the same application authorization and revisions as the U
 
 ```sh
 # Existing API token supplied in the private process environment, never on argv.
+backend/venv/bin/python -m backend.scripts.browser_assistant get_browser_policy
 backend/venv/bin/python -m backend.scripts.browser_assistant get_application_status --packet-id UUID
 backend/venv/bin/python -m backend.scripts.browser_assistant get_browser_operation --packet-id UUID
 backend/venv/bin/python -m backend.scripts.browser_assistant analyze_application --packet-id UUID --revision N
