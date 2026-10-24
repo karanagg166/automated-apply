@@ -68,7 +68,7 @@ def environment_readiness(settings: Settings) -> ReadinessReport:
         "database_schema",
         settings.DATABASE_SCHEMA == "job_agent",
         True,
-        ["Migrations 001–011 target the dedicated job_agent schema"],
+        ["Migrations 001–012 target the dedicated job_agent schema"],
     )
     if settings.ENVIRONMENT == "staging":
         add(

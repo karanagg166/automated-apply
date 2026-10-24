@@ -224,6 +224,8 @@ class Settings(BaseSettings):
         default=90, ge=5, le=180, allow_inf_nan=False
     )
     DISCOVERY_MAX_CONCURRENCY: int = Field(default=2, ge=1, le=8)
+    # Deployment gate and durable owner enablement are both required. Never starts work.
+    AUTOMATION_EXECUTION_ENABLED: bool = False
 
     # Outbound communication always needs a fresh owner confirmation.
     GMAIL_SENDING_ENABLED: bool = False

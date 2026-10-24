@@ -10,6 +10,68 @@ async function login(page: Page) {
   await expect(page).toHaveURL("/");
 }
 test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
+  test("manages disabled automation through the authenticated BFF", async ({
+    page,
+    request,
+  }) => {
+    expect(
+      (await request.get("/api/backend/dashboard/automation")).status(),
+    ).toBe(401);
+    await login(page);
+    await page.goto("/discover");
+    const panel = page.getByRole("region", { name: "Discovery automation" });
+    await expect(
+      panel.getByRole("heading", { name: "Discovery automation" }),
+    ).toBeVisible();
+    await expect(
+      panel.getByRole("button", { name: "Enable automation" }),
+    ).toBeDisabled();
+    await expect(panel.getByRole("button", { name: "Run Now" })).toBeDisabled();
+    await panel.getByRole("checkbox", { name: "arbeitnow" }).check();
+    await panel
+      .getByRole("button", { name: "Save automation configuration" })
+      .click();
+    await expect(
+      panel.getByRole("button", { name: "Preview saved automation plan" }),
+    ).toBeEnabled();
+    await panel
+      .getByRole("button", { name: "Preview saved automation plan" })
+      .click();
+    await expect(
+      panel.getByRole("heading", { name: "Saved automation plan" }),
+    ).toBeVisible();
+    await expect(
+      panel.getByText("0 provider calls", { exact: false }),
+    ).toBeVisible();
+    await panel.getByLabel("Execution status filter").selectOption("blocked");
+    await expect(
+      panel.getByText("No executions recorded.", { exact: false }),
+    ).toBeVisible();
+    const csrfFailure = await page.evaluate(
+      async () =>
+        (
+          await fetch("/api/backend/dashboard/automation/run", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              expected_version: 2,
+              idempotency_key: "fixture",
+            }),
+          })
+        ).status,
+    );
+    expect(csrfFailure).toBe(403);
+    await panel.getByRole("button", { name: "Pause notifications" }).click();
+    await expect(
+      panel.getByText("Notifications paused.", { exact: false }),
+    ).toBeVisible();
+    // Restore fixture preferences for the existing independent notification journeys.
+    await page.goto("/settings");
+    await page
+      .getByRole("checkbox", { name: /Pause all notifications/ })
+      .uncheck();
+    await page.getByRole("button", { name: "Save preferences" }).click();
+  });
   test("rejects anonymous, CSRF and unlisted privileged calls", async ({
     page,
     request,

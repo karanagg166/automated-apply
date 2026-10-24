@@ -55,7 +55,7 @@ async def verify(url, write_manifest=False):
         async with connection.transaction(readonly=True):
             snapshot = await catalog(connection)
         manifest = {
-            "postgresql_major": 16,
+            "postgresql_major": int(await connection.fetchval("SHOW server_version_num")) // 10000,
             "migrations": file_inventory(),
             "catalog": snapshot,
         }

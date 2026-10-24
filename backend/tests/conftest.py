@@ -28,6 +28,7 @@ os.environ["OAUTH_ENCRYPTION_KEYS"] = "{}"
 os.environ["OAUTH_ACTIVE_KEY_ID"] = ""
 os.environ["GMAIL_SENDING_ENABLED"] = "false"
 os.environ["RESUME_DRIVE_SYNC_ENABLED"] = "false"
+os.environ["AUTOMATION_EXECUTION_ENABLED"] = "false"
 os.environ["MCP_REMOTE_ENABLED"] = "false"
 os.environ["MCP_ALLOW_DRAFT_CREATION"] = "false"
 

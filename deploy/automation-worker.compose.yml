@@ -1,0 +1,21 @@
+# Preparation only. Never launched by the API or the default compose profile.
+services:
+  discovery-worker:
+    profiles: [automation-prepared]
+    build:
+      context: ..
+    command: [python, -m, backend.scripts.run_discovery_worker]
+    environment:
+      AUTOMATION_EXECUTION_ENABLED: "false"
+      GMAIL_SENDING_ENABLED: "false"
+      DB_POOL_SIZE: "2"
+      DB_MAX_OVERFLOW: "0"
+    restart: "no"
+    stop_grace_period: 30s
+    read_only: true
+    tmpfs: [/tmp]
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    # Worker readiness is its private persisted heartbeat, not the API image probe.
+    healthcheck:
+      disable: true
