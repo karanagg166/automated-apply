@@ -1,7 +1,7 @@
 {
   "phase": 1,
   "status": "implementation_reviewable_owner_acceptance_pending",
-  "generated_at": "2026-10-24T22:29:23.839356+00:00",
+  "generated_at": "2026-10-24T22:39:59.230838+00:00",
   "remote_ddl_executed": false,
   "real_applications_submitted": 0,
   "emails_sent": 0,
@@ -101,13 +101,13 @@
     },
     {
       "connection_name": "Telegram",
-      "configuration_status": "not_configured",
-      "identity_verification": "numeric owner binding pending",
-      "capability_verification": "mock transport, authorization, replay prevention and persisted preview verified",
-      "last_verification_time": null,
-      "actual_evidence_type": "mock Bot API transport plus actual dispatcher/PostgreSQL",
-      "blocker": "private bot token and owner /start authorization required",
-      "safe_next_action": "Run configure_telegram.py with hidden token prompt, then separate worker"
+      "configuration_status": "credentials_configured_owner_bound",
+      "identity_verification": "actual getMe bot identity verified; numeric owner/private-chat binding configured",
+      "capability_verification": "repaired fresh-challenge setup; mock transport authorization/replay and persisted preview verified; live /ping pending",
+      "last_verification_time": "2026-10-24T22:39:02.592046+00:00",
+      "actual_evidence_type": "actual getMe/getWebhookInfo and private owner setup; mock command authorization tests",
+      "blocker": "real polling command round trips pending",
+      "safe_next_action": "Start explicitly authorized user-level worker; owner sends /ping /status /connections /help"
     },
     {
       "connection_name": "launchd / locked screen",
@@ -270,9 +270,9 @@
     "further_agy_generation": "not_authorized"
   },
   "local_test_summary": {
-    "backend_passed": 1360,
+    "backend_passed": 1390,
     "backend_skipped": 0,
-    "foundation_passed": 112,
+    "foundation_passed": 142,
     "frontend_unit_passed": 39,
     "browser_journeys_passed": 8,
     "extension_event_tests_passed": 7,

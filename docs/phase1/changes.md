@@ -32,6 +32,7 @@ Feature branch: feat/phase1-local-connections, based on origin/main dcd3d2d. The
 - `backend/app/local_agent/router.py`
 - `backend/app/local_agent/service.py`
 - `backend/app/local_agent/telegram.py`
+- `backend/app/local_agent/telegram_pairing.py`
 - `backend/app/main.py`
 
 ## AI provider and Gmail OAuth
@@ -84,6 +85,7 @@ Feature branch: feat/phase1-local-connections, based on origin/main dcd3d2d. The
 - `backend/scripts/phase7_ui_fixture.py`
 - `backend/tests/conftest.py`
 - `backend/tests/test_phase1_local_agent.py`
+- `backend/tests/test_telegram_pairing.py`
 
 ## MCP configuration, documentation and secret hygiene
 

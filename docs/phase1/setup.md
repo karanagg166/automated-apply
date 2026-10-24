@@ -88,7 +88,7 @@ Reload after updates. Test example.org and an owner-controlled non-sensitive Goo
 
 ## Telegram and locked Mac
 
-Create a private bot with official @BotFather. The following owner-run interactive setup hides the token, calls getMe/getWebhookInfo, requires a private /start and explicit numeric identity selection. It refuses webhook conflicts; no deleteWebhook operation exists.
+Create a private bot with official @BotFather. The following owner-run interactive setup hides the token, calls getMe/getWebhookInfo, checks the webhook, waits up to 120 seconds for a fresh private `/start aa_…` challenge, and requires explicit numeric identity selection. Send the entire command printed in the terminal to the verified bot username, including its fresh challenge. Do not start a second poller during setup. Empty polls continue waiting, and positive-offset pagination handles older backlogs; observed updates are acknowledged by subsequent polling without executing their commands. No negative offsets or queue-drop methods are used. HTTP 409 identifies a competing getUpdates consumer; setup stops instead of stopping another service. A webhook conflict is reported separately and no delivery mode is changed. If setup times out, no owner IDs or token are saved. It refuses webhook conflicts; no deleteWebhook operation exists.
 
 ```sh
 .venv/bin/python backend/scripts/phase1/configure_telegram.py --env-file /absolute/path/phase1.private.env

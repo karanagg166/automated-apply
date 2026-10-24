@@ -65,7 +65,8 @@ def parse_command(text, bot_username=None):
     if command not in {"/start", "/help", "/ping", "/status", "/connections", "/jobs", "/apply"}:
         raise TelegramError("unsupported_command")
     if command != "/apply" and argument.strip():
-        raise TelegramError("unexpected_argument")
+        if command != "/start" or not re.fullmatch(r"aa_[0-9a-f]{24}", argument.strip()):
+            raise TelegramError("unexpected_argument")
     return command, argument.strip()
 
 
@@ -102,23 +103,32 @@ class BotAPI:
                 raise TelegramError("telegram_response_size")
             if response.status_code in {401, 404}:
                 raise TelegramError("telegram_authentication_failed")
+            if response.status_code == 409:
+                try:
+                    conflict = response.json()
+                    webhook = isinstance(conflict, dict) and "webhook" in str(conflict.get("description", "")).lower()
+                except ValueError:
+                    webhook = False
+                raise TelegramError("telegram_webhook_conflict_owner_approval_required" if webhook else "telegram_polling_conflict")
             if response.status_code == 429:
                 body = response.json()
                 raise TelegramError("telegram_rate_limited", min(300, max(1, int(body.get("parameters", {}).get("retry_after", 5)))))
             if response.status_code != 200:
                 raise TelegramError("telegram_transport_error")
             body = response.json()
-            if not body.get("ok"):
+            if not isinstance(body, dict) or body.get("ok") is not True:
                 raise TelegramError("telegram_api_error")
             return body["result"]
-        except (httpx.HTTPError, ValueError, KeyError):
+        except (httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError):
             raise TelegramError("telegram_network_or_response_error") from None
 
     async def verify(self):
         me = await self.call("getMe")
-        if not me.get("is_bot") or type(me.get("id")) is not int:
+        if not isinstance(me, dict) or not me.get("is_bot") or type(me.get("id")) is not int:
             raise TelegramError("telegram_identity_invalid")
         webhook = await self.call("getWebhookInfo")
+        if not isinstance(webhook, dict):
+            raise TelegramError("telegram_webhook_status_invalid")
         if webhook.get("url"):
             raise TelegramError("telegram_webhook_conflict_owner_approval_required")
         return me
@@ -230,7 +240,7 @@ async def run_worker(settings, session_factory, api=None, stop=None):
                 state = await session.get(TelegramState, "primary")
                 state.last_error = exc.code
                 await session.commit()
-            if exc.code == "telegram_authentication_failed":
+            if exc.code in {"telegram_authentication_failed", "telegram_polling_conflict", "telegram_webhook_conflict_owner_approval_required"}:
                 raise
             failures += 1
             try:

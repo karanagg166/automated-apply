@@ -4,6 +4,7 @@ import asyncio
 import getpass
 import json
 import os
+import secrets
 import sys
 from pathlib import Path
 
@@ -14,9 +15,15 @@ sys.path.insert(0, str(ROOT))
 async def main():
     from backend.app.core.config import Settings
     from backend.app.local_agent.telegram import BotAPI, TelegramError
+    from backend.app.local_agent.telegram_pairing import discover_owner
     parser = argparse.ArgumentParser()
     parser.add_argument("--env-file", required=True)
+    parser.add_argument("--discovery-timeout-seconds", type=int, default=120)
     args = parser.parse_args()
+    if not 30 <= args.discovery_timeout_seconds <= 300:
+        raise SystemExit("discovery_timeout_must_be_30_to_300_seconds")
+    if not sys.stdin.isatty():
+        raise SystemExit("interactive_private_terminal_required")
     path = Path(args.env_file).expanduser().absolute()
     if path.exists() and (path.is_symlink() or path.stat().st_mode & 0o077):
         raise SystemExit("private_regular_env_file_required")
@@ -26,14 +33,26 @@ async def main():
     try:
         me = await api.verify()
         print("Verified private bot @" + me.get("username", "unknown"))
-        input("Send /start to this bot in your private conversation, then press Enter. ")
-        updates = await api.call("getUpdates", {"timeout": 0, "limit": 20, "allowed_updates": ["message"]})
-        candidates = sorted({(update["message"]["from"]["id"], update["message"]["chat"]["id"])
-            for update in updates if update.get("message", {}).get("chat", {}).get("type") == "private"
-            and update.get("message", {}).get("text", "").split("@")[0] == "/start"})
-        print("Private /start identity pairs (user ID, chat ID):", candidates)
-        user = int(input("Approved owner user ID: "))
-        chat = int(input("Approved private chat ID: "))
+        challenge = "aa_" + secrets.token_hex(12)
+        print("Webhook verified absent. Do not run another polling worker during setup.")
+        print("Send this exact fresh pairing command in your private conversation with @" + me.get("username", "unknown") + ":")
+        print("/start " + challenge)
+        print("Waiting up to", args.discovery_timeout_seconds, "seconds; leave this terminal running.")
+        def progress(event):
+            if event["state"] == "retrying":
+                print("Retrying bounded setup poll:", event["error_code"], flush=True)
+            else:
+                print("Waiting for pairing: updates observed", event["updates_seen"],
+                      "private messages", event["private_messages_seen"], flush=True)
+        pair = await discover_owner(api, me.get("username", ""), challenge,
+            timeout_seconds=args.discovery_timeout_seconds, on_progress=progress)
+        candidates = [pair]
+        print("Verified fresh private /start identity pair (user ID, chat ID):", pair)
+        try:
+            user = int(input("Approved owner user ID (copy observed numeric ID): "))
+            chat = int(input("Approved private chat ID (copy observed numeric ID): "))
+        except ValueError:
+            raise SystemExit("numeric_owner_identity_required") from None
         if user <= 0 or chat <= 0 or (user, chat) not in candidates:
             raise SystemExit("owner_private_start_not_observed")
         lines = path.read_text().splitlines() if path.exists() else []
@@ -45,8 +64,17 @@ async def main():
             file.write("\n".join(lines) + "\n")
         print("owner_binding_saved; start the separate Telegram worker. No webhook changed.")
     except TelegramError as exc:
+        if exc.code == "telegram_polling_conflict":
+            print("Another getUpdates consumer conflicts with setup. Stop only your known bot worker (possibly on another device/service), then retry. No worker was stopped automatically.")
+        elif exc.code == "telegram_webhook_conflict_owner_approval_required":
+            print("A webhook is active. No delivery mode was changed; owner approval is required before altering it.")
+        elif exc.code == "telegram_private_start_not_observed_before_deadline":
+            print("No fresh pairing message was observed. Confirm the exact bot username and command, and check known external pollers. IDs were not guessed or saved.")
         raise SystemExit(exc.code) from None
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        raise SystemExit("setup_cancelled_no_owner_binding_saved") from None
