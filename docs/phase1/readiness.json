@@ -282,6 +282,6 @@
     "actual_api_restart_persistence": "passed",
     "production_dashboard_disposable_postgres": "passed",
     "npm_audit_vulnerabilities": 0,
-    "secret_hook": "passed"
+    "credential_leak_scan": "passed"
   }
 }
