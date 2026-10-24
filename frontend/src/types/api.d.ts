@@ -447,6 +447,92 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/dashboard/automation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Status */
+    get: operations["get_status_api_v1_dashboard_automation_get"];
+    /** Configure */
+    put: operations["configure_api_v1_dashboard_automation_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/dashboard/automation/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Plan */
+    post: operations["plan_api_v1_dashboard_automation_preview_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/dashboard/automation/run": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Run */
+    post: operations["run_api_v1_dashboard_automation_run_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/dashboard/automation/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** History */
+    get: operations["history_api_v1_dashboard_automation_history_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/dashboard/automation/matches": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Matches */
+    get: operations["matches_api_v1_dashboard_automation_matches_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/candidate/resources": {
     parameters: {
       query?: never;
@@ -3305,6 +3391,13 @@ export interface components {
       | "applied"
       | "rejected"
       | "archived";
+    /** ManualRun */
+    ManualRun: {
+      /** Idempotency Key */
+      idempotency_key: string;
+      /** Expected Version */
+      expected_version: number;
+    };
     /** NotificationPreferences */
     NotificationPreferences: {
       /**
@@ -3322,6 +3415,21 @@ export interface components {
        * @default true
        */
       daily_digest: boolean;
+      /**
+       * Minimum Job Score
+       * @default 75
+       */
+      minimum_job_score: number;
+      /**
+       * Minimum Startup Score
+       * @default 70
+       */
+      minimum_startup_score: number;
+      /**
+       * Automation Failures
+       * @default true
+       */
+      automation_failures: boolean;
       /**
        * Quiet Start
        * @default 22
@@ -4415,6 +4523,36 @@ export interface components {
       manual_jobs?: {
         [key: string]: unknown;
       }[];
+    };
+    /** ScheduleConfiguration */
+    ScheduleConfiguration: {
+      /**
+       * Enabled
+       * @default false
+       */
+      enabled: boolean;
+      /** Sources */
+      sources?: ("hacker_news" | "arbeitnow" | "remotive" | "greenhouse")[];
+      /**
+       * Interval Seconds
+       * @default 21600
+       */
+      interval_seconds: number;
+      /**
+       * Limit
+       * @default 20
+       */
+      limit: number;
+      /** Approved Profile Id */
+      approved_profile_id?: string | null;
+      /** Approved Profile Version */
+      approved_profile_version?: number | null;
+    };
+    /** ScheduleUpdate */
+    ScheduleUpdate: {
+      /** Expected Version */
+      expected_version: number;
+      configuration: components["schemas"]["ScheduleConfiguration"];
     };
     /** SendRequest */
     SendRequest: {
@@ -5925,6 +6063,175 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_status_api_v1_dashboard_automation_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  configure_api_v1_dashboard_automation_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ScheduleUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  plan_api_v1_dashboard_automation_preview_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  run_api_v1_dashboard_automation_run_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ManualRun"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  history_api_v1_dashboard_automation_history_get: {
+    parameters: {
+      query?: {
+        state?:
+          | (
+              | "pending"
+              | "claimed"
+              | "running"
+              | "completed"
+              | "partial"
+              | "failed"
+              | "blocked"
+            )
+          | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  matches_api_v1_dashboard_automation_matches_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
         };
       };
     };

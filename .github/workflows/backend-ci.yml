@@ -9,7 +9,7 @@ permissions:
 jobs:
   backend:
     runs-on: ubuntu-24.04
-    # The full suite rebuilds isolated schemas and verifies migrations 001–011.
+    # The full suite rebuilds isolated schemas and verifies migrations 001–012.
     # Keep a finite job limit with room for hosted-runner variance and Docker.
     timeout-minutes: 30
     services:
@@ -41,6 +41,7 @@ jobs:
       GMAIL_CLIENT_ID: ''
       GMAIL_CLIENT_SECRET: ''
       GMAIL_REFRESH_TOKEN: ''
+      AUTOMATION_EXECUTION_ENABLED: 'false'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -138,6 +139,12 @@ jobs:
         run: python backend/scripts/browser_mock_demo.py
       - name: Backend security scan
         run: bandit -q -r backend/app
+      - name: Phase 10 lint
+        run: >-
+          ruff check --isolated --select E9,F,I
+          backend/app/automation backend/scripts/run_discovery_worker.py
+          backend/tests/test_automation.py backend/tests/test_automation_postgres.py
+          backend/scripts/verify_automation_postgres.py
       - name: Resume sync lint
         run: >-
           ruff check --isolated --select E9,F,I

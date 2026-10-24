@@ -6,7 +6,7 @@ import json
 from datetime import timedelta
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from backend.app.core.config import get_settings
 from backend.app.models.discovery import now
@@ -26,32 +26,29 @@ from backend.app.services.startup_discovery.source_registry import (
 )
 
 
-async def claim_access(factory, source):
+async def claim_access(factory, source, *, clock=None):
     if source not in INTERVALS:
         raise ValueError("Only documented free public endpoints can be checked")
-    instant = now()
     async with factory() as session:
-        statement = insert_for(session)(ProviderAccessWindow).values(
-            provider=source,
-            next_allowed_at=instant + timedelta(seconds=INTERVALS[source]),
-        )
-        claimed = (
-            await session.execute(
-                statement.on_conflict_do_update(
-                    index_elements=[ProviderAccessWindow.provider],
-                    set_={
-                        "next_allowed_at": instant
-                        + timedelta(seconds=INTERVALS[source])
-                    },
-                    where=ProviderAccessWindow.next_allowed_at <= instant,
-                ).returning(ProviderAccessWindow.provider)
-            )
-        ).scalar_one_or_none()
-        if claimed is None:
-            raise DiscoveryError(
-                DiscoveryStatus.RATE_LIMITED, "Source request interval has not elapsed"
-            )
+        instant = clock() if clock else await session.scalar(select(func.clock_timestamp())) if session.bind.dialect.name == "postgresql" else now()
+        await reserve_access(session, source, instant)
         await session.commit()
+
+
+async def reserve_access(session, source, instant):
+    """Compose the same atomic quota claim into a caller's dispatch transaction."""
+    if source not in INTERVALS:
+        raise ValueError("Only documented free public endpoints can be checked")
+    statement = insert_for(session)(ProviderAccessWindow).values(
+        provider=source, next_allowed_at=instant + timedelta(seconds=INTERVALS[source]),
+    )
+    claimed = (await session.execute(statement.on_conflict_do_update(
+        index_elements=[ProviderAccessWindow.provider],
+        set_={"next_allowed_at": instant + timedelta(seconds=INTERVALS[source])},
+        where=ProviderAccessWindow.next_allowed_at <= instant,
+    ).returning(ProviderAccessWindow.provider))).scalar_one_or_none()
+    if claimed is None:
+        raise DiscoveryError(DiscoveryStatus.RATE_LIMITED, "Source request interval has not elapsed")
 
 
 def configuration_fingerprint(provider, settings):

@@ -87,6 +87,7 @@ async def database_health(engine, settings):
                 "postgresql_version": await connection.scalar(text("SHOW server_version")),
                 "schema": settings.DATABASE_SCHEMA,
                 "migration_011": "catalog_compatible_history_untracked",
+                "migration_012": "catalog_compatible_history_untracked",
                 "tls_required": settings.DB_REQUIRE_TLS,
                 "runtime_security": "restricted_v1" if restricted else "historical",
             }

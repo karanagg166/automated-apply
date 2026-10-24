@@ -30,6 +30,7 @@ class DirectAdapter(JobSourceAdapter):
         self.record_errors = []
         self.next_cursor = None
         self.last_http_status = None
+        self.retry_after_seconds = None
 
     async def request(self, client, url, params=None):
         attempts = 1 if self.source_name == "remotive" else 2
@@ -48,6 +49,10 @@ class DirectAdapter(JobSourceAdapter):
             code = response.status_code
             self.last_http_status = code
             if code == 429:
+                try:
+                    self.retry_after_seconds = min(604800, max(0, int(response.headers.get("Retry-After", "0"))))
+                except ValueError:
+                    self.retry_after_seconds = None
                 raise DiscoveryError(
                     Status.RATE_LIMITED, "Provider rate limited; retry later"
                 )

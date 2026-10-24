@@ -439,3 +439,13 @@ cross-service configuration checks, exact OAuth ingress requirements, owner revi
 durable local public-source pilot. This extends the Phase 7 dashboard; it does not provision a
 host or authorize a staging/production migration. Missing owner data or provider access remains
 explicit. External sends, submissions, paid operations and notification delivery stay gated.
+
+## Phase 10 — owner-controlled discovery automation
+
+The existing Discover workspace now includes disabled-by-default scheduling, zero-call
+planning, durable Run Now/history, approved profile-version matching and private notification
+controls. A standalone PostgreSQL worker reuses existing adapters, quotas and job identities;
+leases and fencing protect recovery. Migration 012 and a separate proposed restricted-role
+addendum are verified only in disposable PostgreSQL 17. See [Phase 10](docs/phase10-automation.md)
+for implementation, tests and the prepared worker configuration. Phase 9 remains incomplete;
+R2 and live automation are unauthorized. No production service is activated.
