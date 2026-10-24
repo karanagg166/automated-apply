@@ -41,8 +41,10 @@ jobs:
         run: python backend/scripts/phase1/verify_public.py --bootstrap
       - name: Actual native framing, FastAPI, PostgreSQL and restart lifecycle
         run: |
+          npm ci --prefix frontend
+          cd frontend && npx playwright install --with-deps chromium && cd ..
           python backend/scripts/phase1/prepare_disposable.py
-          python backend/scripts/phase1/lifecycle_smoke.py --env-file reports/phase1/disposable.private.env
+          python backend/scripts/phase1/lifecycle_smoke.py --env-file reports/phase1/disposable.private.env --with-chromium-extension
       - name: Foundation lint and security scan
         run: |
           ruff check --isolated --select E9,F,I backend/app/local_agent backend/app/ai/providers/agy.py backend/scripts/phase1 backend/tests/test_phase1_local_agent.py

@@ -1,10 +1,11 @@
 """Evidence-based connection center. Configuration never means authenticated."""
+import asyncio
 from datetime import datetime, timezone
 from enum import StrEnum
 from shutil import which
 
 from pydantic import Field
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from backend.app.local_agent.contracts import StrictModel
 from backend.app.local_agent.models import AgentOperation, TelegramState
@@ -59,6 +60,18 @@ class Connection(StrictModel):
     help_url: str | None = None
 
 
+def read_private_evidence(path):
+    import json
+    try:
+        if (path.is_file() and not path.is_symlink() and not path.stat().st_mode & 0o077
+                and path.stat().st_size <= 65536):
+            value = json.loads(path.read_text())
+            return value if isinstance(value, dict) else {}
+    except (OSError, ValueError):
+        pass
+    return {}
+
+
 async def connection_report(session, settings, *, api_request=False):
     now = datetime.now(timezone.utc)
     output = []
@@ -69,9 +82,22 @@ async def connection_report(session, settings, *, api_request=False):
             state=state or observed_state(configured=configured), **kwargs))
 
     try:
-        from backend.app.db.session import get_engine
-        from backend.app.operations.health import database_health
-        evidence = await database_health(get_engine(), settings)
+        from backend.app.db.safety import require_session_target, verify_remote_address
+        # A dispatched command may already hold the sole pooled connection.
+        # Reuse that authenticated session and run the same public catalog/RLS/TLS
+        # checks; opening another engine connection would deadlock small pools.
+        async with asyncio.timeout(10):
+            require_session_target(session, settings)
+            await verify_remote_address(settings)
+            await session.execute(text("SELECT 1"))
+            evidence = None
+            if settings.ENVIRONMENT != "testing" and settings.DATABASE_SCHEMA == "public":
+                from backend.app.local_agent.public_database import (
+                    verify_public_database,
+                )
+                connection = await session.connection()
+                raw = await connection.get_raw_connection()
+                evidence = await verify_public_database(raw.driver_connection, settings)
         real = settings.ENVIRONMENT != "testing" and settings.DB_REMOTE_ONLY and evidence is not None
         add("Supabase PostgreSQL", "core", bool(settings.DATABASE_URL),
             ConnectionState.VERIFIED if real else ConnectionState.DEGRADED,
@@ -123,15 +149,21 @@ async def connection_report(session, settings, *, api_request=False):
             owner_authorization_required=not bool(verified), blocker=None if verified else "oauth_tool_discovery_not_verified",
             safe_next_action="Run named client OAuth and read-only verification; see setup guide")
     native = await session.scalar(select(AgentOperation).where(AgentOperation.actor.like("chrome:%")).order_by(AgentOperation.created_at.desc()).limit(1))
+    owner_chrome = read_private_evidence(ROOT / "reports/phase1/owner-chrome.private.json")
+    owner_operation = None
+    if settings.CHROME_EXTENSION_ID and owner_chrome.get("correlation_id") and owner_chrome.get("submitted") is False:
+        owner_operation = await session.scalar(select(AgentOperation).where(
+            AgentOperation.result["correlation_id"].as_string() == owner_chrome["correlation_id"],
+            AgentOperation.actor == "chrome:" + settings.CHROME_EXTENSION_ID))
     for name in ("Chrome extension", "Native messaging host"):
         add(name, "core", settings.CHROME_NATIVE_MESSAGING_ENABLED,
-            ConnectionState.AUTHENTICATED if native else ConnectionState.AUTHORIZATION,
+            ConnectionState.VERIFIED if owner_operation else ConnectionState.AUTHENTICATED if native else ConnectionState.AUTHORIZATION,
             identity_verification="configured_extension_origin" if native else "unverified",
-            actual_evidence_type="authenticated_bridge_request" if native else "configuration_inspection",
-            capability_verification="bridge_only_real_chrome_install_unverified" if native else "unverified",
-            last_verification_time=native.created_at if native else None,
-            owner_authorization_required=not bool(native) or name == "Chrome extension", capabilities=["url_preview"],
-            safe_next_action="Load unpacked extension in real Chrome; install host with displayed extension ID; right-click test")
+            actual_evidence_type="owner_Chrome_result_correlated_with_backend_audit" if owner_operation else "authenticated_bridge_request" if native else "configuration_inspection",
+            capability_verification="owner_reported_Chrome_preview" if owner_operation else "bridge_only_real_chrome_install_unverified" if native else "unverified",
+            last_verification_time=owner_operation.created_at if owner_operation else native.created_at if native else None,
+            owner_authorization_required=not bool(owner_operation), capabilities=["url_preview"],
+            safe_next_action="Google Form and restart acceptance pending; see verification guide" if owner_operation else "Load unpacked extension in real Chrome; install host with displayed extension ID; right-click test")
     poll = await session.get(TelegramState, "primary")
     fresh = bool(poll and poll.evidence_type == "live_poll" and poll.last_poll_at and (now - poll.last_poll_at.replace(tzinfo=timezone.utc)).total_seconds() < 90)
     add("Telegram worker", "core", bool(settings.TELEGRAM_BOT_TOKEN),
@@ -151,21 +183,20 @@ async def connection_report(session, settings, *, api_request=False):
             safe_next_action="Open official site manually; no password/session collection")
     add("Public job sources", "platforms", bool(settings.GREENHOUSE_BOARDS), capabilities=["public_read_adapters"],
         blocker="recurring_discovery_disabled", safe_next_action="Review configured boards and saved filters; separately authorize discovery")
-    agy_evidence = {}
-    try:
-        smoke = ROOT / "reports/phase1/agy-smoke.private.json"
-        if smoke.is_file() and not smoke.is_symlink() and not smoke.stat().st_mode & 0o077:
-            agy_evidence = json.loads(smoke.read_text())
-    except (OSError, ValueError):
-        pass
+    agy_evidence = read_private_evidence(ROOT / "reports/phase1/agy-smoke-owner-approved-followup.private.json") or read_private_evidence(ROOT / "reports/phase1/agy-smoke.private.json")
+    agy_auth = read_private_evidence(ROOT / "reports/phase1/agy-auth.private.json")
+    agy_authenticated = agy_auth.get("authenticated_read_verified") is True and agy_auth.get("num_turns") == 0
     agy_failed = agy_evidence.get("state") == "failed_no_retry"
     add("AGY CLI", "ai", bool(which(settings.AGY_EXECUTABLE)),
-        ConnectionState.DEGRADED if agy_failed else ConnectionState.CREDENTIALS if which(settings.AGY_EXECUTABLE) else ConnectionState.NOT_CONFIGURED,
+        ConnectionState.DEGRADED if agy_failed else ConnectionState.AUTHENTICATED if agy_authenticated else ConnectionState.CREDENTIALS if which(settings.AGY_EXECUTABLE) else ConnectionState.NOT_CONFIGURED,
+        identity_verification="authenticated_quota_metadata_read" if agy_authenticated else "unverified",
+        capability_verification="authentication_only_generation_unverified" if agy_authenticated else "unverified",
         capabilities=["structured_answer_adapter"], may_consume_paid_credits=True,
-        actual_evidence_type="interrupted_fictional_cli_attempt" if agy_failed else "configuration_inspection",
-        last_verification_time=agy_evidence.get("timestamp"),
+        actual_evidence_type="actual_cli_usage_zero_model_turns_and_failed_generation" if agy_authenticated else "failed_fictional_cli_attempt" if agy_failed else "configuration_inspection",
+        last_verification_time=agy_auth.get("verified_at") or agy_evidence.get("timestamp"),
         latest_error_category=agy_evidence.get("error_code"),
-        blocker="restricted_profile_and_quota_authorization_required", owner_authorization_required=True)
+        blocker="structured_generation_unverified_no_more_requests_authorized", owner_authorization_required=True,
+        safe_next_action="Metadata checks only; do not make further generation requests without explicit owner authorization")
     for name, configured, cost, capabilities in (
         ("Ollama", bool(which("ollama")), False, ["local_generation_if_model_installed"]),
         ("Gemini", bool(settings.GEMINI_API_KEY), True, ["structured_answers"]),

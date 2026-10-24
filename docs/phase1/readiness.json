@@ -1,12 +1,12 @@
 {
   "phase": 1,
   "status": "implementation_reviewable_owner_acceptance_pending",
-  "generated_at": "2026-10-24T21:30:05.364752+00:00",
+  "generated_at": "2026-10-24T22:29:23.839356+00:00",
   "remote_ddl_executed": false,
   "real_applications_submitted": 0,
   "emails_sent": 0,
   "credit_consuming_enrichment_calls": 0,
-  "agy_cli_generation_invocations": 1,
+  "agy_cli_generation_invocations": 2,
   "agy_usage_reported": null,
   "connections": [
     {
@@ -81,23 +81,23 @@
     },
     {
       "connection_name": "Chrome extension",
-      "configuration_status": "owner_loaded_unpacked_ID_supplied",
+      "configuration_status": "installed_unpacked_owner_verified",
       "identity_verification": "hmkhgcgjjnjncamgdlabocdbgpleebgk (public extension ID)",
-      "capability_verification": "actual context menu and restart test pending owner",
-      "last_verification_time": null,
-      "actual_evidence_type": "owner-reported ID; extension event unit tests",
-      "blocker": "owner right-click acknowledgment pending",
-      "safe_next_action": "Reload extension; test example.org and non-sensitive Google Form"
+      "capability_verification": "owner-reported real Chrome preview correlated with authenticated persisted backend operation",
+      "last_verification_time": "2026-10-24T22:10:24.325565+00:00",
+      "actual_evidence_type": "owner_reported_real_Chrome_preview_correlated_with_authenticated_backend_audit",
+      "blocker": "separate Google Form and owner extension/backend restart acceptance pending",
+      "safe_next_action": "Test non-sensitive owner Form; reload extension and repeat after backend restart"
     },
     {
       "connection_name": "Chrome native messaging host",
       "configuration_status": "installed_per_user",
       "identity_verification": "one exact Chrome origin allowlisted",
-      "capability_verification": "actual framing \u2192 FastAPI \u2192 PostgreSQL preview verified",
-      "last_verification_time": "2026-10-24T21:30:05.364752+00:00",
-      "actual_evidence_type": "actual native executable with stdin pipe left open; simulated Chrome events",
+      "capability_verification": "real owner Chrome result plus actual isolated Chromium Native Messaging to FastAPI/PostgreSQL",
+      "last_verification_time": "2026-10-24T22:10:24.325565+00:00",
+      "actual_evidence_type": "owner report matched audit; actual MV3 native API; real Python framing/HTTP/SQL",
       "blocker": null,
-      "safe_next_action": "Complete separate actual Chrome gesture test; reinstall from a stable worktree before reboot"
+      "safe_next_action": "Repeat on owner-controlled Form; reinstall from stable checkout before persistent use"
     },
     {
       "connection_name": "Telegram",
@@ -122,12 +122,12 @@
     {
       "connection_name": "AGY CLI",
       "configuration_status": "installed_1.4.6_tool_free_primary_profile_discovered",
-      "identity_verification": "model enumeration succeeds; account/quota identity not exposed",
-      "capability_verification": "restricted profile readiness verified; structured generation pending",
-      "last_verification_time": "2026-10-24T21:09:09.861353+00:00",
-      "actual_evidence_type": "actual version/help/models/agents metadata; interrupted fictional invocation",
-      "blocker": "additional generation authorization pending; prior invocation returned no usage",
-      "safe_next_action": "Review installed tools:[] primary profile; authorize a new fictional test only explicitly"
+      "identity_verification": "authenticated CLI-handled /usage succeeded; trusted dedicated workspace verified",
+      "capability_verification": "authentication/quota metadata verified; two separately authorized generation attempts failed; no validated answer",
+      "last_verification_time": "2026-10-24T22:22:36.430148+00:00",
+      "actual_evidence_type": "actual CLI metadata with zero model turns; failed fictional invocations",
+      "blocker": "latest generation timed out; output and attempt usage unavailable; no further generation authorized",
+      "safe_next_action": "Metadata checks only; preserve no-overage guard and await a separate owner decision before any further generation"
     },
     {
       "connection_name": "Naukri",
@@ -259,5 +259,29 @@
       "blocker": "model/service readiness or free entitlement unverified",
       "safe_next_action": "No paid fallback or automatic local model install"
     }
-  ]
+  ],
+  "agy_successful_structured_responses": 0,
+  "agy_metadata_model_turns": 0,
+  "owner_constraints": {
+    "credential_rotation": "pending_owner_deferred",
+    "supabase_cli_profile": "automated-apply",
+    "exposed_credentials_reused": false,
+    "remote_migrations": "not_authorized",
+    "further_agy_generation": "not_authorized"
+  },
+  "local_test_summary": {
+    "backend_passed": 1360,
+    "backend_skipped": 0,
+    "foundation_passed": 112,
+    "frontend_unit_passed": 39,
+    "browser_journeys_passed": 8,
+    "extension_event_tests_passed": 7,
+    "disposable_postgres_security_faults_rejected": 7,
+    "forbidden_runtime_operations_rejected": 5,
+    "actual_isolated_chromium_native_messaging": "passed",
+    "actual_api_restart_persistence": "passed",
+    "production_dashboard_disposable_postgres": "passed",
+    "npm_audit_vulnerabilities": 0,
+    "secret_hook": "passed"
+  }
 }

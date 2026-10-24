@@ -2,6 +2,7 @@
 import asyncio
 import logging
 import re
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from uuid import NAMESPACE_URL, uuid5
 
@@ -13,6 +14,25 @@ from backend.app.local_agent.models import TelegramDelivery, TelegramState
 from backend.app.local_agent.service import dispatch
 
 HELP = "/start /help /ping /status /connections /jobs /apply <https-url> — previews only. No submissions, email sends or paid calls."
+
+
+@asynccontextmanager
+async def worker_lock(settings):
+    """Keep the process lease outside the session pool, including one-slot pools."""
+    import asyncpg
+
+    from backend.app.db.safety import database_connect_args, database_target
+    target = database_target(settings)
+    if target.drivername != "postgresql+asyncpg":
+        raise TelegramError("telegram_postgresql_required")
+    connection = await asyncpg.connect(settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://", 1),
+        **database_connect_args(settings))
+    try:
+        if not await connection.fetchval("SELECT pg_try_advisory_lock(407001, 1)"):
+            raise TelegramError("telegram_worker_already_running")
+        yield
+    finally:
+        await connection.close()
 
 
 class TelegramError(Exception):

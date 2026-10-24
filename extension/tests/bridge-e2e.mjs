@@ -26,8 +26,8 @@ global.chrome = {
       child.on("exit", (code) => { if (code) { clearTimeout(timer); reject(new Error("native exited")); } });
     }),
   },
-  contextMenus: { onClicked: { addListener: (fn) => click = fn } },
-  storage: { session: { set: async (value) => stored = value } },
+  contextMenus: { removeAll: async () => {}, create: (_value, callback) => callback?.(), onClicked: { addListener: (fn) => click = fn } },
+  storage: { session: { set: async (value) => stored = { ...stored, ...value } } },
   action: { setBadgeText: async () => {}, openPopup: async () => {} },
 };
 const { menuId } = await import("../background.js");
@@ -35,4 +35,7 @@ await click({ menuItemId: menuId }, { url: "https://docs.google.com/forms/d/fict
 assert.equal(stored.lastResult.ok, true);
 assert.equal(stored.lastResult.data.submitted, false);
 assert.equal(stored.lastResult.data.platform, "google_forms");
+const health = await chrome.runtime.sendNativeMessage("com.automated_apply.agent", { version: 1, request_id: crypto.randomUUID(), command: "health" });
+assert.equal(health.ok, true);
+assert.ok(health.data.endpoint.startsWith("http://127.0.0.1:"));
 console.log(JSON.stringify(stored.lastResult));

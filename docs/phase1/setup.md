@@ -36,7 +36,7 @@ Shutdown order: stop Telegram first, then frontend, then API with Ctrl-C/SIGTERM
 
 Project: `luvdmwnlwaqgvfwlmlom`; URL `https://luvdmwnlwaqgvfwlmlom.supabase.co`; JWKS `https://luvdmwnlwaqgvfwlmlom.supabase.co/auth/v1/.well-known/jwks.json`.
 
-Rotate exposed privileged credentials locally. Preserve the previous CLI account/session; use an isolated owner terminal/account profile for official `supabase login`, inspect `supabase projects list --output json`, and verify the exact project. MCP access alone is not a direct PostgreSQL connection. Before DDL, review migration-review.md, the exact SQL, hashes, fresh-project inventory, roles/grants/default privileges and Data API settings. No remote apply script runs automatically. Never db reset. Never reuse postgres, service_role, a Supabase secret key or an administrator DSN for runtime.
+Rotate exposed privileged credentials locally. Preserve the previous CLI account/session; use the supported named profile: `supabase --profile automated-apply login --name automated-apply`, then inspect `supabase --profile automated-apply projects list --output json`, and verify the exact project. MCP access alone is not a direct PostgreSQL connection. Before DDL, review migration-review.md, the exact SQL, hashes, fresh-project inventory, roles/grants/default privileges and Data API settings. No remote apply script runs automatically. Never db reset. Never reuse postgres, service_role, a Supabase secret key or an administrator DSN for runtime.
 
 The public bundle is for an empty dedicated project only, in one transaction; it refuses existing user objects, job_agent schema or colliding app roles. It never touches Auth/Storage system schemas. Keep Data API disabled if unused, or explicitly confirm that no application tables are exposed to anon/authenticated. Use direct or session-pooler port 5432 with verified TLS and the dedicated role; transaction pooler 6543 is rejected. Pooler username must carry this project ref. If a root certificate is required, configure DB_SSL_ROOT_CERT from Supabase's official connection panel. Do not disable verification for a live database.
 
@@ -80,7 +80,7 @@ macOS manifest: ~/Library/Application Support/Google/Chrome/NativeMessagingHosts
 
 The toolbar previews the active page only after a click. Context menu label: **Apply with Automated Apply**. Settings has a Verify connection action that displays the actual backend endpoint returned through the host. Unsupported local/http/browser pages show an error. Unknown HTTPS pages are URL candidates, never claimed to have been inspected. No form answers, uploads or submit clicks occur.
 
-Reload after updates. Test example.org and an owner-controlled non-sensitive Google Form. Confirm popup result and matching URL in local history. Backend offline produces a retryable error; retry is a new deliberate user gesture. The scripted bridge test simulates Chrome events and cannot establish real Chrome installation evidence.
+Reload after updates. Test example.org and an owner-controlled non-sensitive Google Form. Confirm popup result and matching URL in local history. Backend offline produces a retryable error; retry is a new deliberate user gesture. The scripted bridge test simulates Chrome events. The lifecycle `--with-chromium-extension` option additionally launches a disposable Chromium profile with actual MV3/native APIs; it still cannot establish an owner-profile context-menu gesture. The owner has separately reported a real Chrome preview matched to the backend audit; Google Form and restart acceptance remain pending.
 
 ```sh
 .venv/bin/python backend/scripts/phase1/install_local.py native-uninstall
@@ -110,7 +110,15 @@ Private user plist, explicit interpreter/worktree/env path, restart on failure, 
 
 ## AI and Gmail
 
-`agy --version`, `agy --help`, `agy models` are availability/model checks, not answer generation or quota verification. The adapter strips backend credentials from its subprocess environment, creates a temporary workspace with a primary `tools: []` agent, uses sandbox/plan mode, structured schemas, bounded stdin/output, process-group cleanup and no retry/fallback. It now requires positive local agent discovery before any AI request. The installed CLI did not discover workspace agents. A uniquely named global profile was then installed with mode 0600 and successfully discovered by `agy agents`; existing global agents/MCPs were preserved. The adapter verifies that profile exactly before generation. Global owner hooks were detected and left untouched. No resume-based AGY generation is activated. One authorized fictional invocation was interrupted; no successful response or quota usage was observed. Its exclusive marker prevents a second smoke attempt; further live generation needs a separate owner decision after adapter tests and explicit owner authorization.
+`agy --version`, `agy --help`, `agy models` and `agy agents` inspect local availability. The adapter strips backend credentials from subprocesses, verifies an exact private `tools: []` primary-agent profile, sandbox/plan mode, structured schemas, bounded stdin/output, process-group cleanup and no retry/fallback. It uses the owner's explicitly trusted private workspace at `~/Library/Application Support/Automated Apply/agy-answer-workspace`, with temporary private CLI logs. The installed CLI requires the uniquely named global profile; existing agents, MCPs and owner hooks are preserved. No resume-based generation is activated.
+
+Authentication now passes via CLI-handled `/usage` with zero model turns. This is an official metadata command, not a generation prompt ([headless contract](https://antigravity.google/docs/cli/headless#unsupported-messages)). The checker refuses `disableSlashCommands=true`, which would turn `/usage` into ordinary prompt text, strips account text from reports, and checks zero model turns/tokens before marking authentication verified. It also refuses API/Cloud billing and enabled `useG1Credits`; the official default is false ([settings reference](https://antigravity.google/docs/cli/reference/)).
+
+```sh
+.venv/bin/python backend/scripts/phase1/agy_check.py
+```
+
+Two separately authorized fictional generation invocations were attempted: initial CLI failure and an additional 90-second timeout using gemini-3.8-flash-high/high effort. Neither produced validated output or attempt usage. Authentication was subsequently completed by the owner and verified without generation. Both exclusive attempt markers remain; no further generation is authorized, and no automated retry is permitted. Metadata's zero tokens do not establish the failed generation attempts' quota usage.
 
 ```sh
 .venv/bin/python backend/scripts/phase1/install_local.py agy-profile-plan

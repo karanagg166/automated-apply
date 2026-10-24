@@ -9,15 +9,23 @@ global.chrome = {
       assert.equal(host, "com.automated_apply.agent");
       return { version: 1, request_id: request.request_id, ok: true, data: { url: request.url, submitted: false } };
     } },
-  contextMenus: { removeAll: async () => {}, create: (value) => callbacks.menu = value, onClicked: { addListener: (fn) => callbacks.click = fn } },
-  storage: { session: { set: async (value) => stored = value } },
+  contextMenus: { removeAll: async () => {}, create: (value, callback) => { callbacks.menu = value; callback?.(); }, onClicked: { addListener: (fn) => callbacks.click = fn } },
+  storage: { session: { set: async (value) => stored = { ...stored, ...value } } },
   action: { setBadgeText: async () => {}, openPopup: async () => {} },
 };
-const { preview, menuId, supportedUrl } = await import("../background.js");
+const { preview, menuId, supportedUrl, nativeErrorCode } = await import("../background.js");
 test("registers exact menu label with page/link user gesture contexts", async () => {
   await callbacks.install();
   assert.equal(callbacks.menu.title, "Apply with Automated Apply");
   assert.equal(callbacks.menu.id, menuId);
+  assert.ok(callbacks.menu.contexts.includes("editable"));
+  assert.ok(callbacks.menu.contexts.includes("selection"));
+  assert.deepEqual(callbacks.menu.documentUrlPatterns, ["https://*/*"]);
+  assert.equal(stored.menuStatus.registered, true);
+});
+test("owner popup can repair the menu without backend commands", async () => {
+  const status = await new Promise((resolve) => callbacks.message({ command: "repair_context_menu" }, { id: chrome.runtime.id }, resolve));
+  assert.equal(status.registered, true);
 });
 test("context click preserves selected URL and preview-only result", async () => {
   await callbacks.click({ menuItemId: menuId, linkUrl: "https://docs.google.com/forms/d/fictional/viewform" }, { title: "Fictional form" });
@@ -40,4 +48,9 @@ test("backend/host offline is explicit and recoverable", async () => {
 test("page sender cannot invoke extension entry point", () => {
   assert.equal(callbacks.message({ command: "preview_active_tab" }, { id: chrome.runtime.id, tab: { id: 1 } }, () => {}), false);
   assert.equal(callbacks.message({ command: "preview_active_tab" }, { id: "evil" }, () => {}), false);
+});
+test("reports native registration and origin errors without exposing arbitrary messages", () => {
+  assert.equal(nativeErrorCode(new Error("Specified native messaging host not found.")), "native_host_not_found");
+  assert.equal(nativeErrorCode(new Error("Access to the specified native messaging host is forbidden.")), "native_origin_not_authorized");
+  assert.equal(nativeErrorCode(new Error("Failed to start native messaging host.")), "native_host_start_failed");
 });

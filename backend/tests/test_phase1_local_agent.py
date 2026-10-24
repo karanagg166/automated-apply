@@ -244,7 +244,7 @@ def model_answer():
     return {"answer": "I built a fictional Python service.", "evidence_references": [reference], "claims": [{"text": "I built a fictional Python service.", "source": reference, "quote": "built a fictional Python service"}]}
 
 
-@pytest.mark.parametrize("raw", [b"not-json", b"[]", b'{}', b'{"answer":"invented"}', b'{"tool_calls":["run_shell"]}', b"x" * 65537])
+@pytest.mark.parametrize("raw", [b"not-json", b"[]", b'{}', b'{"answer":"invented"}', b'{"tool_calls":["run_shell"]}', b'{"response":{},"usage":[]}', b'null\n[]', b"x" * 65537])
 def test_agy_bad_output(raw):
     with pytest.raises(ProviderError):
         parse_output(raw)
@@ -282,10 +282,30 @@ async def test_agy_no_unapproved_call():
 async def test_agy_missing_private_profile_fails_before_cli(monkeypatch, tmp_path):
     from pathlib import Path
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    configuration = tmp_path / ".gemini/antigravity-cli/settings.json"
+    configuration.parent.mkdir(parents=True)
+    configuration.write_text('{}')
     config = settings(AGY_ENABLED=True, AGY_QUOTA_AUTHORIZED=True,
         AGY_MODEL="fictional-high", AGY_EXECUTABLE="/usr/bin/true")
     with pytest.raises(ProviderError, match="restricted_agent_profile_unavailable"):
         await AgyProvider(config).generate_structured_answer("fictional", {}, {"style_instruction": "concise", "max_characters": 500})
+
+
+@pytest.mark.parametrize("configuration", [{"useG1Credits": True}, {"modelProvider": "gemini"}, {"gcp": {"project": "fictional"}}, {"customModelsConfig": {"models": []}}])
+def test_agy_paid_billing_configuration_rejected(tmp_path, configuration):
+    from backend.app.ai.providers.agy import verify_no_overage
+    path = tmp_path / "settings.json"
+    path.write_text(json.dumps(configuration))
+    with pytest.raises(ProviderError, match="paid_overage_configuration_forbidden"):
+        verify_no_overage(path)
+
+
+def test_agy_no_overage_documented_default_and_explicit_false(tmp_path):
+    from backend.app.ai.providers.agy import verify_no_overage
+    path = tmp_path / "settings.json"
+    for value in ({}, {"useG1Credits": False}):
+        path.write_text(json.dumps(value))
+        assert verify_no_overage(path)["useG1Credits"] is False
 
 
 @pytest.mark.asyncio
@@ -367,3 +387,43 @@ async def test_gmail_compose_uses_no_send_scope():
     url = GoogleOAuth(config).authorization_url("fictional-state", "fictional-verifier", "alex@example.org", compose=True)
     scopes = set(parse_qs(urlsplit(url).query)["scope"][0].split())
     assert scopes == COMPOSE_SCOPES and SEND_SCOPE not in scopes
+
+
+@pytest.mark.parametrize("trusted", [[], ["/different"], "invalid"])
+def test_agy_workspace_trust_cannot_be_inferred(monkeypatch, tmp_path, trusted):
+    from pathlib import Path
+
+    from backend.app.ai.providers.agy import verify_workspace_authorization
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    configuration = tmp_path / ".gemini/antigravity-cli/settings.json"
+    configuration.parent.mkdir(parents=True)
+    configuration.write_text(json.dumps({"trustedWorkspaces": trusted}))
+    with pytest.raises(ProviderError, match="owner_workspace_authorization_required"):
+        verify_workspace_authorization(tmp_path / "dedicated")
+    configuration.write_text(json.dumps({"trustedWorkspaces": [str(tmp_path / "dedicated")]}))
+    verify_workspace_authorization(tmp_path / "dedicated")
+
+
+def test_connection_evidence_requires_private_regular_bounded_json(tmp_path):
+    from backend.app.local_agent.registry import read_private_evidence
+    path = tmp_path / "proof.json"
+    path.write_text('{"authenticated_read_verified":true}')
+    path.chmod(0o644)
+    assert read_private_evidence(path) == {}
+    path.chmod(0o600)
+    assert read_private_evidence(path)["authenticated_read_verified"] is True
+    link = tmp_path / "link.json"
+    link.symlink_to(path)
+    assert read_private_evidence(link) == {}
+    path.write_text("x" * 65537)
+    assert read_private_evidence(path) == {}
+
+
+def test_agy_readiness_metadata_rejects_model_turn_and_unexpected_account_text():
+    from backend.scripts.phase1.agy_check import parse_metadata
+    value = {"status": "SUCCESS", "num_turns": 0, "usage": {"total_tokens": 0},
+             "response": "private-account@example.org\nGemini Models\tWeekly Limit Remaining\t59%\t2026-10-29T23:33:21Z"}
+    assert "@" not in parse_metadata(json.dumps(value))["sanitized_report"]
+    for field, changed in (("num_turns", 1), ("usage", {"total_tokens": 1}), ("status", "ERROR")):
+        with pytest.raises(ProviderError, match="cli_readiness_metadata_unverified"):
+            parse_metadata(json.dumps({**value, field: changed}))

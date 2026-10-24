@@ -33,11 +33,25 @@ def main():
         raise SystemExit("macos_only")
     home = Path.home()
     if args.action.startswith("agy-profile"):
-        from backend.app.ai.providers.agy import AGENT
+        from backend.app.ai.providers.agy import AGENT, answer_workspace
         profile = home / ".gemini/config/agents/automated-apply-answer.md"
-        print(json.dumps({"profile": str(profile), "tools": [], "subagent": False}))
+        workspace = answer_workspace()
+        print(json.dumps({"profile": str(profile), "workspace": str(workspace), "tools": [], "subagent": False}))
         if args.action == "agy-profile-install":
-            private_write(profile, AGENT)
+            if profile.exists():
+                if profile.is_symlink() or profile.read_text() != AGENT:
+                    raise SystemExit("existing_profile_preserved")
+            else:
+                private_write(profile, AGENT)
+            if workspace.exists() and (workspace.is_symlink() or workspace.stat().st_mode & 0o077):
+                raise SystemExit("private_dedicated_workspace_required")
+            workspace.mkdir(parents=True, exist_ok=True, mode=0o700)
+            template = workspace / ".agents/agents/automated-apply-answer.md"
+            if template.exists():
+                if template.is_symlink() or template.read_text() != AGENT:
+                    raise SystemExit("existing_workspace_profile_preserved")
+            else:
+                private_write(template, AGENT)
         elif args.action == "agy-profile-uninstall" and profile.exists():
             if profile.is_symlink() or profile.read_text() != AGENT:
                 raise SystemExit("existing_profile_preserved")

@@ -1,0 +1,58 @@
+{
+  "chrome": {
+    "evidence_type": "owner_reported_real_Chrome_preview_correlated_with_authenticated_backend_audit",
+    "actor": "chrome:hmkhgcgjjnjncamgdlabocdbgpleebgk",
+    "url": "https://search-sphere-rose.vercel.app/search",
+    "created_at": "2026-10-24T22:10:24.325565+00:00",
+    "correlation_id": "38d559b3-2426-45d5-a7aa-246249743c99",
+    "submitted": false,
+    "menu_registration": "owner_reported_HTTPS_menu_registered"
+  },
+  "agy_authentication_metadata": {
+    "evidence_type": "actual_cli_handled_usage_report_no_generation",
+    "verified_at": "2026-10-24T22:22:36.430148+00:00",
+    "model_generation_requested": false,
+    "billing_guard": {
+      "useG1Credits": false,
+      "provider_api_or_cloud_billing": false,
+      "evidence": "installed_cli_settings_and_official_false_default"
+    },
+    "authenticated_read_verified": true,
+    "envelope_status": "SUCCESS",
+    "num_turns": 0,
+    "reported_usage": {
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "thinking_tokens": 0,
+      "cache_read_tokens": 0,
+      "total_tokens": 0
+    },
+    "sanitized_report": "Gemini Models\tWeekly Limit Remaining\t59%\t2026-10-29T23:33:21Z\nGemini Models\tFive Hour Limit Remaining\t97%\t2026-10-25T01:32:09Z\nClaude and GPT models\tWeekly Limit Remaining\t100%\t2026-10-31T22:22:47Z\nClaude and GPT models\tFive Hour Limit Remaining\t100%\t2026-10-25T03:22:47Z\nGemini 4 Argon\tGemini 4 Argon Weekly Limit\t100%\t2026-10-31T22:22:47Z",
+    "trusted_workspace": true,
+    "exit_code": 0
+  },
+  "agy_authorized_attempts": [
+    {
+      "model": "gemini-3.8-flash-high",
+      "effort": "high",
+      "state": "failed_no_retry",
+      "error_code": "cli_nonzero_exit",
+      "timestamp": "2026-10-24T21:09:09.861353+00:00",
+      "invocations": 1,
+      "application_retries": 0
+    },
+    {
+      "model": "gemini-3.8-flash-high",
+      "effort": "high",
+      "state": "failed_no_retry",
+      "error_code": "timeout",
+      "timestamp": "2026-10-24T21:54:47.600352+00:00",
+      "invocations": 1,
+      "application_retries": 0
+    }
+  ],
+  "structured_response": null,
+  "generation_usage_reported": null,
+  "no_further_generation_authorized": true,
+  "warning": "Zero usage applies only to metadata checks, not the failed generation attempts. Owner account identifiers are not exposed by these checks."
+}

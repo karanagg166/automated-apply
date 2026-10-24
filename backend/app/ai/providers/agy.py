@@ -33,7 +33,40 @@ plugins: []
 MAX_OUTPUT_BYTES = 65536
 
 
-def parse_output(raw):
+def verify_no_overage(path=None):
+    """Official CLI useG1Credits defaults false; API/Cloud billing is excluded.
+
+    https://antigravity.google/docs/cli/reference/ documents this setting. No
+    shared settings are modified, and provider API credentials aren't inherited.
+    """
+    path = path or Path.home() / ".gemini/antigravity-cli/settings.json"
+    try:
+        configuration = json.loads(path.read_text())
+    except (OSError, ValueError):
+        raise ProviderError("quota_billing_configuration_unverified") from None
+    if (not isinstance(configuration, dict) or configuration.get("useG1Credits", False) is not False
+            or configuration.get("modelProvider") or configuration.get("gcp")
+            or configuration.get("customModelsConfig")):
+        raise ProviderError("paid_overage_configuration_forbidden")
+    return {"useG1Credits": False, "provider_api_or_cloud_billing": False,
+            "evidence": "installed_cli_settings_and_official_false_default"}
+
+
+def answer_workspace():
+    return Path.home() / "Library/Application Support/Automated Apply/agy-answer-workspace"
+
+
+def verify_workspace_authorization(workspace):
+    try:
+        configuration = json.loads((Path.home() / ".gemini/antigravity-cli/settings.json").read_text())
+    except (OSError, ValueError):
+        raise ProviderError("owner_workspace_authorization_required") from None
+    trusted = configuration.get("trustedWorkspaces", []) if isinstance(configuration, dict) else []
+    if not isinstance(trusted, list) or str(workspace) not in trusted:
+        raise ProviderError("owner_workspace_authorization_required")
+
+
+def parse_output(raw, execution_metadata=None):
     if len(raw) > MAX_OUTPUT_BYTES:
         raise ProviderError("provider_output_size")
     try:
@@ -54,9 +87,14 @@ def parse_output(raw):
         value = envelope.get("structured_output", envelope.get("response", envelope.get("result", envelope)))
         content = ModelAnswer.model_validate_json(value) if isinstance(value, str) else ModelAnswer.model_validate(value)
         usage_data = envelope.get("usage") or {}
+        if execution_metadata is not None:
+            execution_metadata.update({"status": envelope.get("status", "SUCCESS"),
+                "num_turns": envelope.get("num_turns", 1), "usage": {
+                    key: usage_data[key] for key in ("input_tokens", "output_tokens", "thinking_tokens", "cache_read_tokens", "total_tokens")
+                    if isinstance(usage_data.get(key), int) and usage_data[key] >= 0}})
         usage = TokenUsage(input_tokens=usage_data.get("input_tokens"), output_tokens=usage_data.get("output_tokens"))
         return ProviderAnswer(content=content, usage=usage)
-    except (ValueError, TypeError, ValidationError):
+    except (ValueError, TypeError, AttributeError, ValidationError):
         raise ProviderError("invalid_structured_response") from None
 
 
@@ -101,6 +139,7 @@ async def bounded_process(argv, payload, cwd, env, timeout):
 class AgyProvider:
     def __init__(self, settings, runner=bounded_process):
         self.settings, self.runner = settings, runner
+        self.execution_metadata = {}
 
     async def generate_structured_answer(self, question, grounded_context, instructions):
         settings = self.settings
@@ -123,18 +162,26 @@ class AgyProvider:
             env = {key: value for key, value in os.environ.items() if key in {"PATH", "HOME", "USER", "TMPDIR", "LANG", "SHELL"}}
             env["AGY_CLI_DISABLE_AUTO_UPDATE"] = "1"
             if self.runner is bounded_process:
+                self.execution_metadata["billing_guard"] = verify_no_overage()
                 profile = Path.home() / ".gemini/config/agents/automated-apply-answer.md"
                 if (not profile.is_file() or profile.is_symlink() or profile.stat().st_mode & 0o077
                         or profile.read_text() != AGENT):
                     raise ProviderError("restricted_agent_profile_unavailable")
+                workspace = answer_workspace()
+                if not workspace.is_dir() or workspace.is_symlink() or workspace.stat().st_mode & 0o077:
+                    raise ProviderError("owner_workspace_authorization_required")
+                template = workspace / ".agents/agents/automated-apply-answer.md"
+                if not template.is_file() or template.is_symlink() or template.read_text() != AGENT:
+                    raise ProviderError("restricted_agent_profile_unavailable")
+                verify_workspace_authorization(workspace)
                 # Discovery is local metadata, not an AI request. Fail closed when
                 # the installed CLI cannot establish the named tool-free profile.
-                discovery = await bounded_process([str(executable), "agents"], "", directory, env, 15)
+                discovery = await bounded_process([str(executable), "agents"], "", str(workspace), env, 15)
                 if "automated-apply-answer" not in discovery.decode(errors="replace").split():
                     raise ProviderError("restricted_agent_profile_unavailable")
             argv = [str(executable), "--agent", "automated-apply-answer", "--sandbox", "--mode", "plan",
                 "--disable-slash-commands", "--model", settings.AGY_MODEL, "--effort", settings.AGY_EFFORT,
                 "--input-format", "stream-json", "--output-format", "stream-json", "--json-schema", json.dumps(ModelAnswer.model_json_schema()),
-                "--print-timeout", f"{int(settings.AGY_TIMEOUT_SECONDS)}s", "--log-file", str(workspace / "cli.log")]
+                "--print-timeout", f"{int(settings.AGY_TIMEOUT_SECONDS)}s", "--log-file", str(Path(directory) / "cli.log")]
             wire = json.dumps({"event": "user", "message": {"content": payload}}) + "\n"
-            return parse_output(await self.runner(argv, wire, directory, env, settings.AGY_TIMEOUT_SECONDS))
+            return parse_output(await self.runner(argv, wire, str(workspace), env, settings.AGY_TIMEOUT_SECONDS), self.execution_metadata)

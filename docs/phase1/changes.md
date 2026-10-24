@@ -65,10 +65,12 @@ Feature branch: feat/phase1-local-connections, based on origin/main dcd3d2d. The
 - `frontend/src/lib/gateway.ts`
 - `frontend/src/types/api.d.ts`
 - `frontend/tests/e2e/phase1-connections.spec.ts`
+- `frontend/scripts/verify-extension-native.mjs`
 
 ## Operational scripts, tests and CI
 
 - `.github/workflows/phase1-connections.yml`
+- `backend/scripts/phase1/agy_check.py`
 - `backend/scripts/phase1/agy_smoke.py`
 - `backend/scripts/phase1/build_public_bundle.py`
 - `backend/scripts/phase1/configure_database.py`
@@ -97,6 +99,7 @@ Feature branch: feat/phase1-local-connections, based on origin/main dcd3d2d. The
 - `docs/phase1/migration-review.md`
 - `docs/phase1/platform-capabilities.md`
 - `docs/phase1/readiness.json`
+- `docs/phase1/live-evidence.json`
 - `docs/phase1/screenshots/connections-disposable-postgres.png`
 - `docs/phase1/setup.md`
 - `docs/phase1/verification.md`

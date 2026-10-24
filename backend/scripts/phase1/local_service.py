@@ -47,20 +47,20 @@ async def run(service, settings):
             print(json.dumps(output, indent=2))
             return
         await database_health(get_engine(), settings)
-        from backend.app.local_agent.telegram import TelegramError, run_worker
+        from backend.app.local_agent.telegram import (
+            TelegramError,
+            run_worker,
+            worker_lock,
+        )
         stop = asyncio.Event()
         loop = asyncio.get_running_loop()
         for name in (signal.SIGTERM, signal.SIGINT):
             loop.add_signal_handler(name, stop.set)
-        # Single worker per database; an independent connection holds a session lock.
-        async with get_engine().connect() as connection:
-            from sqlalchemy import text
-            if not await connection.scalar(text("SELECT pg_try_advisory_lock(407001, 1)")):
-                raise SystemExit("telegram_worker_already_running")
-            try:
+        try:
+            async with worker_lock(settings):
                 await run_worker(settings, get_session_factory(), stop=stop)
-            except TelegramError as exc:
-                raise SystemExit(exc.code) from None
+        except TelegramError as exc:
+            raise SystemExit(exc.code) from None
     finally:
         await close_db_engine()
 
