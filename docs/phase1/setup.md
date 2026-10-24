@@ -106,7 +106,7 @@ launchctl print gui/$(id -u)/com.automated-apply.telegram
 .venv/bin/python backend/scripts/phase1/install_local.py launchd-uninstall
 ```
 
-Private user plist, explicit interpreter/worktree/env path, restart on failure, 30-second throttle, private sanitized logs in ~/Library/Logs/Automated Apply. Clean SIGTERM/SIGINT handling allows a bounded outstanding poll to finish. No global power settings are changed. Screen lock is compatible with an awake, powered, networked Mac; sleep, shutdown and network loss interrupt execution. Actual lock+phone /ping is a pending owner-assisted test until performed. Logs/config are preserved on uninstall; rotate/remove them deliberately when no longer needed.
+Private user plist, explicit interpreter/worktree/env path, restart on failure, 30-second throttle, private sanitized logs in ~/Library/Logs/Automated Apply. Clean SIGTERM/SIGINT handling allows a bounded outstanding poll to finish. No global power settings are changed. Screen lock is compatible with an awake, powered, networked Mac; sleep, shutdown and network loss interrupt execution. The owner-assisted lock test can be observed using `monitor_locked_worker.py --env-file /absolute/path/phase1.private.env --seconds 300`: it reads macOS IOConsoleLocked plus the live polling timestamp and a newly sent pong. It never locks the screen, changes power settings, sends messages or prints IDs. No lock/reply observation is recorded as a pass until all three signals agree. Logs/config are preserved on uninstall; rotate/remove them deliberately when no longer needed.
 
 ## AI and Gmail
 

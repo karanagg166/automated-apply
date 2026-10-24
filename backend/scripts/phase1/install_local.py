@@ -5,6 +5,7 @@ import os
 import plistlib
 import re
 import shlex
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -21,6 +22,27 @@ def private_write(path, content):
     with path.open("x") as file:
         os.chmod(path, 0o600)
         file.write(content)
+
+
+def prepare_private_logs(directory):
+    if directory.is_symlink() or (directory.exists() and
+            (not directory.is_dir() or directory.stat().st_uid != os.getuid())):
+        raise SystemExit("existing_log_directory_preserved")
+    directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    directory.chmod(0o700)
+    for name in ("telegram.out.log", "telegram.err.log"):
+        path = directory / name
+        try:
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
+        except OSError:
+            raise SystemExit("unsafe_log_path_preserved") from None
+        try:
+            identity = os.fstat(descriptor)
+            if not stat.S_ISREG(identity.st_mode) or identity.st_uid != os.getuid() or identity.st_nlink != 1:
+                raise SystemExit("unsafe_log_file_preserved")
+            os.fchmod(descriptor, 0o600)
+        finally:
+            os.close(descriptor)
 
 
 def main():
@@ -103,7 +125,11 @@ def main():
             "EnvironmentVariables": {"PYTHONPATH": str(ROOT)}, "Umask": 0o077}
         print(plistlib.dumps(document).decode())
         if args.action.endswith("install"):
-            log_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+            if plist_path.exists() or plist_path.is_symlink():
+                raise SystemExit("existing_launchd_installation_preserved")
+            # launchd creates redirected files before applying the child Umask.
+            # Precreate private files without truncating previous sanitized logs.
+            prepare_private_logs(log_dir)
             private_write(plist_path, plistlib.dumps(document).decode())
             subprocess.run(["launchctl", "bootstrap", f"gui/{os.getuid()}", str(plist_path)], check=True)
 

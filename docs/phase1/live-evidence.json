@@ -54,5 +54,86 @@
   "structured_response": null,
   "generation_usage_reported": null,
   "no_further_generation_authorized": true,
-  "warning": "Zero usage applies only to metadata checks, not the failed generation attempts. Owner account identifiers are not exposed by these checks."
+  "warning": "Zero usage applies only to metadata checks, not the failed generation attempts. Owner account identifiers are not exposed by these checks.",
+  "telegram": {
+    "verified_at": "2026-10-24T22:39:02.592046+00:00",
+    "evidence_type": "actual Bot API metadata, live worker polls, persisted replies and owner confirmations",
+    "owner_binding_configured": true,
+    "state": "capability_verified",
+    "is_bot": true,
+    "webhook": "absent",
+    "last_verification_time": "2026-10-24T23:00:18.023930+00:00",
+    "poll_evidence": "live_poll",
+    "last_poll_at": "2026-10-24T23:00:07.575052+00:00",
+    "latest_error_category": null,
+    "worker_bot_identity_matches": true,
+    "duplicate_worker_denied": true,
+    "ping_reply_sent": true,
+    "owner_reported_pong": true,
+    "unresolved_reply_count": 0,
+    "live_reply_summary": {
+      "pong_sent": 3,
+      "status_sent": 2,
+      "connections_sent": 2,
+      "help_style_sent": 3
+    },
+    "audited_owner_commands": [
+      "health",
+      "connection_status",
+      "health",
+      "connection_status"
+    ],
+    "owner_confirmed_commands": [
+      "/ping",
+      "/status",
+      "/connections",
+      "/help"
+    ],
+    "unauthorized_identity_test_evidence": "exact user/chat allowlist and mock transport rejection tests; no real second-account rejection test claimed"
+  },
+  "launchd_failure_recovery": {
+    "test": "actual_launchd_failure_recovery",
+    "started_at": "2026-10-24T22:53:44.853178+00:00",
+    "initial_pid": 25890,
+    "signal": "SIGKILL",
+    "pending_replies_before": 0,
+    "state": "passed",
+    "replacement_pid": 26094,
+    "new_live_poll_verified": true,
+    "offset_preserved": true,
+    "history_preserved": true,
+    "last_poll_at": "2026-10-24T22:54:14.794138+00:00",
+    "pending_replies_after": 0,
+    "completed_at": "2026-10-24T22:54:16.093029+00:00"
+  },
+  "locked_screen_worker": {
+    "state": "passed",
+    "evidence_type": "actual_macOS_lock_property_and_PostgreSQL_live_worker",
+    "started_at": "2026-10-24T22:56:48.367810+00:00",
+    "screen_lock_observed": true,
+    "new_pong_sent_while_locked": true,
+    "live_poll_while_locked": true,
+    "last_checked_at": "2026-10-24T22:57:53.753035+00:00",
+    "last_poll_at": "2026-10-24T22:57:50.950333+00:00",
+    "verified_at": "2026-10-24T22:57:53.753012+00:00",
+    "owner_confirmed_locked_pong": true
+  },
+  "stable_native_host": {
+    "evidence_type": "actual_installed_native_executable_framed_health_to_authenticated_FastAPI",
+    "verified_at": "2026-10-24T22:54:06.458372+00:00",
+    "correlation_id": "40012be0-578c-4229-a91b-7310be399fa5",
+    "result_ok": true,
+    "stable_runtime": true,
+    "allowed_origin_count": 1
+  },
+  "service_security": {
+    "actual_service_log_credentials_detected": false,
+    "configuration_mode": "0o600",
+    "plist_mode": "0o600",
+    "logs_modes": {
+      "telegram.err.log": "0o600",
+      "telegram.out.log": "0o600"
+    },
+    "logs_directory_mode": "0o700"
+  }
 }

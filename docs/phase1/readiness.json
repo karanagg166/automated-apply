@@ -1,7 +1,7 @@
 {
   "phase": 1,
   "status": "implementation_reviewable_owner_acceptance_pending",
-  "generated_at": "2026-10-24T22:39:59.230838+00:00",
+  "generated_at": "2026-10-24T23:06:00.571151+00:00",
   "remote_ddl_executed": false,
   "real_applications_submitted": 0,
   "emails_sent": 0,
@@ -14,9 +14,9 @@
       "configuration_status": "owner_authorization_required",
       "identity_verification": "project URL verified through MCP; runtime identity pending",
       "capability_verification": "TLS/runtime permissions/persistence pending",
-      "last_verification_time": null,
+      "last_verification_time": "2026-10-24T22:59:08.499095+00:00",
       "actual_evidence_type": "live MCP metadata only",
-      "blocker": "rotated restricted SQL credentials, account management inventory and migration approval required",
+      "blocker": "named automated-apply CLI profile verification exited 1; credential rotation explicitly deferred; restricted TLS SQL setup and migration approval still required",
       "safe_next_action": "Rotate exposed credentials privately; verify management account and SQL inventory; approve reviewed bundle"
     },
     {
@@ -97,27 +97,27 @@
       "last_verification_time": "2026-10-24T22:10:24.325565+00:00",
       "actual_evidence_type": "owner report matched audit; actual MV3 native API; real Python framing/HTTP/SQL",
       "blocker": null,
-      "safe_next_action": "Repeat on owner-controlled Form; reinstall from stable checkout before persistent use"
+      "safe_next_action": "Host now uses stable runtime/config; move unpacked extension to a stable folder with owner ID re-registration before removing temporary checkout"
     },
     {
       "connection_name": "Telegram",
-      "configuration_status": "authenticated",
+      "configuration_status": "capability_verified",
       "identity_verification": "actual getMe bot identity verified; numeric owner/private-chat binding configured",
-      "capability_verification": "actual live polling and owner-confirmed persisted /ping reply; other command checks pending",
-      "last_verification_time": "2026-10-24T22:51:25.792844+00:00",
+      "capability_verification": "real private /ping /status /connections /help round trips; duplicate-worker denial; persisted polling recovery",
+      "last_verification_time": "2026-10-24T22:57:53.753012+00:00",
       "actual_evidence_type": "actual Bot API metadata, live poll state, sent outbox reply and owner confirmation",
-      "blocker": "status/connections/help, recovery and lock tests pending",
-      "safe_next_action": "Complete remaining commands and explicit restart/lock acceptance"
+      "blocker": null,
+      "safe_next_action": "Keep worker/private config and local PostgreSQL running; complete separate Supabase setup when authorized"
     },
     {
       "connection_name": "launchd / locked screen",
       "configuration_status": "installed_owner_authorized",
       "identity_verification": "user-level service uses private config and stable detached runtime checkout",
-      "capability_verification": "actual launchctl running and genuine Bot API polling; crash recovery and screen lock pending",
-      "last_verification_time": null,
-      "actual_evidence_type": "actual user launchd installation, PID and live poll state",
-      "blocker": "owner phone command tests, controlled restart and lock test pending",
-      "safe_next_action": "Complete real /ping, then controlled worker recovery and awake screen-lock test"
+      "capability_verification": "actual user launchd, SIGKILL recovery, preserved offset/history and owner-confirmed pong while OS reported locked",
+      "last_verification_time": "2026-10-24T22:57:53.753012+00:00",
+      "actual_evidence_type": "actual launchctl processes, PostgreSQL polling/outbox and macOS IOConsoleLocked observations",
+      "blocker": null,
+      "safe_next_action": "Screen lock verified while awake/online; sleep/shutdown interrupt execution; uninstall via stable runtime script if desired"
     },
     {
       "connection_name": "AGY CLI",
@@ -270,9 +270,9 @@
     "further_agy_generation": "not_authorized"
   },
   "local_test_summary": {
-    "backend_passed": 1398,
+    "backend_passed": 1402,
     "backend_skipped": 0,
-    "foundation_passed": 150,
+    "foundation_passed": 154,
     "frontend_unit_passed": 39,
     "browser_journeys_passed": 8,
     "extension_event_tests_passed": 7,
@@ -282,6 +282,23 @@
     "actual_api_restart_persistence": "passed",
     "production_dashboard_disposable_postgres": "passed",
     "npm_audit_vulnerabilities": 0,
-    "credential_leak_scan": "passed"
+    "credential_leak_scan": "passed",
+    "private_log_installation_cases_passed": 4
+  },
+  "service_runtime": {
+    "source_revision": "9f601f4",
+    "checkout": "~/Library/Application Support/Automated Apply/phase1-runtime",
+    "private_config": "~/Library/Application Support/Automated Apply/phase1.private.env",
+    "launchd_label": "com.automated-apply.telegram",
+    "database": "owned disposable local PostgreSQL 17; live Supabase SQL pending",
+    "real_command_round_trips_verified": [
+      "/ping",
+      "/status",
+      "/connections",
+      "/help"
+    ],
+    "crash_recovery": "actual verified",
+    "locked_screen": "actual macOS property, live poll, newly sent pong, owner confirmation",
+    "system_power_settings_changed": false
   }
 }

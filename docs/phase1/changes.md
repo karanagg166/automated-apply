@@ -78,6 +78,7 @@ Feature branch: feat/phase1-local-connections, based on origin/main dcd3d2d. The
 - `backend/scripts/phase1/configure_telegram.py`
 - `backend/scripts/phase1/install_local.py`
 - `backend/scripts/phase1/lifecycle_smoke.py`
+- `backend/scripts/phase1/monitor_locked_worker.py`
 - `backend/scripts/phase1/local_service.py`
 - `backend/scripts/phase1/prepare_disposable.py`
 - `backend/scripts/phase1/prepare_telegram_state.py`
@@ -86,6 +87,7 @@ Feature branch: feat/phase1-local-connections, based on origin/main dcd3d2d. The
 - `backend/scripts/phase7_ui_fixture.py`
 - `backend/tests/conftest.py`
 - `backend/tests/test_phase1_local_agent.py`
+- `backend/tests/test_phase1_installation.py`
 - `backend/tests/test_telegram_pairing.py`
 
 ## MCP configuration, documentation and secret hygiene
