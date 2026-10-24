@@ -45,8 +45,8 @@ class Settings(BaseSettings):
         description="Async SQLAlchemy database connection string",
     )
     DATABASE_SCHEMA: str = Field(
-        default="job_agent",
-        description="Dedicated isolated PostgreSQL schema for job-pulse-agent",
+        default="public",
+        description="Application schema; public for the dedicated Phase 1 project",
     )
     DB_POOL_SIZE: int = Field(default=5, ge=1, le=50)
     DB_MAX_OVERFLOW: int = Field(default=10, ge=0, le=100)
@@ -59,6 +59,32 @@ class Settings(BaseSettings):
     SUPABASE_URL: str | None = None
     SUPABASE_ANON_KEY: str | None = None
     SUPABASE_SERVICE_ROLE_KEY: str | None = None
+
+    SUPABASE_PROJECT_REF: str = "luvdmwnlwaqgvfwlmlom"
+    SUPABASE_PUBLISHABLE_KEY: str | None = None
+    SUPABASE_JWKS_URL: str = "https://luvdmwnlwaqgvfwlmlom.supabase.co/auth/v1/.well-known/jwks.json"
+    LOCAL_AGENT_ENDPOINT: str = "http://127.0.0.1:8000"
+    CHROME_NATIVE_MESSAGING_ENABLED: bool = False
+    CHROME_EXTENSION_ID: str | None = Field(default=None, pattern=r"^[a-p]{32}$")
+    TELEGRAM_BOT_TOKEN: SecretStr | None = None
+    TELEGRAM_OWNER_USER_ID: int | None = Field(default=None, gt=0)
+    TELEGRAM_OWNER_CHAT_ID: int | None = Field(default=None, gt=0)
+    AGY_ENABLED: bool = False
+    AGY_MODEL: str | None = Field(default=None, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,120}$")
+    AGY_EFFORT: Literal["low", "medium", "high", "xhigh", "max"] = "high"
+    AGY_EXECUTABLE: str = "/opt/homebrew/bin/agy"
+    AGY_TIMEOUT_SECONDS: float = Field(default=60, ge=1, le=120)
+    AGY_QUOTA_AUTHORIZED: bool = False
+
+    @field_validator("LOCAL_AGENT_ENDPOINT")
+    @classmethod
+    def local_endpoint(cls, value):
+        from urllib.parse import urlsplit
+        url = urlsplit(value)
+        if (url.scheme != "http" or url.hostname != "127.0.0.1" or not url.port
+                or url.username or url.password or url.path or url.query or url.fragment):
+            raise ValueError("exact_ipv4_loopback_endpoint_required")
+        return value
 
     # Optional candidate defaults. Never written at startup.
     CANDIDATE_RESUME_DRIVE_URL: PublicHTTPSURL | None = None
@@ -74,7 +100,7 @@ class Settings(BaseSettings):
     CANDIDATE_GFG_URL: PublicHTTPSURL | None = None
     CANDIDATE_HACKERRANK_URL: PublicHTTPSURL | None = None
 
-    LLM_PROVIDER: Literal["gemini"] = "gemini"
+    LLM_PROVIDER: Literal["gemini", "agy"] = "gemini"
     LLM_MODEL: str | None = None
     GEMINI_API_KEY: SecretStr | None = None
     LLM_MAX_OUTPUT_TOKENS: int = Field(default=1000, ge=64, le=8192)
@@ -97,6 +123,10 @@ class Settings(BaseSettings):
         "CANDIDATE_HACKERRANK_URL",
         "GEMINI_API_KEY",
         "LLM_MODEL",
+        "CHROME_EXTENSION_ID",
+        "TELEGRAM_OWNER_USER_ID",
+        "TELEGRAM_OWNER_CHAT_ID",
+        "AGY_MODEL",
         mode="before",
     )
     @classmethod

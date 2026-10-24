@@ -8,7 +8,7 @@ POLICY = "job_agent_backend"
 APPEND_ONLY = frozenset({
     "application_events", "application_submission_evidence",
     "company_source_observations", "drive_resume_versions",
-    "provider_usage_logs", "startup_shortlist_entries",
+    "provider_usage_logs", "startup_shortlist_entries", "agent_policy_events", "agent_operations",
 })
 
 
@@ -34,7 +34,12 @@ def restricted_manifest(manifest):
     return result
 
 
-async def verify_restricted_runtime(connection, tables):
+async def verify_restricted_runtime(connection, tables, schema="job_agent"):
+    if schema not in {"public", "job_agent"}:
+        raise RuntimeError("invalid_runtime_schema")
+    if schema == "public":
+        connection = PublicCatalogConnection(connection)
+
     """Catalog reads only. Reject excess authority as well as missing access.
 
     A permissive policy is safe here only for the one trusted backend principal.
@@ -57,7 +62,7 @@ async def verify_restricted_runtime(connection, tables):
                has_schema_privilege(current_user,oid,'CREATE') AS create
         FROM pg_namespace WHERE nspname='job_agent'
     """)
-    if not schema or schema["owner"] != OWNER_ROLE or not schema["usage"] or schema["create"]:
+    if not schema or schema["owner"] not in ({OWNER_ROLE, "pg_database_owner", "postgres"} if isinstance(connection, PublicCatalogConnection) else {OWNER_ROLE}) or not schema["usage"] or schema["create"]:
         raise RuntimeError("database_runtime_schema_permissions_incompatible")
     rows = await connection.fetch("""
         SELECT c.relname, pg_get_userbyid(c.relowner) AS owner,
@@ -141,3 +146,21 @@ async def verify_restricted_runtime(connection, tables):
     """)
     if functions:
         raise RuntimeError("database_runtime_function_access_incompatible")
+
+
+class PublicCatalogConnection:
+    """Reuse exact restricted checks with public as the application namespace.
+
+    Schema ownership stays with Supabase; table/function ownership stays private.
+    Only schema-level ACLs may include PostgreSQL's managed schema owner.
+    """
+    def __init__(self, connection):
+        self.connection = connection
+
+    def __getattr__(self, method):
+        async def call(sql, *args):
+            sql = sql.replace("'job_agent'", "'public'")
+            sql = sql.replace("WHERE n.nspname='public' AND a.grantee NOT IN",
+                "WHERE n.nspname='public' AND a.grantee NOT IN (SELECT oid FROM pg_roles WHERE rolname IN ('postgres','pg_database_owner')) AND a.grantee NOT IN")
+            return await getattr(self.connection, method)(sql, *args)
+        return call

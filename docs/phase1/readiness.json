@@ -1,0 +1,263 @@
+{
+  "phase": 1,
+  "status": "implementation_reviewable_owner_acceptance_pending",
+  "generated_at": "2026-10-24T21:30:05.364752+00:00",
+  "remote_ddl_executed": false,
+  "real_applications_submitted": 0,
+  "emails_sent": 0,
+  "credit_consuming_enrichment_calls": 0,
+  "agy_cli_generation_invocations": 1,
+  "agy_usage_reported": null,
+  "connections": [
+    {
+      "connection_name": "Supabase PostgreSQL",
+      "configuration_status": "owner_authorization_required",
+      "identity_verification": "project URL verified through MCP; runtime identity pending",
+      "capability_verification": "TLS/runtime permissions/persistence pending",
+      "last_verification_time": null,
+      "actual_evidence_type": "live MCP metadata only",
+      "blocker": "rotated restricted SQL credentials, account management inventory and migration approval required",
+      "safe_next_action": "Rotate exposed credentials privately; verify management account and SQL inventory; approve reviewed bundle"
+    },
+    {
+      "connection_name": "Disposable PostgreSQL 17",
+      "configuration_status": "configured",
+      "identity_verification": "isolated owned localhost container",
+      "capability_verification": "public bundle, restrictive role, RLS and restart persistence verified",
+      "last_verification_time": "2026-10-24T21:30:05.364752+00:00",
+      "actual_evidence_type": "actual PostgreSQL and HTTP tests",
+      "blocker": null,
+      "safe_next_action": "Review docs/phase1/migration-review.md"
+    },
+    {
+      "connection_name": "Local FastAPI",
+      "configuration_status": "configured",
+      "identity_verification": "authenticated owner and native requests verified",
+      "capability_verification": "preview and readiness verified on 127.0.0.1:18081",
+      "last_verification_time": "2026-10-24T21:30:05.364752+00:00",
+      "actual_evidence_type": "actual loopback API against disposable PostgreSQL",
+      "blocker": null,
+      "safe_next_action": "Run production preflight after approved live database setup"
+    },
+    {
+      "connection_name": "Codex supabase-automated-apply",
+      "configuration_status": "configured",
+      "identity_verification": "exact project URL verified",
+      "capability_verification": "read-only tools discovery, empty public tables, no migrations verified",
+      "last_verification_time": "2026-10-24T21:27:05.009875+00:00",
+      "actual_evidence_type": "actual Codex app-server MCP tool calls",
+      "blocker": null,
+      "safe_next_action": "Preserve OAuth; complete separate TLS SQL verification"
+    },
+    {
+      "connection_name": "Claude supabase-automated-apply",
+      "configuration_status": "configured",
+      "identity_verification": "pending owner approval",
+      "capability_verification": "unverified",
+      "last_verification_time": "2026-10-24T21:30:05.364752+00:00",
+      "actual_evidence_type": "actual installed CLI health check",
+      "blocker": "Pending approval (run claude to approve)",
+      "safe_next_action": "Approve project-scoped MCP in Claude; perform read-only discovery"
+    },
+    {
+      "connection_name": "AGY supabase-automated-apply",
+      "configuration_status": "registered_disabled",
+      "identity_verification": "unverified",
+      "capability_verification": "unverified",
+      "last_verification_time": "2026-10-24T21:30:05.364752+00:00",
+      "actual_evidence_type": "actual agy mcp list",
+      "blocker": "per-tool permissions and OAuth not verified",
+      "safe_next_action": "Keep disabled until restricted read-only use is verified"
+    },
+    {
+      "connection_name": "Existing global Supabase MCP",
+      "configuration_status": "preserved_enabled_in_AGY",
+      "identity_verification": "prior identity not reverified",
+      "capability_verification": "live operation not reverified",
+      "last_verification_time": "2026-10-24T21:30:05.364752+00:00",
+      "actual_evidence_type": "before/after agy mcp list",
+      "blocker": "this CLI exposes no separate read-only tool-call command",
+      "safe_next_action": "Use existing client UI for a harmless read operation; preserve prior connection"
+    },
+    {
+      "connection_name": "Chrome extension",
+      "configuration_status": "owner_loaded_unpacked_ID_supplied",
+      "identity_verification": "hmkhgcgjjnjncamgdlabocdbgpleebgk (public extension ID)",
+      "capability_verification": "actual context menu and restart test pending owner",
+      "last_verification_time": null,
+      "actual_evidence_type": "owner-reported ID; extension event unit tests",
+      "blocker": "owner right-click acknowledgment pending",
+      "safe_next_action": "Reload extension; test example.org and non-sensitive Google Form"
+    },
+    {
+      "connection_name": "Chrome native messaging host",
+      "configuration_status": "installed_per_user",
+      "identity_verification": "one exact Chrome origin allowlisted",
+      "capability_verification": "actual framing \u2192 FastAPI \u2192 PostgreSQL preview verified",
+      "last_verification_time": "2026-10-24T21:30:05.364752+00:00",
+      "actual_evidence_type": "actual native executable with stdin pipe left open; simulated Chrome events",
+      "blocker": null,
+      "safe_next_action": "Complete separate actual Chrome gesture test; reinstall from a stable worktree before reboot"
+    },
+    {
+      "connection_name": "Telegram",
+      "configuration_status": "not_configured",
+      "identity_verification": "numeric owner binding pending",
+      "capability_verification": "mock transport, authorization, replay prevention and persisted preview verified",
+      "last_verification_time": null,
+      "actual_evidence_type": "mock Bot API transport plus actual dispatcher/PostgreSQL",
+      "blocker": "private bot token and owner /start authorization required",
+      "safe_next_action": "Run configure_telegram.py with hidden token prompt, then separate worker"
+    },
+    {
+      "connection_name": "launchd / locked screen",
+      "configuration_status": "not_installed_opt_in_required",
+      "identity_verification": "user paths and plist plan generated",
+      "capability_verification": "actual launchd and locked-screen behavior pending",
+      "last_verification_time": null,
+      "actual_evidence_type": "generated plan only",
+      "blocker": "owner opt-in, private bot setup and lock+phone test required",
+      "safe_next_action": "Review plist; use stable checkout; opt in and test while Mac awake"
+    },
+    {
+      "connection_name": "AGY CLI",
+      "configuration_status": "installed_1.4.6_tool_free_primary_profile_discovered",
+      "identity_verification": "model enumeration succeeds; account/quota identity not exposed",
+      "capability_verification": "restricted profile readiness verified; structured generation pending",
+      "last_verification_time": "2026-10-24T21:09:09.861353+00:00",
+      "actual_evidence_type": "actual version/help/models/agents metadata; interrupted fictional invocation",
+      "blocker": "additional generation authorization pending; prior invocation returned no usage",
+      "safe_next_action": "Review installed tools:[] primary profile; authorize a new fictional test only explicitly"
+    },
+    {
+      "connection_name": "Naukri",
+      "configuration_status": "manual_only",
+      "identity_verification": "no account/password/session collected",
+      "capability_verification": "URL preview and manual links; no authorized submission API verified",
+      "last_verification_time": null,
+      "actual_evidence_type": "official documentation research and local policy tests",
+      "blocker": "manual-only Phase 1 capability",
+      "safe_next_action": "Use official site manually; review platform-capabilities.md"
+    },
+    {
+      "connection_name": "Wellfound",
+      "configuration_status": "manual_only",
+      "identity_verification": "no account/password/session collected",
+      "capability_verification": "URL preview and manual links; no authorized submission API verified",
+      "last_verification_time": null,
+      "actual_evidence_type": "official documentation research and local policy tests",
+      "blocker": "manual-only Phase 1 capability",
+      "safe_next_action": "Use official site manually; review platform-capabilities.md"
+    },
+    {
+      "connection_name": "Instahyre",
+      "configuration_status": "manual_only",
+      "identity_verification": "no account/password/session collected",
+      "capability_verification": "URL preview and manual links; no authorized submission API verified",
+      "last_verification_time": null,
+      "actual_evidence_type": "official documentation research and local policy tests",
+      "blocker": "manual-only Phase 1 capability",
+      "safe_next_action": "Use official site manually; review platform-capabilities.md"
+    },
+    {
+      "connection_name": "YC Work at a Startup",
+      "configuration_status": "manual_only",
+      "identity_verification": "no account/password/session collected",
+      "capability_verification": "URL preview and manual links; no authorized submission API verified",
+      "last_verification_time": null,
+      "actual_evidence_type": "official documentation research and local policy tests",
+      "blocker": "manual-only Phase 1 capability",
+      "safe_next_action": "Use official site manually; review platform-capabilities.md"
+    },
+    {
+      "connection_name": "Internshala",
+      "configuration_status": "manual_only",
+      "identity_verification": "no account/password/session collected",
+      "capability_verification": "URL preview and manual links; no authorized submission API verified",
+      "last_verification_time": null,
+      "actual_evidence_type": "official documentation research and local policy tests",
+      "blocker": "manual-only Phase 1 capability",
+      "safe_next_action": "Use official site manually; review platform-capabilities.md"
+    },
+    {
+      "connection_name": "LinkedIn",
+      "configuration_status": "manual_only",
+      "identity_verification": "no account/password/session collected",
+      "capability_verification": "URL preview and manual links; no authorized submission API verified",
+      "last_verification_time": null,
+      "actual_evidence_type": "official documentation research and local policy tests",
+      "blocker": "manual-only Phase 1 capability",
+      "safe_next_action": "Use official site manually; review platform-capabilities.md"
+    },
+    {
+      "connection_name": "Public job discovery",
+      "configuration_status": "preserved_disabled_scheduler",
+      "identity_verification": "source-specific live readiness unverified",
+      "capability_verification": "existing adapters/scheduler/matching and filters regression-tested",
+      "last_verification_time": null,
+      "actual_evidence_type": "offline fixtures and disposable PostgreSQL",
+      "blocker": "no recurring live discovery authorization",
+      "safe_next_action": "Review boards and source evidence; separately authorize any discovery"
+    },
+    {
+      "connection_name": "Gmail",
+      "configuration_status": "owner_authorization_required",
+      "identity_verification": "pending official OAuth identity/scope verification",
+      "capability_verification": "metadata + compose flow tested; no actual drafts or sends",
+      "last_verification_time": null,
+      "actual_evidence_type": "mock OAuth state/PKCE/scope regression tests",
+      "blocker": "secondary-account consent and draft scope required",
+      "safe_next_action": "Authorize identity then compose via existing UI; keep sending disabled"
+    },
+    {
+      "connection_name": "Apollo",
+      "configuration_status": "not_configured_in_isolated_phase1_environment",
+      "identity_verification": "unverified",
+      "capability_verification": "existing adapters/cache retained; live entitlement unverified",
+      "last_verification_time": null,
+      "actual_evidence_type": "existing adapter and spending-gate tests",
+      "blocker": "credential entitlement/credit use not authorized",
+      "safe_next_action": "Configure privately; verify entitlements without enrichment or spending"
+    },
+    {
+      "connection_name": "SignalHire",
+      "configuration_status": "not_configured_in_isolated_phase1_environment",
+      "identity_verification": "unverified",
+      "capability_verification": "existing adapters/cache retained; live entitlement unverified",
+      "last_verification_time": null,
+      "actual_evidence_type": "existing adapter and spending-gate tests",
+      "blocker": "credential entitlement/credit use not authorized",
+      "safe_next_action": "Configure privately; verify entitlements without enrichment or spending"
+    },
+    {
+      "connection_name": "Ollama",
+      "configuration_status": "availability_only_or_not_configured",
+      "identity_verification": "unverified",
+      "capability_verification": "existing Gemini contract preserved; Ollama not invoked; Cohere adapter not enabled",
+      "last_verification_time": null,
+      "actual_evidence_type": "local configuration detection only",
+      "blocker": "model/service readiness or free entitlement unverified",
+      "safe_next_action": "No paid fallback or automatic local model install"
+    },
+    {
+      "connection_name": "Gemini",
+      "configuration_status": "availability_only_or_not_configured",
+      "identity_verification": "unverified",
+      "capability_verification": "existing Gemini contract preserved; Ollama not invoked; Cohere adapter not enabled",
+      "last_verification_time": null,
+      "actual_evidence_type": "local configuration detection only",
+      "blocker": "model/service readiness or free entitlement unverified",
+      "safe_next_action": "No paid fallback or automatic local model install"
+    },
+    {
+      "connection_name": "Cohere",
+      "configuration_status": "availability_only_or_not_configured",
+      "identity_verification": "unverified",
+      "capability_verification": "existing Gemini contract preserved; Ollama not invoked; Cohere adapter not enabled",
+      "last_verification_time": null,
+      "actual_evidence_type": "local configuration detection only",
+      "blocker": "model/service readiness or free entitlement unverified",
+      "safe_next_action": "No paid fallback or automatic local model install"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+# Phase 1 initial technical audit
+
+Base: origin/main dcd3d2d (merged PRs 15 and 16). Worktree created independently; original checkout f4d7d4c, its modified frontend/error.tsx, staged supabase/.temp files and untracked automation directory are preserved. Other worktrees/services are outside scope.
+
+PR 15 provides PostgreSQL durable scheduling, idempotency, fenced leases, admission limits, pacing, matching and notifications. Retain its separate worker and disabled execution gate. PR 16 records a zero-cost audit; its past verification is not evidence for new connections.
+
+PR 17 (open, 6cd6108) supplies an isolated Playwright browser, navigation/step validation, application packet integration, grounded answer reuse, resume asset binding, separate submission models and explicit owner approval. Its CLI controls its own browser rather than the existing Chrome profile. It is not a Manifest V3/native-messaging installation. It also changes answer contracts, knowledge modules, question mapping, packet lifecycle and submission receipts. No blind merge: Phase 1 reuses main's packet/answer/resume protections and adds an independent preview entry point. Browser execution, DOM collection, uploads and submission remain deferred. No PR 17 security checks are removed or weakened.
+
+Existing main has FastAPI single-owner bearer authentication, an authenticated Next.js BFF with CSRF and a fixed route allowlist, encrypted OAuth storage, PKCE/state validation, Gmail identity and send-scope upgrades, FastMCP authentication/permission controls, provider budgets, source adapters and PostgreSQL readiness/catalog validation. Preserve all of these and existing Discover, saved presets and matching.
+
+Schema coupling: config defaults, db/safety.py, readiness/configuration, migrations/catalog manifest and runtime_security hardcode job_agent; candidate_profile and application_answer contain literal schema/FKs. Historical migrations 001–012 and phase9 SQL remain byte-for-byte. A separate fresh public bootstrap must derive and pin their schema-translated DDL, add Phase 1 tables and restrictive ACL/RLS, and verify its own catalog. No migration of existing personal data is implied.
+
+New implementation needed: typed shared preview dispatcher, durable policy versions/history, truthful readiness states, native host and MV3 extension, private Telegram polling with deduplication, restricted AGY adapter, operational scripts and Connections UI. PostgreSQL remains authoritative; SQLite is confined to existing testing fixtures.
+
+Live audit: Supabase CLI 2.121.0 lists projects from the previous account, but not luvdmwnlwaqgvfwlmlom. Stop live DDL/DB setup: owner_authorization_required. Pasted privileged credentials require rotation and are not used. Docker is available; existing containers belong to other projects and are untouched. Codex 0.164.0, Claude 2.1.309, AGY 1.4.6 and Chrome are installed. AGY models discovery succeeded without generation; account identity/entitlement is not verified by model listing. Native installation, Telegram binding, screen-lock verification, OAuth and metered generation require distinct evidence.

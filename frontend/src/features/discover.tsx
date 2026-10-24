@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, Compass, Search } from "lucide-react";
 import { api, post, readable } from "@/lib/api";
 import { Automation } from "@/features/automation";
+import { SearchPreferencesEditor } from "@/features/search-preferences";
 import {
   Badge,
   Button,
@@ -91,6 +92,7 @@ export function Discover() {
         title="A fresh set of possibilities."
         description="Run a bounded search using an approved public API. Preview first, then choose to proceed."
       />
+      <SearchPreferencesEditor />
       <div className="detail-grid">
         <section className="panel">
           <div className="panel-header">

@@ -1,0 +1,49 @@
+name: Phase 1 connection foundation
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [feat/phase1-local-connections]
+permissions:
+  contents: read
+jobs:
+  connections:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: phase1_ci_disposable
+          POSTGRES_DB: candidate_profile_test
+        ports: [5432:5432]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PHASE1_DISPOSABLE_DATABASE_URL: postgresql://postgres:phase1_ci_disposable@127.0.0.1:5432/candidate_profile_test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - run: python -m pip install -r backend/requirements.txt ruff bandit
+      - name: Offline contracts and security
+        run: python -m pytest backend/tests/test_phase1_local_agent.py -q
+      - name: Extension build and event tests
+        run: |
+          node extension/build.mjs
+          node --test extension/tests/*.test.mjs
+      - name: Public migration and role restrictions on disposable PostgreSQL
+        run: python backend/scripts/phase1/verify_public.py --bootstrap
+      - name: Actual native framing, FastAPI, PostgreSQL and restart lifecycle
+        run: |
+          python backend/scripts/phase1/prepare_disposable.py
+          python backend/scripts/phase1/lifecycle_smoke.py --env-file reports/phase1/disposable.private.env
+      - name: Foundation lint and security scan
+        run: |
+          ruff check --isolated --select E9,F,I backend/app/local_agent backend/app/ai/providers/agy.py backend/scripts/phase1 backend/tests/test_phase1_local_agent.py
+          bandit -q -r backend/app

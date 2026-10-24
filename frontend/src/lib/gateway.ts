@@ -1,5 +1,9 @@
 // This fixed route list prevents the server-side bearer from becoming a general proxy.
 const routes: Array<[RegExp, string[]]> = [
+  [/^local-agent\/search-preferences$/, ["GET", "PUT"]],
+  [/^local-agent\/(connections|history)$/, ["GET"]],
+  [/^local-agent\/policy$/, ["GET", "PUT"]],
+  [/^local-agent\/commands$/, ["POST"]],
   [/^dashboard\/automation$/, ["GET", "PUT"]],
   [/^dashboard\/automation\/(history|matches)$/, ["GET"]],
   [/^dashboard\/automation\/(preview|run)$/, ["POST"]],

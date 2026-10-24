@@ -31,6 +31,14 @@ os.environ["RESUME_DRIVE_SYNC_ENABLED"] = "false"
 os.environ["AUTOMATION_EXECUTION_ENABLED"] = "false"
 os.environ["MCP_REMOTE_ENABLED"] = "false"
 os.environ["MCP_ALLOW_DRAFT_CREATION"] = "false"
+os.environ["AGY_ENABLED"] = "false"
+os.environ["AGY_QUOTA_AUTHORIZED"] = "false"
+os.environ["AGY_MODEL"] = ""
+os.environ["TELEGRAM_BOT_TOKEN"] = ""
+os.environ["TELEGRAM_OWNER_USER_ID"] = ""
+os.environ["TELEGRAM_OWNER_CHAT_ID"] = ""
+os.environ["CHROME_NATIVE_MESSAGING_ENABLED"] = "false"
+os.environ["CHROME_EXTENSION_ID"] = ""
 
 from collections.abc import AsyncGenerator
 import pytest

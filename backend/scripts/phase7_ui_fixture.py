@@ -81,6 +81,7 @@ def setup_environment(directory):
 
 async def seed():
     import backend.app.automation.models  # noqa: F401 — register isolated fixture tables
+    import backend.app.local_agent.models  # noqa: F401 — register isolated connection fixture tables
     from backend.app.db.session import get_engine, get_session_factory
     from backend.app.models.base import Base
     from backend.app.models.contact import Contact

@@ -36,8 +36,8 @@ def database_target(settings):
                 or not url.database or not url.username or not url.password):
             raise DatabaseConfigurationError("explicit_postgresql_database_required")
         if settings.ENVIRONMENT != "testing":
-            if settings.DATABASE_SCHEMA != "job_agent":
-                raise DatabaseConfigurationError("database_job_agent_schema_required")
+            if settings.DATABASE_SCHEMA not in {"public", "job_agent"}:
+                raise DatabaseConfigurationError("database_application_schema_required")
             if settings.DB_REMOTE_ONLY and local_target(url.host):
                 raise DatabaseConfigurationError("remote_postgresql_database_required")
             if (settings.DB_REMOTE_ONLY or not local_target(url.host)) and not settings.DB_REQUIRE_TLS:
@@ -47,6 +47,19 @@ def database_target(settings):
             # This persistent asyncpg backend uses session state/prepared statements.
             if url.port == 6543:
                 raise DatabaseConfigurationError("use_direct_or_session_pooler_connection")
+        if settings.DATABASE_SCHEMA == "public" and settings.ENVIRONMENT != "testing":
+            ref = settings.SUPABASE_PROJECT_REF
+            if ref != "luvdmwnlwaqgvfwlmlom":
+                raise DatabaseConfigurationError("wrong_supabase_project")
+            if (settings.SUPABASE_URL and settings.SUPABASE_URL != f"https://{ref}.supabase.co"):
+                raise DatabaseConfigurationError("wrong_supabase_project")
+            if settings.DB_REMOTE_ONLY and not (
+                url.host == f"db.{ref}.supabase.co" or
+                (url.host.endswith(".pooler.supabase.com") and url.username.endswith("." + ref))
+            ):
+                raise DatabaseConfigurationError("wrong_supabase_project")
+            if url.username.split(".")[0] != "job_agent_runtime":
+                raise DatabaseConfigurationError("privileged_runtime_role_forbidden")
         return url
     except (ArgumentError, TypeError, ValueError) as exc:
         if isinstance(exc, DatabaseConfigurationError):

@@ -1,10 +1,12 @@
 """Primary candidate record; JSONB on PostgreSQL, JSON on SQLite."""
 
 import uuid
-from sqlalchemy import CheckConstraint, Float, Integer, JSON, String, Text
+
+from sqlalchemy import JSON, CheckConstraint, Float, Integer, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
-from backend.app.models.base import Base, GUID, TimestampMixin
+
+from backend.app.models.base import GUID, Base, TimestampMixin
 
 
 class CandidateProfile(Base, TimestampMixin):
@@ -16,7 +18,7 @@ class CandidateProfile(Base, TimestampMixin):
         CheckConstraint("length(email) BETWEEN 3 AND 254", name="ck_candidate_email"),
         CheckConstraint("verified_experience_years BETWEEN 0 AND 100", name="ck_candidate_experience"),
         CheckConstraint("summary IS NULL OR length(trim(summary)) BETWEEN 1 AND 4000", name="ck_candidate_summary"),
-        {"schema": "job_agent" if Base.schema_name is not None else None},
+        {"schema": Base.schema_name},
     )
     id: Mapped[uuid.UUID] = mapped_column(GUID, primary_key=True, default=uuid.uuid4)
     singleton_key: Mapped[str] = mapped_column(String(20), default="primary", unique=True, nullable=False)

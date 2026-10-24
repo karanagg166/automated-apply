@@ -447,3 +447,7 @@ leases and fencing protect recovery. Migration 012 and a separate proposed restr
 addendum are verified only in disposable PostgreSQL 17. See [Phase 10](docs/phase10-automation.md)
 for implementation, tests and the prepared worker configuration. Phase 9 remains incomplete;
 R2 and live automation are unauthorized. No production service is activated.
+
+## Phase 1 local connection foundation
+
+Preview-only local connections are implemented on `feat/phase1-local-connections`; live owner acceptance remains pending. Start with the [technical audit](docs/phase1/audit.md), [setup guide](docs/phase1/setup.md), [exact public-schema migration proposal](docs/phase1/migration-review.md), [verification report](docs/phase1/verification.md), and [machine-readable readiness](docs/phase1/readiness.json). The reviewed migration targets only the dedicated Supabase project; it has not been applied remotely. No live submissions, Gmail sends or recurring discovery are enabled.

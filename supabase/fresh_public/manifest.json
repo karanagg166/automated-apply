@@ -1,0 +1,108 @@
+{
+  "project_ref": "luvdmwnlwaqgvfwlmlom",
+  "schema": "public",
+  "sources": [
+    {
+      "file": "supabase/migrations/001_initial_schema.sql",
+      "sha256": "331b1123dcc4ac1404be9ba8b13689982a63759d767adc9619ab7a549b9dd78b"
+    },
+    {
+      "file": "supabase/migrations/002_candidate_profile.sql",
+      "sha256": "8139de9c798942ddcecc91a928087aaebd422562ce1cda24ba7fb28492a76a65"
+    },
+    {
+      "file": "supabase/migrations/003_candidate_resources_and_answer_drafts.sql",
+      "sha256": "6e17368f8b27f64c09bdaccc0d4a36453c70653ac65d03721638311b51254319"
+    },
+    {
+      "file": "supabase/migrations/004_job_discovery.sql",
+      "sha256": "8794f0da1c31684af47242eae33e94b4902b7a2541ac5f2ef61f8422f04c9a80"
+    },
+    {
+      "file": "supabase/migrations/005_contact_enrichment.sql",
+      "sha256": "18aaccc7a80c62248a3570cc042a3b8d439bbdb5c87ff396b8b41ddf4109994d"
+    },
+    {
+      "file": "supabase/migrations/006_mcp_gmail_outreach_foundation.sql",
+      "sha256": "70bb7a29fecdfc8a50a06b6d1d4777e1fce1988f8efcf70ecb320de29968752a"
+    },
+    {
+      "file": "supabase/migrations/007_gmail_sending.sql",
+      "sha256": "7ff922da91d1e3959ded89ac7d5123d485394d1bf35392a62306e043421920d7"
+    },
+    {
+      "file": "supabase/migrations/008_application_preparation.sql",
+      "sha256": "1f2b7b6411c8f346328259df37c954349ce6cc0d24b94b284c1a3c92566183ce"
+    },
+    {
+      "file": "supabase/migrations/009_live_startup_intelligence.sql",
+      "sha256": "381a8943dca0af33ecb80e621a8b6be202780c7fd7d574958cc30d3b509d3bd5"
+    },
+    {
+      "file": "supabase/migrations/010_phase7_owner_dashboard.sql",
+      "sha256": "23aab09f5f5e45c9cd099ce2dba52eb800d4e48c09fcda552eaf12c75075d97c"
+    },
+    {
+      "file": "supabase/migrations/011_drive_resume_sync.sql",
+      "sha256": "191b947d1b6a8eedc54a159634959ea0967123fcbda8aaf99678ae0a9ed32439"
+    },
+    {
+      "file": "supabase/migrations/012_discovery_automation.sql",
+      "sha256": "c3145ed7c4f5ce4e817a8c075db7627972bdaa814a3812222a3a5ac87034e9be"
+    }
+  ],
+  "bundle": "001_phase1_public.sql",
+  "sha256": "6cfaf217fb10a9467e193aa7d12529b311a1f65afcf971f1a554039789ce5644",
+  "tables": [
+    "agent_operations",
+    "agent_policies",
+    "agent_policy_events",
+    "agent_telegram_deliveries",
+    "agent_telegram_state",
+    "api_keys_pool",
+    "application_answer_drafts",
+    "application_events",
+    "application_packet_fields",
+    "application_packets",
+    "application_submission_evidence",
+    "automation_executions",
+    "automation_matches",
+    "automation_schedule",
+    "candidate_evidence",
+    "candidate_profiles",
+    "candidate_resources",
+    "companies",
+    "company_source_observations",
+    "connected_accounts",
+    "contact_enrichment_runs",
+    "contact_evidence",
+    "contact_identities",
+    "contact_provider_lookups",
+    "contacts",
+    "discovered_company_people",
+    "discovery_budget_reservations",
+    "discovery_monthly_budgets",
+    "discovery_runs",
+    "drive_resume_versions",
+    "job_source_observations",
+    "jobs",
+    "llm_monthly_usage",
+    "notification_deliveries",
+    "oauth_states",
+    "outreach_logs",
+    "outreach_send_attempts",
+    "outreach_send_confirmations",
+    "owner_notifications",
+    "owner_preferences",
+    "private_resumes",
+    "provider_access_windows",
+    "provider_connection_checks",
+    "provider_usage_logs",
+    "resume_drive_sources",
+    "resume_profile_reviews",
+    "startup_shortlist_entries"
+  ],
+  "runtime_role": "job_agent_runtime",
+  "remote_applied": false,
+  "catalog_sha256": "3a2a361d6736f88e62d5379c9d21b0047f27cec3cfc821670dd4536c1cf0dcf5"
+}

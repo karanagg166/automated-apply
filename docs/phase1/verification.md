@@ -1,0 +1,59 @@
+# Phase 1 verification and remaining acceptance
+
+Status: implementation reviewable; owner acceptance pending. No merge to main, remote DDL, real application submission, email send, authenticated-platform scraping or enrichment request was performed. The initial AGY invocation produced no response/usage; paid overage was not authorized and no retry occurred.
+
+## Executed commands and evidence
+
+Use `.venv/bin/python` from this worktree. All database passwords below are disposable fictional fixtures, never production credentials.
+
+| Command | Result / evidence |
+|---|---|
+| `PROFILE_TEST_DATABASE_URL=postgresql://postgres:phase1_disposable_only@127.0.0.1:55440/candidate_profile_test .venv/bin/python -m pytest backend/tests -q` | Full backend regression with disposable PostgreSQL 17. 1,348 passed, no skips (117.14s) |
+| `.venv/bin/python -m pytest backend/tests/test_phase1_local_agent.py -q` | 100 foundation/security cases passed after profile guard update |
+| `npm run typecheck --prefix frontend` | Passed |
+| `npm test --prefix frontend` | 39 tests passed |
+| `npm run format:check --prefix frontend` | Passed |
+| `npm run build --prefix frontend` | Production build passed |
+| `PYTHON=/private/tmp/automated-apply-phase1/.venv/bin/python npm run e2e --prefix frontend` | 8 actual Next.js/BFF/FastAPI browser journeys passed, including policy/filter persistence and CSRF; fictional SQLite fixture only |
+| `node extension/build.mjs` | MV3 build and permission manifest assertions passed |
+| `node --test extension/tests/*.test.mjs` | 5 extension event tests passed; Chrome APIs are simulated |
+| `PHASE1_DISPOSABLE_DATABASE_URL=postgresql://postgres:phase1_disposable_only@127.0.0.1:55441/candidate_profile_test .venv/bin/python backend/scripts/phase1/verify_public.py --bootstrap` | Fresh bundle applied on a separate disposable PG17 container, 47 tables, forced RLS/restricted-role checks passed |
+| `PHASE1_DISPOSABLE_DATABASE_URL=postgresql://postgres:phase1_disposable_only@127.0.0.1:55441/candidate_profile_test .venv/bin/python backend/scripts/phase1/prepare_disposable.py` | Private fictional runtime login/config generated only on owned disposable cluster |
+| `.venv/bin/python backend/scripts/phase1/lifecycle_smoke.py --env-file reports/phase1/disposable.private.env` | Actual native framing with open stdin → loopback HTTP → restricted PostgreSQL; simulated Chrome events/Telegram transport; persisted previews/preferences recovered after actual API restart |
+| `.venv/bin/python backend/scripts/phase1/verify_mcp.py` | Actual Codex OAuth tool discovery and four harmless read calls; exact project URL, zero public tables, zero migrations. No AI turn |
+| `claude mcp list` | New project-scoped server reports pending owner approval |
+| `agy mcp list` | Prior enabled supabase retained; new named server registered disabled |
+| `agy --version`, `agy --help`, `agy models`, `agy agents` | 1.4.6; headless/schema/sandbox/high effort available; model list fetched; installed global tool-free primary profile discovered |
+| `.venv/bin/python backend/scripts/phase1/agy_smoke.py --model gemini-3.8-flash-high --owner-authorized-one-fictional-request` | One initial fictional CLI invocation interrupted after workspace-profile discovery failed. No valid response or usage report, no retry. A global restricted profile was subsequently installed and discovered using metadata only |
+| `.venv/bin/ruff check --isolated --select E9,F,I backend/app/local_agent backend/app/ai/providers/agy.py backend/scripts/phase1 backend/tests/test_phase1_local_agent.py` | Passed |
+| `.venv/bin/bandit -q -r backend/app` | Passed; existing harmless nosec bookkeeping warning only |
+| `.venv/bin/python -m compileall -q backend/app backend/scripts/phase1` | Passed |
+| `git diff --check` | Passed |
+
+A separate standalone UI smoke logged into the real production Next.js build on 127.0.0.1:18083 with fictional owner credentials and the actual restricted PostgreSQL-backed API on 127.0.0.1:18081. It verified Supabase remained degraded/test-only while Codex MCP correctly showed verified read-only metadata. [Screenshot](screenshots/connections-disposable-postgres.png). The full-page browser-fixture screenshot is retained locally in reports/phase1-connections.png. Neither is evidence of a live Supabase SQL connection or real Chrome extension gesture.
+
+## Security outcomes
+
+New tests reject wrong project/admin runtime credentials, missing/unsafe configuration, TLS certificate failures, malformed/oversized native frames, unauthorized extension identity, arbitrary commands, invalid/unsafe URLs, hostile title instructions, disabled-platform invocation, replayed request IDs, request-ID conflicts, wrong Telegram users/chats, shell-command messages, webhook conflicts, malformed AI JSON, missing tool-free profile, unapproved generation, timeout and nonzero CLI exits. They verify redaction and policy overrides cannot enable submission, Gmail sending or paid calls. Existing OAuth callback/state/PKCE, MCP authentication/permissions, encrypted tokens/resumes, application safety and provider budget suites remain intact.
+
+The installed native executable additionally rejected wrong origins (`native_origin_denied`), oversized frames (`native_message_size`) and malformed JSON (`native_invalid_message`) in actual subprocess checks.
+
+Actual disposable SQL tests rejected five forbidden runtime statements and seven injected faults: anonymous grant, disabled RLS, privileged runtime role, broadened policy, extra DELETE, unsafe default grants, and cross-schema access. Non-TLS and administrator runtime connections were rejected, and replay of the fresh-only bundle was refused atomically. No destructive test used remote Supabase.
+
+Secret baseline changes are limited to reviewed fictional test credentials, DDL field names and migration/catalog SHA-256 values. No production secret, bot token, OAuth token, personal resume or DB URI is committed. Original worktree changes and historical migration checksums are preserved.
+
+## Live acceptance still pending
+
+- Supabase CLI/management owning account, rotated restricted/admin credentials, full catalog/role/grant inventory, reviewed bundle approval, genuine TLS SQL, runtime FastAPI health, isolated persistence/cleanup and restart test. MCP verified project access independently; CLI's current account did not list the new project. Region/status/server version remain unverified through management/direct SQL.
+- Actual Chrome context-menu action on example.org and a non-sensitive owner test Form, then extension/backend restart. Owner supplied ID hmkhgcgjjnjncamgdlabocdbgpleebgk; the allowlisted host is installed and its executable path/actual HTTP response were verified. No actual gesture is claimed without owner confirmation.
+- Telegram private bot setup through hidden token prompt, numeric owner /start binding, real getMe and /ping; webhook changes require separate approval.
+- Explicit launchd installation from a stable checkout, worker failure recovery and actual awake-but-screen-locked phone /ping. No power settings changed.
+- One newly authorized fictional AGY response after tool-free profile tests. Initial invocation was interrupted, and usage was not exposed. Do not automatically retry. Existing AGY owner hooks are preserved.
+- Claude project MCP owner approval/OAuth/read call; AGY per-tool MCP restrictions/OAuth; old global server's live read operation (configuration preservation is verified).
+- Gmail identity/compose consent and verified granted scopes; no actual draft without separate consent. Provider entitlements remain unverified.
+
+The native host currently points at a disposable fictional backend, not live Supabase. Its temporary worktree path must be replaced with a stable owner-reviewed checkout before persistent launchd use/reboot. Test PostgreSQL containers are named automated-apply-phase1-pg, automated-apply-phase1-regression-pg and automated-apply-phase1-fresh-pg; no existing unrelated container was changed.
+
+## Proposed Phase 2 (not started)
+
+After Phase 1 owner acceptance: reuse reviewed PR 17 packet/answer/resume/browser pieces selectively; add permission-reviewed DOM inspection and grounded question mapping on owner-controlled forms; enforce durable approval before any fill/upload/submission; bind verified receipts and application deduplication. Add owner-consented Gmail draft creation with sending permanently manual, and source-by-source permitted discovery activation. Automatic platform preferences remain subordinate to actual authorized capabilities.

@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "Automated Apply — Local Preview",
+  "version": "1.0.0",
+  "description": "Send a user-selected application URL to your local agent for a preview.",
+  "permissions": ["contextMenus", "activeTab", "nativeMessaging", "storage"],
+  "background": {"service_worker": "background.js", "type": "module"},
+  "action": {"default_popup": "popup.html", "default_title": "Apply with Automated Apply"},
+  "options_page": "settings.html"
+}

@@ -159,6 +159,18 @@ async def inspect_database(settings):
     connection = await asyncpg.connect(url, **database_connect_args(settings))
     try:
         async with connection.transaction(readonly=True):
+            if settings.DATABASE_SCHEMA == "public":
+                from backend.app.local_agent.public_database import (
+                    verify_bundle,
+                    verify_public_database,
+                )
+
+                await verify_public_database(connection, settings)
+                bundle = verify_bundle()
+                return MigrationPlan(status="verified", expected_schema="public",
+                    history="fresh_public_bundle_catalog_verified", migrations=[{
+                        "file": bundle["bundle"], "sha256": bundle["sha256"],
+                    }])
             from backend.app.operations.runtime_security import (
                 RUNTIME_ROLE,
                 verify_restricted_runtime,

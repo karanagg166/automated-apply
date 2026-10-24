@@ -10,6 +10,7 @@ from sqlalchemy import select, text, update
 from backend.app.core.config import get_settings
 from backend.app.integrations.google_oauth import (
     ALLOWED_SCOPE_SETS,
+    COMPOSE_SCOPES,
     SCOPES,
     SEND_SCOPES,
     GoogleOAuth,
@@ -71,7 +72,7 @@ class ConnectionService:
     async def status(self):
         return account_output(await self.account()) | {"oauth_configured": self.google.configured(), "sending_enabled": self.settings.GMAIL_SENDING_ENABLED}
 
-    async def start(self, expected_email, browser_secret, *, send=False):
+    async def start(self, expected_email, browser_secret, *, send=False, compose=False):
         if not self.google.configured():
             raise ConnectionError("google_oauth_not_configured")
         store = TokenStore(self.settings)
@@ -84,7 +85,7 @@ class ConnectionService:
             raise ConnectionError("expected_account_mismatch")
         await self.lock()
         account = await self.account(lock=True)
-        if send:
+        if send or compose:
             if not account or account.status not in {"connected", "reauthorization_required"} or not account.google_subject:
                 raise ConnectionError("metadata_connection_required_before_upgrade")
             if expected != account.account_email:
@@ -109,8 +110,8 @@ class ConnectionService:
             OAuthState(
                 state_hash=state_hash,
                 actor_id="owner",
-                authorization_mode="send" if send else "metadata",
-                expected_subject=account.google_subject if send else None,
+                authorization_mode="compose" if compose else "send" if send else "metadata",
+                expected_subject=account.google_subject if send or compose else None,
                 browser_hash=digest(browser_secret),
                 expected_email=expected,
                 encrypted_verifier=store.encrypt(verifier, state_hash),
@@ -125,7 +126,7 @@ class ConnectionService:
         await self.session.commit()
         return {
             "authorization_url": self.google.authorization_url(
-                state, verifier, expected, send=send
+                state, verifier, expected, **({"compose": True} if compose else {"send": send})
             ),
             "expires_in": self.settings.OAUTH_STATE_TTL_SECONDS,
         }
@@ -175,7 +176,7 @@ class ConnectionService:
         if not tokens.refresh_token:
             raise ConnectionError("refresh_token_required")
         scopes = normalized_scopes(tokens.scope)
-        if scopes != (SEND_SCOPES if intent.authorization_mode == "send" else SCOPES):
+        if scopes != (COMPOSE_SCOPES if intent.authorization_mode == "compose" else SEND_SCOPES if intent.authorization_mode == "send" else SCOPES):
             raise ConnectionError("unexpected_or_insufficient_scopes")
         subject, email = await self.google.identity(tokens.access_token)
         if email != intent.expected_email or (intent.expected_subject and subject != intent.expected_subject):
@@ -184,8 +185,8 @@ class ConnectionService:
         account = await self.account(lock=True)
         if (
             not account
-            or (account.status == "connected" and intent.authorization_mode != "send")
-            or (intent.authorization_mode == "send" and (account.google_subject != subject or account.account_email != email or account.status == "disconnected"))
+            or (account.status == "connected" and intent.authorization_mode not in {"send", "compose"})
+            or (intent.authorization_mode in {"send", "compose"} and (account.google_subject != subject or account.account_email != email or account.status == "disconnected"))
             or account.token_generation != intent.connection_generation
         ):
             raise ConnectionError("connection_intent_superseded")

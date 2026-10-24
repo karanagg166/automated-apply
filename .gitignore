@@ -79,3 +79,6 @@ frontend/tsconfig.tsbuildinfo
 
 !frontend/src/lib/
 !frontend/src/lib/**
+
+# Supabase CLI cache is local, including project links
+supabase/.temp/

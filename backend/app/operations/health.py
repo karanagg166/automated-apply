@@ -34,6 +34,11 @@ async def database_health(engine, settings):
                 verify_restricted_runtime,
             )
 
+            if settings.DATABASE_SCHEMA == "public":
+                from backend.app.local_agent.public_database import (
+                    verify_public_database,
+                )
+                return await verify_public_database(driver, settings)
             restricted = await driver.fetchval("SELECT current_user") == RUNTIME_ROLE
             expected = json.loads(MANIFEST.read_text())["catalog"]
             if restricted:

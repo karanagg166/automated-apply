@@ -43,7 +43,7 @@ class SecretRedactionFilter(logging.Filter):
         except Exception:
             sensitive.append(None)
         for name in type(settings).model_fields:
-            if any(part in name for part in ("API_KEY", "API_TOKEN", "CLIENT_SECRET", "REFRESH_TOKEN")):
+            if any(part in name for part in ("API_KEY", "API_TOKEN", "CLIENT_SECRET", "REFRESH_TOKEN", "BOT_TOKEN")):
                 value = getattr(settings, name)
                 sensitive.append(value.get_secret_value() if hasattr(value, "get_secret_value") else value)
         sensitive.extend(key.get_secret_value() for key in settings.OAUTH_ENCRYPTION_KEYS.values())

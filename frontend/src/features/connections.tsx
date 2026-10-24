@@ -1,4 +1,5 @@
 "use client";
+import { LocalConnections } from "@/features/local-connections";
 import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -122,6 +123,7 @@ export function Connections() {
           </Badge>
         }
       />
+      <LocalConnections />
       <Notice>
         Portals without a verified linking protocol use Manual Handoff. There is
         no portal-password collection or LinkedIn account connection. Gmail
@@ -331,8 +333,9 @@ export function Connections() {
                     <option value="metadata">
                       Connect account identity first
                     </option>
-                    <option value="send">
-                      Explicitly authorize sending (existing connected identity)
+                    <option value="compose">
+                      Authorize future draft creation (existing connected
+                      identity)
                     </option>
                   </Select>
                 </Field>
