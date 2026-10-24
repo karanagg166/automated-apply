@@ -201,7 +201,12 @@ async def run_worker(settings, session_factory, api=None, stop=None):
             async with session_factory() as session:
                 state = await session.get(TelegramState, "primary")
                 offset = state.next_update_id
-            updates = await bot.call("getUpdates", {"offset": offset, "timeout": 25, "limit": 20, "allowed_updates": ["message"]})
+                pending_reply = await session.scalar(select(TelegramDelivery.update_id).where(
+                    TelegramDelivery.state == "pending").limit(1))
+            # Drain already queued acknowledgments at one/second before waiting
+            # through another long poll; bursts must not add 25 seconds per reply.
+            updates = await bot.call("getUpdates", {"offset": offset, "timeout": 0 if pending_reply is not None else 25,
+                "limit": 20, "allowed_updates": ["message"]})
             for update in updates:
                 async with session_factory() as session:
                     await process_update(session, settings, update, me.get("username"))

@@ -123,3 +123,77 @@ def test_pairing_start_payload_returns_help_without_gaining_commands():
     assert parse_command("/start " + CHALLENGE) == ("/start", CHALLENGE)
     with pytest.raises(TelegramError, match="unexpected_argument"):
         parse_command("/start run_shell")
+
+
+@pytest.mark.parametrize("fault,code", [
+    ("remote", "disposable_local_database_required"),
+    ("production", "disposable_local_database_required"),
+    ("live_state", "completed_simulated_fixture_required"),
+    ("unknown_fixture", "completed_simulated_fixture_required"),
+    ("pending_outbox", "unresolved_simulated_outbox_preserved"),
+    ("wrong_owner", "bound_owner_update_required"),
+    ("collision", "update_identity_collision_preserved"),
+])
+def test_local_simulation_rebind_cannot_override_live_state_or_discard_pending_replies(fault, code):
+    from types import SimpleNamespace
+
+    from backend.scripts.phase1.prepare_telegram_state import validate_rebind
+    config = Settings(_env_file=None, ENVIRONMENT="development", DATABASE_SCHEMA="public", DB_REMOTE_ONLY=False,
+                      DATABASE_URL="postgresql+asyncpg://job_agent_runtime@127.0.0.1:55439/candidate_profile_test",
+                      TELEGRAM_OWNER_USER_ID=4242, TELEGRAM_OWNER_CHAT_ID=4242)
+    state = SimpleNamespace(evidence_type="simulated_transport", bot_id="999999")
+    deliveries = [SimpleNamespace(state="sent", update_id=1)]
+    updates = [{"update_id": 100, "message": private_message()}]
+    if fault == "remote":
+        config = config.model_copy(update={"DB_REMOTE_ONLY": True})
+    elif fault == "production":
+        config = config.model_copy(update={"ENVIRONMENT": "production"})
+    elif fault == "live_state":
+        state.evidence_type = "live_poll"
+    elif fault == "unknown_fixture":
+        state.bot_id = "123456"
+    elif fault == "pending_outbox":
+        deliveries[0].state = "sending"
+    elif fault == "wrong_owner":
+        updates[0]["message"]["from"]["id"] = 100
+    elif fault == "collision":
+        updates[0]["update_id"] = 1
+    with pytest.raises(TelegramError, match=code):
+        validate_rebind(config, state, deliveries, {"id": 100}, updates)
+    # The same explicitly known completed local fixture may be prepared; validation
+    # itself never changes a row, confirms an update, or sends a message.
+    validate_rebind(config.model_copy(update={"ENVIRONMENT": "development", "DB_REMOTE_ONLY": False}),
+                    SimpleNamespace(evidence_type="simulated_transport", bot_id="999999"),
+                    [SimpleNamespace(state="sent", update_id=1)], {"id": 100},
+                    [{"update_id": 100, "message": private_message()}])
+
+
+@pytest.mark.asyncio
+async def test_worker_drains_a_command_burst_before_another_blocking_poll():
+    import asyncio
+
+    from sqlalchemy import select
+
+    from backend.app.db.session import get_session_factory
+    from backend.app.local_agent.models import TelegramDelivery
+    from backend.app.local_agent.telegram import run_worker
+    stop, timeouts, sent = asyncio.Event(), [], []
+    class Bot:
+        async def verify(self):
+            return {"id": 999999, "is_bot": True, "username": "fictionalbot"}
+        async def call(self, method, payload):
+            if method == "getUpdates":
+                timeouts.append(payload["timeout"])
+                return [{"update_id": index, "message": private_message(command)}
+                        for index, command in enumerate(["/ping", "/help", "/ping"], 1)] if len(timeouts) == 1 else []
+            assert method == "sendMessage" and payload["chat_id"] == 4242
+            sent.append(payload["text"])
+            if len(sent) == 3:
+                stop.set()
+            return {"message_id": len(sent)}
+    settings = Settings(_env_file=None, TELEGRAM_OWNER_USER_ID=4242, TELEGRAM_OWNER_CHAT_ID=4242)
+    await asyncio.wait_for(run_worker(settings, get_session_factory(), api=Bot(), stop=stop), timeout=10)
+    assert timeouts == [25, 0, 0] and len(sent) == 3
+    async with get_session_factory()() as session:
+        rows = (await session.scalars(select(TelegramDelivery))).all()
+        assert len(rows) == 3 and all(row.state == "sent" for row in rows)

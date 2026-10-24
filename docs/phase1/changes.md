@@ -80,6 +80,7 @@ Feature branch: feat/phase1-local-connections, based on origin/main dcd3d2d. The
 - `backend/scripts/phase1/lifecycle_smoke.py`
 - `backend/scripts/phase1/local_service.py`
 - `backend/scripts/phase1/prepare_disposable.py`
+- `backend/scripts/phase1/prepare_telegram_state.py`
 - `backend/scripts/phase1/verify_mcp.py`
 - `backend/scripts/phase1/verify_public.py`
 - `backend/scripts/phase7_ui_fixture.py`

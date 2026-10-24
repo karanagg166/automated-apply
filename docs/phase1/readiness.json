@@ -101,23 +101,23 @@
     },
     {
       "connection_name": "Telegram",
-      "configuration_status": "credentials_configured_owner_bound",
+      "configuration_status": "authenticated",
       "identity_verification": "actual getMe bot identity verified; numeric owner/private-chat binding configured",
-      "capability_verification": "repaired fresh-challenge setup; mock transport authorization/replay and persisted preview verified; live /ping pending",
-      "last_verification_time": "2026-10-24T22:39:02.592046+00:00",
-      "actual_evidence_type": "actual getMe/getWebhookInfo and private owner setup; mock command authorization tests",
-      "blocker": "real polling command round trips pending",
-      "safe_next_action": "Start explicitly authorized user-level worker; owner sends /ping /status /connections /help"
+      "capability_verification": "actual live polling and owner-confirmed persisted /ping reply; other command checks pending",
+      "last_verification_time": "2026-10-24T22:51:25.792844+00:00",
+      "actual_evidence_type": "actual Bot API metadata, live poll state, sent outbox reply and owner confirmation",
+      "blocker": "status/connections/help, recovery and lock tests pending",
+      "safe_next_action": "Complete remaining commands and explicit restart/lock acceptance"
     },
     {
       "connection_name": "launchd / locked screen",
-      "configuration_status": "not_installed_opt_in_required",
-      "identity_verification": "user paths and plist plan generated",
-      "capability_verification": "actual launchd and locked-screen behavior pending",
+      "configuration_status": "installed_owner_authorized",
+      "identity_verification": "user-level service uses private config and stable detached runtime checkout",
+      "capability_verification": "actual launchctl running and genuine Bot API polling; crash recovery and screen lock pending",
       "last_verification_time": null,
-      "actual_evidence_type": "generated plan only",
-      "blocker": "owner opt-in, private bot setup and lock+phone test required",
-      "safe_next_action": "Review plist; use stable checkout; opt in and test while Mac awake"
+      "actual_evidence_type": "actual user launchd installation, PID and live poll state",
+      "blocker": "owner phone command tests, controlled restart and lock test pending",
+      "safe_next_action": "Complete real /ping, then controlled worker recovery and awake screen-lock test"
     },
     {
       "connection_name": "AGY CLI",
@@ -270,9 +270,9 @@
     "further_agy_generation": "not_authorized"
   },
   "local_test_summary": {
-    "backend_passed": 1390,
+    "backend_passed": 1398,
     "backend_skipped": 0,
-    "foundation_passed": 142,
+    "foundation_passed": 150,
     "frontend_unit_passed": 39,
     "browser_journeys_passed": 8,
     "extension_event_tests_passed": 7,

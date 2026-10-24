@@ -97,7 +97,7 @@ Create a private bot with official @BotFather. The following owner-run interacti
 
 /start /help /ping /status /connections /jobs /apply <https-url>. Only the bound numeric owner and private chat are accepted. No group/forwarded commands or shell execution. Offset and bounded acknowledgment outbox persist in PostgreSQL. An ambiguous interrupted send stays `sending` and is never automatically replayed; the owner can inspect delivery history and issue a new /ping. HTTP 429 retries respect retry_after; network errors back off. A database advisory lock prevents duplicate workers. No personal resume, salary, email body or URL query appears in Telegram replies/logs. Simulated transports persist their evidence type and cannot create a live connection badge.
 
-launchd is opt-in and not installed automatically:
+launchd is opt-in. The owner subsequently authorized installation; `com.automated-apply.telegram` is installed using the stable detached checkout `~/Library/Application Support/Automated Apply/phase1-runtime`, its own virtual environment, and private configuration `~/Library/Application Support/Automated Apply/phase1.private.env`. It uses the disposable local PostgreSQL database while live Supabase SQL remains pending. Do not remove that runtime checkout or stop its owned database while using the worker. Generic installation commands:
 
 ```sh
 .venv/bin/python backend/scripts/phase1/install_local.py launchd-plan --env-file /absolute/path/phase1.private.env
@@ -132,3 +132,6 @@ Gmail retains encrypted tokens/disconnect/state/PKCE. Connect identity first thr
 ## Tests
 
 See verification.md for executed results, genuine evidence types and exact commands. New CI runs offline contracts, a separate PostgreSQL 17 fresh-public bootstrap/role suite, the actual Python-host/API/database restart lifecycle, extension event tests and security checks. Existing CI continues full backend, frontend and browser regressions. No live provider generation, OAuth consent, remote migration or real Chrome/Telegram action runs in CI.
+
+
+The first live launch correctly rejected the disposable suite's prior fake bot identity. `prepare_telegram_state.py` provides a narrow one-time recovery path only for the known local candidate_profile_test fixture with simulated_transport/bot 999999, completed replies, a verified different bot and an observed already-bound owner update with noncolliding IDs. It preserves completed outbox records and all application/policy data, writes a private recovery snapshot, and refuses remote databases, production, any live poll state, pending/sending replies, or owner mismatch. It never removes the ordinary worker bot-identity check. This recovery has been performed on the isolated development database; do not rerun it against live state.
