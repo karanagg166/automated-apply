@@ -35,26 +35,28 @@ async def test_local_bounds_and_prompt_separation():
         body = json.loads(request.content)
         assert body["keep_alive"] == 0
         assert body["options"] == {
-            "num_ctx": 2048, "num_thread": 2, "num_predict": MAX_OUTPUT_TOKENS,
+            "num_ctx": 1024, "num_thread": 2, "num_predict": MAX_OUTPUT_TOKENS,
             "temperature": 0, "seed": 0,
         }
         assert body["tools"] == []
         assert "INJECTION_SENTINEL" not in body["messages"][0]["content"]
         wire = json.loads(body["messages"][-1]["content"].removeprefix(REQUEST_INSTRUCTION))
-        assert wire["candidate_facts"]["evidence"][0]["facts"]["note"] == "INJECTION_SENTINEL"
+        assert "INJECTION_SENTINEL" not in json.dumps(wire)
+        assert "source_id" not in json.dumps(wire)
+        assert set(body["format"]["properties"]) == {"answer"}
         return httpx.Response(200, json=envelope())
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         await OllamaProvider(make_settings(LLM_MAX_OUTPUT_TOKENS=8192), client).generate_structured_answer(
-            "Fictional", {"evidence": [{"reference": REFERENCE, "facts": {"note": "INJECTION_SENTINEL"}}]}, INSTRUCTIONS,
+            "Fictional", {"evidence": [{"reference": REFERENCE, "facts": {**CONTEXT["evidence"][0]["facts"], "note": "INJECTION_SENTINEL"}}]}, INSTRUCTIONS,
         )
 
 
 @pytest.mark.parametrize("kind,error", [
     ("transport", "connection_error"), ("timeout", "timeout"),
     ("invalid_json", "invalid_provider_response"), ("excess_tokens", "provider_output_size"),
-    ("extra_fields", "invalid_structured_response"), ("too_many_words", "output_length_exceeded"),
-    ("too_many_characters", "output_length_exceeded"),
+    ("extra_fields", "invalid_structured_response"), ("too_many_words", "output_constraints_unsatisfied"),
+    ("too_many_characters", "output_constraints_unsatisfied"),
 ])
 async def test_failures_are_sanitized_without_provider_retries(kind, error):
     calls = []
@@ -83,9 +85,9 @@ async def test_failures_are_sanitized_without_provider_retries(kind, error):
         instructions["max_characters"] = 1
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         with pytest.raises(ProviderError, match=error) as caught:
-            await OllamaProvider(make_settings(), client).generate_structured_answer("Fictional", {}, instructions)
+            await OllamaProvider(make_settings(), client).generate_structured_answer("Fictional", CONTEXT, instructions)
     assert "private fixture" not in str(caught.value)
-    assert len(calls) == 1
+    assert len(calls) == (0 if kind.startswith("too_many") else 1)
 
 
 async def test_whole_input_limit_prevents_network():
@@ -95,7 +97,7 @@ async def test_whole_input_limit_prevents_network():
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         with pytest.raises(ProviderError, match="input_size_exceeded"):
             await OllamaProvider(make_settings(LLM_MAX_INPUT_CHARS=1000), client).generate_structured_answer(
-                "Fictional", {}, INSTRUCTIONS,
+                "Fictional", {"evidence": [{"reference": REFERENCE, "facts": {"description": "x" * 13000}}]}, INSTRUCTIONS,
             )
 
 
@@ -114,7 +116,7 @@ async def test_encoded_responses_are_rejected_before_decompression():
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         with pytest.raises(ProviderError, match="provider_encoding_denied"):
-            await OllamaProvider(make_settings(), client).generate_structured_answer("q", {}, INSTRUCTIONS)
+            await OllamaProvider(make_settings(), client).generate_structured_answer("q", CONTEXT, INSTRUCTIONS)
     assert not consumed
 
 
@@ -127,7 +129,7 @@ async def test_missing_terminal_reason_is_not_assumed_success():
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         with pytest.raises(ProviderError, match="invalid_provider_response"):
-            await OllamaProvider(make_settings(), client).generate_structured_answer("q", {}, INSTRUCTIONS)
+            await OllamaProvider(make_settings(), client).generate_structured_answer("q", CONTEXT, INSTRUCTIONS)
 
 
 async def test_single_generation_across_provider_instances_and_cancellation():
@@ -154,9 +156,9 @@ async def test_single_generation_across_provider_instances_and_cancellation():
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         first = OllamaProvider(make_settings(), client)
         second = OllamaProvider(make_settings(), client)
-        running = asyncio.create_task(first.generate_structured_answer("q", {}, INSTRUCTIONS))
+        running = asyncio.create_task(first.generate_structured_answer("q", CONTEXT, INSTRUCTIONS))
         await entered.wait()
-        waiter = asyncio.create_task(second.generate_structured_answer("q", {}, INSTRUCTIONS))
+        waiter = asyncio.create_task(second.generate_structured_answer("q", CONTEXT, INSTRUCTIONS))
         await asyncio.sleep(0)
         waiter.cancel()
         with pytest.raises(asyncio.CancelledError):
@@ -167,7 +169,7 @@ async def test_single_generation_across_provider_instances_and_cancellation():
             await running
         assert cancelled.is_set() and active == 0
         release.set()
-        await asyncio.gather(*(p.generate_structured_answer("q", {}, INSTRUCTIONS) for p in (first, second)))
+        await asyncio.gather(*(p.generate_structured_answer("q", CONTEXT, INSTRUCTIONS) for p in (first, second)))
     assert calls == 3 and maximum == 1
 
 
@@ -181,11 +183,11 @@ async def test_queued_request_deadline_does_not_interrupt_active_generation():
         return httpx.Response(200, json=envelope())
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
-        running = asyncio.create_task(OllamaProvider(make_settings(), client).generate_structured_answer("q", {}, INSTRUCTIONS))
+        running = asyncio.create_task(OllamaProvider(make_settings(), client).generate_structured_answer("q", CONTEXT, INSTRUCTIONS))
         await entered.wait()
         try:
             with pytest.raises(ProviderError, match="timeout"):
-                await OllamaProvider(make_settings(LLM_TIMEOUT_SECONDS=1), client).generate_structured_answer("q", {}, INSTRUCTIONS)
+                await OllamaProvider(make_settings(LLM_TIMEOUT_SECONDS=1), client).generate_structured_answer("q", CONTEXT, INSTRUCTIONS)
             assert not running.done()
         finally:
             release.set()
@@ -199,7 +201,7 @@ async def test_existing_usage_manager_with_one_slot_does_not_deadlock():
     config = make_settings(LLM_MAX_CONCURRENCY=1)
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         provider = OllamaProvider(config, client)
-        result = await LLMUsageManager(get_session_factory(), config).generate(provider, "q", {}, INSTRUCTIONS)
+        result = await LLMUsageManager(get_session_factory(), config).generate(provider, "q", CONTEXT, INSTRUCTIONS)
         assert result.content.answer
 
 

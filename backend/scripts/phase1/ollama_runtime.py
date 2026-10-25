@@ -51,6 +51,33 @@ def snapshot() -> dict:
     }
 
 
+def resource_values(row):
+    """VM counters are system-wide; they cannot attribute paging to this daemon."""
+    import re
+
+    page_size = int(re.search(r"page size of (\d+)", row["vm_stat"])[1])
+    swapouts = int(re.search(r"Swapouts:\s+(\d+)", row["vm_stat"])[1])
+    swapins = int(re.search(r"Swapins:\s+(\d+)", row["vm_stat"])[1])
+    return {
+        "pressure": int(row["pressure_level"].split(":")[-1]),
+        "free_percent": int(re.search(r"free percentage:\s+(\d+)", row["memory_pressure"])[1]),
+        "swap_used_mib": float(re.search(r"used =\s*([\d.]+)M", row["swap"])[1]),
+        "swapout_mib": swapouts * page_size / 1048576,
+        "swapin_mib": swapins * page_size / 1048576,
+    }
+
+
+def excessive_pressure(current, before=None):
+    values = resource_values(current)
+    if values["pressure"] >= 4 or values["free_percent"] < 10:
+        return True
+    if before:
+        previous = resource_values(before)
+        return (values["swap_used_mib"] - previous["swap_used_mib"] > 768
+                or values["swapout_mib"] - previous["swapout_mib"] > 1024)
+    return False
+
+
 @contextlib.contextmanager
 def heavy_lock(wait_seconds: float = 600):
     """Same inode and macOS flock protocol used by the independent Chrome agent."""
