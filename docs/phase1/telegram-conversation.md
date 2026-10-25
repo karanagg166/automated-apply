@@ -52,7 +52,11 @@ model adequacy result. A small quantized model would need separate local latency
 accuracy and memory acceptance on the 8 GB Mac before enablement. See the official
 [Ollama API](https://github.com/ollama/ollama/blob/main/docs/api.md).
 
-The deployed worker uses online Supabase and preserved owner pairing. Fresh owner
-paraphrase/follow-up replies and a newly sent locked-screen pong must be correlated
-with actual online outbox/audit evidence before acceptance is complete. Unit tests
-and simulated Bot API transport do not establish those live results.
+The deployed worker uses online Supabase and preserved owner pairing. A fresh
+owner application-status request has matching dispatcher and sent-outbox evidence;
+the owner confirmed receiving replies. At 17:57:59 UTC on 2026-10-25, the final
+collector recorded macOS screen lock, a new sent pong and a fresh worker poll
+while locked. The owner confirmed that reply arrived. Earlier unsuccessful lock
+collection attempts remain historical evidence, not the current acceptance result.
+Live varied paraphrases, mistakes and contextual follow-ups still need matching
+roundtrips. Unit tests and simulated Bot API transport do not establish them.

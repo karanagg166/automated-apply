@@ -675,8 +675,8 @@
     "last_checked_at": "2026-10-25T16:17:16.886488+00:00"
   },
   "parallel_completion_run": {
-    "verified_at": "2026-10-25T17:26:02.565823+00:00",
-    "implementation_commit": "3c36982bbd9d919ebb45d811eca1571ae3862736",
+    "verified_at": "2026-10-25T18:14:20.048852+00:00",
+    "implementation_commit": "c89ad2c",
     "phase1_complete": false,
     "phase2_started": false,
     "remote_ddl_executed": false,
@@ -733,7 +733,70 @@
           "9a881ab2-4664-457b-b824-52565cd18614"
         ]
       },
-      "owner_reported_failure_resolved": false
+      "owner_reported_failure_resolved": true,
+      "owner_preview_retest": {
+        "checked_at": "2026-10-25T17:40:36.149696+00:00",
+        "stable_extension_id": "gdjbmkffcpicbpiikcohlmokkmcpipgp",
+        "owner_confirmed_visible_success": true,
+        "owner_confirmed_menu_registration": true,
+        "owner_controlled_preview_retest": true,
+        "fresh_online_audits": [
+          {
+            "created_at": "2026-10-25T17:39:20.230530+00:00",
+            "correlation_id": "fe65585d-d8e5-46ad-9907-214eccb76ffc",
+            "submitted": false,
+            "exact_authorized_form_url_matches": true
+          },
+          {
+            "created_at": "2026-10-25T17:39:04.368970+00:00",
+            "correlation_id": "d05c4b55-e584-4026-a98d-df80f8cfdb32",
+            "submitted": false,
+            "exact_authorized_form_url_matches": true
+          },
+          {
+            "created_at": "2026-10-25T17:39:03.300650+00:00",
+            "correlation_id": "db13052d-d83b-438a-bbe6-fd93d2091d0a",
+            "submitted": false,
+            "exact_authorized_form_url_matches": true
+          }
+        ],
+        "matched": true,
+        "no_form_fill_or_submission": true,
+        "owner_restart_offline_gestures_separately_verified": false
+      },
+      "latest_controlled_recheck": {
+        "evidence_type": "actual_Chrome_for_Testing_MV3_native_HTTP",
+        "profile": "isolated",
+        "stable_extension_id": "gdjbmkffcpicbpiikcohlmokkmcpipgp",
+        "checks": [
+          "ordinary_https",
+          "page_refresh",
+          "backend_offline_refused_loopback_visible",
+          "backend_recovery",
+          "real_approved_google_form_preview",
+          "real_google_redirect_to_form",
+          "rendered_extension_popup",
+          "unsupported_page",
+          "duplicate_gesture_coalesced",
+          "stale_extension_origin_rejected",
+          "extension_reload",
+          "chrome_restart_and_relocated_install"
+        ],
+        "correlations": [
+          "b0abf98c-7d68-46e5-a080-0c1c967c2c5e",
+          "c2f8419a-2682-43b1-9e71-7f39c6acdac9",
+          "912d1d4c-fa08-43a3-b2da-4f0e7b3107ab",
+          "b0a7efc4-6202-44c5-b43f-0470c7048fcf",
+          "b0a7efc4-6202-44c5-b43f-0470c7048fcf",
+          "04c706b8-799f-498a-aa97-35db7ed57418",
+          "b8335746-45a5-4b35-92c0-99294e062e27"
+        ],
+        "form_fields_read": false,
+        "form_fields_filled": false,
+        "submitted": false,
+        "owner_gestures_verified": false,
+        "browser_version": "156.0.8078.4"
+      }
     },
     "native_frame_rejections": [
       {
@@ -761,8 +824,8 @@
       "state": "connected",
       "identity_unchanged": true,
       "exact_compose_scopes": true,
-      "last_refresh_at": "2026-10-25T17:11:02.217895+00:00",
-      "verified_at": "2026-10-25T17:11:04.223174+00:00",
+      "last_refresh_at": "2026-10-25T18:14:42.112607+00:00",
+      "verified_at": "2026-10-25T18:14:43.871652+00:00",
       "mail_sent": false,
       "draft_created": false
     },
@@ -778,32 +841,64 @@
     },
     "telegram_worker": {
       "evidence_type": "live_poll",
-      "last_poll_at": "2026-10-25T17:10:59.198004+00:00",
+      "last_poll_at": "2026-10-25T18:14:29.847276+00:00",
       "last_error": null,
-      "sent_reply_count": 20,
+      "sent_reply_count": 23,
       "ambiguous_deliveries": 0
     },
-    "telegram_fresh_owner_acceptance": "pending_actual_owner_messages",
+    "telegram_fresh_owner_acceptance": {
+      "checked_at": "2026-10-25T17:37:50.175929+00:00",
+      "owner_confirmed_receiving_replies": true,
+      "online_supabase": true,
+      "last_poll_at": "2026-10-25T17:37:19.430196+00:00",
+      "last_error": null,
+      "fresh_matched_roundtrips": [
+        {
+          "created_at": "2026-10-25T17:36:14.954978+00:00",
+          "status": "application_status",
+          "ok": true,
+          "delivery_state": "sent",
+          "correlation_id": "fd2763cd-1c05-4583-8327-aa4473421efd",
+          "equivalent_example_intents": [
+            "Hi, what's my application status?"
+          ]
+        }
+      ],
+      "recent_context_categories": [
+        "APPLICATION_STATUS"
+      ],
+      "all_recent_roundtrips_count": 9,
+      "literal_message_text_retained": false,
+      "locked_screen_verified": true,
+      "remaining_live_examples": "varied_paraphrases_mistakes_and_contextual_followups"
+    },
     "locked_screen": {
-      "state": "pending_owner_action",
+      "state": "passed",
       "evidence_type": "actual_macOS_lock_property_and_PostgreSQL_live_worker",
-      "started_at": "2026-10-25T17:17:49.041367+00:00",
-      "screen_lock_observed": false,
-      "new_pong_sent_while_locked": false,
-      "live_poll_while_locked": false,
+      "started_at": "2026-10-25T17:52:36.601715+00:00",
+      "screen_lock_observed": true,
+      "new_pong_sent_while_locked": true,
+      "live_poll_while_locked": true,
       "latest_error_category": null,
-      "last_checked_at": "2026-10-25T17:27:52.303228+00:00",
-      "blocker": "owner_screen_lock_and_new_phone_ping_not_verified_before_deadline"
+      "last_checked_at": "2026-10-25T17:57:59.227119+00:00",
+      "last_poll_at": "2026-10-25T17:57:51.461088+00:00",
+      "verified_at": "2026-10-25T17:57:59.227096+00:00",
+      "owner_confirmed_receiving_reply": true
     },
     "vscode": {
       "client": "vs_code",
       "evidence_type": "actual_vscode_extension_API_no_model",
-      "state": "owner_trust_oauth_or_discovery_required",
+      "state": "verification_window_closed_before_discovery",
       "generation_requests": 0,
       "mutations": 0,
-      "verified_at": "2026-10-25T17:06:41.432Z",
+      "verified_at": "2026-10-25T18:12:34.158Z",
+      "workspace_trusted": true,
+      "mcp_access": "all",
+      "expected_workspace_config_present": true,
       "discovered_tools": [],
-      "observed_at": "2026-10-25T17:09:41.836Z"
+      "observed_at": "2026-10-25T18:12:52.225Z",
+      "extension_host_exit_code": 0,
+      "read_only_tool_invoked": false
     },
     "portal_pages": [
       {
@@ -880,7 +975,12 @@
         "notification_and_fact_invalidation_events",
         "TelegramKnowledgeAdapter_injection",
         "real_Drive_authorization_and_acceptance"
-      ]
+      ],
+      "frontend_push_ci": {
+        "state": "passed",
+        "url": "https://github.com/karanagg166/automated-apply/actions/runs/40215268877",
+        "scope": "frontend_only_not_module_backend_tests"
+      }
     },
     "actual_submissions": 0,
     "actual_emails_sent": 0,
@@ -897,6 +997,112 @@
       "sent_reply_count": 20,
       "ambiguous_deliveries": 0,
       "new_owner_conversation_audits": 0
-    }
+    },
+    "portal_owner_observations": [
+      {
+        "at": "2026-10-25T18:01:21.532136+00:00",
+        "ok": true,
+        "platform": "internshala",
+        "observation": "unverifiable",
+        "state": "owner_action_required",
+        "api_connected": false,
+        "identity_verified": false
+      }
+    ],
+    "portal_check_explanation": "Internshala gesture reached the backend; no supported visible sign-in indicator was found. Login, identity and applicant API remain unverified.",
+    "extension_message_fix": {
+      "unverifiable_result_explained": true,
+      "retained_across_popup_reopen": true,
+      "identity_and_API_claims_forbidden": true,
+      "tested_events": 18
+    },
+    "latest_online_verified_at": "2026-10-25T18:14:28.176735+00:00",
+    "platform_connections": [
+      {
+        "platform": "naukri",
+        "name": "Naukri",
+        "login_url": "https://www.naukri.com/nlogin/login",
+        "state": "owner_action_required",
+        "last_verification_time": null,
+        "evidence_type": "none",
+        "identity_verified": false,
+        "api_connected": false,
+        "capabilities": [
+          "manual_handoff",
+          "url_preview",
+          "gesture_session_observation"
+        ],
+        "submission": "unsupported",
+        "owner_acceptance_required": true
+      },
+      {
+        "platform": "wellfound",
+        "name": "Wellfound",
+        "login_url": "https://wellfound.com/login",
+        "state": "owner_action_required",
+        "last_verification_time": null,
+        "evidence_type": "none",
+        "identity_verified": false,
+        "api_connected": false,
+        "capabilities": [
+          "manual_handoff",
+          "url_preview",
+          "gesture_session_observation"
+        ],
+        "submission": "unsupported",
+        "owner_acceptance_required": true
+      },
+      {
+        "platform": "instahyre",
+        "name": "Instahyre",
+        "login_url": "https://www.instahyre.com/login/",
+        "state": "owner_action_required",
+        "last_verification_time": null,
+        "evidence_type": "none",
+        "identity_verified": false,
+        "api_connected": false,
+        "capabilities": [
+          "manual_handoff",
+          "url_preview",
+          "gesture_session_observation"
+        ],
+        "submission": "unsupported",
+        "owner_acceptance_required": true
+      },
+      {
+        "platform": "work_at_a_startup",
+        "name": "YC Work at a Startup",
+        "login_url": "https://account.ycombinator.com/magic?continue=https%3A%2F%2Fwww.workatastartup.com%2F",
+        "state": "owner_action_required",
+        "last_verification_time": null,
+        "evidence_type": "none",
+        "identity_verified": false,
+        "api_connected": false,
+        "capabilities": [
+          "manual_handoff",
+          "url_preview",
+          "gesture_session_observation"
+        ],
+        "submission": "unsupported",
+        "owner_acceptance_required": true
+      },
+      {
+        "platform": "internshala",
+        "name": "Internshala",
+        "login_url": "https://internshala.com/login/",
+        "state": "owner_action_required",
+        "last_verification_time": "2026-10-25T18:01:20.860947+00:00",
+        "evidence_type": "extension_gesture_dom_indicator",
+        "identity_verified": false,
+        "api_connected": false,
+        "capabilities": [
+          "manual_handoff",
+          "url_preview",
+          "gesture_session_observation"
+        ],
+        "submission": "unsupported",
+        "owner_acceptance_required": true
+      }
+    ]
   }
 }

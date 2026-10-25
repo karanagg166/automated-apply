@@ -4,9 +4,10 @@ Phase 1 supports URL preview and connection checks. It never fills or submits a
 Google Form. “Check this portal session” applies only to the five supported job
 portals; using that action on Google Forms is unsupported.
 
-The reported owner failure remains open until its exact action/error is confirmed
-or the failing owner workflow is retested. A separately reproduced installation
-fault is fixed: the old native manifest authorized the ID derived from the
+The owner repeated the Google Forms preview with the stable installation and
+reported visible success and a registered right-click menu. Three fresh matching
+online audit records confirm that preview; all have submitted=false. A reproduced
+installation fault is fixed: the old native manifest authorized the ID derived from the
 `/private/tmp` checkout, while another installation path produced a different ID.
 Real Chrome for Testing rejected the relocated origin with “Access to the
 specified native messaging host is forbidden.” An isolated profile without its
@@ -53,7 +54,24 @@ The same Chrome checks reached the actual online API and seven corresponding
 Supabase audit records under the stable extension ID. No Form fields were read,
 filled or submitted. The test invokes the extension's own preview module in an
 extension page, and reads the popup result. It is not proof of a new owner-profile
-toolbar/context-menu gesture; that distinction is retained in live evidence.
+toolbar/context-menu gesture; the owner's separate successful gesture and its
+three matching audit records are recorded independently in live evidence.
+
+## Job portal session checks
+
+The owner-triggered Internshala check reached the actual backend and persisted
+`observation=unverifiable`, `state=owner_action_required`. This is an inconclusive
+browser observation, not a backend connection failure or evidence of a login.
+The detector returns only fixed enums from visible logout controls and password
+fields. A hidden account menu can leave it without an observable sign-in signal.
+
+The popup now explains each result, retains the last observation when reopened,
+and distinguishes login-required, inconclusive and observed indicators. When
+already signed in, open the portal account menu so Log out is visible, then
+repeat **Check this portal session**. A portal can also be explicitly accepted as
+manual-only in Connections Center. Neither choice proves account identity,
+applicant API access or supported automatic applications. The owner has not yet
+accepted manual-only support for the five portals; no acceptance was inferred.
 
 Run from `frontend/`, with absolute private probe paths:
 

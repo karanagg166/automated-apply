@@ -11,7 +11,7 @@ Current parent results:
   pypdf fixture deprecation warnings; actual separate disposable PostgreSQL 17.
 - Frontend: **43 unit tests**, type check, generated API types, formatting,
   production build and **8 Playwright journeys** passed.
-- Extension: **13 event tests** passed; **12 actual Chrome for Testing checks**
+- Extension: **18 event tests** passed; **12 actual Chrome for Testing checks**
   passed against disposable and online backends. **7 online Supabase audits**
   exactly matched stable-origin preview correlations; all submitted=false.
 - Actual native wrong-origin, malformed, oversized and partial-frame rejection:
@@ -27,7 +27,9 @@ Hosted CI on the first implementation commit caught stale generated API types an
 an existing secret-baseline fixture line number after inserting test environment
 controls. Both are corrected. Full backend tests and Phase 1 connection CI passed
 in that run; the jobs are not reported green until all final-head checks finish.
-The final PR checks are verified against the actual final SHA before handoff.
+All five checks passed on `8428f9c`; that result is historical once the branch
+advances. The final PR checks are verified against the actual final SHA before
+handoff and linked in PR #18.
 
 The configured YC /login URL returned real HTTP 404. Its official homepage links
 to account.ycombinator.com/magic with a return to Work at a Startup; that endpoint
@@ -36,12 +38,23 @@ login pages returned HTTP 200 in a separate Chrome profile. None of those page
 loads proves login, identity or API authorization. Owner login/observation or
 explicit manual-only acceptance is still required for all five portals.
 
-Remaining owner acceptance: exact failing Forms action/personal-profile retest,
-fresh Telegram paraphrases/follow-ups and locked-screen pong, VS Code trust/OAuth
-plus actual get_project_url, reviewed canonical personal facts/resume, and separate
-PR #19 review before its integration. The ten-minute observer ended without a screen lock or new pong; this is
-unverified. The updated online worker is polling; an awake machine alone is not
-proof of locked-screen delivery. AGY generation stays
+The owner successfully retested Google Forms preview with the stable extension;
+three fresh online audit records match the authorized URL and submitted=false.
+The final locked-screen observer passed at 17:57:59 UTC: actual macOS lock,
+fresh online poll and new sent pong were observed together, and the owner confirmed
+receiving the reply. A fresh application-status request also has matching dispatch
+and sent-outbox evidence. Earlier incomplete observer attempts are retained.
+
+The actual Internshala session-check gesture reached the backend and saved an
+inconclusive indicator. Login, identity and API access remain unverified. Its
+popup now explains the result and how to retry with a visible account menu.
+
+Remaining owner acceptance: live varied Telegram paraphrases/mistakes/follow-ups,
+VS Code server trust/OAuth plus actual get_project_url, five portal acceptances,
+reviewed canonical personal facts/resume, and separate PR #19 review before its
+deliberate integration. The controlled VS Code workspace is trusted and MCP access
+is enabled; the verification window closed before tool discovery or a read-only
+call. AGY generation stays
 disabled under the accepted tool-isolation limitation; no working local model or
 open-ended ChatGPT-level conversation is claimed.
 

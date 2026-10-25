@@ -1,9 +1,9 @@
 {
   "phase": 1,
   "status": "incomplete_owner_acceptance_and_separate_module_review_pending",
-  "generated_at": "2026-10-25T17:26:02.565823+00:00",
+  "generated_at": "2026-10-25T18:14:20.048852+00:00",
   "branch": "feat/phase1-local-connections",
-  "implementation_commit": "3c36982bbd9d919ebb45d811eca1571ae3862736",
+  "implementation_commit": "c89ad2c",
   "report_commit_note": "This report is committed as a follow-up to the recorded implementation commit.",
   "pull_request": "https://github.com/karanagg166/automated-apply/pull/18",
   "phase2_started": false,
@@ -45,7 +45,7 @@
     },
     "frontend_unit": 43,
     "frontend_e2e": 8,
-    "extension_event_simulations": 13,
+    "extension_event_simulations": 18,
     "installation_filesystem_tests": 5,
     "managed_postgresql_tables": 47,
     "managed_security_faults_rejected": 12,
@@ -57,13 +57,19 @@
     "ruff": "passed",
     "bandit": "passed",
     "hosted_ci": {
-      "final_head_result": "pending_final_report_commit",
-      "previous_implementation_head": "3c36982bbd9d919ebb45d811eca1571ae3862736",
+      "final_head_result": "check_actual_report_commit_in_PR18_after_commit",
+      "previous_implementation_head": "8428f9c",
       "previous_failures": [
         "frontend_generated_API_types_drift_corrected",
         "backend_secret_baseline_line_number_drift_corrected"
       ],
-      "required_checks_not_disabled": true
+      "required_checks_not_disabled": true,
+      "previous_implementation_result": "all_five_checks_passed",
+      "previous_head_urls": [
+        "https://github.com/karanagg166/automated-apply/actions/runs/40218911276",
+        "https://github.com/karanagg166/automated-apply/actions/runs/40218911280",
+        "https://github.com/karanagg166/automated-apply/actions/runs/40218911273"
+      ]
     },
     "additional_oauth_compose_regressions": {
       "passed": 46,
@@ -91,7 +97,9 @@
         "public_Git_hashes"
       ],
       "rules_changed": false
-    }
+    },
+    "actual_owner_Chrome_preview_retest": "passed_stable_ID_three_matching_online_audits",
+    "actual_owner_locked_screen_telegram": "passed_macOS_lock_new_sent_pong_fresh_poll_owner_received"
   },
   "connections": [
     {
@@ -179,7 +187,7 @@
       "owner_approval_completed": false,
       "owner_action_needed": true,
       "last_verification_time": null,
-      "remaining_blocker": "actual_VS_Code_verifier_discovered_zero_tools_owner_trust_or_OAuth_required",
+      "remaining_blocker": "trusted_verification_window_closed_before_tool_discovery_or_read_only_call",
       "safe_next_action": "Run named client OAuth and read-only verification; see setup guide",
       "evidence_type": "configuration_inspection"
     },
@@ -205,17 +213,17 @@
       "configured": true,
       "authenticated": true,
       "actually_verified": true,
-      "status": "awaiting_approval",
-      "verified_scope": "isolated_actual_Chrome_native_online_preview",
+      "status": "verified",
+      "verified_scope": "owner_Chrome_stable_ID_preview_and_matching_online_audits_plus_controlled_actual_lifecycle",
       "supported_capabilities": [
         "url_preview"
       ],
-      "owner_approval_completed": false,
-      "owner_action_needed": true,
-      "last_verification_time": "2026-10-25T17:26:02.565823+00:00",
-      "remaining_blocker": "reported_owner_Forms_action_and_personal_profile_retest_pending",
-      "safe_next_action": "Load stable runtime extension gdjbmkffcpicbpiikcohlmokkmcpipgp and deliberately repeat the failing preview; no filling.",
-      "evidence_type": "actual_Chrome_for_Testing_MV3_native_and_seven_matching_online_audits"
+      "owner_approval_completed": true,
+      "owner_action_needed": false,
+      "last_verification_time": "2026-10-25T17:40:36.149696+00:00",
+      "remaining_blocker": null,
+      "safe_next_action": "Preview only; portal session indicators are separate and do not establish identity or applicant API authorization.",
+      "evidence_type": "owner_visible_preview_three_online_audits_and_actual_controlled_Chrome_lifecycle"
     },
     {
       "connection_name": "Native messaging host",
@@ -223,17 +231,17 @@
       "configured": true,
       "authenticated": true,
       "actually_verified": true,
-      "status": "awaiting_approval",
-      "verified_scope": "isolated_actual_Chrome_native_online_preview",
+      "status": "verified",
+      "verified_scope": "owner_Chrome_stable_ID_preview_and_matching_online_audits_plus_controlled_actual_lifecycle",
       "supported_capabilities": [
         "url_preview"
       ],
-      "owner_approval_completed": false,
-      "owner_action_needed": true,
-      "last_verification_time": "2026-10-25T17:26:02.565823+00:00",
-      "remaining_blocker": "reported_owner_Forms_action_and_personal_profile_retest_pending",
-      "safe_next_action": "Load stable runtime extension gdjbmkffcpicbpiikcohlmokkmcpipgp and deliberately repeat the failing preview; no filling.",
-      "evidence_type": "actual_Chrome_for_Testing_MV3_native_and_seven_matching_online_audits"
+      "owner_approval_completed": true,
+      "owner_action_needed": false,
+      "last_verification_time": "2026-10-25T17:40:36.149696+00:00",
+      "remaining_blocker": null,
+      "safe_next_action": "Preview only; portal session indicators are separate and do not establish identity or applicant API authorization.",
+      "evidence_type": "owner_visible_preview_three_online_audits_and_actual_controlled_Chrome_lifecycle"
     },
     {
       "connection_name": "Telegram worker",
@@ -242,15 +250,15 @@
       "authenticated": true,
       "actually_verified": true,
       "status": "verified",
-      "verified_scope": "existing_online_owner_roundtrip_new_routing_deployed_fresh_acceptance_pending",
+      "verified_scope": "owner_application_status_and_locked_screen_new_pong_with_online_dispatch_outbox",
       "supported_capabilities": [
         "private_commands",
         "preview_only"
       ],
       "owner_approval_completed": true,
       "owner_action_needed": true,
-      "last_verification_time": "2026-10-25T16:12:32.304833Z",
-      "remaining_blocker": "fresh_paraphrases_followups_and_locked_screen_reply_pending",
+      "last_verification_time": "2026-10-25T17:57:59.227096+00:00",
+      "remaining_blocker": "remaining_live_varied_paraphrases_and_contextual_followups",
       "safe_next_action": "Configure private bot and numeric owner IDs; start worker; /ping; locked-screen test pending",
       "evidence_type": "live_poll_sent_reply_and_dispatch_audit"
     },
@@ -513,9 +521,9 @@
       ],
       "owner_approval_completed": true,
       "owner_action_needed": false,
-      "last_verification_time": "2026-10-25T13:59:18.218115Z",
+      "last_verification_time": "2026-10-25T18:14:43.871652+00:00",
       "remaining_blocker": null,
-      "safe_next_action": "Preserve secondary identity; compose authorization is tracked separately.",
+      "safe_next_action": "Preserve verified identity and compose scopes; sending remains disabled.",
       "evidence_type": "persisted_verified_oauth_identity"
     },
     {
@@ -531,9 +539,9 @@
       ],
       "owner_approval_completed": true,
       "owner_action_needed": false,
-      "last_verification_time": "2026-10-25T13:59:18.218115Z",
+      "last_verification_time": "2026-10-25T18:14:43.871652+00:00",
       "remaining_blocker": null,
-      "safe_next_action": "Authorize gmail.compose through existing OAuth flow; no drafts or sends in Phase 1",
+      "safe_next_action": "Preserve verified identity and compose scopes; sending remains disabled.",
       "evidence_type": "persisted_verified_oauth_scope"
     },
     {
@@ -604,9 +612,8 @@
     "review_separate_draft_PR19_before_deliberate_integration",
     "confirm_canonical_profile_and_resume",
     "complete_five_platform_observations_or_explicit_manual_only_acceptances",
-    "retest_reported_Forms_failure_in_owner_Chrome_with_stable_extension",
     "vs_code_mcp_oauth_discovery_and_project_url",
-    "fresh_owner_Telegram_paraphrases_followups_and_locked_screen_reply"
+    "fresh_owner_Telegram_varied_paraphrases_mistakes_and_contextual_followups"
   ],
   "current_session_remote_ddl_executed": false,
   "profile_context_workstream": {
@@ -631,11 +638,23 @@
       "notification_and_fact_invalidation_events",
       "TelegramKnowledgeAdapter_injection",
       "real_Drive_authorization_and_acceptance"
-    ]
+    ],
+    "frontend_push_ci": {
+      "state": "passed",
+      "url": "https://github.com/karanagg166/automated-apply/actions/runs/40215268877",
+      "scope": "frontend_only_not_module_backend_tests"
+    }
   },
   "locked_screen_acceptance": {
-    "verified": false,
-    "blocker": "owner_screen_lock_and_new_phone_ping_not_verified_before_deadline"
+    "verified": true,
+    "verified_at": "2026-10-25T17:57:59.227096+00:00",
+    "macOS_screen_lock_observed": true,
+    "new_pong_sent_while_locked": true,
+    "fresh_poll_while_locked": true,
+    "owner_confirmed_received": true
   },
-  "current_session_telegram_fresh_owner_examples_verified": false
+  "current_session_telegram_fresh_owner_examples_verified": {
+    "application_status": true,
+    "varied_paraphrases_and_contextual_followups": false
+  }
 }
