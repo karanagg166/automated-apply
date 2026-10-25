@@ -1,6 +1,8 @@
 """Public login links and gesture-scoped observations; never a credential store."""
 from datetime import datetime, timezone
 
+from sqlalchemy import select
+
 from backend.app.dashboard.models import OwnerPreference
 
 PLATFORMS = {
@@ -12,10 +14,14 @@ PLATFORMS = {
 }
 
 
-async def platform_connections(session):
+async def platform_connections(session, *, records=None):
+    if records is None:
+        keys = ["portal_" + platform for platform in PLATFORMS]
+        records = {row.key: row for row in (await session.scalars(
+            select(OwnerPreference).where(OwnerPreference.key.in_(keys)))).all()}
     rows = []
     for platform, (name, login_url) in PLATFORMS.items():
-        record = await session.get(OwnerPreference, "portal_" + platform)
+        record = records.get("portal_" + platform)
         value = record.value if record else {}
         rows.append({"platform": platform, "name": name, "login_url": login_url,
             "state": value.get("state", "owner_action_required"),

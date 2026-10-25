@@ -136,7 +136,11 @@ async def connection_report(session, settings, *, api_request=False):
         last_verification_time=now if api_verified else None, capabilities=["preview_commands"])
     import json
 
+    from backend.app.local_agent.platforms import PLATFORMS, platform_connections
     from backend.app.operations.migrations import ROOT
+    keys = ["portal_" + platform for platform in PLATFORMS] + ["phase1_profile_confirmation", "phase1_agy_limitation"]
+    preferences = {row.key: row for row in (await session.scalars(
+        select(OwnerPreference).where(OwnerPreference.key.in_(keys)))).all()}
     cli = read_private_evidence(ROOT / "reports/phase1/supabase-cli.private.json")
     cli_verified = (cli.get("project_ref") == settings.SUPABASE_PROJECT_REF
         and cli.get("cli_account_access_verified") is True and cli.get("status") == "ACTIVE_HEALTHY")
@@ -196,12 +200,11 @@ async def connection_report(session, settings, *, api_request=False):
         from uuid import NAMESPACE_URL, uuid5
         deliveries = (await session.scalars(select(TelegramDelivery).where(
             TelegramDelivery.state == "sent").order_by(TelegramDelivery.update_id.desc()).limit(10))).all()
-        for delivery in deliveries:
-            request_id = uuid5(NAMESPACE_URL, f"telegram:{settings.TELEGRAM_OWNER_CHAT_ID}:{delivery.update_id}")
-            operation = await session.get(AgentOperation, f"telegram:{settings.TELEGRAM_OWNER_USER_ID}:{request_id}")
-            if operation and operation.result.get("ok") is True:
-                telegram_roundtrip = True
-                break
+        operation_keys = [f"telegram:{settings.TELEGRAM_OWNER_USER_ID}:" + str(uuid5(
+            NAMESPACE_URL, f"telegram:{settings.TELEGRAM_OWNER_CHAT_ID}:{delivery.update_id}")) for delivery in deliveries]
+        if operation_keys:
+            telegram_roundtrip = bool(await session.scalar(select(AgentOperation.key).where(
+                AgentOperation.key.in_(operation_keys), AgentOperation.result["ok"].as_boolean().is_(True)).limit(1)))
     add("Telegram worker", "core", bool(settings.TELEGRAM_BOT_TOKEN),
         ConnectionState.VERIFIED if telegram_roundtrip else ConnectionState.AUTHENTICATED if fresh else ConnectionState.DISCONNECTED if poll else None,
         identity_verification="getMe_bot_id_verified" if poll and poll.bot_id and poll.evidence_type == "live_poll" else "unverified",
@@ -210,8 +213,7 @@ async def connection_report(session, settings, *, api_request=False):
         last_verification_time=poll.last_poll_at if poll else None,
         latest_error_category=poll.last_error if poll else None, capabilities=["private_commands", "preview_only"],
         safe_next_action="Configure private bot and numeric owner IDs; start worker; /ping; locked-screen test pending")
-    from backend.app.local_agent.platforms import platform_connections
-    for portal in await platform_connections(session):
+    for portal in await platform_connections(session, records=preferences):
         add(portal["name"], "platforms", configured=bool(portal["last_verification_time"]),
             state=ConnectionState(portal["state"]), platform=portal["platform"],
             capabilities=portal["capabilities"], last_verification_time=portal["last_verification_time"],
@@ -230,7 +232,7 @@ async def connection_report(session, settings, *, api_request=False):
     agy_auth = read_private_evidence(ROOT / "reports/phase1/agy-auth.private.json")
     agy_authenticated = agy_auth.get("authenticated_read_verified") is True and agy_auth.get("num_turns") == 0
     agy_failed = agy_evidence.get("state") == "failed_no_retry"
-    agy_acceptance = await session.get(OwnerPreference, "phase1_agy_limitation")
+    agy_acceptance = preferences.get("phase1_agy_limitation")
     agy_accepted = bool(agy_acceptance and agy_acceptance.value.get("owner_accepted") is True
         and agy_acceptance.value.get("cli_version") == "1.4.7"
         and agy_acceptance.value.get("generation_disabled") is True)
@@ -283,12 +285,12 @@ async def connection_report(session, settings, *, api_request=False):
     from backend.app.models.application_answer import CandidateResource
     from backend.app.models.candidate_profile import CandidateProfile
     profile = await session.scalar(select(CandidateProfile).where(CandidateProfile.singleton_key == "primary"))
-    resume = await session.scalar(select(CandidateResource).where(CandidateResource.candidate_profile_id == profile.id,
-        CandidateResource.resource_type == "resume", CandidateResource.is_primary.is_(True), CandidateResource.user_confirmed.is_(True))) if profile else None
-    stored_file = await session.scalar(select(PrivateResume).where(PrivateResume.resource_id == resume.id,
-        PrivateResume.confirmed.is_(True))) if resume else None
+    stored_file = await session.scalar(select(PrivateResume).join(CandidateResource,
+        PrivateResume.resource_id == CandidateResource.id).where(CandidateResource.candidate_profile_id == profile.id,
+        CandidateResource.resource_type == "resume", CandidateResource.is_primary.is_(True),
+        CandidateResource.user_confirmed.is_(True), PrivateResume.confirmed.is_(True))) if profile else None
     from backend.app.local_agent.profile_confirmation import confirmation_matches
-    confirmation = await session.get(OwnerPreference, "phase1_profile_confirmation")
+    confirmation = preferences.get("phase1_profile_confirmation")
     reviewed = confirmation_matches(profile, confirmation.value if confirmation else {})
     profile_ready = bool(reviewed and profile.verified_skills and profile.verified_experience_years is not None
                          and profile.preferences.get("target_titles") and profile.preferences.get("preferred_locations"))
