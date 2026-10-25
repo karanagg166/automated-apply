@@ -1,9 +1,9 @@
 {
   "phase": 1,
   "status": "incomplete_owner_actions_and_external_capability_acceptance_pending",
-  "generated_at": "2026-10-25T14:13:51.213209+00:00",
+  "generated_at": "2026-10-25T16:17:19.905094+00:00",
   "branch": "feat/phase1-local-connections",
-  "implementation_commit": "34b3f61de9389166a12a6b3805b4e05f45fa6a41",
+  "implementation_commit": "399bd61d22a8f3732f94813952e18561339d66d1",
   "report_commit_note": "This report is committed as a follow-up to the recorded implementation commit.",
   "pull_request": "https://github.com/karanagg166/automated-apply/pull/18",
   "phase2_started": false,
@@ -39,7 +39,7 @@
       "passed": 1487,
       "failed": 0,
       "skipped": 0,
-      "seconds": 124.72,
+      "seconds": 120.26,
       "warnings": 2,
       "postgresql": "actual_isolated_17"
     },
@@ -57,60 +57,60 @@
     "ruff": "passed",
     "bandit": "passed",
     "hosted_ci": {
-      "implementation_head": "34b3f61de9389166a12a6b3805b4e05f45fa6a41",
+      "implementation_head": "399bd61d22a8f3732f94813952e18561339d66d1",
       "checks": [
         {
           "__typename": "CheckRun",
-          "completedAt": "2026-10-25T14:07:42Z",
-          "conclusion": "SUCCESS",
-          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40200306043/job/121189879903",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40210809803/job/121221418139",
           "name": "backend",
-          "startedAt": "2026-10-25T14:01:39Z",
-          "status": "COMPLETED",
+          "startedAt": "2026-10-25T16:15:31Z",
+          "status": "IN_PROGRESS",
           "workflowName": "Backend CI"
         },
         {
           "__typename": "CheckRun",
-          "completedAt": "2026-10-25T14:04:45Z",
-          "conclusion": "SUCCESS",
-          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40200305936/job/121189878607",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40210809769/job/121221417916",
           "name": "frontend",
-          "startedAt": "2026-10-25T14:01:38Z",
-          "status": "COMPLETED",
+          "startedAt": "2026-10-25T16:15:30Z",
+          "status": "IN_PROGRESS",
           "workflowName": "Frontend CI"
         },
         {
           "__typename": "CheckRun",
-          "completedAt": "2026-10-25T14:04:45Z",
-          "conclusion": "SUCCESS",
-          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40200303042/job/121189869329",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40210805645/job/121221405359",
           "name": "frontend",
-          "startedAt": "2026-10-25T14:01:35Z",
-          "status": "COMPLETED",
+          "startedAt": "2026-10-25T16:15:27Z",
+          "status": "IN_PROGRESS",
           "workflowName": "Frontend CI"
         },
         {
           "__typename": "CheckRun",
-          "completedAt": "2026-10-25T14:04:16Z",
-          "conclusion": "SUCCESS",
-          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40200305974/job/121189878559",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40210809830/job/121221418270",
           "name": "connections",
-          "startedAt": "2026-10-25T14:01:38Z",
-          "status": "COMPLETED",
+          "startedAt": "2026-10-25T16:15:31Z",
+          "status": "IN_PROGRESS",
           "workflowName": "Phase 1 connection foundation"
         },
         {
           "__typename": "CheckRun",
-          "completedAt": "2026-10-25T14:03:43Z",
-          "conclusion": "SUCCESS",
-          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40200302980/job/121189868994",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40210805646/job/121221405274",
           "name": "connections",
-          "startedAt": "2026-10-25T14:01:36Z",
-          "status": "COMPLETED",
+          "startedAt": "2026-10-25T16:15:27Z",
+          "status": "IN_PROGRESS",
           "workflowName": "Phase 1 connection foundation"
         }
       ],
-      "latest_head_result": "passed"
+      "latest_head_result": "pending"
     },
     "additional_oauth_compose_regressions": {
       "passed": 46,
@@ -150,7 +150,7 @@
       ],
       "owner_approval_completed": true,
       "owner_action_needed": false,
-      "last_verification_time": "2026-10-25T14:01:29.178965Z",
+      "last_verification_time": "2026-10-25T16:12:43.365040Z",
       "remaining_blocker": null,
       "safe_next_action": "Review docs/phase1/setup.md",
       "evidence_type": "live_tls_catalog_probe"
@@ -168,7 +168,7 @@
       ],
       "owner_approval_completed": true,
       "owner_action_needed": false,
-      "last_verification_time": "2026-10-25T14:01:29.178965Z",
+      "last_verification_time": "2026-10-25T16:12:43.365040Z",
       "remaining_blocker": null,
       "safe_next_action": "Review docs/phase1/setup.md",
       "evidence_type": "current_authenticated_api_request"
@@ -291,7 +291,7 @@
       ],
       "owner_approval_completed": true,
       "owner_action_needed": false,
-      "last_verification_time": "2026-10-25T14:01:28.270485Z",
+      "last_verification_time": "2026-10-25T16:12:32.304833Z",
       "remaining_blocker": null,
       "safe_next_action": "Configure private bot and numeric owner IDs; start worker; /ping; locked-screen test pending",
       "evidence_type": "live_poll_sent_reply_and_dispatch_audit"
