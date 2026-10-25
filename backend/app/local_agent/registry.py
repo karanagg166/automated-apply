@@ -89,7 +89,7 @@ async def connection_report(session, settings, *, api_request=False):
         # A dispatched command may already hold the sole pooled connection.
         # Reuse that authenticated session and run the same public catalog/RLS/TLS
         # checks; opening another engine connection would deadlock small pools.
-        async with asyncio.timeout(10):
+        async with asyncio.timeout(20):
             require_session_target(session, settings)
             await verify_remote_address(settings)
             await session.execute(text("SELECT 1"))

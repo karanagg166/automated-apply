@@ -57,7 +57,7 @@ def forward(command, settings, client=None):
         raise ValueError("native_not_configured")
     headers = {"Authorization": "Bearer " + token.get_secret_value(), "X-Agent-Client": settings.CHROME_EXTENSION_ID}
     try:
-        with httpx.Client(timeout=20, follow_redirects=False, trust_env=False) if client is None else client as transport:
+        with httpx.Client(timeout=40, follow_redirects=False, trust_env=False) if client is None else client as transport:
             with transport.stream("POST", settings.LOCAL_AGENT_ENDPOINT + "/api/v1/local-agent/chrome",
                     json=command.model_dump(mode="json"), headers=headers) as response:
                 if response.status_code != 200:

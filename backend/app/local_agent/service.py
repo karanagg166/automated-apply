@@ -26,7 +26,7 @@ async def dispatch(session, settings, actor: Actor, command: Command):
         if previous.payload_hash != digest:
             return Result(request_id=command.request_id, ok=False, capability="denied", error_code="request_id_conflict")
         return Result.model_validate(previous.result)
-    async with asyncio.timeout(15):
+    async with asyncio.timeout(35):
         result = await execute(session, settings, actor, command)
         try:
             async with session.begin_nested():

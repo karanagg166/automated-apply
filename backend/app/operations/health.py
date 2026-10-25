@@ -11,7 +11,9 @@ from backend.app.db.safety import database_target, verify_remote_address
 async def database_health(engine, settings):
     if engine.url != database_target(settings):
         raise RuntimeError("database_engine_target_mismatch")
-    async with asyncio.timeout(10):
+    # A full remote catalog audit needs multiple round trips; the verified
+    # Tokyo endpoint takes about 11 seconds including the TLS connection.
+    async with asyncio.timeout(30):
         await verify_remote_address(settings)
         async with engine.connect() as connection:
             if settings.ENVIRONMENT == "testing":
