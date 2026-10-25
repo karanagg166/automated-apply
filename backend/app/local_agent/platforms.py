@@ -9,7 +9,7 @@ PLATFORMS = {
     "naukri": ("Naukri", "https://www.naukri.com/nlogin/login"),
     "wellfound": ("Wellfound", "https://wellfound.com/login"),
     "instahyre": ("Instahyre", "https://www.instahyre.com/login/"),
-    "work_at_a_startup": ("YC Work at a Startup", "https://www.workatastartup.com/login"),
+    "work_at_a_startup": ("YC Work at a Startup", "https://account.ycombinator.com/magic?continue=https%3A%2F%2Fwww.workatastartup.com%2F"),
     "internshala": ("Internshala", "https://internshala.com/login/"),
 }
 

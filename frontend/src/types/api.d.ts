@@ -2845,7 +2845,16 @@ export interface components {
         | "GMAIL_DRAFT_PREVIEW"
         | "FOUNDER_RESEARCH_PREVIEW"
         | "HELP"
-        | "UNKNOWN";
+        | "UNKNOWN"
+        | "GENERAL_CHAT"
+        | "FOLLOW_UP"
+        | "JOB_COMPARISON"
+        | "PROFILE_QUERY"
+        | "PROJECT_QUERY"
+        | "RESUME_STATUS"
+        | "APPROVAL_REQUEST"
+        | "RESET_CONTEXT"
+        | "ANSWER_PREPARATION";
       /** Company */
       company?: string | null;
       /** Role */
@@ -2879,7 +2888,36 @@ export interface components {
       job_id?: string | null;
       /** Connection */
       connection?:
-        ("gmail" | "telegram" | "supabase" | "chrome" | "agy") | null;
+        | (
+            | "gmail"
+            | "telegram"
+            | "supabase"
+            | "chrome"
+            | "agy"
+            | "naukri"
+            | "wellfound"
+            | "instahyre"
+            | "internshala"
+            | "yc"
+          )
+        | null;
+      /** Subject */
+      subject?: string | null;
+      /** Project Rank */
+      project_rank?: number | null;
+      /** Follow Up */
+      follow_up?:
+        ("filter" | "selected" | "prepare" | "answer" | "clarify") | null;
+      /**
+       * Max Words
+       * @default 100
+       */
+      max_words: number;
+      /**
+       * Max Characters
+       * @default 3500
+       */
+      max_characters: number;
     };
     /**
      * JobMatchResult

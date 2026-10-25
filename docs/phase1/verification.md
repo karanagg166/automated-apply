@@ -1,3 +1,55 @@
+# Current parallel completion verification — 2026-10-25
+
+Phase 1 remains **incomplete**. PR #18 is draft/unmerged; Phase 2 and PR #17 are untouched.
+The independent profile/resume/project work is **module_complete** in draft PR #19,
+`aaed0af`, targeting the Phase 1 branch. It has 86 dedicated passing tests but is
+unmerged and not production_connected. See [handoff](profile-context-handoff.md).
+
+Current parent results:
+
+- Full backend: **1,530 passed, zero failed/skipped**, 125.83 seconds, two existing
+  pypdf fixture deprecation warnings; actual separate disposable PostgreSQL 17.
+- Frontend: **43 unit tests**, type check, generated API types, formatting,
+  production build and **8 Playwright journeys** passed.
+- Extension: **13 event tests** passed; **12 actual Chrome for Testing checks**
+  passed against disposable and online backends. **7 online Supabase audits**
+  exactly matched stable-origin preview correlations; all submitted=false.
+- Actual native wrong-origin, malformed, oversized and partial-frame rejection:
+  **4 passed**. The separate actual native/FastAPI/PostgreSQL restart lifecycle passed.
+- Live Supabase restricted public catalog/TLS and PostgreSQL 17.11 passed. No new
+  DDL or privileges, no credential/key rotation. Gmail identity/compose refresh
+  and exact unchanged identity/scopes passed; zero sends or draft creations.
+- Ruff, Bandit, dependency audits (zero known Python/npm vulnerabilities), and
+  secret scanning passed locally. Only the validated public RSA manifest key was
+  newly classified as a scanner false positive; no rules were disabled.
+
+Hosted CI on the first implementation commit caught stale generated API types and
+an existing secret-baseline fixture line number after inserting test environment
+controls. Both are corrected. Full backend tests and Phase 1 connection CI passed
+in that run; the jobs are not reported green until all final-head checks finish.
+The final PR checks are verified against the actual final SHA before handoff.
+
+The configured YC /login URL returned real HTTP 404. Its official homepage links
+to account.ycombinator.com/magic with a return to Work at a Startup; that endpoint
+returned real HTTP 200 and replaces the stale login URL. The other four official
+login pages returned HTTP 200 in a separate Chrome profile. None of those page
+loads proves login, identity or API authorization. Owner login/observation or
+explicit manual-only acceptance is still required for all five portals.
+
+Remaining owner acceptance: exact failing Forms action/personal-profile retest,
+fresh Telegram paraphrases/follow-ups and locked-screen pong, VS Code trust/OAuth
+plus actual get_project_url, reviewed canonical personal facts/resume, and separate
+PR #19 review before its integration. The ten-minute observer ended without a screen lock or new pong; this is
+unverified. The updated online worker is polling; an awake machine alone is not
+proof of locked-screen delivery. AGY generation stays
+disabled under the accepted tool-isolation limitation; no working local model or
+open-ended ChatGPT-level conversation is claimed.
+
+See [Chrome diagnostics](chrome-troubleshooting.md), [Telegram architecture](telegram-conversation.md)
+and `live-evidence.json` for real/simulated scopes. Earlier evidence is retained below.
+
+---
+
 # Phase 1 verification and remaining owner acceptance
 
 Phase 1 remains **incomplete**. PR #18 stays a draft, no merge is authorized and Phase 2 has not started. The online Supabase database is permanent. No existing credentials were rotated/revoked, no real application or email was sent, no real Gmail draft was created, and no new AI generation or paid request was made in this completion session.

@@ -1,9 +1,9 @@
 {
   "phase": 1,
-  "status": "incomplete_owner_actions_and_external_capability_acceptance_pending",
-  "generated_at": "2026-10-25T16:17:19.905094+00:00",
+  "status": "incomplete_owner_acceptance_and_separate_module_review_pending",
+  "generated_at": "2026-10-25T17:26:02.565823+00:00",
   "branch": "feat/phase1-local-connections",
-  "implementation_commit": "399bd61d22a8f3732f94813952e18561339d66d1",
+  "implementation_commit": "3c36982bbd9d919ebb45d811eca1571ae3862736",
   "report_commit_note": "This report is committed as a follow-up to the recorded implementation commit.",
   "pull_request": "https://github.com/karanagg166/automated-apply/pull/18",
   "phase2_started": false,
@@ -36,16 +36,16 @@
   "supabase_security_advisor_findings": 0,
   "tests": {
     "backend": {
-      "passed": 1487,
+      "passed": 1530,
       "failed": 0,
       "skipped": 0,
-      "seconds": 120.26,
+      "seconds": 125.83,
       "warnings": 2,
       "postgresql": "actual_isolated_17"
     },
     "frontend_unit": 43,
     "frontend_e2e": 8,
-    "extension_event_simulations": 12,
+    "extension_event_simulations": 13,
     "installation_filesystem_tests": 5,
     "managed_postgresql_tables": 47,
     "managed_security_faults_rejected": 12,
@@ -57,60 +57,13 @@
     "ruff": "passed",
     "bandit": "passed",
     "hosted_ci": {
-      "implementation_head": "399bd61d22a8f3732f94813952e18561339d66d1",
-      "checks": [
-        {
-          "__typename": "CheckRun",
-          "completedAt": "0001-01-01T00:00:00Z",
-          "conclusion": "",
-          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40210809803/job/121221418139",
-          "name": "backend",
-          "startedAt": "2026-10-25T16:15:31Z",
-          "status": "IN_PROGRESS",
-          "workflowName": "Backend CI"
-        },
-        {
-          "__typename": "CheckRun",
-          "completedAt": "0001-01-01T00:00:00Z",
-          "conclusion": "",
-          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40210809769/job/121221417916",
-          "name": "frontend",
-          "startedAt": "2026-10-25T16:15:30Z",
-          "status": "IN_PROGRESS",
-          "workflowName": "Frontend CI"
-        },
-        {
-          "__typename": "CheckRun",
-          "completedAt": "0001-01-01T00:00:00Z",
-          "conclusion": "",
-          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40210805645/job/121221405359",
-          "name": "frontend",
-          "startedAt": "2026-10-25T16:15:27Z",
-          "status": "IN_PROGRESS",
-          "workflowName": "Frontend CI"
-        },
-        {
-          "__typename": "CheckRun",
-          "completedAt": "0001-01-01T00:00:00Z",
-          "conclusion": "",
-          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40210809830/job/121221418270",
-          "name": "connections",
-          "startedAt": "2026-10-25T16:15:31Z",
-          "status": "IN_PROGRESS",
-          "workflowName": "Phase 1 connection foundation"
-        },
-        {
-          "__typename": "CheckRun",
-          "completedAt": "0001-01-01T00:00:00Z",
-          "conclusion": "",
-          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40210805646/job/121221405274",
-          "name": "connections",
-          "startedAt": "2026-10-25T16:15:27Z",
-          "status": "IN_PROGRESS",
-          "workflowName": "Phase 1 connection foundation"
-        }
+      "final_head_result": "pending_final_report_commit",
+      "previous_implementation_head": "3c36982bbd9d919ebb45d811eca1571ae3862736",
+      "previous_failures": [
+        "frontend_generated_API_types_drift_corrected",
+        "backend_secret_baseline_line_number_drift_corrected"
       ],
-      "latest_head_result": "pending"
+      "required_checks_not_disabled": true
     },
     "additional_oauth_compose_regressions": {
       "passed": 46,
@@ -120,20 +73,25 @@
     "installed_native_online_api_and_wrong_origin": "passed",
     "live_compose_schema_409_identity_preserved": "passed",
     "python_dependency_audit": {
-      "known_vulnerabilities": 0,
-      "initial_reported_advisories": 55,
-      "updated_packages": [
-        "certifi",
-        "fastmcp",
-        "fastmcp-slim",
-        "pypdf"
-      ]
+      "known_vulnerabilities": 0
     },
     "frontend_dependency_audit": {
       "known_vulnerabilities": 0
     },
     "actual_gmail_compose_oauth_refresh_and_restart": "passed",
-    "actual_native_wrong_origin_malformed_oversized": "passed"
+    "actual_native_wrong_origin_malformed_oversized": "passed",
+    "actual_chrome_controlled_checks": 12,
+    "actual_online_chrome_audits": 7,
+    "actual_native_frame_rejections": 4,
+    "generated_api_contract": "regenerated_after_hosted_CI_detected_drift",
+    "secret_scan": {
+      "state": "passed",
+      "reviewed_false_positive_types": [
+        "public_RSA_manifest_key",
+        "public_Git_hashes"
+      ],
+      "rules_changed": false
+    }
   },
   "connections": [
     {
@@ -221,7 +179,7 @@
       "owner_approval_completed": false,
       "owner_action_needed": true,
       "last_verification_time": null,
-      "remaining_blocker": "workspace_registered_but_actual_tools_and_project_read_not_discovered",
+      "remaining_blocker": "actual_VS_Code_verifier_discovered_zero_tools_owner_trust_or_OAuth_required",
       "safe_next_action": "Run named client OAuth and read-only verification; see setup guide",
       "evidence_type": "configuration_inspection"
     },
@@ -247,17 +205,17 @@
       "configured": true,
       "authenticated": true,
       "actually_verified": true,
-      "status": "verified",
-      "verified_scope": "owner_reported_Chrome_preview",
+      "status": "awaiting_approval",
+      "verified_scope": "isolated_actual_Chrome_native_online_preview",
       "supported_capabilities": [
         "url_preview"
       ],
       "owner_approval_completed": false,
       "owner_action_needed": true,
-      "last_verification_time": "2026-10-24T22:10:24.325565Z",
-      "remaining_blocker": "current_registered_id_matches_temporary_worktree_stable_extension_binding_and_owner_restart_offline_acceptance_pending",
-      "safe_next_action": "Load the stable private extension, confirm Chrome-displayed ID cgnghndndegcjokobbplfngfgfdplenj, then bind and repeat deliberate previews.",
-      "evidence_type": "owner_Chrome_result_correlated_with_backend_audit"
+      "last_verification_time": "2026-10-25T17:26:02.565823+00:00",
+      "remaining_blocker": "reported_owner_Forms_action_and_personal_profile_retest_pending",
+      "safe_next_action": "Load stable runtime extension gdjbmkffcpicbpiikcohlmokkmcpipgp and deliberately repeat the failing preview; no filling.",
+      "evidence_type": "actual_Chrome_for_Testing_MV3_native_and_seven_matching_online_audits"
     },
     {
       "connection_name": "Native messaging host",
@@ -265,17 +223,17 @@
       "configured": true,
       "authenticated": true,
       "actually_verified": true,
-      "status": "verified",
-      "verified_scope": "owner_reported_Chrome_preview",
+      "status": "awaiting_approval",
+      "verified_scope": "isolated_actual_Chrome_native_online_preview",
       "supported_capabilities": [
         "url_preview"
       ],
       "owner_approval_completed": false,
       "owner_action_needed": true,
-      "last_verification_time": "2026-10-24T22:10:24.325565Z",
-      "remaining_blocker": "current_registered_id_matches_temporary_worktree_stable_extension_binding_and_owner_restart_offline_acceptance_pending",
-      "safe_next_action": "Load the stable private extension, confirm Chrome-displayed ID cgnghndndegcjokobbplfngfgfdplenj, then bind and repeat deliberate previews.",
-      "evidence_type": "owner_Chrome_result_correlated_with_backend_audit"
+      "last_verification_time": "2026-10-25T17:26:02.565823+00:00",
+      "remaining_blocker": "reported_owner_Forms_action_and_personal_profile_retest_pending",
+      "safe_next_action": "Load stable runtime extension gdjbmkffcpicbpiikcohlmokkmcpipgp and deliberately repeat the failing preview; no filling.",
+      "evidence_type": "actual_Chrome_for_Testing_MV3_native_and_seven_matching_online_audits"
     },
     {
       "connection_name": "Telegram worker",
@@ -284,15 +242,15 @@
       "authenticated": true,
       "actually_verified": true,
       "status": "verified",
-      "verified_scope": "online_owner_command_roundtrip",
+      "verified_scope": "existing_online_owner_roundtrip_new_routing_deployed_fresh_acceptance_pending",
       "supported_capabilities": [
         "private_commands",
         "preview_only"
       ],
       "owner_approval_completed": true,
-      "owner_action_needed": false,
+      "owner_action_needed": true,
       "last_verification_time": "2026-10-25T16:12:32.304833Z",
-      "remaining_blocker": null,
+      "remaining_blocker": "fresh_paraphrases_followups_and_locked_screen_reply_pending",
       "safe_next_action": "Configure private bot and numeric owner IDs; start worker; /ping; locked-screen test pending",
       "evidence_type": "live_poll_sent_reply_and_dispatch_audit"
     },
@@ -643,10 +601,41 @@
     "gmail_sending_enabled": false
   },
   "owner_actions_pending": [
+    "review_separate_draft_PR19_before_deliberate_integration",
     "confirm_canonical_profile_and_resume",
     "complete_five_platform_observations_or_explicit_manual_only_acceptances",
-    "stable_chrome_extension_id_binding_and_owner_toolbar_context_menu_restart_offline_acceptance",
+    "retest_reported_Forms_failure_in_owner_Chrome_with_stable_extension",
     "vs_code_mcp_oauth_discovery_and_project_url",
-    "locked_screen_online_telegram_reply_and_six_example_owner_confirmation"
-  ]
+    "fresh_owner_Telegram_paraphrases_followups_and_locked_screen_reply"
+  ],
+  "current_session_remote_ddl_executed": false,
+  "profile_context_workstream": {
+    "status": "module_complete_not_production_connected",
+    "branch": "feat/phase1-profile-context-parallel",
+    "sha": "aaed0afeec8b1d35ac1a2df37db00b2104169660",
+    "pull_request": "https://github.com/karanagg166/automated-apply/pull/19",
+    "base": "feat/phase1-local-connections",
+    "draft": true,
+    "merged": false,
+    "owner_approved": false,
+    "tests": {
+      "passed": 86,
+      "failed": 0,
+      "skipped": 0
+    },
+    "hosted_ci_claimed": false,
+    "remaining_integration": [
+      "owner_review_of_separate_PR",
+      "dashboard_routes_fields_and_env_proposals",
+      "single_resume_engine_and_historical_mapping",
+      "notification_and_fact_invalidation_events",
+      "TelegramKnowledgeAdapter_injection",
+      "real_Drive_authorization_and_acceptance"
+    ]
+  },
+  "locked_screen_acceptance": {
+    "verified": false,
+    "blocker": "owner_screen_lock_and_new_phone_ping_not_verified_before_deadline"
+  },
+  "current_session_telegram_fresh_owner_examples_verified": false
 }

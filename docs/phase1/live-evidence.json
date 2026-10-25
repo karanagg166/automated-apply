@@ -673,5 +673,230 @@
     "live_poll_while_locked": false,
     "latest_error_category": null,
     "last_checked_at": "2026-10-25T16:17:16.886488+00:00"
+  },
+  "parallel_completion_run": {
+    "verified_at": "2026-10-25T17:26:02.565823+00:00",
+    "implementation_commit": "3c36982bbd9d919ebb45d811eca1571ae3862736",
+    "phase1_complete": false,
+    "phase2_started": false,
+    "remote_ddl_executed": false,
+    "credentials_and_keys_unchanged": true,
+    "changed_private_configuration_fields": [
+      "CHROME_EXTENSION_ID"
+    ],
+    "stable_extension_id": "gdjbmkffcpicbpiikcohlmokkmcpipgp",
+    "chrome": {
+      "evidence_type": "actual_Chrome_for_Testing_MV3_native_HTTP",
+      "profile": "isolated",
+      "stable_extension_id": "gdjbmkffcpicbpiikcohlmokkmcpipgp",
+      "checks": [
+        "ordinary_https",
+        "page_refresh",
+        "backend_offline_refused_loopback_visible",
+        "backend_recovery",
+        "real_approved_google_form_preview",
+        "real_google_redirect_to_form",
+        "rendered_extension_popup",
+        "unsupported_page",
+        "duplicate_gesture_coalesced",
+        "stale_extension_origin_rejected",
+        "extension_reload",
+        "chrome_restart_and_relocated_install"
+      ],
+      "correlations": [
+        "94f0678d-6eae-41fc-943d-5c41a9e2b29b",
+        "dc34b4a0-997e-4677-a21d-9fba680ea383",
+        "12b59b9e-37aa-4707-adf8-6b463575bb8e",
+        "bc0f3b1d-6faf-4bdc-a994-2a332d47c6b8",
+        "64aa094c-5c30-4ac2-ac05-f44cad615b2c",
+        "9e5ac2a4-796e-47bf-80e1-e96a2591aed1",
+        "9a881ab2-4664-457b-b824-52565cd18614"
+      ],
+      "form_fields_read": false,
+      "form_fields_filled": false,
+      "submitted": false,
+      "owner_gestures_verified": false,
+      "browser_version": "156.0.8078.4",
+      "database_audit": {
+        "matched_audits": 7,
+        "expected_correlations": 7,
+        "online_supabase": true,
+        "stable_actor_matches": true,
+        "all_submitted_false": true,
+        "correlation_ids": [
+          "94f0678d-6eae-41fc-943d-5c41a9e2b29b",
+          "dc34b4a0-997e-4677-a21d-9fba680ea383",
+          "12b59b9e-37aa-4707-adf8-6b463575bb8e",
+          "bc0f3b1d-6faf-4bdc-a994-2a332d47c6b8",
+          "64aa094c-5c30-4ac2-ac05-f44cad615b2c",
+          "9e5ac2a4-796e-47bf-80e1-e96a2591aed1",
+          "9a881ab2-4664-457b-b824-52565cd18614"
+        ]
+      },
+      "owner_reported_failure_resolved": false
+    },
+    "native_frame_rejections": [
+      {
+        "test": "wrong_origin",
+        "passed": true,
+        "code": "native_origin_denied"
+      },
+      {
+        "test": "malformed_json",
+        "passed": true,
+        "code": "native_invalid_message"
+      },
+      {
+        "test": "oversized_frame",
+        "passed": true,
+        "code": "native_message_size"
+      },
+      {
+        "test": "partial_frame",
+        "passed": true,
+        "code": "native_invalid_message"
+      }
+    ],
+    "gmail": {
+      "state": "connected",
+      "identity_unchanged": true,
+      "exact_compose_scopes": true,
+      "last_refresh_at": "2026-10-25T17:11:02.217895+00:00",
+      "verified_at": "2026-10-25T17:11:04.223174+00:00",
+      "mail_sent": false,
+      "draft_created": false
+    },
+    "supabase": {
+      "schema": "public",
+      "runtime_security": "restricted_public_v1",
+      "migration_bundle": "2887a98812a797c3ef9d10f37fe5f14959778d802e126d0170776059ccee6a9e",
+      "tls_required": true,
+      "verified_followups": [
+        "followups/002_gmail_compose.sql"
+      ],
+      "postgresql_version": "17.11"
+    },
+    "telegram_worker": {
+      "evidence_type": "live_poll",
+      "last_poll_at": "2026-10-25T17:10:59.198004+00:00",
+      "last_error": null,
+      "sent_reply_count": 20,
+      "ambiguous_deliveries": 0
+    },
+    "telegram_fresh_owner_acceptance": "pending_actual_owner_messages",
+    "locked_screen": {
+      "state": "pending_owner_action",
+      "evidence_type": "actual_macOS_lock_property_and_PostgreSQL_live_worker",
+      "started_at": "2026-10-25T17:17:49.041367+00:00",
+      "screen_lock_observed": false,
+      "new_pong_sent_while_locked": false,
+      "live_poll_while_locked": false,
+      "latest_error_category": null,
+      "last_checked_at": "2026-10-25T17:27:52.303228+00:00",
+      "blocker": "owner_screen_lock_and_new_phone_ping_not_verified_before_deadline"
+    },
+    "vscode": {
+      "client": "vs_code",
+      "evidence_type": "actual_vscode_extension_API_no_model",
+      "state": "owner_trust_oauth_or_discovery_required",
+      "generation_requests": 0,
+      "mutations": 0,
+      "verified_at": "2026-10-25T17:06:41.432Z",
+      "discovered_tools": [],
+      "observed_at": "2026-10-25T17:09:41.836Z"
+    },
+    "portal_pages": [
+      {
+        "name": "Naukri",
+        "http_status": 200,
+        "observed_host": "www.naukri.com",
+        "authenticated": false,
+        "identity_verified": false,
+        "api_connected": false,
+        "owner_login_required": true
+      },
+      {
+        "name": "Wellfound",
+        "http_status": 200,
+        "observed_host": "wellfound.com",
+        "authenticated": false,
+        "identity_verified": false,
+        "api_connected": false,
+        "owner_login_required": true
+      },
+      {
+        "name": "Instahyre",
+        "http_status": 200,
+        "observed_host": "www.instahyre.com",
+        "authenticated": false,
+        "identity_verified": false,
+        "api_connected": false,
+        "owner_login_required": true
+      },
+      {
+        "name": "YC Work at a Startup",
+        "http_status": 404,
+        "observed_host": "www.workatastartup.com",
+        "authenticated": false,
+        "identity_verified": false,
+        "api_connected": false,
+        "owner_login_required": true
+      },
+      {
+        "name": "Internshala",
+        "http_status": 200,
+        "observed_host": "internshala.com",
+        "authenticated": false,
+        "identity_verified": false,
+        "api_connected": false,
+        "owner_login_required": true
+      }
+    ],
+    "yc_login_correction": {
+      "verified_from": "official Work at a Startup Log in link",
+      "http_status": 200,
+      "host": "account.ycombinator.com",
+      "authentication_performed": false
+    },
+    "profile_context_workstream": {
+      "status": "module_complete_not_production_connected",
+      "branch": "feat/phase1-profile-context-parallel",
+      "sha": "aaed0afeec8b1d35ac1a2df37db00b2104169660",
+      "pull_request": "https://github.com/karanagg166/automated-apply/pull/19",
+      "base": "feat/phase1-local-connections",
+      "draft": true,
+      "merged": false,
+      "owner_approved": false,
+      "tests": {
+        "passed": 86,
+        "failed": 0,
+        "skipped": 0
+      },
+      "hosted_ci_claimed": false,
+      "remaining_integration": [
+        "owner_review_of_separate_PR",
+        "dashboard_routes_fields_and_env_proposals",
+        "single_resume_engine_and_historical_mapping",
+        "notification_and_fact_invalidation_events",
+        "TelegramKnowledgeAdapter_injection",
+        "real_Drive_authorization_and_acceptance"
+      ]
+    },
+    "actual_submissions": 0,
+    "actual_emails_sent": 0,
+    "actual_drafts_created": 0,
+    "paid_calls": 0,
+    "new_model_calls": 0,
+    "agy_generation_enabled": false,
+    "local_ollama_model_tested": false,
+    "telegram_post_restart": {
+      "checked_at": "2026-10-25T17:28:40.215050+00:00",
+      "evidence_type": "live_poll",
+      "last_poll_at": "2026-10-25T17:28:17.002637+00:00",
+      "last_error": null,
+      "sent_reply_count": 20,
+      "ambiguous_deliveries": 0,
+      "new_owner_conversation_audits": 0
+    }
   }
 }

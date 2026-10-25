@@ -34,3 +34,25 @@ Phase 1 is **incomplete** until every mandatory acceptance below has passed or t
 - [ ] Record final automated tests, real versus simulated evidence, final-commit CI and remaining owner actions in the readiness report and PR #18.
 
 Sending, submissions, paid execution and discovery deployment remain disabled. No real Gmail draft smoke test is authorized. LinkedIn remains manual. ChatGPT plugin OAuth is independent of local CLI/MCP authentication.
+
+
+## Parallel completion additions
+
+- [x] Delegate profile/resume/project modules and dedicated tests to separate worktree/branch/PR #19.
+- [x] Keep the independent branch unmerged and label it module_complete, not production_connected.
+- [x] Reproduce real Chrome missing-host/wrong-origin installation failures before the fix.
+- [x] Commit a public manifest key and verify stable ID across relocation/reload/browser restart.
+- [x] Rebind only this project's native host; verify CHROME_EXTENSION_ID is the only changed private env field.
+- [x] Run twelve controlled real Chrome checks, including approved real Google Form/redirect and offline/recovery.
+- [x] Correlate seven stable-origin previews with actual online Supabase audit persistence; no submission.
+- [x] Expand bounded deterministic Telegram routing/memory/reset and add 43 dedicated conversation tests.
+- [x] Preserve AGY disabled and truthfully report missing live local AI/project adapter.
+- [x] Refresh Gmail identity/compose scope verification and preserve all keys/pairing.
+- [x] Correct the real YC login 404 using its official homepage login destination; verify HTTP 200.
+- [x] Full parent tests: 1,530 backend, 43 frontend unit, 8 E2E, 13 extension events; strict scans/audits passed locally.
+- [ ] Owner review and deliberate integration of separate PR #19, dashboard wiring and actual Drive acceptance.
+- [ ] Resolve the exact owner-reported Forms action with a stable-install personal Chrome retest.
+- [ ] Fresh online Telegram paraphrase/follow-up replies and a new locked-screen pong.
+- [ ] VS Code actual tool discovery and read-only project call after required owner trust/OAuth.
+- [ ] Five actual portal acceptances and reviewed canonical candidate facts.
+- [ ] Verify all hosted CI checks on the actual final report commit; never infer success from a prior head.
