@@ -73,21 +73,34 @@ During deep inspection and real Chrome for Testing execution, **7 extension bugs
 
 ## 3. Automated Test Suite Summary
 
-### 3.1 Fast Unit & Native Protocol Tests (`npm test`)
+### 3.1 Standalone Worktree Prerequisites
+In a clean standalone worktree (`feat/phase1-agy-extension`), install the documented local dependencies inside the worktree itself (the test suite never reaches into another worktree's `node_modules` or `.venv`):
+```sh
+python3 -m venv .venv
+.venv/bin/pip install -r backend/requirements.txt
+npm ci --prefix frontend
+npx --prefix frontend playwright install chromium
+```
+
+### 3.2 Fast Unit & Native Protocol Tests (`npm test`)
 Command:
 ```sh
 cd extension && npm run build && npm test
 ```
 - **Total Tests**: `27 passed, 0 failed` (`observation.test.mjs`, `preview.test.mjs`, `ui.test.mjs`, `native-protocol.test.mjs`)
-- Includes direct stdio binary framing tests against `backend.app.local_agent.native_host` verifying mode-`0600` configuration enforcement, wrong-origin rejection, zero-length and `> 16,384`-byte frame rejection, malformed JSON rejection, truncated-frame rejection, capability allowlist enforcement, and refused-loopback `backend_offline` handling.
+- Includes direct stdio binary framing tests against `backend.app.local_agent.native_host` verifying mode-`0600` configuration enforcement, wrong-origin rejection, zero-length and `> 16,384`-byte frame rejection, malformed JSON rejection, truncated-frame rejection, capability allowlist enforcement, refused-loopback `backend_offline` handling, and fail-closed disposable database URL/environment verification (`assertDisposableLocalDatabaseUrl` and `buildSanitizedChildEnv`).
 
-### 3.2 Real Chrome for Testing 23-Case E2E Suite (`npm run test:chrome`)
+### 3.3 Real Chrome for Testing 23-Case E2E Suite (`npm run test:chrome`)
 Command:
 ```sh
 cd extension && npm run test:chrome
 ```
 - **Browser**: Chrome for Testing `156.0.8078.4` (single isolated profile, headless Chromium with unpacked MV3 extension loaded from `extension/dist` and `relocated-extension`)
-- **Backend & Database**: Isolated disposable FastAPI on `http://127.0.0.1:18095` + isolated disposable PostgreSQL 17 container on `127.0.0.1:55449` (`candidate_profile_test`, bootstrapped with `001_phase1_public.sql` and restricted role `job_agent_runtime`)
+- **Backend & Database Isolation**:
+  - Always creates and uses only its own disposable Docker PostgreSQL 17 container (`automated-apply-agy-ext-pg-<pid>-<timestamp>`) bound to `127.0.0.1:55449` (`candidate_profile_test`).
+  - Strips any ambient `PHASE1_DISPOSABLE_DATABASE_URL`, `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_*`, and `PG*` environment variables (`buildSanitizedChildEnv`) and validates both admin and runtime DSNs via `assertDisposableLocalDatabaseUrl` (requiring `127.0.0.1:55449/candidate_profile_test` and rejecting any nonlocal, Supabase, pooler, TLS-query, or standard-port target before any DDL or service startup).
+  - Runs an isolated disposable FastAPI instance on `http://127.0.0.1:18095`.
+  - Scoped teardown (`finally`) removes only the test-created container (`if (startedContainer)`), browser context, slow proxy server, disposable FastAPI process, temporary directory (`baseDir` under `os.tmpdir()`), and flock holder.
 - **Concurrency Lock**: `/tmp/automated-apply-heavy-tests.lock` held exclusively via `fcntl.flock(LOCK_EX)`
 - **Total Real-Chrome Cases**: `23 passed, 0 failed`
 
@@ -136,13 +149,20 @@ After completing all 23 browser checks in `extension/tests/chrome-e2e.mjs`, the 
 
 ---
 
-## 5. Browser Automation Boundary & Tooling Notes
+## 5. Execution Model: Genuine Chrome Execution vs. Simulated Page Content & Programmatic Entry Points
 
-Because the extension intentionally omits `host_permissions` and `"tabs"` from `extension/manifest.json` in favor of `"activeTab"`, Chromium's security model only grants temporary `activeTab` host access (populating `tab.url` in `chrome.tabs.query` and allowing `chrome.scripting.executeScript` on the active web tab) when a human user clicks the native OS browser toolbar icon or native OS right-click context menu. Playwright/CDP cannot synthetically click native browser-chrome toolbar icons or native OS context menus to trigger an `activeTab` grant.
+To ensure accurate, transparent evidence accounting, `extension/tests/chrome-e2e.mjs` explicitly separates what is executed as real browser/runtime behavior from what uses local fixtures or programmatic extension entry points:
 
-Accordingly:
-1. Context-menu registration is verified directly in the live MV3 service worker via `chrome.contextMenus.update("automated-apply-preview", { enabled: true })`, and `popup.html` `#repair`, `#preview`, and `#observe` buttons are clicked as real DOM controls in Chrome for Testing.
-2. `sessionIndicator()` is executed against real Chrome DOM pages (`getClientRects()`, `checkVisibility()`) and wired through `observeSession()` and `preview()` in the running extension context to exercise the full MV3 -> Native Messaging -> FastAPI -> PostgreSQL -> `chrome.storage.session` -> Popup DOM pipeline.
+1. **Genuine Chrome & Runtime Execution**:
+   - Real `Chrome for Testing` (`156.0.8078.4`) launched with `--load-extension` in an isolated profile.
+   - Real MV3 background service worker lifecycle: initial load, `chrome://extensions` UI `Reload` click, CDP `ServiceWorker.stopAllWorkers` suspension and wakeup, and full browser restart from a relocated directory (`relocated-extension`).
+   - Real Chrome Native Messaging (`chrome.runtime.sendNativeMessage("com.automated_apply.agent", ...)`) over OS stdio pipes to the Python host (`backend.app.local_agent.native_host`), real loopback FastAPI (`http://127.0.0.1:18095`), and real disposable PostgreSQL 17 (`127.0.0.1:55449`).
+   - Real DOM clicks inside extension UI pages (`#check` in `settings.html`; `#repair`, `#preview`, and `#observe` in `popup.html`) and real `sessionIndicator()` evaluation (`getClientRects()`, `checkVisibility()`) inside Chrome tabs.
+2. **Simulated Web Page Content**:
+   - External origins (`example.org`, `docs.google.com/forms`, `www.google.com/url`, `www.naukri.com`) are served from local HTML fixtures via Playwright `context.route("**/*", ...)` so no external network traffic or real Google Form submissions occur.
+3. **Programmatic Extension Entry Points (No Native OS Gestures Claimed)**:
+   - Because `extension/manifest.json` intentionally omits `host_permissions` and `"tabs"` in favor of `"activeTab"`, Chrome only grants temporary `activeTab` host access (populating `tab.url` in `chrome.tabs.query` and permitting `chrome.scripting.executeScript` on the active web tab) when a human clicks the native OS browser toolbar icon or native OS right-click context menu.
+   - Headless/Playwright browser automation cannot synthesize native OS toolbar clicks or native OS right-click menu clicks to trigger an `activeTab` grant. Therefore, native OS toolbar/right-click gestures are **not** claimed to be exercised; instead, cross-origin `preview(tab)` and `observeSession(tab)` flows are invoked programmatically from the extension's `popup.html` context while context-menu registration is verified directly via `chrome.contextMenus.update("automated-apply-preview", { enabled: true })`.
 
 ---
 

@@ -30,29 +30,99 @@ async function loadPlaywright() {
   const candidates = [
     "@playwright/test",
     pathToFileURL(resolve(repoRoot, "frontend/node_modules/@playwright/test/index.mjs")).href,
-    pathToFileURL(resolve(repoRoot, "../automated-apply/frontend/node_modules/@playwright/test/index.mjs")).href,
   ];
   for (const spec of candidates) {
     try {
       return await import(spec);
     } catch {
-      // try next candidate
+      // try next candidate inside standalone worktree
     }
   }
-  throw new Error("Unable to resolve @playwright/test");
+  throw new Error(
+    "Unable to resolve @playwright/test in this standalone worktree. Run 'npm --prefix frontend ci' first.",
+  );
 }
 
 function findPython() {
   const candidates = [
     process.env.PYTHON,
     resolve(repoRoot, ".venv/bin/python"),
-    resolve(repoRoot, "../automated-apply/.venv/bin/python"),
     "python3",
+    "python",
   ].filter(Boolean);
   for (const candidate of candidates) {
-    if (!candidate.startsWith("/") || existsSync(candidate)) return candidate;
+    if (candidate.startsWith("/") && !existsSync(candidate)) continue;
+    const probe = spawnSync(
+      candidate,
+      ["-c", "import pydantic, asyncpg, fastapi, uvicorn"],
+      { cwd: repoRoot, stdio: "ignore" },
+    );
+    if (probe.status === 0) return candidate;
   }
-  return "python3";
+  throw new Error(
+    "Unable to resolve Python with backend dependencies in this standalone worktree. Run 'python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt'.",
+  );
+}
+
+const SENSITIVE_DB_ENV_KEYS = [
+  "DATABASE_URL",
+  "PHASE1_DISPOSABLE_DATABASE_URL",
+  "DIRECT_URL",
+  "SUPABASE_URL",
+  "SUPABASE_DB_URL",
+  "SUPABASE_ANON_KEY",
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "PGHOST",
+  "PGPORT",
+  "PGDATABASE",
+  "PGUSER",
+  "PGPASSWORD",
+  "PGSSLMODE",
+];
+
+export function buildSanitizedChildEnv(overrides = {}) {
+  const clean = { ...process.env };
+  for (const key of SENSITIVE_DB_ENV_KEYS) {
+    delete clean[key];
+  }
+  return { ...clean, ...overrides };
+}
+
+export function assertDisposableLocalDatabaseUrl(rawUrl, expectedPort, expectedDbName = "candidate_profile_test", expectedUser = null) {
+  if (typeof rawUrl !== "string" || !rawUrl.trim()) {
+    throw new Error("Refusing empty database URL for disposable E2E harness");
+  }
+  if (/(supabase|pooler|amazonaws|neon\.tech|railway|render\.com|rds\.|sslmode=require)/i.test(rawUrl)) {
+    throw new Error("Refusing nonlocal or Supabase/cloud database URL in disposable E2E harness");
+  }
+  const normalized = rawUrl.startsWith("postgresql+asyncpg://")
+    ? "postgresql://" + rawUrl.slice("postgresql+asyncpg://".length)
+    : rawUrl;
+  let parsed;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    throw new Error("Refusing unparseable database URL in disposable E2E harness");
+  }
+  if (parsed.protocol !== "postgresql:") {
+    throw new Error(`Refusing unexpected database protocol: ${parsed.protocol}`);
+  }
+  if (parsed.hostname !== "127.0.0.1") {
+    throw new Error(`Refusing non-loopback database host: ${parsed.hostname}`);
+  }
+  if (Number(parsed.port) !== expectedPort || expectedPort === 5432 || expectedPort === 54322) {
+    throw new Error(`Refusing non-disposable database port: ${parsed.port}`);
+  }
+  if (parsed.pathname !== `/${expectedDbName}`) {
+    throw new Error(`Refusing unexpected database name: ${parsed.pathname}`);
+  }
+  if (expectedUser && decodeURIComponent(parsed.username) !== expectedUser) {
+    throw new Error(`Refusing unexpected database user: ${parsed.username}`);
+  }
+  if (parsed.search || parsed.hash) {
+    throw new Error("Refusing database URL with query parameters or fragments in disposable E2E harness");
+  }
+  return rawUrl;
 }
 
 function acquireFlock(python, lockPath) {
@@ -96,7 +166,7 @@ function runFrameProbe(python, envPath, origin, rawBuffer, closeStdin = true, ti
     const child = spawn(
       python,
       ["-m", "backend.app.local_agent.native_host", envPath, origin],
-      { cwd: repoRoot, stdio: ["pipe", "pipe", "ignore"] },
+      { cwd: repoRoot, env: buildSanitizedChildEnv(), stdio: ["pipe", "pipe", "ignore"] },
     );
     const timer = setTimeout(() => {
       child.kill();
@@ -166,7 +236,7 @@ async function main() {
   const baseDir = mkdtempSync(join(tmpdir(), "automated-apply-agy-chrome-e2e-"));
   chmodSync(baseDir, 0o700);
 
-  const pgContainerName = `automated-apply-agy-ext-pg-${process.pid}`;
+  const pgContainerName = `automated-apply-agy-ext-pg-${process.pid}-${Date.now()}`;
   const pgPort = 55449;
   const apiPort = 18095;
   const slowProxyPort = 18096;
@@ -185,6 +255,22 @@ async function main() {
     advisory_lock: LOCK_PATH,
     disposable_api_endpoint: `http://127.0.0.1:${apiPort}`,
     disposable_pg_port: pgPort,
+    execution_model: {
+      real_browser_and_runtime: [
+        "Chrome for Testing launched with --load-extension and isolated profile",
+        "MV3 background service worker install, chrome://extensions reload, CDP stopAllWorkers suspension/recovery, and browser restart",
+        "Real Chrome Native Messaging over OS stdio pipes to backend.app.local_agent.native_host",
+        "Real loopback FastAPI service and disposable Docker PostgreSQL 17 container on 127.0.0.1:55449",
+        "Real DOM clicks on #check in settings.html and #repair, #preview, #observe in popup.html",
+      ],
+      simulated_page_content: [
+        "Local HTML fixtures served via Playwright context.route for example.org, docs.google.com/forms, www.google.com/url, and www.naukri.com so no external requests or real Google Form submissions occur",
+      ],
+      programmatic_extension_entry_points: [
+        "Cross-origin preview(tab) and observeSession(tab) invoked from extension page context (popup.html) because Chrome MV3 grants activeTab only on physical OS-level browser toolbar or native context-menu clicks",
+      ],
+      native_os_gestures_claimed: false,
+    },
     cases_passed: [],
     cases_failed: [],
     preview_correlations: [],
@@ -214,55 +300,57 @@ async function main() {
   };
 
   try {
-    // Start disposable PostgreSQL 17 container on 127.0.0.1:55449
-    let adminDbUrl = process.env.PHASE1_DISPOSABLE_DATABASE_URL;
-    if (!adminDbUrl) {
-      spawnSync("docker", ["rm", "-f", pgContainerName], { stdio: "ignore" });
-      const dockerRun = spawnSync(
+    // Always create and use ONLY our own disposable PostgreSQL 17 container on 127.0.0.1:55449.
+    // Never accept ambient PHASE1_DISPOSABLE_DATABASE_URL or DATABASE_URL from process.env.
+    const dockerRun = spawnSync(
+      "docker",
+      [
+        "run",
+        "-d",
+        "--rm",
+        "--name",
+        pgContainerName,
+        "-e",
+        "POSTGRES_PASSWORD=phase1_agy_disposable",
+        "-e",
+        "POSTGRES_DB=candidate_profile_test",
+        "-p",
+        `127.0.0.1:${pgPort}:5432`,
+        "postgres:17-alpine",
+      ],
+      { encoding: "utf8" },
+    );
+    assert.equal(dockerRun.status, 0, `Failed to start disposable postgres container: ${dockerRun.stderr}`);
+    startedContainer = true;
+    let pgReady = false;
+    for (let i = 0; i < 60; i += 1) {
+      const ready = spawnSync(
         "docker",
-        [
-          "run",
-          "-d",
-          "--rm",
-          "--name",
-          pgContainerName,
-          "-e",
-          "POSTGRES_PASSWORD=phase1_agy_disposable",
-          "-e",
-          "POSTGRES_DB=candidate_profile_test",
-          "-p",
-          `127.0.0.1:${pgPort}:5432`,
-          "postgres:17-alpine",
-        ],
-        { encoding: "utf8" },
+        ["exec", "-e", "PGPASSWORD=phase1_agy_disposable", pgContainerName, "psql", "-h", "127.0.0.1", "-U", "postgres", "-d", "candidate_profile_test", "-c", "SELECT 1"],
+        { stdio: "ignore" },
       );
-      assert.equal(dockerRun.status, 0, `Failed to start disposable postgres container: ${dockerRun.stderr}`);
-      startedContainer = true;
-      let pgReady = false;
-      for (let i = 0; i < 60; i += 1) {
-        const ready = spawnSync(
-          "docker",
-          ["exec", "-e", "PGPASSWORD=phase1_agy_disposable", pgContainerName, "psql", "-h", "127.0.0.1", "-U", "postgres", "-d", "candidate_profile_test", "-c", "SELECT 1"],
-          { stdio: "ignore" },
-        );
-        if (ready.status === 0) {
-          pgReady = true;
-          break;
-        }
-        await new Promise((r) => setTimeout(r, 250));
+      if (ready.status === 0) {
+        pgReady = true;
+        break;
       }
-      assert.equal(pgReady, true, "Disposable postgres TCP listener did not become ready");
-      const pgAuth = ["postgres", "phase1_agy_disposable"].join(":");
-      adminDbUrl = `postgresql://${pgAuth}@127.0.0.1:${pgPort}/candidate_profile_test`;
+      await new Promise((r) => setTimeout(r, 250));
     }
+    assert.equal(pgReady, true, "Disposable postgres TCP listener did not become ready");
+    const pgAuth = ["postgres", "phase1_agy_disposable"].join(":");
+    const adminDbUrl = assertDisposableLocalDatabaseUrl(
+      `postgresql://${pgAuth}@127.0.0.1:${pgPort}/candidate_profile_test`,
+      pgPort,
+      "candidate_profile_test",
+      "postgres",
+    );
 
-    // Bootstrap public schema & restricted runtime role job_agent_runtime
+    // Bootstrap public schema & restricted runtime role job_agent_runtime against verified disposable container
     const bootstrapRun = spawnSync(
       python,
       ["backend/scripts/phase1/verify_public.py", "--bootstrap"],
       {
         cwd: repoRoot,
-        env: { ...process.env, PHASE1_DISPOSABLE_DATABASE_URL: adminDbUrl },
+        env: buildSanitizedChildEnv({ PHASE1_DISPOSABLE_DATABASE_URL: adminDbUrl }),
         encoding: "utf8",
       },
     );
@@ -274,7 +362,7 @@ async function main() {
       ["backend/scripts/phase1/prepare_disposable.py", "--output", envFile],
       {
         cwd: repoRoot,
-        env: { ...process.env, PHASE1_DISPOSABLE_DATABASE_URL: adminDbUrl },
+        env: buildSanitizedChildEnv({ PHASE1_DISPOSABLE_DATABASE_URL: adminDbUrl }),
         encoding: "utf8",
       },
     );
@@ -287,6 +375,12 @@ async function main() {
         const idx = line.indexOf("=");
         if (idx > 0) map[line.slice(0, idx).trim()] = JSON.parse(line.slice(idx + 1).trim());
       }
+      assertDisposableLocalDatabaseUrl(
+        map.DATABASE_URL,
+        pgPort,
+        "candidate_profile_test",
+        "job_agent_runtime",
+      );
       map.LOCAL_AGENT_ENDPOINT = `http://127.0.0.1:${apiPort}`;
       map.CHROME_EXTENSION_ID = EXPECTED_ID;
       map.CHROME_NATIVE_MESSAGING_ENABLED = "true";
@@ -308,7 +402,7 @@ async function main() {
       apiProcess = spawn(
         python,
         ["backend/scripts/phase1/local_service.py", "api", "--env-file", activeEnvPath],
-        { cwd: repoRoot, stdio: "ignore" },
+        { cwd: repoRoot, env: buildSanitizedChildEnv(), stdio: "ignore" },
       );
       const ready = await waitForHttpReady(`http://127.0.0.1:${apiPort}/ready`, 60, 200);
       assert.equal(ready, true, "Disposable FastAPI failed to become ready");
@@ -939,12 +1033,16 @@ async function main() {
       try { slowProxyServer.close(); } catch { /* ignore */ }
     }
     await stopApi();
-    if (startedContainer) {
+    if (startedContainer && pgContainerName.startsWith("automated-apply-agy-ext-pg-")) {
       spawnSync("docker", ["rm", "-f", pgContainerName], { stdio: "ignore" });
     }
-    rmSync(baseDir, { recursive: true, force: true });
+    if (baseDir.startsWith(tmpdir()) && baseDir.includes("automated-apply-agy-chrome-e2e-")) {
+      rmSync(baseDir, { recursive: true, force: true });
+    }
     lock.release();
   }
 }
 
-await main();
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  await main();
+}

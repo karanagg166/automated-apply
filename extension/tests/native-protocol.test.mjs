@@ -1,11 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { assertDisposableLocalDatabaseUrl, buildSanitizedChildEnv } from "./chrome-e2e.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../..");
@@ -15,14 +16,17 @@ function findPython() {
   const candidates = [
     process.env.PYTHON,
     resolve(root, ".venv/bin/python"),
-    resolve(root, "../automated-apply/.venv/bin/python"),
     "python3",
     "python",
   ].filter(Boolean);
   for (const candidate of candidates) {
-    if (!candidate.startsWith("/") || existsSync(candidate)) return candidate;
+    if (candidate.startsWith("/") && !existsSync(candidate)) continue;
+    const probe = spawnSync(candidate, ["-c", "import pydantic"], { cwd: root, stdio: "ignore" });
+    if (probe.status === 0) return candidate;
   }
-  return "python3";
+  throw new Error(
+    "Missing Python environment with backend dependencies in this worktree. Run 'python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt'.",
+  );
 }
 
 function runNativeFrame(python, envPath, origin, rawInputBuffer, closeStdin = true) {
@@ -30,7 +34,7 @@ function runNativeFrame(python, envPath, origin, rawInputBuffer, closeStdin = tr
     const child = spawn(
       python,
       ["-m", "backend.app.local_agent.native_host", envPath, origin],
-      { cwd: root, stdio: ["pipe", "pipe", "ignore"] },
+      { cwd: root, env: buildSanitizedChildEnv(), stdio: ["pipe", "pipe", "ignore"] },
     );
     const timer = setTimeout(() => {
       child.kill();
@@ -83,6 +87,37 @@ test("manifest version 1.2.1 and public RSA key derive exact stable extension ID
   const hash = createHash("sha256").update(Buffer.from(manifest.key, "base64")).digest("hex").slice(0, 32);
   const derivedId = [...hash].map((c) => String.fromCharCode(97 + Number.parseInt(c, 16))).join("");
   assert.equal(derivedId, EXPECTED_ID);
+
+  // Verify disposable DB safety guards fail closed on nonlocal, Supabase, or unexpected targets
+  const validLocalUrl = ["postgresql://postgres", "disposable@127.0.0.1:55449/candidate_profile_test"].join(":");
+  assert.equal(
+    assertDisposableLocalDatabaseUrl(validLocalUrl, 55449, "candidate_profile_test", "postgres"),
+    validLocalUrl,
+  );
+  for (const unsafeUrl of [
+    "",
+    ["postgresql://postgres", "pw@db.projectref.supabase.co:5432/postgres"].join(":"),
+    ["postgresql://postgres.ref", "pw@aws-0-ap-south-1.pooler.supabase.com:6543/postgres"].join(":"),
+    ["postgresql://postgres", "pw@localhost:55449/candidate_profile_test"].join(":"),
+    ["postgresql://postgres", "pw@127.0.0.1:5432/candidate_profile_test"].join(":"),
+    ["postgresql://postgres", "pw@127.0.0.1:54322/candidate_profile_test"].join(":"),
+    ["postgresql://postgres", "pw@127.0.0.1:55449/production"].join(":"),
+    ["postgresql://postgres", "pw@127.0.0.1:55449/candidate_profile_test?sslmode=require"].join(":"),
+    ["postgresql://wrong_user", "pw@127.0.0.1:55449/candidate_profile_test"].join(":"),
+  ]) {
+    assert.throws(() => assertDisposableLocalDatabaseUrl(unsafeUrl, 55449, "candidate_profile_test", "postgres"));
+  }
+  const prevEnv = process.env.PHASE1_DISPOSABLE_DATABASE_URL;
+  process.env.PHASE1_DISPOSABLE_DATABASE_URL = "postgresql://should-be-stripped";
+  try {
+    const clean = buildSanitizedChildEnv();
+    assert.equal("PHASE1_DISPOSABLE_DATABASE_URL" in clean, false);
+    assert.equal("DATABASE_URL" in clean, false);
+    assert.equal("SUPABASE_URL" in clean, false);
+  } finally {
+    if (prevEnv === undefined) delete process.env.PHASE1_DISPOSABLE_DATABASE_URL;
+    else process.env.PHASE1_DISPOSABLE_DATABASE_URL = prevEnv;
+  }
 });
 
 test("real Python native host enforces origin, private config, frame size, schema, capability, and offline bounds", async () => {
