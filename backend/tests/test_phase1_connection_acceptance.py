@@ -89,6 +89,13 @@ async def test_connections_require_current_owner_review_and_actual_resume_integr
     rows = {x["name"]: x for x in await connection_report(db_session, settings, api_request=True)}
     assert rows["Resume"]["state"] == "degraded"
     assert rows["Resume"]["blocker"] == "file_integrity_failed"
+    db_session.add(OwnerPreference(key="phase1_agy_limitation", value={
+        "owner_accepted": True, "cli_version": "1.4.7", "generation_disabled": True}))
+    await db_session.flush()
+    rows = {x["name"]: x for x in await connection_report(db_session, settings, api_request=True)}
+    assert rows["AGY CLI"]["state"] == "unsupported"
+    assert rows["AGY CLI"]["owner_authorization_required"] is False
+    assert rows["AGY CLI"]["capability_verification"] != "structured_generation_verified"
 
 
 @pytest.mark.asyncio

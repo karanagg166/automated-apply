@@ -7,6 +7,7 @@ from shutil import which
 from pydantic import Field
 from sqlalchemy import select, text
 
+from backend.app.dashboard.models import OwnerPreference
 from backend.app.local_agent.contracts import StrictModel
 from backend.app.local_agent.models import (
     AgentOperation,
@@ -229,15 +230,19 @@ async def connection_report(session, settings, *, api_request=False):
     agy_auth = read_private_evidence(ROOT / "reports/phase1/agy-auth.private.json")
     agy_authenticated = agy_auth.get("authenticated_read_verified") is True and agy_auth.get("num_turns") == 0
     agy_failed = agy_evidence.get("state") == "failed_no_retry"
+    agy_acceptance = await session.get(OwnerPreference, "phase1_agy_limitation")
+    agy_accepted = bool(agy_acceptance and agy_acceptance.value.get("owner_accepted") is True
+        and agy_acceptance.value.get("cli_version") == "1.4.7"
+        and agy_acceptance.value.get("generation_disabled") is True)
     add("AGY CLI", "ai", bool(which(settings.AGY_EXECUTABLE)),
-        ConnectionState.DEGRADED if agy_failed else ConnectionState.AUTHENTICATED if agy_authenticated else ConnectionState.CREDENTIALS if which(settings.AGY_EXECUTABLE) else ConnectionState.NOT_CONFIGURED,
+        ConnectionState.UNSUPPORTED if agy_accepted else ConnectionState.DEGRADED if agy_failed else ConnectionState.AUTHENTICATED if agy_authenticated else ConnectionState.CREDENTIALS if which(settings.AGY_EXECUTABLE) else ConnectionState.NOT_CONFIGURED,
         identity_verification="authenticated_quota_metadata_read" if agy_authenticated else "unverified",
         capability_verification="authentication_only_generation_unverified" if agy_authenticated else "unverified",
-        capabilities=["structured_answer_adapter"], may_consume_paid_credits=True,
+        capabilities=["authentication_metadata"] if agy_authenticated else [], may_consume_paid_credits=True,
         actual_evidence_type="actual_cli_usage_zero_model_turns_and_failed_generation" if agy_authenticated else "failed_fictional_cli_attempt" if agy_failed else "configuration_inspection",
         last_verification_time=agy_auth.get("verified_at") or agy_evidence.get("timestamp"),
         latest_error_category=agy_diagnostic.get("error_category") or agy_diagnostic.get("diagnostic_error_code") or agy_evidence.get("error_code"),
-        blocker="tool_free_cli_restrictions_unverified" if agy_diagnostic.get("available_tool_count", 0) else "structured_generation_unverified_no_more_requests_authorized", owner_authorization_required=True,
+        blocker="owner_accepted_tool_free_cli_limitation_generation_disabled" if agy_accepted else "tool_free_cli_restrictions_unverified" if agy_diagnostic.get("available_tool_count", 0) else "structured_generation_unverified_no_more_requests_authorized", owner_authorization_required=not agy_accepted,
         safe_next_action="Metadata checks only; do not make further generation requests without explicit owner authorization")
     for name, configured, cost, capabilities in (
         ("Ollama", bool(which("ollama")), False, ["local_generation_if_model_installed"]),
@@ -282,7 +287,6 @@ async def connection_report(session, settings, *, api_request=False):
         CandidateResource.resource_type == "resume", CandidateResource.is_primary.is_(True), CandidateResource.user_confirmed.is_(True))) if profile else None
     stored_file = await session.scalar(select(PrivateResume).where(PrivateResume.resource_id == resume.id,
         PrivateResume.confirmed.is_(True))) if resume else None
-    from backend.app.dashboard.models import OwnerPreference
     from backend.app.local_agent.profile_confirmation import confirmation_matches
     confirmation = await session.get(OwnerPreference, "phase1_profile_confirmation")
     reviewed = confirmation_matches(profile, confirmation.value if confirmation else {})
