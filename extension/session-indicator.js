@@ -7,8 +7,10 @@ export function sessionIndicator() {
   // mention logout. Match only the exact visible action label, never page prose.
   const labelledLogout = [...document.querySelectorAll('a,button,[role="button"],[role="menuitem"]')].slice(0, 500).some(element => {
     if (!visible(element)) return false;
-    const label = (element.getAttribute?.("aria-label") || element.innerText || "").trim();
-    return /^(?:log\s*out|sign\s*out)$/i.test(label);
+    const label = (element.getAttribute?.("aria-label") || element.innerText || element.textContent || "").trim();
+    if (/^(?:log\s*-?\s*out|sign\s*-?\s*out)$/i.test(label)) return true;
+    const href = (element.getAttribute?.("href") || "").trim();
+    return /(?:^|[/?#&=_])(?:log[-_]?out|sign[-_]?out)(?:$|[/?#&])/i.test(href);
   });
   const signedIn = linkedLogout || labelledLogout;
   const password = [...document.querySelectorAll('input[type="password"]')].some(visible);

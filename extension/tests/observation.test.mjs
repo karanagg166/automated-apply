@@ -28,6 +28,11 @@ test("malformed or API-connected results cannot become verified browser evidence
 });
 test("errors are actionable without rendering arbitrary native or page text", () => {
   assert.match(observationMessage({ ok: false, error_code: "backend_offline" }), /backend is offline/);
+  assert.match(observationMessage({ ok: false, error_code: "backend_timeout" }), /timed out/);
+  assert.match(observationMessage({ ok: false, error_code: "native_host_timeout" }), /timed out/);
+  assert.match(observationMessage({ ok: false, error_code: "native_host_not_found" }), /native host is unavailable/);
+  assert.match(observationMessage({ ok: false, error_code: "native_origin_not_authorized" }), /not authorized by the native host/);
+  assert.match(observationMessage({ ok: false, error_code: "native_origin_denied" }), /not authorized by the native host/);
   assert.match(observationMessage({ ok: false, error_code: "unsupported_portal_page" }), /supported job portal/);
   const result = { ok: false, error_code: "private account text must not be shown" };
   assert.doesNotMatch(observationMessage(result), /private account/);
