@@ -1,10 +1,10 @@
 {
   "phase": 1,
-  "status": "incomplete_owner_acceptance_and_separate_module_review_pending",
-  "generated_at": "2026-10-25T19:52:00.000000+00:00",
+  "status": "core_phase1_blocked_provider_and_owner_review",
+  "generated_at": "2026-10-25T20:24:48.678016+00:00",
   "branch": "feat/phase1-local-connections",
-  "implementation_commit": "84dc9289dafa14798e219fbcfb9e6a0d0d8664ec",
-  "report_commit_note": "This report is committed as a follow-up to the recorded implementation commit.",
+  "implementation_commit": "49bd0a6",
+  "report_commit_note": "Core implementation is at 49bd0a6; this report and bounded cold-start Chrome probe follow it. Consult actual PR head checks for final-commit CI.",
   "pull_request": "https://github.com/karanagg166/automated-apply/pull/18",
   "phase2_started": false,
   "merged": false,
@@ -35,6 +35,735 @@
   "paid_services_activated": 0,
   "supabase_security_advisor_findings": 0,
   "tests": {
+    "backend": {
+      "passed": 1631,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 191.23,
+      "warnings": 2,
+      "postgresql": "actual_isolated_17"
+    },
+    "candidate_context_in_full_suite": 93,
+    "resume_modules_in_full_suite": 74,
+    "additional_manual_pdf_tests": "included_in_dashboard_coverage",
+    "agy_protocol_diagnostics_in_full_suite": 15,
+    "frontend_unit": 47,
+    "frontend_e2e": 9,
+    "extension_event_simulations": 18,
+    "actual_chrome_controlled_checks": 13,
+    "actual_online_chrome_exact_json_audits": 8,
+    "actual_native_origin_and_frame_rejections": 4,
+    "actual_native_open_stdin_partial_timeout": "passed",
+    "actual_disposable_mv3_native_fastapi_postgresql_restart": "passed",
+    "postgresql_runtime_denials": 5,
+    "postgresql_security_faults_rejected": 7,
+    "ruff": "passed",
+    "bandit": "passed_no_findings",
+    "python_dependency_audit": {
+      "known_vulnerabilities": 0
+    },
+    "frontend_dependency_audit": {
+      "known_vulnerabilities": 0
+    },
+    "secret_scan": {
+      "state": "passed_all_tracked_files_baseline_line_locations_refreshed_only",
+      "rules_changed": false
+    },
+    "hosted_ci": {
+      "state": "final_head_required",
+      "checks_url": "https://github.com/karanagg166/automated-apply/pull/18/checks"
+    },
+    "unexecuted_live_acceptance": {
+      "real_model_generation": "isolation_failed",
+      "owner_approved_live_project_retrieval": "no_owner_approved_projects",
+      "new_personal_chrome_gestures": "controlled_profile_used_historical_owner_acceptance_preserved"
+    },
+    "deferred_tests_are_not_failures": true
+  },
+  "connections": [
+    {
+      "connection_name": "Supabase PostgreSQL",
+      "implementation_completed": true,
+      "configured": true,
+      "authenticated": true,
+      "actually_verified": true,
+      "status": "verified",
+      "verified_scope": "restricted_sql",
+      "supported_capabilities": [
+        "persistence",
+        "private_sql"
+      ],
+      "owner_approval_completed": true,
+      "owner_action_needed": false,
+      "last_verification_time": "2026-10-25T19:19:42.340750Z",
+      "remaining_blocker": null,
+      "safe_next_action": "Review docs/phase1/setup.md",
+      "evidence_type": "live_tls_catalog_probe",
+      "core_phase1_required": true
+    },
+    {
+      "connection_name": "Local FastAPI",
+      "implementation_completed": true,
+      "configured": true,
+      "authenticated": true,
+      "actually_verified": true,
+      "status": "verified",
+      "verified_scope": "current_request",
+      "supported_capabilities": [
+        "preview_commands"
+      ],
+      "owner_approval_completed": true,
+      "owner_action_needed": false,
+      "last_verification_time": "2026-10-25T19:19:42.340750Z",
+      "remaining_blocker": null,
+      "safe_next_action": "Review docs/phase1/setup.md",
+      "evidence_type": "current_authenticated_api_request",
+      "core_phase1_required": false
+    },
+    {
+      "connection_name": "Supabase CLI",
+      "implementation_completed": true,
+      "configured": false,
+      "authenticated": true,
+      "actually_verified": true,
+      "status": "verified",
+      "verified_scope": "management_metadata_only",
+      "supported_capabilities": [
+        "management_metadata"
+      ],
+      "owner_approval_completed": true,
+      "owner_action_needed": false,
+      "last_verification_time": "2026-10-25T13:43:34.246657Z",
+      "remaining_blocker": null,
+      "safe_next_action": "Run supabase_account.py check using the existing private profile; preserve default account.",
+      "evidence_type": "actual_isolated_cli_project_list",
+      "core_phase1_required": false
+    },
+    {
+      "connection_name": "Codex Supabase MCP",
+      "implementation_completed": true,
+      "configured": true,
+      "authenticated": true,
+      "actually_verified": true,
+      "status": "verified",
+      "verified_scope": "read_only_metadata",
+      "supported_capabilities": [
+        "read_only_project_metadata"
+      ],
+      "owner_approval_completed": true,
+      "owner_action_needed": false,
+      "last_verification_time": "2026-10-25T13:38:50.000286Z",
+      "remaining_blocker": null,
+      "safe_next_action": "Run named client OAuth and read-only verification; see setup guide",
+      "evidence_type": "live_cli_mcp_read_only_calls",
+      "core_phase1_required": false
+    },
+    {
+      "connection_name": "VS Code Supabase MCP",
+      "implementation_completed": true,
+      "configured": true,
+      "authenticated": false,
+      "actually_verified": false,
+      "status": "awaiting_approval",
+      "verified_scope": "unverified",
+      "supported_capabilities": [],
+      "owner_approval_completed": false,
+      "owner_action_needed": true,
+      "last_verification_time": null,
+      "remaining_blocker": "workspace_registered_but_actual_tools_and_project_read_not_discovered",
+      "safe_next_action": "Run named client OAuth and read-only verification; see setup guide",
+      "evidence_type": "configuration_inspection",
+      "core_phase1_required": false
+    },
+    {
+      "connection_name": "AGY Supabase MCP",
+      "implementation_completed": true,
+      "configured": true,
+      "authenticated": false,
+      "actually_verified": false,
+      "status": "unsupported",
+      "verified_scope": "unverified",
+      "supported_capabilities": [],
+      "owner_approval_completed": false,
+      "owner_action_needed": true,
+      "last_verification_time": null,
+      "remaining_blocker": "oauth_tool_discovery_not_verified",
+      "safe_next_action": "Run named client OAuth and read-only verification; see setup guide",
+      "evidence_type": "configuration_inspection",
+      "core_phase1_required": false
+    },
+    {
+      "connection_name": "Chrome extension",
+      "implementation_completed": true,
+      "configured": true,
+      "authenticated": true,
+      "actually_verified": false,
+      "status": "awaiting_approval",
+      "verified_scope": "bridge_only_real_chrome_install_unverified",
+      "supported_capabilities": [
+        "url_preview"
+      ],
+      "owner_approval_completed": false,
+      "owner_action_needed": true,
+      "last_verification_time": "2026-10-25T18:19:43.512937Z",
+      "remaining_blocker": "current_registered_id_matches_temporary_worktree_stable_extension_binding_and_owner_restart_offline_acceptance_pending",
+      "safe_next_action": "Load the stable private extension, confirm Chrome-displayed ID cgnghndndegcjokobbplfngfgfdplenj, then bind and repeat deliberate previews.",
+      "evidence_type": "authenticated_bridge_request",
+      "core_phase1_required": true
+    },
+    {
+      "connection_name": "Native messaging host",
+      "implementation_completed": true,
+      "configured": true,
+      "authenticated": true,
+      "actually_verified": false,
+      "status": "awaiting_approval",
+      "verified_scope": "bridge_only_real_chrome_install_unverified",
+      "supported_capabilities": [
+        "url_preview"
+      ],
+      "owner_approval_completed": false,
+      "owner_action_needed": true,
+      "last_verification_time": "2026-10-25T18:19:43.512937Z",
+      "remaining_blocker": "current_registered_id_matches_temporary_worktree_stable_extension_binding_and_owner_restart_offline_acceptance_pending",
+      "safe_next_action": "Load the stable private extension, confirm Chrome-displayed ID cgnghndndegcjokobbplfngfgfdplenj, then bind and repeat deliberate previews.",
+      "evidence_type": "authenticated_bridge_request",
+      "core_phase1_required": false
+    },
+    {
+      "connection_name": "Telegram worker",
+      "implementation_completed": true,
+      "configured": true,
+      "authenticated": true,
+      "actually_verified": true,
+      "status": "verified",
+      "verified_scope": "online_owner_command_roundtrip",
+      "supported_capabilities": [
+        "private_commands",
+        "preview_only"
+      ],
+      "owner_approval_completed": true,
+      "owner_action_needed": false,
+      "last_verification_time": "2026-10-25T19:19:26.184139Z",
+      "remaining_blocker": null,
+      "safe_next_action": "Configure private bot and numeric owner IDs; start worker; /ping; locked-screen test pending",
+      "evidence_type": "live_poll_sent_reply_and_dispatch_audit",
+      "core_phase1_required": false
+    },
+    {
+      "connection_name": "Naukri",
+      "implementation_completed": true,
+      "configured": false,
+      "authenticated": false,
+      "actually_verified": false,
+      "status": "manual_only",
+      "verified_scope": "manual_handoff_only_no_applicant_api",
+      "supported_capabilities": [
+        "manual_handoff",
+        "url_preview",
+        "gesture_session_observation"
+      ],
+      "owner_approval_completed": false,
+      "owner_action_needed": false,
+      "last_verification_time": null,
+      "remaining_blocker": null,
+      "safe_next_action": "Connect in your Chrome tab, sign in manually, then click Check this portal session in the extension. A visible indicator does not verify account identity or API access.",
+      "evidence_type": "none",
+      "core_phase1_required": false,
+      "deferred_from_core_milestone": true
+    },
+    {
+      "connection_name": "Wellfound",
+      "implementation_completed": true,
+      "configured": false,
+      "authenticated": false,
+      "actually_verified": false,
+      "status": "manual_only",
+      "verified_scope": "manual_handoff_only_no_applicant_api",
+      "supported_capabilities": [
+        "manual_handoff",
+        "url_preview",
+        "gesture_session_observation"
+      ],
+      "owner_approval_completed": false,
+      "owner_action_needed": false,
+      "last_verification_time": null,
+      "remaining_blocker": null,
+      "safe_next_action": "Connect in your Chrome tab, sign in manually, then click Check this portal session in the extension. A visible indicator does not verify account identity or API access.",
+      "evidence_type": "none",
+      "core_phase1_required": false,
+      "deferred_from_core_milestone": true
+    },
+    {
+      "connection_name": "Instahyre",
+      "implementation_completed": true,
+      "configured": false,
+      "authenticated": false,
+      "actually_verified": false,
+      "status": "manual_only",
+      "verified_scope": "manual_handoff_only_no_applicant_api",
+      "supported_capabilities": [
+        "manual_handoff",
+        "url_preview",
+        "gesture_session_observation"
+      ],
+      "owner_approval_completed": false,
+      "owner_action_needed": false,
+      "last_verification_time": null,
+      "remaining_blocker": null,
+      "safe_next_action": "Connect in your Chrome tab, sign in manually, then click Check this portal session in the extension. A visible indicator does not verify account identity or API access.",
+      "evidence_type": "none",
+      "core_phase1_required": false,
+      "deferred_from_core_milestone": true
+    },
+    {
+      "connection_name": "YC Work at a Startup",
+      "implementation_completed": true,
+      "configured": false,
+      "authenticated": false,
+      "actually_verified": false,
+      "status": "manual_only",
+      "verified_scope": "manual_handoff_only_no_applicant_api",
+      "supported_capabilities": [
+        "manual_handoff",
+        "url_preview",
+        "gesture_session_observation"
+      ],
+      "owner_approval_completed": false,
+      "owner_action_needed": false,
+      "last_verification_time": null,
+      "remaining_blocker": null,
+      "safe_next_action": "Connect in your Chrome tab, sign in manually, then click Check this portal session in the extension. A visible indicator does not verify account identity or API access.",
+      "evidence_type": "none",
+      "core_phase1_required": false,
+      "deferred_from_core_milestone": true
+    },
+    {
+      "connection_name": "Internshala",
+      "implementation_completed": true,
+      "configured": true,
+      "authenticated": false,
+      "actually_verified": false,
+      "status": "manual_only",
+      "verified_scope": "manual_handoff_only_no_applicant_api",
+      "supported_capabilities": [
+        "manual_handoff",
+        "url_preview",
+        "gesture_session_observation"
+      ],
+      "owner_approval_completed": false,
+      "owner_action_needed": false,
+      "last_verification_time": "2026-10-25T18:01:20.860947Z",
+      "remaining_blocker": null,
+      "safe_next_action": "Connect in your Chrome tab, sign in manually, then click Check this portal session in the extension. A visible indicator does not verify account identity or API access.",
+      "evidence_type": "extension_gesture_dom_indicator",
+      "core_phase1_required": false,
+      "deferred_from_core_milestone": true
+    },
+    {
+      "connection_name": "LinkedIn",
+      "implementation_completed": true,
+      "configured": false,
+      "authenticated": false,
+      "actually_verified": false,
+      "status": "manual_only",
+      "verified_scope": "unverified",
+      "supported_capabilities": [
+        "manual_handoff",
+        "url_preview"
+      ],
+      "owner_approval_completed": false,
+      "owner_action_needed": false,
+      "last_verification_time": null,
+      "remaining_blocker": null,
+      "safe_next_action": "Open official links manually",
+      "evidence_type": "configuration_inspection",
+      "core_phase1_required": false
+    },
+    {
+      "connection_name": "Public job sources",
+      "implementation_completed": true,
+      "configured": false,
+      "authenticated": false,
+      "actually_verified": false,
+      "status": "not_connected",
+      "verified_scope": "unverified",
+      "supported_capabilities": [
+        "public_read_adapters"
+      ],
+      "owner_approval_completed": false,
+      "owner_action_needed": false,
+      "last_verification_time": null,
+      "remaining_blocker": "recurring_discovery_disabled",
+      "safe_next_action": "Review configured boards and saved filters; separately authorize discovery",
+      "evidence_type": "configuration_inspection",
+      "core_phase1_required": false
+    },
+    {
+      "connection_name": "AGY CLI",
+      "implementation_completed": true,
+      "configured": true,
+      "authenticated": true,
+      "actually_verified": false,
+      "status": "unsupported",
+      "verified_scope": "authentication_only_generation_unverified",
+      "supported_capabilities": [
+        "authentication_metadata"
+      ],
+      "owner_approval_completed": false,
+      "owner_action_needed": false,
+      "last_verification_time": "2026-10-25T13:36:20.148066Z",
+      "remaining_blocker": "authenticated_tool_free_generation_unverified",
+      "safe_next_action": "Keep generation disabled. Require proven isolation before requesting bounded-generation authorization.",
+      "evidence_type": "actual_cli_usage_zero_model_turns_and_failed_generation",
+      "core_phase1_required": true
+    },
+    {
+      "connection_name": "Ollama",
+      "implementation_completed": true,
+      "configured": false,
+      "authenticated": false,
+      "actually_verified": false,
+      "status": "not_connected",
+      "verified_scope": "unverified",
+      "supported_capabilities": [
+        "local_generation_if_model_installed"
+      ],
+      "owner_approval_completed": false,
+      "owner_action_needed": false,
+      "last_verification_time": null,
+      "remaining_blocker": "model_and_service_unverified",
+      "safe_next_action": "Review docs/phase1/setup.md",
+      "evidence_type": "configuration_inspection",
+      "core_phase1_required": false
+    },
+    {
+      "connection_name": "Gemini",
+      "implementation_completed": true,
+      "configured": false,
+      "authenticated": false,
+      "actually_verified": false,
+      "status": "not_connected",
+      "verified_scope": "unverified",
+      "supported_capabilities": [
+        "structured_answers"
+      ],
+      "owner_approval_completed": false,
+      "owner_action_needed": false,
+      "last_verification_time": null,
+      "remaining_blocker": "free_entitlement_unverified",
+      "safe_next_action": "Review docs/phase1/setup.md",
+      "evidence_type": "configuration_inspection",
+      "core_phase1_required": false
+    },
+    {
+      "connection_name": "Cohere",
+      "implementation_completed": true,
+      "configured": false,
+      "authenticated": false,
+      "actually_verified": false,
+      "status": "not_connected",
+      "verified_scope": "unverified",
+      "supported_capabilities": [],
+      "owner_approval_completed": false,
+      "owner_action_needed": false,
+      "last_verification_time": null,
+      "remaining_blocker": "free_entitlement_unverified",
+      "safe_next_action": "Review docs/phase1/setup.md",
+      "evidence_type": "configuration_inspection",
+      "core_phase1_required": false
+    },
+    {
+      "connection_name": "Apollo",
+      "implementation_completed": true,
+      "configured": false,
+      "authenticated": false,
+      "actually_verified": false,
+      "status": "not_connected",
+      "verified_scope": "unverified",
+      "supported_capabilities": [
+        "cached_contacts",
+        "enrichment_requires_approval"
+      ],
+      "owner_approval_completed": false,
+      "owner_action_needed": false,
+      "last_verification_time": null,
+      "remaining_blocker": "free_entitlement_unverified",
+      "safe_next_action": "Review docs/phase1/setup.md",
+      "evidence_type": "configuration_inspection",
+      "core_phase1_required": false
+    },
+    {
+      "connection_name": "SignalHire",
+      "implementation_completed": true,
+      "configured": false,
+      "authenticated": false,
+      "actually_verified": false,
+      "status": "not_connected",
+      "verified_scope": "unverified",
+      "supported_capabilities": [
+        "cached_contacts",
+        "enrichment_requires_approval"
+      ],
+      "owner_approval_completed": false,
+      "owner_action_needed": false,
+      "last_verification_time": null,
+      "remaining_blocker": "free_entitlement_unverified",
+      "safe_next_action": "Review docs/phase1/setup.md",
+      "evidence_type": "configuration_inspection",
+      "core_phase1_required": false
+    },
+    {
+      "connection_name": "Gmail identity",
+      "implementation_completed": true,
+      "configured": true,
+      "authenticated": true,
+      "actually_verified": true,
+      "status": "verified",
+      "verified_scope": "identity_and_encrypted_refresh_storage",
+      "supported_capabilities": [
+        "verified_secondary_identity",
+        "encrypted_refresh_storage"
+      ],
+      "owner_approval_completed": true,
+      "owner_action_needed": false,
+      "last_verification_time": "2026-10-25T20:23:31.976322+00:00",
+      "remaining_blocker": null,
+      "safe_next_action": "Preserve secondary identity; compose authorization is tracked separately.",
+      "evidence_type": "persisted_verified_oauth_identity",
+      "core_phase1_required": true
+    },
+    {
+      "connection_name": "Gmail compose",
+      "implementation_completed": true,
+      "configured": true,
+      "authenticated": true,
+      "actually_verified": true,
+      "status": "verified",
+      "verified_scope": "compose_scope_stored_no_draft_test",
+      "supported_capabilities": [
+        "draft_scope_granted_sending_disabled"
+      ],
+      "owner_approval_completed": true,
+      "owner_action_needed": false,
+      "last_verification_time": "2026-10-25T20:23:31.976322+00:00",
+      "remaining_blocker": null,
+      "safe_next_action": "Authorize gmail.compose through existing OAuth flow; no drafts or sends in Phase 1",
+      "evidence_type": "persisted_verified_oauth_scope",
+      "core_phase1_required": true
+    },
+    {
+      "connection_name": "Candidate profile",
+      "implementation_completed": true,
+      "configured": false,
+      "authenticated": false,
+      "actually_verified": false,
+      "status": "awaiting_approval",
+      "verified_scope": "profile_review_or_required_fields_missing",
+      "supported_capabilities": [],
+      "owner_approval_completed": false,
+      "owner_action_needed": true,
+      "last_verification_time": null,
+      "remaining_blocker": "owner_fact_review_pending",
+      "safe_next_action": "Review Profile and Resumes in the dashboard. Confirm skills, experience, roles, locations, URLs and the canonical file. Missing facts are never inferred.",
+      "evidence_type": "current_sql_inventory_no_personal_details",
+      "core_phase1_required": true
+    },
+    {
+      "connection_name": "Resume",
+      "implementation_completed": true,
+      "configured": false,
+      "authenticated": false,
+      "actually_verified": false,
+      "status": "awaiting_approval",
+      "verified_scope": "canonical_file_unverified",
+      "supported_capabilities": [],
+      "owner_approval_completed": false,
+      "owner_action_needed": true,
+      "last_verification_time": null,
+      "remaining_blocker": "canonical_resume_confirmation_pending",
+      "safe_next_action": "Download and review the existing private PDF in Profile; select it and save the reviewed profile. Drive changes require separate fact review.",
+      "evidence_type": "current_sql_inventory_no_personal_details",
+      "core_phase1_required": true
+    },
+    {
+      "connection_name": "Deterministic answers",
+      "implementation_completed": true,
+      "configured": true,
+      "authenticated": false,
+      "actually_verified": true,
+      "status": "verified",
+      "verified_scope": "local_only",
+      "supported_capabilities": [
+        "grounded_deterministic_answers"
+      ],
+      "owner_approval_completed": true,
+      "owner_action_needed": false,
+      "last_verification_time": null,
+      "remaining_blocker": null,
+      "safe_next_action": "Review docs/phase1/setup.md",
+      "evidence_type": "existing_local_implementation",
+      "core_phase1_required": false
+    }
+  ],
+  "agy_limitation_owner_accepted": true,
+  "agy_generation_enabled": false,
+  "final_commit_ci_note": "Check the actual final commit through PR #18 checks. Final CI results are recorded in the PR description after pushing, avoiding a self-referencing report commit.",
+  "compose_followup": {
+    "state": "verified",
+    "project_ref": "luvdmwnlwaqgvfwlmlom",
+    "sha256": "27c1a68eadbd916037effcf94580089777acdc1a66af68aaf9f706beb0cddf3d",
+    "verified_at": "2026-10-25T13:46:13.647016+00:00",
+    "remote_ddl_attempts": 1,
+    "credentials_changed": false,
+    "stage": "complete",
+    "gmail_sending_enabled": false
+  },
+  "owner_actions_pending": [
+    "confirm_canonical_profile_and_resume",
+    "configure_ranked_projects_and_context_templates",
+    "authorize_project_checkout_sources",
+    "review_and_approve_project_context"
+  ],
+  "current_session_remote_ddl_executed": false,
+  "profile_context_workstream": {
+    "status": "integrated_into_phase1_dashboard_and_runtime",
+    "branch": "feat/phase1-profile-context-parallel",
+    "sha": "aaed0afeec8b1d35ac1a2df37db00b2104169660",
+    "pull_request": "https://github.com/karanagg166/automated-apply/pull/19",
+    "base": "feat/phase1-local-connections",
+    "draft": true,
+    "merged": false,
+    "owner_approved": false,
+    "tests": {
+      "passed": 86,
+      "failed": 0,
+      "skipped": 0
+    },
+    "hosted_ci_claimed": false,
+    "remaining_integration": [
+      "owner_configuration_and_approval",
+      "authorized_project_checkout_mapping"
+    ],
+    "frontend_push_ci": {
+      "state": "passed",
+      "url": "https://github.com/karanagg166/automated-apply/actions/runs/40215268877",
+      "scope": "frontend_only_not_module_backend_tests"
+    },
+    "implementation_reused": true,
+    "live_drive_deferred": true
+  },
+  "locked_screen_acceptance": {
+    "verified": true,
+    "verified_at": "2026-10-25T17:57:59.227096+00:00",
+    "macOS_screen_lock_observed": true,
+    "new_pong_sent_while_locked": true,
+    "fresh_poll_while_locked": true,
+    "owner_confirmed_received": true
+  },
+  "current_session_telegram_fresh_owner_examples_verified": {
+    "application_status": true,
+    "varied_paraphrases_and_contextual_followups": false
+  },
+  "completion_scope": "core_phase1_separate_from_platform_onboarding",
+  "core_phase1_ready": false,
+  "full_platform_onboarding_complete": false,
+  "current_session_generation_requests": 0,
+  "core_criteria": {
+    "secure_provider_generation": {
+      "passed": false,
+      "blocker": "authenticated_agy_initialization_advertises_60_tools",
+      "authenticated": true,
+      "successful_real_answers": 0,
+      "prompt_sent_in_current_session": false
+    },
+    "owner_profile_and_canonical_resume": {
+      "passed": false,
+      "blocker": "owner_review_pending",
+      "live_inventory": {
+        "present": false,
+        "version_confirmed": false,
+        "provided_skills": false,
+        "experience_provided": false,
+        "encrypted_versions": 1,
+        "all_sha256_verified": true,
+        "confirmed_versions": 0,
+        "encryption_key_changed": false
+      },
+      "owner_intent_to_review_recorded": true,
+      "intent_counts_as_confirmation": false
+    },
+    "project_configuration_and_context": {
+      "passed": false,
+      "implementation_and_tests_passed": true,
+      "blocker": "owner_project_configuration_checkout_authorization_and_fact_approval_pending",
+      "live_inventory": {
+        "configuration_revision": 0,
+        "named_projects": 0,
+        "approved_projects": 0,
+        "authorized_checkout_count": 0,
+        "drive_auto_download_enabled": false
+      },
+      "refresh_scope": "committed_changes_in_explicitly_authorized_local_github_mirrors_no_fetch_or_execution"
+    },
+    "chrome_reliability": {
+      "passed": true,
+      "evidence": "controlled_actual_Chrome_for_Testing_156_native_backend_and_online_Supabase",
+      "controlled_checks": 13,
+      "stable_extension_id": "gdjbmkffcpicbpiikcohlmokkmcpipgp",
+      "exact_online_result_audits": 8,
+      "new_personal_browser_gestures_claimed": false
+    },
+    "telegram_context_and_routing": {
+      "passed": false,
+      "routing_and_approved_context_tests_passed": true,
+      "live_poll_healthy": true,
+      "blocker": "live_owner_approved_projects_missing",
+      "outbound_messages_sent_by_verification": 0
+    },
+    "supabase_and_gmail_health": {
+      "passed": true,
+      "verified_at": "2026-10-25T20:23:14.750699+00:00",
+      "supabase_restricted_tls_catalog": true,
+      "gmail_identity_and_exact_compose_scopes": true,
+      "keys_changed": false
+    },
+    "final_head_ci": {
+      "passed": null,
+      "state": "authoritative_final_head_results_recorded_on_pr_after_push",
+      "checks_url": "https://github.com/karanagg166/automated-apply/pull/18/checks"
+    }
+  },
+  "deferred_not_core_blockers": [
+    "google_drive_oauth",
+    "live_pdf_auto_download",
+    "real_naukri_connection",
+    "real_wellfound_connection",
+    "real_instahyre_connection",
+    "real_yc_connection",
+    "real_internshala_connection",
+    "actual_job_submissions"
+  ],
+  "separate_followups_not_core_gates": [
+    "vscode_mcp_owner_oauth_and_read_call",
+    "historical_six_example_live_telegram_followup"
+  ],
+  "agy_limitation_acceptance_note": "Historical acceptance remains recorded; the revised core criterion requires successful isolated generation and is not satisfied by this acceptance.",
+  "agy_current_session_diagnostics": {
+    "cli_version": "1.4.7",
+    "available_tools_authenticated_init": 60,
+    "advertised_shell_tool": true,
+    "advertised_browser_tool": true,
+    "isolated_home_agent_plugin_mcp_discovery_passed": true,
+    "authenticated_isolated_init_verified": false,
+    "global_settings_unchanged": true,
+    "model_events_sent": 0,
+    "useG1Credits": false,
+    "api_or_cloud_billing_activated": false,
+    "replacement_provider_activated": false,
+    "generation_tests_unexecuted_reason": "isolation_prerequisite_not_satisfied_no_quota_authorization_requested"
+  },
+  "historical_tests_before_core_readiness": {
     "backend": {
       "passed": 1607,
       "failed": 0,
@@ -154,559 +883,17 @@
     "actual_owner_Chrome_preview_retest": "passed_stable_ID_three_matching_online_audits",
     "actual_owner_locked_screen_telegram": "passed_macOS_lock_new_sent_pong_fresh_poll_owner_received"
   },
-  "connections": [
-    {
-      "connection_name": "Supabase PostgreSQL",
-      "implementation_completed": true,
-      "configured": true,
-      "authenticated": true,
-      "actually_verified": true,
-      "status": "verified",
-      "verified_scope": "restricted_sql",
-      "supported_capabilities": [
-        "persistence",
-        "private_sql"
-      ],
-      "owner_approval_completed": true,
-      "owner_action_needed": false,
-      "last_verification_time": "2026-10-25T19:19:42.340750Z",
-      "remaining_blocker": null,
-      "safe_next_action": "Review docs/phase1/setup.md",
-      "evidence_type": "live_tls_catalog_probe"
-    },
-    {
-      "connection_name": "Local FastAPI",
-      "implementation_completed": true,
-      "configured": true,
-      "authenticated": true,
-      "actually_verified": true,
-      "status": "verified",
-      "verified_scope": "current_request",
-      "supported_capabilities": [
-        "preview_commands"
-      ],
-      "owner_approval_completed": true,
-      "owner_action_needed": false,
-      "last_verification_time": "2026-10-25T19:19:42.340750Z",
-      "remaining_blocker": null,
-      "safe_next_action": "Review docs/phase1/setup.md",
-      "evidence_type": "current_authenticated_api_request"
-    },
-    {
-      "connection_name": "Supabase CLI",
-      "implementation_completed": true,
-      "configured": false,
-      "authenticated": true,
-      "actually_verified": true,
-      "status": "verified",
-      "verified_scope": "management_metadata_only",
-      "supported_capabilities": [
-        "management_metadata"
-      ],
-      "owner_approval_completed": true,
-      "owner_action_needed": false,
-      "last_verification_time": "2026-10-25T13:43:34.246657Z",
-      "remaining_blocker": null,
-      "safe_next_action": "Run supabase_account.py check using the existing private profile; preserve default account.",
-      "evidence_type": "actual_isolated_cli_project_list"
-    },
-    {
-      "connection_name": "Codex Supabase MCP",
-      "implementation_completed": true,
-      "configured": true,
-      "authenticated": true,
-      "actually_verified": true,
-      "status": "verified",
-      "verified_scope": "read_only_metadata",
-      "supported_capabilities": [
-        "read_only_project_metadata"
-      ],
-      "owner_approval_completed": true,
-      "owner_action_needed": false,
-      "last_verification_time": "2026-10-25T13:38:50.000286Z",
-      "remaining_blocker": null,
-      "safe_next_action": "Run named client OAuth and read-only verification; see setup guide",
-      "evidence_type": "live_cli_mcp_read_only_calls"
-    },
-    {
-      "connection_name": "VS Code Supabase MCP",
-      "implementation_completed": true,
-      "configured": true,
-      "authenticated": false,
-      "actually_verified": false,
-      "status": "awaiting_approval",
-      "verified_scope": "unverified",
-      "supported_capabilities": [],
-      "owner_approval_completed": false,
-      "owner_action_needed": true,
-      "last_verification_time": null,
-      "remaining_blocker": "workspace_registered_but_actual_tools_and_project_read_not_discovered",
-      "safe_next_action": "Run named client OAuth and read-only verification; see setup guide",
-      "evidence_type": "configuration_inspection"
-    },
-    {
-      "connection_name": "AGY Supabase MCP",
-      "implementation_completed": true,
-      "configured": true,
-      "authenticated": false,
-      "actually_verified": false,
-      "status": "unsupported",
-      "verified_scope": "unverified",
-      "supported_capabilities": [],
-      "owner_approval_completed": false,
-      "owner_action_needed": true,
-      "last_verification_time": null,
-      "remaining_blocker": "oauth_tool_discovery_not_verified",
-      "safe_next_action": "Run named client OAuth and read-only verification; see setup guide",
-      "evidence_type": "configuration_inspection"
-    },
-    {
-      "connection_name": "Chrome extension",
-      "implementation_completed": true,
-      "configured": true,
-      "authenticated": true,
-      "actually_verified": false,
-      "status": "awaiting_approval",
-      "verified_scope": "bridge_only_real_chrome_install_unverified",
-      "supported_capabilities": [
-        "url_preview"
-      ],
-      "owner_approval_completed": false,
-      "owner_action_needed": true,
-      "last_verification_time": "2026-10-25T18:19:43.512937Z",
-      "remaining_blocker": "current_registered_id_matches_temporary_worktree_stable_extension_binding_and_owner_restart_offline_acceptance_pending",
-      "safe_next_action": "Load the stable private extension, confirm Chrome-displayed ID cgnghndndegcjokobbplfngfgfdplenj, then bind and repeat deliberate previews.",
-      "evidence_type": "authenticated_bridge_request"
-    },
-    {
-      "connection_name": "Native messaging host",
-      "implementation_completed": true,
-      "configured": true,
-      "authenticated": true,
-      "actually_verified": false,
-      "status": "awaiting_approval",
-      "verified_scope": "bridge_only_real_chrome_install_unverified",
-      "supported_capabilities": [
-        "url_preview"
-      ],
-      "owner_approval_completed": false,
-      "owner_action_needed": true,
-      "last_verification_time": "2026-10-25T18:19:43.512937Z",
-      "remaining_blocker": "current_registered_id_matches_temporary_worktree_stable_extension_binding_and_owner_restart_offline_acceptance_pending",
-      "safe_next_action": "Load the stable private extension, confirm Chrome-displayed ID cgnghndndegcjokobbplfngfgfdplenj, then bind and repeat deliberate previews.",
-      "evidence_type": "authenticated_bridge_request"
-    },
-    {
-      "connection_name": "Telegram worker",
-      "implementation_completed": true,
-      "configured": true,
-      "authenticated": true,
-      "actually_verified": true,
-      "status": "verified",
-      "verified_scope": "online_owner_command_roundtrip",
-      "supported_capabilities": [
-        "private_commands",
-        "preview_only"
-      ],
-      "owner_approval_completed": true,
-      "owner_action_needed": false,
-      "last_verification_time": "2026-10-25T19:19:26.184139Z",
-      "remaining_blocker": null,
-      "safe_next_action": "Configure private bot and numeric owner IDs; start worker; /ping; locked-screen test pending",
-      "evidence_type": "live_poll_sent_reply_and_dispatch_audit"
-    },
-    {
-      "connection_name": "Naukri",
-      "implementation_completed": true,
-      "configured": false,
-      "authenticated": false,
-      "actually_verified": false,
-      "status": "manual_only",
-      "verified_scope": "manual_handoff_only_no_applicant_api",
-      "supported_capabilities": [
-        "manual_handoff",
-        "url_preview",
-        "gesture_session_observation"
-      ],
-      "owner_approval_completed": false,
-      "owner_action_needed": false,
-      "last_verification_time": null,
-      "remaining_blocker": null,
-      "safe_next_action": "Connect in your Chrome tab, sign in manually, then click Check this portal session in the extension. A visible indicator does not verify account identity or API access.",
-      "evidence_type": "none"
-    },
-    {
-      "connection_name": "Wellfound",
-      "implementation_completed": true,
-      "configured": false,
-      "authenticated": false,
-      "actually_verified": false,
-      "status": "manual_only",
-      "verified_scope": "manual_handoff_only_no_applicant_api",
-      "supported_capabilities": [
-        "manual_handoff",
-        "url_preview",
-        "gesture_session_observation"
-      ],
-      "owner_approval_completed": false,
-      "owner_action_needed": false,
-      "last_verification_time": null,
-      "remaining_blocker": null,
-      "safe_next_action": "Connect in your Chrome tab, sign in manually, then click Check this portal session in the extension. A visible indicator does not verify account identity or API access.",
-      "evidence_type": "none"
-    },
-    {
-      "connection_name": "Instahyre",
-      "implementation_completed": true,
-      "configured": false,
-      "authenticated": false,
-      "actually_verified": false,
-      "status": "manual_only",
-      "verified_scope": "manual_handoff_only_no_applicant_api",
-      "supported_capabilities": [
-        "manual_handoff",
-        "url_preview",
-        "gesture_session_observation"
-      ],
-      "owner_approval_completed": false,
-      "owner_action_needed": false,
-      "last_verification_time": null,
-      "remaining_blocker": null,
-      "safe_next_action": "Connect in your Chrome tab, sign in manually, then click Check this portal session in the extension. A visible indicator does not verify account identity or API access.",
-      "evidence_type": "none"
-    },
-    {
-      "connection_name": "YC Work at a Startup",
-      "implementation_completed": true,
-      "configured": false,
-      "authenticated": false,
-      "actually_verified": false,
-      "status": "manual_only",
-      "verified_scope": "manual_handoff_only_no_applicant_api",
-      "supported_capabilities": [
-        "manual_handoff",
-        "url_preview",
-        "gesture_session_observation"
-      ],
-      "owner_approval_completed": false,
-      "owner_action_needed": false,
-      "last_verification_time": null,
-      "remaining_blocker": null,
-      "safe_next_action": "Connect in your Chrome tab, sign in manually, then click Check this portal session in the extension. A visible indicator does not verify account identity or API access.",
-      "evidence_type": "none"
-    },
-    {
-      "connection_name": "Internshala",
-      "implementation_completed": true,
-      "configured": true,
-      "authenticated": false,
-      "actually_verified": false,
-      "status": "manual_only",
-      "verified_scope": "manual_handoff_only_no_applicant_api",
-      "supported_capabilities": [
-        "manual_handoff",
-        "url_preview",
-        "gesture_session_observation"
-      ],
-      "owner_approval_completed": false,
-      "owner_action_needed": false,
-      "last_verification_time": "2026-10-25T18:01:20.860947Z",
-      "remaining_blocker": null,
-      "safe_next_action": "Connect in your Chrome tab, sign in manually, then click Check this portal session in the extension. A visible indicator does not verify account identity or API access.",
-      "evidence_type": "extension_gesture_dom_indicator"
-    },
-    {
-      "connection_name": "LinkedIn",
-      "implementation_completed": true,
-      "configured": false,
-      "authenticated": false,
-      "actually_verified": false,
-      "status": "manual_only",
-      "verified_scope": "unverified",
-      "supported_capabilities": [
-        "manual_handoff",
-        "url_preview"
-      ],
-      "owner_approval_completed": false,
-      "owner_action_needed": false,
-      "last_verification_time": null,
-      "remaining_blocker": null,
-      "safe_next_action": "Open official links manually",
-      "evidence_type": "configuration_inspection"
-    },
-    {
-      "connection_name": "Public job sources",
-      "implementation_completed": true,
-      "configured": false,
-      "authenticated": false,
-      "actually_verified": false,
-      "status": "not_connected",
-      "verified_scope": "unverified",
-      "supported_capabilities": [
-        "public_read_adapters"
-      ],
-      "owner_approval_completed": false,
-      "owner_action_needed": false,
-      "last_verification_time": null,
-      "remaining_blocker": "recurring_discovery_disabled",
-      "safe_next_action": "Review configured boards and saved filters; separately authorize discovery",
-      "evidence_type": "configuration_inspection"
-    },
-    {
-      "connection_name": "AGY CLI",
-      "implementation_completed": true,
-      "configured": true,
-      "authenticated": true,
-      "actually_verified": false,
-      "status": "unsupported",
-      "verified_scope": "authentication_only_generation_unverified",
-      "supported_capabilities": [
-        "authentication_metadata"
-      ],
-      "owner_approval_completed": true,
-      "owner_action_needed": false,
-      "last_verification_time": "2026-10-25T13:36:20.148066Z",
-      "remaining_blocker": "owner_accepted_tool_free_cli_limitation_generation_disabled",
-      "safe_next_action": "Metadata checks only; do not make further generation requests without explicit owner authorization",
-      "evidence_type": "actual_cli_usage_zero_model_turns_and_failed_generation"
-    },
-    {
-      "connection_name": "Ollama",
-      "implementation_completed": true,
-      "configured": false,
-      "authenticated": false,
-      "actually_verified": false,
-      "status": "not_connected",
-      "verified_scope": "unverified",
-      "supported_capabilities": [
-        "local_generation_if_model_installed"
-      ],
-      "owner_approval_completed": false,
-      "owner_action_needed": false,
-      "last_verification_time": null,
-      "remaining_blocker": "model_and_service_unverified",
-      "safe_next_action": "Review docs/phase1/setup.md",
-      "evidence_type": "configuration_inspection"
-    },
-    {
-      "connection_name": "Gemini",
-      "implementation_completed": true,
-      "configured": false,
-      "authenticated": false,
-      "actually_verified": false,
-      "status": "not_connected",
-      "verified_scope": "unverified",
-      "supported_capabilities": [
-        "structured_answers"
-      ],
-      "owner_approval_completed": false,
-      "owner_action_needed": false,
-      "last_verification_time": null,
-      "remaining_blocker": "free_entitlement_unverified",
-      "safe_next_action": "Review docs/phase1/setup.md",
-      "evidence_type": "configuration_inspection"
-    },
-    {
-      "connection_name": "Cohere",
-      "implementation_completed": true,
-      "configured": false,
-      "authenticated": false,
-      "actually_verified": false,
-      "status": "not_connected",
-      "verified_scope": "unverified",
-      "supported_capabilities": [],
-      "owner_approval_completed": false,
-      "owner_action_needed": false,
-      "last_verification_time": null,
-      "remaining_blocker": "free_entitlement_unverified",
-      "safe_next_action": "Review docs/phase1/setup.md",
-      "evidence_type": "configuration_inspection"
-    },
-    {
-      "connection_name": "Apollo",
-      "implementation_completed": true,
-      "configured": false,
-      "authenticated": false,
-      "actually_verified": false,
-      "status": "not_connected",
-      "verified_scope": "unverified",
-      "supported_capabilities": [
-        "cached_contacts",
-        "enrichment_requires_approval"
-      ],
-      "owner_approval_completed": false,
-      "owner_action_needed": false,
-      "last_verification_time": null,
-      "remaining_blocker": "free_entitlement_unverified",
-      "safe_next_action": "Review docs/phase1/setup.md",
-      "evidence_type": "configuration_inspection"
-    },
-    {
-      "connection_name": "SignalHire",
-      "implementation_completed": true,
-      "configured": false,
-      "authenticated": false,
-      "actually_verified": false,
-      "status": "not_connected",
-      "verified_scope": "unverified",
-      "supported_capabilities": [
-        "cached_contacts",
-        "enrichment_requires_approval"
-      ],
-      "owner_approval_completed": false,
-      "owner_action_needed": false,
-      "last_verification_time": null,
-      "remaining_blocker": "free_entitlement_unverified",
-      "safe_next_action": "Review docs/phase1/setup.md",
-      "evidence_type": "configuration_inspection"
-    },
-    {
-      "connection_name": "Gmail identity",
-      "implementation_completed": true,
-      "configured": true,
-      "authenticated": true,
-      "actually_verified": true,
-      "status": "verified",
-      "verified_scope": "identity_and_encrypted_refresh_storage",
-      "supported_capabilities": [
-        "verified_secondary_identity",
-        "encrypted_refresh_storage"
-      ],
-      "owner_approval_completed": true,
-      "owner_action_needed": false,
-      "last_verification_time": "2026-10-25T18:14:43.871652Z",
-      "remaining_blocker": null,
-      "safe_next_action": "Preserve secondary identity; compose authorization is tracked separately.",
-      "evidence_type": "persisted_verified_oauth_identity"
-    },
-    {
-      "connection_name": "Gmail compose",
-      "implementation_completed": true,
-      "configured": true,
-      "authenticated": true,
-      "actually_verified": true,
-      "status": "verified",
-      "verified_scope": "compose_scope_stored_no_draft_test",
-      "supported_capabilities": [
-        "draft_scope_granted_sending_disabled"
-      ],
-      "owner_approval_completed": true,
-      "owner_action_needed": false,
-      "last_verification_time": "2026-10-25T18:14:43.871652Z",
-      "remaining_blocker": null,
-      "safe_next_action": "Authorize gmail.compose through existing OAuth flow; no drafts or sends in Phase 1",
-      "evidence_type": "persisted_verified_oauth_scope"
-    },
-    {
-      "connection_name": "Candidate profile",
-      "implementation_completed": true,
-      "configured": false,
-      "authenticated": false,
-      "actually_verified": false,
-      "status": "awaiting_approval",
-      "verified_scope": "profile_review_or_required_fields_missing",
-      "supported_capabilities": [],
-      "owner_approval_completed": false,
-      "owner_action_needed": true,
-      "last_verification_time": null,
-      "remaining_blocker": "owner_fact_review_pending",
-      "safe_next_action": "Review Profile and Resumes in the dashboard. Confirm skills, experience, roles, locations, URLs and the canonical file. Missing facts are never inferred.",
-      "evidence_type": "current_sql_inventory_no_personal_details"
-    },
-    {
-      "connection_name": "Resume",
-      "implementation_completed": true,
-      "configured": false,
-      "authenticated": false,
-      "actually_verified": false,
-      "status": "awaiting_approval",
-      "verified_scope": "canonical_file_unverified",
-      "supported_capabilities": [],
-      "owner_approval_completed": false,
-      "owner_action_needed": true,
-      "last_verification_time": null,
-      "remaining_blocker": "canonical_resume_confirmation_pending",
-      "safe_next_action": "Download and review the existing private PDF in Profile; select it and save the reviewed profile. Drive changes require separate fact review.",
-      "evidence_type": "current_sql_inventory_no_personal_details"
-    },
-    {
-      "connection_name": "Deterministic answers",
-      "implementation_completed": true,
-      "configured": true,
-      "authenticated": false,
-      "actually_verified": true,
-      "status": "verified",
-      "verified_scope": "local_only",
-      "supported_capabilities": [
-        "grounded_deterministic_answers"
-      ],
-      "owner_approval_completed": true,
-      "owner_action_needed": false,
-      "last_verification_time": null,
-      "remaining_blocker": null,
-      "safe_next_action": "Review docs/phase1/setup.md",
-      "evidence_type": "existing_local_implementation"
-    }
-  ],
-  "agy_limitation_owner_accepted": true,
-  "agy_generation_enabled": false,
-  "final_commit_ci_note": "Implementation CI recorded below; final documentation commit checks are verified on PR #18 before handoff.",
-  "compose_followup": {
-    "state": "verified",
-    "project_ref": "luvdmwnlwaqgvfwlmlom",
-    "sha256": "27c1a68eadbd916037effcf94580089777acdc1a66af68aaf9f706beb0cddf3d",
-    "verified_at": "2026-10-25T13:46:13.647016+00:00",
-    "remote_ddl_attempts": 1,
-    "credentials_changed": false,
-    "stage": "complete",
-    "gmail_sending_enabled": false
-  },
-  "owner_actions_pending": [
-    "confirm_canonical_profile_and_resume",
-    "stable_chrome_extension_id_binding_and_owner_toolbar_context_menu_restart_offline_acceptance",
-    "vs_code_mcp_oauth_discovery_and_project_url",
-    "locked_screen_online_telegram_reply_and_six_example_owner_confirmation"
-  ],
-  "current_session_remote_ddl_executed": false,
-  "profile_context_workstream": {
-    "status": "module_complete_not_production_connected",
-    "branch": "feat/phase1-profile-context-parallel",
-    "sha": "aaed0afeec8b1d35ac1a2df37db00b2104169660",
-    "pull_request": "https://github.com/karanagg166/automated-apply/pull/19",
-    "base": "feat/phase1-local-connections",
-    "draft": true,
-    "merged": false,
-    "owner_approved": false,
-    "tests": {
-      "passed": 86,
-      "failed": 0,
-      "skipped": 0
-    },
-    "hosted_ci_claimed": false,
-    "remaining_integration": [
-      "owner_review_of_separate_PR",
-      "dashboard_routes_fields_and_env_proposals",
-      "single_resume_engine_and_historical_mapping",
-      "notification_and_fact_invalidation_events",
-      "TelegramKnowledgeAdapter_injection",
-      "real_Drive_authorization_and_acceptance"
+  "local_runtime_update": {
+    "installed": true,
+    "private_configuration_unchanged": true,
+    "rollback_backup_preserved": true,
+    "keys_rotated": false,
+    "services_restarted": [
+      "api",
+      "frontend",
+      "telegram"
     ],
-    "frontend_push_ci": {
-      "state": "passed",
-      "url": "https://github.com/karanagg166/automated-apply/actions/runs/40215268877",
-      "scope": "frontend_only_not_module_backend_tests"
-    }
-  },
-  "locked_screen_acceptance": {
-    "verified": true,
-    "verified_at": "2026-10-25T17:57:59.227096+00:00",
-    "macOS_screen_lock_observed": true,
-    "new_pong_sent_while_locked": true,
-    "fresh_poll_while_locked": true,
-    "owner_confirmed_received": true
-  },
-  "current_session_telegram_fresh_owner_examples_verified": {
-    "application_status": true,
-    "varied_paraphrases_and_contextual_followups": false
+    "new_authenticated_context_routes_http_status": 200,
+    "live_drive_download_blocked": true
   }
 }

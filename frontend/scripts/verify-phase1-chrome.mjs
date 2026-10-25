@@ -106,6 +106,29 @@ const preview = async (worker, page) => {
   return result;
 };
 try {
+  const endpointLine = readFileSync(envFile, "utf8").match(
+    /^LOCAL_AGENT_ENDPOINT=(.*)$/m,
+  );
+  assert.ok(endpointLine, "local backend endpoint required");
+  const rawEndpoint = endpointLine[1].trim();
+  const endpoint = rawEndpoint.startsWith('"')
+    ? JSON.parse(rawEndpoint)
+    : rawEndpoint;
+  assert.match(endpoint, /^http:\/\/127\.0\.0\.1:\d+$/);
+  let ready = false;
+  for (let attempt = 1; attempt <= 15; attempt++) {
+    report.startup_health_attempts = attempt;
+    try {
+      ready = (
+        await fetch(`${endpoint}/health`, { signal: AbortSignal.timeout(2000) })
+      ).ok;
+    } catch {
+      /* A bounded cold-start wait; later offline tests still require failure. */
+    }
+    if (ready) break;
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  assert.equal(ready, true, "local backend did not become healthy");
   let worker = await launch();
   let page = context.pages()[0];
   await page.goto("https://example.org/");

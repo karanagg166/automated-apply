@@ -1,3 +1,32 @@
+# Core Phase 1 final verification — 2026-10-26
+
+Core readiness remains **blocked by secure AI generation and owner profile/project review**. Drive OAuth, platform connections and actual submissions are deferred and are not blockers. See [core-readiness.md](core-readiness.md) for the current scope and technical findings.
+
+Current local results:
+
+| Check | Result |
+| --- | --- |
+| Full backend | 1,631 passed, zero failed/skipped, disposable PostgreSQL 17, two existing pypdf fixture deprecation warnings |
+| Candidate context | 93 tests, included in the full suite; actual committed-source recomputation and approval invalidation tested |
+| Resume tests | 74 tests under resume test modules, plus manual-PDF canonical switching, stale-selection rejection and checksum-mismatch tests in dashboard coverage |
+| AGY diagnostics | 15 protocol tests, included above; authenticated metadata reports zero model turns/tokens; actual initialization advertises 60 tools; generation remains blocked |
+| Frontend | 47 unit tests, 9 E2E journeys, TypeScript, generated OpenAPI types and production build passed |
+| Extension | 18 event tests; 13 controlled real Chrome checks including Google Forms and worker suspension/recovery |
+| Supabase audit | Eight returned browser previews matched eight exact persisted JSON records and the stable extension actor; no submissions |
+| Native/lifecycle | Actual installed origin/frame denials and open-stdin timeout passed; disposable real MV3/native/FastAPI/PostgreSQL restart/persistence passed |
+| Security | Ruff and Bandit passed; lockfile Python audit and npm audit found zero known vulnerabilities; secret checks retain all detectors |
+| Live integrations | Restricted Supabase PostgreSQL 17.11/TLS/catalog, unchanged Gmail identity/exact compose scopes, healthy Telegram polling, and existing encrypted PDF checksum verified |
+| Local runtime | Updated source/tested frontend build installed with rollback copy; configuration and keys unchanged; authenticated new project routes return HTTP 200 and Drive download is blocked before network access |
+| Final-head hosted CI | Required; authoritative check results and exact commit are linked on PR #18 after the final push |
+
+There are zero pytest skips in the final full run. Real AI generation is unexecuted because isolation failed; a replacement provider is not approved. Live owner project retrieval is unexecuted because no projects are configured or approved. Personal-profile Chrome gestures use separately recorded historical owner acceptance, while current automation uses a controlled Chrome profile. Drive OAuth, live downloads, portal authentication and real submissions are deliberately deferred. No fixture or deterministic output counts as a real model answer.
+
+The earlier Secret checks failure is already fixed in the branch: the fictional Basic Auth URL is built as a dedicated negative fixture, reviewed public commit hashes use exact baseline entries, and the tracked-private-artifact guard uses POSIX grep rather than an unavailable rg. Security detectors and failure behavior are retained. The new core lint step covers the previously unscanned AI and candidate-context code.
+
+The report below is historical. Its older status, counts and pending work describe the earlier checkpoint and do not override the current core criteria.
+
+---
+
 # Current parallel completion verification — 2026-10-25
 
 Phase 1 remains **incomplete**. PR #18 is draft/unmerged; Phase 2 and PR #17 are untouched.
