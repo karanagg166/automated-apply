@@ -395,3 +395,9 @@ async def notification_delivery_history(
         ],
         "external_delivery_enabled": False,
     }
+
+
+from backend.app.dashboard.candidate_context import router as candidate_context_router
+
+router.include_router(candidate_context_router)
+

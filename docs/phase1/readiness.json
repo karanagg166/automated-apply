@@ -1,9 +1,9 @@
 {
   "phase": 1,
   "status": "incomplete_owner_acceptance_and_separate_module_review_pending",
-  "generated_at": "2026-10-25T18:14:20.048852+00:00",
+  "generated_at": "2026-10-25T19:21:09.819742+00:00",
   "branch": "feat/phase1-local-connections",
-  "implementation_commit": "c89ad2c",
+  "implementation_commit": "7ae5096e4316d38a93527a92d4b9ebf0567436a9",
   "report_commit_note": "This report is committed as a follow-up to the recorded implementation commit.",
   "pull_request": "https://github.com/karanagg166/automated-apply/pull/18",
   "phase2_started": false,
@@ -36,16 +36,16 @@
   "supabase_security_advisor_findings": 0,
   "tests": {
     "backend": {
-      "passed": 1530,
+      "passed": 1607,
       "failed": 0,
-      "skipped": 0,
-      "seconds": 125.83,
+      "skipped": 12,
+      "seconds": 128.65,
       "warnings": 2,
       "postgresql": "actual_isolated_17"
     },
     "frontend_unit": 43,
     "frontend_e2e": 8,
-    "extension_event_simulations": 18,
+    "extension_event_simulations": 12,
     "installation_filesystem_tests": 5,
     "managed_postgresql_tables": 47,
     "managed_security_faults_rejected": 12,
@@ -57,19 +57,60 @@
     "ruff": "passed",
     "bandit": "passed",
     "hosted_ci": {
-      "final_head_result": "check_actual_report_commit_in_PR18_after_commit",
-      "previous_implementation_head": "8428f9c",
-      "previous_failures": [
-        "frontend_generated_API_types_drift_corrected",
-        "backend_secret_baseline_line_number_drift_corrected"
+      "implementation_head": "399bd61d22a8f3732f94813952e18561339d66d1",
+      "checks": [
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40210809803/job/121221418139",
+          "name": "backend",
+          "startedAt": "2026-10-25T16:15:31Z",
+          "status": "IN_PROGRESS",
+          "workflowName": "Backend CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40210809769/job/121221417916",
+          "name": "frontend",
+          "startedAt": "2026-10-25T16:15:30Z",
+          "status": "IN_PROGRESS",
+          "workflowName": "Frontend CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40210805645/job/121221405359",
+          "name": "frontend",
+          "startedAt": "2026-10-25T16:15:27Z",
+          "status": "IN_PROGRESS",
+          "workflowName": "Frontend CI"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40210809830/job/121221418270",
+          "name": "connections",
+          "startedAt": "2026-10-25T16:15:31Z",
+          "status": "IN_PROGRESS",
+          "workflowName": "Phase 1 connection foundation"
+        },
+        {
+          "__typename": "CheckRun",
+          "completedAt": "0001-01-01T00:00:00Z",
+          "conclusion": "",
+          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40210805646/job/121221405274",
+          "name": "connections",
+          "startedAt": "2026-10-25T16:15:27Z",
+          "status": "IN_PROGRESS",
+          "workflowName": "Phase 1 connection foundation"
+        }
       ],
-      "required_checks_not_disabled": true,
-      "previous_implementation_result": "all_five_checks_passed",
-      "previous_head_urls": [
-        "https://github.com/karanagg166/automated-apply/actions/runs/40218911276",
-        "https://github.com/karanagg166/automated-apply/actions/runs/40218911280",
-        "https://github.com/karanagg166/automated-apply/actions/runs/40218911273"
-      ]
+      "latest_head_result": "pending"
     },
     "additional_oauth_compose_regressions": {
       "passed": 46,
@@ -79,7 +120,14 @@
     "installed_native_online_api_and_wrong_origin": "passed",
     "live_compose_schema_409_identity_preserved": "passed",
     "python_dependency_audit": {
-      "known_vulnerabilities": 0
+      "known_vulnerabilities": 0,
+      "initial_reported_advisories": 55,
+      "updated_packages": [
+        "certifi",
+        "fastmcp",
+        "fastmcp-slim",
+        "pypdf"
+      ]
     },
     "frontend_dependency_audit": {
       "known_vulnerabilities": 0
@@ -116,7 +164,7 @@
       ],
       "owner_approval_completed": true,
       "owner_action_needed": false,
-      "last_verification_time": "2026-10-25T16:12:43.365040Z",
+      "last_verification_time": "2026-10-25T19:19:42.340750Z",
       "remaining_blocker": null,
       "safe_next_action": "Review docs/phase1/setup.md",
       "evidence_type": "live_tls_catalog_probe"
@@ -134,7 +182,7 @@
       ],
       "owner_approval_completed": true,
       "owner_action_needed": false,
-      "last_verification_time": "2026-10-25T16:12:43.365040Z",
+      "last_verification_time": "2026-10-25T19:19:42.340750Z",
       "remaining_blocker": null,
       "safe_next_action": "Review docs/phase1/setup.md",
       "evidence_type": "current_authenticated_api_request"
@@ -187,7 +235,7 @@
       "owner_approval_completed": false,
       "owner_action_needed": true,
       "last_verification_time": null,
-      "remaining_blocker": "trusted_verification_window_closed_before_tool_discovery_or_read_only_call",
+      "remaining_blocker": "workspace_registered_but_actual_tools_and_project_read_not_discovered",
       "safe_next_action": "Run named client OAuth and read-only verification; see setup guide",
       "evidence_type": "configuration_inspection"
     },
@@ -212,36 +260,36 @@
       "implementation_completed": true,
       "configured": true,
       "authenticated": true,
-      "actually_verified": true,
-      "status": "verified",
-      "verified_scope": "owner_Chrome_stable_ID_preview_and_matching_online_audits_plus_controlled_actual_lifecycle",
+      "actually_verified": false,
+      "status": "awaiting_approval",
+      "verified_scope": "bridge_only_real_chrome_install_unverified",
       "supported_capabilities": [
         "url_preview"
       ],
-      "owner_approval_completed": true,
-      "owner_action_needed": false,
-      "last_verification_time": "2026-10-25T17:40:36.149696+00:00",
-      "remaining_blocker": null,
-      "safe_next_action": "Preview only; portal session indicators are separate and do not establish identity or applicant API authorization.",
-      "evidence_type": "owner_visible_preview_three_online_audits_and_actual_controlled_Chrome_lifecycle"
+      "owner_approval_completed": false,
+      "owner_action_needed": true,
+      "last_verification_time": "2026-10-25T18:19:43.512937Z",
+      "remaining_blocker": "current_registered_id_matches_temporary_worktree_stable_extension_binding_and_owner_restart_offline_acceptance_pending",
+      "safe_next_action": "Load the stable private extension, confirm Chrome-displayed ID cgnghndndegcjokobbplfngfgfdplenj, then bind and repeat deliberate previews.",
+      "evidence_type": "authenticated_bridge_request"
     },
     {
       "connection_name": "Native messaging host",
       "implementation_completed": true,
       "configured": true,
       "authenticated": true,
-      "actually_verified": true,
-      "status": "verified",
-      "verified_scope": "owner_Chrome_stable_ID_preview_and_matching_online_audits_plus_controlled_actual_lifecycle",
+      "actually_verified": false,
+      "status": "awaiting_approval",
+      "verified_scope": "bridge_only_real_chrome_install_unverified",
       "supported_capabilities": [
         "url_preview"
       ],
-      "owner_approval_completed": true,
-      "owner_action_needed": false,
-      "last_verification_time": "2026-10-25T17:40:36.149696+00:00",
-      "remaining_blocker": null,
-      "safe_next_action": "Preview only; portal session indicators are separate and do not establish identity or applicant API authorization.",
-      "evidence_type": "owner_visible_preview_three_online_audits_and_actual_controlled_Chrome_lifecycle"
+      "owner_approval_completed": false,
+      "owner_action_needed": true,
+      "last_verification_time": "2026-10-25T18:19:43.512937Z",
+      "remaining_blocker": "current_registered_id_matches_temporary_worktree_stable_extension_binding_and_owner_restart_offline_acceptance_pending",
+      "safe_next_action": "Load the stable private extension, confirm Chrome-displayed ID cgnghndndegcjokobbplfngfgfdplenj, then bind and repeat deliberate previews.",
+      "evidence_type": "authenticated_bridge_request"
     },
     {
       "connection_name": "Telegram worker",
@@ -250,15 +298,15 @@
       "authenticated": true,
       "actually_verified": true,
       "status": "verified",
-      "verified_scope": "owner_application_status_and_locked_screen_new_pong_with_online_dispatch_outbox",
+      "verified_scope": "online_owner_command_roundtrip",
       "supported_capabilities": [
         "private_commands",
         "preview_only"
       ],
       "owner_approval_completed": true,
-      "owner_action_needed": true,
-      "last_verification_time": "2026-10-25T17:57:59.227096+00:00",
-      "remaining_blocker": "remaining_live_varied_paraphrases_and_contextual_followups",
+      "owner_action_needed": false,
+      "last_verification_time": "2026-10-25T19:19:26.184139Z",
+      "remaining_blocker": null,
       "safe_next_action": "Configure private bot and numeric owner IDs; start worker; /ping; locked-screen test pending",
       "evidence_type": "live_poll_sent_reply_and_dispatch_audit"
     },
@@ -268,7 +316,7 @@
       "configured": false,
       "authenticated": false,
       "actually_verified": false,
-      "status": "awaiting_approval",
+      "status": "manual_only",
       "verified_scope": "manual_handoff_only_no_applicant_api",
       "supported_capabilities": [
         "manual_handoff",
@@ -276,9 +324,9 @@
         "gesture_session_observation"
       ],
       "owner_approval_completed": false,
-      "owner_action_needed": true,
+      "owner_action_needed": false,
       "last_verification_time": null,
-      "remaining_blocker": "applicant_api_unsupported_or_unverified_owner_acceptance_pending",
+      "remaining_blocker": null,
       "safe_next_action": "Connect in your Chrome tab, sign in manually, then click Check this portal session in the extension. A visible indicator does not verify account identity or API access.",
       "evidence_type": "none"
     },
@@ -288,7 +336,7 @@
       "configured": false,
       "authenticated": false,
       "actually_verified": false,
-      "status": "awaiting_approval",
+      "status": "manual_only",
       "verified_scope": "manual_handoff_only_no_applicant_api",
       "supported_capabilities": [
         "manual_handoff",
@@ -296,9 +344,9 @@
         "gesture_session_observation"
       ],
       "owner_approval_completed": false,
-      "owner_action_needed": true,
+      "owner_action_needed": false,
       "last_verification_time": null,
-      "remaining_blocker": "applicant_api_unsupported_or_unverified_owner_acceptance_pending",
+      "remaining_blocker": null,
       "safe_next_action": "Connect in your Chrome tab, sign in manually, then click Check this portal session in the extension. A visible indicator does not verify account identity or API access.",
       "evidence_type": "none"
     },
@@ -308,7 +356,7 @@
       "configured": false,
       "authenticated": false,
       "actually_verified": false,
-      "status": "awaiting_approval",
+      "status": "manual_only",
       "verified_scope": "manual_handoff_only_no_applicant_api",
       "supported_capabilities": [
         "manual_handoff",
@@ -316,9 +364,9 @@
         "gesture_session_observation"
       ],
       "owner_approval_completed": false,
-      "owner_action_needed": true,
+      "owner_action_needed": false,
       "last_verification_time": null,
-      "remaining_blocker": "applicant_api_unsupported_or_unverified_owner_acceptance_pending",
+      "remaining_blocker": null,
       "safe_next_action": "Connect in your Chrome tab, sign in manually, then click Check this portal session in the extension. A visible indicator does not verify account identity or API access.",
       "evidence_type": "none"
     },
@@ -328,7 +376,7 @@
       "configured": false,
       "authenticated": false,
       "actually_verified": false,
-      "status": "awaiting_approval",
+      "status": "manual_only",
       "verified_scope": "manual_handoff_only_no_applicant_api",
       "supported_capabilities": [
         "manual_handoff",
@@ -336,19 +384,19 @@
         "gesture_session_observation"
       ],
       "owner_approval_completed": false,
-      "owner_action_needed": true,
+      "owner_action_needed": false,
       "last_verification_time": null,
-      "remaining_blocker": "applicant_api_unsupported_or_unverified_owner_acceptance_pending",
+      "remaining_blocker": null,
       "safe_next_action": "Connect in your Chrome tab, sign in manually, then click Check this portal session in the extension. A visible indicator does not verify account identity or API access.",
       "evidence_type": "none"
     },
     {
       "connection_name": "Internshala",
       "implementation_completed": true,
-      "configured": false,
+      "configured": true,
       "authenticated": false,
       "actually_verified": false,
-      "status": "awaiting_approval",
+      "status": "manual_only",
       "verified_scope": "manual_handoff_only_no_applicant_api",
       "supported_capabilities": [
         "manual_handoff",
@@ -356,11 +404,11 @@
         "gesture_session_observation"
       ],
       "owner_approval_completed": false,
-      "owner_action_needed": true,
-      "last_verification_time": null,
-      "remaining_blocker": "applicant_api_unsupported_or_unverified_owner_acceptance_pending",
+      "owner_action_needed": false,
+      "last_verification_time": "2026-10-25T18:01:20.860947Z",
+      "remaining_blocker": null,
       "safe_next_action": "Connect in your Chrome tab, sign in manually, then click Check this portal session in the extension. A visible indicator does not verify account identity or API access.",
-      "evidence_type": "none"
+      "evidence_type": "extension_gesture_dom_indicator"
     },
     {
       "connection_name": "LinkedIn",
@@ -521,9 +569,9 @@
       ],
       "owner_approval_completed": true,
       "owner_action_needed": false,
-      "last_verification_time": "2026-10-25T18:14:43.871652+00:00",
+      "last_verification_time": "2026-10-25T18:14:43.871652Z",
       "remaining_blocker": null,
-      "safe_next_action": "Preserve verified identity and compose scopes; sending remains disabled.",
+      "safe_next_action": "Preserve secondary identity; compose authorization is tracked separately.",
       "evidence_type": "persisted_verified_oauth_identity"
     },
     {
@@ -539,9 +587,9 @@
       ],
       "owner_approval_completed": true,
       "owner_action_needed": false,
-      "last_verification_time": "2026-10-25T18:14:43.871652+00:00",
+      "last_verification_time": "2026-10-25T18:14:43.871652Z",
       "remaining_blocker": null,
-      "safe_next_action": "Preserve verified identity and compose scopes; sending remains disabled.",
+      "safe_next_action": "Authorize gmail.compose through existing OAuth flow; no drafts or sends in Phase 1",
       "evidence_type": "persisted_verified_oauth_scope"
     },
     {
@@ -609,11 +657,10 @@
     "gmail_sending_enabled": false
   },
   "owner_actions_pending": [
-    "review_separate_draft_PR19_before_deliberate_integration",
     "confirm_canonical_profile_and_resume",
-    "complete_five_platform_observations_or_explicit_manual_only_acceptances",
+    "stable_chrome_extension_id_binding_and_owner_toolbar_context_menu_restart_offline_acceptance",
     "vs_code_mcp_oauth_discovery_and_project_url",
-    "fresh_owner_Telegram_varied_paraphrases_mistakes_and_contextual_followups"
+    "locked_screen_online_telegram_reply_and_six_example_owner_confirmation"
   ],
   "current_session_remote_ddl_executed": false,
   "profile_context_workstream": {

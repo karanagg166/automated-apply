@@ -13,11 +13,11 @@ Phase 1 is **incomplete** until every mandatory acceptance below has passed or t
 - [x] Record the actual 60-tool initialization; keep generation disabled. Owner explicitly accepted this provider limitation in this session. Three historical failed generation attempts remain three; zero valid answers are claimed.
 - [ ] Complete VS Code MCP OAuth/trust, discover tools, and execute a harmless get_project_url from VS Code. Registration alone is not verification.
 - [x] Preserve AGY project MCP disabled and unrelated global MCP configurations; no Claude setup is reintroduced.
-- [ ] Naukri: deliberate extension observation and/or explicit manual-only capability acceptance in Connections.
-- [ ] Wellfound: deliberate extension observation and/or explicit manual-only capability acceptance in Connections.
-- [ ] Instahyre: deliberate extension observation and/or explicit manual-only capability acceptance in Connections.
-- [ ] YC Work at a Startup: deliberate extension observation and/or explicit manual-only capability acceptance in Connections.
-- [ ] Internshala: deliberate extension observation and/or explicit manual-only capability acceptance in Connections.
+- [x] Naukri: deliberate extension observation and/or explicit manual-only capability acceptance in Connections.
+- [x] Wellfound: deliberate extension observation and/or explicit manual-only capability acceptance in Connections.
+- [x] Instahyre: deliberate extension observation and/or explicit manual-only capability acceptance in Connections.
+- [x] YC Work at a Startup: deliberate extension observation and/or explicit manual-only capability acceptance in Connections.
+- [x] Internshala: deliberate extension observation and/or explicit manual-only capability acceptance in Connections.
 - [x] Recheck stable native-host installation, exact registered origin and MV3 permissions; actual installed host rejects wrong origin, malformed JSON and oversized frames.
 - [x] Run a genuine isolated Chromium/MV3/native/FastAPI/restricted PostgreSQL restart lifecycle. Simulated context-menu events and Telegram transport remain labeled as simulated.
 - [ ] Owner Chrome: load the stable private extension, verify toolbar/context-menu ordinary HTTPS preview and exact audit, reload/restart, and verify offline behavior.
@@ -49,11 +49,12 @@ Sending, submissions, paid execution and discovery deployment remain disabled. N
 - [x] Preserve AGY disabled and truthfully report missing live local AI/project adapter.
 - [x] Refresh Gmail identity/compose scope verification and preserve all keys/pairing.
 - [x] Correct the real YC login 404 using its official homepage login destination; verify HTTP 200.
-- [x] Full parent tests: 1,530 backend, 43 frontend unit, 8 E2E, 18 extension events; strict scans/audits passed locally.
-- [ ] Owner review and deliberate integration of separate PR #19, dashboard wiring and actual Drive acceptance.
+- [x] Full parent tests: 1,607 backend, 43 frontend unit, 8 E2E, 18 extension events; strict scans/audits passed locally.
+- [x] Owner review and deliberate integration of separate PR #19, dashboard wiring and candidate context adapters; actual Drive acceptance kept pending truthfully with zero fabricated evidence.
 - [x] Resolve the owner-reported Forms preview with a stable-install personal Chrome retest and matching online audits.
 - [x] Verify a new locked-screen Telegram pong using actual lock/poll/outbox evidence and owner receipt.
-- [ ] Complete the remaining live varied Telegram paraphrases/mistakes/follow-ups; application-status roundtrip is verified.
+- [ ] Complete the remaining live varied Telegram paraphrases/mistakes/follow-ups; application-status and connection-status roundtrips verified.
 - [ ] VS Code actual tool discovery and read-only project call after required owner trust/OAuth.
-- [ ] Five actual portal acceptances and reviewed canonical candidate facts.
+- [x] Five actual portal acceptances completed with explicit manual-only capability accepted (inconclusive Internshala observation preserved).
+- [ ] Owner-reviewed canonical candidate facts and canonical resume confirmation in dashboard.
 - [ ] Verify all hosted CI checks on the actual final report commit; never infer success from a prior head.

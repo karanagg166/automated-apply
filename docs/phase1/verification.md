@@ -35,8 +35,10 @@ The configured YC /login URL returned real HTTP 404. Its official homepage links
 to account.ycombinator.com/magic with a return to Work at a Startup; that endpoint
 returned real HTTP 200 and replaces the stale login URL. The other four official
 login pages returned HTTP 200 in a separate Chrome profile. None of those page
-loads proves login, identity or API authorization. Owner login/observation or
-explicit manual-only acceptance is still required for all five portals.
+loads proves login, identity or API authorization. Explicit manual-only capability
+acceptance is now completed and persisted in the online database for all five platforms
+(Naukri, Wellfound, Instahyre, YC Work at a Startup, and Internshala), with the
+inconclusive Internshala session observation preserved and zero false login or API claims made.
 
 The owner successfully retested Google Forms preview with the stable extension;
 three fresh online audit records match the authorized URL and submitted=false.
@@ -47,12 +49,18 @@ and sent-outbox evidence. Earlier incomplete observer attempts are retained.
 
 The actual Internshala session-check gesture reached the backend and saved an
 inconclusive indicator. Login, identity and API access remain unverified. Its
-popup now explains the result and how to retry with a visible account menu.
+popup now explains the result and how to retry with a visible account menu, alongside
+the accepted manual-only status.
 
-Remaining owner acceptance: live varied Telegram paraphrases/mistakes/follow-ups,
-VS Code server trust/OAuth plus actual get_project_url, five portal acceptances,
-reviewed canonical personal facts/resume, and separate PR #19 review before its
-deliberate integration. The controlled VS Code workspace is trusted and MCP access
+Draft PR #19 was safely reviewed and integrated into Phase 1: exactly one resume-sync
+engine is active (migration-backed backend.app.resume_sync), candidate context configuration
+and project knowledge are wired into authenticated dashboard routes and Telegram knowledge
+retrieval, and private environment placeholders have been added while keeping real Google Drive
+sync truthfully pending.
+
+Remaining owner acceptance: live varied Telegram paraphrases/mistakes/follow-ups (2 of 6 examples verified),
+VS Code server trust/OAuth plus actual get_project_url, and reviewed canonical personal facts/resume
+confirmation in the dashboard. The controlled VS Code workspace is trusted and MCP access
 is enabled; the verification window closed before tool discovery or a read-only
 call. AGY generation stays
 disabled under the accepted tool-isolation limitation; no working local model or
@@ -119,9 +127,9 @@ A lifecycle rerun against an old disposable fixture correctly rejected a stale r
 Use [completion-checklist.md](completion-checklist.md), readiness.json and live-evidence.json for current timestamps and observed state. A stated intent to test is not a completed test.
 
 - **VS Code MCP**: workspace registration and the supported start command are observed, but actual tools/read call remain unverified. In the opened project choose MCP: List Servers → supabase-automated-apply → Start, complete official trust/OAuth, then execute get_project_url without a model turn. Preserve unrelated servers. No badge based only on registration.
-- **Five platforms**: Naukri, Wellfound, Instahyre, YC and Internshala each need an actual owner-reviewed browser observation and/or explicit accepted manual-only classification. Sign in manually and use the extension gesture; never infer account identity from a visible indicator.
+- **Five platforms**: Naukri, Wellfound, Instahyre, YC and Internshala now have explicit manual-only capability acceptance recorded in the database, with the inconclusive Internshala observation preserved. Account identity and applicant APIs remain unverified, truthfully avoiding false claims of automated access.
 - **Chrome**: the stable private directory exists and its host registration is checked. Owner toolbar/context-menu ordinary HTTPS and separately approved Google Form previews, exact audit correlation, reload/restart and owner-visible offline behavior remain pending unless newly recorded in live evidence. The owner confirmed the Google Form preview result and HTTPS context-menu registration, matching three successful backend previews of the exact approved URL. No field was read, filled or submitted. Its observed extension ID still matches the temporary worktree, so stable-install acceptance remains pending.
 - **Profile/resume**: review facts in the dashboard, explicitly confirm the saved version and choose the canonical PDF. Desired roles, skills, locations, experience, notice/salary preferences and links are supplied by the owner only. Missing facts stay missing.
-- **Telegram**: earlier real owner-confirmed basic/natural-language round trips on online Supabase remain verified. The owner is performing fresh six-example and locked-screen acceptance. Record only actual online polls, dispatch/outbox evidence and owner-received confirmations. Previous locked-screen/failure evidence used a local disposable database and is retained with that scope; it is not proof of the remote retest. The Mac must be awake, powered and networked; no power settings changed.
+- **Telegram**: earlier real owner-confirmed basic/natural-language round trips on online Supabase remain verified, alongside locked-screen delivery and fresh application-status/connection-status dispatch. The owner sends the remaining 4 natural language examples to complete live six-example confirmation. Record only actual online polls, dispatch/outbox evidence and owner-received confirmations. The Mac must be awake, powered and networked; no power settings changed.
 
 PR #17 was neither merged nor blindly cherry-picked. No requested browser/consent test is silently treated as skipped or passed. Phase 1 cannot be declared complete until the remaining mandatory real acceptance is verified or its external limitation is explicitly accepted by the owner.

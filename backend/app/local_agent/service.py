@@ -60,7 +60,18 @@ async def execute(session, settings, actor, command):
             error = "intent_required"
         else:
             from backend.app.local_agent.conversation import respond
-            data = await respond(session, settings, actor, command.intent)
+            knowledge = getattr(command, "knowledge", None)
+            if knowledge is None:
+                from backend.app.candidate_context.persistence import SQLRecordStore
+                from backend.app.candidate_context.service import (
+                    CandidateContextService,
+                    TelegramKnowledgeAdapter,
+                )
+                svc = CandidateContextService(SQLRecordStore(session))
+                cfg = await svc.configuration()
+                if cfg.revision > 0 or any(p.name for p in cfg.configuration.projects):
+                    knowledge = TelegramKnowledgeAdapter(svc)
+            data = await respond(session, settings, actor, command.intent, knowledge=knowledge)
     elif command.command == "preview_application_url":
         if command.url is None:
             error = "url_required"
