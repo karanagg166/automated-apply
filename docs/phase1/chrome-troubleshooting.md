@@ -1,3 +1,13 @@
+# Current sign-in indicator follow-up — extension 1.2.1
+
+The owner-authorized current-browser inspection reproduced a Naukri detector failure: its visible Logout control uses a URL that does not contain logout. The detector now also recognizes exact visible Logout/Log out/Sign out labels on links, buttons and equivalent interactive controls. Hidden controls, ordinary prose and conflicting login/logout markers are not accepted.
+
+The fixed installed extension was reloaded through Chrome's Extensions UI. Current Naukri, Wellfound, Instahyre and Internshala browser observations were saved with their true source, owner_authorized_browser_dom_indicator; they are not claimed as new extension-toolbar gestures or applicant API authentication. Internshala's logout control is under Profile → More. YC remains unverified on /application/personal, and Instahyre remains on its onboarding page. No fields, cookies or login state were exported or submitted.
+
+The stable key/ID and permissions are unchanged. The packaged extension passed the controlled 13-check Chrome suite, including Forms, worker/reload/restart and offline recovery. The original troubleshooting record below remains historical.
+
+---
+
 # Chrome / Google Forms preview diagnostics
 
 Phase 1 supports URL preview and connection checks. It never fills or submits a

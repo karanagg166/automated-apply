@@ -1,5 +1,7 @@
 # Core Phase 1 final verification — 2026-10-26
 
+Owner-authorized browser follow-up: the current Chrome session exposed visible sign-in indicators on Naukri, Wellfound, Instahyre and Internshala after their menus were opened. Four observations and owner-sourced audits were verified in Supabase; identity/API access remain false. Naukri exposed an attribute-only detector bug, fixed in extension 1.2.1 with exact visible logout labels and unchanged permissions. The installed extension was reloaded. The packaged build passed 13 real Chrome checks and 19 extension tests; eight returned previews exactly matched seven records after correct duplicate coalescing. YC remains unverified on its personal-details page; onboarding fields were untouched. All five checks passed on 11aeefc, including one successful retry of a browser-install hang; that is prior-head evidence until the follow-up's final checks pass.
+
 Core readiness remains **blocked by secure AI generation and owner profile/project review**. Drive OAuth, platform connections and actual submissions are deferred and are not blockers. See [core-readiness.md](core-readiness.md) for the current scope and technical findings.
 
 Current local results:
@@ -11,8 +13,8 @@ Current local results:
 | Resume tests | 74 tests under resume test modules, plus manual-PDF canonical switching, stale-selection rejection and checksum-mismatch tests in dashboard coverage |
 | AGY diagnostics | 15 protocol tests, included above; authenticated metadata reports zero model turns/tokens; actual initialization advertises 60 tools; generation remains blocked |
 | Frontend | 47 unit tests, 9 E2E journeys, TypeScript, generated OpenAPI types and production build passed |
-| Extension | 18 event tests; 13 controlled real Chrome checks including Google Forms and worker suspension/recovery |
-| Supabase audit | Eight returned browser previews matched eight exact persisted JSON records and the stable extension actor; no submissions |
+| Extension | 19 event tests; 13 controlled real Chrome checks including Google Forms, worker suspension/recovery, reload/restart, and backend-offline recovery |
+| Supabase audit | Eight returned browser previews matched seven unique persisted JSON records (due to correct duplicate gesture coalescing) and the stable extension actor; no submissions |
 | Native/lifecycle | Actual installed origin/frame denials and open-stdin timeout passed; disposable real MV3/native/FastAPI/PostgreSQL restart/persistence passed |
 | Security | Ruff and Bandit passed; lockfile Python audit and npm audit found zero known vulnerabilities; secret checks retain all detectors |
 | Live integrations | Restricted Supabase PostgreSQL 17.11/TLS/catalog, unchanged Gmail identity/exact compose scopes, healthy Telegram polling, and existing encrypted PDF checksum verified |

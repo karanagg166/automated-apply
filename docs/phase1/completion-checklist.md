@@ -2,10 +2,11 @@
 
 **Core Phase 1 Ready: not yet.** Every core criterion must pass; historical owner acceptance of a provider limitation cannot replace actual secure answer generation. PR #18 remains draft and unmerged. Phase 2 requires owner approval.
 
-- [ ] An approved AI provider produces valid JSON for a bounded fictional generation and a grounded project answer under enforced tool isolation. AGY authentication passes; its authenticated headless initialization still advertises 60 tools, and no new model input was sent.
+- [ ] An approved AI provider produces valid JSON for a bounded fictional generation and a grounded project answer under enforced tool isolation. AGY authentication passes; its authenticated headless initialization advertises 60 tools, and no model input was sent. An isolated, free local-model alternative (Ollama with qwen2.5:1.5b ~1.4 GB) has been prepared and unit-tested, awaiting owner approval to install/activate.
 - [ ] Owner saves reviewed candidate facts and confirms a checksum-valid canonical PDF in the dashboard. Owner intends to review; completed review is not inferred.
 - [ ] Owner configures ranked projects, authorized source checkouts, technology stacks and context templates, then approves their evidence and summaries. The recomputation, invalidation and retrieval implementation/tests pass; live fields remain empty.
 - [x] Controlled real Chrome passes Google Forms/HTTPS, redirect, refresh, popup/menu registration, service-worker stop/recovery, extension reload, browser restart, offline/recovery, duplicate and stale-origin checks. Exact returned preview JSON persists in Supabase; no submission occurs.
+- [x] Complete owner-authorized current-Chrome navigation-only checks: Naukri, Wellfound, Instahyre and Internshala indicators and four owner-sourced audits verified. Install/reload detector 1.2.1 without permission changes. YC personal-details page remains unverified; no onboarding fields were changed.
 - [x] Installed native host rejects wrong origins, malformed/oversized frames and reports a real partial-frame timeout accurately. Reversible installed-source update preserves private configuration.
 - [x] Telegram supported routing and approved-only project retrieval pass deterministic tests; online polling is healthy.
 - [ ] Verify retrieval of actual owner-approved project context through the live Telegram integration after project configuration. No live approved projects currently exist. No outbound messages were sent by this verification.

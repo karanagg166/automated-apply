@@ -1,6 +1,8 @@
 const host = "com.automated_apply.agent";
 export const menuId = "automated-apply-preview";
 import { preview, supportedUrl } from "./preview.js";
+import { sessionIndicator } from "./session-indicator.js";
+export { sessionIndicator } from "./session-indicator.js";
 export { preview, supportedUrl, nativeErrorCode } from "./preview.js";
 let registering;
 async function register() {
@@ -41,12 +43,6 @@ export function portalHost(value) {
 }
 // Executes only after a popup button gesture, in the isolated world of the top frame.
 // Return fixed indicators only: no page text, form values, cookies or account identity.
-export function sessionIndicator() {
-  const visible = element => !!element?.getClientRects().length;
-  const signedIn = [...document.querySelectorAll('a[href*="logout"],a[href*="sign_out"],button[data-action="logout"]')].some(visible);
-  const password = [...document.querySelectorAll('input[type="password"]')].some(visible);
-  return signedIn && !password ? "signed_in_indicator" : password && !signedIn ? "login_required" : "unverifiable";
-}
 export async function observeSession(tab) {
   let result;
   if (!portalHost(tab?.url) || !Number.isInteger(tab?.id)) {

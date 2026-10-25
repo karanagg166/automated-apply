@@ -133,3 +133,23 @@ test("session indicator never exports page text or form values", () => {
   assert.equal(sessionIndicator(), "login_required");
   delete global.document;
 });
+
+test("exact visible logout labels work without logout URLs and never accept page prose", () => {
+  const element = (label, visible = true) => ({
+    getClientRects: () => visible ? [1] : [],
+    getAttribute: () => null,
+    innerText: label,
+  });
+  try {
+    for (const label of ["Logout", "Log out", "Sign out", "SIGN OUT"]) {
+      global.document = { querySelectorAll: selector => selector === 'a,button,[role="button"],[role="menuitem"]' ? [element(label)] : [] };
+      assert.equal(sessionIndicator(), "signed_in_indicator");
+    }
+    for (const candidate of [element("Logout", false), element("How to log out of your account"), {...element("Logout"), checkVisibility: () => false}]) {
+      global.document = { querySelectorAll: selector => selector === 'a,button,[role="button"],[role="menuitem"]' ? [candidate] : [] };
+      assert.equal(sessionIndicator(), "unverifiable");
+    }
+    global.document = { querySelectorAll: selector => selector.includes('input') ? [element("")] : selector === 'a,button,[role="button"],[role="menuitem"]' ? [element("Logout")] : [] };
+    assert.equal(sessionIndicator(), "unverifiable");
+  } finally { delete global.document; }
+});

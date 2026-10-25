@@ -7,6 +7,9 @@ def create_provider(settings: Settings) -> ApplicationLLMProvider:
     if settings.LLM_PROVIDER == "agy":
         from backend.app.ai.providers.agy import AgyProvider
         return AgyProvider(settings)
+    if settings.LLM_PROVIDER == "ollama":
+        from backend.app.ai.providers.ollama import OllamaProvider
+        return OllamaProvider(settings)
     if settings.LLM_PROVIDER != "gemini":
         raise ProviderError("unsupported_provider")
     if not settings.GEMINI_API_KEY or not settings.GEMINI_API_KEY.get_secret_value().strip() or not settings.LLM_MODEL:

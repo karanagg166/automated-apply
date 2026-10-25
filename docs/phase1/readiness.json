@@ -1,10 +1,10 @@
 {
   "phase": 1,
   "status": "core_phase1_blocked_provider_and_owner_review",
-  "generated_at": "2026-10-25T20:24:48.678016+00:00",
+  "generated_at": "2026-10-25T20:59:34.522678+00:00",
   "branch": "feat/phase1-local-connections",
   "implementation_commit": "49bd0a6",
-  "report_commit_note": "Core implementation is at 49bd0a6; this report and bounded cold-start Chrome probe follow it. Consult actual PR head checks for final-commit CI.",
+  "report_commit_note": "Core implementation 49bd0a6 and report head 11aeefc were verified. This owner-authorized browser follow-up fixes exact visible logout labels in extension 1.2.1; verify final-head CI through PR #18.",
   "pull_request": "https://github.com/karanagg166/automated-apply/pull/18",
   "phase2_started": false,
   "merged": false,
@@ -49,9 +49,9 @@
     "agy_protocol_diagnostics_in_full_suite": 15,
     "frontend_unit": 47,
     "frontend_e2e": 9,
-    "extension_event_simulations": 18,
+    "extension_event_simulations": 19,
     "actual_chrome_controlled_checks": 13,
-    "actual_online_chrome_exact_json_audits": 8,
+    "actual_online_chrome_exact_json_audits": 7,
     "actual_native_origin_and_frame_rejections": 4,
     "actual_native_open_stdin_partial_timeout": "passed",
     "actual_disposable_mv3_native_fastapi_postgresql_restart": "passed",
@@ -78,7 +78,14 @@
       "owner_approved_live_project_retrieval": "no_owner_approved_projects",
       "new_personal_chrome_gestures": "controlled_profile_used_historical_owner_acceptance_preserved"
     },
-    "deferred_tests_are_not_failures": true
+    "deferred_tests_are_not_failures": true,
+    "actual_chrome_returned_results_verified": 8,
+    "previous_verified_final_head": {
+      "commit": "11aeefc",
+      "all_five_checks_passed": true,
+      "push_frontend_retries": 1,
+      "retry_reason": "browser_dependency_install_hung_on_first_runner"
+    }
   },
   "connections": [
     {
@@ -255,9 +262,9 @@
       "implementation_completed": true,
       "configured": false,
       "authenticated": false,
-      "actually_verified": false,
-      "status": "manual_only",
-      "verified_scope": "manual_handoff_only_no_applicant_api",
+      "actually_verified": true,
+      "status": "browser_session_observed",
+      "verified_scope": "visible_browser_sign_in_indicator_only",
       "supported_capabilities": [
         "manual_handoff",
         "url_preview",
@@ -265,10 +272,10 @@
       ],
       "owner_approval_completed": false,
       "owner_action_needed": false,
-      "last_verification_time": null,
+      "last_verification_time": "2026-10-25T20:57:20.888859+00:00",
       "remaining_blocker": null,
       "safe_next_action": "Connect in your Chrome tab, sign in manually, then click Check this portal session in the extension. A visible indicator does not verify account identity or API access.",
-      "evidence_type": "none",
+      "evidence_type": "owner_authorized_browser_dom_indicator",
       "core_phase1_required": false,
       "deferred_from_core_milestone": true
     },
@@ -277,9 +284,9 @@
       "implementation_completed": true,
       "configured": false,
       "authenticated": false,
-      "actually_verified": false,
-      "status": "manual_only",
-      "verified_scope": "manual_handoff_only_no_applicant_api",
+      "actually_verified": true,
+      "status": "browser_session_observed",
+      "verified_scope": "visible_browser_sign_in_indicator_only",
       "supported_capabilities": [
         "manual_handoff",
         "url_preview",
@@ -287,10 +294,10 @@
       ],
       "owner_approval_completed": false,
       "owner_action_needed": false,
-      "last_verification_time": null,
+      "last_verification_time": "2026-10-25T20:57:20.888859+00:00",
       "remaining_blocker": null,
       "safe_next_action": "Connect in your Chrome tab, sign in manually, then click Check this portal session in the extension. A visible indicator does not verify account identity or API access.",
-      "evidence_type": "none",
+      "evidence_type": "owner_authorized_browser_dom_indicator",
       "core_phase1_required": false,
       "deferred_from_core_milestone": true
     },
@@ -299,9 +306,9 @@
       "implementation_completed": true,
       "configured": false,
       "authenticated": false,
-      "actually_verified": false,
-      "status": "manual_only",
-      "verified_scope": "manual_handoff_only_no_applicant_api",
+      "actually_verified": true,
+      "status": "browser_session_observed",
+      "verified_scope": "visible_browser_sign_in_indicator_only",
       "supported_capabilities": [
         "manual_handoff",
         "url_preview",
@@ -309,10 +316,10 @@
       ],
       "owner_approval_completed": false,
       "owner_action_needed": false,
-      "last_verification_time": null,
+      "last_verification_time": "2026-10-25T20:57:20.888859+00:00",
       "remaining_blocker": null,
       "safe_next_action": "Connect in your Chrome tab, sign in manually, then click Check this portal session in the extension. A visible indicator does not verify account identity or API access.",
-      "evidence_type": "none",
+      "evidence_type": "owner_authorized_browser_dom_indicator",
       "core_phase1_required": false,
       "deferred_from_core_milestone": true
     },
@@ -343,9 +350,9 @@
       "implementation_completed": true,
       "configured": true,
       "authenticated": false,
-      "actually_verified": false,
-      "status": "manual_only",
-      "verified_scope": "manual_handoff_only_no_applicant_api",
+      "actually_verified": true,
+      "status": "browser_session_observed",
+      "verified_scope": "visible_browser_sign_in_indicator_only",
       "supported_capabilities": [
         "manual_handoff",
         "url_preview",
@@ -353,10 +360,10 @@
       ],
       "owner_approval_completed": false,
       "owner_action_needed": false,
-      "last_verification_time": "2026-10-25T18:01:20.860947Z",
+      "last_verification_time": "2026-10-25T20:57:20.888859+00:00",
       "remaining_blocker": null,
       "safe_next_action": "Connect in your Chrome tab, sign in manually, then click Check this portal session in the extension. A visible indicator does not verify account identity or API access.",
-      "evidence_type": "extension_gesture_dom_indicator",
+      "evidence_type": "owner_authorized_browser_dom_indicator",
       "core_phase1_required": false,
       "deferred_from_core_milestone": true
     },
@@ -711,8 +718,10 @@
       "evidence": "controlled_actual_Chrome_for_Testing_156_native_backend_and_online_Supabase",
       "controlled_checks": 13,
       "stable_extension_id": "gdjbmkffcpicbpiikcohlmokkmcpipgp",
-      "exact_online_result_audits": 8,
-      "new_personal_browser_gestures_claimed": false
+      "exact_online_result_audits": 7,
+      "new_personal_browser_gestures_claimed": false,
+      "returned_preview_results_verified": 8,
+      "packaged_extension_tested": true
     },
     "telegram_context_and_routing": {
       "passed": false,
@@ -895,5 +904,27 @@
     ],
     "new_authenticated_context_routes_http_status": 200,
     "live_drive_download_blocked": true
+  },
+  "owner_browser_followup": {
+    "owner_authorized_current_browser_inspection": true,
+    "verified_at": "2026-10-25T20:57:20.888859+00:00",
+    "source": "owner_authorized_browser_dom_indicator",
+    "browser_sessions_observed": [
+      "naukri",
+      "wellfound",
+      "instahyre",
+      "internshala"
+    ],
+    "yc_state": "manual_only_personal_details_page_indicator_unverified",
+    "extension_version": "1.2.1",
+    "installed_extension_reloaded_through_chrome_ui": true,
+    "stable_id_unchanged": true,
+    "permissions_unchanged": true,
+    "account_identity_verified": false,
+    "applicant_api_connected": false,
+    "cookies_or_login_state_exported": false,
+    "onboarding_fields_changed": false,
+    "applications_submitted": 0,
+    "observation_audit_records_verified": 4
   }
 }

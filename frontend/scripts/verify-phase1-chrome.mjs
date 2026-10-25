@@ -18,7 +18,9 @@ import { join, resolve } from "node:path";
 const [python, envFile, formFile] = process.argv.slice(2);
 assert.ok(python?.startsWith("/") && envFile?.startsWith("/"));
 const root = resolve("..");
-const extension = join(root, "extension");
+const extension = process.env.PHASE1_EXTENSION_DIRECTORY
+  ? resolve(process.env.PHASE1_EXTENSION_DIRECTORY)
+  : join(root, "extension");
 const manifest = JSON.parse(readFileSync(join(extension, "manifest.json")));
 const keyHash = createHash("sha256")
   .update(Buffer.from(manifest.key, "base64"))

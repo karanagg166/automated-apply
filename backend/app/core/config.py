@@ -118,7 +118,7 @@ class Settings(BaseSettings):
     CANDIDATE_GFG_URL: PublicHTTPSURL | None = None
     CANDIDATE_HACKERRANK_URL: PublicHTTPSURL | None = None
 
-    LLM_PROVIDER: Literal["gemini", "agy"] = "gemini"
+    LLM_PROVIDER: Literal["gemini", "agy", "ollama"] = "gemini"
     LLM_MODEL: str | None = None
     GEMINI_API_KEY: SecretStr | None = None
     LLM_MAX_OUTPUT_TOKENS: int = Field(default=1000, ge=64, le=8192)

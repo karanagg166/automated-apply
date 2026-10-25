@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Automated Apply — Local Preview",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Send a user-selected application URL to your local agent for a preview.",
   "permissions": [
     "contextMenus",
