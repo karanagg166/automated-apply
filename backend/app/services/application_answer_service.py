@@ -3,6 +3,7 @@ import re
 
 from pydantic import ValidationError
 
+from backend.app.ai.answer_engine import LocalAnswerEngine
 from backend.app.ai.base import ProviderError
 from backend.app.ai.prompts import STYLE_INSTRUCTIONS, SYSTEM_INSTRUCTION, build_payload
 from backend.app.ai.provider_factory import configured_model, create_provider
@@ -120,17 +121,38 @@ class ApplicationAnswerService:
         return "Supply a reviewed professional summary or career evidence relevant to this question"
 
     async def _compose(self, request, category, facts, max_chars, max_words):
-        result = AnswerGenerationResult(question_type=category, writing_style=request.writing_style,
-                                       provider=self.settings.LLM_PROVIDER, model=configured_model(self.settings))
+        result = AnswerGenerationResult(question_type=category, writing_style=request.writing_style)
         context = {"evidence": facts}
         instructions = {"style_instruction": STYLE_INSTRUCTIONS[request.writing_style],
                         "max_characters": max_chars, "max_words": max_words,
                         "job_context": {"company_name": request.company_name, "job_description": request.job_description}}
+        # local-answer-integration.v1: no provider construction or quota reservation.
+        safe = await LocalAnswerEngine().answer(request.question, context, instructions,
+            route="approved_summary" if category == "short_text" else "narrative",
+            low_memory=True)
+        if not request.rewrite:
+            result.source = safe.source
+            result.missing_information = list(safe.missing_information)
+            result.error_code = safe.error_code
+            result.status = safe.status
+            if safe.content:
+                result.answer = safe.content.answer
+                result.evidence_references = safe.content.evidence_references
+                result.requires_review = True
+                result.warnings = ["Extracted approved facts; review before use."]
+            return result
+        # Local inference remains disabled for the shared answer service.
+        if self.settings.LLM_PROVIDER in {"ollama", "agy"}:
+            result.status, result.error_code = "provider_unavailable", "provider_execution_not_authorized"
+            return result
+        result.provider, result.model = self.settings.LLM_PROVIDER, configured_model(self.settings)
         # Bound the whole provider payload, not just the question or job description.
         if len(SYSTEM_INSTRUCTION) + len(build_payload(request.question, context, instructions)) > self.settings.LLM_MAX_INPUT_CHARS:
             result.status, result.error_code = "validation_failed", "input_limit_exceeded"
             return result
         try:
+            if self.settings.LLM_PROVIDER == "cohere" and not self.settings.COHERE_CANDIDATE_DATA_AUTHORIZED:
+                raise ProviderError("candidate_cloud_authorization_required")
             provider = self.provider or create_provider(self.settings)
             result.used_llm = True
             response = ProviderAnswer.model_validate(await self.usage.generate(provider, request.question, context, instructions))
@@ -144,7 +166,7 @@ class ApplicationAnswerService:
                 result.retry_after_seconds = exc.retry_after
             if exc.code in {"llm_not_configured", "unsupported_provider"}:
                 result.used_llm = False
-                result.missing_information = ["Configure server-side GEMINI_API_KEY and LLM_MODEL to generate narrative drafts"]
+                result.missing_information = ["Configure the explicitly selected server-side cloud provider to generate narrative drafts"]
             return result
         except ValidationError:
             result.status, result.error_code = "validation_failed", "invalid_structured_response"

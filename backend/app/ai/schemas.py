@@ -38,6 +38,7 @@ class GenerateRequest(ResolveRequest):
     max_characters: int = Field(default=1500, ge=20, le=10000)
     max_words: int | None = Field(default=None, ge=1, le=1500)
     save_draft: bool = False
+    rewrite: bool = False  # Explicit optional cloud writing; extraction is quota-free.
 
 
 class AnswerGenerationResult(Contract):

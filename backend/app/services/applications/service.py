@@ -315,6 +315,7 @@ class ApplicationPacketService:
             packet.job_id,
             profile,
             generate=True,
+            rewrite=getattr(request, "rewrite", False),
             origin=prior.provenance.origin,
             resume=context.resume,
         )

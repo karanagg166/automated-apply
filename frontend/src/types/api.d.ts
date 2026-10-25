@@ -1982,6 +1982,16 @@ export interface components {
       /** Answer */
       answer: string;
     };
+    /** AnswerGenerateInput */
+    AnswerGenerateInput: {
+      /** Expected Revision */
+      expected_revision: number;
+      /**
+       * Rewrite
+       * @default false
+       */
+      rewrite: boolean;
+    };
     /** AnswerGenerationResult */
     AnswerGenerationResult: {
       /**
@@ -2889,6 +2899,11 @@ export interface components {
        * @default false
        */
       save_draft: boolean;
+      /**
+       * Rewrite
+       * @default false
+       */
+      rewrite: boolean;
     };
     /** HTTPValidationError */
     HTTPValidationError: {
@@ -3861,6 +3876,8 @@ export interface components {
         | "candidate_profile"
         | "candidate_resource"
         | "gemini"
+        | "cohere"
+        | "deterministic_extractive"
         | "human"
         | "missing";
       /**
@@ -4406,11 +4423,6 @@ export interface components {
        * @default false
        */
       confirm_destination: boolean;
-    };
-    /** RevisionInput */
-    RevisionInput: {
-      /** Expected Revision */
-      expected_revision: number;
     };
     /** RunRequest */
     RunRequest: {
@@ -7294,7 +7306,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["RevisionInput"];
+        "application/json": components["schemas"]["AnswerGenerateInput"];
       };
     };
     responses: {

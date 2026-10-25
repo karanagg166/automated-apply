@@ -103,7 +103,7 @@ async def test_no_url_fetch_and_no_secrets_in_logs(async_client, phase2_profile,
     # Global fixture rejects real network traffic. Saving and resolving a private Drive link is metadata only.
     response = await async_client.post("/api/v1/candidate/resources", headers=phase2_auth, json={"resource_type": "resume", "label": "Private resume", "url": "https://drive.google.com/file/d/private-fictional/view", "user_confirmed": True})
     assert response.status_code == 200
-    response = await async_client.post("/api/v1/application-answers/generate", headers=phase2_auth, json={"question": "Describe a project"})
+    response = await async_client.post("/api/v1/application-answers/generate", headers=phase2_auth, json={"question": "Describe a project", "rewrite": True})
     assert response.json()["error_code"] == "llm_not_configured"
     assert "phase2-fictional-token" not in caplog.text and "alex@example.com" not in caplog.text and "Private resume" not in caplog.text
 

@@ -132,7 +132,7 @@ class ResumeSelection(Contract):
 class Provenance(Contract):
     origin: Literal["packet_core", "user_provided"] = "user_provided"
     source: Literal[
-        "candidate_profile", "candidate_resource", "gemini", "human", "missing"
+        "candidate_profile", "candidate_resource", "gemini", "cohere", "deterministic_extractive", "human", "missing"
     ] = "missing"
     resolver: Literal[
         "deterministic",
@@ -249,6 +249,10 @@ class CreatePacket(PrepareInput):
 
 class RevisionInput(Contract):
     expected_revision: int = Field(ge=1, le=2147483646)
+
+
+class AnswerGenerateInput(RevisionInput):
+    rewrite: bool = False
 
 
 class PacketEdit(RevisionInput):

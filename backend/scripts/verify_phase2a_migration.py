@@ -140,7 +140,7 @@ async def verify(url):
             await CandidateProfileRepository(session).update_primary_profile(CandidateProfileUpdate(projects=[PROJECT]), profile.version)
             await session.commit()
             service = ApplicationAnswerService(session, settings, FakeProvider(), manager)
-            result = await service.generate(GenerateRequest(question="Describe a project", save_draft=True))
+            result = await service.generate(GenerateRequest(question="Describe a project", save_draft=True, rewrite=True))
             assert result.status == "draft_ready", result
             await session.rollback()
         assert await connection.fetchval("SELECT count(*) FROM job_agent.application_answer_drafts") == 1

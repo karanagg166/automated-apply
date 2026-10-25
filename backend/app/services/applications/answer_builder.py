@@ -75,6 +75,7 @@ class AnswerBuilder:
         profile,
         *,
         generate=False,
+        rewrite=False,
         origin="user_provided",
         resume=None,
     ):
@@ -152,6 +153,7 @@ class AnswerBuilder:
             max_words=question.max_words,
             # Preserve existing ApplicationAnswerDraft records for generated narratives.
             save_draft=generate and narrative,
+            rewrite=rewrite,
         )
         if question.constraints and narrative and generate:
             request.question = (
@@ -176,11 +178,11 @@ class AnswerBuilder:
         field.proposed_answer = result.answer
         field.provenance = Provenance(
             origin=origin,
-            source="gemini"
+            source=result.provider
             if result.used_llm and result.answer
             else (
                 result.source
-                if result.source in {"candidate_profile", "candidate_resource"}
+                if result.source in {"candidate_profile", "candidate_resource", "deterministic_extractive"}
                 else "missing"
             ),
             resolver="grounded_answer_service" if narrative else "deterministic",
