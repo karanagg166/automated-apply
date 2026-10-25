@@ -2,13 +2,15 @@
 
 Owner-authorized browser follow-up: the current Chrome session exposed visible sign-in indicators on Naukri, Wellfound, Instahyre and Internshala after their menus were opened. Four observations and owner-sourced audits were verified in Supabase; identity/API access remain false. Naukri exposed an attribute-only detector bug, fixed in extension 1.2.1 with exact visible logout labels and unchanged permissions. The installed extension was reloaded. The packaged build passed 13 real Chrome checks and 19 extension tests; eight returned previews exactly matched seven records after correct duplicate coalescing. YC remains unverified on its personal-details page; onboarding fields were untouched. All five checks passed on 11aeefc, including one successful retry of a browser-install hang; that is prior-head evidence until the follow-up's final checks pass.
 
+Inactive-provider review: full backend rerun **1,659 passed, zero failed/skipped**, including 28 injected Ollama protocol/security cases. Exact loopback origin validation now rejects userinfo-prefix bypasses; explicit authorization defaults false, redirects/tool calls are rejected, bodies/deadlines are bounded, and provider-specific model metadata is retained. Ollama remains uninstalled, unconfigured and unapproved; daemon offline behavior and real generation have not been verified. No model call or activation occurred.
+
 Core readiness remains **blocked by secure AI generation and owner profile/project review**. Drive OAuth, platform connections and actual submissions are deferred and are not blockers. See [core-readiness.md](core-readiness.md) for the current scope and technical findings.
 
 Current local results:
 
 | Check | Result |
 | --- | --- |
-| Full backend | 1,631 passed, zero failed/skipped, disposable PostgreSQL 17, two existing pypdf fixture deprecation warnings |
+| Full backend | 1,659 passed, zero failed/skipped, disposable PostgreSQL 17, two existing pypdf fixture deprecation warnings |
 | Candidate context | 93 tests, included in the full suite; actual committed-source recomputation and approval invalidation tested |
 | Resume tests | 74 tests under resume test modules, plus manual-PDF canonical switching, stale-selection rejection and checksum-mismatch tests in dashboard coverage |
 | AGY diagnostics | 15 protocol tests, included above; authenticated metadata reports zero model turns/tokens; actual initialization advertises 60 tools; generation remains blocked |

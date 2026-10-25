@@ -1,7 +1,7 @@
 {
   "phase": 1,
   "status": "core_phase1_blocked_provider_and_owner_review",
-  "generated_at": "2026-10-25T20:59:34.522678+00:00",
+  "generated_at": "2026-10-25T21:27:37.524133+00:00",
   "branch": "feat/phase1-local-connections",
   "implementation_commit": "49bd0a6",
   "report_commit_note": "Core implementation 49bd0a6 and report head 11aeefc were verified. This owner-authorized browser follow-up fixes exact visible logout labels in extension 1.2.1; verify final-head CI through PR #18.",
@@ -36,10 +36,10 @@
   "supabase_security_advisor_findings": 0,
   "tests": {
     "backend": {
-      "passed": 1631,
+      "passed": 1659,
       "failed": 0,
       "skipped": 0,
-      "seconds": 191.23,
+      "seconds": 150.18,
       "warnings": 2,
       "postgresql": "actual_isolated_17"
     },
@@ -85,7 +85,9 @@
       "all_five_checks_passed": true,
       "push_frontend_retries": 1,
       "retry_reason": "browser_dependency_install_hung_on_first_runner"
-    }
+    },
+    "prepared_local_provider_protocol_in_full_suite": 28,
+    "model_provenance_checks": "AGY_MODEL and OLLAMA_MODEL selected explicitly without borrowing the Gemini model field"
   },
   "connections": [
     {
@@ -926,5 +928,20 @@
     "onboarding_fields_changed": false,
     "applications_submitted": 0,
     "observation_audit_records_verified": 4
+  },
+  "prepared_local_provider": {
+    "name": "ollama",
+    "installed": false,
+    "activated": false,
+    "approved_as_replacement": false,
+    "generation_authorization_default": false,
+    "exact_client_loopback_origin": "http://127.0.0.1:11434",
+    "redirects_allowed": false,
+    "returned_tool_calls_allowed": false,
+    "response_size_and_overall_deadline_enforced": true,
+    "daemon_offline_isolation_verified": false,
+    "memory_fit_or_single_model_concurrency_verified": false,
+    "real_generation_tests_executed": 0,
+    "tests": "28 injected protocol/security cases included in full backend suite; no live model requests"
   }
 }

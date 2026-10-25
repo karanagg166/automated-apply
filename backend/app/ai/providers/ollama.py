@@ -1,88 +1,93 @@
-"""Isolated local Ollama provider for resource-constrained environments (e.g. 8 GB Mac).
+"""Prepared, opt-in local transport. Daemon/model isolation still needs live review.
 
-Design constraints:
-- Loopback only: 127.0.0.1:11434, no external network egress.
-- Tool-free: No tools or delegation advertised or supported.
-- Memory-bounded: Suitable for small quantized models (e.g. qwen2.5:1.5b ~1.4 GB, context 2048).
-- Single-model: OLLAMA_MAX_LOADED_MODELS=1.
-- Strict structured output: enforced via Ollama's schema/format parameter and Pydantic validation.
-- Inactive by default: Requires explicit owner installation, model pull, and configuration activation.
+No installation, model pull, fallback or tool execution is performed here.
+Loopback HTTP does not by itself prove an Ollama daemon is operating offline.
 """
+import asyncio
 import json
 from typing import Any
 
 import httpx
 from pydantic import ValidationError
 
-from backend.app.ai.base import ApplicationLLMProvider, ProviderError
+from backend.app.ai.base import ProviderError
 from backend.app.ai.prompts import SYSTEM_INSTRUCTION, build_payload
 from backend.app.ai.schemas import ModelAnswer, ProviderAnswer, TokenUsage
 
 DEFAULT_OLLAMA_ENDPOINT = "http://127.0.0.1:11434"
-DEFAULT_OLLAMA_MODEL = "qwen2.5:1.5b-instruct"
+MAX_RESPONSE_BYTES = 65536
 
 
-class OllamaProvider(ApplicationLLMProvider):
-    def __init__(self, settings: Any, client: httpx.AsyncClient | None = None, endpoint: str = DEFAULT_OLLAMA_ENDPOINT):
-        self.settings = settings
-        self.client = client
-        self.endpoint = endpoint.rstrip("/")
-        # Strictly enforce loopback endpoint
-        if not (self.endpoint.startswith("http://127.0.0.1:") or self.endpoint.startswith("http://localhost:")):
+class OllamaProvider:
+    def __init__(self, settings: Any, client: httpx.AsyncClient | None = None,
+                 endpoint: str = DEFAULT_OLLAMA_ENDPOINT):
+        # Exact origin: prefix checks accept userinfo such as 127.0.0.1:11434@host.
+        if endpoint not in {DEFAULT_OLLAMA_ENDPOINT, DEFAULT_OLLAMA_ENDPOINT + "/"}:
             raise ProviderError("ollama_endpoint_must_be_loopback")
-        self.model = getattr(settings, "OLLAMA_MODEL", None) or DEFAULT_OLLAMA_MODEL
+        self.settings, self.client, self.endpoint = settings, client, DEFAULT_OLLAMA_ENDPOINT
+        self.model = settings.OLLAMA_MODEL
+        if not self.model:
+            raise ProviderError("explicit_model_required")
+        if "cloud" in self.model.casefold().split(":")[-1].split("-"):
+            raise ProviderError("cloud_model_forbidden")
 
-    async def generate_structured_answer(self, question: str, grounded_context: dict, instructions: dict) -> ProviderAnswer:
+    async def generate_structured_answer(self, question, grounded_context, instructions):
+        if not self.settings.OLLAMA_GENERATION_AUTHORIZED or self.settings.LLM_PROVIDER != "ollama":
+            raise ProviderError("provider_execution_not_authorized")
         payload = build_payload(question, grounded_context, instructions)
-        if len(payload) > getattr(self.settings, "LLM_MAX_INPUT_CHARS", 16000):
+        if len(payload) > self.settings.LLM_MAX_INPUT_CHARS:
             raise ProviderError("input_size_exceeded")
-
-        schema = ModelAnswer.model_json_schema()
-        request_body = {
-            "model": self.model,
-            "messages": [
-                {"role": "system", "content": SYSTEM_INSTRUCTION},
-                {"role": "user", "content": payload},
-            ],
-            "format": schema,
-            "options": {
-                "temperature": 0.2,
-                "num_ctx": 2048,
-                "num_predict": getattr(self.settings, "LLM_MAX_OUTPUT_TOKENS", 1000),
-            },
-            "stream": False,
-        }
-
-        timeout = getattr(self.settings, "LLM_TIMEOUT_SECONDS", 30.0)
-
+        body = {"model": self.model,
+                "messages": [{"role": "system", "content": SYSTEM_INSTRUCTION},
+                             {"role": "user", "content": payload}],
+                "format": ModelAnswer.model_json_schema(), "tools": [], "stream": False,
+                "options": {"temperature": 0.2, "num_ctx": 2048,
+                            "num_predict": self.settings.LLM_MAX_OUTPUT_TOKENS}}
         try:
-            if self.client is not None:
-                response = await self.client.post(f"{self.endpoint}/api/chat", json=request_body, timeout=timeout)
-            else:
-                async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
-                    response = await client.post(f"{self.endpoint}/api/chat", json=request_body)
+            # Overall deadline also bounds a server that drips bytes below read timeouts.
+            async with asyncio.timeout(self.settings.LLM_TIMEOUT_SECONDS):
+                if self.client is not None:
+                    raw = await self._request(self.client, body)
+                else:
+                    async with httpx.AsyncClient(trust_env=False) as client:
+                        raw = await self._request(client, body)
+            data = json.loads(raw)
+            if not isinstance(data, dict) or not isinstance(data.get("message"), dict):
+                raise ValueError
+            message = data["message"]
+            if message.get("tool_calls") or data.get("tool_calls"):
+                raise ProviderError("provider_tool_use_denied")
+            if (data.get("done") is not True or data.get("model") != self.model
+                    or message.get("role") != "assistant" or data.get("done_reason", "stop") != "stop"):
+                raise ValueError
+            counts = [data.get(key) for key in ("prompt_eval_count", "eval_count")]
+            if any(value is not None and (type(value) is not int or value < 0) for value in counts):
+                raise ValueError
+            usage = TokenUsage(input_tokens=counts[0], output_tokens=counts[1])
+        except (TimeoutError, httpx.TimeoutException):
+            raise ProviderError("timeout") from None
+        except httpx.TransportError:
+            raise ProviderError("connection_error", transient=True) from None
+        except (ValueError, TypeError, ValidationError):
+            raise ProviderError("invalid_provider_response") from None
+        try:
+            content = ModelAnswer.model_validate_json(message.get("content", ""))
+        except (ValidationError, ValueError, TypeError):
+            raise ProviderError("invalid_structured_response", usage=usage) from None
+        return ProviderAnswer(content=content, usage=usage)
 
+    async def _request(self, client, body):
+        async with client.stream("POST", self.endpoint + "/api/chat", json=body,
+                                 timeout=self.settings.LLM_TIMEOUT_SECONDS, follow_redirects=False) as response:
+            if 300 <= response.status_code < 400:
+                raise ProviderError("provider_redirect_denied")
             if response.status_code == 404:
                 raise ProviderError("model_unavailable")
             if response.status_code != 200:
                 raise ProviderError("provider_error", transient=response.status_code >= 500)
-
-            data = response.json()
-        except httpx.TimeoutException:
-            raise ProviderError("timeout") from None
-        except httpx.TransportError:
-            raise ProviderError("connection_error", transient=True) from None
-        except (json.JSONDecodeError, ValueError):
-            raise ProviderError("invalid_provider_response") from None
-
-        message_content = data.get("message", {}).get("content", "")
-        prompt_tokens = data.get("prompt_eval_count")
-        eval_tokens = data.get("eval_count")
-        usage = TokenUsage(input_tokens=prompt_tokens, output_tokens=eval_tokens)
-
-        try:
-            content = ModelAnswer.model_validate_json(message_content)
-        except (ValidationError, ValueError, TypeError):
-            raise ProviderError("invalid_structured_response", usage=usage) from None
-
-        return ProviderAnswer(content=content, usage=usage)
+            output = bytearray()
+            async for chunk in response.aiter_bytes():
+                output.extend(chunk)
+                if len(output) > MAX_RESPONSE_BYTES:
+                    raise ProviderError("provider_output_size")
+            return bytes(output)

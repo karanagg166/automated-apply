@@ -8,6 +8,8 @@ def create_provider(settings: Settings) -> ApplicationLLMProvider:
         from backend.app.ai.providers.agy import AgyProvider
         return AgyProvider(settings)
     if settings.LLM_PROVIDER == "ollama":
+        if not settings.OLLAMA_GENERATION_AUTHORIZED:
+            raise ProviderError("provider_execution_not_authorized")
         from backend.app.ai.providers.ollama import OllamaProvider
         return OllamaProvider(settings)
     if settings.LLM_PROVIDER != "gemini":
@@ -16,3 +18,11 @@ def create_provider(settings: Settings) -> ApplicationLLMProvider:
         raise ProviderError("llm_not_configured")
     from backend.app.ai.providers.gemini import GeminiProvider
     return GeminiProvider(settings)
+
+
+def configured_model(settings: Settings) -> str | None:
+    if settings.LLM_PROVIDER == "agy":
+        return settings.AGY_MODEL
+    if settings.LLM_PROVIDER == "ollama":
+        return settings.OLLAMA_MODEL
+    return settings.LLM_MODEL

@@ -70,6 +70,7 @@ class Settings(BaseSettings):
     TELEGRAM_OWNER_USER_ID: int | None = Field(default=None, gt=0)
     TELEGRAM_OWNER_CHAT_ID: int | None = Field(default=None, gt=0)
     TELEGRAM_LOCAL_AI_ENABLED: bool = False
+    OLLAMA_GENERATION_AUTHORIZED: bool = False
     OLLAMA_MODEL: str | None = Field(default=None, pattern=r"^[A-Za-z0-9][A-Za-z0-9:._-]{0,99}$")
     AGY_ENABLED: bool = False
     AGY_MODEL: str | None = Field(default=None, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,120}$")

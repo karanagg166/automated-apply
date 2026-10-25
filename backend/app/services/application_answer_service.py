@@ -5,17 +5,23 @@ from pydantic import ValidationError
 
 from backend.app.ai.base import ProviderError
 from backend.app.ai.prompts import STYLE_INSTRUCTIONS, SYSTEM_INSTRUCTION, build_payload
-from backend.app.ai.provider_factory import create_provider
-from backend.app.ai.schemas import AnswerGenerationResult, EvidenceReference, ProviderAnswer
+from backend.app.ai.provider_factory import configured_model, create_provider
+from backend.app.ai.schemas import (
+    AnswerGenerationResult,
+    EvidenceReference,
+    ProviderAnswer,
+)
 from backend.app.ai.usage import LLMUsageManager
 from backend.app.ai.validation import validate_grounding
 from backend.app.core.config import get_settings
 from backend.app.db.session import get_session_factory
 from backend.app.repositories.candidate_knowledge import CandidateKnowledgeRepository
 from backend.app.repositories.candidate_profile import ProfileNotFoundError
-from backend.app.repositories.job import JobRepository
 from backend.app.repositories.company import CompanyRepository
-from backend.app.services.application_question_classifier import ApplicationQuestionClassifier
+from backend.app.repositories.job import JobRepository
+from backend.app.services.application_question_classifier import (
+    ApplicationQuestionClassifier,
+)
 from backend.app.services.candidate_evidence_retrieval import retrieve
 from backend.app.services.profile_link_resolver import ProfileLinkResolver
 
@@ -115,7 +121,7 @@ class ApplicationAnswerService:
 
     async def _compose(self, request, category, facts, max_chars, max_words):
         result = AnswerGenerationResult(question_type=category, writing_style=request.writing_style,
-                                       provider=self.settings.LLM_PROVIDER, model=self.settings.LLM_MODEL)
+                                       provider=self.settings.LLM_PROVIDER, model=configured_model(self.settings))
         context = {"evidence": facts}
         instructions = {"style_instruction": STYLE_INSTRUCTIONS[request.writing_style],
                         "max_characters": max_chars, "max_words": max_words,
