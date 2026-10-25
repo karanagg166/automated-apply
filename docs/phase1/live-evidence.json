@@ -333,5 +333,24 @@
     "verified_at": "2026-10-25T13:07:07.301376+00:00",
     "findings": [],
     "evidence_type": "actual_named_project_mcp_security_advisors"
+  },
+  "native_online_bridge": {
+    "verified_at": "2026-10-25T13:08:02.992653+00:00",
+    "evidence_type": "actual_installed_native_host_framing_to_online_supabase_api",
+    "results": [
+      {
+        "authorized_origin": true,
+        "ok": true,
+        "error_code": null,
+        "endpoint": "http://127.0.0.1:8000"
+      },
+      {
+        "authorized_origin": false,
+        "ok": false,
+        "error_code": "native_origin_denied",
+        "endpoint": null
+      }
+    ],
+    "real_chrome_gesture": false
   }
 }

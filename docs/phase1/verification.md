@@ -22,7 +22,7 @@ A harmless preference timestamp persisted through an actual FastAPI restart, the
 | Claude | Unused project setup removed; shared MCP retained | None; owner does not use Claude |
 | Telegram | Actual owner-confirmed “Check whether Gmail is connected” and “Apply for Swiggy” replies, corresponding online audit and 16 sent outbox records | New remote locked-screen test pending; prior awake locked-screen test passed against the old local database |
 | Gmail | Expected secondary identity/subject and exact metadata scopes verified through real Google OAuth; encrypted access/refresh tokens in online Supabase; actual refresh and identity check passed | Compose upgrade blocked by inherited SQL discriminator check; separate reviewed DDL approval and browser compose consent needed |
-| Chrome/native host | Earlier owner Chrome preview correlated with stored audit; genuine isolated Chromium MV3/native/Python/FastAPI/PostgreSQL restart smoke passed | Load stable extension folder, bind its displayed ID, real ordinary-page and non-sensitive Google Form gestures, reload/restart acceptance |
+| Chrome/native host | Earlier owner Chrome preview correlated with stored audit; actual installed native executable reached the online backend and rejected an incorrect origin; genuine isolated Chromium MV3/native/Python/FastAPI/PostgreSQL restart smoke passed | Load stable extension folder, bind its displayed ID, real ordinary-page and non-sensitive Google Form gestures, reload/restart acceptance |
 | Candidate/resume | One existing encrypted PDF decrypted safely and hash checked; ciphertext preserved in online Supabase with existing key and confirmed=false | Canonical profile is absent; owner must review actual facts and confirm the canonical resume. Drive source retained, sync disabled |
 | Naukri, Wellfound, Instahyre, YC, Internshala | Official Connect/manual handoff and bounded gesture observation implemented; no cookies/passwords captured | Each account observation and owner acceptance of manual/unsupported capability remain pending |
 
@@ -48,6 +48,7 @@ The ChatGPT Supabase plugin is separate and still needs owner-side reconnection 
 | Filesystem installer checks | **5 passed**; private logs, preserved content, symlink/hardlink refusal and separate API logs |
 | Focused backend after network deadline/pool changes | **180**, then **63** cases passed; final full suite includes these changes |
 | Focused account/OAuth/foundation after follow-up preparation | **149 passed** |
+| Compose identity/scope preservation and refresh regressions | **44 OAuth tests passed**, including seven additional compose success/rejection cases; provider transport mocked |
 | Ruff E9/F/I and Bandit | Passed changed production/operator code; whole backend app scan passed |
 | Secrets baseline / diff whitespace / generated API contract | Checked without provider verification requests; public SQL hashes explicitly classified, secrets remain untracked |
 | Hosted CI | Previous PR #18 head ce883679 was green; follow-up head results must be checked after push |

@@ -40,7 +40,8 @@ def account_output(account):
         "last_refresh_at": account.last_refresh_at,
         "authorization_state": (
             account.status if account.status != "connected" else
-            "send_authorized" if set(account.granted_scopes) == SEND_SCOPES else "metadata_connected"
+            "send_authorized" if set(account.granted_scopes) == SEND_SCOPES else
+            "compose_authorized" if set(account.granted_scopes) == COMPOSE_SCOPES else "metadata_connected"
         ),
         "send_capability": (
             account.status if account.status != "connected" else

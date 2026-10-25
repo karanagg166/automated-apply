@@ -54,7 +54,13 @@
     "compose_followup_disposable_postgresql": "passed",
     "ruff": "passed",
     "bandit": "passed",
-    "hosted_ci": "pending_followup_push"
+    "hosted_ci": "pending_followup_push",
+    "additional_oauth_compose_regressions": {
+      "passed": 44,
+      "new_cases": 7,
+      "provider_transport": "mocked"
+    },
+    "installed_native_online_api_and_wrong_origin": "passed"
   },
   "connections": [
     {
