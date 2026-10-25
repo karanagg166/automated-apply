@@ -59,7 +59,7 @@ VS Code recognizes the workspace configuration, but actual tool discovery/read a
 
 The unused project `.claude/settings.json` was removed; no Claude registration is required. Shared configuration and unrelated global tools are retained. AGY's named project server stays disabled because granular restrictions are unverified; its older global Supabase server is preserved. General AGY prompts must not receive SQL/migration access.
 
-ChatGPT's Supabase plugin authorization is separate. Its ineligible linked account requires owner-side reconnection in ChatGPT; local CLI credentials cannot repair it.
+ChatGPT's Supabase plugin authorization is separate. The connection named Supabase returned the exact target project URL in this session; Primary returned permission denied. Preserve the working connection and reconnect Primary only if you intend to use it. Local CLI credentials do not repair plugin authorization.
 ## Chrome Native Messaging
 
 ```sh
@@ -143,4 +143,16 @@ The Connect Platform flow opens official login pages for Naukri, Wellfound, Inst
 
 The legacy encrypted resume was validated locally but remains unconfirmed. No canonical approved profile exists. Review actual facts and the resume in the dashboard; missing personal details must not be inferred. Drive configuration is retained with sync disabled pending review.
 
-The initial live identity consent and actual Google token refresh succeeded with encrypted online storage. Compose authorization is blocked by the inherited OAuth-mode SQL constraint; see [the separate migration review](gmail-compose-migration-review.md). Its follow-up DDL requires a new explicit approval and must never be folded into the already-applied initial bundle.
+The separately reviewed compose constraint follow-up was explicitly approved and applied once through the guarded operator on 2026-10-25. Real secondary-account compose consent, exact scopes, encrypted persistence and actual Google refresh passed; see [the migration review and activation record](gmail-compose-migration-review.md). Never reapply it or fold it into the initial bundle. Sending remains disabled, and no real draft test is authorized.
+
+## Current owner acceptance controls
+
+Use the stable private runtime dashboard at http://127.0.0.1:3000. Profile now accepts explicitly verified years of experience (blank stays unknown; zero requires owner confirmation), phone and profile links. Download the preserved private PDF, choose it for the final fact review, and save the reviewed profile. Confirmation is stored against the exact profile ID/version in online Supabase; later edits invalidate it. Imported or extracted facts do not confirm themselves. Google Drive imports retain their separate review/approval workflow. No existing canonical profile or approved PDF is inferred.
+
+Each platform card offers Connect, deliberate extension observation, and **Accept manual-only capability**. Acceptance stores the capability decision without authenticating an account or inventing browser evidence. A later browser observation keeps that decision; Forget clears both the observation and acceptance. Each portal still needs its own owner action.
+
+AGY's unsupported tool-free session limitation was explicitly accepted by the owner for Phase 1. Generation and project MCP remain disabled. The metadata-only `agy_protocol_probe.py` verifies initialization without sending any user event, records only bounded safe diagnostics, and reaps its subprocess group. Current AGY 1.4.7 still advertises 60 tools. No claim that those tools executed is made; no proof of their inability to execute is available. Global permissions and MCPs are preserved.
+
+A clean worker stop and a failure have different launchd semantics: `KeepAlive.SuccessfulExit=false` restarts a failure, while a graceful successful stop requires `launchctl kickstart gui/$(id -u)/com.automated-apply.telegram`. Check a fresh live poll and lease after every explicit restart; do not infer recovery from the plist. No global power settings are changed.
+
+ChatGPT-side Supabase reconnection: open **Settings → Apps → Supabase → Disconnect**, then reconnect from **Apps** using the Supabase account that owns `luvdmwnlwaqgvfwlmlom`. Complete the official OAuth account/organization selector. Ask ChatGPT to list the visible projects and verify that exact reference before using the plugin. Do not log out of or overwrite local Codex, CLI or VS Code connections to repair this separate authorization. An actual plugin read in this session succeeded on the Supabase connection; Primary still denied access. No plugin account was disconnected or reauthorized automatically.

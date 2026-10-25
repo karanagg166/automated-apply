@@ -113,7 +113,8 @@
     "history_preserved": true,
     "last_poll_at": "2026-10-24T22:54:14.794138+00:00",
     "pending_replies_after": 0,
-    "completed_at": "2026-10-24T22:54:16.093029+00:00"
+    "completed_at": "2026-10-24T22:54:16.093029+00:00",
+    "database_scope": "historical_local_disposable"
   },
   "locked_screen_worker": {
     "state": "passed",
@@ -125,7 +126,8 @@
     "last_checked_at": "2026-10-24T22:57:53.753035+00:00",
     "last_poll_at": "2026-10-24T22:57:50.950333+00:00",
     "verified_at": "2026-10-24T22:57:53.753012+00:00",
-    "owner_confirmed_locked_pong": true
+    "owner_confirmed_locked_pong": true,
+    "database_scope": "historical_local_disposable_not_online_acceptance"
   },
   "stable_native_host": {
     "evidence_type": "actual_installed_native_executable_framed_health_to_authenticated_FastAPI",
@@ -281,11 +283,15 @@
     "replay_rejected": true,
     "missing_constraint_rejected": true,
     "fixtures_rolled_back": true,
-    "remote_ddl": false
+    "remote_ddl": false,
+    "reverified_in_this_session": true
   },
   "codex_read_only_after_activation": {
+    "connection_name": "supabase-automated-apply",
+    "client": "codex",
+    "evidence_type": "actual_cli_mcp_discovery",
     "generation_requests": 0,
-    "verified_at": "2026-10-25T12:44:38.613831+00:00",
+    "verified_at": "2026-10-25T13:38:50.000286+00:00",
     "servers": [
       {
         "name": "supabase-automated-apply",
@@ -328,9 +334,9 @@
     "persistence_after_actual_backend_restart": true,
     "restart_verified_at": "2026-10-25T13:06:01.912858+00:00"
   },
-  "generated_at": "2026-10-25T13:06:58.595012+00:00",
+  "generated_at": "2026-10-25T14:13:51.213209+00:00",
   "supabase_security_advisors": {
-    "verified_at": "2026-10-25T13:07:07.301376+00:00",
+    "verified_at": "2026-10-25T14:13:51.213209+00:00",
     "findings": [],
     "evidence_type": "actual_named_project_mcp_security_advisors"
   },
@@ -361,5 +367,264 @@
     "cookie_created": false,
     "remote_ddl_performed": false,
     "message": "Gmail draft authorization needs an operator setup update. Your existing account identity remains connected."
+  },
+  "gmail_compose_followup_activation": {
+    "state": "verified",
+    "project_ref": "luvdmwnlwaqgvfwlmlom",
+    "sha256": "27c1a68eadbd916037effcf94580089777acdc1a66af68aaf9f706beb0cddf3d",
+    "verified_at": "2026-10-25T13:46:13.647016+00:00",
+    "remote_ddl_attempts": 1,
+    "credentials_changed": false,
+    "stage": "complete",
+    "runtime_verification": {
+      "schema": "public",
+      "runtime_security": "restricted_public_v1",
+      "migration_bundle": "2887a98812a797c3ef9d10f37fe5f14959778d802e126d0170776059ccee6a9e",
+      "tls_required": true,
+      "verified_followups": [
+        "followups/002_gmail_compose.sql"
+      ],
+      "postgresql_version": "17.11"
+    },
+    "gmail_sending_enabled": false
+  },
+  "gmail_compose_live_verification": {
+    "verified_at": "2026-10-25T13:54:07.359224+00:00",
+    "state": "compose_identity_refresh_encrypted_storage_verified",
+    "online_supabase": true,
+    "expected_secondary_matches": true,
+    "subject_preserved": true,
+    "granted_scopes": [
+      "https://www.googleapis.com/auth/gmail.compose",
+      "https://www.googleapis.com/auth/userinfo.email",
+      "openid"
+    ],
+    "actual_google_refresh": true,
+    "encrypted_access_and_refresh_persisted": true,
+    "keyring_decrypts_with_context": true,
+    "token_generation_incremented_once": true,
+    "last_refresh_at": "2026-10-25T13:54:04.042966+00:00",
+    "sending_enabled": false,
+    "drafts_created": 0,
+    "emails_sent": 0,
+    "persistence_after_actual_backend_restart": true,
+    "restart_verified_at": "2026-10-25T13:59:19.534048+00:00",
+    "post_restart_identity_verify_http": 200
+  },
+  "agy_tool_isolation_recheck": {
+    "verified_at": "2026-10-25T13:41:17.679838+00:00",
+    "evidence_type": "actual_cli_initialization_no_user_event",
+    "model": "gemini-3.8-flash-high",
+    "effort": "high",
+    "valid_user_events_sent": 0,
+    "model_generation_requested": false,
+    "billing_guard": {
+      "useG1Credits": false,
+      "provider_api_or_cloud_billing": false,
+      "evidence": "installed_cli_settings_and_official_false_default"
+    },
+    "prompt_sent": false,
+    "last_event": "init",
+    "available_tool_count": 60,
+    "elapsed_seconds": 11.516,
+    "exit_status": -9,
+    "state": "generation_disabled",
+    "error_category": "provider_tool_use_denied",
+    "tool_free_initialization_verified": false
+  },
+  "agy_limitation_owner_acceptance": {
+    "owner_accepted": true,
+    "accepted_at": "2026-10-25T13:55:23.037027+00:00",
+    "cli_version": "1.4.7",
+    "generation_disabled": true,
+    "reason": "tool_free_headless_isolation_unproven_60_advertised_tools",
+    "source": "explicit_owner_reply_in_this_session"
+  },
+  "supabase_cli_recheck": {
+    "project_ref": "luvdmwnlwaqgvfwlmlom",
+    "cli_account_access_verified": true,
+    "status": "ACTIVE_HEALTHY",
+    "region": "ap-northeast-1",
+    "postgresql_authenticated": false,
+    "linked": false,
+    "verified_at": "2026-10-25T13:43:34.246657+00:00",
+    "evidence_type": "actual_isolated_cli_project_list"
+  },
+  "native_completion_probes": {
+    "evidence_type": "actual_installed_native_executable_to_online_api",
+    "real_chrome_gesture": false,
+    "cases": [
+      {
+        "case": "authorized_origin",
+        "exit_status": 0,
+        "ok": true,
+        "error_code": null
+      },
+      {
+        "case": "wrong_origin",
+        "exit_status": 0,
+        "ok": false,
+        "error_code": "native_origin_denied"
+      },
+      {
+        "case": "malformed_message",
+        "exit_status": 0,
+        "ok": false,
+        "error_code": "native_invalid_message"
+      },
+      {
+        "case": "oversized_message",
+        "exit_status": 0,
+        "ok": false,
+        "error_code": "native_message_size"
+      }
+    ]
+  },
+  "chatgpt_plugin_recheck": {
+    "verified_at": "2026-10-25T14:13:51.213209+00:00",
+    "evidence_type": "actual_plugin_get_project_url_per_link",
+    "Supabase": {
+      "target_project_url_observed": true
+    },
+    "Primary": {
+      "target_project_url_observed": false,
+      "error_category": "permission_denied"
+    },
+    "local_oauth_used_as_evidence": false,
+    "account_reconnection_performed": false
+  },
+  "resume_integrity_recheck": {
+    "verified_at": "2026-10-25T13:43:38+00:00",
+    "online_supabase": true,
+    "records": 1,
+    "bytes": 100198,
+    "decryption_and_pdf_header_and_hash_verified": true,
+    "existing_key_retained": true,
+    "owner_confirmed": false,
+    "canonical_profile_count": 0
+  },
+  "locked_screen_online_completion": {
+    "state": "pending_owner_action",
+    "evidence_type": "actual_macOS_lock_property_and_PostgreSQL_live_worker",
+    "started_at": "2026-10-25T14:00:33.144758+00:00",
+    "screen_lock_observed": true,
+    "new_pong_sent_while_locked": false,
+    "live_poll_while_locked": true,
+    "last_checked_at": "2026-10-25T14:10:33.464370+00:00",
+    "last_poll_at": "2026-10-25T14:04:18.127372+00:00",
+    "blocker": "owner_screen_lock_and_new_phone_ping_not_verified_before_deadline"
+  },
+  "owner_browser_recent_activity": {
+    "chrome": [
+      {
+        "created_at": "2026-10-25T14:06:00.513811+00:00",
+        "command": "preview_application_url",
+        "ok": true,
+        "platform": "google_forms",
+        "submitted": false
+      },
+      {
+        "created_at": "2026-10-25T14:05:27.556108+00:00",
+        "command": "preview_application_url",
+        "ok": true,
+        "platform": "google_forms",
+        "submitted": false
+      },
+      {
+        "created_at": "2026-10-25T14:05:15.397184+00:00",
+        "command": "preview_application_url",
+        "ok": true,
+        "platform": "google_forms",
+        "submitted": false
+      }
+    ],
+    "telegram": [
+      {
+        "created_at": "2026-10-25T14:04:15.270815+00:00",
+        "status": "unknown",
+        "ok": true
+      },
+      {
+        "created_at": "2026-10-25T14:03:59.751236+00:00",
+        "status": "connection_status",
+        "ok": true
+      }
+    ]
+  },
+  "chrome_stable_installation": {
+    "private_directory_exists": true,
+    "registered_origin_id": "hmkhgcgjjnjncamgdlabocdbgpleebgk",
+    "registered_id_matches_temporary_worktree_path": true,
+    "expected_stable_path_id": "cgnghndndegcjokobbplfngfgfdplenj",
+    "actual_stable_id_owner_confirmation": false,
+    "stable_acceptance_complete": false
+  },
+  "approved_google_form_preview": {
+    "verified_at": "2026-10-25T14:13:43.292738+00:00",
+    "explicit_owner_form_permission": true,
+    "official_form_redirect_verified": true,
+    "expected_page_url_exactly_matches_audit": true,
+    "successful_preview_count": 3,
+    "all_submitted_false": true,
+    "evidence_type": "owner_browser_native_requests_correlated_with_exact_approved_form_url",
+    "extension_stable_path_acceptance": false,
+    "owner_result_confirmation_pending": true,
+    "correlation_ids": [
+      "a23f9d78-fbec-4b7d-b9dd-9a1cd6d6892e",
+      "b58ca68a-27ba-4f7f-a9df-79b5fe88e5d2",
+      "2e32b4bb-ef79-47e1-a78e-dc542e508458"
+    ]
+  },
+  "native_actual_offline_response": {},
+  "telegram_online_acceptance": {
+    "verified_at": "2026-10-25T14:12:05.581708+00:00",
+    "online_supabase": true,
+    "examples": [
+      {
+        "example": "Check whether Gmail is connected",
+        "verified_dispatch_and_sent_reply": true,
+        "matches": [
+          {
+            "at": "2026-10-25T14:03:59.751236+00:00",
+            "ok": true,
+            "status": "connection_status",
+            "reply_sent": true
+          }
+        ]
+      },
+      {
+        "example": "Find Python backend jobs",
+        "verified_dispatch_and_sent_reply": false,
+        "matches": []
+      },
+      {
+        "example": "Show jobs I haven't applied to",
+        "verified_dispatch_and_sent_reply": false,
+        "matches": []
+      },
+      {
+        "example": "Apply for Swiggy",
+        "verified_dispatch_and_sent_reply": false,
+        "matches": []
+      },
+      {
+        "example": "Show pending application preparations",
+        "verified_dispatch_and_sent_reply": false,
+        "matches": []
+      },
+      {
+        "example": "Check my connected accounts",
+        "verified_dispatch_and_sent_reply": false,
+        "matches": []
+      }
+    ],
+    "sent_reply_count": 18,
+    "pending_or_ambiguous_replies": 0,
+    "duplicate_worker_denied": true,
+    "last_poll_at": "2026-10-25T14:11:42.072852+00:00",
+    "latest_error": null,
+    "evidence_type": "live_poll",
+    "offset_preserved_or_advanced": true,
+    "fresh_poll_after_explicit_start": true
   }
 }
