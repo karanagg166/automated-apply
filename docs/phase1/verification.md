@@ -48,7 +48,7 @@ The ChatGPT Supabase plugin is separate and still needs owner-side reconnection 
 | Filesystem installer checks | **5 passed**; private logs, preserved content, symlink/hardlink refusal and separate API logs |
 | Focused backend after network deadline/pool changes | **180**, then **63** cases passed; final full suite includes these changes |
 | Focused account/OAuth/foundation after follow-up preparation | **149 passed** |
-| Compose identity/scope preservation and refresh regressions | **44 OAuth tests passed**, including seven additional compose success/rejection cases; provider transport mocked |
+| Compose identity/scope preservation and refresh regressions | **46 OAuth tests passed**, including compose success/rejection and schema-error recovery cases; provider transport mocked |
 | Ruff E9/F/I and Bandit | Passed changed production/operator code; whole backend app scan passed |
 | Secrets baseline / diff whitespace / generated API contract | Checked without provider verification requests; public SQL hashes explicitly classified, secrets remain untracked |
 | Hosted CI | Initial PR #18 head ce883679 was green; f276bb2 backend and Phase 1 workflows passed. Latest e81aa51 checks are pending; see GitHub and readiness.json for exact run IDs. |
@@ -56,3 +56,5 @@ The ChatGPT Supabase plugin is separate and still needs owner-side reconnection 
 The suites retain rejection coverage for wrong account/project, profile preservation, privileged runtime, non-TLS connections, grant/RLS drift, OAuth state/PKCE/redirect/scopes, duplicate and unauthorized Telegram updates, unknown/malformed/injected intents, ambiguous selection and expiry, generation timeout/no retry/overage guards, native origin/framing validation and disabled submission/sending/enrichment. Mocked scenarios are not presented as live account evidence.
 
 See [readiness.json](readiness.json) for each connection's configuration, authentication, verified scope, blocker, timestamp and next action; [live-evidence.json](live-evidence.json) for sanitized live results. Original worktrees and unrelated changes are preserved. Phase 1 cannot be declared complete until mandatory live checks and owner acceptance of manual-only platform capabilities are finished.
+
+Repeated live compose clicks reproduced the inherited mode constraint failure. The service now rolls back that exact driver-metadata-identified failure and returns an actionable HTTP 409 setup requirement instead of a generic 500. The connected identity and encrypted refresh token are preserved; this error handling performs no DDL. Two additional regression cases verify recovery and the safe API response.

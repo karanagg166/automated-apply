@@ -1,9 +1,9 @@
 {
   "phase": 1,
   "status": "incomplete_owner_actions_and_external_capability_acceptance_pending",
-  "generated_at": "2026-10-25T13:06:58.595012+00:00",
+  "generated_at": "2026-10-25T13:17:11.660373+00:00",
   "branch": "feat/phase1-local-connections",
-  "implementation_commit": "e81aa51ed5572c04fb7f36d7e327b46432d7a6c6",
+  "implementation_commit": "ce22f07d6fc4eadbdb9c4be79cdd1259427f83bc",
   "report_commit_note": "This report is committed as a follow-up to the recorded implementation commit.",
   "pull_request": "https://github.com/karanagg166/automated-apply/pull/18",
   "phase2_started": false,
@@ -129,14 +129,17 @@
         }
       ],
       "latest_head_result": "pending",
-      "previous_head_f276bb2_backend_and_phase1": "passed"
+      "previous_head_f276bb2_backend_and_phase1": "passed",
+      "previous_head_e81aa51_all_workflows": "passed",
+      "previous_head_6a4f7cf_frontend_and_phase1": "passed"
     },
     "additional_oauth_compose_regressions": {
-      "passed": 44,
+      "passed": 46,
       "new_cases": 7,
       "provider_transport": "mocked"
     },
-    "installed_native_online_api_and_wrong_origin": "passed"
+    "installed_native_online_api_and_wrong_origin": "passed",
+    "live_compose_schema_409_identity_preserved": "passed"
   },
   "connections": [
     {

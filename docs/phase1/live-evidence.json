@@ -352,5 +352,14 @@
       }
     ],
     "real_chrome_gesture": false
+  },
+  "gmail_compose_recoverable_setup_error": {
+    "verified_at": "2026-10-25T13:16:09.620920+00:00",
+    "evidence_type": "actual_online_api_and_supabase_constraint_rejection",
+    "compose_http": 409,
+    "identity_preserved": true,
+    "cookie_created": false,
+    "remote_ddl_performed": false,
+    "message": "Gmail draft authorization needs an operator setup update. Your existing account identity remains connected."
   }
 }
