@@ -42,7 +42,7 @@ def test_empty_configuration_has_only_missing_facts_and_default_priorities():
     [
         "http://example.org",
         "https://127.0.0.1/a",
-        "https://user:pass@example.org",
+        "https://user:pass@example.org",  # pragma: allowlist secret -- rejected fictional credential URL
         "https://localhost/a",
         "file:///etc/passwd",
         "https://169.254.169.254/a",

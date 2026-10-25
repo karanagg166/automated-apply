@@ -190,7 +190,7 @@ jobs:
       - name: Secret checks
         run: |
           python -m pip install -c backend/requirements.lock detect-secrets
-          if git ls-files | rg '(^|/)(reports/|secrets/|\.env$)|\.private\.|\.(pem|key|dump)$'; then
+          if git ls-files | grep -E '(^|/)(reports/|secrets/|\.env$)|\.private\.|\.(pem|key|dump)$'; then
             echo 'Private runtime artifacts must not be tracked'; exit 1
           fi
           git ls-files -z | xargs -0 detect-secrets-hook --baseline .secrets.baseline

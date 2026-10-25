@@ -1,9 +1,9 @@
 {
   "phase": 1,
   "status": "incomplete_owner_acceptance_and_separate_module_review_pending",
-  "generated_at": "2026-10-25T19:21:09.819742+00:00",
+  "generated_at": "2026-10-25T19:45:00.000000+00:00",
   "branch": "feat/phase1-local-connections",
-  "implementation_commit": "7ae5096e4316d38a93527a92d4b9ebf0567436a9",
+  "implementation_commit": "773d887cad87c68be21c7f3dd10c0c6c23c85ef0",
   "report_commit_note": "This report is committed as a follow-up to the recorded implementation commit.",
   "pull_request": "https://github.com/karanagg166/automated-apply/pull/18",
   "phase2_started": false,
@@ -45,7 +45,7 @@
     },
     "frontend_unit": 43,
     "frontend_e2e": 8,
-    "extension_event_simulations": 12,
+    "extension_event_simulations": 18,
     "installation_filesystem_tests": 5,
     "managed_postgresql_tables": 47,
     "managed_security_faults_rejected": 12,
@@ -57,60 +57,65 @@
     "ruff": "passed",
     "bandit": "passed",
     "hosted_ci": {
-      "implementation_head": "399bd61d22a8f3732f94813952e18561339d66d1",
+      "implementation_head": "773d887cad87c68be21c7f3dd10c0c6c23c85ef0",
+      "previous_failures": [
+        "backend_secret_checks_basic_auth_fixture",
+        "backend_secret_checks_public_commit_hashes",
+        "missing_ripgrep_in_ci"
+      ],
       "checks": [
         {
           "__typename": "CheckRun",
-          "completedAt": "0001-01-01T00:00:00Z",
-          "conclusion": "",
-          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40210809803/job/121221418139",
+          "completedAt": "2026-10-25T19:26:55Z",
+          "conclusion": "FAILURE",
+          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40225809695/job/121266802625",
           "name": "backend",
-          "startedAt": "2026-10-25T16:15:31Z",
-          "status": "IN_PROGRESS",
+          "startedAt": "2026-10-25T19:23:33Z",
+          "status": "COMPLETED",
           "workflowName": "Backend CI"
         },
         {
           "__typename": "CheckRun",
-          "completedAt": "0001-01-01T00:00:00Z",
-          "conclusion": "",
-          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40210809769/job/121221417916",
+          "completedAt": "2026-10-25T19:25:53Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40225809693/job/121266802639",
           "name": "frontend",
-          "startedAt": "2026-10-25T16:15:30Z",
-          "status": "IN_PROGRESS",
+          "startedAt": "2026-10-25T19:23:33Z",
+          "status": "COMPLETED",
           "workflowName": "Frontend CI"
         },
         {
           "__typename": "CheckRun",
-          "completedAt": "0001-01-01T00:00:00Z",
-          "conclusion": "",
-          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40210805645/job/121221405359",
+          "completedAt": "2026-10-25T19:26:52Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40225805749/job/121266789939",
           "name": "frontend",
-          "startedAt": "2026-10-25T16:15:27Z",
-          "status": "IN_PROGRESS",
+          "startedAt": "2026-10-25T19:23:30Z",
+          "status": "COMPLETED",
           "workflowName": "Frontend CI"
         },
         {
           "__typename": "CheckRun",
-          "completedAt": "0001-01-01T00:00:00Z",
-          "conclusion": "",
-          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40210809830/job/121221418270",
+          "completedAt": "2026-10-25T19:26:06Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40225809697/job/121266802431",
           "name": "connections",
-          "startedAt": "2026-10-25T16:15:31Z",
-          "status": "IN_PROGRESS",
+          "startedAt": "2026-10-25T19:23:34Z",
+          "status": "COMPLETED",
           "workflowName": "Phase 1 connection foundation"
         },
         {
           "__typename": "CheckRun",
-          "completedAt": "0001-01-01T00:00:00Z",
-          "conclusion": "",
-          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40210805646/job/121221405274",
+          "completedAt": "2026-10-25T19:34:35Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40225805840/job/121266790455",
           "name": "connections",
-          "startedAt": "2026-10-25T16:15:27Z",
-          "status": "IN_PROGRESS",
+          "startedAt": "2026-10-25T19:23:31Z",
+          "status": "COMPLETED",
           "workflowName": "Phase 1 connection foundation"
         }
       ],
-      "latest_head_result": "pending"
+      "latest_head_result": "remediation_pending_ci"
     },
     "additional_oauth_compose_regressions": {
       "passed": 46,
