@@ -58,6 +58,10 @@ jobs:
           cd frontend && npx playwright install --with-deps chromium && cd ..
           python backend/scripts/phase1/prepare_disposable.py
           python backend/scripts/phase1/lifecycle_smoke.py --env-file reports/phase1/disposable.private.env --with-chromium-extension
+      - name: Gmail compose intent on real disposable PostgreSQL
+        env:
+          PHASE1_DISPOSABLE_DATABASE_URL: postgresql://postgres:phase1_ci_disposable@127.0.0.1:5433/candidate_profile_test
+        run: python backend/scripts/phase1/verify_gmail_compose.py
       - name: Foundation lint and security scan
         run: |
           ruff check --isolated --select E9,F,I backend/app/local_agent backend/app/ai/providers/agy.py backend/scripts/phase1 backend/tests/test_phase1_local_agent.py backend/tests/test_telegram_pairing.py backend/tests/test_phase1_installation.py backend/tests/test_phase1_conversation.py backend/tests/test_phase1_agy_diagnostics.py backend/tests/test_phase1_account_setup.py

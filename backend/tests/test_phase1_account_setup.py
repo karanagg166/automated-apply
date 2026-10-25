@@ -96,3 +96,23 @@ def test_runtime_config_update_preserves_existing_credentials(tmp_path):
     with pytest.raises(ValueError):
         save_private_configuration(link, {"EXISTING_KEY": "must-not-write"})
     assert dotenv_values(path)["EXISTING_KEY"] == "fictional-preserved-secret"
+
+
+def test_compose_followup_requires_separate_exact_approval_before_connecting():
+    from types import SimpleNamespace
+
+    from sqlalchemy.engine import make_url
+
+    from backend.app.local_agent.public_database import verify_bundle
+    from backend.scripts.phase1.apply_compose_followup import check_followup_approval
+    followup = verify_bundle()['followups'][0]
+    args = SimpleNamespace(owner_approved_remote_ddl=True, sha256=followup['sha256'], project_ref=PROJECT)
+    target = make_url(f'postgresql+asyncpg://job_agent_runtime@db.{PROJECT}.supabase.co/postgres')
+    check_followup_approval(args, target, followup)
+    for field, value in [('owner_approved_remote_ddl', False), ('sha256', 'wrong'), ('project_ref', 'wrong')]:
+        changed = SimpleNamespace(**(vars(args) | {field: value}))
+        with pytest.raises(ValueError, match='exact_followup_approval'):
+            check_followup_approval(changed, target, followup)
+    for changed in [target.set(host='db.wrong.supabase.co'), target.set(username='postgres')]:
+        with pytest.raises(ValueError, match='exact_followup_approval'):
+            check_followup_approval(args, changed, followup)

@@ -10,7 +10,7 @@
   },
   "agy_authentication_metadata": {
     "evidence_type": "actual_cli_handled_usage_report_no_generation",
-    "verified_at": "2026-10-24T22:22:36.430148+00:00",
+    "verified_at": "2026-10-25T11:02:15.369692+00:00",
     "model_generation_requested": false,
     "billing_guard": {
       "useG1Credits": false,
@@ -27,7 +27,7 @@
       "cache_read_tokens": 0,
       "total_tokens": 0
     },
-    "sanitized_report": "Gemini Models\tWeekly Limit Remaining\t59%\t2026-10-29T23:33:21Z\nGemini Models\tFive Hour Limit Remaining\t97%\t2026-10-25T01:32:09Z\nClaude and GPT models\tWeekly Limit Remaining\t100%\t2026-10-31T22:22:47Z\nClaude and GPT models\tFive Hour Limit Remaining\t100%\t2026-10-25T03:22:47Z\nGemini 4 Argon\tGemini 4 Argon Weekly Limit\t100%\t2026-10-31T22:22:47Z",
+    "sanitized_report": "Gemini Models\tWeekly Limit Remaining\t58%\t2026-10-29T23:33:21Z\nGemini Models\tFive Hour Limit Remaining\t100%\t2026-10-25T16:02:28Z\nClaude and GPT models\tWeekly Limit Remaining\t100%\t2026-11-01T11:02:28Z\nClaude and GPT models\tFive Hour Limit Remaining\t100%\t2026-10-25T16:02:28Z\nGemini 4 Argon\tGemini 4 Argon Weekly Limit\t100%\t2026-11-01T11:02:28Z",
     "trusted_workspace": true,
     "exit_code": 0
   },
@@ -47,6 +47,15 @@
       "state": "failed_no_retry",
       "error_code": "timeout",
       "timestamp": "2026-10-24T21:54:47.600352+00:00",
+      "invocations": 1,
+      "application_retries": 0
+    },
+    {
+      "model": "gemini-3.8-flash-high",
+      "effort": "high",
+      "state": "failed_no_retry",
+      "error_code": "cli_nonzero_exit",
+      "timestamp": "2026-10-25T11:21:12.932085+00:00",
       "invocations": 1,
       "application_retries": 0
     }
@@ -135,5 +144,194 @@
       "telegram.out.log": "0o600"
     },
     "logs_directory_mode": "0o700"
+  },
+  "supabase_online_activation": {
+    "project_ref": "luvdmwnlwaqgvfwlmlom",
+    "bundle_sha256": "2887a98812a797c3ef9d10f37fe5f14959778d802e126d0170776059ccee6a9e",
+    "verified_at": "2026-10-25T12:31:18.700627+00:00",
+    "state": "restricted_online_runtime_verified",
+    "remote_ddl_attempts": 1,
+    "existing_credentials_rotated": false,
+    "runtime_verification": {
+      "schema": "public",
+      "runtime_security": "restricted_public_v1",
+      "migration_bundle": "2887a98812a797c3ef9d10f37fe5f14959778d802e126d0170776059ccee6a9e",
+      "tls_required": true,
+      "postgresql_version": "17.11"
+    },
+    "restricted_login_tls_verified": true,
+    "client_tls_version": "TLSv1.3",
+    "client_certificate_and_hostname_verified": true,
+    "server_connection_tls_verified": true,
+    "private_runtime_configuration_saved": true,
+    "services_restarted": true,
+    "recovered_at": "2026-10-25T12:34:09.925041+00:00",
+    "initial_failure": "session_pooler_upstream_pg_stat_ssl_false",
+    "recovery": "direct_ipv6_endpoint_same_initialized_credential_no_ddl",
+    "reconnect_persistence_verified": true,
+    "acceptance_probe_cleaned": true
+  },
+  "supabase_online_persistence": {
+    "state": "passed",
+    "started_at": "2026-10-25T12:41:30.396138+00:00",
+    "denied_runtime_operations": [
+      "delete_audit",
+      "delete_preferences",
+      "read_auth",
+      "execute_managed_rls"
+    ],
+    "preference_value_changed": false,
+    "project_ref": "luvdmwnlwaqgvfwlmlom",
+    "verified_at": "2026-10-25T12:42:25.008570+00:00",
+    "actual_api_restart": true,
+    "probe_persisted_across_restart": true,
+    "probe_cleaned_original_timestamp_restored": true,
+    "telegram_last_poll_at": "2026-10-25T12:42:14.759954+00:00",
+    "telegram_error": null,
+    "actual_api_health_after_restart": 200
+  },
+  "supabase_state_transfer": {
+    "state": "copied_transactionally",
+    "verified_at": "2026-10-25T12:35:54.613552+00:00",
+    "project_ref": "luvdmwnlwaqgvfwlmlom",
+    "source": "owned_local_phase1_55439",
+    "target": "online_supabase_restricted_runtime",
+    "tables": {
+      "agent_policies": {
+        "rows": 0
+      },
+      "agent_policy_events": {
+        "rows": 0
+      },
+      "agent_operations": {
+        "rows": 15
+      },
+      "agent_telegram_state": {
+        "rows": 1
+      },
+      "agent_telegram_deliveries": {
+        "rows": 14
+      },
+      "owner_preferences": {
+        "rows": 1
+      }
+    },
+    "all_outbox_resolved": true,
+    "polling_offset_preserved": true,
+    "old_state_preserved": true,
+    "no_external_actions": true
+  },
+  "resume_preservation": {
+    "verified_at": "2026-10-25T12:40:31.740917+00:00",
+    "encrypted_resume_records_preserved": 1,
+    "existing_key_retained": true,
+    "hash_verified": true,
+    "human_confirmed": false,
+    "canonical_resource_linked": false,
+    "profile_facts_created": false,
+    "source_unchanged": true,
+    "destination": "online_supabase"
+  },
+  "agy_schema_diagnostic": {
+    "valid_user_events_sent": 0,
+    "model_generation_requested": false,
+    "billing_guard": {
+      "useG1Credits": false,
+      "provider_api_or_cloud_billing": false,
+      "evidence": "installed_cli_settings_and_official_false_default"
+    },
+    "last_event": "init",
+    "available_tool_count": 60,
+    "diagnostic_error_code": "provider_tool_use_denied"
+  },
+  "telegram_natural_language_online": {
+    "verified_at": "2026-10-25T12:53:56.052277+00:00",
+    "evidence_type": "actual_owner_telegram_roundtrips_and_online_supabase_audit",
+    "owner_confirmed_both_examples": true,
+    "online_supabase": true,
+    "natural_language_audits": [
+      {
+        "at": "2026-10-25T12:45:54.955129+00:00",
+        "ok": true,
+        "intent": null,
+        "status": "no_matches",
+        "submitted": false
+      },
+      {
+        "at": "2026-10-25T12:45:38.244007+00:00",
+        "ok": true,
+        "intent": null,
+        "status": "connection_status",
+        "submitted": false
+      }
+    ],
+    "outbox_counts": {
+      "sent": 16
+    },
+    "live_poll_at": "2026-10-25T12:53:47.464482+00:00",
+    "latest_error": null,
+    "remote_locked_screen_retest": false
+  },
+  "gmail_compose_constraint_test": {
+    "state": "passed",
+    "evidence": "actual_disposable_postgresql17",
+    "original_failure_reproduced": true,
+    "compose_and_existing_modes_accepted": true,
+    "unknown_mode_rejected": true,
+    "replay_rejected": true,
+    "missing_constraint_rejected": true,
+    "fixtures_rolled_back": true,
+    "remote_ddl": false
+  },
+  "codex_read_only_after_activation": {
+    "generation_requests": 0,
+    "verified_at": "2026-10-25T12:44:38.613831+00:00",
+    "servers": [
+      {
+        "name": "supabase-automated-apply",
+        "auth_status": "oAuth",
+        "tools": [
+          "get_advisors",
+          "get_project_url",
+          "list_extensions",
+          "list_migrations",
+          "list_tables",
+          "search_docs"
+        ]
+      }
+    ],
+    "project_url_observed": true,
+    "public_table_count": 47,
+    "migration_count": 0,
+    "state": "read_only_results_received"
+  },
+  "gmail_live_verification": {
+    "verified_at": "2026-10-25T12:55:16.624345+00:00",
+    "state": "identity_verified_compose_schema_approval_pending",
+    "expected_account_matches": true,
+    "subject_bound": true,
+    "granted_scopes": [
+      "https://www.googleapis.com/auth/gmail.metadata",
+      "https://www.googleapis.com/auth/userinfo.email",
+      "openid"
+    ],
+    "encrypted_access_and_refresh_persisted": true,
+    "keyring_decrypts_with_context": true,
+    "sending_enabled": false,
+    "drafts_created": 0,
+    "emails_sent": 0,
+    "online_supabase": true,
+    "refresh_test": "passed_actual_google_refresh_and_identity_validation",
+    "last_live_verification": "2026-10-25T13:02:40.830090+00:00",
+    "last_refresh_at": "2026-10-25T13:02:38.921238+00:00",
+    "encrypted_token_persistence_verified": true,
+    "persistence_after_actual_backend_restart": true,
+    "restart_verified_at": "2026-10-25T13:06:01.912858+00:00"
+  },
+  "generated_at": "2026-10-25T13:06:58.595012+00:00",
+  "supabase_security_advisors": {
+    "verified_at": "2026-10-25T13:07:07.301376+00:00",
+    "findings": [],
+    "evidence_type": "actual_named_project_mcp_security_advisors"
   }
 }

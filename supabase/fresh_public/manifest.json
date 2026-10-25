@@ -105,5 +105,14 @@
   "runtime_role": "job_agent_runtime",
   "remote_applied": false,
   "preserved_function_sha256": "1e3ec36df0ee1a5e9ab8801eca1f6300f2bd3a5590cde173afd17433ac08ec2a",
-  "catalog_sha256": "3a2a361d6736f88e62d5379c9d21b0047f27cec3cfc821670dd4536c1cf0dcf5"
+  "catalog_sha256": "3a2a361d6736f88e62d5379c9d21b0047f27cec3cfc821670dd4536c1cf0dcf5",
+  "followups": [
+    {
+      "file": "followups/002_gmail_compose.sql",
+      "sha256": "27c1a68eadbd916037effcf94580089777acdc1a66af68aaf9f706beb0cddf3d",
+      "constraint": "oauth_states.oauth_states_authorization_mode_check",
+      "before": "CHECK (((authorization_mode)::text = ANY ((ARRAY['metadata'::character varying, 'send'::character varying])::text[])))|true",
+      "after": "CHECK (((authorization_mode)::text = ANY ((ARRAY['metadata'::character varying, 'send'::character varying, 'compose'::character varying])::text[])))|true"
+    }
+  ]
 }

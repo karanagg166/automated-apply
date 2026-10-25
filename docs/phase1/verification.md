@@ -1,71 +1,57 @@
-# Phase 1 verification and remaining acceptance
+# Phase 1 live verification and remaining acceptance
 
-Status: implementation reviewable; owner acceptance pending. No merge to main, remote DDL, real application submission, email send, authenticated-platform scraping or enrichment request was performed. Two separately authorized fictional AGY invocations produced no usable response/attempt usage (latest: timeout). Paid overage was not authorized; neither attempt was automatically retried. After owner sign-in, CLI-handled authentication/quota metadata succeeded with zero model turns. No further generation is authorized.
+Phase 1 remains incomplete. The genuine backend and Telegram worker now use online Supabase PostgreSQL. No Phase 2 work or merge was performed. No job application, Gmail message, real Gmail draft, paid enrichment request or paid service activation occurred. Existing credentials were retained; only the approved first restricted-runtime credential and initially missing local/OAuth configuration were initialized.
 
-## Executed commands and evidence
+## Real Supabase activation
 
-Use `.venv/bin/python` from this worktree. All database passwords below are disposable fictional fixtures, never production credentials.
+Project `luvdmwnlwaqgvfwlmlom` was verified independently through the isolated CLI account, Codex MCP and a TLS-authenticated PostgreSQL inventory. CLI 2.122.0 lists the intended ACTIVE_HEALTHY project in ap-northeast-1. The old default account and unrelated project links remain intact. The Phase 1 checkout alone was linked. The bare CLI profile label had been interpreted as a configuration path; the verified setup uses a separate private profile file/home.
 
-| Command | Result / evidence |
+The read-only inventory found zero public tables, zero application roles and zero migration history before activation, plus the existing postgres-owned `rls_auto_enable()`/`ensure_rls` managed function and event trigger. After exact comparison and final owner approval, bundle SHA-256 `2887a98812a797c3ef9d10f37fe5f14959778d802e126d0170776059ccee6a9e` committed exactly once on 2026-10-25. All 47 tables have forced RLS and exact restricted grants. The managed function/trigger definition is preserved and client EXECUTE grants were removed. No historical migration checksum changed. Supabase's CLI migration ledger still has zero entries: the directly executed bundle is documented through activation and catalog evidence, without fabricating historical migrations.
+
+The initial operator stopped after commit because the session pooler's upstream connection reported `pg_stat_ssl=false`, despite verified client TLS. The direct IPv6 endpoint is reachable and passes hostname/official-CA verification, TLS 1.3, server-side SSL and every catalog/role/grant/RLS check with the same initialized `job_agent_runtime` credential. No TLS check was weakened and no migration or credential initialization was repeated.
+
+A harmless preference timestamp persisted through an actual FastAPI restart, then its original value was restored. Real runtime attempts to delete audit/preferences, read Auth users and execute the managed RLS function were denied. Supabase security advisors returned no findings. The genuine API listens on loopback port 8000, the owner dashboard on 3000, and per-user launchd services use the stable private Application Support runtime. The five-connection runtime limit is preserved: two pooled API sessions, one worker session plus its lease, leaving one operator slot. Bounded catalog/queue deadlines account for measured network latency.
+
+## Genuine account and browser evidence
+
+| Connection | Verified result | Remaining acceptance |
+|---|---|---|
+| Codex MCP | Actual discovery of six read-only tools; URL, 47 public tables, extensions and zero CLI migrations read without a model turn | Preserve global allowlist and OAuth |
+| VS Code MCP | Correct workspace configuration observed through VS Code extension APIs; supported start command available | Actual discovery/read call remains unverified; use MCP: List Servers → supabase-automated-apply → Start and verify get_project_url |
+| AGY MCP | Named project entry disabled; old global entry preserved | Keep disabled until granular permissions are proven |
+| Claude | Unused project setup removed; shared MCP retained | None; owner does not use Claude |
+| Telegram | Actual owner-confirmed “Check whether Gmail is connected” and “Apply for Swiggy” replies, corresponding online audit and 16 sent outbox records | New remote locked-screen test pending; prior awake locked-screen test passed against the old local database |
+| Gmail | Expected secondary identity/subject and exact metadata scopes verified through real Google OAuth; encrypted access/refresh tokens in online Supabase; actual refresh and identity check passed | Compose upgrade blocked by inherited SQL discriminator check; separate reviewed DDL approval and browser compose consent needed |
+| Chrome/native host | Earlier owner Chrome preview correlated with stored audit; genuine isolated Chromium MV3/native/Python/FastAPI/PostgreSQL restart smoke passed | Load stable extension folder, bind its displayed ID, real ordinary-page and non-sensitive Google Form gestures, reload/restart acceptance |
+| Candidate/resume | One existing encrypted PDF decrypted safely and hash checked; ciphertext preserved in online Supabase with existing key and confirmed=false | Canonical profile is absent; owner must review actual facts and confirm the canonical resume. Drive source retained, sync disabled |
+| Naukri, Wellfound, Instahyre, YC, Internshala | Official Connect/manual handoff and bounded gesture observation implemented; no cookies/passwords captured | Each account observation and owner acceptance of manual/unsupported capability remain pending |
+
+The Telegram Swiggy request honestly returned no matching cached jobs. No vacancy was invented and no external search or application was claimed. Parsing, durable selection context, current eligibility/policy checks, packet preparation and bounded rate limits are tested; live discovery is not activated. Complex AI interpretation is optional and remains disabled while tool-free generation is unverified.
+
+Gmail's dedicated Cloud project `automated-apply-166-20261025` has the Gmail API enabled and billing disabled, with External/Testing consent and the designated test user. Its Web client registers only `http://127.0.0.1:8000/api/v1/integrations/gmail/oauth/callback`. Secrets and the initialized encryption keyring stay in private configuration. The backend's existing compose upgrade hit the original `oauth_states_authorization_mode_check` allowing metadata/send only. [The separate tested constraint migration](gmail-compose-migration-review.md) adds compose without changing data, credentials, RLS or grants; it has not been remotely applied. Identity remains connected. `GMAIL_SENDING_ENABLED=false`.
+
+AGY 1.4.7 authentication and discovered model/quota metadata pass. Exactly one additional owner-authorized fictional request failed without retry, bringing total individually approved attempts to three and validated structured answers to zero. Diagnostics found inline schema reference incompatibility and 60 tools advertised despite `tools: []`. The adapter now supplies a self-contained private schema file and refuses to transmit any prompt unless initialization proves zero tools. No further generation is authorized; no API/Cloud fallback or credit overage is enabled. Failed-attempt usage is unknown.
+
+The ChatGPT Supabase plugin is separate and still needs owner-side reconnection for its ineligible linked account. Local credentials do not repair that connection.
+
+## Executed checks
+
+| Check | Result and scope |
 |---|---|
-| `PROFILE_TEST_DATABASE_URL=postgresql://postgres:phase1_disposable_only@127.0.0.1:55440/candidate_profile_test .venv/bin/python -m pytest backend/tests -q` | Full backend regression with disposable PostgreSQL 17. 1,402 passed, no skips (143.25s) |
-| `.venv/bin/python -m pytest backend/tests/test_phase1_local_agent.py backend/tests/test_telegram_pairing.py backend/tests/test_phase1_installation.py -q` | 154 foundation/pairing/install security cases passed, including billing/workspace trust guards, zero-turn metadata parsing, backlog/empty polls, fresh challenge identity and HTTP 409 conflict handling |
-| `npm run typecheck --prefix frontend` | Passed |
-| `npm test --prefix frontend` | 39 tests passed |
-| `npm run format:check --prefix frontend` | Passed |
-| `npm run build --prefix frontend` | Production build passed |
-| `PYTHON=/private/tmp/automated-apply-phase1/.venv/bin/python npm run e2e --prefix frontend` | 8 actual Next.js/BFF/FastAPI browser journeys passed (45.1s), including policy/filter persistence and CSRF; fictional SQLite fixture only |
-| `node extension/build.mjs` | MV3 build and permission manifest assertions passed |
-| `node --test extension/tests/*.test.mjs` | 7 extension event tests passed; Chrome APIs are simulated |
-| `PHASE1_DISPOSABLE_DATABASE_URL=postgresql://postgres:phase1_disposable_only@127.0.0.1:55441/candidate_profile_test .venv/bin/python backend/scripts/phase1/verify_public.py --bootstrap` | Fresh bundle applied on a separate disposable PG17 container, 47 tables, forced RLS/restricted-role checks passed |
-| `PHASE1_DISPOSABLE_DATABASE_URL=postgresql://postgres:phase1_disposable_only@127.0.0.1:55441/candidate_profile_test .venv/bin/python backend/scripts/phase1/prepare_disposable.py` | Private fictional runtime login/config generated only on owned disposable cluster |
-| `.venv/bin/python backend/scripts/phase1/lifecycle_smoke.py --env-file reports/phase1/disposable.private.env --with-chromium-extension` | Actual native framing with open stdin → loopback HTTP → restricted PostgreSQL; actual isolated Chromium MV3 native APIs and popup; simulated context-menu events/Telegram transport; persisted previews/preferences recovered after actual API restart; one-slot pool /status and duplicate-worker lock tested |
-| `.venv/bin/python backend/scripts/phase1/verify_mcp.py` | Actual Codex OAuth tool discovery and four harmless read calls; exact project URL, zero public tables, zero migrations. No AI turn |
-| `claude mcp list` | New project-scoped server reports pending owner approval |
-| `agy mcp list` | Prior enabled supabase retained; new named server registered disabled |
-| `agy --version`, `agy --help`, `agy models`, `agy agents` | 1.4.6; headless/schema/sandbox/high effort available; model list fetched; installed global tool-free primary profile discovered |
-| `.venv/bin/python backend/scripts/phase1/agy_smoke.py --model gemini-3.8-flash-high --owner-authorized-one-fictional-request` | One initial fictional CLI invocation interrupted after workspace-profile discovery failed. No valid response or usage report, no retry. A global restricted profile was subsequently installed and discovered using metadata only |
-| `.venv/bin/python backend/scripts/phase1/agy_smoke.py --model gemini-3.8-flash-high --attempt-id owner-approved-followup --owner-authorized-one-fictional-request` | Exactly one additional owner-authorized fictional attempt after adapter tests; model gemini-3.8-flash-high, high effort, 90-second timeout, no validated output/attempt usage. No retry. Billing guard checked disabled G1-credit overage and excluded API/Cloud billing |
-| `.venv/bin/python backend/scripts/phase1/agy_check.py` | Actual authenticated CLI-handled /usage metadata, SUCCESS, zero model turns and all token counters zero. Gemini quota reported 59% weekly / 97% five-hour remaining at 2026-10-24T22:22:36Z; this does not determine usage of failed generation attempts |
-| `.venv/bin/ruff check --isolated --select E9,F,I backend/app/local_agent backend/app/ai/providers/agy.py backend/scripts/phase1 backend/tests/test_phase1_local_agent.py` | Passed |
-| `.venv/bin/bandit -q -r backend/app` | Passed; existing harmless nosec bookkeeping warning only |
-| `.venv/bin/python -m compileall -q backend/app backend/scripts/phase1` | Passed |
-| `.venv/bin/python -m pytest backend/tests/test_phase1_installation.py -q` | Four filesystem security cases passed: private log creation, content preservation, symlink and hardlink refusal |
-| `.venv/bin/python backend/scripts/phase1/monitor_locked_worker.py --env-file <private service env> --seconds 300` | Actual macOS lock property + new live poll + newly sent pong observed together; owner confirmed phone reply while locked at 2026-10-24T22:57:53Z |
-| `git diff --check` | Passed |
-| `npm audit --audit-level=high --prefix frontend` | Zero vulnerabilities |
-| `.venv/bin/python backend/scripts/export_openapi.py` then `npm run api:types --prefix frontend` and `git diff --exit-code -- frontend/src/types/api.d.ts` | Generated API contract matches committed file |
-| `.venv/bin/detect-secrets-hook --baseline .secrets.baseline --no-verify <all changed and new source files>` | Passed; no new secret candidates; no verification requests to providers |
+| Full backend `pytest backend/tests -q` with owned PostgreSQL 17 | **1,472 passed, zero failed/skipped, 122.20 seconds**; XML/log retained privately in reports/phase1 |
+| Frontend unit/typecheck/format/production build | **40 unit tests passed**; other checks passed; stable runtime production build also passed |
+| Existing Playwright frontend journeys | **8 passed**, actual Next/BFF/FastAPI with fictional isolated data |
+| Extension build/permission checks and event tests | **12 passed**; Chrome event transport simulated |
+| Isolated Chromium/native/API/PostgreSQL lifecycle | Passed actual MV3, native framing, restricted SQL and actual API restart; context-menu events and Telegram transport simulated |
+| Disposable managed Supabase-style schema | **47 tables**, exact forced RLS/ACL catalog, **5 denied operations and 12 rejected security faults**; unexpected function and replay refused |
+| Separate compose follow-up on disposable PostgreSQL | Original failure reproduced; metadata/send/compose accepted; unknown mode, replay and missing constraint rejected; fixtures/faults rolled back |
+| Filesystem installer checks | **5 passed**; private logs, preserved content, symlink/hardlink refusal and separate API logs |
+| Focused backend after network deadline/pool changes | **180**, then **63** cases passed; final full suite includes these changes |
+| Focused account/OAuth/foundation after follow-up preparation | **149 passed** |
+| Ruff E9/F/I and Bandit | Passed changed production/operator code; whole backend app scan passed |
+| Secrets baseline / diff whitespace / generated API contract | Checked without provider verification requests; public SQL hashes explicitly classified, secrets remain untracked |
+| Hosted CI | Previous PR #18 head ce883679 was green; follow-up head results must be checked after push |
 
-A separate standalone UI smoke logged into the real production Next.js build on 127.0.0.1:18083 with fictional owner credentials and the actual restricted PostgreSQL-backed API on 127.0.0.1:18081. It verified Supabase remained degraded/test-only while Codex MCP showed verified read-only metadata, Chrome showed the owner result correlated with audit, Telegram showed actual authenticated live polling, and AGY showed authenticated metadata with generation still degraded. [Screenshot](screenshots/connections-disposable-postgres.png). The full-page browser-fixture screenshot is retained locally in reports/phase1-connections.png. Neither is evidence of a live Supabase SQL connection or real Chrome extension gesture.
+The suites retain rejection coverage for wrong account/project, profile preservation, privileged runtime, non-TLS connections, grant/RLS drift, OAuth state/PKCE/redirect/scopes, duplicate and unauthorized Telegram updates, unknown/malformed/injected intents, ambiguous selection and expiry, generation timeout/no retry/overage guards, native origin/framing validation and disabled submission/sending/enrichment. Mocked scenarios are not presented as live account evidence.
 
-## Security outcomes
-
-New tests reject wrong project/admin runtime credentials, missing/unsafe configuration, TLS certificate failures, malformed/oversized native frames, unauthorized extension identity, arbitrary commands, invalid/unsafe URLs, hostile title instructions, disabled-platform invocation, replayed request IDs, request-ID conflicts, wrong Telegram users/chats, shell-command messages, webhook conflicts, malformed AI JSON, missing tool-free profile, unapproved generation, timeout and nonzero CLI exits. They verify redaction and policy overrides cannot enable submission, Gmail sending or paid calls. Existing OAuth callback/state/PKCE, MCP authentication/permissions, encrypted tokens/resumes, application safety and provider budget suites remain intact.
-
-The installed native executable additionally rejected wrong origins (`native_origin_denied`), oversized frames (`native_message_size`) and malformed JSON (`native_invalid_message`) in actual subprocess checks.
-
-Actual disposable SQL tests rejected five forbidden runtime statements and seven injected faults: anonymous grant, disabled RLS, privileged runtime role, broadened policy, extra DELETE, unsafe default grants, and cross-schema access. Non-TLS and administrator runtime connections were rejected, and replay of the fresh-only bundle was refused atomically. No destructive test used remote Supabase.
-
-Secret baseline changes are limited to reviewed fictional test credentials, DDL field names and migration/catalog SHA-256 values. No production secret, bot token, OAuth token, personal resume or DB URI is committed. Original worktree changes and historical migration checksums are preserved.
-
-## Verified Telegram and launchd acceptance
-
-Actual getMe/getWebhookInfo verified the configured bot and absent webhook. The owner-approved numeric user/chat allowlist is saved privately. The owner confirmed /ping, /status, /connections and /help replies, which match sent outbox records and health/connection audit operations. Wrong-user/chat, forwarded-message and arbitrary-command rejection is tested with fake transports; no real second-account negative test is claimed.
-
-The user-level service com.automated-apply.telegram runs from the separate Application Support checkout and private env, without modifying power settings. Duplicate worker startup was denied. SIGKILL recovery replaced PID 25890 with 26094, completed a new live poll and preserved offset/history. A monitored macOS IOConsoleLocked interval contained both a fresh poll and a newly sent pong at 2026-10-24T22:57:53Z; the owner confirmed receipt while locked. Logs/config/plist now have private permissions; the actual service logs contain no configured token, API bearer or database URI. The installer precreates 0600 logs, preserves their contents, and rejects symlink/hardlink targets; directory privacy alone is not used as a substitute for file permissions. See live-evidence.json for timestamps and precise evidence types.
-
-## Live acceptance still pending
-
-- Supabase CLI/management owning account, rotated restricted/admin credentials, full catalog/role/grant inventory, reviewed bundle approval, genuine TLS SQL, runtime FastAPI health, isolated persistence/cleanup and restart test. MCP verified project access independently; CLI's current account did not list the new project. Region/status/server version remain unverified through management/direct SQL. A fresh read-only `supabase --profile automated-apply projects list --output json` attempt exited 1 at 2026-10-24T22:59:08Z; target project access was not available through that named CLI profile. The owner explicitly deferred credential rotation; it remains pending. The separate automated-apply CLI profile preserves the old account.
-- Chrome Google Form and owner extension/backend restart acceptance remain pending. The owner reported the real extension popup returning a saved preview for https://search-sphere-rose.vercel.app/search, with HTTPS menu registration, following the menu repair instructions. This matches backend actor chrome:hmkhgcgjjnjncamgdlabocdbgpleebgk and correlation 38d559b3-2426-45d5-a7aa-246249743c99 at 2026-10-24T22:10:24.325565Z. This is owner-reported browser evidence correlated with actual SQL, not an independently observed right-click gesture. The separate Chromium test uses actual MV3/native APIs but simulates menu events.
-
-- AGY structured response remains unverified after two separately authorized failed attempts. Owner authentication/trust is now verified through a non-generation metadata check. No further generation is authorized. Existing owner hooks are preserved. See live-evidence.json and agy-models.json for actual model discovery, statuses and quotas.
-- Claude project MCP owner approval/OAuth/read call; AGY per-tool MCP restrictions/OAuth; old global server's live read operation (configuration preservation is verified).
-- Gmail identity/compose consent and verified granted scopes; no actual draft without separate consent. Provider entitlements remain unverified.
-
-The native host currently points at a disposable fictional backend, not live Supabase. The installed host, worker and current API now use the stable Application Support runtime and private env. The unpacked Chrome extension itself remains loaded from the temporary development worktree; moving that extension folder requires owner loading it from the stable checkout and re-registering its new ID before deleting the temporary folder. Test PostgreSQL containers are named automated-apply-phase1-pg, automated-apply-phase1-regression-pg and automated-apply-phase1-fresh-pg; no existing unrelated container was changed.
-
-## Proposed Phase 2 (not started)
-
-After Phase 1 owner acceptance: reuse reviewed PR 17 packet/answer/resume/browser pieces selectively; add permission-reviewed DOM inspection and grounded question mapping on owner-controlled forms; enforce durable approval before any fill/upload/submission; bind verified receipts and application deduplication. Add owner-consented Gmail draft creation with sending permanently manual, and source-by-source permitted discovery activation. Automatic platform preferences remain subordinate to actual authorized capabilities.
+See [readiness.json](readiness.json) for each connection's configuration, authentication, verified scope, blocker, timestamp and next action; [live-evidence.json](live-evidence.json) for sanitized live results. Original worktrees and unrelated changes are preserved. Phase 1 cannot be declared complete until mandatory live checks and owner acceptance of manual-only platform capabilities are finished.

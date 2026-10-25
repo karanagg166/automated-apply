@@ -87,6 +87,13 @@ CREATE TABLE public.agent_telegram_deliveries (update_id bigint PRIMARY KEY, rep
     manifest['preserved_function_sha256'] = hashlib.sha256((OUT / 'preserved_function.json').read_bytes()).hexdigest()
     if (OUT / 'catalog.json').exists():
         manifest['catalog_sha256'] = hashlib.sha256((OUT / 'catalog.json').read_bytes()).hexdigest()
+    previous = OUT / 'manifest.json'
+    if previous.exists():
+        followups = json.loads(previous.read_text()).get('followups', [])
+        for item in followups:
+            if hashlib.sha256((OUT / item['file']).read_bytes()).hexdigest() != item['sha256']:
+                raise ValueError('reviewed_followup_checksum_mismatch')
+        manifest['followups'] = followups
     (OUT / 'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
     print(json.dumps({'project_ref':manifest['project_ref'],'tables':len(tables),'sha256':manifest['sha256'],'remote_applied':False}))
 

@@ -1,6 +1,7 @@
 """Separate manifest and full catalog comparison for fresh public installations."""
 import hashlib
 import json
+from copy import deepcopy
 
 from backend.app.operations.migrations import ROOT, catalog
 from backend.app.operations.runtime_security import verify_restricted_runtime
@@ -19,7 +20,27 @@ def verify_bundle():
         raise RuntimeError("public_catalog_manifest_checksum_mismatch")
     if hashlib.sha256((BUNDLE / "preserved_function.json").read_bytes()).hexdigest() != manifest.get("preserved_function_sha256"):
         raise RuntimeError("public_preserved_function_manifest_mismatch")
+    for followup in manifest.get("followups", []):
+        if hashlib.sha256((BUNDLE / followup["file"]).read_bytes()).hexdigest() != followup["sha256"]:
+            raise RuntimeError("public_followup_checksum_mismatch")
     return manifest
+
+
+def verified_catalog_version(actual, expected, followups):
+    """Accept only complete pinned states, never arbitrary constraint widening."""
+    candidate = deepcopy(expected)
+    if actual == candidate:
+        return []
+    applied = []
+    for followup in followups:
+        key = followup["constraint"]
+        if candidate["constraints"].get(key) != followup["before"]:
+            raise RuntimeError("public_followup_precondition_mismatch")
+        candidate["constraints"][key] = followup["after"]
+        applied.append(followup["file"])
+        if actual == candidate:
+            return applied
+    raise RuntimeError("public_catalog_drift_or_unsafe_grants")
 
 
 async def verify_preserved_function(connection):
@@ -69,12 +90,12 @@ async def verify_public_database(connection, settings):
     if preserved:
         actual["functions"].pop("rls_auto_enable()", None)
     expected = json.loads((BUNDLE / "catalog.json").read_text())
-    if actual != expected:
-        raise RuntimeError("public_catalog_drift_or_unsafe_grants")
+    followups = verified_catalog_version(actual, expected, manifest.get("followups", []))
     if settings.DB_REQUIRE_TLS:
         tls = await connection.fetchval("SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()")
         if not tls:
             raise RuntimeError("database_tls_required")
     return {"schema": "public", "runtime_security": "restricted_public_v1",
             "migration_bundle": manifest["sha256"], "tls_required": settings.DB_REQUIRE_TLS,
+            "verified_followups": followups,
             "postgresql_version": await connection.fetchval("SHOW server_version")}
