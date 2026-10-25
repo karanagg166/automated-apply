@@ -1,0 +1,23 @@
+schema_version: 1
+projects:
+- id: project-01
+  name: ''
+  priority: 1
+  repository_url: null
+  live_url: null
+  tech_stack: []
+  context_file: candidate_context/templates/projects/project-01.md
+- id: project-02
+  name: ''
+  priority: 2
+  repository_url: null
+  live_url: null
+  tech_stack: []
+  context_file: candidate_context/templates/projects/project-02.md
+- id: project-03
+  name: ''
+  priority: 3
+  repository_url: null
+  live_url: null
+  tech_stack: []
+  context_file: candidate_context/templates/projects/project-03.md
