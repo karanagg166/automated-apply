@@ -4,7 +4,7 @@ The initial approved bundle committed once to project `luvdmwnlwaqgvfwlmlom`; it
 
 Real secondary Gmail identity OAuth succeeded and its encrypted refresh token is stored in online Supabase. The compose upgrade exposed an inherited check constraint that permits `metadata` and `send` but rejects the existing backend's `compose` intent. The rejected insert rolled back; the connected identity remains valid.
 
-Proposed separate file: [002_gmail_compose.sql](../../../supabase/fresh_public/followups/002_gmail_compose.sql).
+Proposed separate file: [002_gmail_compose.sql](../../supabase/fresh_public/followups/002_gmail_compose.sql).
 
 SHA-256: `27c1a68eadbd916037effcf94580089777acdc1a66af68aaf9f706beb0cddf3d`.
 

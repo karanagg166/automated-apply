@@ -51,7 +51,7 @@ The ChatGPT Supabase plugin is separate and still needs owner-side reconnection 
 | Compose identity/scope preservation and refresh regressions | **44 OAuth tests passed**, including seven additional compose success/rejection cases; provider transport mocked |
 | Ruff E9/F/I and Bandit | Passed changed production/operator code; whole backend app scan passed |
 | Secrets baseline / diff whitespace / generated API contract | Checked without provider verification requests; public SQL hashes explicitly classified, secrets remain untracked |
-| Hosted CI | Previous PR #18 head ce883679 was green; follow-up head results must be checked after push |
+| Hosted CI | Initial PR #18 head ce883679 was green; f276bb2 backend and Phase 1 workflows passed. Latest e81aa51 checks are pending; see GitHub and readiness.json for exact run IDs. |
 
 The suites retain rejection coverage for wrong account/project, profile preservation, privileged runtime, non-TLS connections, grant/RLS drift, OAuth state/PKCE/redirect/scopes, duplicate and unauthorized Telegram updates, unknown/malformed/injected intents, ambiguous selection and expiry, generation timeout/no retry/overage guards, native origin/framing validation and disabled submission/sending/enrichment. Mocked scenarios are not presented as live account evidence.
 

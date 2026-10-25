@@ -3,7 +3,7 @@
   "status": "incomplete_owner_actions_and_external_capability_acceptance_pending",
   "generated_at": "2026-10-25T13:06:58.595012+00:00",
   "branch": "feat/phase1-local-connections",
-  "implementation_commit": "a86acba7d4e9f38cffe7bca780551571df06edc1",
+  "implementation_commit": "e81aa51ed5572c04fb7f36d7e327b46432d7a6c6",
   "report_commit_note": "This report is committed as a follow-up to the recorded implementation commit.",
   "pull_request": "https://github.com/karanagg166/automated-apply/pull/18",
   "phase2_started": false,
@@ -54,7 +54,83 @@
     "compose_followup_disposable_postgresql": "passed",
     "ruff": "passed",
     "bandit": "passed",
-    "hosted_ci": "pending_followup_push",
+    "hosted_ci": {
+      "implementation_head": "e81aa51ed5572c04fb7f36d7e327b46432d7a6c6",
+      "runs": [
+        {
+          "conclusion": "",
+          "databaseId": 40196395956,
+          "headSha": "e81aa51ed557",
+          "name": "Backend CI",
+          "status": "in_progress"
+        },
+        {
+          "conclusion": "",
+          "databaseId": 40196396609,
+          "headSha": "e81aa51ed557",
+          "name": "Phase 1 connection foundation",
+          "status": "in_progress"
+        },
+        {
+          "conclusion": "",
+          "databaseId": 40196395864,
+          "headSha": "e81aa51ed557",
+          "name": "Frontend CI",
+          "status": "in_progress"
+        },
+        {
+          "conclusion": "",
+          "databaseId": 40196391792,
+          "headSha": "e81aa51ed557",
+          "name": "Phase 1 connection foundation",
+          "status": "in_progress"
+        },
+        {
+          "conclusion": "",
+          "databaseId": 40196391729,
+          "headSha": "e81aa51ed557",
+          "name": "Frontend CI",
+          "status": "in_progress"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 40196163269,
+          "headSha": "f276bb22f223",
+          "name": "Phase 1 connection foundation",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 40196163208,
+          "headSha": "f276bb22f223",
+          "name": "Frontend CI",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 40196163218,
+          "headSha": "f276bb22f223",
+          "name": "Backend CI",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 40196159793,
+          "headSha": "f276bb22f223",
+          "name": "Phase 1 connection foundation",
+          "status": "completed"
+        },
+        {
+          "conclusion": "success",
+          "databaseId": 40196159792,
+          "headSha": "f276bb22f223",
+          "name": "Frontend CI",
+          "status": "completed"
+        }
+      ],
+      "latest_head_result": "pending",
+      "previous_head_f276bb2_backend_and_phase1": "passed"
+    },
     "additional_oauth_compose_regressions": {
       "passed": 44,
       "new_cases": 7,
@@ -319,14 +395,14 @@
       "connection_name": "AGY CLI",
       "status": "degraded",
       "configured": true,
-      "authenticated": false,
+      "authenticated": true,
       "actually_verified": false,
-      "verified_scope": "authentication_only_generation_unverified",
+      "verified_scope": "authenticated_quota_metadata_only_zero_validated_generation",
       "supported_capabilities": [
         "structured_answer_adapter"
       ],
       "owner_action_needed": true,
-      "remaining_blocker": "tool_free_cli_restrictions_unverified",
+      "remaining_blocker": "cli_advertises_tools_despite_tools_empty_profile_adapter_blocks_before_prompt",
       "safe_next_action": "Metadata checks only; do not make further generation requests without explicit owner authorization",
       "evidence_type": "actual_cli_usage_zero_model_turns_and_failed_generation",
       "last_verification_time": "2026-10-25T11:02:15.369692Z"
