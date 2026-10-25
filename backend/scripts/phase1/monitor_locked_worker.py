@@ -46,6 +46,7 @@ async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--env-file", required=True)
     parser.add_argument("--seconds", type=int, default=300)
+    parser.add_argument("--output", type=Path, default=ROOT / "reports/phase1/locked-worker.private.json")
     args = parser.parse_args()
     if sys.platform != "darwin" or not 30 <= args.seconds <= 600:
         raise SystemExit("macos_and_30_to_600_seconds_required")
@@ -56,7 +57,7 @@ async def main():
     configure_operator(load_settings(args.env_file))
     from backend.app.db.session import close_db_engine, get_session_factory
     from backend.app.local_agent.models import TelegramDelivery, TelegramState
-    output = ROOT / "reports/phase1/locked-worker.private.json"
+    output = args.output
     output.parent.mkdir(parents=True, exist_ok=True)
     report = {"state": "pending_owner_action", "evidence_type": "actual_macOS_lock_property_and_PostgreSQL_live_worker",
               "started_at": datetime.now(timezone.utc).isoformat(), "screen_lock_observed": False,

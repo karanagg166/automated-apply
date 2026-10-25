@@ -110,6 +110,7 @@ export function LocalConnections() {
                         manual_only: "Manual-only",
                         owner_action_required: "Awaiting approval",
                         owner_authorization_required: "Awaiting approval",
+                        authenticated: "Awaiting approval",
                         degraded: "Degraded",
                         unsupported: "Unsupported",
                       } as Record<string, string>

@@ -8,7 +8,11 @@ from pydantic import Field
 from sqlalchemy import select, text
 
 from backend.app.local_agent.contracts import StrictModel
-from backend.app.local_agent.models import AgentOperation, TelegramState
+from backend.app.local_agent.models import (
+    AgentOperation,
+    TelegramDelivery,
+    TelegramState,
+)
 
 
 class ConnectionState(StrEnum):
@@ -186,10 +190,22 @@ async def connection_report(session, settings, *, api_request=False):
             safe_next_action="Google Form and restart acceptance pending; see verification guide" if owner_operation else "Load unpacked extension in real Chrome; install host with displayed extension ID; right-click test")
     poll = await session.get(TelegramState, "primary")
     fresh = bool(poll and poll.evidence_type == "live_poll" and poll.last_poll_at and (now - poll.last_poll_at.replace(tzinfo=timezone.utc)).total_seconds() < 90)
+    telegram_roundtrip = False
+    if fresh and settings.TELEGRAM_OWNER_USER_ID and settings.TELEGRAM_OWNER_CHAT_ID:
+        from uuid import NAMESPACE_URL, uuid5
+        deliveries = (await session.scalars(select(TelegramDelivery).where(
+            TelegramDelivery.state == "sent").order_by(TelegramDelivery.update_id.desc()).limit(10))).all()
+        for delivery in deliveries:
+            request_id = uuid5(NAMESPACE_URL, f"telegram:{settings.TELEGRAM_OWNER_CHAT_ID}:{delivery.update_id}")
+            operation = await session.get(AgentOperation, f"telegram:{settings.TELEGRAM_OWNER_USER_ID}:{request_id}")
+            if operation and operation.result.get("ok") is True:
+                telegram_roundtrip = True
+                break
     add("Telegram worker", "core", bool(settings.TELEGRAM_BOT_TOKEN),
-        ConnectionState.AUTHENTICATED if fresh else ConnectionState.DISCONNECTED if poll else None,
+        ConnectionState.VERIFIED if telegram_roundtrip else ConnectionState.AUTHENTICATED if fresh else ConnectionState.DISCONNECTED if poll else None,
         identity_verification="getMe_bot_id_verified" if poll and poll.bot_id and poll.evidence_type == "live_poll" else "unverified",
-        actual_evidence_type=poll.evidence_type if poll else "configuration_inspection",
+        actual_evidence_type="live_poll_sent_reply_and_dispatch_audit" if telegram_roundtrip else poll.evidence_type if poll else "configuration_inspection",
+        capability_verification="online_owner_command_roundtrip" if telegram_roundtrip else "poll_only" if fresh else "unverified",
         last_verification_time=poll.last_poll_at if poll else None,
         latest_error_category=poll.last_error if poll else None, capabilities=["private_commands", "preview_only"],
         safe_next_action="Configure private bot and numeric owner IDs; start worker; /ping; locked-screen test pending")
