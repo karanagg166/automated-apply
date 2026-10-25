@@ -51,6 +51,7 @@ async def main():
     if sys.platform != "darwin" or not 30 <= args.seconds <= 600:
         raise SystemExit("macos_and_30_to_600_seconds_required")
     from sqlalchemy import select
+    from sqlalchemy.exc import SQLAlchemyError
 
     from backend.app.core.config import configure_operator
     from backend.app.operations.configuration import load_settings
@@ -70,13 +71,25 @@ async def main():
     try:
         while loop.time() < deadline:
             before = screen_locked()
-            async with get_session_factory()() as session:
-                state = await session.get(TelegramState, "primary")
-                sent = set((await session.scalars(select(TelegramDelivery.update_id).where(
-                    TelegramDelivery.state == "sent", TelegramDelivery.reply.like("pong%")))).all())
-            # This observer must not occupy the fifth restricted-runtime slot
-            # between samples while the API and real worker remain active.
-            await close_db_engine()
+            try:
+                async with get_session_factory()() as session:
+                    state = await session.get(TelegramState, "primary")
+                    sent = set((await session.scalars(select(TelegramDelivery.update_id).where(
+                        TelegramDelivery.state == "sent", TelegramDelivery.reply.like("pong%")))).all())
+            except (SQLAlchemyError, OSError, TimeoutError):
+                # A network/SQL observation failure never establishes a reply or
+                # a continuous lock interval. Retry reads only within the deadline.
+                previously_locked = None
+                report["latest_error_category"] = "database_observation_unavailable"
+                report["observation_errors"] = report.get("observation_errors", 0) + 1
+                report["last_checked_at"] = datetime.now(timezone.utc).isoformat()
+                output.write_text(json.dumps(report, indent=2) + "\n")
+                await asyncio.sleep(2)
+                continue
+            finally:
+                # Leave the fifth restricted-runtime slot free between samples.
+                await close_db_engine()
+            report["latest_error_category"] = None
             after = screen_locked()
             if before is True and after is True:
                 report["screen_lock_observed"] = True
