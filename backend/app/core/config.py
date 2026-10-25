@@ -69,6 +69,8 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: SecretStr | None = None
     TELEGRAM_OWNER_USER_ID: int | None = Field(default=None, gt=0)
     TELEGRAM_OWNER_CHAT_ID: int | None = Field(default=None, gt=0)
+    TELEGRAM_LOCAL_AI_ENABLED: bool = False
+    OLLAMA_MODEL: str | None = Field(default=None, pattern=r"^[A-Za-z0-9][A-Za-z0-9:._-]{0,99}$")
     AGY_ENABLED: bool = False
     AGY_MODEL: str | None = Field(default=None, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,120}$")
     AGY_EFFORT: Literal["low", "medium", "high", "xhigh", "max"] = "high"
@@ -127,6 +129,7 @@ class Settings(BaseSettings):
         "TELEGRAM_OWNER_USER_ID",
         "TELEGRAM_OWNER_CHAT_ID",
         "AGY_MODEL",
+        "OLLAMA_MODEL",
         mode="before",
     )
     @classmethod

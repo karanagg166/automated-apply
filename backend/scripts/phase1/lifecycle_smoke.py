@@ -30,8 +30,11 @@ def main():
     private.parent.mkdir(parents=True, exist_ok=True)
     private.write_text(original.read_text().replace(settings.LOCAL_AGENT_ENDPOINT, "http://127.0.0.1:18082"))
     if args.with_chromium_extension:
+        import base64
         import hashlib
-        digest = hashlib.sha256(str((ROOT / "extension").resolve()).encode()).hexdigest()[:32]
+        manifest = json.loads((ROOT / "extension/manifest.json").read_text())
+        key = base64.b64decode(manifest["key"], validate=True) if manifest.get("key") else str((ROOT / "extension").resolve()).encode()
+        digest = hashlib.sha256(key).hexdigest()[:32]
         identity = "".join(chr(ord('a') + int(char, 16)) for char in digest)
         lines = [line for line in private.read_text().splitlines() if not line.startswith("CHROME_EXTENSION_ID=")]
         private.write_text("\n".join(lines) + "\nCHROME_EXTENSION_ID=" + identity + "\n")

@@ -1,5 +1,4 @@
 """Owner-only cached discovery and preparation previews, using existing SQL state."""
-import hashlib
 import re
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit, urlunsplit
@@ -12,6 +11,13 @@ from backend.app.core.urls import PublicHTTPSURL
 from backend.app.dashboard.models import OwnerPreference
 from backend.app.local_agent.contracts import page_kind
 from backend.app.local_agent.intents import Intent
+from backend.app.local_agent.memory import (
+    context_key,
+    load_memory,
+    record_intent,
+    reset_memory,
+    save_memory,
+)
 from backend.app.local_agent.models import AgentOperation
 from backend.app.local_agent.policies import evaluate, get_policy
 from backend.app.local_agent.preferences import get_preferences
@@ -23,7 +29,7 @@ from backend.app.models.candidate_profile import CandidateProfile
 from backend.app.models.company import Company
 from backend.app.models.job import Job
 
-HELP = ('You can say “Find backend engineer jobs at Swiggy in India”, '
+HELP = ('You can ask about application status, your resume, connections and approved profile facts; say “Find backend engineer jobs at Swiggy in India”, '
         '“Apply for Swiggy”, “Show jobs I haven’t applied to”, '
         '“Check whether Gmail is connected”, or “How many applications are pending?”. '
         'Search uses cached jobs; preparation stops at a preview. No submissions or email sends.')
@@ -44,20 +50,12 @@ def safe_job_url(value):
     return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
 
 
-def context_key(actor):
-    return "telegram_context_" + hashlib.sha256(actor.identity.encode()).hexdigest()[:24]
-
-
 async def save_context(session, actor, jobs, prepare, intent):
-    key = context_key(actor)
-    row = await session.get(OwnerPreference, key, with_for_update=True)
-    value = {"job_ids": [str(job.id) for job in jobs[:10]], "prepare": prepare, "intent": intent.model_dump(mode="json"),
+    previous = await load_memory(session, actor)
+    value = {**previous, "job_ids": [str(job.id) for job in jobs[:10]], "prepare": prepare, "intent": intent.model_dump(mode="json"),
+             "selected_job_id": None, "current_company": intent.company,
              "expires_at": (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat()}
-    if row:
-        row.value = value
-    else:
-        session.add(OwnerPreference(key=key, value=value))
-    await session.flush()
+    await save_memory(session, actor, value)
 
 
 def utc(value):
@@ -151,18 +149,74 @@ async def preview(session, job, policy):
             "job_id": str(job.id), "readiness": value.readiness.state, "submitted": False}
 
 
-async def respond(session, settings, actor, intent):
+async def respond(session, settings, actor, intent, *, knowledge=None):
     count = await session.scalar(select(func.count()).select_from(AgentOperation).where(
         AgentOperation.actor == f"telegram:{actor.identity}",
         AgentOperation.created_at > datetime.now(timezone.utc) - timedelta(minutes=1)))
     if count >= 20:
         return {"reply": "Too many requests. Please wait one minute.", "status": "rate_limited"}
+    memory = await record_intent(session, actor, intent)
+    if intent.category == "RESET_CONTEXT":
+        value = await reset_memory(session, actor)
+        return {"reply": "Previous job and project selection cleared. Start a fresh search.", "status": "context_reset", "conversation_id": value["conversation_id"]}
     if intent.category in {"HELP", "UNKNOWN"}:
-        return {"reply": HELP if intent.category == "HELP" else "I could not safely interpret that. " + HELP, "status": intent.category.lower()}
+        return {"reply": HELP if intent.category == "HELP" else "AI chat unavailable. I could not safely interpret that. " + HELP, "status": intent.category.lower()}
+    if intent.category == "GENERAL_CHAT":
+        return {"reply": "You're welcome. " + HELP, "status": "general_chat"}
+    if intent.category == "APPROVAL_REQUEST":
+        return {"reply": "Review the exact item in the dashboard to approve it. Telegram cannot approve submissions, sending, purchases or profile facts.", "status": "owner_review_required"}
+    if intent.category == "PROFILE_QUERY":
+        from backend.app.local_agent.knowledge import profile_reply
+        return await profile_reply(session)
+    if intent.category in {"PROJECT_QUERY", "ANSWER_PREPARATION"}:
+        from backend.app.local_agent.knowledge import project_reply
+        memory["project_rank"] = intent.project_rank or memory.get("project_rank")
+        if intent.follow_up == "answer" and memory.get("answer_question"):
+            intent = intent.model_copy(update={"subject": memory["answer_question"]})
+        else:
+            memory["answer_question"] = intent.subject
+        await save_memory(session, actor, memory)
+        return await project_reply(intent.model_copy(update={"project_rank": memory["project_rank"]}), knowledge)
+    if intent.category == "RESUME_STATUS":
+        from backend.app.resume_sync.models import ResumeDriveSource
+        source = await session.get(ResumeDriveSource, "primary")
+        if not source:
+            return {"reply": "Resume synchronization has no saved source. Configure and review your canonical PDF in Profile. An existing upload may still need confirmation.", "status": "resume_not_configured"}
+        return {"reply": f"Resume sync: {clean_label(source.status)}. Approved version: {'available' if source.active_version_id else 'not selected'}. Periodic checking {'enabled' if source.sync_enabled else 'disabled'}; worker health is shown in Profile. Replacement PDFs require review.", "status": "resume_status"}
+    if intent.category == "FOLLOW_UP":
+        if intent.follow_up == "clarify":
+            memory["clarification"] = "choose_one_request"
+            await save_memory(session, actor, memory)
+            return {"reply": "Those requests need different workflows. Choose one first: job search, status, profile, resume or connections.", "status": "clarification_required"}
+        if not memory.get("intent") or not memory.get("job_ids"):
+            return {"reply": "There is no current job selection. Search for jobs first, then choose a number or add a filter.", "status": "selection_required"}
+        if intent.follow_up == "filter":
+            prior = Intent.model_validate(memory["intent"])
+            changes = {key: getattr(intent, key) for key in ("location", "days") if getattr(intent, key) is not None}
+            if intent.remote:
+                changes["remote"] = True
+            if not changes:
+                return {"reply": "Which filter should change? Specify remote, a location, or today's jobs.", "status": "clarification_required"}
+            intent = prior.model_copy(update={**changes, "category": "FILTER_JOBS"})
+        elif memory.get("selected_job_id"):
+            if intent.follow_up == "prepare":
+                memory["prepare"] = True
+                await save_memory(session, actor, memory)
+            intent = Intent(category="SHOW_JOB", job_id=memory["selected_job_id"])
+        else:
+            return {"reply": "Choose a listed job number first; 'that job' is ambiguous.", "status": "clarification_required"}
+    if intent.category == "JOB_COMPARISON":
+        ids = memory.get("job_ids", [])
+        jobs = (await session.scalars(select(Job).where(Job.id.in_([UUID(i) for i in ids])))).all() if ids else []
+        jobs = [job for job in jobs if job.status not in {"applied", "archived", "rejected"}]
+        jobs.sort(key=lambda job: (-(float(job.match_score) if job.match_score is not None else -1), str(job.id)))
+        if not jobs:
+            return {"reply": "Search for jobs first so I can compare the current cached choices.", "status": "selection_required"}
+        return {"reply": "Cached choices by saved match score (unknown scores last):\n" + "\n".join(f"{clean_label(job.title)}: {job.match_score if job.match_score is not None else 'not scored'}" for job in jobs[:5]) + ". Check eligibility and availability in the dashboard before prioritizing.", "status": "job_comparison"}
     if intent.category == "CONNECTION_STATUS":
         from backend.app.local_agent.registry import connection_report
         rows = await connection_report(session, settings)
-        rows = [row for row in rows if not intent.connection or intent.connection in row["name"].casefold()]
+        rows = [row for row in rows if not intent.connection or ("work at a startup" if intent.connection == "yc" else intent.connection) in row["name"].casefold()]
         return {"reply": "\n".join(f"{row['name']}: {row['state']}" for row in rows), "status": "connection_status"}
     if intent.category == "APPLICATION_STATUS":
         counts = (await session.execute(select(ApplicationPacket.tracking_state, func.count()).group_by(ApplicationPacket.tracking_state))).all()
@@ -202,9 +256,22 @@ async def respond(session, settings, actor, intent):
         except (AttributeError, KeyError, IndexError, TypeError, ValueError):
             return {"reply": "That selection is unavailable or expired. Search again and choose a listed job number.", "status": "selection_required"}
         if value["prepare"]:
+            await save_memory(session, actor, {**value, "selected_job_id": str(job.id)})
             return await preview(session, job, policy)
+        await save_memory(session, actor, {**value, "selected_job_id": str(job.id)})
         return {"reply": f"{clean_label(job.title)} · {clean_label(job.source_platform)}\n{safe_job_url(job.job_url) or 'URL unavailable'}\nStatus: {clean_label(job.status)}. No application submitted.", "status": "job_details"}
     prepare = intent.category == "PREPARE_APPLICATION"
+    # Resolve a company prefix only against actual saved company records. No name
+    # is invented or fuzzy-corrected; ambiguous identities require clarification.
+    if intent.role and not intent.company:
+        names = (await session.scalars(select(Company.name).order_by(Company.name).limit(201))).all()
+        candidates = [name for name in names if intent.role.casefold() == name.casefold()
+            or intent.role.casefold().startswith(name.casefold() + " ")]
+        if len(candidates) > 1:
+            return {"reply": "Which company did you mean? " + ", ".join(clean_label(n) for n in candidates[:5]), "status": "clarification_required"}
+        if candidates:
+            company = candidates[0]
+            intent = intent.model_copy(update={"company": company, "role": intent.role[len(company):].strip() or None})
     query = select(Job, Company).outerjoin(Company, Job.company_id == Company.id).order_by(Job.created_at.desc(), Job.id).limit(201)
     if intent.not_applied or prepare or prefs.get("application_status") == "not_applied":
         query = query.where(Job.id.not_in(select(ApplicationPacket.job_id).join(ApplicationSubmissionEvidence,

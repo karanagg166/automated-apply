@@ -14,8 +14,12 @@ document.querySelector("#repair").addEventListener("click", async () => {
 });
 document.querySelector("#preview").addEventListener("click", async () => {
   document.querySelector("#status").textContent = "Connecting…";
-  await chrome.runtime.sendMessage({ command: "preview_active_tab" });
-  await show();
+  try {
+    await chrome.runtime.sendMessage({ command: "preview_active_tab" });
+    await show();
+  } catch {
+    document.querySelector("#status").textContent = "Extension worker unavailable. Reload the extension, then retry the preview.";
+  }
 });
 document.querySelector("#observe").addEventListener("click", async () => {
   document.querySelector("#observation").textContent = "Checking visible session indicators…";

@@ -1,5 +1,7 @@
 """Opt-in reversible per-user macOS installation. No changes to power settings."""
 import argparse
+import base64
+import hashlib
 import json
 import os
 import plistlib
@@ -13,6 +15,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 NAME = "com.automated_apply.agent"
 LABEL = "com.automated-apply.telegram"
+
+
+def stable_extension_id(directory):
+    manifest = json.loads((Path(directory) / "manifest.json").read_text())
+    key = base64.b64decode(manifest["key"], validate=True)
+    digest = hashlib.sha256(key).hexdigest()[:32]
+    return "".join(chr(97 + int(char, 16)) for char in digest)
 
 
 def private_write(path, content):
@@ -105,6 +114,8 @@ def main():
     if args.action.startswith("native"):
         if not re.fullmatch(r"[a-p]{32}", args.extension_id or ""):
             raise SystemExit("exact_extension_id_required")
+        if args.extension_id != stable_extension_id(ROOT / "extension"):
+            raise SystemExit("extension_id_does_not_match_stable_manifest_key")
         from backend.app.operations.configuration import load_settings
         settings = load_settings(str(env))
         if settings.CHROME_EXTENSION_ID != args.extension_id or not settings.CHROME_NATIVE_MESSAGING_ENABLED:

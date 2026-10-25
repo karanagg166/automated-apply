@@ -16,7 +16,7 @@ global.chrome = {
 const { preview, menuId, supportedUrl, nativeErrorCode, portalHost, observeSession, sessionIndicator } = await import("../background.js");
 test("registers exact menu label with page/link user gesture contexts", async () => {
   await callbacks.install();
-  assert.equal(callbacks.menu.title, "Apply with Automated Apply");
+  assert.equal(callbacks.menu.title, "Preview with Automated Apply");
   assert.equal(callbacks.menu.id, menuId);
   assert.ok(callbacks.menu.contexts.includes("editable"));
   assert.ok(callbacks.menu.contexts.includes("selection"));
@@ -37,6 +37,21 @@ test("unsupported chrome/file/http URLs never reach native host", async () => {
     assert.equal(supportedUrl(url), false);
     assert.equal((await preview({ url })).error_code, "unsupported_page");
   }
+});
+test("duplicate simultaneous gestures perform one native preview", async () => {
+  const original = chrome.runtime.sendNativeMessage;
+  let calls = 0;
+  chrome.runtime.sendNativeMessage = async (_host, request) => {
+    calls += 1;
+    await new Promise(resolve => setTimeout(resolve, 10));
+    return { version: 1, request_id: request.request_id, ok: true, data: { submitted: false } };
+  };
+  try {
+    const tab = { id: 987, url: "https://example.org/duplicate-gesture" };
+    const results = await Promise.all([preview(tab), preview(tab)]);
+    assert.equal(calls, 1);
+    assert.equal(results[0].request_id, results[1].request_id);
+  } finally { chrome.runtime.sendNativeMessage = original; }
 });
 test("backend/host offline is explicit and recoverable", async () => {
   const original = chrome.runtime.sendNativeMessage;

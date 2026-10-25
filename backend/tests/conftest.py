@@ -37,6 +37,8 @@ os.environ["AGY_MODEL"] = ""
 os.environ["TELEGRAM_BOT_TOKEN"] = ""
 os.environ["TELEGRAM_OWNER_USER_ID"] = ""
 os.environ["TELEGRAM_OWNER_CHAT_ID"] = ""
+os.environ["TELEGRAM_LOCAL_AI_ENABLED"] = "false"
+os.environ["OLLAMA_MODEL"] = ""
 os.environ["CHROME_NATIVE_MESSAGING_ENABLED"] = "false"
 os.environ["CHROME_EXTENSION_ID"] = ""
 

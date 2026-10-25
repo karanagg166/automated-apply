@@ -13,7 +13,7 @@ from backend.app.local_agent.contracts import Actor, Command
 from backend.app.local_agent.models import TelegramDelivery, TelegramState
 from backend.app.local_agent.service import dispatch
 
-HELP = '/start /help /ping /status /connections /jobs /apply <https-url>. You can also say “Apply for Swiggy”, “Find remote SDE jobs”, or “Check whether Gmail is connected”. Previews only; no submissions, email sends or paid calls.'
+HELP = '/start /help /ping /status /connections /jobs /reset /apply <https-url>. Ask naturally about jobs, application status, your resume or connections; choose a listed job number and add follow-up filters. Project answers need approved context. AI chat is unavailable unless a tested local model is enabled. Previews only; no submissions, email sends or paid calls.'
 
 
 @asynccontextmanager
@@ -62,7 +62,7 @@ def parse_command(text, bot_username=None):
     command, _, mention = first.partition("@")
     if mention and mention.lower() != (bot_username or "").lower():
         raise TelegramError("wrong_bot_mention")
-    if command not in {"/start", "/help", "/ping", "/status", "/connections", "/jobs", "/apply"}:
+    if command not in {"/start", "/help", "/ping", "/status", "/connections", "/jobs", "/apply", "/reset"}:
         raise TelegramError("unsupported_command")
     if command != "/apply" and argument.strip():
         if command != "/start" or not re.fullmatch(r"aa_[0-9a-f]{24}", argument.strip()):
@@ -136,35 +136,44 @@ class BotAPI:
 
 async def reply_for(session, settings, message, update_id, bot_username):
     try:
-        if not authorized(message, settings):
-            return "Unauthorized message."
-        text = message.get("text")
-        if isinstance(text, str) and not text.lstrip().startswith("/"):
-            from backend.app.local_agent.intents import extract_intent
-            request = Command(command="conversation", intent=await extract_intent(text),
+        async with session.begin_nested():
+            if not authorized(message, settings):
+                return "Unauthorized message."
+            text = message.get("text")
+            if isinstance(text, str) and not text.lstrip().startswith("/"):
+                from backend.app.local_agent.intents import extract_intent
+                from backend.app.local_agent.local_classifier import LocalClassifier
+                classifier = LocalClassifier(settings) if settings.TELEGRAM_LOCAL_AI_ENABLED else None
+                request = Command(command="conversation", intent=await extract_intent(text, classifier),
+                    request_id=uuid5(NAMESPACE_URL, f"telegram:{settings.TELEGRAM_OWNER_CHAT_ID}:{update_id}"))
+                result = await dispatch(session, settings, Actor(channel="telegram", identity=str(settings.TELEGRAM_OWNER_USER_ID)), request)
+                return result.data["reply"] if result.ok else f"Request denied: {result.error_code}"
+            command, argument = parse_command(message.get("text"), bot_username)
+            if command in {"/start", "/help"}:
+                return HELP
+            if command == "/ping":
+                return "pong — your authorized private message reached the local worker."
+            if command == "/reset":
+                from backend.app.local_agent.intents import Intent
+                result = await dispatch(session, settings, Actor(channel="telegram", identity=str(settings.TELEGRAM_OWNER_USER_ID)),
+                    Command(command="conversation", intent=Intent(category="RESET_CONTEXT"),
+                        request_id=uuid5(NAMESPACE_URL, f"telegram:{settings.TELEGRAM_OWNER_CHAT_ID}:{update_id}")))
+                return result.data["reply"] if result.ok else "Context reset unavailable."
+            operation = {"/status": "health", "/connections": "connection_status", "/jobs": "get_discovery_status", "/apply": "preview_application_url"}[command]
+            request = Command(command=operation, url=argument if command == "/apply" else None,
                 request_id=uuid5(NAMESPACE_URL, f"telegram:{settings.TELEGRAM_OWNER_CHAT_ID}:{update_id}"))
             result = await dispatch(session, settings, Actor(channel="telegram", identity=str(settings.TELEGRAM_OWNER_USER_ID)), request)
-            return result.data["reply"] if result.ok else f"Request denied: {result.error_code}"
-        command, argument = parse_command(message.get("text"), bot_username)
-        if command in {"/start", "/help"}:
-            return HELP
-        if command == "/ping":
-            return "pong — your authorized private message reached the local worker."
-        operation = {"/status": "health", "/connections": "connection_status", "/jobs": "get_discovery_status", "/apply": "preview_application_url"}[command]
-        request = Command(command=operation, url=argument if command == "/apply" else None,
-            request_id=uuid5(NAMESPACE_URL, f"telegram:{settings.TELEGRAM_OWNER_CHAT_ID}:{update_id}"))
-        result = await dispatch(session, settings, Actor(channel="telegram", identity=str(settings.TELEGRAM_OWNER_USER_ID)), request)
-        if not result.ok:
-            return f"Preview denied: {result.error_code}"
-        if command == "/apply":
-            # Don't echo URL query parameters, personal answers, compensation or resume content.
-            return f"URL preview saved ({result.data['platform']}). No application submitted. Reference: {result.correlation_id}"
-        if command == "/jobs":
-            return f"Discovery deployment enabled: {result.data['deployment_enabled']}; schedule enabled: {result.data['schedule_enabled']}. No discovery executed."
-        rows = result.data["connections"]
-        if command == "/status":
-            rows = [row for row in rows if row["name"] in {"Supabase PostgreSQL", "Local FastAPI"}]
-        return "\n".join(f"{row['name']}: {row['state']}" for row in rows)
+            if not result.ok:
+                return f"Preview denied: {result.error_code}"
+            if command == "/apply":
+                # Don't echo URL query parameters, personal answers, compensation or resume content.
+                return f"URL preview saved ({result.data['platform']}). No application submitted. Reference: {result.correlation_id}"
+            if command == "/jobs":
+                return f"Discovery deployment enabled: {result.data['deployment_enabled']}; schedule enabled: {result.data['schedule_enabled']}. No discovery executed."
+            rows = result.data["connections"]
+            if command == "/status":
+                rows = [row for row in rows if row["name"] in {"Supabase PostgreSQL", "Local FastAPI"}]
+            return "\n".join(f"{row['name']}: {row['state']}" for row in rows)
     except Exception:
         return "Command rejected or service unavailable. Use /help; only HTTPS URL previews are supported."
 
