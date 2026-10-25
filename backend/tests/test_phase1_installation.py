@@ -53,3 +53,16 @@ def test_launchd_hardlink_does_not_change_unrelated_permissions(tmp_path):
     with pytest.raises(SystemExit, match="unsafe_log_file_preserved"):
         prepare_private_logs(directory)
     assert stat.S_IMODE(unrelated.stat().st_mode) == 0o644
+
+
+def test_api_logs_preserve_telegram_and_reject_unknown_services(tmp_path):
+    directory = tmp_path / "logs"
+    directory.mkdir()
+    previous = directory / "telegram.out.log"
+    previous.write_text("preserve worker history")
+    prepare_private_logs(directory, "api")
+    assert previous.read_text() == "preserve worker history"
+    assert (directory / "api.out.log").stat().st_mode & 0o077 == 0
+    assert (directory / "api.err.log").stat().st_mode & 0o077 == 0
+    with pytest.raises(SystemExit, match="unsupported_local_service"):
+        prepare_private_logs(directory, "arbitrary")

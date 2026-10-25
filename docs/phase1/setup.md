@@ -36,32 +36,30 @@ Shutdown order: stop Telegram first, then frontend, then API with Ctrl-C/SIGTERM
 
 Project: `luvdmwnlwaqgvfwlmlom`; URL `https://luvdmwnlwaqgvfwlmlom.supabase.co`; JWKS `https://luvdmwnlwaqgvfwlmlom.supabase.co/auth/v1/.well-known/jwks.json`.
 
-Rotate exposed privileged credentials locally. Preserve the previous CLI account/session; use the supported named profile: `supabase --profile automated-apply login --name automated-apply`, then inspect `supabase --profile automated-apply projects list --output json`, and verify the exact project. MCP access alone is not a direct PostgreSQL connection. Before DDL, review migration-review.md, the exact SQL, hashes, fresh-project inventory, roles/grants/default privileges and Data API settings. No remote apply script runs automatically. Never db reset. Never reuse postgres, service_role, a Supabase secret key or an administrator DSN for runtime.
+Existing owner credentials must be retained; rotation is not authorized. Supabase CLI 2.122.0 uses a profile configuration file here, so the bare label `--profile automated-apply` failed with `Unsupported Config Type ""`. The verified isolated account uses `~/Library/Application Support/Automated Apply/supabase-cli` and its private profile file, while the previous default account is preserved. Use `supabase_account.py` to prepare/check that profile and verify the exact project before linking this checkout. CLI management OAuth, MCP OAuth and PostgreSQL passwords are independent.
 
+The actual read-only inventory passed on 2026-10-25: dedicated project, PostgreSQL 17.11, zero public tables, no application roles or migration history. Review [migration-comparison.md](migration-comparison.md) for the exact approved bundle and managed-function preservation. Final owner approval covers SHA-256 `2887a98812a797c3ef9d10f37fe5f14959778d802e126d0170776059ccee6a9e` and the first credential for the new restricted login. The bundle committed once. Never reapply it or run `db reset`.
+
+System trust did not verify the project certificate. The official Supabase CA is stored privately with project configuration, without modifying global trust. The session pooler accepted certificate-verified client TLS but reported an unencrypted upstream in `pg_stat_ssl`; strict verification stopped. The direct endpoint `db.luvdmwnlwaqgvfwlmlom.supabase.co:5432` is reachable over IPv6 and passes both certificate/hostname checks and server-side TLS checks with the same initialized runtime credential. This is the selected runtime endpoint; no TLS check was disabled. Never use an administrator DSN as the application runtime.
 The public bundle is for an empty dedicated project only, in one transaction; it refuses existing user objects, job_agent schema or colliding app roles. It never touches Auth/Storage system schemas. Keep Data API disabled if unused, or explicitly confirm that no application tables are exposed to anon/authenticated. Use direct or session-pooler port 5432 with verified TLS and the dedicated role; transaction pooler 6543 is rejected. Pooler username must carry this project ref. If a root certificate is required, configure DB_SSL_ROOT_CERT from Supabase's official connection panel. Do not disable verification for a live database.
 
 ## MCP clients
 
-Exact endpoint (preserved in .mcp.json):
+The project server is named `supabase-automated-apply`. Shared `.mcp.json` and VS Code's supported `.vscode/mcp.json` point to:
 
-`https://mcp.supabase.com/mcp?project_ref=luvdmwnlwaqgvfwlmlom&features=docs%2Caccount%2Cdatabase%2Cdebugging%2Cdevelopment%2Cfunctions%2Cbranching`
+`https://mcp.supabase.com/mcp?project_ref=luvdmwnlwaqgvfwlmlom&read_only=true&features=docs%2Cdatabase%2Cdebugging`
 
-Inspect installed help before registration. Do not replace an existing `supabase` server. Registration already performed on this machine:
-
-```sh
-codex mcp add supabase-automated-apply --url '<exact endpoint above>'
-claude mcp add --scope project --transport http supabase-automated-apply '<exact endpoint above>'
-agy mcp add --type http supabase-automated-apply '<exact endpoint above>'
-```
-
-Codex is global because this installed add workflow has no scope flag; existing entries are preserved. Its enabled_tools restricts discovery to read tools; execute_sql/apply_migration are not enabled. Run `codex mcp login supabase-automated-apply` only when needed. The read-only verifier uses Codex app-server's installed protocol, starts no AI turn and reads no OAuth secrets:
+The existing global Codex entry and its metadata-only `enabled_tools` allowlist are preserved. `execute_sql` and migrations are unavailable to it. Actual Codex discovery and harmless project/catalog reads passed without a model turn:
 
 ```sh
 .venv/bin/python backend/scripts/phase1/verify_mcp.py
 ```
 
-Claude registration is project-scoped; project settings deny SQL/migration/function/branch writes. Owner authorizes OAuth through Claude's MCP UI; discovery remains pending until verified there. AGY's new server is registered but disabled, because this version's mcp add/list/enable commands provide no verified per-tool allowlist. The existing enabled `supabase` entry is preserved. Do not enable unrestricted writes just to show a connected badge. OAuth tokens remain client-owned and uncommitted. The application's FastMCP authentication, draft-creation permission and spending gates are unchanged.
+VS Code recognizes the workspace configuration, but actual tool discovery/read access is not verified. Minimal owner action if its UI is required: **MCP: List Servers → supabase-automated-apply → Start**, complete official OAuth/trust, then verify `get_project_url`. Configuration alone must not produce a connected badge.
 
+The unused project `.claude/settings.json` was removed; no Claude registration is required. Shared configuration and unrelated global tools are retained. AGY's named project server stays disabled because granular restrictions are unverified; its older global Supabase server is preserved. General AGY prompts must not receive SQL/migration access.
+
+ChatGPT's Supabase plugin authorization is separate. Its ineligible linked account requires owner-side reconnection in ChatGPT; local CLI credentials cannot repair it.
 ## Chrome Native Messaging
 
 ```sh
@@ -95,9 +93,9 @@ Create a private bot with official @BotFather. The following owner-run interacti
 .venv/bin/python backend/scripts/phase1/local_service.py telegram --env-file /absolute/path/phase1.private.env
 ```
 
-/start /help /ping /status /connections /jobs /apply <https-url>. Only the bound numeric owner and private chat are accepted. No group/forwarded commands or shell execution. Offset and bounded acknowledgment outbox persist in PostgreSQL. An ambiguous interrupted send stays `sending` and is never automatically replayed; the owner can inspect delivery history and issue a new /ping. HTTP 429 retries respect retry_after; network errors back off. A database advisory lock prevents duplicate workers. No personal resume, salary, email body or URL query appears in Telegram replies/logs. Simulated transports persist their evidence type and cannot create a live connection badge.
+/start /help /ping /status /connections /jobs /apply <https-url>, plus ordinary messages such as “Apply for Swiggy” and “Check whether Gmail is connected”. Only the bound numeric owner and private chat are accepted. No group/forwarded commands or shell execution. Offset and bounded acknowledgment outbox persist in PostgreSQL. An ambiguous interrupted send stays `sending` and is never automatically replayed; the owner can inspect delivery history and issue a new /ping. HTTP 429 retries respect retry_after; network errors back off. A database advisory lock prevents duplicate workers. No personal resume, salary, email body or URL query appears in Telegram replies/logs. Simulated transports persist their evidence type and cannot create a live connection badge.
 
-launchd is opt-in. The owner subsequently authorized installation; `com.automated-apply.telegram` is installed using the stable detached checkout `~/Library/Application Support/Automated Apply/phase1-runtime`, its own virtual environment, and private configuration `~/Library/Application Support/Automated Apply/phase1.private.env`. It uses the disposable local PostgreSQL database while live Supabase SQL remains pending. Do not remove that runtime checkout or stop its owned database while using the worker. Generic installation commands:
+launchd is opt-in. The owner subsequently authorized installation; `com.automated-apply.telegram` is installed using the stable detached checkout `~/Library/Application Support/Automated Apply/phase1-runtime`, its own virtual environment, and private configuration `~/Library/Application Support/Automated Apply/phase1.private.env`. Its state is transferred to online Supabase only after the old worker releases its lease and every outbox item is resolved; offsets, operations and sent replies are preserved. Do not remove that runtime checkout or stop its owned database while using the worker. Generic installation commands:
 
 ```sh
 .venv/bin/python backend/scripts/phase1/install_local.py launchd-plan --env-file /absolute/path/phase1.private.env
@@ -106,7 +104,7 @@ launchctl print gui/$(id -u)/com.automated-apply.telegram
 .venv/bin/python backend/scripts/phase1/install_local.py launchd-uninstall
 ```
 
-Private user plist, explicit interpreter/worktree/env path, restart on failure, 30-second throttle, private sanitized logs in ~/Library/Logs/Automated Apply. Clean SIGTERM/SIGINT handling allows a bounded outstanding poll to finish. No global power settings are changed. Screen lock is compatible with an awake, powered, networked Mac; sleep, shutdown and network loss interrupt execution. The owner-assisted lock test can be observed using `monitor_locked_worker.py --env-file /absolute/path/phase1.private.env --seconds 300`: it reads macOS IOConsoleLocked plus the live polling timestamp and a newly sent pong. It never locks the screen, changes power settings, sends messages or prints IDs. No lock/reply observation is recorded as a pass until all three signals agree. Logs/config are preserved on uninstall; rotate/remove them deliberately when no longer needed.
+Private user plist, explicit interpreter/worktree/env path, restart on failure, 30-second throttle, private sanitized logs in ~/Library/Logs/Automated Apply. Clean SIGTERM/SIGINT handling allows a bounded outstanding poll to finish. No global power settings are changed. Screen lock is compatible with an awake, powered, networked Mac; sleep, shutdown and network loss interrupt execution. The owner-assisted lock test can be observed using `monitor_locked_worker.py --env-file /absolute/path/phase1.private.env --seconds 300`: it reads macOS IOConsoleLocked plus the live polling timestamp and a newly sent pong. It never locks the screen, changes power settings, sends messages or prints IDs. No lock/reply observation is recorded as a pass until all three signals agree. Logs/config are preserved on uninstall. Existing credentials are retained.
 
 ## AI and Gmail
 
@@ -118,14 +116,15 @@ Authentication now passes via CLI-handled `/usage` with zero model turns. This i
 .venv/bin/python backend/scripts/phase1/agy_check.py
 ```
 
-Two separately authorized fictional generation invocations were attempted: initial CLI failure and an additional 90-second timeout using gemini-3.8-flash-high/high effort. Neither produced validated output or attempt usage. Authentication was subsequently completed by the owner and verified without generation. Both exclusive attempt markers remain; no further generation is authorized, and no automated retry is permitted. Metadata's zero tokens do not establish the failed generation attempts' quota usage.
-
+Three individually authorized fictional generation attempts have now failed without a validated answer. The third used AGY 1.4.7, the discovered `gemini-3.8-flash-high` model, a 120-second CLI deadline plus cleanup allowance, and no retry. Authentication still passes. Diagnostics found inline JSON-schema references were interpreted as file references; the adapter now writes a self-contained private schema file. A separate invalid-input diagnostic sent no valid user event and exposed 60 advertised tools despite the named profile's `tools: []`. The adapter now refuses to write any user prompt until initialization proves zero tools. Generation remains degraded and disabled; no further model request is authorized. Quota metadata does not establish usage of failed attempts.
 ```sh
 .venv/bin/python backend/scripts/phase1/install_local.py agy-profile-plan
 .venv/bin/python backend/scripts/phase1/install_local.py agy-profile-install
 agy agents
 .venv/bin/python backend/scripts/phase1/install_local.py agy-profile-uninstall
 ```
+
+The dedicated free Cloud project `automated-apply-166-20261025` has Gmail API enabled and billing disabled. Its Web OAuth client is stored only in private Application Support configuration, with exactly `http://127.0.0.1:8000/api/v1/integrations/gmail/oauth/callback` registered. The secondary account is configured as the expected identity and a testing user. Consent is External/Testing with identity, email, Gmail metadata and compose scopes. Existing encryption keys are preserved; the initially absent OAuth keyring was securely initialized. These settings do not prove a connected account.
 
 Gmail retains encrypted tokens/disconnect/state/PKCE. Connect identity first through the existing Connections UI, then select future draft creation to request gmail.compose, without gmail.send. Compose's Google scope also permits sends, so the application sending gate must stay false. No draft creation or sending operation was executed in this phase. Apollo/SignalHire caches/adapters are preserved; no enrichment called. No free entitlement or unlimited credit claim is made.
 
@@ -135,3 +134,11 @@ See verification.md for executed results, genuine evidence types and exact comma
 
 
 The first live launch correctly rejected the disposable suite's prior fake bot identity. `prepare_telegram_state.py` provides a narrow one-time recovery path only for the known local candidate_profile_test fixture with simulated_transport/bot 999999, completed replies, a verified different bot and an observed already-bound owner update with noncolliding IDs. It preserves completed outbox records and all application/policy data, writes a private recovery snapshot, and refuses remote databases, production, any live poll state, pending/sending replies, or owner mismatch. It never removes the ordinary worker bot-identity check. This recovery has been performed on the isolated development database; do not rerun it against live state.
+
+## Conversational and platform boundaries
+
+Deterministic parsing supports the requested job filters, company preparation, application counts, connection checks and preview handoffs without paid AI. Complex intent classification is a bounded optional interface; it is not activated while tool-free generation is unverified. Job lookup currently searches actual cached jobs only and says when no match exists. Selection expires after ten minutes and rechecks current preferences, eligibility, policy and submission evidence. Preparation can create/reuse a grounded packet when a verified profile exists; it never submits.
+
+The Connect Platform flow opens official login pages for Naukri, Wellfound, Instahyre, YC and Internshala. Sign-in stays in the owner's browser. The extension's explicit **Check this portal session** gesture observes fixed visible sign-in/out indicators only, without cookies, credentials or account identity export. A browser observation is not an applicant API connection. Forget removes only local metadata. Submission remains unsupported/manual handoff pending owner acceptance. Naukri's automatic preference grants no execution capability.
+
+The legacy encrypted resume was validated locally but remains unconfirmed. No canonical approved profile exists. Review actual facts and the resume in the dashboard; missing personal details must not be inferred. Drive configuration is retained with sync disabled pending review.

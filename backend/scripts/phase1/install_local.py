@@ -24,13 +24,15 @@ def private_write(path, content):
         file.write(content)
 
 
-def prepare_private_logs(directory):
+def prepare_private_logs(directory, service="telegram"):
+    if service not in {"telegram", "api"}:
+        raise SystemExit("unsupported_local_service")
     if directory.is_symlink() or (directory.exists() and
             (not directory.is_dir() or directory.stat().st_uid != os.getuid())):
         raise SystemExit("existing_log_directory_preserved")
     directory.mkdir(parents=True, exist_ok=True, mode=0o700)
     directory.chmod(0o700)
-    for name in ("telegram.out.log", "telegram.err.log"):
+    for name in (f"{service}.out.log", f"{service}.err.log"):
         path = directory / name
         try:
             descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW | os.O_NONBLOCK, 0o600)
@@ -50,6 +52,7 @@ def main():
     parser.add_argument("action", choices=["native-plan", "native-install", "native-uninstall", "launchd-plan", "launchd-install", "launchd-uninstall", "agy-profile-plan", "agy-profile-install", "agy-profile-uninstall"])
     parser.add_argument("--env-file")
     parser.add_argument("--extension-id")
+    parser.add_argument("--service", choices=["telegram", "api"], default="telegram")
     args = parser.parse_args()
     if sys.platform != "darwin":
         raise SystemExit("macos_only")
@@ -82,11 +85,12 @@ def main():
     support = home / "Library/Application Support/Automated Apply"
     manifest = home / "Library/Application Support/Google/Chrome/NativeMessagingHosts" / (NAME + ".json")
     wrapper = support / "native-host"
-    plist_path = home / "Library/LaunchAgents" / (LABEL + ".plist")
+    label = LABEL if args.service == "telegram" else "com.automated-apply.api"
+    plist_path = home / "Library/LaunchAgents" / (label + ".plist")
     if args.action.endswith("uninstall"):
         paths = [manifest, wrapper] if args.action.startswith("native") else [plist_path]
         if args.action.startswith("launchd"):
-            subprocess.run(["launchctl", "bootout", f"gui/{os.getuid()}/{LABEL}"], check=False, capture_output=True)
+            subprocess.run(["launchctl", "bootout", f"gui/{os.getuid()}/{label}"], check=False, capture_output=True)
         for path in paths:
             if path.exists():
                 # Never remove an unrelated file at our target path.
@@ -118,10 +122,10 @@ def main():
             private_write(manifest, json.dumps(document, indent=2))
     else:
         log_dir = home / "Library/Logs/Automated Apply"
-        document = {"Label": LABEL, "ProgramArguments": [sys.executable, str(ROOT / "backend/scripts/phase1/local_service.py"), "telegram", "--env-file", str(env)],
+        document = {"Label": label, "ProgramArguments": [sys.executable, str(ROOT / "backend/scripts/phase1/local_service.py"), args.service, "--env-file", str(env)],
             "WorkingDirectory": str(ROOT), "RunAtLoad": True, "KeepAlive": {"SuccessfulExit": False},
             "ThrottleInterval": 30, "ProcessType": "Background", "ExitTimeOut": 45,
-            "StandardOutPath": str(log_dir / "telegram.out.log"), "StandardErrorPath": str(log_dir / "telegram.err.log"),
+            "StandardOutPath": str(log_dir / f"{args.service}.out.log"), "StandardErrorPath": str(log_dir / f"{args.service}.err.log"),
             "EnvironmentVariables": {"PYTHONPATH": str(ROOT)}, "Umask": 0o077}
         print(plistlib.dumps(document).decode())
         if args.action.endswith("install"):
@@ -129,7 +133,7 @@ def main():
                 raise SystemExit("existing_launchd_installation_preserved")
             # launchd creates redirected files before applying the child Umask.
             # Precreate private files without truncating previous sanitized logs.
-            prepare_private_logs(log_dir)
+            prepare_private_logs(log_dir, args.service)
             private_write(plist_path, plistlib.dumps(document).decode())
             subprocess.run(["launchctl", "bootstrap", f"gui/{os.getuid()}", str(plist_path)], check=True)
 
