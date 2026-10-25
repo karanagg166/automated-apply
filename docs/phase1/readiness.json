@@ -1,9 +1,9 @@
 {
   "phase": 1,
   "status": "incomplete_owner_acceptance_and_separate_module_review_pending",
-  "generated_at": "2026-10-25T19:45:00.000000+00:00",
+  "generated_at": "2026-10-25T19:52:00.000000+00:00",
   "branch": "feat/phase1-local-connections",
-  "implementation_commit": "773d887cad87c68be21c7f3dd10c0c6c23c85ef0",
+  "implementation_commit": "84dc9289dafa14798e219fbcfb9e6a0d0d8664ec",
   "report_commit_note": "This report is committed as a follow-up to the recorded implementation commit.",
   "pull_request": "https://github.com/karanagg166/automated-apply/pull/18",
   "phase2_started": false,
@@ -57,65 +57,65 @@
     "ruff": "passed",
     "bandit": "passed",
     "hosted_ci": {
-      "implementation_head": "773d887cad87c68be21c7f3dd10c0c6c23c85ef0",
+      "implementation_head": "84dc9289dafa14798e219fbcfb9e6a0d0d8664ec",
       "previous_failures": [
-        "backend_secret_checks_basic_auth_fixture",
-        "backend_secret_checks_public_commit_hashes",
-        "missing_ripgrep_in_ci"
+        "backend_secret_checks_basic_auth_fixture_remediated",
+        "backend_secret_checks_public_commit_hashes_baselined",
+        "missing_ripgrep_in_ci_replaced_with_posix_grep"
       ],
       "checks": [
         {
           "__typename": "CheckRun",
-          "completedAt": "2026-10-25T19:26:55Z",
-          "conclusion": "FAILURE",
-          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40225809695/job/121266802625",
+          "completedAt": "2026-10-25T19:50:41Z",
+          "conclusion": "SUCCESS",
+          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40227552238/job/121272043112",
           "name": "backend",
-          "startedAt": "2026-10-25T19:23:33Z",
+          "startedAt": "2026-10-25T19:45:42Z",
           "status": "COMPLETED",
           "workflowName": "Backend CI"
         },
         {
           "__typename": "CheckRun",
-          "completedAt": "2026-10-25T19:25:53Z",
+          "completedAt": "2026-10-25T19:49:21Z",
           "conclusion": "SUCCESS",
-          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40225809693/job/121266802639",
+          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40227552219/job/121272042731",
           "name": "frontend",
-          "startedAt": "2026-10-25T19:23:33Z",
+          "startedAt": "2026-10-25T19:45:43Z",
           "status": "COMPLETED",
           "workflowName": "Frontend CI"
         },
         {
           "__typename": "CheckRun",
-          "completedAt": "2026-10-25T19:26:52Z",
+          "completedAt": "2026-10-25T19:49:08Z",
           "conclusion": "SUCCESS",
-          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40225805749/job/121266789939",
+          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40227548244/job/121272030181",
           "name": "frontend",
-          "startedAt": "2026-10-25T19:23:30Z",
+          "startedAt": "2026-10-25T19:45:39Z",
           "status": "COMPLETED",
           "workflowName": "Frontend CI"
         },
         {
           "__typename": "CheckRun",
-          "completedAt": "2026-10-25T19:26:06Z",
+          "completedAt": "2026-10-25T19:47:33Z",
           "conclusion": "SUCCESS",
-          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40225809697/job/121266802431",
+          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40227552203/job/121272042519",
           "name": "connections",
-          "startedAt": "2026-10-25T19:23:34Z",
+          "startedAt": "2026-10-25T19:45:42Z",
           "status": "COMPLETED",
           "workflowName": "Phase 1 connection foundation"
         },
         {
           "__typename": "CheckRun",
-          "completedAt": "2026-10-25T19:34:35Z",
+          "completedAt": "2026-10-25T19:51:25Z",
           "conclusion": "SUCCESS",
-          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40225805840/job/121266790455",
+          "detailsUrl": "https://github.com/karanagg166/automated-apply/actions/runs/40227548270/job/121272030001",
           "name": "connections",
-          "startedAt": "2026-10-25T19:23:31Z",
+          "startedAt": "2026-10-25T19:45:39Z",
           "status": "COMPLETED",
           "workflowName": "Phase 1 connection foundation"
         }
       ],
-      "latest_head_result": "remediation_pending_ci"
+      "latest_head_result": "all_five_checks_passed"
     },
     "additional_oauth_compose_regressions": {
       "passed": 46,
