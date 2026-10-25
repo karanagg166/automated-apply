@@ -11,7 +11,7 @@ assert.ok(manifest.key, "A committed public manifest key is required for stable 
 const hash = createHash("sha256").update(Buffer.from(manifest.key, "base64")).digest("hex").slice(0, 32);
 const id = [...hash].map(c => String.fromCharCode(97 + Number.parseInt(c, 16))).join("");
 mkdirSync(new URL("dist/", import.meta.url), { recursive: true });
-for (const file of ["manifest.json", "background.js", "preview.js", "popup.html", "popup.js", "settings.html", "settings.js", "style.css"]) {
+for (const file of ["manifest.json", "background.js", "preview.js", "observation.js", "popup.html", "popup.js", "settings.html", "settings.js", "style.css"]) {
   cpSync(new URL(file, import.meta.url), new URL(`dist/${file}`, import.meta.url));
 }
 console.log(`MV3 extension built; stable ID ${id}; gesture-only preview and observation.`);
