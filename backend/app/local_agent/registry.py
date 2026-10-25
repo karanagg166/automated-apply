@@ -22,6 +22,8 @@ class ConnectionState(StrEnum):
     DEGRADED = "degraded"
     DISCONNECTED = "disconnected"
     DISABLED = "disabled"
+    BROWSER_OBSERVED = "browser_session_observed"
+    OWNER_ACTION = "owner_action_required"
 
 
 def observed_state(*, configured, enabled=True, identity_verified=False, capability_verified=False,
@@ -58,6 +60,7 @@ class Connection(StrictModel):
     may_consume_paid_credits: bool = False
     safe_next_action: str = "Review docs/phase1/setup.md"
     help_url: str | None = None
+    platform: str | None = None
 
 
 def read_private_evidence(path):
@@ -110,7 +113,7 @@ async def connection_report(session, settings, *, api_request=False):
     except Exception:
         add("Supabase PostgreSQL", "core", bool(settings.DATABASE_URL), ConnectionState.AUTHORIZATION,
             blocker="owner_authorization_required", latest_error_category="database_not_ready",
-            owner_authorization_required=True, safe_next_action="Authenticate owning account; rotate credentials; review migration bundle")
+            owner_authorization_required=True, safe_next_action="Authenticate owning account; verify TLS and restricted SQL access; review migration bundle. Existing credentials are preserved.")
     api_verified = api_request
     if not api_verified:
         import httpx
@@ -136,16 +139,20 @@ async def connection_report(session, settings, *, api_request=False):
             mcp_evidence = json.loads(evidence_path.read_text())
     except (OSError, ValueError):
         pass
-    for name in ("Codex Supabase MCP", "Claude Supabase MCP", "AGY Supabase MCP"):
+    for name in ("Codex Supabase MCP", "VS Code Supabase MCP", "AGY Supabase MCP"):
         verified = name == "Codex Supabase MCP" and mcp_evidence.get("project_url_observed") and mcp_evidence.get("state") == "read_only_results_received"
-        client_name = name.split()[0].lower()
+        vscode = read_private_evidence(ROOT / "reports/phase1/vscode-mcp.private.json") if name.startswith("VS Code") else {}
+        if vscode:
+            verified = (vscode.get("state") == "verified" and vscode.get("project_url_observed") is True
+                and vscode.get("project_ref") == settings.SUPABASE_PROJECT_REF and bool(vscode.get("discovered_tools")))
+        client_name = "vs code" if name.startswith("VS Code") else name.split()[0].lower()
         configuration = mcp_evidence.get("client_configurations", {}).get(client_name, {})
         add(name, "core", configured=bool(verified or configuration.get("configured")), state=ConnectionState.VERIFIED if verified else ConnectionState.DISABLED if configuration.get("disabled") else ConnectionState.AUTHORIZATION,
             capabilities=["read_only_project_metadata"] if verified else [],
-            actual_evidence_type="live_cli_mcp_read_only_calls" if verified else "configuration_inspection",
+            actual_evidence_type="actual_vscode_extension_api_no_model" if verified and vscode else "live_cli_mcp_read_only_calls" if verified else "configuration_inspection",
             identity_verification="target_project_url_and_catalog" if verified else "unverified",
             capability_verification="read_only_metadata" if verified else "unverified",
-            last_verification_time=mcp_evidence.get("verified_at") if verified else None,
+            last_verification_time=(vscode or mcp_evidence).get("verified_at") if verified else None,
             owner_authorization_required=not bool(verified), blocker=None if verified else "oauth_tool_discovery_not_verified",
             safe_next_action="Run named client OAuth and read-only verification; see setup guide")
     native = await session.scalar(select(AgentOperation).where(AgentOperation.actor.like("chrome:%")).order_by(AgentOperation.created_at.desc()).limit(1))
@@ -173,17 +180,22 @@ async def connection_report(session, settings, *, api_request=False):
         last_verification_time=poll.last_poll_at if poll else None,
         latest_error_category=poll.last_error if poll else None, capabilities=["private_commands", "preview_only"],
         safe_next_action="Configure private bot and numeric owner IDs; start worker; /ping; locked-screen test pending")
-    for name, url in (
-        ("Naukri", "https://www.naukri.com/"), ("Wellfound", "https://wellfound.com/jobs"),
-        ("Instahyre", "https://www.instahyre.com/"), ("YC Work at a Startup", "https://www.workatastartup.com/"),
-        ("Internshala", "https://internshala.com/"), ("LinkedIn", "https://www.linkedin.com/jobs/"),
-    ):
-        add(name, "platforms", state=ConnectionState.MANUAL, capabilities=["manual_application", "url_preview"],
-            blocker="authorized_applicant_submission_api_unverified", help_url=url,
-            safe_next_action="Open official site manually; no password/session collection")
+    from backend.app.local_agent.platforms import platform_connections
+    for portal in await platform_connections(session):
+        add(portal["name"], "platforms", configured=bool(portal["last_verification_time"]),
+            state=ConnectionState(portal["state"]), platform=portal["platform"],
+            capabilities=portal["capabilities"], last_verification_time=portal["last_verification_time"],
+            actual_evidence_type=portal["evidence_type"],
+            identity_verification="account_identity_unverified", capability_verification="manual_handoff_only_no_applicant_api",
+            blocker="applicant_api_unsupported_or_unverified_owner_acceptance_pending", help_url=portal["login_url"],
+            owner_authorization_required=True,
+            safe_next_action="Connect in your Chrome tab, sign in manually, then click Check this portal session in the extension. A visible indicator does not verify account identity or API access.")
+    add("LinkedIn", "platforms", state=ConnectionState.MANUAL, capabilities=["manual_handoff", "url_preview"],
+        help_url="https://www.linkedin.com/jobs/", safe_next_action="Open official links manually")
     add("Public job sources", "platforms", bool(settings.GREENHOUSE_BOARDS), capabilities=["public_read_adapters"],
         blocker="recurring_discovery_disabled", safe_next_action="Review configured boards and saved filters; separately authorize discovery")
-    agy_evidence = read_private_evidence(ROOT / "reports/phase1/agy-smoke-owner-approved-followup.private.json") or read_private_evidence(ROOT / "reports/phase1/agy-smoke.private.json")
+    agy_evidence = read_private_evidence(ROOT / "reports/phase1/agy-smoke-phase1b-owner-approved.private.json") or read_private_evidence(ROOT / "reports/phase1/agy-smoke-owner-approved-followup.private.json") or read_private_evidence(ROOT / "reports/phase1/agy-smoke.private.json")
+    agy_diagnostic = read_private_evidence(ROOT / "reports/phase1/agy-schema-diagnostic.private.json")
     agy_auth = read_private_evidence(ROOT / "reports/phase1/agy-auth.private.json")
     agy_authenticated = agy_auth.get("authenticated_read_verified") is True and agy_auth.get("num_turns") == 0
     agy_failed = agy_evidence.get("state") == "failed_no_retry"
@@ -194,8 +206,8 @@ async def connection_report(session, settings, *, api_request=False):
         capabilities=["structured_answer_adapter"], may_consume_paid_credits=True,
         actual_evidence_type="actual_cli_usage_zero_model_turns_and_failed_generation" if agy_authenticated else "failed_fictional_cli_attempt" if agy_failed else "configuration_inspection",
         last_verification_time=agy_auth.get("verified_at") or agy_evidence.get("timestamp"),
-        latest_error_category=agy_evidence.get("error_code"),
-        blocker="structured_generation_unverified_no_more_requests_authorized", owner_authorization_required=True,
+        latest_error_category=agy_diagnostic.get("diagnostic_error_code") or agy_evidence.get("error_code"),
+        blocker="tool_free_cli_restrictions_unverified" if agy_diagnostic.get("diagnostic_error_code") == "provider_tool_use_denied" else "structured_generation_unverified_no_more_requests_authorized", owner_authorization_required=True,
         safe_next_action="Metadata checks only; do not make further generation requests without explicit owner authorization")
     for name, configured, cost, capabilities in (
         ("Ollama", bool(which("ollama")), False, ["local_generation_if_model_installed"]),
@@ -208,12 +220,37 @@ async def connection_report(session, settings, *, api_request=False):
             blocker="free_entitlement_unverified" if cost else "model_and_service_unverified")
     from backend.app.models.connected_account import ConnectedAccount
     account = await session.scalar(select(ConnectedAccount).where(ConnectedAccount.provider == "gmail"))
+    gmail_identity = bool(account and account.status == "connected" and account.last_verified_at
+                          and account.account_email == settings.GMAIL_EXPECTED_EMAIL and account.encrypted_refresh_token)
+    compose = gmail_identity and "https://www.googleapis.com/auth/gmail.compose" in account.granted_scopes
     add("Gmail", "ai", bool(settings.GMAIL_CLIENT_ID),
-        ConnectionState.AUTHENTICATED if account and account.status == "connected" else ConnectionState.AUTHORIZATION,
-        owner_authorization_required=not bool(account and account.status == "connected"),
-        capabilities=["future_draft_only"], blocker="draft_scope_and_creation_consent_required",
+        ConnectionState.AUTHENTICATED if gmail_identity else ConnectionState.AUTHORIZATION,
+        identity_verification="oauth_bound_expected_account" if gmail_identity else "unverified",
+        capability_verification="compose_scope_stored_no_draft_test" if compose else "identity_only" if gmail_identity else "unverified",
+        last_verification_time=account.last_verified_at if gmail_identity else None,
+        actual_evidence_type="persisted_verified_oauth_identity" if gmail_identity else "configuration_inspection",
+        owner_authorization_required=not bool(compose),
+        capabilities=["draft_scope_granted"] if compose else [], blocker="draft_creation_test_requires_separate_approval" if compose else "draft_scope_and_creation_consent_required",
         safe_next_action="Authorize gmail.compose through existing OAuth flow; no drafts or sends in Phase 1",
         help_url="https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.drafts/create")
+    from backend.app.dashboard.models import PrivateResume
+    from backend.app.models.application_answer import CandidateResource
+    from backend.app.models.candidate_profile import CandidateProfile
+    profile = await session.scalar(select(CandidateProfile).where(CandidateProfile.singleton_key == "primary"))
+    resume = await session.scalar(select(CandidateResource).where(CandidateResource.candidate_profile_id == profile.id,
+        CandidateResource.resource_type == "resume", CandidateResource.is_primary.is_(True), CandidateResource.user_confirmed.is_(True))) if profile else None
+    stored_file = await session.scalar(select(PrivateResume).where(PrivateResume.resource_id == resume.id,
+        PrivateResume.confirmed.is_(True))) if resume else None
+    profile_ready = bool(profile and profile.verified_skills and profile.verified_experience_years is not None
+                         and profile.github_url and profile.preferences.get("target_titles") and profile.preferences.get("preferred_locations")
+                         and resume and stored_file)
+    add("Candidate profile and resume", "core", bool(profile), ConnectionState.OWNER_ACTION,
+        identity_verification="saved_profile_requires_owner_review" if profile else "unverified",
+        capability_verification="saved_confirmed_resume_file_and_profile_fields_present" if profile_ready else "required_profile_or_resume_fields_missing",
+        last_verification_time=now, actual_evidence_type="current_sql_inventory_no_personal_details",
+        capabilities=["saved_canonical_profile"] if profile else [],
+        owner_authorization_required=True, blocker="owner_fact_review_and_file_acceptance_pending",
+        safe_next_action="Review Profile and Resumes in the dashboard. Confirm skills, experience, roles, locations, URLs and the canonical file. Missing facts are never inferred.")
     add("Deterministic answers", "ai", True, ConnectionState.VERIFIED,
         capabilities=["grounded_deterministic_answers"], actual_evidence_type="existing_local_implementation",
         capability_verification="local_only")

@@ -62,7 +62,8 @@ out/
 Thumbs.db
 
 # IDE & Editors
-.vscode/
+.vscode/*
+!.vscode/mcp.json
 .idea/
 *.swp
 *.swo

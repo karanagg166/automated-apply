@@ -13,7 +13,7 @@ global.chrome = {
   storage: { session: { set: async (value) => stored = { ...stored, ...value } } },
   action: { setBadgeText: async () => {}, openPopup: async () => {} },
 };
-const { preview, menuId, supportedUrl, nativeErrorCode } = await import("../background.js");
+const { preview, menuId, supportedUrl, nativeErrorCode, portalHost, observeSession, sessionIndicator } = await import("../background.js");
 test("registers exact menu label with page/link user gesture contexts", async () => {
   await callbacks.install();
   assert.equal(callbacks.menu.title, "Apply with Automated Apply");
@@ -53,4 +53,45 @@ test("reports native registration and origin errors without exposing arbitrary m
   assert.equal(nativeErrorCode(new Error("Specified native messaging host not found.")), "native_host_not_found");
   assert.equal(nativeErrorCode(new Error("Access to the specified native messaging host is forbidden.")), "native_origin_not_authorized");
   assert.equal(nativeErrorCode(new Error("Failed to start native messaging host.")), "native_host_start_failed");
+});
+test("portal observation is restricted to exact official hosts", () => {
+  for (const url of ["https://www.naukri.com/mnjuser/profile", "https://wellfound.com/profile", "https://instahyre.com/"]) assert.equal(portalHost(url), true);
+  for (const url of ["https://naukri.com.evil.example/", "https://example.org/", "https://user:password@wellfound.com/", "http://wellfound.com/"]) assert.equal(portalHost(url), false); // pragma: allowlist secret -- rejected fictional credential URL
+});
+test("page senders cannot request portal observations", () => {
+  assert.equal(callbacks.message({ command: "observe_portal_session" }, { id: chrome.runtime.id, tab: { id: 1 } }, () => {}), false);
+});
+test("observation sends only a fixed indicator and redacted page URL", async () => {
+  const original = chrome.runtime.sendNativeMessage;
+  chrome.scripting = { executeScript: async options => {
+    assert.deepEqual(options.target, { tabId: 1, frameIds: [0] });
+    assert.equal(options.world, "ISOLATED");
+    assert.equal(options.func, sessionIndicator);
+    return [{ result: "signed_in_indicator" }];
+  } };
+  const tab = { id: 1, url: "https://www.naukri.com/mnjuser/profile?token=fictional#fragment" };
+  chrome.tabs = { query: async () => [tab] };
+  chrome.runtime.sendNativeMessage = async (_host, command) => {
+    assert.equal(command.url, "https://www.naukri.com/mnjuser/profile");
+    assert.equal(command.command, "observe_platform_session");
+    assert.equal(command.observation, "signed_in_indicator");
+    assert.equal(command.title, undefined);
+    return { version: 1, request_id: command.request_id, ok: true, data: { state: "browser_session_observed", api_connected: false } };
+  };
+  assert.equal((await observeSession(tab)).data.api_connected, false);
+  chrome.runtime.sendNativeMessage = original;
+});
+test("navigation during observation fails closed before native dispatch", async () => {
+  chrome.tabs = { query: async () => [{ id: 1, url: "https://wellfound.com/login" }] };
+  const result = await observeSession({ id: 1, url: "https://naukri.com/profile" });
+  assert.equal(result.ok, false);
+});
+test("session indicator never exports page text or form values", () => {
+  global.document = { querySelectorAll: selector => selector.includes('input') ? [] : [{ getClientRects: () => [1] }] };
+  assert.equal(sessionIndicator(), "signed_in_indicator");
+  global.document.querySelectorAll = () => [];
+  assert.equal(sessionIndicator(), "unverifiable");
+  global.document.querySelectorAll = selector => selector.includes('input') ? [{ getClientRects: () => [1] }] : [];
+  assert.equal(sessionIndicator(), "login_required");
+  delete global.document;
 });

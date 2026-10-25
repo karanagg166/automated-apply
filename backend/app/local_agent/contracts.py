@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.app.core.urls import PublicHTTPSURL
+from backend.app.local_agent.intents import Intent
 
 
 class StrictModel(BaseModel):
@@ -14,6 +15,8 @@ class StrictModel(BaseModel):
 Operation = Literal[
     "health", "connection_status", "preview_application_url", "preview_job_filters",
     "get_discovery_status", "get_agent_capabilities", "get_application_policy",
+    "conversation",
+    "observe_platform_session",
 ]
 
 
@@ -23,6 +26,8 @@ class Command(StrictModel):
     command: Operation
     url: PublicHTTPSURL | None = None
     title: str | None = Field(default=None, max_length=250)
+    intent: Intent | None = None
+    observation: Literal["signed_in_indicator", "login_required", "unverifiable"] | None = None
 
 
 class Actor(StrictModel):

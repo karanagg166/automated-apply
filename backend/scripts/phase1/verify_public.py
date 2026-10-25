@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT))
 
 
-async def verify(bootstrap=False):
+async def verify(bootstrap=False, with_managed_function=False):
     import asyncpg
     url = os.environ["PHASE1_DISPOSABLE_DATABASE_URL"]
     target = urlsplit(url)
@@ -29,6 +29,22 @@ async def verify(bootstrap=False):
             for name in ("anon", "authenticated", "service_role"):
                 if not await admin.fetchval("SELECT EXISTS(SELECT FROM pg_roles WHERE rolname=$1)", name):
                     await admin.execute(f"CREATE ROLE {name}")
+            if with_managed_function:
+                managed = json.loads((ROOT / "supabase/fresh_public/preserved_function.json").read_text())
+                await admin.execute(managed["definition"])
+                await admin.execute("CREATE EVENT TRIGGER ensure_rls ON ddl_command_end WHEN TAG IN ('CREATE TABLE','CREATE TABLE AS','SELECT INTO') EXECUTE FUNCTION public.rls_auto_enable()")
+                for kind in ("TABLES", "SEQUENCES", "FUNCTIONS"):
+                    await admin.execute(f"ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT ALL ON {kind} TO postgres, anon, authenticated, service_role")
+                # A different pre-existing function must still block the bundle.
+                await admin.execute("CREATE FUNCTION public.unreviewed_function() RETURNS int LANGUAGE sql AS 'SELECT 1'")
+                try:
+                    await admin.execute((ROOT / "supabase/fresh_public/001_phase1_public.sql").read_text())
+                except asyncpg.RaiseError as exc:
+                    assert "fresh_dedicated_project_required" in str(exc)
+                    await admin.execute("ROLLBACK")
+                else:
+                    raise AssertionError("unreviewed_public_function_accepted")
+                await admin.execute("DROP FUNCTION public.unreviewed_function()")
             await admin.execute((ROOT / "supabase/fresh_public/001_phase1_public.sql").read_text())
         settings = Settings(_env_file=None, DATABASE_SCHEMA="public", DB_REQUIRE_TLS=False)
         async with admin.transaction():
@@ -59,6 +75,14 @@ async def verify(bootstrap=False):
             "unsafe_default_grant": "ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public GRANT SELECT ON TABLES TO anon",
             "cross_schema_access": "CREATE SCHEMA phase1_other; CREATE TABLE phase1_other.private_row(id integer); GRANT USAGE ON SCHEMA phase1_other TO job_agent_runtime; GRANT SELECT ON phase1_other.private_row TO job_agent_runtime",
         }
+        if with_managed_function:
+            faults.update({
+                "managed_function_client_grant": "GRANT EXECUTE ON FUNCTION public.rls_auto_enable() TO anon",
+                "managed_function_runtime_grant": "GRANT EXECUTE ON FUNCTION public.rls_auto_enable() TO job_agent_runtime",
+                "managed_function_definition_drift": "ALTER FUNCTION public.rls_auto_enable() RESET search_path",
+                "managed_event_trigger_disabled": "ALTER EVENT TRIGGER ensure_rls DISABLE",
+                "managed_event_trigger_extra": "CREATE EVENT TRIGGER unexpected_rls ON ddl_command_end WHEN TAG IN ('CREATE TABLE') EXECUTE FUNCTION public.rls_auto_enable()",
+            })
         rejected = []
         for name, statement in faults.items():
             transaction = admin.transaction()
@@ -110,4 +134,6 @@ async def verify(bootstrap=False):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--bootstrap", action="store_true")
-    asyncio.run(verify(parser.parse_args().bootstrap))
+    parser.add_argument("--with-supabase-managed-function", action="store_true")
+    args = parser.parse_args()
+    asyncio.run(verify(args.bootstrap, args.with_supabase_managed_function))

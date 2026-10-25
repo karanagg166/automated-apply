@@ -20,7 +20,7 @@ def main():
     ref = "luvdmwnlwaqgvfwlmlom"
     host = input("Direct db.<ref>.supabase.co or session pooler hostname: ").strip()
     user = input("Restricted runtime username (job_agent_runtime or job_agent_runtime.<ref>): ").strip()
-    password = getpass.getpass("Rotated restricted runtime password (never admin): ")
+    password = getpass.getpass("Existing restricted runtime password (never admin; not rotated): ")
     uri = URL.create("postgresql+asyncpg", username=user, password=password, host=host, port=5432, database="postgres").render_as_string(hide_password=False)
     from backend.app.core.config import Settings
     from backend.app.db.safety import database_target

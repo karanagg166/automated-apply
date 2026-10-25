@@ -13,7 +13,7 @@ from backend.app.local_agent.contracts import Actor, Command
 from backend.app.local_agent.models import TelegramDelivery, TelegramState
 from backend.app.local_agent.service import dispatch
 
-HELP = "/start /help /ping /status /connections /jobs /apply <https-url> — previews only. No submissions, email sends or paid calls."
+HELP = '/start /help /ping /status /connections /jobs /apply <https-url>. You can also say “Apply for Swiggy”, “Find remote SDE jobs”, or “Check whether Gmail is connected”. Previews only; no submissions, email sends or paid calls.'
 
 
 @asynccontextmanager
@@ -136,6 +136,15 @@ class BotAPI:
 
 async def reply_for(session, settings, message, update_id, bot_username):
     try:
+        if not authorized(message, settings):
+            return "Unauthorized message."
+        text = message.get("text")
+        if isinstance(text, str) and not text.lstrip().startswith("/"):
+            from backend.app.local_agent.intents import extract_intent
+            request = Command(command="conversation", intent=await extract_intent(text),
+                request_id=uuid5(NAMESPACE_URL, f"telegram:{settings.TELEGRAM_OWNER_CHAT_ID}:{update_id}"))
+            result = await dispatch(session, settings, Actor(channel="telegram", identity=str(settings.TELEGRAM_OWNER_USER_ID)), request)
+            return result.data["reply"] if result.ok else f"Request denied: {result.error_code}"
         command, argument = parse_command(message.get("text"), bot_username)
         if command in {"/start", "/help"}:
             return HELP

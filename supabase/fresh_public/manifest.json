@@ -52,7 +52,7 @@
     }
   ],
   "bundle": "001_phase1_public.sql",
-  "sha256": "6cfaf217fb10a9467e193aa7d12529b311a1f65afcf971f1a554039789ce5644",
+  "sha256": "2887a98812a797c3ef9d10f37fe5f14959778d802e126d0170776059ccee6a9e",
   "tables": [
     "agent_operations",
     "agent_policies",
@@ -104,5 +104,6 @@
   ],
   "runtime_role": "job_agent_runtime",
   "remote_applied": false,
+  "preserved_function_sha256": "1e3ec36df0ee1a5e9ab8801eca1f6300f2bd3a5590cde173afd17433ac08ec2a",
   "catalog_sha256": "3a2a361d6736f88e62d5379c9d21b0047f27cec3cfc821670dd4536c1cf0dcf5"
 }

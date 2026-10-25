@@ -33,6 +33,25 @@ plugins: []
 MAX_OUTPUT_BYTES = 65536
 
 
+def portable_schema(schema):
+    """Inline local Pydantic definitions for CLI validators with broken ref bases."""
+    definitions = schema.get("$defs", {})
+    def expand(value, depth=0):
+        if depth > 20:
+            raise ProviderError("unsupported_provider_schema")
+        if isinstance(value, list):
+            return [expand(item, depth + 1) for item in value]
+        if not isinstance(value, dict):
+            return value
+        if "$ref" in value:
+            reference = value["$ref"]
+            if not isinstance(reference, str) or not reference.startswith("#/$defs/") or reference[8:] not in definitions:
+                raise ProviderError("unsupported_provider_schema")
+            value = {**definitions[reference[8:]], **{key: item for key, item in value.items() if key != "$ref"}}
+        return {key: expand(item, depth + 1) for key, item in value.items() if key != "$defs"}
+    return expand(schema)
+
+
 def verify_no_overage(path=None):
     """Official CLI useG1Credits defaults false; API/Cloud billing is excluded.
 
@@ -74,12 +93,17 @@ def parse_output(raw, execution_metadata=None):
             envelope = json.loads(raw)
         except json.JSONDecodeError:
             events = [json.loads(line) for line in raw.splitlines() if line.strip()]
-            if any(event.get("step_update", {}).get("step_type") in {"tool_call", "tool", "run_command"} for event in events):
+            if any(event.get("step_update", {}).get("step_type") in {"tool_call", "tool", "run_command"}
+                   or event.get("step_update", {}).get("subagent_info") for event in events):
                 raise ProviderError("provider_tool_use_denied")
             results = [event["result"] for event in events if event.get("event") == "result"]
             if len(results) != 1:
                 raise ValueError
             envelope = results[0]
+        if not isinstance(envelope, dict):
+            raise ValueError
+        if envelope.get("event") == "result":
+            envelope = envelope["result"]
         if not isinstance(envelope, dict):
             raise ValueError
         if envelope.get("status", "SUCCESS") != "SUCCESS" or envelope.get("num_turns", 1) != 1 or envelope.get("is_error") or envelope.get("tool_calls") or envelope.get("permission_denials"):
@@ -98,28 +122,69 @@ def parse_output(raw, execution_metadata=None):
         raise ProviderError("invalid_structured_response") from None
 
 
-async def bounded_process(argv, payload, cwd, env, timeout):
+async def bounded_process(argv, payload, cwd, env, timeout, diagnostics=None, require_tool_free_init=False):
     process = None
+    tasks = []
+    init_ready = asyncio.Event()
+    if require_tool_free_init:
+        diagnostics = diagnostics if diagnostics is not None else {}
+        diagnostics["prompt_sent"] = False
     try:
         process = await asyncio.create_subprocess_exec(*argv, cwd=cwd, env=env,
             stdin=asyncio.subprocess.PIPE, stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE, start_new_session=True)
-        async def read(stream):
+        async def read(stream, stdout=False):
             data = bytearray()
+            pending = bytearray()
             while chunk := await stream.read(4096):
                 data.extend(chunk)
                 if len(data) > MAX_OUTPUT_BYTES:
                     raise ProviderError("provider_output_size")
+                if stdout and diagnostics is not None:
+                    pending.extend(chunk)
+                    while b"\n" in pending:
+                        line, _, rest = pending.partition(b"\n")
+                        pending = bytearray(rest)
+                        try:
+                            event = json.loads(line)
+                            kind = event.get("event")
+                            if kind in {"init", "step_update", "result"}:
+                                diagnostics["last_event"] = kind
+                            if kind == "init":
+                                tools = event.get("init", {}).get("tools")
+                                diagnostics["available_tool_count"] = len(tools) if isinstance(tools, list) else -1
+                                if not isinstance(tools, list) or tools:
+                                    raise ProviderError("provider_tool_use_denied")
+                                init_ready.set()
+                            step = event.get("step_update", {})
+                            if step.get("step_type") in {"tool_call", "tool", "run_command"} or step.get("subagent_info"):
+                                raise ProviderError("provider_tool_use_denied")
+                            if step.get("step_type") in {"user_input", "agent_response", "checkpoint"}:
+                                diagnostics["last_step"] = step["step_type"]
+                        except (ValueError, TypeError, AttributeError):
+                            pass
             return bytes(data)
         async with asyncio.timeout(timeout):
+            stdout_task = asyncio.create_task(read(process.stdout, True))
+            stderr_task = asyncio.create_task(read(process.stderr))
+            tasks.extend([stdout_task, stderr_task])
+            if require_tool_free_init:
+                ready_task = asyncio.create_task(init_ready.wait())
+                tasks.append(ready_task)
+                done, _ = await asyncio.wait([stdout_task, ready_task], return_when=asyncio.FIRST_COMPLETED)
+                if stdout_task in done:
+                    await stdout_task  # Propagate a denied tool set before writing input.
+                    raise ProviderError("provider_init_unverified")
             process.stdin.write(payload.encode())
             await process.stdin.drain()
+            if require_tool_free_init:
+                diagnostics["prompt_sent"] = True
             process.stdin.close()
-            stdout, stderr, code = await asyncio.gather(read(process.stdout), read(process.stderr), process.wait())
+            stdout, stderr, code = await asyncio.gather(stdout_task, stderr_task, process.wait())
         if code:
             # Classify without exposing stderr, which may contain prompts/account data.
             lowered = stderr.lower()
-            category = "provider_authentication" if b"auth" in lowered or b"login" in lowered else "rate_limited" if b"quota" in lowered or b"429" in lowered else "cli_nonzero_exit"
+            category = "cli_schema_rejected" if b"invalid --json-schema" in lowered else "provider_authentication" if b"authentication required" in lowered or b"login required" in lowered else "rate_limited" if b"quota" in lowered or b"429" in lowered else "unsupported_cli_argument" if b"unknown flag" in lowered or b"flag provided but not defined" in lowered else "cli_nonzero_exit"
             raise ProviderError(category)
         return stdout
     except TimeoutError:
@@ -134,6 +199,10 @@ async def bounded_process(argv, payload, cwd, env, timeout):
             except ProcessLookupError:
                 pass
             await process.wait()
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
 
 class AgyProvider:
@@ -179,9 +248,18 @@ class AgyProvider:
                 discovery = await bounded_process([str(executable), "agents"], "", str(workspace), env, 15)
                 if "automated-apply-answer" not in discovery.decode(errors="replace").split():
                     raise ProviderError("restricted_agent_profile_unavailable")
+            schema_path = Path(directory) / "answer.schema.json"
+            schema_path.write_text(json.dumps(portable_schema(ModelAnswer.model_json_schema())))
             argv = [str(executable), "--agent", "automated-apply-answer", "--sandbox", "--mode", "plan",
                 "--disable-slash-commands", "--model", settings.AGY_MODEL, "--effort", settings.AGY_EFFORT,
-                "--input-format", "stream-json", "--output-format", "stream-json", "--json-schema", json.dumps(ModelAnswer.model_json_schema()),
+                "--input-format", "stream-json", "--output-format", "stream-json", "--json-schema", str(schema_path),
                 "--print-timeout", f"{int(settings.AGY_TIMEOUT_SECONDS)}s", "--log-file", str(Path(directory) / "cli.log")]
             wire = json.dumps({"event": "user", "message": {"content": payload}}) + "\n"
-            return parse_output(await self.runner(argv, wire, str(workspace), env, settings.AGY_TIMEOUT_SECONDS), self.execution_metadata)
+            if self.runner is bounded_process:
+                # Let the CLI's own deadline report a terminal result before the parent
+                # reaps it. The prior equal deadlines could discard that diagnosis.
+                raw = await self.runner(argv, wire, str(workspace), env, settings.AGY_TIMEOUT_SECONDS + 5,
+                    diagnostics=self.execution_metadata, require_tool_free_init=True)
+            else:
+                raw = await self.runner(argv, wire, str(workspace), env, settings.AGY_TIMEOUT_SECONDS)
+            return parse_output(raw, self.execution_metadata)

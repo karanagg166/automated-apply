@@ -533,6 +533,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/local-agent/platforms": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Platforms */
+    get: operations["platforms_api_v1_local_agent_platforms_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/local-agent/platforms/{platform}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Forget Platform */
+    delete: operations["forget_platform_api_v1_local_agent_platforms__platform__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/local-agent/search-preferences": {
     parameters: {
       query?: never;
@@ -2142,11 +2176,17 @@ export interface components {
         | "preview_job_filters"
         | "get_discovery_status"
         | "get_agent_capabilities"
-        | "get_application_policy";
+        | "get_application_policy"
+        | "conversation"
+        | "observe_platform_session";
       /** Url */
       url?: string | null;
       /** Title */
       title?: string | null;
+      intent?: components["schemas"]["Intent"] | null;
+      /** Observation */
+      observation?:
+        ("signed_in_indicator" | "login_required" | "unverifiable") | null;
     };
     /** CompanyObservation */
     CompanyObservation: {
@@ -2754,6 +2794,58 @@ export interface components {
       fresh: boolean;
     } & {
       [key: string]: unknown;
+    };
+    /** Intent */
+    Intent: {
+      /**
+       * Category
+       * @enum {string}
+       */
+      category:
+        | "FIND_JOBS"
+        | "FILTER_JOBS"
+        | "SHOW_JOB"
+        | "PREPARE_APPLICATION"
+        | "APPLICATION_STATUS"
+        | "CONNECTION_STATUS"
+        | "GMAIL_DRAFT_PREVIEW"
+        | "FOUNDER_RESEARCH_PREVIEW"
+        | "HELP"
+        | "UNKNOWN";
+      /** Company */
+      company?: string | null;
+      /** Role */
+      role?: string | null;
+      /** Location */
+      location?: string | null;
+      /** Skills */
+      skills?: string[];
+      /**
+       * Remote
+       * @default false
+       */
+      remote: boolean;
+      /**
+       * Startup
+       * @default false
+       */
+      startup: boolean;
+      /** Days */
+      days?: number | null;
+      /**
+       * Not Applied
+       * @default false
+       */
+      not_applied: boolean;
+      /** Url */
+      url?: string | null;
+      /** Selection */
+      selection?: number | null;
+      /** Job Id */
+      job_id?: string | null;
+      /** Connection */
+      connection?:
+        ("gmail" | "telegram" | "supabase" | "chrome" | "agy") | null;
     };
     /**
      * JobMatchResult
@@ -5785,6 +5877,57 @@ export interface operations {
         };
         content: {
           "application/json": unknown;
+        };
+      };
+    };
+  };
+  platforms_api_v1_local_agent_platforms_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  forget_platform_api_v1_local_agent_platforms__platform__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        platform: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

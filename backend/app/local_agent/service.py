@@ -12,7 +12,7 @@ from backend.app.local_agent.models import AgentOperation
 from backend.app.local_agent.policies import evaluate, get_policy
 
 CAPABILITIES = {name: "preview_only" for name in (
-    "preview_application_url", "preview_job_filters", "get_discovery_status",
+    "preview_application_url", "preview_job_filters", "get_discovery_status", "conversation", "observe_platform_session",
 )} | {name: "read_only" for name in (
     "health", "connection_status", "get_agent_capabilities", "get_application_policy",
 )}
@@ -43,7 +43,25 @@ async def dispatch(session, settings, actor: Actor, command: Command):
 
 async def execute(session, settings, actor, command):
     data, error = {}, None
-    if command.command == "preview_application_url":
+    if command.command == "observe_platform_session":
+        from backend.app.local_agent.platforms import PLATFORMS, save_observation
+        if actor.channel != "chrome" or actor.identity != settings.CHROME_EXTENSION_ID:
+            error = "extension_identity_required"
+        elif not command.url or page_kind(str(command.url)) not in PLATFORMS or command.observation is None:
+            error = "unsupported_platform_observation"
+        else:
+            platform = page_kind(str(command.url))
+            data = {**await save_observation(session, platform, command.observation),
+                "platform": platform, "api_connected": False, "identity_verified": False, "submitted": False}
+    elif command.command == "conversation":
+        if actor.channel != "telegram" or actor.identity != str(settings.TELEGRAM_OWNER_USER_ID):
+            error = "telegram_identity_required"
+        elif command.intent is None:
+            error = "intent_required"
+        else:
+            from backend.app.local_agent.conversation import respond
+            data = await respond(session, settings, actor, command.intent)
+    elif command.command == "preview_application_url":
         if command.url is None:
             error = "url_required"
         else:

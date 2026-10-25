@@ -34,9 +34,12 @@ def restricted_manifest(manifest):
     return result
 
 
-async def verify_restricted_runtime(connection, tables, schema="job_agent"):
+async def verify_restricted_runtime(connection, tables, schema="job_agent", *, preserved_function_oids=()):
     if schema not in {"public", "job_agent"}:
         raise RuntimeError("invalid_runtime_schema")
+    if preserved_function_oids and (schema != "public" or len(preserved_function_oids) != 1
+                                   or any(type(oid) is not int or oid < 1 for oid in preserved_function_oids)):
+        raise RuntimeError("invalid_preserved_function_inventory")
     if schema == "public":
         connection = PublicCatalogConnection(connection)
 
@@ -102,12 +105,12 @@ async def verify_restricted_runtime(connection, tables, schema="job_agent"):
             UNION ALL
             SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace,
                 LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
-            WHERE n.nspname='job_agent' AND (p.prosecdef OR
+            WHERE n.nspname='job_agent' AND p.oid <> ALL($1::oid[]) AND (p.prosecdef OR
                 pg_get_userbyid(p.proowner)<>'job_agent_owner' OR a.grantee NOT IN
                 (SELECT oid FROM pg_roles WHERE rolname IN ('job_agent_owner','job_agent_runtime'))
                 OR a.is_grantable)
         )
-    """)
+    """, list(preserved_function_oids))
     if unsafe:
         raise RuntimeError("database_runtime_shared_grants_incompatible")
     authority = await connection.fetchval("""
@@ -138,12 +141,13 @@ async def verify_restricted_runtime(connection, tables, schema="job_agent"):
     functions = await connection.fetchval("""
         SELECT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
             WHERE n.nspname='job_agent'
+                AND p.oid <> ALL($1::oid[])
                 AND NOT has_function_privilege(current_user,p.oid,'EXECUTE'))
         OR EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
             WHERE n.nspname NOT IN ('job_agent','pg_catalog','information_schema')
                 AND p.prosecdef AND has_schema_privilege(current_user,n.oid,'USAGE')
                 AND has_function_privilege(current_user,p.oid,'EXECUTE'))
-    """)
+    """, list(preserved_function_oids))
     if functions:
         raise RuntimeError("database_runtime_function_access_incompatible")
 

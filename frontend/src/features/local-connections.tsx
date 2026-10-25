@@ -20,6 +20,7 @@ type Connection = {
   may_consume_paid_credits: boolean;
   safe_next_action: string;
   help_url?: string | null;
+  platform?: string | null;
 };
 type Policy = {
   version: number;
@@ -46,6 +47,12 @@ export function LocalConnections() {
     queryFn: () => api<Policy>("local-agent/policy"),
   });
   const [draft, setDraft] = useState<Policy | null>(null);
+  const forget = useMutation({
+    mutationFn: (platform: string) =>
+      api(`local-agent/platforms/${platform}`, { method: "DELETE" }),
+    onSuccess: () =>
+      client.invalidateQueries({ queryKey: ["local-connections"] }),
+  });
   const save = useMutation({
     mutationFn: (value: Policy) =>
       api<Policy>("local-agent/policy", {
@@ -132,11 +139,36 @@ export function LocalConnections() {
                       </a>
                     )}
                   </details>
+                  {item.platform && item.help_url && (
+                    <div className="stack">
+                      <a href={item.help_url} target="_blank" rel="noreferrer">
+                        Connect {item.name}
+                      </a>
+                      <p>
+                        Sign in yourself, then use “Check this portal session”
+                        in the Chrome extension. This checks visible indicators
+                        only; submission remains manual.
+                      </p>
+                      <Button
+                        disabled={forget.isPending}
+                        onClick={() => forget.mutate(item.platform!)}
+                      >
+                        Forget {item.name} metadata
+                      </Button>
+                    </div>
+                  )}
                 </article>
               ))}
           </div>
         </section>
       ))}
+      {forget.isError && <ErrorState error={forget.error} />}
+      {forget.isSuccess && (
+        <p role="status" aria-label="Platform metadata status">
+          Connection metadata forgotten. Your portal browser session is
+          unchanged.
+        </p>
+      )}
       <section className="stack" aria-label="Approval policies">
         <h2>Approval policies</h2>
         <p>

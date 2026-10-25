@@ -4,6 +4,11 @@ const routes: Array<[RegExp, string[]]> = [
   [/^local-agent\/(connections|history)$/, ["GET"]],
   [/^local-agent\/policy$/, ["GET", "PUT"]],
   [/^local-agent\/commands$/, ["POST"]],
+  [/^local-agent\/platforms$/, ["GET"]],
+  [
+    /^local-agent\/platforms\/(naukri|wellfound|instahyre|work_at_a_startup|internshala)$/,
+    ["DELETE"],
+  ],
   [/^dashboard\/automation$/, ["GET", "PUT"]],
   [/^dashboard\/automation\/(history|matches)$/, ["GET"]],
   [/^dashboard\/automation\/(preview|run)$/, ["POST"]],

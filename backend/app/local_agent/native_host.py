@@ -50,7 +50,7 @@ def write_message(stream, value):
 
 
 def forward(command, settings, client=None):
-    if command.command not in {"health", "connection_status", "get_agent_capabilities", "preview_application_url"}:
+    if command.command not in {"health", "connection_status", "get_agent_capabilities", "preview_application_url", "observe_platform_session"}:
         raise ValueError("native_capability_denied")
     token = settings.JOB_AGENT_API_TOKEN
     if not token or not settings.CHROME_NATIVE_MESSAGING_ENABLED or not settings.CHROME_EXTENSION_ID:

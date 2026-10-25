@@ -124,8 +124,12 @@ async def telegram_test(settings):
         async with worker_lock(config):
             async with factory() as session:
                 status = await asyncio.wait_for(reply_for(session, config,
-                    {"text": "/status"}, next_id + 100, "fictional_phase1_bot"), timeout=20)
+                    {"text": "/status", "from": {"id": 424242}, "chat": {"id": 424242, "type": "private"}}, next_id + 100, "fictional_phase1_bot"), timeout=20)
                 assert "Supabase PostgreSQL" in status and "Local FastAPI" in status
+                natural = await reply_for(session, config,
+                    {"text": "Apply for fictional Phase1 Company", "from": {"id": 424242},
+                     "chat": {"id": 424242, "type": "private"}}, next_id + 101, "fictional_phase1_bot")
+                assert "No matching cached jobs" in natural
                 await session.commit()
             try:
                 async with worker_lock(config):

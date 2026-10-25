@@ -8,10 +8,20 @@ DO $$ BEGIN
    WHERE n.nspname='public' AND c.relkind IN ('r','p','v','m','f','S')
      AND NOT EXISTS(SELECT 1 FROM pg_depend d WHERE d.objid=c.oid AND d.deptype='e'))
  OR EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
-   WHERE n.nspname='public' AND NOT EXISTS(SELECT 1 FROM pg_depend d WHERE d.objid=p.oid AND d.deptype='e'))
+   WHERE n.nspname='public' AND NOT EXISTS(SELECT 1 FROM pg_depend d WHERE d.objid=p.oid AND d.deptype='e')
+    AND NOT(p.proname='rls_auto_enable' AND pg_get_function_identity_arguments(p.oid)=''
+      AND pg_get_userbyid(p.proowner)='postgres'
+      AND encode(sha256(convert_to(pg_get_functiondef(p.oid),'UTF8')),'hex')='b21d88816c445d14cef5032c3cd4abaebc1db2001fcb3435022ab6b496182ca4'))
  OR EXISTS(SELECT 1 FROM pg_namespace WHERE nspname='job_agent')
  OR EXISTS(SELECT 1 FROM pg_roles WHERE rolname IN ('job_agent_owner','job_agent_runtime'))
  THEN RAISE EXCEPTION 'fresh_dedicated_project_required'; END IF;
+END $$;
+-- Preserve the reviewed Supabase ensure_rls event trigger and function body.
+-- The server invokes event triggers independently of client EXECUTE grants.
+DO $$ BEGIN
+ IF to_regprocedure('public.rls_auto_enable()') IS NOT NULL THEN
+  REVOKE ALL ON FUNCTION public.rls_auto_enable() FROM PUBLIC, anon, authenticated, service_role;
+ END IF;
 END $$;
 CREATE ROLE job_agent_owner NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS;
 CREATE ROLE job_agent_runtime NOLOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS CONNECTION LIMIT 5;

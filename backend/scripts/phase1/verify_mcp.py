@@ -41,9 +41,9 @@ def main():
         raise RuntimeError("mcp_verification_timeout")
     output = {"connection_name": NAME, "client": "codex", "evidence_type": "actual_cli_mcp_discovery", "generation_requests": 0, "verified_at": datetime.now(timezone.utc).isoformat()}
     configurations = {}
-    project_config = ROOT / ".mcp.json"
+    project_config = ROOT / ".vscode/mcp.json"
     if project_config.is_file():
-        configurations["claude"] = {"configured": NAME in json.loads(project_config.read_text()).get("mcpServers", {})}
+        configurations["vs code"] = {"configured": NAME in json.loads(project_config.read_text()).get("servers", {})}
     try:
         listed = subprocess.run(["agy", "mcp", "list"], capture_output=True, text=True, timeout=10, check=True)
         line = next((line for line in listed.stdout.splitlines() if line.split() and line.split()[0] == NAME), "")

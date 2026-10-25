@@ -20,6 +20,21 @@ from backend.app.local_agent.service import dispatch
 router = APIRouter(prefix="/api/v1/local-agent", tags=["Local agent"], route_class=OwnerRoute)
 
 
+@router.get("/platforms")
+async def platforms(session: AsyncSession = Depends(get_db_session)):
+    from backend.app.local_agent.platforms import platform_connections
+    return await platform_connections(session)
+
+
+@router.delete("/platforms/{platform}")
+async def forget_platform(platform: str, session: AsyncSession = Depends(get_db_session)):
+    from backend.app.local_agent.platforms import save_observation
+    try:
+        return await save_observation(session, platform, "forgotten")
+    except ValueError:
+        raise HTTPException(404, "unsupported_platform") from None
+
+
 @router.get("/search-preferences", response_model=SearchPreferences)
 async def search_preferences(session: AsyncSession = Depends(get_db_session)):
     return await get_preferences(session)
@@ -63,7 +78,7 @@ async def chrome_command(command: Command, request: Request, session: AsyncSessi
     if (not settings.CHROME_NATIVE_MESSAGING_ENABLED or not settings.CHROME_EXTENSION_ID
             or request.headers.get("X-Agent-Client") != settings.CHROME_EXTENSION_ID):
         raise HTTPException(403, "extension_identity_not_authorized")
-    if command.command not in {"health", "connection_status", "get_agent_capabilities", "preview_application_url"}:
+    if command.command not in {"health", "connection_status", "get_agent_capabilities", "preview_application_url", "observe_platform_session"}:
         raise HTTPException(403, "extension_capability_denied")
     return await dispatch(session, settings, Actor(channel="chrome", identity=settings.CHROME_EXTENSION_ID), command)
 

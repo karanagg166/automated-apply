@@ -12,20 +12,21 @@ sys.path.insert(0, str(ROOT))
 async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model', required=True)
-    parser.add_argument('--attempt-id', choices=['initial', 'owner-approved-followup'], default='initial')
+    parser.add_argument('--attempt-id', choices=['initial', 'owner-approved-followup', 'phase1b-owner-approved'], default='initial')
+    parser.add_argument('--timeout-seconds', type=int, choices=range(1, 121), default=90)
     parser.add_argument('--owner-authorized-one-fictional-request', action='store_true', required=True)
     args = parser.parse_args()
     from backend.app.ai.base import ProviderError
     from backend.app.ai.providers.agy import AgyProvider
     from backend.app.core.config import Settings
-    name = 'agy-smoke.private.json' if args.attempt_id == 'initial' else 'agy-smoke-owner-approved-followup.private.json'
+    name = 'agy-smoke.private.json' if args.attempt_id == 'initial' else f'agy-smoke-{args.attempt_id}.private.json'
     output = ROOT / 'reports/phase1' / name
     output.parent.mkdir(parents=True, exist_ok=True)
     with output.open('x') as marker:
         output.chmod(0o600)
         marker.write(json.dumps({'state':'attempt_reserved','model':args.model,'retries':0}))
     config = Settings(_env_file=None, AGY_ENABLED=True, AGY_MODEL=args.model,
-        AGY_EFFORT='high', AGY_QUOTA_AUTHORIZED=True, AGY_TIMEOUT_SECONDS=90)
+        AGY_EFFORT='high', AGY_QUOTA_AUTHORIZED=True, AGY_TIMEOUT_SECONDS=args.timeout_seconds)
     evidence = {'model':args.model,'effort':'high','invocations':1,'application_retries':0,
         'fictional_only':True,'timestamp':datetime.now(timezone.utc).isoformat(),
         'quota_entitlement':'not_exposed_by_cli','paid_overage_authorized':False}

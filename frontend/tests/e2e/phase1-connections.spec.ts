@@ -27,6 +27,26 @@ test("connections show evidence and persist approval preferences through owner B
   await expect(
     section.getByRole("heading", { name: "Telegram worker" }),
   ).toBeVisible();
+  for (const name of [
+    "Naukri",
+    "Wellfound",
+    "Instahyre",
+    "YC Work at a Startup",
+    "Internshala",
+  ]) {
+    const connect = section.getByRole("link", {
+      name: `Connect ${name}`,
+      exact: true,
+    });
+    await expect(connect).toHaveAttribute("href", /^https:\/\//);
+    await expect(connect).toHaveAttribute("target", "_blank");
+  }
+  await section
+    .getByRole("button", { name: "Forget Naukri metadata", exact: true })
+    .click();
+  await expect(
+    section.getByRole("status", { name: "Platform metadata status" }),
+  ).toContainText("Connection metadata forgotten");
   const policies = section.getByRole("region", { name: "Approval policies" });
   await expect(policies.getByLabel("naukri", { exact: true })).toHaveValue(
     "automatic_preferred",

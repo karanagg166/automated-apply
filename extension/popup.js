@@ -17,5 +17,14 @@ document.querySelector("#preview").addEventListener("click", async () => {
   await chrome.runtime.sendMessage({ command: "preview_active_tab" });
   await show();
 });
+document.querySelector("#observe").addEventListener("click", async () => {
+  document.querySelector("#observation").textContent = "Checking visible session indicators…";
+  try {
+    const result = await chrome.runtime.sendMessage({ command: "observe_portal_session" });
+    document.querySelector("#observation").textContent = result?.ok ? `${result.data.state}. Account identity and applicant API access remain unverified.` : (result?.error_code || "Observation unavailable");
+  } catch {
+    document.querySelector("#observation").textContent = "Observation unavailable. Reload the extension and check the local backend.";
+  }
+});
 chrome.storage.onChanged.addListener(show);
 await show();

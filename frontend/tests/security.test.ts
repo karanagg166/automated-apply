@@ -11,6 +11,28 @@ import {
   verifyPassword,
 } from "@/lib/security";
 import { permittedRoute } from "@/lib/gateway";
+it("restricts portal forgetting to exact metadata endpoints", () => {
+  expect(permittedRoute("local-agent/platforms", "GET")).toBe(true);
+  for (const portal of [
+    "naukri",
+    "wellfound",
+    "instahyre",
+    "work_at_a_startup",
+    "internshala",
+  ]) {
+    expect(permittedRoute(`local-agent/platforms/${portal}`, "DELETE")).toBe(
+      true,
+    );
+    expect(permittedRoute(`local-agent/platforms/${portal}`, "POST")).toBe(
+      false,
+    );
+  }
+  for (const portal of ["gmail", "naukri/logout", "../gmail", "%6eaukri"]) {
+    expect(permittedRoute(`local-agent/platforms/${portal}`, "DELETE")).toBe(
+      false,
+    );
+  }
+});
 it("limits resume sync proxy routes to exact owner operations", () => {
   const id = "11111111-1111-4111-8111-111111111111";
   expect(permittedRoute("dashboard/resume-sync", "GET")).toBe(true);
