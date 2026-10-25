@@ -119,9 +119,17 @@ class Settings(BaseSettings):
     CANDIDATE_GFG_URL: PublicHTTPSURL | None = None
     CANDIDATE_HACKERRANK_URL: PublicHTTPSURL | None = None
 
-    LLM_PROVIDER: Literal["gemini", "agy", "ollama"] = "gemini"
+    LLM_PROVIDER: Literal["gemini", "agy", "ollama", "cohere"] = "gemini"
     LLM_MODEL: str | None = None
     GEMINI_API_KEY: SecretStr | None = None
+    COHERE_API_KEY: SecretStr | None = None
+    COHERE_MODEL: Literal["command-a-plus-05-2026", "command-a-03-2025"] = "command-a-plus-05-2026"
+    COHERE_EVALUATION_KEY_CONFIRMED: bool = False
+    COHERE_ENABLED: bool = False
+    COHERE_OWNER_TEXT_AUTHORIZED: bool = False
+    COHERE_CANDIDATE_DATA_AUTHORIZED: bool = False
+    COHERE_MONTHLY_MAX_REQUESTS: int = Field(default=100, ge=0, le=1000)
+    COHERE_MONTHLY_MAX_TOKENS: int = Field(default=500000, ge=0, le=10000000)
     LLM_MAX_OUTPUT_TOKENS: int = Field(default=1000, ge=64, le=8192)
     LLM_MAX_INPUT_CHARS: int = Field(default=16000, ge=1000, le=64000)
     LLM_TIMEOUT_SECONDS: float = Field(default=30, ge=1, le=120, allow_inf_nan=False)
@@ -141,6 +149,7 @@ class Settings(BaseSettings):
         "CANDIDATE_GFG_URL",
         "CANDIDATE_HACKERRANK_URL",
         "GEMINI_API_KEY",
+        "COHERE_API_KEY",
         "LLM_MODEL",
         "CHROME_EXTENSION_ID",
         "TELEGRAM_OWNER_USER_ID",

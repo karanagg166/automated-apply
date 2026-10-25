@@ -4,6 +4,9 @@ from backend.app.core.config import Settings
 
 
 def create_provider(settings: Settings) -> ApplicationLLMProvider:
+    if settings.LLM_PROVIDER == "cohere":
+        from backend.app.ai.providers.cohere import CohereProvider
+        return CohereProvider(settings)
     if settings.LLM_PROVIDER == "agy":
         from backend.app.ai.providers.agy import AgyProvider
         return AgyProvider(settings)
@@ -21,6 +24,8 @@ def create_provider(settings: Settings) -> ApplicationLLMProvider:
 
 
 def configured_model(settings: Settings) -> str | None:
+    if settings.LLM_PROVIDER == "cohere":
+        return settings.COHERE_MODEL
     if settings.LLM_PROVIDER == "agy":
         return settings.AGY_MODEL
     if settings.LLM_PROVIDER == "ollama":
