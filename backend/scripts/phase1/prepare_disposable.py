@@ -1,4 +1,5 @@
 """Private fictional lifecycle configuration; isolated localhost PostgreSQL only."""
+import argparse
 import asyncio
 import json
 import os
@@ -12,6 +13,11 @@ sys.path.insert(0, str(ROOT))
 
 
 async def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, default=ROOT / "reports/phase1/disposable.private.env")
+    args = parser.parse_args()
+    if args.output.exists() or args.output.is_symlink():
+        raise SystemExit("existing_disposable_configuration_preserved")
     import asyncpg
     from sqlalchemy.engine import URL
     target = urlsplit(os.environ["PHASE1_DISPOSABLE_DATABASE_URL"])
@@ -33,7 +39,7 @@ async def main():
             "DB_POOL_SIZE": "1", "DB_MAX_OVERFLOW": "0", "JOB_AGENT_API_TOKEN": secrets.token_urlsafe(40), "SECRET_KEY": secrets.token_urlsafe(40),
             "LOCAL_AGENT_ENDPOINT": "http://127.0.0.1:18081", "CHROME_NATIVE_MESSAGING_ENABLED": "true", "CHROME_EXTENSION_ID": "a" * 32,
             "APPLICATION_SUBMISSION_ENABLED": "false", "GMAIL_SENDING_ENABLED": "false", "AUTOMATION_EXECUTION_ENABLED": "false", "AGY_ENABLED": "false"}
-        output = ROOT / "reports/phase1/disposable.private.env"
+        output = args.output
         output.parent.mkdir(parents=True, exist_ok=True)
         with output.open("x") as file:
             output.chmod(0o600)

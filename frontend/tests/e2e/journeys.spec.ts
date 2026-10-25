@@ -115,6 +115,7 @@ test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
     await page
       .getByLabel("Technical skills")
       .fill("Python, FastAPI, PostgreSQL");
+    await page.getByLabel("Verified experience in years").fill("0");
     await page.getByRole("button", { name: "Add project entry" }).click();
     await page
       .getByLabel("Project 1 name", { exact: true })
@@ -160,6 +161,17 @@ test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
         exact: false,
       }),
     ).toBeVisible();
+    const accepted = await page.evaluate(async () => {
+      const r = await fetch("/api/backend/local-agent/connections");
+      return r.json();
+    });
+    expect(
+      accepted.find((x: { name: string }) => x.name === "Candidate profile")
+        .state,
+    ).toBe("capability_verified");
+    expect(
+      accepted.find((x: { name: string }) => x.name === "Resume").state,
+    ).toBe("capability_verified");
     await page.goto("/startups");
     await page
       .getByRole("button", { name: "My preferred team size", exact: true })

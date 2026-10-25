@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 
 PROJECT = "luvdmwnlwaqgvfwlmlom"
@@ -56,9 +57,18 @@ def main():
             if result.returncode:
                 raise ValueError("cli_account_authorization_required")
             project = require_project(json.loads(result.stdout), PROJECT)
-            print(json.dumps({"project_ref": PROJECT, "cli_account_access_verified": True,
+            evidence = {"project_ref": PROJECT, "cli_account_access_verified": True,
                 "status": project.get("status"), "region": project.get("region"),
-                "postgresql_authenticated": False, "linked": False}))
+                "postgresql_authenticated": False, "linked": False,
+                "verified_at": datetime.now(timezone.utc).isoformat(),
+                "evidence_type": "actual_isolated_cli_project_list"}
+            output = Path(__file__).resolve().parents[3] / "reports/phase1/supabase-cli.private.json"
+            output.parent.mkdir(parents=True, exist_ok=True)
+            descriptor = os.open(output, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(descriptor, "w") as file:
+                json.dump(evidence, file, indent=2)
+            output.chmod(0o600)
+            print(json.dumps(evidence))
         else:
             print("isolated_profile_prepared_existing_default_preserved")
     except (ValueError, OSError, subprocess.TimeoutExpired):

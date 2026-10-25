@@ -14,16 +14,46 @@ from backend.app.local_agent.preferences import (
     get_preferences,
     save_preferences,
 )
+from backend.app.local_agent.profile_confirmation import (
+    ProfileConfirmation,
+    confirm_profile,
+)
 from backend.app.local_agent.registry import connection_report
 from backend.app.local_agent.service import dispatch
 
 router = APIRouter(prefix="/api/v1/local-agent", tags=["Local agent"], route_class=OwnerRoute)
 
 
+@router.post("/profile-confirmation")
+async def profile_confirmation(data: ProfileConfirmation, request: Request,
+                               session: AsyncSession = Depends(get_db_session)):
+    from backend.app.models.candidate_profile import CandidateProfile
+    if request.headers.get("X-Agent-Client") or request.headers.get("Origin", "").startswith("chrome-extension:"):
+        raise HTTPException(403, "owner_ui_required")
+    profile = await session.scalar(select(CandidateProfile).where(
+        CandidateProfile.singleton_key == "primary").with_for_update())
+    try:
+        return await confirm_profile(session, profile, data.expected_version)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from None
+
+
 @router.get("/platforms")
 async def platforms(session: AsyncSession = Depends(get_db_session)):
     from backend.app.local_agent.platforms import platform_connections
     return await platform_connections(session)
+
+
+@router.post("/platforms/{platform}/accept-manual")
+async def accept_platform_manual(platform: str, request: Request,
+                                 session: AsyncSession = Depends(get_db_session)):
+    from backend.app.local_agent.platforms import accept_manual_capability
+    if request.headers.get("X-Agent-Client") or request.headers.get("Origin", "").startswith("chrome-extension:"):
+        raise HTTPException(403, "owner_ui_required")
+    try:
+        return await accept_manual_capability(session, platform)
+    except ValueError:
+        raise HTTPException(404, "unsupported_platform") from None
 
 
 @router.delete("/platforms/{platform}")

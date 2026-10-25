@@ -53,6 +53,14 @@ export function LocalConnections() {
     onSuccess: () =>
       client.invalidateQueries({ queryKey: ["local-connections"] }),
   });
+  const acceptManual = useMutation({
+    mutationFn: (platform: string) =>
+      api(`local-agent/platforms/${platform}/accept-manual`, {
+        method: "POST",
+      }),
+    onSuccess: () =>
+      client.invalidateQueries({ queryKey: ["local-connections"] }),
+  });
   const save = useMutation({
     mutationFn: (value: Policy) =>
       api<Policy>("local-agent/policy", {
@@ -95,7 +103,17 @@ export function LocalConnections() {
                       item.state === "capability_verified" ? "neutral" : "amber"
                     }
                   >
-                    {readable(item.state)}
+                    {(
+                      {
+                        capability_verified: "Verified",
+                        browser_session_observed: "Browser session observed",
+                        manual_only: "Manual-only",
+                        owner_action_required: "Awaiting approval",
+                        owner_authorization_required: "Awaiting approval",
+                        degraded: "Degraded",
+                        unsupported: "Unsupported",
+                      } as Record<string, string>
+                    )[item.state] || "Not connected"}
                   </Badge>
                   <dl>
                     <dt>Configuration</dt>
@@ -150,6 +168,15 @@ export function LocalConnections() {
                         only; submission remains manual.
                       </p>
                       <Button
+                        disabled={
+                          acceptManual.isPending ||
+                          !item.owner_authorization_required
+                        }
+                        onClick={() => acceptManual.mutate(item.platform!)}
+                      >
+                        Accept manual-only capability for {item.name}
+                      </Button>
+                      <Button
                         disabled={forget.isPending}
                         onClick={() => forget.mutate(item.platform!)}
                       >
@@ -163,6 +190,7 @@ export function LocalConnections() {
         </section>
       ))}
       {forget.isError && <ErrorState error={forget.error} />}
+      {acceptManual.isError && <ErrorState error={acceptManual.error} />}
       {forget.isSuccess && (
         <p role="status" aria-label="Platform metadata status">
           Connection metadata forgotten. Your portal browser session is

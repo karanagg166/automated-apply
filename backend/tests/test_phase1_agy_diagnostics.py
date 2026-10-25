@@ -36,7 +36,10 @@ def test_portable_schema_keeps_nested_restrictions_without_refs():
         portable_schema({"$ref": "https://example.org/schema.json"})
 
 
-@pytest.mark.parametrize("step", [{"step_type": "tool", "tool_name": "execute_sql"}, {"step_type": "agent_response", "subagent_info": {"subagents": ["fictional"]}}])
+@pytest.mark.parametrize("step", [{"step_type": "tool", "tool_name": "execute_sql"},
+    {"step_type": "agent_response", "subagent_info": {"subagents": ["fictional"]}},
+    {"step_type": "agent_response", "tool_info": {"name": "run_command"}},
+    {"step_type": "agent_response", "tool_name": "execute_sql"}])
 def test_stream_tool_and_delegation_rejected(step):
     raw = json.dumps({"event": "step_update", "step_update": step}) + "\n" + json.dumps({"event": "result", "result": {"structured_output": model_answer()}})
     with pytest.raises(ProviderError, match="provider_tool_use_denied"):
@@ -49,7 +52,9 @@ async def test_timeout_preserves_only_safe_progress(tmp_path):
     code = 'import json,time; print(json.dumps({"event":"init","init":{"tools":[]},"secret":"do-not-store"}),flush=True); time.sleep(5)'  # pragma: allowlist secret -- fictional redaction sentinel
     with pytest.raises(ProviderError, match="timeout"):
         await bounded_process([sys.executable, "-c", code], "", str(tmp_path), {}, .5, diagnostics)
-    assert diagnostics == {"last_event": "init", "available_tool_count": 0}
+    assert diagnostics["last_event"] == "init" and diagnostics["available_tool_count"] == 0
+    assert diagnostics["elapsed_seconds"] >= .5
+    assert diagnostics["exit_status"] < 0
     assert "secret" not in json.dumps(diagnostics)
 
 

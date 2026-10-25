@@ -28,6 +28,17 @@ test("connections show evidence and persist approval preferences through owner B
     section.getByRole("heading", { name: "Telegram worker" }),
   ).toBeVisible();
   for (const name of [
+    "Supabase CLI",
+    "Gmail identity",
+    "Gmail compose",
+    "Candidate profile",
+    "Resume",
+  ]) {
+    await expect(
+      section.getByRole("heading", { name, exact: true }),
+    ).toBeVisible();
+  }
+  for (const name of [
     "Naukri",
     "Wellfound",
     "Instahyre",
@@ -47,6 +58,24 @@ test("connections show evidence and persist approval preferences through owner B
   await expect(
     section.getByRole("status", { name: "Platform metadata status" }),
   ).toContainText("Connection metadata forgotten");
+  await section
+    .getByRole("button", {
+      name: "Accept manual-only capability for Naukri",
+      exact: true,
+    })
+    .click();
+  const naukri = section
+    .locator("article")
+    .filter({
+      has: page.getByRole("heading", { name: "Naukri", exact: true }),
+    });
+  await expect(naukri.getByText("Manual-only", { exact: true })).toBeVisible();
+  await expect(
+    naukri.getByRole("button", {
+      name: "Accept manual-only capability for Naukri",
+      exact: true,
+    }),
+  ).toBeDisabled();
   const policies = section.getByRole("region", { name: "Approval policies" });
   await expect(policies.getByLabel("naukri", { exact: true })).toHaveValue(
     "automatic_preferred",

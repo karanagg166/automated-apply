@@ -10,6 +10,7 @@ import os
 import re
 import signal
 import tempfile
+import time
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -94,7 +95,9 @@ def parse_output(raw, execution_metadata=None):
         except json.JSONDecodeError:
             events = [json.loads(line) for line in raw.splitlines() if line.strip()]
             if any(event.get("step_update", {}).get("step_type") in {"tool_call", "tool", "run_command"}
-                   or event.get("step_update", {}).get("subagent_info") for event in events):
+                   or event.get("step_update", {}).get("subagent_info")
+                   or event.get("step_update", {}).get("tool_info")
+                   or event.get("step_update", {}).get("tool_name") for event in events):
                 raise ProviderError("provider_tool_use_denied")
             results = [event["result"] for event in events if event.get("event") == "result"]
             if len(results) != 1:
@@ -124,6 +127,7 @@ def parse_output(raw, execution_metadata=None):
 
 async def bounded_process(argv, payload, cwd, env, timeout, diagnostics=None, require_tool_free_init=False):
     process = None
+    started = time.monotonic()
     tasks = []
     init_ready = asyncio.Event()
     if require_tool_free_init:
@@ -157,7 +161,8 @@ async def bounded_process(argv, payload, cwd, env, timeout, diagnostics=None, re
                                     raise ProviderError("provider_tool_use_denied")
                                 init_ready.set()
                             step = event.get("step_update", {})
-                            if step.get("step_type") in {"tool_call", "tool", "run_command"} or step.get("subagent_info"):
+                            if (step.get("step_type") in {"tool_call", "tool", "run_command"}
+                                    or step.get("subagent_info") or step.get("tool_info") or step.get("tool_name")):
                                 raise ProviderError("provider_tool_use_denied")
                             if step.get("step_type") in {"user_input", "agent_response", "checkpoint"}:
                                 diagnostics["last_step"] = step["step_type"]
@@ -203,6 +208,9 @@ async def bounded_process(argv, payload, cwd, env, timeout, diagnostics=None, re
             if not task.done():
                 task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
+        if diagnostics is not None:
+            diagnostics["elapsed_seconds"] = round(time.monotonic() - started, 3)
+            diagnostics["exit_status"] = process.returncode if process else None
 
 
 class AgyProvider:
