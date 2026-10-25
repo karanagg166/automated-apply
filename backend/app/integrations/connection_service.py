@@ -6,6 +6,7 @@ from datetime import timedelta
 
 from pydantic import EmailStr, TypeAdapter, ValidationError
 from sqlalchemy import select, text, update
+from sqlalchemy.exc import IntegrityError
 
 from backend.app.core.config import get_settings
 from backend.app.integrations.google_oauth import (
@@ -24,6 +25,18 @@ from backend.app.models.discovery import now
 
 def digest(value):
     return hashlib.sha256(value.encode()).hexdigest()
+
+
+def compose_constraint_failure(error):
+    """Inspect driver metadata only; never expose SQL, parameters or error text."""
+    visited = set()
+    while error is not None and id(error) not in visited:
+        visited.add(id(error))
+        if (getattr(error, "sqlstate", None) == "23514"
+                and getattr(error, "constraint_name", None) == "oauth_states_authorization_mode_check"):
+            return True
+        error = getattr(error, "orig", None) or error.__cause__
+    return False
 
 
 def account_output(account):
@@ -124,7 +137,13 @@ class ConnectionService:
                 created_at=now(),
             )
         )
-        await self.session.commit()
+        try:
+            await self.session.commit()
+        except IntegrityError as exc:
+            await self.session.rollback()
+            if compose and compose_constraint_failure(exc):
+                raise ConnectionError("gmail_compose_schema_update_required") from None
+            raise
         return {
             "authorization_url": self.google.authorization_url(
                 state, verifier, expected, **({"compose": True} if compose else {"send": send})

@@ -51,6 +51,9 @@ async def start(
             **({"compose": True} if data.authorization_mode == "compose" else {"send": data.authorization_mode == "send"})
         )
     except ConnectionError as exc:
+        if str(exc) == "gmail_compose_schema_update_required":
+            raise HTTPException(409,
+                "Gmail draft authorization needs an operator setup update. Your existing account identity remains connected.") from None
         raise HTTPException(409, str(exc)) from None
     settings = get_settings()
     response.set_cookie(

@@ -178,3 +178,50 @@ async def test_failed_compose_consent_preserves_connected_metadata(oauth_bundle,
     account = await service.account()
     assert account.status == "connected" and set(account.granted_scopes) == SCOPES
     assert account.encrypted_refresh_token == encrypted
+
+
+@pytest.mark.asyncio
+async def test_compose_database_mismatch_is_recoverable_without_identity_change(oauth_bundle, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    from sqlalchemy.exc import IntegrityError
+
+    service, _, _ = oauth_bundle
+    await connect(service)
+    before = (await service.account()).encrypted_refresh_token
+
+    class DriverFailure(Exception):
+        sqlstate = "23514"
+        constraint_name = "oauth_states_authorization_mode_check"
+
+    failure = IntegrityError("private SQL", {"private": "never disclose"}, DriverFailure())
+    with monkeypatch.context() as patch:
+        patch.setattr(service.session, "commit", AsyncMock(side_effect=failure))
+        with pytest.raises(ConnectionError, match="^gmail_compose_schema_update_required$"):
+            await service.start(EMAIL, "browser", compose=True)
+    account = await service.account()
+    assert account.status == "connected" and account.encrypted_refresh_token == before
+    assert set(account.granted_scopes) == SCOPES
+
+
+@pytest.mark.asyncio
+async def test_compose_setup_error_returns_actionable_409(oauth_bundle, phase2_auth, monkeypatch):
+    import httpx
+
+    from backend.app.api.v1.integrations import connection_service
+    from backend.app.main import app
+    service, _, _ = oauth_bundle
+    async def blocked(*args, **kwargs):
+        raise ConnectionError("gmail_compose_schema_update_required")
+    monkeypatch.setattr(service, "start", blocked)
+    app.dependency_overrides[connection_service] = lambda: service
+    try:
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://localhost") as client:
+            response = await client.post("/api/v1/integrations/gmail/connect/start",
+                headers=phase2_auth, json={"expected_email": EMAIL, "authorization_mode": "compose"})
+        assert response.status_code == 409
+        assert "setup update" in response.json()["detail"]
+        assert "identity remains connected" in response.json()["detail"]
+        assert "set-cookie" not in response.headers
+    finally:
+        app.dependency_overrides.pop(connection_service)
