@@ -74,6 +74,9 @@ async def main():
                 state = await session.get(TelegramState, "primary")
                 sent = set((await session.scalars(select(TelegramDelivery.update_id).where(
                     TelegramDelivery.state == "sent", TelegramDelivery.reply.like("pong%")))).all())
+            # This observer must not occupy the fifth restricted-runtime slot
+            # between samples while the API and real worker remain active.
+            await close_db_engine()
             after = screen_locked()
             if before is True and after is True:
                 report["screen_lock_observed"] = True
