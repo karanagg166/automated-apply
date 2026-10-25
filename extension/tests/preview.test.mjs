@@ -60,6 +60,29 @@ test("backend/host offline is explicit and recoverable", async () => {
   chrome.runtime.sendNativeMessage = original;
   assert.equal((await preview({ url: "https://example.org/apply" })).ok, true);
 });
+test("a slow native request remains coalesced after the debounce window", async () => {
+  const original = chrome.runtime.sendNativeMessage;
+  const originalNow = Date.now;
+  let calls = 0, finish;
+  chrome.runtime.sendNativeMessage = async (_host, request) => {
+    calls += 1;
+    await new Promise(resolve => { finish = resolve; });
+    return { version: 1, request_id: request.request_id, ok: true, data: { submitted: false } };
+  };
+  try {
+    const tab = { id: 1234, url: "https://example.org/slow-preview" };
+    Date.now = () => 1000;
+    const first = preview(tab);
+    Date.now = () => 6000;
+    const second = preview(tab);
+    assert.equal(calls, 1);
+    finish();
+    assert.equal((await first).request_id, (await second).request_id);
+  } finally {
+    Date.now = originalNow;
+    chrome.runtime.sendNativeMessage = original;
+  }
+});
 test("page sender cannot invoke extension entry point", () => {
   assert.equal(callbacks.message({ command: "preview_active_tab" }, { id: chrome.runtime.id, tab: { id: 1 } }, () => {}), false);
   assert.equal(callbacks.message({ command: "preview_active_tab" }, { id: "evil" }, () => {}), false);

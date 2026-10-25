@@ -19,15 +19,19 @@ const previews = new Map();
 export async function preview(tab, url = tab?.url) {
   const key = `${tab?.id ?? "unknown"}:${url}`;
   const previous = previews.get(key);
-  if (previous && Date.now() - previous.started < 1500) return previous.promise;
+  if (previous && (!previous.settled || Date.now() - previous.settled < 1500)) return previous.promise;
   const promise = performPreview(tab, url);
-  previews.set(key, { started: Date.now(), promise });
+  const entry = { promise, settled: null };
+  previews.set(key, entry);
   try {
     const result = await promise;
     if (!result.ok) previews.delete(key);
     return result;
   }
-  finally { setTimeout(() => { if (previews.get(key)?.promise === promise) previews.delete(key); }, 1500); }
+  finally {
+    entry.settled = Date.now();
+    setTimeout(() => { if (previews.get(key)?.promise === promise) previews.delete(key); }, 1500);
+  }
 }
 async function performPreview(tab, url) {
   if (!supportedUrl(url)) {
