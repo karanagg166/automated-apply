@@ -35,8 +35,11 @@ def read_message(stream):
     length = struct.unpack("<I", read_exact(stream, 4))[0]
     if not 0 < length <= MAX_MESSAGE_BYTES:
         raise ValueError("native_message_size")
+    # Keep transport timeout/truncation distinct from malformed JSON. Reading
+    # inside the validation try block used to mask both as native_invalid_message.
+    payload = read_exact(stream, length)
     try:
-        return Command.model_validate_json(read_exact(stream, length))
+        return Command.model_validate_json(payload)
     except (ValidationError, UnicodeError, ValueError):
         raise ValueError("native_invalid_message") from None
 

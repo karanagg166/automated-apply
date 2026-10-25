@@ -70,7 +70,7 @@ async def test_subprocess_tool_availability_fails_closed(tmp_path):
 
 @pytest.mark.asyncio
 async def test_tool_free_init_precedes_input(tmp_path):
-    code = 'import json,sys; print(json.dumps({"event":"init","init":{"tools":[]}}),flush=True); data=sys.stdin.read(); print(json.dumps({"echo":data}),flush=True)'
+    code = 'import json,sys; print(json.dumps({"event":"init","init":{"tools":[]}}),flush=True); data=sys.stdin.read(); print(json.dumps({"event":"result","echo":data}),flush=True)'
     diagnostics = {}
     raw = await bounded_process([sys.executable, "-c", code], "fictional", str(tmp_path), {}, 2, diagnostics, require_tool_free_init=True)
     assert diagnostics["prompt_sent"] is True
@@ -89,3 +89,33 @@ async def test_generation_timeout_has_exactly_one_adapter_attempt():
         await AgyProvider(settings, runner).generate_structured_answer("fictional question", {},
             {"style_instruction": "concise", "max_characters": 50})
     assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("frame", ['not-json', '[]', '{"event":"init","init":null}'])
+async def test_malformed_initialization_never_receives_prompt(tmp_path, frame):
+    code = f'import sys,time; print({frame!r},flush=True); time.sleep(5)'
+    diagnostics = {}
+    with pytest.raises(ProviderError):
+        await bounded_process([sys.executable, "-c", code], "never-send", str(tmp_path), {}, 2,
+                              diagnostics, require_tool_free_init=True)
+    assert diagnostics["prompt_sent"] is False
+
+
+@pytest.mark.asyncio
+async def test_unterminated_tool_frame_rejected_and_child_reaped(tmp_path):
+    code = ('import json,sys; print(json.dumps({"event":"init","init":{"tools":[]}}),flush=True); '
+            'sys.stdin.read(); sys.stdout.write(json.dumps({"event":"step_update",'
+            '"step_update":{"step_type":"tool","tool_name":"execute_sql"}})); sys.stdout.flush()')
+    diagnostics = {}
+    with pytest.raises(ProviderError, match="provider_tool_use_denied"):
+        await bounded_process([sys.executable, "-c", code], "fictional", str(tmp_path), {}, 2,
+                              diagnostics, require_tool_free_init=True)
+    assert diagnostics["exit_status"] is not None
+
+
+def test_stream_rejects_advertised_tools_even_with_valid_terminal_answer():
+    raw = json.dumps({"event": "init", "init": {"tools": ["run_command"]}}) + "\n"
+    raw += json.dumps({"event": "result", "result": {"structured_output": model_answer()}})
+    with pytest.raises(ProviderError, match="provider_tool_use_denied"):
+        parse_output(raw.encode())

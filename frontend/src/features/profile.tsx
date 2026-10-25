@@ -1,6 +1,8 @@
 "use client";
 import { useEffect, useState } from "react";
 import { ProjectsEditor } from "@/components/projects-editor";
+import { ProfileResources } from "./profile-resources";
+import { ProjectContext } from "./project-context";
 import { ResumeSync } from "./resume-sync";
 import { sizeFilter } from "./startups";
 import { useForm } from "react-hook-form";
@@ -151,6 +153,7 @@ export function ProfileWizard() {
           label: string;
           confirmed: boolean;
           resource_id: string | null;
+          sha256?: string;
         }>;
       }>("dashboard/resumes"),
   });
@@ -282,14 +285,6 @@ export function ProfileWizard() {
       // Subsequent failures preserve the successful profile save and report exactly what remains.
       client.setQueryData(["profile"], result);
       const failures: string[] = [];
-      try {
-        await post("local-agent/profile-confirmation", {
-          expected_version: result.version,
-          owner_confirmed: true,
-        });
-      } catch {
-        failures.push("current profile review confirmation");
-      }
       for (const proposal of proposals.filter(
         (x) => !["github", "linkedin", "portfolio"].includes(x.resource_type),
       )) {
@@ -341,6 +336,7 @@ export function ProfileWizard() {
             user_confirmed: true,
             is_primary:
               !imported &&
+              !existingResumeId &&
               !resources.data?.resources.some(
                 (r) => r.resource_type === "resume" && r.is_primary,
               ),
@@ -355,9 +351,11 @@ export function ProfileWizard() {
             `dashboard/resumes/${imported?.id || existingResumeId}/confirm`,
             {
               owner_confirmed: true,
-              primary: !resources.data?.resources.some(
-                (r) => r.resource_type === "resume" && r.is_primary,
-              ),
+              primary: true,
+              expected_primary_resource_id:
+                resources.data?.resources.find(
+                  (r) => r.resource_type === "resume" && r.is_primary,
+                )?.id || null,
             },
           );
         } catch {
@@ -378,6 +376,16 @@ export function ProfileWizard() {
           });
         } catch {
           failures.push("team size preference");
+        }
+      }
+      if (!failures.length) {
+        try {
+          await post("local-agent/profile-confirmation", {
+            expected_version: result.version,
+            owner_confirmed: true,
+          });
+        } catch {
+          failures.push("current profile review confirmation");
         }
       }
       return failures;
@@ -428,7 +436,6 @@ export function ProfileWizard() {
           </button>
         ))}
       </div>
-      <ResumeSync />
       <form
         onSubmit={form.handleSubmit(
           (v) => save.mutate(v),
@@ -584,6 +591,9 @@ export function ProfileWizard() {
                       <div className="evidence-item split" key={r.id}>
                         <div>
                           <strong>{r.label}</strong>
+                          <p style={{ overflowWrap: "anywhere" }}>
+                            SHA-256: {r.sha256 || "Unavailable"}
+                          </p>
                           <p>
                             {r.confirmed
                               ? "Owner confirmed"
@@ -596,7 +606,7 @@ export function ProfileWizard() {
                         >
                           Download privately
                         </a>
-                        {!r.confirmed && (
+                        {
                           <label className="check-label">
                             <input
                               type="radio"
@@ -609,7 +619,7 @@ export function ProfileWizard() {
                             />
                             Use this PDF after my final fact review
                           </label>
-                        )}
+                        }
                       </div>
                     ))}
                   </div>
@@ -951,6 +961,9 @@ export function ProfileWizard() {
           </div>
         </section>
       </form>
+      <ProfileResources enabled={!!profile.data} />
+      <ProjectContext />
+      <ResumeSync />
     </div>
   );
 }

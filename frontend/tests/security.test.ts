@@ -185,3 +185,37 @@ it("bounds slow request bodies", async () => {
     status: 408,
   });
 });
+
+it("allows only the exact candidate-context review operations", () => {
+  expect(
+    permittedRoute("dashboard/candidate-context/configuration", "PUT"),
+  ).toBe(true);
+  expect(
+    permittedRoute(
+      "dashboard/candidate-context/projects/project-01/build",
+      "POST",
+    ),
+  ).toBe(true);
+  expect(
+    permittedRoute(
+      "dashboard/candidate-context/projects/project-01/approve",
+      "POST",
+    ),
+  ).toBe(true);
+  expect(permittedRoute("dashboard/candidate-context/answer", "GET")).toBe(
+    true,
+  );
+  for (const path of [
+    "dashboard/candidate-context/projects/project-01/execute",
+    "dashboard/candidate-context/projects/../build",
+    "dashboard/candidate-context/projects/project-01/approve/extra",
+  ]) {
+    expect(permittedRoute(path, "POST")).toBe(false);
+  }
+  expect(
+    permittedRoute(
+      "dashboard/candidate-context/projects/project-01/approve",
+      "GET",
+    ),
+  ).toBe(false);
+});

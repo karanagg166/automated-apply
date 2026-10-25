@@ -155,7 +155,9 @@ test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
     await page
       .getByRole("checkbox", { name: "I reviewed these facts", exact: false })
       .check();
-    await page.getByRole("button", { name: "Save reviewed profile" }).click();
+    await page
+      .getByRole("button", { name: "Save reviewed profile", exact: true })
+      .click();
     await expect(
       page.getByText("Your reviewed profile and selected evidence are saved.", {
         exact: false,
@@ -435,80 +437,101 @@ test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
       );
     }
   });
-  test("syncs an encrypted fictional Drive resume, reviews it, deduplicates and preserves the active version", async ({
+  test("defers Drive download and preserves the canonical manual PDF and profile", async ({
     page,
   }) => {
     await login(page);
     await page.goto("/profile");
     await expect(
-      page.getByText("Awaiting successful validation"),
+      page.getByText(/Google Drive OAuth and live PDF download are deferred/),
     ).toBeVisible();
     await expect(
-      page.getByText(/Automatic periodic checking is inactive/),
-    ).toBeVisible();
+      page.getByRole("button", { name: "Sync Now", exact: true }),
+    ).toBeDisabled();
     const before = await (
       await page.request.get("/api/backend/profile")
     ).json();
-    await page.getByRole("button", { name: "Sync Now", exact: true }).click();
+    const resumesBefore = await (
+      await page.request.get("/api/backend/dashboard/resumes")
+    ).json();
+    expect(resumesBefore.resumes.length).toBeGreaterThan(0);
+    await page.reload();
     await expect(
-      page.getByText("Fetched and validated", { exact: true }),
+      page.getByRole("button", { name: "Sync Now", exact: true }),
+    ).toBeDisabled();
+    expect(
+      await (await page.request.get("/api/backend/profile")).json(),
+    ).toEqual(before);
+    expect(
+      await (await page.request.get("/api/backend/dashboard/resumes")).json(),
+    ).toEqual(resumesBefore);
+  });
+  test("persists ranked project configuration and reviewed canonical profile links", async ({
+    page,
+  }) => {
+    await login(page);
+    await page.goto("/profile");
+    await page
+      .getByLabel("Ranked project 1 name", { exact: true })
+      .fill("Fictional API service");
+    await page
+      .getByLabel("Ranked project 1 GitHub repository", { exact: true })
+      .fill("https://github.com/fictional-owner/fictional-service");
+    await page
+      .getByLabel("Ranked project 1 technology stack", { exact: true })
+      .fill("FastAPI, PostgreSQL");
+    await page
+      .getByRole("button", { name: "Save ranked projects", exact: true })
+      .click();
+    await expect(page.getByText(/Project configuration saved/)).toBeVisible();
+    await page.reload();
+    await expect(
+      page.getByLabel("Ranked project 1 name", { exact: true }),
+    ).toHaveValue("Fictional API service");
+    await page
+      .getByRole("button", {
+        name: "Recompute context for project-01",
+        exact: true,
+      })
+      .click();
+    await expect(
+      page
+        .getByRole("alert")
+        .filter({ hasText: "repository_not_authorized_or_unavailable" }),
     ).toBeVisible();
     await page
-      .getByRole("button", { name: "Review Changes", exact: true })
-      .click();
-    const approve = page.getByRole("button", {
-      name: "Approve New Resume Version",
+      .getByLabel("Profile link label", { exact: true })
+      .fill("Fictional LeetCode profile");
+    await page
+      .getByLabel("Reviewed profile URL", { exact: true })
+      .fill("https://leetcode.com/u/fictional-reviewed");
+    const save = page.getByRole("button", {
+      name: "Save reviewed profile link",
       exact: true,
     });
-    await expect(approve).toBeDisabled();
-    await expect(page.getByLabel("Reviewed skills")).toHaveValue(/FastAPI/);
-    await expect(page.getByLabel("Reviewed skills")).toHaveValue(/Docker/);
+    await expect(save).toBeDisabled();
     await page
-      .getByRole("checkbox", { name: /I reviewed the PDF, differences/ })
+      .getByRole("checkbox", { name: /I reviewed this profile URL/ })
       .check();
-    await approve.click();
-    await expect(
-      page.getByText(/Pending changes need your review/),
-    ).not.toBeVisible();
-    let state = await (
-      await page.request.get("/api/backend/dashboard/resume-sync")
+    await save.click();
+    await expect(page.getByText("Reviewed profile link saved.")).toBeVisible();
+    const resources = await (
+      await page.request.get("/api/backend/candidate/resources")
     ).json();
-    expect(state.active.id).toBe(state.latest.id);
-    const active = state.active.id;
-    expect(state.history).toHaveLength(1);
-    expect(
-      (await (await page.request.get("/api/backend/profile")).json()).version,
-    ).toBe(before.version + 1);
-    const firstCheck = state.last_checked_at;
-    await page.getByRole("button", { name: "Sync Now", exact: true }).click();
-    await expect
-      .poll(
-        async () =>
-          (
-            await (
-              await page.request.get("/api/backend/dashboard/resume-sync")
-            ).json()
-          ).last_checked_at,
-      )
-      .not.toBe(firstCheck);
-    state = await (
-      await page.request.get("/api/backend/dashboard/resume-sync")
-    ).json();
-    expect(state.history).toHaveLength(1);
-    expect(state.status).toBe("unchanged");
-    await page.getByRole("button", { name: "Sync Now", exact: true }).click();
-    await expect(
-      page.getByText(/Pending changes need your review/),
-    ).toBeVisible();
-    state = await (
-      await page.request.get("/api/backend/dashboard/resume-sync")
-    ).json();
-    expect(state.history).toHaveLength(2);
-    expect(state.active.id).toBe(active);
-    expect(state.latest.id).not.toBe(active);
-    expect(
-      (await (await page.request.get("/api/backend/profile")).json()).version,
-    ).toBe(before.version + 1);
+    expect(resources.resources).toContainEqual(
+      expect.objectContaining({
+        resource_type: "leetcode",
+        url: "https://leetcode.com/u/fictional-reviewed",
+        user_confirmed: true,
+      }),
+    );
+    expect(resources.resolved_links).toContainEqual(
+      expect.objectContaining({
+        resource_type: "leetcode",
+        url: "https://leetcode.com/u/fictional-reviewed",
+        user_confirmed: true,
+      }),
+    );
   });
   test("shows unavailable providers without invented results", async ({
     page,

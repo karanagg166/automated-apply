@@ -1,5 +1,6 @@
 """Provider-independent interface: one invocation is at most one billed request."""
 from typing import Protocol
+
 from backend.app.ai.schemas import ProviderAnswer, TokenUsage
 
 

@@ -403,7 +403,7 @@ def test_file_id_must_match_and_review_cannot_be_disabled():
         Settings(_env_file=None, RESUME_DRIVE_SYNC_REQUIRES_REVIEW=False)
 
 
-async def test_api_auth_validation_and_no_bypass(async_client, phase2_auth, resume_settings, monkeypatch):
+async def test_api_auth_validation_and_no_bypass(async_client, phase2_auth, resume_settings, monkeypatch, db_session):
     from backend.app.resume_sync import service as module
     monkeypatch.setattr(module, "fetch_pdf", FakeDrive())
     root = "/api/v1/dashboard/resume-sync"
@@ -412,8 +412,16 @@ async def test_api_auth_validation_and_no_bypass(async_client, phase2_auth, resu
     assert not before.json()["connected"] and "no-store" in before.headers["cache-control"]
     assert (await async_client.put(root + "/source", headers=phase2_auth, json={"canonical_url": "https://evil.example/resume.pdf", "expected_generation": 1})).status_code == 422
     synced = await async_client.post(root + "/sync", headers=phase2_auth, json={"expected_generation": 1})
-    assert synced.status_code == 200, synced.text
-    item = synced.json()["state"]["latest"]
+    assert synced.status_code == 409 and "drive_oauth_deferred" in synced.text
+    enabled = await async_client.put(root + "/source", headers=phase2_auth, json={
+        "canonical_url": URL, "expected_generation": 1, "sync_enabled": True,
+    })
+    assert enabled.status_code == 409
+    # Exercise historical review with the existing injected fictional engine.
+    from backend.app.resume_sync.service import ResumeSyncService
+    result = await ResumeSyncService(db_session, resume_settings, FakeDrive()).sync(1)
+    await db_session.commit()
+    item = result["state"].latest.model_dump(mode="json")
     bypass = await async_client.post(f"/api/v1/dashboard/resumes/{item['private_resume_id']}/confirm", headers=phase2_auth, json={"owner_confirmed": True, "primary": True})
     assert bypass.status_code == 409
     changes = await async_client.get(root + f"/versions/{item['id']}/review", headers=phase2_auth)

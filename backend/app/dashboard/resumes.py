@@ -120,3 +120,14 @@ def suggestions(text):
 
 def encrypt(raw):
     return cipher().encrypt(raw), hashlib.sha256(raw).hexdigest()
+
+
+def verified_pdf(resume):
+    from cryptography.fernet import InvalidToken
+    try:
+        raw = cipher().decrypt(resume.ciphertext)
+    except (InvalidToken, ValueError):
+        raise HTTPException(409, "Private PDF integrity check failed; restore the original file and encryption key") from None
+    if not raw.startswith(b"%PDF-") or hashlib.sha256(raw).hexdigest() != resume.sha256:
+        raise HTTPException(409, "Private PDF checksum verification failed")
+    return raw

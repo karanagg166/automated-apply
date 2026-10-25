@@ -18,6 +18,16 @@ const routes: Array<[RegExp, string[]]> = [
   [/^dashboard\/automation\/(history|matches)$/, ["GET"]],
   [/^dashboard\/automation\/(preview|run)$/, ["POST"]],
   [/^dashboard\/resume-sync$/, ["GET"]],
+  [/^dashboard\/candidate-context\/configuration$/, ["GET", "PUT"]],
+  [/^dashboard\/candidate-context\/(projects|answer)$/, ["GET"]],
+  [
+    /^dashboard\/candidate-context\/projects\/project-[a-z0-9][a-z0-9-]{0,30}$/,
+    ["GET"],
+  ],
+  [
+    /^dashboard\/candidate-context\/projects\/project-[a-z0-9][a-z0-9-]{0,30}\/(build|approve)$/,
+    ["POST"],
+  ],
   [/^dashboard\/resume-sync\/source$/, ["PUT"]],
   [/^dashboard\/resume-sync\/sync$/, ["POST"]],
   [/^dashboard\/resume-sync\/versions\/[a-f0-9-]{36}\/review$/, ["GET"]],

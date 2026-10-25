@@ -335,3 +335,60 @@ async def test_resume_confirmation_requires_literal_owner_review(
         json={"owner_confirmed": confirmation},
     )
     assert response.status_code == 422
+
+
+async def test_manual_pdf_canonical_switch_is_atomic_reviewed_and_reversible(
+    async_client, phase2_auth, phase2_profile, db_session, monkeypatch,
+):
+    from backend.app.dashboard.models import OwnerPreference
+    monkeypatch.setenv("RESUME_ENCRYPTION_KEY", Fernet.generate_key().decode())
+    get_settings.cache_clear()
+    ids = []
+    for text in ("Fictional first PDF Python", "Fictional second PDF FastAPI"):
+        response = await async_client.post("/api/v1/dashboard/resumes", headers={
+            **phase2_auth, "Content-Type": "application/pdf"}, content=pdf_bytes(text))
+        assert response.status_code == 201
+        ids.append(response.json()["id"])
+    async def confirm(index, previous=None):
+        return await async_client.post(f"/api/v1/dashboard/resumes/{ids[index]}/confirm",
+            headers=phase2_auth, json={"owner_confirmed": True, "primary": True,
+                                      "expected_primary_resource_id": previous})
+    first = await confirm(0)
+    assert first.status_code == 200
+    first_resource = first.json()["resource_id"]
+    # A stale selection never demotes the old canonical file.
+    assert (await confirm(1)).status_code == 409
+    records = (await async_client.get("/api/v1/candidate/resources", headers=phase2_auth)).json()["resources"]
+    assert [r["id"] for r in records if r["is_primary"]] == [first_resource]
+    db_session.add(OwnerPreference(key="phase1_profile_confirmation", value={"reviewed": True}))
+    await db_session.commit()
+    second = await confirm(1, first_resource)
+    assert second.status_code == 200
+    db_session.expire_all()
+    assert await db_session.get(OwnerPreference, "phase1_profile_confirmation") is None
+    # A previously confirmed version can become canonical again without a new blob.
+    restored = await confirm(0, second.json()["resource_id"])
+    assert restored.status_code == 200 and restored.json()["resource_id"] == first_resource
+    records = (await async_client.get("/api/v1/candidate/resources", headers=phase2_auth)).json()["resources"]
+    assert len(records) == 2 and [r["id"] for r in records if r["is_primary"]] == [first_resource]
+    versions = (await async_client.get("/api/v1/dashboard/resumes", headers=phase2_auth)).json()["resumes"]
+    assert len(versions) == 2 and all(len(v["sha256"]) == 64 for v in versions)
+
+
+async def test_pdf_checksum_mismatch_blocks_download_and_confirmation(
+    async_client, phase2_auth, phase2_profile, db_session, monkeypatch,
+):
+    monkeypatch.setenv("RESUME_ENCRYPTION_KEY", Fernet.generate_key().decode())
+    get_settings.cache_clear()
+    response = await async_client.post("/api/v1/dashboard/resumes", headers={
+        **phase2_auth, "Content-Type": "application/pdf"}, content=pdf_bytes("Fictional PDF Python"))
+    identifier = response.json()["id"]
+    row = await db_session.get(PrivateResume, identifier)
+    row.sha256 = "0" * 64
+    await db_session.commit()
+    endpoint = f"/api/v1/dashboard/resumes/{identifier}"
+    assert (await async_client.get(endpoint, headers=phase2_auth)).status_code == 409
+    assert (await async_client.post(endpoint + "/confirm", headers=phase2_auth,
+        json={"owner_confirmed": True, "primary": True})).status_code == 409
+    await db_session.refresh(row)
+    assert row.confirmed is False

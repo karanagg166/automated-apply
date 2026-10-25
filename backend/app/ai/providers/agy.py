@@ -94,6 +94,10 @@ def parse_output(raw, execution_metadata=None):
             envelope = json.loads(raw)
         except json.JSONDecodeError:
             events = [json.loads(line) for line in raw.splitlines() if line.strip()]
+            if any(not isinstance(event, dict) for event in events):
+                raise ValueError
+            for event in events:
+                inspect_event(event)
             if any(event.get("step_update", {}).get("step_type") in {"tool_call", "tool", "run_command"}
                    or event.get("step_update", {}).get("subagent_info")
                    or event.get("step_update", {}).get("tool_info")
@@ -125,6 +129,38 @@ def parse_output(raw, execution_metadata=None):
         raise ProviderError("invalid_structured_response") from None
 
 
+def inspect_event(event, diagnostics=None):
+    """Validate every protocol frame, including the last frame without a newline."""
+    if not isinstance(event, dict):
+        raise ProviderError("invalid_provider_stream")
+    kind = event.get("event")
+    if kind not in {"init", "step_update", "result"}:
+        raise ProviderError("invalid_provider_stream")
+    if diagnostics is not None:
+        diagnostics["last_event"] = kind
+    if kind == "init":
+        initialization = event.get("init")
+        if not isinstance(initialization, dict):
+            raise ProviderError("provider_init_unverified")
+        tools = initialization.get("tools")
+        if diagnostics is not None:
+            diagnostics["available_tool_count"] = len(tools) if isinstance(tools, list) else -1
+            diagnostics["advertised_shell_tool"] = isinstance(tools, list) and "run_command" in tools
+            diagnostics["advertised_sql_tool"] = isinstance(tools, list) and any("sql" in str(tool).lower() for tool in tools)
+            diagnostics["advertised_browser_tool"] = isinstance(tools, list) and any("browser" in str(tool).lower() for tool in tools)
+        if not isinstance(tools, list) or tools:
+            raise ProviderError("provider_tool_use_denied")
+    if kind == "step_update":
+        step = event.get("step_update")
+        if not isinstance(step, dict):
+            raise ProviderError("invalid_provider_stream")
+        if (step.get("step_type") in {"tool_call", "tool", "run_command"}
+                or step.get("subagent_info") or step.get("tool_info") or step.get("tool_name")):
+            raise ProviderError("provider_tool_use_denied")
+        if diagnostics is not None and step.get("step_type") in {"user_input", "agent_response", "checkpoint"}:
+            diagnostics["last_step"] = step["step_type"]
+
+
 async def bounded_process(argv, payload, cwd, env, timeout, diagnostics=None, require_tool_free_init=False):
     process = None
     started = time.monotonic()
@@ -140,6 +176,24 @@ async def bounded_process(argv, payload, cwd, env, timeout, diagnostics=None, re
         async def read(stream, stdout=False):
             data = bytearray()
             pending = bytearray()
+            def frame(line):
+                if not line.strip():
+                    return
+                try:
+                    event = json.loads(line)
+                except (ValueError, UnicodeError):
+                    raise ProviderError("invalid_provider_stream") from None
+                inspect_event(event, diagnostics)
+                if require_tool_free_init and event["event"] == "result" and not init_ready.is_set():
+                    result = event.get("result", {})
+                    error = str(result.get("error", "")).lower() if isinstance(result, dict) else ""
+                    if "authentication required" in error or "login required" in error:
+                        raise ProviderError("provider_authentication")
+                    raise ProviderError("provider_init_unverified")
+                if event["event"] == "init":
+                    if init_ready.is_set():
+                        raise ProviderError("invalid_provider_stream")
+                    init_ready.set()
             while chunk := await stream.read(4096):
                 data.extend(chunk)
                 if len(data) > MAX_OUTPUT_BYTES:
@@ -149,25 +203,9 @@ async def bounded_process(argv, payload, cwd, env, timeout, diagnostics=None, re
                     while b"\n" in pending:
                         line, _, rest = pending.partition(b"\n")
                         pending = bytearray(rest)
-                        try:
-                            event = json.loads(line)
-                            kind = event.get("event")
-                            if kind in {"init", "step_update", "result"}:
-                                diagnostics["last_event"] = kind
-                            if kind == "init":
-                                tools = event.get("init", {}).get("tools")
-                                diagnostics["available_tool_count"] = len(tools) if isinstance(tools, list) else -1
-                                if not isinstance(tools, list) or tools:
-                                    raise ProviderError("provider_tool_use_denied")
-                                init_ready.set()
-                            step = event.get("step_update", {})
-                            if (step.get("step_type") in {"tool_call", "tool", "run_command"}
-                                    or step.get("subagent_info") or step.get("tool_info") or step.get("tool_name")):
-                                raise ProviderError("provider_tool_use_denied")
-                            if step.get("step_type") in {"user_input", "agent_response", "checkpoint"}:
-                                diagnostics["last_step"] = step["step_type"]
-                        except (ValueError, TypeError, AttributeError):
-                            pass
+                        frame(line)
+            if stdout and diagnostics is not None and pending.strip():
+                frame(pending)
             return bytes(data)
         async with asyncio.timeout(timeout):
             stdout_task = asyncio.create_task(read(process.stdout, True))

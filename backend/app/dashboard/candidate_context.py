@@ -11,10 +11,10 @@ from backend.app.candidate_context.common import ContextError
 from backend.app.candidate_context.configuration import (
     CandidateConfiguration,
 )
-from backend.app.candidate_context.persistence import SQLRecordStore
-from backend.app.candidate_context.repository import AuthorizedCheckoutReader
+from backend.app.candidate_context.runtime import context_service
 from backend.app.candidate_context.service import CandidateContextService
 from backend.app.candidate_context.templates import load_project_facts
+from backend.app.core.config import get_settings
 from backend.app.dashboard.router import OwnerRoute
 from backend.app.db.session import get_db_session
 
@@ -31,7 +31,7 @@ class ProjectApproveRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     expected_revision: str = Field(min_length=1, max_length=120)
     fact_ids: list[str] = Field(min_length=1, max_length=100)
-    owner_confirmed: bool = True
+    owner_confirmed: bool
 
 
 class ProjectBuildRequest(BaseModel):
@@ -40,10 +40,7 @@ class ProjectBuildRequest(BaseModel):
 
 
 def get_service(session: AsyncSession) -> CandidateContextService:
-    reader = AuthorizedCheckoutReader({
-        # Map configured repositories to local checkouts when authorized
-    })
-    return CandidateContextService(SQLRecordStore(session), reader=reader)
+    return context_service(session, get_settings())
 
 
 
@@ -59,6 +56,8 @@ async def update_configuration(
     data: ConfigurationUpdateRequest,
     session: AsyncSession = Depends(get_db_session),
 ) -> dict[str, Any]:
+    if data.configuration.resume and data.configuration.resume.auto_sync_enabled:
+        raise HTTPException(409, "drive_oauth_deferred_use_manual_pdf_upload")
     service = get_service(session)
     try:
         updated = await service.save_configuration(
@@ -159,7 +158,7 @@ async def get_answer(
     question: str = Query(..., min_length=1, max_length=2000),
     project_rank: int | None = Query(None, ge=1, le=30),
     max_words: int = Query(100, ge=10, le=500),
-    max_characters: int = Query(2000, ge=50, le=10000),
+    max_characters: int = Query(2000, ge=50, le=8000),
     session: AsyncSession = Depends(get_db_session),
 ) -> dict[str, Any]:
     service = get_service(session)

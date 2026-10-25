@@ -78,6 +78,22 @@ class Settings(BaseSettings):
     AGY_TIMEOUT_SECONDS: float = Field(default=60, ge=1, le=120)
     AGY_QUOTA_AUTHORIZED: bool = False
 
+    # Owner-authorized local mirrors only. Never clone/fetch or execute source code.
+    CANDIDATE_PROJECT_CHECKOUTS: dict[str, str] = Field(default_factory=dict)
+    CANDIDATE_PROJECT_REFRESH_SECONDS: int = Field(default=300, ge=30, le=86400)
+
+    @field_validator("CANDIDATE_PROJECT_CHECKOUTS")
+    @classmethod
+    def authorized_project_checkouts(cls, value):
+        from pathlib import Path
+        if len(value) > 30 or any(
+            not re.fullmatch(r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", url)
+            or not Path(path).is_absolute()
+            for url, path in value.items()
+        ):
+            raise ValueError("exact_github_repository_and_absolute_checkout_required")
+        return value
+
     @field_validator("LOCAL_AGENT_ENDPOINT")
     @classmethod
     def local_endpoint(cls, value):

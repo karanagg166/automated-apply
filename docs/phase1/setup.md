@@ -156,3 +156,37 @@ AGY's unsupported tool-free session limitation was explicitly accepted by the ow
 A clean worker stop and a failure have different launchd semantics: `KeepAlive.SuccessfulExit=false` restarts a failure, while a graceful successful stop requires `launchctl kickstart gui/$(id -u)/com.automated-apply.telegram`. Check a fresh live poll and lease after every explicit restart; do not infer recovery from the plist. No global power settings are changed.
 
 ChatGPT-side Supabase reconnection: open **Settings → Apps → Supabase → Disconnect**, then reconnect from **Apps** using the Supabase account that owns `luvdmwnlwaqgvfwlmlom`. Complete the official OAuth account/organization selector. Ask ChatGPT to list the visible projects and verify that exact reference before using the plugin. Do not log out of or overwrite local Codex, CLI or VS Code connections to repair this separate authorization. An actual plugin read in this session succeeded on the Supabase connection; Primary still denied access. No plugin account was disconnected or reauthorized automatically.
+
+## Core readiness follow-up
+
+Use [core-readiness.md](core-readiness.md) for the current milestone and exclusions.
+The existing profile wizard stores candidate facts and canonical PDF selection.
+Additional profile links use the existing candidate-resource store; project review
+uses the integrated PR #19 service, not a second resume engine.
+
+Authorize project sources explicitly in the private backend environment:
+
+```dotenv
+CANDIDATE_PROJECT_CHECKOUTS={}
+CANDIDATE_PROJECT_REFRESH_SECONDS=300
+```
+
+Populate the JSON map only with exact GitHub repository URLs and absolute local
+checkout directories you authorize. Restart the backend to load that map. Set
+project names, priorities, technologies and context-template paths in Profile,
+then recompute and review facts. The background task observes committed local
+mirror changes and keeps new context pending until approved; it performs no Git
+fetch/clone or repository code execution. An empty map grants no repository access.
+
+For metadata-only AGY isolation diagnosis, without copying credentials or sending
+model events:
+
+```sh
+python backend/scripts/phase1/agy_isolation_check.py
+```
+
+Google Drive OAuth and all live PDF downloads are deferred. Use manual PDF upload,
+checksum-verified download, explicit canonical selection and final fact review.
+Saved Drive history remains available. Existing manual-only portal acceptance does
+not mean the accounts are authenticated. Never substitute deterministic summaries
+or AGY authentication for the real isolated-generation acceptance criterion.

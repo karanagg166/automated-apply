@@ -2138,6 +2138,8 @@ export interface components {
        * @default false
        */
       primary: boolean;
+      /** Expected Primary Resource Id */
+      expected_primary_resource_id?: string | null;
       /** Expected Generation */
       expected_generation: number;
       /** Expected Profile Version */
@@ -3808,10 +3810,7 @@ export interface components {
       expected_revision: string;
       /** Fact Ids */
       fact_ids: string[];
-      /**
-       * Owner Confirmed
-       * @default true
-       */
+      /** Owner Confirmed */
       owner_confirmed: boolean;
     };
     /** ProjectBuildRequest */
@@ -4213,6 +4212,8 @@ export interface components {
        * @default false
        */
       primary: boolean;
+      /** Expected Primary Resource Id */
+      expected_primary_resource_id?: string | null;
     };
     /** ResumeImportRead */
     ResumeImportRead: {

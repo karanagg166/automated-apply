@@ -66,6 +66,7 @@ const report = {
   submitted: false,
   owner_gestures_verified: false,
 };
+const previewResults = [];
 let context;
 const launch = async (path = extension) => {
   context = await chromium.launchPersistentContext(profile, {
@@ -98,6 +99,9 @@ const preview = async (worker, page) => {
   if (result.ok) {
     assert.equal(result.data.submitted, false);
     report.correlations.push(result.correlation_id);
+    previewResults.push(result);
+  } else {
+    report.last_preview_error = result.error_code;
   }
   return result;
 };
@@ -111,6 +115,20 @@ try {
   await new Promise((r) => setTimeout(r, 1600));
   assert.equal((await preview(worker, page)).ok, true);
   report.checks.push("page_refresh");
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("ServiceWorker.enable");
+  await cdp.send("ServiceWorker.stopAllWorkers");
+  const control = context.pages().find((p) => p.url().endsWith("/popup.html"));
+  await control.reload();
+  await control.locator("#repair").click();
+  await expect(control.locator("#menu-status")).toContainText("registered");
+  worker =
+    context.serviceWorkers().find((w) => w.url().includes(identity)) ||
+    (await context.waitForEvent("serviceworker", { timeout: 10000 }));
+  await page.goto("https://example.org/worker-recovery");
+  assert.equal((await preview(worker, page)).ok, true);
+  report.checks.push("service_worker_stop_and_message_recovery");
+  await cdp.detach();
   const originalConfiguration = readFileSync(envFile, "utf8");
   assert.equal(
     (originalConfiguration.match(/^LOCAL_AGENT_ENDPOINT=.*$/gm) || []).length,
@@ -244,6 +262,11 @@ try {
   await page.goto("https://example.org/");
   assert.equal((await preview(worker, page)).ok, true);
   report.checks.push("chrome_restart_and_relocated_install");
+  writeFileSync(
+    join(root, "reports/phase1/current/actual-chrome-results.private.json"),
+    JSON.stringify(previewResults, null, 2) + "\n",
+    { mode: 0o600 },
+  );
   writeFileSync(
     join(root, "reports/phase1/current/actual-chrome-acceptance.json"),
     JSON.stringify(report, null, 2) + "\n",

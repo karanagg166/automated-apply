@@ -51,6 +51,13 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - run: python -m pip install -r backend/requirements.txt
       - run: python -m pip install ruff bandit
+      - name: Core Phase 1 lint
+        run: >-
+          ruff check --isolated --select E9,F,I
+          backend/app/candidate_context backend/app/ai
+          backend/app/dashboard/candidate_context.py
+          backend/scripts/phase1/agy_isolation_check.py
+          backend/tests/test_candidate_context*.py backend/tests/test_phase1_agy_diagnostics.py
       - name: Contact enrichment lint
         run: >-
           ruff check --isolated --select E9,F,I

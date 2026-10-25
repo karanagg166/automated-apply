@@ -2,7 +2,7 @@
 
 import asyncio
 import time
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
 from typing import Any
 
@@ -56,10 +56,18 @@ async def lifespan(app: FastAPI):
             await close_db_engine()
             raise RuntimeError("Database startup probe failed") from None
 
+    project_refresh = None
+    if settings.CANDIDATE_PROJECT_CHECKOUTS:
+        from backend.app.candidate_context.runtime import refresh_loop
+        project_refresh = asyncio.create_task(refresh_loop(settings, get_session_factory()))
     try:
         async with mcp_app.lifespan(app):
             yield
     finally:
+        if project_refresh is not None:
+            project_refresh.cancel()
+            with suppress(asyncio.CancelledError):
+                await project_refresh
         logger.info("Shutting down Job Pulse Agent API...")
         await close_db_engine()
 

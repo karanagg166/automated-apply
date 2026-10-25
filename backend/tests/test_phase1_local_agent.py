@@ -427,3 +427,19 @@ def test_agy_readiness_metadata_rejects_model_turn_and_unexpected_account_text()
     for field, changed in (("num_turns", 1), ("usage", {"total_tokens": 1}), ("status", "ERROR")):
         with pytest.raises(ProviderError, match="cli_readiness_metadata_unverified"):
             parse_metadata(json.dumps({**value, field: changed}))
+
+
+def test_native_payload_timeout_is_not_misreported_as_invalid_json(monkeypatch):
+    import os
+
+    from backend.app.local_agent import native_host
+    read_end, write_end = os.pipe()
+    try:
+        os.write(write_end, struct.pack("<I", 2))
+        replies = iter([([read_end], [], []), ([], [], [])])
+        monkeypatch.setattr(native_host.select, "select", lambda *args: next(replies))
+        with os.fdopen(read_end, "rb", buffering=0) as pipe:
+            with pytest.raises(ValueError, match="native_read_timeout"):
+                read_message(pipe)
+    finally:
+        os.close(write_end)
