@@ -64,11 +64,9 @@ test("connections show evidence and persist approval preferences through owner B
       exact: true,
     })
     .click();
-  const naukri = section
-    .locator("article")
-    .filter({
-      has: page.getByRole("heading", { name: "Naukri", exact: true }),
-    });
+  const naukri = section.locator("article").filter({
+    has: page.getByRole("heading", { name: "Naukri", exact: true }),
+  });
   await expect(naukri.getByText("Manual-only", { exact: true })).toBeVisible();
   await expect(
     naukri.getByRole("button", {
