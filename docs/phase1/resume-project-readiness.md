@@ -86,7 +86,7 @@ version preservation, concurrent record/project CAS, and stale project approvals
 The regular backend suite also exercises migrations and existing resume workflows.
 
 ```sh
-PROFILE_TEST_DATABASE_URL=postgresql://postgres:fixture@127.0.0.1:55437/candidate_profile_test \
+PROFILE_TEST_DATABASE_URL="${ONBOARDING_TEST_DATABASE_URL}" \
   backend/venv/bin/python -m pytest backend/tests/test_onboarding_review.py \
   backend/tests/test_onboarding_review_postgres.py -v
 ```
