@@ -39,6 +39,8 @@ def deterministic(text):
         return Understanding(intent="cancel")
     if re.search(r"\b(?:status|what happened|how many applications|applications.*need information)\b", value):
         return Understanding(intent="status")
+    if re.fullmatch(r"what(?:'s| is) missing (?:from|in) my applications?", value):
+        return Understanding(intent="status")
     if re.fullmatch(r"(?:yes|ok|okay|confirm|approved?|go ahead)", value):
         return Understanding(intent="approve")
     if value in {"only show startups", "only startups", "startups only"}:
@@ -47,6 +49,8 @@ def deterministic(text):
         return Understanding(intent="filter", filters=Filters(exclude_internships=True))
     if value in {"ignore companies i've applied to", "exclude already applied"}:
         return Understanding(intent="filter", filters=Filters(exclude_applied=True))
+    if re.fullmatch(r"prepare(?: the)? first application", value):
+        return Understanding(intent="apply", positions=[1])
     match = re.fullmatch(r"(?:apply to|prepare(?: applications?(?: for)?)?)(?: the)? first (one|two|three|four|five|\d+)(?: jobs| applications)?", value)
     if match:
         count = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}.get(match[1])

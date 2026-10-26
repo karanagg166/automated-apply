@@ -4,6 +4,7 @@ Short PostgreSQL row locks serialize the singleton owner's claims. A fencing tok
 invalidates stale workers. Preparation writes and progress share one transaction.
 """
 import hashlib
+import re
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
@@ -89,7 +90,7 @@ async def intake(session, settings, actor, message: Message, *, telegram_update_
         await stop_all(session)
     context = bounded_memory(memory, now)
     if understanding and (understanding.intent == "cancel" or
-                          (understanding.intent == "status" and "applications" not in message.text.casefold())):
+                          (understanding.intent == "status" and not re.search(r"\bapplications?\b", message.text, re.I))):
         target = (context.get("result_campaign") if understanding.intent == "status" and "search" in message.text.casefold()
                   else context.get("pending_campaign") or context.get("last_campaign"))
         if target:
