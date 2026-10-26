@@ -14,6 +14,8 @@ from backend.app.core.config import Settings
     ("Skip internships.", "filter"), ("Apply to the first three.", "apply"),
     ("Use Quick-Clinic as my main project.", "select_project"),
     ("What happened to yesterday's applications?", "status"),
+    ("What is missing from my application?", "status"),
+    ("Prepare the first application", "apply"),
     ("Cancel the pending campaign.", "cancel"), ("Stop", "cancel"), ("yes", "approve"),
 ])
 def test_natural_commands(text, intent):

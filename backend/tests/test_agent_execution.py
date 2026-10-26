@@ -99,6 +99,24 @@ async def test_readiness_example_followups_keep_real_ids_and_owner_gates(db_sess
 
 
 @pytest.mark.asyncio
+async def test_singular_preparation_and_missing_facts_need_no_cloud(db_session, fixture_jobs):
+    # An absent result list cannot select an unrelated saved application.
+    missing = await execute(db_session, "Prepare the first application")
+    assert missing.understanding.intent == "apply" and missing.tokens_used == 0
+    assert missing.plan.missing_information and not missing.applications
+    assert await db_session.scalar(select(func.count()).select_from(ApplicationPacket)) == 0
+    await execute(db_session, "Find backend jobs in India")
+    prepared = await execute(db_session, "Prepare the first application")
+    packet_id = prepared.applications[str(fixture_jobs.id)]["packet_id"]
+    assert prepared.tokens_used == 0 and packet_id
+    assert prepared.applications[str(fixture_jobs.id)]["submitted"] is False
+    status = await execute(db_session, "What is missing from my application?")
+    assert status.understanding.intent == "status" and status.tokens_used == 0
+    history = next(r for r in status.results if r["tool"] == "get_application_history")
+    assert any(r["packet_id"] == packet_id for r in history["applications"])
+
+
+@pytest.mark.asyncio
 async def test_compound_command_uses_ranked_ids(db_session, fixture_jobs):
     result = await execute(db_session, "Find 10 Python backend jobs in Indian startups with 2–10 employees, exclude jobs I've already applied to, rank them and prepare applications for the best five.")
     assert result.understanding.intent == "search", result.model_dump()
