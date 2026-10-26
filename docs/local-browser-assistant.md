@@ -31,7 +31,7 @@ at `/private/tmp/automated-apply-browser`. The original checkout and its staged
 
 ## Local setup
 
-Use Python 3.11+, Node 22+, pnpm 12.14.0, local Chrome, and a separately authorized database.
+Use Python 3.11+, Node 22+, pnpm 12.15.0, local Chrome, and a separately authorized database.
 The feature does not change the existing database safety checks or configure a
 production database. Develop and test using disposable PostgreSQL 17 as below.
 
@@ -40,7 +40,7 @@ backend/venv/bin/pip install -r backend/requirements-browser.txt
 pnpm --dir frontend install --frozen-lockfile
 ```
 
-The frontend pins pnpm 12.14.0 in `package.json` and commits only
+The frontend pins pnpm 12.15.0 in `package.json` and commits only
 `pnpm-lock.yaml`. Install that pnpm version using your local package manager or
 the [official standalone installer](https://pnpm.io/installation). Use pnpm for
 installation, scripts, browser tools and dependency audits. CI uses the same
