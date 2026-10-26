@@ -75,9 +75,9 @@ async def test_invented_facts_rejected(db_session, phase2_profile, phase2_settin
 async def test_length_limit_no_regeneration(db_session, phase2_profile, phase2_settings):
     fake = FakeProvider()
     result = await ApplicationAnswerService(db_session, phase2_settings, fake).generate(GenerateRequest(rewrite=True, question="Describe a project", max_characters=20))
-    assert result.status == "validation_failed" and result.error_code == "output_length_exceeded" and len(fake.calls) == 1
+    assert result.status == "validation_failed" and result.error_code == "output_constraints_unsatisfied" and not fake.calls
     result = await ApplicationAnswerService(db_session, phase2_settings, fake).generate(GenerateRequest(rewrite=True, question="Describe a project in 3 words"))
-    assert result.error_code == "output_length_exceeded"
+    assert result.error_code == "output_constraints_unsatisfied"
 
 
 @pytest.mark.asyncio

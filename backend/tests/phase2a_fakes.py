@@ -5,7 +5,7 @@ PROJECT = {
     "name": "Example Relay", "purpose": "A service for sharing task updates.",
     "contribution": "I implemented backend authentication using Python and FastAPI.",
     "implementation_details": "I used signed tokens to authenticate requests.",
-    "engineering_challenges": "Concurrent connections required consistent authentication.",
+    "engineering_challenges": "I faced a challenge: Concurrent connections required consistent authentication.",
     "solutions": "I checked authentication before accepting each connection.",
     "technologies": ["Python", "FastAPI"], "url": "https://github.com/example/relay",
 }

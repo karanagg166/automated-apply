@@ -130,7 +130,7 @@ class ApplicationAnswerService:
         safe = await LocalAnswerEngine().answer(request.question, context, instructions,
             route="approved_summary" if category == "short_text" else "narrative",
             low_memory=True)
-        if not request.rewrite:
+        if not request.rewrite or safe.content is None:
             result.source = safe.source
             result.missing_information = list(safe.missing_information)
             result.error_code = safe.error_code

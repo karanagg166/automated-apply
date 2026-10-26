@@ -70,3 +70,37 @@ async def test_packet_generation_keeps_deterministic_provenance(packet_service, 
     assert field.requires_review and field.review_status == "pending"
     assert not packet_service.builder.answers.answer_service.provider.calls
     assert field.provenance.provider is None and field.provenance.model is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("rewrite", [False, True])
+async def test_missing_facts_abstain_before_optional_cloud_rewrite(
+    db_session, phase2_profile, phase2_settings, rewrite
+):
+    fake = FakeProvider(error=AssertionError("Unknown facts cannot invoke a provider"))
+    result = await ApplicationAnswerService(db_session, phase2_settings, fake).generate(
+        GenerateRequest(question="Describe your project and how many users it has", rewrite=rewrite, save_draft=True))
+    assert result.status == "needs_input" and result.source == "needs_input"
+    assert result.answer is None and result.missing_information
+    assert not result.evidence_references and not result.draft_id and not fake.calls
+    assert not result.used_llm and result.provider is None and result.model is None
+    assert not (await db_session.scalars(select(LLMMonthlyUsage))).all()
+
+
+@pytest.mark.asyncio
+async def test_default_api_and_stale_review_protection(async_client, db_session, phase2_profile, phase2_auth):
+    response = await async_client.post("/api/v1/application-answers/generate", headers=phase2_auth,
+        json={"question": "Describe a project", "save_draft": True})
+    assert response.status_code == 200
+    value = response.json()
+    assert value["source"] == "deterministic_extractive" and value["requires_review"]
+    assert not value["used_llm"] and value["provider"] is None and value["model"] is None
+    assert value["evidence_references"] and value["draft_id"]
+    await db_session.commit()
+    changed = await async_client.patch("/api/v1/profile", headers={**phase2_auth, "If-Match": '"1"'},
+        json={"summary": "I built a fictional API."})
+    assert changed.status_code == 200
+    review = await async_client.patch(f"/api/v1/application-answers/drafts/{value['draft_id']}",
+        headers=phase2_auth, json={"review_status": "reviewed"})
+    assert review.status_code == 409
+    assert not (await db_session.scalars(select(LLMMonthlyUsage))).all()

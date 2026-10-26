@@ -23,7 +23,7 @@ class CommandFixture(BaseModel):
 
 def config(**changes):
     return Settings(_env_file=None, **{
-        "LLM_PROVIDER": "cohere", "COHERE_API_KEY": "fictional-evaluation-key",
+        "LLM_PROVIDER": "cohere", "COHERE_API_KEY": "fictional-evaluation-key",  # pragma: allowlist secret — fictional fixture only
         "COHERE_ENABLED": True, "COHERE_EVALUATION_KEY_CONFIRMED": True, **changes})
 
 

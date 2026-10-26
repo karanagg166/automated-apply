@@ -1,7 +1,7 @@
 # Allow only build inputs. Private env files, PDFs and browser artifacts stay outside.
 **
 !package.json
-!package-lock.json
+!pnpm-lock.yaml
 !next.config.ts
 !next-env.d.ts
 !postcss.config.mjs

@@ -39,7 +39,7 @@ async function loadPlaywright() {
     }
   }
   throw new Error(
-    "Unable to resolve @playwright/test in this standalone worktree. Run 'npm --prefix frontend ci' first.",
+    "Unable to resolve @playwright/test in this standalone worktree. Run 'pnpm -C frontend install --frozen-lockfile' first.",
   );
 }
 
