@@ -69,6 +69,11 @@ a failure rolls back the complete transaction. The profile version is preserved.
 No unselected fact becomes approved. Re-running a stale selection requires a new
 review rather than silently approving changed evidence.
 
+If the owner explicitly delegates evidence review, pass `--reviewer-ref` with the
+actual delegate identifier. Project approval and configuration audits retain that
+identifier; the option grants no authorization and preserves all selection gates.
+Do not use it to assert new personal facts or a review the owner did not perform.
+
 Document-only context uses the existing JSON record store under `document_project-*`.
 Older installed readers ignore that namespace; repository records retain their
 existing contracts. No migration or service restart is required to stage the report.

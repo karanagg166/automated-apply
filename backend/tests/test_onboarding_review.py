@@ -619,10 +619,13 @@ async def test_selected_review_replays_services_atomically_without_retyping(
     spec = importlib.util.spec_from_file_location("apply_review_fixture", script)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    await module.apply(tmp_path / "unused.env", *files)
+    reviewer = "delegated:fictional-owner-authorized-review"
+    await module.apply(tmp_path / "unused.env", *files, reviewer_ref=reviewer)
     live = CandidateContextService(SQLRecordStore(db_session))
     result = await live.project("project-employment")
     assert result.approved.fact_ids == (personal.id,)
+    assert result.approved.owner_ref == reviewer
+    assert result.audits[-1]["actor_ref"] == reviewer
     assert not any(f.id == unselected.id for f in result.approved.facts)
     resources = list((await db_session.scalars(select(CandidateResource))).all())
     assert (

@@ -15,7 +15,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 
-async def apply(env_file, plan_path, manifest_path, selection_path):
+async def apply(env_file, plan_path, manifest_path, selection_path, *, reviewer_ref="owner"):
+    # Attribution is independent of authorization. Delegated reviews retain every
+    # owner-selection gate and must identify the actual reviewer in project audits.
+    if not isinstance(reviewer_ref, str) or not reviewer_ref.strip() or len(reviewer_ref) > 120:
+        raise ValueError("reviewer_reference_required")
     import httpx
     from sqlalchemy import select
 
@@ -97,7 +101,7 @@ async def apply(env_file, plan_path, manifest_path, selection_path):
                 config = await service.save_configuration(
                     desired,
                     expected_revision=manifest["staging"]["configuration_revision"],
-                    owner_ref="owner",
+                    owner_ref=reviewer_ref,
                     source="owner_file",
                 )
             # Build every selected revision first. Any mismatch rolls back the
@@ -133,7 +137,7 @@ async def apply(env_file, plan_path, manifest_path, selection_path):
                     request["path"].split("/")[-2],
                     expected_revision=request["body"]["expected_revision"],
                     fact_ids=tuple(request["body"]["fact_ids"]),
-                    owner_ref="owner",
+                    owner_ref=reviewer_ref,
                     owner_confirmed=request["body"]["owner_confirmed"],
                 )
             for request in requests:
@@ -192,9 +196,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("env-file", "plan", "manifest", "selection"):
         parser.add_argument("--" + name, type=Path, required=True)
+    parser.add_argument("--reviewer-ref", default="owner", help="Actual explicitly authorized reviewer; does not grant approval")
     args = parser.parse_args()
     try:
-        asyncio.run(apply(args.env_file, args.plan, args.manifest, args.selection))
+        asyncio.run(apply(args.env_file, args.plan, args.manifest, args.selection, reviewer_ref=args.reviewer_ref))
     except Exception as exc:
         print(
             json.dumps(
