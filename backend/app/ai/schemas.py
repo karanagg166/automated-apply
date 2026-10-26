@@ -17,7 +17,7 @@ class Contract(BaseModel):
 
 
 class EvidenceReference(Contract):
-    source_type: Literal["verified_project", "verified_role", "candidate_evidence", "candidate_profile", "candidate_preferences", "opportunity_job", "opportunity_company"]
+    source_type: Literal["verified_project", "verified_role", "candidate_evidence", "candidate_profile", "candidate_preferences", "project_context", "opportunity_job", "opportunity_company"]
     source_id: str = Field(min_length=1, max_length=100)
 
 

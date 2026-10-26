@@ -62,8 +62,8 @@ def validate_key(key: str) -> None:
 class MemoryRecordStore:
     """Explicit fictional/test storage; never evidence of production persistence."""
 
-    def __init__(self):
-        self._values: dict[str, Record] = {}
+    def __init__(self, initial: dict[str, Record] | None = None):
+        self._values: dict[str, Record] = copy.deepcopy(initial or {})
         self._lock = asyncio.Lock()
 
     async def read(self, key: str) -> Record | None:

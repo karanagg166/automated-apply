@@ -23,6 +23,23 @@ def context_service(session, settings):
     )
 
 
+async def approved_answer_evidence(session, question, category):
+    """Keep legacy/offline answer flows independent of optional dashboard tables."""
+    if category not in {"project_explanation", "technical_experience"}:
+        return []
+    from sqlalchemy import inspect
+
+    from backend.app.dashboard.models import OwnerPreference
+
+    connection = await session.connection()
+    available = await connection.run_sync(lambda conn: inspect(conn).has_table(
+        OwnerPreference.__tablename__, schema=OwnerPreference.__table__.schema,
+    ))
+    if not available:
+        return []
+    return await CandidateContextService(SQLRecordStore(session)).answer_evidence(question, category)
+
+
 async def refresh_projects(service, authorized_repositories, root=CONTEXT_ROOT):
     """Existing approvals are invalidated by changed candidates, never copied forward."""
     configuration = await service.configuration()

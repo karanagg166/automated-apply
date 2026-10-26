@@ -30,7 +30,11 @@ from backend.app.candidate_context.projects import (
     compact,
     contexts,
 )
-from backend.app.candidate_context.repository import RepositoryReader, extract_project
+from backend.app.candidate_context.repository import (
+    RepositoryReader,
+    extract_document_project,
+    extract_project,
+)
 
 CONFIGURATION_KEY = "candidate_configuration_v1"
 
@@ -78,10 +82,12 @@ def audit(kind, before, after, owner_ref, now):
     }
 
 
-def project_key(project_id: str) -> str:
+def project_key(project_id: str, *, document: bool = False) -> str:
     if not re.fullmatch(r"project-[a-z0-9][a-z0-9-]{0,30}", project_id):
         raise ContextError("invalid_project_id")
-    return "candidate_" + project_id
+    # Older installed releases ignore document-only records and continue reading
+    # repository snapshots with their original, non-null commit contract.
+    return ("document_" if document else "candidate_") + project_id
 
 
 class CandidateContextService:
@@ -137,7 +143,9 @@ class CandidateContextService:
         return current
 
     async def project(self, project_id: str) -> ProjectKnowledge:
-        value = await self.records.read(project_key(project_id))
+        config = await self.configuration()
+        project = next((p for p in config.configuration.projects if p.id == project_id), None)
+        value = await self.records.read(project_key(project_id, document=bool(project and project.name and not project.repository_url)))
         return ProjectKnowledge.model_validate(value) if value else ProjectKnowledge()
 
     async def _save_project(
@@ -147,7 +155,7 @@ class CandidateContextService:
             {**previous.model_dump(), **changes, "revision": previous.revision + 1}
         )
         await self.records.compare_and_swap(
-            project_key(project_id), previous.revision, value.model_dump(mode="json")
+            project_key(project_id, document=bool(value.candidate and not value.candidate.configuration.repository_url)), previous.revision, value.model_dump(mode="json")
         )
         return value
 
@@ -157,6 +165,7 @@ class CandidateContextService:
         *,
         expected_configuration_revision: int,
         owner_facts: tuple[ProjectFact, ...] = (),
+        expected_project_revision: int | None = None,
     ) -> tuple[str, ProjectKnowledge]:
         config = await self.configuration()
         if config.revision != expected_configuration_revision:
@@ -164,13 +173,18 @@ class CandidateContextService:
         project = next(
             (p for p in config.configuration.projects if p.id == project_id), None
         )
-        if not project or not project.name or not project.repository_url:
+        if not project or not project.name or (not project.repository_url and not owner_facts):
             raise ContextError("project_name_and_repository_required")
-        if self.reader is None:
-            raise ContextError("authorized_repository_reader_required")
-        source = await self.reader.snapshot(project)
-        candidate = extract_project(project, source, owner_facts=owner_facts)
+        if project.repository_url:
+            if self.reader is None:
+                raise ContextError("authorized_repository_reader_required")
+            source = await self.reader.snapshot(project)
+            candidate = extract_project(project, source, owner_facts=owner_facts)
+        else:
+            candidate = extract_document_project(project, owner_facts)
         previous = await self.project(project_id)
+        if expected_project_revision is not None and previous.revision != expected_project_revision:
+            raise ContextError("project_changed_rebuild_and_review")
         # Revalidate setup after slow IO: never approve a snapshot against changed config.
         if (await self.configuration()).revision != config.revision:
             raise ContextError("configuration_changed_reload")
@@ -194,10 +208,10 @@ class CandidateContextService:
             ]
             unchanged = old_owner == new_owner
         if unchanged:
-            if previous.last_checked_commit == source.commit_sha:
+            if previous.last_checked_commit == candidate.commit_sha:
                 return "unchanged", previous
             return "unchanged", await self._save_project(
-                project_id, previous, last_checked_commit=source.commit_sha
+                project_id, previous, last_checked_commit=candidate.commit_sha
             )
         event = audit(
             "project_context_built", old, candidate, "static_extractor", self.clock()
@@ -208,7 +222,7 @@ class CandidateContextService:
             project_id,
             previous,
             candidate=candidate,
-            last_checked_commit=source.commit_sha,
+            last_checked_commit=candidate.commit_sha,
             built_at=aware(self.clock()).isoformat(),
             audits=(*previous.audits, event),
         )
@@ -223,7 +237,7 @@ class CandidateContextService:
         owner_ref: str,
         owner_confirmed: bool,
     ) -> ProjectApproval:
-        if not owner_confirmed or not owner_ref or len(owner_ref) > 120:
+        if owner_confirmed is not True or not owner_ref or len(owner_ref) > 120:
             raise ContextError("explicit_owner_review_required")
         previous = await self.project(project_id)
         candidate = previous.candidate
@@ -318,6 +332,28 @@ class CandidateContextService:
         projects = sorted(await self.approved_projects(), key=lambda pair: pair[1])
         if project_rank is not None:
             projects = projects[project_rank - 1 : project_rank]
+        configuration = (await self.configuration()).configuration
+        normalize = lambda text: re.sub(r"[^a-z0-9]", "", text.casefold())
+        named = {p.id for p in configuration.projects if p.name and normalize(p.name) in normalize(question)}
+        if named:
+            projects = [(a, priority) for a, priority in projects if a.project_id in named]
+        topic = None
+        if re.search(r"\b(?:bug|challeng\w*|failure)\b", question, re.I):
+            topic = "challenge"
+        elif re.search(r"\b(?:decision|tradeoff|trade-off)\b", question, re.I):
+            topic = "design_decision"
+        elif re.search(r"\bAPIs?\b", question, re.I):
+            topic = "api"
+        personal = topic in {"challenge", "design_decision"} or bool(re.search(r"\b(?:personally|contribut\w*|integrated|fixed|solved)\b", question, re.I))
+        if topic or personal:
+            projects = [
+                (approval.model_copy(update={"facts": tuple(
+                    f for f in approval.facts
+                    if (not topic or f.topic == topic) and (not personal or f.personal_claim)
+                )}), priority)
+                for approval, priority in projects
+            ]
+            projects = [(a, p) for a, p in projects if a.facts]
         terms = set(re.findall(r"[\w+#.]+", question.casefold())) - {
             "describe",
             "explain",
@@ -381,7 +417,7 @@ class CandidateContextService:
         valid_resume = [
             fact
             for fact in resume_facts
-            if fact.version_id == current_resume_version
+            if not named and fact.version_id == current_resume_version
             and fact.fact_generation == current_fact_generation
         ]
         valid_resume.sort(
@@ -413,6 +449,45 @@ class CandidateContextService:
             sources=tuple(sources),
             status="draft_requires_review",
         )
+
+    async def answer_evidence(self, question: str, category: str) -> list[dict]:
+        """Adapt current approvals for the existing personally grounded answer engine.
+
+        Repository observations alone never establish candidate experience. Preserve
+        the approval revision and selected fact IDs in each bounded source record.
+        """
+        if category not in {"project_explanation", "technical_experience"}:
+            return []
+        configuration = (await self.configuration()).configuration
+        normalize = lambda text: re.sub(r"[^a-z0-9]", "", text.casefold())
+        named = {p.id for p in configuration.projects if p.name and normalize(p.name) in normalize(question)}
+        evidence = []
+        for approval, priority in await self.approved_projects():
+            if named and approval.project_id not in named:
+                continue
+            personal = [f for f in approval.facts if f.personal_claim and f.approvable]
+            if not any(f.topic == "contribution" for f in personal):
+                continue
+            text = " ".join(f.text for f in personal)
+            if re.search(r"\b(?:challeng\w*|bug|failure)\b", question, re.I) and not any(f.topic == "challenge" for f in personal):
+                continue
+            if re.search(r"\b(?:decision|tradeoff|trade-off)\b", question, re.I) and not any(f.topic == "design_decision" for f in personal):
+                continue
+            if re.search(r"\bAPIs?\b", question, re.I) and not any(f.topic == "api" for f in personal):
+                continue
+            requested = [word for word in ("PostgreSQL", "Redis", "MongoDB", "FastAPI", "Python", "React") if re.search(r"\b" + word + r"\b", question, re.I)]
+            if any(word.casefold() not in text.casefold() for word in requested):
+                continue
+            evidence.append({
+                "reference": {"source_type": "project_context", "source_id": f"{approval.project_id}:{approval.revision}"},
+                "facts": {"name": next(p.name for p in configuration.projects if p.id == approval.project_id),
+                          "contribution": text, "fact_ids": [f.id for f in personal],
+                          "commit_sha": approval.commit_sha, "revision": approval.revision,
+                          "evidence": [r.model_dump(mode="json") for f in personal for r in f.evidence]},
+                "score": sum(t.casefold() in text.casefold() for t in question.split()) + 2,
+                "priority": priority,
+            })
+        return sorted(evidence, key=lambda e: (-e["score"], e["priority"]))[:6]
 
 
 class TelegramKnowledgeAdapter:

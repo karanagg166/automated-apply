@@ -54,7 +54,7 @@ class ApplicationQuestionClassifier:
             return QuestionClassification("startup_interest")
         if re.search(r"\b(why|motivat\w*)\b", q):
             return QuestionClassification("motivation")
-        if re.search(r"\b(technical|implemented|engineering|experience (?:with|using|in)|worked with|production issue)\b", q):
+        if re.search(r"\b(technical|implemented|engineering|apis?|integrated|bug|experience (?:with|using|in)|worked with|production issue)\b", q):
             return QuestionClassification("technical_experience")
         if re.search(r"\b(about yourself|introduce yourself|professional summary|short bio)\b", q):
             return QuestionClassification("short_text")
