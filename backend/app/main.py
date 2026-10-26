@@ -240,6 +240,10 @@ from backend.app.local_agent.router import router as local_agent_router
 
 app.include_router(local_agent_router)
 
+from backend.app.agent.router import router as agent_command_router
+
+app.include_router(agent_command_router)
+
 
 # Exactly one stateless Streamable HTTP endpoint; explicit native host/origin guard.
 mcp_app = mcp.http_app(path="/", transport="http", stateless_http=True, json_response=True,

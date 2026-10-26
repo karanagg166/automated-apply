@@ -52,6 +52,7 @@ class Understanding(StrictModel):
     positions: list[int] = Field(default_factory=list, max_length=10)
     project: str | None = Field(None, min_length=1, max_length=100)
     campaign_id: UUID | None = None
+    prepare_count: int = Field(0, ge=0, le=10)
     missing_information: list[str] = Field(default_factory=list, max_length=5)
 
     @model_validator(mode="after")
@@ -113,3 +114,14 @@ class Campaign(StrictModel):
     available_at: str | None = None
     created_at: str
     updated_at: str
+    message: str = Field(default="", max_length=2000)
+    actor: str = "owner:primary"
+    understanding: Understanding | None = None
+    planned: bool = False
+    selected_project: str | None = None
+    candidate_ids: list[UUID] = Field(default_factory=list, max_length=100)
+    ranked_jobs: list[dict] = Field(default_factory=list, max_length=10)
+    history: list[dict] = Field(default_factory=list, max_length=100)
+    diagnostic: str | None = None
+    reply: str = "Accepted; pending worker execution. Zero submissions were made."
+    telegram_update_id: int | None = None

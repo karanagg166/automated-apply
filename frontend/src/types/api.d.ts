@@ -808,6 +808,108 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/agent/commands": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Command */
+    post: operations["command_api_v1_agent_commands_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/agent/campaigns": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** History */
+    get: operations["history_api_v1_agent_campaigns_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/agent/campaigns/{campaign_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Status */
+    get: operations["status_api_v1_agent_campaigns__campaign_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/agent/campaigns/{campaign_id}/approve": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Approve */
+    post: operations["approve_api_v1_agent_campaigns__campaign_id__approve_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/agent/campaigns/{campaign_id}/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Cancel */
+    post: operations["cancel_api_v1_agent_campaigns__campaign_id__cancel_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/agent/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Provider Status */
+    get: operations["provider_status_api_v1_agent_status_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/candidate/resources": {
     parameters: {
       query?: never;
@@ -2136,6 +2238,25 @@ export interface components {
        */
       created_at: string;
     };
+    /** Approval */
+    Approval: {
+      /** Expected Revision */
+      expected_revision: number;
+      /**
+       * Nonce
+       * Format: uuid
+       */
+      nonce: string;
+      /**
+       * Scope
+       * @enum {string}
+       */
+      scope: "prepare" | "fill" | "submit";
+      /** Platforms */
+      platforms: string[];
+      /** Maximum Applications */
+      maximum_applications: number;
+    };
     /** ApproveResume */
     ApproveResume: {
       /**
@@ -2162,6 +2283,127 @@ export interface components {
       allow_skill_removals: boolean;
       /** Evidence */
       evidence?: components["schemas"]["EvidenceWrite"][];
+    };
+    /** Campaign */
+    Campaign: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Owner
+       * @default primary
+       * @constant
+       */
+      owner: "primary";
+      /**
+       * State
+       * @default created
+       * @enum {string}
+       */
+      state:
+        | "created"
+        | "planned"
+        | "awaiting_approval"
+        | "queued"
+        | "running"
+        | "completed"
+        | "partially_completed"
+        | "failed"
+        | "cancelled";
+      /**
+       * Revision
+       * @default 1
+       */
+      revision: number;
+      plan: components["schemas"]["Plan"];
+      /**
+       * Approval Nonce
+       * Format: uuid
+       */
+      approval_nonce?: string;
+      approval?: components["schemas"]["Approval"] | null;
+      /** Applications */
+      applications?: {
+        [key: string]: unknown;
+      };
+      /** Results */
+      results?: {
+        [key: string]: unknown;
+      }[];
+      /**
+       * Next Step
+       * @default 0
+       */
+      next_step: number;
+      /**
+       * Tool Calls
+       * @default 0
+       */
+      tool_calls: number;
+      /**
+       * Tokens Used
+       * @default 0
+       */
+      tokens_used: number;
+      /**
+       * Attempts
+       * @default 0
+       */
+      attempts: number;
+      /**
+       * Fence
+       * @default 0
+       */
+      fence: number;
+      /** Lease Until */
+      lease_until?: string | null;
+      /** Heartbeat At */
+      heartbeat_at?: string | null;
+      /** Available At */
+      available_at?: string | null;
+      /** Created At */
+      created_at: string;
+      /** Updated At */
+      updated_at: string;
+      /**
+       * Message
+       * @default
+       */
+      message: string;
+      /**
+       * Actor
+       * @default owner:primary
+       */
+      actor: string;
+      understanding?: components["schemas"]["Understanding"] | null;
+      /**
+       * Planned
+       * @default false
+       */
+      planned: boolean;
+      /** Selected Project */
+      selected_project?: string | null;
+      /** Candidate Ids */
+      candidate_ids?: string[];
+      /** Ranked Jobs */
+      ranked_jobs?: {
+        [key: string]: unknown;
+      }[];
+      /** History */
+      history?: {
+        [key: string]: unknown;
+      }[];
+      /** Diagnostic */
+      diagnostic?: string | null;
+      /**
+       * Reply
+       * @default Accepted; pending worker execution. Zero submissions were made.
+       */
+      reply: string;
+      /** Telegram Update Id */
+      telegram_update_id?: number | null;
     };
     /** CandidateConfiguration */
     CandidateConfiguration: {
@@ -2866,6 +3108,67 @@ export interface components {
       /** Current Verified */
       current_verified?: string[];
     };
+    /** Filters */
+    Filters: {
+      /** Role */
+      role?: string | null;
+      /** Location */
+      location?: string | null;
+      /** Skills */
+      skills?: string[];
+      /** Remote */
+      remote?: ("remote" | "hybrid" | "onsite" | "any") | null;
+      /**
+       * Startup
+       * @default false
+       */
+      startup: boolean;
+      /** Minimum Employees */
+      minimum_employees?: number | null;
+      /** Maximum Employees */
+      maximum_employees?: number | null;
+      /** Minimum Experience */
+      minimum_experience?: number | null;
+      /** Maximum Experience */
+      maximum_experience?: number | null;
+      /** Minimum Salary */
+      minimum_salary?: number | null;
+      /** Salary Currency */
+      salary_currency?: string | null;
+      /** Salary Period */
+      salary_period?: ("year" | "month" | "hour") | null;
+      /**
+       * Exclude Applied
+       * @default true
+       */
+      exclude_applied: boolean;
+      /**
+       * Exclude Internships
+       * @default false
+       */
+      exclude_internships: boolean;
+      /**
+       * Source
+       * @default cached
+       * @enum {string}
+       */
+      source:
+        | "cached"
+        | "greenhouse"
+        | "arbeitnow"
+        | "remotive"
+        | "hacker_news"
+        | "naukri"
+        | "wellfound"
+        | "instahyre"
+        | "work_at_a_startup"
+        | "internshala";
+      /**
+       * Limit
+       * @default 10
+       */
+      limit: number;
+    };
     /** GenerateRequest */
     GenerateRequest: {
       /** Question */
@@ -3238,6 +3541,16 @@ export interface components {
       idempotency_key: string;
       /** Expected Version */
       expected_version: number;
+    };
+    /** Message */
+    Message: {
+      /** Text */
+      text: string;
+      /**
+       * Request Id
+       * Format: uuid
+       */
+      request_id?: string;
     };
     /** NotificationPreferences */
     NotificationPreferences: {
@@ -3664,6 +3977,49 @@ export interface components {
       official_people?: components["schemas"]["OfficialPersonEvidence"][];
       /** Manual People */
       manual_people?: components["schemas"]["PublicPerson"][];
+    };
+    /** Plan */
+    Plan: {
+      /**
+       * Intent
+       * @enum {string}
+       */
+      intent:
+        | "search"
+        | "filter"
+        | "apply"
+        | "status"
+        | "cancel"
+        | "approve"
+        | "select_project"
+        | "clarify";
+      filters: components["schemas"]["Filters"];
+      /** Selected Jobs */
+      selected_jobs?: string[];
+      /** Actions */
+      actions?: components["schemas"]["ToolCall"][];
+      /**
+       * Max Steps
+       * @default 16
+       */
+      max_steps: number;
+      /**
+       * Max Tool Calls
+       * @default 16
+       */
+      max_tool_calls: number;
+      /**
+       * Max Tokens
+       * @default 4000
+       */
+      max_tokens: number;
+      /**
+       * Confirmation Required
+       * @default true
+       */
+      confirmation_required: boolean;
+      /** Missing Information */
+      missing_information?: string[];
     };
     /** PlatformCapability */
     PlatformCapability: {
@@ -4955,6 +5311,34 @@ export interface components {
       /** Output Tokens */
       output_tokens?: number | null;
     };
+    /** ToolCall */
+    ToolCall: {
+      /**
+       * Name
+       * @enum {string}
+       */
+      name:
+        | "search_jobs"
+        | "filter_jobs"
+        | "rank_jobs"
+        | "get_candidate_profile"
+        | "get_approved_project_context"
+        | "get_canonical_resume"
+        | "get_application_history"
+        | "prepare_application"
+        | "generate_grounded_answer"
+        | "preview_application"
+        | "fill_application"
+        | "submit_application"
+        | "get_campaign_status"
+        | "cancel_campaign"
+        | "find_founder_profiles"
+        | "create_outreach_draft";
+      /** Arguments */
+      arguments?: {
+        [key: string]: unknown;
+      };
+    };
     /** TrackingInput */
     TrackingInput: {
       /** Expected Revision */
@@ -4976,6 +5360,36 @@ export interface components {
         ("external_application_opened" | "withdrawn" | "abandoned") | null;
       /** Note */
       note?: string | null;
+    };
+    /** Understanding */
+    Understanding: {
+      /**
+       * Intent
+       * @enum {string}
+       */
+      intent:
+        | "search"
+        | "filter"
+        | "apply"
+        | "status"
+        | "cancel"
+        | "approve"
+        | "select_project"
+        | "clarify";
+      filters?: components["schemas"]["Filters"];
+      /** Positions */
+      positions?: number[];
+      /** Project */
+      project?: string | null;
+      /** Campaign Id */
+      campaign_id?: string | null;
+      /**
+       * Prepare Count
+       * @default 0
+       */
+      prepare_count: number;
+      /** Missing Information */
+      missing_information?: string[];
     };
     /** ValidationError */
     ValidationError: {
@@ -6735,6 +7149,176 @@ export interface operations {
     };
   };
   history_api_v1_local_agent_history_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  command_api_v1_agent_commands_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["Message"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Campaign"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  history_api_v1_agent_campaigns_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Campaign"][];
+        };
+      };
+    };
+  };
+  status_api_v1_agent_campaigns__campaign_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Campaign"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  approve_api_v1_agent_campaigns__campaign_id__approve_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["Approval"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Campaign"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  cancel_api_v1_agent_campaigns__campaign_id__cancel_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        campaign_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Campaign"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  provider_status_api_v1_agent_status_get: {
     parameters: {
       query?: never;
       header?: never;

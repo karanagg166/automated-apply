@@ -13,7 +13,7 @@ from backend.app.local_agent.contracts import Actor, Command
 from backend.app.local_agent.models import TelegramDelivery, TelegramState
 from backend.app.local_agent.service import dispatch
 
-HELP = '/start /help /ping /status /connections /jobs /reset /apply <https-url>. Ask naturally about jobs, application status, your resume or connections; choose a listed job number and add follow-up filters. Project answers need approved context. AI chat is unavailable unless a tested local model is enabled. Previews only; no submissions, email sends or paid calls.'
+HELP = '/start /help /ping /status /connections /jobs /reset /apply <https-url>. Ask naturally about jobs, application status, your resume or connections; choose a listed job number and add follow-up filters. Project answers need approved context. Job commands use a durable worker and approved candidate facts. Cloud understanding needs private evaluation-key consent. Local drafts only; no submissions or email sends.'
 
 
 @asynccontextmanager
@@ -141,6 +141,23 @@ async def reply_for(session, settings, message, update_id, bot_username):
                 return "Unauthorized message."
             text = message.get("text")
             if isinstance(text, str) and not text.lstrip().startswith("/"):
+                from backend.app.agent import store as command_store
+                from backend.app.agent.contracts import Message
+                from backend.app.agent.planner import deterministic
+                from backend.app.agent.tools import ToolDenied
+
+                # Existing profile/help/connection conversations retain their reviewed adapters.
+                # Job commands and AI-understood commands use the same queue as the dashboard.
+                from backend.app.local_agent.intents import deterministic_intent
+                if deterministic(text) is not None or (settings.COHERE_ENABLED and deterministic_intent(text).category == "UNKNOWN"):
+                    try:
+                        campaign = await command_store.intake(session, settings,
+                            Actor(channel="telegram", identity=str(settings.TELEGRAM_OWNER_USER_ID)),
+                            Message(text=text, request_id=uuid5(NAMESPACE_URL, f"telegram:{settings.TELEGRAM_OWNER_CHAT_ID}:{update_id}")),
+                            telegram_update_id=update_id)
+                        return f"Campaign {campaign.id}: {campaign.state}.\n{campaign.reply}"
+                    except ToolDenied:
+                        return "Command rejected: authorization, idempotency or campaign limit. No actions executed."
                 from backend.app.local_agent.intents import extract_intent
                 from backend.app.local_agent.local_classifier import LocalClassifier
                 classifier = LocalClassifier(settings) if settings.TELEGRAM_LOCAL_AI_ENABLED else None
@@ -175,7 +192,7 @@ async def reply_for(session, settings, message, update_id, bot_username):
                 rows = [row for row in rows if row["name"] in {"Supabase PostgreSQL", "Local FastAPI"}]
             return "\n".join(f"{row['name']}: {row['state']}" for row in rows)
     except Exception:
-        return "Command rejected or service unavailable. Use /help; only HTTPS URL previews are supported."
+        return "Command rejected or service unavailable. Use /help and check campaign history before retrying."
 
 
 async def process_update(session, settings, update, bot_username):
@@ -233,6 +250,8 @@ async def run_worker(settings, session_factory, api=None, stop=None):
                 state = await session.get(TelegramState, "primary")
                 state.last_poll_at, state.last_error = datetime.now(timezone.utc), None
                 await session.commit()
+            from backend.app.agent.executor import CommandExecutor
+            await CommandExecutor(session_factory, settings).run_once()
             # Mark attempted before network dispatch. Ambiguous interruption is never replayed.
             async with session_factory() as session:
                 delivery = await session.scalar(select(TelegramDelivery).where(TelegramDelivery.state == "pending").order_by(TelegramDelivery.update_id).with_for_update().limit(1))

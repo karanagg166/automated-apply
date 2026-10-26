@@ -31,6 +31,7 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui";
 const nav = [
   ["Overview", "/", LayoutDashboard],
+  ["Agent", "/agent", Command],
   ["Discover", "/discover", Compass],
   ["Startups", "/startups", Building2],
   ["Jobs", "/jobs", BriefcaseBusiness],

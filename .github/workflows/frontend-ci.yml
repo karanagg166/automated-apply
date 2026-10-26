@@ -3,7 +3,7 @@ on:
   push:
     branches: ['**']
   pull_request:
-    branches: [main]
+    branches: [main, feat/phase1-local-connections]
 permissions:
   contents: read
 jobs:
@@ -58,4 +58,5 @@ jobs:
             frontend/playwright-report/
             frontend/test-results/
             reports/phase7-*.png
+            reports/command-execution-dashboard.png
           retention-days: 7
