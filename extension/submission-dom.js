@@ -65,7 +65,7 @@ export async function submissionDOM(request) {
           'iframe,[data-sitekey],input[type=password],input[autocomplete="one-time-code"]',
         ) ||
         /agree|certif|attest|consent|criminal|disability|veteran|ethnicity|signature|background check/i.test(
-          form.textContent,
+          document.body.innerText,
         )
       )
         throw Error("changed_or_sensitive_form");

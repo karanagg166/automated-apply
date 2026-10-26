@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { verifySubmissionReview } from "./submission-review";
 test("dashboard command executes real fixture services, keeps followups, and cancels", async ({
   page,
   request,
@@ -88,4 +89,5 @@ test("dashboard command executes real fixture services, keeps followups, and can
   await expect(
     page.getByRole("heading", { name: "Chrome form plans" }),
   ).toBeVisible();
+  await verifySubmissionReview(page);
 });

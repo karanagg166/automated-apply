@@ -1,8 +1,6 @@
-import { test, expect } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
-test("exact submission review and uncertain receipt recovery controls", async ({
-  page,
-}) => {
+export async function verifySubmissionReview(page: Page) {
   const id = "11111111-1111-4111-8111-111111111111";
   let record = {
     application_id: id,
@@ -61,12 +59,6 @@ test("exact submission review and uncertain receipt recovery controls", async ({
       };
     return route.fulfill({ json: record });
   });
-  await page.goto("/login");
-  await page
-    .getByLabel("Owner passphrase")
-    .fill("fictional-ui-owner-passphrase");
-  await page.getByRole("button", { name: "Enter workspace" }).click();
-  await expect(page).toHaveURL("/");
   await page.goto("/agent");
   const review = page.getByRole("region", { name: "Submission review" });
   await expect(review.getByText(`Selected application: ${id}`)).toBeVisible();
@@ -97,4 +89,4 @@ test("exact submission review and uncertain receipt recovery controls", async ({
   ).toBeVisible();
   await expect(review.getByText(/fixture-receipt-2/)).toBeVisible();
   expect(actions).toEqual(["approve", "execute", "reconcile"]);
-});
+}
