@@ -96,8 +96,8 @@ export function Agent() {
       <BrowserPlans />
       <SubmissionReview />
       <Notice>
-        Submissions are disabled. No emails are sent. Application drafts need
-        your review.
+        Live employer submission is disabled. Fixture submissions require exact
+        approval in Submission review. No emails are sent.
       </Notice>
       <section
         className="panel panel-body stack"
