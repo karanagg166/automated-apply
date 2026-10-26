@@ -575,6 +575,7 @@ async function main() {
     const appPage = context.pages()[0] || (await context.newPage());
     const popupPage = await context.newPage();
     await popupPage.goto(`chrome-extension://${EXPECTED_ID}/popup.html`);
+    await popupPage.getByText("Connection and URL preview", { exact: true }).click();
 
     const runPreviewOnPage = async (url) => {
       if (url) await appPage.goto(url, { waitUntil: "domcontentloaded" });
@@ -595,7 +596,7 @@ async function main() {
     assert.equal(ordinaryRes.data.platform, "employer_forms");
     assert.equal(ordinaryRes.data.submitted, false);
     assert.equal(ordinaryRes.data.page_inspected, false);
-    await expect(popupPage.locator("#status")).toContainText("Local agent returned a preview. No application submitted.");
+    await expect(popupPage.locator("#status")).toContainText("URL preview saved. Use Prepare answers to answer the form. No application submitted.");
     report.cases_passed.push("5_ordinary_https_page_preview");
 
     // CASE 6 & 23: Non-sensitive Google Forms preview & No unauthorized form submission
@@ -718,6 +719,7 @@ async function main() {
     // Verify context menu item is live in Chrome's registry and dispatch context-menu preview for linkUrl
     await worker.evaluate(async () => {
       await chrome.contextMenus.update("automated-apply-preview", { enabled: true });
+      await chrome.contextMenus.update("automated-apply-answer-fields", { enabled: true });
     });
     const menuRes = await popupPage.evaluate(async () => {
       const mod = await import(chrome.runtime.getURL("preview.js"));
@@ -748,6 +750,7 @@ async function main() {
     await cdp.send("ServiceWorker.enable");
     await cdp.send("ServiceWorker.stopAllWorkers");
     await popupPage.reload();
+    await popupPage.getByText("Connection and URL preview", { exact: true }).click();
     await popupPage.locator("#repair").click();
     await expect(popupPage.locator("#menu-status")).toContainText("Right-click menu registered for HTTPS pages.");
     worker =
@@ -782,7 +785,7 @@ async function main() {
 
     const recoveredPreview = await runPreviewOnPage("https://example.org/while-backend-offline");
     assert.equal(recoveredPreview.ok, true);
-    await expect(popupPage.locator("#status")).toContainText("Local agent returned a preview. No application submitted.");
+    await expect(popupPage.locator("#status")).toContainText("URL preview saved. Use Prepare answers to answer the form. No application submitted.");
     report.cases_passed.push("14_backend_recovery");
 
     // CASE 15: Slow API responses (1.2s delayed proxy -> coalesced concurrent calls + clean completion)
