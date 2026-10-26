@@ -78,22 +78,22 @@ In a clean standalone worktree (`feat/phase1-agy-extension`), install the docume
 ```sh
 python3 -m venv .venv
 .venv/bin/pip install -r backend/requirements.txt
-npm ci --prefix frontend
-npx --prefix frontend playwright install chromium
+pnpm -C frontend install --frozen-lockfile
+pnpm -C frontend exec playwright install chromium
 ```
 
-### 3.2 Fast Unit & Native Protocol Tests (`npm test`)
+### 3.2 Fast Unit & Native Protocol Tests (`pnpm test`)
 Command:
 ```sh
-cd extension && npm run build && npm test
+cd extension && pnpm build && pnpm test
 ```
 - **Total Tests**: `27 passed, 0 failed` (`observation.test.mjs`, `preview.test.mjs`, `ui.test.mjs`, `native-protocol.test.mjs`)
 - Includes direct stdio binary framing tests against `backend.app.local_agent.native_host` verifying mode-`0600` configuration enforcement, wrong-origin rejection, zero-length and `> 16,384`-byte frame rejection, malformed JSON rejection, truncated-frame rejection, capability allowlist enforcement, refused-loopback `backend_offline` handling, and fail-closed disposable database URL/environment verification (`assertDisposableLocalDatabaseUrl` and `buildSanitizedChildEnv`).
 
-### 3.3 Real Chrome for Testing 23-Case E2E Suite (`npm run test:chrome`)
+### 3.3 Real Chrome for Testing 23-Case E2E Suite (`pnpm test:chrome`)
 Command:
 ```sh
-cd extension && npm run test:chrome
+cd extension && pnpm test:chrome
 ```
 - **Browser**: Chrome for Testing `156.0.8078.4` (single isolated profile, headless Chromium with unpacked MV3 extension loaded from `extension/dist` and `relocated-extension`)
 - **Backend & Database Isolation**:
