@@ -146,6 +146,8 @@ class PacketBuilder:
                 "Job description is missing; role-specific narrative generation may require input"
             )
         # Include material values rather than only the profile version (also catches raw edits).
+        from backend.app.knowledge.opportunity import reviewed_context
+
         context_hash = digest(
             {
                 "profile": saved_candidate.model_dump(mode="json")
@@ -176,6 +178,10 @@ class PacketBuilder:
                     ]
                 },
                 "closed": job.status == "archived",
+                "reviewed_opportunity": (job.discovery_metadata or {}).get(
+                    "application_opportunity"
+                ),
+                "opportunity_evidence_current": bool(reviewed_context(job, company)),
                 "company": [company.name, company.domain, company.metadata_]
                 if company
                 else None,
@@ -218,6 +224,10 @@ class PacketBuilder:
         return job, profile, snapshot
 
     async def preview(self, job_id, request):
+        if any(question.field_type == "multi_select" for question in request.questions):
+            from backend.app.services.applications.multi_select import require_available
+
+            await require_available(self.session)
         job, profile, snapshot = await self.context(job_id, request.resume_resource_id)
         fields = []
         for i, question in enumerate([*core_questions(), *request.questions]):

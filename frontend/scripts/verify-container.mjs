@@ -70,10 +70,10 @@ try {
     container,
     "node",
     "-e",
-    "if (process.getuid() === 0) process.exit(1)",
+    "const fs = require('node:fs'); if (process.getuid() === 0 || ['/usr/local/bin/npm', '/usr/local/bin/npx', '/usr/local/lib/node_modules/npm'].some(p => fs.existsSync(p))) process.exit(1)",
   );
   console.log(
-    "Standalone container: login, anonymous/origin rejection, HttpOnly cookie, missing-backend fail-closed and non-root runtime PASS",
+    "Standalone container: login, anonymous/origin rejection, HttpOnly cookie, missing-backend fail-closed and non-root runtime without the legacy installer PASS",
   );
 } finally {
   docker("rm", "-f", container);

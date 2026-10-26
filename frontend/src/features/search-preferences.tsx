@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type Schema } from "@/lib/api";
 import { Button, ErrorState, Input, Select } from "@/components/ui";
-type Preferences = Schema<"SearchPreferences">;
+type Preferences = Schema<"SearchPreferences-Output">;
 
 export function SearchPreferencesEditor() {
   const client = useQueryClient();

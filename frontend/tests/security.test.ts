@@ -219,3 +219,60 @@ it("allows only the exact candidate-context review operations", () => {
     ),
   ).toBe(false);
 });
+
+it("allows only the exact owner-mediated company source operation", () => {
+  const route =
+    "browser-applications/11111111-1111-4111-8111-111111111111/company-source-preview";
+  expect(permittedRoute(route, "POST")).toBe(true);
+  expect(permittedRoute(route, "GET")).toBe(false);
+  expect(permittedRoute(route + "/fetch", "POST")).toBe(false);
+});
+
+it("allows only the authenticated read path for browser operation status", () => {
+  const path =
+    "browser-applications/11111111-1111-4111-8111-111111111111/operation";
+  expect(permittedRoute(path, "GET")).toBe(true);
+  expect(permittedRoute(path, "POST")).toBe(false);
+  expect(permittedRoute(path + "/execute", "GET")).toBe(false);
+});
+
+it("limits answer reuse routes to saved drafts and explicit approval operations", () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  expect(permittedRoute("application-answers/drafts", "GET")).toBe(true);
+  expect(
+    permittedRoute(`application-answers/drafts/${id}/approve-reuse`, "POST"),
+  ).toBe(true);
+  expect(
+    permittedRoute(`application-answers/drafts/${id}/approve-reuse`, "GET"),
+  ).toBe(false);
+  expect(
+    permittedRoute(`application-answers/drafts/${id}/execute`, "POST"),
+  ).toBe(false);
+  expect(permittedRoute("application-answers/generate", "POST")).toBe(false);
+});
+
+it("browser gateway exposes only authenticated application operations", () => {
+  expect(permittedRoute("browser-applications/policy", "GET")).toBe(true);
+  expect(permittedRoute("browser-applications/policy", "POST")).toBe(false);
+  const id = "11111111-1111-4111-8111-111111111111";
+  expect(permittedRoute("browser-applications", "POST")).toBe(true);
+  expect(permittedRoute(`browser-applications/${id}/open`, "POST")).toBe(true);
+  expect(permittedRoute(`browser-applications/${id}/actions`, "POST")).toBe(
+    true,
+  );
+  expect(permittedRoute(`browser-applications/${id}`, "GET")).toBe(true);
+  for (const operation of ["page-preview", "resume-page"]) {
+    expect(
+      permittedRoute(`browser-applications/${id}/${operation}`, "POST"),
+    ).toBe(true);
+    expect(
+      permittedRoute(`browser-applications/${id}/${operation}`, "GET"),
+    ).toBe(false);
+  }
+  for (const path of ["cookies", "tabs", "evaluate", "filesystem"]) {
+    expect(permittedRoute(`browser-applications/${id}/${path}`, "POST")).toBe(
+      false,
+    );
+  }
+  expect(permittedRoute(`browser-applications/${id}/open`, "GET")).toBe(false);
+});

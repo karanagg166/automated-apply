@@ -1,11 +1,13 @@
-"""Backend-issued, single-application grants. Never accepted from a model."""
+"""Integrated owner-reviewed browser workflows with separate route and approval boundaries."""
 
 from typing import Literal
 from uuid import UUID, uuid4
 
-from pydantic import Field
+from pydantic import Field, SecretStr, StrictBool
 
+from backend.app.ai.schemas import Contract as AssistantContract
 from backend.app.browser.contracts import Contract
+from backend.app.schemas.applications import IdempotencyKey, RevisionInput
 
 SubmissionState = Literal[
     "prepared",
@@ -81,3 +83,37 @@ class Submission(Contract):
     reason: str | None = None
     revision: int = 0
     command_campaign_ids: list[UUID] = Field(default_factory=list, max_length=20)
+
+
+class SubmissionPreviewRequest(RevisionInput):
+    confirm_page_context: StrictBool
+
+
+class SubmissionAuthorization(RevisionInput):
+    preview_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+    confirm_exact_application: StrictBool
+    reviewed_consent_ids: list[str] = Field(default_factory=list, max_length=100)
+
+
+class SubmitApproved(RevisionInput):
+    grant_id: UUID
+    grant_token: SecretStr
+    idempotency_key: IdempotencyKey
+
+
+class MockReceipt(AssistantContract):
+    status: Literal["accepted"]
+    attempt_id: UUID
+    payload_digest: str = Field(pattern=r"^[a-f0-9]{64}$")
+    receipt_reference: str = Field(pattern=r"^MOCK-[a-f0-9]{32}$")
+    fixture: Literal["automated-apply-employer-v1"]
+
+
+class MockNarrativeReceipt(MockReceipt):
+    fixture: Literal["automated-apply-employer-v2"]
+
+
+class ConsentAction(RevisionInput):
+    field_id: UUID
+    checked: StrictBool
+    confirm_page_context: StrictBool

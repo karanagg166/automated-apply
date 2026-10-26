@@ -43,7 +43,7 @@ class ChatResult:
 class CohereProvider:
     def __init__(self, settings, client=None):
         self.settings, self.client = settings, client
-        if not settings.COHERE_API_KEY:
+        if not settings.COHERE_API_KEY or not settings.COHERE_MODEL:
             raise ProviderError("llm_not_configured")
         if not settings.COHERE_ENABLED or not settings.COHERE_EVALUATION_KEY_CONFIRMED:
             raise ProviderError("cohere_evaluation_authorization_required")

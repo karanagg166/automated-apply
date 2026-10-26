@@ -34,6 +34,42 @@ def test_unique_confirmed_primary():
     assert result.upload_status == "manual_resume_upload_required"
 
 
+def test_private_resume_snapshot_retains_exact_reference_for_postgres_guard():
+    resume_id = str(uuid4())
+    item = resource(source_type="private_upload", url="private-resume:" + resume_id)
+    selected = select_resume([item]).selected
+    assert selected.url == item.url
+    assert selected.download_path == "/api/backend/dashboard/resumes/" + resume_id
+
+
+@pytest.mark.parametrize("reference,source", [
+    ("private-resume:not-a-uuid", "private_upload"),
+    ("private-resume:" + str(uuid4()) + "/../../settings", "private_upload"),
+    ("private-resume:" + str(uuid4()), "manual"),
+])
+def test_private_resume_rejects_invalid_or_untrusted_references(reference, source):
+    assert select_resume([resource(url=reference, source_type=source)]).selected is None
+
+
+@pytest.mark.asyncio
+async def test_private_reference_is_not_an_external_resume_url_answer(
+    packet_service, application_target, db_session
+):
+    from backend.app.schemas.applications import QuestionInput
+
+    job, resume = application_target
+    resume.url = "private-resume:" + str(uuid4())
+    resume.source_type = "private_upload"
+    await db_session.commit()
+    packet = await create(
+        packet_service, job,
+        questions=[QuestionInput(question="Resume URL?", field_type="url")],
+    )
+    assert packet.snapshot.resume.selected.url == resume.url
+    assert packet.fields[-1].effective_answer is None
+    assert packet.fields[-1].validation_status == "validation_failed"
+
+
 @pytest.mark.parametrize(
     "resources",
     [

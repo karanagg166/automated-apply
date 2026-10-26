@@ -1,6 +1,7 @@
 """Bounded, user-supplied career facts and separately stored search preferences."""
 
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from typing import Annotated, Literal
 from uuid import UUID
 
@@ -10,6 +11,7 @@ from pydantic import (
     EmailStr,
     Field,
     HttpUrl,
+    StrictBool,
     StringConstraints,
     create_model,
     field_validator,
@@ -124,7 +126,36 @@ class Certification(ProfileSchema):
     credential_url: WebURL | None = None
 
 
+class CompensationFact(ProfileSchema):
+    amount: Decimal = Field(
+        ge=0,
+        le=Decimal("1000000000000"),
+        max_digits=15,
+        decimal_places=2,
+        allow_inf_nan=False,
+    )
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    period: Literal["hour", "month", "year"]
+    kind: Literal["ctc", "base_salary", "total_compensation"]
+
+
+class CountryAuthorization(ProfileSchema):
+    country_code: str = Field(pattern=r"^[A-Z]{2}$")
+    country_name: ShortText
+    authorized_to_work: StrictBool
+    requires_sponsorship_now_or_future: StrictBool | None = None
+
+
 class JobSearchPreferences(ProfileSchema):
+    current_compensation: CompensationFact | None = None
+    expected_compensation: CompensationFact | None = None
+    availability_date: date | None = None
+    current_location: ShortText | None = None
+    open_to_relocation: StrictBool | None = None
+    relocation_locations: StringList = Field(default_factory=list)
+    work_authorizations: list[CountryAuthorization] = Field(
+        default_factory=list, max_length=20
+    )
     target_titles: StringList = Field(default_factory=list)
     technology_stacks: StringList = Field(default_factory=list)
     preferred_locations: StringList = Field(default_factory=list)
@@ -147,6 +178,13 @@ class JobSearchPreferences(ProfileSchema):
     excluded_companies: StringList = Field(default_factory=list)
     excluded_keywords: StringList = Field(default_factory=list)
     prioritize_startups: bool | None = None
+
+    @model_validator(mode="after")
+    def unique_authorization_countries(self):
+        codes = [row.country_code for row in self.work_authorizations]
+        if len(codes) != len(set(codes)):
+            raise ValueError("Work authorization countries must be unique")
+        return self
 
 
 class CandidateProfileCreate(ProfileSchema):

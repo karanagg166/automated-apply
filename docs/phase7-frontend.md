@@ -73,4 +73,4 @@ All images below show the actual frontend and FastAPI with **fictional test fixt
 - [Owner link review](screenshots/phase7/phase7-onboarding.png)
 - [Application review and manual handoff](screenshots/phase7/phase7-application-review.png)
 
-Verified locally: 1,048 backend tests (zero failures/skips, including disposable PostgreSQL), 26 frontend unit/component/security tests, five Playwright journeys, zero axe violations in light/dark startup views, type checking, production build, Ruff, Bandit, npm audit, secret checks and non-root Docker build/import plus Linux PDF-worker verification. CI must additionally pass on the PR head.
+Verified locally: 1,048 backend tests (zero failures/skips, including disposable PostgreSQL), 26 frontend unit/component/security tests, five Playwright journeys, zero axe violations in light/dark startup views, type checking, production build, Ruff, Bandit, dependency audit, secret checks and non-root Docker build/import plus Linux PDF-worker verification. CI must additionally pass on the PR head.

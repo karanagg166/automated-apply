@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -27,6 +27,7 @@ import {
   Select,
   Skeleton,
 } from "@/components/ui";
+import { BrowserAssistant, BrowserIntake } from "@/features/browser-assistant";
 type Packet = Schema<"PacketRead">;
 export function pipelineColumn(
   packet: Pick<Packet, "tracking_state" | "lifecycle_state">,
@@ -42,6 +43,8 @@ export function pipelineColumn(
     {
       created: "Preparing",
       preparing: "Preparing",
+      submitting: "Submitting",
+      submission_unknown: "Submission Unknown",
       needs_input: "Preparing",
       ready_for_review: "Ready for Review",
       reviewed: "Ready for Review",
@@ -68,6 +71,8 @@ export function Applications() {
   const columns = [
     "Preparing",
     "Ready for Review",
+    "Submitting",
+    "Submission Unknown",
     "Approved / Manual Handoff",
     "Applied — User Reported",
     "Applied — Provider Confirmed",
@@ -105,6 +110,7 @@ export function Applications() {
           </div>
         }
       />
+      <BrowserIntake />
       {query.isPending ? (
         <Skeleton />
       ) : query.isError ? (
@@ -224,11 +230,13 @@ function AnswerField({
   field,
   packet,
   onReviewed,
+  onDirty,
   checked,
 }: {
   field: Schema<"PacketField">;
   packet: Packet;
   onReviewed: (checked: boolean) => void;
+  onDirty: (id: string, dirty: boolean) => void;
   checked: boolean;
 }) {
   const client = useQueryClient(),
@@ -238,6 +246,9 @@ function AnswerField({
     () => setAnswer(field.effective_answer || ""),
     [field.effective_answer],
   );
+  const dirty = answer !== (field.effective_answer || "");
+  useEffect(() => onDirty(field.id, dirty), [field.id, dirty, onDirty]);
+  useEffect(() => () => onDirty(field.id, false), [field.id, onDirty]);
   const edit = useMutation({
     mutationFn: () =>
       patch(`application-packets/${packet.id}/questions/${field.id}`, {
@@ -251,6 +262,7 @@ function AnswerField({
     mutationFn: () =>
       post(`application-packets/${packet.id}/questions/${field.id}/generate`, {
         expected_revision: packet.revision,
+        rewrite: true,
       }),
     onSuccess: () =>
       client.invalidateQueries({ queryKey: ["packet", packet.id] }),
@@ -258,7 +270,22 @@ function AnswerField({
   const terminal = [
     "user_reported_submitted",
     "provider_confirmed_submitted",
+    "submitting",
+    "submission_unknown",
   ].includes(packet.lifecycle_state);
+  let selectedOptions: string[] = [];
+  if (field.field_type === "multi_select") {
+    try {
+      const value = JSON.parse(answer || "[]");
+      if (
+        Array.isArray(value) &&
+        value.every((item) => typeof item === "string")
+      )
+        selectedOptions = value;
+    } catch {
+      selectedOptions = [];
+    }
+  }
   return (
     <div className="evidence-item">
       <div className="split">
@@ -277,11 +304,51 @@ function AnswerField({
         {readable(field.provenance?.source)} · {field.max_characters} characters
         maximum
       </p>
+      {!!field.options?.length && (
+        <p>
+          {field.field_type === "multi_select"
+            ? "Available options"
+            : "Choose one exact option"}
+          : {field.options.join(" · ")}
+        </p>
+      )}
       {field.field_type === "file" ? (
         <Notice>
           Download the selected private resume and upload the actual file on the
           official website during manual handoff.
         </Notice>
+      ) : field.field_type === "multi_select" ? (
+        <fieldset>
+          <legend>Review multiple selections</legend>
+          <p>
+            Review every selected and unselected option. Proposals use confirmed
+            facts; other options remain unknown. Filling replaces existing
+            selections on the website.
+          </p>
+          {(field.options || []).map((option) => (
+            <label className="check-label" key={option}>
+              <input
+                type="checkbox"
+                disabled={terminal}
+                checked={selectedOptions.includes(option)}
+                onChange={(event) => {
+                  const chosen = new Set(selectedOptions);
+                  if (event.target.checked) chosen.add(option);
+                  else chosen.delete(option);
+                  setAnswer(
+                    JSON.stringify(
+                      (field.options || []).filter((item) => chosen.has(item)),
+                    ),
+                  );
+                }}
+              />{" "}
+              {option}
+            </label>
+          ))}
+          <Button disabled={terminal} onClick={() => setAnswer("[]")}>
+            Clear selections
+          </Button>
+        </fieldset>
       ) : (
         <Field label="Reviewable answer">
           <textarea
@@ -296,6 +363,11 @@ function AnswerField({
       {(field.missing_information || []).map((m) => (
         <p key={m}>{m}</p>
       ))}
+      {dirty && (
+        <Notice>
+          Save answer changes before reviewing or filling this application.
+        </Notice>
+      )}
       <div className="actions spaced">
         {field.field_type !== "file" && (
           <>
@@ -324,25 +396,26 @@ function AnswerField({
               <Clipboard size={12} />
               {copied ? "Copied" : "Copy answer"}
             </Button>
-            {["project_explanation", "motivation", "free_text"].includes(
-              field.category,
-            ) && (
-              <Button
-                busy={generate.isPending}
-                disabled={terminal}
-                onClick={() => generate.mutate()}
-              >
-                Generate with configured AI
-              </Button>
-            )}
+            {field.field_type !== "multi_select" &&
+              ["project_explanation", "motivation", "free_text"].includes(
+                field.category,
+              ) && (
+                <Button
+                  busy={generate.isPending}
+                  disabled={terminal}
+                  onClick={() => generate.mutate()}
+                >
+                  Generate with configured AI
+                </Button>
+              )}
           </>
         )}
         {field.validation_status === "draft_ready" && (
           <label className="check-label">
             <input
               type="checkbox"
-              disabled={terminal}
-              checked={checked}
+              disabled={terminal || dirty}
+              checked={checked && !dirty}
               onChange={(e) => onReviewed(e.target.checked)}
             />
             I reviewed this exact answer
@@ -355,6 +428,16 @@ function AnswerField({
   );
 }
 export function ApplicationDetail({ id }: { id: string }) {
+  const [dirtyFields, setDirtyFields] = useState<string[]>([]);
+  const onDirty = useCallback((fieldId: string, dirty: boolean) => {
+    setDirtyFields((current) =>
+      current.includes(fieldId) === dirty
+        ? current
+        : dirty
+          ? [...current, fieldId]
+          : current.filter((value) => value !== fieldId),
+    );
+  }, []);
   const client = useQueryClient(),
     [reviewed, setReviewed] = useState<string[]>([]),
     [resumeConfirmed, setResumeConfirmed] = useState(false),
@@ -470,6 +553,8 @@ export function ApplicationDetail({ id }: { id: string }) {
   const terminal = [
     "user_reported_submitted",
     "provider_confirmed_submitted",
+    "submitting",
+    "submission_unknown",
   ].includes(p.lifecycle_state);
   return (
     <>
@@ -489,6 +574,7 @@ export function ApplicationDetail({ id }: { id: string }) {
           }
         />
       </div>
+      <BrowserAssistant packet={p} hasUnsavedAnswers={dirtyFields.length > 0} />
       {notice && <Notice>{notice}</Notice>}
       <div className="detail-grid">
         <section className="panel">
@@ -517,6 +603,7 @@ export function ApplicationDetail({ id }: { id: string }) {
                       : r.filter((x) => x !== field.id),
                   )
                 }
+                onDirty={onDirty}
               />
             ))}
             {!terminal && (
@@ -577,11 +664,12 @@ export function ApplicationDetail({ id }: { id: string }) {
                 Download selected private resume
               </a>
             )}
-            {p.snapshot.resume.selected?.url && (
-              <External href={p.snapshot.resume.selected.url}>
-                Review selected resume
-              </External>
-            )}
+            {p.snapshot.resume.selected?.url &&
+              !p.snapshot.resume.selected.download_path && (
+                <External href={p.snapshot.resume.selected.url}>
+                  Review selected resume
+                </External>
+              )}
             <div className="stack spaced">
               <label className="check-label">
                 <input
@@ -606,7 +694,7 @@ export function ApplicationDetail({ id }: { id: string }) {
               </label>
               <div className="actions">
                 <Button
-                  disabled={terminal}
+                  disabled={terminal || dirtyFields.length > 0}
                   busy={review.isPending}
                   onClick={() => review.mutate("review")}
                 >
@@ -616,7 +704,10 @@ export function ApplicationDetail({ id }: { id: string }) {
                 <Button
                   variant="primary"
                   disabled={
-                    terminal || !resumeConfirmed || !destinationConfirmed
+                    terminal ||
+                    dirtyFields.length > 0 ||
+                    !resumeConfirmed ||
+                    !destinationConfirmed
                   }
                   busy={review.isPending}
                   onClick={() => review.mutate("approve")}

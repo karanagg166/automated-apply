@@ -106,6 +106,37 @@ async def verify(url):
                 execution = await runtime.fetchval("INSERT INTO job_agent.automation_executions(request_key,source,trigger_type,schedule_version,configuration) VALUES ('fictional_runtime','arbeitnow','manual',2,'{}') RETURNING id")
                 await runtime.execute("UPDATE job_agent.automation_executions SET state='claimed',fence=1 WHERE id=$1", execution)
                 assert await runtime.fetchval("SELECT fence FROM job_agent.automation_executions WHERE id=$1", execution) == 1
+            # A private upload must satisfy the unchanged migration-008 guard
+            # under the restricted role, not just SQLite's application checks.
+            from sqlalchemy.ext.asyncio import async_sessionmaker
+
+            from backend.app.repositories.candidate_profile import (
+                CandidateProfileRepository,
+            )
+            from backend.app.schemas.candidate_profile import CandidateProfileCreate
+            from backend.app.services.applications.review import ApplicationReview
+            from backend.app.services.applications.service import (
+                ApplicationPacketService,
+            )
+            from backend.tests.phase5a_fakes import approve, create, target
+
+            factory = async_sessionmaker(engine, expire_on_commit=False)
+            async with factory() as session:
+                profile = await CandidateProfileRepository(session).create_primary_profile(
+                    CandidateProfileCreate(full_name="Alex Fictional", email="alex@example.org", verified_skills=["Python"])
+                )
+                await session.commit()
+                job, resume = await target(session, profile)
+                reference = "private-resume:" + str(uuid.uuid4())
+                resume.url, resume.source_type = reference, "private_upload"
+                await session.commit()
+                service = ApplicationPacketService(session)
+                packet = await approve(service, await create(service, job))
+                handoff = await ApplicationReview(service).handoff(packet.id)
+                assert handoff.resume.selected.url == reference
+                assert handoff.resume.selected.download_path
+                assert not handoff.submitted
+                await session.commit()
             for sql in ["SELECT * FROM public.phase9_other_app", "DELETE FROM job_agent.companies",
                         "TRUNCATE job_agent.companies", "CREATE TABLE job_agent.forbidden(id int)",
                         "SET ROLE job_agent_owner", "UPDATE job_agent.application_events SET event_type='bad'"]:
@@ -165,7 +196,7 @@ async def verify(url):
                 }
                 await admin.execute(undo[fault])
             await database_health(engine, settings)
-            print("Phase 9 PostgreSQL PASS: restricted runtime readiness and CRUD; 6 forbidden operations; 3 shared roles denied; 10 unsafe deployments rejected; other app preserved")
+            print("Phase 9 PostgreSQL PASS: restricted runtime readiness and CRUD; private resume packet approval/handoff; 6 forbidden operations; 3 shared roles denied; 10 unsafe deployments rejected; other app preserved")
         finally:
             await runtime.close()
     finally:
