@@ -17,7 +17,7 @@ class Contract(BaseModel):
 
 
 class EvidenceReference(Contract):
-    source_type: Literal["verified_project", "verified_role", "candidate_evidence", "candidate_profile", "candidate_preferences"]
+    source_type: Literal["verified_project", "verified_role", "candidate_evidence", "candidate_profile", "candidate_preferences", "opportunity_job", "opportunity_company"]
     source_id: str = Field(min_length=1, max_length=100)
 
 
@@ -38,6 +38,7 @@ class GenerateRequest(ResolveRequest):
     max_characters: int = Field(default=1500, ge=20, le=10000)
     max_words: int | None = Field(default=None, ge=1, le=1500)
     save_draft: bool = False
+    rewrite: bool = False  # Explicit optional cloud writing; extraction is quota-free.
 
 
 class AnswerGenerationResult(Contract):
@@ -59,6 +60,7 @@ class AnswerGenerationResult(Contract):
     warnings: list[str] = Field(default_factory=list)
     resources: list[dict] = Field(default_factory=list)
     draft_id: UUID | None = None
+    reused_draft_id: UUID | None = None
 
 
 class SupportedClaim(Contract):
@@ -71,6 +73,7 @@ class ModelAnswer(Contract):
     answer: str = Field(min_length=1, max_length=10000)
     evidence_references: list[EvidenceReference] = Field(min_length=1, max_length=12)
     claims: list[SupportedClaim] = Field(min_length=1, max_length=30)
+    opportunity_claims: list[SupportedClaim] = Field(default_factory=list, max_length=5)
 
 
 class ProviderAnswer(Contract):

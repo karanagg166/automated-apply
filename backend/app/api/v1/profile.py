@@ -1,4 +1,4 @@
-"""Authenticated primary profile API. Transaction ownership stays in get_db_session."""
+"""Authenticated primary profile API. Persist writes before acknowledging them."""
 
 from uuid import UUID
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
@@ -80,6 +80,9 @@ async def put_profile(data: CandidateProfileCreate, response: Response,
                       if_match: str | None = Header(default=None),
                       session: AsyncSession = Depends(get_db_session)):
     profile, created = await CandidateProfileService(session).upsert_profile(data, parse_version(if_match))
+    # A client may refetch immediately after receiving the response. Dependency
+    # teardown runs later, so the write must already be visible to that request.
+    await session.commit()
     response.status_code = 201 if created else 200
     response.headers["ETag"] = f'"{profile.version}"'
     return profile
@@ -90,6 +93,7 @@ async def patch_profile(data: CandidateProfileUpdate, response: Response,
                         if_match: str | None = Header(default=None),
                         session: AsyncSession = Depends(get_db_session)):
     profile = await CandidateProfileService(session).update_profile(data, parse_version(if_match, required=True))
+    await session.commit()
     response.headers["ETag"] = f'"{profile.version}"'
     return profile
 

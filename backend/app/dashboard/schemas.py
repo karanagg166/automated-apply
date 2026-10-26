@@ -50,6 +50,7 @@ class ResumeConfirm(BaseModel):
     model_config = ConfigDict(extra="forbid")
     owner_confirmed: Literal[True]
     primary: bool = False
+    expected_primary_resource_id: UUID | None = None
 
     @field_validator("owner_confirmed", mode="before")
     @classmethod

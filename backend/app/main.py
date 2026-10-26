@@ -2,7 +2,7 @@
 
 import asyncio
 import time
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import datetime, timezone
 from typing import Any
 
@@ -56,11 +56,35 @@ async def lifespan(app: FastAPI):
             await close_db_engine()
             raise RuntimeError("Database startup probe failed") from None
 
+    project_refresh = None
+    if settings.CANDIDATE_PROJECT_CHECKOUTS:
+        from backend.app.candidate_context.runtime import refresh_loop
+
+        project_refresh = asyncio.create_task(
+            refresh_loop(settings, get_session_factory())
+        )
+    if settings.ENVIRONMENT == "testing" and settings.BROWSER_MOCK_SUBMISSION_ENABLED:
+        from backend.app.browser.submissions import reconcile_expired
+
+        async with get_session_factory()() as session:
+            await reconcile_expired(session)
     try:
         async with mcp_app.lifespan(app):
             yield
     finally:
+        if project_refresh is not None:
+            project_refresh.cancel()
+            with suppress(asyncio.CancelledError):
+                await project_refresh
         logger.info("Shutting down Job Pulse Agent API...")
+        from backend.app.browser.runner import browser
+
+        for packet_id in list(browser.sessions):
+            try:
+                async with asyncio.timeout(5):
+                    await browser.close(packet_id)
+            except Exception:
+                logger.warning("Dedicated browser shutdown interrupted")
         await close_db_engine()
 
 
@@ -76,12 +100,25 @@ app = FastAPI(
 @app.middleware("http")
 async def log_requests_middleware(request: Request, call_next):
     start_time = time.time()
-    local_probe = (request.url.path in {"/health", "/ready"}
-                   and request.client is not None and request.client.host in {"127.0.0.1", "::1"})
-    error = None if local_probe else transport_error(
-        settings, request.url.scheme, request.headers.get("host", ""), request.headers.getlist("origin"))
+    local_probe = (
+        request.url.path in {"/health", "/ready"}
+        and request.client is not None
+        and request.client.host in {"127.0.0.1", "::1"}
+    )
+    error = (
+        None
+        if local_probe
+        else transport_error(
+            settings,
+            request.url.scheme,
+            request.headers.get("host", ""),
+            request.headers.getlist("origin"),
+        )
+    )
     if error:
-        return JSONResponse({"detail": error}, status_code=403, headers={"Cache-Control": "no-store"})
+        return JSONResponse(
+            {"detail": error}, status_code=403, headers={"Cache-Control": "no-store"}
+        )
     try:
         async with asyncio.timeout(120):
             response = await call_next(request)
@@ -101,12 +138,31 @@ async def log_requests_middleware(request: Request, call_next):
 @app.middleware("http")
 async def private_discovery_boundary(request: Request, call_next):
     private = request.url.path.startswith(
-        ("/api/v1/dashboard", "/api/v1/operations", "/api/v1/credits", "/api/v1/startups", "/api/v1/discovery", "/api/v1/jobs", "/api/v1/companies/", "/api/v1/contact-enrichment", "/api/v1/contacts/", "/api/v1/outreach", "/api/v1/integrations", "/api/v1/applications", "/api/v1/application-packets")
+        (
+            "/api/v1/browser",
+            "/api/v1/local-agent",
+            "/api/v1/dashboard",
+            "/api/v1/operations",
+            "/api/v1/credits",
+            "/api/v1/startups",
+            "/api/v1/discovery",
+            "/api/v1/jobs",
+            "/api/v1/companies/",
+            "/api/v1/contact-enrichment",
+            "/api/v1/contacts/",
+            "/api/v1/outreach",
+            "/api/v1/integrations",
+            "/api/v1/applications",
+            "/api/v1/application-packets",
+        )
     )
     callback = request.url.path == "/api/v1/integrations/gmail/oauth/callback"
-    application_request = request.url.path.startswith(
-        ("/api/v1/applications", "/api/v1/application-packets")
-    ) or "/application-" in request.url.path
+    application_request = (
+        request.url.path.startswith(
+            ("/api/v1/browser", "/api/v1/applications", "/api/v1/application-packets")
+        )
+        or "/application-" in request.url.path
+    )
     if private and not callback:
         from fastapi import HTTPException
 
@@ -126,16 +182,29 @@ async def private_discovery_boundary(request: Request, call_next):
             async with asyncio.timeout(30):
                 async for chunk in request.stream():
                     size += len(chunk)
-                    if size > (5 * 1024 * 1024 if request.url.path == "/api/v1/dashboard/resumes" else 65536 if application_request else 1048576):
+                    if size > (
+                        5 * 1024 * 1024
+                        if request.url.path == "/api/v1/dashboard/resumes"
+                        else 65536
+                        if application_request
+                        else 1048576
+                    ):
                         return JSONResponse(
                             status_code=413,
-                            content={"detail": "Application request exceeds 64 KiB" if application_request else "Discovery request exceeds 1 MiB"},
+                            content={
+                                "detail": "Application request exceeds 64 KiB"
+                                if application_request
+                                else "Discovery request exceeds 1 MiB"
+                            },
                             headers={"Cache-Control": "no-store"},
                         )
                     chunks.append(chunk)
         except TimeoutError:
-            return JSONResponse({"detail": "Request body timeout"}, status_code=408,
-                                headers={"Cache-Control": "no-store"})
+            return JSONResponse(
+                {"detail": "Request body timeout"},
+                status_code=408,
+                headers={"Cache-Control": "no-store"},
+            )
         request._body = b"".join(chunks)
     response = await call_next(request)
     if private:
@@ -182,17 +251,32 @@ async def readiness_check() -> dict[str, Any]:
     """Readiness probe verifying database connectivity."""
     try:
         await database_health(get_engine(), settings)
-        return {"status": "ready", "database": "connected", "schema": settings.DATABASE_SCHEMA,
-                "timestamp": datetime.now(timezone.utc).isoformat()}
+        return {
+            "status": "ready",
+            "database": "connected",
+            "schema": settings.DATABASE_SCHEMA,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
     except Exception:
         logger.error("Readiness database probe failed")
-        return JSONResponse(status_code=503, content={"status": "unhealthy", "database": "disconnected",
-            "error": "database_unavailable", "timestamp": datetime.now(timezone.utc).isoformat()})
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "unhealthy",
+                "database": "disconnected",
+                "error": "database_unavailable",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+        )
 
 
 # API v1 Endpoints
-@app.get("/api/v1/credits/status", response_model=CreditBudgetStatus, tags=["Credits"],
-         dependencies=[Depends(require_api_token)])
+@app.get(
+    "/api/v1/credits/status",
+    response_model=CreditBudgetStatus,
+    tags=["Credits"],
+    dependencies=[Depends(require_api_token)],
+)
 async def get_credits_status(
     session: AsyncSession = Depends(get_db_session),
 ) -> CreditBudgetStatus:
@@ -215,6 +299,7 @@ async def list_jobs(
 ) -> list[JobRead]:
     """List discovered jobs with optional status filter."""
     from backend.app.services.saved_data import SavedDataService
+
     return await SavedDataService(session).jobs(limit, offset, status)
 
 
@@ -228,11 +313,25 @@ from backend.app.automation.router import router as automation_router
 
 app.include_router(automation_router)
 
+from backend.app.local_agent.router import router as local_agent_router
+
+app.include_router(local_agent_router)
+
+from backend.app.agent.router import router as agent_command_router
+
+app.include_router(agent_command_router)
+
 
 # Exactly one stateless Streamable HTTP endpoint; explicit native host/origin guard.
-mcp_app = mcp.http_app(path="/", transport="http", stateless_http=True, json_response=True,
-                       host_origin_protection=True, allowed_hosts=settings.MCP_ALLOWED_HOSTS,
-                       allowed_origins=settings.MCP_ALLOWED_ORIGINS)
+mcp_app = mcp.http_app(
+    path="/",
+    transport="http",
+    stateless_http=True,
+    json_response=True,
+    host_origin_protection=True,
+    allowed_hosts=settings.MCP_ALLOWED_HOSTS,
+    allowed_origins=settings.MCP_ALLOWED_ORIGINS,
+)
 app.mount("/mcp", mcp_app)
 app.add_middleware(MCPBoundary)
 
@@ -240,8 +339,11 @@ app.add_middleware(MCPBoundary)
 @app.exception_handler(RequestValidationError)
 async def private_validation_error(request: Request, exc: RequestValidationError):
     if request.url.path.startswith("/api/v1/"):
-        return JSONResponse({"detail": "Invalid request"}, status_code=422,
-                            headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+        return JSONResponse(
+            {"detail": "Invalid request"},
+            status_code=422,
+            headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"},
+        )
     return await request_validation_exception_handler(request, exc)
 
 
@@ -271,29 +373,47 @@ app.include_router(outreach_router)
 @app.exception_handler(LookupError)
 @app.exception_handler(ProfileNotFoundError)
 async def missing_saved_record(request: Request, exc: Exception):
-    return JSONResponse({"detail": "Saved record or candidate profile not found"}, status_code=404,
-                        headers={"Cache-Control": "no-store"})
+    return JSONResponse(
+        {"detail": "Saved record or candidate profile not found"},
+        status_code=404,
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.get("/api/v1/jobs/{job_id}", dependencies=[Depends(require_api_token)])
-async def saved_job_detail(job_id: UUID, session: AsyncSession = Depends(get_db_session)):
+async def saved_job_detail(
+    job_id: UUID, session: AsyncSession = Depends(get_db_session)
+):
     return await SavedDataService(session).job(job_id)
 
 
 @app.get("/api/v1/jobs/{job_id}/match", dependencies=[Depends(require_api_token)])
-async def saved_job_match(job_id: UUID, session: AsyncSession = Depends(get_db_session)):
+async def saved_job_match(
+    job_id: UUID, session: AsyncSession = Depends(get_db_session)
+):
     return await SavedDataService(session).match(job_id)
 
 
-@app.get("/api/v1/companies/{company_id}/details", dependencies=[Depends(require_api_token)])
-async def saved_company_detail(company_id: UUID, session: AsyncSession = Depends(get_db_session)):
+@app.get(
+    "/api/v1/companies/{company_id}/details", dependencies=[Depends(require_api_token)]
+)
+async def saved_company_detail(
+    company_id: UUID, session: AsyncSession = Depends(get_db_session)
+):
     return await SavedDataService(session).company(company_id)
 
 
-@app.get("/api/v1/companies/{company_id}/recommended-contacts", dependencies=[Depends(require_api_token)])
-async def saved_company_contacts(company_id: UUID, limit: int = Query(25, ge=1, le=100),
-                                 session: AsyncSession = Depends(get_db_session)):
+@app.get(
+    "/api/v1/companies/{company_id}/recommended-contacts",
+    dependencies=[Depends(require_api_token)],
+)
+async def saved_company_contacts(
+    company_id: UUID,
+    limit: int = Query(25, ge=1, le=100),
+    session: AsyncSession = Depends(get_db_session),
+):
     return await SavedDataService(session).contacts(company_id, limit)
+
 
 from backend.app.api.v1.startups import router as startups_router
 
@@ -303,4 +423,12 @@ app.include_router(startups_router)
 @app.get("/api/v1/operations/status", dependencies=[Depends(require_api_token)])
 async def operations_status(session: AsyncSession = Depends(get_db_session)):
     from backend.app.operations.diagnostics import operational_status
+
     return await operational_status(session, get_session_factory(), settings)
+
+
+from backend.app.browser.router import assistant_router
+from backend.app.browser.router import router as browser_router
+
+app.include_router(browser_router)
+app.include_router(assistant_router)

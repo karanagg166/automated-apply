@@ -1,0 +1,53 @@
+"""An explicitly selected browser page is a local draft, not a verified vacancy."""
+
+import re
+from urllib.parse import parse_qsl, urlsplit
+
+from backend.app.schemas.applications import Destination, PlatformCapability
+from backend.app.services.applications.platforms.base import safe_url
+
+
+def manual_page_url(value):
+    url = safe_url(value)
+    if not url:
+        return None
+    parsed = urlsplit(url)
+    if parsed.fragment:
+        return None
+    host = parsed.hostname or ""
+    zoho = bool(re.fullmatch(r"[a-z0-9][a-z0-9-]*\.zohorecruit\.(?:in|com)", host))
+    if zoho:
+        if not re.fullmatch(r"/jobs/Careers/[0-9]+/[A-Za-z0-9_-]+/?", parsed.path):
+            return None
+        query = parse_qsl(parsed.query, keep_blank_values=True)
+        if len(query) > 2 or len({key for key, _ in query}) != len(query):
+            return None
+        if any(key not in {"source", "ref"} or not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", val) for key, val in query):
+            return None
+    elif parsed.query or not (
+        host in {"boards.greenhouse.io", "job-boards.greenhouse.io", "jobs.lever.co"}
+        or (host == "docs.google.com" and parsed.path.startswith("/forms/"))
+    ):
+        return None
+    return url
+
+
+class OwnerPagePlatform:
+    def recognizes(self, job, observations=()):
+        return job.source_platform == "owner_extension"
+
+    def capabilities(self):
+        return PlatformCapability(platform="owner_extension")
+
+    def destination(self, job, observations=()):
+        url = manual_page_url(job.application_url)
+        return Destination(
+            application_url=url,
+            kind="employer_external" if url else "unknown",
+            valid=bool(url and job.job_url == url and job.status != "archived"),
+            source_confidence="unverified",
+            warnings=[
+                "Owner-selected page; employer identity and vacancy are unverified",
+                "Manual extension answers only; upload and submission remain owner-operated",
+            ],
+        )

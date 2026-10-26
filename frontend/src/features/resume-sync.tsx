@@ -75,6 +75,11 @@ export function ResumeSync() {
           </Badge>
         </div>
         <div className="panel-body stack">
+          <Notice>
+            Google Drive OAuth and live PDF download are deferred. Upload and
+            select a private PDF in Identity &amp; resume. Existing encrypted
+            versions and reviews remain available.
+          </Notice>
           <p>Source: Google Drive · {state.file_name || "No PDF fetched"}</p>
           <External href={state.canonical_url}>Review source</External>
           <div className="form-grid">
@@ -94,12 +99,7 @@ export function ResumeSync() {
                   : "None approved",
               ],
               ["Sync status", readable(state.status)],
-              [
-                "Periodic checks",
-                state.sync_enabled
-                  ? `Enabled · every ${state.interval_hours} hours`
-                  : "Disabled",
-              ],
+              ["Periodic checks", "Disabled until Drive OAuth is completed"],
             ].map(([label, value]) => (
               <div className="evidence-item" key={label}>
                 <strong>{label}</strong>
@@ -126,7 +126,7 @@ export function ResumeSync() {
             <Button
               type="button"
               busy={sync.isPending}
-              disabled={!state.canonical_url || editing}
+              disabled
               onClick={() => sync.mutate()}
             >
               Sync Now
@@ -144,7 +144,7 @@ export function ResumeSync() {
               type="button"
               onClick={() => {
                 setUrl(state.canonical_url || "");
-                setEnabled(state.sync_enabled);
+                setEnabled(false);
                 setInterval(state.interval_hours);
                 setEditing(!editing);
               }}
@@ -189,6 +189,7 @@ export function ResumeSync() {
               <label className="check-label">
                 <input
                   type="checkbox"
+                  disabled
                   checked={enabled}
                   onChange={(e) => setEnabled(e.target.checked)}
                 />

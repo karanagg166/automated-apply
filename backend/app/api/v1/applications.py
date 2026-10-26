@@ -11,6 +11,7 @@ from backend.app.core.security import require_api_token
 from backend.app.db.session import get_db_session
 from backend.app.schemas.applications import (
     AnswerEdit,
+    AnswerGenerateInput,
     ApplicationEventRead,
     CreatePacket,
     Handoff,
@@ -24,7 +25,6 @@ from backend.app.schemas.applications import (
     QuestionsAdd,
     Readiness,
     ReviewInput,
-    RevisionInput,
     SubmissionInput,
     SubmissionRead,
     TrackingInput,
@@ -137,7 +137,7 @@ async def add_questions(
 async def generate(
     packet_id: UUID,
     field_id: UUID,
-    data: RevisionInput,
+    data: AnswerGenerateInput,
     service: ApplicationPacketService = Depends(application_service),
 ):
     return await service.generate(packet_id, field_id, data)

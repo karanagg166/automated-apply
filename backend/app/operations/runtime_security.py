@@ -8,7 +8,7 @@ POLICY = "job_agent_backend"
 APPEND_ONLY = frozenset({
     "application_events", "application_submission_evidence",
     "company_source_observations", "drive_resume_versions",
-    "provider_usage_logs", "startup_shortlist_entries",
+    "provider_usage_logs", "startup_shortlist_entries", "agent_policy_events", "agent_operations",
 })
 
 
@@ -34,7 +34,15 @@ def restricted_manifest(manifest):
     return result
 
 
-async def verify_restricted_runtime(connection, tables):
+async def verify_restricted_runtime(connection, tables, schema="job_agent", *, preserved_function_oids=()):
+    if schema not in {"public", "job_agent"}:
+        raise RuntimeError("invalid_runtime_schema")
+    if preserved_function_oids and (schema != "public" or len(preserved_function_oids) != 1
+                                   or any(type(oid) is not int or oid < 1 for oid in preserved_function_oids)):
+        raise RuntimeError("invalid_preserved_function_inventory")
+    if schema == "public":
+        connection = PublicCatalogConnection(connection)
+
     """Catalog reads only. Reject excess authority as well as missing access.
 
     A permissive policy is safe here only for the one trusted backend principal.
@@ -57,7 +65,7 @@ async def verify_restricted_runtime(connection, tables):
                has_schema_privilege(current_user,oid,'CREATE') AS create
         FROM pg_namespace WHERE nspname='job_agent'
     """)
-    if not schema or schema["owner"] != OWNER_ROLE or not schema["usage"] or schema["create"]:
+    if not schema or schema["owner"] not in ({OWNER_ROLE, "pg_database_owner", "postgres"} if isinstance(connection, PublicCatalogConnection) else {OWNER_ROLE}) or not schema["usage"] or schema["create"]:
         raise RuntimeError("database_runtime_schema_permissions_incompatible")
     rows = await connection.fetch("""
         SELECT c.relname, pg_get_userbyid(c.relowner) AS owner,
@@ -97,12 +105,12 @@ async def verify_restricted_runtime(connection, tables):
             UNION ALL
             SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace,
                 LATERAL aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
-            WHERE n.nspname='job_agent' AND (p.prosecdef OR
+            WHERE n.nspname='job_agent' AND p.oid <> ALL($1::oid[]) AND (p.prosecdef OR
                 pg_get_userbyid(p.proowner)<>'job_agent_owner' OR a.grantee NOT IN
                 (SELECT oid FROM pg_roles WHERE rolname IN ('job_agent_owner','job_agent_runtime'))
                 OR a.is_grantable)
         )
-    """)
+    """, list(preserved_function_oids))
     if unsafe:
         raise RuntimeError("database_runtime_shared_grants_incompatible")
     authority = await connection.fetchval("""
@@ -133,11 +141,30 @@ async def verify_restricted_runtime(connection, tables):
     functions = await connection.fetchval("""
         SELECT EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
             WHERE n.nspname='job_agent'
+                AND p.oid <> ALL($1::oid[])
                 AND NOT has_function_privilege(current_user,p.oid,'EXECUTE'))
         OR EXISTS(SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
             WHERE n.nspname NOT IN ('job_agent','pg_catalog','information_schema')
                 AND p.prosecdef AND has_schema_privilege(current_user,n.oid,'USAGE')
                 AND has_function_privilege(current_user,p.oid,'EXECUTE'))
-    """)
+    """, list(preserved_function_oids))
     if functions:
         raise RuntimeError("database_runtime_function_access_incompatible")
+
+
+class PublicCatalogConnection:
+    """Reuse exact restricted checks with public as the application namespace.
+
+    Schema ownership stays with Supabase; table/function ownership stays private.
+    Only schema-level ACLs may include PostgreSQL's managed schema owner.
+    """
+    def __init__(self, connection):
+        self.connection = connection
+
+    def __getattr__(self, method):
+        async def call(sql, *args):
+            sql = sql.replace("'job_agent'", "'public'")
+            sql = sql.replace("WHERE n.nspname='public' AND a.grantee NOT IN",
+                "WHERE n.nspname='public' AND a.grantee NOT IN (SELECT oid FROM pg_roles WHERE rolname IN ('postgres','pg_database_owner')) AND a.grantee NOT IN")
+            return await getattr(self.connection, method)(sql, *args)
+        return call

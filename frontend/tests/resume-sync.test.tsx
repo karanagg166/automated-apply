@@ -126,20 +126,16 @@ it("does not show a connected source before fetching or imply the flag starts a 
   expect(screen.getByRole("button", { name: "Review Changes" })).toBeDisabled();
 });
 
-it("makes a manual check against the saved generation without authorizing approval", async () => {
+it("defers live Drive download and directs the owner to manual PDF upload", async () => {
   vi.mocked(api).mockResolvedValue(state);
   mount(<ResumeSync />);
-  await userEvent.click(
-    await screen.findByRole("button", { name: "Sync Now" }),
-  );
-  await waitFor(() =>
-    expect(post).toHaveBeenCalledWith("dashboard/resume-sync/sync", {
-      expected_generation: 1,
-    }),
-  );
   expect(
-    vi.mocked(post).mock.calls.some(([path]) => path.includes("approve")),
-  ).toBe(false);
+    await screen.findByRole("button", { name: "Sync Now" }),
+  ).toBeDisabled();
+  expect(
+    screen.getByText(/Google Drive OAuth and live PDF download are deferred/),
+  ).toBeVisible();
+  expect(post).not.toHaveBeenCalled();
 });
 
 it("preserves the active version while surfacing pending changes and access failures", async () => {

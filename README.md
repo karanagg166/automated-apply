@@ -1,5 +1,7 @@
 # Automated Apply
 
+The opt-in [local browser assistant](docs/local-browser-assistant.md) supports dedicated Chrome analysis, reviewed filling and manual handoff using existing application packets. It can capture employer-page evidence for reviewed company-specific answers. My Profile includes private career facts and approved reusable answers, with optional local AI fallback. [Delivery status](docs/browser-assistant-delivery.md) records verified mock submission and unfinished employer/adapter phases. Automated real employer submission remains disabled.
+
 ## Persistent database requirement
 
 All genuine application data uses owner-approved online Supabase PostgreSQL in
@@ -15,9 +17,9 @@ A premium Next.js frontend now lives in `frontend/`. It connects to the existing
 Start with [frontend setup](docs/phase7-frontend.md), [candidate onboarding](docs/phase7-profile-onboarding.md), [account connections](docs/phase7-account-connections.md), [notification boundaries](docs/phase7-notifications.md), [security](docs/phase7-security.md) and [deployment blockers](docs/phase7-deployment.md). Existing backend setup and workflows remain below. No staging environment, real profile or provider connection is implied by the UI.
 
 ```sh
-npm ci --prefix frontend
-npm run build --prefix frontend
-npm run dev --prefix frontend
+pnpm -C frontend install --frozen-lockfile
+pnpm -C frontend build
+pnpm -C frontend dev
 ```
 
 Configure the private owner login in `backend/.env` before signing in. No default login or client-side bearer token exists. For a reproducible demonstration against the actual backend with isolated fictional fixtures, see the Playwright commands in the frontend guide.
@@ -447,3 +449,7 @@ leases and fencing protect recovery. Migration 012 and a separate proposed restr
 addendum are verified only in disposable PostgreSQL 17. See [Phase 10](docs/phase10-automation.md)
 for implementation, tests and the prepared worker configuration. Phase 9 remains incomplete;
 R2 and live automation are unauthorized. No production service is activated.
+
+## Phase 1 local connection foundation
+
+Preview-only local connections are implemented on `feat/phase1-local-connections`; live owner acceptance remains pending. Start with the [technical audit](docs/phase1/audit.md), [setup guide](docs/phase1/setup.md), [exact public-schema migration proposal](docs/phase1/migration-review.md), [verification report](docs/phase1/verification.md), and [machine-readable readiness](docs/phase1/readiness.json). The reviewed migration targets only the dedicated Supabase project; it has not been applied remotely. No live submissions, Gmail sends or recurring discovery are enabled.

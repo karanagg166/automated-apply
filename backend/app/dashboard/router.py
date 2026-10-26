@@ -25,6 +25,7 @@ from backend.app.dashboard.resumes import (
     encrypt,
     extract_pdf,
     suggestions,
+    verified_pdf,
 )
 from backend.app.dashboard.schemas import (
     NotificationPreferences,
@@ -226,6 +227,7 @@ async def list_resumes(session: AsyncSession = Depends(get_db_session)):
                 confirmed=r.confirmed,
                 resource_id=r.resource_id,
                 created_at=r.created_at,
+                sha256=r.sha256,
             )
             for r in rows
         ]
@@ -240,7 +242,7 @@ async def download_resume(
     if resume is None:
         raise HTTPException(404, "Private resume not found")
     return Response(
-        cipher().decrypt(resume.ciphertext),
+        verified_pdf(resume),
         media_type="application/pdf",
         headers={"Content-Disposition": 'attachment; filename="resume.pdf"'},
     )
@@ -257,21 +259,37 @@ async def confirm_resume(
     if await session.scalar(select(DriveResumeVersion.id).where(DriveResumeVersion.private_resume_id == resume_id)):
         raise HTTPException(409, "Drive imports require the Resume Sync profile-review approval")
     profile = await CandidateKnowledgeRepository(session).profile()
+    # Serialize canonical selection for this candidate, including first selection.
+    from backend.app.models.candidate_profile import CandidateProfile
+    await session.scalar(select(CandidateProfile).where(CandidateProfile.id == profile.id).with_for_update())
     resume = await session.get(PrivateResume, resume_id, with_for_update=True)
     if resume is None:
         raise HTTPException(404, "Resume not found")
-    if resume.confirmed:
-        return {"resource_id": resume.resource_id, "confirmed": True}
-    if data.primary and await session.scalar(
-        select(CandidateResource.id).where(
+    verified_pdf(resume)
+    primary = await session.scalar(
+        select(CandidateResource).where(
             CandidateResource.candidate_profile_id == profile.id,
             CandidateResource.resource_type == "resume",
             CandidateResource.is_primary.is_(True),
-        )
-    ):
-        raise HTTPException(
-            409, "Demote the existing primary resume before replacing it"
-        )
+        ).with_for_update()
+    )
+    changing_primary = data.primary and (primary is None or primary.id != resume.resource_id)
+    if changing_primary:
+        if (primary.id if primary else None) != data.expected_primary_resource_id:
+            raise HTTPException(409, "Canonical resume changed; review the current version before replacing it")
+        if primary:
+            primary.is_primary = False
+            await session.flush()
+        confirmation = await session.get(OwnerPreference, "phase1_profile_confirmation", with_for_update=True)
+        if confirmation:
+            await session.delete(confirmation)
+    if resume.confirmed:
+        resource = await session.get(CandidateResource, resume.resource_id, with_for_update=True)
+        if resource is None or resource.candidate_profile_id != profile.id:
+            raise HTTPException(409, "Private resume resource binding is invalid")
+        if data.primary:
+            resource.is_primary = True
+        return {"resource_id": resume.resource_id, "confirmed": True}
     resource = CandidateResource(
         candidate_profile_id=profile.id,
         resource_type="resume",
@@ -395,3 +413,9 @@ async def notification_delivery_history(
         ],
         "external_delivery_enabled": False,
     }
+
+
+from backend.app.dashboard.candidate_context import router as candidate_context_router
+
+router.include_router(candidate_context_router)
+

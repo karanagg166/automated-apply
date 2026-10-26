@@ -44,10 +44,13 @@ class ResumeSyncService:
 
         self.session = session
         self.settings = settings or get_settings()
+        self.live_download_deferred = downloader is None
         self.downloader = downloader or fetch_pdf
         self.extractor = extractor or extract_pdf
 
     async def sync(self, expected_generation=None, *, scheduled=False):
+        if self.live_download_deferred:
+            raise HTTPException(409, "drive_oauth_deferred_use_manual_pdf_upload")
         require_session_target(self.session, self.settings)
         encryption = require_cipher()
         source = await lock_source(self.session, self.settings)

@@ -44,8 +44,8 @@ def require_staging(settings, confirmation):
         raise OperationRejected(
             "staging_environment_required_production_connections_forbidden"
         )
-    if settings.DATABASE_SCHEMA != "job_agent":
-        raise OperationRejected("migrations_require_job_agent_schema")
+    if settings.DATABASE_SCHEMA not in {"job_agent", "public"}:
+        raise OperationRejected("migrations_require_application_schema")
     from backend.app.db.safety import database_target
 
     database_target(settings)

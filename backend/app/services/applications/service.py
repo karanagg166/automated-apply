@@ -24,6 +24,8 @@ from backend.app.services.applications.resume_selector import digest
 TERMINAL = {
     "user_reported_submitted",
     "provider_confirmed_submitted",
+    "submitting",
+    "submission_unknown",
     "withdrawn",
     "abandoned",
 }
@@ -128,6 +130,12 @@ class ApplicationPacketService:
                 "manual_action_required",
                 ["This packet is closed; no handoff is available"],
             )
+        if packet.lifecycle_state == "provider_confirmed_submitted":
+            eligible.state = "completed_verified"
+            eligible.warnings = [w for w in eligible.warnings if "self-reported" not in w]
+        if packet.lifecycle_state in {"submitting", "submission_unknown"}:
+            eligible.state = "manual_action_required"
+            eligible.blockers = ["Submission outcome must be reconciled; never resubmit this application"]
         return PacketRead(
             id=packet.id,
             job_id=packet.job_id,
@@ -223,6 +231,11 @@ class ApplicationPacketService:
         packet, profile, _ = await self.locked(
             packet_id, request.expected_revision, fresh=False
         )
+        fields = await self.repo.fields(packet.id)
+        if any(item.field_type == "multi_select" for item in fields):
+            from backend.app.services.applications.multi_select import require_available
+
+            await require_available(self.session)
         previous = packet.lifecycle_state
         selected = (
             request.resume_resource_id
@@ -239,7 +252,7 @@ class ApplicationPacketService:
         packet.application_url = snapshot.destination.application_url
         packet.candidate_profile_version = profile.version
         await self.session.flush()
-        for item in await self.repo.fields(packet.id):
+        for item in fields:
             prior = self.repo.field_read(item)
             # Refresh deterministic facts; invalidate all narratives and human edits to avoid
             # silently retaining claims based on old candidate evidence.
@@ -268,6 +281,10 @@ class ApplicationPacketService:
         return await self.finish(packet, previous, "packet_refreshed")
 
     async def add_questions(self, packet_id, request):
+        if any(question.field_type == "multi_select" for question in request.questions):
+            from backend.app.services.applications.multi_select import require_available
+
+            await require_available(self.session)
         packet, profile, _ = await self.locked(packet_id, request.expected_revision)
         fields = await self.repo.fields(packet_id)
         if len(fields) + len(request.questions) > 100:
@@ -308,6 +325,10 @@ class ApplicationPacketService:
         ):
             raise ApplicationConflict("Saved evidence changed; refresh this packet")
         prior = self.repo.field_read(item)
+        if prior.field_type == "multi_select":
+            from backend.app.services.applications.multi_select import require_available
+
+            await require_available(self.session)
         result = await self.builder.answers.build(
             QuestionInput.model_validate(
                 prior.model_dump(include=set(QuestionInput.model_fields))
@@ -315,6 +336,7 @@ class ApplicationPacketService:
             packet.job_id,
             profile,
             generate=True,
+            rewrite=getattr(request, "rewrite", False),
             origin=prior.provenance.origin,
             resume=context.resume,
         )
@@ -337,6 +359,10 @@ class ApplicationPacketService:
         packet, _, _ = await self.locked(packet_id, request.expected_revision)
         item = await self.repo.field(packet_id, field_id)
         field = self.repo.field_read(item)
+        if field.field_type == "multi_select":
+            from backend.app.services.applications.multi_select import require_available
+
+            await require_available(self.session)
         if (
             field.field_type == "file"
             or field.validation_status == "file_upload_required"

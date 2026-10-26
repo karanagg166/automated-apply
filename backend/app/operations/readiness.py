@@ -66,9 +66,9 @@ def environment_readiness(settings: Settings) -> ReadinessReport:
     add("database_tls", settings.DB_REQUIRE_TLS, settings.ENVIRONMENT != "testing", missing="unsafe_configuration")
     add(
         "database_schema",
-        settings.DATABASE_SCHEMA == "job_agent",
+        settings.DATABASE_SCHEMA in {"public", "job_agent"},
         True,
-        ["Migrations 001–012 target the dedicated job_agent schema"],
+        ["Historical 001–012 use job_agent; fresh public uses its separate verified bundle"],
     )
     if settings.ENVIRONMENT == "staging":
         add(

@@ -4,7 +4,11 @@ import pytest
 from sqlalchemy import select
 
 from backend.app.models.application_answer import ApplicationAnswerDraft
-from backend.app.schemas.applications import CreatePacket, QuestionInput, RevisionInput
+from backend.app.schemas.applications import (
+    AnswerGenerateInput,
+    CreatePacket,
+    QuestionInput,
+)
 from backend.tests.phase5a_fakes import create
 
 pytestmark = pytest.mark.asyncio
@@ -95,7 +99,7 @@ async def test_narrative_is_explicit_grounded_and_saves_existing_answer_draft(
         and not packet_service.builder.answers.answer_service.provider.calls
     )
     packet = await packet_service.generate(
-        packet.id, field.id, RevisionInput(expected_revision=packet.revision)
+        packet.id, field.id, AnswerGenerateInput(rewrite=True, expected_revision=packet.revision)
     )
     field = packet.fields[-1]
     assert (
@@ -125,7 +129,7 @@ async def test_invalid_claim_never_becomes_copyable(
         packet_service, job, questions=[QuestionInput(question="Describe a project")]
     )
     packet = await packet_service.generate(
-        packet.id, packet.fields[-1].id, RevisionInput(expected_revision=1)
+        packet.id, packet.fields[-1].id, AnswerGenerateInput(rewrite=True, expected_revision=1)
     )
     assert packet.fields[-1].validation_status == "validation_failed"
     assert packet.fields[-1].effective_answer is None
@@ -142,7 +146,7 @@ async def test_generation_respects_limits_without_truncation(
         questions=[QuestionInput(question="Describe a project", **limits)],
     )
     packet = await packet_service.generate(
-        packet.id, packet.fields[-1].id, RevisionInput(expected_revision=1)
+        packet.id, packet.fields[-1].id, AnswerGenerateInput(rewrite=True, expected_revision=1)
     )
     assert (
         packet.fields[-1].validation_status == "validation_failed"
@@ -169,7 +173,7 @@ async def test_missing_evidence_or_provider_is_explicit(
         packet_service, job, questions=[QuestionInput(question=question)]
     )
     packet = await packet_service.generate(
-        packet.id, packet.fields[-1].id, RevisionInput(expected_revision=1)
+        packet.id, packet.fields[-1].id, AnswerGenerateInput(rewrite=True, expected_revision=1)
     )
     assert packet.fields[-1].validation_status == (
         "provider_unavailable" if kind == "provider" else "needs_input"
@@ -210,7 +214,7 @@ async def test_production_issue_uses_confirmed_challenge_evidence(
         questions=[QuestionInput(question="Describe a production issue you solved")],
     )
     packet = await packet_service.generate(
-        packet.id, packet.fields[-1].id, RevisionInput(expected_revision=1)
+        packet.id, packet.fields[-1].id, AnswerGenerateInput(rewrite=True, expected_revision=1)
     )
     assert (
         packet.fields[-1].validation_status == "draft_ready"

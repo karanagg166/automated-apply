@@ -1,0 +1,1109 @@
+{
+  "chrome": {
+    "evidence_type": "owner_reported_real_Chrome_preview_correlated_with_authenticated_backend_audit",
+    "actor": "chrome:hmkhgcgjjnjncamgdlabocdbgpleebgk",
+    "url": "https://search-sphere-rose.vercel.app/search",
+    "created_at": "2026-10-24T22:10:24.325565+00:00",
+    "correlation_id": "38d559b3-2426-45d5-a7aa-246249743c99",
+    "submitted": false,
+    "menu_registration": "owner_reported_HTTPS_menu_registered"
+  },
+  "agy_authentication_metadata": {
+    "evidence_type": "actual_cli_handled_usage_report_no_generation",
+    "verified_at": "2026-10-25T11:02:15.369692+00:00",
+    "model_generation_requested": false,
+    "billing_guard": {
+      "useG1Credits": false,
+      "provider_api_or_cloud_billing": false,
+      "evidence": "installed_cli_settings_and_official_false_default"
+    },
+    "authenticated_read_verified": true,
+    "envelope_status": "SUCCESS",
+    "num_turns": 0,
+    "reported_usage": {
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "thinking_tokens": 0,
+      "cache_read_tokens": 0,
+      "total_tokens": 0
+    },
+    "sanitized_report": "Gemini Models\tWeekly Limit Remaining\t58%\t2026-10-29T23:33:21Z\nGemini Models\tFive Hour Limit Remaining\t100%\t2026-10-25T16:02:28Z\nClaude and GPT models\tWeekly Limit Remaining\t100%\t2026-11-01T11:02:28Z\nClaude and GPT models\tFive Hour Limit Remaining\t100%\t2026-10-25T16:02:28Z\nGemini 4 Argon\tGemini 4 Argon Weekly Limit\t100%\t2026-11-01T11:02:28Z",
+    "trusted_workspace": true,
+    "exit_code": 0
+  },
+  "agy_authorized_attempts": [
+    {
+      "model": "gemini-3.8-flash-high",
+      "effort": "high",
+      "state": "failed_no_retry",
+      "error_code": "cli_nonzero_exit",
+      "timestamp": "2026-10-24T21:09:09.861353+00:00",
+      "invocations": 1,
+      "application_retries": 0
+    },
+    {
+      "model": "gemini-3.8-flash-high",
+      "effort": "high",
+      "state": "failed_no_retry",
+      "error_code": "timeout",
+      "timestamp": "2026-10-24T21:54:47.600352+00:00",
+      "invocations": 1,
+      "application_retries": 0
+    },
+    {
+      "model": "gemini-3.8-flash-high",
+      "effort": "high",
+      "state": "failed_no_retry",
+      "error_code": "cli_nonzero_exit",
+      "timestamp": "2026-10-25T11:21:12.932085+00:00",
+      "invocations": 1,
+      "application_retries": 0
+    }
+  ],
+  "structured_response": null,
+  "generation_usage_reported": null,
+  "no_further_generation_authorized": true,
+  "warning": "Zero usage applies only to metadata checks, not the failed generation attempts. Owner account identifiers are not exposed by these checks.",
+  "telegram": {
+    "verified_at": "2026-10-24T22:39:02.592046+00:00",
+    "evidence_type": "actual Bot API metadata, live worker polls, persisted replies and owner confirmations",
+    "owner_binding_configured": true,
+    "state": "capability_verified",
+    "is_bot": true,
+    "webhook": "absent",
+    "last_verification_time": "2026-10-24T23:00:18.023930+00:00",
+    "poll_evidence": "live_poll",
+    "last_poll_at": "2026-10-24T23:00:07.575052+00:00",
+    "latest_error_category": null,
+    "worker_bot_identity_matches": true,
+    "duplicate_worker_denied": true,
+    "ping_reply_sent": true,
+    "owner_reported_pong": true,
+    "unresolved_reply_count": 0,
+    "live_reply_summary": {
+      "pong_sent": 3,
+      "status_sent": 2,
+      "connections_sent": 2,
+      "help_style_sent": 3
+    },
+    "audited_owner_commands": [
+      "health",
+      "connection_status",
+      "health",
+      "connection_status"
+    ],
+    "owner_confirmed_commands": [
+      "/ping",
+      "/status",
+      "/connections",
+      "/help"
+    ],
+    "unauthorized_identity_test_evidence": "exact user/chat allowlist and mock transport rejection tests; no real second-account rejection test claimed"
+  },
+  "launchd_failure_recovery": {
+    "test": "actual_launchd_failure_recovery",
+    "started_at": "2026-10-24T22:53:44.853178+00:00",
+    "initial_pid": 25890,
+    "signal": "SIGKILL",
+    "pending_replies_before": 0,
+    "state": "passed",
+    "replacement_pid": 26094,
+    "new_live_poll_verified": true,
+    "offset_preserved": true,
+    "history_preserved": true,
+    "last_poll_at": "2026-10-24T22:54:14.794138+00:00",
+    "pending_replies_after": 0,
+    "completed_at": "2026-10-24T22:54:16.093029+00:00",
+    "database_scope": "historical_local_disposable"
+  },
+  "locked_screen_worker": {
+    "state": "passed",
+    "evidence_type": "actual_macOS_lock_property_and_PostgreSQL_live_worker",
+    "started_at": "2026-10-24T22:56:48.367810+00:00",
+    "screen_lock_observed": true,
+    "new_pong_sent_while_locked": true,
+    "live_poll_while_locked": true,
+    "last_checked_at": "2026-10-24T22:57:53.753035+00:00",
+    "last_poll_at": "2026-10-24T22:57:50.950333+00:00",
+    "verified_at": "2026-10-24T22:57:53.753012+00:00",
+    "owner_confirmed_locked_pong": true,
+    "database_scope": "historical_local_disposable_not_online_acceptance"
+  },
+  "stable_native_host": {
+    "evidence_type": "actual_installed_native_executable_framed_health_to_authenticated_FastAPI",
+    "verified_at": "2026-10-24T22:54:06.458372+00:00",
+    "correlation_id": "40012be0-578c-4229-a91b-7310be399fa5",
+    "result_ok": true,
+    "stable_runtime": true,
+    "allowed_origin_count": 1
+  },
+  "service_security": {
+    "actual_service_log_credentials_detected": false,
+    "configuration_mode": "0o600",
+    "plist_mode": "0o600",
+    "logs_modes": {
+      "telegram.err.log": "0o600",
+      "telegram.out.log": "0o600"
+    },
+    "logs_directory_mode": "0o700"
+  },
+  "supabase_online_activation": {
+    "project_ref": "luvdmwnlwaqgvfwlmlom",
+    "bundle_sha256": "2887a98812a797c3ef9d10f37fe5f14959778d802e126d0170776059ccee6a9e",
+    "verified_at": "2026-10-25T12:31:18.700627+00:00",
+    "state": "restricted_online_runtime_verified",
+    "remote_ddl_attempts": 1,
+    "existing_credentials_rotated": false,
+    "runtime_verification": {
+      "schema": "public",
+      "runtime_security": "restricted_public_v1",
+      "migration_bundle": "2887a98812a797c3ef9d10f37fe5f14959778d802e126d0170776059ccee6a9e",
+      "tls_required": true,
+      "postgresql_version": "17.11"
+    },
+    "restricted_login_tls_verified": true,
+    "client_tls_version": "TLSv1.3",
+    "client_certificate_and_hostname_verified": true,
+    "server_connection_tls_verified": true,
+    "private_runtime_configuration_saved": true,
+    "services_restarted": true,
+    "recovered_at": "2026-10-25T12:34:09.925041+00:00",
+    "initial_failure": "session_pooler_upstream_pg_stat_ssl_false",
+    "recovery": "direct_ipv6_endpoint_same_initialized_credential_no_ddl",
+    "reconnect_persistence_verified": true,
+    "acceptance_probe_cleaned": true
+  },
+  "supabase_online_persistence": {
+    "state": "passed",
+    "started_at": "2026-10-25T12:41:30.396138+00:00",
+    "denied_runtime_operations": [
+      "delete_audit",
+      "delete_preferences",
+      "read_auth",
+      "execute_managed_rls"
+    ],
+    "preference_value_changed": false,
+    "project_ref": "luvdmwnlwaqgvfwlmlom",
+    "verified_at": "2026-10-25T12:42:25.008570+00:00",
+    "actual_api_restart": true,
+    "probe_persisted_across_restart": true,
+    "probe_cleaned_original_timestamp_restored": true,
+    "telegram_last_poll_at": "2026-10-25T12:42:14.759954+00:00",
+    "telegram_error": null,
+    "actual_api_health_after_restart": 200
+  },
+  "supabase_state_transfer": {
+    "state": "copied_transactionally",
+    "verified_at": "2026-10-25T12:35:54.613552+00:00",
+    "project_ref": "luvdmwnlwaqgvfwlmlom",
+    "source": "owned_local_phase1_55439",
+    "target": "online_supabase_restricted_runtime",
+    "tables": {
+      "agent_policies": {
+        "rows": 0
+      },
+      "agent_policy_events": {
+        "rows": 0
+      },
+      "agent_operations": {
+        "rows": 15
+      },
+      "agent_telegram_state": {
+        "rows": 1
+      },
+      "agent_telegram_deliveries": {
+        "rows": 14
+      },
+      "owner_preferences": {
+        "rows": 1
+      }
+    },
+    "all_outbox_resolved": true,
+    "polling_offset_preserved": true,
+    "old_state_preserved": true,
+    "no_external_actions": true
+  },
+  "resume_preservation": {
+    "verified_at": "2026-10-25T12:40:31.740917+00:00",
+    "encrypted_resume_records_preserved": 1,
+    "existing_key_retained": true,
+    "hash_verified": true,
+    "human_confirmed": false,
+    "canonical_resource_linked": false,
+    "profile_facts_created": false,
+    "source_unchanged": true,
+    "destination": "online_supabase"
+  },
+  "agy_schema_diagnostic": {
+    "valid_user_events_sent": 0,
+    "model_generation_requested": false,
+    "billing_guard": {
+      "useG1Credits": false,
+      "provider_api_or_cloud_billing": false,
+      "evidence": "installed_cli_settings_and_official_false_default"
+    },
+    "last_event": "init",
+    "available_tool_count": 60,
+    "diagnostic_error_code": "provider_tool_use_denied"
+  },
+  "telegram_natural_language_online": {
+    "verified_at": "2026-10-25T12:53:56.052277+00:00",
+    "evidence_type": "actual_owner_telegram_roundtrips_and_online_supabase_audit",
+    "owner_confirmed_both_examples": true,
+    "online_supabase": true,
+    "natural_language_audits": [
+      {
+        "at": "2026-10-25T12:45:54.955129+00:00",
+        "ok": true,
+        "intent": null,
+        "status": "no_matches",
+        "submitted": false
+      },
+      {
+        "at": "2026-10-25T12:45:38.244007+00:00",
+        "ok": true,
+        "intent": null,
+        "status": "connection_status",
+        "submitted": false
+      }
+    ],
+    "outbox_counts": {
+      "sent": 16
+    },
+    "live_poll_at": "2026-10-25T12:53:47.464482+00:00",
+    "latest_error": null,
+    "remote_locked_screen_retest": false
+  },
+  "gmail_compose_constraint_test": {
+    "state": "passed",
+    "evidence": "actual_disposable_postgresql17",
+    "original_failure_reproduced": true,
+    "compose_and_existing_modes_accepted": true,
+    "unknown_mode_rejected": true,
+    "replay_rejected": true,
+    "missing_constraint_rejected": true,
+    "fixtures_rolled_back": true,
+    "remote_ddl": false,
+    "reverified_in_this_session": true
+  },
+  "codex_read_only_after_activation": {
+    "connection_name": "supabase-automated-apply",
+    "client": "codex",
+    "evidence_type": "actual_cli_mcp_discovery",
+    "generation_requests": 0,
+    "verified_at": "2026-10-25T19:15:57.624903+00:00",
+    "servers": [
+      {
+        "name": "supabase-automated-apply",
+        "auth_status": "oAuth",
+        "tools": [
+          "get_advisors",
+          "get_project_url",
+          "list_extensions",
+          "list_migrations",
+          "list_tables",
+          "search_docs"
+        ]
+      }
+    ],
+    "project_url_observed": true,
+    "public_table_count": 47,
+    "migration_count": 0,
+    "state": "read_only_results_received"
+  },
+  "gmail_live_verification": {
+    "verified_at": "2026-10-25T12:55:16.624345+00:00",
+    "state": "identity_verified_compose_schema_approval_pending",
+    "expected_account_matches": true,
+    "subject_bound": true,
+    "granted_scopes": [
+      "https://www.googleapis.com/auth/gmail.metadata",
+      "https://www.googleapis.com/auth/userinfo.email",
+      "openid"
+    ],
+    "encrypted_access_and_refresh_persisted": true,
+    "keyring_decrypts_with_context": true,
+    "sending_enabled": false,
+    "drafts_created": 0,
+    "emails_sent": 0,
+    "online_supabase": true,
+    "refresh_test": "passed_actual_google_refresh_and_identity_validation",
+    "last_live_verification": "2026-10-25T13:02:40.830090+00:00",
+    "last_refresh_at": "2026-10-25T13:02:38.921238+00:00",
+    "encrypted_token_persistence_verified": true,
+    "persistence_after_actual_backend_restart": true,
+    "restart_verified_at": "2026-10-25T13:06:01.912858+00:00"
+  },
+  "generated_at": "2026-10-25T19:21:09.819742+00:00",
+  "supabase_security_advisors": {
+    "verified_at": "2026-10-25T16:16:32+00:00",
+    "findings": [],
+    "evidence_type": "actual_named_project_mcp_security_advisors"
+  },
+  "native_online_bridge": {
+    "verified_at": "2026-10-25T13:08:02.992653+00:00",
+    "evidence_type": "actual_installed_native_host_framing_to_online_supabase_api",
+    "results": [
+      {
+        "authorized_origin": true,
+        "ok": true,
+        "error_code": null,
+        "endpoint": "http://127.0.0.1:8000"
+      },
+      {
+        "authorized_origin": false,
+        "ok": false,
+        "error_code": "native_origin_denied",
+        "endpoint": null
+      }
+    ],
+    "real_chrome_gesture": false
+  },
+  "gmail_compose_recoverable_setup_error": {
+    "verified_at": "2026-10-25T13:16:09.620920+00:00",
+    "evidence_type": "actual_online_api_and_supabase_constraint_rejection",
+    "compose_http": 409,
+    "identity_preserved": true,
+    "cookie_created": false,
+    "remote_ddl_performed": false,
+    "message": "Gmail draft authorization needs an operator setup update. Your existing account identity remains connected."
+  },
+  "gmail_compose_followup_activation": {
+    "state": "verified",
+    "project_ref": "luvdmwnlwaqgvfwlmlom",
+    "sha256": "27c1a68eadbd916037effcf94580089777acdc1a66af68aaf9f706beb0cddf3d",
+    "verified_at": "2026-10-25T13:46:13.647016+00:00",
+    "remote_ddl_attempts": 1,
+    "credentials_changed": false,
+    "stage": "complete",
+    "runtime_verification": {
+      "schema": "public",
+      "runtime_security": "restricted_public_v1",
+      "migration_bundle": "2887a98812a797c3ef9d10f37fe5f14959778d802e126d0170776059ccee6a9e",
+      "tls_required": true,
+      "verified_followups": [
+        "followups/002_gmail_compose.sql"
+      ],
+      "postgresql_version": "17.11"
+    },
+    "gmail_sending_enabled": false
+  },
+  "gmail_compose_live_verification": {
+    "verified_at": "2026-10-25T13:54:07.359224+00:00",
+    "state": "compose_identity_refresh_encrypted_storage_verified",
+    "online_supabase": true,
+    "expected_secondary_matches": true,
+    "subject_preserved": true,
+    "granted_scopes": [
+      "https://www.googleapis.com/auth/gmail.compose",
+      "https://www.googleapis.com/auth/userinfo.email",
+      "openid"
+    ],
+    "actual_google_refresh": true,
+    "encrypted_access_and_refresh_persisted": true,
+    "keyring_decrypts_with_context": true,
+    "token_generation_incremented_once": true,
+    "last_refresh_at": "2026-10-25T13:54:04.042966+00:00",
+    "sending_enabled": false,
+    "drafts_created": 0,
+    "emails_sent": 0,
+    "persistence_after_actual_backend_restart": true,
+    "restart_verified_at": "2026-10-25T13:59:19.534048+00:00",
+    "post_restart_identity_verify_http": 200
+  },
+  "agy_tool_isolation_recheck": {
+    "verified_at": "2026-10-25T13:41:17.679838+00:00",
+    "evidence_type": "actual_cli_initialization_no_user_event",
+    "model": "gemini-3.8-flash-high",
+    "effort": "high",
+    "valid_user_events_sent": 0,
+    "model_generation_requested": false,
+    "billing_guard": {
+      "useG1Credits": false,
+      "provider_api_or_cloud_billing": false,
+      "evidence": "installed_cli_settings_and_official_false_default"
+    },
+    "prompt_sent": false,
+    "last_event": "init",
+    "available_tool_count": 60,
+    "elapsed_seconds": 11.516,
+    "exit_status": -9,
+    "state": "generation_disabled",
+    "error_category": "provider_tool_use_denied",
+    "tool_free_initialization_verified": false
+  },
+  "agy_limitation_owner_acceptance": {
+    "owner_accepted": true,
+    "accepted_at": "2026-10-25T13:55:23.037027+00:00",
+    "cli_version": "1.4.7",
+    "generation_disabled": true,
+    "reason": "tool_free_headless_isolation_unproven_60_advertised_tools",
+    "source": "explicit_owner_reply_in_this_session"
+  },
+  "supabase_cli_recheck": {
+    "project_ref": "luvdmwnlwaqgvfwlmlom",
+    "cli_account_access_verified": true,
+    "status": "ACTIVE_HEALTHY",
+    "region": "ap-northeast-1",
+    "postgresql_authenticated": false,
+    "linked": false,
+    "verified_at": "2026-10-25T13:43:34.246657+00:00",
+    "evidence_type": "actual_isolated_cli_project_list"
+  },
+  "native_completion_probes": {
+    "evidence_type": "actual_installed_native_executable_to_online_api",
+    "real_chrome_gesture": false,
+    "cases": [
+      {
+        "case": "authorized_origin",
+        "exit_status": 0,
+        "ok": true,
+        "error_code": null
+      },
+      {
+        "case": "wrong_origin",
+        "exit_status": 0,
+        "ok": false,
+        "error_code": "native_origin_denied"
+      },
+      {
+        "case": "malformed_message",
+        "exit_status": 0,
+        "ok": false,
+        "error_code": "native_invalid_message"
+      },
+      {
+        "case": "oversized_message",
+        "exit_status": 0,
+        "ok": false,
+        "error_code": "native_message_size"
+      }
+    ]
+  },
+  "chatgpt_plugin_recheck": {
+    "verified_at": "2026-10-25T16:16:32+00:00",
+    "evidence_type": "actual_plugin_get_project_url_per_link",
+    "Supabase": {
+      "target_project_url_observed": true
+    },
+    "Primary": {
+      "target_project_url_observed": false,
+      "error_category": "permission_denied"
+    },
+    "local_oauth_used_as_evidence": false,
+    "account_reconnection_performed": false
+  },
+  "resume_integrity_recheck": {
+    "verified_at": "2026-10-25T13:43:38+00:00",
+    "online_supabase": true,
+    "records": 1,
+    "bytes": 100198,
+    "decryption_and_pdf_header_and_hash_verified": true,
+    "existing_key_retained": true,
+    "owner_confirmed": false,
+    "canonical_profile_count": 0
+  },
+  "locked_screen_online_completion": {
+    "state": "pending_owner_action",
+    "evidence_type": "actual_macOS_lock_property_and_PostgreSQL_live_worker",
+    "started_at": "2026-10-25T14:00:33.144758+00:00",
+    "screen_lock_observed": true,
+    "new_pong_sent_while_locked": false,
+    "live_poll_while_locked": true,
+    "last_checked_at": "2026-10-25T14:10:33.464370+00:00",
+    "last_poll_at": "2026-10-25T14:04:18.127372+00:00",
+    "blocker": "owner_screen_lock_and_new_phone_ping_not_verified_before_deadline"
+  },
+  "owner_browser_recent_activity": {
+    "chrome": [
+      {
+        "created_at": "2026-10-25T14:06:00.513811+00:00",
+        "command": "preview_application_url",
+        "ok": true,
+        "platform": "google_forms",
+        "submitted": false
+      },
+      {
+        "created_at": "2026-10-25T14:05:27.556108+00:00",
+        "command": "preview_application_url",
+        "ok": true,
+        "platform": "google_forms",
+        "submitted": false
+      },
+      {
+        "created_at": "2026-10-25T14:05:15.397184+00:00",
+        "command": "preview_application_url",
+        "ok": true,
+        "platform": "google_forms",
+        "submitted": false
+      }
+    ],
+    "telegram": [
+      {
+        "created_at": "2026-10-25T14:04:15.270815+00:00",
+        "status": "unknown",
+        "ok": true
+      },
+      {
+        "created_at": "2026-10-25T14:03:59.751236+00:00",
+        "status": "connection_status",
+        "ok": true
+      }
+    ]
+  },
+  "chrome_stable_installation": {
+    "private_directory_exists": true,
+    "registered_origin_id": "hmkhgcgjjnjncamgdlabocdbgpleebgk",
+    "registered_id_matches_temporary_worktree_path": true,
+    "expected_stable_path_id": "cgnghndndegcjokobbplfngfgfdplenj",
+    "actual_stable_id_owner_confirmation": false,
+    "stable_acceptance_complete": false
+  },
+  "approved_google_form_preview": {
+    "verified_at": "2026-10-25T14:13:43.292738+00:00",
+    "explicit_owner_form_permission": true,
+    "official_form_redirect_verified": true,
+    "expected_page_url_exactly_matches_audit": true,
+    "successful_preview_count": 3,
+    "all_submitted_false": true,
+    "evidence_type": "owner_browser_native_requests_correlated_with_exact_approved_form_url",
+    "extension_stable_path_acceptance": false,
+    "owner_result_confirmation_pending": false,
+    "correlation_ids": [
+      "a23f9d78-fbec-4b7d-b9dd-9a1cd6d6892e",
+      "b58ca68a-27ba-4f7f-a9df-79b5fe88e5d2",
+      "2e32b4bb-ef79-47e1-a78e-dc542e508458"
+    ],
+    "owner_confirmed_preview_result": true,
+    "owner_confirmed_https_context_menu_registration": true,
+    "page_inspected": false,
+    "submitted": false
+  },
+  "native_actual_offline_response": {
+    "evidence_type": "actual_python_native_framing_and_refused_loopback_http",
+    "ok": false,
+    "error_category": "backend_offline",
+    "live_backend_stopped": false,
+    "real_chrome_gesture": false
+  },
+  "telegram_online_acceptance": {
+    "verified_at": "2026-10-25T19:17:38.549133+00:00",
+    "online_supabase": true,
+    "examples": [
+      {
+        "example": "Check whether Gmail is connected",
+        "verified_dispatch_and_sent_reply": false,
+        "matches": []
+      },
+      {
+        "example": "Find Python backend jobs",
+        "verified_dispatch_and_sent_reply": false,
+        "matches": []
+      },
+      {
+        "example": "Show jobs I haven't applied to",
+        "verified_dispatch_and_sent_reply": false,
+        "matches": []
+      },
+      {
+        "example": "Apply for Swiggy",
+        "verified_dispatch_and_sent_reply": false,
+        "matches": []
+      },
+      {
+        "example": "Show pending application preparations",
+        "verified_dispatch_and_sent_reply": true,
+        "matches": [
+          {
+            "at": "2026-10-25T17:36:14.954978+00:00",
+            "ok": true,
+            "status": "application_status",
+            "reply_sent": true
+          }
+        ]
+      },
+      {
+        "example": "Check my connected accounts",
+        "verified_dispatch_and_sent_reply": false,
+        "matches": []
+      }
+    ],
+    "sent_reply_count": 23,
+    "pending_or_ambiguous_replies": 0,
+    "duplicate_worker_denied": true,
+    "last_poll_at": "2026-10-25T19:17:28.989516+00:00",
+    "latest_error": null,
+    "evidence_type": "live_poll",
+    "offset_preserved_or_advanced": true,
+    "fresh_poll_after_explicit_start": true
+  },
+  "connection_status_concurrency": {
+    "verified_at": "2026-10-25T19:19:54.603578+00:00",
+    "evidence_type": "actual_concurrent_authenticated_online_api_reads",
+    "remote_schema_changed": false,
+    "results": [
+      {
+        "http_status": 200,
+        "elapsed_seconds": 12.346,
+        "row_count": 27
+      },
+      {
+        "http_status": 200,
+        "elapsed_seconds": 12.024,
+        "row_count": 27
+      }
+    ]
+  },
+  "locked_screen_online_retest": {
+    "state": "pending_owner_action",
+    "evidence_type": "actual_macOS_lock_property_and_PostgreSQL_live_worker",
+    "started_at": "2026-10-25T14:12:56.387675+00:00",
+    "screen_lock_observed": true,
+    "new_pong_sent_while_locked": false,
+    "live_poll_while_locked": true,
+    "last_poll_at": "2026-10-25T14:16:11.035529+00:00",
+    "last_checked_at": "2026-10-25T14:16:32.289321+00:00"
+  },
+  "locked_screen_online_recovery_observation": {
+    "state": "pending_owner_action",
+    "evidence_type": "actual_macOS_lock_property_and_PostgreSQL_live_worker",
+    "started_at": "2026-10-25T16:15:44.087768+00:00",
+    "screen_lock_observed": false,
+    "new_pong_sent_while_locked": false,
+    "live_poll_while_locked": false,
+    "latest_error_category": null,
+    "last_checked_at": "2026-10-25T16:25:46.922677+00:00",
+    "blocker": "owner_screen_lock_and_new_phone_ping_not_verified_before_deadline"
+  },
+  "parallel_completion_run": {
+    "verified_at": "2026-10-25T18:14:20.048852+00:00",
+    "implementation_commit": "c89ad2c",
+    "phase1_complete": false,
+    "phase2_started": false,
+    "remote_ddl_executed": false,
+    "credentials_and_keys_unchanged": true,
+    "changed_private_configuration_fields": [
+      "CHROME_EXTENSION_ID"
+    ],
+    "stable_extension_id": "gdjbmkffcpicbpiikcohlmokkmcpipgp",
+    "chrome": {
+      "evidence_type": "actual_Chrome_for_Testing_MV3_native_HTTP",
+      "profile": "isolated",
+      "stable_extension_id": "gdjbmkffcpicbpiikcohlmokkmcpipgp",
+      "checks": [
+        "ordinary_https",
+        "page_refresh",
+        "backend_offline_refused_loopback_visible",
+        "backend_recovery",
+        "real_approved_google_form_preview",
+        "real_google_redirect_to_form",
+        "rendered_extension_popup",
+        "unsupported_page",
+        "duplicate_gesture_coalesced",
+        "stale_extension_origin_rejected",
+        "extension_reload",
+        "chrome_restart_and_relocated_install"
+      ],
+      "correlations": [
+        "94f0678d-6eae-41fc-943d-5c41a9e2b29b",
+        "dc34b4a0-997e-4677-a21d-9fba680ea383",
+        "12b59b9e-37aa-4707-adf8-6b463575bb8e",
+        "bc0f3b1d-6faf-4bdc-a994-2a332d47c6b8",
+        "64aa094c-5c30-4ac2-ac05-f44cad615b2c",
+        "9e5ac2a4-796e-47bf-80e1-e96a2591aed1",
+        "9a881ab2-4664-457b-b824-52565cd18614"
+      ],
+      "form_fields_read": false,
+      "form_fields_filled": false,
+      "submitted": false,
+      "owner_gestures_verified": false,
+      "browser_version": "156.0.8078.4",
+      "database_audit": {
+        "matched_audits": 7,
+        "expected_correlations": 7,
+        "online_supabase": true,
+        "stable_actor_matches": true,
+        "all_submitted_false": true,
+        "correlation_ids": [
+          "94f0678d-6eae-41fc-943d-5c41a9e2b29b",
+          "dc34b4a0-997e-4677-a21d-9fba680ea383",
+          "12b59b9e-37aa-4707-adf8-6b463575bb8e",
+          "bc0f3b1d-6faf-4bdc-a994-2a332d47c6b8",
+          "64aa094c-5c30-4ac2-ac05-f44cad615b2c",
+          "9e5ac2a4-796e-47bf-80e1-e96a2591aed1",
+          "9a881ab2-4664-457b-b824-52565cd18614"
+        ]
+      },
+      "owner_reported_failure_resolved": true,
+      "owner_preview_retest": {
+        "checked_at": "2026-10-25T17:40:36.149696+00:00",
+        "stable_extension_id": "gdjbmkffcpicbpiikcohlmokkmcpipgp",
+        "owner_confirmed_visible_success": true,
+        "owner_confirmed_menu_registration": true,
+        "owner_controlled_preview_retest": true,
+        "fresh_online_audits": [
+          {
+            "created_at": "2026-10-25T17:39:20.230530+00:00",
+            "correlation_id": "fe65585d-d8e5-46ad-9907-214eccb76ffc",
+            "submitted": false,
+            "exact_authorized_form_url_matches": true
+          },
+          {
+            "created_at": "2026-10-25T17:39:04.368970+00:00",
+            "correlation_id": "d05c4b55-e584-4026-a98d-df80f8cfdb32",
+            "submitted": false,
+            "exact_authorized_form_url_matches": true
+          },
+          {
+            "created_at": "2026-10-25T17:39:03.300650+00:00",
+            "correlation_id": "db13052d-d83b-438a-bbe6-fd93d2091d0a",
+            "submitted": false,
+            "exact_authorized_form_url_matches": true
+          }
+        ],
+        "matched": true,
+        "no_form_fill_or_submission": true,
+        "owner_restart_offline_gestures_separately_verified": false
+      },
+      "latest_controlled_recheck": {
+        "evidence_type": "actual_Chrome_for_Testing_MV3_native_HTTP",
+        "profile": "isolated",
+        "stable_extension_id": "gdjbmkffcpicbpiikcohlmokkmcpipgp",
+        "checks": [
+          "ordinary_https",
+          "page_refresh",
+          "backend_offline_refused_loopback_visible",
+          "backend_recovery",
+          "real_approved_google_form_preview",
+          "real_google_redirect_to_form",
+          "rendered_extension_popup",
+          "unsupported_page",
+          "duplicate_gesture_coalesced",
+          "stale_extension_origin_rejected",
+          "extension_reload",
+          "chrome_restart_and_relocated_install"
+        ],
+        "correlations": [
+          "b0abf98c-7d68-46e5-a080-0c1c967c2c5e",
+          "c2f8419a-2682-43b1-9e71-7f39c6acdac9",
+          "912d1d4c-fa08-43a3-b2da-4f0e7b3107ab",
+          "b0a7efc4-6202-44c5-b43f-0470c7048fcf",
+          "b0a7efc4-6202-44c5-b43f-0470c7048fcf",
+          "04c706b8-799f-498a-aa97-35db7ed57418",
+          "b8335746-45a5-4b35-92c0-99294e062e27"
+        ],
+        "form_fields_read": false,
+        "form_fields_filled": false,
+        "submitted": false,
+        "owner_gestures_verified": false,
+        "browser_version": "156.0.8078.4"
+      }
+    },
+    "native_frame_rejections": [
+      {
+        "test": "wrong_origin",
+        "passed": true,
+        "code": "native_origin_denied"
+      },
+      {
+        "test": "malformed_json",
+        "passed": true,
+        "code": "native_invalid_message"
+      },
+      {
+        "test": "oversized_frame",
+        "passed": true,
+        "code": "native_message_size"
+      },
+      {
+        "test": "partial_frame",
+        "passed": true,
+        "code": "native_invalid_message"
+      }
+    ],
+    "gmail": {
+      "state": "connected",
+      "identity_unchanged": true,
+      "exact_compose_scopes": true,
+      "last_refresh_at": "2026-10-25T18:14:42.112607+00:00",
+      "verified_at": "2026-10-25T18:14:43.871652+00:00",
+      "mail_sent": false,
+      "draft_created": false
+    },
+    "supabase": {
+      "schema": "public",
+      "runtime_security": "restricted_public_v1",
+      "migration_bundle": "2887a98812a797c3ef9d10f37fe5f14959778d802e126d0170776059ccee6a9e",
+      "tls_required": true,
+      "verified_followups": [
+        "followups/002_gmail_compose.sql"
+      ],
+      "postgresql_version": "17.11"
+    },
+    "telegram_worker": {
+      "evidence_type": "live_poll",
+      "last_poll_at": "2026-10-25T18:14:29.847276+00:00",
+      "last_error": null,
+      "sent_reply_count": 23,
+      "ambiguous_deliveries": 0
+    },
+    "telegram_fresh_owner_acceptance": {
+      "checked_at": "2026-10-25T17:37:50.175929+00:00",
+      "owner_confirmed_receiving_replies": true,
+      "online_supabase": true,
+      "last_poll_at": "2026-10-25T17:37:19.430196+00:00",
+      "last_error": null,
+      "fresh_matched_roundtrips": [
+        {
+          "created_at": "2026-10-25T17:36:14.954978+00:00",
+          "status": "application_status",
+          "ok": true,
+          "delivery_state": "sent",
+          "correlation_id": "fd2763cd-1c05-4583-8327-aa4473421efd",
+          "equivalent_example_intents": [
+            "Hi, what's my application status?"
+          ]
+        }
+      ],
+      "recent_context_categories": [
+        "APPLICATION_STATUS"
+      ],
+      "all_recent_roundtrips_count": 9,
+      "literal_message_text_retained": false,
+      "locked_screen_verified": true,
+      "remaining_live_examples": "varied_paraphrases_mistakes_and_contextual_followups"
+    },
+    "locked_screen": {
+      "state": "passed",
+      "evidence_type": "actual_macOS_lock_property_and_PostgreSQL_live_worker",
+      "started_at": "2026-10-25T17:52:36.601715+00:00",
+      "screen_lock_observed": true,
+      "new_pong_sent_while_locked": true,
+      "live_poll_while_locked": true,
+      "latest_error_category": null,
+      "last_checked_at": "2026-10-25T17:57:59.227119+00:00",
+      "last_poll_at": "2026-10-25T17:57:51.461088+00:00",
+      "verified_at": "2026-10-25T17:57:59.227096+00:00",
+      "owner_confirmed_receiving_reply": true
+    },
+    "vscode": {
+      "client": "vs_code",
+      "evidence_type": "actual_vscode_extension_API_no_model",
+      "state": "verification_window_closed_before_discovery",
+      "generation_requests": 0,
+      "mutations": 0,
+      "verified_at": "2026-10-25T18:12:34.158Z",
+      "workspace_trusted": true,
+      "mcp_access": "all",
+      "expected_workspace_config_present": true,
+      "discovered_tools": [],
+      "observed_at": "2026-10-25T18:12:52.225Z",
+      "extension_host_exit_code": 0,
+      "read_only_tool_invoked": false
+    },
+    "portal_pages": [
+      {
+        "name": "Naukri",
+        "http_status": 200,
+        "observed_host": "www.naukri.com",
+        "authenticated": false,
+        "identity_verified": false,
+        "api_connected": false,
+        "owner_login_required": true
+      },
+      {
+        "name": "Wellfound",
+        "http_status": 200,
+        "observed_host": "wellfound.com",
+        "authenticated": false,
+        "identity_verified": false,
+        "api_connected": false,
+        "owner_login_required": true
+      },
+      {
+        "name": "Instahyre",
+        "http_status": 200,
+        "observed_host": "www.instahyre.com",
+        "authenticated": false,
+        "identity_verified": false,
+        "api_connected": false,
+        "owner_login_required": true
+      },
+      {
+        "name": "YC Work at a Startup",
+        "http_status": 404,
+        "observed_host": "www.workatastartup.com",
+        "authenticated": false,
+        "identity_verified": false,
+        "api_connected": false,
+        "owner_login_required": true
+      },
+      {
+        "name": "Internshala",
+        "http_status": 200,
+        "observed_host": "internshala.com",
+        "authenticated": false,
+        "identity_verified": false,
+        "api_connected": false,
+        "owner_login_required": true
+      }
+    ],
+    "yc_login_correction": {
+      "verified_from": "official Work at a Startup Log in link",
+      "http_status": 200,
+      "host": "account.ycombinator.com",
+      "authentication_performed": false
+    },
+    "profile_context_workstream": {
+      "status": "module_complete_not_production_connected",
+      "branch": "feat/phase1-profile-context-parallel",
+      "sha": "aaed0afeec8b1d35ac1a2df37db00b2104169660",
+      "pull_request": "https://github.com/karanagg166/automated-apply/pull/19",
+      "base": "feat/phase1-local-connections",
+      "draft": true,
+      "merged": false,
+      "owner_approved": false,
+      "tests": {
+        "passed": 86,
+        "failed": 0,
+        "skipped": 0
+      },
+      "hosted_ci_claimed": false,
+      "remaining_integration": [
+        "owner_review_of_separate_PR",
+        "dashboard_routes_fields_and_env_proposals",
+        "single_resume_engine_and_historical_mapping",
+        "notification_and_fact_invalidation_events",
+        "TelegramKnowledgeAdapter_injection",
+        "real_Drive_authorization_and_acceptance"
+      ],
+      "frontend_push_ci": {
+        "state": "passed",
+        "url": "https://github.com/karanagg166/automated-apply/actions/runs/40215268877",
+        "scope": "frontend_only_not_module_backend_tests"
+      }
+    },
+    "actual_submissions": 0,
+    "actual_emails_sent": 0,
+    "actual_drafts_created": 0,
+    "paid_calls": 0,
+    "new_model_calls": 0,
+    "agy_generation_enabled": false,
+    "local_ollama_model_tested": false,
+    "telegram_post_restart": {
+      "checked_at": "2026-10-25T17:28:40.215050+00:00",
+      "evidence_type": "live_poll",
+      "last_poll_at": "2026-10-25T17:28:17.002637+00:00",
+      "last_error": null,
+      "sent_reply_count": 20,
+      "ambiguous_deliveries": 0,
+      "new_owner_conversation_audits": 0
+    },
+    "portal_owner_observations": [
+      {
+        "at": "2026-10-25T18:01:21.532136+00:00",
+        "ok": true,
+        "platform": "internshala",
+        "observation": "unverifiable",
+        "state": "owner_action_required",
+        "api_connected": false,
+        "identity_verified": false
+      }
+    ],
+    "portal_check_explanation": "Internshala gesture reached the backend; no supported visible sign-in indicator was found. Login, identity and applicant API remain unverified.",
+    "extension_message_fix": {
+      "unverifiable_result_explained": true,
+      "retained_across_popup_reopen": true,
+      "identity_and_API_claims_forbidden": true,
+      "tested_events": 18
+    },
+    "latest_online_verified_at": "2026-10-25T18:14:28.176735+00:00",
+    "platform_connections": [
+      {
+        "platform": "naukri",
+        "name": "Naukri",
+        "login_url": "https://www.naukri.com/nlogin/login",
+        "state": "owner_action_required",
+        "last_verification_time": null,
+        "evidence_type": "none",
+        "identity_verified": false,
+        "api_connected": false,
+        "capabilities": [
+          "manual_handoff",
+          "url_preview",
+          "gesture_session_observation"
+        ],
+        "submission": "unsupported",
+        "owner_acceptance_required": true
+      },
+      {
+        "platform": "wellfound",
+        "name": "Wellfound",
+        "login_url": "https://wellfound.com/login",
+        "state": "owner_action_required",
+        "last_verification_time": null,
+        "evidence_type": "none",
+        "identity_verified": false,
+        "api_connected": false,
+        "capabilities": [
+          "manual_handoff",
+          "url_preview",
+          "gesture_session_observation"
+        ],
+        "submission": "unsupported",
+        "owner_acceptance_required": true
+      },
+      {
+        "platform": "instahyre",
+        "name": "Instahyre",
+        "login_url": "https://www.instahyre.com/login/",
+        "state": "owner_action_required",
+        "last_verification_time": null,
+        "evidence_type": "none",
+        "identity_verified": false,
+        "api_connected": false,
+        "capabilities": [
+          "manual_handoff",
+          "url_preview",
+          "gesture_session_observation"
+        ],
+        "submission": "unsupported",
+        "owner_acceptance_required": true
+      },
+      {
+        "platform": "work_at_a_startup",
+        "name": "YC Work at a Startup",
+        "login_url": "https://account.ycombinator.com/magic?continue=https%3A%2F%2Fwww.workatastartup.com%2F",
+        "state": "owner_action_required",
+        "last_verification_time": null,
+        "evidence_type": "none",
+        "identity_verified": false,
+        "api_connected": false,
+        "capabilities": [
+          "manual_handoff",
+          "url_preview",
+          "gesture_session_observation"
+        ],
+        "submission": "unsupported",
+        "owner_acceptance_required": true
+      },
+      {
+        "platform": "internshala",
+        "name": "Internshala",
+        "login_url": "https://internshala.com/login/",
+        "state": "owner_action_required",
+        "last_verification_time": "2026-10-25T18:01:20.860947+00:00",
+        "evidence_type": "extension_gesture_dom_indicator",
+        "identity_verified": false,
+        "api_connected": false,
+        "capabilities": [
+          "manual_handoff",
+          "url_preview",
+          "gesture_session_observation"
+        ],
+        "submission": "unsupported",
+        "owner_acceptance_required": true
+      }
+    ]
+  }
+}

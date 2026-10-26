@@ -14,7 +14,12 @@ import ssl
 import sys
 import time
 from email.message import Message
+from pathlib import Path
 from urllib.parse import parse_qs, urljoin, urlsplit
+
+# The credential-free subprocess runs this file directly, with no PYTHONPATH.
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+from backend.app.core.pinned_http import connect_pinned
 
 MAX_BYTES = 5 * 1024 * 1024
 HOSTS = {"drive.google.com", "drive.usercontent.google.com"}
@@ -54,15 +59,7 @@ def public_addresses(host: str):
 def connect(host: str):
     # No second DNS lookup: connect to a previously validated numeric address.
     address = public_addresses(host)[0]
-    connection = http.client.HTTPSConnection(host, timeout=5)
-    connection.auto_open = 0
-    sock = socket.create_connection((address, 443), timeout=5)
-    try:
-        connection.sock = ssl.create_default_context().wrap_socket(sock, server_hostname=host)
-    except BaseException:
-        sock.close()
-        raise
-    return connection
+    return connect_pinned(host, address, context=ssl.create_default_context())
 
 
 def filename(value: str | None):

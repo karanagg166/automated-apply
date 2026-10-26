@@ -54,10 +54,10 @@ Migration **011 follows 001–010**. It adds three private tables and an additiv
 ```sh
 PROFILE_TEST_DATABASE_URL=postgresql://postgres:<test-password>@127.0.0.1:<test-port>/candidate_profile_test \
   backend/venv/bin/pytest backend/tests -q
-npm run typecheck --prefix frontend
-npm test --prefix frontend
-npm run build --prefix frontend
-PYTHON=../backend/venv/bin/python npm run e2e --prefix frontend
+pnpm -C frontend typecheck
+pnpm -C frontend test
+pnpm -C frontend build
+PYTHON=../backend/venv/bin/python pnpm -C frontend e2e
 ```
 
 The suite mocks Drive transport and generates fictional PDFs in memory. PostgreSQL tests create/drop isolated child databases and exercise migration grants, concurrent same-byte sync, concurrent approval, version advancement, preservation and interrupted-transaction recovery. No real candidate PDF is a fixture. Frontend API types are regenerated with the existing OpenAPI export workflow.

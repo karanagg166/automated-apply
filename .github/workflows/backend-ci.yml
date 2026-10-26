@@ -1,14 +1,14 @@
 name: Backend CI
 on:
   push:
-    branches: [main]
+    branches: [main, feat/phase1-local-connections, feat/agent-command-execution, feat/chrome-form-inspection-autofill]
   pull_request:
-    branches: [main]
+    branches: [main, feat/phase1-local-connections, feat/agent-command-execution, feat/chrome-form-inspection-autofill]
 permissions:
   contents: read
 jobs:
   backend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # The full suite rebuilds isolated schemas and verifies migrations 001–012.
     # Keep a finite job limit with room for hosted-runner variance and Docker.
     timeout-minutes: 30
@@ -49,8 +49,19 @@ jobs:
           python-version: '3.11'
           cache: pip
           cache-dependency-path: backend/requirements.txt
-      - run: python -m pip install -r backend/requirements.txt
+      - run: python -m pip install -r backend/requirements-browser.txt
+      - run: python -m playwright install --with-deps chromium
       - run: python -m pip install ruff bandit
+      - name: Core Phase 1 lint
+        run: >-
+          ruff check --isolated --select E9,F,I
+          backend/app/candidate_context backend/app/ai backend/app/agent
+          backend/app/services/application_answer_service.py
+          backend/tests/test_local_answer_integration.py backend/tests/test_cohere_provider.py
+          backend/tests/test_agent_planner.py backend/tests/test_agent_execution.py backend/tests/test_agent_execution_postgres.py backend/scripts/verify_command_postgres.py backend/scripts/run_command_worker.py
+          backend/app/dashboard/candidate_context.py
+          backend/scripts/phase1/agy_isolation_check.py
+          backend/tests/test_candidate_context*.py backend/tests/test_phase1_agy_diagnostics.py
       - name: Contact enrichment lint
         run: >-
           ruff check --isolated --select E9,F,I
@@ -93,6 +104,49 @@ jobs:
           backend/scripts/phase7_ui_fixture.py backend/scripts/resolve_owner_resume.py
           backend/scripts/configure_frontend_owner.py backend/tests/test_phase7_dashboard.py
           backend/app/api/v1/discovery.py
+      - name: Browser assistant lint
+        run: >-
+          ruff check --isolated --select E9,F,I backend/app/browser
+          backend/app/ai/optional_usage.py backend/app/ai/providers/optional.py
+          backend/app/ai/output_contract.py backend/tests/test_ollama_contract.py
+          backend/scripts/browser_assistant.py backend/scripts/browser_mock_demo.py
+          backend/tests/test_browser_assistant.py backend/tests/test_optional_ai.py
+          backend/tests/test_browser_submissions.py backend/tests/test_browser_submission_postgres.py
+          backend/scripts/verify_browser_submission.py
+          backend/tests/browser_employers.py
+          backend/app/knowledge backend/app/ai/fallback.py
+          backend/app/ai/provider_factory.py backend/app/ai/providers/gemini.py
+          backend/app/services/application_answer_service.py backend/app/api/v1/application_answers.py
+          backend/app/schemas/candidate_profile.py backend/app/ai/schemas.py
+          backend/tests/test_answer_reuse.py backend/tests/test_career_facts.py backend/tests/test_local_ai_fallback.py
+          backend/tests/test_narrative_paraphrases.py
+          backend/app/core/text.py backend/tests/company_source_employers.py
+          backend/tests/test_company_source.py backend/tests/test_company_source_postgres.py
+          backend/scripts/verify_company_source.py
+          backend/tests/test_opportunity_context.py backend/tests/opportunity_fakes.py
+          backend/tests/test_browser_opportunity_postgres.py backend/scripts/verify_browser_opportunity.py
+          backend/tests/test_browser_choices.py backend/tests/test_browser_steps.py
+          backend/tests/test_browser_steps_postgres.py backend/scripts/verify_browser_steps.py
+          backend/tests/test_browser_navigation.py backend/tests/test_browser_navigation_postgres.py
+          backend/scripts/verify_browser_navigation.py
+          backend/tests/test_browser_narrative_submission.py backend/tests/test_complete_application_postgres.py
+          backend/scripts/verify_complete_application.py
+          backend/app/core/pinned_http.py backend/app/resume_sync/download_worker.py
+          backend/tests/test_public_assets.py backend/tests/test_browser_assets.py backend/tests/asset_employers.py
+          backend/tests/test_browser_assets_postgres.py backend/scripts/verify_browser_assets.py
+          backend/tests/dropdown_employers.py backend/tests/test_browser_dropdowns.py
+          backend/tests/test_browser_dropdowns_postgres.py backend/scripts/verify_browser_dropdowns.py
+          backend/tests/test_browser_field_reuse.py
+          backend/app/services/applications/multi_select.py
+          backend/tests/test_multi_select_answers.py backend/tests/test_browser_multiple.py
+          backend/tests/multiple_employers.py backend/scripts/verify_browser_multiple.py
+          backend/tests/test_browser_multiple_postgres.py
+          backend/tests/test_browser_cancellation.py backend/tests/test_browser_cancellation_postgres.py
+          backend/scripts/verify_browser_cancellation.py
+          backend/scripts/verify_live_ollama.py
+          backend/app/ai/validation.py backend/app/ai/prompts.py
+      - name: PostgreSQL browser lifecycle demonstration
+        run: python backend/scripts/browser_mock_demo.py
       - name: Backend security scan
         run: bandit -q -r backend/app
       - name: Phase 10 lint
@@ -144,10 +198,10 @@ jobs:
       - name: Full backend regression suite
         # Regular-file child output avoids inherited-pipe hangs. Keep every test
         # and the original collection order; never equate local results with CI.
-        timeout-minutes: 8
+        timeout-minutes: 16
         shell: bash
         run: |
-          python -u backend/scripts/run_backend_ci.py --output /tmp/backend-diagnostics --seconds 360 python -u -m pytest backend/tests -v --durations=20 -o faulthandler_timeout=60 --junitxml=/tmp/backend-diagnostics/pytest.xml
+          python -u backend/scripts/run_backend_ci.py --output /tmp/backend-diagnostics --seconds 900 python -u -m pytest backend/tests -v --durations=20 -o faulthandler_timeout=60 --junitxml=/tmp/backend-diagnostics/pytest.xml
       - name: Record isolated PostgreSQL final state
         if: always()
         timeout-minutes: 1
@@ -190,10 +244,14 @@ jobs:
       - name: Secret checks
         run: |
           python -m pip install -c backend/requirements.lock detect-secrets
-          if git ls-files | rg '(^|/)(reports/|secrets/|\.env$)|\.private\.|\.(pem|key|dump)$'; then
+          if git ls-files | grep -E '(^|/)(reports/|secrets/|\.env$)|\.private\.|\.(pem|key|dump)$'; then
             echo 'Private runtime artifacts must not be tracked'; exit 1
           fi
           git ls-files -z | xargs -0 detect-secrets-hook --baseline .secrets.baseline
+      - name: Pinned Python dependency vulnerability audit
+        run: |
+          python -m pip install pip-audit
+          python -m pip_audit -r backend/requirements.lock --no-deps --disable-pip
       - name: Build non-root runtime image
         run: |
           docker build --build-arg SOURCE_REVISION="$GITHUB_SHA" -t automated-apply:ci .

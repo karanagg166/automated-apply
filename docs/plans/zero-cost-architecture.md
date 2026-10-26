@@ -115,7 +115,7 @@ disk capacity and owner time exist; this is not a claim of zero resource consump
 
 | Dependency | Free/API/card/expiry | Overage or limitation / local alternative |
 | --- | --- | --- |
-| Python/FastAPI/Next.js/PostgreSQL17/npm/Git/Playwright/age | Open-source local use; no account/card/expiry/API fee | Resource and license obligations; use existing toolchain, no paid IDE/test service |
+| Python/FastAPI/Next.js/PostgreSQL17/pnpm/Git/Playwright/age | Open-source local use; no account/card/expiry/API fee | Resource and license obligations; use existing toolchain, no paid IDE/test service |
 | Docker Personal | [Free for personal use](https://www.docker.com/products/personal/); no paid subscription needed here | Registry pull limits may apply; reuse local images, no paid registry; native PG/free compatible container runtime alternative |
 | Supabase CLI | Local open-source tool, no mandatory subscription | Does not grant DB credentials, free project eligibility or activation authority |
 | Selected Supabase project | [Free](https://supabase.com/pricing) offers 500 MB DB, 1 GB Storage, 5 GB egress plus 5 GB cached egress, two active-project limit; no trial expiry assumed | Actual selected-org plan/headroom/backup entitlement **unverified**. No upgrade/card/add-ons/PITR/IPv4 purchase. Shared app consumes same capacity; hard stop if insufficient; later reviewed local PG alternative |

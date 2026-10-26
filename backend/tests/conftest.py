@@ -16,7 +16,7 @@ os.environ["DATABASE_SCHEMA"] = "job_agent"
 os.environ["LOG_LEVEL"] = "WARNING"
 os.environ["SECRET_KEY"] = "test-secret-key-32-chars-long-for-testing"
 # Environment overrides prevent loading local account credentials from .env files.
-for name in ("GEMINI_API_KEY", "LLM_MODEL", "CANDIDATE_RESUME_DRIVE_URL", "CANDIDATE_RESUME_DRIVE_FILE_ID", "RESUME_ENCRYPTION_KEY", "CANDIDATE_GITHUB_URL",
+for name in ("COHERE_API_KEY", "GEMINI_API_KEY", "LLM_MODEL", "CANDIDATE_RESUME_DRIVE_URL", "CANDIDATE_RESUME_DRIVE_FILE_ID", "RESUME_ENCRYPTION_KEY", "CANDIDATE_GITHUB_URL",
              "CANDIDATE_ORIGINAL_LINKEDIN_URL", "CANDIDATE_PORTFOLIO_URL", "CANDIDATE_LEETCODE_URL",
              "CANDIDATE_CODEFORCES_URL", "CANDIDATE_GFG_URL", "CANDIDATE_HACKERRANK_URL", "JOB_AGENT_API_TOKEN",
              "HUNTER_API_KEY", "APOLLO_API_KEY", "SERPER_API_KEY",
@@ -31,6 +31,21 @@ os.environ["RESUME_DRIVE_SYNC_ENABLED"] = "false"
 os.environ["AUTOMATION_EXECUTION_ENABLED"] = "false"
 os.environ["MCP_REMOTE_ENABLED"] = "false"
 os.environ["MCP_ALLOW_DRAFT_CREATION"] = "false"
+os.environ["COHERE_ENABLED"] = "false"
+os.environ["COHERE_EVALUATION_KEY_CONFIRMED"] = "false"
+os.environ["COHERE_OWNER_TEXT_AUTHORIZED"] = "false"
+os.environ["COHERE_CANDIDATE_DATA_AUTHORIZED"] = "false"
+os.environ["AGY_ENABLED"] = "false"
+os.environ["AGY_QUOTA_AUTHORIZED"] = "false"
+os.environ["AGY_MODEL"] = ""
+os.environ["TELEGRAM_BOT_TOKEN"] = ""
+os.environ["TELEGRAM_OWNER_USER_ID"] = ""
+os.environ["TELEGRAM_OWNER_CHAT_ID"] = ""
+os.environ["TELEGRAM_LOCAL_AI_ENABLED"] = "false"
+os.environ["OLLAMA_MODEL"] = ""
+os.environ["BROWSER_SUBMIT_ENABLED"] = "false"
+os.environ["CHROME_NATIVE_MESSAGING_ENABLED"] = "false"
+os.environ["CHROME_EXTENSION_ID"] = ""
 
 from collections.abc import AsyncGenerator
 import pytest
@@ -122,7 +137,7 @@ async def phase2_profile(db_session):
 @pytest.fixture
 def phase2_settings():
     from backend.app.core.config import Settings
-    return Settings(_env_file=None, LLM_MODEL="gemini-test-model", GEMINI_API_KEY="fictional-test-key")
+    return Settings(_env_file=None, LLM_MODEL="gemini-test-model", GEMINI_API_KEY="fictional-test-key", GEMINI_ENABLED=True, GEMINI_APPROVED_MONTHLY_REQUESTS=200)
 
 
 @pytest.fixture

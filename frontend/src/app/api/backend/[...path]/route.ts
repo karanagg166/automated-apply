@@ -1,3 +1,4 @@
+import { createHash, createHmac, randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { readBoundedBody, RequestLimitError } from "@/lib/http-boundary";
 import { permittedRoute } from "@/lib/gateway";
@@ -61,6 +62,31 @@ async function proxy(
     const body = mutation
       ? await readBoundedBody(req, maximum, 20000)
       : undefined;
+    if (
+      mutation &&
+      (/^browser-applications\/[a-f0-9-]{36}\/(authorize-submission|consent|opportunity-approve|company-source-preview|advance-step|resume-page)$/.test(
+        path,
+      ) ||
+        /^application-answers\/drafts\/[a-f0-9-]{36}\/approve-reuse$/.test(
+          path,
+        ))
+    ) {
+      const approvalKey = process.env.BROWSER_OWNER_APPROVAL_KEY;
+      if (!approvalKey || approvalKey.length < 32)
+        return fail("Dashboard owner approval is not configured", 503);
+      const timestamp = Math.floor(Date.now() / 1000).toString();
+      const nonce = randomUUID().replaceAll("-", "");
+      const digest = createHash("sha256")
+        .update(body || new Uint8Array())
+        .digest("hex");
+      const signature = createHmac("sha256", approvalKey)
+        .update([req.method, url.pathname, timestamp, nonce, digest].join("\n"))
+        .digest("hex");
+      headers.set(
+        "X-Browser-Owner-Approval",
+        `v1:${timestamp}:${nonce}:${signature}`,
+      );
+    }
     const upstream = await fetch(url, {
       method: req.method,
       headers,
@@ -103,4 +129,10 @@ async function proxy(
     );
   }
 }
-export { proxy as GET, proxy as POST, proxy as PATCH, proxy as PUT };
+export {
+  proxy as GET,
+  proxy as POST,
+  proxy as PATCH,
+  proxy as PUT,
+  proxy as DELETE,
+};

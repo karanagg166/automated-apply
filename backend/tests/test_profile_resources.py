@@ -17,7 +17,7 @@ def test_invalid_resource_urls(url):
 
 
 @pytest.mark.parametrize("values", [
-    {"LLM_PROVIDER": "cohere"}, {"LLM_MODEL": "https://evil.example/model"}, {"LLM_MODEL": "model with spaces"},
+    {"LLM_PROVIDER": "unsupported-provider"}, {"LLM_MODEL": "https://evil.example/model"}, {"LLM_MODEL": "model with spaces"},
     {"LLM_MAX_OUTPUT_TOKENS": 0}, {"LLM_MAX_INPUT_CHARS": 999999}, {"LLM_TIMEOUT_SECONDS": float("inf")},
     {"LLM_MONTHLY_MAX_REQUESTS": -1}, {"LLM_MAX_CONCURRENCY": 100}, {"CANDIDATE_GITHUB_URL": "https://user@example.com"},
 ])

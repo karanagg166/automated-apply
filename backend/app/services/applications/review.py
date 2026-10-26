@@ -16,6 +16,10 @@ class ApplicationReview:
     async def review(self, packet_id, request):
         packet, _, _ = await self.service.locked(packet_id, request.expected_revision)
         items = await self.repo.fields(packet_id)
+        if any(item.field_type == "multi_select" and item.id in request.reviewed_field_ids for item in items):
+            from backend.app.services.applications.multi_select import require_available
+
+            await require_available(self.session)
         field_ids = {f.id for f in items}
         if (
             len(set(request.reviewed_field_ids)) != len(request.reviewed_field_ids)

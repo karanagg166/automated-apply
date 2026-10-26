@@ -4,7 +4,7 @@ import re
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from backend.app.core.urls import PublicHTTPSURL
@@ -28,6 +28,28 @@ class Settings(BaseSettings):
     API_REQUIRE_TLS: bool = True
     STAGING_DATABASE_ID: str | None = None
     APPLICATION_SUBMISSION_ENABLED: Literal[False] = False
+    BROWSER_ASSISTANT_ENABLED: bool = False
+    BROWSER_MOCK_SUBMISSION_ENABLED: bool = False
+    BROWSER_OWNER_APPROVAL_KEY: SecretStr | None = Field(default=None, min_length=32)
+    BROWSER_ALLOWED_ORIGINS: list[str] = Field(default_factory=list)
+    BROWSER_ASSET_ORIGINS: list[str] = Field(default_factory=list, max_length=8)
+    BROWSER_PROFILE_ROOT: str = "reports/browser-profiles"
+    BROWSER_CHANNEL: Literal["chrome", "chromium"] = "chrome"
+    BROWSER_HEADLESS: bool = False
+    MULTI_SELECT_FIELDS_ENABLED: bool = False
+
+    # Optional browser assistance and reviewed answer reuse; disabled by default.
+    APPROVED_ANSWER_REUSE_ENABLED: bool = False
+    OPPORTUNITY_CONTEXT_ENABLED: bool = False
+    COMPANY_SOURCE_FETCH_ENABLED: bool = False
+    COMPANY_SOURCE_URLS: list[str] = Field(default_factory=list, max_length=8)
+    LLM_LOCAL_FALLBACK_ENABLED: bool = False
+    GEMINI_ENABLED: bool = False
+    GEMINI_APPROVED_MONTHLY_REQUESTS: int = Field(default=0, ge=0, le=10000)
+    OLLAMA_ENABLED: bool = False
+    COHERE_EVALUATION_ENABLED: bool = False
+    COHERE_TRIAL_KEY_CONFIRMED: bool = False
+    COHERE_DATA_SHARING_APPROVED: bool = False
 
     # Security
     RESUME_ENCRYPTION_KEY: SecretStr | None = None
@@ -45,8 +67,8 @@ class Settings(BaseSettings):
         description="Async SQLAlchemy database connection string",
     )
     DATABASE_SCHEMA: str = Field(
-        default="job_agent",
-        description="Dedicated isolated PostgreSQL schema for job-pulse-agent",
+        default="public",
+        description="Application schema; public for the dedicated Phase 1 project",
     )
     DB_POOL_SIZE: int = Field(default=5, ge=1, le=50)
     DB_MAX_OVERFLOW: int = Field(default=10, ge=0, le=100)
@@ -60,9 +82,78 @@ class Settings(BaseSettings):
     SUPABASE_ANON_KEY: str | None = None
     SUPABASE_SERVICE_ROLE_KEY: str | None = None
 
+    SUPABASE_PROJECT_REF: str = "luvdmwnlwaqgvfwlmlom"
+    SUPABASE_PUBLISHABLE_KEY: str | None = None
+    SUPABASE_JWKS_URL: str = (
+        "https://luvdmwnlwaqgvfwlmlom.supabase.co/auth/v1/.well-known/jwks.json"
+    )
+    LOCAL_AGENT_ENDPOINT: str = "http://127.0.0.1:8000"
+    BROWSER_SUBMIT_ENABLED: bool = False
+    BROWSER_FILL_ENABLED: bool = False
+    BROWSER_AUTOMATION_ENABLED: bool = False
+    BROWSER_FIXTURE_ORIGIN: str | None = None
+    CHROME_NATIVE_MESSAGING_ENABLED: bool = False
+    CHROME_EXTENSION_ID: str | None = Field(default=None, pattern=r"^[a-p]{32}$")
+    TELEGRAM_BOT_TOKEN: SecretStr | None = None
+    TELEGRAM_OWNER_USER_ID: int | None = Field(default=None, gt=0)
+    TELEGRAM_OWNER_CHAT_ID: int | None = Field(default=None, gt=0)
+    TELEGRAM_LOCAL_AI_ENABLED: bool = False
+    OLLAMA_GENERATION_AUTHORIZED: bool = False
+    OLLAMA_MODEL: str | None = Field(
+        default=None, pattern=r"^[A-Za-z0-9][A-Za-z0-9:._-]{0,99}$"
+    )
+    AGY_ENABLED: bool = False
+    AGY_MODEL: str | None = Field(
+        default=None, pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]{0,120}$"
+    )
+    AGY_EFFORT: Literal["low", "medium", "high", "xhigh", "max"] = "high"
+    AGY_EXECUTABLE: str = "/opt/homebrew/bin/agy"
+    AGY_TIMEOUT_SECONDS: float = Field(default=60, ge=1, le=120)
+    AGY_QUOTA_AUTHORIZED: bool = False
+
+    # Owner-authorized local mirrors only. Never clone/fetch or execute source code.
+    CANDIDATE_PROJECT_CHECKOUTS: dict[str, str] = Field(default_factory=dict)
+    CANDIDATE_PROJECT_REFRESH_SECONDS: int = Field(default=300, ge=30, le=86400)
+
+    @field_validator("CANDIDATE_PROJECT_CHECKOUTS")
+    @classmethod
+    def authorized_project_checkouts(cls, value):
+        from pathlib import Path
+
+        if len(value) > 30 or any(
+            not re.fullmatch(
+                r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", url
+            )
+            or not Path(path).is_absolute()
+            for url, path in value.items()
+        ):
+            raise ValueError("exact_github_repository_and_absolute_checkout_required")
+        return value
+
+    @field_validator("LOCAL_AGENT_ENDPOINT")
+    @classmethod
+    def local_endpoint(cls, value):
+        from urllib.parse import urlsplit
+
+        url = urlsplit(value)
+        if (
+            url.scheme != "http"
+            or url.hostname != "127.0.0.1"
+            or not url.port
+            or url.username
+            or url.password
+            or url.path
+            or url.query
+            or url.fragment
+        ):
+            raise ValueError("exact_ipv4_loopback_endpoint_required")
+        return value
+
     # Optional candidate defaults. Never written at startup.
     CANDIDATE_RESUME_DRIVE_URL: PublicHTTPSURL | None = None
-    CANDIDATE_RESUME_DRIVE_FILE_ID: str | None = Field(default=None, pattern=r"^[A-Za-z0-9_-]{10,200}$")
+    CANDIDATE_RESUME_DRIVE_FILE_ID: str | None = Field(
+        default=None, pattern=r"^[A-Za-z0-9_-]{10,200}$"
+    )
     RESUME_DRIVE_SYNC_ENABLED: bool = False
     RESUME_DRIVE_SYNC_INTERVAL_HOURS: int = Field(default=24, ge=1, le=168)
     RESUME_DRIVE_SYNC_REQUIRES_REVIEW: Literal[True] = True
@@ -74,9 +165,19 @@ class Settings(BaseSettings):
     CANDIDATE_GFG_URL: PublicHTTPSURL | None = None
     CANDIDATE_HACKERRANK_URL: PublicHTTPSURL | None = None
 
-    LLM_PROVIDER: Literal["gemini"] = "gemini"
+    LLM_PROVIDER: Literal["gemini", "agy", "ollama", "cohere"] = "gemini"
     LLM_MODEL: str | None = None
     GEMINI_API_KEY: SecretStr | None = None
+    COHERE_API_KEY: SecretStr | None = None
+    COHERE_MODEL: Literal["command-a-plus-05-2026", "command-a-03-2025"] | None = (
+        "command-a-plus-05-2026"
+    )
+    COHERE_EVALUATION_KEY_CONFIRMED: bool = False
+    COHERE_ENABLED: bool = False
+    COHERE_OWNER_TEXT_AUTHORIZED: bool = False
+    COHERE_CANDIDATE_DATA_AUTHORIZED: bool = False
+    COHERE_MONTHLY_MAX_REQUESTS: int = Field(default=100, ge=0, le=1000)
+    COHERE_MONTHLY_MAX_TOKENS: int = Field(default=500000, ge=0, le=10000000)
     LLM_MAX_OUTPUT_TOKENS: int = Field(default=1000, ge=64, le=8192)
     LLM_MAX_INPUT_CHARS: int = Field(default=16000, ge=1000, le=64000)
     LLM_TIMEOUT_SECONDS: float = Field(default=30, ge=1, le=120, allow_inf_nan=False)
@@ -84,6 +185,7 @@ class Settings(BaseSettings):
     LLM_MAX_CONCURRENCY: int = Field(default=2, ge=1, le=8)
 
     @field_validator(
+        "BROWSER_OWNER_APPROVAL_KEY",
         "DB_SSL_ROOT_CERT",
         "CANDIDATE_RESUME_DRIVE_URL",
         "CANDIDATE_RESUME_DRIVE_FILE_ID",
@@ -96,7 +198,13 @@ class Settings(BaseSettings):
         "CANDIDATE_GFG_URL",
         "CANDIDATE_HACKERRANK_URL",
         "GEMINI_API_KEY",
+        "COHERE_API_KEY",
         "LLM_MODEL",
+        "CHROME_EXTENSION_ID",
+        "TELEGRAM_OWNER_USER_ID",
+        "TELEGRAM_OWNER_CHAT_ID",
+        "AGY_MODEL",
+        "OLLAMA_MODEL",
         mode="before",
     )
     @classmethod
@@ -120,22 +228,39 @@ class Settings(BaseSettings):
     MCP_ALLOW_DRAFT_CREATION: bool = False
     MCP_MAX_REQUEST_BYTES: int = Field(default=65536, ge=1024, le=1048576)
     MCP_MAX_CONCURRENCY: int = Field(default=3, ge=1, le=16)
-    MCP_REQUEST_TIMEOUT_SECONDS: float = Field(default=30, ge=1, le=120, allow_inf_nan=False)
-    MCP_ALLOWED_HOSTS: list[str] = Field(default_factory=lambda: ["localhost", "127.0.0.1", "[::1]"])
+    MCP_REQUEST_TIMEOUT_SECONDS: float = Field(
+        default=30, ge=1, le=120, allow_inf_nan=False
+    )
+    MCP_ALLOWED_HOSTS: list[str] = Field(
+        default_factory=lambda: ["localhost", "127.0.0.1", "[::1]"]
+    )
     MCP_ALLOWED_ORIGINS: list[str] = Field(default_factory=list)
     MCP_REQUIRE_TLS: bool = True
 
-    @field_validator("MCP_ALLOWED_HOSTS", "MCP_ALLOWED_ORIGINS", "API_ALLOWED_HOSTS", "API_ALLOWED_ORIGINS")
+    @field_validator(
+        "MCP_ALLOWED_HOSTS",
+        "MCP_ALLOWED_ORIGINS",
+        "API_ALLOWED_HOSTS",
+        "API_ALLOWED_ORIGINS",
+    )
     @classmethod
     def explicit_mcp_trust(cls, values, info):
         from urllib.parse import urlsplit
+
         for value in values:
             if not value or any(c.isspace() for c in value) or "*" in value:
                 raise ValueError("MCP trust lists must contain explicit hosts/origins")
             if info.field_name.endswith("ORIGINS"):
                 url = urlsplit(value)
-                if (url.scheme not in {"http", "https"} or not url.hostname or url.username
-                        or url.password or url.path or url.query or url.fragment):
+                if (
+                    url.scheme not in {"http", "https"}
+                    or not url.hostname
+                    or url.username
+                    or url.password
+                    or url.path
+                    or url.query
+                    or url.fragment
+                ):
                     raise ValueError("Invalid MCP origin")
             elif any(c in value for c in "/@?#"):
                 raise ValueError("MCP_ALLOWED_HOSTS contains an invalid hostname")
@@ -154,15 +279,28 @@ class Settings(BaseSettings):
     @classmethod
     def oauth_redirect(cls, value):
         from urllib.parse import urlsplit
+
         if not value:
             return None
         url = urlsplit(value)
-        if (url.username or url.password or url.query or url.fragment
-                or url.path != "/api/v1/integrations/gmail/oauth/callback"
-                or not url.hostname
-                or (url.scheme != "https" and not
-                    (url.scheme == "http" and url.hostname in {"localhost", "127.0.0.1", "::1"}))):
-            raise ValueError("GMAIL_REDIRECT_URI must be the exact HTTPS callback (HTTP loopback only)")
+        if (
+            url.username
+            or url.password
+            or url.query
+            or url.fragment
+            or url.path != "/api/v1/integrations/gmail/oauth/callback"
+            or not url.hostname
+            or (
+                url.scheme != "https"
+                and not (
+                    url.scheme == "http"
+                    and url.hostname in {"localhost", "127.0.0.1", "::1"}
+                )
+            )
+        ):
+            raise ValueError(
+                "GMAIL_REDIRECT_URI must be the exact HTTPS callback (HTTP loopback only)"
+            )
         return value
 
     @field_validator("FASTMCP_MOUNT_PATH")
@@ -195,7 +333,9 @@ class Settings(BaseSettings):
     CONTACT_ENRICHMENT_MAX_CONCURRENCY: int = Field(default=2, ge=1, le=8)
     CONTACT_CACHE_TTL_DAYS: int = Field(default=30, ge=1, le=90)
     CONTACT_RETENTION_DAYS: int = Field(default=90, ge=1, le=365)
-    CONTACT_PROVIDER_TIMEOUT_SECONDS: float = Field(default=20, ge=1, le=60, allow_inf_nan=False)
+    CONTACT_PROVIDER_TIMEOUT_SECONDS: float = Field(
+        default=20, ge=1, le=60, allow_inf_nan=False
+    )
 
     # Apify Integration Configuration
     APIFY_API_TOKEN: str | None = Field(
@@ -232,7 +372,9 @@ class Settings(BaseSettings):
     GMAIL_SEND_MAX_PER_DAY: int = Field(default=10, ge=0, le=100)
     GMAIL_SEND_MAX_PER_HOUR: int = Field(default=3, ge=0, le=20)
     GMAIL_SEND_MAX_RECIPIENTS: Literal[1] = 1
-    GMAIL_SEND_TIMEOUT_SECONDS: float = Field(default=20, ge=1, le=60, allow_inf_nan=False)
+    GMAIL_SEND_TIMEOUT_SECONDS: float = Field(
+        default=20, ge=1, le=60, allow_inf_nan=False
+    )
     GMAIL_REQUIRE_EXPLICIT_CONFIRMATION: Literal[True] = True
     GMAIL_CONFIRMATION_TTL_SECONDS: int = Field(default=300, ge=30, le=600)
 
@@ -252,18 +394,34 @@ class Settings(BaseSettings):
         env_file_encoding="utf-8",
         case_sensitive=True,
         extra="ignore",
+        hide_input_in_errors=True,
     )
 
-    @field_validator("APPLICATION_SUBMISSION_ENABLED", "GMAIL_REQUIRE_EXPLICIT_CONFIRMATION", "GMAIL_SEND_MAX_RECIPIENTS", "RESUME_DRIVE_SYNC_REQUIRES_REVIEW", mode="before")
+    @field_validator(
+        "APPLICATION_SUBMISSION_ENABLED",
+        "GMAIL_REQUIRE_EXPLICIT_CONFIRMATION",
+        "GMAIL_SEND_MAX_RECIPIENTS",
+        "RESUME_DRIVE_SYNC_REQUIRES_REVIEW",
+        mode="before",
+    )
     @classmethod
     def fixed_environment_controls(cls, value, info):
         # dotenv values are strings; preserve the literal invariants after parsing.
         if isinstance(value, str):
-            if info.field_name == "APPLICATION_SUBMISSION_ENABLED" and value.lower() == "false":
+            if (
+                info.field_name == "APPLICATION_SUBMISSION_ENABLED"
+                and value.lower() == "false"
+            ):
                 return False
-            if info.field_name == "GMAIL_REQUIRE_EXPLICIT_CONFIRMATION" and value.lower() == "true":
+            if (
+                info.field_name == "GMAIL_REQUIRE_EXPLICIT_CONFIRMATION"
+                and value.lower() == "true"
+            ):
                 return True
-            if info.field_name == "RESUME_DRIVE_SYNC_REQUIRES_REVIEW" and value.lower() == "true":
+            if (
+                info.field_name == "RESUME_DRIVE_SYNC_REQUIRES_REVIEW"
+                and value.lower() == "true"
+            ):
                 return True
             if info.field_name == "GMAIL_SEND_MAX_RECIPIENTS" and value == "1":
                 return 1
@@ -281,6 +439,34 @@ class Settings(BaseSettings):
                 "DATABASE_SCHEMA must be alphanumeric with underscores only"
             )
         return cleaned
+
+    @model_validator(mode="after")
+    def separate_owner_authority(self):
+        from backend.app.browser.asset_policy import asset_origin
+        from backend.app.browser.company_source_policy import source_url
+
+        self.BROWSER_ASSET_ORIGINS = sorted(
+            set(
+                asset_origin(value, testing=self.ENVIRONMENT == "testing")
+                for value in self.BROWSER_ASSET_ORIGINS
+            )
+        )
+        self.COMPANY_SOURCE_URLS = sorted(
+            set(
+                source_url(value, testing=self.ENVIRONMENT == "testing")
+                for value in self.COMPANY_SOURCE_URLS
+            )
+        )
+        if (
+            self.BROWSER_OWNER_APPROVAL_KEY
+            and self.JOB_AGENT_API_TOKEN
+            and self.BROWSER_OWNER_APPROVAL_KEY.get_secret_value()
+            == self.JOB_AGENT_API_TOKEN.get_secret_value()
+        ):
+            raise ValueError(
+                "Owner approval key must differ from the delegated API token"
+            )
+        return self
 
     def get_provider_monthly_limit(self, provider: str) -> int:
         """Retrieve configured monthly limit for a given provider name."""

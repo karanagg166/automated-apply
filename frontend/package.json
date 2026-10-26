@@ -2,16 +2,20 @@
   "name": "automated-apply-frontend",
   "version": "0.7.0",
   "private": true,
+  "packageManager": "pnpm@12.15.0",
   "engines": {
-    "node": ">=22"
+    "node": ">=22",
+    "pnpm": "12.15.0"
   },
   "scripts": {
+    "preinstall": "node scripts/require-pnpm.mjs",
     "dev": "node run.mjs dev",
     "build": "next build",
     "start": "node run.mjs start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "e2e": "playwright test",
+    "e2e:browser": "playwright test --config playwright.browser.config.ts",
     "api:types": "openapi-typescript ../reports/phase7-openapi.json -o src/types/api.d.ts && prettier --write src/types/api.d.ts",
     "format:check": "prettier --check src tests *.ts *.mjs"
   },

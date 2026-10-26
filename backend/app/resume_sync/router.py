@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.config import get_settings
@@ -32,6 +32,8 @@ async def get_status(session: AsyncSession = Depends(get_db_session)):
 
 @router.put("/source", response_model=SyncStatus)
 async def change_source(data: SourceSettings, session: AsyncSession = Depends(get_db_session)):
+    if data.sync_enabled:
+        raise HTTPException(409, "drive_oauth_deferred_use_manual_pdf_upload")
     return await save_source(session, get_settings(), data)
 
 

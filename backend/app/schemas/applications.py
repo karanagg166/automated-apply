@@ -29,12 +29,15 @@ Lifecycle = Literal[
     "external_application_opened",
     "user_reported_submitted",
     "provider_confirmed_submitted",
+    "submitting",
+    "submission_unknown",
     "withdrawn",
     "abandoned",
 ]
 Tracking = Literal[
     "not_applied",
     "applied_manually",
+    "applied_verified",
     "application_incomplete",
     "application_rejected",
     "interview_scheduled",
@@ -49,6 +52,7 @@ ReadinessState = Literal[
     "ready_for_manual_handoff",
     "manual_action_required",
     "completed_by_user",
+    "completed_verified",
     "unsupported",
 ]
 FieldCategory = Literal[
@@ -69,7 +73,9 @@ FieldCategory = Literal[
     "yes_no",
     "unknown",
 ]
-FieldType = Literal["text", "textarea", "url", "file", "multiple_choice", "yes_no"]
+FieldType = Literal[
+    "text", "textarea", "url", "file", "multiple_choice", "yes_no", "multi_select"
+]
 ValidationState = Literal[
     "draft_ready",
     "needs_input",
@@ -91,7 +97,9 @@ class PlatformCapability(Contract):
     application_preparation: Literal["supported"] = "supported"
     resume_selection: Literal["supported"] = "supported"
     screening_answer_generation: Literal["supported"] = "supported"
-    browser_autofill: Literal["not_implemented"] = "not_implemented"
+    browser_autofill: Literal["not_implemented", "assisted_native_fields"] = (
+        "not_implemented"
+    )
     automated_submission: Literal["not_authorized_or_verified"] = (
         "not_authorized_or_verified"
     )
@@ -132,7 +140,15 @@ class ResumeSelection(Contract):
 class Provenance(Contract):
     origin: Literal["packet_core", "user_provided"] = "user_provided"
     source: Literal[
-        "candidate_profile", "candidate_resource", "gemini", "human", "missing"
+        "candidate_profile",
+        "candidate_resource",
+        "gemini",
+        "cohere",
+        "ollama",
+        "approved_answer",
+        "deterministic_extractive",
+        "human",
+        "missing",
     ] = "missing"
     resolver: Literal[
         "deterministic",
@@ -168,10 +184,21 @@ class QuestionInput(Contract):
     def valid_options(self):
         if len({x.casefold() for x in self.options}) != len(self.options):
             raise ValueError("Options must be unique")
-        if self.field_type in {"multiple_choice", "yes_no"} and not self.options:
+        if (
+            self.field_type in {"multiple_choice", "yes_no", "multi_select"}
+            and not self.options
+        ):
             raise ValueError("Supply the actual form options")
-        if self.options and self.field_type not in {"multiple_choice", "yes_no"}:
+        if self.options and self.field_type not in {
+            "multiple_choice",
+            "yes_no",
+            "multi_select",
+        }:
             raise ValueError("Options require a choice field")
+        if self.field_type == "multi_select" and any(
+            not option.strip() for option in self.options
+        ):
+            raise ValueError("Multiple-selection options must be nonblank")
         return self
 
 
@@ -251,6 +278,10 @@ class RevisionInput(Contract):
     expected_revision: int = Field(ge=1, le=2147483646)
 
 
+class AnswerGenerateInput(RevisionInput):
+    rewrite: bool = False
+
+
 class PacketEdit(RevisionInput):
     resume_resource_id: UUID | None = None
     refresh_saved_data: bool = False
@@ -317,10 +348,10 @@ class SubmissionRead(Contract):
     id: UUID
     packet_id: UUID
     packet_revision: int
-    confirmation_source: Literal["user_reported"]
+    confirmation_source: Literal["user_reported", "mock_employer"]
     receipt_reference: str | None
-    evidence_confidence: Literal["self_reported_unverified"]
-    human_confirmed: Literal[True]
+    evidence_confidence: Literal["self_reported_unverified", "mock_receipt_verified"]
+    human_confirmed: bool
     created_at: datetime
 
 

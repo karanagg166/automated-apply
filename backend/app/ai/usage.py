@@ -1,16 +1,16 @@
 """Atomic durable monthly caps. Reservations survive failed/cancelled draft transactions."""
 import asyncio
-from datetime import datetime, timezone, timedelta
 import math
 import weakref
+from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import update, select, func, or_, and_, case
+from pydantic import ValidationError
+from sqlalchemy import and_, case, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from backend.app.ai.base import ProviderError
 from backend.app.ai.schemas import ProviderAnswer
-from pydantic import ValidationError
 from backend.app.models.application_answer import LLMMonthlyUsage
 
 _limiters = weakref.WeakKeyDictionary()
@@ -52,18 +52,27 @@ class LLMUsageManager:
 
     async def reserve(self):
         maximum = self.settings.LLM_MONTHLY_MAX_REQUESTS
+        cohere = self.settings.LLM_PROVIDER == "cohere"
+        if cohere:
+            # Conservative token reservation per attempt, independent of missing usage.
+            # Input is byte bounded by the transport; byte count bounds text tokens.
+            per_request = self.settings.LLM_MAX_INPUT_CHARS + self.settings.LLM_MAX_OUTPUT_TOKENS
+            maximum = min(maximum, self.settings.COHERE_MONTHLY_MAX_REQUESTS,
+                          self.settings.COHERE_MONTHLY_MAX_TOKENS // per_request)
         if maximum == 0:
             raise ProviderError("monthly_request_limit")
         month = datetime.now(timezone.utc).strftime("%Y-%m")
         async with self.factory() as session:
             await self.check_cooldown(session)
             insert = pg_insert if session.get_bind().dialect.name == "postgresql" else sqlite_insert
+            pause = datetime.now(timezone.utc) + timedelta(seconds=3.1) if cohere else None
             statement = insert(LLMMonthlyUsage).values(
                 provider=self.settings.LLM_PROVIDER, month=month, requests=1,
-                input_tokens=0, output_tokens=0,
+                input_tokens=0, output_tokens=0, cooldown_until=pause,
             ).on_conflict_do_update(
                 index_elements=[LLMMonthlyUsage.provider, LLMMonthlyUsage.month],
-                set_={"requests": LLMMonthlyUsage.requests + 1, "updated_at": datetime.now(timezone.utc)},
+                set_={"requests": LLMMonthlyUsage.requests + 1, "updated_at": datetime.now(timezone.utc),
+                      **({"cooldown_until": pause} if cohere else {})},
                 where=and_(LLMMonthlyUsage.requests < maximum,
                            or_(LLMMonthlyUsage.cooldown_until.is_(None),
                                LLMMonthlyUsage.cooldown_until <= datetime.now(timezone.utc))),
@@ -102,7 +111,7 @@ class LLMUsageManager:
                             await self.record_tokens(month, exc.usage)
                             await self.record_cooldown(month, exc)
                             # Do not retry 429; return Retry-After metadata without another paid call.
-                            if attempt == 0 and exc.transient and (exc.retry_after is None or exc.retry_after <= 2):
+                            if self.settings.LLM_PROVIDER != "cohere" and attempt == 0 and exc.transient and (exc.retry_after is None or exc.retry_after <= 2):
                                 await asyncio.sleep(max(0.2, exc.retry_after or 0))
                                 continue
                             raise
@@ -114,4 +123,32 @@ class LLMUsageManager:
         except TimeoutError:
             error = ProviderError("timeout")
             error.attempted = attempts > 0
+            raise error from None
+
+    async def call(self, invoke):
+        """One reserved structured planning request; no hidden or automatic retries.
+
+        invoke returns (validated value, TokenUsage). Cancellation is propagated;
+        the durable conservative reservation remains consumed after a lost response.
+        """
+        attempted = False
+        try:
+            async with asyncio.timeout(self.settings.LLM_TIMEOUT_SECONDS):
+                async with concurrency_limiter(1):
+                    month = await self.reserve()
+                    attempted = True
+                    try:
+                        value, usage = await invoke()
+                    except ProviderError as exc:
+                        await self.record_tokens(month, exc.usage)
+                        await self.record_cooldown(month, exc)
+                        raise
+                    await self.record_tokens(month, usage)
+                    return value, usage
+        except ProviderError as exc:
+            exc.attempted = attempted
+            raise
+        except TimeoutError:
+            error = ProviderError("timeout")
+            error.attempted = attempted
             raise error from None

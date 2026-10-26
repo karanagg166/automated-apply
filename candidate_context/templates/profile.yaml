@@ -1,0 +1,3 @@
+schema_version: 1
+human_approval_status: unapproved
+# Personal profile facts are missing until explicitly reviewed by the owner.

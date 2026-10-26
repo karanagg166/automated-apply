@@ -2,10 +2,12 @@
 
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import MetaData, DateTime
+
+from sqlalchemy import DateTime, MetaData
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy.types import TypeDecorator, CHAR
+from sqlalchemy.types import CHAR, TypeDecorator
+
 from backend.app.core.config import get_settings
 
 
@@ -43,7 +45,7 @@ class GUID(TypeDecorator):
 class Base(DeclarativeBase):
     """Base declarative class with project schema metadata."""
     settings = get_settings()
-    # In postgres, tables belong to the job_agent schema.
+    # In postgres, tables belong to the explicitly selected application schema.
     # In sqlite, schema is empty.
     schema_name = None if settings.ENVIRONMENT == "testing" and settings.DATABASE_URL.startswith("sqlite+aiosqlite:") else settings.DATABASE_SCHEMA
     metadata = MetaData(schema=schema_name)

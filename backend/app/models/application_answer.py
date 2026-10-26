@@ -1,15 +1,28 @@
 """Additive Phase 2A storage; quota reservations commit independently of drafts."""
 import uuid
 from datetime import datetime
-from sqlalchemy import DateTime, Boolean, CheckConstraint, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, text
+
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from backend.app.models.base import Base, GUID, TimestampMixin
+from backend.app.models.base import GUID, Base, TimestampMixin
 
 JSON_TYPE = JSON().with_variant(JSONB, "postgresql")
-PROFILE_FK = "job_agent.candidate_profiles.id" if Base.schema_name else "candidate_profiles.id"
-JOB_FK = "job_agent.jobs.id" if Base.schema_name else "jobs.id"
+PROFILE_FK = f"{Base.schema_name}.candidate_profiles.id" if Base.schema_name else "candidate_profiles.id"
+JOB_FK = f"{Base.schema_name}.jobs.id" if Base.schema_name else "jobs.id"
 
 
 class CandidateResource(Base, TimestampMixin):

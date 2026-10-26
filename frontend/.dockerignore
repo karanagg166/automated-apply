@@ -1,10 +1,14 @@
 # Allow only build inputs. Private env files, PDFs and browser artifacts stay outside.
 **
 !package.json
-!package-lock.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
 !next.config.ts
 !next-env.d.ts
 !postcss.config.mjs
 !tsconfig.json
 !src
 !src/**
+
+!scripts
+!scripts/require-pnpm.mjs

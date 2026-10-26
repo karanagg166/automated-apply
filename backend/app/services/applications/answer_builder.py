@@ -57,7 +57,14 @@ def value_error(field, answer):
         return (
             "Answer exceeds the form length limit; edit it without changing its meaning"
         )
-    if field.options and answer not in field.options:
+    if field.field_type == "multi_select":
+        from backend.app.services.applications.multi_select import decode
+
+        try:
+            decode(answer, field.options, required=field.required)
+        except ValueError as error:
+            return str(error)
+    elif field.options and answer not in field.options:
         return "Answer must exactly match a supplied form option"
     if field.field_type == "url" and not safe_url(answer):
         return "Provide a valid public HTTPS URL"
@@ -75,6 +82,7 @@ class AnswerBuilder:
         profile,
         *,
         generate=False,
+        rewrite=False,
         origin="user_provided",
         resume=None,
     ):
@@ -90,9 +98,9 @@ class AnswerBuilder:
             id=uuid4(),
             provenance=Provenance(origin=origin),
         )
-        if (
-            question.field_type == "file"
-            or classification.question_type == "file_upload"
+        if question.field_type == "file" or (
+            classification.question_type == "file_upload"
+            and question.field_type != "multi_select"
         ):
             field.validation_status = "file_upload_required"
             field.provenance.resolver = "manual_upload"
@@ -103,6 +111,41 @@ class AnswerBuilder:
             return field
         if profile is None:
             field.missing_information = ["Save the candidate profile first"]
+            return field
+        if question.field_type == "multi_select":
+            from backend.app.services.applications.multi_select import (
+                encode,
+                verified_choices,
+            )
+
+            facts = verified_choices(question.question, profile)
+            selected = [
+                option for option in question.options if option.casefold() in facts
+            ]
+            field.requires_review = True
+            field.provenance.resolver = "deterministic"
+            if not selected:
+                field.missing_information = [
+                    "Choose and review the actual options; unknown choices are not verified negative facts"
+                ]
+                return field
+            field.proposed_answer = encode(selected)
+            error = value_error(field, field.proposed_answer)
+            if error:
+                field.proposed_answer = None
+                field.validation_status, field.missing_information = (
+                    "validation_failed",
+                    [error],
+                )
+                return field
+            field.effective_answer = field.proposed_answer
+            field.validation_status = "draft_ready"
+            field.provenance.source = "candidate_profile"
+            field.provenance.evidence_references = [
+                EvidenceReference(
+                    source_type="candidate_profile", source_id=str(profile.id)
+                )
+            ]
             return field
         if (
             classification.question_type == "profile_link"
@@ -152,6 +195,7 @@ class AnswerBuilder:
             max_words=question.max_words,
             # Preserve existing ApplicationAnswerDraft records for generated narratives.
             save_draft=generate and narrative,
+            rewrite=rewrite,
         )
         if question.constraints and narrative and generate:
             request.question = (
@@ -176,11 +220,17 @@ class AnswerBuilder:
         field.proposed_answer = result.answer
         field.provenance = Provenance(
             origin=origin,
-            source="gemini"
+            source=result.provider
             if result.used_llm and result.answer
             else (
                 result.source
-                if result.source in {"candidate_profile", "candidate_resource"}
+                if result.source
+                in {
+                    "candidate_profile",
+                    "candidate_resource",
+                    "approved_answer",
+                    "deterministic_extractive",
+                }
                 else "missing"
             ),
             resolver="grounded_answer_service" if narrative else "deterministic",

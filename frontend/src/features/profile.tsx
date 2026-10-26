@@ -1,7 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
 import { ProjectsEditor } from "@/components/projects-editor";
+import { ProfileResources } from "./profile-resources";
+import { ProjectContext } from "./project-context";
 import { ResumeSync } from "./resume-sync";
+import { CareerFacts } from "./career-facts";
+import { ApprovedAnswers } from "./approved-answers";
 import { sizeFilter } from "./startups";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -31,6 +35,19 @@ import {
 const formSchema = z.object({
   full_name: z.string().min(2).max(200),
   email: z.email().max(254),
+  experience_years: z
+    .string()
+    .refine(
+      (v) =>
+        !v ||
+        (Number.isFinite(Number(v)) && Number(v) >= 0 && Number(v) <= 100),
+      "Enter verified years from 0 to 100, or leave blank.",
+    ),
+  phone: z.string().max(50),
+  github_url: z.string().max(2048),
+  linkedin_url: z.string().max(2048),
+  portfolio_url: z.string().max(2048),
+  personal_website: z.string().max(2048),
   summary: z.string().max(4000),
   skills: z.string().max(4000),
   resume_url: z
@@ -69,6 +86,12 @@ type Proposal = {
 const initial: Values = {
   full_name: "",
   email: "",
+  experience_years: "",
+  phone: "",
+  github_url: "",
+  linkedin_url: "",
+  portfolio_url: "",
+  personal_website: "",
   summary: "",
   skills: "",
   resume_url: "",
@@ -104,6 +127,7 @@ export function ProfileWizard() {
     [saved, setSaved] = useState(""),
     [origin, setOrigin] = useState("Manually entered"),
     [imported, setImported] = useState<Schema<"ResumeImportRead"> | null>(null),
+    [existingResumeId, setExistingResumeId] = useState<string | null>(null),
     [parseBusy, setParseBusy] = useState(false),
     [uploadError, setUploadError] = useState<unknown>(null);
   const profile = useQuery({
@@ -131,6 +155,7 @@ export function ProfileWizard() {
           label: string;
           confirmed: boolean;
           resource_id: string | null;
+          sha256?: string;
         }>;
       }>("dashboard/resumes"),
   });
@@ -152,6 +177,12 @@ export function ProfileWizard() {
         ...initial,
         full_name: p.full_name,
         email: p.email,
+        experience_years: p.verified_experience_years?.toString() ?? "",
+        phone: p.phone || "",
+        github_url: p.github_url || "",
+        linkedin_url: p.linkedin_url || "",
+        portfolio_url: p.portfolio_url || "",
+        personal_website: p.personal_website || "",
         summary: p.summary || "",
         skills: p.verified_skills?.join(", ") || "",
         company: p.verified_roles?.[0]?.company || "",
@@ -170,7 +201,7 @@ export function ProfileWizard() {
         currency: p.preferences?.salary_currency || "",
         notice: p.preferences?.notice_period_days?.toString() || "",
       });
-      setOrigin("Saved profile · owner confirmed");
+      setOrigin("Saved profile · review before confirming this version");
     }
   }, [profile.data, reset]);
   const list = (s: string) =>
@@ -188,7 +219,7 @@ export function ProfileWizard() {
       if (!Array.isArray(projects))
         throw new Error("Projects must be an array.");
       const existing = profile.data;
-      const body: Schema<"CandidateProfileCreate"> = {
+      const body: Schema<"CandidateProfileCreate-Input"> = {
         full_name: values.full_name,
         email: values.email,
         summary: values.summary || null,
@@ -218,21 +249,24 @@ export function ProfileWizard() {
               ]
             : existing?.education || [],
         projects,
-        phone: existing?.phone || null,
-        personal_website: existing?.personal_website || null,
-        verified_experience_years: existing?.verified_experience_years ?? null,
+        phone: values.phone || null,
+        personal_website: values.personal_website || null,
+        verified_experience_years:
+          values.experience_years === ""
+            ? null
+            : Number(values.experience_years),
         certifications: existing?.certifications || [],
         github_url:
           proposals.find((x) => x.resource_type === "github")?.url ||
-          existing?.github_url ||
+          values.github_url ||
           null,
         linkedin_url:
           proposals.find((x) => x.resource_type === "linkedin")?.url ||
-          existing?.linkedin_url ||
+          values.linkedin_url ||
           null,
         portfolio_url:
           proposals.find((x) => x.resource_type === "portfolio")?.url ||
-          existing?.portfolio_url ||
+          values.portfolio_url ||
           null,
         preferences: {
           ...existing?.preferences,
@@ -304,6 +338,7 @@ export function ProfileWizard() {
             user_confirmed: true,
             is_primary:
               !imported &&
+              !existingResumeId &&
               !resources.data?.resources.some(
                 (r) => r.resource_type === "resume" && r.is_primary,
               ),
@@ -312,14 +347,19 @@ export function ProfileWizard() {
           failures.push("public resume URL validation or duplicate primary");
         }
       }
-      if (imported) {
+      if (imported || existingResumeId) {
         try {
-          await post(`dashboard/resumes/${imported.id}/confirm`, {
-            owner_confirmed: true,
-            primary: !resources.data?.resources.some(
-              (r) => r.resource_type === "resume" && r.is_primary,
-            ),
-          });
+          await post(
+            `dashboard/resumes/${imported?.id || existingResumeId}/confirm`,
+            {
+              owner_confirmed: true,
+              primary: true,
+              expected_primary_resource_id:
+                resources.data?.resources.find(
+                  (r) => r.resource_type === "resume" && r.is_primary,
+                )?.id || null,
+            },
+          );
         } catch {
           failures.push("private resume confirmation");
         }
@@ -340,6 +380,16 @@ export function ProfileWizard() {
           failures.push("team size preference");
         }
       }
+      if (!failures.length) {
+        try {
+          await post("local-agent/profile-confirmation", {
+            expected_version: result.version,
+            owner_confirmed: true,
+          });
+        } catch {
+          failures.push("current profile review confirmation");
+        }
+      }
       return failures;
     },
     onSuccess: (failures) => {
@@ -351,6 +401,7 @@ export function ProfileWizard() {
       client.invalidateQueries({ queryKey: ["resources"] });
       client.invalidateQueries({ queryKey: ["private-resumes"] });
       client.invalidateQueries({ queryKey: ["overview"] });
+      client.invalidateQueries({ queryKey: ["local-connections"] });
     },
   });
   if (profile.isPending) return <Skeleton />;
@@ -387,7 +438,6 @@ export function ProfileWizard() {
           </button>
         ))}
       </div>
-      <ResumeSync />
       <form
         onSubmit={form.handleSubmit(
           (v) => save.mutate(v),
@@ -528,6 +578,13 @@ export function ProfileWizard() {
                   <Field label="Professional summary">
                     <textarea className="input" {...register("summary")} />
                   </Field>
+                  <Field label="Phone · optional">
+                    <Input
+                      {...register("phone")}
+                      type="tel"
+                      autoComplete="tel"
+                    />
+                  </Field>
                 </div>
                 {!!resumes.data?.resumes.length && (
                   <div>
@@ -536,6 +593,9 @@ export function ProfileWizard() {
                       <div className="evidence-item split" key={r.id}>
                         <div>
                           <strong>{r.label}</strong>
+                          <p style={{ overflowWrap: "anywhere" }}>
+                            SHA-256: {r.sha256 || "Unavailable"}
+                          </p>
                           <p>
                             {r.confirmed
                               ? "Owner confirmed"
@@ -548,6 +608,20 @@ export function ProfileWizard() {
                         >
                           Download privately
                         </a>
+                        {
+                          <label className="check-label">
+                            <input
+                              type="radio"
+                              name="existing-resume"
+                              checked={existingResumeId === r.id}
+                              onChange={() => {
+                                setExistingResumeId(r.id);
+                                setImported(null);
+                              }}
+                            />
+                            Use this PDF after my final fact review
+                          </label>
+                        }
                       </div>
                     ))}
                   </div>
@@ -563,6 +637,23 @@ export function ProfileWizard() {
                   when editing this first entry.
                 </p>
                 <div className="form-grid">
+                  <Field
+                    label="Verified experience in years"
+                    hint="Enter 0 only if you confirm no professional experience; leave unknown values blank."
+                  >
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      {...register("experience_years")}
+                    />
+                    {errors.experience_years && (
+                      <span className="form-error">
+                        {errors.experience_years.message}
+                      </span>
+                    )}
+                  </Field>
                   <Field label="Company">
                     <Input {...register("company")} />
                   </Field>
@@ -608,6 +699,20 @@ export function ProfileWizard() {
             )}
             {step === 2 && (
               <>
+                <div className="form-grid">
+                  {(
+                    [
+                      ["github_url", "GitHub URL"],
+                      ["linkedin_url", "LinkedIn URL"],
+                      ["portfolio_url", "Portfolio URL"],
+                      ["personal_website", "Personal website"],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <Field label={label} key={key}>
+                      <Input type="url" {...register(key)} />
+                    </Field>
+                  ))}
+                </div>
                 <p className="section-intro">
                   These exact links were supplied by the owner. Select only
                   those you have reviewed. Availability and ownership are
@@ -767,6 +872,16 @@ export function ProfileWizard() {
                     ["Email", getValues("email")],
                     ["Skills", getValues("skills") || "Missing"],
                     [
+                      "Verified experience in years",
+                      getValues("experience_years") || "Not specified",
+                    ],
+                    ["GitHub URL", getValues("github_url") || "Not specified"],
+                    [
+                      "LinkedIn URL",
+                      getValues("linkedin_url") || "Not specified",
+                    ],
+                    ["Locations", getValues("locations") || "Not specified"],
+                    [
                       "Target titles",
                       getValues("target_titles") || "Not specified",
                     ],
@@ -786,7 +901,7 @@ export function ProfileWizard() {
                 </div>
                 <p className="section-intro">
                   {selected.length} resource proposals selected ·{" "}
-                  {imported
+                  {imported || existingResumeId
                     ? "Private PDF uploaded; confirmation will follow the profile save"
                     : "No new PDF parsed in this session"}
                   . Conflicting or unresolved resources remain outside verified
@@ -848,6 +963,15 @@ export function ProfileWizard() {
           </div>
         </section>
       </form>
+      <ProfileResources enabled={!!profile.data} />
+      <ProjectContext />
+      <ResumeSync />
+      {profile.data && (
+        <>
+          <CareerFacts key={profile.data.version} profile={profile.data} />
+          <ApprovedAnswers profileVersion={profile.data.version} />
+        </>
+      )}
     </div>
   );
 }

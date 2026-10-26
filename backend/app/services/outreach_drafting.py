@@ -313,6 +313,7 @@ class OutreachDraftingService:
                 "founder-focused": "founder_focused",
             }.get(request.writing_style, request.writing_style)
             answer_request = GenerateRequest(
+                rewrite=True,
                 question="Describe my relevant project contribution for an introduction to "
                 + line(contact.role_title),
                 writing_style=style,

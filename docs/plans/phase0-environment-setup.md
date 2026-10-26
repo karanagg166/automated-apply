@@ -12,7 +12,7 @@ reinstalled, existing configuration replaced, database changed or account connec
 | Disk | About **14 GiB available**, 93% filesystem used | Recheck `df -h .` before images/models/backups; no broad cleanup of other projects |
 | Python | Default `/opt/homebrew/bin/python3` is **3.15.0**; existing `backend/venv/bin/python` is **3.11.17** | Use existing venv, matching CI's 3.11; `backend/venv/bin/python -m pip check` passes |
 | Node/npm | Default Node **26.12.0**, npm **11.20.0**; working `/opt/homebrew/opt/node@24/bin/node` **24.22.0** | Prefer process-local Node24 PATH matching CI; do not relink Homebrew globally |
-| Package managers | npm and pnpm found | Use npm and `frontend/package-lock.json`; do not introduce a second lockfile |
+| Package managers | npm and pnpm found | Use pinned pnpm and `frontend/pnpm-lock.yaml`; other JavaScript lockfiles are prohibited |
 | PostgreSQL clients | Default `psql`/`pg_dump` **14.24**; `/opt/homebrew/opt/libpq@17/bin/*` **17.11** | Always use absolute PG17 clients for recovery; never PG14 dump against PG17 |
 | PostgreSQL server | Homebrew **postgresql@14 started** | Preserve unrelated service; it is not the PG17 test/development target |
 | Docker | CLI **29.9.1**, reachable server **29.8.2** | Existing `postgres:17-alpine` and `supabase/postgres:17.6.1.166` images present; do not replace them |
@@ -102,10 +102,10 @@ Frontend **33 tests passed** and TypeScript passed with installed Node24; pip co
 These are fresh targeted checks on the main-based planning tree, not a full suite or live pilot.
 
 For a fresh checkout only, if dependencies are missing, recreate Python using `python3.11`
-and install `backend/requirements.txt` in a new venv, or `npm ci --prefix frontend` with Node24.
+and install `backend/requirements.txt` in a new venv, or `pnpm -C frontend install --frozen-lockfile` with Node24.
 Do not run those reinstall commands over today's working environments merely for planning.
 Use `backend/venv/bin/python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000`
-and `npm --prefix frontend run dev -- --hostname localhost` **only after** intended private
+and `pnpm -C frontend dev --hostname localhost` **only after** intended private
 configuration/DB readiness. `frontend/run.mjs` reads `backend/.env`; API Settings also read root
 `.env` then `backend/.env`. Use explicit isolated fixtures for UI tests (`FRONTEND_ISOLATED=1`
 is set by the existing Playwright config). Never run a genuine service with fixture bypasses.

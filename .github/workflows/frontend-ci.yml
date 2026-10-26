@@ -3,47 +3,66 @@ on:
   push:
     branches: ['**']
   pull_request:
-    branches: [main]
+    branches: [main, feat/phase1-local-connections, feat/agent-command-execution, feat/chrome-form-inspection-autofill]
 permissions:
   contents: read
 jobs:
   frontend:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: profile_test_only # pragma: allowlist secret — fictional local test value
+          POSTGRES_DB: candidate_profile_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+      - name: Enable pinned pnpm
+        run: corepack enable && corepack prepare pnpm@12.15.0 --activate
       - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
           cache: pip
           cache-dependency-path: backend/requirements.txt
-      - run: python -m pip install -r backend/requirements.txt
-      - run: npm ci
+      - run: python -m pip install -r backend/requirements-browser.txt
+      - run: python -m playwright install --with-deps chromium
+      - run: pnpm install --frozen-lockfile
         working-directory: frontend
       - name: Check generated API contract
         run: |
           python backend/scripts/export_openapi.py
-          npm run api:types --prefix frontend
+          pnpm -C frontend api:types
           git diff --exit-code -- frontend/src/types/api.d.ts
-      - run: npm run typecheck
+      - run: pnpm typecheck
         working-directory: frontend
-      - run: npm test
+      - run: pnpm test
         working-directory: frontend
-      - run: npm audit --audit-level=high
+      - run: pnpm audit --audit-level=high
         working-directory: frontend
-      - run: npm run build
+      - run: pnpm build
         working-directory: frontend
-      - run: npx playwright install --with-deps chromium
+      - run: pnpm exec playwright install --with-deps chromium
         working-directory: frontend
-      - run: npm run e2e
+      - run: pnpm e2e
         working-directory: frontend
         env:
           PYTHON: python
+      - run: pnpm e2e:browser
+        working-directory: frontend
+        env:
+          PYTHON: python
+          PROFILE_TEST_DATABASE_URL: postgresql://postgres:profile_test_only@127.0.0.1:5432/candidate_profile_test # pragma: allowlist secret — isolated CI fixture
       - name: Build standalone non-root frontend image
         run: |
           docker build -f frontend/Dockerfile -t automated-apply-frontend:ci frontend
@@ -57,5 +76,8 @@ jobs:
           path: |
             frontend/playwright-report/
             frontend/test-results/
+            frontend/test-results-browser/
             reports/phase7-*.png
+            reports/command-execution-dashboard.png
+            reports/submission-review.png
           retention-days: 7

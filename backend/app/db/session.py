@@ -40,7 +40,9 @@ def get_engine() -> AsyncEngine:
                 pool_size=settings.DB_POOL_SIZE,
                 max_overflow=settings.DB_MAX_OVERFLOW,
                 connect_args=database_connect_args(settings),
-                pool_timeout=10,
+                # Keep a small connection budget without failing queued
+                # dashboard reads during a full remote catalog audit.
+                pool_timeout=30,
             )
         else:
             # SQLite / In-memory for testing
