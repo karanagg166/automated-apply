@@ -227,7 +227,7 @@ async function main() {
   assert.equal(buildRun.status, 0, `extension build failed: ${buildRun.stderr}`);
   const distDir = join(extensionRoot, "dist");
   const manifest = JSON.parse(readFileSync(join(distDir, "manifest.json"), "utf8"));
-  assert.equal(manifest.version, "1.2.1");
+  assert.equal(manifest.version, "1.2.2");
   const keyHash = createHash("sha256").update(Buffer.from(manifest.key, "base64")).digest("hex").slice(0, 32);
   const derivedId = [...keyHash].map((c) => String.fromCharCode(97 + Number.parseInt(c, 16))).join("");
   assert.equal(derivedId, EXPECTED_ID);
