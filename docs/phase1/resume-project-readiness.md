@@ -108,6 +108,7 @@ backend/app/candidate_context/persistence.py
 backend/app/candidate_context/projects.py
 backend/app/candidate_context/repository.py
 backend/app/candidate_context/review.py
+backend/app/candidate_context/runtime.py
 backend/app/candidate_context/service.py
 backend/app/dashboard/candidate_context.py
 backend/app/dashboard/router.py

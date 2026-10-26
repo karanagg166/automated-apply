@@ -227,10 +227,9 @@ class ApplicationAnswerService:
         else:
             evidence = await self.repo.relevant_evidence(profile.id, request.question)
             facts = retrieve(profile, evidence, request.question, category)
-            from backend.app.candidate_context.persistence import SQLRecordStore
-            from backend.app.candidate_context.service import CandidateContextService
+            from backend.app.candidate_context.runtime import approved_answer_evidence
 
-            project_facts = await CandidateContextService(SQLRecordStore(self.repo.session)).answer_evidence(request.question, category)
+            project_facts = await approved_answer_evidence(self.repo.session, request.question, category)
             # Current project approvals supersede legacy prose for this answer;
             # duplicating both can exceed the bounded grounding input budget.
             facts = project_facts or facts

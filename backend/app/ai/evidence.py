@@ -74,7 +74,7 @@ def prepare_evidence(question, context, instructions):
                            (r"\b(?:salary|compensation)\b", "salary"),
                            (r"\bteam\s+size\b", "team size"),
                            (r"\blatency\b", "latency"),
-                           (r"\b(?:challenge|challenges|challenging|bug|bugs|failure)\b", "challenge"),
+                           (r"\b(?:challenge|challenges|bug|bugs|failure)\b|\bchallenging(?=\s+(?:technical\s+)?(?:bug|issue|problem)\b)", "challenge"),
                            (r"\bAPIs?\b", "API"),
                            (r"\b(?:why|decision|decisions)\b", "decision")):
         if re.search(pattern, question, re.IGNORECASE):
