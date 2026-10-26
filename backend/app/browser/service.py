@@ -18,6 +18,7 @@ from backend.app.schemas.applications import QuestionInput
 from backend.app.services.application_answer_service import ApplicationAnswerService
 from backend.app.services.applications.answer_builder import AnswerBuilder
 from backend.app.services.applications.platforms.base import safe_url
+from backend.app.services.applications.platforms.owner_page import manual_page_url
 from backend.app.services.applications.resume_selector import digest
 from backend.app.services.applications.service import ApplicationPacketService
 
@@ -112,7 +113,7 @@ class FormService:
         self.answers = ApplicationAnswerService(session, local)
         self.packets = ApplicationPacketService(session, self.answers)
 
-    async def context(self, application_id):
+    async def context(self, application_id, mode="local_automation"):
         packet = await self.packets.read(application_id, lock_context=True)
         profile = await reviewed_profile(self.session)
         stored = await self.session.get(
@@ -151,7 +152,13 @@ class FormService:
 
             job = await self.session.get(Job, packet.job_id)
             destination = job.application_url
-        url = target(destination, self.settings)
+        url = (
+            manual_page_url(destination)
+            if mode == "manual_extension" and not fixture
+            else target(destination, self.settings)
+        )
+        if not url:
+            raise ToolDenied("unsupported_form_adapter")
         platform = page_kind(url)
         policy = await get_policy(self.session)
         if not evaluate(policy, platform, "fill_application")[
@@ -164,10 +171,57 @@ class FormService:
             raise ToolDenied("platform_fill_policy_denied")
         return packet, profile, url
 
+    async def prepare_current_form(self, inspection, title):
+        """Reuse saved jobs, packets and the shared answer/freshness boundary."""
+        from sqlalchemy import select
+        from sqlalchemy.exc import IntegrityError
+
+        from backend.app.models.job import Job
+        from backend.app.schemas.applications import CreatePacket
+
+        profile = await reviewed_profile(self.session)
+        if not profile:
+            raise ToolDenied("profile_review_required")
+        url = manual_page_url(inspection.url)
+        if not url or inspection.state not in {"ready", "validation_errors"}:
+            raise ToolDenied("unsupported_application_form")
+        policy = await get_policy(self.session)
+        if policy["platforms"].get(page_kind(url)) in {"manual_only", "draft_only", "disabled"}:
+            raise ToolDenied("platform_fill_policy_denied")
+        query = select(Job).where(Job.job_url == url).with_for_update()
+        job = await self.session.scalar(query)
+        if job is None:
+            try:
+                async with self.session.begin_nested():
+                    job = Job(
+                        title=title or urlsplit(url).path.rsplit("/", 1)[-1],
+                        job_url=url, application_url=url, source_platform="owner_extension",
+                        source_verification_status="owner_selected",
+                        discovery_metadata={"capture": "explicit_extension_gesture", "employer_identity_verified": False},
+                    )
+                    self.session.add(job)
+                    await self.session.flush()
+            except IntegrityError:
+                job = await self.session.scalar(query)
+                if job is None:
+                    raise ToolDenied("application_page_conflict") from None
+        if job.status in {"applied", "archived"} or job.application_url != url:
+            raise ToolDenied("application_not_eligible")
+        packet_id = await self.session.scalar(select(ApplicationPacket.id).where(
+            ApplicationPacket.job_id == job.id,
+            ApplicationPacket.candidate_profile_id == profile.id,
+        ))
+        if packet_id is None:
+            packet = await self.packets.create(job.id, CreatePacket(
+                idempotency_key=f"extension_{profile.id.hex}_{job.id.hex}",
+            ))
+            packet_id = packet.id
+        return await self.inspect(packet_id, inspection, "manual_extension")
+
     async def inspect(
         self, application_id, inspection: Inspection, mode, selected_project=None
     ):
-        packet, profile, url = await self.context(application_id)
+        packet, profile, url = await self.context(application_id, mode)
         if inspection.url != url or inspection.state not in {
             "ready",
             "validation_errors",
@@ -331,7 +385,7 @@ class FormService:
         return row, FillPlan.model_validate_json(json.dumps(row.value))
 
     async def fresh(self, plan):
-        packet, _, url = await self.context(plan.application_id)
+        packet, _, url = await self.context(plan.application_id, plan.mode)
         if (
             datetime.now(timezone.utc) >= datetime.fromisoformat(plan.expires_at)
             or packet.snapshot.context_digest != plan.context_digest

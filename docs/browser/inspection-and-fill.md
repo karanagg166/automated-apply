@@ -7,6 +7,40 @@ base; this feature is stacked on `feat/agent-command-execution` at
 
 ## Two modes
 
+**Answer unanswered fields:** on a supported application form, right-click and
+choose **Answer unanswered fields with Automated Apply**, or open the extension
+and click **Prepare answers for this form**. The existing local answer engine uses
+the current owner-reviewed profile, confirmed links and approved facts. Review the
+answers, then click **I reviewed these answers — fill unanswered fields**. There is
+no saved application ID to copy: the existing job/packet services persist the
+owner-selected URL and return real IDs. A selected page is explicitly unverified
+as an employer/vacancy; capturing it never asserts source verification or submission.
+
+Already answered controls are excluded without exporting their values. A second
+empty-field check immediately before each fill also preserves anything typed after
+preparation. Unknown facts, unsupported questions and consent stay unanswered. The
+same expiring, version-bound, single-use field authorization applies. This path
+does not use a cloud model, enable a provider, upload a PDF, click Next or submit.
+
+Manual answer preparation additionally recognizes tenant `zohorecruit.in` and
+`zohorecruit.com` `/jobs/Careers/<numeric-id>/<slug>` pages, including bounded
+`source`/`ref` tracking parameters. This is a manual-extension URL contract, not
+live portal acceptance. The autonomous driver's URL restrictions are unchanged.
+Custom widgets, cross-origin frames, challenges and framework-controlled inputs
+can still require handoff. No live employer form was filled to test this change.
+
+The installed runtime must support `prepare_form_answers`, and manual filling
+requires separate owner authorization for `BROWSER_FILL_ENABLED=true`. Keep
+`BROWSER_AUTOMATION_ENABLED`, `BROWSER_SUBMIT_ENABLED`, application submission,
+email sending and Cohere disabled. A missing/unreviewed profile gives a specific
+instruction to complete Profile before any answer or job is saved. Replacing the
+installed extension/backend and changing private configuration remain explicit
+owner upgrade checkpoints.
+
+`pnpm -C extension test:answers:chrome` exercises the real inspector and popup in
+isolated Chromium using intercepted fictional pages and mocked native replies.
+It never connects to the owner's native host or employer servers.
+
 **Manual extension:** open a supported application URL, invoke the extension,
 paste the saved application packet ID, click **Inspect application form**, review
 the field plan, and click **I reviewed these values — fill form**. These are

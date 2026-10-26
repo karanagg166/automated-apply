@@ -1,6 +1,7 @@
 import { formDOM } from "./form-dom.js";
 import { supportedUrl } from "./preview.js";
 const host = "com.automated_apply.agent";
+const ERROR_CODE_PATTERN = /^[a-z][a-z0-9_]{1,63}$/;
 let current;
 async function native(command, extra) {
   const request = {
@@ -17,6 +18,13 @@ async function native(command, extra) {
         timer = setTimeout(() => reject(Error("timeout")), 45000);
       }),
     ]);
+    if (
+      result?.version === 1 &&
+      result.request_id === request.request_id &&
+      result.ok === false &&
+      ERROR_CODE_PATTERN.test(result.error_code)
+    )
+      throw Error(result.error_code);
     if (
       result?.version !== 1 ||
       result.request_id !== request.request_id ||
@@ -44,6 +52,7 @@ export async function inspectForm(applicationId) {
     target: { tabId: tab.id, frameIds: [0] },
     world: "ISOLATED",
     func: formDOM,
+    args: [{ operation: "inspect", only_empty: true }],
   });
   const after = await active();
   if (after.id !== tab.id || after.url !== tab.url) throw Error("page_changed");
@@ -51,6 +60,46 @@ export async function inspectForm(applicationId) {
     application_id: applicationId,
     inspection: observation.result,
   });
+  current = { tabId: tab.id, url: tab.url, plan: data.plan };
+  return data.plan;
+}
+export async function prepareAnswers(tab) {
+  current = null;
+  tab = tab || (await active());
+  if (!Number.isInteger(tab?.id) || !supportedUrl(tab.url))
+    throw Error("supported_application_page_required");
+  const before = await active();
+  if (before.id !== tab.id || before.url !== tab.url)
+    throw Error("page_changed");
+  const [observation] = await chrome.scripting.executeScript({
+    target: { tabId: tab.id, frameIds: [0] },
+    world: "ISOLATED",
+    func: formDOM,
+    args: [{ operation: "inspect", only_empty: true }],
+  });
+  const after = await active();
+  if (
+    after.id !== tab.id ||
+    after.url !== tab.url ||
+    observation?.result?.url !== tab.url
+  )
+    throw Error("page_changed");
+  if (!["ready", "validation_errors"].includes(observation.result.state))
+    throw Error(
+      observation.result.state === "login_required"
+        ? "login_required"
+        : "unsupported_application_form",
+    );
+  const data = await native("prepare_form_answers", {
+    title: String(tab.title || "").slice(0, 250),
+    inspection: observation.result,
+  });
+  if (
+    !data.plan?.inspection ||
+    !Array.isArray(data.plan.actions) ||
+    data.plan.target_url !== tab.url
+  )
+    throw Error("form_request_rejected");
   current = { tabId: tab.id, url: tab.url, plan: data.plan };
   return data.plan;
 }
@@ -78,7 +127,12 @@ export async function fillForm() {
     world: "ISOLATED",
     func: formDOM,
     args: [
-      { operation: "fill", document_id: plan.inspection.document_id, actions },
+      {
+        operation: "fill",
+        document_id: plan.inspection.document_id,
+        actions,
+        only_empty: true,
+      },
     ],
   });
   const result = filled.result;

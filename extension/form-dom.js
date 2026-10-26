@@ -38,7 +38,20 @@ export function formDOM(request = { operation: "inspect" }) {
       },
       true,
     );
-    const inspect = () => {
+    const unanswered = (el, controls) => {
+      if (el.type === "radio")
+        return !controls.some(
+          (other) =>
+            other.type === "radio" &&
+            other.name === el.name &&
+            other.form === el.form &&
+            other.checked,
+        );
+      if (el.type === "checkbox") return !el.checked;
+      if (el.type === "file") return !el.files?.length;
+      return !String(el.value || "").trim();
+    };
+    const inspect = (onlyEmpty = false) => {
       const controls = [
         ...document.querySelectorAll("input,textarea,select"),
       ].filter(visible);
@@ -60,6 +73,7 @@ export function formDOM(request = { operation: "inspect" }) {
           continue;
         }
         if (el.disabled || el.readOnly) continue;
+        if (onlyEmpty && !unanswered(el, controls)) continue;
         const kind =
           el.tagName === "TEXTAREA"
             ? "textarea"
@@ -166,7 +180,7 @@ export function formDOM(request = { operation: "inspect" }) {
       return last;
     };
     globalThis[key] = (req) => {
-      if (req.operation === "inspect") return inspect();
+      if (req.operation === "inspect") return inspect(req.only_empty === true);
       if (
         !last ||
         req.document_id !== documentId ||
@@ -281,6 +295,15 @@ export function formDOM(request = { operation: "inspect" }) {
       touched = true;
       for (const action of req.actions) {
         const { el, field, options } = refs.get(action.field_id);
+        if (
+          req.only_empty === true &&
+          !unanswered(el, [
+            ...document.querySelectorAll("input,textarea,select"),
+          ])
+        ) {
+          results.push({ field_id: action.field_id, status: "untouched" });
+          continue;
+        }
         if (field.kind === "file" || typeof action.value !== "string") {
           results.push({ field_id: action.field_id, status: "untouched" });
           continue;

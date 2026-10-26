@@ -30,7 +30,12 @@ async def dispatch_form(session, settings, actor, command):
         ):
             raise ToolDenied("manual_form_not_authorized")
         service = FormService(session, settings)
-        if command.command == "inspect_form":
+        if command.command == "prepare_form_answers":
+            if not command.inspection:
+                raise ToolDenied("application_and_inspection_required")
+            plan = await service.prepare_current_form(command.inspection, command.title)
+            data = {"plan": plan.model_dump(mode="json"), "submitted": False}
+        elif command.command == "inspect_form":
             if not command.application_id or not command.inspection:
                 raise ToolDenied("application_and_inspection_required")
             plan = await service.inspect(
@@ -62,10 +67,15 @@ async def dispatch_form(session, settings, actor, command):
         )
         await session.flush()
         return result
-    except ValueError:
+    except ValueError as exc:
+        allowed = {
+            "manual_form_not_authorized", "profile_review_required",
+            "unsupported_application_form", "platform_fill_policy_denied",
+            "application_not_eligible", "fill_plan_stale",
+        }
         return Result(
             request_id=command.request_id,
             ok=False,
             capability="form_fill",
-            error_code="form_permission_or_context_rejected",
+            error_code=str(exc) if isinstance(exc, ToolDenied) and str(exc) in allowed else "form_permission_or_context_rejected",
         )

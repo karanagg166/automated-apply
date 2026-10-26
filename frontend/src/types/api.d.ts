@@ -2738,6 +2738,7 @@ export interface components {
         | "conversation"
         | "observe_platform_session"
         | "inspect_form"
+        | "prepare_form_answers"
         | "authorize_form"
         | "record_form_fill";
       /** Url */

@@ -3,6 +3,8 @@ import test from "node:test";
 
 test("popup renders bounded error codes and coalesces rapid button clicks", async () => {
   const elements = {
+    "#prepare-answers": { listeners: {}, addEventListener(ev, fn) { this.listeners[ev] = fn; } },
+    "#answer-status": {textContent:""},
     "#inspect-form": { listeners: {}, addEventListener(ev, fn) { this.listeners[ev] = fn; } },
     "#fill-form": { listeners: {}, addEventListener(ev, fn) { this.listeners[ev] = fn; } },
     "#form-plan": {textContent:""},
@@ -61,7 +63,7 @@ test("popup renders bounded error codes and coalesces rapid button clicks", asyn
     assert.equal(messageCalls, 1);
     resolvePreview();
     await Promise.all([firstClick, secondClick]);
-    assert.match(elements["#status"].textContent, /Local agent returned a preview/);
+    assert.match(elements["#status"].textContent, /URL preview saved/);
 
     await elements["#observe"].listeners.click();
     assert.match(elements["#observation"].textContent, /indicator was observed and saved/);

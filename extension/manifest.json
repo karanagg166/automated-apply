@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Automated Apply — Local Preview",
-  "version": "1.2.1",
-  "description": "Send a user-selected application URL to your local agent for a preview.",
+  "name": "Automated Apply — Form Answers",
+  "version": "1.2.2",
+  "description": "Review grounded answers and fill unanswered application fields after your click.",
   "permissions": [
     "contextMenus",
     "activeTab",

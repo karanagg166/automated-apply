@@ -17,7 +17,7 @@ Operation = Literal[
     "health", "connection_status", "preview_application_url", "preview_job_filters",
     "get_discovery_status", "get_agent_capabilities", "get_application_policy",
     "conversation",
-    "observe_platform_session", "inspect_form", "authorize_form", "record_form_fill",
+    "observe_platform_session", "inspect_form", "prepare_form_answers", "authorize_form", "record_form_fill",
 ]
 
 

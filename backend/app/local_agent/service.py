@@ -19,7 +19,7 @@ CAPABILITIES = {name: "preview_only" for name in (
 
 
 async def dispatch(session, settings, actor: Actor, command: Command):
-    if command.command in {"inspect_form", "authorize_form", "record_form_fill"}:
+    if command.command in {"inspect_form", "prepare_form_answers", "authorize_form", "record_form_fill"}:
         from backend.app.browser.manual import dispatch_form
         return await dispatch_form(session, settings, actor, command)
     key = f"{actor.channel}:{actor.identity}:{command.request_id}"
