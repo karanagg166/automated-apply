@@ -109,11 +109,11 @@ async def log_requests_middleware(request: Request, call_next):
 @app.middleware("http")
 async def private_discovery_boundary(request: Request, call_next):
     private = request.url.path.startswith(
-        ("/api/v1/local-agent", "/api/v1/dashboard", "/api/v1/operations", "/api/v1/credits", "/api/v1/startups", "/api/v1/discovery", "/api/v1/jobs", "/api/v1/companies/", "/api/v1/contact-enrichment", "/api/v1/contacts/", "/api/v1/outreach", "/api/v1/integrations", "/api/v1/applications", "/api/v1/application-packets")
+        ("/api/v1/browser", "/api/v1/local-agent", "/api/v1/dashboard", "/api/v1/operations", "/api/v1/credits", "/api/v1/startups", "/api/v1/discovery", "/api/v1/jobs", "/api/v1/companies/", "/api/v1/contact-enrichment", "/api/v1/contacts/", "/api/v1/outreach", "/api/v1/integrations", "/api/v1/applications", "/api/v1/application-packets")
     )
     callback = request.url.path == "/api/v1/integrations/gmail/oauth/callback"
     application_request = request.url.path.startswith(
-        ("/api/v1/applications", "/api/v1/application-packets")
+        ("/api/v1/browser", "/api/v1/applications", "/api/v1/application-packets")
     ) or "/application-" in request.url.path
     if private and not callback:
         from fastapi import HTTPException
@@ -320,3 +320,7 @@ app.include_router(startups_router)
 async def operations_status(session: AsyncSession = Depends(get_db_session)):
     from backend.app.operations.diagnostics import operational_status
     return await operational_status(session, get_session_factory(), settings)
+
+from backend.app.browser.router import router as browser_router
+
+app.include_router(browser_router)

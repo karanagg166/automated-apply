@@ -184,6 +184,66 @@ async def verify(url):
                 assert await restarted.run_once() is None and calls == ["GET"]
         finally:
             JobSourceFactory.get_adapter = original
+        # Browser queue shares existing restricted private tables: no new grants or DDL.
+        from backend.app.agent.contracts import Approval, Filters, Plan
+        from backend.app.browser import queue as browser_queue
+        from backend.app.dashboard.models import OwnerPreference
+        browser_settings = settings.model_copy(update={"BROWSER_FILL_ENABLED":True,"BROWSER_AUTOMATION_ENABLED":True})
+        async with factory() as session:
+            saved_job = await session.get(Job,job_id)
+            saved_job.application_url = "https://jobs.lever.co/fictional-owner/fictional-job"
+            await session.commit()
+            # Refresh the fixture's packet snapshot after changing the saved destination.
+            from backend.app.services.applications.service import (
+                ApplicationPacketService,
+            )
+            packet = await session.scalar(select(ApplicationPacket).where(ApplicationPacket.job_id == job_id))
+            _,_,snapshot = await ApplicationPacketService(session).builder.context(job_id)
+            packet.snapshot = snapshot.model_dump(mode="json")
+            await session.commit()
+            command = await store.intake(session,browser_settings,owner,Message(text="Fill the first application"))
+            command.plan = Plan(intent="fill",filters=Filters(),selected_jobs=[job_id])
+            command.approval = Approval(expected_revision=command.revision,nonce=command.approval_nonce,scope="fill",platforms=["employer_forms"],maximum_applications=1)
+            row,_ = await store.load(session,command.id)
+            store.save(row,command)
+            first = await browser_queue.enqueue(session,browser_settings,command,saved_job)
+            await session.commit()
+            duplicate_job = await browser_queue.enqueue(session,browser_settings,command,saved_job)
+            assert first["browser_job"] == duplicate_job["browser_job"]
+            await session.commit()
+        async def browser_claim():
+            async with factory() as session:
+                result = await browser_queue.claim(session)
+                await session.commit()
+                return result
+        browser_claims = await asyncio.gather(browser_claim(),browser_claim())
+        assert sum(result is not None for result in browser_claims) == 1
+        browser_key,browser_job = next(result for result in browser_claims if result)
+        async with factory() as locked:
+            await locked.get(OwnerPreference,browser_key,with_for_update=True)
+            async with asyncio.timeout(3):
+                assert await browser_claim() is None
+        async with factory() as session:
+            from backend.app.browser.contracts import Inspection
+            from backend.app.browser.service import FormService
+            plan = await FormService(session,browser_settings).inspect(packet.id,Inspection(document_id=str(uuid4()),url=saved_job.application_url,fields=[{"field_id":"f0","kind":"text","label":"Full name"}]),"local_automation")
+            await FormService(session,browser_settings).review(plan.id,["f0"])
+            await FormService(session,browser_settings).consume(plan.id,"local_automation")
+            await session.commit()
+            assert await session.scalar(select(func.count()).select_from(AgentOperation).where(AgentOperation.command == "browser:fill_authorized")) == 1
+            row = await session.get(OwnerPreference,browser_key)
+            row.value = {**row.value,"lease_until":(datetime.now(timezone.utc)-timedelta(seconds=1)).isoformat()}
+            await session.commit()
+        assert await browser_claim() is None
+        async with factory() as session:
+            row = await session.get(OwnerPreference,browser_key)
+            assert row.value["state"] == "manual_required"
+            try:
+                await browser_queue.fenced(session,browser_key,browser_job["fence"])
+                raise AssertionError("Lost browser lease accepted")
+            except ToolDenied:
+                pass
+        assert not await admin.fetchval("SELECT has_table_privilege($1,'public.agent_operations','UPDATE')",runtime_role)
         print("Command PostgreSQL PASS: real bootstrap, restricted role, Telegram duplicate delivery, matching, packet preparation, atomic claims, expired lease recovery, fencing, cancellation, engine restart, no submissions")
     finally:
         if engine:

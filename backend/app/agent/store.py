@@ -20,7 +20,8 @@ MEMORY_KEY = "agent_conversation:primary"
 TERMINAL = {"completed", "partially_completed", "failed", "cancelled"}
 TRANSITIONS = {
     "created": {"queued", "cancelled"}, "queued": {"running", "cancelled", "failed"},
-    "running": {"planned", "awaiting_approval", "completed", "partially_completed", "failed", "cancelled", "queued"},
+    "running": {"planned", "awaiting_approval", "waiting_browser", "completed", "partially_completed", "failed", "cancelled", "queued"},
+    "waiting_browser": {"completed", "partially_completed", "cancelled"},
     "planned": {"running", "awaiting_approval", "cancelled"},
     "awaiting_approval": {"queued", "cancelled"},
     **{state: set() for state in TERMINAL},
@@ -82,6 +83,10 @@ async def intake(session, settings, actor, message: Message, *, telegram_update_
     # Admission bounds persisted pending work, including approval waits. Controls bypass the queue.
     from backend.app.agent.planner import deterministic
     understanding = deterministic(message.text)
+    browser_stop = message.text.strip().casefold().rstrip(".?!") in {"stop filling applications", "stop filling"}
+    if understanding and understanding.intent == "cancel":
+        from backend.app.browser.queue import stop_all
+        await stop_all(session)
     context = bounded_memory(memory, now)
     if understanding and (understanding.intent == "cancel" or
                           (understanding.intent == "status" and "applications" not in message.text.casefold())):
@@ -94,6 +99,9 @@ async def intake(session, settings, actor, message: Message, *, telegram_update_
                 existing.fence += 1
                 existing.lease_until = None
                 existing.reply = "Campaign cancelled. Zero submissions were made."
+                save(row, existing)
+            if browser_stop:
+                existing.reply = "Filling stopped. No further browser actions are authorized. Submission not performed. No emails were sent."
                 save(row, existing)
             session.add(AgentOperation(key=key, actor=f"{actor.channel}:{actor.identity}", command="agent_intake",
                                        payload_hash=digest, result={"campaign_id": str(existing.id)}))

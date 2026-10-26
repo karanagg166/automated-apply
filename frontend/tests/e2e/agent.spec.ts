@@ -16,6 +16,12 @@ test("dashboard command executes real fixture services, keeps followups, and can
   await expect(
     page.getByRole("heading", { name: "Agent", exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Chrome form plans" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Stop filling applications" }),
+  ).toBeVisible();
   await page
     .getByLabel("Command", { exact: true })
     .fill("Find backend jobs in India");
@@ -65,4 +71,21 @@ test("dashboard command executes real fixture services, keeps followups, and can
     path: "../reports/command-execution-dashboard.png",
     fullPage: true,
   });
+  await page
+    .getByLabel("Command", { exact: true })
+    .fill("Fill the first application");
+  await page.getByRole("button", { name: "Send command" }).click();
+  const campaign = page.getByRole("article").filter({
+    has: page.getByRole("heading", {
+      name: "Fill the first application",
+      exact: true,
+    }),
+  });
+  await expect(
+    campaign.getByText(/previous selection is unavailable/).first(),
+  ).toBeVisible({ timeout: 20000 });
+  await expect(campaign.getByText(/Zero submissions were made/)).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Chrome form plans" }),
+  ).toBeVisible();
 });

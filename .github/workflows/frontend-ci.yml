@@ -3,7 +3,7 @@ on:
   push:
     branches: ['**']
   pull_request:
-    branches: [main, feat/phase1-local-connections]
+    branches: [main, feat/phase1-local-connections, feat/agent-command-execution]
 permissions:
   contents: read
 jobs:

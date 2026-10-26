@@ -78,7 +78,12 @@ async def provider_status(session: AsyncSession = Depends(get_db_session)):
     worker = await session.get(OwnerPreference, "agent_worker:primary")
     last = worker.value.get("heartbeat_at") if worker else None
     ready = bool(last and (datetime.now(timezone.utc) - datetime.fromisoformat(last)).total_seconds() < 150)
-    return {"worker_ready": ready, "worker_last_heartbeat": last,
+    browser_worker = await session.get(OwnerPreference, "browser_worker:primary")
+    browser_last = browser_worker.value.get("heartbeat_at") if browser_worker else None
+    browser_ready = bool(settings.BROWSER_AUTOMATION_ENABLED and browser_last and (datetime.now(timezone.utc) - datetime.fromisoformat(browser_last)).total_seconds() < 15)
+    return {"browser_worker_ready": browser_ready, "browser_last_heartbeat": browser_last,
+            "browser_fill_enabled": settings.BROWSER_FILL_ENABLED, "browser_availability": "available" if browser_ready else "offline_or_sleeping_or_worker_unavailable",
+            "worker_ready": ready, "worker_last_heartbeat": last,
             "execution": "available" if ready else "pending_worker_unavailable",
             "provider": "cohere", "model": settings.COHERE_MODEL,
             "state": "configured_not_live_verified" if enabled else "not_configured" if not configured else "authorization_required",

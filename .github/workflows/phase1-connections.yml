@@ -1,7 +1,7 @@
 name: Phase 1 connection foundation
 on:
   pull_request:
-    branches: [main, feat/phase1-local-connections]
+    branches: [main, feat/phase1-local-connections, feat/agent-command-execution]
   push:
     branches: [feat/phase1-local-connections]
 permissions:
@@ -60,6 +60,20 @@ jobs:
           pnpm -C frontend exec playwright install --with-deps chromium
           python backend/scripts/phase1/prepare_disposable.py
           python backend/scripts/phase1/lifecycle_smoke.py --env-file reports/phase1/disposable.private.env --with-chromium-extension
+      - name: Chrome form lint
+        run: >-
+          ruff check --isolated --select E9,F,I backend/app/browser
+          backend/scripts/run_browser_worker.py backend/scripts/run_browser_acceptance.py
+          backend/tests/test_browser_forms.py backend/tests/browser_acceptance.py
+      - name: Chrome inspection and fill acceptance on local fictional forms
+        run: python backend/scripts/run_browser_acceptance.py
+      - name: Chrome form acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: chrome-form-acceptance
+          path: reports/browser-acceptance.xml
+          retention-days: 7
       - name: Gmail compose intent on real disposable PostgreSQL
         env:
           PHASE1_DISPOSABLE_DATABASE_URL: postgresql://postgres:phase1_ci_disposable@127.0.0.1:5433/candidate_profile_test

@@ -1,9 +1,9 @@
 name: Backend CI
 on:
   push:
-    branches: [main, feat/phase1-local-connections]
+    branches: [main, feat/phase1-local-connections, feat/agent-command-execution]
   pull_request:
-    branches: [main, feat/phase1-local-connections]
+    branches: [main, feat/phase1-local-connections, feat/agent-command-execution]
 permissions:
   contents: read
 jobs:

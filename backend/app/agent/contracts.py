@@ -6,16 +6,16 @@ from pydantic import Field, model_validator
 
 from backend.app.local_agent.contracts import StrictModel
 
-Intent = Literal["search", "filter", "apply", "status", "cancel", "approve", "select_project", "clarify"]
+Intent = Literal["search", "filter", "apply", "status", "cancel", "approve", "select_project", "fill", "inspect", "clarify"]
 ToolName = Literal[
     "search_jobs", "filter_jobs", "rank_jobs", "get_candidate_profile",
     "get_approved_project_context", "get_canonical_resume", "get_application_history",
     "prepare_application", "generate_grounded_answer", "preview_application",
-    "fill_application", "submit_application", "get_campaign_status", "cancel_campaign",
+    "fill_application", "inspect_application", "submit_application", "get_campaign_status", "cancel_campaign",
     "find_founder_profiles", "create_outreach_draft",
 ]
 CampaignState = Literal["created", "planned", "awaiting_approval", "queued", "running",
-                        "completed", "partially_completed", "failed", "cancelled"]
+                        "waiting_browser", "completed", "partially_completed", "failed", "cancelled"]
 
 
 class Filters(StrictModel):
@@ -52,6 +52,7 @@ class Understanding(StrictModel):
     positions: list[int] = Field(default_factory=list, max_length=10)
     project: str | None = Field(None, min_length=1, max_length=100)
     campaign_id: UUID | None = None
+    fill_prepared: bool = False
     prepare_count: int = Field(0, ge=0, le=10)
     missing_information: list[str] = Field(default_factory=list, max_length=5)
 

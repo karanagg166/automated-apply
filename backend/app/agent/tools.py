@@ -47,8 +47,9 @@ REGISTRY = {
     "get_canonical_resume": PurposeArgs, "get_application_history": LimitArgs,
     "prepare_application": JobArgs, "generate_grounded_answer": AnswerArgs,
     "get_campaign_status": CampaignArgs, "cancel_campaign": CampaignArgs,
+    "fill_application": JobArgs, "inspect_application": JobArgs,
 }
-DISABLED = {"fill_application", "submit_application"}
+DISABLED = {"submit_application"}
 
 
 def definitions():
@@ -90,7 +91,7 @@ class ToolExecutor:
                 raise ToolDenied("authenticated_owner_required")
             if self.campaign.state != "running":
                 raise ToolDenied("campaign_not_running")
-            if proposal.name in DISABLED:
+            if proposal.name in DISABLED or (proposal.name == "fill_application" and not self.settings.BROWSER_FILL_ENABLED):
                 return {"status": "capability_not_enabled", "submitted": False}
             if proposal.name not in REGISTRY:
                 raise ToolDenied("tool_not_allowed")
@@ -154,6 +155,9 @@ class ToolExecutor:
 
     async def run(self, name, args, job):
         from backend.app.local_agent.knowledge import reviewed_profile
+        if name in {"fill_application", "inspect_application"}:
+            from backend.app.browser.queue import enqueue
+            return await enqueue(self.session, self.settings, self.campaign, job, inspect_only=name == "inspect_application")
         if name in {"search_jobs", "filter_jobs"}:
             from backend.app.agent.discovery import saved_results
             return await saved_results(self.session, self.campaign, self.memory, search=name == "search_jobs")

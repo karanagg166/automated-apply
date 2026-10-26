@@ -2073,6 +2073,74 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/browser/plans": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Plans */
+    get: operations["plans_api_v1_browser_plans_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser/plans/{plan_id}/review": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Review */
+    post: operations["review_api_v1_browser_plans__plan_id__review_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser/stop": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Stop */
+    post: operations["stop_api_v1_browser_stop_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser/plans/{plan_id}/next": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Next Step */
+    post: operations["next_step_api_v1_browser_plans__plan_id__next_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2308,6 +2376,7 @@ export interface components {
         | "awaiting_approval"
         | "queued"
         | "running"
+        | "waiting_browser"
         | "completed"
         | "partially_completed"
         | "failed"
@@ -2582,12 +2651,23 @@ export interface components {
         | "get_agent_capabilities"
         | "get_application_policy"
         | "conversation"
-        | "observe_platform_session";
+        | "observe_platform_session"
+        | "inspect_form"
+        | "authorize_form"
+        | "record_form_fill";
       /** Url */
       url?: string | null;
       /** Title */
       title?: string | null;
       intent?: components["schemas"]["Intent"] | null;
+      /** Application Id */
+      application_id?: string | null;
+      /** Plan Id */
+      plan_id?: string | null;
+      inspection?: components["schemas"]["Inspection"] | null;
+      /** Field Ids */
+      field_ids?: string[];
+      receipt?: components["schemas"]["FillReceipt"] | null;
       /** Observation */
       observation?:
         ("signed_in_indicator" | "login_required" | "unverifiable") | null;
@@ -3108,6 +3188,140 @@ export interface components {
       /** Current Verified */
       current_verified?: string[];
     };
+    /** FieldResult */
+    FieldResult: {
+      /** Field Id */
+      field_id: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status:
+        "filled" | "failed" | "needs_input" | "validation_error" | "untouched";
+    };
+    /** FillAction */
+    FillAction: {
+      /**
+       * Job Id
+       * Format: uuid
+       */
+      job_id: string;
+      /**
+       * Application Id
+       * Format: uuid
+       */
+      application_id: string;
+      /** Target Url */
+      target_url: string;
+      /** Field Id */
+      field_id: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind:
+        | "text"
+        | "textarea"
+        | "email"
+        | "tel"
+        | "url"
+        | "number"
+        | "select"
+        | "radio"
+        | "checkbox"
+        | "file";
+      /** Value */
+      value?: string | null;
+      /** Safe Reference */
+      safe_reference?: string | null;
+      /** Evidence */
+      evidence?: string[];
+      /** Candidate Version */
+      candidate_version: number;
+      /** Project Version */
+      project_version?: string | null;
+      /**
+       * Requires Review
+       * @default false
+       */
+      requires_review: boolean;
+      /**
+       * Needs Input
+       * @default true
+       */
+      needs_input: boolean;
+    };
+    /** FillPlan */
+    FillPlan: {
+      /**
+       * Version
+       * @default 1
+       * @constant
+       */
+      version: 1;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id?: string;
+      /**
+       * Application Id
+       * Format: uuid
+       */
+      application_id: string;
+      /**
+       * Job Id
+       * Format: uuid
+       */
+      job_id: string;
+      /**
+       * Mode
+       * @enum {string}
+       */
+      mode: "manual_extension" | "local_automation";
+      /** Target Url */
+      target_url: string;
+      inspection: components["schemas"]["Inspection"];
+      /** Context Digest */
+      context_digest: string;
+      /** Packet Revision */
+      packet_revision: number;
+      /** Project Digest */
+      project_digest: string;
+      /** Actions */
+      actions?: components["schemas"]["FillAction"][];
+      /** Approved Fields */
+      approved_fields?: string[];
+      /** Expires At */
+      expires_at: string;
+      /**
+       * State
+       * @default preview
+       * @enum {string}
+       */
+      state: "preview" | "authorized" | "consumed" | "finished";
+    };
+    /** FillReceipt */
+    FillReceipt: {
+      /**
+       * Plan Id
+       * Format: uuid
+       */
+      plan_id: string;
+      /** Results */
+      results: components["schemas"]["FieldResult"][];
+      /**
+       * State
+       * @enum {string}
+       */
+      state: "form_filled" | "needs_input" | "manual_required" | "failed";
+      /**
+       * Submitted
+       * @default false
+       * @constant
+       */
+      submitted: false;
+    };
     /** Filters */
     Filters: {
       /** Role */
@@ -3168,6 +3382,47 @@ export interface components {
        * @default 10
        */
       limit: number;
+    };
+    /** FormField */
+    FormField: {
+      /** Field Id */
+      field_id: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind:
+        | "text"
+        | "textarea"
+        | "email"
+        | "tel"
+        | "url"
+        | "number"
+        | "select"
+        | "radio"
+        | "checkbox"
+        | "file";
+      /** Label */
+      label: string;
+      /** Group Label */
+      group_label?: string | null;
+      /**
+       * Required
+       * @default false
+       */
+      required: boolean;
+      /** Options */
+      options?: string[];
+      /**
+       * Max Length
+       * @default 1500
+       */
+      max_length: number;
+      /**
+       * Invalid
+       * @default false
+       */
+      invalid: boolean;
     };
     /** GenerateRequest */
     GenerateRequest: {
@@ -3270,6 +3525,42 @@ export interface components {
       fresh: boolean;
     } & {
       [key: string]: unknown;
+    };
+    /** Inspection */
+    Inspection: {
+      /**
+       * Version
+       * @default 1
+       * @constant
+       */
+      version: 1;
+      /** Document Id */
+      document_id: string;
+      /** Url */
+      url: string;
+      /** Fields */
+      fields?: components["schemas"]["FormField"][];
+      /**
+       * State
+       * @default ready
+       * @enum {string}
+       */
+      state:
+        | "ready"
+        | "login_required"
+        | "manual_required"
+        | "unsupported"
+        | "validation_errors";
+      /**
+       * Has Next
+       * @default false
+       */
+      has_next: boolean;
+      /**
+       * Has Submit
+       * @default false
+       */
+      has_submit: boolean;
     };
     /** Intent */
     Intent: {
@@ -3992,6 +4283,8 @@ export interface components {
         | "cancel"
         | "approve"
         | "select_project"
+        | "fill"
+        | "inspect"
         | "clarify";
       filters: components["schemas"]["Filters"];
       /** Selected Jobs */
@@ -4757,6 +5050,11 @@ export interface components {
       /** Approved Profile Version */
       approved_profile_version: number | null;
     };
+    /** Review */
+    Review: {
+      /** Field Ids */
+      field_ids: string[];
+    };
     /** ReviewInput */
     ReviewInput: {
       /** Expected Revision */
@@ -5329,6 +5627,7 @@ export interface components {
         | "generate_grounded_answer"
         | "preview_application"
         | "fill_application"
+        | "inspect_application"
         | "submit_application"
         | "get_campaign_status"
         | "cancel_campaign"
@@ -5375,6 +5674,8 @@ export interface components {
         | "cancel"
         | "approve"
         | "select_project"
+        | "fill"
+        | "inspect"
         | "clarify";
       filters?: components["schemas"]["Filters"];
       /** Positions */
@@ -5383,6 +5684,11 @@ export interface components {
       project?: string | null;
       /** Campaign Id */
       campaign_id?: string | null;
+      /**
+       * Fill Prepared
+       * @default false
+       */
+      fill_prepared: boolean;
       /**
        * Prepare Count
        * @default 0
@@ -9788,6 +10094,112 @@ export interface operations {
         };
         content: {
           "application/json": unknown;
+        };
+      };
+    };
+  };
+  plans_api_v1_browser_plans_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FillPlan"][];
+        };
+      };
+    };
+  };
+  review_api_v1_browser_plans__plan_id__review_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        plan_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["Review"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FillPlan"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  stop_api_v1_browser_stop_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  next_step_api_v1_browser_plans__plan_id__next_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        plan_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

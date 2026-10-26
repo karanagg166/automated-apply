@@ -3,6 +3,10 @@ import test from "node:test";
 
 test("popup renders bounded error codes and coalesces rapid button clicks", async () => {
   const elements = {
+    "#inspect-form": { listeners: {}, addEventListener(ev, fn) { this.listeners[ev] = fn; } },
+    "#fill-form": { listeners: {}, addEventListener(ev, fn) { this.listeners[ev] = fn; } },
+    "#form-plan": {textContent:""},
+    "#application-id": {value:""},
     "#status": { textContent: "", addEventListener() {} },
     "#result": { textContent: "", addEventListener() {} },
     "#menu-status": { textContent: "", addEventListener() {} },
@@ -46,6 +50,10 @@ test("popup renders bounded error codes and coalesces rapid button clicks", asyn
     assert.equal(elements["#status"].textContent, "native_protocol_error");
     assert.match(elements["#observation"].textContent, /backend is offline/);
     assert.match(elements["#menu-status"].textContent, /Right-click menu registered/);
+
+    await elements["#inspect-form"].listeners.click({isTrusted:false});
+    await elements["#fill-form"].listeners.click({isTrusted:false});
+    assert.equal(messageCalls,0);
 
     // Concurrent clicks on #preview while in-flight dispatch only once
     const firstClick = elements["#preview"].listeners.click();

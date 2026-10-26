@@ -14,6 +14,8 @@ import {
   Skeleton,
 } from "@/components/ui";
 
+import { BrowserPlans } from "./browser-plans";
+
 type Campaign = Schema<"Campaign">;
 type Status = {
   worker_ready: boolean;
@@ -89,6 +91,7 @@ export function Agent() {
           </p>
         </div>
       </div>
+      <BrowserPlans />
       <Notice>
         Submissions are disabled. No emails are sent. Application drafts need
         your review.

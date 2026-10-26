@@ -64,6 +64,15 @@ def summary(campaign):
                 lines.append("Approved project selected: " + result["projects"][0]["name"] + ".")
             else:
                 lines.extend(result.get("missing_information", []))
+    for result in campaign.results:
+        if result.get("tool") in {"fill_application", "inspect_application"}:
+            labels = {"pending_browser":"Waiting for the separate browser worker", "form_inspected":"Form inspected",
+                "form_filled":"Form filled; inspect the values in Chrome", "needs_input":"Form needs input",
+                "manual_required":"Manual intervention required", "awaiting_review":"Form inspected; review the field plan in Agent",
+                "failed":"Form filling failed", "cancelled":"Filling stopped", "capability_not_enabled":"Browser capability is disabled"}
+            lines.append(labels.get(result.get("status"), "Browser action pending") + ". Submission not performed.")
+            if result.get("missing_information"):
+                lines.append("Needs input: " + ", ".join(result["missing_information"][:5]))
     lines.append("Zero submissions were made. No emails were sent.")
     return "\n".join(lines)[:3400]
 
@@ -146,6 +155,12 @@ class CommandExecutor:
                     campaign.plan.actions = [ToolCall(name="get_application_history", arguments={"limit": 10})]
                 if understanding.intent == "approve":
                     campaign.plan.missing_information = ["Use 'Prepare applications for the first three' to authorize drafts for saved results, or review the exact campaign in Agent. Submission is unavailable."]
+                if understanding.intent == "fill" and not plan.missing_information:
+                    if local is None or deterministic(campaign.message).intent != "fill":
+                        campaign.plan.actions = []
+                        campaign.plan.missing_information = ["Explicitly select a saved application with 'Fill the first application'."]
+                    else:
+                        campaign.approval = (await draft_grant(session, campaign)).model_copy(update={"scope":"fill"})
                 if understanding.intent == "cancel":
                     campaign.plan.missing_information = ["No previous campaign is available to cancel."]
                 if understanding.intent == "apply" and not plan.missing_information:
@@ -186,6 +201,9 @@ class CommandExecutor:
                     await session.commit()
                     return
                 action = campaign.plan.actions[campaign.next_step]
+                local_command = deterministic(campaign.message)
+                if action.name == "fill_application" and local_command and local_command.fill_prepared:
+                    campaign.approval = (await draft_grant(session, campaign)).model_copy(update={"scope":"fill"})
                 executor = ToolExecutor(session, self.settings, actor_for(campaign), campaign, memory)
                 async with asyncio.timeout(45):
                     result = await executor.execute(action, campaign.next_step)
@@ -203,6 +221,8 @@ class CommandExecutor:
                     if deterministic(campaign.message) is not None and explicit_preparation(campaign.message):
                         campaign.approval = await draft_grant(session, campaign)
                         campaign.plan.actions.extend(ToolCall(name="prepare_application", arguments={"job_id": str(j)}) for j in selected)
+                        if campaign.understanding.fill_prepared:
+                            campaign.plan.actions.extend(ToolCall(name="fill_application", arguments={"job_id": str(j)}) for j in selected)
                     elif selected:
                         campaign.plan.missing_information.append("Confirm draft preparation for the saved ranked results.")
                 store.save(row, campaign)
@@ -214,13 +234,15 @@ class CommandExecutor:
         now = await instant(session)
         incomplete = campaign.diagnostic or campaign.plan.missing_information or any(
             r.get("status") in {"needs_input", "denied", "failed", "manual_required", "capability_not_enabled"} for r in campaign.results)
-        state = "partially_completed" if incomplete else "completed"
+        state = "waiting_browser" if any(r.get("status") == "pending_browser" for r in campaign.results) else "partially_completed" if incomplete else "completed"
         store.transition(campaign, state, now, "execution_finished")
         campaign.lease_until, campaign.reply = None, summary(campaign)
         if campaign.plan.intent in {"search", "filter"} and not campaign.diagnostic and not campaign.plan.missing_information:
             memory.update(agent_filters=campaign.plan.filters.model_dump(mode="json"),
                           job_ids=[r["job_id"] for r in campaign.ranked_jobs],
                           candidate_ids=[str(i) for i in campaign.candidate_ids], result_campaign=str(campaign.id))
+        if campaign.applications:
+            memory["prepared_job_ids"] = [str(j) for j in campaign.plan.selected_jobs if str(j) in campaign.applications]
         if campaign.selected_project:
             memory["selected_project"] = campaign.selected_project
         memory.update(last_campaign=str(campaign.id), updated_at=now.isoformat())

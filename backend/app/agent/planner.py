@@ -20,6 +20,14 @@ def deterministic(text):
     value = text.strip().casefold().replace("’", "'").rstrip(".?!")
     if not value or unsafe_request(value):
         return Understanding(intent="clarify", missing_information=["That action is outside the agent's allowed scope."])
+    if value in {"stop filling applications", "stop filling"}:
+        return Understanding(intent="cancel")
+    form = re.fullmatch(r"(?:fill the (first|second|third) application|what's missing from the (first|second|third) form)", value)
+    if form:
+        return Understanding(intent="fill" if form[1] else "inspect", positions=[{"first":1,"second":2,"third":3}[form[1] or form[2]]])
+    project_form = re.fullmatch(r"use (.{1,100}?) where the form asks about my best project", text.strip().rstrip(".?!"), re.I)
+    if project_form:
+        return Understanding(intent="select_project", project=project_form[1])
     if re.fullmatch(r"(?:cancel|stop)(?: the| that)?(?: pending)?(?: campaign)?", value):
         return Understanding(intent="cancel")
     if re.search(r"\b(?:status|what happened|how many applications|applications.*need information)\b", value):
@@ -32,7 +40,7 @@ def deterministic(text):
         return Understanding(intent="filter", filters=Filters(exclude_internships=True))
     if value in {"ignore companies i've applied to", "exclude already applied"}:
         return Understanding(intent="filter", filters=Filters(exclude_applied=True))
-    match = re.fullmatch(r"(?:apply to|prepare(?: applications?(?: for)?)?)(?: the)? first (one|two|three|four|five|\d+)", value)
+    match = re.fullmatch(r"(?:apply to|prepare(?: applications?(?: for)?)?)(?: the)? first (one|two|three|four|five|\d+)(?: jobs)?", value)
     if match:
         count = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}.get(match[1])
         count = count if count is not None else int(match[1])
@@ -51,6 +59,14 @@ def deterministic(text):
     if best:
         count = number(best[1])
         return Understanding(intent="filter", filters=Filters(limit=count)) if 1 <= count <= 10 else Understanding(intent="clarify", missing_information=["Choose one to ten results."])
+    fill_compound = re.fullmatch(r"(.+?)[, ]+(?:and )?fill their application forms(?: using my verified resume and project details)?", value)
+    if fill_compound:
+        original = fill_compound[1].replace(", prepare", " and prepare")
+        compound = parse_search(original)
+        if compound and 1 <= compound.prepare_count <= 5:
+            compound.fill_prepared = True
+            return compound
+        return Understanding(intent="clarify",missing_information=["Select up to five saved jobs for bounded preparation and filling."])
     compound = parse_search(value)
     if compound is not None:
         return compound
@@ -195,8 +211,8 @@ class CommandPlanner:
         filters = Filters.model_validate({**memory.get("agent_filters", {}), **updates})
         missing = list(command.missing_information)
         selected = []
-        if command.intent == "apply":
-            previous = memory.get("job_ids", [])
+        if command.intent in {"apply", "fill", "inspect"}:
+            previous = memory.get("prepared_job_ids", []) if command.intent in {"fill", "inspect"} else memory.get("job_ids", [])
             if any(position > len(previous) for position in command.positions):
                 missing.append("Select from the current search results; your previous selection is unavailable.")
             else:
@@ -209,6 +225,8 @@ class CommandPlanner:
                        ToolCall(name="rank_jobs", arguments={"limit": filters.limit})]
         if not missing and command.intent == "apply":
             actions = [ToolCall(name="prepare_application", arguments={"job_id": job}) for job in selected]
+        if not missing and command.intent in {"fill", "inspect"}:
+            actions = [ToolCall(name="fill_application" if command.intent == "fill" else "inspect_application", arguments={"job_id": job}) for job in selected]
         return Plan(intent=command.intent, filters=filters, selected_jobs=selected,
                     actions=actions, confirmation_required=command.intent == "apply",
                     missing_information=missing)

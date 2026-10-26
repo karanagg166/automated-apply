@@ -50,3 +50,24 @@ document.querySelector("#observe").addEventListener("click", async () => {
 });
 chrome.storage.onChanged.addListener(show);
 await show();
+
+import { inspectForm, fillForm } from './form-bridge.js';
+let formBusy=false;
+document.querySelector('#inspect-form').addEventListener('click',async event=>{
+  if(!event.isTrusted || formBusy) return;
+  formBusy=true;
+  document.querySelector('#fill-form').disabled=true;
+  try {
+    const plan=await inspectForm(document.querySelector('#application-id').value.trim());
+    document.querySelector('#form-plan').textContent=plan.actions.map(a=>`${a.field_id} ${plan.inspection.fields.find(f=>f.field_id===a.field_id)?.label}: ${a.needs_input ? 'Needs input' : a.kind==='file' ? 'Upload canonical PDF manually' : a.value}\nEvidence: ${a.evidence.join(', ')}`).join('\n\n');
+    document.querySelector('#fill-form').disabled=false;
+  } catch {document.querySelector('#form-plan').textContent='Inspection unavailable. Check saved application ID, page, owner authorization and current profile.';}
+  finally {formBusy=false;}
+});
+document.querySelector('#fill-form').addEventListener('click',async event=>{
+  if(!event.isTrusted || formBusy) return;
+  formBusy=true; document.querySelector('#fill-form').disabled=true;
+  try {const result=await fillForm();document.querySelector('#form-plan').textContent=`${result.state}. Inspect values and upload the canonical PDF manually. Submission not performed.`;}
+  catch {document.querySelector('#form-plan').textContent='Manual intervention required. Reinspect the page before retrying. Submission not performed.';}
+  finally {formBusy=false;}
+});
