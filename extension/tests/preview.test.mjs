@@ -13,7 +13,13 @@ global.chrome = {
   storage: { session: { set: async (value) => stored = { ...stored, ...value } } },
   action: { setBadgeText: async (val) => { lastBadge = val?.text; }, openPopup: async () => {} },
 };
-const { preview, menuId, supportedUrl, normalizePreviewUrl, nativeErrorCode, portalHost, observeSession, sessionIndicator, setNativeTimeoutForTesting } = await import("../background.js");
+const { preview, menuId, answerMenuId, supportedUrl, normalizePreviewUrl, nativeErrorCode, portalHost, observeSession, sessionIndicator, setNativeTimeoutForTesting } = await import("../background.js");
+test("answer context-menu gesture opens review without filling or native dispatch", async () => {
+  const previous = stored?.lastResult;
+  await callbacks.click({ menuItemId: answerMenuId }, { id: 7, url: "https://example.org/apply" });
+  assert.deepEqual(stored.answerRequested, { tabId: 7, url: "https://example.org/apply" });
+  assert.equal(stored.lastResult, previous);
+});
 test("registers exact menu label with page/link user gesture contexts", async () => {
   await callbacks.install();
   assert.equal(callbacks.menu.title, "Preview with Automated Apply");

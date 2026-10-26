@@ -16,4 +16,34 @@ Candidate facts/resumes require separate `COHERE_CANDIDATE_DATA_AUTHORIZED`; own
 
 One attempt consumes one independently committed request reservation. There are no Cohere retries. Atomic monthly quota rows impose a 3.1-second gap across processes and a request ceiling of at most 1,000. The monthly token budget conservatively allocates `LLM_MAX_INPUT_CHARS + LLM_MAX_OUTPUT_TOKENS` per reserved request, including failures with unknown usage. This deliberately underuses quota rather than overspending it. Observed model token counts are stored separately as actual input/output tokens; missing usage remains unknown in the response. Reserved requests include lost/failed responses and must not be described as accepted generations. A deterministic answer reserves nothing.
 
+## Owner setup for a fictional evaluation
+
+Sign in to [Cohere's API keys dashboard](https://dashboard.cohere.com/api-keys).
+Choose a free trial/evaluation key and independently confirm its account type,
+model access and remaining quota. Do not choose a production key, add billing or
+upgrade a plan as part of this procedure. Current official limits are 20 Chat
+requests/minute and 1,000 calls/month; other account users consume that allowance.
+
+Privately edit the selected external mode-0600 backend env file, never frontend
+settings, Telegram or a tracked file. Store the key in `COHERE_API_KEY`; keep
+`COHERE_ENABLED=false` until an explicit fictional-data test is authorized. Once
+authorized, confirm `COHERE_EVALUATION_KEY_CONFIRMED=true`, select
+`COHERE_MODEL=command-a-plus-05-2026`, and set a small evaluation ceiling such as
+`COHERE_MONTHLY_MAX_REQUESTS=6`, `COHERE_MONTHLY_MAX_TOKENS=110000`,
+`LLM_MAX_CONCURRENCY=1`. Existing reservations count toward these limits.
+Keep `COHERE_OWNER_TEXT_AUTHORIZED=false` and
+`COHERE_CANDIDATE_DATA_AUTHORIZED=false`; evaluate an explicit fictional harness
+without loading the owner's profile, projects, resume or Telegram text.
+
+Before making any live call, review six bounded fictional cases covering intent,
+structured filters and follow-up context, then record actual request/token counts
+without recording raw responses or keys. Use the existing mocked suite for invalid
+JSON, hallucinations, tools, provider failures and quota exhaustion; do not spend
+live quota to reproduce each synthetic failure. Every proposal must still pass
+local Pydantic/grounding and permission checks. Turn the provider off after the
+bounded evaluation. Key presence alone never authorizes testing or data transfer.
+
+The 2026-10-26 integration audit found no configured key or live-test authorization.
+Live evaluation remains blocked; the mocked contract tests remain the evidence.
+
 For narrative writing, the existing independent grounding validator checks every claim and source after Pydantic validation. A valid JSON object is never sufficient evidence of truth. Tool proposals never execute inside the transport.

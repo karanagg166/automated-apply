@@ -3,6 +3,12 @@ import test from "node:test";
 
 test("popup renders bounded error codes and coalesces rapid button clicks", async () => {
   const elements = {
+    "#prepare-answers": { listeners: {}, addEventListener(ev, fn) { this.listeners[ev] = fn; } },
+    "#answer-status": {textContent:""},
+    "#inspect-form": { listeners: {}, addEventListener(ev, fn) { this.listeners[ev] = fn; } },
+    "#fill-form": { listeners: {}, addEventListener(ev, fn) { this.listeners[ev] = fn; } },
+    "#form-plan": {textContent:""},
+    "#application-id": {value:""},
     "#status": { textContent: "", addEventListener() {} },
     "#result": { textContent: "", addEventListener() {} },
     "#menu-status": { textContent: "", addEventListener() {} },
@@ -47,13 +53,17 @@ test("popup renders bounded error codes and coalesces rapid button clicks", asyn
     assert.match(elements["#observation"].textContent, /backend is offline/);
     assert.match(elements["#menu-status"].textContent, /Right-click menu registered/);
 
+    await elements["#inspect-form"].listeners.click({isTrusted:false});
+    await elements["#fill-form"].listeners.click({isTrusted:false});
+    assert.equal(messageCalls,0);
+
     // Concurrent clicks on #preview while in-flight dispatch only once
     const firstClick = elements["#preview"].listeners.click();
     const secondClick = elements["#preview"].listeners.click();
     assert.equal(messageCalls, 1);
     resolvePreview();
     await Promise.all([firstClick, secondClick]);
-    assert.match(elements["#status"].textContent, /Local agent returned a preview/);
+    assert.match(elements["#status"].textContent, /URL preview saved/);
 
     await elements["#observe"].listeners.click();
     assert.match(elements["#observation"].textContent, /indicator was observed and saved/);

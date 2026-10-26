@@ -1,3 +1,4 @@
+import { Agent } from "@/features/agent";
 import { notFound } from "next/navigation";
 import { StartupExplorer } from "@/features/startups";
 import { CompanyDetail } from "@/features/company";
@@ -23,6 +24,8 @@ export default async function Page({
     notFound();
   }
   switch (section) {
+    case "agent":
+      return <Agent />;
     case "startups":
       return <StartupExplorer />;
     case "jobs":

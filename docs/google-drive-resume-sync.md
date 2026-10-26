@@ -55,7 +55,7 @@ Migration **011 follows 001–010**. It adds three private tables and an additiv
 PROFILE_TEST_DATABASE_URL=postgresql://postgres:<test-password>@127.0.0.1:<test-port>/candidate_profile_test \
   backend/venv/bin/pytest backend/tests -q
 pnpm -C frontend typecheck
-pnpm test --prefix frontend
+pnpm -C frontend test
 pnpm -C frontend build
 PYTHON=../backend/venv/bin/python pnpm -C frontend e2e
 ```

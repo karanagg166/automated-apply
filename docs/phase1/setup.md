@@ -4,7 +4,7 @@ Use this branch's worktree. Do not copy another project's .env, encryption keys,
 
 ## Environment and startup
 
-Python 3.11+ and Node 22+; npm remains the frontend dependency manager.
+Python 3.11+ and Node 22+; use only pnpm@12.15.0 and the committed pnpm lockfile.
 
 ```sh
 python3.11 -m venv .venv

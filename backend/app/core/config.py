@@ -64,6 +64,10 @@ class Settings(BaseSettings):
     SUPABASE_PUBLISHABLE_KEY: str | None = None
     SUPABASE_JWKS_URL: str = "https://luvdmwnlwaqgvfwlmlom.supabase.co/auth/v1/.well-known/jwks.json"
     LOCAL_AGENT_ENDPOINT: str = "http://127.0.0.1:8000"
+    BROWSER_SUBMIT_ENABLED: bool = False
+    BROWSER_FILL_ENABLED: bool = False
+    BROWSER_AUTOMATION_ENABLED: bool = False
+    BROWSER_FIXTURE_ORIGIN: str | None = None
     CHROME_NATIVE_MESSAGING_ENABLED: bool = False
     CHROME_EXTENSION_ID: str | None = Field(default=None, pattern=r"^[a-p]{32}$")
     TELEGRAM_BOT_TOKEN: SecretStr | None = None

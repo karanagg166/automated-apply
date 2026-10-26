@@ -81,7 +81,7 @@ try {
   assert.equal(result.health.ok, true);
   const page = await context.newPage();
   await page.goto(`chrome-extension://${extensionId}/popup.html`);
-  await expect(page.locator("#status")).toContainText("returned a preview", {
+  await expect(page.locator("#status")).toContainText("URL preview saved.", {
     timeout: 10000,
   });
   await page.screenshot({

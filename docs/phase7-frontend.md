@@ -51,7 +51,7 @@ Exports include only company name/domain/source references whose retained source
 python backend/scripts/export_openapi.py
 pnpm -C frontend api:types
 pnpm -C frontend typecheck
-pnpm test --prefix frontend
+pnpm -C frontend test
 pnpm -C frontend build
 cd frontend
 pnpm exec playwright install chromium

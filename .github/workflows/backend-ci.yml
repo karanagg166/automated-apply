@@ -1,9 +1,9 @@
 name: Backend CI
 on:
   push:
-    branches: [main]
+    branches: [main, feat/phase1-local-connections, feat/agent-command-execution, feat/chrome-form-inspection-autofill]
   pull_request:
-    branches: [main]
+    branches: [main, feat/phase1-local-connections, feat/agent-command-execution, feat/chrome-form-inspection-autofill]
 permissions:
   contents: read
 jobs:
@@ -57,7 +57,7 @@ jobs:
           backend/app/candidate_context backend/app/ai backend/app/agent
           backend/app/services/application_answer_service.py
           backend/tests/test_local_answer_integration.py backend/tests/test_cohere_provider.py
-          backend/tests/test_agent_planner.py
+          backend/tests/test_agent_planner.py backend/tests/test_agent_execution.py backend/tests/test_agent_execution_postgres.py backend/scripts/verify_command_postgres.py backend/scripts/run_command_worker.py
           backend/app/dashboard/candidate_context.py
           backend/scripts/phase1/agy_isolation_check.py
           backend/tests/test_candidate_context*.py backend/tests/test_phase1_agy_diagnostics.py

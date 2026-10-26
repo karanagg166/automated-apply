@@ -1,1 +1,53 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><title>Automated Apply</title><link rel="stylesheet" href="style.css"><body><h1>Automated Apply</h1><p>Phase 1 · URL preview only</p><button id="preview">Preview this application URL</button><p id="status" role="status">No connection verified yet.</p><pre id="result"></pre><p id="menu-status"></p><button id="repair">Repair right-click menu</button><p>Right-click an HTTPS page, link, selection or form field. Chrome internal pages do not support this action.</p><button id="observe">Check this portal session</button><p id="observation" role="status">Only visible sign-in indicators are checked after your click. Account identity and API access stay unverified.</p><a href="settings.html" target="_blank">Connection settings</a><script src="popup.js" type="module"></script></body></html>
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" />
+  <title>Automated Apply</title>
+  <link rel="stylesheet" href="style.css" />
+  <body>
+    <h1>Automated Apply</h1>
+    <p>Answer unanswered application questions using your reviewed facts.</p>
+    <button id="prepare-answers">Prepare answers for this form</button>
+    <p id="answer-status" role="status">
+      Open the application form, then prepare and review answers. Fields you
+      already answered are preserved.
+    </p>
+    <pre id="form-plan"></pre>
+    <button id="fill-form" disabled>
+      I reviewed these answers — fill unanswered fields
+    </button>
+    <p>
+      Unknown facts need your review in
+      <a href="http://127.0.0.1:3000/profile" target="_blank" rel="noreferrer"
+        >Profile</a
+      >. Upload your PDF yourself and review the completed form before
+      submitting it yourself.
+    </p>
+    <p>
+      Some custom fields and framework-controlled inputs may need manual
+      handling. The extension does not submit your application.
+    </p>
+    <details>
+      <summary>Connection and URL preview</summary>
+      <button id="preview">Save a preview of this URL</button>
+      <p id="status" role="status">No connection verified yet.</p>
+      <pre id="result"></pre>
+      <p id="menu-status"></p>
+      <button id="repair">Repair right-click menu</button>
+      <button id="observe">Check this portal session</button>
+      <p id="observation" role="status">
+        Only visible sign-in indicators are checked after your click. Account
+        identity and API access stay unverified.
+      </p>
+    </details>
+    <details>
+      <summary>Use an existing saved application</summary>
+      <label
+        >Saved application ID
+        <input id="application-id" maxlength="36" autocomplete="off"
+      /></label>
+      <button id="inspect-form">Prepare answers for saved application</button>
+    </details>
+    <a href="settings.html" target="_blank">Connection settings</a>
+    <script src="popup.js" type="module"></script>
+  </body>
+</html>

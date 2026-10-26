@@ -108,7 +108,7 @@ async def chrome_command(command: Command, request: Request, session: AsyncSessi
     if (not settings.CHROME_NATIVE_MESSAGING_ENABLED or not settings.CHROME_EXTENSION_ID
             or request.headers.get("X-Agent-Client") != settings.CHROME_EXTENSION_ID):
         raise HTTPException(403, "extension_identity_not_authorized")
-    if command.command not in {"health", "connection_status", "get_agent_capabilities", "preview_application_url", "observe_platform_session"}:
+    if command.command not in {"health", "connection_status", "get_agent_capabilities", "preview_application_url", "observe_platform_session", "inspect_form", "prepare_form_answers", "authorize_form", "record_form_fill"}:
         raise HTTPException(403, "extension_capability_denied")
     return await dispatch(session, settings, Actor(channel="chrome", identity=settings.CHROME_EXTENSION_ID), command)
 

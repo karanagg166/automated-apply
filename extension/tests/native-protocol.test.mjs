@@ -80,10 +80,10 @@ function encodeFrame(objOrBytes) {
   return Buffer.concat([header, payload]);
 }
 
-test("manifest version 1.2.1 and public RSA key derive exact stable extension ID", () => {
+test("manifest version 1.2.2 and public RSA key derive exact stable extension ID", () => {
   const manifest = JSON.parse(readFileSync(resolve(here, "../manifest.json"), "utf8"));
   assert.equal(manifest.manifest_version, 3);
-  assert.equal(manifest.version, "1.2.1");
+  assert.equal(manifest.version, "1.2.2");
   const hash = createHash("sha256").update(Buffer.from(manifest.key, "base64")).digest("hex").slice(0, 32);
   const derivedId = [...hash].map((c) => String.fromCharCode(97 + Number.parseInt(c, 16))).join("");
   assert.equal(derivedId, EXPECTED_ID);

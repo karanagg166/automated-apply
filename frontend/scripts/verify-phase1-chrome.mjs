@@ -208,7 +208,7 @@ try {
   }
   const popup = await context.newPage();
   await popup.goto(`chrome-extension://${identity}/popup.html`);
-  await expect(popup.locator("#status")).toContainText("returned a preview");
+  await expect(popup.locator("#status")).toContainText("URL preview saved.");
   await popup.screenshot({
     path: join(root, "reports/phase1/current/actual-chrome-popup.png"),
   });

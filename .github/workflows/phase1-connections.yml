@@ -1,7 +1,7 @@
 name: Phase 1 connection foundation
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/phase1-local-connections, feat/agent-command-execution, feat/chrome-form-inspection-autofill]
   push:
     branches: [feat/phase1-local-connections]
 permissions:
@@ -9,7 +9,8 @@ permissions:
 jobs:
   connections:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    # Includes the retained native lifecycle plus 25 real Chrome form cases.
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:17-alpine
@@ -60,6 +61,26 @@ jobs:
           pnpm -C frontend exec playwright install --with-deps chromium
           python backend/scripts/phase1/prepare_disposable.py
           python backend/scripts/phase1/lifecycle_smoke.py --env-file reports/phase1/disposable.private.env --with-chromium-extension
+      - name: Chrome form lint
+        run: >-
+          ruff check --isolated --select E9,F,I backend/app/browser
+          backend/scripts/run_browser_worker.py backend/scripts/run_browser_acceptance.py
+          backend/tests/test_browser_forms.py backend/tests/browser_acceptance.py
+          backend/tests/test_browser_submission.py backend/tests/submission_acceptance.py
+          backend/tests/submission_fixtures.py backend/scripts/verify_submission_postgres.py
+      - name: Chrome inspection and fill acceptance on local fictional forms
+        run: python backend/scripts/run_browser_acceptance.py
+      - name: Submission acceptance with restricted PostgreSQL 17 and actual Chrome
+        env:
+          PROFILE_TEST_DATABASE_URL: postgresql://postgres:phase1_ci_disposable@127.0.0.1:5432/candidate_profile_test
+        run: python backend/scripts/verify_submission_postgres.py
+      - name: Chrome form acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: chrome-form-acceptance
+          path: reports/browser-acceptance.xml
+          retention-days: 7
       - name: Gmail compose intent on real disposable PostgreSQL
         env:
           PHASE1_DISPOSABLE_DATABASE_URL: postgresql://postgres:phase1_ci_disposable@127.0.0.1:5433/candidate_profile_test

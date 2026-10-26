@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from backend.app.browser.contracts import FillReceipt, Inspection
 from backend.app.core.urls import PublicHTTPSURL
 from backend.app.local_agent.intents import Intent
 
@@ -16,7 +17,7 @@ Operation = Literal[
     "health", "connection_status", "preview_application_url", "preview_job_filters",
     "get_discovery_status", "get_agent_capabilities", "get_application_policy",
     "conversation",
-    "observe_platform_session",
+    "observe_platform_session", "inspect_form", "prepare_form_answers", "authorize_form", "record_form_fill",
 ]
 
 
@@ -27,6 +28,11 @@ class Command(StrictModel):
     url: PublicHTTPSURL | None = None
     title: str | None = Field(default=None, max_length=250)
     intent: Intent | None = None
+    application_id: UUID | None = None
+    plan_id: UUID | None = None
+    inspection: Inspection | None = None
+    field_ids: list[str] = Field(default_factory=list, max_length=24)
+    receipt: FillReceipt | None = None
     observation: Literal["signed_in_indicator", "login_required", "unverifiable"] | None = None
 
 

@@ -2,6 +2,7 @@ const host = "com.automated_apply.agent";
 export const menuId = "automated-apply-preview";
 import { preview, supportedUrl, normalizePreviewUrl, nativeErrorCode, setNativeTimeoutForTesting } from "./preview.js";
 import { sessionIndicator } from "./session-indicator.js";
+export const answerMenuId = "automated-apply-answer-fields";
 export { sessionIndicator } from "./session-indicator.js";
 export { preview, supportedUrl, normalizePreviewUrl, nativeErrorCode, setNativeTimeoutForTesting } from "./preview.js";
 const ERROR_CODE_PATTERN = /^[a-z][a-z0-9_]{1,63}$/;
@@ -11,6 +12,10 @@ async function register() {
   registering = (async () => {
     try {
       await chrome.contextMenus.removeAll();
+      await new Promise((resolve, reject) => chrome.contextMenus.create({
+        id: answerMenuId, title: "Answer unanswered fields with Automated Apply", contexts: ["page", "editable", "selection"],
+        documentUrlPatterns: ["https://*/*"],
+      }, () => chrome.runtime.lastError ? reject(new Error("context_menu_registration_failed")) : resolve()));
       await new Promise((resolve, reject) => chrome.contextMenus.create({
         id: menuId, title: "Preview with Automated Apply", contexts: ["page", "link", "editable", "selection"],
         documentUrlPatterns: ["https://*/*"],
@@ -31,6 +36,12 @@ chrome.runtime.onStartup.addListener(register);
 // Unpacked reloads/worker restarts must recover a missing menu as well.
 void register();
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId === answerMenuId) {
+    // Opening the popup preserves its trusted-click answer/review/fill flow.
+    await chrome.storage.session.set({ answerRequested: { tabId: tab?.id, url: tab?.url } });
+    try { await chrome.action.openPopup?.(); } catch { /* Toolbar opens the same workflow. */ }
+    return;
+  }
   if (info.menuItemId !== menuId) return;
   // Open while the actual context-menu user gesture is still active.
   const popup = Promise.resolve().then(() => chrome.action.openPopup?.()).catch(() => {});
