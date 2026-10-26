@@ -26,6 +26,9 @@ async def verify(url):
     await admin.execute(f'CREATE DATABASE "{database}"')
     isolated = urlunsplit(parsed._replace(path="/" + database))
     engine = None
+    restricted_engine = None
+    runtime_role = "onboarding_review_" + uuid4().hex
+    role_created = False
     try:
         from cryptography.fernet import Fernet
         from fastapi import HTTPException
@@ -57,7 +60,7 @@ async def verify(url):
                 DB_REMOTE_ONLY=False,
             )
         )
-        from backend.app.dashboard.models import PrivateResume
+        from backend.app.dashboard.models import OwnerPreference, PrivateResume
         from backend.app.dashboard.router import confirm_resume
         from backend.app.dashboard.schemas import ResumeConfirm
         from backend.app.main import app
@@ -79,6 +82,16 @@ async def verify(url):
             await conn.run_sync(Base.metadata.create_all)
             version = await conn.scalar(text("SHOW server_version"))
             assert version.startswith("17."), version
+        await admin.execute(f'CREATE ROLE "{runtime_role}"')
+        role_created = True
+        async with engine.begin() as conn:
+            await conn.execute(text(f'GRANT USAGE ON SCHEMA job_agent TO "{runtime_role}"'))
+            await conn.execute(text(f'GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA job_agent TO "{runtime_role}"'))
+        restricted_engine = create_async_engine(
+            isolated.replace("postgresql://", "postgresql+asyncpg://", 1),
+            connect_args={"server_settings": {"role": runtime_role}},
+        )
+        restricted_factory = async_sessionmaker(restricted_engine, expire_on_commit=False)
         writer = PdfWriter()
         writer.add_blank_page(width=72, height=72)
         output = io.BytesIO()
@@ -103,12 +116,19 @@ async def verify(url):
                 for _ in range(2)
             ]
             session.add_all(resumes)
+            session.add(OwnerPreference(key="phase1_profile_confirmation", value={
+                "profile_id": str(profile_id), "profile_version": 1,
+                "confirmed_at": "2026-01-01T00:00:00+00:00",
+            }))
             await session.commit()
             ids = [r.id for r in resumes]
 
         async def confirm(resume_id):
-            async with factory() as session:
+            async with restricted_factory() as session:
                 try:
+                    assert not await session.scalar(text(
+                        "SELECT has_table_privilege(current_user, 'job_agent.owner_preferences', 'DELETE')"
+                    ))
                     result = await confirm_resume(
                         resume_id,
                         ResumeConfirm(
@@ -129,6 +149,9 @@ async def verify(url):
         selected = await asyncio.gather(*(confirm(id) for id in ids))
         assert selected.count("conflict") == 1
         async with factory() as session:
+            binding = await session.get(OwnerPreference, "phase1_profile_confirmation")
+            assert binding.value["reason"] == "canonical_resume_changed"
+            assert "profile_version" not in binding.value
             resources = list((await session.scalars(select(CandidateResource))).all())
             assert len(resources) == 1 and select_resume(resources).selected is not None
             assert (
@@ -271,9 +294,13 @@ async def verify(url):
             "PostgreSQL 17: canonical resume race, duplicate-primary constraint, profile preservation, record CAS, project CAS, document provenance and stale approval passed"
         )
     finally:
+        if restricted_engine is not None:
+            await restricted_engine.dispose()
         if engine is not None:
             await engine.dispose()
         await admin.execute(f'DROP DATABASE "{database}" WITH (FORCE)')
+        if role_created:
+            await admin.execute(f'DROP ROLE "{runtime_role}"')
         await admin.close()
 
 

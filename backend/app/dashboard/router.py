@@ -286,7 +286,12 @@ async def confirm_resume(
             await session.flush()
         confirmation = await session.get(OwnerPreference, "phase1_profile_confirmation", with_for_update=True)
         if confirmation:
-            await session.delete(confirmation)
+            # The restricted online runtime intentionally has no DELETE grant.
+            # Revoke the version binding with an auditable tombstone instead.
+            confirmation.value = {
+                "invalidated_at": datetime.now(timezone.utc).isoformat(),
+                "reason": "canonical_resume_changed",
+            }
     if resume.confirmed:
         resource = await session.get(CandidateResource, resume.resource_id, with_for_update=True)
         if (resource is None or resource.candidate_profile_id != profile.id
