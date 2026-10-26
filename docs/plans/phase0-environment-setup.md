@@ -105,7 +105,7 @@ For a fresh checkout only, if dependencies are missing, recreate Python using `p
 and install `backend/requirements.txt` in a new venv, or `pnpm -C frontend install --frozen-lockfile` with Node24.
 Do not run those reinstall commands over today's working environments merely for planning.
 Use `backend/venv/bin/python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000`
-and `npm --prefix frontend run dev -- --hostname localhost` **only after** intended private
+and `pnpm -C frontend dev --hostname localhost` **only after** intended private
 configuration/DB readiness. `frontend/run.mjs` reads `backend/.env`; API Settings also read root
 `.env` then `backend/.env`. Use explicit isolated fixtures for UI tests (`FRONTEND_ISOLATED=1`
 is set by the existing Playwright config). Never run a genuine service with fixture bypasses.

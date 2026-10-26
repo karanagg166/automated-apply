@@ -47,7 +47,7 @@ def deterministic(text):
         return Understanding(intent="filter", filters=Filters(exclude_internships=True))
     if value in {"ignore companies i've applied to", "exclude already applied"}:
         return Understanding(intent="filter", filters=Filters(exclude_applied=True))
-    match = re.fullmatch(r"(?:apply to|prepare(?: applications?(?: for)?)?)(?: the)? first (one|two|three|four|five|\d+)(?: jobs)?", value)
+    match = re.fullmatch(r"(?:apply to|prepare(?: applications?(?: for)?)?)(?: the)? first (one|two|three|four|five|\d+)(?: jobs| applications)?", value)
     if match:
         count = {"one": 1, "two": 2, "three": 3, "four": 4, "five": 5}.get(match[1])
         count = count if count is not None else int(match[1])
@@ -56,10 +56,16 @@ def deterministic(text):
     match = re.fullmatch(r"use (.{1,100}?) as my (?:main|primary) project", text.strip().rstrip(".?!"), re.I)
     if match:
         return Understanding(intent="select_project", project=match[1])
-    size = re.fullmatch(r"only (?:show )?companies with (\d+)[–-](\d+) employees", value)
+    match = re.fullmatch(r"use my (.{1,100}?) project", text.strip().rstrip(".?!"), re.I)
+    if match:
+        return Understanding(intent="select_project", project=match[1])
+    size = re.fullmatch(r"only (?:show )?(companies|startups) with (\d+)[–-](\d+) employees", value)
     if size:
         try:
-            return Understanding(intent="filter", filters=Filters(minimum_employees=int(size[1]), maximum_employees=int(size[2])))
+            filters = {"minimum_employees": int(size[2]), "maximum_employees": int(size[3])}
+            if size[1] == "startups":
+                filters["startup"] = True
+            return Understanding(intent="filter", filters=Filters(**filters))
         except ValueError:
             return Understanding(intent="clarify", missing_information=["Provide ordered employee bounds."])
     best = re.fullmatch(r"show (?:the )?best (one|two|three|four|five|\d+)", value)

@@ -17,7 +17,7 @@
 ```sh
 pnpm -C frontend install --frozen-lockfile
 pnpm -C frontend typecheck
-pnpm test --prefix frontend
+pnpm -C frontend test
 pnpm -C frontend build
 pnpm -C frontend start
 ```

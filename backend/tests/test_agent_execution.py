@@ -74,6 +74,31 @@ async def test_real_services_search_followup_prepare_and_replay(db_session, fixt
 
 
 @pytest.mark.asyncio
+async def test_readiness_example_followups_keep_real_ids_and_owner_gates(db_session, fixture_jobs):
+    searched = await execute(db_session, "Find Python backend jobs in India.")
+    assert [row["job_id"] for row in searched.ranked_jobs] == [str(fixture_jobs.id)]
+    filtered = await execute(db_session, "Only startups with 2–10 employees.")
+    assert filtered.plan.filters.startup and filtered.plan.filters.location == "India"
+    assert filtered.plan.filters.minimum_employees == 2
+    assert filtered.plan.filters.maximum_employees == 10
+    best = await execute(db_session, "Show the best five.")
+    assert best.plan.filters.startup and best.plan.filters.limit == 5
+    assert [row["job_id"] for row in best.ranked_jobs] == [str(fixture_jobs.id)]
+    missing = await execute(db_session, "Prepare the first two applications.")
+    assert missing.plan.missing_information and not missing.applications
+    assert await db_session.scalar(select(func.count()).select_from(ApplicationPacket)) == 0
+    project = await execute(db_session, "Use my Quick-Clinic project.")
+    assert project.understanding.project == "Quick-Clinic"
+    assert project.selected_project is None
+    assert any(row.get("missing_information") for row in project.results)
+    prepared = await execute(db_session, "Prepare the first one.")
+    assert prepared.applications[str(fixture_jobs.id)]["submitted"] is False
+    status = await execute(db_session, "What's the status of my applications?")
+    assert status.understanding.intent == "status"
+    assert status.tokens_used == 0
+
+
+@pytest.mark.asyncio
 async def test_compound_command_uses_ranked_ids(db_session, fixture_jobs):
     result = await execute(db_session, "Find 10 Python backend jobs in Indian startups with 2–10 employees, exclude jobs I've already applied to, rank them and prepare applications for the best five.")
     assert result.understanding.intent == "search", result.model_dump()
