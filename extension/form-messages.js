@@ -1,4 +1,33 @@
+const CONSENT_LABEL_PATTERN =
+  /\b(?:consent|agree|agreement|terms(?:\s+and\s+conditions|\s+of\s+service|\s+of\s+use)?|privacy\s*policy|acknowledge|certif(?:y|ication)|attest(?:ation)?|declare|declaration|hereby|true\s+and\s+(?:correct|accurate)|gdpr|data\s+processing|background\s*check|equal\s*opportunity|\beeo\b|\bnda\b|non.?disclosure|authorize\s+background|accuracy\s+of\s+information)\b/i;
+
 export function formErrorMessage(error) {
+  if (error?.message === "unsupported_application_form") {
+    if (error.manual_reason === "sensitive_control") {
+      return "Sensitive fields (such as password, OTP, payment or national ID controls) were detected on this page. Complete this form manually; no fields were changed.";
+    }
+    if (error.manual_reason === "security_challenge") {
+      return "A CAPTCHA or security challenge is active on this page. Complete the challenge and form manually; no fields were changed.";
+    }
+    if (error.manual_reason === "cross_origin_frame") {
+      return "Open the application form itself. This page uses a cross-origin frame that cannot be inspected safely; no fields were changed.";
+    }
+    if (
+      Array.isArray(error.unsupported_controls) &&
+      error.unsupported_controls.length
+    ) {
+      const reasons = [
+        ...new Set(
+          error.unsupported_controls
+            .map((item) => item?.reason)
+            .filter(Boolean),
+        ),
+      ].slice(0, 3);
+      if (reasons.length) {
+        return `Open the application form itself. Unsupported controls require manual completion (${reasons.join("; ")}); no fields were changed.`;
+      }
+    }
+  }
   return (
     {
       manual_form_not_authorized:
@@ -11,8 +40,14 @@ export function formErrorMessage(error) {
         "Sign in yourself, then reopen the application form and retry.",
       page_changed:
         "The page changed. Keep this application tab active and prepare the answers again.",
+      dom_changed:
+        "The form changed after answers were prepared. Prepare and review fresh answers before filling; no fields were changed.",
+      step_changed:
+        "The form step changed. Prepare and review fresh answers for this step before filling; no fields were changed.",
+      inspect_and_review_first:
+        "Prepare and review answers for the current form step before filling.",
       fill_plan_stale:
-        "Your saved facts or application changed. Prepare and review fresh answers.",
+        "Your saved facts or application changed, or review authorization expired. Prepare and review fresh answers.",
       platform_fill_policy_denied:
         "Filling is disabled for this platform in your owner settings.",
       application_not_eligible:
@@ -25,28 +60,51 @@ export function formErrorMessage(error) {
 }
 
 export function formPlanText(plan) {
-  return plan.actions
-    .map((action) => {
-      const field = plan.inspection.fields.find(
-        (item) => item.field_id === action.field_id,
+  const actionBlocks = (plan?.actions || []).map((action) => {
+    const field = plan?.inspection?.fields?.find(
+      (item) => item.field_id === action.field_id,
+    );
+    const title =
+      field?.group_label && field?.label && field.group_label !== field.label
+        ? `${field.group_label} (${field.label})`
+        : field?.label || field?.group_label || "Unlabelled field";
+    const isConsent =
+      ["checkbox", "radio"].includes(action.kind) &&
+      CONSENT_LABEL_PATTERN.test(
+        `${field?.group_label || ""} ${field?.label || ""}`,
       );
-      const answer = action.needs_input
+    const answer = isConsent
+      ? "Manual completion required: Consent and legal declarations are never selected automatically"
+      : action.needs_input
         ? "Needs a reviewed fact in your profile"
         : action.kind === "file"
           ? "Upload your confirmed PDF yourself"
           : action.value;
-      const sources = [
-        ...new Set(
-          action.evidence.map((source) =>
-            source.startsWith("approved_project:")
-              ? "Approved project"
-              : source.startsWith("candidate_resource:")
-                ? "Reviewed profile link or resume"
-                : "Reviewed profile",
-          ),
+    const sources = [
+      ...new Set(
+        (action.evidence || []).map((source) =>
+          source.startsWith("approved_project:")
+            ? "Approved project"
+            : source.startsWith("candidate_resource:")
+              ? "Reviewed profile link or resume"
+              : "Reviewed profile",
         ),
-      ];
-      return `${field?.label || "Unlabelled field"}${field?.required ? " (required)" : ""}\n${answer}\nSource: ${sources.join(", ") || "No verified source"}`;
-    })
-    .join("\n\n");
+      ),
+    ];
+    const flags = [
+      field?.required ? "required" : null,
+      field?.invalid ? "validation error on page" : null,
+    ].filter(Boolean);
+    const suffix = flags.length ? ` (${flags.join(", ")})` : "";
+    return `${title}${suffix}\n${answer}\nSource: ${sources.join(", ") || "No verified source"}`;
+  });
+  const unsupportedBlocks = (plan?.unsupported_controls || []).map((item) => {
+    const flags = [
+      item?.required ? "required" : null,
+      item?.invalid ? "validation error on page" : null,
+    ].filter(Boolean);
+    const suffix = flags.length ? ` (${flags.join(", ")})` : "";
+    return `${item?.label || "Unlabelled control"}${suffix}\nManual completion required: ${item?.reason || "Unsupported control"}\nSource: Manual only`;
+  });
+  return [...actionBlocks, ...unsupportedBlocks].join("\n\n");
 }
