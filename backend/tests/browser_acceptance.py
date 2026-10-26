@@ -34,6 +34,7 @@ PAGES = {
     "/project": "<label>Describe your best project<textarea required></textarea></label><button>Submit</button>",
     "/choices": '<label>Full name<select required><option>Choose</option><option>Alex Example</option></select></label><label>I consent to the terms<input type="checkbox" required></label><label>Yes<input type="radio" name="authorization"></label><button>Apply</button>',
     "/validation": '<label>Email<input type="email" aria-invalid="true" required></label><label>Full name<input pattern="[0-9]+"></label><button>Submit</button>',
+    "/crash-fill": '<label>Name<input oninput="const until=Date.now()+5000;while(Date.now()<until){}"></label><button>Submit</button>',
     "/missing": "<label>Full name<input></label><label>Expected salary<input required></label><button>Submit</button>",
     "/login": '<label>Email<input value="private@example.invalid"></label><label>Password<input type="password" value="never-read-password"></label>',
     "/captcha": '<div data-sitekey="fictional-captcha"></div><label>Full name<input></label>',
@@ -220,10 +221,22 @@ async def test_actual_chrome_redirect_crash_restart_and_stale_document(
     chrome, fixture_site
 ):
     origin, _ = fixture_site
-    opened = await open_page(chrome, origin, "/ordinary")
+    opened = await open_page(chrome, origin, "/crash-fill")
     old = opened["inspection"]["document_id"]
+    filling = asyncio.create_task(
+        chrome.call(
+            "fill",
+            document_id=old,
+            actions=[{"field_id": "f0", "kind": "text", "value": "Alex Example"}],
+        )
+    )
+    # The fixture's bounded input handler keeps the fill RPC in flight after mutation.
+    await asyncio.sleep(0.05)
+    assert not filling.done()
     chrome.process.kill()
     await chrome.process.wait()
+    with pytest.raises((RuntimeError, BrokenPipeError, ConnectionResetError)):
+        await filling
     chrome.process = None
     reopened = await open_page(chrome, origin, "/ordinary")
     assert reopened["inspection"]["document_id"] != old
