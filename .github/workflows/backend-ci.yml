@@ -1,9 +1,9 @@
 name: Backend CI
 on:
   push:
-    branches: [main, feat/phase1-local-connections, feat/agent-command-execution]
+    branches: [main, feat/phase1-local-connections, feat/agent-command-execution, feat/chrome-form-inspection-autofill]
   pull_request:
-    branches: [main, feat/phase1-local-connections, feat/agent-command-execution]
+    branches: [main, feat/phase1-local-connections, feat/agent-command-execution, feat/chrome-form-inspection-autofill]
 permissions:
   contents: read
 jobs:

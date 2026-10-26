@@ -78,6 +78,10 @@ async def enqueue(session, settings, campaign, job, inspect_only=False):
 async def claim(session):
     await store.memory_row(session, lock=True)
     now = await instant(session)
+    submitting = (await session.scalars(select(OwnerPreference.value).where(
+        OwnerPreference.key.like("submission:%"), OwnerPreference.value["state"].as_string() == "submitting"))).all()
+    if any(v.get("lease_until") and datetime.fromisoformat(v["lease_until"]) > now for v in submitting):
+        return None
     active = (
         await session.scalars(
             select(OwnerPreference.value).where(

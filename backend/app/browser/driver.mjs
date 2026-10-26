@@ -1,6 +1,8 @@
 // Private JSON-lines transport. Each inspected document keeps its own tab and guard.
 import { chromium } from "../../../frontend/node_modules/@playwright/test/index.mjs";
 import { formDOM } from "../../../extension/form-dom.js";
+import { submissionDOM } from "../../../extension/submission-dom.js";
+import { fixtureContract, reviewedBody } from "./submission-guard.mjs";
 import { createHash } from "node:crypto";
 import { createInterface } from "node:readline";
 import {
@@ -43,6 +45,17 @@ async function evaluateForm(
   });
   if (result.exceptionDetails) throw Error("isolated_inspector_failed");
   return byValue ? result.result.value : result.result.objectId;
+}
+async function evaluateSubmission(state, request) {
+  const r = await state.cdp.send("Runtime.callFunctionOn", {
+    functionDeclaration: submissionDOM.toString(),
+    executionContextId: state.world,
+    arguments: [{ value: request }],
+    returnByValue: true,
+    awaitPromise: true,
+  });
+  if (r.exceptionDetails) throw Error("submission_document_changed");
+  return r.result.value;
 }
 async function launch(req) {
   const profile = resolve(req.profile);
@@ -96,6 +109,65 @@ async function launch(req) {
         state = states.get(request.frame().page());
       } catch {}
       const dest = new URL(request.url());
+      const grant = state?.submission;
+      if (grant && Date.now() < grant.deadline && !state.violations) {
+        if (
+          request.method() === "POST" &&
+          request.url() === grant.request_url &&
+          request.frame() === state.page.mainFrame() &&
+          request.isNavigationRequest() &&
+          !grant.dispatched
+        ) {
+          const body = await reviewedBody(
+            request,
+            grant.entries,
+            state.uploads,
+          );
+          if (!body) {
+            state.violations++;
+            await route.abort();
+            return;
+          }
+          grant.dispatched = true; // Before handing the only request to the network.
+          try {
+            // Chromium transparently retries a continued POST on an empty response.
+            // Fetch the intercepted native request once and fulfill its navigation;
+            // transport retries and automatic redirects are explicitly disabled.
+            const response = await route.fetch({
+              postData: body.postData,
+              headers: {
+                ...request.headers(),
+                "content-type": body.contentType,
+                "x-automated-apply-correlation": grant.correlation,
+              },
+              maxRetries: 0,
+              maxRedirects: 0,
+              timeout: Math.max(1, grant.deadline - Date.now()),
+            });
+            if (Date.now() >= grant.deadline) await route.abort("failed");
+            else await route.fulfill({ response });
+          } catch {
+            // Never expose an empty socket to Chromium's automatic POST retry path.
+            await route.abort("failed").catch(() => {});
+          }
+          return;
+        }
+        const from = request.redirectedFrom();
+        if (
+          request.method() === "GET" &&
+          request.url() === grant.confirmation_url &&
+          grant.dispatched &&
+          !grant.confirmationRead &&
+          from?.url() === grant.request_url &&
+          from.method() === "POST" &&
+          request.frame() === state.page.mainFrame() &&
+          request.isNavigationRequest()
+        ) {
+          grant.confirmationRead = true;
+          await route.continue();
+          return;
+        }
+      }
       if (
         !state ||
         state.guarded ||
@@ -161,6 +233,8 @@ for await (const line of createInterface({ input: process.stdin })) {
         guarded: false,
         inspection: null,
         profile: resolve(req.profile),
+        fixtureOrigin: fixture ? req.fixture_origin : null,
+        uploads: [],
       };
       states.set(page, current);
       await page.goto(req.url, {
@@ -187,6 +261,10 @@ for await (const line of createInterface({ input: process.stdin })) {
       });
     } else if (req.operation === "close") {
       await context?.close();
+      for (const state of states.values())
+        for (const path of state.uploads || []) {
+          if (existsSync(path)) unlinkSync(path);
+        }
       send({ closed: true });
       break;
     } else {
@@ -204,6 +282,105 @@ for await (const line of createInterface({ input: process.stdin })) {
         send({
           inspection: current.inspection,
           violations: current.violations,
+        });
+      } else if (req.operation === "submission_review") {
+        if (current.violations || current.submissionAttempted)
+          throw Error("unsafe_or_consumed_document");
+        const contract = fixtureContract(
+          current.url,
+          current.fixtureOrigin,
+          "pending",
+        );
+        const review = await evaluateSubmission(current, {
+          operation: "review",
+          ...contract,
+          document_id: req.document_id,
+          actions: req.actions,
+        });
+        current.submissionEntries = review.entries;
+        delete review.entries; // Values stay in the browser process, never in receipt/audit output.
+        send(review);
+      } else if (req.operation === "submit_application") {
+        if (
+          current.violations ||
+          current.submissionAttempted ||
+          !current.submissionEntries
+        )
+          throw Error("unsafe_or_consumed_document");
+        if (!/^[a-f0-9-]{36}$/.test(req.idempotency_key))
+          throw Error("correlation_required");
+        const contract = fixtureContract(
+          current.url,
+          current.fixtureOrigin,
+          req.idempotency_key,
+        );
+        const deadline = Math.min(
+          Date.parse(req.expires_at),
+          Date.now() + 15000,
+        );
+        if (!Number.isFinite(deadline) || deadline <= Date.now())
+          throw Error("expired_submission");
+        // A failure here is proven pre-dispatch. After arming, all ambiguity is uncertain.
+        try {
+          await evaluateSubmission(current, {
+            operation: "validate",
+            document_digest: req.document_digest,
+          });
+        } catch {
+          send({ state: "manual_required", preflight_failed: true });
+          continue;
+        }
+        current.submissionAttempted = true;
+        current.guarded = true;
+        current.submission = {
+          ...contract,
+          correlation: req.idempotency_key,
+          deadline,
+          entries: current.submissionEntries,
+          dispatched: false,
+          confirmationRead: false,
+        };
+        const state = current;
+        let response = null;
+        const responseReady = page
+          .waitForResponse(
+            (r) =>
+              (r.url() === contract.request_url &&
+                r.request().method() === "POST" &&
+                r.status() !== 303) ||
+              (r.url() === contract.confirmation_url &&
+                r.request().method() === "GET"),
+            { timeout: Math.max(1, deadline - Date.now()) },
+          )
+          .then(
+            (r) => r,
+            () => null,
+          );
+        try {
+          await evaluateSubmission(state, {
+            operation: "submit",
+            document_digest: req.document_digest,
+          });
+        } catch {} // Navigation can destroy the isolated context after the POST was dispatched.
+        const received = await responseReady;
+        if (received) {
+          try {
+            const raw = await received.body();
+            if (raw.length <= 65536)
+              response = {
+                url: received.url(),
+                status: received.status(),
+                content_type: received.headers()["content-type"] || "",
+                body: raw.toString("utf8"),
+              };
+          } catch {}
+        }
+        state.submission = null; // Return to default-deny even when acknowledgment was lost.
+        send({
+          state: "verification_required",
+          response,
+          dispatched: state.submissionAttempted,
+          violations: state.violations,
         });
       } else if (req.operation === "fill") {
         if (current.violations)
@@ -256,7 +433,7 @@ for await (const line of createInterface({ input: process.stdin })) {
               objectId,
             });
           } finally {
-            unlinkSync(upload);
+            current.uploads.push(upload);
             await current.cdp.send("Runtime.releaseObject", { objectId });
           }
           result.results.push({ field_id: action.field_id, status: "filled" });
@@ -295,3 +472,7 @@ for await (const line of createInterface({ input: process.stdin })) {
   }
 }
 await context?.close();
+for (const state of states.values())
+  for (const path of state.uploads || []) {
+    if (existsSync(path)) unlinkSync(path);
+  }

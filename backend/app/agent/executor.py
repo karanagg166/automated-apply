@@ -143,6 +143,9 @@ class CommandExecutor:
                     store.save(row, current)
                     await session.commit()
                 understanding, tokens = await self.planner.understand(campaign.message, memory)
+            if local is not None and local.intent in {"submission_status", "submit_approved", "stop_submissions"}:
+                await self._submission_command(claimed, local, memory)
+                return
             plan = self.planner.plan(understanding, memory)
             async with self.factory() as session:
                 row, campaign = await store.fenced(session, claimed.id, claimed.fence)
@@ -153,6 +156,9 @@ class CommandExecutor:
                     campaign.plan.actions = [ToolCall(name="get_approved_project_context", arguments={"project": understanding.project, "purpose": "owner_selection"})]
                 if understanding.intent == "status":
                     campaign.plan.actions = [ToolCall(name="get_application_history", arguments={"limit": 10})]
+                if understanding.intent in {"submission_status", "submit_approved", "stop_submissions"}:
+                    campaign.plan.actions = []
+                    campaign.plan.missing_information = ["Use an explicit submission control and review the exact application in Agent."]
                 if understanding.intent == "approve":
                     campaign.plan.missing_information = ["Use 'Prepare applications for the first three' to authorize drafts for saved results, or review the exact campaign in Agent. Submission is unavailable."]
                 if understanding.intent == "fill" and not plan.missing_information:
@@ -229,6 +235,54 @@ class CommandExecutor:
                 if campaign.state == "cancelled":
                     await store.notify(session, campaign)
                 await session.commit()
+
+    async def _submission_command(self, claimed, command, memory):
+        from sqlalchemy import select
+
+        from backend.app.browser.submission import SubmissionService, status_text
+        from backend.app.browser.submission_contracts import Submission
+        from backend.app.models.application_packet import ApplicationPacket
+        async with self.factory() as session:
+            await store.memory_row(session, lock=True)
+            row, campaign = await store.fenced(session, claimed.id, claimed.fence)
+            service = SubmissionService(session, self.settings)
+            lines = []
+            pending = False
+            if command.intent == "stop_submissions":
+                await service.stop_all()
+                lines.append("Remaining submissions stopped. Dispatched attempts retain their persisted verification status.")
+            elif command.intent == "submission_status":
+                rows = await service.rows()
+                submissions = [Submission.model_validate(r.value) for r in rows]
+                if "ready" in campaign.message.casefold():
+                    submissions = [s for s in submissions if s.state == "awaiting_submission_approval"]
+                lines = [status_text(s) for s in submissions[:10]]
+                if not lines:
+                    lines = ["No applications are ready for submission review. Prepare and fill a supported form first, or check persisted submission history."]
+            else:
+                previous = memory.get("job_ids", [])
+                position = command.positions[0]
+                try:
+                    if position > len(previous):
+                        raise ToolDenied("saved_selection_required")
+                    packet_id = await session.scalar(select(ApplicationPacket.id).where(ApplicationPacket.job_id == UUID(previous[position - 1])))
+                    if packet_id is None:
+                        raise ToolDenied("prepared_application_required")
+                    s = await service.release(packet_id, actor_for(campaign), campaign.id)
+                    pending = s.state == "awaiting_submission_approval" and s.released
+                    lines = [status_text(s), "Authorized submission queued for the browser worker." if pending else "The persisted outcome is retained; no second submission was queued."]
+                    campaign.results.append({"tool": "submit_application", "application_id": str(packet_id),
+                                             "status": "pending_browser" if pending else s.state})
+                except ToolDenied as exc:
+                    lines = ["Manual action required: this application has no supported current submission review. Prepare and fill an accepted fixture first."] if str(exc) == "submission_review_not_available" else ["Awaiting approval: review the exact employer, destination and application ID in Agent. A current backend-issued submission authorization is required."]
+            campaign.planned, campaign.understanding = True, command
+            campaign.plan.intent = command.intent
+            campaign.reply = "\n".join(lines)[:3400]
+            campaign.lease_until = None
+            store.transition(campaign, "waiting_browser" if pending else "completed", await instant(session), "deterministic_submission_control")
+            store.save(row, campaign)
+            await store.notify(session, campaign)
+            await session.commit()
 
     async def _finish(self, session, row, campaign, memory_record, memory):
         now = await instant(session)

@@ -18,6 +18,13 @@ Return JSON. Common spelling mistakes may be interpreted only if unambiguous."""
 
 def deterministic(text):
     value = text.strip().casefold().replace("’", "'").rstrip(".?!")
+    if value == "stop the remaining submissions":
+        return Understanding(intent="stop_submissions")
+    if value in {"show applications ready to submit", "did my application get submitted"}:
+        return Understanding(intent="submission_status")
+    submit = re.fullmatch(r"submit the approved application for job ([1-9]|10)", value)
+    if submit:
+        return Understanding(intent="submit_approved", positions=[int(submit[1])])
     if not value or unsafe_request(value):
         return Understanding(intent="clarify", missing_information=["That action is outside the agent's allowed scope."])
     if value in {"stop filling applications", "stop filling"}:

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.app.agent.router import owner_ui
 from backend.app.browser.contracts import FillPlan, Review
 from backend.app.browser.service import FormService
+from backend.app.browser.submission_contracts import Submission, SubmissionApproval
 from backend.app.core.config import get_settings
 from backend.app.dashboard.models import OwnerPreference
 from backend.app.dashboard.router import OwnerRoute
@@ -99,3 +100,57 @@ async def next_step(
         return {"status": "pending_browser", "submitted": False}
     except ValueError:
         raise HTTPException(409, "next_step_requires_current_completed_form") from None
+
+
+@router.get("/submissions", response_model=list[Submission])
+async def submissions(session: AsyncSession = Depends(get_db_session)):
+    from backend.app.browser.submission import SubmissionService
+    return [r.value for r in (await SubmissionService(session, get_settings()).rows())[:50]]
+
+
+@router.post("/submissions/{application_id}/approve", response_model=Submission)
+async def approve_submission(
+    application_id: UUID,
+    data: SubmissionApproval,
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),
+):
+    from backend.app.agent.router import OWNER
+    from backend.app.browser.submission import SubmissionService
+    owner_ui(request)
+    try:
+        return await SubmissionService(session, get_settings()).approve(application_id, OWNER, data)
+    except ValueError:
+        raise HTTPException(409, "exact_current_submission_review_required") from None
+
+
+@router.post("/submissions/{application_id}/execute", response_model=Submission)
+async def execute_submission(
+    application_id: UUID, request: Request, session: AsyncSession = Depends(get_db_session),
+):
+    from backend.app.agent.router import OWNER
+    from backend.app.browser.submission import SubmissionService
+    owner_ui(request)
+    try:
+        return await SubmissionService(session, get_settings()).release(application_id, OWNER)
+    except ValueError:
+        raise HTTPException(409, "backend_authorized_submission_required") from None
+
+
+@router.post("/submissions/stop")
+async def stop_submissions(request: Request, session: AsyncSession = Depends(get_db_session)):
+    from backend.app.browser.submission import SubmissionService
+    owner_ui(request)
+    await SubmissionService(session, get_settings()).stop_all()
+    return {"status": "remaining_submissions_stopped"}
+
+
+@router.post("/submissions/{application_id}/reconcile", response_model=Submission)
+async def reconcile_submission(application_id: UUID, request: Request):
+    from backend.app.browser.submission_worker import SubmissionWorker
+    from backend.app.db.session import get_session_factory
+    owner_ui(request)
+    try:
+        return await SubmissionWorker(get_session_factory(), get_settings(), None).reconcile(application_id)
+    except ValueError:
+        raise HTTPException(409, "submission_not_reconcilable") from None

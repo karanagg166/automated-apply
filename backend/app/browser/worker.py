@@ -35,6 +35,12 @@ class ChromeDriver:
                 raise RuntimeError("browser_disconnected")
             return json.loads(line)
 
+    async def abort(self):
+        if self.process and self.process.returncode is None:
+            self.process.kill()
+            await self.process.wait()
+        self.process = None
+
     async def close(self):
         if self.process and self.process.returncode is None:
             try:
@@ -52,6 +58,10 @@ class BrowserWorker:
         self.active = {}  # Browser document identity is intentionally never recovered after a crash.
 
     async def run_once(self):
+        from backend.app.browser.submission_worker import SubmissionWorker
+        submission = await SubmissionWorker(self.factory, self.settings, self.driver).run_once()
+        if submission:
+            return submission
         from backend.app.automation.store import instant
         from backend.app.dashboard.models import OwnerPreference
         from backend.app.services.discovery_budget import insert_for
@@ -269,6 +279,18 @@ class BrowserWorker:
             )
             else receipt.state
         )
+        if status == "form_filled" and self.settings.ENVIRONMENT == "testing" and self.settings.BROWSER_FIXTURE_ORIGIN:
+            from backend.app.agent.tools import ToolDenied
+            from backend.app.browser.submission import SubmissionService
+            from backend.app.browser.submission_adapters import fixture_contract
+            try:
+                fixture_contract(plan.target_url, self.settings, "pending")
+                snapshot = await self.driver.call("submission_review", document_id=plan.inspection.document_id, actions=actions)
+                async with self.factory() as session:
+                    await SubmissionService(session, self.settings).create_review(plan.id, UUID(job["campaign_id"]), snapshot)
+                    await session.commit()
+            except (ToolDenied, ValueError):
+                pass  # Unsupported forms remain fill-only; no submission grant is manufactured.
         return {
             "status": status,
             "confirmation_required": True,

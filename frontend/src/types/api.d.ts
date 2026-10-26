@@ -2141,6 +2141,91 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/browser/submissions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Submissions */
+    get: operations["submissions_api_v1_browser_submissions_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser/submissions/{application_id}/approve": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Approve Submission */
+    post: operations["approve_submission_api_v1_browser_submissions__application_id__approve_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser/submissions/{application_id}/execute": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Execute Submission */
+    post: operations["execute_submission_api_v1_browser_submissions__application_id__execute_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser/submissions/stop": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Stop Submissions */
+    post: operations["stop_submissions_api_v1_browser_submissions_stop_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser/submissions/{application_id}/reconcile": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Reconcile Submission */
+    post: operations["reconcile_submission_api_v1_browser_submissions__application_id__reconcile_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4285,6 +4370,9 @@ export interface components {
         | "select_project"
         | "fill"
         | "inspect"
+        | "submission_status"
+        | "submit_approved"
+        | "stop_submissions"
         | "clarify";
       filters: components["schemas"]["Filters"];
       /** Selected Jobs */
@@ -5469,6 +5557,198 @@ export interface components {
       /** Startups */
       startups: components["schemas"]["StartupRead"][];
     };
+    /** Submission */
+    Submission: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id?: string;
+      /**
+       * Owner
+       * @default primary
+       * @constant
+       */
+      owner: "primary";
+      /**
+       * Application Id
+       * Format: uuid
+       */
+      application_id: string;
+      /**
+       * Job Id
+       * Format: uuid
+       */
+      job_id: string;
+      /**
+       * Employer Id
+       * Format: uuid
+       */
+      employer_id: string;
+      /** Employer */
+      employer: string;
+      /** Job Title */
+      job_title: string;
+      /**
+       * Plan Id
+       * Format: uuid
+       */
+      plan_id: string;
+      /**
+       * Campaign Id
+       * Format: uuid
+       */
+      campaign_id: string;
+      /** Campaign Revision */
+      campaign_revision: number;
+      /**
+       * Candidate Profile Id
+       * Format: uuid
+       */
+      candidate_profile_id: string;
+      /** Candidate Version */
+      candidate_version: number;
+      /** Context Digest */
+      context_digest: string;
+      /** Packet Revision */
+      packet_revision: number;
+      /** Project Digest */
+      project_digest: string;
+      /** Pdf Digest */
+      pdf_digest?: string | null;
+      /** Document Id */
+      document_id: string;
+      /** Document Digest */
+      document_digest: string;
+      /**
+       * Adapter
+       * @enum {string}
+       */
+      adapter: "greenhouse" | "lever" | "google";
+      /** Origin */
+      origin: string;
+      /** Application Url */
+      application_url: string;
+      /** Request Url */
+      request_url: string;
+      /** Confirmation Url */
+      confirmation_url: string;
+      /** Receipt Url */
+      receipt_url: string;
+      /**
+       * Nonce
+       * Format: uuid
+       */
+      nonce?: string;
+      /**
+       * Idempotency Key
+       * Format: uuid
+       */
+      idempotency_key?: string;
+      /** Expires At */
+      expires_at: string;
+      /**
+       * Review Digest
+       * @default
+       */
+      review_digest: string;
+      /**
+       * State
+       * @default prepared
+       * @enum {string}
+       */
+      state:
+        | "prepared"
+        | "form_inspected"
+        | "form_filled"
+        | "awaiting_submission_approval"
+        | "submitting"
+        | "submitted"
+        | "submission_uncertain"
+        | "manual_required"
+        | "failed";
+      /** Authorization */
+      authorization?: {
+        [key: string]: unknown;
+      } | null;
+      /**
+       * Released
+       * @default false
+       */
+      released: boolean;
+      /**
+       * Cancelled
+       * @default false
+       */
+      cancelled: boolean;
+      /**
+       * Fence
+       * @default 0
+       */
+      fence: number;
+      /** Lease Until */
+      lease_until?: string | null;
+      /** Dispatch Started At */
+      dispatch_started_at?: string | null;
+      evidence?: components["schemas"]["SubmissionEvidence"] | null;
+      /** Reason */
+      reason?: string | null;
+      /**
+       * Revision
+       * @default 0
+       */
+      revision: number;
+      /** Command Campaign Ids */
+      command_campaign_ids?: string[];
+    };
+    /** SubmissionApproval */
+    SubmissionApproval: {
+      /**
+       * Nonce
+       * Format: uuid
+       */
+      nonce: string;
+      /** Review Digest */
+      review_digest: string;
+      /** Campaign Revision */
+      campaign_revision: number;
+      /** Application Ids */
+      application_ids: string[];
+      /**
+       * Maximum Count
+       * @default 1
+       * @constant
+       */
+      maximum_count: 1;
+      /**
+       * Scope
+       * @default submit_application
+       * @constant
+       */
+      scope: "submit_application";
+    };
+    /** SubmissionEvidence */
+    SubmissionEvidence: {
+      /**
+       * Type
+       * @enum {string}
+       */
+      type:
+        | "application_acknowledgment"
+        | "employer_confirmation_response"
+        | "known_confirmation_page";
+      /** Destination */
+      destination: string;
+      /** Timestamp */
+      timestamp: string;
+      /** Application Id */
+      application_id: string;
+      /**
+       * Correlation Id
+       * Format: uuid
+       */
+      correlation_id: string;
+    };
     /** SubmissionInput */
     SubmissionInput: {
       /** Expected Revision */
@@ -5676,6 +5956,9 @@ export interface components {
         | "select_project"
         | "fill"
         | "inspect"
+        | "submission_status"
+        | "submit_approved"
+        | "stop_submissions"
         | "clarify";
       filters?: components["schemas"]["Filters"];
       /** Positions */
@@ -10191,6 +10474,143 @@ export interface operations {
         };
         content: {
           "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  submissions_api_v1_browser_submissions_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Submission"][];
+        };
+      };
+    };
+  };
+  approve_submission_api_v1_browser_submissions__application_id__approve_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        application_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SubmissionApproval"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Submission"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  execute_submission_api_v1_browser_submissions__application_id__execute_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        application_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Submission"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  stop_submissions_api_v1_browser_submissions_stop_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  reconcile_submission_api_v1_browser_submissions__application_id__reconcile_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        application_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Submission"];
         };
       };
       /** @description Validation Error */

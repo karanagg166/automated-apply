@@ -24,11 +24,14 @@ export function formDOM(request = { operation: "inspect" }) {
     let refs = new Map();
     let last = null;
     let touched = false;
+    let submitArmed = false;
     let controlCount = 0;
     document.addEventListener(
       "submit",
       (e) => {
-        if (touched) {
+        if (submitArmed) {
+          submitArmed = false;
+        } else if (touched) {
           e.preventDefault();
           e.stopImmediatePropagation();
         }
@@ -171,6 +174,10 @@ export function formDOM(request = { operation: "inspect" }) {
         !["ready", "validation_errors"].includes(last.state)
       )
         return { state: "manual_required", results: [], submitted: false };
+      if (req.operation === "arm_submission") {
+        submitArmed = true;
+        return true;
+      }
       if (req.operation === "upload_element") {
         const ref = refs.get(req.field_id);
         return ref?.field.kind === "file" &&
@@ -195,7 +202,7 @@ export function formDOM(request = { operation: "inspect" }) {
         return { state: "progressed", submitted: false };
       }
       if (
-        req.operation !== "fill" ||
+        !["fill", "verify_submission"].includes(req.operation) ||
         !Array.isArray(req.actions) ||
         req.actions.length > 24
       )
@@ -247,6 +254,29 @@ export function formDOM(request = { operation: "inspect" }) {
           (ref.el.tagName === "INPUT" && ref.el.type !== action.kind)
         )
           return { state: "manual_required", results: [], submitted: false };
+      }
+      if (req.operation === "verify_submission") {
+        for (const [id, ref] of refs) {
+          const action = req.actions.find((a) => a.field_id === id);
+          const el = ref.el;
+          if (!el.validity.valid || el.getAttribute("aria-invalid") === "true")
+            return { state: "manual_required" };
+          if (ref.field.kind === "file") {
+            if (el.files.length !== (action ? 1 : 0))
+              return { state: "manual_required" };
+          } else {
+            const value = ["checkbox", "radio"].includes(ref.field.kind)
+              ? String(el.checked)
+              : ref.field.kind === "select"
+                ? clean(el.selectedOptions[0]?.textContent)
+                : el.value;
+            if (
+              action ? value !== action.value : !["", "false"].includes(value)
+            )
+              return { state: "manual_required" };
+          }
+        }
+        return { state: "verified" };
       }
       touched = true;
       for (const action of req.actions) {

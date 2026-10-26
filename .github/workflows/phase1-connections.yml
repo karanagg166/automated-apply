@@ -1,7 +1,7 @@
 name: Phase 1 connection foundation
 on:
   pull_request:
-    branches: [main, feat/phase1-local-connections, feat/agent-command-execution]
+    branches: [main, feat/phase1-local-connections, feat/agent-command-execution, feat/chrome-form-inspection-autofill]
   push:
     branches: [feat/phase1-local-connections]
 permissions:
@@ -66,8 +66,14 @@ jobs:
           ruff check --isolated --select E9,F,I backend/app/browser
           backend/scripts/run_browser_worker.py backend/scripts/run_browser_acceptance.py
           backend/tests/test_browser_forms.py backend/tests/browser_acceptance.py
+          backend/tests/test_browser_submission.py backend/tests/submission_acceptance.py
+          backend/tests/submission_fixtures.py backend/scripts/verify_submission_postgres.py
       - name: Chrome inspection and fill acceptance on local fictional forms
         run: python backend/scripts/run_browser_acceptance.py
+      - name: Submission acceptance with restricted PostgreSQL 17 and actual Chrome
+        env:
+          PROFILE_TEST_DATABASE_URL: postgresql://postgres:phase1_ci_disposable@127.0.0.1:5432/candidate_profile_test
+        run: python backend/scripts/verify_submission_postgres.py
       - name: Chrome form acceptance evidence
         if: always()
         uses: actions/upload-artifact@v6

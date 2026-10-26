@@ -15,6 +15,7 @@ with open("/tmp/automated-apply-heavy-tests.lock", "a") as lock:
                 "-m",
                 "pytest",
                 "backend/tests/browser_acceptance.py",
+                "backend/tests/submission_acceptance.py",
                 "-q",
                 "--junitxml=reports/browser-acceptance.xml",
             ],

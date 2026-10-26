@@ -196,6 +196,8 @@ async def cancel(session, settings, actor, campaign_id):
     if not owner_allowed(actor, settings):
         raise ToolDenied("authenticated_owner_required")
     await memory_row(session, lock=True)
+    from backend.app.browser.submission import SubmissionService
+    await SubmissionService(session, settings).stop_all()
     row, campaign = await load(session, campaign_id, lock=True)
     if campaign.state not in TERMINAL:
         transition(campaign, "cancelled", await instant(session), "owner_cancelled")

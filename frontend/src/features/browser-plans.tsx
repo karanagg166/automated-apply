@@ -57,8 +57,8 @@ export function BrowserPlans() {
       <h2>Chrome form plans</h2>
       <Notice>
         Review each proposed value and its evidence. Filled forms remain in
-        Chrome for inspection. Submission is disabled. Sign-in and CAPTCHA/MFA
-        require you.
+        Chrome for inspection. Submission requires separate exact approval in
+        Submission review. Sign-in and CAPTCHA/MFA require you.
       </Notice>
       <Button onClick={() => stop.mutate()} disabled={stop.isPending}>
         Stop filling applications

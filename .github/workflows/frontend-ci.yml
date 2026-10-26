@@ -3,7 +3,7 @@ on:
   push:
     branches: ['**']
   pull_request:
-    branches: [main, feat/phase1-local-connections, feat/agent-command-execution]
+    branches: [main, feat/phase1-local-connections, feat/agent-command-execution, feat/chrome-form-inspection-autofill]
 permissions:
   contents: read
 jobs:
@@ -59,4 +59,5 @@ jobs:
             frontend/test-results/
             reports/phase7-*.png
             reports/command-execution-dashboard.png
+            reports/submission-review.png
           retention-days: 7

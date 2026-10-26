@@ -92,4 +92,4 @@ async def provider_status(session: AsyncSession = Depends(get_db_session)):
             "local_request_cap": cap, "local_requests_remaining": max(0, cap - (usage.requests if usage else 0)),
             "provider_quota_remaining": None, "quota_scope": "local_installation_only",
             "input_tokens": usage.input_tokens if usage else 0, "output_tokens": usage.output_tokens if usage else 0,
-            "submissions_enabled": False, "email_sending_enabled": False}
+            "submissions_enabled": settings.BROWSER_SUBMIT_ENABLED and settings.ENVIRONMENT == "testing" and bool(settings.BROWSER_FIXTURE_ORIGIN), "submission_scope": "localhost_fixtures_only", "email_sending_enabled": False}

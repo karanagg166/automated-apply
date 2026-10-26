@@ -15,6 +15,7 @@ import {
 } from "@/components/ui";
 
 import { BrowserPlans } from "./browser-plans";
+import { SubmissionReview } from "./submission-review";
 
 type Campaign = Schema<"Campaign">;
 type Status = {
@@ -93,6 +94,7 @@ export function Agent() {
         </div>
       </div>
       <BrowserPlans />
+      <SubmissionReview />
       <Notice>
         Submissions are disabled. No emails are sent. Application drafts need
         your review.

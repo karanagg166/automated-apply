@@ -1,5 +1,11 @@
 // This fixed route list prevents the server-side bearer from becoming a general proxy.
 const routes: Array<[RegExp, string[]]> = [
+  [/^browser\/submissions$/, ["GET"]],
+  [
+    /^browser\/submissions\/[a-f0-9-]{36}\/(approve|execute|reconcile)$/,
+    ["POST"],
+  ],
+  [/^browser\/submissions\/stop$/, ["POST"]],
   [/^browser\/plans$/, ["GET"]],
   [/^browser\/plans\/[a-f0-9-]{36}\/(review|next)$/, ["POST"]],
   [/^browser\/stop$/, ["POST"]],

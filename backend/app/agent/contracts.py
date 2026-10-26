@@ -6,7 +6,7 @@ from pydantic import Field, model_validator
 
 from backend.app.local_agent.contracts import StrictModel
 
-Intent = Literal["search", "filter", "apply", "status", "cancel", "approve", "select_project", "fill", "inspect", "clarify"]
+Intent = Literal["search", "filter", "apply", "status", "cancel", "approve", "select_project", "fill", "inspect", "submission_status", "submit_approved", "stop_submissions", "clarify"]
 ToolName = Literal[
     "search_jobs", "filter_jobs", "rank_jobs", "get_candidate_profile",
     "get_approved_project_context", "get_canonical_resume", "get_application_history",
