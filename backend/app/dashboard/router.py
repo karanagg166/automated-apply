@@ -261,10 +261,14 @@ async def confirm_resume(
     profile = await CandidateKnowledgeRepository(session).profile()
     # Serialize canonical selection for this candidate, including first selection.
     from backend.app.models.candidate_profile import CandidateProfile
-    await session.scalar(select(CandidateProfile).where(CandidateProfile.id == profile.id).with_for_update())
+    profile = await session.scalar(select(CandidateProfile).where(CandidateProfile.id == profile.id).with_for_update().execution_options(populate_existing=True))
+    if data.expected_profile_version is not None and profile.version != data.expected_profile_version:
+        raise HTTPException(409, "Profile changed; regenerate the resume review")
     resume = await session.get(PrivateResume, resume_id, with_for_update=True)
     if resume is None:
         raise HTTPException(404, "Resume not found")
+    if data.expected_sha256 is not None and resume.sha256 != data.expected_sha256:
+        raise HTTPException(409, "Resume changed; review the current PDF contents")
     verified_pdf(resume)
     primary = await session.scalar(
         select(CandidateResource).where(
@@ -282,10 +286,17 @@ async def confirm_resume(
             await session.flush()
         confirmation = await session.get(OwnerPreference, "phase1_profile_confirmation", with_for_update=True)
         if confirmation:
-            await session.delete(confirmation)
+            # The restricted online runtime intentionally has no DELETE grant.
+            # Revoke the version binding with an auditable tombstone instead.
+            confirmation.value = {
+                "invalidated_at": datetime.now(timezone.utc).isoformat(),
+                "reason": "canonical_resume_changed",
+            }
     if resume.confirmed:
         resource = await session.get(CandidateResource, resume.resource_id, with_for_update=True)
-        if resource is None or resource.candidate_profile_id != profile.id:
+        if (resource is None or resource.candidate_profile_id != profile.id
+            or resource.resource_type != "resume" or resource.source_type != "private_upload"
+            or resource.url != "private-resume:" + str(resume.id) or not resource.user_confirmed):
             raise HTTPException(409, "Private resume resource binding is invalid")
         if data.primary:
             resource.is_primary = True

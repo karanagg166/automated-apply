@@ -71,3 +71,25 @@ async def test_authorized_source_commit_automatically_recomputes_pending_context
 def test_checkout_allowlist_rejects_ambiguous_targets(mapping):
     with pytest.raises(ValidationError):
         Settings(_env_file=None, CANDIDATE_PROJECT_CHECKOUTS=mapping)
+
+
+@pytest.mark.asyncio
+async def test_evidence_digest_preserves_exact_committed_bytes_including_newlines(tmp_path):
+    import hashlib
+
+    checkout = tmp_path / 'source'; checkout.mkdir()
+    git(checkout, 'init')
+    git(checkout, 'config', 'user.email', 'fictional@example.org')
+    git(checkout, 'config', 'user.name', 'Fictional Owner')
+    git(checkout, 'remote', 'add', 'origin', REPOSITORY)
+    raw = b'redis==1.0\n\n'
+    (checkout / 'requirements.txt').write_bytes(raw)
+    git(checkout, 'add', '.')
+    git(checkout, '-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'Fictional bytes')
+    project = ProjectConfiguration(id='project-source', name='Fictional', priority=1, repository_url=REPOSITORY)
+    snapshot = await AuthorizedCheckoutReader({REPOSITORY: checkout}).snapshot(project)
+    assert snapshot.files['requirements.txt'].encode() == raw
+    from backend.app.candidate_context.repository import extract_project
+
+    fact = extract_project(project, snapshot).facts[0]
+    assert fact.evidence[0].content_sha256 == hashlib.sha256(raw).hexdigest()

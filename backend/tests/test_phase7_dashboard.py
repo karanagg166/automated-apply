@@ -366,7 +366,10 @@ async def test_manual_pdf_canonical_switch_is_atomic_reviewed_and_reversible(
     second = await confirm(1, first_resource)
     assert second.status_code == 200
     db_session.expire_all()
-    assert await db_session.get(OwnerPreference, "phase1_profile_confirmation") is None
+    invalidated = await db_session.get(OwnerPreference, "phase1_profile_confirmation")
+    assert invalidated.value["reason"] == "canonical_resume_changed"
+    assert invalidated.value["invalidated_at"]
+    assert "profile_version" not in invalidated.value
     # A previously confirmed version can become canonical again without a new blob.
     restored = await confirm(0, second.json()["resource_id"])
     assert restored.status_code == 200 and restored.json()["resource_id"] == first_resource

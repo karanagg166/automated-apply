@@ -13,6 +13,9 @@ def tokens(value):
 
 def retrieve(profile, evidence, question, category):
     facts = []
+    normalize_name = lambda text: re.sub(r"[^a-z0-9]", "", text.casefold())
+    named = {normalize_name(p['name']) for p in profile.projects
+             if p.get('name') and normalize_name(p['name']) in normalize_name(question)}
 
     def add(source_type, source_id, data, rank=0):
         text = json.dumps(data, ensure_ascii=False)
@@ -23,6 +26,8 @@ def retrieve(profile, evidence, question, category):
     if category in {"project_explanation", "technical_experience"}:
         challenging = bool(re.search(r"challeng|problem|solv", question, re.I))
         for i, project in enumerate(profile.projects):
+            if named and normalize_name(project.get('name', '')) not in named:
+                continue
             if not project.get("contribution") or not (project.get("purpose") or project.get("description")):
                 continue
             if challenging and not (project.get("engineering_challenges") and project.get("solutions")):
@@ -33,14 +38,16 @@ def retrieve(profile, evidence, question, category):
                 continue
             if item.project:
                 project = item.project
+                if named and normalize_name(project.get('name', '')) not in named:
+                    continue
                 if not project.get("contribution") or not (project.get("purpose") or project.get("description")):
                     continue
                 if challenging and not (project.get("engineering_challenges") and project.get("solutions")):
                     continue
                 add("candidate_evidence", str(item.id), {"project": project}, 2)
-            elif category == "technical_experience" and re.search(r"\bI (?:built|implemented|worked|developed|designed)\b", item.content, re.I):
+            elif not named and category == "technical_experience" and re.search(r"\bI (?:built|implemented|worked|developed|designed)\b", item.content, re.I):
                 add("candidate_evidence", str(item.id), {"title": item.title, "content": item.content})
-        if category == "technical_experience":
+        if not named and category == "technical_experience":
             for i, role in enumerate(profile.verified_roles):
                 if role.get("highlight"):
                     add("verified_role", f"{profile.id}:role:{i}", role)

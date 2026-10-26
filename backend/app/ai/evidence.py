@@ -74,7 +74,8 @@ def prepare_evidence(question, context, instructions):
                            (r"\b(?:salary|compensation)\b", "salary"),
                            (r"\bteam\s+size\b", "team size"),
                            (r"\blatency\b", "latency"),
-                           (r"\b(?:challenge|challenges)\b", "challenge"),
+                           (r"\b(?:challenge|challenges|bug|bugs|failure)\b|\bchallenging(?=\s+(?:technical\s+)?(?:bug|issue|problem)\b)", "challenge"),
+                           (r"\bAPIs?\b", "API"),
                            (r"\b(?:why|decision|decisions)\b", "decision")):
         if re.search(pattern, question, re.IGNORECASE):
             requirements.append(topic)
@@ -113,14 +114,19 @@ def prepare_evidence(question, context, instructions):
         return PreparedEvidence(missing=("Provide approved first-person facts for the requested answer.",))
     clauses = max(candidates, key=lambda row: row[0])[1]
     # Exact topics are intentionally conservative; a related project isn't a count.
+    def covers(topic, clause):
+        pattern = {"challenge": r"\b(?:challeng\w*|bugs?|failure)\b", "API": r"\bAPIs?\b",
+                   "decision": r"\b(?:decision|tradeoff|trade-off)\b"}.get(topic, r"\b" + topic + r"\b")
+        return re.search(pattern, clause.text, re.IGNORECASE)
+
     missing = tuple(f"Provide approved {topic} information." for topic in requirements
-                    if not any(re.search(r"\b" + topic + r"\b", c.text, re.IGNORECASE) for c in clauses))
+                    if not any(covers(topic, c) for c in clauses))
     if missing:
         return PreparedEvidence(missing=missing)
     if "users" in requirements and not any(re.search(r"\b\d+\b.*\busers\b", c.text, re.IGNORECASE) for c in clauses):
         return PreparedEvidence(missing=("Provide an approved numeric user count.",))
     if requirements:
-        clauses = [c for c in clauses if any(re.search(r"\b" + t + r"\b", c.text, re.IGNORECASE) for t in requirements)]
+        clauses = [c for c in clauses if any(covers(t, c) for t in requirements)]
     # Stack extraction and skill-specific explanations omit unrelated facts.
     if re.search(r"\b(?:stack|technologies)\b", question, re.IGNORECASE) and not re.search(r"features|describe|summary", question, re.IGNORECASE):
         clauses = [c for c in clauses if re.search(r"\b(?:uses?|using|stack|technologies)\b", c.text, re.IGNORECASE)]

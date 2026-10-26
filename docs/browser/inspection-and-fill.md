@@ -29,6 +29,30 @@ live portal acceptance. The autonomous driver's URL restrictions are unchanged.
 Custom widgets, cross-origin frames, challenges and framework-controlled inputs
 can still require handoff. No live employer form was filled to test this change.
 
+### Zoho Recruit manual form compatibility
+
+In manual extension mode (`only_empty: true`), the inspector handles Zoho Recruit-style DOM layouts while keeping client-only diagnostics out of the native protocol payload:
+
+- **Supported controls (filled only after owner review):**
+  - Visible unanswered native `<input>` (`text`, `email`, `tel`, `url`, `number`) and `<textarea>`, including dynamically rendered controls present when **Prepare answers** is clicked.
+  - Labels resolved from explicit `<label>`, `aria-labelledby`, `aria-label`, Zoho table cells (`<tr>/<td>`), `<dl>/<dt>/<dd>` rows, single-control field containers (`.zr-field-label`, `.cw-label`, `[class*='label']`), `data-label`/`title`, or meaningful placeholders, with mandatory markers (`*`, `(Required)`) normalized.
+  - Native `<select>` dropdowns with up to 20 options when currently on an empty or placeholder selection (`-None-`, `--Select--`, `Select an option`, `Choose one`, disabled initial option).
+  - Native radio and checkbox groups with a resolved group question label (`fieldset > legend`, `[role="radiogroup"]`, `[role="group"]`, or multi-option Zoho question container) and per-option label. If any option in a radio or checkbox group is already selected, the entire group is treated as answered and left untouched.
+  - Required-field and validation-error indicators (`required`, `aria-required="true"`, `data-mandatory="true"`, asterisk markers, `aria-invalid="true"`, `aria-errormessage`, `.zr-error`/`.field-error`/`[role="alert"]`).
+- **Manual-only controls (reported in the popup plan with explicit reasons, never auto-filled):**
+  - Custom comboboxes and picklists (`[role="combobox"]`, `aria-haspopup="listbox"`, `lyte-dropdown`, `lyte-select`, `lyte-autocomplete`, `crux-picklist-component`, `[role="listbox"]`).
+  - Date/time controls (`type="date"`, `dd/mm/yyyy` placeholders, datepicker widgets, or date-of-birth/start-date fields).
+  - Framework-controlled inputs (`_valueTracker`, `__reactFiber$*`, `__reactProps$*`, `lyte-input`, `crux-text-component`, `ng-model`, `v-model`, `data-framework-controlled`) where silent native value assignment without synthetic events cannot be proven safe.
+  - Rich-text / `[contenteditable="true"]` editors, multi-select dropdowns, and native `<select>` controls with more than 20 options.
+  - Controls with missing or generic-only labels (`Enter here`, `Type here`, `-None-`) or radio groups missing a group question label.
+  - File upload inputs (`type="file"`, manual PDF selection required).
+  - Consent, privacy policy, terms, background-check, EEO, NDA, and legal declaration checkboxes/radios (never selected automatically).
+  - Cross-origin iframes, CAPTCHA/security challenges, and sensitive controls (passwords, OTP/MFA codes, payment/card/bank details, SSN/Aadhaar/PAN/national IDs, tokens/secrets), which halt preparation and require manual completion.
+- **Preservation and fresh-review guarantees:**
+  - Pre-filled fields and controls edited by the user after preparation (tracked via initial value snapshots and trusted `input`/`change` listeners) are never overwritten.
+  - Any DOM mutation affecting form controls/attributes, step transition, or expired plan timestamp (`expires_at`) invalidates the prepared plan and requires clicking **Prepare answers** again for a fresh review before filling.
+  - Manual mode never clicks Next/Continue or Submit, never dispatches synthetic `input`/`change` events, and blocks accidental form submission after touching controls.
+
 The installed runtime must support `prepare_form_answers`, and manual filling
 requires separate owner authorization for `BROWSER_FILL_ENABLED=true`. Keep
 `BROWSER_AUTOMATION_ENABLED`, `BROWSER_SUBMIT_ENABLED`, application submission,

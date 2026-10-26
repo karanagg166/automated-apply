@@ -2815,10 +2815,12 @@ export interface components {
       primary: boolean;
       /** Expected Primary Resource Id */
       expected_primary_resource_id?: string | null;
-      /** Expected Generation */
-      expected_generation: number;
+      /** Expected Sha256 */
+      expected_sha256?: string | null;
       /** Expected Profile Version */
       expected_profile_version?: number | null;
+      /** Expected Generation */
+      expected_generation: number;
       profile: components["schemas"]["CandidateProfileCreate-Input"];
       /**
        * Allow Skill Removals
@@ -3750,6 +3752,7 @@ export interface components {
         | "candidate_evidence"
         | "candidate_profile"
         | "candidate_preferences"
+        | "project_context"
         | "opportunity_job"
         | "opportunity_company";
       /** Source Id */
@@ -5621,6 +5624,10 @@ export interface components {
       primary: boolean;
       /** Expected Primary Resource Id */
       expected_primary_resource_id?: string | null;
+      /** Expected Sha256 */
+      expected_sha256?: string | null;
+      /** Expected Profile Version */
+      expected_profile_version?: number | null;
     };
     /** ResumeImportRead */
     ResumeImportRead: {

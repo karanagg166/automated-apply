@@ -51,6 +51,8 @@ class ResumeConfirm(BaseModel):
     owner_confirmed: Literal[True]
     primary: bool = False
     expected_primary_resource_id: UUID | None = None
+    expected_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    expected_profile_version: int | None = Field(default=None, ge=1)
 
     @field_validator("owner_confirmed", mode="before")
     @classmethod
