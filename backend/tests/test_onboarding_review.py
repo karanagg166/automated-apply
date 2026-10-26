@@ -643,3 +643,42 @@ async def test_selected_review_replays_services_atomically_without_retyping(
     ].text == "I implemented a corrected private workflow."
     assert "Alex Fictional" not in capsys.readouterr().out
     get_settings.cache_clear()
+
+
+async def test_context_answer_does_not_borrow_contributions_for_named_unknown_project():
+    service = await document_service()
+    _, k = await service.build(
+        "project-employment", expected_configuration_revision=1, owner_facts=(fact(),)
+    )
+    await service.approve(
+        "project-employment",
+        expected_revision=k.candidate.revision,
+        fact_ids=(fact().id,),
+        owner_ref="fixture",
+        owner_confirmed=True,
+    )
+    config = await service.configuration()
+    await service.save_configuration(
+        config.configuration.model_copy(
+            update={
+                "projects": (
+                    *config.configuration.projects,
+                    ProjectConfiguration(
+                        id="project-search", name="Fictional Search", priority=2
+                    ),
+                )
+            }
+        ),
+        expected_revision=config.revision,
+        owner_ref="fixture",
+    )
+    result = await service.answer(
+        "What did I personally contribute to Fictional Search?"
+    )
+    assert result.status == "missing_approved_context" and not result.sources
+    assert (
+        await service.answer_evidence(
+            "Describe my Fictional Search project", "project_explanation"
+        )
+        == []
+    )

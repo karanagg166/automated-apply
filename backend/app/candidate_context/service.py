@@ -332,6 +332,11 @@ class CandidateContextService:
         projects = sorted(await self.approved_projects(), key=lambda pair: pair[1])
         if project_rank is not None:
             projects = projects[project_rank - 1 : project_rank]
+        configuration = (await self.configuration()).configuration
+        normalize = lambda text: re.sub(r"[^a-z0-9]", "", text.casefold())
+        named = {p.id for p in configuration.projects if p.name and normalize(p.name) in normalize(question)}
+        if named:
+            projects = [(a, priority) for a, priority in projects if a.project_id in named]
         topic = None
         if re.search(r"\b(?:bug|challeng\w*|failure)\b", question, re.I):
             topic = "challenge"
@@ -412,7 +417,7 @@ class CandidateContextService:
         valid_resume = [
             fact
             for fact in resume_facts
-            if fact.version_id == current_resume_version
+            if not named and fact.version_id == current_resume_version
             and fact.fact_generation == current_fact_generation
         ]
         valid_resume.sort(
