@@ -606,6 +606,7 @@ async def test_selected_review_replays_services_atomically_without_retyping(
         "requests": [
             copy.deepcopy(manifest["requests"]["resume"]),
             copy.deepcopy(manifest["requests"]["projects"][0]),
+            copy.deepcopy(manifest["requests"]["profile"]),
         ],
     }
     selection["requests"][1]["body"]["fact_ids"] = [personal.id]
@@ -628,6 +629,11 @@ async def test_selected_review_replays_services_atomically_without_retyping(
         len(resources) == 1 and resources[0].is_primary and resources[0].user_confirmed
     )
     assert (await CandidateProfileService(db_session).get_profile()).version == 1
+    from backend.app.dashboard.models import OwnerPreference
+    from backend.app.local_agent.profile_confirmation import confirmation_matches
+
+    binding = await db_session.get(OwnerPreference, "phase1_profile_confirmation")
+    assert confirmation_matches(phase2_profile, binding.value)
     await db_session.rollback()
     await module.apply(tmp_path / "unused.env", *files)  # Exact retry is safe.
     await live.build(

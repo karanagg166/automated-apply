@@ -14,6 +14,11 @@ def confirmation_requests(profile, resume, primary_resource_id, projects):
     return {
         "profile_id": str(profile.id),
         "profile_version": profile.version,
+        "profile": {
+            "method": "POST",
+            "path": "/api/v1/local-agent/profile-confirmation",
+            "body": {"expected_version": profile.version, "owner_confirmed": True},
+        },
         "resume": {
             "method": "POST",
             "path": f"/api/v1/dashboard/resumes/{resume.id}/confirm",
@@ -167,7 +172,8 @@ def render_review(payload, *, pdf_bytes):
         + esc(payload["profile_version"])
         + "</summary><pre>"
         + esc(json.dumps(payload["profile"], indent=2))
-        + "</pre></details></section>"
+        + "</pre></details>"
+        + '<label><input id="profile" type="checkbox"> Reconfirm this unchanged saved profile version after primary-resume selection. The existing resume workflow clears its confirmation binding.</label></section>'
     )
     document += "".join(blocks)
     document += (
@@ -197,12 +203,16 @@ document.getElementById('export').addEventListener('click', () => {
    document.getElementById('status').textContent = 'Confirm that you reviewed the selected project facts first.'; return;
  }
  const result = {profile_id: requests.profile_id, profile_version: requests.profile_version, review_hash: requests.review_hash, requests: []};
+ if (document.getElementById('resume').checked && !document.getElementById('profile').checked) {
+   document.getElementById('status').textContent = 'Primary-resume selection clears profile confirmation. Review and select the unchanged saved-profile confirmation too.'; return;
+ }
  if (document.getElementById('resume').checked) result.requests.push(requests.resume);
  for (const request of requests.projects) {
    const id = request.path.split('/').at(-2);
    const ids = selected.filter(el => el.dataset.project === id).map(el => el.value);
    if (ids.length) result.requests.push({...request, body: {...request.body, fact_ids: ids}});
  }
+ if (document.getElementById('profile').checked) result.requests.push(requests.profile);
  if (!result.requests.length) {document.getElementById('status').textContent = 'Select a reviewed resume or project fact first.'; return;}
  const url = URL.createObjectURL(new Blob([JSON.stringify(result, null, 2)], {type:'application/json'}));
  const a = document.createElement('a'); a.href = url; a.download = 'selected-owner-confirmations.json'; a.click();
@@ -246,10 +256,10 @@ def selected_requests(manifest: dict, selection: dict) -> list[dict]:
         or selection.get("profile_version") != manifest["profile_version"]
     ):
         raise ValueError("review_changed_regenerate")
-    allowed = {
-        r["path"]: r
-        for r in [manifest["requests"]["resume"], *manifest["requests"]["projects"]]
-    }
+    candidates = [manifest["requests"]["resume"], *manifest["requests"]["projects"]]
+    if manifest["requests"].get("profile"):
+        candidates.append(manifest["requests"]["profile"])
+    allowed = {r["path"]: r for r in candidates}
     result = selection.get("requests", [])
     if not result or len(result) > len(allowed):
         raise ValueError("select_reviewed_items")

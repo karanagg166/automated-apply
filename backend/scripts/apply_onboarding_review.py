@@ -32,6 +32,7 @@ async def apply(env_file, plan_path, manifest_path, selection_path):
     from backend.app.dashboard.router import confirm_resume
     from backend.app.dashboard.schemas import ResumeConfirm
     from backend.app.db.session import close_db_engine, get_session_factory
+    from backend.app.local_agent.profile_confirmation import confirm_profile
     from backend.app.models.application_answer import CandidateResource
     from backend.app.models.candidate_profile import CandidateProfile
     from backend.app.services.applications.resume_selector import select_resume
@@ -136,11 +137,19 @@ async def apply(env_file, plan_path, manifest_path, selection_path):
                     owner_confirmed=request["body"]["owner_confirmed"],
                 )
             for request in requests:
-                if "fact_ids" not in request["body"]:
+                if request["path"] == manifest["requests"]["resume"]["path"]:
                     await confirm_resume(
                         resume.id,
                         ResumeConfirm.model_validate(request["body"]),
                         session,
+                    )
+            # Finish any invalidation before optionally restoring the explicitly
+            # selected profile binding, including promotion of an existing PDF.
+            await session.flush()
+            for request in requests:
+                if request["path"] == "/api/v1/local-agent/profile-confirmation":
+                    await confirm_profile(
+                        session, profile, request["body"]["expected_version"]
                     )
             await session.flush()
             resources = list(
@@ -153,7 +162,13 @@ async def apply(env_file, plan_path, manifest_path, selection_path):
                 ).all()
             )
             selected = select_resume(resources).selected
-            if any("fact_ids" not in r["body"] for r in requests) and selected is None:
+            if (
+                any(
+                    r["path"] == manifest["requests"]["resume"]["path"]
+                    for r in requests
+                )
+                and selected is None
+            ):
                 raise ValueError("unique_primary_resume_required")
             if profile.version != selection["profile_version"]:
                 raise ValueError("profile_version_must_be_preserved")

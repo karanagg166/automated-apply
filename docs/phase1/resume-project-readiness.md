@@ -31,6 +31,11 @@ The HTML report embeds the verified PDF, extracted text, saved profile, differen
 source references, fact IDs, project revisions, limitations, and actual approved-only
 answer checks. All selections start unchecked. Project observations and personal
 contributions have separate group selectors; individual facts can also be selected.
+Choosing a new primary PDF clears the existing profile confirmation binding. A
+separate unchecked profile checkbox prepares the existing version-1 reconfirmation
+request, which is saved only if explicitly selected, after the resume confirmation.
+This does not edit profile fields or infer new facts.
+
 The report exports only selected confirmation requests. It cannot send them and
 contains no token, external assets, or network-enabled controls. Artifacts must be
 outside Git, with directory mode 0700 and file mode 0600; existing files are never
