@@ -64,7 +64,7 @@ export async function submissionDOM(request) {
         document.querySelector(
           'iframe,[data-sitekey],input[type=password],input[autocomplete="one-time-code"]',
         ) ||
-        /I (?:agree|certify|attest)|consent|criminal|disability|veteran|ethnicity|signature/i.test(
+        /agree|certif|attest|consent|criminal|disability|veteran|ethnicity|signature|background check/i.test(
           form.textContent,
         )
       )

@@ -457,3 +457,20 @@ async def test_disabling_execution_preserves_read_only_receipt_recovery(
         s.application_id, acknowledgment(s, url=s.receipt_url)
     )
     assert recovered.state == "submitted"
+
+
+@pytest.mark.asyncio
+async def test_changing_authenticated_telegram_owner_invalidates_previous_grant(
+    db_session, phase2_profile
+):
+    settings, s, _ = await reviewed(db_session, phase2_profile)
+    service = SubmissionService(db_session, settings)
+    await service.approve(
+        s.application_id, Actor(channel="telegram", identity="111"), approval(s)
+    )
+    await db_session.commit()
+    changed = settings.model_copy(
+        update={"TELEGRAM_OWNER_USER_ID": 222, "TELEGRAM_OWNER_CHAT_ID": 222}
+    )
+    with pytest.raises(ToolDenied):
+        await SubmissionService(db_session, changed).release(s.application_id, OWNER)

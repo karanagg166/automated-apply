@@ -17,6 +17,7 @@ from backend.app.browser.service import FormService, pdf_bytes
 from backend.app.browser.submission_adapters import fixture_contract, verify_response
 from backend.app.browser.submission_contracts import Submission, SubmissionApproval
 from backend.app.dashboard.models import OwnerPreference
+from backend.app.local_agent.contracts import Actor
 from backend.app.local_agent.models import AgentOperation, TelegramDelivery
 from backend.app.models.company import Company
 from backend.app.models.job import Job
@@ -308,6 +309,11 @@ class SubmissionService:
 
     def authorized(self, s):
         a = s.authorization or {}
+        actor = a.get("actor", "").split(":", 1)
+        if len(actor) != 2 or not owner_allowed(
+            Actor(channel=actor[0], identity=actor[1]), self.settings
+        ):
+            raise ToolDenied("grant_owner_identity_changed")
         if (
             a.get("owner") != s.owner
             or a.get("scope") != "submit_application"
@@ -350,6 +356,7 @@ class SubmissionService:
 
     async def claim(self):
         await store.memory_row(self.session, lock=True)
+        await self.session.flush()
         now = await instant(self.session)
         filling = (
             await self.session.scalars(
@@ -365,11 +372,17 @@ class SubmissionService:
         ):
             return None
         # A plain MVCC read also sees active rows locked by a different transaction.
-        active = await self.rows()
+        active = (
+            await self.session.scalars(
+                select(OwnerPreference.value).where(
+                    OwnerPreference.key.like("submission:%"),
+                    OwnerPreference.value["state"].as_string() == "submitting",
+                )
+            )
+        ).all()
         if any(
-            r.value["state"] == "submitting"
-            and datetime.fromisoformat(r.value["lease_until"]) > now
-            for r in active
+            v.get("lease_until") and datetime.fromisoformat(v["lease_until"]) > now
+            for v in active
         ):
             return None
         rows = (

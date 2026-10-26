@@ -53,7 +53,8 @@ def verify_response(submission, response, now, *, reconciliation=False):
     if (
         not isinstance(response, dict)
         or response.get("url") not in {expected, submission.request_url}
-        or len(response.get("body", "")) > 65536
+        or not isinstance(response.get("body"), str)
+        or len(response["body"]) > 65536
     ):
         return "submission_uncertain", None
     code, body = response.get("status"), response.get("body", "")
