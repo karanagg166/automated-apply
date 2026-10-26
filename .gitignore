@@ -84,3 +84,8 @@ frontend/tsconfig.tsbuildinfo
 
 # Supabase CLI cache is local, including project links
 supabase/.temp/
+
+# JavaScript dependencies use pnpm exclusively.
+package-lock.json
+npm-shrinkwrap.json
+yarn.lock

@@ -15,18 +15,18 @@
 ## Build and start
 
 ```sh
-npm ci --prefix frontend
-npm run typecheck --prefix frontend
-npm test --prefix frontend
-npm run build --prefix frontend
-npm run start --prefix frontend
+pnpm -C frontend install --frozen-lockfile
+pnpm -C frontend typecheck
+pnpm test --prefix frontend
+pnpm -C frontend build
+pnpm -C frontend start
 ```
 
 The existing Dockerfile remains the non-root FastAPI image. It includes pypdf and the local parser worker. The frontend uses its own Node process in the **same repository**, not a second backend/microservice. Container builds exclude the frontend/node_modules and all private environment/PDF/runtime artifacts. Use the platform’s reviewed Node startup configuration for Next.js; no host was provisioned.
 
 ## Isolated demonstration
 
-Build the frontend, install Playwright Chromium, then run `PYTHON=/path/to/venv/bin/python npm run e2e --prefix frontend`. Playwright creates a disposable SQLite file under a temporary directory, sets `ENVIRONMENT=testing`, loads Settings with `_env_file=None`, blocks outbound provider HTTP and uses fictional fixtures. Its explicit banner distinguishes this from a live pilot. The actual FastAPI routers and persistence execute; browser routes are mocked only for a separately labeled provider-error test. The fixture process does not use or mutate backend/.env.
+Build the frontend, install Playwright Chromium, then run `PYTHON=/path/to/venv/bin/python pnpm -C frontend e2e`. Playwright creates a disposable SQLite file under a temporary directory, sets `ENVIRONMENT=testing`, loads Settings with `_env_file=None`, blocks outbound provider HTTP and uses fictional fixtures. Its explicit banner distinguishes this from a live pilot. The actual FastAPI routers and persistence execute; browser routes are mocked only for a separately labeled provider-error test. The fixture process does not use or mutate backend/.env.
 
 Screenshots and traces are test artifacts. Use `docs/phase7-frontend.md` for the exact journey. A real-data pilot requires separate target authorization, actual owner onboarding and provider consent. Opening the application link is a handoff, never a submission.
 

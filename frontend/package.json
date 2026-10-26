@@ -13,7 +13,8 @@
     "test": "vitest run",
     "e2e": "playwright test",
     "api:types": "openapi-typescript ../reports/phase7-openapi.json -o src/types/api.d.ts && prettier --write src/types/api.d.ts",
-    "format:check": "prettier --check src tests *.ts *.mjs"
+    "format:check": "prettier --check src tests *.ts *.mjs",
+    "preinstall": "node scripts/require-pnpm.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.14.0",

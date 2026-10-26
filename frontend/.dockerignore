@@ -8,3 +8,6 @@
 !tsconfig.json
 !src
 !src/**
+
+!scripts
+!scripts/require-pnpm.mjs

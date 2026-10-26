@@ -176,7 +176,7 @@ PROFILE_TEST_DATABASE_URL=postgresql://...@127.0.0.1:55417/candidate_profile_tes
   backend/venv/bin/python -m pytest backend/tests
 npm --prefix frontend test
 npm --prefix frontend run build
-cd frontend && PYTHON=../backend/venv/bin/python npm run e2e
+cd frontend && PYTHON=../backend/venv/bin/python pnpm e2e
 ```
 
 The API/browser SQLite fixtures verify controls only. The worker rejects SQLite execution;

@@ -9,7 +9,7 @@ Python 3.11+ and Node 22+; npm remains the frontend dependency manager.
 ```sh
 python3.11 -m venv .venv
 .venv/bin/python -m pip install -r backend/requirements.txt
-npm ci --prefix frontend
+pnpm -C frontend install --frozen-lockfile
 cp backend/.env.phase1.example ./phase1.private.env
 chmod 600 phase1.private.env
 ```
@@ -25,7 +25,7 @@ Fill private values locally, preserving any existing encryption keys. The exampl
 The launcher binds 127.0.0.1, disables forwarded headers/access query logging, refuses enabled discovery/email gates and performs restricted database startup checks. No worker starts with the API. In another terminal configure the existing frontend owner password/session secret and server-only JOB_AGENT_API_TOKEN with backend origin matching LOCAL_AGENT_ENDPOINT, then:
 
 ```sh
-npm run dev --prefix frontend -- --hostname 127.0.0.1
+pnpm -C frontend dev --hostname 127.0.0.1
 ```
 
 The existing frontend/run.mjs reads backend/.env unless FRONTEND_ISOLATED=1. Prefer an isolated private environment for this worktree; do not point it at another project's backend. Existing docs/phase7 dashboard procedures cover password hashing. No backend token goes into client bundles. Connections and preference updates use the existing owner session/BFF/CSRF boundary.
