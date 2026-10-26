@@ -38,7 +38,7 @@ def inspection(url, fields=None, **updates):
         url=url,
         fields=fields
         or [
-            {"field_id": "f0", "kind": "text", "label": "Full name", "required": True},
+            {"field_id": "f0", "kind": "text", "label": "Name", "required": True},
             {"field_id": "f1", "kind": "email", "label": "Email", "required": True},
             {
                 "field_id": "f2",

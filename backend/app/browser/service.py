@@ -210,8 +210,11 @@ class FormService:
                 re.I,
             ):
                 # Labels are untrusted; classifier/grounding services can abstain, never execute them.
+                question_text = field.group_label or field.label
+                if re.fullmatch(r"name[\s:*]*", question_text, re.I):
+                    question_text = "Full name"
                 question = QuestionInput(
-                    question=field.group_label or field.label,
+                    question=question_text,
                     field_type="multiple_choice"
                     if field.kind == "select"
                     else "textarea"
