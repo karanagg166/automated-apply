@@ -104,3 +104,19 @@ it("limits the gateway to fixed command operations", () => {
   expect(permittedRoute("agent/execute", "POST")).toBe(false);
   expect(permittedRoute("agent/submit_application", "POST")).toBe(false);
 });
+
+it("distinguishes the available command worker from the unavailable Chrome worker", async () => {
+  vi.mocked(api).mockImplementation(async (path) =>
+    path === "agent/status"
+      ? {
+          worker_ready: true,
+          browser_worker_ready: false,
+          state: "not_configured",
+          local_requests_remaining: 29,
+        }
+      : [],
+  );
+  mount();
+  expect(await screen.findByText("Command worker available")).toBeVisible();
+  expect(screen.getByText("Chrome worker unavailable")).toBeVisible();
+});

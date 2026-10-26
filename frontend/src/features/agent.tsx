@@ -19,6 +19,7 @@ import { BrowserPlans } from "./browser-plans";
 type Campaign = Schema<"Campaign">;
 type Status = {
   worker_ready: boolean;
+  browser_worker_ready?: boolean;
   state: string;
   local_requests_remaining: number;
   owner_text_authorized: boolean;
@@ -102,8 +103,13 @@ export function Agent() {
       >
         <Badge tone={status.data?.worker_ready ? "green" : "amber"}>
           {status.data?.worker_ready
-            ? "Worker available"
-            : "Pending · worker unavailable"}
+            ? "Command worker available"
+            : "Pending · command worker unavailable"}
+        </Badge>
+        <Badge tone={status.data?.browser_worker_ready ? "green" : "amber"}>
+          {status.data?.browser_worker_ready
+            ? "Chrome worker available"
+            : "Chrome worker unavailable"}
         </Badge>
         <p>
           Cohere: {readable(status.data?.state)}.{" "}
