@@ -10,9 +10,9 @@ import json
 import re
 from collections.abc import Mapping
 from pathlib import Path, PurePosixPath
-from typing import Protocol
+from typing import Annotated, Protocol
 
-from pydantic import Field, model_validator
+from pydantic import Field, StringConstraints, model_validator
 
 from backend.app.candidate_context.common import ContextError, Contract, canonical_hash
 from backend.app.candidate_context.configuration import ProjectConfiguration
@@ -57,6 +57,14 @@ TECHNOLOGIES = {
     "@supabase/supabase-js": "Supabase",
     "pg": "PostgreSQL",
     "pymongo": "MongoDB",
+    "socket.io": "Socket.IO",
+    "socket.io-client": "Socket.IO",
+    "razorpay": "Razorpay",
+    "qdrant-client": "Qdrant",
+    "dramatiq": "Dramatiq",
+    "langchain": "LangChain",
+    "pgvector": "pgvector",
+    "pytesseract": "Tesseract OCR",
 }
 
 
@@ -70,7 +78,7 @@ def allowed_path(value: str) -> bool:
         or any(
             part.startswith(".")
             or part
-            in {"node_modules", "vendor", "dist", "secrets", "tests", "fixtures"}
+            in {"node_modules", "vendor", "dist", "secrets", "fixtures"}
             or re.search(r"credential|private|secret|token", part, re.I)
             for part in path.parts
         )
@@ -85,7 +93,8 @@ def allowed_path(value: str) -> bool:
         )
         or (
             path.suffix in {".py", ".ts", ".tsx", ".js", ".go", ".java", ".rs"}
-            and path.parts[0] in {"src", "app", "backend", "frontend"}
+            and path.parts[0] in {"src", "app", "apps", "backend", "frontend", "socket-server", "e2e", "tests"}
+            and ("tests" not in path.parts or path.name.startswith("test_") or ".test." in path.name or ".spec." in path.name)
         )
     )
 
@@ -93,7 +102,7 @@ def allowed_path(value: str) -> bool:
 class RepositorySnapshot(Contract):
     repository_url: str = Field(max_length=2048)
     commit_sha: str = Field(pattern=r"^[a-f0-9]{40}$")
-    files: dict[str, str] = Field(max_length=MAX_SOURCE_FILES)
+    files: dict[str, Annotated[str, StringConstraints(strip_whitespace=False)]] = Field(max_length=MAX_SOURCE_FILES)
 
     @model_validator(mode="after")
     def bounded(self):
@@ -120,8 +129,9 @@ class RepositoryReader(Protocol):
 
 
 class AuthorizedCheckoutReader:
-    def __init__(self, checkouts: Mapping[str, Path]):
+    def __init__(self, checkouts: Mapping[str, Path], *, selected_paths: Mapping[str, tuple[str, ...]] | None = None):
         self.checkouts = {key.rstrip("/"): value for key, value in checkouts.items()}
+        self.selected_paths = selected_paths or {}
 
     async def snapshot(self, project: ProjectConfiguration) -> RepositorySnapshot:
         try:
@@ -168,7 +178,7 @@ class AuthorizedCheckoutReader:
                     await process.wait()
                     if process.returncode:
                         raise ContextError("repository_read_failed_or_too_large")
-                    return output.decode("utf-8").rstrip("\n")
+                    return output.decode("utf-8")
             except (TimeoutError, UnicodeError):
                 raise ContextError("repository_read_failed_or_too_large") from None
             finally:
@@ -176,7 +186,7 @@ class AuthorizedCheckoutReader:
                     process.kill()
                     await process.wait()
 
-        origin = await git("remote", "get-url", "origin")
+        origin = (await git("remote", "get-url", "origin")).rstrip("\n")
         normalized = (
             origin.replace("git@github.com:", "https://github.com/")
             .removesuffix(".git")
@@ -184,7 +194,7 @@ class AuthorizedCheckoutReader:
         )
         if normalized != repository:
             raise ContextError("repository_origin_mismatch")
-        sha = await git("rev-parse", "HEAD")
+        sha = (await git("rev-parse", "HEAD")).rstrip("\n")
         if not re.fullmatch(r"[a-f0-9]{40}", sha):
             raise ContextError("repository_revision_invalid")
         listing = await git("ls-tree", "-r", "--long", sha, maximum=1024 * 1024)
@@ -200,8 +210,16 @@ class AuthorizedCheckoutReader:
             ):
                 candidates.append((match[4], int(match[3])))
         candidates.sort(
-            key=lambda item: (PurePosixPath(item[0]).name not in MANIFESTS, item[0])
+            key=lambda item: (PurePosixPath(item[0]).name not in MANIFESTS, not PurePosixPath(item[0]).name.lower().startswith("readme"), item[0])
         )
+        selected = self.selected_paths.get(repository)
+        if selected is not None:
+            if len(selected) > MAX_SOURCE_FILES or len(set(selected)) != len(selected):
+                raise ContextError("invalid_source_selection")
+            by_path = dict(candidates)
+            if any(path not in by_path for path in selected):
+                raise ContextError("unsupported_or_unavailable_source_selection")
+            candidates = [(path, by_path[path]) for path in selected]
         files: dict[str, str] = {}
         total = 0
         for path, size in candidates:
@@ -233,6 +251,12 @@ def extract_project(
         )
         dependencies: set[str] = set()
         basename = PurePosixPath(path).name
+        if basename.startswith("test_") or ".test." in basename or ".spec." in basename:
+            facts.append(make_fact(
+                "feature", f"The repository contains test source {path}; execution and coverage percentages are not verified.",
+                "direct", (ref,),
+            ))
+            continue
         if basename == "package.json":
             try:
                 data = json.loads(content)
@@ -326,6 +350,14 @@ def extract_project(
         for fact in owner_facts
     ):
         raise ContextError("owner_fact_provenance_required")
+    for fact in owner_facts:
+        for ref in fact.evidence:
+            if ref.commit_sha is not None:
+                content = snapshot.files.get(ref.file)
+                if (ref.commit_sha != snapshot.commit_sha or content is None
+                    or hashlib.sha256(content.encode()).hexdigest() != ref.content_sha256
+                    or ref.line_end > len(content.splitlines())):
+                    raise ContextError("project_evidence_changed_reload")
     facts.extend(fact for fact in owner_facts if not suspicious_text(fact.text))
     unique = tuple({fact.id: fact for fact in facts}.values())[:100]
     declared = {
@@ -355,3 +387,16 @@ def extract_project(
         candidate_contexts=contexts(unique),
         last_verified_version=snapshot.commit_sha,
     )
+
+
+def extract_document_project(project: ProjectConfiguration, facts: tuple[ProjectFact, ...]) -> ProjectSnapshot:
+    """Resume/employment evidence can be reviewed without inventing a repository."""
+    if project.repository_url or not facts or len(facts) > 100:
+        raise ContextError("document_project_requires_evidenced_facts_without_repository")
+    if any(f.verification != "owner_supplied" or not f.evidence or suspicious_text(f.text)
+           or any(ref.commit_sha for ref in f.evidence) for f in facts):
+        raise ContextError("owner_fact_provenance_required")
+    source_hash = canonical_hash([f.model_dump(mode="json") for f in facts])
+    revision = canonical_hash({"configuration": project.model_dump(mode="json"), "source_hash": source_hash})
+    return ProjectSnapshot(configuration=project, source_hash=source_hash, revision=revision,
+                           facts=facts, candidate_contexts=contexts(facts))

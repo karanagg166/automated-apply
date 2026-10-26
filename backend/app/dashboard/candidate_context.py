@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.candidate_context.common import ContextError
@@ -31,7 +31,7 @@ class ProjectApproveRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     expected_revision: str = Field(min_length=1, max_length=120)
     fact_ids: list[str] = Field(min_length=1, max_length=100)
-    owner_confirmed: bool
+    owner_confirmed: StrictBool
 
 
 class ProjectBuildRequest(BaseModel):

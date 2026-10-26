@@ -227,6 +227,13 @@ class ApplicationAnswerService:
         else:
             evidence = await self.repo.relevant_evidence(profile.id, request.question)
             facts = retrieve(profile, evidence, request.question, category)
+            from backend.app.candidate_context.persistence import SQLRecordStore
+            from backend.app.candidate_context.service import CandidateContextService
+
+            project_facts = await CandidateContextService(SQLRecordStore(self.repo.session)).answer_evidence(request.question, category)
+            # Current project approvals supersede legacy prose for this answer;
+            # duplicating both can exceed the bounded grounding input budget.
+            facts = project_facts or facts
             if opportunity and category in {"motivation", "startup_interest"}:
                 # Work must be attributable to the candidate, never copied from
                 # the role's desired skills. Rank existing verified projects.

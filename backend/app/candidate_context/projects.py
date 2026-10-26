@@ -66,6 +66,7 @@ class ProjectFact(Contract):
         return (
             bool(self.evidence)
             and self.verification != "inferred"
+            and (not self.personal_claim or self.verification == "owner_supplied")
             and not suspicious_text(self.text)
         )
 
@@ -151,20 +152,20 @@ def contexts(facts: tuple[ProjectFact, ...]) -> CompactContexts:
 
 class ProjectSnapshot(Contract):
     configuration: ProjectConfiguration
-    commit_sha: str = Field(pattern=r"^[a-f0-9]{40}$")
+    commit_sha: str | None = Field(default=None, pattern=r"^[a-f0-9]{40}$")
     source_hash: str = Field(pattern=r"^[a-f0-9]{64}$")
     revision: str = Field(pattern=r"^[a-f0-9]{64}$")
     facts: tuple[ProjectFact, ...] = Field(max_length=100)
     unsupported_stack_claims: tuple[str, ...] = ()
     candidate_contexts: CompactContexts
-    last_verified_version: str = Field(pattern=r"^[a-f0-9]{40}$")
+    last_verified_version: str | None = Field(default=None, pattern=r"^[a-f0-9]{40}$")
     status: Literal["pending_review"] = "pending_review"
 
 
 class ProjectApproval(Contract):
     project_id: str
     revision: str = Field(pattern=r"^[a-f0-9]{64}$")
-    commit_sha: str = Field(pattern=r"^[a-f0-9]{40}$")
+    commit_sha: str | None = Field(default=None, pattern=r"^[a-f0-9]{40}$")
     fact_ids: tuple[str, ...] = Field(min_length=1, max_length=100)
     owner_ref: str = Field(min_length=1, max_length=120)
     approved_at: str
