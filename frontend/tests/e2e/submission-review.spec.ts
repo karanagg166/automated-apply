@@ -66,6 +66,7 @@ test("exact submission review and uncertain receipt recovery controls", async ({
     .getByLabel("Owner passphrase")
     .fill("fictional-ui-owner-passphrase");
   await page.getByRole("button", { name: "Enter workspace" }).click();
+  await expect(page).toHaveURL("/");
   await page.goto("/agent");
   const review = page.getByRole("region", { name: "Submission review" });
   await expect(review.getByText(`Selected application: ${id}`)).toBeVisible();
