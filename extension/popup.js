@@ -105,6 +105,16 @@ async function prepare(useSavedApplication = false) {
       : "No supported answers are ready. Review missing facts in Profile; no fields were changed.";
     document.querySelector("#fill-form").disabled = !ready;
   } catch (error) {
+    if (
+      Array.isArray(error?.unsupported_controls) &&
+      error.unsupported_controls.length
+    ) {
+      document.querySelector("#form-plan").textContent = formPlanText({
+        inspection: { fields: [] },
+        actions: [],
+        unsupported_controls: error.unsupported_controls,
+      });
+    }
     document.querySelector("#answer-status").textContent =
       formErrorMessage(error);
   } finally {
@@ -129,11 +139,24 @@ document
     document.querySelector("#fill-form").disabled = true;
     try {
       const result = await fillForm();
+      if (result.state === "manual_required" || result.state === "failed") {
+        document.querySelector("#form-plan").textContent = "";
+        document.querySelector("#answer-status").textContent = formErrorMessage(
+          Error(
+            result.reason === "step_changed" ? "step_changed" : "dom_changed",
+          ),
+        );
+        return;
+      }
       const filled = result.results.filter(
         (item) => item.status === "filled",
       ).length;
-      document.querySelector("#answer-status").textContent =
-        `${filled} field${filled === 1 ? "" : "s"} filled. Review the page and any remaining questions. Existing answers were preserved. No application submitted.`;
+      const validationErrors = result.results.filter(
+        (item) => item.status === "validation_error",
+      ).length;
+      document.querySelector("#answer-status").textContent = validationErrors
+        ? `${filled} field${filled === 1 ? "" : "s"} filled (${validationErrors} validation error${validationErrors === 1 ? "" : "s"} — review highlighted fields on the page). Existing answers were preserved. No application submitted.`
+        : `${filled} field${filled === 1 ? "" : "s"} filled. Review the page and any remaining questions. Existing answers were preserved. No application submitted.`;
     } catch (error) {
       document.querySelector("#answer-status").textContent =
         formErrorMessage(error);

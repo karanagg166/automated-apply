@@ -3,6 +3,25 @@ import { supportedUrl } from "./preview.js";
 const host = "com.automated_apply.agent";
 const ERROR_CODE_PATTERN = /^[a-z][a-z0-9_]{1,63}$/;
 let current;
+function sanitizeInspection(raw) {
+  if (!raw || typeof raw !== "object") return raw;
+  const { unsupported_controls, manual_reason, ...inspection } = raw;
+  return inspection;
+}
+function throwInspectionStateError(observationResult) {
+  const err = Error(
+    observationResult?.state === "login_required"
+      ? "login_required"
+      : "unsupported_application_form",
+  );
+  if (observationResult?.manual_reason) {
+    err.manual_reason = observationResult.manual_reason;
+  }
+  if (Array.isArray(observationResult?.unsupported_controls)) {
+    err.unsupported_controls = observationResult.unsupported_controls;
+  }
+  throw err;
+}
 async function native(command, extra) {
   const request = {
     version: 1,
@@ -56,10 +75,23 @@ export async function inspectForm(applicationId) {
   });
   const after = await active();
   if (after.id !== tab.id || after.url !== tab.url) throw Error("page_changed");
+  if (
+    observation?.result?.state &&
+    !["ready", "validation_errors"].includes(observation.result.state)
+  ) {
+    throwInspectionStateError(observation.result);
+  }
   const data = await native("inspect_form", {
     application_id: applicationId,
-    inspection: observation.result,
+    inspection: sanitizeInspection(observation.result),
   });
+  if (
+    Array.isArray(observation.result?.unsupported_controls) &&
+    observation.result.unsupported_controls.length &&
+    data.plan
+  ) {
+    data.plan.unsupported_controls = observation.result.unsupported_controls;
+  }
   current = { tabId: tab.id, url: tab.url, plan: data.plan };
   return data.plan;
 }
@@ -84,15 +116,12 @@ export async function prepareAnswers(tab) {
     observation?.result?.url !== tab.url
   )
     throw Error("page_changed");
-  if (!["ready", "validation_errors"].includes(observation.result.state))
-    throw Error(
-      observation.result.state === "login_required"
-        ? "login_required"
-        : "unsupported_application_form",
-    );
+  if (!["ready", "validation_errors"].includes(observation.result.state)) {
+    throwInspectionStateError(observation.result);
+  }
   const data = await native("prepare_form_answers", {
     title: String(tab.title || "").slice(0, 250),
-    inspection: observation.result,
+    inspection: sanitizeInspection(observation.result),
   });
   if (
     !data.plan?.inspection ||
@@ -100,6 +129,12 @@ export async function prepareAnswers(tab) {
     data.plan.target_url !== tab.url
   )
     throw Error("form_request_rejected");
+  if (
+    Array.isArray(observation.result?.unsupported_controls) &&
+    observation.result.unsupported_controls.length
+  ) {
+    data.plan.unsupported_controls = observation.result.unsupported_controls;
+  }
   current = { tabId: tab.id, url: tab.url, plan: data.plan };
   return data.plan;
 }
@@ -110,6 +145,12 @@ export async function fillForm() {
   const tab = await active();
   if (tab.id !== snapshot.tabId || tab.url !== snapshot.url)
     throw Error("page_changed");
+  if (
+    snapshot.plan?.expires_at &&
+    Number.isFinite(Date.parse(snapshot.plan.expires_at)) &&
+    Date.parse(snapshot.plan.expires_at) <= Date.now()
+  )
+    throw Error("fill_plan_stale");
   const fieldIds = snapshot.plan.actions
     .filter((a) => !a.needs_input && a.kind !== "file")
     .map((a) => a.field_id);
