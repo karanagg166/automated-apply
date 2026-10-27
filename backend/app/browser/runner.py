@@ -18,6 +18,7 @@ from fastapi import HTTPException
 from backend.app.browser.asset_policy import RESTRICTED_HOSTS, policy
 from backend.app.browser.assets import AssetUnavailable, PublicAssets
 from backend.app.browser.contracts import DetectedField, StepControl
+from backend.app.browser.field_policy import manual_only
 from backend.app.services.applications.resume_selector import digest
 
 DETECT = Path(__file__).with_name("dom.js").read_text()
@@ -349,6 +350,9 @@ class BrowserSession:
         self.fields = []
         for field in result["fields"]:
             parsed = DetectedField.model_validate(field).model_dump()
+            if manual_only(parsed["question"], *parsed["options"]):
+                parsed["supported"] = False
+                parsed["manual_reason"] = "Sensitive information or legal attestation requires manual entry"
             if parsed["options_binding"] is None:
                 del parsed["options_binding"]
             if (

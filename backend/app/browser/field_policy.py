@@ -5,9 +5,9 @@ import re
 SENSITIVE = re.compile(
     r"password|passcode|passphrase|one.?time|\botp\b|\bmfa\b|\b2fa\b|two.?factor|"
     r"verification.?code|security.?code|credit.?card|debit.?card|card.?number|\bcvv\b|\bcvc\b|"
-    r"bank.?account|routing.?number|\biban\b|\bifsc\b|\bupi\b|payment|session|token|secret|"
+    r"card.?expir|name\s+on\s+(?:the\s+)?card|bank.?account|routing.?number|\biban\b|\bifsc\b|\bupi\b|payment|session|token|secret|"
     r"api.?key|private.?key|social.?security|\bssn\b|\baadhaar\b|\baadhar\b|"
-    r"\bpan\s*(?:card|number|no)\b|tax.?id|national.?id|government.?id|passport|"
+    r"\bpan\s*(?:card|number|no)\b|tax.?id|national.?id|government.{0,15}\bid\b|passport|"
     r"driv(?:er|ing).?licen[sc]e|\bpin\b(?![\s-]*code)|security.?question|"
     r"\b(?:gender|race|ethnic\w*|religion|disabil\w*|veteran|military|sexual\w*|pronouns?|"
     r"marital|self.?identif\w*)\b|date.?of.?birth|birth.?date|\bdob\b",

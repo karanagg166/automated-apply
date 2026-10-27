@@ -53,3 +53,20 @@ async def test_browser_destination_change_requires_new_review(browser_api):
     assert response.status_code == 409
     assert await runtime.page.locator("[name=name]").input_value() == ""
     assert not writes
+
+
+@pytest.mark.asyncio
+async def test_payment_autocomplete_cannot_masquerade_as_profile_name(browser_api):
+    client, base, writes, _ = browser_api
+    state = await fixture.create(client, base)
+    runtime = browser.sessions[state["packet"]["id"]]
+    await runtime.page.locator("[name=name]").evaluate("e=>e.autocomplete='cc-name'")
+    state = (await fixture.action(client, state, "analyze")).json()
+    name = next(f for f in state["analysis"]["fields"] if f["question"] == "Full name")
+    assert not name["supported"] and "manual" in name["manual_reason"]
+    response = await fixture.action(
+        client, state, "fill", confirm_reviewed_values=True, confirm_page_context=True
+    )
+    assert response.status_code == 200
+    assert await runtime.page.locator("[name=name]").input_value() == ""
+    assert not writes

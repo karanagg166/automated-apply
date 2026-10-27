@@ -13,6 +13,9 @@ browser_target = fixture.browser_target
     "label",
     [
         "Government ID number",
+        "Government-issued ID",
+        "Card expiry",
+        "Name on card",
         "Gender",
         "Ethnicity",
         "Religion",

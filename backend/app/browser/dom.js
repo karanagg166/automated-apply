@@ -100,7 +100,7 @@ async (catalog = []) => {
     else if (!['text','email','tel','url','number','date','textarea','select','file','radio_group','combobox','multi_select','checkbox_group'].includes(kind)) manual ||= 'Consent, custom control or unsupported type: complete manually';
     else if (kind === 'file' && (!/resume|curriculum|cv\b/i.test(question) || el.multiple || (el.accept && !/\.pdf|application\/pdf/i.test(el.accept)))) manual = 'Only a single approved resume PDF is supported';
     if (['select','radio_group','combobox','multi_select','checkbox_group'].includes(kind) && consent([question, ...options].join(' '))) manual = 'Consent or attestation requires direct owner action';
-    if (sensitive([question, el.name || '', el.id, el.autocomplete || '', ...options].join(' ')) || consent(question)) manual = 'Sensitive information or legal attestation requires manual entry';
+    if (sensitive([question, el.name || '', el.id, el.autocomplete || '', ...options].join(' ')) || /^(cc-|transaction-|one-time-code|current-password|new-password)/i.test(el.autocomplete || '') || consent(question)) manual = 'Sensitive information or legal attestation requires manual entry';
     if (!['radio_group','checkbox_group'].includes(kind) && controls.filter(other => other !== el && other.name && other.name === el.name).length) manual = 'Repeated control name: confirm manually';
     if (seen.has(question)) manual = 'Repeated label: confirm manually';
     seen.add(question);
