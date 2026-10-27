@@ -29,6 +29,11 @@ from backend.app.schemas.candidate_resources import (
     ResourceRead,
     ResourceWrite,
 )
+from backend.app.schemas.missing_input import (
+    MissingInputHistory,
+    MissingInputList,
+    MissingInputRead,
+)
 from backend.app.services.application_answer_service import ApplicationAnswerService
 from backend.app.services.profile_link_resolver import ALIASES, ProfileLinkResolver
 
@@ -256,7 +261,7 @@ from backend.app.knowledge.missing_input import (
 )
 
 
-@router.get("/application-answers/missing")
+@router.get("/application-answers/missing", response_model=MissingInputList)
 async def list_missing_inputs(
     offset: int = Query(0, ge=0, le=100000), limit: int = Query(25, ge=1, le=100),
     session: AsyncSession = Depends(get_db_session),
@@ -264,7 +269,7 @@ async def list_missing_inputs(
     return {"requests": await MissingInputService(session).list(offset, limit), "offset": offset, "limit": limit}
 
 
-@router.post("/application-answers/missing", status_code=201)
+@router.post("/application-answers/missing", status_code=201, response_model=MissingInputRead)
 async def create_missing_input(data: MissingInputCreate, session: AsyncSession = Depends(get_db_session)):
     from backend.app.knowledge.missing_input import permitted
     from backend.app.services.application_question_classifier import (
@@ -275,26 +280,30 @@ async def create_missing_input(data: MissingInputCreate, session: AsyncSession =
     result = AnswerGenerationResult(question_type=ApplicationQuestionClassifier().classify(data.question).question_type,
                                     missing_information=[data.missing_fact])
     request_id = await service.ensure(data, result, packet_id=data.packet_id, reason=data.reason, input_type=data.required_input_type)
+    if request_id is None:
+        from backend.app.repositories.candidate_profile import ProfileConflictError
+
+        raise ProfileConflictError("missing_input_storage_schema_required")
     await session.commit()
     return await service.read(request_id)
 
 
-@router.get("/application-answers/missing/{request_id}")
+@router.get("/application-answers/missing/{request_id}", response_model=MissingInputRead)
 async def get_missing_input(request_id: str, session: AsyncSession = Depends(get_db_session)):
     return await MissingInputService(session).read(request_id)
 
 
-@router.patch("/application-answers/missing/{request_id}")
+@router.patch("/application-answers/missing/{request_id}", response_model=MissingInputRead)
 async def edit_missing_input(request_id: str, data: MissingInputEdit, session: AsyncSession = Depends(get_db_session)):
     return await MissingInputService(session).edit(request_id, data)
 
 
-@router.post("/application-answers/missing/{request_id}/approve", dependencies=[Depends(require_owner_approval)])
+@router.post("/application-answers/missing/{request_id}/approve", response_model=MissingInputRead, dependencies=[Depends(require_owner_approval)])
 async def approve_missing_input(request_id: str, data: MissingInputApprove, session: AsyncSession = Depends(get_db_session)):
     return await MissingInputService(session).approve(request_id, data)
 
 
-@router.get("/application-answers/missing/{request_id}/history")
+@router.get("/application-answers/missing/{request_id}/history", response_model=MissingInputHistory)
 async def missing_input_history(request_id: str, offset: int = Query(0, ge=0, le=100000),
                                 limit: int = Query(25, ge=1, le=100), session: AsyncSession = Depends(get_db_session)):
     return {"history": await MissingInputService(session).history(request_id, offset, limit)}

@@ -96,6 +96,12 @@ async def dashboard_runtime():
 @router.get("/connections")
 async def connection_readiness():
     settings = get_settings()
+    from backend.app.services.job_sources.registry import source_registry
+
+    apify_reviewed = any(
+        source.adapter_type == "apify" and source.enabled and source.availability == "available"
+        for source in source_registry(settings).values()
+    )
     return {
         "providers": [
             dict(
@@ -121,7 +127,7 @@ async def connection_readiness():
             dict(
                 provider="apify",
                 configured=bool(settings.APIFY_API_TOKEN),
-                authorized=bool(settings.APIFY_SOURCES),
+                authorized=apify_reviewed,
                 live_verified=False,
                 capability="operator_reviewed_actor_only",
                 budget=settings.APIFY_MONTHLY_LIMIT_USD,
