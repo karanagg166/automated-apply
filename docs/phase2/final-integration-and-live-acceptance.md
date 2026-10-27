@@ -4,9 +4,9 @@ Engineering disposition: **PASS**. Live acceptance: **PARTIAL**. Genuine discove
 
 ## Candidate and histories
 
-Integration branch: `integration/phase2-final-20261027`, in the linked worktree `/private/tmp/automated-apply-phase2-final-integration-20261027`, sharing the original repository. Source selected for final full-backend validation: `946bd8606f8329a0dcac72012af93be9b221bc58`. Final publication also includes this report and a frontend security-fixture clarification; runtime sources remain identical to the validated candidate; the PR and delivery response identify the publication SHA. No application code may differ from the validated source without affected revalidation.
+Integration branch: `integration/phase2-final-20261027`, in the linked worktree `/private/tmp/automated-apply-phase2-final-integration-20261027`, sharing the original repository. Source selected for final full-backend validation: `946bd8606f8329a0dcac72012af93be9b221bc58`. The final backend and extension runtime sources remain identical to that validated candidate. Later AGY frontend refinements receive separate complete frontend revalidation; the PR and delivery response identify the publication SHA. No application code may differ from the validated source without affected revalidation.
 
-Both histories were merged locally, without conflicts or rebasing either agent:
+The originally specified histories were merged locally without conflicts or rebasing either agent:
 
 | Dependency | Included ancestor |
 | --- | --- |
@@ -14,9 +14,10 @@ Both histories were merged locally, without conflicts or rebasing either agent:
 | PR #35 | `02bfb83a89f5e13f72a533aed87410b7e0a47d21` |
 | PR #36 | `0c274a372e50f94743cf6334a09588253e5bb473` |
 | Final Codex engine | `3411df2af354e8d9123f5e6d6c6c5d4401ddae77` |
-| Final AGY UI | `08f795994ef4bec662395d42b9115c3bbfb8a3df` |
+| Initially specified final AGY UI | `08f795994ef4bec662395d42b9115c3bbfb8a3df` |
+| Additional AGY refinements found during final preservation audit | `32592dbd6578debe78949800eb5c88167146a7ab` |
 
-Merge commits are `1362258` and `f606666`. PRs #35/#36 remained open, mergeable and without inline review threads when checked. The final integration PR contains their histories and is the single proposed merge vehicle. Do not also merge #35/#36 separately; after an owner-approved integration merge, close them as superseded. Neither PR was merged, closed or retargeted by this work.
+Initial merge commits are `1362258` and `f606666`. The final preservation audit discovered AGY's additional `410dc4d` and `32592db` commits; merge `6502ee3` preserves that history too. Three frontend conflicts were resolved by retaining the combined actual-options editor and save/review guards, adopting AGY's precise counters, experience templates, recovery guidance and added regression, and retaining accurate canonical-PDF/preservation wording. Only frontend/documentation files changed in this follow-up; the passing full backend result remains applicable. PRs #35/#36 remained open, mergeable and without inline review threads when checked. The final integration PR contains their histories and is the single proposed merge vehicle. Do not also merge #35/#36 separately; after an owner-approved integration merge, close them as superseded. Neither PR was merged, closed or retargeted by this work.
 
 The original checkout and both agent worktrees were preserved. Agents had exclusive file ownership. Final heavy checks used `/tmp/automated-apply-heavy-tests.lock` sequentially; the extension's existing native harness acquired that same lock internally. The frontend agent completed the choice-editor correction and initial verification; the primary agent completed the remaining UI and acceptance work in the integration worktree.
 
@@ -36,9 +37,9 @@ All local test jobs, profiles, packets, PDFs, provider bodies and employer pages
 | --- | --- |
 | Full backend, including PostgreSQL integration/security/packet/grounding/recovery | **2,475 passed, zero failures/errors/skips; 1,298.17 s**, `946bd86`; supervisor exit 0; two existing pypdf fixture deprecations |
 | Targeted PostgreSQL/archive/browser corrections | 24 passed, zero failures; 73.06 s, corrected source subsequently committed as `e54290f` |
-| Frontend unit | 118 passed / 17 files, zero failures; 15.88 s, `8811e3e` |
-| Dashboard E2E through actual FastAPI/BFF | 12 passed, zero failures; 42.3 s, `194db9e` |
-| PostgreSQL/FastAPI/browser combined E2E | 12 passed, zero failures; 2.2 min, `194db9e` |
+| Frontend unit | **119 passed / 17 files, zero failures; 12.84 s**, `1a4bfe4`; earlier 118-test receipts retained |
+| Dashboard E2E through actual FastAPI/BFF | 12 passed, zero failures; 47.8 s, `1a4bfe4` |
+| PostgreSQL/FastAPI/browser combined E2E | 12 passed, zero failures; 1.8 min (106.14 s outer wall), `1a4bfe4` |
 | Extension unit/native-protocol tests | 44 passed, zero failures/cancellations/skips |
 | Extension popup and unanswered-field Chromium checks | Both scripts passed after assertion corrections |
 | Extension DOM race/upload/self-identification matrix | 16 passed; zero external requests/submissions, `946bd86` |
@@ -49,13 +50,14 @@ All local test jobs, profiles, packets, PDFs, provider bodies and employer pages
 | Native detect-secrets hook, unchanged baseline/policy, tracked private-artifact guard | Passed with unchanged baseline and detector policy |
 | Hosted Actions | Not run; all workflow files remain identical to main's manual-only policy |
 
-The frontend implementation validated by unit/type/build checks was committed as `420d21e`; subsequent `194db9e` changes are browser-test assertions and additional actual-API coverage. The final engine source hashes and per-invocation SHAs are retained privately. The security-fixture clarification is committed as `8811e3e` and passed the final unit/type/format checks; it changes no runtime source. Counts in overlapping focused invocations are not added to the full-suite total.
+The first combined frontend implementation was committed as `420d21e`; `194db9e` added browser-test assertions and actual-API coverage. The later AGY merge and precise word-limit assertion are committed through `1a4bfe4` and passed complete frontend unit/type/format/build checks and both complete E2E reruns. The final engine source hashes and per-invocation SHAs are retained privately. The security-fixture clarification is committed as `8811e3e` and passed the final unit/type/format checks; it changes no runtime source. Counts in overlapping focused invocations are not added to the full-suite total.
 
 Failures and incomplete runs are retained:
 
 - First provisional full attempt: 369 passed, seven failed before an intentional diagnostic interrupt. Five failures were the operator fixture URL omitting a password, correctly rejected by the database safety guard; the other two were test wording/startup synchronization. Correcting the fixture exposed the genuine archive-width defect above.
 - Initial corrected selection: four passed, three PostgreSQL/browser failures due to archive-width overflow. The archive fix and new regression then passed all 24 selected checks.
 - Completed full run at `e54290f`: 2,453 passed, 16 failed, zero errors/skips; 935.80 s. All 16 were the obsolete multi-selection expectations. The corrected affected run passed 30 cases before its 480-second supervisor limit interrupted the final missing-schema case; it is not counted as a passing suite. An earlier 240-second focused attempt was also incomplete.
+- After integrating AGY's more precise counter wording, one combined regression still expected the character-limit message for a word-limit violation: 118 passed, one failed. The assertion was corrected to require the word-limit diagnostic; production guards were unchanged.
 - Dashboard before assertion alignment: five passed, two failed, five did not run. Final rerun passed all 12.
 - The new word-limit test initially used a locator that omitted the required-field marker: 117 passed, one failed; the corrected test passed in the 118-test run.
 - A publication scan flagged a fictional URL-userinfo test string. The same rejection case now constructs its fixture URL explicitly and documents the noncredential test value locally; no secret baseline or detector policy changed. A final read-back harness also initially used a different JSON digest encoding; matching the baseline encoding verified unchanged stored state, without any data write.
@@ -64,6 +66,8 @@ Failures and incomplete runs are retained:
 Detailed receipts, private journals and source hashes remain outside Git in `/tmp/automated-apply-phase2-integrated-acceptance-20261027`; earlier frontend reproduction receipts also remain in `/tmp/automated-apply-phase2-final-evidence/frontend`.
 
 Fictional combined UI screenshot: [packet and choice review](../screenshots/phase2-final/fictional-packet-choice-review.png). It contains no real candidate or employer application data.
+
+The detailed [Phase 2.2 backend readiness review](codex-p22-readiness-review.md) records the independent adapter examination, PR scope/ancestry and focused PostgreSQL security/recovery checks. Its former pending-approval section is historical; the authorization and genuine execution below supersede those prerequisites. Fixed official hosts, board allowlisting, redirect denial, owner authentication, free-provider boundaries, normalized identities, atomic audit/ingestion commit, lost-acknowledgement reconciliation and application-state preservation remain covered by the final full backend suite. No new provider security defect was found during final integration.
 
 ## Genuine ATS and Supabase acceptance
 
