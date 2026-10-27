@@ -381,4 +381,247 @@ describe("Jobs feature", () => {
     expect(screen.getByText(/EUR Up to 95,000 \/ year/)).toBeInTheDocument();
     expect(screen.queryByText("Salary: Not disclosed")).not.toBeInTheDocument();
   });
+
+  it("loads source options dynamically from discovery/sources including new providers", async () => {
+    const dynamicSources = [
+      { id: "arbeitnow", display_name: "Arbeitnow" },
+      { id: "greenhouse", display_name: "Greenhouse" },
+      { id: "lever", display_name: "Lever ATS" },
+      { id: "ashby", display_name: "Ashby HQ" },
+    ];
+    vi.mocked(api).mockImplementation(async (path) => {
+      if (path.startsWith("jobs/search")) {
+        return { total: mockJobs.length, jobs: structuredClone(mockJobs) };
+      }
+      if (path === "discovery/sources") {
+        return { sources: dynamicSources };
+      }
+      throw new Error(`Unhandled api path: ${path}`);
+    });
+
+    const user = userEvent.setup();
+    mount();
+
+    const select = await screen.findByRole("combobox", {
+      name: "Source platform",
+    });
+
+    await waitFor(() => {
+      expect(
+        within(select).getByRole("option", { name: "Lever ATS" }),
+      ).toHaveValue("lever");
+      expect(
+        within(select).getByRole("option", { name: "Ashby HQ" }),
+      ).toHaveValue("ashby");
+    });
+
+    await user.selectOptions(select, "lever");
+
+    await waitFor(() => {
+      expect(api).toHaveBeenCalledWith(
+        expect.stringContaining("platform=lever"),
+      );
+    });
+  });
+
+  it("distinguishes saved-job search filter from live discovery availability and does not claim live verification", async () => {
+    vi.mocked(api).mockImplementation(async (path) => {
+      if (path.startsWith("jobs/search")) {
+        return { total: mockJobs.length, jobs: structuredClone(mockJobs) };
+      }
+      if (path === "discovery/sources") {
+        return {
+          sources: [
+            {
+              id: "greenhouse",
+              display_name: "Greenhouse",
+              live_verified: false,
+            },
+            { id: "ashby", display_name: "Ashby", live_verified: true },
+          ],
+        };
+      }
+      throw new Error(`Unhandled api path: ${path}`);
+    });
+
+    mount();
+
+    const select = await screen.findByRole("combobox", {
+      name: "Source platform",
+    });
+
+    await waitFor(() => {
+      expect(
+        within(select).getByRole("option", { name: "Greenhouse" }),
+      ).toBeInTheDocument();
+      expect(
+        within(select).getByRole("option", { name: "Ashby" }),
+      ).toBeInTheDocument();
+    });
+
+    // Neither option should display misleading "live verified" or "(Free API)" labels in saved job filter
+    expect(
+      within(select).queryByText(/live verified/i),
+    ).not.toBeInTheDocument();
+    expect(within(select).queryByText(/Free API/i)).not.toBeInTheDocument();
+
+    // Check disclaimer presence explaining origin filtering vs live verification
+    expect(
+      screen.getByText(
+        /Source filter searches saved opportunities by origin; catalog presence does not imply live verification/i,
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("handles failed source metadata request gracefully without breaking the Jobs page", async () => {
+    vi.mocked(api).mockImplementation(async (path) => {
+      if (path.startsWith("jobs/search")) {
+        return { total: mockJobs.length, jobs: structuredClone(mockJobs) };
+      }
+      if (path === "discovery/sources") {
+        throw new Error("503 Service Unavailable");
+      }
+      throw new Error(`Unhandled api path: ${path}`);
+    });
+
+    mount();
+
+    // Page renders jobs normally despite metadata failure
+    expect(
+      await screen.findByText("Senior Backend Engineer"),
+    ).toBeInTheDocument();
+
+    // Fallback source options remain usable
+    const select = screen.getByRole("combobox", { name: "Source platform" });
+    expect(
+      within(select).getByRole("option", { name: "Arbeitnow" }),
+    ).toBeInTheDocument();
+    expect(
+      within(select).getByRole("option", { name: "Greenhouse" }),
+    ).toBeInTheDocument();
+  });
+
+  it("handles empty or missing source metadata by falling back to known providers", async () => {
+    vi.mocked(api).mockImplementation(async (path) => {
+      if (path.startsWith("jobs/search")) {
+        return { total: mockJobs.length, jobs: structuredClone(mockJobs) };
+      }
+      if (path === "discovery/sources") {
+        return { sources: [] };
+      }
+      throw new Error(`Unhandled api path: ${path}`);
+    });
+
+    mount();
+
+    expect(
+      await screen.findByText("Senior Backend Engineer"),
+    ).toBeInTheDocument();
+
+    const select = screen.getByRole("combobox", { name: "Source platform" });
+    expect(
+      within(select).getByRole("option", { name: "Arbeitnow" }),
+    ).toBeInTheDocument();
+  });
+
+  it("distinguishes zero results matching active filters from an empty repository, and supports filter reset", async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(api).mockImplementation(async (path) => {
+      if (path.startsWith("jobs/search")) {
+        return { total: 0, jobs: [] };
+      }
+      if (path === "discovery/sources") {
+        return { sources: [] };
+      }
+      throw new Error(`Unhandled api path: ${path}`);
+    });
+
+    mount();
+
+    // With default status filter (not_applied), it indicates no saved jobs match these filters
+    await waitFor(() => {
+      expect(
+        screen.getByText("Room for the right opportunity."),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/No saved jobs match these filters/i),
+      ).toBeInTheDocument();
+    });
+
+    // Both Reset filters and Discover jobs action are present
+    const resetButtons = screen.getAllByRole("button", {
+      name: /Reset.*filters/i,
+    });
+    expect(resetButtons.length).toBeGreaterThan(0);
+
+    const discoverLinks = screen.getAllByRole("link", {
+      name: /Discover jobs/i,
+    });
+    expect(discoverLinks.length).toBeGreaterThanOrEqual(2);
+    expect(discoverLinks[0]).toHaveAttribute("href", "/discover");
+
+    // Click Reset filters
+    await user.click(resetButtons[0]);
+
+    // Now query was triggered with application_status=all and hasActiveFilters is false
+    await waitFor(() => {
+      expect(screen.getByText("No saved jobs yet")).toBeInTheDocument();
+      expect(
+        screen.getByText(/No saved jobs found in your repository/i),
+      ).toBeInTheDocument();
+    });
+  });
+
+  it("preserves custom or uncataloged platform filter in select options", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api).mockImplementation(async (path) => {
+      if (path.startsWith("jobs/search")) {
+        return { total: mockJobs.length, jobs: structuredClone(mockJobs) };
+      }
+      if (path === "discovery/sources") {
+        return {
+          sources: [{ id: "greenhouse", display_name: "Greenhouse" }],
+        };
+      }
+      throw new Error(`Unhandled api path: ${path}`);
+    });
+
+    mount();
+
+    const select = await screen.findByRole("combobox", {
+      name: "Source platform",
+    });
+
+    await user.selectOptions(select, "greenhouse");
+
+    await waitFor(() => {
+      expect(api).toHaveBeenCalledWith(
+        expect.stringContaining("platform=greenhouse"),
+      );
+    });
+  });
+
+  it("provides accessible filter reset in filter panel when active filters exist", async () => {
+    const user = userEvent.setup();
+    mount();
+
+    expect(
+      await screen.findByText("Senior Backend Engineer"),
+    ).toBeInTheDocument();
+
+    const titleInput = screen.getByRole("textbox", { name: "Job title" });
+    await user.type(titleInput, "Staff");
+
+    const resetButton = screen.getByRole("button", {
+      name: "Reset search filters",
+    });
+    expect(resetButton).toBeInTheDocument();
+
+    await user.click(resetButton);
+
+    await waitFor(() => {
+      expect(titleInput).toHaveValue("");
+    });
+  });
 });

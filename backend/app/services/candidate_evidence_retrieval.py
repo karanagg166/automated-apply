@@ -24,7 +24,7 @@ def retrieve(profile, evidence, question, category):
                       "facts": data, "score": score})
 
     if category in {"project_explanation", "technical_experience"}:
-        challenging = bool(re.search(r"challeng|problem|solv", question, re.I))
+        challenging = bool(re.search(r"challeng|problem|solv|\bbugs?\b|\bdebug\w*\b|\bfailure\b", question, re.I))
         for i, project in enumerate(profile.projects):
             if named and normalize_name(project.get('name', '')) not in named:
                 continue

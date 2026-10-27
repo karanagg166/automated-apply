@@ -4,6 +4,7 @@ import asyncio
 import html
 import json
 import re
+from time import perf_counter
 
 import httpx
 
@@ -32,14 +33,35 @@ class DirectAdapter(JobSourceAdapter):
         self.next_cursor = None
         self.last_http_status = None
         self.retry_after_seconds = None
+        self.metrics = {}
 
     # Cap decoded bytes as well as the deadline; a public feed is untrusted input.
     MAX_RESPONSE_BYTES = 8 * 1024 * 1024
+    JSON_TYPES = (dict,)
+
+    async def retry_pause(self):
+        started = perf_counter()
+        try:
+            await asyncio.sleep(0.1)
+        finally:
+            self.metrics["retry_wait_seconds"] = (
+                self.metrics.get("retry_wait_seconds", 0) + perf_counter() - started
+            )
 
     async def request(self, client, url, params=None):
+        started = perf_counter()
+        try:
+            return await self._request(client, url, params)
+        finally:
+            self.metrics["request_seconds"] = (
+                self.metrics.get("request_seconds", 0) + perf_counter() - started
+            )
+
+    async def _request(self, client, url, params=None):
         attempts = 1 if self.source_name == "remotive" else 2
         for attempt in range(attempts):
             try:
+                self.metrics["http_attempts"] = self.metrics.get("http_attempts", 0) + 1
                 async with client.stream(
                     "GET", url, params=params, timeout=15, follow_redirects=False
                 ) as response:
@@ -48,7 +70,8 @@ class DirectAdapter(JobSourceAdapter):
                     if code == 429:
                         try:
                             self.retry_after_seconds = min(
-                                604800, max(0, int(response.headers.get("Retry-After", "0")))
+                                604800,
+                                max(0, int(response.headers.get("Retry-After", "0"))),
                             )
                         except ValueError:
                             self.retry_after_seconds = None
@@ -60,7 +83,7 @@ class DirectAdapter(JobSourceAdapter):
                             Status.AUTH_REQUIRED, "Provider authorization required"
                         )
                     if code >= 500 and attempt + 1 < attempts:
-                        await asyncio.sleep(0.1)
+                        await self.retry_pause()
                         continue
                     if code != 200:
                         raise DiscoveryError(
@@ -70,12 +93,24 @@ class DirectAdapter(JobSourceAdapter):
                     async for chunk in response.aiter_bytes():
                         if len(body) + len(chunk) > self.MAX_RESPONSE_BYTES:
                             raise DiscoveryError(
-                                Status.UPSTREAM_ERROR, "Provider response exceeds size limit"
+                                Status.UPSTREAM_ERROR,
+                                "Provider response exceeds size limit",
                             )
                         body.extend(chunk)
+                    self.metrics["decoded_bytes"] = self.metrics.get(
+                        "decoded_bytes", 0
+                    ) + len(body)
                     try:
-                        data = json.loads(body)
-                        if not isinstance(data, dict):
+                        started = perf_counter()
+                        try:
+                            data = json.loads(body)
+                        finally:
+                            self.metrics["json_seconds"] = (
+                                self.metrics.get("json_seconds", 0)
+                                + perf_counter()
+                                - started
+                            )
+                        if not isinstance(data, self.JSON_TYPES):
                             raise ValueError("Invalid top-level schema")
                         return data
                     except (ValueError, UnicodeError):
@@ -84,7 +119,7 @@ class DirectAdapter(JobSourceAdapter):
                         ) from None
             except httpx.TransportError:
                 if attempt + 1 < attempts:
-                    await asyncio.sleep(0.1)
+                    await self.retry_pause()
                     continue
                 raise DiscoveryError(
                     Status.UPSTREAM_ERROR, "Provider transport failed"
@@ -97,13 +132,19 @@ class DirectAdapter(JobSourceAdapter):
             )
         result = []
         self.record_errors = []
-        for index, record in enumerate(records[:limit]):
-            try:
-                result.append(parser(record))
-            except (ValueError, TypeError, KeyError, AttributeError, OverflowError):
-                self.record_errors.append(
-                    f"Record {index}: invalid or missing listing evidence"
-                )
+        started = perf_counter()
+        try:
+            for index, record in enumerate(records[:limit]):
+                try:
+                    result.append(parser(record))
+                except (ValueError, TypeError, KeyError, AttributeError, OverflowError):
+                    self.record_errors.append(
+                        f"Record {index}: invalid or missing listing evidence"
+                    )
+        finally:
+            self.metrics["normalization_seconds"] = (
+                self.metrics.get("normalization_seconds", 0) + perf_counter() - started
+            )
         return result
 
     async def discover(self, query: DiscoveryQuery, **kwargs):
@@ -111,7 +152,16 @@ class DirectAdapter(JobSourceAdapter):
         self.next_cursor = None
         self.last_http_status = None
         self.retry_after_seconds = None
+        self.metrics = {}
+        started = perf_counter()
         result = await super().discover(query, **kwargs)
+        result.usage = {
+            **result.usage,
+            "public_feed": {
+                **self.metrics,
+                "adapter_seconds": round(perf_counter() - started, 6),
+            },
+        }
         if self.record_errors and result.status in (Status.SUCCESS, Status.NO_RESULTS):
             result.errors = self.record_errors
             result.rejected_count = len(self.record_errors)
@@ -210,7 +260,9 @@ class GreenhouseAdapter(DirectAdapter):
                             "adapter": type(self).__name__,
                             "board_token": token,
                             "updated_at": item.get("updated_at"),
-                            "source_fields": {k: v for k, v in item.items() if k != "content"},
+                            "source_fields": {
+                                k: v for k, v in item.items() if k != "content"
+                            },
                         },
                     )
 
@@ -322,18 +374,20 @@ class ArbeitnowAdapter(DirectAdapter):
                         "page": page,
                         "attribution": "Arbeitnow",
                         "attribution_url": "https://www.arbeitnow.com",
-                        "source_fields": {k: v for k, v in item.items() if k != "description"},
+                        "source_fields": {
+                            k: v for k, v in item.items() if k != "description"
+                        },
                     },
                 )
 
             links = data.get("links") or {}
             if not isinstance(links, dict):
-                raise DiscoveryError(Status.UPSTREAM_ERROR, "Invalid pagination metadata")
+                raise DiscoveryError(
+                    Status.UPSTREAM_ERROR, "Invalid pagination metadata"
+                )
             # Ignore upstream links; only fixed host + integer page is requested.
             self.next_cursor = (
-                str(page + 1)
-                if links.get("next") and page < 100
-                else None
+                str(page + 1) if links.get("next") and page < 100 else None
             )
             return self.parse_records(data["data"], parse, limit)
         finally:

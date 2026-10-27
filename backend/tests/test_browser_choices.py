@@ -117,7 +117,7 @@ async def test_ambiguous_custom_controls_and_consent_stay_manual(browser_api):
         field = next(
             f for f in state["analysis"]["fields"] if f["question"] == question
         )
-        assert "Consent or attestation" in field["manual_reason"]
+        assert "manual" in field["manual_reason"].casefold()
     assert writes == []
 
 

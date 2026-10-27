@@ -136,7 +136,7 @@ test.describe.serial("Phase 2 Job Discovery Dashboard", () => {
     expect(run.counts.inserted).toBe(0);
     const result = page.getByLabel("Discovery execution result");
     await expect(result).toContainText(
-      "Discovery failed; no batch changes committed",
+      "Discovery failed during provider; no batch changes committed",
     );
     const inspection = page.waitForResponse(
       (response) =>

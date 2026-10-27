@@ -29,8 +29,19 @@ from backend.app.services.profile_link_resolver import ProfileLinkResolver
 
 
 class ApplicationAnswerService:
-    def __init__(self, session, settings=None, provider=None, usage_manager=None):
+    def __init__(
+        self,
+        session,
+        settings=None,
+        provider=None,
+        usage_manager=None,
+        *,
+        owns_read_transaction=False,
+    ):
         self.repo = CandidateKnowledgeRepository(session)
+        # Only dedicated API generation units may release their read transaction.
+        # Embedded callers retain ownership of staged writes and rollback semantics.
+        self.owns_read_transaction = owns_read_transaction
         self.settings = settings or get_settings()
         self.provider = provider
         from backend.app.ai.optional_usage import OptionalUsageManager
@@ -63,6 +74,26 @@ class ApplicationAnswerService:
         self.usage = usage_manager or usage_type(get_session_factory(), usage_settings)
 
     async def generate(self, request):
+        if (
+            request.rewrite
+            and self.owns_read_transaction
+            and (
+                self.repo.session.new
+                or self.repo.session.dirty
+                or self.repo.session.deleted
+                or self.repo.session.in_nested_transaction()
+            )
+        ):
+            return AnswerGenerationResult(
+                question_type="unknown",
+                status="validation_failed",
+                error_code="generation_requires_clean_transaction",
+            )
+        read_stamp = (
+            await self._generation_stamp(request)
+            if request.rewrite and self.owns_read_transaction
+            else None
+        )
         profile = await self.repo.profile()
         opportunity = []
         if request.job_id:
@@ -229,7 +260,9 @@ class ApplicationAnswerService:
             facts = retrieve(profile, evidence, request.question, category)
             from backend.app.candidate_context.runtime import approved_answer_evidence
 
-            project_facts = await approved_answer_evidence(self.repo.session, request.question, category)
+            project_facts = await approved_answer_evidence(
+                self.repo.session, request.question, category
+            )
             # Current project approvals supersede legacy prose for this answer;
             # duplicating both can exceed the bounded grounding input budget.
             facts = project_facts or facts
@@ -287,6 +320,7 @@ class ApplicationAnswerService:
                         opportunity
                         if category in {"motivation", "startup_interest"}
                         else [],
+                        read_stamp=read_stamp,
                     )
         if result.answer is not None and (
             len(result.answer) > max_chars
@@ -309,6 +343,32 @@ class ApplicationAnswerService:
             result.draft_id = draft.id
         return result
 
+    async def _generation_stamp(self, request):
+        """Private material fingerprint; never log candidate or opportunity data."""
+        from backend.app.candidate_context.runtime import approved_answer_evidence
+        from backend.app.knowledge.reuse import evidence_digest, job_digest
+        from backend.app.schemas.candidate_profile import CandidateProfileCreate
+        from backend.app.services.applications.resume_selector import digest
+
+        profile = await self.repo.profile()
+        category = (
+            ApplicationQuestionClassifier().classify(request.question).question_type
+        )
+        return digest(
+            {
+                "profile": CandidateProfileCreate.model_validate(profile).model_dump(
+                    mode="json"
+                ),
+                "profile_id": str(profile.id),
+                "profile_version": profile.version,
+                "evidence": await evidence_digest(self.repo.session, profile),
+                "projects": await approved_answer_evidence(
+                    self.repo.session, request.question, category
+                ),
+                "job": await job_digest(self.repo.session, request.job_id),
+            }
+        )
+
     def _missing(self, category):
         if category in {"project_explanation", "technical_experience"}:
             return "Describe a relevant project's purpose, your actual contribution, implementation details, and (if asked) its engineering challenge and solution; confirm this evidence"
@@ -317,7 +377,15 @@ class ApplicationAnswerService:
         return "Supply a reviewed professional summary or career evidence relevant to this question"
 
     async def _compose(
-        self, request, category, facts, max_chars, max_words, opportunity=()
+        self,
+        request,
+        category,
+        facts,
+        max_chars,
+        max_words,
+        opportunity=(),
+        *,
+        read_stamp=None,
     ):
         result = AnswerGenerationResult(
             question_type=category, writing_style=request.writing_style
@@ -390,6 +458,20 @@ class ApplicationAnswerService:
         try:
             from backend.app.ai.fallback import generate
 
+            if read_stamp is not None:
+                session = self.repo.session
+                if (
+                    session.new
+                    or session.dirty
+                    or session.deleted
+                    or session.in_nested_transaction()
+                ):
+                    raise ProviderError("generation_requires_clean_transaction")
+                # These API units have performed reads only. Detach materialized
+                # objects before rollback expires them, retaining no pooled lease
+                # while quota reservation/provider work runs independently.
+                session.expunge_all()
+                await session.rollback()
             result.used_llm = True
             if legacy_optional or self.settings.LLM_LOCAL_FALLBACK_ENABLED:
                 call = await generate(
@@ -419,6 +501,18 @@ class ApplicationAnswerService:
                     )
                 )
             result.usage = response.usage
+            if (
+                read_stamp is not None
+                and await self._generation_stamp(request) != read_stamp
+            ):
+                result.status, result.error_code = (
+                    "validation_failed",
+                    "generation_context_changed",
+                )
+                result.missing_information = [
+                    "Approved facts or job context changed during generation; reload and review before generating again"
+                ]
+                return result
         except ProviderError as exc:
             result.provider = getattr(exc, "provider", result.provider)
             result.model = getattr(exc, "model", result.model)

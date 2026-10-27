@@ -1,0 +1,36 @@
+# Phase 2 backend/extension contract — 2026-10-27
+
+Base: PR #35 `02bfb83a89f5e13f72a533aed87410b7e0a47d21`. Worktree: `automated-apply-codex-p22`. Branch: `feat/phase2-final-codex-engine`. This work does not merge #35/#36, publish, deploy or authorize live acceptance.
+
+## Existing contracts retained
+
+- Discovery uses `POST /api/v1/discovery/runs`, its existing request idempotency key and saved run reads. Lever/Ashby remain free fixed-host GET adapters with empty employer allowlists by default. Configuration does not authorize a live board check. Failed/interrupted runs are inspected before any new execution. Provider claims and job ingestion retain single-connection compatibility.
+- Packet creation uses `POST /api/v1/jobs/{job_id}/application-packets`. A matching key returns the original packet; conflicting key or candidate/job ownership is rejected. Revisions guard edits, question generation, review and tracking. Existing events retain transitions; the existing private owner store now retains exact superseded field/resume snapshots at packet_revision:{packet_id}:{revision}. Minimal historical schemas without that private table retain their old behavior and do not gain revision archives. Readiness is distinct from approval and suitability.
+- Answers default to deterministic facts/extraction and explicitly approved Q&A reuse. Narratives always require review. Missing facts and unsupported constraints abstain. Local provider generation requires configuration/authorization; cloud providers retain independent opt-in and budget gates. Gemini additionally requires GEMINI_CANDIDATE_DATA_AUTHORIZED=true, independently approved by the owner; its default is false. Evaluation Cohere is not production authorization. Website and job-description text cannot establish applicant facts or grant capabilities.
+- Manual extension operations remain `inspect_form`, `prepare_form_answers`, `authorize_form`, `record_form_fill`; native commands never expose submission. The popup review gesture grants one specific expiring plan. Native/DOM IDs bind it to the inspected document. Existing text, native selects, radio and checkbox groups are supported conservatively. Consent, sensitive controls, ambiguous/custom widgets and unsupported reactive controls remain manual.
+- Backend browser assistance uses the existing `/api/v1/browser-applications` APIs. Every fill requires page-context and value confirmation, uses a dedicated profile and existing network isolation. Approved encrypted private PDFs are the only automatic upload resource; arbitrary local paths/URLs are not upload contracts. The manual extension leaves uploads manual. Dynamic/multi-step pages require fresh analysis/review after structural changes. Cancellation and restart use existing operation fences and durable intent.
+- Autofill receipts contain identifiers/status only and `submitted=false`. A completed subset with missing required controls is `needs_input`. Existing owner answers are preserved. Input handlers that change destination, labels, controls or page identity stop subsequent writes.
+- Manual handoff does not mark a job applied. Owner-reported submission is `user_reported_submitted` / `applied_manually`, with explicit human confirmation. Provider-confirmed evidence is separate. Ambiguous dispatched attempts remain `submission_unknown`; no blind retry. Real employer execution adapters are unavailable; unattended submission remains disabled. Existing loopback mock submissions are fictional tests only.
+- Telegram authenticates the exact private owner/chat and bot, persists update offsets and outbox state, and never replays an ambiguous `sending` message. Mock delivery is not live delivery evidence. `/jobs` reports deployment/schedule state and the latest durable run without executing discovery, distinguishing empty history from failed/incomplete search. Natural-language saved-job campaigns report counts/unknown eligibility and exact packet references. Browser/manual handoff is still required.
+
+## Diagnostics
+
+Existing discovery `usage.diagnostics.phase_seconds` gains a separate `provider_pacing` phase when durable pacing is checked. Repeated phase segments accumulate. Public-feed metrics include bounded request, transport retry wait, JSON and normalization durations and HTTP attempts/decoded byte counts. These nested durations overlap; do not sum them as independent phases. Final audit timings are stored before commit. `discovery_commit_ack` logs only opaque run ID and monotonic seconds after successful commit; a transaction cannot persist its own acknowledgement duration. No profile, listing body, URL, credentials or provider response is logged by this instrumentation.
+
+No migration, production configuration file, extension permission, frontend file or public typed API field is changed. The new default-off Gemini consent setting is declared in backend source and .env.example only; no installed configuration is enabled or rewritten. AGY owns frontend implementation and generated frontend artifacts. Combined-final frontend acceptance must name the actual combined candidate and cannot be inferred from this branch's backend tests.
+
+## Live prerequisites still missing
+
+Exact owner-approved Lever/Ashby employer boards and permission for the bounded GET scope; approved online Supabase project/schema/restricted identity and explicit data-write scope; approved profile/version, eligibility criteria and canonical resume; exact permitted Chrome destination and explicit review/fill approval; separate Telegram real-send approval. No live checks are activated by this engineering task. A future approved check remains limited to one board/provider, three selected jobs/board, eight total HTTP attempts including retries/re-observation, and at most one suitable new draft packet. No real submission is authorized.
+
+## AGY compatibility review (read-only, local 08f7959)
+
+AGY's local final frontend branch was observed at `08f795994ef4bec662395d42b9115c3bbfb8a3df`; this is newer than published PR #36 `0c274a3`, and is not a verified combined candidate. Public typed OpenAPI remains unchanged by Codex's implementation. Source IDs/registry configuration keys and existing tracking payloads agree. Required frontend corrections, owned by AGY:
+
+- The dedicated backend browser supports approved encrypted canonical PDF uploads. The manual extension leaves uploads manual. Blanket statements that the browser assistant cannot upload are inaccurate.
+- Filling always preserves existing answers. There is no supported overwrite toggle; remove “unless explicitly reviewed for overwrite.”
+- `submission_unknown` must be reconciled through its existing attempt; the tracker rejects a new owner submission report while ambiguous dispatch remains unresolved.
+- Technical/API narratives map to packet category `experience`. Include that category when offering explicit generation, rather than limiting generation to project_explanation/motivation/free_text.
+- The backend enforces both word and character limits; frontend counters currently warn only about characters.
+
+These findings are not authorization for Codex to edit frontend files. No AGY test result or pause confirmation has been received, and no final frontend build, Playwright or combined acceptance is claimed.

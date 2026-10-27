@@ -18,6 +18,7 @@ from fastapi import HTTPException
 from backend.app.browser.asset_policy import RESTRICTED_HOSTS, policy
 from backend.app.browser.assets import AssetUnavailable, PublicAssets
 from backend.app.browser.contracts import DetectedField, StepControl
+from backend.app.browser.field_policy import manual_only
 from backend.app.services.applications.resume_selector import digest
 
 DETECT = Path(__file__).with_name("dom.js").read_text()
@@ -349,6 +350,9 @@ class BrowserSession:
         self.fields = []
         for field in result["fields"]:
             parsed = DetectedField.model_validate(field).model_dump()
+            if manual_only(parsed["question"], *parsed["options"]):
+                parsed["supported"] = False
+                parsed["manual_reason"] = "Sensitive information or legal attestation requires manual entry"
             if parsed["options_binding"] is None:
                 del parsed["options_binding"]
             if (
@@ -381,6 +385,22 @@ class BrowserSession:
         element = self.page.locator(f'[data-aa-field="{field["key"]}"]')
         if await element.count() != 1:
             raise HTTPException(409, "Form changed; analyze again")
+        occupied = await element.evaluate(r"""e => {
+          const placeholder = s => !String(s || '').trim() ||
+            /^[-–—_\s]*(?:select(?: an? option| one| value)?|choose(?: an? option| one| value)?|please select|none)[-–—_\s.]*$/i.test(String(s).trim());
+          if (e.type === 'file') return e.files.length > 0;
+          const peers = [...e.querySelectorAll('input[type=radio],input[type=checkbox],[role=radio],[role=checkbox]')];
+          if (peers.length) return peers.some(c => c.checked || c.indeterminate || c.getAttribute('aria-checked') === 'true');
+          if (e.tagName === 'SELECT') return [...e.selectedOptions].some(o =>
+            !o.disabled && (o.index > 0 || (!placeholder(o.textContent) && String(o.value).trim())));
+          if (e.matches('[role=combobox]') && e.tagName !== 'INPUT')
+            return !placeholder(e.getAttribute('aria-valuetext') || e.getAttribute('data-value'));
+          return Boolean(String(e.value || '').trim()) || e.validity?.badInput === true;
+        }""")
+        if occupied:
+            # Preserve owner input, browser autofill and files selected on the page.
+            # None means no write occurred; it is distinct from a validated fill.
+            return None
         if field["kind"] == "file":
             await element.set_input_files(upload)
         elif field["kind"] in {"multi_select", "checkbox_group"}:

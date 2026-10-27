@@ -30,7 +30,13 @@ async def claim_access(factory, source, *, clock=None):
     if source not in INTERVALS:
         raise ValueError("Only documented free public endpoints can be checked")
     async with factory() as session:
-        instant = clock() if clock else await session.scalar(select(func.clock_timestamp())) if session.bind.dialect.name == "postgresql" else now()
+        instant = (
+            clock()
+            if clock
+            else await session.scalar(select(func.clock_timestamp()))
+            if session.bind.dialect.name == "postgresql"
+            else now()
+        )
         await reserve_access(session, source, instant)
         await session.commit()
 
@@ -40,21 +46,34 @@ async def reserve_access(session, source, instant):
     if source not in INTERVALS:
         raise ValueError("Only documented free public endpoints can be checked")
     statement = insert_for(session)(ProviderAccessWindow).values(
-        provider=source, next_allowed_at=instant + timedelta(seconds=INTERVALS[source]),
+        provider=source,
+        next_allowed_at=instant + timedelta(seconds=INTERVALS[source]),
     )
-    claimed = (await session.execute(statement.on_conflict_do_update(
-        index_elements=[ProviderAccessWindow.provider],
-        set_={"next_allowed_at": instant + timedelta(seconds=INTERVALS[source])},
-        where=ProviderAccessWindow.next_allowed_at <= instant,
-    ).returning(ProviderAccessWindow.provider))).scalar_one_or_none()
+    claimed = (
+        await session.execute(
+            statement.on_conflict_do_update(
+                index_elements=[ProviderAccessWindow.provider],
+                set_={
+                    "next_allowed_at": instant + timedelta(seconds=INTERVALS[source])
+                },
+                where=ProviderAccessWindow.next_allowed_at <= instant,
+            ).returning(ProviderAccessWindow.provider)
+        )
+    ).scalar_one_or_none()
     if claimed is None:
-        raise DiscoveryError(DiscoveryStatus.RATE_LIMITED, "Source request interval has not elapsed")
+        raise DiscoveryError(
+            DiscoveryStatus.RATE_LIMITED, "Source request interval has not elapsed"
+        )
 
 
 def configuration_fingerprint(provider, settings):
     configuration = {"provider": provider, "adapter_version": 1}
     if provider == "greenhouse":
         configuration["boards"] = settings.GREENHOUSE_BOARDS
+    elif provider in {"lever", "ashby"}:
+        configuration["boards"] = getattr(settings, provider.upper() + "_BOARDS")
+        if provider == "lever":
+            configuration["region"] = settings.LEVER_REGION
     return hashlib.sha256(
         json.dumps(configuration, sort_keys=True).encode()
     ).hexdigest()
@@ -187,7 +206,14 @@ class ProviderConnectivity:
             else:
                 await claim_access(self.factory, provider)
                 attempted = True
-                adapter = adapter or JobSourceFactory.get_adapter(provider)
+                adapter = adapter or JobSourceFactory.get_adapter(
+                    provider,
+                    **(
+                        {"settings": self.settings}
+                        if provider in {"lever", "ashby"}
+                        else {}
+                    ),
+                )
                 async with asyncio.timeout(self.settings.DISCOVERY_TIMEOUT_SECONDS):
                     result = await adapter.discover(DiscoveryQuery(limit=1))
                 status = getattr(adapter, "last_http_status", None)

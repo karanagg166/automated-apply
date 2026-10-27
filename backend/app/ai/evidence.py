@@ -33,6 +33,7 @@ class Clause:
     text: str
     quote: str
     source: EvidenceReference
+    topics: tuple[str, ...] = ()
 
     @property
     def variants(self):
@@ -79,6 +80,8 @@ def prepare_evidence(question, context, instructions):
                            (r"\b(?:why|decision|decisions)\b", "decision")):
         if re.search(pattern, question, re.IGNORECASE):
             requirements.append(topic)
+    if "challenge" in requirements and re.search(r"\b(?:fix(?:ed)?|solv(?:e|ed)|resolv(?:e|ed)|solution)\b", question, re.I):
+        requirements.append("solution")
     candidates = []
     query = set(re.findall(r"[a-z0-9]+", question.casefold()))
     for fact in evidence:
@@ -101,7 +104,8 @@ def prepare_evidence(question, context, instructions):
                 # No synthesized ownership from a bare technology/skill list.
                 if len(quote) > 4000 or not re.search(r"\b(?:I|my)\b", quote, re.IGNORECASE):
                     continue
-                clause = Clause(quote, quote, reference)
+                topics = ("challenge",) if field == "engineering_challenges" else ("solution",) if field == "solutions" else ()
+                clause = Clause(quote, quote, reference, topics)
                 if clause.text not in {c.text for c in clauses}:
                     clauses.append(clause)
         if clauses:
@@ -112,12 +116,15 @@ def prepare_evidence(question, context, instructions):
             candidates.append((score, clauses))
     if not candidates:
         return PreparedEvidence(missing=("Provide approved first-person facts for the requested answer.",))
-    clauses = max(candidates, key=lambda row: row[0])[1]
     # Exact topics are intentionally conservative; a related project isn't a count.
     def covers(topic, clause):
         pattern = {"challenge": r"\b(?:challeng\w*|bugs?|failure)\b", "API": r"\bAPIs?\b",
+                   "solution": r"\b(?:fix(?:ed)?|solv(?:e|ed)|resolv(?:e|ed)|solution)\b",
                    "decision": r"\b(?:decision|tradeoff|trade-off)\b"}.get(topic, r"\b" + topic + r"\b")
-        return re.search(pattern, clause.text, re.IGNORECASE)
+        return topic in clause.topics or re.search(pattern, clause.text, re.IGNORECASE)
+
+    supported = [row for row in candidates if all(any(covers(topic, c) for c in row[1]) for topic in requirements)]
+    clauses = max(supported or candidates, key=lambda row: row[0])[1]
 
     missing = tuple(f"Provide approved {topic} information." for topic in requirements
                     if not any(covers(topic, c) for c in clauses))
@@ -139,7 +146,8 @@ def prepare_evidence(question, context, instructions):
             selected.append(clause)
         if count and len(selected) == count:
             break
-    if not selected or (count and len(selected) != count):
+    if (not selected or (count and len(selected) != count)
+            or any(not any(covers(topic, c) for c in selected) for topic in requirements)):
         return PreparedEvidence(error="output_constraints_unsatisfied")
     return PreparedEvidence(tuple(selected), sentence_count=count)
 

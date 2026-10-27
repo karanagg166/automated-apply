@@ -34,6 +34,8 @@ class GeminiProvider:
     async def generate_structured_answer(self, question, grounded_context, instructions):
         if not self.settings.GEMINI_ENABLED or self.settings.GEMINI_APPROVED_MONTHLY_REQUESTS<=0:
             raise ProviderError("provider_permission_required")
+        if not self.settings.GEMINI_CANDIDATE_DATA_AUTHORIZED:
+            raise ProviderError("candidate_cloud_authorization_required")
         if self.client is not None:
             return await self._call(self.client, question, grounded_context, instructions)
         # Disable hidden SDK retries: every network attempt is separately reserved by our quota layer.

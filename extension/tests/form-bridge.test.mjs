@@ -142,6 +142,41 @@ test("manual bridge rejects navigation between inspection and fill", async () =>
     0,
   );
 });
+
+test("authorization cannot switch the reviewed plan or destination", async () => {
+  setup();
+  await inspectForm(app);
+  planOverride = {
+    id: app,
+    target_url: "https://jobs.lever.co/different/job",
+    inspection: { document_id: app },
+    actions: [],
+    approved_fields: [],
+  };
+  await assert.rejects(fillForm(), /form_request_rejected/);
+  assert.equal(
+    calls.filter((c) => c.script?.args?.[0]?.operation === "fill").length,
+    0,
+  );
+});
+
+test("navigation after filling records manual handoff instead of a completed page", async () => {
+  setup();
+  await inspectForm(app);
+  const execute = chrome.scripting.executeScript;
+  chrome.scripting.executeScript = async (request) => {
+    const result = await execute(request);
+    if (request.args?.[0]?.operation === "fill")
+      tab = { ...tab, url: "https://example.com/elsewhere" };
+    return result;
+  };
+  const result = await fillForm();
+  assert.equal(result.state, "manual_required");
+  const receipt = calls.find((c) => c.native?.command === "record_form_fill")
+    .native.receipt;
+  assert.equal(receipt.state, "manual_required");
+  assert.equal(receipt.submitted, false);
+});
 test("manual bridge rejects bad IDs and restricted pages before native dispatch", async () => {
   setup();
   await assert.rejects(inspectForm("invented"), /application_id_required/);
@@ -242,10 +277,7 @@ test("form messages explain unsupported Zoho controls, consent, radio groups, an
     formErrorMessage(Error("dom_changed")),
     /form changed after answers were prepared/i,
   );
-  assert.match(
-    formErrorMessage(Error("step_changed")),
-    /form step changed/i,
-  );
+  assert.match(formErrorMessage(Error("step_changed")), /form step changed/i);
   assert.match(
     formErrorMessage(Error("fill_plan_stale")),
     /review authorization expired/i,

@@ -59,11 +59,11 @@ async def selected(runtime, kind):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("kind", ["select", "checkbox", "aria"])
-async def test_verified_multiple_proposals_require_review_and_replace_exact_set(
+async def test_verified_multiple_proposals_require_review_and_fill_empty_controls(
     multiple_api, monkeypatch, kind
 ):
     client, _, writes, _ = multiple_api
-    state = await create(multiple_api, monkeypatch, kind)
+    state = await create(multiple_api, monkeypatch, kind, preselected=False)
     field = next(
         f
         for f in state["analysis"]["fields"]
@@ -79,7 +79,7 @@ async def test_verified_multiple_proposals_require_review_and_replace_exact_set(
     )
     assert response.status_code == 200, response.text
     runtime = browser.sessions[state["packet"]["id"]]
-    assert await selected(runtime, kind) == ["Go"]
+    assert await selected(runtime, kind) == []
     state = await review(client, response.json(), field)
     response = await action(
         client, state, "fill", confirm_reviewed_values=True, confirm_page_context=True
@@ -89,6 +89,41 @@ async def test_verified_multiple_proposals_require_review_and_replace_exact_set(
     assert await selected(runtime, kind) == ["Python", "FastAPI"]
     assert not await runtime.page.locator("#consent").is_checked()
     assert response.json()["packet"]["tracking_state"] == "not_applied" and writes == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kind", ["select", "checkbox", "aria"])
+async def test_existing_multiple_selection_is_preserved_after_answer_review(
+    multiple_api, monkeypatch, kind
+):
+    client, _, writes, _ = multiple_api
+    state = await create(multiple_api, monkeypatch, kind)
+    field = next(
+        f
+        for f in state["analysis"]["fields"]
+        if f["kind"] in {"multi_select", "checkbox_group"}
+    )
+    item = next(f for f in state["packet"]["fields"] if f["id"] == field["field_id"])
+    assert json.loads(item["effective_answer"]) == ["Python", "FastAPI"]
+    runtime = browser.sessions[state["packet"]["id"]]
+    assert await selected(runtime, kind) == ["Go"]
+    state = await review(client, state, field)
+    response = await action(
+        client, state, "fill", confirm_reviewed_values=True, confirm_page_context=True
+    )
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert await selected(runtime, kind) == ["Go"]
+    assert field["field_id"] not in result["analysis"]["filled_field_ids"]
+    validation = next(
+        v
+        for v in result["analysis"]["validation"]
+        if v["field_id"] == field["field_id"]
+    )
+    assert not validation["complete"]
+    assert validation["reason"] == "Existing answer preserved; review it on the website"
+    assert not await runtime.page.locator("#consent").is_checked()
+    assert result["packet"]["tracking_state"] == "not_applied" and writes == []
 
 
 @pytest.mark.asyncio
@@ -139,7 +174,9 @@ async def test_multiple_handlers_stop_before_later_answers(
     multiple_api, monkeypatch, kind, mode
 ):
     client, _, writes, _ = multiple_api
-    state = await create(multiple_api, monkeypatch, kind, mode=mode)
+    state = await create(
+        multiple_api, monkeypatch, kind, mode=mode, preselected=False
+    )
     field = next(
         f
         for f in state["analysis"]["fields"]
@@ -163,11 +200,14 @@ async def test_multiple_handlers_stop_before_later_answers(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("kind", ["select", "checkbox", "aria"])
-async def test_optional_explicit_empty_set_clears_selections_after_review(
-    multiple_api, monkeypatch, kind
+@pytest.mark.parametrize("preselected", [False, True])
+async def test_optional_reviewed_empty_set_preserves_existing_selections(
+    multiple_api, monkeypatch, kind, preselected
 ):
     client, _, writes, _ = multiple_api
-    state = await create(multiple_api, monkeypatch, kind, required=False)
+    state = await create(
+        multiple_api, monkeypatch, kind, required=False, preselected=preselected
+    )
     field = next(
         f
         for f in state["analysis"]["fields"]
@@ -184,9 +224,26 @@ async def test_optional_explicit_empty_set_clears_selections_after_review(
         client, state, "fill", confirm_reviewed_values=True, confirm_page_context=True
     )
     assert response.status_code == 200, response.text
-    assert response.json()["analysis"]["diagnostic"] == "filled_review_on_website"
-    assert await selected(browser.sessions[state["packet"]["id"]], kind) == []
-    assert writes == []
+    result = response.json()
+    assert result["analysis"]["diagnostic"] == "filled_review_on_website"
+    assert await selected(browser.sessions[state["packet"]["id"]], kind) == (
+        ["Go"] if preselected else []
+    )
+    validation = next(
+        v
+        for v in result["analysis"]["validation"]
+        if v["field_id"] == field["field_id"]
+    )
+    if preselected:
+        assert field["field_id"] not in result["analysis"]["filled_field_ids"]
+        assert not validation["complete"]
+        assert validation["reason"] == (
+            "Existing answer preserved; review it on the website"
+        )
+    else:
+        assert field["field_id"] in result["analysis"]["filled_field_ids"]
+        assert validation["complete"] and validation["reason"] is None
+    assert result["packet"]["tracking_state"] == "not_applied" and writes == []
 
 
 @pytest.mark.asyncio
@@ -195,7 +252,9 @@ async def test_invalid_browser_state_is_reported_incomplete(
     multiple_api, monkeypatch, kind
 ):
     client, _, writes, _ = multiple_api
-    state = await create(multiple_api, monkeypatch, kind, mode="invalid")
+    state = await create(
+        multiple_api, monkeypatch, kind, mode="invalid", preselected=False
+    )
     field = next(
         f
         for f in state["analysis"]["fields"]
@@ -293,7 +352,9 @@ async def test_reviewed_next_binds_actual_multiple_values_and_requires_owner_sig
 
     steps.permission(monkeypatch)
     client, _, writes, _ = multiple_api
-    state = await create(multiple_api, monkeypatch, kind, mode="step", consent=False)
+    state = await create(
+        multiple_api, monkeypatch, kind, mode="step", consent=False, preselected=False
+    )
     field = next(
         f
         for f in state["analysis"]["fields"]

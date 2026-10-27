@@ -350,6 +350,25 @@ class Settings(BaseSettings):
 
     # Discovery is opt-in for every billable source. No actor is bundled as vetted.
     GREENHOUSE_BOARDS: dict[str, str] = Field(default_factory=dict)
+    # Explicit employer allowlists: board/site ID -> reviewed employer display name.
+    LEVER_BOARDS: dict[str, str] = Field(default_factory=dict, max_length=10)
+    LEVER_REGION: Literal["global", "eu"] = "global"
+    ASHBY_BOARDS: dict[str, str] = Field(default_factory=dict, max_length=10)
+
+    @field_validator("LEVER_BOARDS", "ASHBY_BOARDS")
+    @classmethod
+    def public_ats_boards(cls, value):
+        if any(
+            not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", board)
+            or not company.strip()
+            or len(company.strip()) > 255
+            for board, company in value.items()
+        ):
+            raise ValueError("Public ATS boards require a board ID and employer name")
+        if len({board.casefold() for board in value}) != len(value):
+            raise ValueError("Duplicate public ATS board IDs")
+        return {board: company.strip() for board, company in value.items()}
+
     APIFY_SOURCES: dict[str, dict] = Field(default_factory=dict)
     APIFY_PER_RUN_CAP_USD: float = Field(default=0, ge=0, le=100, allow_inf_nan=False)
     PEOPLE_SEARCH_ENABLED: bool = False
@@ -478,6 +497,10 @@ class Settings(BaseSettings):
             "SIGNALHIRE": self.SIGNALHIRE_MONTHLY_LIMIT,
         }
         return mapping.get(provider_clean, 0)
+
+
+    # A provider enablement/budget is not consent to transmit candidate facts.
+    GEMINI_CANDIDATE_DATA_AUTHORIZED: bool = False
 
 
 _operator_settings: Settings | None = None

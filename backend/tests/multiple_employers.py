@@ -1,7 +1,9 @@
 """Owned multiple-choice widgets; no real employer or remote account."""
 
 
-def application(kind="select", *, mode="normal", required=True, consent=True):
+def application(
+    kind="select", *, mode="normal", required=True, consent=True, preselected=True
+):
     title = "I agree to privacy terms" if mode == "consent" else "Technical skills"
     labels = ["Python", "FastAPI", "Go"]
     if mode == "duplicate":
@@ -15,18 +17,18 @@ def application(kind="select", *, mode="normal", required=True, consent=True):
     if kind == "select":
         widget = f"<label>{title}<select id=choices name=choices multiple {needed}>"
         for label, code in zip(labels, codes):
-            widget += f'<option value="{code}" {"selected" if label == "Go" else ""}>{label}</option>'
+            widget += f'<option value="{code}" {"selected" if preselected and label == "Go" else ""}>{label}</option>'
         widget += "</select></label>"
     elif kind == "checkbox":
         widget = f'<fieldset id=choices aria-required="{str(required).lower()}"><legend>{title}</legend>'
         for label, code in zip(labels, codes):
             individual = "required" if mode == "individual" else ""
-            widget += f'<label>{label}<input id="{code}" type=checkbox name=choices value="{code}" {"checked" if label == "Go" else ""} {individual}></label>'
+            widget += f'<label>{label}<input id="{code}" type=checkbox name=choices value="{code}" {"checked" if preselected and label == "Go" else ""} {individual}></label>'
         widget += "</fieldset>"
     else:
         widget = f'<div id=choices role=group aria-label="{title}" aria-required="{str(required).lower()}">'
         for label, code in zip(labels, codes):
-            checked = "true" if label == "Go" else "false"
+            checked = "true" if preselected and label == "Go" else "false"
             widget += f"<button id=\"{code}\" type=button role=checkbox data-value=\"{code}\" aria-label=\"{label}\" aria-checked=\"{checked}\" onclick=\"this.setAttribute('aria-checked',this.getAttribute('aria-checked')==='true'?'false':'true');this.dispatchEvent(new Event('change',{{bubbles:true}}))\">{label}</button>"
         widget += "</div>"
     html = (

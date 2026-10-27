@@ -36,7 +36,7 @@ class ApplicationPacketService:
         self.session = session
         self.repo = ApplicationPacketRepository(session)
         self.builder = PacketBuilder(
-            session, answer_service or ApplicationAnswerService(session)
+            session, answer_service or ApplicationAnswerService(session, owns_read_transaction=True)
         )
 
     def capabilities(self):
@@ -341,6 +341,9 @@ class ApplicationPacketService:
             resume=context.resume,
         )
         packet, _, _ = await self.locked(packet_id, request.expected_revision)
+        # An API rewrite releases its read transaction while calling the provider.
+        # Reload the field under the fresh packet revision/evidence check.
+        item = await self.repo.field(packet_id, field_id)
         previous = packet.lifecycle_state
         await self.repo.advance(packet, request.expected_revision)
         item.proposed_answer, item.human_answer = result.proposed_answer, None

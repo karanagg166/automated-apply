@@ -439,9 +439,18 @@ for await (const line of createInterface({ input: process.stdin })) {
           result.results.push({ field_id: action.field_id, status: "filled" });
         }
         await page.waitForTimeout(200);
+        const verified = await evaluateForm(current, {
+          operation: "verify_fill",
+          document_id: req.document_id,
+        });
         send({
           ...result,
-          state: current.violations ? "manual_required" : result.state,
+          state:
+            current.violations || verified.state === "manual_required"
+              ? "manual_required"
+              : result.results.some((r) => r.status !== "filled")
+                ? "needs_input"
+                : verified.state,
           violations: current.violations,
           submitted: false,
         });

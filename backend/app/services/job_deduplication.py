@@ -2,10 +2,12 @@
 
 import hashlib
 import re
-from sqlalchemy import select, or_, text
+
+from sqlalchemy import or_, select, text
+
 from backend.app.core.job_urls import canonical_job_url
-from backend.app.models.job import Job
 from backend.app.models.discovery import JobSourceObservation
+from backend.app.models.job import Job
 
 
 def digest(value):
@@ -89,6 +91,10 @@ class JobDeduplication:
                     return candidate, "legacy_canonical_url", []
             except ValueError:
                 continue
+        return await self.resolve_content(item, company_id)
+
+    async def resolve_content(self, item, company_id):
+        """Continue after source/URL checks under the same ingestion transaction lock."""
         identity = content_identity(item, company_id)
         if identity:
             job = await self.session.scalar(

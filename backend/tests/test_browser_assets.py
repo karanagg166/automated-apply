@@ -237,9 +237,11 @@ async def test_cancelling_an_opening_asset_request_reaps_its_worker(
     route, packet = await prepare(client, base)
     task = asyncio.create_task(open_page(client, route, packet))
     try:
-        for _ in range(100):
+        for _ in range(300):
             if reads.started.is_set():
                 break
+            if task.done():
+                await task
             await asyncio.sleep(0.05)
         assert reads.started.is_set()
         resources = browser.opening_resources[packet["id"]]

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -25,6 +25,26 @@ import {
   Select,
   Skeleton,
 } from "@/components/ui";
+
+export type SourceMetadata = {
+  id: string;
+  display_name?: string | null;
+  adapter_type?: string | null;
+  availability?: string | null;
+  pricing?: string | null;
+  enabled?: boolean | null;
+  read_only?: boolean | null;
+  live_verified?: boolean | null;
+};
+
+export const FALLBACK_SOURCE_OPTIONS = [
+  { id: "arbeitnow", label: "Arbeitnow" },
+  { id: "greenhouse", label: "Greenhouse" },
+  { id: "lever", label: "Lever" },
+  { id: "ashby", label: "Ashby" },
+  { id: "remotive", label: "Remotive" },
+  { id: "hacker_news", label: "Hacker News" },
+] as const;
 
 export type Job = Schema<"JobRead"> & {
   company_name?: string | null;
@@ -375,6 +395,62 @@ export function Jobs() {
       api<{ total: number; jobs: Job[] }>(`jobs/search?${queryParams}`),
   });
 
+  const sourcesQuery = useQuery({
+    queryKey: ["discovery-sources"],
+    queryFn: () =>
+      api<{
+        sources: SourceMetadata[];
+      }>("discovery/sources"),
+  });
+
+  const sourceOptions = useMemo(() => {
+    const rawSources = Array.isArray(sourcesQuery.data?.sources)
+      ? sourcesQuery.data.sources
+      : null;
+
+    const baseOptions: Array<{ id: string; label: string }> =
+      rawSources && rawSources.length > 0
+        ? rawSources.map((s) => ({
+            id: s.id,
+            label: s.display_name?.trim() || readable(s.id),
+          }))
+        : [...FALLBACK_SOURCE_OPTIONS];
+
+    const map = new Map<string, string>();
+    for (const opt of baseOptions) {
+      if (opt.id) {
+        map.set(opt.id, opt.label);
+      }
+    }
+
+    if (platform && !map.has(platform)) {
+      map.set(platform, readable(platform));
+    }
+
+    return Array.from(map.entries()).map(([id, label]) => ({ id, label }));
+  }, [sourcesQuery.data?.sources, platform]);
+
+  const hasActiveFilters = Boolean(
+    role.trim() ||
+    location.trim() ||
+    skill.trim() ||
+    platform.trim() ||
+    remoteType ||
+    rank ||
+    status !== "all",
+  );
+
+  const resetFilters = () => {
+    setRole("");
+    setLocation("");
+    setSkill("");
+    setPlatform("");
+    setRemoteType("");
+    setRank(false);
+    setStatus("all");
+    setPage(1);
+  };
+
   const totalCount = result.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / 20));
 
@@ -457,10 +533,11 @@ export function Jobs() {
               }}
             >
               <option value="">All source platforms</option>
-              <option value="arbeitnow">Arbeitnow (Free API)</option>
-              <option value="greenhouse">Greenhouse</option>
-              <option value="remotive">Remotive (Free API)</option>
-              <option value="hacker_news">Hacker News</option>
+              {sourceOptions.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label}
+                </option>
+              ))}
             </Select>
           </Field>
 
@@ -491,6 +568,20 @@ export function Jobs() {
             />
             Calculate match against my saved profile
           </label>
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              className="text-xs"
+              aria-label="Reset search filters"
+              onClick={resetFilters}
+            >
+              Reset filters
+            </Button>
+          )}
+          <span className="muted text-xs">
+            Source filter searches saved opportunities by origin; catalog
+            presence does not imply live verification.
+          </span>
         </div>
       </div>
 
@@ -536,12 +627,31 @@ export function Jobs() {
         </>
       ) : (
         <Empty
-          title="Room for the right opportunity."
-          description="No saved jobs match these filters. Run a fresh discovery or broaden your criteria."
+          title={
+            hasActiveFilters
+              ? "Room for the right opportunity."
+              : "No saved jobs yet"
+          }
+          description={
+            hasActiveFilters
+              ? "No saved jobs match these filters. Broaden your criteria, reset your filters, or run a fresh discovery."
+              : "No saved jobs found in your repository. Run a discovery to find and import opportunities."
+          }
           action={
-            <Link className="button" href="/discover">
-              Fresh discovery
-            </Link>
+            <div className="actions">
+              {hasActiveFilters && (
+                <Button
+                  aria-label="Reset search filters"
+                  onClick={resetFilters}
+                >
+                  Reset filters
+                </Button>
+              )}
+              <Link className="button primary" href="/discover">
+                <Search size={14} />
+                Discover jobs
+              </Link>
+            </div>
           }
         />
       )}
