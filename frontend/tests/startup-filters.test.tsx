@@ -27,7 +27,7 @@ const fictionalStartupA: Schema<"StartupRead"> = {
   exact_employee_count: false,
   employee_count: null,
   team_size_band: "11-50",
-  team_size_evidence_status: "verified",
+  team_size_evidence_status: "source_reported",
   leader_evidence_count: 2,
   technical_staff_count: 14,
   verification_status: "verified",
@@ -127,9 +127,9 @@ describe("Startup discovery and size filtering", () => {
     expect(sizeFilter("2-10")).toEqual({
       min_employees: 2,
       max_employees: 10,
-      exact_employee_count: true,
+      exact_employee_count: false,
       include_unknown_size: false,
-      size_bands: [],
+      size_bands: ["1-10", "2-10"],
     });
 
     // 51-200 preset
@@ -204,7 +204,7 @@ describe("Startup discovery and size filtering", () => {
     ).toBeInTheDocument();
 
     // Verification status badge
-    expect(screen.getByText(/Size:\s*verified/i)).toBeInTheDocument();
+    expect(screen.getByText(/Size:\s*source reported/i)).toBeInTheDocument();
 
     // Safe official website external link
     const siteLink = screen.getByRole("link", { name: "Official website" });
@@ -287,4 +287,24 @@ describe("Startup discovery and size filtering", () => {
       await screen.findByText("Your next team is out there."),
     ).toBeInTheDocument();
   });
+});
+
+it("renders an observed count with the actual backend evidence status", async () => {
+  vi.mocked(post).mockResolvedValue({
+    startups: [
+      {
+        ...fictionalStartupA,
+        employee_count: 7,
+        team_size_band: "2-10",
+        team_size_evidence_status: "human_confirmed",
+      },
+    ],
+    total: 1,
+    page: 1,
+    limit: 12,
+  });
+  mount();
+  expect(
+    await screen.findByText("7 employees (human confirmed)"),
+  ).toBeInTheDocument();
 });

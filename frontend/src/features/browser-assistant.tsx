@@ -281,7 +281,7 @@ export function BrowserAssistant({
               </p>
               <p>
                 Official destination:{" "}
-                {packet.snapshot.destination?.application_url ? (
+                {packet.snapshot.destination?.valid ? (
                   <External href={packet.snapshot.destination.application_url}>
                     {packet.snapshot.destination.application_url}
                   </External>
@@ -316,7 +316,7 @@ export function BrowserAssistant({
                   }
                 >
                   {packet.snapshot.resume?.selected?.confirmed
-                    ? "Confirmed & Verified"
+                    ? "Selection confirmed"
                     : "Needs Confirmation"}
                 </Badge>
               </p>
@@ -336,10 +336,10 @@ export function BrowserAssistant({
           <div className="metric">
             <div className="metric-label">DESTINATION READY</div>
             <p>
-              {packet.snapshot.destination?.application_url ? (
+              {packet.snapshot.destination?.valid ? (
                 <Badge tone="green">Configured</Badge>
               ) : (
-                <Badge tone="amber">Missing URL</Badge>
+                <Badge tone="amber">Needs destination review</Badge>
               )}
             </p>
           </div>

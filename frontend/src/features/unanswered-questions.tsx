@@ -219,8 +219,8 @@ export function UnansweredQuestionsQueue({
           <div>
             <strong>Zero Silent Hallucinations:</strong> The assistant never
             invents facts when evidence is missing. Entering text creates a
-            draft. Approval requires explicit factual confirmation and creates a
-            answer for this exact question and context.
+            draft. Approval requires explicit factual confirmation and creates
+            an answer for this exact question and context.
           </div>
           <Badge tone="green">
             <ShieldCheck size={12} />

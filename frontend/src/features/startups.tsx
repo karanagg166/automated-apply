@@ -70,9 +70,9 @@ export function sizeFilter(size: string) {
     return {
       min_employees: 2,
       max_employees: 10,
-      exact_employee_count: true,
+      exact_employee_count: false,
       include_unknown_size: false,
-      size_bands: [],
+      size_bands: ["1-10", "2-10"],
     };
   }
   if (size === "11-50") {
@@ -279,7 +279,7 @@ export function StartupExplorer() {
             >
               {[
                 ["all", "All sizes"],
-                ["2-10", "2–10 · exact count"],
+                ["2-10", "2–10 employees"],
                 ["11-50", "11–50 employees"],
                 ["51-200", "51–200 employees"],
                 ["201-500", "201–500 employees"],
@@ -467,8 +467,8 @@ export function StartupExplorer() {
         {size === "2-10" && (
           <div className="extra-filters">
             <small className="muted">
-              Requires an observed numeric count from 2 to 10. A 1–10 band alone
-              is excluded.
+              Includes observed counts from 2 to 10 and reported 2–10 bands. A
+              broader 1–10 band alone cannot establish the lower bound.
             </small>
           </div>
         )}
@@ -602,8 +602,10 @@ export function StartupExplorer() {
                   <span>
                     <Users size={12} />
                     {s.employee_count !== null &&
-                    s.team_size_evidence_status === "verified"
-                      ? `${s.employee_count} employees (exact count)`
+                    ["source_reported", "human_confirmed"].includes(
+                      s.team_size_evidence_status,
+                    )
+                      ? `${s.employee_count} employees (${s.team_size_evidence_status === "human_confirmed" ? "human confirmed" : "source reported"})`
                       : s.team_size_band && s.team_size_band !== "unknown"
                         ? `${s.team_size_band} band`
                         : "Size unknown"}
@@ -654,11 +656,13 @@ export function StartupExplorer() {
                 <div className="company-meta">
                   <Badge
                     tone={
-                      s.team_size_evidence_status === "verified"
+                      s.team_size_evidence_status === "human_confirmed"
                         ? "green"
-                        : s.team_size_evidence_status === "conflicting"
-                          ? "red"
-                          : "amber"
+                        : s.team_size_evidence_status === "source_reported"
+                          ? "neutral"
+                          : s.team_size_evidence_status === "conflicting"
+                            ? "red"
+                            : "amber"
                     }
                   >
                     Size: {readable(s.team_size_evidence_status)}
