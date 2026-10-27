@@ -27,7 +27,7 @@ def rank_startup(
             reasons.append("Reported technology matches: " + ", ".join(overlap))
     else:
         missing.append("technology_compatibility")
-    if size["team_size_band"] in {"1-10", "11-50"}:
+    if size["team_size_band"] in {"1-10", "2-10", "11-50"}:
         score += 10
         reasons.append(
             "Evidence reports a company of 1–50 employees; engineering team size is unknown"

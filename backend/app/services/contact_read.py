@@ -15,7 +15,7 @@ from backend.app.services.contact_enrichment.verification import (
 def contact_output(contact, company, job=None):
     settings = get_settings()
     ranking = rank_contact(contact, company, job, settings.CONTACT_CACHE_TTL_DAYS)
-    expired = contact.enrichment_source in {"apollo", "signalhire"} and not fresh(
+    expired = contact.enrichment_source in {"apollo", "signalhire", "public_search", "official_company"} and not fresh(
         email_observed_at(contact), settings.CONTACT_RETENTION_DAYS
     )
     if expired:
@@ -33,6 +33,15 @@ def contact_output(contact, company, job=None):
         "linkedin_url": None if expired else contact.linkedin_url,
         "email": None if expired else contact.email,
         "email_status": "unknown" if expired else contact.email_status,
+        "email_evidence_status": (
+            "suppressed_or_stale" if expired or contact.do_not_contact or (contact.email and not fresh(email_observed_at(contact), settings.CONTACT_CACHE_TTL_DAYS))
+            else "not_found" if not contact.email
+            else "verified_using_authorized_method" if contact.email_status == "verified"
+            else "published_source_supported" if (contact.metadata_ or {}).get("email_publication_confirmed") and (contact.metadata_ or {}).get("email_publication_url")
+            else "provider_reported" if contact.email_status == "provider_reported"
+            else "unverified"
+        ),
+        "email_publication_url": None if expired or contact.do_not_contact else (contact.metadata_ or {}).get("email_publication_url"),
         "source": contact.enrichment_source,
         "legacy_confidence_score": float(contact.confidence_score or 0),
         "last_checked_at": contact.last_checked_at,

@@ -35,6 +35,8 @@ class ContactProvider(ABC):
             else api_key
         )
         self.enabled, self.client, self.timeout = enabled, client, timeout
+        from backend.app.integrations.logging import install_provider_log_filter
+        install_provider_log_filter()
 
     def validate_configuration(self):
         return (

@@ -318,6 +318,14 @@ class FormService:
                     rewrite=False,
                     resume=packet.snapshot.resume,
                 )
+                action.missing_input_id = built.provenance.missing_input_id
+                if action.missing_input_id:
+                    from backend.app.knowledge.missing_input import PREFIX
+                    saved_question = await self.session.get(OwnerPreference, PREFIX + action.missing_input_id, with_for_update=True)
+                    if saved_question:
+                        action.missing_input_version = saved_question.value["version"]
+                    if saved_question and not saved_question.value.get("packet_id"):
+                        saved_question.value = {**saved_question.value, "packet_id": str(application_id)}
                 if selected_project and built.category == "project_explanation":
                     contexts, projects = await approved_projects(self.session)
                     projects.sort(key=lambda p: p["priority"])
@@ -422,6 +430,12 @@ class FormService:
             or await project_stamp(self.session) != plan.project_digest
         ):
             raise ToolDenied("fill_plan_stale")
+        from backend.app.knowledge.missing_input import MissingInputService
+        for action in plan.actions:
+            if action.missing_input_id and not action.needs_input:
+                saved = await MissingInputService(self.session).read(action.missing_input_id)
+                if saved["version"] != action.missing_input_version or saved["stale"] or saved["status"] != "approved":
+                    raise ToolDenied("fill_plan_stale")
         references = [a.safe_reference for a in plan.actions if a.safe_reference]
         if references:
             raw = await pdf_bytes(self.session, packet, self.settings)

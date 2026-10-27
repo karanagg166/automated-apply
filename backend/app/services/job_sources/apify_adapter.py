@@ -1,8 +1,10 @@
 """Opt-in Apify discovery. No default actor IDs, pricing assertions or invented URLs."""
 
 import asyncio
+import json
 import re
 import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Annotated, Any, Literal
 
 import httpx
@@ -52,6 +54,7 @@ class ActorConfiguration(BaseModel):
     build: Annotated[str, StringConstraints(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+$")]
     enabled: bool = False
     reviewed: bool = False
+    review_expires_at: datetime | None = None
     platform_usage_included: bool = False
     account_spending_limit_verified: bool = False
     schema_evidence_url: PublicHTTPSURL
@@ -114,6 +117,8 @@ class ApifyJobAdapter(JobSourceAdapter):
         try:
             actor = ActorConfiguration.model_validate(self.configuration)
             actor.build_input(DiscoveryQuery())
+            from backend.app.services.providers.apify import execution_input_allowed
+            execution_input_allowed(actor.actor_id, actor.fixed_input)
             return actor
         except ValueError:
             raise DiscoveryError(
@@ -130,6 +135,8 @@ class ApifyJobAdapter(JobSourceAdapter):
             return [str(exc)]
         if not actor.enabled or not actor.reviewed:
             return ["Paid source is disabled or actor review is incomplete"]
+        if not actor.review_expires_at or actor.review_expires_at.tzinfo is None or not datetime.now(timezone.utc) < actor.review_expires_at <= datetime.now(timezone.utc) + timedelta(days=1):
+            return ["Actor schema, permission and price review has expired or is missing"]
         if (
             not actor.platform_usage_included
             or not actor.account_spending_limit_verified
@@ -257,6 +264,11 @@ class ApifyJobAdapter(JobSourceAdapter):
                 ],
             )
         actor = self.actor()
+        from backend.app.services.providers.apify import execution_input_allowed
+        try:
+            execution_input_allowed(actor.actor_id, actor.build_input(query))
+        except DiscoveryError as exc:
+            return DiscoveryResult(source=portal, status=exc.status, errors=[str(exc)])
         cap = self.settings.APIFY_PER_RUN_CAP_USD
         estimate = (
             actor.estimated_start_usd + query.limit * actor.estimated_per_item_usd
@@ -284,33 +296,28 @@ class ApifyJobAdapter(JobSourceAdapter):
                 "billing_final": False,
             },
         )
-        client = self._client or httpx.AsyncClient(timeout=20, follow_redirects=False)
+        client = self._client or httpx.AsyncClient(timeout=20, follow_redirects=False, trust_env=False)
         headers = {"Authorization": f"Bearer {self.api_token}"}
         run = {}
 
         async def request(method, path, **options):
-            response = await client.request(
-                method,
-                "https://api.apify.com/v2/" + path,
-                headers=headers,
-                timeout=20,
-                follow_redirects=False,
-                **options,
-            )
-            if response.status_code == 429:
-                await self.budget.cooldown("apify")
-                raise DiscoveryError(
-                    Status.RATE_LIMITED, "Apify rate limited; cooldown recorded"
-                )
-            if response.status_code in (401, 403):
-                raise DiscoveryError(
-                    Status.AUTH_REQUIRED, "Apify authorization required"
-                )
-            if response.status_code not in (200, 201):
-                raise DiscoveryError(
-                    Status.UPSTREAM_ERROR, f"Apify returned HTTP {response.status_code}"
-                )
-            return response.json()
+            async with client.stream(
+                method, "https://api.apify.com/v2/" + path, headers=headers,
+                timeout=20, follow_redirects=False, **options,
+            ) as response:
+                if response.status_code == 429:
+                    await self.budget.cooldown("apify")
+                    raise DiscoveryError(Status.RATE_LIMITED, "Apify rate limited; cooldown recorded")
+                if response.status_code in (401, 403):
+                    raise DiscoveryError(Status.AUTH_REQUIRED, "Apify authorization required")
+                if response.status_code not in (200, 201):
+                    raise DiscoveryError(Status.UPSTREAM_ERROR, f"Apify returned HTTP {response.status_code}")
+                body = bytearray()
+                async for chunk in response.aiter_bytes():
+                    body.extend(chunk)
+                    if len(body) > 1048576:
+                        raise DiscoveryError(Status.UPSTREAM_ERROR, "Apify response byte cap exceeded")
+                return json.loads(body)
 
         try:
             async with asyncio.timeout(70):

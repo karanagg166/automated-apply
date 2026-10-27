@@ -72,6 +72,8 @@ class FillAction(Contract):
     project_version: str | None = None
     requires_review: bool = False
     needs_input: bool = True
+    missing_input_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
+    missing_input_version: int | None = Field(default=None, ge=1)
 
 
 class FillPlan(Contract):

@@ -248,3 +248,21 @@ async def test_retention_preserves_suppression_keys(db_session, professional):
     assert second["people"][0]["contact_id"] == str(contact_id)
     assert second["people"][0]["suppressed"]
     assert await db_session.scalar(select(func.count()).select_from(Contact)) == 1
+
+
+@pytest.mark.asyncio
+async def test_published_business_email_retains_source_without_claiming_mailbox_verification(db_session):
+    from backend.app.models.company import Company
+    from backend.app.services.contact_read import contact_output
+    service = PeopleDiscoveryService(db_session, DiscoveryBudget(get_session_factory()), settings())
+    result = await service.search(query(official_people=[official(business_email="alex@fictional.example", email_publication_url="https://fictional.example/team/alex")]))
+    assert result["status"] == "success"
+    contact = await db_session.get(Contact, UUID(result["people"][0]["contact_id"]))
+    company = await db_session.get(Company, contact.company_id)
+    output = contact_output(contact, company)
+    assert output["email"] == "alex@fictional.example"
+    assert output["email_evidence_status"] == "published_source_supported"
+    assert output["email_status"] != "verified" and output["email_send_ready"] is False
+    assert output["email_publication_url"] == "https://fictional.example/team/alex"
+    rejected = await service.search(query(official_people=[official(business_email="private@gmail.com", email_publication_url="https://fictional.example/team/alex")]))
+    assert rejected["status"] == "partial" and not rejected["people"]

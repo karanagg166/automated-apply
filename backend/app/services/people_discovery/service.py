@@ -245,8 +245,18 @@ class PeopleDiscoveryService:
             ).hostname not in {query.company_domain, "www." + query.company_domain}:
                 errors.append("Official evidence employer domain requires review")
                 continue
+            if item.business_email:
+                from backend.app.services.contact_enrichment.verification import (
+                    business_email,
+                )
+                if not business_email(str(item.business_email), query.company_domain) or urlsplit(str(item.email_publication_url)).hostname not in {query.company_domain, "www." + query.company_domain}:
+                    errors.append("Published contact email requires the employer domain and attributable company source")
+                    continue
             observation = PersonObservation(
                 full_name=item.full_name,
+                email=str(item.business_email) if item.business_email else None,
+                email_publication_url=item.email_publication_url,
+                email_status="unknown",
                 role_title=item.role_title,
                 company_domain=query.company_domain,
                 professional_url=item.professional_url,

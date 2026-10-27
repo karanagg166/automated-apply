@@ -1,0 +1,132 @@
+{
+  "catalogs": {
+    "job_agent": {
+      "columns": {
+        "gmail_read_accounts.account_email": "character varying(254)|true|",
+        "gmail_read_accounts.connected_at": "timestamp with time zone|true|",
+        "gmail_read_accounts.created_at": "timestamp with time zone|true|now()",
+        "gmail_read_accounts.disconnected_at": "timestamp with time zone|false|",
+        "gmail_read_accounts.encrypted_access_token": "text|false|",
+        "gmail_read_accounts.encrypted_refresh_token": "text|false|",
+        "gmail_read_accounts.encryption_key_id": "character varying(64)|false|",
+        "gmail_read_accounts.google_subject": "character varying(255)|true|",
+        "gmail_read_accounts.granted_scopes": "json|true|'[]'::json",
+        "gmail_read_accounts.id": "uuid|true|gen_random_uuid()",
+        "gmail_read_accounts.last_refresh_at": "timestamp with time zone|false|",
+        "gmail_read_accounts.last_verified_at": "timestamp with time zone|false|",
+        "gmail_read_accounts.provider": "character varying(30)|true|'gmail'::character varying",
+        "gmail_read_accounts.status": "character varying(30)|true|'disconnected'::character varying",
+        "gmail_read_accounts.token_expires_at": "timestamp with time zone|false|",
+        "gmail_read_accounts.token_generation": "integer|true|1",
+        "gmail_read_accounts.updated_at": "timestamp with time zone|true|now()",
+        "gmail_read_oauth_states.actor_id": "character varying(64)|true|",
+        "gmail_read_oauth_states.authorization_mode": "character varying(20)|true|",
+        "gmail_read_oauth_states.browser_hash": "character varying(64)|true|",
+        "gmail_read_oauth_states.connection_generation": "integer|true|",
+        "gmail_read_oauth_states.consumed_at": "timestamp with time zone|false|",
+        "gmail_read_oauth_states.created_at": "timestamp with time zone|true|",
+        "gmail_read_oauth_states.encrypted_verifier": "text|false|",
+        "gmail_read_oauth_states.encryption_key_id": "character varying(64)|true|",
+        "gmail_read_oauth_states.expected_email": "character varying(254)|true|",
+        "gmail_read_oauth_states.expected_subject": "character varying(255)|false|",
+        "gmail_read_oauth_states.expires_at": "timestamp with time zone|true|",
+        "gmail_read_oauth_states.provider": "character varying(30)|true|'gmail'::character varying",
+        "gmail_read_oauth_states.redirect_uri": "character varying(2048)|true|",
+        "gmail_read_oauth_states.state_hash": "character varying(64)|true|"
+      },
+      "constraints": {
+        "gmail_read_accounts.gmail_read_accounts_pkey": "PRIMARY KEY (id)|true",
+        "gmail_read_accounts.gmail_read_accounts_provider_check": "CHECK (((provider)::text = 'gmail'::text))|true",
+        "gmail_read_accounts.gmail_read_accounts_status_check": "CHECK (((status)::text = ANY ((ARRAY['connected'::character varying, 'disconnected'::character varying, 'reauthorization_required'::character varying])::text[])))|true",
+        "gmail_read_accounts.gmail_read_accounts_token_generation_check": "CHECK ((token_generation > 0))|true",
+        "gmail_read_accounts.gmail_readonly_scopes": "CHECK (((granted_scopes)::jsonb <@ '[\"openid\", \"https://www.googleapis.com/auth/userinfo.email\", \"https://www.googleapis.com/auth/gmail.metadata\", \"https://www.googleapis.com/auth/gmail.readonly\"]'::jsonb))|true",
+        "gmail_read_accounts.uq_gmail_read_email": "UNIQUE (provider, account_email)|true",
+        "gmail_read_oauth_states.gmail_read_oauth_states_authorization_mode_check": "CHECK (((authorization_mode)::text = ANY ((ARRAY['read_metadata'::character varying, 'read_body'::character varying])::text[])))|true",
+        "gmail_read_oauth_states.gmail_read_oauth_states_pkey": "PRIMARY KEY (state_hash)|true",
+        "gmail_read_oauth_states.gmail_read_oauth_states_provider_check": "CHECK (((provider)::text = 'gmail'::text))|true"
+      },
+      "functions": {},
+      "indexes": {
+        "gmail_read_accounts_pkey": "CREATE UNIQUE INDEX gmail_read_accounts_pkey ON job_agent.gmail_read_accounts USING btree (id)",
+        "gmail_read_oauth_states_pkey": "CREATE UNIQUE INDEX gmail_read_oauth_states_pkey ON job_agent.gmail_read_oauth_states USING btree (state_hash)",
+        "ix_gmail_read_oauth_states_expires_at": "CREATE INDEX ix_gmail_read_oauth_states_expires_at ON job_agent.gmail_read_oauth_states USING btree (expires_at)",
+        "uq_gmail_read_email": "CREATE UNIQUE INDEX uq_gmail_read_email ON job_agent.gmail_read_accounts USING btree (provider, account_email)",
+        "uq_gmail_read_subject": "CREATE UNIQUE INDEX uq_gmail_read_subject ON job_agent.gmail_read_accounts USING btree (provider, google_subject) WHERE ((google_subject)::text <> ''::text)"
+      },
+      "policies": {
+        "gmail_read_accounts.job_agent_backend": "ALL|{job_agent_runtime}|true|true",
+        "gmail_read_oauth_states.job_agent_backend": "ALL|{job_agent_runtime}|true|true"
+      },
+      "service_grants": {},
+      "tables": {
+        "gmail_read_accounts": "true",
+        "gmail_read_oauth_states": "true"
+      },
+      "triggers": {}
+    },
+    "public": {
+      "columns": {
+        "gmail_read_accounts.account_email": "character varying(254)|true|",
+        "gmail_read_accounts.connected_at": "timestamp with time zone|true|",
+        "gmail_read_accounts.created_at": "timestamp with time zone|true|now()",
+        "gmail_read_accounts.disconnected_at": "timestamp with time zone|false|",
+        "gmail_read_accounts.encrypted_access_token": "text|false|",
+        "gmail_read_accounts.encrypted_refresh_token": "text|false|",
+        "gmail_read_accounts.encryption_key_id": "character varying(64)|false|",
+        "gmail_read_accounts.google_subject": "character varying(255)|true|",
+        "gmail_read_accounts.granted_scopes": "json|true|'[]'::json",
+        "gmail_read_accounts.id": "uuid|true|gen_random_uuid()",
+        "gmail_read_accounts.last_refresh_at": "timestamp with time zone|false|",
+        "gmail_read_accounts.last_verified_at": "timestamp with time zone|false|",
+        "gmail_read_accounts.provider": "character varying(30)|true|'gmail'::character varying",
+        "gmail_read_accounts.status": "character varying(30)|true|'disconnected'::character varying",
+        "gmail_read_accounts.token_expires_at": "timestamp with time zone|false|",
+        "gmail_read_accounts.token_generation": "integer|true|1",
+        "gmail_read_accounts.updated_at": "timestamp with time zone|true|now()",
+        "gmail_read_oauth_states.actor_id": "character varying(64)|true|",
+        "gmail_read_oauth_states.authorization_mode": "character varying(20)|true|",
+        "gmail_read_oauth_states.browser_hash": "character varying(64)|true|",
+        "gmail_read_oauth_states.connection_generation": "integer|true|",
+        "gmail_read_oauth_states.consumed_at": "timestamp with time zone|false|",
+        "gmail_read_oauth_states.created_at": "timestamp with time zone|true|",
+        "gmail_read_oauth_states.encrypted_verifier": "text|false|",
+        "gmail_read_oauth_states.encryption_key_id": "character varying(64)|true|",
+        "gmail_read_oauth_states.expected_email": "character varying(254)|true|",
+        "gmail_read_oauth_states.expected_subject": "character varying(255)|false|",
+        "gmail_read_oauth_states.expires_at": "timestamp with time zone|true|",
+        "gmail_read_oauth_states.provider": "character varying(30)|true|'gmail'::character varying",
+        "gmail_read_oauth_states.redirect_uri": "character varying(2048)|true|",
+        "gmail_read_oauth_states.state_hash": "character varying(64)|true|"
+      },
+      "constraints": {
+        "gmail_read_accounts.gmail_read_accounts_pkey": "PRIMARY KEY (id)|true",
+        "gmail_read_accounts.gmail_read_accounts_provider_check": "CHECK (((provider)::text = 'gmail'::text))|true",
+        "gmail_read_accounts.gmail_read_accounts_status_check": "CHECK (((status)::text = ANY ((ARRAY['connected'::character varying, 'disconnected'::character varying, 'reauthorization_required'::character varying])::text[])))|true",
+        "gmail_read_accounts.gmail_read_accounts_token_generation_check": "CHECK ((token_generation > 0))|true",
+        "gmail_read_accounts.gmail_readonly_scopes": "CHECK (((granted_scopes)::jsonb <@ '[\"openid\", \"https://www.googleapis.com/auth/userinfo.email\", \"https://www.googleapis.com/auth/gmail.metadata\", \"https://www.googleapis.com/auth/gmail.readonly\"]'::jsonb))|true",
+        "gmail_read_accounts.uq_gmail_read_email": "UNIQUE (provider, account_email)|true",
+        "gmail_read_oauth_states.gmail_read_oauth_states_authorization_mode_check": "CHECK (((authorization_mode)::text = ANY ((ARRAY['read_metadata'::character varying, 'read_body'::character varying])::text[])))|true",
+        "gmail_read_oauth_states.gmail_read_oauth_states_pkey": "PRIMARY KEY (state_hash)|true",
+        "gmail_read_oauth_states.gmail_read_oauth_states_provider_check": "CHECK (((provider)::text = 'gmail'::text))|true"
+      },
+      "functions": {},
+      "indexes": {
+        "gmail_read_accounts_pkey": "CREATE UNIQUE INDEX gmail_read_accounts_pkey ON public.gmail_read_accounts USING btree (id)",
+        "gmail_read_oauth_states_pkey": "CREATE UNIQUE INDEX gmail_read_oauth_states_pkey ON public.gmail_read_oauth_states USING btree (state_hash)",
+        "ix_gmail_read_oauth_states_expires_at": "CREATE INDEX ix_gmail_read_oauth_states_expires_at ON public.gmail_read_oauth_states USING btree (expires_at)",
+        "uq_gmail_read_email": "CREATE UNIQUE INDEX uq_gmail_read_email ON public.gmail_read_accounts USING btree (provider, account_email)",
+        "uq_gmail_read_subject": "CREATE UNIQUE INDEX uq_gmail_read_subject ON public.gmail_read_accounts USING btree (provider, google_subject) WHERE ((google_subject)::text <> ''::text)"
+      },
+      "policies": {
+        "gmail_read_accounts.job_agent_backend": "ALL|{job_agent_runtime}|true|true",
+        "gmail_read_oauth_states.job_agent_backend": "ALL|{job_agent_runtime}|true|true"
+      },
+      "service_grants": {},
+      "tables": {
+        "gmail_read_accounts": "true",
+        "gmail_read_oauth_states": "true"
+      },
+      "triggers": {}
+    }
+  }
+}

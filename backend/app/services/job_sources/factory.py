@@ -54,8 +54,15 @@ class JobSourceFactory:
     def get_adapter(cls, source_name, **kwargs):
         config = resolve_source(source_name)
         if config.adapter_type == "apify":
+            from backend.app.core.config import get_settings
             from backend.app.services.job_sources.apify_adapter import ApifyJobAdapter
-
+            from backend.app.services.providers.apify import ApifyRoutePool
+            settings = kwargs.get("settings") or get_settings()
+            routes = settings.APIFY_SOURCE_ROUTES.get(config.id, [])
+            if routes and "configuration" not in kwargs:
+                if len(routes) > 5:
+                    raise ValueError("At most five reviewed Apify routes per source")
+                return ApifyRoutePool([ApifyJobAdapter(source_name=config.id, configuration=route, **kwargs) for route in routes])
             return ApifyJobAdapter(source_name=config.id, **kwargs)
         if config.id in cls._adapters:
             return cls._adapters[config.id](**kwargs)

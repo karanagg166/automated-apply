@@ -148,8 +148,7 @@ class PacketBuilder:
         # Include material values rather than only the profile version (also catches raw edits).
         from backend.app.knowledge.opportunity import reviewed_context
 
-        context_hash = digest(
-            {
+        context_data = {
                 "profile": saved_candidate.model_dump(mode="json")
                 if saved_candidate
                 else None,
@@ -199,7 +198,12 @@ class PacketBuilder:
                 "evidence": stamps,
                 "observations": sorted({(s, u) for s, u in observations}),
             }
-        )
+        if profile:
+            from backend.app.knowledge.missing_input import approved_input_revisions
+            revisions = await approved_input_revisions(self.session, profile.id, job.id)
+            if revisions:
+                context_data["owner_answer_revisions"] = revisions
+        context_hash = digest(context_data)
         snapshot = PacketSnapshot(
             preparation_supported=adapter is not None,
             platform=adapter.capabilities().platform if adapter else None,

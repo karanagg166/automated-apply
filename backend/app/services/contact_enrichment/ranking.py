@@ -14,7 +14,7 @@ def rank_contact(contact, company, job=None, ttl_days=30):
     employee_count = (company.metadata_ or {}).get("employee_count")
     small = (type(employee_count) is int and employee_count <= 50) or (
         company.metadata_ or {}
-    ).get("_verified_team_size_band") in {"1-10", "11-50"}
+    ).get("_verified_team_size_band") in {"1-10", "2-10", "11-50"}
     large = type(employee_count) is int and employee_count >= 250
     recruiter = any(
         term in role for term in ("recruit", "talent", "human resources", "hr")

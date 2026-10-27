@@ -583,3 +583,36 @@ async def test_stop_filling_acknowledges_stop_after_a_completed_command(db_sessi
     await db_session.commit()
     stopped=await store.intake(db_session,config(),owner,Message(text="Stop filling applications"))
     assert stopped.reply.startswith("Filling stopped.")
+
+
+@pytest.mark.asyncio
+async def test_missing_answer_links_and_owner_edits_invalidate_existing_fill_plans(db_session, browser_target):
+    from backend.app.knowledge.missing_input import (
+        MissingInputApprove,
+        MissingInputEdit,
+        MissingInputService,
+    )
+    from backend.app.schemas.applications import PacketEdit
+    job, packet, _ = browser_target
+    forms = FormService(db_session, config())
+    first = await forms.inspect(packet.id, inspection(job.application_url), "manual_extension")
+    missing = next(action for action in first.actions if action.field_id == "f2")
+    assert missing.needs_input and missing.missing_input_id
+    service = MissingInputService(db_session)
+    saved = await service.read(missing.missing_input_id)
+    assert saved["packet_id"] == str(packet.id)
+    await service.edit(saved["id"], MissingInputEdit(expected_version=1, answer="INR 1000000 per year", evidence_note="Fictional owner-confirmed annual expectation"))
+    await service.approve(saved["id"], MissingInputApprove(expected_version=2, expected_profile_version=packet.candidate_profile_version, factual_confirmation=True))
+    packets = ApplicationPacketService(db_session)
+    stale = await packets.read(packet.id)
+    assert stale.readiness.stale
+    with pytest.raises(ValueError, match="stale"):
+        await forms.review(first.id, ["f0"])
+    await packets.edit(packet.id, PacketEdit(expected_revision=stale.revision, refresh_saved_data=True))
+    plan = await forms.inspect(packet.id, inspection(job.application_url), "manual_extension")
+    salary = next(action for action in plan.actions if action.field_id == "f2")
+    assert not salary.needs_input and salary.missing_input_version == 3
+    assert any(reference.startswith("owner_answer:") for reference in salary.evidence)
+    await service.edit(saved["id"], MissingInputEdit(expected_version=3, answer="A revised factual expectation", evidence_note="Owner correction"))
+    with pytest.raises(ValueError, match="stale"):
+        await forms.review(plan.id, ["f2"])

@@ -147,6 +147,25 @@ class ApplicationAnswerService:
                     request = request.model_copy(
                         update={"job_description": opportunity[0]["facts"]}
                     )
+        from backend.app.knowledge.missing_input import MissingInputService
+
+        missing = MissingInputService(self.repo.session)
+        approved_input = await missing.approved(request)
+        if approved_input:
+            char_match = re.search(r"\b(\d+)\s*characters?\b", request.question, re.I)
+            word_match = re.search(r"\b(\d+)\s*words?\b", request.question, re.I)
+            max_chars = min(request.max_characters, int(char_match[1])) if char_match else request.max_characters
+            max_words = min(request.max_words or 1500, int(word_match[1])) if word_match else request.max_words
+            if len(approved_input["answer"]) > max_chars or (max_words is not None and len(approved_input["answer"].split()) > max_words):
+                return AnswerGenerationResult(question_type=approved_input["question_category"], status="validation_failed", error_code="output_length_exceeded")
+            return AnswerGenerationResult(
+                question_type=approved_input["question_category"], status="draft_ready",
+                answer=approved_input["answer"], source="owner_approved_exact_context",
+                confidence=1, requires_review=False,
+                draft_id=approved_input["draft_id"], missing_input_id=approved_input["id"],
+                missing_input_url=approved_input["href"],
+                evidence_references=[EvidenceReference(source_type="owner_answer", source_id=approved_input["id"])],
+            )
         classification = ApplicationQuestionClassifier().classify(request.question)
         category = classification.question_type
         resources = await self.repo.resolution_resources(profile.id)
@@ -341,6 +360,10 @@ class ApplicationAnswerService:
         ):
             draft = await self.repo.save_draft(profile, request, result)
             result.draft_id = draft.id
+        if result.status == "needs_input" and result.answer is None:
+            result.missing_input_id = await missing.ensure(request, result)
+            if result.missing_input_id:
+                result.missing_input_url = f"/api/v1/application-answers/missing/{result.missing_input_id}"
         return result
 
     async def _generation_stamp(self, request):

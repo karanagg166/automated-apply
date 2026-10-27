@@ -43,10 +43,13 @@ async def database_health(engine, settings):
                 return await verify_public_database(driver, settings)
             restricted = await driver.fetchval("SELECT current_user") == RUNTIME_ROLE
             expected = json.loads(MANIFEST.read_text())["catalog"]
+            actual = await catalog(driver, settings.DATABASE_SCHEMA)
+            from backend.app.integrations.gmail.schema import expected_overlay
+            expected = expected_overlay(expected, actual, settings.DATABASE_SCHEMA)
             if restricted:
                 await verify_restricted_runtime(driver, expected["tables"])
             plan = compare_catalog(
-                await catalog(driver, settings.DATABASE_SCHEMA),
+                actual,
                 restricted_runtime=restricted,
             )
             if plan.status != "verified":
