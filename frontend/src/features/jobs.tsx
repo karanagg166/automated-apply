@@ -40,6 +40,8 @@ export type SourceMetadata = {
 export const FALLBACK_SOURCE_OPTIONS = [
   { id: "arbeitnow", label: "Arbeitnow" },
   { id: "greenhouse", label: "Greenhouse" },
+  { id: "lever", label: "Lever" },
+  { id: "ashby", label: "Ashby" },
   { id: "remotive", label: "Remotive" },
   { id: "hacker_news", label: "Hacker News" },
 ] as const;

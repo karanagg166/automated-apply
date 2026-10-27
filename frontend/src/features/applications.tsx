@@ -43,13 +43,13 @@ export function pipelineColumn(
     {
       created: "Preparing",
       preparing: "Preparing",
-      submitting: "Submitting",
-      submission_unknown: "Submission Unknown",
-      needs_input: "Preparing",
+      needs_input: "Needs Input",
       ready_for_review: "Ready for Review",
       reviewed: "Ready for Review",
       approved_for_manual_handoff: "Approved / Manual Handoff",
-      external_application_opened: "Approved / Manual Handoff",
+      external_application_opened: "External Application Opened",
+      submitting: "Submitting",
+      submission_unknown: "Submission Unknown",
       user_reported_submitted: "Applied — User Reported",
       provider_confirmed_submitted: "Applied — Provider Confirmed",
       abandoned: "Archived",
@@ -70,10 +70,12 @@ export function Applications() {
   });
   const columns = [
     "Preparing",
+    "Needs Input",
     "Ready for Review",
+    "Approved / Manual Handoff",
+    "External Application Opened",
     "Submitting",
     "Submission Unknown",
-    "Approved / Manual Handoff",
     "Applied — User Reported",
     "Applied — Provider Confirmed",
     "Interview",
@@ -273,6 +275,18 @@ function AnswerField({
     "submitting",
     "submission_unknown",
   ].includes(packet.lifecycle_state);
+
+  const charCount = answer.length;
+  const wordCount = answer.trim()
+    ? answer.trim().split(/\s+/).filter(Boolean).length
+    : 0;
+  const exceedsLimit = charCount > field.max_characters;
+  const isNarrative = [
+    "project_explanation",
+    "motivation",
+    "free_text",
+  ].includes(field.category);
+
   let selectedOptions: string[] = [];
   if (field.field_type === "multi_select") {
     try {
@@ -293,16 +307,29 @@ function AnswerField({
           {field.question}
           {field.required ? " *" : ""}
         </strong>
-        <Badge
-          tone={field.validation_status === "draft_ready" ? "green" : "amber"}
-        >
-          {readable(field.validation_status)}
-        </Badge>
+        <div className="actions">
+          <Badge tone={isNarrative ? "amber" : "neutral"}>
+            {readable(field.category)}
+          </Badge>
+          <Badge
+            tone={field.validation_status === "draft_ready" ? "green" : "amber"}
+          >
+            {readable(field.validation_status)}
+          </Badge>
+        </div>
       </div>
       <p>
-        {readable(field.category)} · source:{" "}
-        {readable(field.provenance?.source)} · {field.max_characters} characters
-        maximum
+        source: {readable(field.provenance?.source)}
+        {field.provenance?.source === "approved_answer" && (
+          <Badge tone="green">Reused from approved answers</Badge>
+        )}
+        {field.provenance?.provider && (
+          <span>
+            {" "}
+            · provider: {field.provenance.provider}
+            {field.provenance.model ? ` (${field.provenance.model})` : ""}
+          </span>
+        )}
       </p>
       {!!field.options?.length && (
         <p>
@@ -315,7 +342,8 @@ function AnswerField({
       {field.field_type === "file" ? (
         <Notice>
           Download the selected private resume and upload the actual file on the
-          official website during manual handoff.
+          official website during manual handoff. Browser assistant does not
+          upload files automatically.
         </Notice>
       ) : field.field_type === "multi_select" ? (
         <fieldset>
@@ -358,11 +386,55 @@ function AnswerField({
             disabled={terminal}
             onChange={(e) => setAnswer(e.target.value)}
           />
+          <div className="split">
+            <small className={exceedsLimit ? "missing-skills" : "muted"}>
+              {charCount} / {field.max_characters} characters · {wordCount}{" "}
+              words{exceedsLimit ? " (exceeds limit)" : ""}
+            </small>
+          </div>
         </Field>
       )}
-      {(field.missing_information || []).map((m) => (
-        <p key={m}>{m}</p>
-      ))}
+      {field.provenance?.error_code && (
+        <Notice>
+          {field.provenance.error_code === "rate_limit_exceeded"
+            ? "AI rate limit reached. Draft your answer manually or retry later."
+            : field.provenance.error_code === "model_unavailable"
+              ? "AI model is currently unavailable. Enter your answer manually."
+              : field.provenance.error_code === "missing_candidate_facts"
+                ? "Required candidate facts were not found in your profile. Real qualifications cannot be invented."
+                : `AI generation notice: ${readable(field.provenance.error_code)}`}
+        </Notice>
+      )}
+      {field.validation_status === "provider_unavailable" && (
+        <Notice>
+          AI provider is unavailable for this answer. Please provide your answer
+          manually.
+        </Notice>
+      )}
+      {(field.missing_information || []).length > 0 && (
+        <Notice>
+          Missing candidate facts:{" "}
+          {(field.missing_information || []).join(" · ")}. Real qualifications
+          and employment history cannot be invented. Enter manually or update
+          your profile.
+        </Notice>
+      )}
+      {!!field.provenance?.evidence_references?.length && (
+        <details className="evidence-details spaced">
+          <summary>
+            {field.provenance.evidence_references.length} evidence reference(s)
+          </summary>
+          <ul>
+            {field.provenance.evidence_references.map((ref, idx) => (
+              <li key={idx}>
+                <small>
+                  {readable(ref.source_type)}: {ref.source_id}
+                </small>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       {dirty && (
         <Notice>
           Save answer changes before reviewing or filling this application.
@@ -396,25 +468,22 @@ function AnswerField({
               <Clipboard size={12} />
               {copied ? "Copied" : "Copy answer"}
             </Button>
-            {field.field_type !== "multi_select" &&
-              ["project_explanation", "motivation", "free_text"].includes(
-                field.category,
-              ) && (
-                <Button
-                  busy={generate.isPending}
-                  disabled={terminal}
-                  onClick={() => generate.mutate()}
-                >
-                  Generate with configured AI
-                </Button>
-              )}
+            {field.field_type !== "multi_select" && isNarrative && (
+              <Button
+                busy={generate.isPending}
+                disabled={terminal}
+                onClick={() => generate.mutate()}
+              >
+                Generate with configured AI
+              </Button>
+            )}
           </>
         )}
         {field.validation_status === "draft_ready" && (
           <label className="check-label">
             <input
               type="checkbox"
-              disabled={terminal || dirty}
+              disabled={terminal || dirty || !answer.trim()}
               checked={checked && !dirty}
               onChange={(e) => onReviewed(e.target.checked)}
             />
@@ -427,6 +496,58 @@ function AnswerField({
     </div>
   );
 }
+const QUESTION_TEMPLATES = [
+  {
+    label: "Select a standard question template…",
+    question: "",
+    category: "free_text" as const,
+    field_type: "textarea" as const,
+  },
+  {
+    label: "Why this company? (Narrative)",
+    question: "Why are you interested in joining our company?",
+    category: "motivation" as const,
+    field_type: "textarea" as const,
+  },
+  {
+    label: "Why this role? (Narrative)",
+    question: "Why are you a good fit for this role?",
+    category: "motivation" as const,
+    field_type: "textarea" as const,
+  },
+  {
+    label: "Describe your project (Narrative)",
+    question: "Describe a complex project you led and its technical impact.",
+    category: "project_explanation" as const,
+    field_type: "textarea" as const,
+  },
+  {
+    label: "Hardest technical problem (Narrative)",
+    question:
+      "What is the hardest technical problem you have faced and how did you solve it?",
+    category: "project_explanation" as const,
+    field_type: "textarea" as const,
+  },
+  {
+    label: "Relevant achievements (Narrative)",
+    question: "What are your most relevant technical achievements?",
+    category: "project_explanation" as const,
+    field_type: "textarea" as const,
+  },
+  {
+    label: "Notice period (Factual)",
+    question: "What is your official notice period?",
+    category: "notice_period" as const,
+    field_type: "text" as const,
+  },
+  {
+    label: "Preferred location (Factual)",
+    question: "What is your preferred work location or remote preference?",
+    category: "personal_information" as const,
+    field_type: "text" as const,
+  },
+] as const;
+
 export function ApplicationDetail({ id }: { id: string }) {
   const [dirtyFields, setDirtyFields] = useState<string[]>([]);
   const onDirty = useCallback((fieldId: string, dirty: boolean) => {
@@ -447,6 +568,11 @@ export function ApplicationDetail({ id }: { id: string }) {
     [submissionConfirmed, setSubmissionConfirmed] = useState(false),
     [receipt, setReceipt] = useState(""),
     [question, setQuestion] = useState(""),
+    [category, setCategory] =
+      useState<Schema<"QuestionInput">["category"]>("free_text"),
+    [fieldType, setFieldType] =
+      useState<Schema<"QuestionInput">["field_type"]>("textarea"),
+    [templateIdx, setTemplateIdx] = useState(0),
     [notice, setNotice] = useState("");
   const packet = useQuery({
     queryKey: ["packet", id],
@@ -513,6 +639,14 @@ export function ApplicationDetail({ id }: { id: string }) {
       }),
     onSuccess: changed,
   });
+  const updateLifecycle = useMutation({
+    mutationFn: (lifecycle_state: Schema<"TrackingInput">["lifecycle_state"]) =>
+      patch(`application-packets/${id}/tracking`, {
+        expected_revision: packet.data!.revision,
+        lifecycle_state,
+      }),
+    onSuccess: changed,
+  });
   const add = useMutation({
     mutationFn: () =>
       post(`application-packets/${id}/questions`, {
@@ -520,14 +654,17 @@ export function ApplicationDetail({ id }: { id: string }) {
         questions: [
           {
             question,
-            category: "free_text",
-            field_type: "textarea",
+            category,
+            field_type: fieldType,
             required: true,
           },
         ],
       }),
     onSuccess: () => {
       setQuestion("");
+      setCategory("free_text");
+      setFieldType("textarea");
+      setTemplateIdx(0);
       changed();
     },
   });
@@ -556,6 +693,11 @@ export function ApplicationDetail({ id }: { id: string }) {
     "submitting",
     "submission_unknown",
   ].includes(p.lifecycle_state);
+
+  const reviewedCount = p.fields.filter(
+    (f) => f.review_status === "reviewed",
+  ).length;
+
   return (
     <>
       <Link href="/applications" className="external">
@@ -568,14 +710,95 @@ export function ApplicationDetail({ id }: { id: string }) {
           title={p.snapshot.job_title}
           description={`${p.snapshot.company_name || "Company unverified"} · ${readable(p.platform)} · Revision ${p.revision}`}
           actions={
-            <Badge tone={terminal ? "green" : "amber"}>
-              {pipelineColumn(p)}
-            </Badge>
+            <div className="actions">
+              <Badge tone={terminal ? "green" : "amber"}>
+                {pipelineColumn(p)}
+              </Badge>
+              {p.approved_revision ? (
+                <Badge tone="green">Approved rev {p.approved_revision}</Badge>
+              ) : (
+                <Badge tone="neutral">Unapproved revision</Badge>
+              )}
+            </div>
           }
         />
       </div>
+
+      <div className="detail-grid">
+        <section className="panel panel-body">
+          <div className="split">
+            <div>
+              <h3>Application destination</h3>
+              <p>
+                {p.snapshot.destination.application_url ? (
+                  <External href={p.snapshot.destination.application_url}>
+                    {p.snapshot.destination.application_url}
+                  </External>
+                ) : (
+                  <span className="muted">No direct URL recorded</span>
+                )}
+              </p>
+              <small>
+                Kind: {readable(p.snapshot.destination.kind)} · Confidence:{" "}
+                {readable(p.snapshot.destination.source_confidence)}
+              </small>
+              {(p.snapshot.destination.warnings || []).map((w) => (
+                <Notice key={w}>{w}</Notice>
+              ))}
+            </div>
+            <div>
+              <h3>Selected resume</h3>
+              <p>
+                <strong>
+                  {p.snapshot.resume.selected?.label || "No resume selected"}
+                </strong>{" "}
+                <Badge
+                  tone={
+                    p.snapshot.resume.selected?.confirmed ? "green" : "amber"
+                  }
+                >
+                  {p.snapshot.resume.selected?.confirmed
+                    ? "Confirmed"
+                    : "Needs confirmation"}
+                </Badge>
+              </p>
+              <small className="muted">
+                File upload is manual on employer portal.
+              </small>
+            </div>
+          </div>
+          <div className="split spaced">
+            <small>
+              Source platform: {readable(p.snapshot.source_platform)}
+              {p.snapshot.original_job_url && (
+                <span>
+                  {" "}
+                  ·{" "}
+                  <External href={p.snapshot.original_job_url}>
+                    Original posting
+                  </External>
+                </span>
+              )}
+            </small>
+            <small>
+              Reviewed questions: {reviewedCount} of {p.fields.length} · Last
+              updated: {dateLabel(p.updated_at)}
+            </small>
+          </div>
+        </section>
+      </div>
+
       <BrowserAssistant packet={p} hasUnsavedAnswers={dirtyFields.length > 0} />
       {notice && <Notice>{notice}</Notice>}
+
+      {p.lifecycle_state === "submission_unknown" && (
+        <Notice>
+          Submission outcome is unknown. Do NOT resubmit blindly. Check your
+          email or the application portal for a receipt before taking further
+          action. Once verified, record your manual submission receipt.
+        </Notice>
+      )}
+
       <div className="detail-grid">
         <section className="panel">
           <div className="panel-header">
@@ -614,14 +837,80 @@ export function ApplicationDetail({ id }: { id: string }) {
                   add.mutate();
                 }}
               >
-                <Field label="Add an actual question from the application form">
+                <h3>Add a question from the application form</h3>
+                <Field label="Choose from common question templates">
+                  <Select
+                    value={templateIdx}
+                    onChange={(e) => {
+                      const idx = Number(e.target.value);
+                      setTemplateIdx(idx);
+                      const tmpl = QUESTION_TEMPLATES[idx];
+                      if (tmpl && tmpl.question) {
+                        setQuestion(tmpl.question);
+                        setCategory(tmpl.category);
+                        setFieldType(tmpl.field_type);
+                      }
+                    }}
+                  >
+                    {QUESTION_TEMPLATES.map((tmpl, idx) => (
+                      <option key={idx} value={idx}>
+                        {tmpl.label}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Question text">
                   <Input
                     value={question}
                     onChange={(e) => setQuestion(e.target.value)}
                     required
                     maxLength={2000}
+                    placeholder="Enter question text from application form…"
                   />
                 </Field>
+                <div className="split">
+                  <Field label="Question category">
+                    <Select
+                      value={category}
+                      onChange={(e) =>
+                        setCategory(
+                          e.target.value as Schema<"QuestionInput">["category"],
+                        )
+                      }
+                    >
+                      <option value="free_text">Free text</option>
+                      <option value="motivation">
+                        Motivation (Why company / role)
+                      </option>
+                      <option value="project_explanation">
+                        Project explanation / Problem solving
+                      </option>
+                      <option value="technical_skills">Technical skills</option>
+                      <option value="notice_period">Notice period</option>
+                      <option value="personal_information">
+                        Personal info / Preferred location
+                      </option>
+                      <option value="experience">Experience</option>
+                    </Select>
+                  </Field>
+                  <Field label="Field type">
+                    <Select
+                      value={fieldType}
+                      onChange={(e) =>
+                        setFieldType(
+                          e.target
+                            .value as Schema<"QuestionInput">["field_type"],
+                        )
+                      }
+                    >
+                      <option value="textarea">Textarea (Narrative)</option>
+                      <option value="text">Single-line text (Factual)</option>
+                      <option value="multiple_choice">Multiple choice</option>
+                      <option value="multi_select">Multi select</option>
+                      <option value="yes_no">Yes / No</option>
+                    </Select>
+                  </Field>
+                </div>
                 <Button type="submit" disabled={!question} busy={add.isPending}>
                   <Plus size={13} />
                   Add question
@@ -752,6 +1041,16 @@ export function ApplicationDetail({ id }: { id: string }) {
                   Open manual handoff
                   <ArrowUpRight size={13} />
                 </Button>
+                {p.approved_revision === p.revision && !terminal && (
+                  <Button
+                    busy={updateLifecycle.isPending}
+                    onClick={() =>
+                      updateLifecycle.mutate("external_application_opened")
+                    }
+                  >
+                    Record external application opened
+                  </Button>
+                )}
                 <Button
                   disabled={
                     (!terminal && p.approved_revision !== p.revision) ||
@@ -773,6 +1072,9 @@ export function ApplicationDetail({ id }: { id: string }) {
                 </Button>
               </div>
               {openHandoff.isError && <ErrorState error={openHandoff.error} />}{" "}
+              {updateLifecycle.isError && (
+                <ErrorState error={updateLifecycle.error} />
+              )}{" "}
               {refresh.isError && <ErrorState error={refresh.error} />}{" "}
               {handoff && (
                 <div className="evidence-item">

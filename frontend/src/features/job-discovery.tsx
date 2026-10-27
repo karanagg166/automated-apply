@@ -349,6 +349,15 @@ export function JobDiscovery() {
                 </div>
               )}
 
+              {currentSourceConfig?.configuration?.board_allowlist_required &&
+                !currentSourceConfig?.configuration?.boards_configured && (
+                  <Notice>
+                    Company board allowlist required: Configure permitted
+                    company board identifiers in your environment before
+                    discovery from {currentSourceConfig.display_name}.
+                  </Notice>
+                )}
+
               <Field
                 label="Role / Technology keywords"
                 hint="Comma-separated titles or tech stacks. Leave empty to use saved profile defaults."
