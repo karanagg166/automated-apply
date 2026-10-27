@@ -104,6 +104,7 @@ try {
           kind: "text",
           value: null,
           needs_input: true,
+          missing_input_id: "a".repeat(32),
           evidence: [],
         },
         {
@@ -242,11 +243,30 @@ try {
       .querySelector("#answer-status")
       .textContent.startsWith("2 answers ready"),
   );
+  const savedQuestion = page.locator("#missing-answers a");
+  assert.equal(await savedQuestion.count(), 1);
+  assert.equal(
+    await savedQuestion.getAttribute("href"),
+    "http://127.0.0.1:3000/profile?missing_input=" + "a".repeat(32),
+  );
+  assert.match(await savedQuestion.textContent(), /Expected salary/);
+  assert.equal(await page.locator("#missing-answers script").count(), 0);
+  assert.equal(
+    await page.evaluate(
+      () =>
+        window.nativeCalls.filter((call) => call.command === "authorize_form")
+          .length,
+    ),
+    0,
+  );
   assert.equal(await page.locator("#fill-form").isEnabled(), true);
   const planText = await page.locator("#form-plan").innerText();
   assert.match(planText, /alex@example\.com/);
   assert.match(planText, /Work authorization \(Yes\) \(required\)[\s\S]*true/);
-  assert.match(planText, /Expected salary[\s\S]*Needs a reviewed fact/);
+  assert.match(
+    planText,
+    /Expected salary[\s\S]*Saved question needs your factual input/,
+  );
   assert.match(
     planText,
     /I agree to the privacy policy[\s\S]*Consent and legal declarations are never selected automatically/,
@@ -397,7 +417,9 @@ try {
   await page.waitForFunction(() =>
     document
       .querySelector("#answer-status")
-      .textContent.includes("cross-origin frame that cannot be inspected safely"),
+      .textContent.includes(
+        "cross-origin frame that cannot be inspected safely",
+      ),
   );
   assert.equal(await page.locator("#fill-form").isEnabled(), false);
 

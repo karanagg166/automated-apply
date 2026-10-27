@@ -73,3 +73,11 @@ Frontend contract generation is AGY-owned. The backend OpenAPI export was regene
 Official person imports may include optional `business_email` and `email_publication_url` together. The email and publication URL must belong to the employer domain. Only explicit human-confirmed official-company evidence yields `published_source_supported`, with its source URL returned separately. This status does not establish mailbox verification or email-send readiness. Unrelated personal addresses are rejected. Unknown, stale and suppressed states remain explicit.
 
 The shared OAuth callback uses the `read.` prefix, containing a character outside the legacy random-state alphabet, so a legacy intent cannot accidentally select the new storage tables. The two staged tables are additive: they neither alter legacy OAuth/account tables nor expand any existing table's runtime privileges. The optional schema overlay is pinned to a public reviewed SQL checksum and exact disposable-PostgreSQL catalog snapshots.
+
+## v1.3 compatibility and freshness (2026-10-28 IST)
+
+Read-only accounts requiring reauthorization may reconnect without losing their selected-message policy or durable checkpoint. The verified Google subject must still match the existing account. Disconnected accounts report no effective read/send permission; legacy send/compose scopes retain their metadata-read permission reporting.
+
+Missing-answer APIs require the existing owner-preference storage. Historical partial migration schemas keep their previous answer/packet behavior; an unknown question remains unresolved and reports `missing_input_storage_schema_required` rather than inventing a fact or claiming persistence. The explicit missing-answer resource returns a conflict until storage is present. Production baseline storage and the full reviewed optional Gmail schema are independently validated.
+
+Published-business-email evidence is bound to the actual observed address digest. Correcting an email clears its effective publication status unless matching source evidence is supplied; a previous address publication URL cannot verify the replacement. Industry filters match explicit terms/aliases: for example, `AI` does not match `retail`.
