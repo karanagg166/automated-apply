@@ -1162,9 +1162,7 @@ test("owner manages protected career facts and signed answer reuse with PostgreS
   );
   await page.goto(`/applications/${packet_id}`);
   const paraphrase = "Walk us through a project you built";
-  await page
-    .getByLabel("Add an actual question from the application form")
-    .fill(paraphrase);
+  await page.getByLabel("Question text", { exact: true }).fill(paraphrase);
   await page.getByRole("button", { name: "Add question", exact: true }).click();
   const question = page
     .locator(".evidence-item")

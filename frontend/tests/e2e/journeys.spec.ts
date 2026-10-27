@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { resolve } from "node:path";
+import { mkdirSync } from "node:fs";
 import { login } from "./owner-session";
 
 test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
@@ -245,7 +246,7 @@ test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
       page.getByRole("heading", { name: "Application fields" }),
     ).toBeVisible();
     await page
-      .getByLabel("Add an actual question")
+      .getByLabel("Question text", { exact: true })
       .fill("Why are you interested in this backend role?");
     await page
       .getByRole("button", { name: "Add question", exact: true })
@@ -268,6 +269,52 @@ test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
     await question
       .getByRole("checkbox", { name: "I reviewed this exact answer" })
       .check();
+    await page
+      .getByLabel("Question text", { exact: true })
+      .fill("Preferred backend language");
+    await page
+      .getByLabel("Field type", { exact: true })
+      .selectOption("multiple_choice");
+    await expect(
+      page.getByRole("button", { name: "Add question", exact: true }),
+    ).toBeDisabled();
+    await page
+      .getByLabel("Actual form options (one per line)")
+      .fill("Python\nJava");
+    const addedChoice = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/questions") &&
+        response.request().method() === "POST",
+    );
+    await page
+      .getByRole("button", { name: "Add question", exact: true })
+      .click();
+    expect((await addedChoice).status()).toBe(200);
+    const choice = page
+      .locator(".evidence-item")
+      .filter({ hasText: "Preferred backend language" })
+      .first();
+    await expect(choice).toContainText("Python · Java");
+    await choice.getByLabel("Reviewable answer").fill("Python");
+    await choice
+      .getByRole("button", { name: "Save answer", exact: true })
+      .click();
+    await expect(
+      choice.getByText("draft ready", { exact: true }),
+    ).toBeVisible();
+    await choice.getByLabel("I reviewed this exact answer").check();
+    // Adding a question revises the packet; review the original answer again.
+    await question.getByLabel("I reviewed this exact answer").check();
+    if (process.env.PHASE2_SCREENSHOT_DIR) {
+      mkdirSync(process.env.PHASE2_SCREENSHOT_DIR, { recursive: true });
+      await page.screenshot({
+        path: resolve(
+          process.env.PHASE2_SCREENSHOT_DIR,
+          "fictional-packet-choice-review.png",
+        ),
+        fullPage: true,
+      });
+    }
     await page
       .getByRole("checkbox", {
         name: "I reviewed the selected resume variant.",
