@@ -2,10 +2,11 @@
 
 import asyncio
 import os
-from pathlib import Path
 import sys
 import uuid
+from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
+
 import asyncpg
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -30,12 +31,13 @@ async def verify(url):
         )
         os.environ["DATABASE_SCHEMA"] = "job_agent"
         os.environ["ENVIRONMENT"] = "testing"
-        from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
         from backend.app.models.job import Job
-        from backend.app.services.job_ingestion import JobIngestionService
+        from backend.app.schemas.discovery import DiscoveryError, RunRequest
         from backend.app.services.discovery_budget import DiscoveryBudget
         from backend.app.services.job_discovery_service import JobDiscoveryService
-        from backend.app.schemas.discovery import DiscoveryError, RunRequest
+        from backend.app.services.job_ingestion import JobIngestionService
         from backend.tests.discovery_fakes import job
 
         connection = await asyncpg.connect(isolated)
@@ -285,6 +287,89 @@ async def verify(url):
             await connection.fetchval("SELECT status FROM job_agent.discovery_runs")
             == "success"
         ), runs
+        # The installed restricted runtime has a single connection. Profile reads
+        # must release it before the independently committed source pacing claim.
+        import httpx
+
+        from backend.app.models.startup import ProviderAccessWindow
+        from backend.app.services.job_sources.direct_api import ArbeitnowAdapter
+        from backend.app.services.job_sources.factory import JobSourceFactory
+
+        async with engine.begin() as schema_connection:
+            await schema_connection.run_sync(ProviderAccessWindow.__table__.create)
+        calls = []
+
+        def public_get(request):
+            assert request.method == "GET" and request.url.host == "www.arbeitnow.com"
+            calls.append(request)
+            return httpx.Response(200, json={"data": [{
+                "slug": "single-connection-fictional",
+                "title": "Software Engineer",
+                "url": "https://example.com/single-connection-fictional",
+            }]})
+
+        class LocalFeed(ArbeitnowAdapter):
+            def client(self):
+                return httpx.AsyncClient(transport=httpx.MockTransport(public_get))
+
+        single_engine = create_async_engine(
+            os.environ["DATABASE_URL"], pool_size=1, max_overflow=0, pool_timeout=2,
+        )
+        single_factory = async_sessionmaker(single_engine, expire_on_commit=False)
+        original_adapter = JobSourceFactory._adapters["arbeitnow"]
+        JobSourceFactory._adapters["arbeitnow"] = LocalFeed
+        try:
+            async with asyncio.timeout(10):
+                async with single_factory() as session:
+                    request = RunRequest(
+                        source="arbeitnow", use_profile=True,
+                        idempotency_key="single_connection_profile_and_pacing",
+                    )
+                    service = JobDiscoveryService(session, single_factory)
+                    result = await service.run(request)
+                    assert result["status"] == "success", result
+                    assert result["rankings"][0]["profile_version"] == 9
+                    assert (await service.run(request))["id"] == result["id"]
+                    assert len(calls) == 1
+        finally:
+            JobSourceFactory._adapters["arbeitnow"] = original_adapter
+            await single_engine.dispose()
+
+        # A genuine server-side disconnect rolls back pending job writes. The
+        # independent failure audit must recover even when rollback itself fails.
+        original_ingest = JobIngestionService.ingest_jobs
+
+        async def disconnected_ingestion(ingestion, records, **kwargs):
+            await original_ingest(ingestion, records, **kwargs)
+            from sqlalchemy import text
+
+            pid = await ingestion.session.scalar(text("SELECT pg_backend_pid()"))
+            await connection.execute("SELECT pg_terminate_backend($1)", pid)
+            raise RuntimeError("Injected disposable database disconnect")
+
+        JobIngestionService.ingest_jobs = disconnected_ingestion
+        try:
+            async with factory() as session:
+                interrupted_request = RunRequest(
+                    source="manual", use_profile=False,
+                    idempotency_key="terminated_transaction",
+                    manual_jobs=[job(
+                        source_name="manual", source_job_id="terminated",
+                        original_url="https://example.com/terminated-transaction",
+                    ).model_dump(mode="json")],
+                )
+                service = JobDiscoveryService(session, factory)
+                interrupted = await service.run(interrupted_request)
+                assert interrupted["status"] == "failed", interrupted
+                assert interrupted["counts"]["inserted"] == 0
+                assert (await service.run(interrupted_request))["id"] == interrupted["id"]
+            assert not await connection.fetchval(
+                "SELECT count(*) FROM job_agent.jobs WHERE job_url=$1",
+                "https://example.com/terminated-transaction",
+            )
+        finally:
+            JobIngestionService.ingest_jobs = original_ingest
+
         # Retry migration after data exists, with no rewrites or deletion.
         before_replay = {
             table: await connection.fetchval(
@@ -317,7 +402,7 @@ async def verify(url):
             == 9
         )
         print(
-            "Phase 2B PostgreSQL PASS: additive/replay DDL, old jobs/profiles/resources/drafts/public preserved, RLS, FK, 12 concurrent ATS ingestions, 6 content ingestions, observation history, manual state, rollback, 12 budget reservations, cooldown, concurrent run idempotency"
+            "Phase 2B PostgreSQL PASS: additive/replay DDL, old jobs/profiles/resources/drafts/public preserved, RLS, FK, 12 concurrent ATS ingestions, 6 content ingestions, observation history, manual state, rollback, 12 budget reservations, cooldown, concurrent run idempotency, single-connection profile/pacing without deadlock, actual disconnect/rollback/audit recovery"
         )
     finally:
         if engine:

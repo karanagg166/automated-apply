@@ -195,17 +195,7 @@ class StartupDiscoveryService:
         run = await self.session.get(DiscoveryRun, run_id)
         if run is None or not run.source.startswith("startup_"):
             raise LookupError("Startup run not found")
-        output = run_output(run)
-        if run.status == "running" and utc(run.started_at) < now() - timedelta(
-            seconds=self.settings.DISCOVERY_TIMEOUT_SECONDS + 120
-        ):
-            output.update(
-                status="recovery_required",
-                errors=[
-                    "Execution lease expired; no automatic provider replay. Inspect child runs and retained budget before a new owner-triggered run."
-                ],
-            )
-        return {**output, "query": run.query_summary}
+        return {**run_output(run, self.settings), "query": run.query_summary}
 
     async def detail(self, company_id, filters=None, profile=None):
         filters = filters or StartupFilters(max_employees=None)
