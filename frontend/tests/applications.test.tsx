@@ -468,6 +468,47 @@ describe("Applications Pipeline & Detail Views", () => {
       });
     });
 
+    it.each(["multiple_choice", "multi_select", "yes_no"] as const)(
+      "adds a %s question only with the actual form options",
+      async (fieldType) => {
+        vi.mocked(post).mockResolvedValue({});
+        renderWithClient(<ApplicationDetail id={mockPacket.id} />);
+        await screen.findByRole("heading", {
+          level: 1,
+          name: "Senior Backend Engineer",
+        });
+        await userEvent.type(
+          screen.getByLabelText("Question text"),
+          "Which working arrangements are available to you?",
+        );
+        await userEvent.selectOptions(
+          screen.getByLabelText("Field type"),
+          fieldType,
+        );
+        const add = screen.getByRole("button", { name: "Add question" });
+        expect(add).toBeDisabled();
+        expect(post).not.toHaveBeenCalled();
+        await userEvent.type(
+          screen.getByLabelText("Actual form options (one per line)"),
+          "Remote\nHybrid",
+        );
+        await userEvent.click(add);
+        await waitFor(() => {
+          expect(post).toHaveBeenCalledWith(
+            `application-packets/${mockPacket.id}/questions`,
+            expect.objectContaining({
+              questions: [
+                expect.objectContaining({
+                  field_type: fieldType,
+                  options: ["Remote", "Hybrid"],
+                }),
+              ],
+            }),
+          );
+        });
+      },
+    );
+
     it("displays submission unknown state with explicit recovery instructions", async () => {
       const unknownPacket: Schema<"PacketRead"> = {
         ...mockPacket,

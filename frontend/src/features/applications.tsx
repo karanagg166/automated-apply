@@ -568,6 +568,7 @@ export function ApplicationDetail({ id }: { id: string }) {
     [submissionConfirmed, setSubmissionConfirmed] = useState(false),
     [receipt, setReceipt] = useState(""),
     [question, setQuestion] = useState(""),
+    [questionOptions, setQuestionOptions] = useState(""),
     [category, setCategory] =
       useState<Schema<"QuestionInput">["category"]>("free_text"),
     [fieldType, setFieldType] =
@@ -647,6 +648,20 @@ export function ApplicationDetail({ id }: { id: string }) {
       }),
     onSuccess: changed,
   });
+  const requiresOptions = [
+    "multiple_choice",
+    "multi_select",
+    "yes_no",
+  ].includes(fieldType);
+  const actualOptions = questionOptions
+    .split("\n")
+    .map((option) => option.trim())
+    .filter(Boolean);
+  const invalidOptions =
+    requiresOptions &&
+    (!actualOptions.length ||
+      actualOptions.length > 50 ||
+      actualOptions.some((option) => option.length > 200));
   const add = useMutation({
     mutationFn: () =>
       post(`application-packets/${id}/questions`, {
@@ -657,11 +672,13 @@ export function ApplicationDetail({ id }: { id: string }) {
             category,
             field_type: fieldType,
             required: true,
+            options: requiresOptions ? actualOptions : [],
           },
         ],
       }),
     onSuccess: () => {
       setQuestion("");
+      setQuestionOptions("");
       setCategory("free_text");
       setFieldType("textarea");
       setTemplateIdx(0);
@@ -911,7 +928,27 @@ export function ApplicationDetail({ id }: { id: string }) {
                     </Select>
                   </Field>
                 </div>
-                <Button type="submit" disabled={!question} busy={add.isPending}>
+                {requiresOptions && (
+                  <Field
+                    label="Actual form options (one per line)"
+                    hint="Copy the options from the application form. Supply up to 50 options, each at most 200 characters."
+                  >
+                    <textarea
+                      className="input"
+                      value={questionOptions}
+                      onChange={(event) =>
+                        setQuestionOptions(event.target.value)
+                      }
+                      maxLength={10049}
+                      required
+                    />
+                  </Field>
+                )}
+                <Button
+                  type="submit"
+                  disabled={!question || invalidOptions}
+                  busy={add.isPending}
+                >
                   <Plus size={13} />
                   Add question
                 </Button>
