@@ -602,8 +602,10 @@ export function StartupExplorer() {
                   <span>
                     <Users size={12} />
                     {s.employee_count !== null &&
-                    s.team_size_evidence_status === "verified"
-                      ? `${s.employee_count} employees (exact count)`
+                    ["source_reported", "human_confirmed"].includes(
+                      s.team_size_evidence_status,
+                    )
+                      ? `${s.employee_count} employees (${s.team_size_evidence_status === "human_confirmed" ? "human confirmed" : "source reported"})`
                       : s.team_size_band && s.team_size_band !== "unknown"
                         ? `${s.team_size_band} band`
                         : "Size unknown"}
@@ -654,7 +656,9 @@ export function StartupExplorer() {
                 <div className="company-meta">
                   <Badge
                     tone={
-                      s.team_size_evidence_status === "verified"
+                      ["source_reported", "human_confirmed"].includes(
+                        s.team_size_evidence_status,
+                      )
                         ? "green"
                         : s.team_size_evidence_status === "conflicting"
                           ? "red"
