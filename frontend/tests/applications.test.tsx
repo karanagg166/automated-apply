@@ -413,7 +413,7 @@ describe("Applications Pipeline & Detail Views", () => {
       await userEvent.clear(answer);
       await userEvent.type(answer, "I build reliable APIs");
       expect(field.getByText(/4 \/ 3 words/)).toHaveTextContent(
-        "(exceeds limit)",
+        "(exceeds character limit)",
       );
       expect(field.getByRole("button", { name: "Save answer" })).toBeDisabled();
       expect(
@@ -596,7 +596,7 @@ describe("Applications Pipeline & Detail Views", () => {
       },
     );
 
-    it("displays submission unknown state with explicit recovery instructions", async () => {
+    it("displays submission unknown state with explicit recovery instructions and disables reporting", async () => {
       const unknownPacket: Schema<"PacketRead"> = {
         ...mockPacket,
         lifecycle_state: "submission_unknown",
@@ -618,8 +618,61 @@ describe("Applications Pipeline & Detail Views", () => {
 
       expect(
         await screen.findByText(
-          /Submission outcome is unknown\. Do NOT resubmit blindly\./i,
+          /Submission outcome is unknown due to an ambiguous dispatch attempt\./i,
         ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Manual completion reporting is disabled until the ambiguous dispatch attempt is reconciled\./i,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Report manual completion" }),
+      ).toBeDisabled();
+    });
+
+    it("enforces max_words limit and supports experience narrative generation", async () => {
+      const narrativePacket: Schema<"PacketRead"> = {
+        ...mockPacket,
+        fields: [
+          {
+            id: "f-exp",
+            question: "What was the hardest technical problem you solved?",
+            category: "experience",
+            field_type: "textarea",
+            required: true,
+            effective_answer: "One two three four five six",
+            max_characters: 500,
+            max_words: 5,
+            validation_status: "needs_input",
+            review_status: "pending",
+            answer_revision: 1,
+            requires_review: false,
+            writing_style: "professional",
+            missing_information: [],
+          },
+        ],
+      };
+      vi.mocked(api).mockImplementation((path: string) => {
+        if (path === `application-packets/${narrativePacket.id}`) {
+          return Promise.resolve(narrativePacket);
+        }
+        if (path === `application-packets/${narrativePacket.id}/events`) {
+          return Promise.resolve([]);
+        }
+        if (path === "browser-applications/policy") {
+          return Promise.resolve({ origins: [], digest: "test-digest" });
+        }
+        return Promise.reject(new Error(`Unhandled GET path: ${path}`));
+      });
+
+      renderWithClient(<ApplicationDetail id={narrativePacket.id} />);
+
+      expect(
+        await screen.findByText(/6 \/ 5 words \(exceeds word limit\)/i),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Generate with configured AI" }),
       ).toBeInTheDocument();
     });
 

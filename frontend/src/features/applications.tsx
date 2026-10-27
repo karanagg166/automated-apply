@@ -280,14 +280,17 @@ function AnswerField({
   const wordCount = answer.trim()
     ? answer.trim().split(/\s+/).filter(Boolean).length
     : 0;
-  const exceedsLimit =
-    charCount > field.max_characters ||
-    (field.max_words != null && wordCount > field.max_words);
+  const exceedsCharLimit = charCount > field.max_characters;
+  const exceedsWordLimit =
+    typeof field.max_words === "number" && field.max_words > 0
+      ? wordCount > field.max_words
+      : false;
+  const exceedsLimit = exceedsCharLimit || exceedsWordLimit;
   const isNarrative = [
+    "experience",
     "project_explanation",
     "motivation",
     "free_text",
-    "experience",
   ].includes(field.category);
 
   let selectedOptions: string[] = [];
@@ -392,9 +395,13 @@ function AnswerField({
           />
           <div className="split">
             <small className={exceedsLimit ? "missing-skills" : "muted"}>
-              {charCount} / {field.max_characters} characters · {wordCount}
-              {field.max_words != null ? ` / ${field.max_words}` : ""} words
-              {exceedsLimit ? " (exceeds limit)" : ""}
+              {charCount} / {field.max_characters} characters · {wordCount}{" "}
+              {field.max_words ? `/ ${field.max_words} ` : ""}words
+              {exceedsCharLimit
+                ? " (exceeds character limit)"
+                : exceedsWordLimit
+                  ? " (exceeds word limit)"
+                  : ""}
             </small>
           </div>
         </Field>
@@ -533,13 +540,13 @@ const QUESTION_TEMPLATES = [
     label: "Hardest technical problem (Narrative)",
     question:
       "What is the hardest technical problem you have faced and how did you solve it?",
-    category: "project_explanation" as const,
+    category: "experience" as const,
     field_type: "textarea" as const,
   },
   {
     label: "Relevant achievements (Narrative)",
     question: "What are your most relevant technical achievements?",
-    category: "project_explanation" as const,
+    category: "experience" as const,
     field_type: "textarea" as const,
   },
   {
@@ -818,10 +825,11 @@ export function ApplicationDetail({ id }: { id: string }) {
 
       {p.lifecycle_state === "submission_unknown" && (
         <Notice>
-          Submission outcome is unknown. Do NOT resubmit blindly. Check your
-          email or the application portal for a receipt before taking further
-          action. Reconcile the existing attempt before recording another
-          submission.
+          Submission outcome is unknown due to an ambiguous dispatch attempt. Do
+          NOT resubmit blindly. Reconcile this attempt by checking your email or
+          the application portal for confirmation. The backend tracker rejects a
+          new manual submission report while an ambiguous attempt remains
+          unresolved.
         </Notice>
       )}
 
@@ -1100,7 +1108,8 @@ export function ApplicationDetail({ id }: { id: string }) {
                 <Button
                   disabled={
                     (!terminal && p.approved_revision !== p.revision) ||
-                    terminal
+                    terminal ||
+                    p.lifecycle_state === "submission_unknown"
                   }
                   onClick={() => {
                     setSubmissionConfirmed(false);
@@ -1109,6 +1118,12 @@ export function ApplicationDetail({ id }: { id: string }) {
                 >
                   Report manual completion
                 </Button>
+                {p.lifecycle_state === "submission_unknown" && (
+                  <small className="missing-skills">
+                    Manual completion reporting is disabled until the ambiguous
+                    dispatch attempt is reconciled.
+                  </small>
+                )}
                 <Button
                   disabled={terminal}
                   busy={refresh.isPending}
