@@ -42,3 +42,9 @@ pnpm -C extension build
 - Start from `backend/.env.example` and `frontend/.env.example`. Keep credentials, candidate data, and private reports out of commits.
 - Real data requires owner-approved online PostgreSQL; SQLite is for fictional fixtures/tests. See `docs/online-postgresql.md`.
 - Preserve explicit owner approval for sending/application actions and opt-in provider budgets; tests must use isolated fixtures.
+
+## One Primary Repository & Parallel Work
+- The primary local Git repository is `/Users/karanagg/Desktop/Projects/automated-apply`.
+- Use linked Git worktrees of this repository for parallel agents, with a separate branch and explicit exclusive file ownership for each agent. Do not create duplicate full clones for future phases.
+- Integrate completed branches locally on a temporary integration branch, preserve dirty files and private configuration, and verify combined contracts/tests before updating the primary checkout.
+- Hosted GitHub Actions require deliberate owner authorization. Preserve manual-only workflow triggers; older branches must incorporate the CI cost policy before any push. Do not dispatch or rerun hosted jobs automatically.
