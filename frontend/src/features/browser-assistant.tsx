@@ -320,9 +320,8 @@ export function BrowserAssistant({
                 </Badge>
               </p>
               <small className="muted">
-                File upload limitation: Resumes cannot be automatically uploaded
-                by browser assistant. You must attach the file manually on the
-                official portal.
+                The dedicated browser can attach the approved canonical PDF when
+                upload checks pass. Chrome extension attachments remain manual.
               </small>
             </div>
           </div>
@@ -343,8 +342,8 @@ export function BrowserAssistant({
       </Notice>
       <Notice>
         Field preservation: Assisted filling preserves existing values already
-        entered on the website unless explicitly reviewed for overwrite. Check
-        values before filling.
+        entered on the website. Review those values directly on the website;
+        assisted filling does not overwrite them.
       </Notice>
       <label>
         <input
@@ -646,8 +645,9 @@ export function BrowserAssistant({
             <div className="stack spaced" aria-label="Unsupported controls">
               <h4>Unsupported fields requiring manual entry</h4>
               <p className="section-intro">
-                File uploads, complex dropdowns, CAPTCHAs, or unsupported
-                widgets require manual completion on the website:
+                Unsupported uploads, complex dropdowns, CAPTCHAs, and
+                unsupported widgets require manual completion on the website.
+                Supported canonical PDF uploads use the approved resume checks:
               </p>
               <ul>
                 {state.analysis.fields

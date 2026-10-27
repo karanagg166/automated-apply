@@ -280,11 +280,14 @@ function AnswerField({
   const wordCount = answer.trim()
     ? answer.trim().split(/\s+/).filter(Boolean).length
     : 0;
-  const exceedsLimit = charCount > field.max_characters;
+  const exceedsLimit =
+    charCount > field.max_characters ||
+    (field.max_words != null && wordCount > field.max_words);
   const isNarrative = [
     "project_explanation",
     "motivation",
     "free_text",
+    "experience",
   ].includes(field.category);
 
   let selectedOptions: string[] = [];
@@ -342,8 +345,9 @@ function AnswerField({
       {field.field_type === "file" ? (
         <Notice>
           Download the selected private resume and upload the actual file on the
-          official website during manual handoff. Browser assistant does not
-          upload files automatically.
+          official website during manual handoff. The dedicated browser can
+          attach the approved canonical PDF when upload checks pass. Chrome
+          extension attachments remain manual.
         </Notice>
       ) : field.field_type === "multi_select" ? (
         <fieldset>
@@ -388,8 +392,9 @@ function AnswerField({
           />
           <div className="split">
             <small className={exceedsLimit ? "missing-skills" : "muted"}>
-              {charCount} / {field.max_characters} characters · {wordCount}{" "}
-              words{exceedsLimit ? " (exceeds limit)" : ""}
+              {charCount} / {field.max_characters} characters · {wordCount}
+              {field.max_words != null ? ` / ${field.max_words}` : ""} words
+              {exceedsLimit ? " (exceeds limit)" : ""}
             </small>
           </div>
         </Field>
@@ -445,7 +450,10 @@ function AnswerField({
           <>
             <Button
               disabled={
-                terminal || !answer || answer === field.effective_answer
+                terminal ||
+                exceedsLimit ||
+                !answer ||
+                answer === field.effective_answer
               }
               busy={edit.isPending}
               onClick={() => edit.mutate()}
@@ -483,7 +491,7 @@ function AnswerField({
           <label className="check-label">
             <input
               type="checkbox"
-              disabled={terminal || dirty || !answer.trim()}
+              disabled={terminal || dirty || exceedsLimit || !answer.trim()}
               checked={checked && !dirty}
               onChange={(e) => onReviewed(e.target.checked)}
             />
@@ -812,7 +820,8 @@ export function ApplicationDetail({ id }: { id: string }) {
         <Notice>
           Submission outcome is unknown. Do NOT resubmit blindly. Check your
           email or the application portal for a receipt before taking further
-          action. Once verified, record your manual submission receipt.
+          action. Reconcile the existing attempt before recording another
+          submission.
         </Notice>
       )}
 

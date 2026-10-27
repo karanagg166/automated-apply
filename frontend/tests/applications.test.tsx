@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -343,6 +343,17 @@ describe("Applications Pipeline & Detail Views", () => {
         screen.getAllByText("https://careers.acme.example.com/apply/123")
           .length,
       ).toBeGreaterThanOrEqual(1);
+      expect(
+        screen.getByText(
+          /The dedicated browser can attach the approved canonical PDF when upload checks pass/,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(/Chrome extension attachments remain manual/),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText(/unless explicitly reviewed for overwrite/),
+      ).not.toBeInTheDocument();
     });
 
     it("displays live character and word counters and warns when limit is exceeded", async () => {
@@ -370,6 +381,82 @@ describe("Applications Pipeline & Detail Views", () => {
           /Required candidate facts were not found in your profile\. Real qualifications cannot be invented\./i,
         ),
       ).toBeInTheDocument();
+    });
+
+    it("enforces a supplied word limit before saving or reviewing an answer", async () => {
+      const boundedPacket = {
+        ...mockPacket,
+        fields: [
+          {
+            ...mockPacket.fields[0],
+            max_words: 3,
+            effective_answer: "I build",
+          },
+        ],
+      };
+      vi.mocked(api).mockImplementation((path: string) =>
+        Promise.resolve(
+          path === `application-packets/${mockPacket.id}`
+            ? boundedPacket
+            : path.endsWith("/events")
+              ? []
+              : { origins: [], digest: "test-digest" },
+        ),
+      );
+      vi.mocked(patch).mockResolvedValue({});
+      renderWithClient(<ApplicationDetail id={mockPacket.id} />);
+      const question = await screen.findByText(mockPacket.fields[0].question, {
+        exact: false,
+      });
+      const field = within(question.closest(".evidence-item") as HTMLElement);
+      const answer = field.getByLabelText("Reviewable answer");
+      await userEvent.clear(answer);
+      await userEvent.type(answer, "I build reliable APIs");
+      expect(field.getByText(/4 \/ 3 words/)).toHaveTextContent(
+        "(exceeds limit)",
+      );
+      expect(field.getByRole("button", { name: "Save answer" })).toBeDisabled();
+      expect(
+        field.getByLabelText("I reviewed this exact answer"),
+      ).toBeDisabled();
+      expect(patch).not.toHaveBeenCalled();
+      await userEvent.clear(answer);
+      await userEvent.type(answer, "I build APIs");
+      await userEvent.click(field.getByRole("button", { name: "Save answer" }));
+      await waitFor(() => {
+        expect(patch).toHaveBeenCalledWith(
+          `application-packets/${mockPacket.id}/questions/${mockPacket.fields[0].id}`,
+          { expected_revision: mockPacket.revision, answer: "I build APIs" },
+        );
+      });
+    });
+
+    it("offers configured generation for supported technical experience questions", async () => {
+      vi.mocked(api).mockImplementation((path: string) =>
+        Promise.resolve(
+          path === `application-packets/${mockPacket.id}`
+            ? {
+                ...mockPacket,
+                fields: [{ ...mockPacket.fields[0], category: "experience" }],
+              }
+            : path.endsWith("/events")
+              ? []
+              : { origins: [], digest: "test-digest" },
+        ),
+      );
+      vi.mocked(post).mockResolvedValue({});
+      renderWithClient(<ApplicationDetail id={mockPacket.id} />);
+      await userEvent.click(
+        await screen.findByRole("button", {
+          name: "Generate with configured AI",
+        }),
+      );
+      await waitFor(() => {
+        expect(post).toHaveBeenCalledWith(
+          `application-packets/${mockPacket.id}/questions/${mockPacket.fields[0].id}/generate`,
+          { expected_revision: mockPacket.revision, rewrite: true },
+        );
+      });
     });
 
     it("saves edited answers and resets dirty state", async () => {
