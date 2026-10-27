@@ -50,12 +50,13 @@ it("uses accessible dialog semantics", () => {
     screen.getByRole("dialog", { name: "Review exact send" }),
   ).toHaveAccessibleDescription("Review before authorizing.");
 });
-it("uses numeric evidence for exact 2–10", () => {
+it("includes reported 2–10 and bounded numeric headcounts", () => {
   expect(sizeFilter("2-10")).toMatchObject({
     min_employees: 2,
     max_employees: 10,
-    exact_employee_count: true,
+    exact_employee_count: false,
     include_unknown_size: false,
+    size_bands: ["1-10", "2-10"],
   });
 });
 it("keeps an opened application separate from submission", () => {

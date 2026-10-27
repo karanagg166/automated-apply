@@ -176,7 +176,7 @@ describe("Browser Assistant UI Improvements", () => {
 
     // Selected resume status
     expect(screen.getByText("Platform_Engineer_2026.pdf")).toBeInTheDocument();
-    expect(screen.getByText("Confirmed & Verified")).toBeInTheDocument();
+    expect(screen.getByText("Selection confirmed")).toBeInTheDocument();
 
     // Readiness indicators
     expect(screen.getByText("DESTINATION READY")).toBeInTheDocument();
@@ -255,4 +255,22 @@ describe("Browser Assistant UI Improvements", () => {
     expect(linkBtn).toBeInTheDocument();
     expect(linkBtn).toHaveAttribute("href", "/needs-input");
   });
+});
+
+it("requires a valid destination and never equates resume selection with PDF verification", async () => {
+  vi.mocked(api).mockResolvedValue({
+    origins: [],
+    digest: "fictional-policy",
+  } as any);
+  mount({
+    ...fictionalPacket,
+    snapshot: {
+      ...fictionalPacket.snapshot,
+      destination: { ...fictionalPacket.snapshot.destination, valid: false },
+    },
+  } as any);
+  expect(screen.getByText("Needs destination review")).toBeInTheDocument();
+  expect(screen.queryByText("Configured")).toBeNull();
+  expect(screen.queryByText("Confirmed & Verified")).toBeNull();
+  expect(screen.queryByText("Ready (PDF verified)")).toBeNull();
 });

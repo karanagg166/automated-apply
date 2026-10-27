@@ -338,7 +338,7 @@ export function CandidateKnowledge() {
       <PageTitle
         eyebrow="TRUTH-BACKED CANDIDATE KNOWLEDGE"
         title="Candidate facts & approved answers."
-        description="Your single source of truth for personal facts, technical skills, verified projects, and approved reusable answers."
+        description="Your saved facts, reviewed projects, and answer drafts with explicit approval state."
         actions={
           <div className="actions">
             <Badge tone="green">

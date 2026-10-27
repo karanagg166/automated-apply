@@ -127,9 +127,9 @@ describe("Startup discovery and size filtering", () => {
     expect(sizeFilter("2-10")).toEqual({
       min_employees: 2,
       max_employees: 10,
-      exact_employee_count: true,
+      exact_employee_count: false,
       include_unknown_size: false,
-      size_bands: [],
+      size_bands: ["1-10", "2-10"],
     });
 
     // 51-200 preset
