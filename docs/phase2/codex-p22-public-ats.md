@@ -69,10 +69,9 @@ Adapter cases cover valid/malformed top-level feeds and records, missing optiona
 
 An initial fixture run had two incorrect assumptions: SQLAlchemy initializes a new versioned profile at version 1, and the job model has no notes column. Fixtures were corrected to establish version 7 through a real update and verify persisted human match score/explanation. Those failures were not hidden as passing checks.
 
-Representative commands, using the primary repository's existing Python 3.11 environment without changing its dependencies:
+Representative commands, using the primary repository's existing Python 3.11 environment without changing its dependencies. Set `PROFILE_TEST_DATABASE_URL` privately to the dedicated disposable local PostgreSQL fixture before running these commands; never place credentials in this report:
 
 ```sh
-PROFILE_TEST_DATABASE_URL=postgresql://postgres:TEST_PASSWORD@127.0.0.1:55432/candidate_profile_test \
 P22_TEST_POSTGRES_CONTAINER=codex-p22-pg17 \
 /path/to/primary/backend/venv/bin/python -u backend/scripts/run_backend_ci.py \
   --output /tmp/automated-apply-codex-p22-evidence/full-backend --seconds 1200 \
@@ -80,7 +79,6 @@ P22_TEST_POSTGRES_CONTAINER=codex-p22-pg17 \
   -o faulthandler_timeout=60 \
   --junitxml=/tmp/automated-apply-codex-p22-evidence/full-backend/pytest.xml
 
-PROFILE_TEST_DATABASE_URL=postgresql://postgres:TEST_PASSWORD@127.0.0.1:55432/candidate_profile_test \
 /path/to/primary/backend/venv/bin/python backend/scripts/benchmark_discovery.py --source ashby
 ```
 
@@ -111,4 +109,16 @@ No migration or typed API schema changed. Frontend files, AGY documentation, AGE
 
 The new sources are available through the registry, owner-triggered discovery API and existing job-led startup discovery service. Legacy natural-language planner, pilot CLI and scheduled-automation source allowlists were not expanded; configuring a board does not start scheduled collection.
 
-PR #34 was still open at the last inspection. Publication is pending its owner-approved merge: incorporate the actual merge commit and revalidate before pushing this branch and opening one scoped backend PR. No approval to merge #34 is inferred. Live employer-board approval is a separate future decision; current verification remains fictional-only.
+PR #34 subsequently merged with explicit owner approval as `1ad14a4d37cbef59548df2b6ec75c9495719b61f`. This branch was rebased onto that exact main commit. Publication requires the final local checks before pushing and opening one scoped backend PR. Live employer-board approval remains a separate future decision; current verification is fictional-only.
+
+## Production integration preparation follow-up
+
+The fresh review found PR #34 open and mergeable at `e08b7f0`, with no unresolved review threads. After explicit owner authorization, #34 merged with a merge commit. Fetched main `1ad14a4` contains `e08b7f0`, PR #33's `582f0dd` and Gemini's `695df6a`; its tree is identical to the reviewed integration head. PR #33 was then confirmed closed, with no unique branch changes remaining outside main. The workflows remain byte-identical to `3a2d6b3`'s manual-only policy. The rebase onto actual main completed without conflicts; the rebased implementation is `4686d8b`.
+
+AGY's `feat/p22-agy-job-source-ui` at `36c811d` changes only its Jobs component, tests and report. There are no shared changed files. Its source filter accepts the existing `sources` array with string `id` and `display_name`; Lever and Ashby supply both, retain `live_verified=false`, and default to `configuration_required`. The saved-job filter does not imply live readiness. Canonical OpenAPI remains identical to the Phase 2.1 integrated checkout.
+
+The fresh focused provider/security/application run passed **276 tests with zero failures or skips**, including the PostgreSQL 17.11 restart, concurrency and one-connection cases. Ruff, full-app Bandit, compilation and the tracked-private-artifact guard passed. Full-suite results and exact tested SHA belong in the private final manifest and delivery report.
+
+The native secret hook exposed two publication-check regressions: the credential-shaped documentation placeholder was detected, and inserting settings above a reviewed example shifted an existing baseline line reference. The commands now reference a privately supplied fixture environment variable, and the empty ATS settings are appended to the example file. The native hook passed after correction. No secret baseline, detector policy, production behavior or frontend file was changed. The two provisional full-suite attempts stopped for the publication-check fix and actual-main rebase are not counted as passing runs.
+
+Owner-approved live employer boards and online PostgreSQL remain prerequisites for external acceptance. The earlier 27-listing timeout is still undiagnosed; no fixture result establishes its resolution. Suitable real discovery-to-packet acceptance and delivered Telegram acceptance also remain outstanding. No provider activation, paid request, hosted CI, deployment, application sending or messaging is part of this preparation.
