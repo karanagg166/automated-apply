@@ -1,7 +1,9 @@
 """Application Assistance Service providing matching, tailored materials, and human-in-the-loop tracking."""
 
+import html
+import re
 import uuid
-from typing import Any
+
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -65,7 +67,7 @@ class ApplicationAssistant:
     def calculate_match(self, job: Job, profile: CandidateProfile) -> JobMatchResult:
         """Calculate an explainable, multi-factor match score (0-100) based strictly on verified candidate data."""
         job_title_lower = job.title.lower()
-        job_desc_lower = (job.description or "").lower()
+        job_desc_lower = html.unescape(re.sub(r"<[^>]*>", " ", job.description or "")).lower()
 
         # 1. Title match (up to 30 points)
         title_points = 0.0
@@ -98,7 +100,8 @@ class ApplicationAssistant:
         else:
             # Detect from description
             for s_low, s_orig in profile_skills_lower.items():
-                if s_low in job_desc_lower or s_low in job_title_lower:
+                pattern = r"(?<![\w+#])" + re.escape(s_low) + r"(?![\w+#])"
+                if re.search(pattern, job_desc_lower) or re.search(pattern, job_title_lower):
                     matched_skills.append(s_orig)
             skill_points = min(len(matched_skills) * 8.0, 40.0)
 

@@ -7,6 +7,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 from backend.app.ai.usage import concurrency_limiter
 from backend.app.core.config import get_settings
@@ -39,13 +40,20 @@ def iso_utc(value):
     ).isoformat()
 
 
-def run_output(run):
+def run_output(run, settings=None):
+    settings = settings or get_settings()
+    started = datetime.fromisoformat(iso_utc(run.started_at))
+    expired = run.status == "running" and started < datetime.now(timezone.utc) - timedelta(
+        seconds=settings.DISCOVERY_TIMEOUT_SECONDS + 120
+    )
     return {
         "id": str(run.id),
         "source": run.source,
-        "status": run.status,
+        "status": "recovery_required" if expired else run.status,
         "counts": run.counts,
-        "errors": run.errors,
+        "errors": [
+            "Execution lease expired; no automatic provider replay. Inspect saved runs and retained budget before a new owner-triggered run."
+        ] if expired else run.errors,
         "started_at": iso_utc(run.started_at),
         "finished_at": iso_utc(run.finished_at) if run.finished_at else None,
         "provider_run_id": run.provider_run_id,
@@ -157,7 +165,7 @@ class JobDiscoveryService:
             raise ValueError("Manual records exceed the query result cap")
         run_id, claimed = await self.claim(request)
         if not claimed:
-            return run_output(run_id)
+            return run_output(run_id, self.settings)
         result = DiscoveryResult(source=request.source, status=Status.UPSTREAM_ERROR)
         counts = {
             "discovered": 0,
@@ -173,10 +181,14 @@ class JobDiscoveryService:
         try:
             profile = None
             if request.use_profile:
-                try:
-                    profile = await CandidateProfileService(self.session).get_profile()
-                except ProfileNotFoundError:
-                    pass
+                # Materialize the profile without holding a database connection
+                # during independent pacing claims or public HTTP. Runtime pools
+                # may have just one connection and a short idle transaction limit.
+                async with self.factory() as profile_session:
+                    try:
+                        profile = await CandidateProfileService(profile_session).get_profile()
+                    except ProfileNotFoundError:
+                        pass
             query = build_query(request.query, profile)
             async with asyncio.timeout(self.settings.DISCOVERY_TIMEOUT_SECONDS):
                 async with concurrency_limiter(self.settings.DISCOVERY_MAX_CONCURRENCY):
@@ -382,7 +394,12 @@ class JobDiscoveryService:
             await self.session.commit()
             return run_output(run)
         except BaseException as exc:
-            await self.session.rollback()
+            try:
+                await self.session.rollback()
+            except SQLAlchemyError:
+                # A server restart/idle timeout can also break rollback. Discard
+                # the connection before the independent failure audit borrows it.
+                await self.session.invalidate()
 
             # Independent state update survives cancellation and any poisoned ingestion transaction.
             async def fail_run(error):

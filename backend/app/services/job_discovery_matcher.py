@@ -1,6 +1,7 @@
 """Deterministic preference overlay on the existing factual ApplicationAssistant."""
 
 from pydantic import BaseModel, Field
+
 from backend.app.services.application_assistant import (
     ApplicationAssistant,
     CandidateProfile,
@@ -164,13 +165,28 @@ class JobDiscoveryMatcher:
                 positive.append("Published salary meets preference")
             else:
                 unknown.append("salary_comparison")
+        if not company or not company.name:
+            unknown.append("company_name")
+        # Job feeds do not establish headcount. Size evidence is evaluated separately
+        # by the existing startup intelligence service, never inferred from a name.
+        unknown.append("company_size")
+        if not job.date_posted:
+            unknown.append("publication_date")
+        if job.salary_min is None and job.salary_max is None:
+            unknown.append("salary")
+        score = 0 if excluded else round(min(100, max(0, score)), 2)
+        explanation = f"Profile preference score: {score}/100. "
+        explanation += "; ".join(positive + negative + excluded) or "No confirmed preference alignment"
+        if unknown:
+            explanation += ". Unknown: " + ", ".join(unknown)
+        explanation += ". Listing relevance requires eligibility review."
         return DiscoveryMatch(
-            match_score=0 if excluded else round(min(100, max(0, score)), 2),
+            match_score=score,
             matched_skills=base.matched_skills,
             missing_skills=base.missing_skills,
             positive_factors=positive,
             negative_factors=negative,
             exclusion_reasons=excluded,
             unknown_fields=unknown,
-            explanation=base.explanation,
+            explanation=explanation,
         )

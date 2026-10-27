@@ -2,6 +2,7 @@
 
 import asyncio
 import html
+import json
 import re
 
 import httpx
@@ -32,49 +33,61 @@ class DirectAdapter(JobSourceAdapter):
         self.last_http_status = None
         self.retry_after_seconds = None
 
+    # Cap decoded bytes as well as the deadline; a public feed is untrusted input.
+    MAX_RESPONSE_BYTES = 8 * 1024 * 1024
+
     async def request(self, client, url, params=None):
         attempts = 1 if self.source_name == "remotive" else 2
         for attempt in range(attempts):
             try:
-                response = await client.get(
-                    url, params=params, timeout=15, follow_redirects=False
-                )
+                async with client.stream(
+                    "GET", url, params=params, timeout=15, follow_redirects=False
+                ) as response:
+                    code = response.status_code
+                    self.last_http_status = code
+                    if code == 429:
+                        try:
+                            self.retry_after_seconds = min(
+                                604800, max(0, int(response.headers.get("Retry-After", "0")))
+                            )
+                        except ValueError:
+                            self.retry_after_seconds = None
+                        raise DiscoveryError(
+                            Status.RATE_LIMITED, "Provider rate limited; retry later"
+                        )
+                    if code in (401, 403):
+                        raise DiscoveryError(
+                            Status.AUTH_REQUIRED, "Provider authorization required"
+                        )
+                    if code >= 500 and attempt + 1 < attempts:
+                        await asyncio.sleep(0.1)
+                        continue
+                    if code != 200:
+                        raise DiscoveryError(
+                            Status.UNAVAILABLE, f"Provider returned HTTP {code}"
+                        )
+                    body = bytearray()
+                    async for chunk in response.aiter_bytes():
+                        if len(body) + len(chunk) > self.MAX_RESPONSE_BYTES:
+                            raise DiscoveryError(
+                                Status.UPSTREAM_ERROR, "Provider response exceeds size limit"
+                            )
+                        body.extend(chunk)
+                    try:
+                        data = json.loads(body)
+                        if not isinstance(data, dict):
+                            raise ValueError("Invalid top-level schema")
+                        return data
+                    except (ValueError, UnicodeError):
+                        raise DiscoveryError(
+                            Status.UPSTREAM_ERROR, "Provider returned invalid JSON"
+                        ) from None
             except httpx.TransportError:
                 if attempt + 1 < attempts:
                     await asyncio.sleep(0.1)
                     continue
                 raise DiscoveryError(
                     Status.UPSTREAM_ERROR, "Provider transport failed"
-                ) from None
-            code = response.status_code
-            self.last_http_status = code
-            if code == 429:
-                try:
-                    self.retry_after_seconds = min(604800, max(0, int(response.headers.get("Retry-After", "0"))))
-                except ValueError:
-                    self.retry_after_seconds = None
-                raise DiscoveryError(
-                    Status.RATE_LIMITED, "Provider rate limited; retry later"
-                )
-            if code in (401, 403):
-                raise DiscoveryError(
-                    Status.AUTH_REQUIRED, "Provider authorization required"
-                )
-            if code >= 500 and attempt + 1 < attempts:
-                await asyncio.sleep(0.1)
-                continue
-            if code != 200:
-                raise DiscoveryError(
-                    Status.UNAVAILABLE, f"Provider returned HTTP {code}"
-                )
-            try:
-                data = response.json()
-                if not isinstance(data, dict):
-                    raise ValueError("Invalid top-level schema")
-                return data
-            except ValueError:
-                raise DiscoveryError(
-                    Status.UPSTREAM_ERROR, "Provider returned invalid JSON"
                 ) from None
 
     def parse_records(self, records, parser, limit):
@@ -94,6 +107,10 @@ class DirectAdapter(JobSourceAdapter):
         return result
 
     async def discover(self, query: DiscoveryQuery, **kwargs):
+        self.record_errors = []
+        self.next_cursor = None
+        self.last_http_status = None
+        self.retry_after_seconds = None
         result = await super().discover(query, **kwargs)
         if self.record_errors and result.status in (Status.SUCCESS, Status.NO_RESULTS):
             result.errors = self.record_errors
@@ -193,6 +210,7 @@ class GreenhouseAdapter(DirectAdapter):
                             "adapter": type(self).__name__,
                             "board_token": token,
                             "updated_at": item.get("updated_at"),
+                            "source_fields": {k: v for k, v in item.items() if k != "content"},
                         },
                     )
 
@@ -296,16 +314,25 @@ class ArbeitnowAdapter(DirectAdapter):
                     location=item.get("location"),
                     remote_type=remote,
                     employment_type=employment(" ".join(item.get("job_types") or [])),
-                    skills_required=item.get("tags") or [],
+                    # Feed tags include categories and seniority, not required skills.
                     date_posted=parse_date(item.get("created_at")),
                     source_verification_status="source_reported",
-                    data_provenance={"adapter": type(self).__name__, "page": page},
+                    data_provenance={
+                        "adapter": type(self).__name__,
+                        "page": page,
+                        "attribution": "Arbeitnow",
+                        "attribution_url": "https://www.arbeitnow.com",
+                        "source_fields": {k: v for k, v in item.items() if k != "description"},
+                    },
                 )
 
+            links = data.get("links") or {}
+            if not isinstance(links, dict):
+                raise DiscoveryError(Status.UPSTREAM_ERROR, "Invalid pagination metadata")
             # Ignore upstream links; only fixed host + integer page is requested.
             self.next_cursor = (
                 str(page + 1)
-                if (data.get("links") or {}).get("next") and page < 100
+                if links.get("next") and page < 100
                 else None
             )
             return self.parse_records(data["data"], parse, limit)
