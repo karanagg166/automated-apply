@@ -118,4 +118,43 @@ test.describe.serial("Phase 2 Job Discovery Dashboard", () => {
     );
     expect(criticalViolations).toEqual([]);
   });
+  test("retains an actual backend failure and inspects its saved status without creating jobs", async ({
+    page,
+  }) => {
+    await login(page);
+    const before = await page.request.get("/api/backend/jobs/search");
+    expect(before.ok()).toBeTruthy();
+    const initialCount = (await before.json()).total;
+    await page.goto("/discover");
+    await page.getByRole("button", { name: "Preview discovery plan" }).click();
+    await page
+      .getByRole("checkbox", { name: /Run this approved job discovery/ })
+      .check();
+    const execution = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/backend/discovery/runs") &&
+        response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Run approved discovery" }).click();
+    const run = await (await execution).json();
+    // The actual fixture backend denies every outbound provider request. It must
+    // persist an honest failure, never invent a vacancy or a successful ingestion.
+    expect(run.status).toBe("failed");
+    expect(run.counts.inserted).toBe(0);
+    const result = page.getByLabel("Discovery execution result");
+    await expect(result).toContainText(
+      "Discovery failed; no batch changes committed",
+    );
+    const inspection = page.waitForResponse(
+      (response) =>
+        response.url().endsWith(`/api/backend/discovery/runs/${run.id}`) &&
+        response.request().method() === "GET",
+    );
+    await result
+      .getByRole("button", { name: "Refresh saved run status" })
+      .click();
+    expect((await (await inspection).json()).id).toBe(run.id);
+    const after = await page.request.get("/api/backend/jobs/search");
+    expect((await after.json()).total).toBe(initialCount);
+  });
 });

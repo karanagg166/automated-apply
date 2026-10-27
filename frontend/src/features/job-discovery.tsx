@@ -96,6 +96,17 @@ function generateIdempotencyKey(): string {
   return `job_disc_${uuid}`.slice(0, 50);
 }
 
+function sourceAvailable(source: SourceConfig | undefined): boolean {
+  return Boolean(
+    source?.enabled &&
+    source.pricing === "free" &&
+    source.adapter_type === "direct_api" &&
+    source.read_only &&
+    source.operations.includes("jobs") &&
+    source.availability === "available",
+  );
+}
+
 export function JobDiscovery() {
   const client = useQueryClient();
   const consentId = useId();
@@ -171,7 +182,21 @@ export function JobDiscovery() {
     },
   });
 
+  const inspectMutation = useMutation({
+    mutationFn: () => api<JobDiscoveryRun>(`discovery/runs/${runResult!.id}`),
+    onSuccess: (data) => {
+      setRunResult(data);
+      client.invalidateQueries({ queryKey: ["jobs"] });
+    },
+  });
+
+  const requestPending =
+    previewMutation.isPending ||
+    executeMutation.isPending ||
+    inspectMutation.isPending;
+
   const handleCriteriaChange = () => {
+    inspectMutation.reset();
     previewMutation.reset();
     executeMutation.reset();
     setConsentConfirmed(false);
@@ -200,6 +225,7 @@ export function JobDiscovery() {
   };
 
   const handleReset = () => {
+    inspectMutation.reset();
     previewMutation.reset();
     executeMutation.reset();
     setConsentConfirmed(false);
@@ -210,9 +236,7 @@ export function JobDiscovery() {
   const allSources = sourcesQuery.data?.sources || [];
   const currentSourceConfig = allSources.find((s) => s.id === selectedSource);
 
-  const isCurrentSourceAvailable =
-    currentSourceConfig?.pricing === "free" &&
-    currentSourceConfig?.availability === "available";
+  const isCurrentSourceAvailable = sourceAvailable(currentSourceConfig);
 
   return (
     <div className="detail-grid">
@@ -243,6 +267,7 @@ export function JobDiscovery() {
               >
                 <Select
                   aria-label="Discovery source provider"
+                  disabled={requestPending}
                   value={selectedSource}
                   onChange={(e) => {
                     setSelectedSource(e.target.value);
@@ -250,17 +275,11 @@ export function JobDiscovery() {
                   }}
                 >
                   <optgroup label="Available Free Providers">
-                    {allSources
-                      .filter(
-                        (s) =>
-                          s.pricing === "free" &&
-                          s.availability === "available",
-                      )
-                      .map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.display_name} (Free · Available)
-                        </option>
-                      ))}
+                    {allSources.filter(sourceAvailable).map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.display_name} (Free · Available)
+                      </option>
+                    ))}
                   </optgroup>
                   <optgroup label="Configuration Required">
                     {allSources
@@ -285,6 +304,22 @@ export function JobDiscovery() {
                         <option key={s.id} value={s.id} disabled>
                           {s.display_name} ({readable(s.pricing)} ·{" "}
                           {readable(s.adapter_type)})
+                        </option>
+                      ))}
+                  </optgroup>
+                  <optgroup label="Other unavailable sources">
+                    {allSources
+                      .filter(
+                        (source) =>
+                          !sourceAvailable(source) &&
+                          source.pricing === "free" &&
+                          source.adapter_type !== "apify" &&
+                          source.availability !== "configuration_required",
+                      )
+                      .map((source) => (
+                        <option key={source.id} value={source.id} disabled>
+                          {source.display_name} (Unavailable for public
+                          discovery)
                         </option>
                       ))}
                   </optgroup>
@@ -320,6 +355,7 @@ export function JobDiscovery() {
               >
                 <Input
                   aria-label="Role or technology keywords"
+                  disabled={requestPending}
                   placeholder="e.g. Backend Engineer, Python, React"
                   value={keywords}
                   onChange={(e) => {
@@ -335,6 +371,7 @@ export function JobDiscovery() {
               >
                 <Input
                   aria-label="Search locations"
+                  disabled={requestPending}
                   placeholder="e.g. Berlin, Remote, India"
                   value={locations}
                   onChange={(e) => {
@@ -348,6 +385,7 @@ export function JobDiscovery() {
                 <Field label="Workplace / Remote preference">
                   <Select
                     aria-label="Workplace preference"
+                    disabled={requestPending}
                     value={remotePreference}
                     onChange={(e) => {
                       setRemotePreference(
@@ -367,6 +405,7 @@ export function JobDiscovery() {
                 <Field label="Result limit">
                   <Select
                     aria-label="Result limit"
+                    disabled={requestPending}
                     value={String(limit)}
                     onChange={(e) => {
                       setLimit(Number(e.target.value));
@@ -384,6 +423,7 @@ export function JobDiscovery() {
                 <input
                   type="checkbox"
                   aria-label="Incorporate preferences from saved profile"
+                  disabled={requestPending}
                   checked={useProfile}
                   onChange={(e) => {
                     setUseProfile(e.target.checked);
@@ -396,7 +436,7 @@ export function JobDiscovery() {
               <Button
                 onClick={handlePreview}
                 busy={previewMutation.isPending}
-                disabled={!isCurrentSourceAvailable}
+                disabled={!isCurrentSourceAvailable || requestPending}
               >
                 <Search size={14} />
                 Preview discovery plan
@@ -478,14 +518,16 @@ export function JobDiscovery() {
               <div className="actions">
                 <Button
                   variant="primary"
-                  disabled={!consentConfirmed}
+                  disabled={!consentConfirmed || requestPending}
                   busy={executeMutation.isPending}
                   onClick={handleExecute}
                 >
                   Run approved discovery
                   <ArrowUpRight size={14} />
                 </Button>
-                <Button onClick={handleReset}>Cancel plan</Button>
+                <Button disabled={requestPending} onClick={handleReset}>
+                  Cancel plan
+                </Button>
               </div>
             </div>
           )}
@@ -502,7 +544,9 @@ export function JobDiscovery() {
                   <RefreshCw size={13} />
                   Retry discovery with same key
                 </Button>
-                <Button onClick={handleReset}>Change search criteria</Button>
+                <Button disabled={requestPending} onClick={handleReset}>
+                  Change search criteria
+                </Button>
               </div>
             </div>
           )}
@@ -527,6 +571,19 @@ export function JobDiscovery() {
                 </Badge>
               </div>
 
+              {runResult.status === "running" && (
+                <Notice>
+                  Discovery is still running. Refresh the saved run status to
+                  inspect progress; no additional provider request is started.
+                </Notice>
+              )}
+              {runResult.status === "recovery_required" && (
+                <Notice>
+                  This discovery run was interrupted. Review its saved status
+                  and messages before starting a new search. Refreshing or
+                  retrying the same key does not restart discovery.
+                </Notice>
+              )}
               {runResult.status === "no_results" && (
                 <Notice>
                   <AlertTriangle size={15} />
@@ -594,12 +651,25 @@ export function JobDiscovery() {
                 </div>
               )}
 
+              {inspectMutation.isError && (
+                <ErrorState error={inspectMutation.error} />
+              )}
               <div className="actions spaced">
+                <Button
+                  busy={inspectMutation.isPending}
+                  disabled={executeMutation.isPending}
+                  onClick={() => inspectMutation.mutate()}
+                >
+                  <RefreshCw size={13} />
+                  Refresh saved run status
+                </Button>
                 <Link href="/jobs" className="button primary">
                   View discovered jobs
                   <ArrowUpRight size={13} />
                 </Link>
-                <Button onClick={handleReset}>Start new search</Button>
+                <Button disabled={requestPending} onClick={handleReset}>
+                  Start new search
+                </Button>
               </div>
             </div>
           )}

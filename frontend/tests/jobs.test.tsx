@@ -270,7 +270,9 @@ describe("Jobs feature", () => {
     ).toBeInTheDocument();
 
     // Job 2 has been submitted: should show "Application submitted" badge
-    expect(screen.getByText("Application submitted")).toBeInTheDocument();
+    expect(
+      screen.getByText("Submission reported by owner"),
+    ).toBeInTheDocument();
 
     // External link safety:
     // Job 1 has valid https URL
@@ -341,5 +343,42 @@ describe("Jobs feature", () => {
 
     // Ensure no background network requests to Gmail or submission APIs were made
     expect(post).not.toHaveBeenCalled();
+  });
+  it("distinguishes provider confirmation from an owner report or legacy applied flag", async () => {
+    const jobs = [
+      {
+        ...mockJobs[0],
+        status: "applied",
+        application_state: "provider_confirmed_submitted",
+      },
+      { ...mockJobs[1] },
+      { ...mockJobs[2], status: "applied", application_state: null },
+    ];
+    vi.mocked(api).mockResolvedValueOnce({ total: jobs.length, jobs });
+    mount();
+    expect(await screen.findByText("Submission confirmed")).toBeInTheDocument();
+    expect(
+      screen.getByText("Submission reported by owner"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Marked applied")).toBeInTheDocument();
+  });
+
+  it("uses backend employee_count evidence and preserves salary upper bounds", async () => {
+    vi.mocked(api).mockResolvedValueOnce({
+      total: 1,
+      jobs: [
+        {
+          ...mockJobs[0],
+          company_intelligence: { employee_count: 8, team_size_band: "1-10" },
+          salary_min: null,
+          salary_max: 95000,
+          salary_range: null,
+        },
+      ],
+    });
+    mount();
+    expect(await screen.findByText("Team size: 8")).toBeInTheDocument();
+    expect(screen.getByText(/EUR Up to 95,000 \/ year/)).toBeInTheDocument();
+    expect(screen.queryByText("Salary: Not disclosed")).not.toBeInTheDocument();
   });
 });

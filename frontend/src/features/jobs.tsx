@@ -108,6 +108,12 @@ export function JobTable({ jobs }: { jobs: Job[] }) {
       header: "OPPORTUNITY",
       cell: (info) => {
         const teamSize =
+          (info.row.original.company_intelligence?.employee_count as
+            number | undefined) ||
+          (info.row.original.company_intelligence?.team_size_band !== "unknown"
+            ? (info.row.original.company_intelligence?.team_size_band as
+                string | undefined)
+            : undefined) ||
           (info.row.original.company_intelligence?.team_size as
             string | number | undefined) ||
           (info.row.original.company_intelligence?.headcount as
@@ -135,13 +141,14 @@ export function JobTable({ jobs }: { jobs: Job[] }) {
                 <span className="muted">Skills not specified</span>
               )}
             </small>
-            {info.row.original.salary_min !== null &&
-            info.row.original.salary_min !== undefined ? (
+            {info.row.original.salary_min != null ||
+            info.row.original.salary_max != null ? (
               <small>
                 {info.row.original.salary_currency || "Currency unspecified"}{" "}
-                {info.row.original.salary_min.toLocaleString()}
-                {info.row.original.salary_max
-                  ? `–${info.row.original.salary_max.toLocaleString()}`
+                {info.row.original.salary_min == null ? "Up to " : ""}
+                {info.row.original.salary_min?.toLocaleString()}
+                {info.row.original.salary_max != null
+                  ? `${info.row.original.salary_min != null ? "–" : ""}${info.row.original.salary_max.toLocaleString()}`
                   : ""}
                 {info.row.original.salary_period
                   ? ` / ${info.row.original.salary_period}`
@@ -246,7 +253,24 @@ export function JobTable({ jobs }: { jobs: Job[] }) {
 
         return (
           <div className="actions">
-            {isSubmitted && <Badge tone="green">Application submitted</Badge>}
+            {isSubmitted && (
+              <Badge
+                tone={
+                  info.row.original.application_state ===
+                  "provider_confirmed_submitted"
+                    ? "green"
+                    : "amber"
+                }
+              >
+                {info.row.original.application_state ===
+                "provider_confirmed_submitted"
+                  ? "Submission confirmed"
+                  : info.row.original.application_state ===
+                      "user_reported_submitted"
+                    ? "Submission reported by owner"
+                    : "Marked applied"}
+              </Badge>
+            )}
             <PrepareButton jobId={info.row.original.id} />
             <Button
               aria-label={`Shortlist ${info.row.original.title}`}

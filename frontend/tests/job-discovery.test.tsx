@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -439,5 +439,92 @@ describe("JobDiscovery", () => {
         ),
       ).toBeInTheDocument();
     });
+  });
+  it("keeps disabled direct APIs and manual import sources unavailable", async () => {
+    vi.mocked(api).mockResolvedValueOnce({
+      sources: [
+        { ...mockSources.sources[0], enabled: false },
+        {
+          ...mockSources.sources[0],
+          id: "manual",
+          display_name: "Manual import",
+          adapter_type: "manual",
+        },
+      ],
+    });
+    mount();
+    expect(
+      await screen.findByRole("option", { name: /Manual import/ }),
+    ).toBeDisabled();
+    expect(screen.getByRole("option", { name: /Arbeitnow/ })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /Preview discovery plan/ }),
+    ).toBeDisabled();
+  });
+
+  it("holds reviewed criteria stable while an approved run is pending", async () => {
+    const user = userEvent.setup();
+    let finish!: (value: typeof mockRunSuccess) => void;
+    const pending = new Promise<typeof mockRunSuccess>((resolve) => {
+      finish = resolve;
+    });
+    vi.mocked(post)
+      .mockResolvedValueOnce(mockPreview)
+      .mockReturnValueOnce(pending);
+    mount();
+    await user.click(
+      await screen.findByRole("button", { name: /Preview discovery plan/ }),
+    );
+    await user.click(
+      await screen.findByRole("checkbox", { name: /Run this approved/ }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /Run approved discovery/ }),
+    );
+    expect(
+      screen.getByRole("textbox", { name: "Role or technology keywords" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("combobox", { name: "Discovery source provider" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel plan" })).toBeDisabled();
+    await act(async () => {
+      finish(mockRunSuccess);
+    });
+    expect(await screen.findByText(/Saved \(New\): 12/)).toBeInTheDocument();
+  });
+
+  it("inspects an interrupted saved run with GET without replaying discovery", async () => {
+    const user = userEvent.setup();
+    vi.mocked(api).mockImplementation(async (path) => {
+      if (path === "discovery/sources") return structuredClone(mockSources);
+      if (path === `discovery/runs/${mockRunSuccess.id}`)
+        return { ...mockRunSuccess, status: "recovery_required" };
+      throw new Error(`Unexpected API path ${path}`);
+    });
+    vi.mocked(post)
+      .mockResolvedValueOnce(mockPreview)
+      .mockResolvedValueOnce({ ...mockRunSuccess, status: "running" });
+    mount();
+    await user.click(
+      await screen.findByRole("button", { name: /Preview discovery plan/ }),
+    );
+    await user.click(
+      await screen.findByRole("checkbox", { name: /Run this approved/ }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /Run approved discovery/ }),
+    );
+    expect(
+      await screen.findByText(/Discovery is still running/),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getByRole("button", { name: /Refresh saved run status/ }),
+    );
+    expect(
+      await screen.findByText(/This discovery run was interrupted/),
+    ).toBeInTheDocument();
+    expect(api).toHaveBeenCalledWith(`discovery/runs/${mockRunSuccess.id}`);
+    expect(post).toHaveBeenCalledTimes(2);
   });
 });
