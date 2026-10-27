@@ -62,6 +62,7 @@ async def run(
     await admin.execute(f'CREATE DATABASE "{name}"')
     child = urlunsplit(parsed._replace(path="/" + name))
     task, server = None, None
+    phase3_roles_created = False
     try:
         connection = await asyncpg.connect(child)
         try:
@@ -70,6 +71,9 @@ async def run(
                     "SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=$1)", role
                 ):
                     await connection.execute(f'CREATE ROLE "{role}" NOLOGIN')
+            if phase3_demo:
+                await connection.execute((ROOT / "docs/sql/phase9-role-bootstrap.sql").read_text())
+                phase3_roles_created = True
             for migration in sorted((ROOT / "supabase/migrations").glob("*.sql")):
                 await connection.execute(migration.read_text())
             if (multiple_demo or serve) and multiple_demo != "without_schema":
@@ -906,6 +910,8 @@ async def run(
         if task and not task.done():
             await task
         await admin.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
+        if phase3_roles_created:
+            await admin.execute("DROP ROLE job_agent_runtime, job_agent_owner")
         await admin.close()
 
 
