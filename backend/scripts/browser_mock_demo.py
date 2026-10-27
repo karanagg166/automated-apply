@@ -143,9 +143,9 @@ async def run(
                     application as multiple_form,
                 )
 
-                FORMS["/multiple-demo"] = multiple_form()
-                FORMS["/multiple-checkbox"] = multiple_form("checkbox")
-                FORMS["/multiple-aria"] = multiple_form("aria")
+                FORMS["/multiple-demo"] = multiple_form(preselected=False)
+                FORMS["/multiple-checkbox"] = multiple_form("checkbox", preselected=False)
+                FORMS["/multiple-aria"] = multiple_form("aria", preselected=False)
             from backend.app.core.config import Settings, configure_operator
 
             settings = Settings(

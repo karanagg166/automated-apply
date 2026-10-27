@@ -101,14 +101,15 @@ async def verify(
             },
         )
         assert response.status_code == 200, response.text
-        # Before owner review the website's preselected Go remains untouched.
+        # Positive fixtures start empty; an unreviewed proposal must not select anything.
         if kind == "select":
             assert await runtime.page.locator("#choices").evaluate(
                 "e=>[...e.selectedOptions].map(o=>o.label)"
-            ) == ["Go"]
+            ) == []
         else:
-            assert await runtime.page.locator("#go").evaluate(
-                "e=>e.checked || e.getAttribute('aria-checked')==='true'"
+            assert await runtime.page.locator("#choices").evaluate(
+                "e=>![...e.querySelectorAll('input[type=checkbox],[role=checkbox]')]"
+                ".some(c=>c.checked || c.getAttribute('aria-checked')==='true')"
             )
         response = await client.post(
             "/api/v1/application-packets/" + packet["id"] + "/review",
@@ -138,6 +139,18 @@ async def verify(
             if v["field_id"] == field["field_id"]
         )
         assert valid["complete"]
+        if kind == "select":
+            actual = await runtime.page.locator("#choices").evaluate(
+                "e=>[...e.selectedOptions].map(o=>o.label)"
+            )
+        else:
+            actual = await runtime.page.locator("#choices").evaluate(
+                "e=>[...e.querySelectorAll('input[type=checkbox],[role=checkbox]')]"
+                ".filter(c=>c.checked || c.getAttribute('aria-checked')==='true')"
+                ".map(c=>(c.labels ? [...c.labels].map(l=>l.innerText).join(' ') : '')"
+                " || c.getAttribute('aria-label'))"
+            )
+        assert actual == ["Python", "FastAPI"]
         assert not await runtime.page.locator("#consent").is_checked()
         assert writes == [] and state["packet"]["tracking_state"] == "not_applied"
         connection = await asyncpg.connect(database_url)
