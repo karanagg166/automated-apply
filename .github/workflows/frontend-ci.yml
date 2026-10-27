@@ -1,9 +1,7 @@
 name: Frontend CI
+# Hosted CI runs only after deliberate owner authorization.
 on:
-  push:
-    branches: ['**']
-  pull_request:
-    branches: [main, feat/phase1-local-connections, feat/agent-command-execution, feat/chrome-form-inspection-autofill]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

@@ -1,9 +1,7 @@
 name: Phase 1 connection foundation
+# Hosted CI runs only after deliberate owner authorization.
 on:
-  pull_request:
-    branches: [main, feat/phase1-local-connections, feat/agent-command-execution, feat/chrome-form-inspection-autofill]
-  push:
-    branches: [feat/phase1-local-connections]
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
