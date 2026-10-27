@@ -58,6 +58,8 @@ Heavy browser and database suites ran sequentially. Tests used fictional profile
 
 Initial combined E2E failed at the eleventh login because separately authored files exhausted the existing ten-attempt limiter. A first session-helper attempt captured cookies before authentication completed; that timing error was corrected. The final full E2E suite passed with no skips and no authentication-policy changes. Initial failure logs remain private.
 
+The native secret hook required aligning five reviewed baseline line references after the workflow trigger deletion. Only those locations and the generated timestamp changed; detector rules, secret hashes and verification flags are unchanged. The final native hook passed with exit 0 after that metadata was committed.
+
 Commands and detailed logs are retained outside Git under `~/Library/Application Support/Automated Apply/phase2-integration-evidence`. The Python interpreter is the primary repository's Python 3.11 venv, updated to the existing lockfile. Frontend installation used only pinned pnpm with the frozen lockfile and offline store.
 
 Representative commands, from the integration worktree:
