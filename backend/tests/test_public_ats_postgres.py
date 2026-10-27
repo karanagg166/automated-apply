@@ -232,6 +232,54 @@ async def test_single_connection_pacing_claim_and_profile_are_compatible(
     assert len(calls) == 1
 
 
+@pytest.mark.parametrize("adapter", [LeverAdapter, AshbyAdapter])
+async def test_job_led_startup_single_connection_persists_and_replays(
+    postgres, monkeypatch, adapter
+):
+    from backend.app.services.startup_discovery.schemas import StartupRunRequest
+    from backend.app.services.startup_discovery.service import StartupDiscoveryService
+
+    factory, _ = postgres
+    calls = []
+
+    def handler(request):
+        calls.append(request)
+        return httpx.Response(200, json=feed(adapter, [posting(adapter)]))
+
+    install_mock(monkeypatch, adapter, handler, paced=True)
+    request = StartupRunRequest(
+        source=adapter.source_name,
+        mode="job_led",
+        idempotency_key="startup-single-connection",
+    )
+
+    async def run():
+        async with factory() as session:
+            return await StartupDiscoveryService(
+                session, factory, configuration()
+            ).run(request)
+
+    first = await asyncio.wait_for(run(), 5)
+    assert first["status"] == "success", first
+    assert first["counts"]["companies_observed"] == 1
+    assert len(first["rankings"]) == 1
+    assert first["rankings"][0]["profile_version"] == 7
+    assert await asyncio.wait_for(run(), 5) == first
+    assert len(calls) == 1
+    async with factory() as session:
+        parent = await session.get(DiscoveryRun, UUID(first["id"]))
+        child = await session.get(
+            DiscoveryRun, UUID(parent.query_summary["child_run_id"])
+        )
+        assert child.status == "success"
+        assert child.rankings[0]["profile_version"] == 7
+        assert await session.scalar(select(func.count()).select_from(Job)) == 1
+        assert (
+            await session.scalar(select(func.count()).select_from(JobSourceObservation))
+            == 1
+        )
+
+
 async def test_discovery_concurrency_is_bounded(postgres, monkeypatch):
     factory, _ = postgres
     active = maximum = calls = 0
