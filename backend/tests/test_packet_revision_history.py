@@ -3,6 +3,7 @@
 import pytest
 
 from backend.app.dashboard.models import OwnerPreference
+from backend.app.repositories.application_packet import revision_archive_key
 from backend.app.schemas.applications import AnswerEdit, QuestionInput, ReviewInput
 from backend.app.services.applications.resume_selector import digest
 from backend.app.services.applications.review import ApplicationReview
@@ -46,7 +47,7 @@ async def test_reviewed_human_answer_and_resume_are_archived_before_replacement(
     )
     await db_session.commit()
     archive = await db_session.get(
-        OwnerPreference, f"packet_revision:{packet.id}:{revision}"
+        OwnerPreference, revision_archive_key(packet.id, revision)
     )
     assert archive is not None
     assert archive.value["snapshot"]["resume"] == resume

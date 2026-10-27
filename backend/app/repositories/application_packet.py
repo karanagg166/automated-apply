@@ -21,6 +21,12 @@ from backend.app.services.applications.base import (
 from backend.app.services.applications.resume_selector import digest
 
 
+def revision_archive_key(packet_id, revision):
+    # owner_preferences.key is VARCHAR(50) in existing PostgreSQL installations.
+    # A compact UUID and prefix leave room for any positive INTEGER revision.
+    return f"prv:{packet_id.hex}:{revision}"
+
+
 class ApplicationPacketRepository:
     def __init__(self, session):
         self.session = session
@@ -151,7 +157,7 @@ class ApplicationPacketRepository:
             await self.session.execute(
                 insert(OwnerPreference)
                 .values(
-                    key=f"packet_revision:{packet.id}:{expected_revision}",
+                    key=revision_archive_key(packet.id, expected_revision),
                     value={"digest": digest(archived), **archived},
                 )
                 .on_conflict_do_nothing()

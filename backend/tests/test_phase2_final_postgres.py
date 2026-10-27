@@ -83,6 +83,56 @@ async def test_one_connection_answer_rewrite_releases_reads(postgres):
     assert len(provider.calls) == 1
 
 
+async def test_revision_history_uses_existing_postgres_key_width(postgres):
+    from backend.app.dashboard.models import OwnerPreference
+    from backend.app.repositories.application_packet import revision_archive_key
+    from backend.app.schemas.applications import AnswerEdit
+
+    factory, _ = postgres
+    discovery = await execute(
+        factory,
+        RunRequest(
+            source="manual",
+            idempotency_key="revision-width-job",
+            manual_jobs=[
+                {
+                    "source_name": "manual",
+                    "title": "Fictional backend role",
+                    "original_url": "https://example.com/revision-width",
+                }
+            ],
+        ),
+    )
+    async with factory() as session:
+        service = ApplicationPacketService(session)
+        packet = await service.create(
+            UUID(discovery["job_ids"][0]),
+            CreatePacket(
+                idempotency_key="revision-width-packet",
+                questions=[QuestionInput(question="Describe a project")],
+            ),
+        )
+        original_revision = packet.revision
+        packet = await service.edit_answer(
+            packet.id,
+            packet.fields[-1].id,
+            AnswerEdit(
+                expected_revision=original_revision,
+                answer="I built a fictional API.",
+            ),
+        )
+        await session.commit()
+        packet_id = packet.id
+    async with factory() as session:
+        key = revision_archive_key(packet_id, original_revision)
+        archive = await session.get(OwnerPreference, key)
+        assert archive.value["packet_id"] == str(packet_id)
+        assert archive.value["revision"] == original_revision
+        assert len(revision_archive_key(packet_id, 2147483647)) <= 50
+        assert archive.value["fields"][-1]["human_answer"] is None
+        assert (await session.get(ApplicationPacket, packet_id)).revision == original_revision + 1
+
+
 @pytest.mark.parametrize("adapter", [LeverAdapter, AshbyAdapter])
 async def test_fictional_discovery_answer_review_handoff_restart_and_report(
     postgres, monkeypatch, adapter
