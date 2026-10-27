@@ -158,7 +158,15 @@ test("two Gmail accounts keep evidence isolated, require reviewed import, and re
     .getByLabel("Actual job title")
     .fill("Fictional backend engineer");
   await dialog.getByRole("checkbox").check();
+  const importResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response.url().includes(`/accounts/${second}/evidence/`) &&
+      response.url().endsWith("/import"),
+  );
   await importButton.click();
+  const imported = await (await importResponse).json();
+  expect(imported.job_ids).toHaveLength(1);
   await expect(
     page.getByText("Reviewed lead imported.", { exact: false }),
   ).toBeVisible();
@@ -194,6 +202,44 @@ test("two Gmail accounts keep evidence isolated, require reviewed import, and re
       { headers },
     )
   ).json();
+  const retained = evidence.evidence[0];
+  expect(retained.account_id).toBe(second);
+  expect(retained.imported_job_ids).toEqual(
+    expect.arrayContaining(imported.job_ids),
+  );
+  expect(retained.verification_status).toBe("requires_review");
+  expect(retained.submission_confirmed).toBe(false);
+  for (const key of [
+    "sender",
+    "subject",
+    "body",
+    "access_token",
+    "refresh_token",
+  ])
+    expect(retained).not.toHaveProperty(key);
+  for (const id of imported.job_ids) {
+    const job = await (
+      await request.get(`${backend}/api/v1/jobs/${id}`, { headers })
+    ).json();
+    expect(job.source_platform).toBe("gmail_alert");
+    expect(job.status).toBe("discovered");
+    expect(job.title).toBe("Fictional backend engineer");
+    expect(job.job_url).toBe("https://fixture-company-2.example/jobs/backend");
+  }
+  const other = await (
+    await request.get(
+      `${backend}/api/v1/integrations/gmail/accounts/${first}/evidence`,
+      { headers },
+    )
+  ).json();
+  expect(
+    other.evidence.every(
+      (record: { imported_job_ids?: string[] }) =>
+        !(record.imported_job_ids || []).some((id) =>
+          imported.job_ids.includes(id),
+        ),
+    ),
+  ).toBe(true);
   const foreign = await request.post(
     `${backend}/api/v1/integrations/gmail/accounts/${first}/evidence/${evidence.evidence[0].id}/import`,
     {
