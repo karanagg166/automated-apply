@@ -36,6 +36,7 @@ async def run(
     dropdown_demo=False,
     multiple_demo=False,
     company_source_demo=False,
+    phase3_demo=False,
 ):
     import asyncpg
     import httpx
@@ -95,6 +96,10 @@ async def run(
                         "SELECT has_table_privilege($1,'job_agent.browser_submission_attempts','SELECT,INSERT,UPDATE,DELETE')",
                         role,
                     )
+            if phase3_demo:
+                from backend.app.integrations.gmail.schema import render_review_sql
+
+                await connection.execute(render_review_sql("job_agent"))
             assert not await connection.fetchval(
                 "SELECT has_table_privilege('anon','job_agent.owner_preferences','SELECT')"
             )
@@ -182,6 +187,10 @@ async def run(
                 COMPANY_SOURCE_FETCH_ENABLED=bool(company_host),
                 COMPANY_SOURCE_URLS=[company_host + "/about"] if company_host else [],
                 UI_FIXTURE_MODE=True,
+                GMAIL_READ_SYNC_ENABLED=phase3_demo,
+                GMAIL_READ_BODY_REVIEWED=phase3_demo,
+                OAUTH_ACTIVE_KEY_ID="fixture-v1" if phase3_demo else "",
+                OAUTH_ENCRYPTION_KEYS={"fixture-v1": Fernet.generate_key().decode()} if phase3_demo else {},
                 **{
                     key: field.get_default(call_default_factory=True)
                     for key, field in Settings.model_fields.items()
@@ -303,6 +312,10 @@ async def run(
                     )
                 )
                 await session.commit()
+            if phase3_demo:
+                from backend.scripts.phase3_browser_fixture import install
+
+                await install(app, settings, get_session_factory())
             server = uvicorn.Server(
                 uvicorn.Config(
                     app,
