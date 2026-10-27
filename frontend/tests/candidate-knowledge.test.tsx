@@ -172,7 +172,7 @@ describe("Candidate Knowledge & Approved Facts UI", () => {
         return fictionalResources as any;
       }
       if (path === "application-answers/drafts") {
-        return fictionalDrafts as any;
+        return fictionalDrafts.drafts as any;
       }
       return {} as any;
     });
@@ -219,7 +219,7 @@ describe("Candidate Knowledge & Approved Facts UI", () => {
     vi.mocked(api).mockImplementation(async (path: string) => {
       if (path === "profile") return minimalProfile as any;
       if (path === "candidate/resources") return { resources: [] } as any;
-      if (path === "application-answers/drafts") return { drafts: [] } as any;
+      if (path === "application-answers/drafts") return [] as any;
       return {} as any;
     });
 
@@ -284,7 +284,8 @@ describe("Candidate Knowledge & Approved Facts UI", () => {
       }
       if (path === "profile") return fictionalProfile as any;
       if (path === "candidate/resources") return fictionalResources as any;
-      if (path === "application-answers/drafts") return fictionalDrafts as any;
+      if (path === "application-answers/drafts")
+        return fictionalDrafts.drafts as any;
       return {} as any;
     });
 
@@ -322,52 +323,56 @@ describe("Candidate Knowledge & Approved Facts UI", () => {
     ).toBeInTheDocument();
   });
 
-  it("handles 412 version conflict gracefully with alert and reload action", async () => {
-    const conflictError = new Error("Precondition Failed");
-    (conflictError as any).status = 412;
+  it.each([409, 412])(
+    "handles %s version conflicts gracefully with alert and reload action",
+    async (status) => {
+      const conflictError = new Error("Precondition Failed");
+      (conflictError as any).status = status;
 
-    vi.mocked(api).mockImplementation(async (path: string, options?: any) => {
-      if (path === "profile" && options?.method === "PUT") {
-        throw conflictError;
-      }
-      if (path === "profile") return fictionalProfile as any;
-      if (path === "candidate/resources") return fictionalResources as any;
-      if (path === "application-answers/drafts") return fictionalDrafts as any;
-      return {} as any;
-    });
+      vi.mocked(api).mockImplementation(async (path: string, options?: any) => {
+        if (path === "profile" && options?.method === "PUT") {
+          throw conflictError;
+        }
+        if (path === "profile") return fictionalProfile as any;
+        if (path === "candidate/resources") return fictionalResources as any;
+        if (path === "application-answers/drafts")
+          return fictionalDrafts.drafts as any;
+        return {} as any;
+      });
 
-    mount();
+      mount();
 
-    await screen.findByText("Kavya Sharma");
+      await screen.findByText("Kavya Sharma");
 
-    // Switch to edit tab
-    await userEvent.click(
-      screen.getByRole("tab", { name: "Edit personal & career facts" }),
-    );
+      // Switch to edit tab
+      await userEvent.click(
+        screen.getByRole("tab", { name: "Edit personal & career facts" }),
+      );
 
-    // Confirm and save
-    await userEvent.click(
-      screen.getByLabelText(
-        /I confirm these facts are truthful, verified, and represent my actual candidate background/i,
-      ),
-    );
-    await userEvent.click(
-      screen.getByRole("button", { name: /Save and approve version 5/i }),
-    );
+      // Confirm and save
+      await userEvent.click(
+        screen.getByLabelText(
+          /I confirm these facts are truthful, verified, and represent my actual candidate background/i,
+        ),
+      );
+      await userEvent.click(
+        screen.getByRole("button", { name: /Save and approve version 5/i }),
+      );
 
-    // Conflict error alert is displayed
-    expect(
-      await screen.findByText(/Version Conflict \(412 Precondition Failed\)/i),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        /Stale revision conflict: This profile was updated elsewhere/i,
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Reload latest approved version" }),
-    ).toBeInTheDocument();
-  });
+      // Conflict error alert is displayed
+      expect(
+        await screen.findByText(/Profile version conflict/i),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Stale revision conflict: This profile was updated elsewhere/i,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: "Reload latest approved version" }),
+      ).toBeInTheDocument();
+    },
+  );
 
   it("displays verified projects and supports adding new project with measurable evidence", async () => {
     mount();
@@ -438,9 +443,7 @@ describe("Candidate Knowledge & Approved Facts UI", () => {
     await screen.findByText("Kavya Sharma");
 
     // Switch to Reusable answers tab
-    await userEvent.click(
-      screen.getByRole("tab", { name: /Reusable answers/i }),
-    );
+    await userEvent.click(screen.getByRole("tab", { name: /Saved answers/i }));
 
     // Active approved answer
     expect(
@@ -448,7 +451,7 @@ describe("Candidate Knowledge & Approved Facts UI", () => {
         "Describe a complex backend system you designed and scaled.",
       ),
     ).toBeInTheDocument();
-    expect(screen.getByText("Approved for Profile v4")).toBeInTheDocument();
+    expect(screen.getByText("Recorded for Profile v4")).toBeInTheDocument();
 
     // Stale answer with warning badge
     expect(
@@ -457,6 +460,39 @@ describe("Candidate Knowledge & Approved Facts UI", () => {
     expect(
       screen.getByText("Profile facts updated · Review required"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Approved for Profile v3")).toBeInTheDocument();
+    expect(screen.getByText("Recorded for Profile v3")).toBeInTheDocument();
   });
+});
+
+it("requires explicit project confirmation and can persist removal of the last project", async () => {
+  vi.mocked(api).mockImplementation(async (path, options) => {
+    if (path === "profile" && options?.method === "PUT")
+      return { ...fictionalProfile, projects: [], version: 5 } as any;
+    if (path === "profile") return fictionalProfile as any;
+    if (path === "application-answers/drafts") return [] as any;
+    if (path === "application-answers/reuse-approvals")
+      return { enabled: false, approvals: {} } as any;
+    return fictionalResources as any;
+  });
+  mount();
+  await screen.findByText("Kavya Sharma");
+  await userEvent.click(
+    screen.getByRole("tab", { name: /Projects & achievements/ }),
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Remove" }));
+  const save = screen.getByRole("button", {
+    name: "Save project changes to profile",
+  });
+  expect(save).toBeDisabled();
+  await userEvent.click(
+    screen.getByLabelText(/I confirm these project changes are truthful/),
+  );
+  await userEvent.click(save);
+  expect(api).toHaveBeenCalledWith(
+    "profile",
+    expect.objectContaining({
+      method: "PUT",
+      body: expect.stringContaining('"projects":[]'),
+    }),
+  );
 });

@@ -42,11 +42,16 @@ const fictionalMissingItems: MissingInputItem[] = [
     required_input_type: "evidence",
     created_at: "2026-03-01T12:00:00Z",
     status: "needs_input",
+    effective_status: "needs_input",
+    job_description: null,
+    draft_id: null,
+    stale: false,
+    ever_approved: false,
     version: 1,
     profile_version: 3,
     context_digest: "scale-matrix-k8s-migration",
     answer: null,
-    evidence_note: undefined,
+    evidence_note: "",
     href: "/needs-input/missing-101",
   },
   {
@@ -63,6 +68,11 @@ const fictionalMissingItems: MissingInputItem[] = [
     required_input_type: "number",
     created_at: "2026-03-02T09:30:00Z",
     status: "draft",
+    effective_status: "draft",
+    job_description: null,
+    draft_id: null,
+    stale: false,
+    ever_approved: false,
     version: 2,
     profile_version: 3,
     context_digest: "finpulse-pune-ctc",
@@ -74,7 +84,7 @@ const fictionalMissingItems: MissingInputItem[] = [
     id: "missing-103",
     candidate_profile_id: "profile-1001",
     question: "What is your required notice period?",
-    question_category: "availability",
+    question_category: "short_text",
     job_id: "job-503",
     company_name: "CloudVibe",
     packet_id: "packet-803",
@@ -82,13 +92,17 @@ const fictionalMissingItems: MissingInputItem[] = [
     reason: "Profile notice period was updated from 30 days to 15 days.",
     required_input_type: "text",
     created_at: "2026-02-20T10:00:00Z",
-    status: "review_required",
+    status: "approved",
+    effective_status: "review_required",
+    job_description: null,
+    draft_id: null,
     version: 3,
     profile_version: 2,
     context_digest: "cloudvibe-notice-period",
     answer: "My notice period is 30 days.",
     evidence_note: "Previous employer contract",
     stale: true,
+    ever_approved: true,
     href: "/needs-input/missing-103",
   },
 ];
@@ -97,16 +111,16 @@ const fictionalHistory: MissingHistoryEntry[] = [
   {
     request_id: "missing-101",
     candidate_profile_id: "profile-1001",
-    operation: "created",
-    version: 1,
+    operation: "edited",
+    version: 2,
     previous: {},
     recorded_at: "2026-03-01T12:00:00Z",
   },
   {
     request_id: "missing-101",
     candidate_profile_id: "profile-1001",
-    operation: "draft_saved",
-    version: 2,
+    operation: "approved_exact_context",
+    version: 3,
     previous: { answer: null },
     recorded_at: "2026-03-01T14:30:00Z",
   },
@@ -316,7 +330,7 @@ describe("Unanswered Questions Queue ('Needs your input')", () => {
 
     expect(
       await screen.findByText(
-        /Answer approved and added to reusable bank for this exact context/i,
+        /Saved answer approved for this exact question and context/i,
       ),
     ).toBeInTheDocument();
   });
@@ -344,9 +358,11 @@ describe("Unanswered Questions Queue ('Needs your input')", () => {
 
     // Revision history entries are shown
     expect(
-      await within(dialog).findByText(/v1 \(created\)/i),
+      await within(dialog).findByText(/v2 \(edited\)/i),
     ).toBeInTheDocument();
-    expect(within(dialog).getByText(/v2 \(draft saved\)/i)).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/v3 \(approved exact context\)/i),
+    ).toBeInTheDocument();
   });
 
   it("displays prominent stale answer warning when candidate profile facts changed", async () => {
@@ -376,10 +392,75 @@ describe("Unanswered Questions Queue ('Needs your input')", () => {
     mount();
 
     expect(
-      await screen.findByText("Codex Missing Inputs Contract Pending"),
+      await screen.findByText("Question queue unavailable"),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/The backend unanswered questions endpoint/i),
+      screen.getByText(/The saved question queue is unavailable/i),
     ).toBeInTheDocument();
   });
+});
+
+it("blocks approval of unsaved edits even after a factual checkbox was checked", async () => {
+  vi.mocked(api).mockImplementation(
+    async (path) =>
+      (path === "profile"
+        ? fictionalProfile
+        : {
+            requests: [fictionalMissingItems[1]],
+            offset: 0,
+            limit: 25,
+          }) as any,
+  );
+  mount();
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Supply truthful answer" }),
+  );
+  const dialog = await screen.findByRole("dialog");
+  const confirmation = within(dialog).getByRole("checkbox");
+  const approve = within(dialog).getByRole("button", {
+    name: "Approve answer for this context",
+  });
+  await userEvent.click(confirmation);
+  expect(approve).toBeEnabled();
+  await userEvent.type(
+    within(dialog).getByLabelText("Your Truthful Answer"),
+    " Unsaved correction.",
+  );
+  expect(confirmation).not.toBeChecked();
+  await userEvent.click(confirmation);
+  expect(approve).toBeDisabled();
+  expect(post).not.toHaveBeenCalled();
+});
+
+it("uses effective_status to move stale approvals out of the approved filter", async () => {
+  vi.mocked(api).mockImplementation(
+    async (path) =>
+      (path === "profile"
+        ? fictionalProfile
+        : {
+            requests: [
+              {
+                ...fictionalMissingItems[1],
+                status: "approved",
+                effective_status: "review_required",
+                stale: true,
+                ever_approved: true,
+              },
+            ],
+            offset: 0,
+            limit: 25,
+          }) as any,
+  );
+  mount();
+  await screen.findByText(fictionalMissingItems[1].question);
+  await userEvent.click(screen.getByRole("tab", { name: "Approved (0)" }));
+  expect(
+    screen.queryByRole("heading", { name: fictionalMissingItems[1].question }),
+  ).toBeNull();
+  await userEvent.click(
+    screen.getByRole("tab", { name: "Review required (1)" }),
+  );
+  expect(
+    screen.getByRole("heading", { name: fictionalMissingItems[1].question }),
+  ).toBeInTheDocument();
 });

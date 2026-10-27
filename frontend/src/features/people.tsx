@@ -27,6 +27,8 @@ export type Contact = {
   linkedin_url?: string | null;
   email?: string | null;
   email_status: string;
+  email_evidence_status?: string;
+  email_publication_url?: string | null;
   source: string;
   last_checked_at?: string | null;
   confidence: string;
@@ -242,9 +244,19 @@ export function CompanyPeople({
       ) : (
         <div className="company-grid">
           {filteredContacts.map((c) => {
-            const isVerifiedMail = c.email_status === "verified";
+            const unavailable =
+              c.do_not_contact ||
+              c.retention_expired ||
+              c.email_evidence_status === "suppressed_or_stale";
+            const isVerifiedMail =
+              !unavailable &&
+              c.email_evidence_status === "verified_using_authorized_method";
+            const isPublishedMail =
+              !unavailable &&
+              c.email_evidence_status === "published_source_supported";
             const isGuessedMail = c.email_status === "guessed";
-            const isProviderMail = c.email_status === "provider_reported";
+            const isProviderMail =
+              !unavailable && c.email_evidence_status === "provider_reported";
             const profileUrl = c.linkedin_url || c.professional_url;
             return (
               <article className="company-card" key={c.id}>
@@ -258,8 +270,8 @@ export function CompanyPeople({
                   </div>
                   <Badge
                     tone={
-                      c.do_not_contact
-                        ? "red"
+                      unavailable
+                        ? "amber"
                         : c.confidence === "supported"
                           ? "green"
                           : c.confidence === "provider_reported"
@@ -267,8 +279,10 @@ export function CompanyPeople({
                             : "amber"
                     }
                   >
-                    {c.do_not_contact
-                      ? "Suppressed"
+                    {unavailable
+                      ? c.do_not_contact
+                        ? "Suppressed"
+                        : "Stale source evidence"
                       : c.confidence === "supported"
                         ? "Verified · Source-backed"
                         : c.confidence === "provider_reported"
@@ -276,16 +290,32 @@ export function CompanyPeople({
                           : readable(c.confidence)}
                   </Badge>
                 </div>
+                {isPublishedMail && c.email_publication_url && (
+                  <External href={c.email_publication_url}>
+                    Published email source
+                  </External>
+                )}
                 <div className="tag-list">
-                  {isVerifiedMail ? (
-                    <Badge tone="green">Verified mailbox</Badge>
+                  {unavailable ? (
+                    <Badge tone="amber">
+                      Suppressed or stale email evidence
+                    </Badge>
+                  ) : isPublishedMail ? (
+                    <Badge tone="neutral">
+                      Published source supported · mailbox unverified
+                    </Badge>
+                  ) : isVerifiedMail ? (
+                    <Badge tone="green">Verified using authorized method</Badge>
                   ) : isGuessedMail ? (
                     <Badge tone="amber">Guessed email (Unverified)</Badge>
                   ) : isProviderMail ? (
                     <Badge tone="neutral">Provider reported mailbox</Badge>
                   ) : (
                     <Badge tone="neutral">
-                      {readable(c.email_status)} mailbox
+                      {c.email_status === "verified"
+                        ? "Mailbox verification not established"
+                        : readable(c.email_status)}{" "}
+                      mailbox
                     </Badge>
                   )}
                   <Badge>{readable(c.source)}</Badge>

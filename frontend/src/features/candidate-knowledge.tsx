@@ -117,8 +117,16 @@ export function CandidateKnowledge() {
 
   const savedAnswersQuery = useQuery({
     queryKey: ["saved-answer-drafts"],
+    queryFn: () => api<Schema<"DraftRead">[]>("application-answers/drafts"),
+  });
+
+  const reuseBank = useQuery({
+    queryKey: ["answer-reuse-bank"],
     queryFn: () =>
-      api<{ drafts: Schema<"DraftRead">[] }>("application-answers/drafts"),
+      api<{
+        enabled: boolean;
+        approvals: Record<string, { approved: boolean; scope: string }>;
+      }>("application-answers/reuse-approvals"),
   });
 
   // Populate local form fields from loaded backend profile
@@ -286,6 +294,7 @@ export function CandidateKnowledge() {
   };
 
   const handleSaveProject = () => {
+    setConfirmedTruthful(false);
     if (!projectTitle.trim() || !projectDesc.trim()) return;
     const techArray = projectTech
       .split(",")
@@ -312,6 +321,7 @@ export function CandidateKnowledge() {
 
   const handleDeleteProject = (idx: number) => {
     setProjectsList(projectsList.filter((_, i) => i !== idx));
+    setConfirmedTruthful(false);
   };
 
   if (profileQuery.isPending) return <Skeleton />;
@@ -321,7 +331,7 @@ export function CandidateKnowledge() {
   const prefs = p.preferences;
   const currentComp = prefs?.current_compensation;
   const expectedComp = prefs?.expected_compensation;
-  const answers = savedAnswersQuery.data?.drafts || [];
+  const answers = savedAnswersQuery.data || [];
 
   return (
     <div className="stack spaced" aria-label="Candidate Knowledge and Facts">
@@ -359,7 +369,7 @@ export function CandidateKnowledge() {
         <div className="error-state" role="alert">
           <AlertTriangle size={20} />
           <div>
-            <strong>Version Conflict (412 Precondition Failed)</strong>
+            <strong>Profile version conflict</strong>
             <p>{conflictError}</p>
             <Button
               onClick={() => {
@@ -384,7 +394,7 @@ export function CandidateKnowledge() {
           ["edit-facts", "Edit personal & career facts"],
           ["projects", `Projects & achievements (${projectsList.length})`],
           ["links", "Verified links & evidence"],
-          ["answers", `Reusable answers (${answers.length})`],
+          ["answers", `Saved answers (${answers.length})`],
         ].map(([key, label]) => (
           <button
             key={key}
@@ -890,20 +900,28 @@ export function CandidateKnowledge() {
             </div>
           )}
 
-          {projectsList.length > 0 && (
-            <div className="actions spaced">
-              <Button
-                variant="primary"
-                onClick={() => {
-                  setConfirmedTruthful(true);
-                  saveFactsMutation.mutate();
-                }}
-                busy={saveFactsMutation.isPending}
-              >
-                <Save size={13} />
-                Save project changes to profile
-              </Button>
-            </div>
+          <label className="check-label">
+            <input
+              type="checkbox"
+              checked={confirmedTruthful}
+              onChange={(event) => setConfirmedTruthful(event.target.checked)}
+            />
+            I confirm these project changes are truthful and supported by my own
+            work.
+          </label>
+          <div className="actions spaced">
+            <Button
+              variant="primary"
+              disabled={!confirmedTruthful}
+              onClick={() => saveFactsMutation.mutate()}
+              busy={saveFactsMutation.isPending}
+            >
+              <Save size={13} />
+              Save project changes to profile
+            </Button>
+          </div>
+          {saveFactsMutation.isError && (
+            <ErrorState error={saveFactsMutation.error} />
           )}
         </section>
       )}
@@ -923,7 +941,10 @@ export function CandidateKnowledge() {
                 <Input
                   type="url"
                   value={githubUrl}
-                  onChange={(e) => setGithubUrl(e.target.value)}
+                  onChange={(e) => {
+                    setGithubUrl(e.target.value);
+                    setConfirmedTruthful(false);
+                  }}
                   placeholder="https://github.com/username"
                 />
               </Field>
@@ -932,7 +953,10 @@ export function CandidateKnowledge() {
                 <Input
                   type="url"
                   value={linkedinUrl}
-                  onChange={(e) => setLinkedinUrl(e.target.value)}
+                  onChange={(e) => {
+                    setLinkedinUrl(e.target.value);
+                    setConfirmedTruthful(false);
+                  }}
                   placeholder="https://linkedin.com/in/username"
                 />
               </Field>
@@ -941,7 +965,10 @@ export function CandidateKnowledge() {
                 <Input
                   type="url"
                   value={portfolioUrl}
-                  onChange={(e) => setPortfolioUrl(e.target.value)}
+                  onChange={(e) => {
+                    setPortfolioUrl(e.target.value);
+                    setConfirmedTruthful(false);
+                  }}
                   placeholder="https://yourportfolio.dev"
                 />
               </Field>
@@ -950,19 +977,32 @@ export function CandidateKnowledge() {
                 <Input
                   type="url"
                   value={personalWebsite}
-                  onChange={(e) => setPersonalWebsite(e.target.value)}
+                  onChange={(e) => {
+                    setPersonalWebsite(e.target.value);
+                    setConfirmedTruthful(false);
+                  }}
                   placeholder="https://yourdomain.com"
                 />
               </Field>
             </div>
 
+            <label className="check-label">
+              <input
+                type="checkbox"
+                checked={confirmedTruthful}
+                onChange={(event) => setConfirmedTruthful(event.target.checked)}
+              />
+              I confirm these links are mine and accurately represent my
+              profile.
+            </label>
+            {saveFactsMutation.isError && (
+              <ErrorState error={saveFactsMutation.error} />
+            )}
             <div className="actions">
               <Button
                 variant="primary"
-                onClick={() => {
-                  setConfirmedTruthful(true);
-                  saveFactsMutation.mutate();
-                }}
+                disabled={!confirmedTruthful}
+                onClick={() => saveFactsMutation.mutate()}
                 busy={saveFactsMutation.isPending}
               >
                 <Save size={13} />
@@ -1005,18 +1045,23 @@ export function CandidateKnowledge() {
         <section className="panel panel-body stack">
           <div className="split">
             <div>
-              <h3>Approved Reusable Answers ({answers.length})</h3>
+              <h3>Saved Answer Drafts ({answers.length})</h3>
               <p className="section-intro">
-                Verified application answers. If underlying candidate facts
-                change, answers are flagged for re-verification.
+                Saved drafts and reviewed answers. Broader reuse requires a
+                separate current approval; exact-context approvals do not create
+                general profile facts.
               </p>
             </div>
           </div>
 
+          {savedAnswersQuery.isError && (
+            <ErrorState error={savedAnswersQuery.error} />
+          )}
+          {reuseBank.isError && <ErrorState error={reuseBank.error} />}
           {answers.length === 0 ? (
             <Empty
-              title="No reusable answers approved yet"
-              description="Answers approved in the 'Needs your input' queue or in application review appear here."
+              title="No saved answers yet"
+              description="Saved answer drafts and exact-context approvals appear here with their actual review status."
             />
           ) : (
             <div className="stack spaced" role="list">
@@ -1028,7 +1073,7 @@ export function CandidateKnowledge() {
                 >
                   <div className="split">
                     <strong>{draft.question}</strong>
-                    <Badge tone={draft.stale ? "amber" : "green"}>
+                    <Badge tone={draft.stale ? "amber" : "neutral"}>
                       {draft.stale
                         ? "Profile facts updated · Review required"
                         : readable(draft.review_status)}
@@ -1047,7 +1092,14 @@ export function CandidateKnowledge() {
                   >
                     <span>Category: {readable(draft.question_category)}</span>
                     <span>
-                      Approved for Profile v{draft.candidate_profile_version}
+                      {!draft.stale &&
+                      reuseBank.data?.enabled &&
+                      reuseBank.data.approvals?.[draft.id]?.approved
+                        ? `Reuse approved: ${readable(reuseBank.data.approvals[draft.id].scope)}`
+                        : "No broader reuse approval"}
+                    </span>
+                    <span>
+                      Recorded for Profile v{draft.candidate_profile_version}
                     </span>
                     <span>
                       {draft.evidence_references.length} evidence citation(s)

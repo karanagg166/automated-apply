@@ -82,7 +82,8 @@ export function CompanyDetail({ id }: { id: string }) {
             <Users size={14} />
           </div>
           <p className="spaced">
-            {s.employee_count !== null && s.exact_employee_count
+            {s.employee_count !== null &&
+            s.team_size_evidence_status === "verified"
               ? `${s.employee_count} employees (exact count)`
               : s.team_size_band && s.team_size_band !== "unknown"
                 ? `${s.team_size_band} band`

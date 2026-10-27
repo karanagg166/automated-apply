@@ -347,7 +347,7 @@ export function BrowserAssistant({
             <div className="metric-label">RESUME CONFIRMED</div>
             <p>
               {packet.snapshot.resume?.selected?.confirmed ? (
-                <Badge tone="green">Ready (PDF verified)</Badge>
+                <Badge tone="green">Resume selection confirmed</Badge>
               ) : (
                 <Badge tone="amber">Needs Review</Badge>
               )}
@@ -357,7 +357,11 @@ export function BrowserAssistant({
             <div className="metric-label">ASSISTANT STATUS</div>
             <p>
               <Badge tone={state?.connected ? "green" : "neutral"}>
-                {state?.connected ? "Connected" : "Idle"}
+                {!state
+                  ? "Not observed"
+                  : state.connected
+                    ? "Connected"
+                    : "Disconnected"}
               </Badge>
             </p>
           </div>
