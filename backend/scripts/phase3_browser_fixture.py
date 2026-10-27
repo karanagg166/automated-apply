@@ -26,11 +26,25 @@ QUESTION = "Describe the fictional payment gateway incident you personally resol
 async def install(app, settings, factory):
     from backend.app.api.v1.integrations import read_service
     from backend.app.core.security import require_api_token
-    from backend.app.db.session import get_db_session
+    from backend.app.db.session import get_db_session, get_engine
     from backend.app.integrations.gmail.read_service import GmailReadService, ReadPolicy
     from backend.app.integrations.google_oauth import READ_SCOPES
     from backend.app.integrations.token_store import TokenStore
+    from backend.app.local_agent.models import (
+        AgentOperation,
+        AgentPolicy,
+        PolicyEvent,
+        TelegramDelivery,
+        TelegramState,
+    )
     from backend.app.models.connected_account import GmailReadAccount
+
+    # Historical migration fixtures predate these local-agent model tables. The
+    # complete Connections page reads them alongside Gmail. Create only these
+    # additional fixture tables inside the already-validated disposable child DB.
+    async with get_engine().begin() as connection:
+        for model in (AgentPolicy, PolicyEvent, AgentOperation, TelegramState, TelegramDelivery):
+            await connection.run_sync(lambda conn, table=model.__table__: table.create(conn, checkfirst=True))
 
     calls = []
     addresses = ["first-fixture@example.com", "second-fixture@example.com"]
