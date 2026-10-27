@@ -1,12 +1,12 @@
 # Automated Apply — Phase 2 Final Frontend Acceptance Report
 
-**Date**: 2026-10-27  
-**Agent**: AGY Gemini 3.8 Flash High  
-**Branch**: `feat/phase2-final-agy-ui`  
-**Base**: PR #36 frontend head (`0c274a372e50f94743cf6334a09588253e5bb473`)  
-**Worktree**: `/Users/karanagg/Desktop/Projects/automated-apply-agy-p22`  
-**Latest Commits**:  
-- `410dc4d` — `fix(ui): refine upload policy, word limit counter, narrative experience and submission recovery`  
+**Date**: 2026-10-27
+**Agent**: AGY Gemini 3.8 Flash High
+**Branch**: `feat/phase2-final-agy-ui`
+**Base**: PR #36 frontend head (`0c274a372e50f94743cf6334a09588253e5bb473`)
+**Worktree**: `/Users/karanagg/Desktop/Projects/automated-apply-agy-p22`
+**Latest Commits**:
+- `410dc4d` — `fix(ui): refine upload policy, word limit counter, narrative experience and submission recovery`
 - `08f7959` — `feat(ui): complete Phase 2 application assistant, answer review and pipeline tracking`
 
 ---

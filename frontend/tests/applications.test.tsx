@@ -413,7 +413,7 @@ describe("Applications Pipeline & Detail Views", () => {
       await userEvent.clear(answer);
       await userEvent.type(answer, "I build reliable APIs");
       expect(field.getByText(/4 \/ 3 words/)).toHaveTextContent(
-        "(exceeds character limit)",
+        "(exceeds word limit)",
       );
       expect(field.getByRole("button", { name: "Save answer" })).toBeDisabled();
       expect(
