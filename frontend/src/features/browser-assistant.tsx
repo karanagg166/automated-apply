@@ -3,8 +3,16 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, post, Schema } from "@/lib/api";
-import { Button, Field, Input, Notice, ErrorState } from "@/components/ui";
+import { api, externalUrl, post, readable, Schema } from "@/lib/api";
+import {
+  Badge,
+  Button,
+  ErrorState,
+  External,
+  Field,
+  Input,
+  Notice,
+} from "@/components/ui";
 
 import { BrowserSubmission, Execution } from "@/features/browser-submission";
 import { OpportunityContext } from "@/features/opportunity-context";
@@ -257,6 +265,69 @@ export function BrowserAssistant({
   return (
     <section className="panel panel-body">
       <h2>Local browser assistant</h2>
+      {packet.snapshot && (
+        <div
+          className="panel panel-body spaced"
+          aria-label="Application context"
+        >
+          <div className="split">
+            <div>
+              <h3>{packet.snapshot.job_title}</h3>
+              <p>
+                <strong>
+                  {packet.snapshot.company_name || "Company unverified"}
+                </strong>
+              </p>
+              <p>
+                Official destination:{" "}
+                {packet.snapshot.destination?.application_url ? (
+                  <External href={packet.snapshot.destination.application_url}>
+                    {packet.snapshot.destination.application_url}
+                  </External>
+                ) : (
+                  <span className="muted">None configured</span>
+                )}
+              </p>
+              <small>
+                Source: {readable(packet.snapshot.source_platform)}
+                {packet.snapshot.original_job_url && (
+                  <span>
+                    {" "}
+                    ·{" "}
+                    <External href={packet.snapshot.original_job_url}>
+                      Original posting
+                    </External>
+                  </span>
+                )}
+              </small>
+            </div>
+            <div>
+              <h4>Selected resume</h4>
+              <p>
+                <strong>
+                  {packet.snapshot.resume?.selected?.label || "None selected"}
+                </strong>{" "}
+                <Badge
+                  tone={
+                    packet.snapshot.resume?.selected?.confirmed
+                      ? "green"
+                      : "amber"
+                  }
+                >
+                  {packet.snapshot.resume?.selected?.confirmed
+                    ? "Confirmed & Verified"
+                    : "Needs Confirmation"}
+                </Badge>
+              </p>
+              <small className="muted">
+                File upload limitation: Resumes cannot be automatically uploaded
+                by browser assistant. You must attach the file manually on the
+                official portal.
+              </small>
+            </div>
+          </div>
+        </div>
+      )}
       <Notice>
         Assisted filling uses a dedicated Chrome profile. Submission is manual.
         Required consent, custom controls, embedded forms and additional steps
@@ -264,6 +335,16 @@ export function BrowserAssistant({
         during analysis. Analysis pauses page networking and selects no answer.
         If a page changes values or needs server-loaded choices, use Take Over,
         inspect the values and load the choices yourself before analyzing again.
+      </Notice>
+      <Notice>
+        Non-submission notice: Autofill does NOT submit your application. It
+        only populates reviewed fields in your local Chrome session. You must
+        inspect every field on the website and submit manually.
+      </Notice>
+      <Notice>
+        Field preservation: Assisted filling preserves existing values already
+        entered on the website unless explicitly reviewed for overwrite. Check
+        values before filling.
       </Notice>
       <label>
         <input
@@ -539,20 +620,49 @@ export function BrowserAssistant({
               </li>
             ))}
           </ul>
-          <ul>
-            {state.analysis.validation
-              .filter((v) => !v.complete)
-              .map((v) => (
-                <li key={v.field_id}>
-                  {
-                    state.analysis?.fields.find(
-                      (f) => f.field_id === v.field_id,
-                    )?.question
-                  }
-                  : {v.reason}
-                </li>
-              ))}
-          </ul>
+          {state.analysis.validation.some((v) => !v.complete) && (
+            <div
+              className="stack spaced"
+              aria-label="Unfilled mandatory questions"
+            >
+              <h4>Unfilled or incomplete questions needing attention</h4>
+              <ul>
+                {state.analysis.validation
+                  .filter((v) => !v.complete)
+                  .map((v) => (
+                    <li key={v.field_id}>
+                      {
+                        state.analysis?.fields.find(
+                          (f) => f.field_id === v.field_id,
+                        )?.question
+                      }
+                      : {v.reason}
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
+          {state.analysis.fields.some((f) => !f.supported) && (
+            <div className="stack spaced" aria-label="Unsupported controls">
+              <h4>Unsupported fields requiring manual entry</h4>
+              <p className="section-intro">
+                File uploads, complex dropdowns, CAPTCHAs, or unsupported
+                widgets require manual completion on the website:
+              </p>
+              <ul>
+                {state.analysis.fields
+                  .filter((f) => !f.supported)
+                  .map((f) => (
+                    <li key={f.field_id}>
+                      <strong>{f.question}</strong> ({readable(f.kind)}):{" "}
+                      <span className="muted">
+                        {f.manual_reason || "Requires manual entry"}
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
           <p>
             Edit and review detected answers in Application fields below. Use
             next-step review for supported in-page forms. Use Take Over for

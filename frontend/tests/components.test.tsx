@@ -64,7 +64,19 @@ it("keeps an opened application separate from submission", () => {
       lifecycle_state: "external_application_opened",
       tracking_state: "not_applied",
     }),
+  ).toBe("External Application Opened");
+  expect(
+    pipelineColumn({
+      lifecycle_state: "approved_for_manual_handoff",
+      tracking_state: "not_applied",
+    }),
   ).toBe("Approved / Manual Handoff");
+  expect(
+    pipelineColumn({
+      lifecycle_state: "needs_input",
+      tracking_state: "not_applied",
+    }),
+  ).toBe("Needs Input");
   expect(
     pipelineColumn({
       lifecycle_state: "user_reported_submitted",
