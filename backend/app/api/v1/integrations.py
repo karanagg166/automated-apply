@@ -112,3 +112,116 @@ async def verify(service=Depends(connection_service)):
 @router.post("/gmail/disconnect", dependencies=[Depends(require_api_token)])
 async def disconnect(service=Depends(connection_service)):
     return await service.disconnect()
+
+
+# Read-only accounts use the existing browser-bound callback and token lifecycle.
+from uuid import UUID
+
+from backend.app.api.v1.profile import ProtectedProfileRoute
+from backend.app.integrations.gmail.read_service import (
+    GmailReadService,
+    LeadImport,
+    ReadConnect,
+    ReadPolicy,
+)
+
+read_router = APIRouter(prefix="/gmail/accounts", route_class=ProtectedProfileRoute,
+                        dependencies=[Depends(require_api_token)])
+
+
+def read_service(session: AsyncSession = Depends(get_db_session)):
+    return GmailReadService(session, get_settings())
+
+
+@read_router.get("")
+async def gmail_read_accounts(service=Depends(read_service)):
+    try:
+        return {"accounts": await service.accounts(), "workflow": "readonly", "schema_ready": True}
+    except ConnectionError as exc:
+        if str(exc) == "gmail_readonly_schema_update_required":
+            return {"accounts": [], "workflow": "readonly", "schema_ready": False, "error_code": str(exc)}
+        raise HTTPException(409, str(exc)) from None
+
+
+@read_router.post("/connect/start")
+async def gmail_read_connect(data: ReadConnect, response: Response, session: AsyncSession = Depends(get_db_session)):
+    browser = secrets.token_urlsafe(32)
+    settings = get_settings()
+    try:
+        result = await ConnectionService(session, read_only=True).start(str(data.expected_email), browser, read_body=data.read_body)
+    except ConnectionError as exc:
+        raise HTTPException(409, str(exc)) from None
+    response.set_cookie(COOKIE, browser, max_age=settings.OAUTH_STATE_TTL_SECONDS, httponly=True,
+                        secure=bool(settings.GMAIL_REDIRECT_URI and settings.GMAIL_REDIRECT_URI.startswith("https:")),
+                        samesite="lax", path=CALLBACK)
+    return result
+
+
+@read_router.get("/{account_id}")
+async def gmail_read_status(account_id: UUID, service=Depends(read_service)):
+    try:
+        return await service.status(account_id)
+    except ConnectionError as exc:
+        raise HTTPException(409, str(exc)) from None
+
+
+@read_router.put("/{account_id}/selection")
+async def gmail_read_selection(account_id: UUID, data: ReadPolicy, service=Depends(read_service)):
+    try:
+        return await service.configure(account_id, data)
+    except ConnectionError as exc:
+        raise HTTPException(409, str(exc)) from None
+
+
+@read_router.post("/{account_id}/sync")
+async def gmail_read_sync(account_id: UUID, service=Depends(read_service)):
+    try:
+        return await service.sync(account_id)
+    except ConnectionError as exc:
+        raise HTTPException(409, str(exc)) from None
+
+
+@read_router.get("/{account_id}/evidence")
+async def gmail_read_evidence(account_id: UUID, offset: int = Query(0, ge=0, le=100000),
+                              limit: int = Query(25, ge=1, le=100), service=Depends(read_service)):
+    try:
+        return {"evidence": await service.evidence(account_id, offset, limit), "offset": offset, "limit": limit}
+    except ConnectionError as exc:
+        raise HTTPException(409, str(exc)) from None
+
+
+@read_router.post("/{account_id}/verify")
+async def gmail_read_verify(account_id: UUID, service=Depends(read_service)):
+    try:
+        await service.connection(account_id).verify()
+        return await service.status(account_id)
+    except ConnectionError as exc:
+        raise HTTPException(409, str(exc)) from None
+
+
+@read_router.post("/{account_id}/disconnect")
+async def gmail_read_disconnect(account_id: UUID, service=Depends(read_service)):
+    try:
+        return await service.disconnect(account_id)
+    except ConnectionError as exc:
+        raise HTTPException(409, str(exc)) from None
+
+
+@read_router.get("/{account_id}/leads")
+async def gmail_read_leads(account_id: UUID, offset: int = Query(0, ge=0, le=100000),
+                           limit: int = Query(25, ge=1, le=100), service=Depends(read_service)):
+    try:
+        return {"leads": await service.leads(account_id, offset, limit), "offset": offset, "limit": limit}
+    except ConnectionError as exc:
+        raise HTTPException(409, str(exc)) from None
+
+
+@read_router.post("/{account_id}/evidence/{evidence_id}/import")
+async def gmail_read_import(account_id: UUID, evidence_id: str, data: LeadImport, service=Depends(read_service)):
+    try:
+        return await service.import_lead(account_id, evidence_id, data)
+    except ConnectionError as exc:
+        raise HTTPException(409, str(exc)) from None
+
+
+router.include_router(read_router)

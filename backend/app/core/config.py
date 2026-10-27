@@ -1,6 +1,7 @@
 """Application configuration using Pydantic Settings."""
 
 import re
+from datetime import datetime
 from functools import lru_cache
 from typing import Literal
 
@@ -318,6 +319,12 @@ class Settings(BaseSettings):
 
     # External Provider API Keys (Empty by default in dev/test)
     HUNTER_API_KEY: str | None = None
+    APOLLO_FREE_ACCOUNT_CONFIRMED: bool = False
+    APOLLO_WORK_EMAIL_CONFIRMED: bool = False
+    APOLLO_ELIGIBILITY_REVIEWED_AT: datetime | None = None
+    APOLLO_ELIGIBILITY_EVIDENCE_URL: str | None = None
+    APOLLO_REVIEWED_ENDPOINTS: list[str] = []
+    APOLLO_CREDIT_POOL: str | None = None
     APOLLO_API_KEY: SecretStr | None = None
     SERPER_API_KEY: str | None = None
     SIGNALHIRE_API_KEY: SecretStr | None = None
@@ -369,6 +376,7 @@ class Settings(BaseSettings):
             raise ValueError("Duplicate public ATS board IDs")
         return {board: company.strip() for board, company in value.items()}
 
+    APIFY_SOURCE_ROUTES: dict[str, list[dict]] = Field(default_factory=dict)
     APIFY_SOURCES: dict[str, dict] = Field(default_factory=dict)
     APIFY_PER_RUN_CAP_USD: float = Field(default=0, ge=0, le=100, allow_inf_nan=False)
     PEOPLE_SEARCH_ENABLED: bool = False
@@ -387,6 +395,8 @@ class Settings(BaseSettings):
     AUTOMATION_EXECUTION_ENABLED: bool = False
 
     # Outbound communication always needs a fresh owner confirmation.
+    GMAIL_READ_BODY_REVIEWED: bool = False
+    GMAIL_READ_SYNC_ENABLED: bool = False
     GMAIL_SENDING_ENABLED: bool = False
     GMAIL_SEND_MAX_PER_DAY: int = Field(default=10, ge=0, le=100)
     GMAIL_SEND_MAX_PER_HOUR: int = Field(default=3, ge=0, le=20)

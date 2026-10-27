@@ -24,6 +24,7 @@ from backend.app.services.startup_discovery.intelligence import (
     hiring_intelligence,
 )
 from backend.app.services.startup_discovery.normalizer import (
+    industry_allowed,
     location_allowed,
     role_allowed,
     size_allowed,
@@ -327,6 +328,12 @@ class StartupDiscoveryService:
                 )
                 for c in contacts
             ),
+            technical_staff_count=sum(
+                c["confidence"] == "supported" and c["priority"] not in {"review_required", "suppressed"}
+                and any(role in (c.get("role_title") or "").casefold() for role in
+                        ("engineer", "developer", "cto", "chief technology", "technical recruiter"))
+                for c in contacts
+            ),
             professional_contact_count=sum(
                 c["priority"] not in {"review_required", "suppressed"}
                 and c["confidence"] == "supported"
@@ -393,6 +400,16 @@ class StartupDiscoveryService:
             ):
                 continue
             attrs = item["attributes"]
+            country = (attrs.get("country") or "").strip().casefold()
+            country = {"in": "india", "ind": "india"}.get(country, country)
+            wanted = (filters.country or "").strip().casefold()
+            wanted = {"in": "india", "ind": "india"}.get(wanted, wanted)
+            if wanted and country != wanted:
+                continue
+            if not industry_allowed(attrs.get("industry"), filters.industries):
+                continue
+            if filters.has_technical_staff and not item["technical_staff_count"]:
+                continue
             if filters.verified_yc and not attrs.get("yc_batch"):
                 continue
             if filters.early_stage and str(attrs.get("stage", "")).casefold() not in {"pre-seed", "seed", "early", "early-stage", "series a"}:

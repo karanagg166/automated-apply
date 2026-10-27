@@ -1,6 +1,10 @@
 import { observationMessage } from "./observation.js";
 import { inspectForm, prepareAnswers, fillForm } from "./form-bridge.js";
-import { formErrorMessage, formPlanText } from "./form-messages.js";
+import {
+  formErrorMessage,
+  formPlanText,
+  missingInputLinks,
+} from "./form-messages.js";
 
 const ERROR_CODE_PATTERN = /^[a-z][a-z0-9_]{1,63}$/;
 
@@ -87,6 +91,7 @@ async function prepare(useSavedApplication = false) {
   formBusy = true;
   document.querySelector("#fill-form").disabled = true;
   document.querySelector("#form-plan").textContent = "";
+  document.querySelector("#missing-answers")?.replaceChildren();
   document.querySelector("#answer-status").textContent =
     "Reading unanswered fields and preparing answers from your reviewed facts…";
   try {
@@ -96,6 +101,17 @@ async function prepare(useSavedApplication = false) {
         )
       : await prepareAnswers();
     document.querySelector("#form-plan").textContent = formPlanText(plan);
+    const questions = document.querySelector("#missing-answers");
+    for (const question of missingInputLinks(plan)) {
+      const item = document.createElement("li");
+      const link = document.createElement("a");
+      link.href = question.url;
+      link.target = "_blank";
+      link.rel = "noreferrer noopener";
+      link.textContent = `Review saved question: ${question.label}`;
+      item.append(link);
+      questions?.append(item);
+    }
     const ready = plan.actions.filter(
       (action) =>
         !action.needs_input && action.kind !== "file" && action.evidence.length,

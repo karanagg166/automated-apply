@@ -17,7 +17,7 @@ class Contract(BaseModel):
 
 
 class EvidenceReference(Contract):
-    source_type: Literal["verified_project", "verified_role", "candidate_evidence", "candidate_profile", "candidate_preferences", "project_context", "opportunity_job", "opportunity_company"]
+    source_type: Literal["owner_answer", "verified_project", "verified_role", "candidate_evidence", "candidate_profile", "candidate_preferences", "project_context", "opportunity_job", "opportunity_company"]
     source_id: str = Field(min_length=1, max_length=100)
 
 
@@ -61,6 +61,8 @@ class AnswerGenerationResult(Contract):
     resources: list[dict] = Field(default_factory=list)
     draft_id: UUID | None = None
     reused_draft_id: UUID | None = None
+    missing_input_id: str | None = None
+    missing_input_url: str | None = None
 
 
 class SupportedClaim(Contract):

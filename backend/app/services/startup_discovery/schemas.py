@@ -17,7 +17,7 @@ from backend.app.core.urls import PublicHTTPSURL
 from backend.app.schemas.discovery import DiscoveryQuery, Text
 from backend.app.schemas.normalized_job import NormalizedJob
 
-Band = Literal["1-10", "11-50", "51-200", "201-500", "500+", "unknown"]
+Band = Literal["2-10", "1-10", "11-50", "51-200", "201-500", "500+", "unknown"]
 Hiring = Literal[
     "hiring_confirmed", "hiring_possible", "hiring_unknown", "not_currently_hiring"
 ]
@@ -39,6 +39,7 @@ class CompanyObservation(BaseModel):
     historical: bool = False
     employee_count: int | None = Field(None, ge=1, le=10000000, strict=True)
     team_size_band: Band = "unknown"
+    country: Text | None = None
     location: Text | None = None
     remote_policy: Literal["remote", "hybrid", "onsite", "unknown"] = "unknown"
     industry: Text | None = None
@@ -69,9 +70,10 @@ class CompanyObservation(BaseModel):
 
         if self.employee_count is not None:
             expected = size_band(self.employee_count)
-            if self.team_size_band not in ("unknown", expected):
+            if self.team_size_band not in ("unknown", expected) and not (self.team_size_band == "2-10" and 2 <= self.employee_count <= 10):
                 raise ValueError("Count and band conflict within an observation")
-            self.team_size_band = expected
+            if self.team_size_band != "2-10":
+                self.team_size_band = expected
         if (
             self.hiring_statement == "not_currently_hiring"
             and not self.authoritative_statement
@@ -83,6 +85,9 @@ class CompanyObservation(BaseModel):
 class StartupFilters(BaseModel):
     model_config = ConfigDict(extra="forbid")
     query: str | None = Field(None, max_length=200)
+    country: Text | None = None
+    industries: list[Text] = Field(default_factory=list, max_length=20)
+    has_technical_staff: bool = False
     min_employees: int | None = Field(None, ge=1, le=10000000)
     exact_employee_count: bool = False
     application_status: Literal["all", "not_applied", "shortlisted", "packet_prepared", "applied", "interview", "rejected"] = "all"
@@ -107,6 +112,13 @@ class StartupFilters(BaseModel):
     use_profile: bool = True
     page: int = Field(1, ge=1, le=250)
     limit: int = Field(20, ge=1, le=100)
+
+
+    @model_validator(mode="after")
+    def valid_range(self):
+        if self.min_employees is not None and self.max_employees is not None and self.min_employees > self.max_employees:
+            raise ValueError("Minimum employee count exceeds maximum")
+        return self
 
 
 class StartupRunRequest(BaseModel):
@@ -179,6 +191,7 @@ class StartupRead(BaseModel):
     startup_match_score: float
     current_job_count: int
     leader_evidence_count: int
+    technical_staff_count: int = 0
     professional_contact_count: int
     sources: list[str]
     shortlisted: bool = False

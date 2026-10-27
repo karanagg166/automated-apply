@@ -3,7 +3,7 @@
 from datetime import timedelta
 
 from backend.app.models.discovery import now
-from backend.app.services.startup_discovery.normalizer import utc
+from backend.app.services.startup_discovery.normalizer import BANDS, utc
 
 
 def company_size(observations, days=180):
@@ -30,8 +30,12 @@ def company_size(observations, days=180):
         for o in candidates
         if o.attributes.get("employee_count") is not None
     }
-    conflict = len(bands) > 1 or len(counts) > 1
-    chosen = candidates[0] if candidates and not conflict else None
+    # Different reported bands are compatible when they overlap. A precise count
+    # must fall inside every concurrent band; ranges never become inferred counts.
+    lower = max((BANDS[b][0] for b in bands), default=0)
+    upper = min((BANDS[b][1] or 10000000 for b in bands), default=10000000)
+    conflict = len(counts) > 1 or lower > upper or any(not lower <= count <= upper for count in counts)
+    chosen = next((o for o in candidates if o.attributes.get("employee_count") is not None), candidates[0] if candidates else None) if not conflict else None
     return dict(
         employee_count=chosen.attributes.get("employee_count") if chosen else None,
         team_size_band=chosen.attributes["team_size_band"] if chosen else "unknown",

@@ -259,9 +259,18 @@ class ContactIdentityResolver:
             if email_added
             else {}
         )
+        publication_metadata = {}
+        if email and email == contact.email and observation.email_publication_url and observation.source == "official_company" and observation.human_confirmed and not conflicts:
+            from urllib.parse import urlsplit
+            if urlsplit(str(observation.email_publication_url)).hostname in {company.domain, "www." + (company.domain or "")}:
+                publication_metadata = {"email_publication_url": str(observation.email_publication_url),
+                                        "email_publication_confirmed": True,
+                                        "email_publication_digest": hashlib.sha256(email.encode()).hexdigest(),
+                                        "email_observed_at": checked.isoformat()}
         contact.metadata_ = {
             **(contact.metadata_ or {}),
             **email_metadata,
+            **publication_metadata,
             "evidence_strength": strength,
             "identity_review_required": bool(conflicts)
             or bool((contact.metadata_ or {}).get("identity_review_required")),
