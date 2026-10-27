@@ -10,6 +10,8 @@ import { Outreach, OutreachDetail } from "@/features/outreach";
 import { Connections } from "@/features/connections";
 import { Notifications, Settings } from "@/features/notifications";
 import { ProfileWizard } from "@/features/profile";
+import { UnansweredQuestionsQueue } from "@/features/unanswered-questions";
+import { CandidateKnowledge } from "@/features/candidate-knowledge";
 export default async function Page({
   params,
 }: {
@@ -36,10 +38,14 @@ export default async function Page({
       return <People />;
     case "applications":
       return <Applications />;
+    case "needs-input":
+      return <UnansweredQuestionsQueue />;
     case "outreach":
       return <Outreach />;
     case "connections":
       return <Connections />;
+    case "candidate-facts":
+      return <CandidateKnowledge />;
     case "notifications":
       return <Notifications />;
     case "profile":

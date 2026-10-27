@@ -37,9 +37,11 @@ const nav = [
   ["Jobs", "/jobs", BriefcaseBusiness],
   ["People", "/people", Users],
   ["Applications", "/applications", LayoutDashboard],
+  ["Needs Input", "/needs-input", CircleHelp],
   ["Outreach", "/outreach", Mail],
   ["Notifications", "/notifications", Bell],
   ["Connections", "/connections", Plug],
+  ["Candidate Facts", "/candidate-facts", UserRound],
   ["My Profile", "/profile", UserRound],
   ["Settings", "/settings", Settings2],
 ] as const;
@@ -101,7 +103,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
               key={url}
               href={url}
               onClick={() => setMobile(false)}
-              className={`${(url === "/" ? path === "/" : path.startsWith(url)) ? "active" : ""} ${i === 8 ? "nav-divider" : ""}`}
+              className={`${(url === "/" ? path === "/" : path.startsWith(url)) ? "active" : ""} ${i === 9 ? "nav-divider" : ""}`}
               aria-current={
                 (url === "/" ? path === "/" : path.startsWith(url))
                   ? "page"

@@ -756,6 +756,21 @@ export function ApplicationDetail({ id }: { id: string }) {
         />
       </div>
 
+      {p.lifecycle_state === "needs_input" && (
+        <Notice>
+          <div className="split">
+            <span>
+              This application stopped because required factual answers or
+              evidence are missing.
+            </span>
+            <Link className="button primary" href="/needs-input">
+              Resolve in &apos;Needs your input&apos; queue
+              <ArrowUpRight size={13} />
+            </Link>
+          </div>
+        </Notice>
+      )}
+
       <div className="detail-grid">
         <section className="panel panel-body">
           <div className="split">
