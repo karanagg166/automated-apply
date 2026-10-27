@@ -1,14 +1,8 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { resolve } from "node:path";
-async function login(page: Page) {
-  await page.goto("/login");
-  await page
-    .getByLabel("Owner passphrase")
-    .fill("fictional-ui-owner-passphrase");
-  await page.getByRole("button", { name: "Enter workspace" }).click();
-  await expect(page).toHaveURL("/");
-}
+import { login } from "./owner-session";
+
 test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
   test("manages disabled automation through the authenticated BFF", async ({
     page,
