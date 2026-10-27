@@ -165,14 +165,14 @@ export function UnansweredQuestionsQueue({
     (missingQuestionsQuery.error as { status?: number }).status === 404;
 
   const rawQuestions = missingQuestionsQuery.data?.requests || [];
-  const filteredQuestions = rawQuestions.filter((q) => {
-    if (filterStatus === "all") return true;
-    return (
-      (q.effective_status ||
-        (q.stale && q.status === "approved" ? "review_required" : q.status)) ===
-      filterStatus
-    );
-  });
+  const effectiveStatus = (item: MissingInputItem) =>
+    item.effective_status ||
+    (item.stale && item.status === "approved"
+      ? "review_required"
+      : item.status);
+  const filteredQuestions = rawQuestions.filter(
+    (item) => filterStatus === "all" || effectiveStatus(item) === filterStatus,
+  );
 
   const handleOpenItem = (item: MissingInputItem) => {
     setSelectedItem(item);
@@ -185,14 +185,16 @@ export function UnansweredQuestionsQueue({
   };
 
   const countNeedsInput = rawQuestions.filter(
-    (q) => q.status === "needs_input",
+    (q) => effectiveStatus(q) === "needs_input",
   ).length;
-  const countDraft = rawQuestions.filter((q) => q.status === "draft").length;
+  const countDraft = rawQuestions.filter(
+    (q) => effectiveStatus(q) === "draft",
+  ).length;
   const countReviewRequired = rawQuestions.filter(
-    (q) => q.status === "review_required" || q.stale,
+    (q) => effectiveStatus(q) === "review_required",
   ).length;
   const countApproved = rawQuestions.filter(
-    (q) => q.status === "approved" && !q.stale,
+    (q) => effectiveStatus(q) === "approved",
   ).length;
 
   return (
