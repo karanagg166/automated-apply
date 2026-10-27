@@ -22,6 +22,7 @@ import {
   Button,
   Empty,
   ErrorState,
+  External,
   Field,
   Input,
   Modal,
@@ -62,38 +63,68 @@ export const defaultFilters: Schema<"StartupFilters"> = {
   has_leader_evidence: false,
 };
 export function sizeFilter(size: string) {
-  return size === "2-10"
-    ? {
-        min_employees: 2,
-        max_employees: 10,
-        exact_employee_count: true,
-        include_unknown_size: false,
-        size_bands: [],
-      }
-    : size === "unknown"
-      ? {
-          min_employees: null,
-          max_employees: null,
-          exact_employee_count: false,
-          include_unknown_size: true,
-          size_bands: ["unknown"],
-        }
-      : size === "all"
-        ? {
-            min_employees: null,
-            max_employees: null,
-            exact_employee_count: false,
-            include_unknown_size: true,
-            size_bands: [],
-          }
-        : {
-            min_employees: null,
-            max_employees: null,
-            exact_employee_count: false,
-            include_unknown_size: false,
-            size_bands: [size],
-          };
+  if (size === "2-10") {
+    return {
+      min_employees: 2,
+      max_employees: 10,
+      exact_employee_count: true,
+      include_unknown_size: false,
+      size_bands: [],
+    };
+  }
+  if (size === "11-50") {
+    return {
+      min_employees: 11,
+      max_employees: 50,
+      exact_employee_count: false,
+      include_unknown_size: false,
+      size_bands: ["11-50"],
+    };
+  }
+  if (size === "unknown") {
+    return {
+      min_employees: null,
+      max_employees: null,
+      exact_employee_count: false,
+      include_unknown_size: true,
+      size_bands: ["unknown"],
+    };
+  }
+  if (size === "all") {
+    return {
+      min_employees: null,
+      max_employees: null,
+      exact_employee_count: false,
+      include_unknown_size: true,
+      size_bands: [],
+    };
+  }
+  return {
+    min_employees: null,
+    max_employees: null,
+    exact_employee_count: false,
+    include_unknown_size: false,
+    size_bands: [size],
+  };
 }
+export const industries = [
+  "All industries",
+  "Software",
+  "SaaS",
+  "AI",
+  "Fintech",
+  "Developer Tools",
+] as const;
+export const indianLocations = [
+  "Any",
+  "India",
+  "Bengaluru",
+  "Delhi NCR",
+  "Hyderabad",
+  "Pune",
+  "Mumbai",
+  "Remote",
+] as const;
 const technologies = [
   "Python",
   "FastAPI",
@@ -112,14 +143,15 @@ export function StartupExplorer() {
     client = useQueryClient();
   const [filters, setFilters] = useState<Schema<"StartupFilters">>({
       ...defaultFilters,
-      query: params.get("q") || null,
+      query: params?.get("q") || null,
     }),
     [size, setSize] = useState("all"),
+    [industry, setIndustry] = useState("All industries"),
     [extra, setExtra] = useState(false),
     [presetOpen, setPresetOpen] = useState(false),
     [presetName, setPresetName] = useState(""),
     [message, setMessage] = useState("");
-  const globalQuery = params.get("q");
+  const globalQuery = params?.get("q");
   useEffect(() => {
     setFilters((current) => ({
       ...current,
@@ -222,16 +254,10 @@ export function StartupExplorer() {
                 })
               }
             >
-              {[
-                "Any",
-                "India",
-                "Delhi NCR",
-                "Bengaluru",
-                "Hyderabad",
-                "Pune",
-                "Remote",
-              ].map((x) => (
-                <option key={x}>{x}</option>
+              {indianLocations.map((x) => (
+                <option key={x} value={x}>
+                  {x}
+                </option>
               ))}
             </Select>
           </Field>
@@ -251,13 +277,32 @@ export function StartupExplorer() {
               {[
                 ["all", "All sizes"],
                 ["2-10", "2–10 · exact count"],
-                ["11-50", "11–50"],
-                ["51-200", "51–200"],
-                ["201-500", "201–500"],
-                ["unknown", "Unknown"],
+                ["11-50", "11–50 employees"],
+                ["51-200", "51–200 employees"],
+                ["201-500", "201–500 employees"],
+                ["unknown", "Unknown size"],
               ].map(([v, l]) => (
                 <option key={v} value={v}>
                   {l}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="INDUSTRY">
+            <Select
+              aria-label="Industry"
+              value={industry}
+              onChange={(e) => {
+                setIndustry(e.target.value);
+                update({
+                  query:
+                    e.target.value === "All industries" ? null : e.target.value,
+                });
+              }}
+            >
+              {industries.map((ind) => (
+                <option key={ind} value={ind}>
+                  {ind}
                 </option>
               ))}
             </Select>
@@ -474,7 +519,7 @@ export function StartupExplorer() {
           </Button>
         </div>
       </div>
-      {!!presets.data?.presets.length && (
+      {!!presets.data?.presets?.length && (
         <div className="actions" style={{ marginBottom: 16 }}>
           {presets.data.presets.map((p) => (
             <Button
@@ -542,12 +587,17 @@ export function StartupExplorer() {
                   </span>
                   <span>
                     <Users size={12} />
-                    {s.employee_count !== null
-                      ? `${s.employee_count} employees`
-                      : s.team_size_band === "unknown"
-                        ? "Size unknown"
-                        : `${s.team_size_band} band`}
+                    {s.employee_count !== null && s.exact_employee_count
+                      ? `${s.employee_count} employees (exact count)`
+                      : s.team_size_band && s.team_size_band !== "unknown"
+                        ? `${s.team_size_band} band`
+                        : "Size unknown"}
                   </span>
+                  {s.company_domain && (
+                    <External href={`https://${s.company_domain}`}>
+                      Official website
+                    </External>
+                  )}
                 </div>
                 <div className="tag-list">
                   {(s.attributes.technology_stack || [])
@@ -561,23 +611,49 @@ export function StartupExplorer() {
                   {s.attributes.yc_batch && (
                     <Badge>YC {s.attributes.yc_batch}</Badge>
                   )}
+                  {s.leader_evidence_count > 0 ? (
+                    <Badge tone="green">
+                      Founder / CEO available ({s.leader_evidence_count})
+                    </Badge>
+                  ) : (
+                    <Badge tone="neutral">No leader recorded</Badge>
+                  )}
+                  {(s.attributes.technical_employees_recorded ||
+                    (s.attributes.technology_stack &&
+                      s.attributes.technology_stack.length > 0)) && (
+                    <Badge tone="neutral">Technical team evidence</Badge>
+                  )}
                 </div>
                 <div className="company-evidence">
                   <Building2 size={13} />
-                  <strong>{s.current_job_count} current roles</strong>
-                  <span>· {s.leader_evidence_count} leader records</span>
+                  <strong>
+                    {s.current_job_count} current role
+                    {s.current_job_count === 1 ? "" : "s"}
+                  </strong>
+                  <span>· {s.sources.join(", ") || "No retained source"}</span>
                   <span style={{ marginLeft: "auto" }} className="score">
                     {Math.round(s.startup_match_score)}
                     <small>match</small>
                   </span>
                 </div>
                 <div className="company-meta">
-                  <span>{readable(s.team_size_evidence_status)}</span>
-                  <span>{s.sources.join(", ") || "No retained source"}</span>
+                  <Badge
+                    tone={
+                      s.team_size_evidence_status === "verified"
+                        ? "green"
+                        : s.team_size_evidence_status === "conflicting"
+                          ? "red"
+                          : "amber"
+                    }
+                  >
+                    Size: {readable(s.team_size_evidence_status)}
+                  </Badge>
                   <span>
+                    Last observed{" "}
                     {dateLabel(
                       s.team_size_evidence[0]?.observed_at ||
-                        s.hiring_evidence[0]?.observed_at,
+                        s.hiring_evidence[0]?.observed_at ||
+                        null,
                     )}
                   </span>
                 </div>

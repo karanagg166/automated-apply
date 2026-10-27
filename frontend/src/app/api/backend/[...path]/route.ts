@@ -69,7 +69,8 @@ async function proxy(
       ) ||
         /^application-answers\/drafts\/[a-f0-9-]{36}\/approve-reuse$/.test(
           path,
-        ))
+        ) ||
+        /^application-answers\/missing\/[a-f0-9-]{32,36}\/approve$/.test(path))
     ) {
       const approvalKey = process.env.BROWSER_OWNER_APPROVAL_KEY;
       if (!approvalKey || approvalKey.length < 32)

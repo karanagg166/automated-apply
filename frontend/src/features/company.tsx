@@ -18,7 +18,7 @@ import { JobTable, type Job } from "./jobs";
 import { CompanyPeople } from "./people";
 export function CompanyDetail({ id }: { id: string }) {
   const params = useSearchParams(),
-    [tab, setTab] = useState(params.get("tab") || "evidence");
+    [tab, setTab] = useState(params?.get("tab") || "evidence");
   const company = useQuery({
     queryKey: ["company", id],
     queryFn: () => api<Startup>(`startups/${id}`),
@@ -82,11 +82,13 @@ export function CompanyDetail({ id }: { id: string }) {
             <Users size={14} />
           </div>
           <p className="spaced">
-            {s.employee_count !== null
-              ? `${s.employee_count} employees`
-              : `${s.team_size_band} band`}
+            {s.employee_count !== null && s.exact_employee_count
+              ? `${s.employee_count} employees (exact count)`
+              : s.team_size_band && s.team_size_band !== "unknown"
+                ? `${s.team_size_band} band`
+                : "Size unknown"}
           </p>
-          <small>{readable(s.team_size_evidence_status)}</small>
+          <small>Status: {readable(s.team_size_evidence_status)}</small>
         </div>
         <div className="metric">
           <div className="metric-label">

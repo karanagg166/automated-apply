@@ -8,6 +8,7 @@ import { api, post, readable } from "@/lib/api";
 import { Automation } from "@/features/automation";
 import { JobDiscovery } from "@/features/job-discovery";
 import { SearchPreferencesEditor } from "@/features/search-preferences";
+import { ApifySourceManagement } from "@/features/apify-sources";
 import {
   Badge,
   Button,
@@ -46,7 +47,7 @@ type Run = {
 };
 
 export function Discover() {
-  const [tab, setTab] = useState<"jobs" | "startups">("jobs");
+  const [tab, setTab] = useState<"jobs" | "startups" | "apify">("jobs");
 
   // Preserved startup discovery state & logic
   const client = useQueryClient();
@@ -136,6 +137,17 @@ export function Discover() {
         >
           Startup discovery
         </button>
+        <button
+          type="button"
+          role="tab"
+          id="tab-apify-sources"
+          aria-controls="panel-apify-sources"
+          aria-selected={tab === "apify"}
+          className={tab === "apify" ? "selected" : ""}
+          onClick={() => setTab("apify")}
+        >
+          Apify & sources
+        </button>
       </div>
 
       {tab === "jobs" ? (
@@ -146,7 +158,7 @@ export function Discover() {
         >
           <JobDiscovery />
         </div>
-      ) : (
+      ) : tab === "startups" ? (
         <div
           id="panel-startup-discovery"
           role="tabpanel"
@@ -332,6 +344,14 @@ export function Discover() {
               </div>
             </aside>
           </div>
+        </div>
+      ) : (
+        <div
+          id="panel-apify-sources"
+          role="tabpanel"
+          aria-labelledby="tab-apify-sources"
+        >
+          <ApifySourceManagement />
         </div>
       )}
 
