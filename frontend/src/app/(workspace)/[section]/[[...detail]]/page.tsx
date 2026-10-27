@@ -14,10 +14,19 @@ import { UnansweredQuestionsQueue } from "@/features/unanswered-questions";
 import { CandidateKnowledge } from "@/features/candidate-knowledge";
 export default async function Page({
   params,
+  searchParams,
 }: {
   params: Promise<{ section: string; detail?: string[] }>;
+  searchParams?: Promise<{ missing_input?: string }>;
 }) {
   const { section, detail } = await params;
+  const missingInput = (await searchParams)?.missing_input;
+  const initialRequestId =
+    missingInput && /^[a-f0-9]{32}$/.test(missingInput)
+      ? missingInput
+      : undefined;
+  if (section === "profile" && initialRequestId)
+    return <UnansweredQuestionsQueue initialRequestId={initialRequestId} />;
   if (detail?.length) {
     if (detail.length !== 1 || !/^[-a-f0-9]{36}$/.test(detail[0])) notFound();
     if (section === "startups") return <CompanyDetail id={detail[0]} />;
@@ -39,7 +48,7 @@ export default async function Page({
     case "applications":
       return <Applications />;
     case "needs-input":
-      return <UnansweredQuestionsQueue />;
+      return <UnansweredQuestionsQueue initialRequestId={initialRequestId} />;
     case "outreach":
       return <Outreach />;
     case "connections":

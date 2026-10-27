@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -29,7 +29,7 @@ const fictionalStartupA: Schema<"StartupRead"> = {
   team_size_band: "11-50",
   team_size_evidence_status: "verified",
   leader_evidence_count: 2,
-  technical_employee_count: 14,
+  technical_staff_count: 14,
   verification_status: "verified",
   hiring_status: "hiring_confirmed",
   startup_match_score: 95,
@@ -80,7 +80,7 @@ const fictionalStartupB: Schema<"StartupRead"> = {
   team_size_band: "1-10",
   team_size_evidence_status: "conflicting",
   leader_evidence_count: 0,
-  technical_employee_count: 5,
+  technical_staff_count: 5,
   verification_status: "conflicting",
   hiring_status: "hiring_unknown",
   startup_match_score: 75,
@@ -178,8 +178,9 @@ describe("Startup discovery and size filtering", () => {
     // It should display "11-50 band", NOT any invented number
     expect(screen.getByText("11-50 band")).toBeInTheDocument();
 
-    // Startup B has exact_employee_count: true and employee_count: 7
-    expect(screen.getByText("7 employees (exact count)")).toBeInTheDocument();
+    // Conflicting evidence never establishes an exact count.
+    expect(screen.queryByText("7 employees (exact count)")).toBeNull();
+    expect(screen.getByText("1-10 band")).toBeInTheDocument();
   });
 
   it("displays leader availability, technical evidence badges, and safe website links", async () => {
@@ -198,7 +199,9 @@ describe("Startup discovery and size filtering", () => {
     expect(screen.getByText("Founder / CEO available (2)")).toBeInTheDocument();
 
     // Technical team evidence badge
-    expect(screen.getByText("Technical team evidence")).toBeInTheDocument();
+    expect(
+      screen.getByText("Technical staff evidence (14)"),
+    ).toBeInTheDocument();
 
     // Verification status badge
     expect(screen.getByText(/Size:\s*verified/i)).toBeInTheDocument();
@@ -246,8 +249,16 @@ describe("Startup discovery and size filtering", () => {
     // Select AI industry
     fireEvent.change(industrySelect, { target: { value: "AI" } });
 
-    // post should have been queried
-    expect(post).toHaveBeenCalled();
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        "startups/search",
+        expect.objectContaining({
+          industries: ["AI"],
+          locations: ["Bengaluru"],
+          size_bands: ["11-50"],
+        }),
+      ),
+    );
   });
 
   it("renders empty state without fictional records and supports retry on error", async () => {

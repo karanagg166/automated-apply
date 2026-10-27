@@ -32,6 +32,7 @@ const fictionalContacts: Contact[] = [
     professional_url: "https://anita-example.github.io",
     email: "anita@acme-tech.example",
     email_status: "verified",
+    email_evidence_status: "verified_using_authorized_method",
     source: "github_commit_signature",
     confidence: "supported",
     do_not_contact: false,
@@ -145,7 +146,9 @@ describe("Company and people research screen", () => {
     expect(screen.getByText("Verified · Source-backed")).toBeInTheDocument();
 
     // Verified mailbox badge
-    expect(screen.getByText("Verified mailbox")).toBeInTheDocument();
+    expect(
+      screen.getByText("Verified using authorized method"),
+    ).toBeInTheDocument();
 
     // Safe external profile URL
     const links = screen.getAllByRole("link", {
@@ -223,4 +226,31 @@ describe("Company and people research screen", () => {
       screen.queryByRole("button", { name: /send invitation/i }),
     ).toBeNull();
   });
+});
+
+it("separates published source support from actual mailbox verification", async () => {
+  vi.mocked(api).mockImplementation(
+    async (path) =>
+      (path.endsWith("/contacts")
+        ? {
+            contacts: [
+              {
+                ...fictionalContacts[0],
+                email_status: "unverified",
+                email_evidence_status: "published_source_supported",
+                email_publication_url: "https://acme-tech.example/team",
+              },
+            ],
+          }
+        : { people: [] }) as any,
+  );
+  mount();
+  await screen.findByText("Anita Sharma");
+  expect(
+    screen.getByText("Published source supported · mailbox unverified"),
+  ).toBeInTheDocument();
+  expect(screen.queryByText("Verified using authorized method")).toBeNull();
+  expect(
+    screen.getByRole("link", { name: "Published email source" }),
+  ).toHaveAttribute("href", "https://acme-tech.example/team");
 });

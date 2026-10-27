@@ -2,28 +2,6 @@
 
 import { useId, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  AlertCircle,
-  AlertTriangle,
-  ArrowUpRight,
-  Briefcase,
-  CheckCircle2,
-  Clock,
-  ExternalLink,
-  Eye,
-  FileSearch,
-  Filter,
-  Mail,
-  MailCheck,
-  Plus,
-  RefreshCw,
-  Search,
-  Shield,
-  ShieldAlert,
-  ShieldCheck,
-  Trash2,
-  X,
-} from "lucide-react";
 import { api, dateLabel, externalUrl, post, readable } from "@/lib/api";
 import {
   Badge,
@@ -42,28 +20,22 @@ import {
 
 export type ReadAccount = {
   id: string;
-  email: string;
+  account_email: string;
   granted_scopes: string[];
-  status:
-    | "connected"
-    | "reconnect_required"
-    | "revoked"
-    | "error"
-    | "selection_required";
+  status: "connected" | "disconnected" | "reauthorization_required";
+  permissions: {
+    read_metadata: boolean;
+    read_body: boolean;
+    send: false;
+    modify: false;
+  };
   last_verified_at?: string | null;
   sync_enabled: boolean;
   body_access_reviewed: boolean;
   sync: {
     version: number;
-    status:
-      | "idle"
-      | "in_progress"
-      | "completed"
-      | "partial"
-      | "failed"
-      | "reauthorization_required"
-      | "selection_required";
-    policy?: {
+    status: string;
+    policy: {
       enabled: boolean;
       sender_allowlist: string[];
       label_allowlist: string[];
@@ -80,853 +52,566 @@ export type ReadAccount = {
     last_error?: string | null;
   };
 };
-
-export type JobAlertRecord = {
-  title: string;
-  company: string;
-  location?: string;
-  source_url?: string;
-  status: "new" | "duplicate" | "processed" | "failed";
-  extracted_at: string;
-};
-
 export type JobEmailEvidence = {
   id: string;
   account_id: string;
-  account_email?: string;
   message_id: string;
   thread_id: string;
   received_at: string;
   observed_at: string;
   expires_at: string;
-  sender?: string;
-  subject?: string;
-  subject_digest?: string;
-  label_ids?: string[];
-  read_body: boolean;
-  verification_status: "verified" | "requires_review" | "unverified";
-  submission_confirmed: boolean;
-  links: Array<{ url: string; label?: string }>;
+  verification_status: "requires_review";
+  submission_confirmed: false;
+  links: string[];
   signals: string[];
-  job_alerts?: JobAlertRecord[];
 };
+type AccountList = {
+  accounts: ReadAccount[];
+  workflow: "readonly";
+  schema_ready: boolean;
+  error_code?: string;
+};
+type Lead = {
+  id: string;
+  url: string;
+  evidence_ids: string[];
+  verification_status: "requires_review";
+  confirmed_vacancy: false;
+};
+type ImportSelection = { account: ReadAccount; lead: Lead };
 
 export function ConnectedEmails() {
   const client = useQueryClient();
-  const consentId = useId();
-
-  const [connectModalOpen, setConnectModalOpen] = useState(false);
-  const [policyModalAccount, setPolicyModalAccount] =
-    useState<ReadAccount | null>(null);
-  const [previewJobAlert, setPreviewJobAlert] = useState<JobAlertRecord | null>(
-    null,
-  );
-
-  // Connect form state
+  const confirmationId = useId();
+  const [connectOpen, setConnectOpen] = useState(false);
   const [expectedEmail, setExpectedEmail] = useState("");
-  const [readBodyRequested, setReadBodyRequested] = useState(false);
   const [accountConsent, setAccountConsent] = useState(false);
-
-  // Policy form state
-  const [policyEnabled, setPolicyEnabled] = useState(true);
+  const [readBody, setReadBody] = useState(false);
+  const [policyAccount, setPolicyAccount] = useState<ReadAccount | null>(null);
+  const [enabled, setEnabled] = useState(false);
   const [senders, setSenders] = useState("");
-  const [labels, setLabels] = useState("Label_Jobs");
+  const [labels, setLabels] = useState("");
   const [bodyPurpose, setBodyPurpose] = useState("");
-  const [backfillDays, setBackfillDays] = useState(7);
-  const [retentionDays, setRetentionDays] = useState(14);
-
-  // Filter state for evidence
-  const [selectedAccountFilter, setSelectedAccountFilter] = useState("all");
-  const [senderFilter, setSenderFilter] = useState("");
-  const [subjectQuery, setSubjectQuery] = useState("");
-
+  const [backfill, setBackfill] = useState(7);
+  const [retention, setRetention] = useState(14);
+  const [selectedAccount, setSelectedAccount] = useState("all");
+  const [importSelection, setImportSelection] =
+    useState<ImportSelection | null>(null);
+  const [title, setTitle] = useState("");
+  const [company, setCompany] = useState("");
+  const [reviewed, setReviewed] = useState(false);
+  const [imported, setImported] = useState(false);
   const accountsQuery = useQuery({
     queryKey: ["gmail-read-accounts"],
-    queryFn: () =>
-      api<{ accounts: ReadAccount[]; workflow: string }>(
-        "integrations/gmail/accounts",
-      ),
+    queryFn: () => api<AccountList>("integrations/gmail/accounts"),
   });
-
-  const connectMutation = useMutation({
+  const accounts = accountsQuery.data?.accounts || [];
+  const refresh = () => {
+    client.invalidateQueries({ queryKey: ["gmail-read-accounts"] });
+    client.invalidateQueries({ queryKey: ["gmail-evidence"] });
+  };
+  const connect = useMutation({
     mutationFn: () =>
       post<{ authorization_url: string }>(
         "integrations/gmail/accounts/connect/start",
         {
           expected_email: expectedEmail,
-          read_body: readBodyRequested,
           account_consent: accountConsent,
+          read_body: readBody,
         },
       ),
-    onSuccess: (data) => {
-      const url = externalUrl(data.authorization_url);
-      if (url && new URL(url).hostname === "accounts.google.com") {
-        window.location.assign(url);
-      } else {
+    onSuccess: (result) => {
+      const url = externalUrl(result.authorization_url);
+      if (!url || new URL(url).hostname !== "accounts.google.com")
         throw new Error("Invalid Google authorization URL returned");
-      }
+      window.location.assign(url);
     },
   });
-
-  const syncMutation = useMutation({
-    mutationFn: (accountId: string) =>
-      post<ReadAccount>(`integrations/gmail/accounts/${accountId}/sync`),
-    onSuccess: () => {
-      client.invalidateQueries({ queryKey: ["gmail-read-accounts"] });
-      client.invalidateQueries({ queryKey: ["gmail-evidence"] });
-    },
+  const sync = useMutation({
+    mutationFn: (id: string) =>
+      post<ReadAccount>(`integrations/gmail/accounts/${id}/sync`),
+    onSuccess: refresh,
   });
-
-  const verifyMutation = useMutation({
-    mutationFn: (accountId: string) =>
-      post<ReadAccount>(`integrations/gmail/accounts/${accountId}/verify`),
-    onSuccess: () => {
-      client.invalidateQueries({ queryKey: ["gmail-read-accounts"] });
-    },
+  const verify = useMutation({
+    mutationFn: (id: string) =>
+      post<ReadAccount>(`integrations/gmail/accounts/${id}/verify`),
+    onSuccess: refresh,
   });
-
-  const disconnectMutation = useMutation({
-    mutationFn: (accountId: string) =>
-      post<{ disconnected: boolean }>(
-        `integrations/gmail/accounts/${accountId}/disconnect`,
-      ),
-    onSuccess: () => {
-      client.invalidateQueries({ queryKey: ["gmail-read-accounts"] });
-      client.invalidateQueries({ queryKey: ["gmail-evidence"] });
-    },
+  const disconnect = useMutation({
+    mutationFn: (id: string) =>
+      post(`integrations/gmail/accounts/${id}/disconnect`),
+    onSuccess: refresh,
   });
-
-  const policyMutation = useMutation({
-    mutationFn: ({
-      accountId,
-      version,
-    }: {
-      accountId: string;
-      version: number;
-    }) => {
-      const senderList = senders
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      const labelList = labels
-        .split(",")
-        .map((l) => l.trim())
-        .filter(Boolean);
-      return api<ReadAccount>(
-        `integrations/gmail/accounts/${accountId}/selection`,
+  const policy = useMutation({
+    mutationFn: () =>
+      api<ReadAccount>(
+        `integrations/gmail/accounts/${policyAccount!.id}/selection`,
         {
           method: "PUT",
           body: JSON.stringify({
-            expected_version: version,
-            enabled: policyEnabled,
-            sender_allowlist: senderList,
-            label_allowlist: labelList,
+            expected_version: policyAccount!.sync.version,
+            enabled,
+            sender_allowlist: senders
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean),
+            label_allowlist: labels
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean),
             query_allowlist: null,
-            read_body: readBodyRequested,
-            body_purpose: readBodyRequested ? bodyPurpose : null,
-            backfill_days: backfillDays,
-            retention_days: retentionDays,
+            read_body: readBody,
+            body_purpose: readBody ? bodyPurpose : null,
+            backfill_days: backfill,
+            retention_days: retention,
             max_pages: 1,
           }),
         },
-      );
-    },
+      ),
     onSuccess: () => {
-      setPolicyModalAccount(null);
-      client.invalidateQueries({ queryKey: ["gmail-read-accounts"] });
+      setPolicyAccount(null);
+      refresh();
     },
   });
-
-  const accounts = accountsQuery.data?.accounts || [];
-
-  const evidenceQuery = useQuery({
-    queryKey: ["gmail-evidence", selectedAccountFilter],
-    queryFn: async () => {
-      if (selectedAccountFilter !== "all") {
-        const res = await api<{ evidence: JobEmailEvidence[] }>(
-          `integrations/gmail/accounts/${selectedAccountFilter}/evidence`,
-        );
-        const acct = accounts.find((a) => a.id === selectedAccountFilter);
-        return res.evidence.map((e) => ({ ...e, account_email: acct?.email }));
-      }
-      // Combine across accounts without obscuring source
-      const results: JobEmailEvidence[] = [];
-      for (const a of accounts) {
-        try {
-          const res = await api<{ evidence: JobEmailEvidence[] }>(
-            `integrations/gmail/accounts/${a.id}/evidence`,
-          );
-          results.push(
-            ...res.evidence.map((e) => ({ ...e, account_email: a.email })),
-          );
-        } catch {
-          // ignore individual account failures
-        }
-      }
-      return results;
-    },
+  const evidence = useQuery({
+    queryKey: [
+      "gmail-evidence",
+      selectedAccount,
+      accounts.map((a) => a.id).join(","),
+    ],
     enabled: accounts.length > 0,
+    queryFn: async () =>
+      Promise.all(
+        accounts
+          .filter((a) => selectedAccount === "all" || a.id === selectedAccount)
+          .map(async (account) => {
+            const [records, leads] = await Promise.all([
+              api<{ evidence: JobEmailEvidence[] }>(
+                `integrations/gmail/accounts/${account.id}/evidence`,
+              ),
+              api<{ leads: Lead[] }>(
+                `integrations/gmail/accounts/${account.id}/leads`,
+              ),
+            ]);
+            return { account, records: records.evidence, leads: leads.leads };
+          }),
+      ),
   });
-
-  const allEvidence = evidenceQuery.data || [];
-  const filteredEvidence = allEvidence.filter((e) => {
-    if (
-      senderFilter &&
-      !(e.sender || "").toLowerCase().includes(senderFilter.toLowerCase())
-    ) {
-      return false;
-    }
-    if (
-      subjectQuery &&
-      !(e.subject || "").toLowerCase().includes(subjectQuery.toLowerCase())
-    ) {
-      return false;
-    }
-    return true;
+  const importLead = useMutation({
+    mutationFn: () =>
+      post(
+        `integrations/gmail/accounts/${importSelection!.account.id}/evidence/${importSelection!.lead.evidence_ids[0]}/import`,
+        {
+          job_url: importSelection!.lead.url,
+          title: title.trim(),
+          company_name: company.trim() || null,
+          reviewed_job_evidence: reviewed,
+        },
+      ),
+    onSuccess: () => {
+      setImportSelection(null);
+      setImported(true);
+      client.invalidateQueries({ queryKey: ["jobs"] });
+      refresh();
+    },
   });
-
-  const isContractPending =
-    accountsQuery.isError &&
-    ((accountsQuery.error as any)?.status === 404 ||
-      (accountsQuery.error as any)?.message?.includes("404") ||
-      (accountsQuery.error as any)?.message?.includes("Not Found"));
-
+  const openPolicy = (account: ReadAccount) => {
+    const p = account.sync.policy;
+    setPolicyAccount(account);
+    setEnabled(p?.enabled ?? false);
+    setSenders(p?.sender_allowlist.join(", ") || "");
+    setLabels(p?.label_allowlist.join(", ") || "");
+    setReadBody(p?.read_body ?? false);
+    setBodyPurpose(p?.body_purpose || "");
+    setBackfill(p?.backfill_days ?? 7);
+    setRetention(p?.retention_days ?? 14);
+  };
+  const schemaReady = accountsQuery.data?.schema_ready === true;
   return (
     <div
       className="stack spaced"
-      aria-label="Connected Gmail Accounts (Read-Only)"
+      aria-label="Connected read-only Gmail accounts"
     >
-      <div className="split detail-section">
-        <div>
-          <h3>Multiple Gmail accounts (Read-Only)</h3>
-          <p className="section-intro">
-            Connect designated secondary mailboxes to ingest job alerts,
-            application updates, and interview requests. Zero send, reply,
-            forward, draft or delete capabilities.
-          </p>
-        </div>
-        <Button
-          variant="primary"
-          onClick={() => {
-            setExpectedEmail("");
-            setReadBodyRequested(false);
-            setAccountConsent(false);
-            setConnectModalOpen(true);
-          }}
-        >
-          <Plus size={14} />
-          Connect Gmail account
-        </Button>
-      </div>
-
+      <PageTitle
+        eyebrow="SELECTED MESSAGE EVIDENCE"
+        title="Connected Gmail accounts"
+        description="Independent read-only accounts with selected labels, bounded reads, and account-attributed evidence."
+        actions={
+          <Button
+            disabled={!schemaReady}
+            onClick={() => {
+              setConnectOpen(true);
+              setReadBody(false);
+              setAccountConsent(false);
+            }}
+          >
+            Connect secondary account
+          </Button>
+        }
+      />
       <Notice>
-        <div className="split">
-          <div>
-            <strong>Strict Read-Only Boundary:</strong> This interface never
-            sends, replies, forwards, drafts, archives or marks messages as
-            read. Every message clearly identifies its source account. OAuth
-            tokens and client secrets are never exposed.
-          </div>
-          <Badge tone="green">
-            <ShieldCheck size={12} />
-            READ-ONLY VERIFIED
-          </Badge>
-        </div>
+        <strong>Strict Read-Only Boundary:</strong> This workflow cannot send,
+        reply, draft, modify, archive, or delete Gmail messages. Disconnect
+        revokes this account's authorization; it does not delete mail. Imported
+        links remain unverified vacancy leads.
       </Notice>
-
-      {isContractPending && (
-        <div className="error-state" role="alert">
-          <AlertCircle size={20} />
-          <div>
-            <strong>Codex Multi-Account Gmail Contract Pending</strong>
-            <p>
-              The backend multi-account read-only endpoints (
-              <code>/api/v1/integrations/gmail/accounts</code>) are currently
-              being finalized by Codex in{" "}
-              <code>feat/phase3-codex-integrations</code>. The frontend is fully
-              built to specification and will activate automatically upon
-              backend merge.
-            </p>
-          </div>
-        </div>
+      {accountsQuery.isPending && <Skeleton />}
+      {accountsQuery.isError && <ErrorState error={accountsQuery.error} />}
+      {accountsQuery.data && !schemaReady && (
+        <Notice>
+          <strong>Read-only Gmail setup required</strong>
+          <p>
+            The reviewed account storage is not installed. Account connection
+            and synchronization are unavailable until the operator completes
+            setup.
+          </p>
+        </Notice>
       )}
-
-      {accountsQuery.isPending && !isContractPending && <Skeleton />}
-
-      {!accountsQuery.isPending &&
-        accounts.length === 0 &&
-        !isContractPending && (
-          <Empty
-            title="No secondary Gmail accounts connected"
-            description="Connect a dedicated job-search email to track incoming interview invitations, job alerts, and status changes in read-only mode."
-            action={
-              <Button
-                variant="primary"
-                onClick={() => setConnectModalOpen(true)}
-              >
-                <Plus size={14} />
-                Connect first account
-              </Button>
-            }
-          />
-        )}
-
-      {/* Account Cards */}
-      {accounts.length > 0 && (
-        <div
-          className="company-grid"
-          role="list"
-          aria-label="Connected accounts list"
-        >
-          {accounts.map((acc) => {
-            const isReadBody = acc.granted_scopes.some((s) =>
-              s.includes("gmail.readonly"),
-            );
-            const isMetadataOnly =
-              !isReadBody &&
-              acc.granted_scopes.some((s) => s.includes("gmail.metadata"));
-            const sync = acc.sync;
-
-            return (
-              <article className="company-card" key={acc.id} role="listitem">
-                <div className="company-top">
-                  <span className="row-icon">
-                    <Mail size={20} />
-                  </span>
-                  <div>
-                    <h4>{acc.email}</h4>
-                    <p className="muted" style={{ fontSize: "0.8rem" }}>
-                      Account ID: {acc.id.slice(0, 8)}… · Verified{" "}
-                      {dateLabel(acc.last_verified_at)}
-                    </p>
-                  </div>
-                  <Badge
-                    tone={
-                      acc.status === "connected"
-                        ? "green"
-                        : acc.status === "reconnect_required"
-                          ? "amber"
-                          : "red"
-                    }
-                  >
-                    {readable(acc.status)}
-                  </Badge>
-                </div>
-
-                <div className="tag-list">
-                  {isReadBody ? (
-                    <Badge tone="amber">Body read granted (Job alerts)</Badge>
-                  ) : isMetadataOnly ? (
-                    <Badge tone="green">Metadata only (Headers & dates)</Badge>
-                  ) : (
-                    <Badge tone="neutral">
-                      Scope: {acc.granted_scopes[0] || "Custom"}
-                    </Badge>
-                  )}
-                  <Badge
-                    tone={sync.status === "completed" ? "green" : "neutral"}
-                  >
-                    Sync: {readable(sync.status)}
-                  </Badge>
-                </div>
-
-                <dl>
-                  <dt>Last successful sync</dt>
-                  <dd>{dateLabel(sync.last_sync_at)}</dd>
-                  <dt>Scanned / Inserted</dt>
-                  <dd>
-                    {sync.scanned ?? 0} scanned · {sync.inserted ?? 0} inserted
-                  </dd>
-                  <dt>Allowlist labels</dt>
-                  <dd>
-                    {sync.policy?.label_allowlist?.join(", ") ||
-                      "None configured"}
-                  </dd>
-                  <dt>Allowlist senders</dt>
-                  <dd>
-                    {sync.policy?.sender_allowlist?.length
-                      ? `${sync.policy.sender_allowlist.length} senders`
-                      : "Any topic match"}
-                  </dd>
-                  {sync.last_error && (
-                    <>
-                      <dt>Last sync error</dt>
-                      <dd style={{ color: "var(--red)" }}>{sync.last_error}</dd>
-                    </>
-                  )}
-                </dl>
-
-                <div className="actions" style={{ marginTop: "1rem" }}>
-                  <Button
-                    onClick={() => {
-                      setPolicyModalAccount(acc);
-                      setPolicyEnabled(acc.sync.policy?.enabled ?? true);
-                      setSenders(
-                        acc.sync.policy?.sender_allowlist?.join(", ") || "",
-                      );
-                      setLabels(
-                        acc.sync.policy?.label_allowlist?.join(", ") ||
-                          "Label_Jobs",
-                      );
-                      setReadBodyRequested(acc.sync.policy?.read_body ?? false);
-                      setBodyPurpose(acc.sync.policy?.body_purpose || "");
-                      setBackfillDays(acc.sync.policy?.backfill_days ?? 7);
-                      setRetentionDays(acc.sync.policy?.retention_days ?? 14);
-                    }}
-                  >
-                    Configure read policy
-                  </Button>
-
-                  <Button
-                    onClick={() => syncMutation.mutate(acc.id)}
-                    busy={syncMutation.isPending}
-                    disabled={acc.status !== "connected"}
-                  >
-                    <RefreshCw size={13} />
-                    Sync now
-                  </Button>
-
-                  <Button
-                    onClick={() => verifyMutation.mutate(acc.id)}
-                    busy={verifyMutation.isPending}
-                  >
-                    Verify token
-                  </Button>
-
-                  <Button
-                    variant="danger"
-                    onClick={() => disconnectMutation.mutate(acc.id)}
-                    busy={disconnectMutation.isPending}
-                  >
-                    <Trash2 size={13} />
-                    Disconnect
-                  </Button>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+      {schemaReady && accounts.length === 0 && (
+        <Empty
+          title="No read-only accounts connected"
+          description="Each mailbox requires its own consent. Existing legacy sending accounts are separate."
+        />
       )}
-
-      {/* Ingested Job Emails & Alerts Section */}
-      {accounts.length > 0 && (
-        <section
-          className="panel panel-body spaced"
-          aria-label="Ingested emails and job alerts"
-        >
-          <div className="split">
-            <div>
-              <h4>Job-Related Emails & Alerts (Read-Only)</h4>
-              <p className="section-intro">
-                Extracted vacancy signals and application acknowledgements.
-                Filter by account, sender, or subject.
-              </p>
+      {imported && (
+        <Notice>
+          Reviewed lead imported. Current vacancy and submission remain
+          unconfirmed.
+        </Notice>
+      )}
+      <div
+        className="company-grid"
+        role="list"
+        aria-label="Read-only Gmail accounts"
+      >
+        {accounts.map((account) => (
+          <article className="company-card" role="listitem" key={account.id}>
+            <h3>{account.account_email}</h3>
+            <div className="tag-list">
+              <Badge tone={account.status === "connected" ? "green" : "amber"}>
+                {readable(account.status)}
+              </Badge>
+              <Badge>
+                {account.permissions.read_body
+                  ? "Body read granted (Job alerts)"
+                  : account.permissions.read_metadata
+                    ? "Metadata only (Headers & dates)"
+                    : "No effective read permission"}
+              </Badge>
+              <Badge>Sync: {readable(account.sync.status)}</Badge>
             </div>
+            <dl>
+              <dt>Verified</dt>
+              <dd>{dateLabel(account.last_verified_at)}</dd>
+              <dt>Last successful sync</dt>
+              <dd>{dateLabel(account.sync.last_sync_at)}</dd>
+              <dt>Scanned / Inserted</dt>
+              <dd>
+                {account.sync.scanned ?? 0} scanned ·{" "}
+                {account.sync.inserted ?? 0} inserted
+              </dd>
+              <dt>Allowed labels</dt>
+              <dd>
+                {account.sync.policy?.label_allowlist.join(", ") ||
+                  "None selected"}
+              </dd>
+            </dl>
+            {account.sync.last_error && (
+              <p role="alert">{readable(account.sync.last_error)}</p>
+            )}
             <div className="actions">
               <Button
-                onClick={() => evidenceQuery.refetch()}
-                busy={evidenceQuery.isFetching}
+                disabled={account.status !== "connected"}
+                onClick={() => openPolicy(account)}
               >
-                <RefreshCw size={13} />
-                Refresh evidence
+                Configure read policy
+              </Button>
+              <Button
+                disabled={
+                  account.status !== "connected" ||
+                  !account.sync_enabled ||
+                  !account.sync.policy?.enabled ||
+                  account.sync.status === "syncing"
+                }
+                busy={sync.isPending}
+                onClick={() => sync.mutate(account.id)}
+              >
+                Sync now
+              </Button>
+              <Button
+                disabled={account.status !== "connected"}
+                busy={verify.isPending}
+                onClick={() => verify.mutate(account.id)}
+              >
+                Verify token
+              </Button>
+              <Button
+                variant="danger"
+                disabled={account.status === "disconnected"}
+                busy={disconnect.isPending}
+                onClick={() => disconnect.mutate(account.id)}
+              >
+                Disconnect
               </Button>
             </div>
-          </div>
-
-          <div className="filter-grid spaced">
-            <Field label="ORIGINATING ACCOUNT">
-              <Select
-                aria-label="Filter by account"
-                value={selectedAccountFilter}
-                onChange={(e) => setSelectedAccountFilter(e.target.value)}
-              >
-                <option value="all">
-                  All connected accounts ({accounts.length})
-                </option>
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.email}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-
-            <Field label="SENDER / DOMAIN">
-              <Input
-                aria-label="Filter by sender"
-                placeholder="e.g. jobs@, careers@, greenhouse"
-                value={senderFilter}
-                onChange={(e) => setSenderFilter(e.target.value)}
-              />
-            </Field>
-
-            <Field label="SUBJECT QUERY">
-              <Input
-                aria-label="Filter by subject"
-                placeholder="Search subject keywords…"
-                value={subjectQuery}
-                onChange={(e) => setSubjectQuery(e.target.value)}
-              />
-            </Field>
-          </div>
-
-          {evidenceQuery.isPending && <Skeleton />}
-
-          {!evidenceQuery.isPending && filteredEvidence.length === 0 && (
-            <Empty
-              title="No matching job emails found"
-              description="No job alerts or application emails matched the current filters. Run a sync or verify that messages carry your configured label."
-            />
-          )}
-
-          {filteredEvidence.length > 0 && (
-            <div
-              className="stack spaced"
-              role="list"
-              aria-label="Email evidence items"
+          </article>
+        ))}
+      </div>
+      {[sync, verify, disconnect].map(
+        (mutation, index) =>
+          mutation.isError && <ErrorState key={index} error={mutation.error} />,
+      )}
+      {accounts.length > 0 && (
+        <section
+          className="panel panel-body stack"
+          aria-label="Selected email evidence"
+        >
+          <h4>Selected-message evidence and candidate links</h4>
+          <p>
+            Raw senders, subjects, and message bodies are not retained. Links
+            and status signals require human review.
+          </p>
+          <Field label="ORIGINATING ACCOUNT">
+            <Select
+              aria-label="Filter by account"
+              value={selectedAccount}
+              onChange={(event) => setSelectedAccount(event.target.value)}
             >
-              {filteredEvidence.map((ev) => (
-                <div
-                  className="evidence-item"
-                  key={`${ev.account_id || ""}-${ev.id}-${ev.message_id}`}
-                  role="listitem"
-                >
-                  <div className="split">
-                    <div>
-                      <strong>{ev.subject || "No subject header"}</strong>
-                      <p className="muted" style={{ fontSize: "0.85rem" }}>
-                        From: <code>{ev.sender || "unknown sender"}</code> ·
-                        Received {dateLabel(ev.received_at)}
-                      </p>
-                    </div>
-                    <div className="tag-list">
-                      <Badge tone="neutral">
-                        Account: {ev.account_email || "Secondary"}
-                      </Badge>
-                      <Badge
-                        tone={
-                          ev.verification_status === "verified"
-                            ? "green"
-                            : "amber"
-                        }
-                      >
-                        {readable(ev.verification_status)}
-                      </Badge>
-                      {ev.read_body ? (
-                        <Badge tone="neutral">Body read</Badge>
-                      ) : (
-                        <Badge tone="neutral">Headers only</Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  {ev.job_alerts && ev.job_alerts.length > 0 && (
-                    <div
-                      className="stack spaced"
-                      style={{ marginTop: "0.5rem" }}
-                    >
-                      <h5>Identified Job Alerts ({ev.job_alerts.length})</h5>
-                      <div className="tag-list">
-                        {ev.job_alerts.map((alert, idx) => (
-                          <div
-                            className="metric"
-                            key={idx}
-                            style={{
-                              padding: "0.5rem 0.75rem",
-                              background: "var(--surface)",
-                            }}
-                          >
-                            <div className="split">
-                              <strong>
-                                {alert.title} @ {alert.company}
-                              </strong>
-                              <Badge
-                                tone={
-                                  alert.status === "new"
-                                    ? "green"
-                                    : alert.status === "duplicate"
-                                      ? "neutral"
-                                      : "amber"
-                                }
-                              >
-                                {readable(alert.status)}
-                              </Badge>
-                            </div>
-                            <small>
-                              {alert.location || "Location not stated"}
-                            </small>
-                            <div
-                              className="actions"
-                              style={{ marginTop: "0.5rem" }}
-                            >
-                              <Button
-                                onClick={() => setPreviewJobAlert(alert)}
-                                title="Preview extracted job record"
-                              >
-                                <Eye size={12} />
-                                Preview record
-                              </Button>
-                              {alert.source_url && (
-                                <External href={alert.source_url}>
-                                  View posting
-                                </External>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div
-                    className="split"
-                    style={{
-                      fontSize: "0.8rem",
-                      color: "var(--muted)",
-                      marginTop: "0.5rem",
-                    }}
-                  >
-                    <span>Message ID: {ev.message_id}</span>
-                    <span>Thread ID: {ev.thread_id}</span>
-                    <span>Retention expires: {dateLabel(ev.expires_at)}</span>
-                  </div>
+              <option value="all">
+                All connected accounts ({accounts.length})
+              </option>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.account_email}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          {evidence.isPending && <Skeleton />}
+          {evidence.isError && <ErrorState error={evidence.error} />}
+          {evidence.data?.map(({ account, records, leads }) => (
+            <section
+              key={account.id}
+              className="stack"
+              aria-label={`Evidence from ${account.account_email}`}
+            >
+              <h5>Account: {account.account_email}</h5>
+              {records.length === 0 && (
+                <Empty
+                  title="No retained evidence"
+                  description="Sync only reads messages matching this account's selected policy."
+                />
+              )}
+              {records.map((record) => (
+                <div className="panel panel-body" key={record.id}>
+                  <Badge tone="amber">Requires review</Badge>
+                  <p>
+                    Message ID: {record.message_id} · Thread ID:{" "}
+                    {record.thread_id}
+                  </p>
+                  <p>
+                    Received {dateLabel(record.received_at)} · Retention expires{" "}
+                    {dateLabel(record.expires_at)}
+                  </p>
+                  <p>
+                    {record.signals.map(readable).join(", ") ||
+                      "No status signal observed"}
+                  </p>
+                  {record.links.map((url) => (
+                    <p key={url}>
+                      <External href={url}>
+                        Inspect retained source link
+                      </External>
+                    </p>
+                  ))}
                 </div>
               ))}
-            </div>
-          )}
+              {leads.map((lead) => (
+                <article key={lead.id} className="panel panel-body">
+                  <Badge tone="amber">Unconfirmed vacancy lead</Badge>
+                  <p>
+                    <External href={lead.url}>{lead.url}</External>
+                  </p>
+                  <p>Source evidence: {lead.evidence_ids.join(", ")}</p>
+                  <Button
+                    disabled={!lead.evidence_ids.length}
+                    onClick={() => {
+                      setImportSelection({ account, lead });
+                      setTitle("");
+                      setCompany("");
+                      setReviewed(false);
+                      importLead.reset();
+                    }}
+                  >
+                    Review lead for import
+                  </Button>
+                </article>
+              ))}
+            </section>
+          ))}
         </section>
       )}
-
-      {/* Connect Account Modal */}
       <Modal
-        open={connectModalOpen}
-        onOpenChange={setConnectModalOpen}
+        open={connectOpen}
+        onOpenChange={setConnectOpen}
         title="Connect Secondary Gmail Account"
-        description="Designate a secondary Gmail account. Read-only permissions only; zero compose, draft or send access."
+        description="Authorize this account independently with a read-only grant."
       >
         <div className="stack">
           <Field label="Expected secondary Gmail address">
             <Input
               type="email"
               value={expectedEmail}
-              onChange={(e) => setExpectedEmail(e.target.value)}
-              placeholder="e.g. yourname.jobs@gmail.com"
-              autoComplete="off"
-              required
+              onChange={(event) => setExpectedEmail(event.target.value)}
             />
           </Field>
-
-          <Field label="Approved Read Scope">
+          <Field label="Approved read scope">
             <Select
-              value={readBodyRequested ? "body" : "metadata"}
-              onChange={(e) => setReadBodyRequested(e.target.value === "body")}
+              value={readBody ? "body" : "metadata"}
+              onChange={(event) => setReadBody(event.target.value === "body")}
             >
-              <option value="metadata">
-                Metadata Only (Header, Subject, Sender, Date) — Recommended
-              </option>
+              <option value="metadata">Metadata only (recommended)</option>
               <option value="body">
-                Message Body (Extract job alert links & status notices)
+                Body read (requires separate restricted-scope review)
               </option>
             </Select>
           </Field>
-
-          {readBodyRequested && (
-            <Notice>
-              <strong>Message Body Notice:</strong> Message body access extracts
-              structured vacancy details from automated job alerts. It is never
-              used to send emails or read personal correspondence outside of
-              your allowlisted labels.
-            </Notice>
-          )}
-
-          <label
-            className="check-label"
-            htmlFor={`consent-checkbox-${consentId}`}
-          >
+          <label className="check-label">
             <input
-              id={`consent-checkbox-${consentId}`}
               type="checkbox"
               checked={accountConsent}
-              onChange={(e) => setAccountConsent(e.target.checked)}
+              onChange={(event) => setAccountConsent(event.target.checked)}
             />
-            This is my designated secondary account. I authorize opening Google
-            OAuth in strictly READ-ONLY mode.
+            This is my designated account. I authorize read-only Google OAuth.
           </label>
-
-          {connectMutation.isError && (
-            <ErrorState error={connectMutation.error} />
-          )}
-
-          <div className="actions">
-            <Button
-              variant="primary"
-              disabled={
-                !accountConsent || !expectedEmail || connectMutation.isPending
-              }
-              busy={connectMutation.isPending}
-              onClick={() => connectMutation.mutate()}
-            >
-              Continue to Google OAuth
-              <ArrowUpRight size={14} />
-            </Button>
-            <Button variant="ghost" onClick={() => setConnectModalOpen(false)}>
-              Cancel
-            </Button>
-          </div>
+          {connect.isError && <ErrorState error={connect.error} />}
+          <Button
+            disabled={!expectedEmail || !accountConsent}
+            busy={connect.isPending}
+            onClick={() => connect.mutate()}
+          >
+            Continue to Google OAuth
+          </Button>
         </div>
       </Modal>
-
-      {/* Policy Modal */}
       <Modal
-        open={!!policyModalAccount}
-        onOpenChange={(v) => !v && setPolicyModalAccount(null)}
-        title={`Read Policy: ${policyModalAccount?.email || ""}`}
-        description="Define allowed labels, senders, and retention windows. Metadata sync requires custom job labels."
+        open={!!policyAccount}
+        onOpenChange={(open) => !open && setPolicyAccount(null)}
+        title={`Read Policy: ${policyAccount?.account_email || ""}`}
+        description="Choose this account's selected messages. Sync runs only when requested."
       >
-        {policyModalAccount && (
-          <div className="stack">
-            <label className="check-label">
-              <input
-                type="checkbox"
-                checked={policyEnabled}
-                onChange={(e) => setPolicyEnabled(e.target.checked)}
-              />
-              Enable scheduled read-only synchronization
-            </label>
-
-            <Field
-              label="Allowed Custom Labels"
-              hint="Comma-separated Gmail labels (e.g. Label_Jobs, Label_Interviews)"
-            >
-              <Input
-                value={labels}
-                onChange={(e) => setLabels(e.target.value)}
-              />
-            </Field>
-
-            <Field
-              label="Sender Allowlist"
-              hint="Comma-separated trusted senders (leave blank for all topic matches)"
-            >
-              <Input
-                value={senders}
-                onChange={(e) => setSenders(e.target.value)}
-                placeholder="e.g. alerts@linkedin.com, jobs@greenhouse.io"
-              />
-            </Field>
-
-            <Field label="Backfill Window (Days)" hint="Between 1 and 30 days">
-              <Input
-                type="number"
-                min={1}
-                max={30}
-                value={backfillDays}
-                onChange={(e) =>
-                  setBackfillDays(
-                    Math.min(30, Math.max(1, Number(e.target.value))),
-                  )
-                }
-              />
-            </Field>
-
-            <Field
-              label="Evidence Retention (Days)"
-              hint="Between 1 and 90 days before auto-purge"
-            >
-              <Input
-                type="number"
-                min={1}
-                max={90}
-                value={retentionDays}
-                onChange={(e) =>
-                  setRetentionDays(
-                    Math.min(90, Math.max(1, Number(e.target.value))),
-                  )
-                }
-              />
-            </Field>
-
-            {readBodyRequested && (
-              <Field
-                label="Purpose for Body Access"
-                hint="State why header metadata is insufficient"
-              >
-                <Input
-                  value={bodyPurpose}
-                  onChange={(e) => setBodyPurpose(e.target.value)}
-                  placeholder="e.g. Extract job application portal links from automated emails"
+        <div className="stack">
+          <label className="check-label">
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={(event) => setEnabled(event.target.checked)}
+            />
+            Enable read-only synchronization for selected messages
+          </label>
+          <Field
+            label="Allowed Custom Labels"
+            hint="Gmail IDs such as Label_Jobs; required for metadata-only reads"
+          >
+            <Input
+              value={labels}
+              onChange={(event) => setLabels(event.target.value)}
+            />
+          </Field>
+          <Field label="Sender Allowlist">
+            <Input
+              value={senders}
+              onChange={(event) => setSenders(event.target.value)}
+            />
+          </Field>
+          {policyAccount?.body_access_reviewed &&
+            policyAccount.permissions.read_body && (
+              <label className="check-label">
+                <input
+                  type="checkbox"
+                  checked={readBody}
+                  onChange={(event) => setReadBody(event.target.checked)}
                 />
-              </Field>
+                Read selected message bodies
+              </label>
             )}
-
-            {policyMutation.isError && (
-              <ErrorState error={policyMutation.error} />
-            )}
-
-            <div className="actions">
-              <Button
-                variant="primary"
-                disabled={policyMutation.isPending}
-                busy={policyMutation.isPending}
-                onClick={() =>
-                  policyMutation.mutate({
-                    accountId: policyModalAccount.id,
-                    version: policyModalAccount.sync.version,
-                  })
-                }
-              >
-                Save policy
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => setPolicyModalAccount(null)}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        )}
+          {readBody && (
+            <Field label="Purpose for Body Access">
+              <Input
+                value={bodyPurpose}
+                onChange={(event) => setBodyPurpose(event.target.value)}
+              />
+            </Field>
+          )}
+          <Field label="Backfill Window (Days)">
+            <Input
+              type="number"
+              min={1}
+              max={30}
+              value={backfill}
+              onChange={(event) => setBackfill(Number(event.target.value))}
+            />
+          </Field>
+          <Field label="Evidence Retention (Days)">
+            <Input
+              type="number"
+              min={1}
+              max={90}
+              value={retention}
+              onChange={(event) => setRetention(Number(event.target.value))}
+            />
+          </Field>
+          {policy.isError && <ErrorState error={policy.error} />}
+          <Button
+            busy={policy.isPending}
+            disabled={enabled && !readBody && !labels.trim()}
+            onClick={() => policy.mutate()}
+          >
+            Save policy
+          </Button>
+        </div>
       </Modal>
-
-      {/* Preview Extracted Job Record Modal */}
       <Modal
-        open={!!previewJobAlert}
-        onOpenChange={(v) => !v && setPreviewJobAlert(null)}
-        title="Extracted Job Alert Preview"
-        description="Preview candidate vacancy record before importing into your opportunity pipeline."
+        open={!!importSelection}
+        onOpenChange={(open) => !open && setImportSelection(null)}
+        title="Review candidate vacancy lead"
+        description="Inspect the posting and supply its actual title. Email evidence alone does not confirm a current vacancy."
       >
-        {previewJobAlert && (
+        {importSelection && (
           <div className="stack">
-            <dl>
-              <dt>Role Title</dt>
-              <dd>
-                <strong>{previewJobAlert.title}</strong>
-              </dd>
-              <dt>Company</dt>
-              <dd>{previewJobAlert.company}</dd>
-              <dt>Location</dt>
-              <dd>{previewJobAlert.location || "Remote / Unknown"}</dd>
-              <dt>Status</dt>
-              <dd>
-                <Badge tone="green">{readable(previewJobAlert.status)}</Badge>
-              </dd>
-              <dt>Extracted Timestamp</dt>
-              <dd>{dateLabel(previewJobAlert.extracted_at)}</dd>
-            </dl>
-
-            {previewJobAlert.source_url && (
-              <External href={previewJobAlert.source_url}>
-                Inspect official application URL
-              </External>
-            )}
-
-            <Notice>
-              Importing adds this vacancy to your Jobs pipeline for packet
-              preparation. Automated employer submission is never performed.
-            </Notice>
-
-            <Button onClick={() => setPreviewJobAlert(null)}>
-              Close preview
+            <p>Account: {importSelection.account.account_email}</p>
+            <External href={importSelection.lead.url}>
+              Inspect source posting
+            </External>
+            <Field label="Actual job title">
+              <Input
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+              />
+            </Field>
+            <Field label="Company (if observed)">
+              <Input
+                value={company}
+                onChange={(event) => setCompany(event.target.value)}
+              />
+            </Field>
+            <label className="check-label" htmlFor={confirmationId}>
+              <input
+                id={confirmationId}
+                type="checkbox"
+                checked={reviewed}
+                onChange={(event) => setReviewed(event.target.checked)}
+              />
+              I reviewed this selected-message link and supplied the actual job
+              details.
+            </label>
+            {importLead.isError && <ErrorState error={importLead.error} />}
+            <Button
+              disabled={!reviewed || !title.trim()}
+              busy={importLead.isPending}
+              onClick={() => importLead.mutate()}
+            >
+              Import reviewed lead
             </Button>
           </div>
         )}

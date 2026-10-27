@@ -61,6 +61,9 @@ export const defaultFilters: Schema<"StartupFilters"> = {
   freshness_days: 30,
   minimum_score: 0,
   has_leader_evidence: false,
+  has_technical_staff: false,
+  industries: [],
+  country: null,
 };
 export function sizeFilter(size: string) {
   if (size === "2-10") {
@@ -295,8 +298,8 @@ export function StartupExplorer() {
               onChange={(e) => {
                 setIndustry(e.target.value);
                 update({
-                  query:
-                    e.target.value === "All industries" ? null : e.target.value,
+                  industries:
+                    e.target.value === "All industries" ? [] : [e.target.value],
                 });
               }}
             >
@@ -373,6 +376,16 @@ export function StartupExplorer() {
         {extra && (
           <>
             <div className="filter-grid">
+              <Field label="COUNTRY">
+                <Input
+                  aria-label="Country"
+                  value={filters.country || ""}
+                  onChange={(event) =>
+                    update({ country: event.target.value || null })
+                  }
+                  placeholder="e.g. India"
+                />
+              </Field>
               <Field label="WORK POLICY">
                 <Select
                   aria-label="Work policy"
@@ -419,6 +432,7 @@ export function StartupExplorer() {
             <div className="extra-filters">
               {[
                 ["has_leader_evidence", "Known founder / leader"],
+                ["has_technical_staff", "Technical staff evidence"],
                 ["has_business_email", "Send-ready email evidence"],
                 ["verified_yc", "YC evidence"],
                 ["early_stage", "Early-stage evidence"],
@@ -587,7 +601,8 @@ export function StartupExplorer() {
                   </span>
                   <span>
                     <Users size={12} />
-                    {s.employee_count !== null && s.exact_employee_count
+                    {s.employee_count !== null &&
+                    s.team_size_evidence_status === "verified"
                       ? `${s.employee_count} employees (exact count)`
                       : s.team_size_band && s.team_size_band !== "unknown"
                         ? `${s.team_size_band} band`
@@ -618,10 +633,10 @@ export function StartupExplorer() {
                   ) : (
                     <Badge tone="neutral">No leader recorded</Badge>
                   )}
-                  {(s.attributes.technical_employees_recorded ||
-                    (s.attributes.technology_stack &&
-                      s.attributes.technology_stack.length > 0)) && (
-                    <Badge tone="neutral">Technical team evidence</Badge>
+                  {s.technical_staff_count > 0 && (
+                    <Badge tone="neutral">
+                      Technical staff evidence ({s.technical_staff_count})
+                    </Badge>
                   )}
                 </div>
                 <div className="company-evidence">

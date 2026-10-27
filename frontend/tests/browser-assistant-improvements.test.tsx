@@ -182,7 +182,7 @@ describe("Browser Assistant UI Improvements", () => {
     expect(screen.getByText("DESTINATION READY")).toBeInTheDocument();
     expect(screen.getByText("Configured")).toBeInTheDocument();
     expect(screen.getByText("RESUME CONFIRMED")).toBeInTheDocument();
-    expect(screen.getByText("Ready (PDF verified)")).toBeInTheDocument();
+    expect(screen.getByText("Resume selection confirmed")).toBeInTheDocument();
     expect(screen.getByText("SUBMISSION MODE")).toBeInTheDocument();
     expect(screen.getByText("Manual review & handoff")).toBeInTheDocument();
   });

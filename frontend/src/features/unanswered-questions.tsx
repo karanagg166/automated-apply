@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertCircle,
@@ -40,42 +40,15 @@ import {
   Skeleton,
 } from "@/components/ui";
 
-export type MissingInputItem = {
-  id: string;
-  candidate_profile_id: string;
-  question: string;
-  question_category: string;
-  job_id?: string | null;
-  company_name?: string | null;
-  packet_id?: string | null;
-  missing_information: string[];
-  reason: string;
-  required_input_type:
-    "text" | "number" | "choice" | "evidence" | "profile_edit";
-  created_at: string;
-  status: "needs_input" | "draft" | "approved" | "review_required";
-  version: number;
-  profile_version: number;
-  context_digest: string;
-  answer?: string | null;
-  evidence_note?: string;
-  draft_id?: string | null;
-  stale?: boolean;
-  href: string;
-};
+export type MissingInputItem = Schema<"MissingInputRead">;
+export type MissingHistoryEntry = Schema<"MissingInputRevision">;
 
-export type MissingHistoryEntry = {
-  request_id: string;
-  candidate_profile_id: string;
-  operation: string;
-  version: number;
-  previous: Record<string, unknown>;
-  recorded_at: string;
-};
-
-export function UnansweredQuestionsQueue() {
+export function UnansweredQuestionsQueue({
+  initialRequestId,
+}: { initialRequestId?: string } = {}) {
   const client = useQueryClient();
   const confirmationId = useId();
+  const openedInitial = useRef(false);
 
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [selectedItem, setSelectedItem] = useState<MissingInputItem | null>(
@@ -103,6 +76,26 @@ export function UnansweredQuestionsQueue() {
       ),
   });
 
+  const initialRequest = useQuery({
+    queryKey: ["missing-question", initialRequestId],
+    queryFn: () =>
+      api<MissingInputItem>(`application-answers/missing/${initialRequestId}`),
+    enabled: !!initialRequestId,
+  });
+  useEffect(() => {
+    if (initialRequest.data && !openedInitial.current) {
+      openedInitial.current = true;
+      setSelectedItem(initialRequest.data);
+      setAnswerText(initialRequest.data.answer || "");
+      setEvidenceNote(initialRequest.data.evidence_note || "");
+      setModalOpen(true);
+    }
+  }, [initialRequest.data]);
+  const hasUnsavedChanges =
+    !selectedItem ||
+    answerText.trim() !== (selectedItem.answer || "").trim() ||
+    evidenceNote.trim() !== (selectedItem.evidence_note || "").trim();
+
   const historyQuery = useQuery({
     queryKey: ["missing-question-history", selectedItem?.id],
     queryFn: () =>
@@ -121,6 +114,7 @@ export function UnansweredQuestionsQueue() {
       }),
     onSuccess: (updated) => {
       setSelectedItem(updated);
+      setFactualConfirmation(false);
       setActionSuccessMessage(
         "Draft answer saved. Review and confirm factual truthfulness to approve.",
       );
@@ -130,6 +124,14 @@ export function UnansweredQuestionsQueue() {
 
   const approveMutation = useMutation({
     mutationFn: (item: MissingInputItem) => {
+      if (
+        hasUnsavedChanges ||
+        item.status !== "draft" ||
+        item.stale ||
+        saveDraftMutation.isPending
+      ) {
+        throw new Error("Save and review the current draft before approval.");
+      }
       if (!factualConfirmation) {
         throw new Error(
           "Explicit factual confirmation required before approving answer.",
@@ -150,7 +152,7 @@ export function UnansweredQuestionsQueue() {
     onSuccess: (updated) => {
       setSelectedItem(updated);
       setActionSuccessMessage(
-        "Answer approved and added to reusable bank for this exact context.",
+        "Saved answer approved for this exact question and context. Broader reuse requires separate approval.",
       );
       setFactualConfirmation(false);
       client.invalidateQueries({ queryKey: ["missing-questions"] });
@@ -165,7 +167,11 @@ export function UnansweredQuestionsQueue() {
   const rawQuestions = missingQuestionsQuery.data?.requests || [];
   const filteredQuestions = rawQuestions.filter((q) => {
     if (filterStatus === "all") return true;
-    return q.status === filterStatus;
+    return (
+      (q.effective_status ||
+        (q.stale && q.status === "approved" ? "review_required" : q.status)) ===
+      filterStatus
+    );
   });
 
   const handleOpenItem = (item: MissingInputItem) => {
@@ -214,7 +220,7 @@ export function UnansweredQuestionsQueue() {
             <strong>Zero Silent Hallucinations:</strong> The assistant never
             invents facts when evidence is missing. Entering text creates a
             draft. Approval requires explicit factual confirmation and creates a
-            reusable context answer.
+            answer for this exact question and context.
           </div>
           <Badge tone="green">
             <ShieldCheck size={12} />
@@ -228,19 +234,19 @@ export function UnansweredQuestionsQueue() {
         <div className="error-state" role="alert">
           <AlertCircle size={20} />
           <div>
-            <strong>Codex Missing Inputs Contract Pending</strong>
+            <strong>Question queue unavailable</strong>
             <p>
-              The backend unanswered questions endpoint (
-              <code>/api/v1/application-answers/missing</code>) is currently
-              being developed by Codex in{" "}
-              <code>feat/phase3-codex-integrations</code>. The frontend is built
-              to exact specification and will connect seamlessly once the
-              backend branch is merged.
+              The saved question queue is unavailable. Check the backend
+              connection and try again. No answer has been invented.
             </p>
           </div>
         </div>
       )}
 
+      {missingQuestionsQuery.isError && !isContractPending && (
+        <ErrorState error={missingQuestionsQuery.error} />
+      )}
+      {initialRequest.isError && <ErrorState error={initialRequest.error} />}
       {/* Summary Metrics */}
       <div className="metrics spaced">
         <div className="metric">
@@ -301,7 +307,7 @@ export function UnansweredQuestionsQueue() {
             description={
               filterStatus !== "all"
                 ? `No questions currently in "${readable(filterStatus)}" state.`
-                : "No application questions are blocked on candidate input. Automated applications are proceeding with approved facts."
+                : "No retained questions currently need input. Every application still requires review."
             }
           />
         )}
@@ -496,7 +502,10 @@ export function UnansweredQuestionsQueue() {
                 className="input preserve-lines"
                 rows={5}
                 value={answerText}
-                onChange={(e) => setAnswerText(e.target.value)}
+                onChange={(e) => {
+                  setAnswerText(e.target.value);
+                  setFactualConfirmation(false);
+                }}
                 placeholder="Write your comprehensive, truthful answer here…"
                 required
               />
@@ -508,7 +517,10 @@ export function UnansweredQuestionsQueue() {
             >
               <Input
                 value={evidenceNote}
-                onChange={(e) => setEvidenceNote(e.target.value)}
+                onChange={(e) => {
+                  setEvidenceNote(e.target.value);
+                  setFactualConfirmation(false);
+                }}
                 placeholder="e.g. Backed by Project 'Distributed Cache' and 2024 work at Acme Corp"
                 required
               />
@@ -600,6 +612,10 @@ export function UnansweredQuestionsQueue() {
                 <Button
                   variant="primary"
                   disabled={
+                    hasUnsavedChanges ||
+                    selectedItem.status !== "draft" ||
+                    selectedItem.stale ||
+                    saveDraftMutation.isPending ||
                     !factualConfirmation ||
                     !answerText.trim() ||
                     !evidenceNote.trim() ||

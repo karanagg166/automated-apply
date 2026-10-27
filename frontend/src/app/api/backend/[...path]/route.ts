@@ -107,7 +107,12 @@ async function proxy(
       if (v) out.set(name, v);
     }
     // Google callback goes directly to the backend on the same host. Retain its browser binding.
-    if (path === "integrations/gmail/connect/start")
+    if (
+      [
+        "integrations/gmail/connect/start",
+        "integrations/gmail/accounts/connect/start",
+      ].includes(path)
+    )
       for (const cookie of upstream.headers.getSetCookie())
         out.append("Set-Cookie", cookie);
     if (upstream.status >= 500)
