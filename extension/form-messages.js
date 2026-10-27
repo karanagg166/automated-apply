@@ -83,11 +83,13 @@ export function formPlanText(plan) {
     const sources = [
       ...new Set(
         (action.evidence || []).map((source) =>
-          source.startsWith("approved_project:")
-            ? "Approved project"
-            : source.startsWith("candidate_resource:")
-              ? "Reviewed profile link or resume"
-              : "Reviewed profile",
+          source.startsWith("owner_answer:")
+            ? "Owner-approved answer for this context"
+            : source.startsWith("approved_project:")
+              ? "Approved project"
+              : source.startsWith("candidate_resource:")
+                ? "Reviewed profile link or resume"
+                : "Reviewed profile",
         ),
       ),
     ];

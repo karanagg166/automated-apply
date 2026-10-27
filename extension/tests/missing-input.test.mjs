@@ -2,6 +2,28 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { formPlanText, missingInputLinks } from "../form-messages.js";
 
+test("approved question answers preserve exact-context owner provenance", () => {
+  const text = formPlanText({
+    inspection: {
+      fields: [{ field_id: "f0", label: "Incident you resolved" }],
+    },
+    actions: [
+      {
+        field_id: "f0",
+        kind: "textarea",
+        needs_input: false,
+        value: "My reviewed incident account",
+        evidence: ["owner_answer:" + "a".repeat(32)],
+      },
+    ],
+  });
+  assert.match(text, /Source: Owner-approved answer for this context/);
+  assert.doesNotMatch(
+    text,
+    /Source: Reviewed profile|Source: No verified source/,
+  );
+});
+
 test("unknown answers identify durable questions without inventing answers", () => {
   const id = "a".repeat(32);
   const plan = {
