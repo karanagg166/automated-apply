@@ -264,5 +264,9 @@ async def test_published_business_email_retains_source_without_claiming_mailbox_
     assert output["email_evidence_status"] == "published_source_supported"
     assert output["email_status"] != "verified" and output["email_send_ready"] is False
     assert output["email_publication_url"] == "https://fictional.example/team/alex"
+    contact.email = "corrected@fictional.example"
+    await db_session.flush()
+    corrected = contact_output(contact, company)
+    assert corrected["email_evidence_status"] == "unverified" and corrected["email_publication_url"] is None
     rejected = await service.search(query(official_people=[official(business_email="private@gmail.com", email_publication_url="https://fictional.example/team/alex")]))
     assert rejected["status"] == "partial" and not rejected["people"]

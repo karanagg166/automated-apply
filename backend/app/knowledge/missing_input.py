@@ -11,7 +11,7 @@ from typing import Literal
 from uuid import UUID, uuid4
 
 from pydantic import Field, StrictBool, model_validator
-from sqlalchemy import String, cast, select, update
+from sqlalchemy import String, cast, select, text, update
 
 from backend.app.ai.schemas import Contract, GenerateRequest
 from backend.app.dashboard.models import OwnerPreference
@@ -81,6 +81,25 @@ class MissingInputApprove(Contract):
         return self
 
 
+async def storage_available(session):
+    """Older migration verifiers intentionally run before owner storage exists."""
+    if session.get_bind().dialect.name == "postgresql":
+        schema = OwnerPreference.__table__.schema or "public"
+        return bool(
+            await session.scalar(
+                text("SELECT to_regclass(:name) IS NOT NULL"),
+                {"name": schema + ".owner_preferences"},
+            )
+        )
+    return bool(
+        await session.scalar(
+            text(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type='table' AND name='owner_preferences')"
+            )
+        )
+    )
+
+
 class MissingInputService:
     def __init__(self, session):
         self.session = session
@@ -106,6 +125,9 @@ class MissingInputService:
         self, request, result, *, packet_id=None, reason=None, input_type="evidence"
     ):
         if SENSITIVE.search(request.question):
+            return None
+        if not await storage_available(self.session):
+            result.warnings.append("missing_input_storage_schema_required")
             return None
         profile = await self.repo.profile()
         if packet_id:
@@ -157,6 +179,8 @@ class MissingInputService:
         return value["id"]
 
     async def row(self, request_id, lock=False):
+        if not await storage_available(self.session):
+            raise ProfileConflictError("missing_input_storage_schema_required")
         if not re.fullmatch(r"[a-f0-9]{32}", request_id):
             raise LookupError("Missing-answer request not found")
         profile = await self.repo.profile()
@@ -193,6 +217,8 @@ class MissingInputService:
         return value
 
     async def list(self, offset=0, limit=25):
+        if not await storage_available(self.session):
+            raise ProfileConflictError("missing_input_storage_schema_required")
         profile = await self.repo.profile()
         rows = (
             await self.session.scalars(
@@ -326,6 +352,8 @@ class MissingInputService:
         return [row.value for row in rows]
 
     async def approved(self, request):
+        if not await storage_available(self.session):
+            return None
         profile = await self.repo.profile()
         key = key_for(
             profile.id,
@@ -344,6 +372,8 @@ class MissingInputService:
 
 
 async def approved_input_revisions(session, profile_id, job_id):
+    if not await storage_available(session):
+        return []
     rows = (
         await session.scalars(
             select(OwnerPreference)

@@ -265,6 +265,7 @@ class ContactIdentityResolver:
             if urlsplit(str(observation.email_publication_url)).hostname in {company.domain, "www." + (company.domain or "")}:
                 publication_metadata = {"email_publication_url": str(observation.email_publication_url),
                                         "email_publication_confirmed": True,
+                                        "email_publication_digest": hashlib.sha256(email.encode()).hexdigest(),
                                         "email_observed_at": checked.isoformat()}
         contact.metadata_ = {
             **(contact.metadata_ or {}),

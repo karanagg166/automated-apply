@@ -10,11 +10,13 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
 
 from backend.app.integrations.token_store import ConnectionError
 
+METADATA_SCOPE = "https://www.googleapis.com/auth/gmail.metadata"
+
 SCOPES = frozenset(
     {
         "openid",
         "https://www.googleapis.com/auth/userinfo.email",
-        "https://www.googleapis.com/auth/gmail.metadata",
+        METADATA_SCOPE,
     }
 )
 SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send"

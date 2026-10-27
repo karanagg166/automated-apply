@@ -24,6 +24,7 @@ from backend.app.services.startup_discovery.intelligence import (
     hiring_intelligence,
 )
 from backend.app.services.startup_discovery.normalizer import (
+    industry_allowed,
     location_allowed,
     role_allowed,
     size_allowed,
@@ -405,7 +406,7 @@ class StartupDiscoveryService:
             wanted = {"in": "india", "ind": "india"}.get(wanted, wanted)
             if wanted and country != wanted:
                 continue
-            if filters.industries and not any(ind.casefold() in (attrs.get("industry") or "").casefold() for ind in filters.industries):
+            if not industry_allowed(attrs.get("industry"), filters.industries):
                 continue
             if filters.has_technical_staff and not item["technical_staff_count"]:
                 continue

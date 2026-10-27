@@ -411,3 +411,22 @@ async def test_sync_lease_blocks_duplicate_dispatch_and_policy_changes_abort_per
                 await service.sync(account_id)
             assert len(calls) == 1 and not await service.evidence(account_id)
             assert (await service.status(account_id))["sync"]["status"] == "disabled"
+
+
+async def test_reauthorization_preserves_account_selection_and_checkpoint(db_session):
+    settings, fake = oauth_settings(), GoogleFixture()
+    async with fake.client() as client:
+        account_id = await connect(db_session, settings, fake, client, "first@example.com")
+        service = GmailReadService(db_session, settings, google=GoogleOAuth(settings, client))
+        await service.configure(account_id, ReadPolicy(expected_version=0, enabled=True, label_allowlist=["Label_jobs"]))
+        policy = await service.policy_row(account_id)
+        checkpoint = (now()-timedelta(hours=1)).isoformat()
+        policy.value = {**policy.value, "checkpoint": checkpoint}
+        account = await db_session.get(GmailReadAccount, account_id)
+        account.status = "reauthorization_required"
+        account.encrypted_access_token = None
+        await db_session.commit()
+        assert await connect(db_session, settings, fake, client, "first@example.com") == account_id
+        status = await service.status(account_id)
+        assert status["status"] == "connected" and status["sync"]["checkpoint"] == checkpoint
+        assert status["sync"]["policy"]["enabled"] is True and status["permissions"]["send"] is False

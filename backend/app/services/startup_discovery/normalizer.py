@@ -1,5 +1,6 @@
 """No estimated headcounts or stage-to-size conversions."""
 
+import re
 from datetime import timezone
 
 BANDS = {
@@ -68,4 +69,17 @@ def location_allowed(locations, remotes, filters):
     return (
         filters.remote_preference in (None, "any")
         or filters.remote_preference in remotes
+    )
+
+
+def industry_allowed(industry, requested):
+    """Industry words are explicit evidence; AI must never match 'retail'."""
+    aliases = {"ai": ["ai", "artificial intelligence"],
+               "saas": ["saas", "software as a service"],
+               "fintech": ["fintech", "financial technology"],
+               "developer tools": ["developer tools", "developer tooling", "devtools"]}
+    value = (industry or "").casefold()
+    return not requested or any(
+        re.search(r"(?<!\w)" + re.escape(term) + r"(?!\w)", value)
+        for item in requested for term in aliases.get(item.casefold(), [item.casefold()])
     )

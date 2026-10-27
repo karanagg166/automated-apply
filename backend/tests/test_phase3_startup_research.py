@@ -139,3 +139,10 @@ async def test_generic_source_url_cannot_merge_different_employers(db_session):
         await ingest_company(
             db_session, first.model_copy(update={"name": "Other Employer"})
         )
+
+
+@pytest.mark.parametrize("industry,expected", [("Retail", False), ("Artificial intelligence", True), ("AI/ML", True)])
+async def test_ai_filter_uses_industry_words_not_substrings(db_session, industry, expected):
+    await ingest_company(db_session, company(country="India", industry=industry, team_size_band="11-50"))
+    result = await StartupDiscoveryService(db_session).search(StartupFilters(industries=["AI"], use_profile=False))
+    assert bool(result["startups"]) is expected

@@ -218,3 +218,17 @@ async def test_missing_api_auth_concurrency_and_exact_owner_approval(
         )
     ).json()["history"]
     get_settings.cache_clear()
+
+
+async def test_historical_schema_preserves_answers_and_reports_missing_storage(db_session, phase2_profile):
+    from sqlalchemy import text
+    assert db_session.get_bind().dialect.name == "sqlite"
+    await db_session.execute(text("DROP TABLE owner_preferences"))
+    service = ApplicationAnswerService(db_session)
+    known = await service.generate(GenerateRequest(question="Full name"))
+    assert known.answer == "Alex Example" and known.status == "draft_ready"
+    unknown = await service.generate(GenerateRequest(question="Expected salary"))
+    assert unknown.answer is None and unknown.status == "needs_input"
+    assert not unknown.missing_input_id and "missing_input_storage_schema_required" in unknown.warnings
+    with pytest.raises(ProfileConflictError, match="storage_schema_required"):
+        await MissingInputService(db_session).list()

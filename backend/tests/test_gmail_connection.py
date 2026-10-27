@@ -222,3 +222,17 @@ def test_legacy_plaintext_oauth_setup_is_retired(capsys):
 
     assert main() == 2
     assert "connect/start" in capsys.readouterr().out
+
+
+@pytest.mark.asyncio
+async def test_legacy_scope_reporting_includes_metadata_and_disconnected_permissions(oauth_bundle):
+    from backend.app.integrations.google_oauth import SEND_SCOPES
+    service, fake, _ = oauth_bundle
+    await connect(service)
+    fake.token["scope"] = " ".join(sorted(SEND_SCOPES))
+    state = state_from(await service.start(EMAIL, "browser", send=True))
+    result = await service.callback(state, "browser", CALLBACK, "code")
+    assert result["permissions"]["read_metadata"] and result["permissions"]["send"]
+    await service.disconnect()
+    status = await service.status()
+    assert status["permissions"]["send"] is False and status["permissions"]["read_metadata"] is False

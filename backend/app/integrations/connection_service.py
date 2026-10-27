@@ -12,6 +12,8 @@ from backend.app.core.config import get_settings
 from backend.app.integrations.google_oauth import (
     ALLOWED_SCOPE_SETS,
     COMPOSE_SCOPES,
+    METADATA_SCOPE,
+    READ_SCOPE,
     READ_SCOPES,
     SCOPES,
     SEND_SCOPES,
@@ -55,9 +57,9 @@ def account_output(account):
         "google_subject": account.google_subject or None,
         "granted_scopes": account.granted_scopes,
         "workflow": account.workflow,
-        "permissions": {"read_metadata": account.status == "connected" and set(account.granted_scopes) in (SCOPES, READ_SCOPES),
+        "permissions": {"read_metadata": account.status == "connected" and bool(set(account.granted_scopes) & {METADATA_SCOPE, READ_SCOPE}),
                         "read_body": account.status == "connected" and set(account.granted_scopes) == READ_SCOPES,
-                        "send": False if account.workflow == "readonly" else set(account.granted_scopes) in (SEND_SCOPES, COMPOSE_SCOPES),
+                        "send": account.status == "connected" and account.workflow == "legacy" and set(account.granted_scopes) in (SEND_SCOPES, COMPOSE_SCOPES),
                         "modify": False},
         "connected_at": account.connected_at,
         "last_verified_at": account.last_verified_at,
@@ -132,7 +134,8 @@ class ConnectionService:
             if expected != account.account_email:
                 raise ConnectionError("wrong_google_account")
         elif account and account.status != "disconnected":
-            raise ConnectionError("disconnect_before_reconnecting")
+            if not (self.read_only and account.status == "reauthorization_required"):
+                raise ConnectionError("disconnect_before_reconnecting")
         if not account:
             model = GmailReadAccount if self.read_only else ConnectedAccount
             account = model(
@@ -154,7 +157,7 @@ class ConnectionService:
                 state_hash=state_hash,
                 actor_id="owner",
                 authorization_mode=("read_body" if read_body else "read_metadata") if self.read_only else "compose" if compose else "send" if send else "metadata",
-                expected_subject=account.google_subject if send or compose else None,
+                expected_subject=account.google_subject if send or compose or (self.read_only and account.google_subject) else None,
                 browser_hash=digest(browser_secret),
                 expected_email=expected,
                 encrypted_verifier=store.encrypt(verifier, state_hash),

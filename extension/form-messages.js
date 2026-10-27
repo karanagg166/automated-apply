@@ -76,7 +76,7 @@ export function formPlanText(plan) {
     const answer = isConsent
       ? "Manual completion required: Consent and legal declarations are never selected automatically"
       : action.needs_input
-        ? `NEEDS_INPUT: ${/^[a-f0-9]{32}$/.test(action.missing_input_id || "") ? "Saved question " + action.missing_input_id + " needs your factual input" : "Needs a reviewed fact in your profile"}`
+        ? `NEEDS_INPUT: ${/^[a-f0-9]{32}$/.test(action.missing_input_id || "") ? "Saved question needs your factual input" : "Needs a reviewed fact in your profile"}`
         : action.kind === "file"
           ? "Upload your confirmed PDF yourself"
           : action.value;

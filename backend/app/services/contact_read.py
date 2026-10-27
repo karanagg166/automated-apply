@@ -1,5 +1,7 @@
 """Shared contact serialization and retention safeguards for REST and MCP."""
 
+import hashlib
+
 from fastapi import HTTPException
 from sqlalchemy import select
 
@@ -24,6 +26,10 @@ def contact_output(contact, company, job=None):
             manual_outreach_review_available=False,
             manual_linkedin_available=False,
         )
+    metadata = contact.metadata_ or {}
+    published = bool(contact.email and metadata.get("email_publication_confirmed")
+                     and metadata.get("email_publication_url")
+                     and metadata.get("email_publication_digest") == hashlib.sha256(contact.email.encode()).hexdigest())
     return {
         "id": str(contact.id),
         "company_id": str(contact.company_id),
@@ -37,11 +43,11 @@ def contact_output(contact, company, job=None):
             "suppressed_or_stale" if expired or contact.do_not_contact or (contact.email and not fresh(email_observed_at(contact), settings.CONTACT_CACHE_TTL_DAYS))
             else "not_found" if not contact.email
             else "verified_using_authorized_method" if contact.email_status == "verified"
-            else "published_source_supported" if (contact.metadata_ or {}).get("email_publication_confirmed") and (contact.metadata_ or {}).get("email_publication_url")
+            else "published_source_supported" if published
             else "provider_reported" if contact.email_status == "provider_reported"
             else "unverified"
         ),
-        "email_publication_url": None if expired or contact.do_not_contact else (contact.metadata_ or {}).get("email_publication_url"),
+        "email_publication_url": metadata.get("email_publication_url") if published and not expired and not contact.do_not_contact else None,
         "source": contact.enrichment_source,
         "legacy_confidence_score": float(contact.confidence_score or 0),
         "last_checked_at": contact.last_checked_at,
