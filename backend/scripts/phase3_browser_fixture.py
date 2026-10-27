@@ -8,20 +8,16 @@ import asyncio
 import base64
 import json
 import os
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import UUID
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 import httpx
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from backend.app.core.security import require_api_token
-from backend.app.db.session import get_db_session
-from backend.app.integrations.gmail.read_service import GmailReadService, ReadPolicy
-from backend.app.integrations.google_oauth import READ_SCOPES
-from backend.app.integrations.token_store import TokenStore
-from backend.app.models.connected_account import GmailReadAccount
 
 ACCOUNT_IDS = [UUID("10000000-0000-4000-8000-000000000001"), UUID("10000000-0000-4000-8000-000000000002")]
 QUESTION = "Describe the fictional payment gateway incident you personally resolved in October."
@@ -29,6 +25,12 @@ QUESTION = "Describe the fictional payment gateway incident you personally resol
 
 async def install(app, settings, factory):
     from backend.app.api.v1.integrations import read_service
+    from backend.app.core.security import require_api_token
+    from backend.app.db.session import get_db_session
+    from backend.app.integrations.gmail.read_service import GmailReadService, ReadPolicy
+    from backend.app.integrations.google_oauth import READ_SCOPES
+    from backend.app.integrations.token_store import TokenStore
+    from backend.app.models.connected_account import GmailReadAccount
 
     calls = []
     addresses = ["first-fixture@example.com", "second-fixture@example.com"]
@@ -55,6 +57,9 @@ async def install(app, settings, factory):
         return httpx.Response(200, json={"id": message, "threadId": f"fixture-thread-{index + 1}", "internalDate": str(int((datetime.now(timezone.utc) - timedelta(minutes=2)).timestamp() * 1000)), "labelIds": ["Label_Jobs"], "payload": payload})
 
     class FixtureIdentity:
+        def configured(self):
+            return True
+
         async def identity(self, token):
             index = tokens[token]
             return f"fixture-subject-{index + 1}", addresses[index]
