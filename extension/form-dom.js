@@ -5,7 +5,9 @@ export function formDOM(request = { operation: "inspect" }) {
   if (!globalThis[key]) {
     const documentId = crypto.randomUUID();
     const sensitive =
-      /password|passcode|passphrase|one.?time|\botp\b|\bmfa\b|\b2fa\b|two.?factor|verification.?code|security.?code|credit.?card|debit.?card|card.?number|\bcvv\b|\bcvc\b|card.?expir|bank.?account|routing.?number|\biban\b|\bifsc\b|\bupi\b|payment|session|token|secret|api.?key|private.?key|social.?security|\bssn\b|\baadhaar\b|\baadhar\b|\bpan\s*(?:card|number|no)\b|tax.?id|national.?id|passport.?number|\bpin\b(?![\s-]*code)|security.?question/i;
+      /password|passcode|passphrase|one.?time|\botp\b|\bmfa\b|\b2fa\b|two.?factor|verification.?code|security.?code|credit.?card|debit.?card|card.?number|\bcvv\b|\bcvc\b|card.?expir|bank.?account|routing.?number|\biban\b|\bifsc\b|\bupi\b|payment|session|token|secret|api.?key|private.?key|social.?security|\bssn\b|\baadhaar\b|\baadhar\b|\bpan\s*(?:card|number|no)\b|tax.?id|national.?id|government.?id|passport|driv(?:er|ing).?licen[sc]e|\bpin\b(?![\s-]*code)|security.?question|\b(?:gender|race|ethnic\w*|religion|disabil\w*|veteran|military|sexual\w*|pronouns?|marital|self.?identif\w*)\b|date.?of.?birth|birth.?date|\bdob\b/i;
+    const selfIdentification =
+      /\b(?:gender|race|ethnic\w*|religion|disabil\w*|veteran|military|sexual\w*|pronouns?|marital|self.?identif\w*)\b|date.?of.?birth|birth.?date|\bdob\b/i;
     // Keep in sync with CONSENT_LABEL_PATTERN in form-messages.js.
     const consentPattern =
       /\b(?:consent|agree|agreement|terms(?:\s+and\s+conditions|\s+of\s+service|\s+of\s+use)?|privacy\s*policy|acknowledge|certif(?:y|ication)|attest(?:ation)?|declare|declaration|hereby|true\s+and\s+(?:correct|accurate)|gdpr|data\s+processing|background\s*check|equal\s*opportunity|\beeo\b|\bnda\b|non.?disclosure|authorize\s+background|accuracy\s+of\s+information)\b/i;
@@ -546,6 +548,7 @@ export function formDOM(request = { operation: "inspect" }) {
     let last = null;
     let touched = false;
     let submitArmed = false;
+    let fillConsumed = false;
     let controlCount = 0;
     let snapshotControls = [];
     let snapshotForms = [];
@@ -657,6 +660,7 @@ export function formDOM(request = { operation: "inspect" }) {
     };
 
     const inspect = (onlyEmpty = false) => {
+      fillConsumed = false;
       const controls = [
         ...document.querySelectorAll("input,textarea,select"),
       ].filter(visible);
@@ -695,9 +699,9 @@ export function formDOM(request = { operation: "inspect" }) {
         ),
       );
 
-      for (const frame of [
-        ...document.querySelectorAll("iframe"),
-      ].filter(visible)) {
+      for (const frame of [...document.querySelectorAll("iframe")].filter(
+        visible,
+      )) {
         const src = clean(frame.getAttribute("src") || "");
         const fHint = [
           src,
@@ -737,7 +741,8 @@ export function formDOM(request = { operation: "inspect" }) {
             !src.startsWith("about:") &&
             !src.startsWith("javascript:")
           ) {
-            crossOrigin = new URL(src, location.href).origin !== location.origin;
+            crossOrigin =
+              new URL(src, location.href).origin !== location.origin;
           }
           if (
             !crossOrigin &&
@@ -809,11 +814,26 @@ export function formDOM(request = { operation: "inspect" }) {
         if (["hidden", "submit", "button", "reset", "image"].includes(el.type))
           continue;
         const rawLbl = rawLabel(el);
-        const hint = [el.type, el.name, el.id, el.autocomplete, rawLbl].join(
-          " ",
-        );
+        const hint = [
+          el.type,
+          el.name,
+          el.id,
+          el.autocomplete,
+          rawLbl,
+          rawGroupLabel(el),
+        ].join(" ");
         if (/captcha/i.test(hint)) {
           challenge = true;
+          continue;
+        }
+        if (selfIdentification.test(hint.replace(/[_-]/g, " "))) {
+          if (onlyEmpty)
+            unsupportedControls.push({
+              kind: clean(el.type || "select"),
+              label: cleanLabelText(rawLbl) || "Self-identification field",
+              required: isRequired(el),
+              reason: "Sensitive self-identification requires manual entry",
+            });
           continue;
         }
         if (
@@ -1051,54 +1071,7 @@ export function formDOM(request = { operation: "inspect" }) {
       return last;
     };
 
-    globalThis[key] = (req) => {
-      if (req.operation === "inspect") return inspect(req.only_empty === true);
-      if (
-        !last ||
-        req.document_id !== documentId ||
-        location.href !== last.url ||
-        !["ready", "validation_errors"].includes(last.state)
-      )
-        return {
-          state: "manual_required",
-          reason: "step_changed",
-          results: [],
-          submitted: false,
-        };
-      if (req.operation === "arm_submission") {
-        submitArmed = true;
-        return true;
-      }
-      if (req.operation === "upload_element") {
-        const ref = refs.get(req.field_id);
-        return ref?.field.kind === "file" &&
-          ref.el.isConnected &&
-          visible(ref.el) &&
-          ref.el.type === "file" &&
-          label(ref.el) === ref.field.label
-          ? ref.el
-          : null;
-      }
-      if (req.operation === "next") {
-        const candidates = [...document.querySelectorAll("button")].filter(
-          (el) =>
-            visible(el) &&
-            el.type === "button" &&
-            /^(next|continue)$/i.test(clean(el.textContent)),
-        );
-        if (candidates.length !== 1 || !last.has_next)
-          return { state: "manual_required", results: [], submitted: false };
-        touched = true;
-        candidates[0].click();
-        return { state: "progressed", submitted: false };
-      }
-      if (
-        !["fill", "verify_submission"].includes(req.operation) ||
-        !Array.isArray(req.actions) ||
-        req.actions.length > 24
-      )
-        return { state: "failed", results: [], submitted: false };
-
+    const validateSnapshot = (req) => {
       const currentControls = [
         ...document.querySelectorAll("input,textarea,select"),
       ].filter(visible);
@@ -1110,7 +1083,7 @@ export function formDOM(request = { operation: "inspect" }) {
           submitted: false,
         };
 
-      if (req.operation === "fill") {
+      if (req.operation !== "verify_submission") {
         flushMutations();
         if (domMutated) {
           stopObserving();
@@ -1202,7 +1175,7 @@ export function formDOM(request = { operation: "inspect" }) {
           };
       }
       // Check the entire DOM snapshot before any mutation. Existing values are never returned.
-      for (const action of req.actions) {
+      for (const action of req.actions || []) {
         const ref = refs.get(action.field_id);
         if (
           !ref ||
@@ -1221,6 +1194,115 @@ export function formDOM(request = { operation: "inspect" }) {
             submitted: false,
           };
       }
+      return null;
+    };
+
+    const incompleteRequired = () => {
+      const controls = [
+        ...document.querySelectorAll("input,textarea,select"),
+      ].filter(visible);
+      return controls.some(
+        (el) =>
+          !el.disabled &&
+          isRequired(el) &&
+          (unanswered(el, controls) || !el.validity.valid || isInvalid(el)),
+      );
+    };
+
+    globalThis[key] = (req) => {
+      if (req.operation === "inspect") return inspect(req.only_empty === true);
+      if (
+        !last ||
+        req.document_id !== documentId ||
+        location.href !== last.url ||
+        !["ready", "validation_errors"].includes(last.state)
+      )
+        return {
+          state: "manual_required",
+          reason: "step_changed",
+          results: [],
+          submitted: false,
+        };
+      if (req.operation === "arm_submission") {
+        submitArmed = true;
+        return true;
+      }
+      if (req.operation === "verify_fill") {
+        const changed = validateSnapshot(req);
+        return (
+          changed || {
+            state: incompleteRequired() ? "needs_input" : "form_filled",
+            results: [],
+            submitted: false,
+          }
+        );
+      }
+      if (req.operation === "upload_element") {
+        if (validateSnapshot(req)) return null;
+        const ref = refs.get(req.field_id);
+        return ref?.field.kind === "file" &&
+          !ref.el.files.length &&
+          ref.el.isConnected &&
+          visible(ref.el) &&
+          ref.el.type === "file" &&
+          label(ref.el) === ref.field.label
+          ? ref.el
+          : null;
+      }
+      if (req.operation === "next") {
+        const changed = validateSnapshot(req);
+        if (changed) return changed;
+        const controls = [
+          ...document.querySelectorAll("input,textarea,select"),
+        ].filter(visible);
+        if (
+          controls.some(
+            (el) =>
+              !el.disabled &&
+              isRequired(el) &&
+              (unanswered(el, controls) || !el.validity.valid || isInvalid(el)),
+          )
+        )
+          return { state: "manual_required", results: [], submitted: false };
+        const candidates = [...document.querySelectorAll("button")].filter(
+          (el) =>
+            visible(el) &&
+            el.type === "button" &&
+            /^(next|continue)$/i.test(clean(el.textContent)),
+        );
+        if (candidates.length !== 1 || !last.has_next)
+          return { state: "manual_required", results: [], submitted: false };
+        touched = true;
+        candidates[0].click();
+        return { state: "progressed", submitted: false };
+      }
+      if (
+        !["fill", "verify_submission"].includes(req.operation) ||
+        !Array.isArray(req.actions) ||
+        req.actions.length > 24
+      )
+        return { state: "failed", results: [], submitted: false };
+
+      if (req.operation === "fill") {
+        if (
+          fillConsumed ||
+          new Set(req.actions.map((a) => a.field_id)).size !==
+            req.actions.length
+        )
+          return {
+            state: "manual_required",
+            reason: "step_changed",
+            results: [],
+            submitted: false,
+          };
+        fillConsumed = true;
+      }
+      const initialError = validateSnapshot(req);
+      if (initialError) return initialError;
+      const currentControls = [
+        ...document.querySelectorAll("input,textarea,select"),
+      ].filter(visible);
+
       if (req.operation === "verify_submission") {
         for (const [id, ref] of refs) {
           const action = req.actions.find((a) => a.field_id === id);
@@ -1257,19 +1339,30 @@ export function formDOM(request = { operation: "inspect" }) {
             : ["checkbox", "radio"].includes(ref.field.kind)
               ? el.checked !== ref.initialChecked
               : el.value !== ref.initialValue);
-        canFill.set(
-          id,
-          req.only_empty === true
-            ? isUnansweredNow && !modifiedSinceInspect
-            : !userEdited.has(el),
-        );
+        canFill.set(id, isUnansweredNow && !modifiedSinceInspect);
       }
 
       touched = true;
       const pendingResults = [];
+      let interrupted = null;
       for (const action of req.actions) {
+        // Input/change handlers can navigate, replace controls or change the
+        // destination synchronously. Recheck the reviewed page before EACH write.
+        interrupted = validateSnapshot(req);
+        if (interrupted) break;
         const { el, field, options } = refs.get(action.field_id);
-        if (!canFill.get(action.field_id)) {
+        const valueChanged =
+          field.kind === "select"
+            ? el.selectedIndex !==
+              refs.get(action.field_id).initialSelectedIndex
+            : ["radio", "checkbox"].includes(field.kind)
+              ? el.checked !== refs.get(action.field_id).initialChecked
+              : el.value !== refs.get(action.field_id).initialValue;
+        if (
+          !canFill.get(action.field_id) ||
+          userEdited.has(el) ||
+          valueChanged
+        ) {
           pendingResults.push({
             field_id: action.field_id,
             status: "untouched",
@@ -1337,7 +1430,9 @@ export function formDOM(request = { operation: "inspect" }) {
         }
         if (req.emit_events === true) {
           el.dispatchEvent(new Event("input", { bubbles: true }));
-          el.dispatchEvent(new Event("change", { bubbles: true }));
+          interrupted = validateSnapshot(req);
+          if (!interrupted)
+            el.dispatchEvent(new Event("change", { bubbles: true }));
         }
         pendingResults.push({
           field_id: action.field_id,
@@ -1346,6 +1441,7 @@ export function formDOM(request = { operation: "inspect" }) {
         });
       }
 
+      interrupted = interrupted || validateSnapshot(req);
       const results = pendingResults.map((item) =>
         item.checkValidity
           ? {
@@ -1356,9 +1452,12 @@ export function formDOM(request = { operation: "inspect" }) {
       );
       stopObserving();
       return {
-        state: results.some((r) => r.status !== "filled")
-          ? "needs_input"
-          : "form_filled",
+        ...(interrupted ? { reason: interrupted.reason } : {}),
+        state: interrupted
+          ? "manual_required"
+          : incompleteRequired() || results.some((r) => r.status !== "filled")
+            ? "needs_input"
+            : "form_filled",
         results,
         submitted: false,
       };

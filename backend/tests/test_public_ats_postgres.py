@@ -518,7 +518,10 @@ async def test_actual_disposable_postgres_restart_and_recovery(postgres, monkeyp
     factory, _ = postgres
     container = os.environ["P22_TEST_POSTGRES_CONTAINER"]
     parsed = urlsplit(os.environ["PROFILE_TEST_DATABASE_URL"])
-    assert container == "codex-p22-pg17" and parsed.port == 55432
+    assert (container, parsed.port) in {
+        ("codex-p22-pg17", 55432),
+        ("codex-phase2-final-pg17", 55437),
+    }
     original = JobIngestionService.ingest_jobs
 
     async def restart_after_writes(ingestion, records, **kwargs):

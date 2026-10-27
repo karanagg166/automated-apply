@@ -41,7 +41,7 @@ router = APIRouter(
 
 
 def answer_service(session: AsyncSession = Depends(get_db_session)):
-    return ApplicationAnswerService(session)
+    return ApplicationAnswerService(session, owns_read_transaction=True)
 
 
 @router.get("/candidate/resources", response_model=ResourceList)

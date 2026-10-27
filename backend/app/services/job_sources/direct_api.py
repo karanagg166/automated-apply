@@ -39,6 +39,15 @@ class DirectAdapter(JobSourceAdapter):
     MAX_RESPONSE_BYTES = 8 * 1024 * 1024
     JSON_TYPES = (dict,)
 
+    async def retry_pause(self):
+        started = perf_counter()
+        try:
+            await asyncio.sleep(0.1)
+        finally:
+            self.metrics["retry_wait_seconds"] = (
+                self.metrics.get("retry_wait_seconds", 0) + perf_counter() - started
+            )
+
     async def request(self, client, url, params=None):
         started = perf_counter()
         try:
@@ -74,7 +83,7 @@ class DirectAdapter(JobSourceAdapter):
                             Status.AUTH_REQUIRED, "Provider authorization required"
                         )
                     if code >= 500 and attempt + 1 < attempts:
-                        await asyncio.sleep(0.1)
+                        await self.retry_pause()
                         continue
                     if code != 200:
                         raise DiscoveryError(
@@ -93,12 +102,14 @@ class DirectAdapter(JobSourceAdapter):
                     ) + len(body)
                     try:
                         started = perf_counter()
-                        data = json.loads(body)
-                        self.metrics["json_seconds"] = (
-                            self.metrics.get("json_seconds", 0)
-                            + perf_counter()
-                            - started
-                        )
+                        try:
+                            data = json.loads(body)
+                        finally:
+                            self.metrics["json_seconds"] = (
+                                self.metrics.get("json_seconds", 0)
+                                + perf_counter()
+                                - started
+                            )
                         if not isinstance(data, self.JSON_TYPES):
                             raise ValueError("Invalid top-level schema")
                         return data
@@ -108,7 +119,7 @@ class DirectAdapter(JobSourceAdapter):
                         ) from None
             except httpx.TransportError:
                 if attempt + 1 < attempts:
-                    await asyncio.sleep(0.1)
+                    await self.retry_pause()
                     continue
                 raise DiscoveryError(
                     Status.UPSTREAM_ERROR, "Provider transport failed"
@@ -121,13 +132,19 @@ class DirectAdapter(JobSourceAdapter):
             )
         result = []
         self.record_errors = []
-        for index, record in enumerate(records[:limit]):
-            try:
-                result.append(parser(record))
-            except (ValueError, TypeError, KeyError, AttributeError, OverflowError):
-                self.record_errors.append(
-                    f"Record {index}: invalid or missing listing evidence"
-                )
+        started = perf_counter()
+        try:
+            for index, record in enumerate(records[:limit]):
+                try:
+                    result.append(parser(record))
+                except (ValueError, TypeError, KeyError, AttributeError, OverflowError):
+                    self.record_errors.append(
+                        f"Record {index}: invalid or missing listing evidence"
+                    )
+        finally:
+            self.metrics["normalization_seconds"] = (
+                self.metrics.get("normalization_seconds", 0) + perf_counter() - started
+            )
         return result
 
     async def discover(self, query: DiscoveryQuery, **kwargs):

@@ -499,6 +499,10 @@ class Settings(BaseSettings):
         return mapping.get(provider_clean, 0)
 
 
+    # A provider enablement/budget is not consent to transmit candidate facts.
+    GEMINI_CANDIDATE_DATA_AUTHORIZED: bool = False
+
+
 _operator_settings: Settings | None = None
 
 

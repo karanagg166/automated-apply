@@ -48,6 +48,8 @@ def create_provider(settings: Settings) -> ApplicationLLMProvider:
         raise ProviderError("llm_not_configured")
     if not settings.GEMINI_ENABLED or settings.GEMINI_APPROVED_MONTHLY_REQUESTS <= 0:
         raise ProviderError("provider_permission_required")
+    if not settings.GEMINI_CANDIDATE_DATA_AUTHORIZED:
+        raise ProviderError("candidate_cloud_authorization_required")
     from backend.app.ai.providers.gemini import GeminiProvider
 
     return GeminiProvider(settings)

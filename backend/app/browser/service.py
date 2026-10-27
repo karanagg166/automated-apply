@@ -16,6 +16,7 @@ from backend.app.browser.contracts import (
     Inspection,
     PrepareBrowser,
 )
+from backend.app.browser.field_policy import manual_only
 from backend.app.browser.runner import browser, validate_destination
 from backend.app.core.config import get_settings
 from backend.app.dashboard.models import OwnerPreference, PrivateResume
@@ -275,6 +276,9 @@ class FormService:
                 kind=field.kind,
                 candidate_version=profile.version,
             )
+            if manual_only(field.label, field.group_label or "", *field.options):
+                plan.actions.append(action)
+                continue
             if field.kind == "file":
                 raw = await pdf_bytes(self.session, packet, self.settings)
                 if raw and "resume" in field.label.casefold():
@@ -365,11 +369,7 @@ class FormService:
                         and action.evidence
                         and field.options
                     ):
-                        action.value = (
-                            "true"
-                            if action.value.casefold() == field.options[0].casefold()
-                            else "false"
-                        )
+                        action.value = "true" if action.value.casefold() == field.options[0].casefold() else None
                     else:
                         action.value, action.evidence = None, []
                 if action.value and field.kind == "number":
@@ -480,14 +480,22 @@ class FormService:
         row, plan = await self.load(receipt.plan_id)
         if plan.state == "finished":
             return {"status": "already_recorded", "submitted": False}
-        if plan.state != "consumed" or any(
+        if plan.state != "consumed" or len({r.field_id for r in receipt.results}) != len(receipt.results) or any(
             r.field_id not in plan.approved_fields for r in receipt.results
         ):
             raise ToolDenied("invalid_fill_receipt")
         plan.state = "finished"
         row.value = plan.model_dump(mode="json")
-        self.audit(plan, receipt.state, [r.model_dump() for r in receipt.results])
-        return {"status": receipt.state, "submitted": False}
+        state = receipt.state
+        completed = {r.field_id for r in receipt.results if r.status == "filled"}
+        if state == "form_filled" and (
+            set(plan.approved_fields) - completed
+            or any(f.required and f.field_id not in completed for f in plan.inspection.fields)
+            or any(r.status != "filled" for r in receipt.results)
+        ):
+            state = "needs_input"
+        self.audit(plan, state, [r.model_dump() for r in receipt.results])
+        return {"status": state, "submitted": False}
 
 
 def metadata_key(packet_id):
@@ -875,6 +883,15 @@ async def fill(session, packet, service, runtime, confirm, confirm_context=False
                 if f["field_id"] == str(item.id)
             )
             valid = await runtime.fill(fresh[index], value=value, upload=upload)
+            if valid is None:
+                validation.append(
+                    {
+                        "field_id": str(item.id),
+                        "complete": False,
+                        "reason": "Existing answer preserved; review it on the website",
+                    }
+                )
+                continue
             filled.append(str(item.id))
             if runtime.blocked_step_requests:
                 raise HTTPException(

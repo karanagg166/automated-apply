@@ -3,6 +3,7 @@
 import json
 import math
 import re
+from time import perf_counter
 from urllib.parse import urlsplit
 
 from backend.app.core.config import get_settings
@@ -43,6 +44,30 @@ def structured_salary(minimum, maximum, currency, interval, periods):
     )
 
 
+def hosted_job_url(value, board, source, host, *, application=False):
+    if not isinstance(value, str):
+        raise ValueError("Missing hosted job URL")
+    parsed = urlsplit(value)
+    suffix = r"(?:/apply)?" if source == "lever" else r"(?:/application)?"
+    if (
+        parsed.scheme != "https"
+        or parsed.netloc != host
+        or parsed.query
+        or parsed.fragment
+        or not re.fullmatch(
+            r"/"
+            + "(?i:"
+            + re.escape(board)
+            + ")"
+            + r"/[A-Za-z0-9-]{1,100}"
+            + (suffix if application else ""),
+            parsed.path.removesuffix("/"),
+        )
+    ):
+        raise ValueError("Hosted job URL conflicts with configured board")
+    return value
+
+
 class PublicATSAdapter(DirectAdapter):
     query_parameters = ["page", "limit", "configured_boards"]
 
@@ -69,27 +94,9 @@ class PublicATSAdapter(DirectAdapter):
         return await super().request(client, url, params)
 
     def job_url(self, value, board, *, application=False):
-        if not isinstance(value, str):
-            raise ValueError("Missing hosted job URL")
-        parsed = urlsplit(value)
-        suffix = r"(?:/apply)?" if self.source_name == "lever" else r"(?:/application)?"
-        if (
-            parsed.scheme != "https"
-            or parsed.netloc != self.job_host
-            or parsed.query
-            or parsed.fragment
-            or not re.fullmatch(
-                r"/"
-                + "(?i:"
-                + re.escape(board)
-                + ")"
-                + r"/[A-Za-z0-9-]{1,100}"
-                + (suffix if application else ""),
-                parsed.path.removesuffix("/"),
-            )
-        ):
-            raise ValueError("Hosted job URL conflicts with configured board")
-        return value
+        return hosted_job_url(
+            value, board, self.source_name, self.job_host, application=application
+        )
 
     async def fetch_jobs(self, limit=20, page=1, **kwargs):
         DiscoveryQuery(limit=limit, page=page)
@@ -131,6 +138,7 @@ class PublicATSAdapter(DirectAdapter):
                     continue
                 selected = records[start : start + remaining]
                 for index, record in enumerate(selected):
+                    normalization_started = perf_counter()
                     try:
                         job = self.parse(record, board, company)
                         key = (board, job.source_job_id or job.canonical_url)
@@ -150,6 +158,12 @@ class PublicATSAdapter(DirectAdapter):
                     ):
                         errors.append(
                             f"Board {board_index}, record {index}: invalid or inconsistent listing evidence"
+                        )
+                    finally:
+                        self.metrics["normalization_seconds"] = (
+                            self.metrics.get("normalization_seconds", 0)
+                            + perf_counter()
+                            - normalization_started
                         )
                 remaining -= len(selected)
                 if (

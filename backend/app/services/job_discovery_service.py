@@ -12,6 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from backend.app.ai.usage import concurrency_limiter
 from backend.app.core.config import get_settings
+from backend.app.core.logging import logger
 from backend.app.models.discovery import DiscoveryRun
 from backend.app.repositories.candidate_profile import ProfileNotFoundError
 from backend.app.schemas.discovery import (
@@ -189,13 +190,13 @@ class JobDiscoveryService:
         def next_phase(name):
             nonlocal phase, phase_started
             instant = perf_counter()
-            timings[phase] = round(instant - phase_started, 6)
+            timings[phase] = round(timings.get(phase, 0) + instant - phase_started, 6)
             phase, phase_started = name, instant
 
         def diagnostics():
             instant = perf_counter()
             return {
-                "phase_seconds": {**timings, phase: round(instant - phase_started, 6)},
+                "phase_seconds": {**timings, phase: round(timings.get(phase, 0) + instant - phase_started, 6)},
                 "total_seconds": round(instant - started, 6),
                 "last_phase": phase,
                 "deadline_seconds": self.settings.DISCOVERY_TIMEOUT_SECONDS,
@@ -290,7 +291,9 @@ class JobDiscoveryService:
                             and adapter._client is None
                             and not adapter.validate_configuration()
                         ):
+                            next_phase("provider_pacing")
                             await claim_access(self.factory, request.source)
+                            next_phase("provider")
                         result = await adapter.discover(
                             query,
                             allow_paid=request.allow_paid,
@@ -436,7 +439,15 @@ class JobDiscoveryService:
                     {**result.usage, "diagnostics": diagnostics()},
                 )
                 # Job writes and successful final audit commit together.
+                commit_started = perf_counter()
                 await self.session.commit()
+                # A transaction cannot persist its own acknowledgement duration.
+                # Emit bounded timing metadata only after durability is known.
+                logger.info(
+                    "discovery_commit_ack run_id=%s seconds=%.6f",
+                    run_id,
+                    perf_counter() - commit_started,
+                )
                 return run_output(run)
         except BaseException as exc:
             try:

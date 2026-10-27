@@ -186,7 +186,19 @@ async def reply_for(session, settings, message, update_id, bot_username):
                 # Don't echo URL query parameters, personal answers, compensation or resume content.
                 return f"URL preview saved ({result.data['platform']}). No application submitted. Reference: {result.correlation_id}"
             if command == "/jobs":
-                return f"Discovery deployment enabled: {result.data['deployment_enabled']}; schedule enabled: {result.data['schedule_enabled']}. No discovery executed."
+                from backend.app.models.discovery import DiscoveryRun
+                from backend.app.services.job_discovery_service import run_output
+
+                latest = await session.scalar(select(DiscoveryRun).order_by(DiscoveryRun.started_at.desc(), DiscoveryRun.id).limit(1))
+                lines = [f"Discovery deployment enabled: {result.data['deployment_enabled']}; schedule enabled: {result.data['schedule_enabled']}. No discovery executed by this command."]
+                if latest:
+                    saved = run_output(latest, settings)
+                    lines.append(f"Latest run {saved['id']}: {saved['status']}; {len(saved['job_ids'])} saved jobs. Suitability requires owner review.")
+                    if not saved["job_ids"]:
+                        lines.append("No saved opportunities in this run. A failed or incomplete run is not a successful zero-match search.")
+                else:
+                    lines.append("No saved discovery run exists; no match or suitability claim is available.")
+                return "\n".join(lines)
             rows = result.data["connections"]
             if command == "/status":
                 rows = [row for row in rows if row["name"] in {"Supabase PostgreSQL", "Local FastAPI"}]
