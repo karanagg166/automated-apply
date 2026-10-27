@@ -375,7 +375,12 @@ try {
   assert.ok(unsupportedKinds.includes("custom_combobox:Department"));
   assert.ok(unsupportedKinds.includes("custom_combobox:Current City"));
   assert.ok(unsupportedKinds.includes("date:Available Start Date"));
-  assert.ok(unsupportedKinds.includes("date:Date of Birth"));
+  assert.ok(unsupportedKinds.includes("text:Date of Birth"));
+  assert.equal(
+    zohoSnap.unsupported_controls.find((u) => u.label === "Date of Birth").reason,
+    "Sensitive self-identification requires manual entry",
+  );
+  assert.equal(findZohoField("Date of Birth"), undefined);
   assert.ok(unsupportedKinds.includes("framework_input:Current CTC"));
   assert.ok(unsupportedKinds.includes("text:Type here"));
   assert.ok(unsupportedKinds.includes("radio:Option A"));
@@ -568,7 +573,8 @@ try {
   assert.equal(blockedByConditional.state, "manual_required");
   assert.equal(await page.locator("[name=exp_years]").inputValue(), "");
 
-  // Fresh inspection after conditional reveal picks up the conditional field and fills cleanly
+  // Fresh inspection fills the new empty fields; the page's existing email
+  // validation error still prevents a complete-form claim.
   const afterConditional = await inspect();
   assert.deepEqual(
     afterConditional.fields.map((f) => f.label),
@@ -591,7 +597,11 @@ try {
       },
     ],
   });
-  assert.equal(filledConditional.state, "form_filled");
+  assert.equal(filledConditional.state, "needs_input");
+  assert.ok(filledConditional.results.every((r) => r.status === "filled"));
+  assert.equal(await page.locator("[name=exp_years]").inputValue(), "2");
+  assert.equal(await page.locator("[name=employer]").inputValue(), "Fictional Corp");
+  assert.ok(await page.locator("[name=email]").evaluate((e) => e.classList.contains("zr-invalid")));
 
   // Unsafe DOM mutation (mutating form.action) after inspection blocks fill
   await page.evaluate(() => {
