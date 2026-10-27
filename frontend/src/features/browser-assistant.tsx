@@ -320,9 +320,10 @@ export function BrowserAssistant({
                 </Badge>
               </p>
               <small className="muted">
-                File upload limitation: Resumes cannot be automatically uploaded
-                by browser assistant. You must attach the file manually on the
-                official portal.
+                Upload policy: The dedicated backend browser can attach an
+                approved encrypted canonical PDF resume when configured. For
+                manual extension handoff or external employer portals, attach
+                your resume file manually.
               </small>
             </div>
           </div>
@@ -342,9 +343,9 @@ export function BrowserAssistant({
         inspect every field on the website and submit manually.
       </Notice>
       <Notice>
-        Field preservation: Assisted filling preserves existing values already
-        entered on the website unless explicitly reviewed for overwrite. Check
-        values before filling.
+        Field preservation: Assisted filling always preserves existing values
+        already entered on the website. Existing answers are never overwritten.
+        Check values before filling.
       </Notice>
       <label>
         <input
