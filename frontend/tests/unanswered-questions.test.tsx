@@ -440,6 +440,11 @@ it("uses effective_status to move stale approvals out of the approved filter", a
         : {
             requests: [
               {
+                ...fictionalMissingItems[0],
+                stale: true,
+                effective_status: "needs_input",
+              },
+              {
                 ...fictionalMissingItems[1],
                 status: "approved",
                 effective_status: "review_required",
