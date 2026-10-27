@@ -34,7 +34,7 @@ os.environ["MCP_ALLOW_DRAFT_CREATION"] = "false"
 os.environ["COHERE_ENABLED"] = "false"
 os.environ["COHERE_EVALUATION_KEY_CONFIRMED"] = "false"
 os.environ["COHERE_OWNER_TEXT_AUTHORIZED"] = "false"
-os.environ["COHERE_CANDIDATE_DATA_AUTHORIZED"] = "false"
+os.environ.update(COHERE_CANDIDATE_DATA_AUTHORIZED="false", GEMINI_CANDIDATE_DATA_AUTHORIZED="false")
 os.environ["AGY_ENABLED"] = "false"
 os.environ["AGY_QUOTA_AUTHORIZED"] = "false"
 os.environ["AGY_MODEL"] = ""
@@ -137,7 +137,7 @@ async def phase2_profile(db_session):
 @pytest.fixture
 def phase2_settings():
     from backend.app.core.config import Settings
-    return Settings(_env_file=None, LLM_MODEL="gemini-test-model", GEMINI_API_KEY="fictional-test-key", GEMINI_ENABLED=True, GEMINI_APPROVED_MONTHLY_REQUESTS=200)
+    return Settings(_env_file=None, LLM_MODEL="gemini-test-model", GEMINI_API_KEY="fictional-test-key", GEMINI_ENABLED=True, GEMINI_APPROVED_MONTHLY_REQUESTS=200, GEMINI_CANDIDATE_DATA_AUTHORIZED=True)
 
 
 @pytest.fixture

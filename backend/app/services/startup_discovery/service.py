@@ -53,17 +53,21 @@ class StartupDiscoveryService:
             raise LookupError("Startup not found")
         return company
 
-    async def preview(self, request):
+    def source_config(self, provider):
         source = next(
             (
                 s
                 for s in startup_sources(self.settings)
-                if s["provider"] == request.source
+                if s["provider"] == provider
             ),
             None,
         )
         if source is None:
             raise ValueError("Unknown startup source")
+        return source
+
+    async def preview(self, request):
+        source = self.source_config(request.source)
         profile = await self.profile(request.filters.use_profile)
         return dict(
             source=source,
@@ -81,7 +85,9 @@ class StartupDiscoveryService:
         )
 
     async def run(self, request):
-        await self.preview(request)
+        # Validate without an unused profile read holding the sole runtime
+        # connection while independent parent/child run claims acquire theirs.
+        self.source_config(request.source)
         orchestrator = JobDiscoveryService(self.session, self.factory, self.settings)
         run_id, claimed = await orchestrator.claim(
             request.model_copy(update={"source": "startup_" + request.source})

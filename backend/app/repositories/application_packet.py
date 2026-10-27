@@ -1,8 +1,9 @@
 """Transaction-neutral packet persistence with database uniqueness and revision CAS."""
 
+from copy import deepcopy
 from datetime import datetime, timezone
 
-from sqlalchemy import or_, select, update
+from sqlalchemy import inspect, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
@@ -17,6 +18,7 @@ from backend.app.services.applications.base import (
     ApplicationConflict,
     ApplicationNotFound,
 )
+from backend.app.services.applications.resume_selector import digest
 
 
 class ApplicationPacketRepository:
@@ -94,6 +96,22 @@ class ApplicationPacketRepository:
         )
 
     async def advance(self, packet, expected_revision, *, preserve_approval=False):
+        # Keep owner-edited answers and exact resume/context versions in the
+        # existing private store before replacing a revision. Audit events alone
+        # retain transitions, not the values the owner previously reviewed.
+        archived = {
+            "packet_id": str(packet.id),
+            "revision": packet.revision,
+            "approved_revision": packet.approved_revision,
+            "lifecycle_state": packet.lifecycle_state,
+            "tracking_state": packet.tracking_state,
+            "snapshot": deepcopy(packet.snapshot),
+            "fields": [
+                self.field_read(f).model_dump(mode="json")
+                for f in await self.fields(packet.id)
+            ],
+            "archived_at": datetime.now(timezone.utc).isoformat(),
+        }
         result = await self.session.execute(
             update(ApplicationPacket)
             .where(
@@ -115,6 +133,28 @@ class ApplicationPacketRepository:
         if result.rowcount != 1:
             raise ApplicationConflict(
                 "Packet revision changed; reload it before retrying"
+            )
+        from backend.app.dashboard.models import OwnerPreference
+
+        connection = await self.session.connection()
+        available = await connection.run_sync(
+            lambda conn: inspect(conn).has_table(
+                OwnerPreference.__tablename__, schema=OwnerPreference.__table__.schema
+            )
+        )
+        if available:
+            insert = (
+                pg_insert
+                if self.session.get_bind().dialect.name == "postgresql"
+                else sqlite_insert
+            )
+            await self.session.execute(
+                insert(OwnerPreference)
+                .values(
+                    key=f"packet_revision:{packet.id}:{expected_revision}",
+                    value={"digest": digest(archived), **archived},
+                )
+                .on_conflict_do_nothing()
             )
         await self.session.refresh(packet)
 

@@ -49,6 +49,9 @@ def summary(campaign):
             lines.append(f"{i}. {row['title']} — {row.get('company') or 'Company unknown'} ({row['source']}, {row['verification_status']})")
     if prepared or missing:
         lines.append(f"{prepared} application drafts are ready for review; {missing} need missing information.")
+        for result in campaign.results:
+            if result.get("tool") == "prepare_application" and result.get("packet_id"):
+                lines.append(f"Saved packet {result['packet_id']}: {result['status']}. Review it in Applications before manual browser handoff.")
     if errors:
         lines.append(f"{errors} actions need manual intervention or were denied.")
     if campaign.plan.missing_information:

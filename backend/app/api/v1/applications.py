@@ -88,7 +88,9 @@ async def create(
     data: CreatePacket,
     service: ApplicationPacketService = Depends(application_service),
 ):
-    return await service.create(job_id, data)
+    result = await service.create(job_id, data)
+    await service.session.commit()
+    return result
 
 
 @router.get("/application-packets", response_model=PacketList)
@@ -118,7 +120,9 @@ async def edit_packet(
     data: PacketEdit,
     service: ApplicationPacketService = Depends(application_service),
 ):
-    return await service.edit(packet_id, data)
+    result = await service.edit(packet_id, data)
+    await service.session.commit()
+    return result
 
 
 @router.post("/application-packets/{packet_id}/questions", response_model=PacketRead)
@@ -127,7 +131,9 @@ async def add_questions(
     data: QuestionsAdd,
     service: ApplicationPacketService = Depends(application_service),
 ):
-    return await service.add_questions(packet_id, data)
+    result = await service.add_questions(packet_id, data)
+    await service.session.commit()
+    return result
 
 
 @router.post(
@@ -140,7 +146,9 @@ async def generate(
     data: AnswerGenerateInput,
     service: ApplicationPacketService = Depends(application_service),
 ):
-    return await service.generate(packet_id, field_id, data)
+    result = await service.generate(packet_id, field_id, data)
+    await service.session.commit()
+    return result
 
 
 @router.patch(
@@ -152,7 +160,9 @@ async def edit_answer(
     data: AnswerEdit,
     service: ApplicationPacketService = Depends(application_service),
 ):
-    return await service.edit_answer(packet_id, field_id, data)
+    result = await service.edit_answer(packet_id, field_id, data)
+    await service.session.commit()
+    return result
 
 
 @router.get("/application-packets/{packet_id}/readiness", response_model=Readiness)
@@ -168,7 +178,9 @@ async def review(
     data: ReviewInput,
     service: ApplicationPacketService = Depends(application_service),
 ):
-    return await ApplicationReview(service).review(packet_id, data)
+    result = await ApplicationReview(service).review(packet_id, data)
+    await service.session.commit()
+    return result
 
 
 @router.get("/application-packets/{packet_id}/handoff", response_model=Handoff)
@@ -186,7 +198,9 @@ async def report_submission(
     data: SubmissionInput,
     service: ApplicationPacketService = Depends(application_service),
 ):
-    return await ApplicationTracker(service).report(packet_id, data)
+    result = await ApplicationTracker(service).report(packet_id, data)
+    await service.session.commit()
+    return result
 
 
 @router.patch("/application-packets/{packet_id}/tracking", response_model=PacketRead)
@@ -195,7 +209,9 @@ async def track(
     data: TrackingInput,
     service: ApplicationPacketService = Depends(application_service),
 ):
-    return await ApplicationTracker(service).track(packet_id, data)
+    result = await ApplicationTracker(service).track(packet_id, data)
+    await service.session.commit()
+    return result
 
 
 @router.get(

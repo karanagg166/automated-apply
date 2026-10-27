@@ -1,6 +1,7 @@
 """Savepoint-isolated ingestion preserving every human application decision."""
 
 from datetime import timezone
+from time import perf_counter
 
 from pydantic import BaseModel, Field
 from sqlalchemy import case
@@ -35,17 +36,24 @@ class IngestionResult(BaseModel):
 class JobIngestionService:
     def __init__(self, session):
         self.session = session
+        self.record_seconds = []
         self.company_repo, self.job_repo = (
             CompanyRepository(session),
             JobRepository(session),
         )
 
     async def ingest_jobs(self, jobs, auto_commit=False):
+        self.record_seconds = []
         if len(jobs) > 100:
             raise ValueError("Ingestion is limited to 100 records")
         result = IngestionResult(total_received=len(jobs))
         await ingestion_lock(self.session)
+        # Reuse only consecutive employer evidence resolved by the company repo.
+        # Domain discoveries elsewhere in the batch can change name ambiguity;
+        # an existing job's stronger identity cannot resolve a different new job.
+        companies = {}
         for index, raw in enumerate(jobs):
+            started = perf_counter()
             try:
                 item = NormalizedJob.model_validate(
                     raw.model_dump() if isinstance(raw, NormalizedJob) else raw
@@ -53,10 +61,13 @@ class JobIngestionService:
             except (ValueError, TypeError):
                 result.rejected_count += 1
                 result.errors.append(f"Record {index}: normalization rejected")
+                self.record_seconds.append(perf_counter() - started)
                 continue
             try:
                 async with self.session.begin_nested():
                     company = None
+                    cache_company = False
+                    company_key = (item.company_name, item.company_domain)
                     deduplication = JobDeduplication(self.session)
                     job, reason, possible = await deduplication.resolve(item, None)
                     if job and job.company_id and not item.company_domain:
@@ -69,11 +80,14 @@ class JobIngestionService:
                                 "Changed employer name requires identity review"
                             )
                     elif item.company_name:
-                        company, _ = await self.company_repo.get_or_create(
-                            item.company_name, item.company_domain
-                        )
+                        company = companies.get(company_key)
+                        if company is None:
+                            company, _ = await self.company_repo.get_or_create(
+                                item.company_name, item.company_domain
+                            )
+                        cache_company = True
                     if job is None:
-                        job, reason, possible = await deduplication.resolve(
+                        job, reason, possible = await deduplication.resolve_content(
                             item, company.id if company else None
                         )
                     if (
@@ -102,6 +116,7 @@ class JobIngestionService:
                             skills_required=item.skills_required,
                             description=item.description,
                             date_posted=item.date_posted,
+                            identity_checked=True,
                         )
                     if not job.company_id and company:
                         job.company_id = company.id
@@ -201,6 +216,9 @@ class JobIngestionService:
                     await self.session.flush()
                     saved_id = str(job.id)
                 result.job_ids.append(saved_id)
+                companies.clear()
+                if company is not None and cache_company:
+                    companies[company_key] = company
                 if possible:
                     result.possible_duplicates[saved_id] = possible
                 if created:
@@ -209,11 +227,15 @@ class JobIngestionService:
                     result.updated_count += 1
                     result.duplicate_count += 1
             except ValueError:
+                companies.clear()
                 result.rejected_count += 1
                 result.errors.append(f"Record {index}: conflicting identity evidence")
             except SQLAlchemyError:
+                companies.clear()
                 result.failed_count += 1
                 result.errors.append(f"Record {index}: database persistence failed")
+            finally:
+                self.record_seconds.append(perf_counter() - started)
         result.skipped_count = result.rejected_count + result.failed_count
         if auto_commit:
             await self.session.commit()

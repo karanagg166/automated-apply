@@ -3,6 +3,7 @@ async (catalog = []) => {
   const labelled = el => (el.getAttribute('aria-labelledby') || '').split(' ').map(id => document.getElementById(id)?.innerText || '').join(' ').trim();
   const label = el => ((el.labels ? [...el.labels].map(l => l.innerText).join(' ') : '') || labelled(el) || el.getAttribute('aria-label') || el.placeholder || el.name || '').trim();
   const consent = text => /\b(consent|agree|agreement|terms|privacy|certify|attest|acknowledge|subscribe|permission|affirm|declare|accept)\b/i.test(text);
+  const sensitive = text => /password|passcode|passphrase|one.?time|\botp\b|\bmfa\b|\b2fa\b|verification.?code|security.?code|credit.?card|debit.?card|card.?number|\bcvv\b|\bcvc\b|bank.?account|routing.?number|\biban\b|\bifsc\b|\bupi\b|payment|session|token|secret|api.?key|private.?key|social.?security|\bssn\b|\baadhaar\b|\baadhar\b|\bpan\s*(?:card|number|no)\b|tax.?id|national.?id|government.?id|passport|driv(?:er|ing).?licen[sc]e|security.?question|\b(?:gender|race|ethnic\w*|religion|disabil\w*|veteran|military|sexual\w*|pronouns?|marital|self.?identif\w*)\b|date.?of.?birth|birth.?date|\bdob\b/i.test(text.replace(/[_-]/g, ' '));
   const unique = values => values.every(v => v && v.length <= 200) && new Set(values.map(v => v.toLowerCase())).size === values.length;
   const inspected = new Map();
   for (const item of catalog || []) {
@@ -99,6 +100,7 @@ async (catalog = []) => {
     else if (!['text','email','tel','url','number','date','textarea','select','file','radio_group','combobox','multi_select','checkbox_group'].includes(kind)) manual ||= 'Consent, custom control or unsupported type: complete manually';
     else if (kind === 'file' && (!/resume|curriculum|cv\b/i.test(question) || el.multiple || (el.accept && !/\.pdf|application\/pdf/i.test(el.accept)))) manual = 'Only a single approved resume PDF is supported';
     if (['select','radio_group','combobox','multi_select','checkbox_group'].includes(kind) && consent([question, ...options].join(' '))) manual = 'Consent or attestation requires direct owner action';
+    if (sensitive([question, el.name || '', el.id, el.autocomplete || '', ...options].join(' ')) || /^(cc-|transaction-|one-time-code|current-password|new-password)/i.test(el.autocomplete || '') || consent(question)) manual = 'Sensitive information or legal attestation requires manual entry';
     if (!['radio_group','checkbox_group'].includes(kind) && controls.filter(other => other !== el && other.name && other.name === el.name).length) manual = 'Repeated control name: confirm manually';
     if (seen.has(question)) manual = 'Repeated label: confirm manually';
     seen.add(question);
@@ -118,6 +120,7 @@ async (catalog = []) => {
     heading: (document.querySelector('h1')?.innerText || '').slice(0,200),
     has_frames: !!document.querySelector('iframe'),
     blocked: !!document.querySelector('input[type="password"],iframe[src*="captcha"],[class*="captcha"],[id*="captcha"]') || /verify you are human|access denied|verification code|one.time password/i.test(document.body.innerText.slice(0,30000)),
-    signature: JSON.stringify({fields: fields.map(({key,...f}) => f), steps: steps.map(({key,...s}) => s), step_heading}),
+    signature: JSON.stringify({fields: fields.map(({key,...f}) => f), steps: steps.map(({key,...s}) => s), step_heading,
+      destinations: [...document.forms].map(f => [f.action, f.method, f.target, f.enctype])}),
   };
 }

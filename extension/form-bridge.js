@@ -160,6 +160,15 @@ export async function fillForm() {
   });
   const after = await active();
   if (after.id !== tab.id || after.url !== tab.url) throw Error("page_changed");
+  if (
+    plan?.id !== snapshot.plan.id ||
+    plan.target_url !== snapshot.url ||
+    plan.inspection?.document_id !== snapshot.plan.inspection.document_id ||
+    !Array.isArray(plan.actions) ||
+    !Array.isArray(plan.approved_fields) ||
+    plan.approved_fields.some((id) => !fieldIds.includes(id))
+  )
+    throw Error("form_request_rejected");
   const actions = plan.actions.filter((a) =>
     plan.approved_fields.includes(a.field_id),
   );
@@ -177,6 +186,14 @@ export async function fillForm() {
     ],
   });
   const result = filled.result;
+  try {
+    const finalTab = await active();
+    if (finalTab.id !== tab.id || finalTab.url !== tab.url)
+      throw Error("page_changed");
+  } catch {
+    result.state = "manual_required";
+    result.reason = "step_changed";
+  }
   await native("record_form_fill", {
     receipt: {
       plan_id: plan.id,

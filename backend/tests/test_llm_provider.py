@@ -1,19 +1,20 @@
 import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
+
 import httpx
 import pytest
 from google.genai import errors
 from sqlalchemy import select
 
 from backend.app.ai.base import ProviderError
+from backend.app.ai.prompts import SYSTEM_INSTRUCTION
 from backend.app.ai.provider_factory import create_provider
 from backend.app.ai.providers.gemini import GeminiProvider, retry_after_seconds
-from backend.app.ai.prompts import SYSTEM_INSTRUCTION
 from backend.app.ai.schemas import EvidenceReference, ModelAnswer, SupportedClaim
 from backend.app.ai.usage import LLMUsageManager
-from backend.app.models.application_answer import LLMMonthlyUsage
 from backend.app.db.session import get_session_factory
+from backend.app.models.application_answer import LLMMonthlyUsage
 from backend.tests.phase2a_fakes import FakeProvider
 
 
@@ -128,8 +129,8 @@ async def test_concurrency_and_overall_deadline(phase2_settings):
 
 
 def test_retry_after_http_date():
-    from email.utils import format_datetime
     from datetime import datetime, timedelta, timezone
+    from email.utils import format_datetime
     response = httpx.Response(429, headers={"retry-after": format_datetime(datetime.now(timezone.utc) + timedelta(seconds=60))})
     assert 58 <= retry_after_seconds(response) <= 60
     assert retry_after_seconds(httpx.Response(429, headers={"retry-after": "invalid"})) is None
@@ -163,3 +164,15 @@ async def test_prior_month_cooldown_does_not_reset_on_month_boundary(phase2_sett
 
 def test_nonfinite_retry_after_ignored():
     assert retry_after_seconds(httpx.Response(429, headers={"retry-after": "inf"})) is None
+
+
+@pytest.mark.asyncio
+async def test_enablement_budget_and_key_do_not_authorize_candidate_transfer(phase2_settings):
+    phase2_settings.GEMINI_CANDIDATE_DATA_AUTHORIZED = False
+    client = SimpleNamespace(models=SimpleNamespace(generate_content=AsyncMock()))
+    with pytest.raises(ProviderError, match="candidate_cloud_authorization_required"):
+        create_provider(phase2_settings)
+    with pytest.raises(ProviderError, match="candidate_cloud_authorization_required"):
+        await GeminiProvider(phase2_settings, client).generate_structured_answer(
+            "Describe a project", {"evidence": []}, {})
+    client.models.generate_content.assert_not_called()

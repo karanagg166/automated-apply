@@ -1,14 +1,16 @@
 """Identity-preserving factory. A generic provider never chooses a default platform."""
 
+from backend.app.schemas.discovery import DiscoveryError
+from backend.app.schemas.discovery import DiscoveryStatus as Status
 from backend.app.services.job_sources.base import JobSourceAdapter
 from backend.app.services.job_sources.direct_api import (
-    GreenhouseAdapter,
-    RemotiveAdapter,
     ArbeitnowAdapter,
+    GreenhouseAdapter,
     HackerNewsHiringAdapter,
+    RemotiveAdapter,
 )
+from backend.app.services.job_sources.public_ats import AshbyAdapter, LeverAdapter
 from backend.app.services.job_sources.registry import resolve_source, source_registry
-from backend.app.schemas.discovery import DiscoveryError, DiscoveryStatus as Status
 
 
 class UnavailableAdapter(JobSourceAdapter):
@@ -41,6 +43,8 @@ class UnavailableAdapter(JobSourceAdapter):
 class JobSourceFactory:
     _adapters = {
         "greenhouse": GreenhouseAdapter,
+        "lever": LeverAdapter,
+        "ashby": AshbyAdapter,
         "remotive": RemotiveAdapter,
         "arbeitnow": ArbeitnowAdapter,
         "hacker_news": HackerNewsHiringAdapter,

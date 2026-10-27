@@ -56,10 +56,18 @@ NAMES = {
 def source_registry(settings=None):
     settings = settings or get_settings()
     sources = {}
-    for name in ("greenhouse", "remotive", "arbeitnow", "hacker_news"):
+    for name in (
+        "greenhouse",
+        "lever",
+        "ashby",
+        "remotive",
+        "arbeitnow",
+        "hacker_news",
+    ):
+        boards = getattr(settings, name.upper() + "_BOARDS", None)
         config = (
-            {"boards_configured": bool(settings.GREENHOUSE_BOARDS)}
-            if name == "greenhouse"
+            {"boards_configured": bool(boards), "board_allowlist_required": True}
+            if boards is not None
             else {}
         )
         sources[name] = SourceConfig(
@@ -67,7 +75,7 @@ def source_registry(settings=None):
             display_name=NAMES.get(name, name.title()),
             adapter_type="direct_api",
             availability="configuration_required"
-            if name == "greenhouse" and not settings.GREENHOUSE_BOARDS
+            if boards is not None and not boards
             else "available",
             configuration=config,
         )

@@ -3,9 +3,23 @@
 from backend.app.core.config import get_settings
 from backend.app.services.job_sources.registry import source_registry
 
-PUBLIC_SOURCES = ("hacker_news", "greenhouse", "remotive", "arbeitnow")
+PUBLIC_SOURCES = (
+    "hacker_news",
+    "greenhouse",
+    "remotive",
+    "arbeitnow",
+    "lever",
+    "ashby",
+)
 # Conservative deployment limits; Remotive recommends no more than four calls daily.
-INTERVALS = {"remotive": 21600, "arbeitnow": 60, "greenhouse": 60, "hacker_news": 60}
+INTERVALS = {
+    "remotive": 21600,
+    "arbeitnow": 60,
+    "greenhouse": 60,
+    "hacker_news": 60,
+    "lever": 60,
+    "ashby": 60,
+}
 
 
 def startup_sources(settings=None):
