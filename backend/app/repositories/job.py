@@ -2,11 +2,13 @@
 
 from datetime import datetime
 from uuid import UUID
+
 from sqlalchemy import select
-from backend.app.services.discovery_budget import insert_for
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.app.models.job import Job
 from backend.app.repositories.base import BaseRepository
+from backend.app.services.discovery_budget import insert_for
 
 
 class JobRepository(BaseRepository[Job]):
@@ -38,11 +40,12 @@ class JobRepository(BaseRepository[Job]):
         match_explanation: str | None = None,
         status: str = "discovered",
         date_posted: datetime | None = None,
+        identity_checked: bool = False,
     ) -> tuple[Job, bool]:
         """Save a new job or update existing posting if URL already exists.
         Returns (job, was_created).
         """
-        existing = await self.get_by_url(job_url)
+        existing = None if identity_checked else await self.get_by_url(job_url)
         if existing:
             # Update mutable fields without overwriting user review status if already changed
             if existing.status == "discovered" and status != "discovered":

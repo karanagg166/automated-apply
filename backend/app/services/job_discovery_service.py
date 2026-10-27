@@ -5,6 +5,7 @@ import hashlib
 import json
 import uuid
 from datetime import datetime, timedelta, timezone
+from time import perf_counter
 
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
@@ -43,9 +44,9 @@ def iso_utc(value):
 def run_output(run, settings=None):
     settings = settings or get_settings()
     started = datetime.fromisoformat(iso_utc(run.started_at))
-    expired = run.status == "running" and started < datetime.now(timezone.utc) - timedelta(
-        seconds=settings.DISCOVERY_TIMEOUT_SECONDS + 120
-    )
+    expired = run.status == "running" and started < datetime.now(
+        timezone.utc
+    ) - timedelta(seconds=settings.DISCOVERY_TIMEOUT_SECONDS + 120)
     return {
         "id": str(run.id),
         "source": run.source,
@@ -53,7 +54,9 @@ def run_output(run, settings=None):
         "counts": run.counts,
         "errors": [
             "Execution lease expired; no automatic provider replay. Inspect saved runs and retained budget before a new owner-triggered run."
-        ] if expired else run.errors,
+        ]
+        if expired
+        else run.errors,
         "started_at": iso_utc(run.started_at),
         "finished_at": iso_utc(run.finished_at) if run.finished_at else None,
         "provider_run_id": run.provider_run_id,
@@ -178,20 +181,48 @@ class JobDiscoveryService:
         }
         rankings = []
         saved_job_ids = []
+        started = phase_started = perf_counter()
+        phase = "profile"
+        timings = {}
+        ingestion = None
+
+        def next_phase(name):
+            nonlocal phase, phase_started
+            instant = perf_counter()
+            timings[phase] = round(instant - phase_started, 6)
+            phase, phase_started = name, instant
+
+        def diagnostics():
+            instant = perf_counter()
+            return {
+                "phase_seconds": {**timings, phase: round(instant - phase_started, 6)},
+                "total_seconds": round(instant - started, 6),
+                "last_phase": phase,
+                "deadline_seconds": self.settings.DISCOVERY_TIMEOUT_SECONDS,
+                "record_attempts": len(ingestion.record_seconds) if ingestion else 0,
+                "max_record_seconds": round(max(ingestion.record_seconds, default=0), 6)
+                if ingestion
+                else 0,
+            }
+
         try:
-            profile = None
-            if request.use_profile:
-                # Materialize the profile without holding a database connection
-                # during independent pacing claims or public HTTP. Runtime pools
-                # may have just one connection and a short idle transaction limit.
-                async with self.factory() as profile_session:
-                    try:
-                        profile = await CandidateProfileService(profile_session).get_profile()
-                    except ProfileNotFoundError:
-                        pass
-            query = build_query(request.query, profile)
             async with asyncio.timeout(self.settings.DISCOVERY_TIMEOUT_SECONDS):
+                profile = None
+                if request.use_profile:
+                    # Materialize the profile without holding a database connection
+                    # during independent pacing claims or public HTTP. Runtime pools
+                    # may have just one connection and a short idle transaction limit.
+                    async with self.factory() as profile_session:
+                        try:
+                            profile = await CandidateProfileService(
+                                profile_session
+                            ).get_profile()
+                        except ProfileNotFoundError:
+                            pass
+                query = build_query(request.query, profile)
+                next_phase("concurrency_wait")
                 async with concurrency_limiter(self.settings.DISCOVERY_MAX_CONCURRENCY):
+                    next_phase("provider")
                     if config.adapter_type == "manual":
                         jobs, errors = [], []
                         for index, record in enumerate(request.manual_jobs):
@@ -240,6 +271,8 @@ class JobDiscoveryService:
                         options = (
                             {"budget": self.budget, "settings": self.settings}
                             if config.adapter_type == "apify"
+                            else {"settings": self.settings}
+                            if config.id in {"lever", "ashby"}
                             else {}
                         )
                         adapter = JobSourceFactory.get_adapter(
@@ -273,6 +306,7 @@ class JobDiscoveryService:
                             status=Status.UPSTREAM_ERROR,
                             errors=["Provider violated source identity or result cap"],
                         )
+                    next_phase("filtering")
                     counts["discovered"] = len(result.jobs)
                     counts["rejected"] = result.rejected_count
                     counts["skipped"] = result.rejected_count
@@ -324,9 +358,9 @@ class JobDiscoveryService:
                             continue
                         filtered.append(job)
                     if filtered:
-                        ingested = await JobIngestionService(self.session).ingest_jobs(
-                            filtered
-                        )
+                        next_phase("ingestion")
+                        ingestion = JobIngestionService(self.session)
+                        ingested = await ingestion.ingest_jobs(filtered)
                         saved_job_ids = ingested.job_ids
                         for name in (
                             "inserted",
@@ -338,19 +372,29 @@ class JobDiscoveryService:
                         ):
                             counts[name] += getattr(ingested, name + "_count")
                         if profile:
+                            next_phase("matching")
                             from backend.app.models.company import Company
                             from backend.app.models.job import Job
                             from backend.app.services.job_discovery_matcher import (
                                 JobDiscoveryMatcher,
                             )
 
-                            for job_id in set(ingested.job_ids):
-                                job = await self.session.get(Job, uuid.UUID(job_id))
-                                company = (
-                                    await self.session.get(Company, job.company_id)
-                                    if job.company_id
-                                    else None
+                            rows = (
+                                await self.session.execute(
+                                    select(Job, Company)
+                                    .outerjoin(Company, Job.company_id == Company.id)
+                                    .where(
+                                        Job.id.in_(
+                                            [
+                                                uuid.UUID(value)
+                                                for value in set(ingested.job_ids)
+                                            ]
+                                        )
+                                    )
                                 )
+                            ).all()
+                            for job, company in rows:
+                                job_id = str(job.id)
                                 match = JobDiscoveryMatcher(self.session).match(
                                     job, profile, company
                                 )
@@ -370,29 +414,30 @@ class JobDiscoveryService:
                         result.errors.extend(ingested.errors)
                         if ingested.failed_count or ingested.rejected_count:
                             result.status = Status.PARTIAL
-            run = await self.session.get(DiscoveryRun, run_id)
-            if (
-                result.status == Status.SUCCESS
-                and counts["discovered"]
-                and not counts["inserted"]
-                and not counts["updated"]
-            ):
-                result.status = Status.NO_RESULTS
-            run.query_summary = {**run.query_summary, "job_ids": saved_job_ids}
-            run.rankings = rankings
-            run.status, run.counts, run.errors = (
-                str(result.status),
-                counts,
-                result.errors[:100],
-            )
-            run.finished_at, run.provider_run_id, run.usage = (
-                datetime.now(timezone.utc),
-                result.provider_run_id,
-                result.usage,
-            )
-            # Job writes and successful final audit commit together.
-            await self.session.commit()
-            return run_output(run)
+                next_phase("finalization")
+                run = await self.session.get(DiscoveryRun, run_id)
+                if (
+                    result.status == Status.SUCCESS
+                    and counts["discovered"]
+                    and not counts["inserted"]
+                    and not counts["updated"]
+                ):
+                    result.status = Status.NO_RESULTS
+                run.query_summary = {**run.query_summary, "job_ids": saved_job_ids}
+                run.rankings = rankings
+                run.status, run.counts, run.errors = (
+                    str(result.status),
+                    counts,
+                    result.errors[:100],
+                )
+                run.finished_at, run.provider_run_id, run.usage = (
+                    datetime.now(timezone.utc),
+                    result.provider_run_id,
+                    {**result.usage, "diagnostics": diagnostics()},
+                )
+                # Job writes and successful final audit commit together.
+                await self.session.commit()
+                return run_output(run)
         except BaseException as exc:
             try:
                 await self.session.rollback()
@@ -405,6 +450,10 @@ class JobDiscoveryService:
             async def fail_run(error):
                 async with self.factory() as session:
                     run = await session.get(DiscoveryRun, run_id)
+                    # COMMIT acknowledgement can be lost after a durable success.
+                    # Inspect the saved audit; never overwrite it or replay work.
+                    if run.finished_at is not None:
+                        return run_output(run, self.settings)
                     run.status = (
                         "cancelled"
                         if isinstance(error, asyncio.CancelledError)
@@ -417,7 +466,7 @@ class JobDiscoveryService:
                     run.errors = [
                         "Discovery cancelled"
                         if isinstance(error, asyncio.CancelledError)
-                        else "Discovery failed; no batch changes committed"
+                        else f"Discovery failed during {phase}; no batch changes committed"
                     ]
                     run.counts = {
                         **counts,
@@ -428,7 +477,10 @@ class JobDiscoveryService:
                     }
                     run.finished_at = datetime.now(timezone.utc)
                     run.provider_run_id = result.provider_run_id or run.provider_run_id
-                    run.usage = result.usage or run.usage
+                    run.usage = {
+                        **(result.usage or run.usage),
+                        "diagnostics": diagnostics(),
+                    }
                     await session.commit()
                     return run_output(run)
 
