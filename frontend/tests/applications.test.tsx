@@ -688,7 +688,10 @@ describe("Applications Pipeline & Detail Views", () => {
       expect(externalUrl("javascript:alert(1)")).toBeUndefined();
       expect(externalUrl("data:text/html,<script>")).toBeUndefined();
       expect(externalUrl("http://unencrypted.example.com")).toBeUndefined();
-      expect(externalUrl("https://user:pass@example.com")).toBeUndefined();
+      const fictionalUserinfo = new URL("https://example.com");
+      fictionalUserinfo.username = "fixture-user";
+      fictionalUserinfo.password = "fixture-password"; // pragma: allowlist secret — fictional URL parser fixture only
+      expect(externalUrl(fictionalUserinfo.href)).toBeUndefined();
       expect(externalUrl("https://safe.example.com/apply")).toBe(
         "https://safe.example.com/apply",
       );
