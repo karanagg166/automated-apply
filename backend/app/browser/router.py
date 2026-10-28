@@ -45,7 +45,7 @@ router = APIRouter(
 
 
 @router.get("/plans", response_model=list[FillPlan])
-async def plans(session: AsyncSession = Depends(get_db_session)):
+async def plans(session: AsyncSession = Depends(get_db_session, scope="function")):
     rows = (
         await session.scalars(
             select(OwnerPreference)
@@ -62,7 +62,7 @@ async def review(
     plan_id: UUID,
     data: Review,
     request: Request,
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
     owner_ui(request)
     try:
@@ -74,7 +74,7 @@ async def review(
 
 
 @router.post("/stop")
-async def stop(request: Request, session: AsyncSession = Depends(get_db_session)):
+async def stop(request: Request, session: AsyncSession = Depends(get_db_session, scope="function")):
     from backend.app.browser.queue import stop_all
 
     owner_ui(request)
@@ -84,7 +84,7 @@ async def stop(request: Request, session: AsyncSession = Depends(get_db_session)
 
 @router.post("/plans/{plan_id}/next")
 async def next_step(
-    plan_id: UUID, request: Request, session: AsyncSession = Depends(get_db_session)
+    plan_id: UUID, request: Request, session: AsyncSession = Depends(get_db_session, scope="function")
 ):
     from datetime import datetime, timezone
 
@@ -127,7 +127,7 @@ async def next_step(
 
 
 @router.get("/submissions", response_model=list[Submission])
-async def submissions(session: AsyncSession = Depends(get_db_session)):
+async def submissions(session: AsyncSession = Depends(get_db_session, scope="function")):
     from backend.app.browser.submission import SubmissionService
 
     return [
@@ -140,7 +140,7 @@ async def approve_submission(
     application_id: UUID,
     data: SubmissionApproval,
     request: Request,
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
     from backend.app.agent.router import OWNER
     from backend.app.browser.submission import SubmissionService
@@ -158,7 +158,7 @@ async def approve_submission(
 async def execute_submission(
     application_id: UUID,
     request: Request,
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
     from backend.app.agent.router import OWNER
     from backend.app.browser.submission import SubmissionService
@@ -174,7 +174,7 @@ async def execute_submission(
 
 @router.post("/submissions/stop")
 async def stop_submissions(
-    request: Request, session: AsyncSession = Depends(get_db_session)
+    request: Request, session: AsyncSession = Depends(get_db_session, scope="function")
 ):
     from backend.app.browser.submission import SubmissionService
 
@@ -230,7 +230,7 @@ async def get_browser_policy():
 async def preview_current_page(
     packet_id: UUID,
     data: RevisionInput,
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
     from backend.app.browser.navigation import preview
 
@@ -252,7 +252,7 @@ async def preview_current_page(
     "/{packet_id}/resume-page", dependencies=[Depends(require_owner_approval)]
 )
 async def resume_current_page(
-    packet_id: UUID, data: ResumePage, session: AsyncSession = Depends(get_db_session)
+    packet_id: UUID, data: ResumePage, session: AsyncSession = Depends(get_db_session, scope="function")
 ):
     from backend.app.browser.navigation import resume
 
@@ -273,7 +273,7 @@ async def resume_current_page(
 async def preview_step(
     packet_id: UUID,
     data: RevisionInput,
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
     from backend.app.browser.steps import preview
 
@@ -293,7 +293,7 @@ async def preview_step(
     "/{packet_id}/advance-step", dependencies=[Depends(require_owner_approval)]
 )
 async def advance_application_step(
-    packet_id: UUID, data: AdvanceStep, session: AsyncSession = Depends(get_db_session)
+    packet_id: UUID, data: AdvanceStep, session: AsyncSession = Depends(get_db_session, scope="function")
 ):
     from backend.app.browser.steps import advance
 
@@ -313,7 +313,7 @@ async def advance_application_step(
 async def preview_opportunity(
     packet_id: UUID,
     data: RevisionInput,
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
     from backend.app.browser.opportunity import capture
 
@@ -336,7 +336,7 @@ async def preview_opportunity(
 async def preview_company_source(
     packet_id: UUID,
     data: ReadCompanySource,
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
     from backend.app.browser.company_source import preview
 
@@ -358,7 +358,7 @@ async def preview_company_source(
 async def approve_opportunity(
     packet_id: UUID,
     data: ReviewOpportunity,
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
     from backend.app.browser.opportunity import approve
 
@@ -378,7 +378,7 @@ async def approve_opportunity(
 
 @assistant_router.post("")
 async def prepare_application(
-    data: PrepareBrowser, session: AsyncSession = Depends(get_db_session)
+    data: PrepareBrowser, session: AsyncSession = Depends(get_db_session, scope="function")
 ):
     result = await prepare(session, data)
     await session.commit()
@@ -387,14 +387,14 @@ async def prepare_application(
 
 @assistant_router.get("/{packet_id}")
 async def get_application_status(
-    packet_id: UUID, session: AsyncSession = Depends(get_db_session)
+    packet_id: UUID, session: AsyncSession = Depends(get_db_session, scope="function")
 ):
     return await status(session, packet_id)
 
 
 @assistant_router.get("/{packet_id}/operation")
 async def get_browser_operation(
-    packet_id: UUID, session: AsyncSession = Depends(get_db_session)
+    packet_id: UUID, session: AsyncSession = Depends(get_db_session, scope="function")
 ):
     packet = await ApplicationPacketService(session).repo.get(packet_id)
     return {
@@ -406,7 +406,7 @@ async def get_browser_operation(
 
 @assistant_router.post("/{packet_id}/open")
 async def open_application(
-    packet_id: UUID, data: OpenBrowser, session: AsyncSession = Depends(get_db_session)
+    packet_id: UUID, data: OpenBrowser, session: AsyncSession = Depends(get_db_session, scope="function")
 ):
     if not data.approve_dedicated_profile or not data.confirm_destination_permission:
         raise HTTPException(
@@ -443,7 +443,7 @@ async def open_application(
 async def application_action(
     packet_id: UUID,
     data: BrowserAction,
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
     # This assisted action never authorizes submission; the mock dispatch has separate gates.
     if data.action == "submit":
@@ -510,7 +510,7 @@ async def application_action(
 async def submission_preview(
     packet_id: UUID,
     data: SubmissionPreviewRequest,
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
     from backend.app.browser.submissions import preview
 
@@ -531,7 +531,7 @@ async def submission_preview(
 async def authorize_submission(
     packet_id: UUID,
     data: SubmissionAuthorization,
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
     from backend.app.browser.submissions import authorize
 
@@ -547,7 +547,7 @@ async def authorize_submission(
 async def submit_approved_application(
     packet_id: UUID,
     data: SubmitApproved,
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
     from backend.app.browser.submissions import submit
 
@@ -557,7 +557,7 @@ async def submit_approved_application(
 
 @assistant_router.post("/{packet_id}/recover-submission")
 async def recover_submission(
-    packet_id: UUID, session: AsyncSession = Depends(get_db_session)
+    packet_id: UUID, session: AsyncSession = Depends(get_db_session, scope="function")
 ):
     from backend.app.browser.submissions import recover
 
@@ -571,7 +571,7 @@ async def recover_submission(
 async def owner_consent(
     packet_id: UUID,
     data: ConsentAction,
-    session: AsyncSession = Depends(get_db_session),
+    session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
     from backend.app.browser.submissions import set_consent
 
