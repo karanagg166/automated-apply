@@ -50,15 +50,11 @@ def target(url, settings):
         and not parsed.password
     ):
         return url
-    if not safe_url(url) or parsed.query or parsed.fragment:
+    if not safe_url(url) or parsed.fragment:
         raise ToolDenied("verified_public_application_url_required")
-    if not (
-        (
-            parsed.hostname
-            in {"boards.greenhouse.io", "job-boards.greenhouse.io", "jobs.lever.co"}
-        )
-        or (parsed.hostname == "docs.google.com" and parsed.path.startswith("/forms/"))
-    ):
+    from backend.app.browser.site_policy import application_page_url
+
+    if not application_page_url(url, settings.BROWSER_ALLOWED_ORIGINS):
         raise ToolDenied("unsupported_form_adapter")
     return url
 
@@ -168,7 +164,7 @@ class FormService:
             job = await self.session.get(Job, packet.job_id)
             destination = job.application_url
         url = (
-            manual_page_url(destination)
+            manual_page_url(destination, self.settings)
             if mode == "manual_extension" and not fixture
             else target(destination, self.settings)
         )
@@ -197,7 +193,7 @@ class FormService:
         profile = await reviewed_profile(self.session)
         if not profile:
             raise ToolDenied("profile_review_required")
-        url = manual_page_url(inspection.url)
+        url = manual_page_url(inspection.url, self.settings)
         if not url or inspection.state not in {"ready", "validation_errors"}:
             raise ToolDenied("unsupported_application_form")
         policy = await get_policy(self.session)

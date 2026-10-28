@@ -29,7 +29,11 @@ const allowedHost = (url) =>
     "boards.greenhouse.io",
     "job-boards.greenhouse.io",
     "jobs.lever.co",
+    "jobs.eu.lever.co",
+    "jobs.ashbyhq.com",
+    "jobs.smartrecruiters.com",
   ].includes(url.hostname) ||
+  (/^[a-z0-9-]+\.wd[0-9]+\.myworkdayjobs\.com$/.test(url.hostname) && url.pathname.includes("/job/")) ||
   (url.hostname === "docs.google.com" && url.pathname.startsWith("/forms/"));
 async function evaluateForm(
   state,
@@ -204,7 +208,7 @@ for await (const line of createInterface({ input: process.stdin })) {
         !fixture &&
         (url.protocol !== "https:" ||
           !allowedHost(url) ||
-          url.search ||
+          (url.search && !(url.hostname === "jobs.smartrecruiters.com" && url.search === "?oga=true")) ||
           url.hash)
       )
         throw Error("unsupported_url");

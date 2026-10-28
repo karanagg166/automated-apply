@@ -48,6 +48,8 @@ export function formErrorMessage(error) {
         "Prepare and review answers for the current form step before filling.",
       fill_plan_stale:
         "Your saved facts or application changed, or review authorization expired. Prepare and review fresh answers.",
+      form_cancelled_reprepare_required:
+        "Preparation cancelled. Check the page, then prepare fresh answers to continue.",
       platform_fill_policy_denied:
         "Filling is disabled for this platform in your owner settings.",
       application_not_eligible:

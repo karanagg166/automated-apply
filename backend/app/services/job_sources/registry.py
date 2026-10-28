@@ -46,6 +46,7 @@ APIFY_PORTALS = (
     "glassdoor",
 )
 NAMES = {
+    "smartrecruiters": "SmartRecruiters",
     "work_at_a_startup": "YC Work at a Startup",
     "hacker_news": "Hacker News Hiring",
     "gmail_alert": "Gmail job alerts",
@@ -59,6 +60,7 @@ def source_registry(settings=None):
         "greenhouse",
         "lever",
         "ashby",
+        "smartrecruiters",
         "remotive",
         "arbeitnow",
         "hacker_news",
@@ -106,6 +108,19 @@ def source_registry(settings=None):
         availability="manual_import_only",
         operations=["manual_import"],
     )
+    for name, display, reason in (
+        ("simplify", "Simplify Jobs", "No job-seeker collection authorization verified"),
+        ("workday", "Workday", "Tenant feed access requires separately verified permission"),
+        ("company_careers", "Company career page", "Import an owner-reviewed URL and listing facts"),
+    ):
+        sources[name] = SourceConfig(
+            id=name,
+            display_name=display,
+            adapter_type="manual",
+            availability="manual_import_only",
+            operations=["manual_import"],
+            configuration={"collection_supported": False, "permission_basis": reason},
+        )
     sources["manual"] = SourceConfig(
         id="manual",
         display_name="Manual import",

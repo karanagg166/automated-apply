@@ -92,6 +92,9 @@ def content_evidence(payload):
             "possible_rejection": r"\b(?:unfortunately|not moving forward)\b",
             "possible_acknowledgment": r"\b(?:application received|received your application)\b",
             "possible_job_lead": r"\b(?:job alert|vacanc|hiring|open position|job opening)\b",
+            "possible_recruiter_response": r"\b(?:recruit(?:er|ing|ment)|talent acquisition)\b.{0,100}\b(?:response|reply|opportunity|reach(?:ing)? out|discuss)\b",
+            "possible_follow_up_request": r"\b(?:please|kindly)\b.{0,100}\b(?:provide|share|reply|respond|confirm|complete|send)\b|\bfollow[ -]?up\b",
+            "possible_status_update": r"\b(?:application status|status of your application|application update|under review|next stage|next steps)\b",
         }.items()
         if re.search(pattern, text)
     ]
@@ -100,6 +103,8 @@ def content_evidence(payload):
         "signals": signals,
         "verification_status": "requires_review",
         "submission_confirmed": False,
+        "signal_basis": "selected_message_body_keywords",
+        "status_confirmed": False,
     }
 
 

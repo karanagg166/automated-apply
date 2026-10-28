@@ -159,6 +159,13 @@ class BrowserWorker:
                 }
             plan_id = UUID(job["plan_id"])
         else:
+            from backend.app.browser.runner import validate_destination
+
+            # Recheck configured permission and public DNS. Generic sites use
+            # the dashboard runner, which pins DNS before launching Chromium;
+            # this worker's driver keeps its fixed ATS host boundary.
+            if self.settings.ENVIRONMENT != "testing":
+                await validate_destination(url, self.settings)
             opened = await self.driver.call(
                 "open",
                 url=url,

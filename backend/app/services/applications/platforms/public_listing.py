@@ -12,6 +12,7 @@ HOSTS = {
     "hacker_news": {"news.ycombinator.com"},
     "lever": {"jobs.lever.co", "jobs.eu.lever.co"},
     "ashby": {"jobs.ashbyhq.com"},
+    "smartrecruiters": {"jobs.smartrecruiters.com"},
 }
 
 
@@ -46,6 +47,11 @@ class PublicListingPlatform:
             except (ValueError, TypeError, IndexError):
                 consistent = False
         verified_listing = job.source_verification_status == "source_reported"
+        if self.source == "smartrecruiters":
+            from backend.app.core.job_urls import ats_job_url
+
+            identity = ats_job_url(original)
+            consistent = consistent and identity is not None and identity == ats_job_url(destination)
         valid = bool(
             consistent and destination and verified_listing and job.status != "archived"
         )

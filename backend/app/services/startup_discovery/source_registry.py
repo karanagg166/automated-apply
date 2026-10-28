@@ -10,6 +10,7 @@ PUBLIC_SOURCES = (
     "arbeitnow",
     "lever",
     "ashby",
+    "smartrecruiters",
 )
 # Conservative deployment limits; Remotive recommends no more than four calls daily.
 INTERVALS = {
@@ -21,6 +22,7 @@ INTERVALS = {
     "hacker_news": 60,
     "lever": 60,
     "ashby": 60,
+    "smartrecruiters": 60,
 }
 
 

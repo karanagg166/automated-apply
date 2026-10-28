@@ -1,10 +1,12 @@
 """Evidence-bearing job normalization, backwards compatible with Phase 1 names."""
 
 import re
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Literal
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from backend.app.core.job_urls import canonical_job_url, ats_job_url
+
+from backend.app.core.job_urls import ats_job_url, canonical_job_url
 
 
 class NormalizedJob(BaseModel):
@@ -24,6 +26,8 @@ class NormalizedJob(BaseModel):
     remote_type: Literal["remote", "hybrid", "onsite", "unknown"] = "unknown"
     employment_type: str | None = Field(None, max_length=50)
     experience_level: str | None = Field(None, max_length=50)
+    experience_min_years: float | None = Field(None, ge=0, le=60, strict=True, allow_inf_nan=False)
+    experience_max_years: float | None = Field(None, ge=0, le=60, strict=True, allow_inf_nan=False)
     salary_raw: str | None = Field(None, max_length=1000)
     salary_min: float | None = Field(None, ge=0, le=1e12, allow_inf_nan=False)
     salary_max: float | None = Field(None, ge=0, le=1e12, allow_inf_nan=False)
@@ -126,6 +130,11 @@ class NormalizedJob(BaseModel):
 
     @model_validator(mode="after")
     def evidence(self):
+        if (
+            self.experience_min_years is not None and self.experience_max_years is not None
+            and self.experience_min_years > self.experience_max_years
+        ):
+            raise ValueError("Experience minimum exceeds maximum")
         original = canonical_job_url(self.original_url)
         application_identity = ats_job_url(self.application_url)
         if self.canonical_url and canonical_job_url(self.canonical_url) not in {

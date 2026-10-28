@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { inspectForm, prepareAnswers, fillForm } from "../form-bridge.js";
+import { inspectForm, prepareAnswers, fillForm, cancelPreparedForm } from "../form-bridge.js";
 import { formErrorMessage, formPlanText } from "../form-messages.js";
 const url = "https://jobs.lever.co/fictional-owner/fictional-job";
 const zohoUrl =
@@ -374,3 +374,41 @@ test("form messages explain unsupported Zoho controls, consent, radio groups, an
     /Available Start Date \(required\)\nManual completion required: Date field requires manual entry\nSource: Manual only/,
   );
 });
+
+test("cancellation during native authorization prevents DOM mutation and replay", async () => {
+  setup();
+  await prepareAnswers();
+  const original = chrome.runtime.sendNativeMessage;
+  chrome.runtime.sendNativeMessage = async (host, req) => {
+    const response = await original(host, req);
+    if (req.command === "authorize_form") cancelPreparedForm();
+    return response;
+  };
+  await assert.rejects(fillForm(), /form_cancelled_reprepare_required/);
+  assert.equal(calls.filter(c => c.script?.args?.[0]?.operation === "fill").length, 0);
+  await assert.rejects(fillForm(), /inspect_and_review_first/);
+});
+
+test("cancelled or superseded preparations cannot replace current reviewed context", async () => {
+  setup();
+  const original = chrome.runtime.sendNativeMessage;
+  chrome.runtime.sendNativeMessage = async (host, req) => {
+    const response = await original(host, req);
+    if (req.command === "prepare_form_answers") cancelPreparedForm();
+    return response;
+  };
+  await assert.rejects(prepareAnswers(), /form_cancelled_reprepare_required/);
+  await assert.rejects(fillForm(), /inspect_and_review_first/);
+  chrome.runtime.sendNativeMessage = original;
+  await prepareAnswers();
+  assert.equal((await fillForm()).submitted, false);
+});
+
+for (const host of ["simplify.jobs", "www.linkedin.com", "mail.google.com", "accounts.google.com"]) {
+  test(`restricted form on ${host} is refused before reading the DOM or contacting native host`, async () => {
+    setup();
+    tab.url = `https://${host}/fictional/apply`;
+    await assert.rejects(prepareAnswers(), /supported_application_page_required/);
+    assert.equal(calls.length, 0);
+  });
+}
