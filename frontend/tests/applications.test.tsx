@@ -734,6 +734,80 @@ describe("Applications Pipeline & Detail Views", () => {
         );
       });
     });
+
+    it("distinguishes approved answer provenance badges clearly", async () => {
+      const packetWithProvenance: typeof mockPacket = {
+        ...mockPacket,
+        fields: [
+          {
+            ...mockPacket.fields[0],
+            id: "f-owner",
+            question: "Owner approved question",
+            provenance: {
+              origin: "user_provided",
+              source: "owner_answer" as any,
+              resolver: "deterministic",
+              evidence_references: [],
+            },
+          },
+          {
+            ...mockPacket.fields[0],
+            id: "f-reused",
+            question: "Reused question",
+            provenance: {
+              origin: "user_provided",
+              source: "approved_answer",
+              resolver: "deterministic",
+              evidence_references: [],
+            },
+          },
+          {
+            ...mockPacket.fields[0],
+            id: "f-profile",
+            question: "Profile fact question",
+            provenance: {
+              origin: "user_provided",
+              source: "profile_fact" as any,
+              resolver: "deterministic",
+              evidence_references: [],
+            },
+          },
+          {
+            ...mockPacket.fields[0],
+            id: "f-project",
+            question: "Project question",
+            provenance: {
+              origin: "user_provided",
+              source: "approved_project" as any,
+              resolver: "deterministic",
+              evidence_references: [],
+            },
+          },
+        ],
+      };
+      vi.mocked(api).mockImplementation((path: string) => {
+        if (path === `application-packets/${mockPacket.id}`) {
+          return Promise.resolve(packetWithProvenance);
+        }
+        if (path === `application-packets/${mockPacket.id}/events`) {
+          return Promise.resolve([]);
+        }
+        if (path === "browser-applications/policy") {
+          return Promise.resolve({ origins: [], digest: "test-digest" });
+        }
+        return Promise.reject(new Error(`Unhandled GET path: ${path}`));
+      });
+      renderWithClient(<ApplicationDetail id={mockPacket.id} />);
+
+      expect(
+        await screen.findByText("Human-approved (exact context)"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText("Reused from approved answers"),
+      ).toBeInTheDocument();
+      expect(screen.getByText("Verified profile fact")).toBeInTheDocument();
+      expect(screen.getByText("Approved project evidence")).toBeInTheDocument();
+    });
   });
 
   describe("Security and safe rendering", () => {

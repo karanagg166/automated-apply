@@ -64,6 +64,7 @@ export type JobEmailEvidence = {
   submission_confirmed: false;
   links: string[];
   signals: string[];
+  imported_job_ids?: string[];
 };
 type AccountList = {
   accounts: ReadAccount[];
@@ -101,6 +102,11 @@ export function ConnectedEmails() {
   const [company, setCompany] = useState("");
   const [reviewed, setReviewed] = useState(false);
   const [imported, setImported] = useState(false);
+  const [importResult, setImportResult] = useState<{
+    duplicate_count?: number;
+    inserted_count?: number;
+    job_ids?: string[];
+  } | null>(null);
   const accountsQuery = useQuery({
     queryKey: ["gmail-read-accounts"],
     queryFn: () => api<AccountList>("integrations/gmail/accounts"),
@@ -208,8 +214,9 @@ export function ConnectedEmails() {
           reviewed_job_evidence: reviewed,
         },
       ),
-    onSuccess: () => {
+    onSuccess: (data: any) => {
       setImportSelection(null);
+      setImportResult(data);
       setImported(true);
       client.invalidateQueries({ queryKey: ["jobs"] });
       refresh();
@@ -275,8 +282,17 @@ export function ConnectedEmails() {
       )}
       {imported && (
         <Notice>
-          Reviewed lead imported. Current vacancy and submission remain
-          unconfirmed.
+          <div className="split">
+            <span>
+              {importResult && (importResult.duplicate_count || 0) > 0
+                ? `Lead updated as existing record (${importResult.duplicate_count} duplicate recognized). Current vacancy and submission remain unconfirmed.`
+                : `Reviewed lead imported into workspace (${importResult?.inserted_count || 1} vacancy added). Current vacancy and submission remain unconfirmed.`}
+              {importResult?.job_ids?.length
+                ? ` Job ID: ${importResult.job_ids.join(", ")}`
+                : ""}
+            </span>
+            <Badge tone="green">Reviewed</Badge>
+          </div>
         </Notice>
       )}
       <div
@@ -315,6 +331,14 @@ export function ConnectedEmails() {
                 {account.sync.policy?.label_allowlist.join(", ") ||
                   "None selected"}
               </dd>
+              <dt>Granted OAuth scopes</dt>
+              <dd>
+                {account.granted_scopes && account.granted_scopes.length > 0 ? (
+                  account.granted_scopes.join(", ")
+                ) : (
+                  <span className="muted">None recorded</span>
+                )}
+              </dd>
             </dl>
             {account.sync.last_error && (
               <p role="alert">{readable(account.sync.last_error)}</p>
@@ -345,6 +369,16 @@ export function ConnectedEmails() {
               >
                 Verify token
               </Button>
+              {account.status === "reauthorization_required" && (
+                <Button
+                  onClick={() => {
+                    setExpectedEmail(account.account_email);
+                    setConnectOpen(true);
+                  }}
+                >
+                  Reconnect account
+                </Button>
+              )}
               <Button
                 variant="danger"
                 disabled={account.status === "disconnected"}
@@ -404,7 +438,16 @@ export function ConnectedEmails() {
               )}
               {records.map((record) => (
                 <div className="panel panel-body" key={record.id}>
-                  <Badge tone="amber">Requires review</Badge>
+                  <div className="tag-list">
+                    <Badge tone="amber">Requires review</Badge>
+                    {record.imported_job_ids &&
+                      record.imported_job_ids.length > 0 && (
+                        <Badge tone="green">
+                          Imported (Job ID: {record.imported_job_ids.join(", ")}
+                          )
+                        </Badge>
+                      )}
+                  </div>
                   <p>
                     Message ID: {record.message_id} · Thread ID:{" "}
                     {record.thread_id}
@@ -426,27 +469,40 @@ export function ConnectedEmails() {
                   ))}
                 </div>
               ))}
-              {leads.map((lead) => (
-                <article key={lead.id} className="panel panel-body">
-                  <Badge tone="amber">Unconfirmed vacancy lead</Badge>
-                  <p>
-                    <External href={lead.url}>{lead.url}</External>
-                  </p>
-                  <p>Source evidence: {lead.evidence_ids.join(", ")}</p>
-                  <Button
-                    disabled={!lead.evidence_ids.length}
-                    onClick={() => {
-                      setImportSelection({ account, lead });
-                      setTitle("");
-                      setCompany("");
-                      setReviewed(false);
-                      importLead.reset();
-                    }}
-                  >
-                    Review lead for import
-                  </Button>
-                </article>
-              ))}
+              {leads.map((lead) => {
+                const leadEvidence = records.filter((r) =>
+                  lead.evidence_ids.includes(r.id),
+                );
+                const isImported = leadEvidence.some(
+                  (r) => r.imported_job_ids && r.imported_job_ids.length > 0,
+                );
+                return (
+                  <article key={lead.id} className="panel panel-body">
+                    <div className="tag-list">
+                      <Badge tone="amber">Unconfirmed vacancy lead</Badge>
+                      {isImported && (
+                        <Badge tone="neutral">Already imported</Badge>
+                      )}
+                    </div>
+                    <p>
+                      <External href={lead.url}>{lead.url}</External>
+                    </p>
+                    <p>Source evidence: {lead.evidence_ids.join(", ")}</p>
+                    <Button
+                      disabled={!lead.evidence_ids.length}
+                      onClick={() => {
+                        setImportSelection({ account, lead });
+                        setTitle("");
+                        setCompany("");
+                        setReviewed(false);
+                        importLead.reset();
+                      }}
+                    >
+                      Review lead for import
+                    </Button>
+                  </article>
+                );
+              })}
             </section>
           ))}
         </section>
@@ -579,6 +635,21 @@ export function ConnectedEmails() {
       >
         {importSelection && (
           <div className="stack">
+            {Boolean(
+              evidence.data
+                ?.find((e) => e.account.id === importSelection.account.id)
+                ?.records.filter((r) =>
+                  importSelection.lead.evidence_ids.includes(r.id),
+                )
+                .some(
+                  (r) => r.imported_job_ids && r.imported_job_ids.length > 0,
+                ),
+            ) && (
+              <Notice>
+                <strong>Duplicate status:</strong> This lead was previously
+                imported. Importing again will update the existing job record.
+              </Notice>
+            )}
             <p>Account: {importSelection.account.account_email}</p>
             <External href={importSelection.lead.url}>
               Inspect source posting

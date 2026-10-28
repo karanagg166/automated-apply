@@ -207,3 +207,69 @@ it("has no send, modify, archive, delete or compose operation", async () => {
     expect(screen.queryByRole("button", { name })).toBeNull();
   expect(post).not.toHaveBeenCalled();
 });
+
+it("shows reconnect button when reauthorization is required and prefills email", async () => {
+  const reauthAccount: ReadAccount = {
+    ...accounts[0],
+    status: "reauthorization_required",
+  };
+  vi.mocked(api).mockImplementation(async (path) => {
+    if (path === "integrations/gmail/accounts")
+      return {
+        accounts: [reauthAccount],
+        workflow: "readonly",
+        schema_ready: true,
+      } as any;
+    if (path.endsWith("/evidence")) return { evidence: [] } as any;
+    if (path.endsWith("/leads")) return { leads: [] } as any;
+    return {} as any;
+  });
+  mount();
+  const reconnectBtn = await screen.findByRole("button", {
+    name: "Reconnect account",
+  });
+  await userEvent.click(reconnectBtn);
+  const dialog = await screen.findByRole("dialog");
+  expect(dialog).toHaveTextContent("Connect Secondary Gmail Account");
+  expect(screen.getByDisplayValue("first@example.org")).toBeInTheDocument();
+});
+
+it("displays duplicate status badge and duplicate notice when lead was previously imported", async () => {
+  const importedRecord: JobEmailEvidence = {
+    ...record,
+    imported_job_ids: ["job-101", "job-102"],
+  };
+  vi.mocked(api).mockImplementation(async (path) => {
+    if (path === "integrations/gmail/accounts")
+      return { accounts, workflow: "readonly", schema_ready: true } as any;
+    if (path.endsWith("/evidence"))
+      return { evidence: path.includes(first) ? [importedRecord] : [] } as any;
+    if (path.endsWith("/leads"))
+      return {
+        leads: path.includes(first)
+          ? [
+              {
+                id: "lead-first",
+                url: importedRecord.links[0],
+                evidence_ids: [evidenceId],
+                verification_status: "requires_review",
+                confirmed_vacancy: false,
+              },
+            ]
+          : [],
+      } as any;
+    return {} as any;
+  });
+  mount();
+  expect(
+    await screen.findByText("Imported (Job ID: job-101, job-102)"),
+  ).toBeInTheDocument();
+  expect(screen.getByText("Already imported")).toBeInTheDocument();
+
+  await userEvent.click(
+    screen.getByRole("button", { name: "Review lead for import" }),
+  );
+  const dialog = await screen.findByRole("dialog");
+  expect(dialog).toHaveTextContent("Duplicate status:");
+  expect(dialog).toHaveTextContent("This lead was previously imported.");
+});

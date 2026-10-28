@@ -51,6 +51,8 @@ export function UnansweredQuestionsQueue({
   const openedInitial = useRef(false);
 
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCompany, setSelectedCompany] = useState("all");
   const [selectedItem, setSelectedItem] = useState<MissingInputItem | null>(
     null,
   );
@@ -95,6 +97,19 @@ export function UnansweredQuestionsQueue({
     !selectedItem ||
     answerText.trim() !== (selectedItem.answer || "").trim() ||
     evidenceNote.trim() !== (selectedItem.evidence_note || "").trim();
+
+  // Protect against accidental navigation with unsaved changes
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (modalOpen && hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [modalOpen, hasUnsavedChanges]);
 
   const historyQuery = useQuery({
     queryKey: ["missing-question-history", selectedItem?.id],
@@ -165,14 +180,50 @@ export function UnansweredQuestionsQueue({
     (missingQuestionsQuery.error as { status?: number }).status === 404;
 
   const rawQuestions = missingQuestionsQuery.data?.requests || [];
+
+  // Group duplicate questions across applications
+  const questionOccurrences = rawQuestions.reduce<
+    Record<string, { count: number; companies: string[] }>
+  >((acc, q) => {
+    const key = q.question.trim().toLowerCase();
+    if (!acc[key]) acc[key] = { count: 0, companies: [] };
+    acc[key].count += 1;
+    if (q.company_name && !acc[key].companies.includes(q.company_name)) {
+      acc[key].companies.push(q.company_name);
+    }
+    return acc;
+  }, {});
+
+  // Unique companies for filter dropdown
+  const companies = Array.from(
+    new Set(rawQuestions.map((q) => q.company_name).filter(Boolean)),
+  ) as string[];
+
   const effectiveStatus = (item: MissingInputItem) =>
     item.effective_status ||
     (item.stale && item.status === "approved"
       ? "review_required"
       : item.status);
-  const filteredQuestions = rawQuestions.filter(
-    (item) => filterStatus === "all" || effectiveStatus(item) === filterStatus,
-  );
+
+  const filteredQuestions = rawQuestions.filter((item) => {
+    const matchesStatus =
+      filterStatus === "all" || effectiveStatus(item) === filterStatus;
+    const matchesCompany =
+      selectedCompany === "all" ||
+      !selectedCompany.trim() ||
+      (item.company_name &&
+        item.company_name
+          .toLowerCase()
+          .includes(selectedCompany.trim().toLowerCase()));
+    const matchesSearch =
+      !searchQuery.trim() ||
+      item.question.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.company_name &&
+        item.company_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (item.reason &&
+        item.reason.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesStatus && matchesCompany && matchesSearch;
+  });
 
   const handleOpenItem = (item: MissingInputItem) => {
     setSelectedItem(item);
@@ -182,7 +233,47 @@ export function UnansweredQuestionsQueue({
     setActionSuccessMessage("");
     setShowHistory(false);
     setModalOpen(true);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("missing_input", item.id);
+      window.history.replaceState({}, "", url.pathname + url.search);
+    }
   };
+
+  const handleCloseModal = () => {
+    if (hasUnsavedChanges && typeof window !== "undefined") {
+      const confirmClose = window.confirm(
+        "You have unsaved draft changes. Closing will discard unsaved text. Are you sure you want to close?",
+      );
+      if (!confirmClose) return;
+    }
+    setModalOpen(false);
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("missing_input") || url.searchParams.has("id")) {
+        url.searchParams.delete("missing_input");
+        url.searchParams.delete("id");
+        window.history.replaceState({}, "", url.pathname + url.search);
+      }
+    }
+  };
+
+  // Clean up URL search params on unmount
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        if (
+          url.searchParams.has("missing_input") ||
+          url.searchParams.has("id")
+        ) {
+          url.searchParams.delete("missing_input");
+          url.searchParams.delete("id");
+          window.history.replaceState({}, "", url.pathname + url.search);
+        }
+      }
+    };
+  }, []);
 
   const countNeedsInput = rawQuestions.filter(
     (q) => effectiveStatus(q) === "needs_input",
@@ -273,6 +364,32 @@ export function UnansweredQuestionsQueue({
         </div>
       </div>
 
+      {/* Search and Company Filters */}
+      <div className="form-grid spaced">
+        <Field label="SEARCH QUESTIONS">
+          <Input
+            placeholder="Search question text, company, or stopped reason…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            aria-label="Search questions"
+          />
+        </Field>
+        <Field label="COMPANY FILTER">
+          <Input
+            list="company-filter-list"
+            placeholder="All companies (type to filter)"
+            value={selectedCompany === "all" ? "" : selectedCompany}
+            onChange={(e) => setSelectedCompany(e.target.value.trim() || "all")}
+            aria-label="Filter by company"
+          />
+          <datalist id="company-filter-list">
+            {companies.map((c) => (
+              <option key={c} value={c} />
+            ))}
+          </datalist>
+        </Field>
+      </div>
+
       {/* Filter Tabs */}
       <div
         className="status-tabs"
@@ -323,6 +440,9 @@ export function UnansweredQuestionsQueue({
         >
           {filteredQuestions.map((item) => {
             const isStale = item.stale || item.status === "review_required";
+            const dupInfo =
+              questionOccurrences[item.question.trim().toLowerCase()];
+            const isDuplicate = dupInfo && dupInfo.count > 1;
             return (
               <article
                 className="panel panel-body"
@@ -343,21 +463,28 @@ export function UnansweredQuestionsQueue({
                       {dateLabel(item.created_at)}
                     </p>
                   </div>
-                  <Badge
-                    tone={
-                      isStale
-                        ? "red"
-                        : item.status === "approved"
-                          ? "green"
-                          : item.status === "draft"
-                            ? "neutral"
-                            : "amber"
-                    }
-                  >
-                    {isStale
-                      ? "Review Required (Stale Profile)"
-                      : readable(item.status)}
-                  </Badge>
+                  <div className="tag-list">
+                    {isDuplicate && (
+                      <Badge tone="neutral">
+                        {`Seen in ${dupInfo.count} applications${dupInfo.companies.length > 0 ? ` (${dupInfo.companies.join(", ")})` : ""}`}
+                      </Badge>
+                    )}
+                    <Badge
+                      tone={
+                        isStale
+                          ? "red"
+                          : item.status === "approved"
+                            ? "green"
+                            : item.status === "draft"
+                              ? "neutral"
+                              : "amber"
+                      }
+                    >
+                      {isStale
+                        ? "Review Required (Stale Profile)"
+                        : readable(item.status)}
+                    </Badge>
+                  </div>
                 </div>
 
                 {isStale && (
@@ -429,7 +556,9 @@ export function UnansweredQuestionsQueue({
       {/* Answer & Resolution Modal */}
       <Modal
         open={modalOpen}
-        onOpenChange={setModalOpen}
+        onOpenChange={(open) =>
+          !open ? handleCloseModal() : setModalOpen(true)
+        }
         title={
           selectedItem
             ? `Answer Question: ${selectedItem.question}`
@@ -550,7 +679,17 @@ export function UnansweredQuestionsQueue({
             </div>
 
             {saveDraftMutation.isError && (
-              <ErrorState error={saveDraftMutation.error} />
+              <div className="stack spaced">
+                <ErrorState error={saveDraftMutation.error} />
+                <Button
+                  variant="secondary"
+                  onClick={() => saveDraftMutation.mutate(selectedItem)}
+                  busy={saveDraftMutation.isPending}
+                >
+                  <RefreshCw size={12} />
+                  Retry saving draft
+                </Button>
+              </div>
             )}
 
             {/* Revision History */}
@@ -607,7 +746,17 @@ export function UnansweredQuestionsQueue({
               </label>
 
               {approveMutation.isError && (
-                <ErrorState error={approveMutation.error} />
+                <div className="stack spaced">
+                  <ErrorState error={approveMutation.error} />
+                  <Button
+                    variant="secondary"
+                    onClick={() => approveMutation.mutate(selectedItem)}
+                    busy={approveMutation.isPending}
+                  >
+                    <RefreshCw size={12} />
+                    Retry approval
+                  </Button>
+                </div>
               )}
 
               <div className="actions">
@@ -633,7 +782,7 @@ export function UnansweredQuestionsQueue({
             </div>
 
             <div className="actions" style={{ justifyContent: "flex-end" }}>
-              <Button variant="ghost" onClick={() => setModalOpen(false)}>
+              <Button variant="ghost" onClick={handleCloseModal}>
                 Close
               </Button>
             </div>

@@ -324,19 +324,38 @@ function AnswerField({
           </Badge>
         </div>
       </div>
-      <p>
-        source: {readable(field.provenance?.source)}
-        {field.provenance?.source === "approved_answer" && (
-          <Badge tone="green">Reused from approved answers</Badge>
-        )}
-        {field.provenance?.provider && (
-          <span>
-            {" "}
-            · provider: {field.provenance.provider}
-            {field.provenance.model ? ` (${field.provenance.model})` : ""}
-          </span>
-        )}
-      </p>
+      <div
+        className="split"
+        style={{ alignItems: "center", marginTop: "0.25rem" }}
+      >
+        <p>
+          source: {readable(field.provenance?.source)}
+          {field.provenance?.provider && (
+            <span>
+              {" "}
+              · provider: {field.provenance.provider}
+              {field.provenance.model ? ` (${field.provenance.model})` : ""}
+            </span>
+          )}
+        </p>
+        <div className="tag-list">
+          {((field.provenance?.source as string) === "owner_answer" ||
+            field.provenance?.source === "human") && (
+            <Badge tone="green">Human-approved (exact context)</Badge>
+          )}
+          {field.provenance?.source === "approved_answer" && (
+            <Badge tone="green">Reused from approved answers</Badge>
+          )}
+          {((field.provenance?.source as string) === "profile_fact" ||
+            field.provenance?.source === "candidate_profile") && (
+            <Badge tone="neutral">Verified profile fact</Badge>
+          )}
+          {((field.provenance?.source as string) === "approved_project" ||
+            field.provenance?.source === "candidate_resource") && (
+            <Badge tone="neutral">Approved project evidence</Badge>
+          )}
+        </div>
+      </div>
       {!!field.options?.length && (
         <p>
           {field.field_type === "multi_select"

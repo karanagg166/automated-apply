@@ -274,3 +274,28 @@ it("requires a valid destination and never equates resume selection with PDF ver
   expect(screen.queryByText("Confirmed & Verified")).toBeNull();
   expect(screen.queryByText("Ready (PDF verified)")).toBeNull();
 });
+
+it("displays workflow stage indicator and emphasizes non-submission guarantee when filled", async () => {
+  vi.mocked(api).mockImplementation(async (path: string) => {
+    if (path === "browser-applications/policy") {
+      return { origins: [], digest: "policy-1" } as any;
+    }
+    return {} as any;
+  });
+
+  // Mount with filled packet
+  mount({
+    ...fictionalPacket,
+    lifecycle_state: "filled",
+  } as any);
+
+  // Workflow stage is displayed
+  expect(screen.getByText("WORKFLOW STAGE")).toBeInTheDocument();
+  expect(screen.getByText("Filled (Not submitted)")).toBeInTheDocument();
+
+  // Non-submission guarantee banner for filled state
+  expect(
+    screen.getByText(/Non-Submission Guarantee — Application Filled:/i),
+  ).toBeInTheDocument();
+  expect(screen.getByText("NOT SUBMITTED")).toBeInTheDocument();
+});

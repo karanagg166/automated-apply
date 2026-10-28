@@ -99,7 +99,12 @@ export function ApifySourceManagement() {
         >
           Inspect account limits (read only)
         </Button>
-        {inspectAccount.isError && <ErrorState error={inspectAccount.error} />}
+        {inspectAccount.isError && (
+          <ErrorState
+            error={inspectAccount.error}
+            retry={() => inspectAccount.mutate()}
+          />
+        )}
         {account.last_account_inspection && (
           <details>
             <summary>Observed provider limits and usage</summary>
@@ -132,28 +137,47 @@ export function ApifySourceManagement() {
         )}
       </section>
       <div className="company-grid" role="list" aria-label="Actor catalog">
-        {account.investigated_actors.map((actor) => (
-          <article className="company-card" role="listitem" key={actor}>
-            <h4>{actor}</h4>
-            <Badge tone="amber">Metadata review only</Badge>
-            <p>
-              Price, schema, and collection rights are unknown until inspected
-              and reviewed. Public metadata does not authorize LinkedIn
-              collection.
-            </p>
-            <div className="actions">
-              <Button
-                busy={inspect.isPending}
-                onClick={() => inspect.mutate(actor)}
-              >
-                Inspect metadata (read only)
-              </Button>
-              <Button disabled>Blocked by policy</Button>
-            </div>
-          </article>
-        ))}
+        {account.investigated_actors.map((actor) => {
+          const isConfigured = portals.some(
+            (p) => p.id === actor || p.id.includes(actor),
+          );
+          return (
+            <article className="company-card" role="listitem" key={actor}>
+              <h4>{actor}</h4>
+              <div className="tag-list">
+                <Badge tone="amber">Metadata review only</Badge>
+                <Badge tone={isConfigured ? "green" : "neutral"}>
+                  {isConfigured
+                    ? "Configured in active source routes"
+                    : "Not configured in active routes"}
+                </Badge>
+              </div>
+              <p>
+                Price, schema, and collection rights are unknown until inspected
+                and reviewed. Public metadata does not authorize LinkedIn
+                collection.
+              </p>
+              <div className="actions">
+                <Button
+                  busy={inspect.isPending}
+                  onClick={() => inspect.mutate(actor)}
+                >
+                  Inspect metadata (read only)
+                </Button>
+                <Button
+                  disabled
+                  title="Chargeable Actor execution is disabled in this workflow"
+                >
+                  Blocked by policy
+                </Button>
+              </div>
+            </article>
+          );
+        })}
       </div>
-      {inspect.isError && <ErrorState error={inspect.error} />}
+      {inspect.isError && (
+        <ErrorState error={inspect.error} retry={() => inspect.reset()} />
+      )}
       <Modal
         open={!!metadata}
         onOpenChange={(open) => !open && setMetadata(null)}
