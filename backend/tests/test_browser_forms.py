@@ -509,6 +509,10 @@ async def test_project_mapping_uses_approved_contribution_with_review(
     assert plan.actions[0].requires_review and plan.actions[0].evidence
     assert "clinic" in plan.actions[0].value.lower()
     assert plan.actions[0].project_version
+    assert plan.actions[0].missing_input_id is None
+    # The project, rather than an unrelated unresolved queue entry, supports
+    # this answer. Its real project stamp still protects freshness.
+    await FormService(db_session, config()).review(plan.id, ["f0"])
 
 
 @pytest.mark.asyncio
@@ -616,3 +620,50 @@ async def test_missing_answer_links_and_owner_edits_invalidate_existing_fill_pla
     await service.edit(saved["id"], MissingInputEdit(expected_version=3, answer="A revised factual expectation", evidence_note="Owner correction"))
     with pytest.raises(ValueError, match="stale"):
         await forms.review(plan.id, ["f2"])
+
+
+async def test_worker_consumes_one_reviewed_dom_batch_without_replaying_fields(db_session, browser_target):
+    from backend.app.agent import store
+    from backend.app.agent.contracts import Approval, Filters, Plan
+    from backend.app.browser.worker import BrowserWorker
+    from backend.app.db.session import get_session_factory
+    from backend.app.local_agent.contracts import Actor
+
+    job, _, _ = browser_target
+    observation = inspection(job.application_url, [
+        {"field_id": "f0", "kind": "text", "label": "Full name", "required": True},
+        {"field_id": "f1", "kind": "email", "label": "Email", "required": True},
+    ])
+
+    class OneShotDriver:
+        profile = "fictional-isolated-profile"
+        headless = True
+        fills = []
+
+        async def call(self, operation, **payload):
+            if operation == "open":
+                return {"inspection": observation.model_dump(mode="json"), "violations": 0}
+            assert operation == "fill" and not self.fills
+            self.fills.append(payload)
+            return {"state": "form_filled", "violations": 0, "results": [
+                {"field_id": action["field_id"], "status": "filled"} for action in payload["actions"]
+            ]}
+
+        async def close(self):
+            pass
+
+    settings = config()
+    campaign = await store.intake(db_session, settings, Actor(channel="owner", identity="primary"), Message(text="Fill the first application"))
+    campaign.plan = Plan(intent="fill", filters=Filters(), selected_jobs=[job.id])
+    campaign.approval = Approval(expected_revision=campaign.revision, nonce=campaign.approval_nonce, scope="fill", platforms=["employer_forms"], maximum_applications=1)
+    row, _ = await store.load(db_session, campaign.id)
+    store.save(row, campaign)
+    await queue.enqueue(db_session, settings, campaign, job)
+    await db_session.commit()
+    driver = OneShotDriver()
+    worker = BrowserWorker(get_session_factory(), settings, driver)
+    result = await worker.run_once()
+    assert result["status"] == "form_filled", result
+    assert len(driver.fills) == 1
+    assert [action["value"] for action in driver.fills[0]["actions"]] == ["Alex Example", "alex@example.com"]
+    assert await worker.run_once() is None

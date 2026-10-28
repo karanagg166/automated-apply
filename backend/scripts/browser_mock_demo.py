@@ -59,6 +59,8 @@ async def run(
         await admin.close()
         raise ValueError("Disposable PostgreSQL 17 is required")
     name = "candidate_profile_test_browser_" + uuid4().hex
+    role_suffix = uuid4().hex
+    phase3_roles = ("fixture_owner_" + role_suffix, "fixture_runtime_" + role_suffix)
     await admin.execute(f'CREATE DATABASE "{name}"')
     child = urlunsplit(parsed._replace(path="/" + name))
     task, server = None, None
@@ -72,7 +74,10 @@ async def run(
                 ):
                     await connection.execute(f'CREATE ROLE "{role}" NOLOGIN')
             if phase3_demo:
-                await connection.execute((ROOT / "docs/sql/phase9-role-bootstrap.sql").read_text())
+                bootstrap = (ROOT / "docs/sql/phase9-role-bootstrap.sql").read_text()
+                for original, fixture_role in zip(("job_agent_owner", "job_agent_runtime"), phase3_roles):
+                    bootstrap = bootstrap.replace(original, fixture_role)
+                await connection.execute(bootstrap)
                 phase3_roles_created = True
             for migration in sorted((ROOT / "supabase/migrations").glob("*.sql")):
                 await connection.execute(migration.read_text())
@@ -103,7 +108,10 @@ async def run(
             if phase3_demo:
                 from backend.app.integrations.gmail.schema import render_review_sql
 
-                await connection.execute(render_review_sql("job_agent"))
+                read_sql = render_review_sql("job_agent")
+                for original, fixture_role in zip(("job_agent_owner", "job_agent_runtime"), phase3_roles):
+                    read_sql = read_sql.replace(original, fixture_role)
+                await connection.execute(read_sql)
             assert not await connection.fetchval(
                 "SELECT has_table_privilege('anon','job_agent.owner_preferences','SELECT')"
             )
@@ -911,7 +919,7 @@ async def run(
             await task
         await admin.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
         if phase3_roles_created:
-            await admin.execute("DROP ROLE job_agent_runtime, job_agent_owner")
+            await admin.execute(f'DROP ROLE "{phase3_roles[1]}", "{phase3_roles[0]}"')
         await admin.close()
 
 

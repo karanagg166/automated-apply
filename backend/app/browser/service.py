@@ -395,6 +395,11 @@ class FormService:
                     action.value = None
                 if action.value and action.evidence:
                     action.needs_input = False
+                    if not any(source.startswith("owner_answer:") for source in action.evidence):
+                        # An approved project/profile fallback can resolve a question
+                        # independently of the unanswered request created earlier.
+                        action.missing_input_id = None
+                        action.missing_input_version = None
             plan.actions.append(action)
         self.session.add(
             OwnerPreference(
