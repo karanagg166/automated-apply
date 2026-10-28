@@ -41,6 +41,8 @@ type Question = {
   question: string;
   state: string;
   answer: string | null;
+  answer_type?: "availability" | "choice" | "text" | string;
+  options?: string[];
   factual_context?: string;
   reuse_approved: boolean;
   answer_expires_at: string | null;
@@ -63,6 +65,12 @@ export function Naukri() {
   const [location, setLocation] = useState("");
   const [error, setError] = useState<unknown>(null),
     [busy, setBusy] = useState(false);
+  const [dashboardAnswers, setDashboardAnswers] = useState<
+    Record<string, string>
+  >({});
+  const [availDates, setAvailDates] = useState<Record<string, string>>({});
+  const [availTimes, setAvailTimes] = useState<Record<string, string>>({});
+  const [availZones, setAvailZones] = useState<Record<string, string>>({});
   const status = useQuery({
     queryKey: ["naukri"],
     queryFn: () => api<Status>("execution/naukri"),
@@ -277,87 +285,261 @@ export function Naukri() {
       </div>
       <div className="panel panel-body stack">
         <h2>Application status</h2>
-        {status.data.executions.map((execution) => (
-          <article key={execution.id} className="stack">
-            <p>
-              {execution.employer || "Employer unknown"} — {execution.role}
-            </p>
-            <Badge>{readable(execution.state)}</Badge>
-            <p>Reference: {execution.id}</p>
-            {execution.diagnostic && <p>{readable(execution.diagnostic)}</p>}
-            {execution.packet_id && (
-              <Link href={"/applications/" + execution.packet_id}>
-                Review application and browser assistance
-              </Link>
-            )}
-            <div className="actions">
-              {(["pause", "resume", "cancel"] as const).map((action) => (
-                <Button
-                  key={action}
-                  disabled={
-                    busy ||
-                    [
-                      "FAILED_FINAL",
-                      "REJECTED",
-                      "SUBMITTED_CONFIRMED",
-                      "SUBMISSION_UNKNOWN",
-                    ].includes(execution.state) ||
-                    (action === "resume" &&
-                      !["PAUSED", "NEEDS_INPUT"].includes(execution.state))
-                  }
-                  onClick={() =>
-                    act(() =>
-                      post("execution/" + execution.id + "/control", {
-                        action,
-                        expected_revision: execution.revision,
-                      }),
-                    )
-                  }
+        {status.data.executions.map((execution) => {
+          const canResume = ["PAUSED", "NEEDS_INPUT"].includes(execution.state);
+          return (
+            <article key={execution.id} className="stack">
+              <div className="split">
+                <p>
+                  <strong>{execution.employer || "Employer unknown"}</strong> —{" "}
+                  {execution.role}
+                </p>
+                <Badge
+                  tone={execution.state === "NEEDS_INPUT" ? "amber" : "neutral"}
                 >
-                  {readable(action)}
-                </Button>
-              ))}
-            </div>
-          </article>
-        ))}
+                  {readable(execution.state)}
+                </Badge>
+              </div>
+              <p>Reference: {execution.id}</p>
+              {execution.diagnostic && (
+                <Notice>
+                  <strong>Status diagnostic:</strong>{" "}
+                  {readable(execution.diagnostic)}
+                </Notice>
+              )}
+              {execution.packet_id && (
+                <Link
+                  href={"/applications/" + execution.packet_id}
+                  className="button secondary"
+                >
+                  Review application and browser assistance
+                </Link>
+              )}
+              <div className="actions">
+                {canResume && (
+                  <Button
+                    variant="primary"
+                    disabled={busy}
+                    onClick={() =>
+                      act(() =>
+                        post("execution/" + execution.id + "/control", {
+                          action: "resume",
+                          expected_revision: execution.revision,
+                        }),
+                      )
+                    }
+                  >
+                    Resume Application
+                  </Button>
+                )}
+                {(["pause", "resume", "cancel"] as const).map((action) => (
+                  <Button
+                    key={action}
+                    disabled={
+                      busy ||
+                      [
+                        "FAILED_FINAL",
+                        "REJECTED",
+                        "SUBMITTED_CONFIRMED",
+                        "SUBMISSION_UNKNOWN",
+                      ].includes(execution.state) ||
+                      (action === "resume" &&
+                        !["PAUSED", "NEEDS_INPUT"].includes(execution.state))
+                    }
+                    onClick={() =>
+                      act(() =>
+                        post("execution/" + execution.id + "/control", {
+                          action,
+                          expected_revision: execution.revision,
+                        }),
+                      )
+                    }
+                  >
+                    {readable(action)}
+                  </Button>
+                ))}
+              </div>
+            </article>
+          );
+        })}
         {status.data.executions.length === 0 && <p>No execution requested.</p>}
       </div>
       <div className="panel panel-body stack">
         <h2>Telegram questions</h2>
         <p>
-          Reply to the exact bot question message. Dates need a time and time
-          zone. Answers expire and require review before filling.
+          Reply to the exact bot question message or answer directly below.
+          Dates need a time and time zone (for example Asia/Kolkata). Answers
+          expire and require review before filling.
         </p>
         {questions.isError ? <ErrorState error={questions.error} /> : null}
-        {questions.data?.map((q) => (
-          <article className="stack" key={q.id}>
-            <p>
-              {q.employer} — {q.role}: {q.question}
-            </p>
-            <Badge>{readable(q.state)}</Badge>
-            {q.answer && <p>Saved answer: {q.factual_context || q.answer}</p>}
-            <p>Application: {q.execution_id}</p>
-            {q.answer_expires_at && (
-              <p>
-                Reconfirm by: {new Date(q.answer_expires_at).toLocaleString()}
-              </p>
-            )}
-            {q.state === "answered" && (
-              <Button
-                disabled={busy || q.reuse_approved}
-                onClick={() =>
-                  act(() =>
-                    post("execution/questions/" + q.id + "/approve-reuse"),
-                  )
-                }
-              >
-                {q.reuse_approved
-                  ? "Reuse approved for compatible context"
-                  : "Approve reuse for this exact context"}
-              </Button>
-            )}
-          </article>
-        ))}
+        {questions.data?.map((q) => {
+          const isPending = q.state === "pending" || q.state === "sent";
+          const isAvail = q.answer_type === "availability";
+          const currentAnswer = dashboardAnswers[q.id] || "";
+          const availDate = availDates[q.id] || "";
+          const availTime = availTimes[q.id] || "10:00";
+          const availZone = availZones[q.id] || "Asia/Kolkata";
+
+          return (
+            <article className="stack" key={q.id}>
+              <div className="split">
+                <p>
+                  <strong>{q.employer}</strong> — {q.role}: {q.question}
+                </p>
+                {isPending ? (
+                  <Badge tone="amber">Waiting for Your Answer</Badge>
+                ) : (
+                  <Badge tone="green">{readable(q.state)}</Badge>
+                )}
+              </div>
+              <p>Application: {q.execution_id}</p>
+              {q.answer && <p>Saved answer: {q.factual_context || q.answer}</p>}
+              {q.answer_expires_at && (
+                <p>
+                  Reconfirm by: {new Date(q.answer_expires_at).toLocaleString()}
+                </p>
+              )}
+              {isPending && (
+                <div
+                  className="panel panel-body stack spaced"
+                  style={{
+                    background: "var(--surface-sunken, rgba(0,0,0,0.02))",
+                  }}
+                >
+                  <p>
+                    <strong>Answer from Dashboard:</strong>
+                  </p>
+                  {isAvail ? (
+                    <div className="filter-grid">
+                      <Field label="Interview date">
+                        <Input
+                          type="date"
+                          value={availDate}
+                          onChange={(e) =>
+                            setAvailDates((prev) => ({
+                              ...prev,
+                              [q.id]: e.target.value,
+                            }))
+                          }
+                        />
+                      </Field>
+                      <Field label="Interview time">
+                        <Input
+                          type="time"
+                          value={availTime}
+                          onChange={(e) =>
+                            setAvailTimes((prev) => ({
+                              ...prev,
+                              [q.id]: e.target.value,
+                            }))
+                          }
+                        />
+                      </Field>
+                      <Field label="Time zone (IANA)">
+                        <Select
+                          value={availZone}
+                          onChange={(e) =>
+                            setAvailZones((prev) => ({
+                              ...prev,
+                              [q.id]: e.target.value,
+                            }))
+                          }
+                        >
+                          <option value="Asia/Kolkata">
+                            Asia/Kolkata (IST)
+                          </option>
+                          <option value="UTC">UTC</option>
+                          <option value="America/New_York">
+                            America/New_York (EST)
+                          </option>
+                          <option value="America/Los_Angeles">
+                            America/Los_Angeles (PST)
+                          </option>
+                          <option value="Europe/London">
+                            Europe/London (GMT)
+                          </option>
+                        </Select>
+                      </Field>
+                    </div>
+                  ) : q.options && q.options.length > 0 ? (
+                    <Field label="Select option">
+                      <Select
+                        value={currentAnswer}
+                        onChange={(e) =>
+                          setDashboardAnswers((prev) => ({
+                            ...prev,
+                            [q.id]: e.target.value,
+                          }))
+                        }
+                      >
+                        <option value="">Choose an option…</option>
+                        {q.options.map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  ) : (
+                    <Field label="Your verified answer">
+                      <Input
+                        value={currentAnswer}
+                        placeholder="Enter your factual answer…"
+                        onChange={(e) =>
+                          setDashboardAnswers((prev) => ({
+                            ...prev,
+                            [q.id]: e.target.value,
+                          }))
+                        }
+                      />
+                    </Field>
+                  )}
+                  <div className="actions">
+                    <Button
+                      variant="primary"
+                      disabled={
+                        busy ||
+                        (isAvail
+                          ? !availDate || !availTime
+                          : !currentAnswer.trim())
+                      }
+                      onClick={() => {
+                        let finalAns = currentAnswer.trim();
+                        if (isAvail) {
+                          finalAns = `${availDate}T${availTime} ${availZone}`;
+                          if (q.options && q.options.length > 0) {
+                            finalAns = `${q.options[0]} | ${finalAns}`;
+                          }
+                        }
+                        act(() =>
+                          post("execution/questions/" + q.id + "/answer", {
+                            answer: finalAns,
+                          }),
+                        );
+                      }}
+                    >
+                      Submit Answer from Dashboard
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {q.state === "answered" && (
+                <Button
+                  disabled={busy || q.reuse_approved}
+                  onClick={() =>
+                    act(() =>
+                      post("execution/questions/" + q.id + "/approve-reuse"),
+                    )
+                  }
+                >
+                  {q.reuse_approved
+                    ? "Reuse approved for compatible context"
+                    : "Approve reuse for this exact context"}
+                </Button>
+              )}
+            </article>
+          );
+        })}
       </div>
     </section>
   );

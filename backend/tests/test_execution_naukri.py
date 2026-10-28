@@ -519,6 +519,12 @@ async def test_gateway_api_auth_and_capability_contract(async_client, phase2_aut
         "/api/v1/execution/naukri/submit", headers=phase2_auth
     )
     assert response.status_code in {404, 405}
+    response = await async_client.post(
+        f"/api/v1/execution/questions/{uuid4()}/answer",
+        json={"answer": "Yes"},
+        headers=phase2_auth,
+    )
+    assert response.status_code == 409
 
 
 @pytest.mark.parametrize(
@@ -996,3 +1002,24 @@ def test_optional_expired_answer_also_requires_reconfirmation():
         provenance=SimpleNamespace(answer_expires_at=now - timedelta(seconds=1)),
     )
     assert needs_owner_answer(field, now)
+
+
+@pytest.mark.asyncio
+async def test_dashboard_answer_updates_packet_and_advances_execution(
+    db_session, question_target
+):
+    execution, packet = question_target
+    q = await questions.ask(db_session, execution["id"], packet.fields[-1].id)
+    await db_session.flush()
+    result = await questions.answer_dashboard(db_session, q["id"], "Yes")
+    assert result["state"] == "answered"
+    assert result["answer"] == "Yes"
+    assert result["provenance"]["channel"] == "dashboard"
+
+    field = await db_session.get(ApplicationPacketField, packet.fields[-1].id)
+    assert field.human_answer == "Yes"
+    assert field.provenance["dashboard_owner_answer"] is True
+
+    row = await store.load(db_session, execution["id"])
+    assert row.value["state"] == "PREPARING"
+

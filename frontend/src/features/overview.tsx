@@ -58,11 +58,17 @@ export function Overview() {
         }
         description="A clear view of your search. Every opportunity, every next step."
         actions={
-          <Link href="/startups" className="button primary">
-            <Compass size={15} />
-            Explore startups
-            <ArrowUpRight size={15} />
-          </Link>
+          <div className="actions">
+            <Link href="/jobs" className="button primary">
+              <BriefcaseBusiness size={15} />
+              Find Jobs &amp; Apply
+              <ArrowUpRight size={15} />
+            </Link>
+            <Link href="/startups" className="button secondary">
+              <Compass size={15} />
+              Explore startups
+            </Link>
+          </div>
         }
       />
       <div className="welcome-banner">
@@ -84,10 +90,15 @@ export function Overview() {
           </p>
           <div className="actions">
             <Link
-              href={profile.data ? "/startups" : "/profile"}
+              href={profile.data ? "/jobs" : "/profile"}
               className="button primary"
             >
-              {profile.data ? "Find your next team" : "Set up my profile"}
+              <BriefcaseBusiness size={14} />
+              {profile.data ? "Find jobs & apply" : "Set up my profile"}
+              <ArrowRight size={14} />
+            </Link>
+            <Link href="/startups" className="button secondary">
+              Explore startups
               <ArrowRight size={14} />
             </Link>
             <Link href="/connections" className="button ghost">

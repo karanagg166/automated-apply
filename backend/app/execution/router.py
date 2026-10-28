@@ -13,7 +13,13 @@ from backend.app.dashboard.models import OwnerPreference
 from backend.app.dashboard.router import OwnerRoute
 from backend.app.db.session import get_db_session
 from backend.app.execution import questions, store
-from backend.app.execution.contracts import Configuration, Control, ImportBatch, Start
+from backend.app.execution.contracts import (
+    Configuration,
+    Control,
+    ImportBatch,
+    QuestionAnswer,
+    Start,
+)
 from backend.app.execution.naukri import capability_matrix, normalize
 from backend.app.models.job import Job
 from backend.app.services.job_ingestion import JobIngestionService
@@ -139,6 +145,20 @@ async def reuse(
     try:
         return await questions.approve_reuse(session, question_id)
     except ToolDenied as exc:
+        raise HTTPException(409, str(exc)) from None
+
+
+@router.post("/questions/{question_id}/answer")
+async def answer_question(
+    question_id: UUID,
+    data: QuestionAnswer,
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),
+):
+    owner_ui(request)
+    try:
+        return await questions.answer_dashboard(session, question_id, data.answer)
+    except (ToolDenied, ValueError) as exc:
         raise HTTPException(409, str(exc)) from None
 
 

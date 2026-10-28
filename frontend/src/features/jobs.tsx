@@ -215,6 +215,123 @@ export function PrepareButton({ jobId }: { jobId: string }) {
   );
 }
 
+export function PasteJobUrlCard({
+  onPrepared,
+}: {
+  onPrepared?: (packetId: string) => void;
+}) {
+  const router = useRouter();
+  const [url, setUrl] = useState("");
+  const [company, setCompany] = useState("");
+  const [title, setTitle] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+
+  async function handlePrepare(e: React.FormEvent) {
+    e.preventDefault();
+    if (!url.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const isNaukri = /naukri\.com/i.test(url);
+      const idempotencyKey = `paste_${typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)}`;
+
+      if (isNaukri) {
+        try {
+          await post("execution/naukri/import", {
+            jobs: [
+              {
+                url: url.trim(),
+                title: title.trim() || "Naukri Opportunity",
+                employer: company.trim() || "Naukri Employer",
+              },
+            ],
+          });
+        } catch {
+          // Fall through to prepare browser application packet
+        }
+      }
+
+      const packet = await post<Schema<"PacketRead">>("browser-applications", {
+        application_url: url.trim(),
+        company_name:
+          company.trim() || (isNaukri ? "Naukri Employer" : "Employer Portal"),
+        job_title: title.trim() || "Job Opportunity",
+        idempotency_key: idempotencyKey,
+      });
+
+      if (onPrepared) {
+        onPrepared(packet.id);
+      } else {
+        router.push(`/applications/${packet.id}`);
+      }
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form
+      className="panel panel-body stack spaced"
+      onSubmit={handlePrepare}
+      aria-label="Paste Job URL"
+    >
+      <div className="split">
+        <div>
+          <h3>Paste Job URL</h3>
+          <p className="text-xs muted">
+            Quickly import any job posting (Naukri, Greenhouse, Lever, Ashby,
+            Workday, or company careers page) to prepare an application.
+          </p>
+        </div>
+        <Badge tone="neutral">Direct Intake</Badge>
+      </div>
+      <div className="filter-grid">
+        <Field label="JOB OR APPLICATION URL">
+          <Input
+            aria-label="Paste Job URL"
+            type="url"
+            required
+            placeholder="https://jobs.lever.co/... or https://www.naukri.com/..."
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+          />
+        </Field>
+        <Field label="COMPANY NAME (OPTIONAL)">
+          <Input
+            aria-label="Import company name"
+            placeholder="e.g. Acme Corp"
+            value={company}
+            onChange={(e) => setCompany(e.target.value)}
+          />
+        </Field>
+        <Field label="JOB TITLE (OPTIONAL)">
+          <Input
+            aria-label="Import job title"
+            placeholder="e.g. Junior Backend Engineer, SDE-1"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+        </Field>
+      </div>
+      <div className="actions">
+        <Button
+          type="submit"
+          variant="primary"
+          disabled={busy || !url.trim()}
+          busy={busy}
+        >
+          <FilePlus2 size={13} />
+          Prepare application from URL
+        </Button>
+      </div>
+      {error ? <ErrorState error={error} /> : null}
+    </form>
+  );
+}
+
 export function JobPreviewModal({
   job,
   open,
@@ -648,11 +765,37 @@ export function JobTable({
       cell: (info) => {
         const score =
           info.row.original.match?.match_score ?? info.row.original.match_score;
-        return score !== null && score !== undefined ? (
-          <span className="score">
-            {Math.round(Number(score))}
-            <small>/100</small>
-          </span>
+        const matched = info.row.original.match?.matched_skills || [];
+        const missing = info.row.original.match?.missing_skills || [];
+        const scoreNum =
+          score !== null && score !== undefined
+            ? Math.round(Number(score))
+            : null;
+
+        return scoreNum !== null ? (
+          <div className="stack" style={{ gap: "0.2rem" }}>
+            <span className="score">
+              {scoreNum}
+              <small>/100</small>
+            </span>
+            {matched.length > 0 && (
+              <small
+                className="text-xs text-green-700"
+                title={matched.join(", ")}
+              >
+                ✓ {matched.slice(0, 2).join(", ")}
+                {matched.length > 2 ? ` +${matched.length - 2}` : ""}
+              </small>
+            )}
+            {missing.length > 0 && (
+              <small
+                className="text-xs text-amber-700"
+                title={missing.join(", ")}
+              >
+                ⚠ {missing.length} missing
+              </small>
+            )}
+          </div>
         ) : (
           <Badge tone="neutral">Profile needed</Badge>
         );
@@ -1017,14 +1160,20 @@ export function Jobs() {
         description="Observed listings and reviewed imports. Inspect source evidence before preparing an application."
         actions={
           <div className="actions">
-            <Link href="/discover" className="button primary">
+            <Link
+              href="/discover"
+              className="button primary"
+              aria-label="Find Jobs & Discover jobs"
+            >
               <Search size={14} />
-              Discover jobs
+              Find Jobs
               <ArrowUpRight size={14} />
             </Link>
           </div>
         }
       />
+
+      <PasteJobUrlCard />
 
       {/* Verified Source Badges Banner */}
       <div
@@ -1145,9 +1294,33 @@ export function Jobs() {
           </Field>
         </div>
 
-        {/* Quick Location & Country Presets */}
+        {/* Quick Location & Filters Presets */}
         <div className="tag-list" style={{ marginTop: "0.5rem" }}>
-          <span className="text-xs muted">Quick Regions:</span>
+          <span className="text-xs muted">Quick Filters:</span>
+          <button
+            type="button"
+            className={`badge ${role === "Junior Backend, SDE-1" ? "green" : "neutral"} cursor-pointer`}
+            onClick={() => {
+              setRole(
+                role === "Junior Backend, SDE-1" ? "" : "Junior Backend, SDE-1",
+              );
+              setSeniority(seniority === "junior" ? "" : "junior");
+              setPage(1);
+            }}
+          >
+            🎯 SDE-1 / Junior Backend
+          </button>
+          <button
+            type="button"
+            className={`badge ${approvedFit && seniority === "junior" ? "green" : "neutral"} cursor-pointer`}
+            onClick={() => {
+              setSeniority(seniority === "junior" ? "" : "junior");
+              setApprovedFit(!approvedFit);
+              setPage(1);
+            }}
+          >
+            ⏳ 0–1 Year Experience
+          </button>
           <button
             type="button"
             className={`badge ${country === "IN" ? "green" : "neutral"} cursor-pointer`}
@@ -1167,6 +1340,16 @@ export function Jobs() {
             }}
           >
             🌐 100% Remote
+          </button>
+          <button
+            type="button"
+            className={`badge ${status === "not_applied" ? "green" : "neutral"} cursor-pointer`}
+            onClick={() => {
+              setStatus(status === "not_applied" ? "all" : "not_applied");
+              setPage(1);
+            }}
+          >
+            📋 Not Applied
           </button>
           <button
             type="button"

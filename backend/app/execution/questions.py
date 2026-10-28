@@ -284,6 +284,90 @@ async def receive(session, settings, message, update_id):
     return f"Answer saved for {q['employer']} — {q['role']}. Application {q['execution_id']}. Reuse is OFF. Approve exact-context reuse in the dashboard. Review before filling."
 
 
+async def answer_dashboard(session, question_id, answer):
+    await store.memory_row(session, lock=True)
+    row = await session.get(
+        OwnerPreference, PREFIX + str(question_id), populate_existing=True
+    )
+    if not row:
+        raise ToolDenied("question_not_found")
+    q, now = dict(row.value), await instant(session)
+    if q["state"] == "answered":
+        raise ToolDenied("question_already_answered")
+    execution = await store.load(session, q["execution_id"])
+    if (
+        q["expires_at"] <= now.isoformat()
+        or execution.value["state"] != "NEEDS_INPUT"
+        or execution.value.get("cancelled")
+    ):
+        raise ToolDenied("question_expired_or_application_cancelled")
+    answer = answer.strip()
+    expiry = validate(q, answer, now)
+    service = ApplicationPacketService(session)
+    packet = await service.read(UUID(q["packet_id"]))
+    if (
+        packet.revision != q["packet_revision"]
+        or packet.snapshot.context_digest != q["context_digest"]
+        or packet.readiness.stale
+    ):
+        raise ToolDenied("packet_context_stale")
+    updated = await service.edit_answer(
+        packet.id,
+        UUID(q["field_id"]),
+        AnswerEdit(expected_revision=packet.revision, answer=field_answer(q, answer)),
+    )
+    field = await session.get(ApplicationPacketField, UUID(q["field_id"]))
+    field.provenance = {
+        **field.provenance,
+        "dashboard_owner_answer": True,
+        "telegram_question": q["id"],
+        "answer_expires_at": expiry,
+        "interview_availability": answer
+        if q["answer_type"] == "availability"
+        else None,
+    }
+    q.update(
+        state="answered",
+        answer_revision=field.answer_revision,
+        answer=field_answer(q, answer),
+        factual_context=answer,
+        answer_expires_at=expiry,
+        provenance={
+            "channel": "dashboard",
+            "source": "owner_dashboard",
+        },
+    )
+    row.value = q
+    execution.value = {
+        **execution.value,
+        "answer_revisions": {
+            **execution.value.get("answer_revisions", {}),
+            q["field_id"]: field.answer_revision,
+        },
+    }
+    candidates = (
+        await session.scalars(
+            select(OwnerPreference).where(OwnerPreference.key.startswith(PREFIX))
+        )
+    ).all()
+    waiting = False
+    for sibling in candidates:
+        v = sibling.value
+        if (
+            v["id"] != q["id"]
+            and v["packet_id"] == q["packet_id"]
+            and v["state"] in {"pending", "sent"}
+            and v["packet_revision"] == packet.revision
+        ):
+            sibling.value = {**v, "packet_revision": updated.revision}
+            waiting = True
+    if not waiting:
+        await store.move(
+            session, execution, "PREPARING", "owner_answer_saved_fresh_review_required"
+        )
+    return row.value
+
+
 async def approve_reuse(session, question_id):
     await store.memory_row(session, lock=True)
     row = await session.get(

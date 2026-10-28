@@ -47,6 +47,10 @@ class Control(Contract):
     expected_revision: int = Field(ge=1)
 
 
+class QuestionAnswer(Contract):
+    answer: str = Field(min_length=1, max_length=4000)
+
+
 class ImportJob(Contract):
     url: str = Field(min_length=1, max_length=2048)
     title: str = Field(min_length=1, max_length=255)

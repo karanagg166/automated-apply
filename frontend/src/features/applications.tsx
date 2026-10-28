@@ -609,6 +609,13 @@ export function ApplicationDetail({ id }: { id: string }) {
       useState<Schema<"QuestionInput">["field_type"]>("textarea"),
     [templateIdx, setTemplateIdx] = useState(0),
     [notice, setNotice] = useState("");
+  const [inDashboardAnswer, setInDashboardAnswer] = useState("");
+  const [inAvailDate, setInAvailDate] = useState("");
+  const [inAvailTime, setInAvailTime] = useState("10:00");
+  const [inAvailZone, setInAvailZone] = useState("Asia/Kolkata");
+  const [answeringBusy, setAnsweringBusy] = useState(false);
+  const [answerSuccess, setAnswerSuccess] = useState("");
+
   const packet = useQuery({
     queryKey: ["packet", id],
     queryFn: () => api<Packet>(`application-packets/${id}`),
@@ -617,6 +624,26 @@ export function ApplicationDetail({ id }: { id: string }) {
     queryKey: ["packet-events", id],
     queryFn: () =>
       api<Schema<"ApplicationEventRead">[]>(`application-packets/${id}/events`),
+  });
+  const executionQuestions = useQuery({
+    queryKey: ["execution-questions", id],
+    queryFn: () =>
+      api<
+        Array<{
+          id: string;
+          packet_id: string;
+          execution_id: string;
+          question: string;
+          answer_type?: string;
+          options?: string[];
+          state: string;
+          answer: string | null;
+          employer: string;
+          role: string;
+          answer_expires_at?: string | null;
+        }>
+      >("execution/questions"),
+    refetchInterval: 5000,
   });
   useEffect(() => {
     setReviewed([]);
@@ -749,6 +776,70 @@ export function ApplicationDetail({ id }: { id: string }) {
     (f) => f.review_status === "reviewed",
   ).length;
 
+  const pendingExecQuestion = Array.isArray(executionQuestions.data)
+    ? executionQuestions.data.find(
+        (q) =>
+          q.packet_id === id && (q.state === "pending" || q.state === "sent"),
+      )
+    : undefined;
+
+  const nextAction = (() => {
+    if (pendingExecQuestion || p.lifecycle_state === "needs_input") {
+      return "Answer the missing question to continue preparation.";
+    }
+    if (p.lifecycle_state === "submission_unknown") {
+      return "Inspect official portal or email to reconcile ambiguous submission.";
+    }
+    if (terminal) {
+      return p.lifecycle_state === "provider_confirmed_submitted"
+        ? "Application confirmed submitted with provider receipt."
+        : "Application reported submitted by owner. Awaiting official response.";
+    }
+    if (p.lifecycle_state === "approved_for_manual_handoff") {
+      return "Open dedicated browser below, inspect the application page, and fill supported fields.";
+    }
+    if (p.approved_revision) {
+      return "Packet approved. Open dedicated browser below to fill form fields.";
+    }
+    if (dirtyFields.length > 0) {
+      return "Save or discard edited field answers before approving.";
+    }
+    if (!resumeConfirmed || !destinationConfirmed) {
+      return "Review candidate answers below, confirm resume variant and destination, then click 'Approve current packet'.";
+    }
+    return "Click 'Approve current packet' to finalize and enable form filling.";
+  })();
+
+  const progressSteps = [
+    { label: "1. Inspect Form", done: p.fields.length > 0 },
+    {
+      label: "2. Resolve Questions",
+      active: p.lifecycle_state === "needs_input" || !!pendingExecQuestion,
+      done:
+        p.fields.length > 0 &&
+        !pendingExecQuestion &&
+        p.lifecycle_state !== "needs_input",
+    },
+    {
+      label: "3. Review & Approve",
+      active:
+        !pendingExecQuestion &&
+        p.lifecycle_state !== "needs_input" &&
+        !p.approved_revision,
+      done: Boolean(p.approved_revision),
+    },
+    {
+      label: "4. Fill Supported Fields",
+      active: p.lifecycle_state === "approved_for_manual_handoff" && !terminal,
+      done: terminal,
+    },
+    {
+      label: "5. Manually Submit",
+      active: p.lifecycle_state === "approved_for_manual_handoff" && !terminal,
+      done: terminal,
+    },
+  ];
+
   return (
     <>
       <Link href="/applications" className="external">
@@ -774,6 +865,208 @@ export function ApplicationDetail({ id }: { id: string }) {
           }
         />
       </div>
+
+      {/* Visual Form-Fill Progress Bar */}
+      <div
+        className="panel panel-body"
+        style={{ padding: "0.75rem 1rem", marginTop: "0.5rem" }}
+        aria-label="Application Progress"
+      >
+        <div className="tag-list" style={{ justifyContent: "space-between" }}>
+          {progressSteps.map((s, idx) => (
+            <Badge
+              key={idx}
+              tone={s.done ? "green" : s.active ? "amber" : "neutral"}
+            >
+              {s.done ? "✓ " : s.active ? "● " : "○ "}
+              {s.label}
+            </Badge>
+          ))}
+        </div>
+      </div>
+
+      {/* Dynamic Next Action Callout */}
+      <div
+        className="panel panel-body"
+        style={{
+          background: "var(--surface-sunken, rgba(0,0,0,0.02))",
+          borderLeft: "4px solid var(--accent, #2563eb)",
+          marginTop: "0.75rem",
+        }}
+        aria-label="Next Action Guidance"
+      >
+        <div className="split">
+          <div>
+            <strong
+              style={{
+                color: "var(--accent, #2563eb)",
+                fontSize: "0.75rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              NEXT ACTION
+            </strong>
+            <p style={{ margin: "0.25rem 0 0", fontWeight: 600 }}>
+              {nextAction}
+            </p>
+          </div>
+          <Badge tone={terminal ? "green" : "neutral"}>
+            {readable(p.lifecycle_state)}
+          </Badge>
+        </div>
+      </div>
+
+      {/* In-Dashboard Telegram Question Answering Card */}
+      {pendingExecQuestion && (
+        <div
+          className="panel panel-body stack spaced"
+          style={{
+            borderLeft: "4px solid var(--amber, #f59e0b)",
+            background: "var(--surface-sunken, rgba(0,0,0,0.02))",
+            marginTop: "0.75rem",
+          }}
+          aria-label="Waiting for Your Answer"
+        >
+          <div className="split">
+            <Badge tone="amber">Waiting for Your Answer</Badge>
+            <small className="muted">Backend paused preparation</small>
+          </div>
+          <h3>{pendingExecQuestion.question}</h3>
+          <p className="text-xs muted">
+            Answer this question here or via Telegram bot. Once submitted, your
+            verified answer updates the packet and allows you to resume.
+          </p>
+          {pendingExecQuestion.answer_type === "availability" ? (
+            <div className="filter-grid">
+              <Field label="Interview date">
+                <Input
+                  type="date"
+                  value={inAvailDate}
+                  onChange={(e) => setInAvailDate(e.target.value)}
+                />
+              </Field>
+              <Field label="Interview time">
+                <Input
+                  type="time"
+                  value={inAvailTime}
+                  onChange={(e) => setInAvailTime(e.target.value)}
+                />
+              </Field>
+              <Field label="Time zone (IANA)">
+                <Select
+                  value={inAvailZone}
+                  onChange={(e) => setInAvailZone(e.target.value)}
+                >
+                  <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+                  <option value="UTC">UTC</option>
+                  <option value="America/New_York">
+                    America/New_York (EST)
+                  </option>
+                  <option value="America/Los_Angeles">
+                    America/Los_Angeles (PST)
+                  </option>
+                  <option value="Europe/London">Europe/London (GMT)</option>
+                </Select>
+              </Field>
+            </div>
+          ) : pendingExecQuestion.options &&
+            pendingExecQuestion.options.length > 0 ? (
+            <Field label="Choose option">
+              <Select
+                value={inDashboardAnswer}
+                onChange={(e) => setInDashboardAnswer(e.target.value)}
+              >
+                <option value="">Select an option…</option>
+                {pendingExecQuestion.options.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          ) : (
+            <Field label="Your verified answer">
+              <Input
+                value={inDashboardAnswer}
+                placeholder="Type your answer…"
+                onChange={(e) => setInDashboardAnswer(e.target.value)}
+              />
+            </Field>
+          )}
+          <div className="actions">
+            <Button
+              variant="primary"
+              busy={answeringBusy}
+              disabled={
+                answeringBusy ||
+                (pendingExecQuestion.answer_type === "availability"
+                  ? !inAvailDate || !inAvailTime
+                  : !inDashboardAnswer.trim())
+              }
+              onClick={async () => {
+                setAnsweringBusy(true);
+                try {
+                  let finalAns = inDashboardAnswer.trim();
+                  if (pendingExecQuestion.answer_type === "availability") {
+                    finalAns = `${inAvailDate}T${inAvailTime} ${inAvailZone}`;
+                    if (pendingExecQuestion.options?.length) {
+                      finalAns = `${pendingExecQuestion.options[0]} | ${finalAns}`;
+                    }
+                  }
+                  await post(
+                    `execution/questions/${pendingExecQuestion.id}/answer`,
+                    { answer: finalAns },
+                  );
+                  setAnswerSuccess(
+                    "Answer saved and approved! You can now resume your application.",
+                  );
+                  setInDashboardAnswer("");
+                  changed();
+                } catch (err) {
+                  setNotice(
+                    `Failed to save answer: ${err instanceof Error ? err.message : String(err)}`,
+                  );
+                } finally {
+                  setAnsweringBusy(false);
+                }
+              }}
+            >
+              Submit Answer from Dashboard
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {answerSuccess && (
+        <Notice>
+          <div className="split">
+            <span>{answerSuccess}</span>
+            <Button
+              variant="primary"
+              onClick={async () => {
+                if (pendingExecQuestion?.execution_id) {
+                  try {
+                    await post(
+                      `execution/${pendingExecQuestion.execution_id}/control`,
+                      {
+                        action: "resume",
+                        expected_revision: 1,
+                      },
+                    );
+                  } catch {
+                    // Ignore revision conflict
+                  }
+                }
+                refresh.mutate();
+                setAnswerSuccess("");
+              }}
+            >
+              Resume Application
+            </Button>
+          </div>
+        </Notice>
+      )}
 
       {p.lifecycle_state === "needs_input" && (
         <Notice>

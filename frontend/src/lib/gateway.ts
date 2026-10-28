@@ -6,7 +6,7 @@ const routes: Array<[RegExp, string[]]> = [
   [/^execution\/[a-f0-9-]{36}\/control$/, ["POST"]],
   [/^execution\/[a-f0-9-]{36}\/questions\/[a-f0-9-]{36}$/, ["POST"]],
   [/^execution\/questions$/, ["GET"]],
-  [/^execution\/questions\/[a-f0-9-]{36}\/approve-reuse$/, ["POST"]],
+  [/^execution\/questions\/[a-f0-9-]{36}\/(approve-reuse|answer)$/, ["POST"]],
 
   [/^integrations\/gmail\/workspace\/(accounts|history|drafts)$/, ["GET"]],
   [

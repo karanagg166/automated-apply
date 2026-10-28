@@ -3199,6 +3199,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/execution/questions/{question_id}/answer": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Answer Question */
+    post: operations["answer_question_api_v1_execution_questions__question_id__answer_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/execution/naukri/jobs": {
     parameters: {
       query?: never;
@@ -6443,6 +6460,11 @@ export interface components {
        * @constant
        */
       outreach_mode: "manual";
+    };
+    /** QuestionAnswer */
+    QuestionAnswer: {
+      /** Answer */
+      answer: string;
     };
     /** QuestionInput */
     QuestionInput: {
@@ -14671,6 +14693,41 @@ export interface operations {
       cookie?: never;
     };
     requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  answer_question_api_v1_execution_questions__question_id__answer_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        question_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["QuestionAnswer"];
+      };
+    };
     responses: {
       /** @description Successful Response */
       200: {
