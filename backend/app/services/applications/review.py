@@ -14,7 +14,7 @@ class ApplicationReview:
         self.service, self.repo, self.session = service, service.repo, service.session
 
     async def review(self, packet_id, request):
-        from backend.app.execution.store import lock_packet_execution
+        from backend.app.execution.integration import lock_packet_execution
         execution = await lock_packet_execution(self.session, packet_id)
         packet, _, _ = await self.service.locked(packet_id, request.expected_revision)
         items = await self.repo.fields(packet_id)

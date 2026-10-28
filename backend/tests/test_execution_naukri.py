@@ -841,3 +841,14 @@ async def test_owner_ui_boundary_rejects_extension_mode_mutation(
         json={"mode": "WATCH_AND_NOTIFY"},
     )
     assert response.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_history_read_before_owner_storage_migration_is_empty(db_session):
+    from backend.app.integrations.gmail.history import reviewed_history
+    from backend.app.knowledge.missing_input import storage_available
+
+    async with db_session.bind.begin() as connection:
+        await connection.run_sync(OwnerPreference.__table__.drop)
+    assert await reviewed_history(db_session) == []
+    assert not await storage_available(db_session)

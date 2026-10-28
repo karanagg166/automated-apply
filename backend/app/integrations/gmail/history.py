@@ -51,6 +51,13 @@ class HistoryReview(Contract):
 
 
 async def reviewed_history(session):
+    from backend.app.knowledge.missing_input import storage_available
+
+    # Earlier migration verifiers predate private owner/history storage. There
+    # cannot be retained reviewed history in an absent store; do not issue a
+    # failing SELECT or register worker models to perform this optional read.
+    if not await storage_available(session):
+        return []
     rows = (await session.scalars(select(OwnerPreference).where(
         OwnerPreference.key.startswith(PREFIX)
     ).limit(5001))).all()
