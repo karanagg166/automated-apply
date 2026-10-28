@@ -272,10 +272,16 @@ test.describe("Phase 4 Dashboard Complete Acceptance Smoke Suite", () => {
 
     // Check connected accounts list using heading role
     await expect(
-      page.getByRole("heading", { name: "first-fixture@example.com" }),
+      page.getByRole("heading", {
+        name: "first-fixture@example.com",
+        exact: true,
+      }),
     ).toBeVisible();
     await expect(
-      page.getByRole("heading", { name: "second-fixture@example.com" }),
+      page.getByRole("heading", {
+        name: "second-fixture@example.com",
+        exact: true,
+      }),
     ).toBeVisible();
 
     // Verify read-only scopes displayed
