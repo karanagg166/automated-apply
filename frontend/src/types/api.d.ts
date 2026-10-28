@@ -1953,6 +1953,177 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/integrations/gmail/workspace/accounts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Accounts */
+    get: operations["accounts_api_v1_integrations_gmail_workspace_accounts_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/integrations/gmail/workspace/accounts/{slot}/connect": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Connect */
+    post: operations["connect_api_v1_integrations_gmail_workspace_accounts__slot__connect_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/integrations/gmail/workspace/outreach/disconnect": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Disconnect */
+    post: operations["disconnect_api_v1_integrations_gmail_workspace_outreach_disconnect_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/integrations/gmail/workspace/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** History */
+    get: operations["history_api_v1_integrations_gmail_workspace_history_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/integrations/gmail/workspace/history/review": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Review */
+    post: operations["review_api_v1_integrations_gmail_workspace_history_review_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/integrations/gmail/workspace/history/{history_id}/forget": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Forget */
+    post: operations["forget_api_v1_integrations_gmail_workspace_history__history_id__forget_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/integrations/gmail/workspace/history/{history_id}/retention": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Retention */
+    put: operations["retention_api_v1_integrations_gmail_workspace_history__history_id__retention_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/integrations/gmail/workspace/drafts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Drafts */
+    get: operations["drafts_api_v1_integrations_gmail_workspace_drafts_get"];
+    put?: never;
+    /** Save Draft */
+    post: operations["save_draft_api_v1_integrations_gmail_workspace_drafts_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/integrations/gmail/workspace/drafts/{draft_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Edit Draft */
+    put: operations["edit_draft_api_v1_integrations_gmail_workspace_drafts__draft_id__put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/integrations/gmail/workspace/drafts/{draft_id}/create-in-gmail": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Create Draft */
+    post: operations["create_draft_api_v1_integrations_gmail_workspace_drafts__draft_id__create_in_gmail_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/outreach/drafts/preview": {
     parameters: {
       query?: never;
@@ -2912,6 +3083,16 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** AccountConsent */
+    AccountConsent: {
+      /** Account Consent */
+      account_consent: boolean;
+      /**
+       * Read Body
+       * @default false
+       */
+      read_body: boolean;
+    };
     /** ActorInspect */
     ActorInspect: {
       /** Actor Id */
@@ -3907,6 +4088,17 @@ export interface components {
       /** Max Age Days */
       max_age_days?: number | null;
     };
+    /** DraftApproval */
+    DraftApproval: {
+      /** Expected Version */
+      expected_version: number;
+      /** Content Hash */
+      content_hash: string;
+      /** Owner Reviewed */
+      owner_reviewed: boolean;
+      /** Expected Account Generation */
+      expected_account_generation: number;
+    };
     /** DraftDecision */
     DraftDecision: {
       /** Expected Revision */
@@ -3922,47 +4114,6 @@ export interface components {
       body?: string | null;
       /** Recipient Email */
       recipient_email?: string | null;
-    };
-    /** DraftInput */
-    DraftInput: {
-      /**
-       * Contact Id
-       * Format: uuid
-       */
-      contact_id: string;
-      /** Job Id */
-      job_id?: string | null;
-      /**
-       * Purpose
-       * @default job_opportunity
-       * @enum {string}
-       */
-      purpose: "job_opportunity" | "exploratory";
-      /**
-       * Writing Style
-       * @default professional
-       * @enum {string}
-       */
-      writing_style:
-        | "professional"
-        | "concise"
-        | "friendly"
-        | "technical"
-        | "founder-focused";
-      /**
-       * Max Length
-       * @default 1800
-       */
-      max_length: number;
-      /** Personal Instructions */
-      personal_instructions?: string | null;
-      /**
-       * Use Llm
-       * @default true
-       */
-      use_llm: boolean;
-      /** Idempotency Key */
-      idempotency_key?: string | null;
     };
     /** DraftRead */
     DraftRead: {
@@ -4554,6 +4705,34 @@ export interface components {
       fresh: boolean;
     } & {
       [key: string]: unknown;
+    };
+    /** HistoryReview */
+    HistoryReview: {
+      /** Expected Version */
+      expected_version: number;
+      /** Company */
+      company: string;
+      /** Role */
+      role: string;
+      /**
+       * Applied At
+       * Format: date-time
+       */
+      applied_at: string;
+      /** Job Url */
+      job_url?: string | null;
+      /** Evidence */
+      evidence: {
+        [key: string]: string[];
+      };
+      /** Status */
+      status: string;
+      /** Confirmed Application */
+      confirmed_application: boolean;
+      /** Retention Days */
+      retention_days: number;
+      /** Owner Reviewed */
+      owner_reviewed: boolean;
     };
     /** Inspection */
     Inspection: {
@@ -6062,11 +6241,8 @@ export interface components {
     };
     /** ReadConnect */
     ReadConnect: {
-      /**
-       * Expected Email
-       * Format: email
-       */
-      expected_email: string;
+      /** Expected Email */
+      expected_email?: string | null;
       /**
        * Read Body
        * @default false
@@ -6112,6 +6288,15 @@ export interface components {
        * @default 1
        */
       max_pages: number;
+      /** Folders */
+      folders?: ("INBOX" | "SENT")[];
+      /** History Months */
+      history_months?: number | null;
+      /**
+       * Retain Metadata
+       * @default false
+       */
+      retain_metadata: boolean;
     };
     /** Readiness */
     Readiness: {
@@ -6506,6 +6691,13 @@ export interface components {
       candidate_profile_version: number | null;
       /** Approved Profile Version */
       approved_profile_version: number | null;
+    };
+    /** Retention */
+    Retention: {
+      /** Expected Version */
+      expected_version: number;
+      /** Retention Days */
+      retention_days: number;
     };
     /** Review */
     Review: {
@@ -7622,6 +7814,75 @@ export interface components {
       measurable_results?: string | null;
       /** Achievements */
       achievements?: string[];
+    };
+    /** Version */
+    Version: {
+      /** Expected Version */
+      expected_version: number;
+    };
+    /** DraftInput */
+    backend__app__integrations__gmail__drafts__DraftInput: {
+      /**
+       * Expected Version
+       * @default 0
+       */
+      expected_version: number;
+      /**
+       * Recipient
+       * Format: email
+       */
+      recipient: string;
+      /** Company */
+      company: string;
+      /** Role */
+      role: string;
+      /** Context */
+      context: string;
+      /** Subject */
+      subject?: string | null;
+      /** Body */
+      body?: string | null;
+    };
+    /** DraftInput */
+    backend__app__schemas__outreach__DraftInput: {
+      /**
+       * Contact Id
+       * Format: uuid
+       */
+      contact_id: string;
+      /** Job Id */
+      job_id?: string | null;
+      /**
+       * Purpose
+       * @default job_opportunity
+       * @enum {string}
+       */
+      purpose: "job_opportunity" | "exploratory";
+      /**
+       * Writing Style
+       * @default professional
+       * @enum {string}
+       */
+      writing_style:
+        | "professional"
+        | "concise"
+        | "friendly"
+        | "technical"
+        | "founder-focused";
+      /**
+       * Max Length
+       * @default 1800
+       */
+      max_length: number;
+      /** Personal Instructions */
+      personal_instructions?: string | null;
+      /**
+       * Use Llm
+       * @default true
+       */
+      use_llm: boolean;
+      /** Idempotency Key */
+      idempotency_key?: string | null;
     };
   };
   responses: never;
@@ -11677,6 +11938,327 @@ export interface operations {
       };
     };
   };
+  accounts_api_v1_integrations_gmail_workspace_accounts_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  connect_api_v1_integrations_gmail_workspace_accounts__slot__connect_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slot: "read_1" | "read_2" | "outreach";
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AccountConsent"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  disconnect_api_v1_integrations_gmail_workspace_outreach_disconnect_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  history_api_v1_integrations_gmail_workspace_history_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  review_api_v1_integrations_gmail_workspace_history_review_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["HistoryReview"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  forget_api_v1_integrations_gmail_workspace_history__history_id__forget_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        history_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["Version"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  retention_api_v1_integrations_gmail_workspace_history__history_id__retention_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        history_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["Retention"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  drafts_api_v1_integrations_gmail_workspace_drafts_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  save_draft_api_v1_integrations_gmail_workspace_drafts_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["backend__app__integrations__gmail__drafts__DraftInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  edit_draft_api_v1_integrations_gmail_workspace_drafts__draft_id__put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        draft_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["backend__app__integrations__gmail__drafts__DraftInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_draft_api_v1_integrations_gmail_workspace_drafts__draft_id__create_in_gmail_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        draft_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DraftApproval"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   preview_api_v1_outreach_drafts_preview_post: {
     parameters: {
       query?: never;
@@ -11686,7 +12268,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["DraftInput"];
+        "application/json": components["schemas"]["backend__app__schemas__outreach__DraftInput"];
       };
     };
     responses: {
@@ -11751,7 +12333,7 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": components["schemas"]["DraftInput"];
+        "application/json": components["schemas"]["backend__app__schemas__outreach__DraftInput"];
       };
     };
     responses: {

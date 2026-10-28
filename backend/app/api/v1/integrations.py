@@ -86,6 +86,9 @@ async def callback(
         raise HTTPException(400, "ambiguous_oauth_callback")
     callback_uri = str(request.url.replace(query=""))
     try:
+        if state.startswith("draft."):
+            from backend.app.integrations.gmail.drafts import DraftAccountService
+            service = DraftAccountService(service.session, service.settings)
         result = await service.callback(
             state, request.cookies.get(COOKIE), callback_uri, code, error
         )
@@ -148,7 +151,7 @@ async def gmail_read_connect(data: ReadConnect, response: Response, session: Asy
     browser = secrets.token_urlsafe(32)
     settings = get_settings()
     try:
-        result = await ConnectionService(session, read_only=True).start(str(data.expected_email), browser, read_body=data.read_body)
+        result = await ConnectionService(session, read_only=True).start(str(data.expected_email) if data.expected_email else None, browser, read_body=data.read_body)
     except ConnectionError as exc:
         raise HTTPException(409, str(exc)) from None
     response.set_cookie(COOKIE, browser, max_age=settings.OAUTH_STATE_TTL_SECONDS, httponly=True,
@@ -225,3 +228,7 @@ async def gmail_read_import(account_id: UUID, evidence_id: str, data: LeadImport
 
 
 router.include_router(read_router)
+
+from backend.app.integrations.gmail.workspace import router as workspace_router
+
+router.include_router(workspace_router)

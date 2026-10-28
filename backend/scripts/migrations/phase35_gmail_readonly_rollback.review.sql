@@ -20,7 +20,11 @@ BEGIN
     IF EXISTS (SELECT FROM job_agent.gmail_read_accounts)
        OR EXISTS (SELECT FROM job_agent.gmail_read_oauth_states)
        OR EXISTS (SELECT FROM job_agent.owner_preferences
-                  WHERE key LIKE 'gmail_sync:%' OR key LIKE 'gmail_msg:%') THEN
+                  WHERE key LIKE 'gmail_sync:%' OR key LIKE 'gmail_msg:%'
+                     OR key LIKE 'gmail_workspace_slot:%' OR key LIKE 'gmail_drafts:%'
+                     OR key LIKE 'gmail_draft_oauth:%' OR key LIKE 'gmail_outreach_draft:%'
+                     OR key LIKE 'gmail_draft:%'
+                     OR key LIKE 'gmail_application:%') THEN
         RAISE EXCEPTION 'gmail_rollback_requires_empty_install_and_no_evidence';
     END IF;
 END $$;

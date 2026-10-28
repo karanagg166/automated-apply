@@ -398,6 +398,8 @@ class Settings(BaseSettings):
     # Outbound communication always needs a fresh owner confirmation.
     GMAIL_READ_BODY_REVIEWED: bool = False
     GMAIL_READ_SYNC_ENABLED: bool = False
+    GMAIL_DRAFTS_ENABLED: bool = False
+    GMAIL_RETENTION_ENABLED: bool = False
     GMAIL_SENDING_ENABLED: bool = False
     GMAIL_SEND_MAX_PER_DAY: int = Field(default=10, ge=0, le=100)
     GMAIL_SEND_MAX_PER_HOUR: int = Field(default=3, ge=0, le=20)

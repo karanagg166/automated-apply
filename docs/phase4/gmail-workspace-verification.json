@@ -1,0 +1,22 @@
+{
+  "new_scope": "two independent read-only accounts; bounded 24-month history; isolated drafts-only outreach",
+  "live_gmail_operations": 0,
+  "live_ddl": false,
+  "paid_calls": 0,
+  "hosted_ci_dispatched": false,
+  "schema_clone": "exact current public catalog; additive forward and safe rollback passed",
+  "populated_rollback_namespaces_denied": 6,
+  "postgres_outreach_oauth_fixture": "passed; only MockTransport Google requests",
+  "complete_original_suite_reused_only_for_original_trees": true,
+  "final_checks": "Final affected backend, full frontend and combined PostgreSQL Chromium checks passed. Complete original backend suite was not repeated.",
+  "original_phase4_engineering_reference": "Preserved; see final-integration.md and PR ancestry",
+  "affected_backend_tests": 216,
+  "frontend_unit_tests": 203,
+  "combined_postgresql_chromium_journeys": 29,
+  "production_build": true,
+  "typecheck": true,
+  "formatting": true,
+  "bandit": true,
+  "hosted_workflow_policy": "manual-only; unchanged",
+  "concurrent_dashboard_update": "Preserved mobile badge correction and nine smoke acceptance journeys"
+}

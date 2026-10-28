@@ -165,7 +165,9 @@ type Lead = {
 
 type ImportSelection = { account: ReadAccount; lead: Lead };
 
-export function ConnectedEmails() {
+export function ConnectedEmails({
+  reviewOnly = false,
+}: { reviewOnly?: boolean } = {}) {
   const client = useQueryClient();
   const confirmationId = useId();
 
@@ -435,25 +437,27 @@ export function ConnectedEmails() {
         title="Gmail Job Inbox"
         description="Independent read-only accounts with selected labels, bounded reads, recruiter signal detection, and account-attributed evidence."
         actions={
-          <div className="actions">
-            <Button
-              disabled={!schemaReady}
-              title={
-                !schemaReady
-                  ? "Read-only Gmail setup required before connecting accounts"
-                  : undefined
-              }
-              onClick={() => {
-                setExpectedEmail("");
-                setConnectOpen(true);
-                setReadBody(false);
-                setAccountConsent(false);
-              }}
-            >
-              <Mail size={14} />
-              Connect secondary account
-            </Button>
-          </div>
+          reviewOnly ? undefined : (
+            <div className="actions">
+              <Button
+                disabled={!schemaReady}
+                title={
+                  !schemaReady
+                    ? "Read-only Gmail setup required before connecting accounts"
+                    : undefined
+                }
+                onClick={() => {
+                  setExpectedEmail("");
+                  setConnectOpen(true);
+                  setReadBody(false);
+                  setAccountConsent(false);
+                }}
+              >
+                <Mail size={14} />
+                Connect secondary account
+              </Button>
+            </div>
+          )
         }
       />
 
@@ -484,16 +488,18 @@ export function ConnectedEmails() {
           title="No read-only accounts connected"
           description="Each mailbox requires its own consent. Existing legacy sending accounts are separate."
           action={
-            <Button
-              onClick={() => {
-                setExpectedEmail("");
-                setConnectOpen(true);
-                setReadBody(false);
-                setAccountConsent(false);
-              }}
-            >
-              Connect Gmail account
-            </Button>
+            reviewOnly ? undefined : (
+              <Button
+                onClick={() => {
+                  setExpectedEmail("");
+                  setConnectOpen(true);
+                  setReadBody(false);
+                  setAccountConsent(false);
+                }}
+              >
+                Connect Gmail account
+              </Button>
+            )
           }
         />
       )}
@@ -576,7 +582,7 @@ export function ConnectedEmails() {
               </dd>
             </dl>
 
-            {account.sync.last_error && (
+            {!reviewOnly && account.sync.last_error && (
               <div className="stack" style={{ marginTop: "0.25rem" }}>
                 <p role="alert" className="text-xs text-red-600">
                   Sync error: {readable(account.sync.last_error)}
@@ -593,60 +599,62 @@ export function ConnectedEmails() {
               </div>
             )}
 
-            <div className="actions">
-              <Button
-                disabled={account.status !== "connected"}
-                onClick={() => openPolicy(account)}
-              >
-                Configure read policy
-              </Button>
-              <Button
-                disabled={
-                  account.status !== "connected" ||
-                  !account.sync_enabled ||
-                  !account.sync.policy?.enabled ||
-                  account.sync.status === "syncing"
-                }
-                title={
-                  account.status !== "connected"
-                    ? "Account is not connected"
-                    : !account.sync_enabled || !account.sync.policy?.enabled
-                      ? "Read policy is not enabled for synchronization"
-                      : account.sync.status === "syncing"
-                        ? "Sync currently in progress"
-                        : undefined
-                }
-                busy={sync.isPending}
-                onClick={() => sync.mutate(account.id)}
-              >
-                Sync now
-              </Button>
-              <Button
-                disabled={account.status !== "connected"}
-                busy={verify.isPending}
-                onClick={() => verify.mutate(account.id)}
-              >
-                Verify token
-              </Button>
-              {account.status === "reauthorization_required" && (
+            {!reviewOnly && (
+              <div className="actions">
                 <Button
-                  onClick={() => {
-                    setExpectedEmail(account.account_email);
-                    setConnectOpen(true);
-                  }}
+                  disabled={account.status !== "connected"}
+                  onClick={() => openPolicy(account)}
                 >
-                  Reconnect account
+                  Configure read policy
                 </Button>
-              )}
-              <Button
-                variant="danger"
-                disabled={account.status === "disconnected"}
-                busy={disconnect.isPending}
-                onClick={() => disconnect.mutate(account.id)}
-              >
-                Disconnect
-              </Button>
-            </div>
+                <Button
+                  disabled={
+                    account.status !== "connected" ||
+                    !account.sync_enabled ||
+                    !account.sync.policy?.enabled ||
+                    account.sync.status === "syncing"
+                  }
+                  title={
+                    account.status !== "connected"
+                      ? "Account is not connected"
+                      : !account.sync_enabled || !account.sync.policy?.enabled
+                        ? "Read policy is not enabled for synchronization"
+                        : account.sync.status === "syncing"
+                          ? "Sync currently in progress"
+                          : undefined
+                  }
+                  busy={sync.isPending}
+                  onClick={() => sync.mutate(account.id)}
+                >
+                  Sync now
+                </Button>
+                <Button
+                  disabled={account.status !== "connected"}
+                  busy={verify.isPending}
+                  onClick={() => verify.mutate(account.id)}
+                >
+                  Verify token
+                </Button>
+                {account.status === "reauthorization_required" && (
+                  <Button
+                    onClick={() => {
+                      setExpectedEmail(account.account_email);
+                      setConnectOpen(true);
+                    }}
+                  >
+                    Reconnect account
+                  </Button>
+                )}
+                <Button
+                  variant="danger"
+                  disabled={account.status === "disconnected"}
+                  busy={disconnect.isPending}
+                  onClick={() => disconnect.mutate(account.id)}
+                >
+                  Disconnect
+                </Button>
+              </div>
+            )}
           </article>
         ))}
       </div>
@@ -666,9 +674,10 @@ export function ConnectedEmails() {
             <div>
               <h4>Selected-message evidence and candidate links</h4>
               <p className="text-sm muted">
-                Raw senders, subjects, and message bodies are not retained.
-                Extracted vacancy links and detected recruiter signals require
-                review before import.
+                Message bodies are not retained. Selected header metadata
+                follows your reviewed account retention settings. Extracted
+                vacancy links and detected recruiter signals require review
+                before import.
               </p>
             </div>
             <Badge tone="green">Read-only Stream</Badge>

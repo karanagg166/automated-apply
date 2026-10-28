@@ -407,11 +407,17 @@ class JobDiscoveryService:
                                     )
                                 )
                             ).all()
+                            from backend.app.integrations.gmail.history import (
+                                reviewed_history,
+                            )
+                            matcher = JobDiscoveryMatcher(self.session, await reviewed_history(self.session))
                             for job, company in rows:
                                 job_id = str(job.id)
-                                match = JobDiscoveryMatcher(self.session).match(
+                                match = matcher.match(
                                     job, profile, company
                                 )
+                                if "Previously applied: confirmed reviewed mailbox history" in match.exclusion_reasons:
+                                    continue
                                 rankings.append(
                                     {
                                         "job_id": job_id,

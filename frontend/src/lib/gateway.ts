@@ -1,5 +1,23 @@
 // This fixed route list prevents the server-side bearer from becoming a general proxy.
 const routes: Array<[RegExp, string[]]> = [
+  [/^integrations\/gmail\/workspace\/(accounts|history|drafts)$/, ["GET"]],
+  [
+    /^integrations\/gmail\/workspace\/accounts\/(read_1|read_2|outreach)\/connect$/,
+    ["POST"],
+  ],
+  [/^integrations\/gmail\/workspace\/outreach\/disconnect$/, ["POST"]],
+  [/^integrations\/gmail\/workspace\/history\/review$/, ["POST"]],
+  [/^integrations\/gmail\/workspace\/history\/[a-f0-9]{32}\/forget$/, ["POST"]],
+  [
+    /^integrations\/gmail\/workspace\/history\/[a-f0-9]{32}\/retention$/,
+    ["PUT"],
+  ],
+  [/^integrations\/gmail\/workspace\/drafts$/, ["POST"]],
+  [/^integrations\/gmail\/workspace\/drafts\/[a-f0-9]{32}$/, ["PUT"]],
+  [
+    /^integrations\/gmail\/workspace\/drafts\/[a-f0-9]{32}\/create-in-gmail$/,
+    ["POST"],
+  ],
   [/^application-answers\/(drafts|reuse-approvals)$/, ["GET"]],
   [/^application-answers\/missing$/, ["GET", "POST"]],
   [/^application-answers\/missing\/[a-f0-9-]{32,36}$/, ["GET", "PATCH"]],

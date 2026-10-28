@@ -56,6 +56,10 @@ async def lifespan(app: FastAPI):
             await close_db_engine()
             raise RuntimeError("Database startup probe failed") from None
 
+    gmail_retention = None
+    if settings.GMAIL_RETENTION_ENABLED:
+        from backend.app.integrations.gmail.retention import retention_loop
+        gmail_retention = asyncio.create_task(retention_loop(get_session_factory()))
     project_refresh = None
     if settings.CANDIDATE_PROJECT_CHECKOUTS:
         from backend.app.candidate_context.runtime import refresh_loop
@@ -72,6 +76,10 @@ async def lifespan(app: FastAPI):
         async with mcp_app.lifespan(app):
             yield
     finally:
+        if gmail_retention is not None:
+            gmail_retention.cancel()
+            with suppress(asyncio.CancelledError):
+                await gmail_retention
         if project_refresh is not None:
             project_refresh.cancel()
             with suppress(asyncio.CancelledError):

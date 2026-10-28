@@ -186,7 +186,8 @@ async def search_jobs(
         sizes = {key: company_size(value) for key, value in grouped.items()}
     from backend.app.dashboard.states import matches_status, packet_map
     packets = await packet_map(session, [job.id for job, _ in rows])
-    matcher = JobDiscoveryMatcher(session)
+    from backend.app.integrations.gmail.history import reviewed_history
+    matcher = JobDiscoveryMatcher(session, await reviewed_history(session))
     for job, company in rows:
         if approved_experience_fit and experience_fit(job, approved.verified_experience_years) != "within_published_range":
             continue

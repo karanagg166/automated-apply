@@ -20,8 +20,9 @@ class DiscoveryMatch(BaseModel):
 
 
 class JobDiscoveryMatcher:
-    def __init__(self, session):
+    def __init__(self, session, application_history=None):
         self.assistant = ApplicationAssistant(session)
+        self.application_history = application_history or []
 
     def match(self, job, profile, company=None):
         prefs = profile.preferences
@@ -40,6 +41,9 @@ class JobDiscoveryMatcher:
         score, positive, negative, unknown, excluded = base.match_score, [], [], [], []
         title, description = job.title.casefold(), (job.description or "").casefold()
         company_name = (company.name if company else "").casefold()
+        from backend.app.integrations.gmail.history import previously_applied
+        if previously_applied(job, company, self.application_history):
+            excluded.append("Previously applied: confirmed reviewed mailbox history")
         for value in prefs.excluded_companies:
             if company_name == value.casefold() or (
                 company and company.domain == value.casefold()

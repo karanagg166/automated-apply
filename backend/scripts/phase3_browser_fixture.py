@@ -26,6 +26,7 @@ QUESTION = "Describe the fictional payment gateway incident you personally resol
 async def install(app, settings, factory):
     from backend.app.api.v1.integrations import read_service
     from backend.app.core.security import require_api_token
+    from backend.app.dashboard.models import OwnerPreference
     from backend.app.db.session import get_db_session, get_engine
     from backend.app.integrations.gmail.read_service import GmailReadService, ReadPolicy
     from backend.app.integrations.google_oauth import READ_SCOPES
@@ -95,6 +96,7 @@ async def install(app, settings, factory):
     store = TokenStore(settings)
     async with factory() as session:
         for index, account_id in enumerate(ACCOUNT_IDS):
+            session.add(OwnerPreference(key=f"gmail_workspace_slot:read_{index + 1}", value={"account_id": str(account_id)}))
             session.add(GmailReadAccount(
                 id=account_id, google_subject=f"fixture-subject-{index + 1}",
                 account_email=addresses[index], connected_at=datetime.now(timezone.utc),

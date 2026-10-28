@@ -3,6 +3,7 @@
 import hashlib
 import secrets
 from datetime import timedelta
+from uuid import uuid4
 
 from pydantic import EmailStr, TypeAdapter, ValidationError
 from sqlalchemy import select, text, update
@@ -53,7 +54,7 @@ def account_output(account):
     return {
         "id": str(account.id),
         "status": account.status,
-        "account_email": account.account_email,
+        "account_email": account.account_email if account.google_subject else None,
         "google_subject": account.google_subject or None,
         "granted_scopes": account.granted_scopes,
         "workflow": account.workflow,
@@ -118,10 +119,19 @@ class ConnectionService:
         if read_body and (not self.read_only or not self.settings.GMAIL_READ_BODY_REVIEWED):
             raise ConnectionError("gmail_body_access_review_required")
         store = TokenStore(self.settings)
-        expected = expected_email if self.read_only else self.settings.GMAIL_EXPECTED_EMAIL or expected_email
+        # A new read account can be selected at Google's account chooser. The
+        # random pending identity is local only and pins this intent to one row.
+        anonymous = self.read_only and not expected_email and not self.account_id
+        expected = ("pending:" + uuid4().hex) if anonymous else expected_email if self.read_only else self.settings.GMAIL_EXPECTED_EMAIL or expected_email
+        if self.read_only and self.account_id and not expected_email:
+            existing = await self.account()
+            if not existing:
+                raise ConnectionError("gmail_read_account_not_found")
+            expected = existing.account_email
         try:
-            expected = str(TypeAdapter(EmailStr).validate_python(expected)).casefold()
-        except ValidationError:
+            if not expected.startswith("pending:"):
+                expected = str(TypeAdapter(EmailStr).validate_python(expected)).casefold()
+        except (ValidationError, AttributeError):
             raise ConnectionError("expected_secondary_email_required") from None
         if expected_email and expected_email.casefold() != expected:
             raise ConnectionError("expected_account_mismatch")
@@ -135,7 +145,9 @@ class ConnectionService:
                 raise ConnectionError("wrong_google_account")
         elif account and account.status != "disconnected":
             if not (self.read_only and account.status == "reauthorization_required"):
-                raise ConnectionError("disconnect_before_reconnecting")
+                if not (self.read_only and read_body and account.status == "connected"
+                        and set(account.granted_scopes) == SCOPES):
+                    raise ConnectionError("disconnect_before_reconnecting")
         if not account:
             model = GmailReadAccount if self.read_only else ConnectedAccount
             account = model(
@@ -180,7 +192,7 @@ class ConnectionService:
             raise
         return {
             "authorization_url": self.google.authorization_url(
-                state, verifier, expected, **({"read_body": read_body} if self.read_only else {"compose": True} if compose else {"send": send})
+                state, verifier, None if expected.startswith("pending:") else expected, **({"read_body": read_body} if self.read_only else {"compose": True} if compose else {"send": send})
             ),
             "expires_in": self.settings.OAUTH_STATE_TTL_SECONDS,
         }
@@ -241,13 +253,18 @@ class ConnectionService:
         if scopes != (READ_SCOPES if intent.authorization_mode == "read_body" else COMPOSE_SCOPES if intent.authorization_mode == "compose" else SEND_SCOPES if intent.authorization_mode == "send" else SCOPES):
             raise ConnectionError("unexpected_or_insufficient_scopes")
         subject, email = await self.google.identity(tokens.access_token)
-        if email != intent.expected_email or (intent.expected_subject and subject != intent.expected_subject):
+        if (not intent.expected_email.startswith("pending:") and email != intent.expected_email) or (intent.expected_subject and subject != intent.expected_subject):
             raise ConnectionError("wrong_google_account")
         await self.lock()
+        if self.read_only:
+            from backend.app.dashboard.models import OwnerPreference
+            draft_account = await self.session.get(OwnerPreference, "gmail_drafts:account", populate_existing=True)
+            if draft_account and (draft_account.value.get("google_subject") == subject or draft_account.value.get("account_email") == email):
+                raise ConnectionError("gmail_separate_outreach_account_required")
         account = await self.account(lock=True)
         if (
             not account
-            or (account.status == "connected" and intent.authorization_mode not in {"send", "compose"})
+            or (account.status == "connected" and intent.authorization_mode not in {"send", "compose", "read_body"})
             or (intent.authorization_mode in {"send", "compose"} and (account.google_subject != subject or account.account_email != email or account.status == "disconnected"))
             or account.token_generation != intent.connection_generation
         ):
@@ -266,7 +283,11 @@ class ConnectionService:
         account.token_expires_at = now() + timedelta(seconds=tokens.expires_in)
         account.disconnected_at = None
         account.token_generation += 1
-        await self.session.commit()
+        try:
+            await self.session.commit()
+        except IntegrityError:
+            await self.session.rollback()
+            raise ConnectionError("gmail_account_already_connected") from None
         return account_output(account)
 
     async def access_token(self):

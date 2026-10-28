@@ -80,7 +80,7 @@ class GoogleOAuth:
                 "state": state,
                 "access_type": "offline",
                 "prompt": "consent select_account",
-                "login_hint": expected_email,
+                **({"login_hint": expected_email} if expected_email else {}),
                 "include_granted_scopes": "false",
                 "code_challenge": challenge,
                 "code_challenge_method": "S256",

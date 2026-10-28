@@ -253,9 +253,9 @@ test.describe("Phase 4 Dashboard Complete Acceptance Smoke Suite", () => {
       }),
     ).toBeVisible();
 
-    // Switch to Connected mailboxes (Read-Only) tab
+    // Switch to Connected Gmail accounts tab
     const mailboxesTab = page.getByRole("tab", {
-      name: "Connected mailboxes (Read-Only)",
+      name: "Connected Gmail accounts",
     });
     await expect(mailboxesTab).toBeVisible();
     await mailboxesTab.click();

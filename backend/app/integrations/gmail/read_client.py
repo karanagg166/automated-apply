@@ -187,5 +187,7 @@ class GmailReadClient:
                 ("metadataHeaders", "From"),
                 ("metadataHeaders", "Subject"),
                 ("metadataHeaders", "Date"),
+                ("metadataHeaders", "To"),
+                ("metadataHeaders", "Message-ID"),
             ],
         )

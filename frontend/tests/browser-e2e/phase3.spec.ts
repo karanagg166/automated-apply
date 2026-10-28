@@ -126,9 +126,7 @@ test("two Gmail accounts keep evidence isolated, require reviewed import, and re
   } = manifest();
   await login(page);
   await page.goto("/connections");
-  await page
-    .getByRole("tab", { name: "Connected mailboxes (Read-Only)" })
-    .click();
+  await page.getByRole("tab", { name: "Connected Gmail accounts" }).click();
   const firstEvidence = page.getByRole("region", {
     name: "Evidence from first-fixture@example.com",
   });
