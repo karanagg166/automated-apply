@@ -39,8 +39,9 @@ async def verify(client, packet, settings, writes, employer, *, after_dispatch=F
             },
         )
 
-    # Hold dependency teardown after the HTTP response. Acknowledged approval
-    # and revocation must already be committed for an independent GET to see.
+    # Legacy answer routes allow delayed request teardown. Packet/browser routes
+    # now finish their function-scoped transaction before sending the response.
+    # Both paths must make acknowledged writes visible to an independent GET.
     from backend.app.api.v1.application_answers import answer_service
     from backend.app.db.session import get_db_session, get_session_factory
     from backend.app.main import app
@@ -65,7 +66,8 @@ async def verify(client, packet, settings, writes, employer, *, after_dispatch=F
                 action = request.url.path.rsplit("/", 1)[-1]
                 if action in releases:
                     reached[action].set()
-                    await releases[action].wait()
+                    if action != "browser-applications":
+                        await releases[action].wait()
                 await session.commit()
             except BaseException:
                 await session.rollback()
@@ -289,7 +291,7 @@ async def verify(client, packet, settings, writes, employer, *, after_dispatch=F
     )
     assert response.status_code == 200, response.text
     view = response.json()
-    grant_teardown, release_grant = asyncio.Event(), asyncio.Event()
+    grant_teardown = asyncio.Event()
 
     async def delayed_authorization_teardown(request: Request):
         async with get_session_factory()() as session:
@@ -297,7 +299,6 @@ async def verify(client, packet, settings, writes, employer, *, after_dispatch=F
                 yield session
                 if request.url.path.endswith("/authorize-submission"):
                     grant_teardown.set()
-                    await release_grant.wait()
                 await session.commit()
             except BaseException:
                 await session.rollback()
@@ -327,7 +328,6 @@ async def verify(client, packet, settings, writes, employer, *, after_dispatch=F
                 is not None
             )
     finally:
-        release_grant.set()
         app.dependency_overrides.pop(get_db_session, None)
     command = {
         "expected_revision": revision,
