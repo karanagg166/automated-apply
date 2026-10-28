@@ -2,13 +2,13 @@
 
 **ENGINEERING PASS. External activation PARTIAL.** Verified locally on 2026-10-28 without waiting for PR #39 to merge. This report supersedes the preparation-only gate in `phase35-final-integration.md`.
 
-Tested final implementation: `cbbc1d8bef148ea4953322d19e27c03c4371fa29`. Resolve the report-inclusive final head with `git rev-parse integration/phase35-final-20261028`. Worktree: `/Users/karanagg/Desktop/Projects/automated-apply-phase35-integrated`, linked to the original repository. The primary checkout, source-agent branches and private configuration were preserved.
+Tested final implementation: `50b3a681c1d86134cdf721db7dabb5d93ca79926`. Resolve the report-inclusive final head with `git rev-parse integration/phase35-final-20261028`. Worktree: `/Users/karanagg/Desktop/Projects/automated-apply-phase35-integrated`, linked to the original repository. The primary checkout, source-agent branches and private configuration were preserved.
 
 History-preserving merges include PR #39 head `e57178b22e453119f4ba449dae28f36c01b6edc5`, complete Codex head `e84e45bf70a62871d04c0fd3c147c4df50e400fb`, preparation head `0721857b766a8eac0a34262117164766075884d2` (including actual Gmail persistence fix `709c814` and preflight `ae84afc`), and final AGY head `cc903b71daf05fe260ca72b64e1de61ea06f3fed`. Every pin is an ancestor; no cherry-picks or duplicate implementation commits were introduced. The three merges had no conflicts.
 
 | Combined local check | Final result |
 | --- | --- |
-| Full backend with disposable PostgreSQL 17, actual restart enabled | **2,546 passed**, zero failures/errors/skips; 724.08s; two existing PDF deprecation warnings |
+| Full backend with disposable PostgreSQL 17, actual restart enabled | **2,549 passed**, zero failures/errors/skips; 797.66s; two existing PDF deprecation warnings |
 | Gmail migration readiness, both schemas, replay/drift/rollback/RLS | Passed |
 | Full frontend Vitest | **185 passed**, 25 files |
 | Actual production frontend + FastAPI + PostgreSQL Chromium | **17 passed** |
@@ -24,7 +24,9 @@ History-preserving merges include PR #39 head `e57178b22e453119f4ba449dae28f36c0
 | OpenAPI export and regenerated TypeScript | Byte-identical to committed API types |
 | Hosted workflow policy | All three unchanged; workflow_dispatch only; no jobs dispatched/rerun |
 
-Focused checks are included in, rather than added to, the complete totals. Backend full regression ran at `4fbb789c52520a0bea3cbfffca2de1522283ca83`; subsequent changes are the browser-test corrections, one isolated dashboard-fixture country value and documentation. Backend application and extension source trees stayed unchanged. Affected browser checks and final typecheck/format/security were rerun on the final implementation. Heavy groups ran sequentially using the existing inode and `fcntl.flock` at `/tmp/automated-apply-heavy-tests.lock`. The native harness acquired that lock itself to avoid nested-lock deadlock.
+Focused checks are included in, rather than added to, the complete totals. The first combined pass used implementation `cbbc1d8`; Phase 4 reliability work then exposed a shared response-before-commit race. That fix, its deterministic regressions, cancellation-verifier adjustment and the compatible FastAPI minimum were backported into this same integration candidate. The complete backend suite, actual PostgreSQL browser journeys, Gmail migration readiness, native Chromium suite, Ruff/Bandit/secret checks and generated-type comparison were rerun successfully on `50b3a68`. Frontend/extension unit, build, DOM/React and dashboard results above remain valid for their unchanged source trees.
+
+Verified trees: backend `e51c79ef782020d2dcc2caa627e38ea7215e1fed`, frontend `9fa2be019bb74c81e788287f6d28a754c20f58b5`, extension `ca50b760762170d7e5b288cf6dd49dfd601e77d4`. The runtime minimum now matches the already locked and installed FastAPI 0.143.1; no package/lockfile upgrade occurred. Heavy groups ran sequentially using the existing inode and `fcntl.flock` at `/tmp/automated-apply-heavy-tests.lock`. The native harness acquired that lock itself to avoid nested-lock deadlock.
 
 ## Defects and failed-run accounting
 
@@ -36,9 +38,10 @@ Combined verification additionally corrected:
 - Browser refresh assertion: prior journeys advance packet revisions. Assert the revision returned by the real PATCH response instead of hard-coding revision 2.
 - Pipeline assertion: several fictional packets share a company. Assert the exact packet link in Needs Input and its absence from both submitted columns.
 - Compensation assertion: prior journeys legitimately approve compensation facts. Assert that legal consent remains incomplete/manual, regardless of factual answer availability.
+- Packet transaction acknowledgement: function-scoped database dependencies finish before response delivery; commit failure returns sanitized 503. This closes the actual TCP revision race found during Phase 4 and verified by deterministic before/after tests. The cancellation proof now respects pre-response cleanup while retaining independent persistence and before/after-dispatch interruption assertions.
 - Indian startup fixture: the new explicit country filter requires country evidence. Added `country="India"` to the fictional company observations; retained exact 2–10 size filtering.
 
-Initial failed runs are retained, not counted as passes: one restart-fixture failure (20 other cases passed), browser revision and locator failures, a combined compensation-state failure (16 other journeys passed), and an initial dashboard country-fixture failure (six passed, five serial successors did not run). Final complete affected suites passed. No product assertion was weakened to accept a submitted application or invented answer.
+Initial failed runs are retained, not counted as passes: one restart-fixture failure (20 other cases passed), browser revision and locator failures, a combined compensation-state failure (16 other journeys passed), and an initial dashboard country-fixture failure (six passed, five serial successors did not run). Final complete affected suites passed. The later Phase 4 full run exposed one real revision race (2,600 other cases passed); deterministic transaction-order tests confirmed response-before-commit. A subsequent run was interrupted because the old cancellation fixture intentionally waited for post-response dependency cleanup, which now correctly precedes the response. The fixture was adjusted, the shared source fix was backported, and the final Phase 3.5 full suite passed all 2,549 cases. No product assertion was weakened to accept a submitted application or invented answer.
 
 ## Timeout evidence
 
@@ -51,3 +54,5 @@ No live DDL, new Gmail consent/message access, provider collection, Apollo looku
 One local PR draft is [prepared here](phase35-integration-pr.md). PR #39 remains owner-reviewed; do not auto-merge it. Once its merge is independently verified, fetch actual main, reconcile its ancestry with this ready candidate, compare source trees and rerun only checks affected by changed source. Publish this one integration PR before the dependent Phase 4 PR. Do not repeat preparation on another branch.
 
 Private receipts, runner logs, JUnit, failed traces, audit outputs and API comparison are outside Git at `~/Library/Application Support/Automated Apply/phase35-integrated-evidence/`. No mailbox identities, private candidate facts, credentials or resume bytes are committed.
+
+A fresh [fictional saved-question editor screenshot](screenshots/phase35-question-review-fictional.png) was captured during the final PostgreSQL browser run. It contains isolated fixture data only.
