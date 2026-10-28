@@ -274,3 +274,41 @@ it("requires a valid destination and never equates resume selection with PDF ver
   expect(screen.queryByText("Confirmed & Verified")).toBeNull();
   expect(screen.queryByText("Ready (PDF verified)")).toBeNull();
 });
+
+it("displays workflow stage indicator and emphasizes non-submission guarantee when filled", async () => {
+  const fictionalStatusFilled = {
+    ...fictionalStatusConnected,
+    analysis: {
+      ...fictionalStatusConnected.analysis,
+      diagnostic: "filled_review_on_website",
+      validation: [
+        { field_id: "field-name", complete: true, reason: null },
+        { field_id: "field-resume", complete: true, reason: null },
+      ],
+    },
+  };
+  vi.mocked(api).mockImplementation(async (path: string) => {
+    if (path === "browser-applications/policy") {
+      return { origins: [], digest: "policy-1" } as any;
+    }
+    if (path === `browser-applications/${fictionalPacket.id}`) {
+      return fictionalStatusFilled as any;
+    }
+    return {} as any;
+  });
+
+  mount();
+
+  // Load status with filled analysis diagnostic
+  await userEvent.click(screen.getByRole("button", { name: "Get status" }));
+
+  // Workflow stage is displayed
+  expect(screen.getByText("WORKFLOW STAGE")).toBeInTheDocument();
+  expect(await screen.findByText("Filled (Not submitted)")).toBeInTheDocument();
+
+  // Non-submission guarantee banner for filled state
+  expect(
+    screen.getByText(/Non-Submission Guarantee — Application Filled:/i),
+  ).toBeInTheDocument();
+  expect(screen.getByText("NOT SUBMITTED")).toBeInTheDocument();
+});

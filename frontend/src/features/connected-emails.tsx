@@ -52,6 +52,17 @@ export type ReadAccount = {
     last_error?: string | null;
   };
 };
+
+export function readableScope(scope: string): string {
+  if (scope.includes("gmail.metadata"))
+    return "gmail.metadata (Headers & dates)";
+  if (scope.includes("gmail.readonly"))
+    return "gmail.readonly (Message bodies)";
+  if (scope.startsWith("https://www.googleapis.com/auth/")) {
+    return scope.replace("https://www.googleapis.com/auth/", "");
+  }
+  return scope;
+}
 export type JobEmailEvidence = {
   id: string;
   account_id: string;
@@ -64,12 +75,25 @@ export type JobEmailEvidence = {
   submission_confirmed: false;
   links: string[];
   signals: string[];
+  imported_job_ids?: string[];
 };
 type AccountList = {
   accounts: ReadAccount[];
   workflow: "readonly";
   schema_ready: boolean;
   error_code?: string;
+};
+type IngestionResult = {
+  total_received: number;
+  inserted_count: number;
+  updated_count: number;
+  duplicate_count: number;
+  rejected_count: number;
+  failed_count: number;
+  skipped_count: number;
+  job_ids: string[];
+  possible_duplicates?: Record<string, string[]>;
+  errors?: string[];
 };
 type Lead = {
   id: string;
@@ -101,14 +125,28 @@ export function ConnectedEmails() {
   const [company, setCompany] = useState("");
   const [reviewed, setReviewed] = useState(false);
   const [imported, setImported] = useState(false);
+  const [importResult, setImportResult] = useState<IngestionResult | null>(
+    null,
+  );
   const accountsQuery = useQuery({
     queryKey: ["gmail-read-accounts"],
     queryFn: () => api<AccountList>("integrations/gmail/accounts"),
   });
+  const importedJobs = useQuery({
+    queryKey: ["jobs", "gmail_alert"],
+    queryFn: () =>
+      api<{ total: number; jobs: Array<{ id: string; job_url: string }> }>(
+        "jobs/search?platform=gmail_alert&limit=100",
+      ),
+  });
+  const importedUrls = new Set(
+    importedJobs.data?.jobs?.map((j) => j.job_url) || [],
+  );
   const accounts = accountsQuery.data?.accounts || [];
   const refresh = () => {
     client.invalidateQueries({ queryKey: ["gmail-read-accounts"] });
     client.invalidateQueries({ queryKey: ["gmail-evidence"] });
+    client.invalidateQueries({ queryKey: ["jobs"] });
   };
   const connect = useMutation({
     mutationFn: () =>
@@ -199,7 +237,7 @@ export function ConnectedEmails() {
   });
   const importLead = useMutation({
     mutationFn: () =>
-      post(
+      post<IngestionResult>(
         `integrations/gmail/accounts/${importSelection!.account.id}/evidence/${importSelection!.lead.evidence_ids[0]}/import`,
         {
           job_url: importSelection!.lead.url,
@@ -208,8 +246,9 @@ export function ConnectedEmails() {
           reviewed_job_evidence: reviewed,
         },
       ),
-    onSuccess: () => {
+    onSuccess: (data: IngestionResult) => {
       setImportSelection(null);
+      setImportResult(data);
       setImported(true);
       client.invalidateQueries({ queryKey: ["jobs"] });
       refresh();
@@ -239,6 +278,11 @@ export function ConnectedEmails() {
         actions={
           <Button
             disabled={!schemaReady}
+            title={
+              !schemaReady
+                ? "Read-only Gmail setup required before connecting accounts"
+                : undefined
+            }
             onClick={() => {
               setConnectOpen(true);
               setReadBody(false);
@@ -273,10 +317,19 @@ export function ConnectedEmails() {
           description="Each mailbox requires its own consent. Existing legacy sending accounts are separate."
         />
       )}
-      {imported && (
+      {imported && importResult && (
         <Notice>
-          Reviewed lead imported. Current vacancy and submission remain
-          unconfirmed.
+          <div className="split">
+            <span>
+              {importResult.duplicate_count > 0
+                ? `Lead updated as existing record (${importResult.duplicate_count} duplicate recognized). Current vacancy and submission remain unconfirmed.`
+                : `Reviewed lead imported into workspace (${importResult.inserted_count} ${importResult.inserted_count === 1 ? "vacancy" : "vacancies"} added). Current vacancy and submission remain unconfirmed.`}
+              {importResult.job_ids.length > 0
+                ? ` Job ID: ${importResult.job_ids.join(", ")}`
+                : ""}
+            </span>
+            <Badge tone="green">Reviewed</Badge>
+          </div>
         </Notice>
       )}
       <div
@@ -315,6 +368,14 @@ export function ConnectedEmails() {
                 {account.sync.policy?.label_allowlist.join(", ") ||
                   "None selected"}
               </dd>
+              <dt>Granted OAuth scopes</dt>
+              <dd style={{ wordBreak: "break-word" }}>
+                {account.granted_scopes && account.granted_scopes.length > 0 ? (
+                  account.granted_scopes.map(readableScope).join(", ")
+                ) : (
+                  <span className="muted">None recorded</span>
+                )}
+              </dd>
             </dl>
             {account.sync.last_error && (
               <p role="alert">{readable(account.sync.last_error)}</p>
@@ -333,6 +394,15 @@ export function ConnectedEmails() {
                   !account.sync.policy?.enabled ||
                   account.sync.status === "syncing"
                 }
+                title={
+                  account.status !== "connected"
+                    ? "Account is not connected"
+                    : !account.sync_enabled || !account.sync.policy?.enabled
+                      ? "Read policy is not enabled for synchronization"
+                      : account.sync.status === "syncing"
+                        ? "Sync currently in progress"
+                        : undefined
+                }
                 busy={sync.isPending}
                 onClick={() => sync.mutate(account.id)}
               >
@@ -345,6 +415,16 @@ export function ConnectedEmails() {
               >
                 Verify token
               </Button>
+              {account.status === "reauthorization_required" && (
+                <Button
+                  onClick={() => {
+                    setExpectedEmail(account.account_email);
+                    setConnectOpen(true);
+                  }}
+                >
+                  Reconnect account
+                </Button>
+              )}
               <Button
                 variant="danger"
                 disabled={account.status === "disconnected"}
@@ -404,7 +484,16 @@ export function ConnectedEmails() {
               )}
               {records.map((record) => (
                 <div className="panel panel-body" key={record.id}>
-                  <Badge tone="amber">Requires review</Badge>
+                  <div className="tag-list">
+                    <Badge tone="amber">Requires review</Badge>
+                    {record.imported_job_ids &&
+                      record.imported_job_ids.length > 0 && (
+                        <Badge tone="green">
+                          Imported (Job ID: {record.imported_job_ids.join(", ")}
+                          )
+                        </Badge>
+                      )}
+                  </div>
                   <p>
                     Message ID: {record.message_id} · Thread ID:{" "}
                     {record.thread_id}
@@ -426,27 +515,45 @@ export function ConnectedEmails() {
                   ))}
                 </div>
               ))}
-              {leads.map((lead) => (
-                <article key={lead.id} className="panel panel-body">
-                  <Badge tone="amber">Unconfirmed vacancy lead</Badge>
-                  <p>
-                    <External href={lead.url}>{lead.url}</External>
-                  </p>
-                  <p>Source evidence: {lead.evidence_ids.join(", ")}</p>
-                  <Button
-                    disabled={!lead.evidence_ids.length}
-                    onClick={() => {
-                      setImportSelection({ account, lead });
-                      setTitle("");
-                      setCompany("");
-                      setReviewed(false);
-                      importLead.reset();
-                    }}
-                  >
-                    Review lead for import
-                  </Button>
-                </article>
-              ))}
+              {leads.map((lead) => {
+                const leadEvidence = records.filter((r) =>
+                  lead.evidence_ids.includes(r.id),
+                );
+                const isImported =
+                  importedUrls.has(lead.url) ||
+                  leadEvidence.some(
+                    (r) =>
+                      r.links.length === 1 &&
+                      r.imported_job_ids &&
+                      r.imported_job_ids.length > 0,
+                  );
+                return (
+                  <article key={lead.id} className="panel panel-body">
+                    <div className="tag-list">
+                      <Badge tone="amber">Unconfirmed vacancy lead</Badge>
+                      {isImported && (
+                        <Badge tone="neutral">Already imported</Badge>
+                      )}
+                    </div>
+                    <p>
+                      <External href={lead.url}>{lead.url}</External>
+                    </p>
+                    <p>Source evidence: {lead.evidence_ids.join(", ")}</p>
+                    <Button
+                      disabled={!lead.evidence_ids.length}
+                      onClick={() => {
+                        setImportSelection({ account, lead });
+                        setTitle("");
+                        setCompany("");
+                        setReviewed(false);
+                        importLead.reset();
+                      }}
+                    >
+                      Review lead for import
+                    </Button>
+                  </article>
+                );
+              })}
             </section>
           ))}
         </section>
@@ -565,6 +672,11 @@ export function ConnectedEmails() {
           <Button
             busy={policy.isPending}
             disabled={enabled && !readBody && !labels.trim()}
+            title={
+              enabled && !readBody && !labels.trim()
+                ? "Custom labels are required for metadata-only reads"
+                : undefined
+            }
             onClick={() => policy.mutate()}
           >
             Save policy
@@ -579,12 +691,35 @@ export function ConnectedEmails() {
       >
         {importSelection && (
           <div className="stack">
+            {Boolean(
+              importedUrls.has(importSelection.lead.url) ||
+              evidence.data
+                ?.find((e) => e.account.id === importSelection.account.id)
+                ?.records.filter((r) =>
+                  importSelection.lead.evidence_ids.includes(r.id),
+                )
+                .some(
+                  (r) =>
+                    r.links.length === 1 &&
+                    r.imported_job_ids &&
+                    r.imported_job_ids.length > 0,
+                ),
+            ) && (
+              <Notice>
+                <strong>Duplicate status:</strong> This lead was previously
+                imported. Importing again will update the existing job record.
+              </Notice>
+            )}
             <p>Account: {importSelection.account.account_email}</p>
             <External href={importSelection.lead.url}>
               Inspect source posting
             </External>
-            <Field label="Actual job title">
+            <Field
+              label="Actual job title"
+              hint="Required to establish candidate application details"
+            >
               <Input
+                required
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
               />
@@ -608,6 +743,13 @@ export function ConnectedEmails() {
             {importLead.isError && <ErrorState error={importLead.error} />}
             <Button
               disabled={!reviewed || !title.trim()}
+              title={
+                !title.trim()
+                  ? "Actual job title is required before import"
+                  : !reviewed
+                    ? "Confirmation checkbox is required"
+                    : undefined
+              }
               busy={importLead.isPending}
               onClick={() => importLead.mutate()}
             >

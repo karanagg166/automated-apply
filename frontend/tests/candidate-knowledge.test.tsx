@@ -496,3 +496,147 @@ it("requires explicit project confirmation and can persist removal of the last p
     }),
   );
 });
+
+it("displays verified work experience roles in overview and supports adding and saving new role", async () => {
+  vi.mocked(api).mockImplementation(async (path, options) => {
+    if (path === "profile" && options?.method === "PUT") {
+      const parsed = JSON.parse(options?.body as string);
+      expect(parsed.verified_roles.length).toBe(3);
+      expect(parsed.verified_roles[2].company).toBe("NextGen Systems");
+      return {
+        ...fictionalProfile,
+        version: 5,
+        verified_roles: parsed.verified_roles,
+      } as any;
+    }
+    if (path === "profile") return fictionalProfile as any;
+    if (path === "application-answers/drafts") return [] as any;
+    if (path === "candidate/resources") return fictionalResources as any;
+    return {} as any;
+  });
+  mount();
+  await screen.findByText("Kavya Sharma");
+
+  // Overview displays existing roles
+  expect(screen.getByText(/Backend Engineer · TechScale/)).toBeInTheDocument();
+  expect(
+    screen.getByText(/Senior Software Engineer · CloudWorks/),
+  ).toBeInTheDocument();
+
+  // Navigate to Edit facts tab
+  await userEvent.click(
+    screen.getByRole("tab", { name: "Edit personal & career facts" }),
+  );
+
+  // Click Add role button
+  await userEvent.click(screen.getByRole("button", { name: "Add role" }));
+  const dialog = await screen.findByRole("dialog");
+  expect(
+    within(dialog).getByRole("heading", { name: "Add Work Experience" }),
+  ).toBeInTheDocument();
+
+  fireEvent.change(within(dialog).getByLabelText(/Company name/i), {
+    target: { value: "NextGen Systems" },
+  });
+  fireEvent.change(within(dialog).getByLabelText(/Job role \/ Title/i), {
+    target: { value: "Lead Platform Engineer" },
+  });
+  fireEvent.change(within(dialog).getByLabelText(/Key responsibilities/i), {
+    target: { value: "Architected event-driven microservices" },
+  });
+
+  await userEvent.click(
+    within(dialog).getByRole("button", { name: "Add role" }),
+  );
+
+  // Newly added role appears in the edit tab list
+  expect(screen.getByText("Lead Platform Engineer")).toBeInTheDocument();
+
+  // Confirm truthfulness and save
+  await userEvent.click(
+    screen.getByLabelText(
+      /I confirm these facts are truthful, verified, and represent my actual candidate background/i,
+    ),
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: /Save and approve version 5/i }),
+  );
+
+  expect(
+    await screen.findByText(
+      "Candidate facts saved successfully as approved version 5.",
+    ),
+  ).toBeInTheDocument();
+});
+
+it("supports adding, editing, and saving country work authorizations", async () => {
+  vi.mocked(api).mockImplementation(async (path, options) => {
+    if (path === "profile" && options?.method === "PUT") {
+      const parsed = JSON.parse(options?.body as string);
+      expect(parsed.preferences.work_authorizations.length).toBe(2);
+      expect(parsed.preferences.work_authorizations[1].country_code).toBe("US");
+      return {
+        ...fictionalProfile,
+        version: 5,
+        preferences: parsed.preferences,
+      } as any;
+    }
+    if (path === "profile") return fictionalProfile as any;
+    if (path === "application-answers/drafts") return [] as any;
+    if (path === "candidate/resources") return fictionalResources as any;
+    return {} as any;
+  });
+  mount();
+  await screen.findByText("Kavya Sharma");
+
+  // Overview displays initial authorization
+  expect(screen.getByText(/India \(IN\):/)).toBeInTheDocument();
+
+  // Navigate to Edit facts tab
+  await userEvent.click(
+    screen.getByRole("tab", { name: "Edit personal & career facts" }),
+  );
+
+  // Click Add country authorization
+  await userEvent.click(
+    screen.getByRole("button", { name: "Add country authorization" }),
+  );
+  const dialog = await screen.findByRole("dialog");
+  expect(
+    within(dialog).getByRole("heading", { name: "Add Country Authorization" }),
+  ).toBeInTheDocument();
+
+  fireEvent.change(within(dialog).getByLabelText(/Country name/i), {
+    target: { value: "United States" },
+  });
+  fireEvent.change(within(dialog).getByLabelText(/Country code/i), {
+    target: { value: "US" },
+  });
+  // Check requires sponsorship
+  await userEvent.click(
+    within(dialog).getByLabelText(/Requires visa sponsorship/i),
+  );
+
+  await userEvent.click(
+    within(dialog).getByRole("button", { name: "Add authorization" }),
+  );
+
+  // Check new auth in list
+  expect(screen.getByText(/United States \(US\)/)).toBeInTheDocument();
+
+  // Confirm and save
+  await userEvent.click(
+    screen.getByLabelText(
+      /I confirm these facts are truthful, verified, and represent my actual candidate background/i,
+    ),
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: /Save and approve version 5/i }),
+  );
+
+  expect(
+    await screen.findByText(
+      "Candidate facts saved successfully as approved version 5.",
+    ),
+  ).toBeInTheDocument();
+});

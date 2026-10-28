@@ -128,9 +128,11 @@ export function BrowserIntake() {
 export function BrowserAssistant({
   packet,
   hasUnsavedAnswers = false,
+  onRefresh,
 }: {
   packet: Schema<"PacketRead">;
   hasUnsavedAnswers?: boolean;
+  onRefresh?: () => void;
 }) {
   const client = useQueryClient();
   const [state, setState] = useState<BrowserStatus | null>(null);
@@ -147,6 +149,101 @@ export function BrowserAssistant({
   const [permission, setPermission] = useState(false);
   const [reviewed, setReviewed] = useState(false);
   const [contextConfirmed, setContextConfirmed] = useState(false);
+
+  const currentStage: {
+    label: string;
+    tone: "green" | "amber" | "red" | "neutral";
+    description: string;
+  } = (() => {
+    if (
+      packet.lifecycle_state === "submission_unknown" ||
+      state?.packet?.lifecycle_state === "submission_unknown"
+    ) {
+      return {
+        label: "Submission unknown",
+        tone: "red",
+        description:
+          "Submission confirmation could not be verified on the employer website. Inspect your application status directly.",
+      };
+    }
+    if (
+      state?.manual ||
+      state?.analysis?.diagnostic === "manual_required" ||
+      state?.analysis?.diagnostic === "unsupported_fields"
+    ) {
+      return {
+        label: "Manual required",
+        tone: "amber",
+        description:
+          "Manual intervention required on website (CAPTCHA, unsupported controls, or server navigation).",
+      };
+    }
+    if (
+      state?.analysis?.validation?.some((v) => !v.complete) ||
+      (packet.fields &&
+        packet.fields.some(
+          (f) =>
+            f.validation_status === "needs_input" ||
+            (f as any).review_status === "needs_input",
+        ))
+    ) {
+      return {
+        label: "Needs input",
+        tone: "amber",
+        description:
+          "One or more required questions lack factual candidate evidence. Answer them in 'Needs your input'.",
+      };
+    }
+    if (
+      state?.analysis?.diagnostic === "filled_review_on_website" ||
+      (state?.execution as any)?.state === "form_filled" ||
+      (state?.execution as any)?.status === "form_filled" ||
+      state?.execution?.state === "completed" ||
+      (state?.execution as any)?.status === "completed"
+    ) {
+      return {
+        label: "Filled (Not submitted)",
+        tone: "green",
+        description:
+          "Supported fields are filled in your local Chrome session. You must review and submit manually on the employer site.",
+      };
+    }
+    if (
+      state?.connected &&
+      state?.analysis &&
+      reviewed &&
+      contextConfirmed &&
+      !hasUnsavedAnswers
+    ) {
+      return {
+        label: "Ready to fill",
+        tone: "green",
+        description:
+          "Page context confirmed and answers reviewed. Ready to fill supported fields.",
+      };
+    }
+    if (state?.connected && state?.analysis) {
+      return {
+        label: "Ready for review",
+        tone: "neutral",
+        description:
+          "Form fields analyzed. Review candidate answers and confirm page context before filling.",
+      };
+    }
+    if (state?.analysis) {
+      return {
+        label: "Inspected",
+        tone: "neutral",
+        description:
+          "Form structure inspected. Connect browser session to review and fill.",
+      };
+    }
+    return {
+      label: "Ready to inspect",
+      tone: "neutral",
+      description: "Open dedicated browser and analyze application page.",
+    };
+  })();
   useLayoutEffect(() => {
     setReviewed(false);
     setContextConfirmed(false);
@@ -371,7 +468,27 @@ export function BrowserAssistant({
               <Badge tone="neutral">Manual review & handoff</Badge>
             </p>
           </div>
+          <div className="metric">
+            <div className="metric-label">WORKFLOW STAGE</div>
+            <p>
+              <Badge tone={currentStage.tone}>{currentStage.label}</Badge>
+            </p>
+          </div>
         </div>
+      )}
+      {currentStage.label.startsWith("Filled") && (
+        <Notice>
+          <div className="split">
+            <div>
+              <strong>Non-Submission Guarantee — Application Filled:</strong>{" "}
+              Assisted filling has populated your reviewed answers into the
+              local browser. This application has NOT been submitted. Please
+              inspect every field on the employer form and click submit
+              manually.
+            </div>
+            <Badge tone="green">NOT SUBMITTED</Badge>
+          </div>
+        </Notice>
       )}
       <Notice>
         <strong>Manual Handoff & Non-Submission Guarantee:</strong> Assisted
@@ -614,7 +731,19 @@ export function BrowserAssistant({
           }}
         />
       )}
-      {error && <ErrorState error={error} />}
+      {error && (
+        <ErrorState
+          error={error}
+          retry={
+            error.message.includes("refresh the packet") && onRefresh
+              ? () => {
+                  setError(null);
+                  onRefresh();
+                }
+              : undefined
+          }
+        />
+      )}
       {state?.recovery && <Notice>{state.recovery}</Notice>}
       {state?.in_page_network_isolation && (
         <Notice>

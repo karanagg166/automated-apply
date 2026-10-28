@@ -21,6 +21,7 @@ type ActorMetadata = Schema<"ActorMetadata">;
 export function ApifySourceManagement() {
   const client = useQueryClient();
   const [metadata, setMetadata] = useState<ActorMetadata | null>(null);
+  const [inspectingActor, setInspectingActor] = useState<string | null>(null);
   const status = useQuery({
     queryKey: ["apify-status"],
     queryFn: () => api<ApifyStatus>("integrations/providers/apify"),
@@ -94,12 +95,22 @@ export function ApifySourceManagement() {
         </p>
         <Button
           disabled={!account.local_token_configured}
+          title={
+            !account.local_token_configured
+              ? "Local token is not configured in private environment"
+              : undefined
+          }
           busy={inspectAccount.isPending}
           onClick={() => inspectAccount.mutate()}
         >
           Inspect account limits (read only)
         </Button>
-        {inspectAccount.isError && <ErrorState error={inspectAccount.error} />}
+        {inspectAccount.isError && (
+          <ErrorState
+            error={inspectAccount.error}
+            retry={() => inspectAccount.mutate()}
+          />
+        )}
         {account.last_account_inspection && (
           <details>
             <summary>Observed provider limits and usage</summary>
@@ -113,7 +124,9 @@ export function ApifySourceManagement() {
           </details>
         )}
       </section>
-      {sources.isError && <ErrorState error={sources.error} />}
+      {sources.isError && (
+        <ErrorState error={sources.error} retry={() => sources.refetch()} />
+      )}
       <section className="panel panel-body">
         <h4>Configured discovery sources</h4>
         {portals.length ? (
@@ -135,7 +148,10 @@ export function ApifySourceManagement() {
         {account.investigated_actors.map((actor) => (
           <article className="company-card" role="listitem" key={actor}>
             <h4>{actor}</h4>
-            <Badge tone="amber">Metadata review only</Badge>
+            <div className="tag-list">
+              <Badge tone="amber">Metadata review only</Badge>
+              <Badge tone="neutral">No portal route association</Badge>
+            </div>
             <p>
               Price, schema, and collection rights are unknown until inspected
               and reviewed. Public metadata does not authorize LinkedIn
@@ -143,17 +159,32 @@ export function ApifySourceManagement() {
             </p>
             <div className="actions">
               <Button
-                busy={inspect.isPending}
-                onClick={() => inspect.mutate(actor)}
+                busy={inspect.isPending && inspectingActor === actor}
+                onClick={() => {
+                  setInspectingActor(actor);
+                  inspect.mutate(actor);
+                }}
               >
                 Inspect metadata (read only)
               </Button>
-              <Button disabled>Blocked by policy</Button>
+              <Button
+                disabled
+                title="Chargeable Actor execution is disabled in this workflow"
+              >
+                Blocked by policy
+              </Button>
             </div>
           </article>
         ))}
       </div>
-      {inspect.isError && <ErrorState error={inspect.error} />}
+      {inspect.isError && (
+        <ErrorState
+          error={inspect.error}
+          retry={() =>
+            inspectingActor ? inspect.mutate(inspectingActor) : inspect.reset()
+          }
+        />
+      )}
       <Modal
         open={!!metadata}
         onOpenChange={(open) => !open && setMetadata(null)}

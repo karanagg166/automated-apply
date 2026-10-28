@@ -168,7 +168,7 @@ test("two Gmail accounts keep evidence isolated, require reviewed import, and re
   const imported = await (await importResponse).json();
   expect(imported.job_ids).toHaveLength(1);
   await expect(
-    page.getByText("Reviewed lead imported.", { exact: false }),
+    page.getByText("Reviewed lead imported into workspace", { exact: false }),
   ).toBeVisible();
   const csrf = (await page.context().cookies()).find(
     (cookie) => cookie.name === "aa_csrf",
@@ -297,4 +297,246 @@ test("profile edits display actual 409 conflicts and stale exact-context approva
   await expect(
     page.getByRole("heading", { name: question, exact: true }),
   ).toBeVisible();
+});
+
+test("filters Indian startups by 11–50 employees and technology category, preserving exact-versus-reported size evidence", async ({
+  page,
+}) => {
+  await login(page);
+
+  // Intercept startup searches with verified realistic startup observation data to test card rendering
+  await page.route("**/api/backend/startups/search*", async (route) => {
+    const json = {
+      total: 2,
+      startups: [
+        {
+          company_id: "11111111-2222-3333-4444-555555555555",
+          company_name: "Fictional Bharat AI",
+          company_domain: "bharat-ai.example",
+          attributes: {
+            industry: "AI / Machine Learning",
+            description: "Fictional Bengaluru AI infrastructure team.",
+            city: "Bengaluru",
+            country: "India",
+            location: "Bengaluru, India",
+            is_remote: true,
+            technology_stack: ["Python", "FastAPI", "PostgreSQL"],
+          },
+          exact_employee_count: false,
+          employee_count: null,
+          team_size_band: "11-50",
+          team_size_evidence_status: "source_reported",
+          leader_evidence_count: 2,
+          technical_staff_count: 12,
+          verification_status: "verified",
+          hiring_status: "hiring_confirmed",
+          startup_match_score: 94,
+          current_job_count: 3,
+          professional_contact_count: 4,
+          sources: ["official_careers"],
+          shortlisted: false,
+          matching_roles: 2,
+          missing_information: [],
+          team_size_evidence: [
+            {
+              source_url: "https://bharat-ai.example/about",
+              observed_at: "2026-03-01T10:00:00Z",
+              source_type: "official_site",
+              confidence: 0.9,
+              detail: "11-50 employees on official team page",
+            },
+          ],
+          hiring_evidence: [],
+        },
+        {
+          company_id: "66666666-7777-8888-9999-000000000000",
+          company_name: "Fictional Pune SaaS",
+          company_domain: "pune-saas.example",
+          attributes: {
+            industry: "Software / SaaS",
+            description: "Fictional B2B workflow software.",
+            city: "Pune",
+            country: "India",
+            location: "Pune, India",
+            is_remote: false,
+            technology_stack: ["TypeScript", "Next.js"],
+          },
+          exact_employee_count: true,
+          employee_count: 25,
+          team_size_band: "11-50",
+          team_size_evidence_status: "source_reported",
+          leader_evidence_count: 1,
+          technical_staff_count: 8,
+          verification_status: "verified",
+          hiring_status: "hiring_confirmed",
+          startup_match_score: 82,
+          current_job_count: 1,
+          professional_contact_count: 2,
+          sources: ["official_careers"],
+          shortlisted: false,
+          matching_roles: 1,
+          missing_information: [],
+          team_size_evidence: [],
+          hiring_evidence: [],
+        },
+      ],
+      page: 1,
+      limit: 12,
+    };
+    await route.fulfill({ json });
+  });
+
+  await page.goto("/startups");
+  await expect(
+    page.getByRole("heading", { name: "Find your kind of startup." }),
+  ).toBeVisible();
+
+  // Apply location filter for India
+  const locationSelect = page.getByLabel("Location");
+  await locationSelect.selectOption("India");
+
+  // Apply 11-50 size band
+  const sizeSelect = page.getByLabel("Company size");
+  await sizeSelect.selectOption("11-50");
+
+  // Apply technology filter
+  const techSelect = page.getByLabel("Technology");
+  await techSelect.selectOption("Python");
+
+  // Trigger search refetch
+  await page.getByRole("button", { name: "Search saved" }).click();
+
+  // Verify company cards rendered
+  await expect(page.getByText("Fictional Bharat AI")).toBeVisible();
+  await expect(page.getByText("Fictional Pune SaaS")).toBeVisible();
+
+  // Preserves exact-versus-reported evidence:
+  // Band company displays "11-50 band" and "Size: source reported"
+  await expect(page.getByText("11-50 band")).toBeVisible();
+  await expect(page.getByText("Size: source reported").first()).toBeVisible();
+
+  // Exact headcount company displays "25 employees (source reported)"
+  await expect(page.getByText("25 employees (source reported)")).toBeVisible();
+
+  // Founder and contact evidence badges
+  await expect(page.getByText("Founder / CEO available (2)")).toBeVisible();
+  await expect(page.getByText("Technical staff evidence (12)")).toBeVisible();
+  await expect(page.getByText("Contacts discovered (4)")).toBeVisible();
+
+  // Test sorting by company name (A-Z)
+  const sortSelect = page.getByLabel("Sort startups");
+  await sortSelect.selectOption("name_asc");
+
+  // Reset filters
+  await page.getByRole("button", { name: "Reset filters" }).click();
+  await expect(page.getByText("Filters reset.")).toBeVisible();
+  await expect(sizeSelect).toHaveValue("all");
+  await expect(locationSelect).toHaveValue("Any");
+  await expect(techSelect).toHaveValue("Any");
+});
+
+test("extension reports field as unsupported or needing input, dashboard shows clear next action and never claims submitted", async ({
+  page,
+}) => {
+  const { packet_id } = JSON.parse(
+    readFileSync("../reports/browser-mock.private.json", "utf8"),
+  );
+  await login(page);
+  await page.goto(`/applications/${packet_id}`);
+  await expect(
+    page.getByRole("heading", { name: "Local browser assistant" }),
+  ).toBeVisible();
+
+  // Synchronize packet evidence following prior profile updates
+  const refreshBtn = page.getByRole("button", {
+    name: "Refresh profile & saved evidence",
+  });
+  if (await refreshBtn.isVisible()) {
+    const refreshResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PATCH" &&
+        response.url().includes(`/application-packets/${packet_id}`),
+    );
+    await refreshBtn.click();
+    await refreshResponse;
+    await expect(page.getByText(/Revision 2/)).toBeVisible();
+  }
+
+  // Approve dedicated browser
+  await page
+    .getByLabel("I approve a dedicated browser profile", { exact: false })
+    .check();
+  await page
+    .getByLabel("I approve credential-free loading", { exact: false })
+    .check();
+
+  // Open browser and analyze application
+  await page.getByRole("button", { name: "Open dedicated browser" }).click();
+  const analyzeBtn = page.getByRole("button", { name: "Analyze Application" });
+  await expect(analyzeBtn).toBeEnabled({ timeout: 45000 });
+  await analyzeBtn.click();
+  await expect(
+    page.getByRole("status").filter({ hasText: /^analyzed$/ }),
+  ).toBeVisible({ timeout: 45000 });
+
+  // Verify non-submission notice is displayed
+  await expect(
+    page.getByText(
+      "Non-submission notice: Autofill does NOT submit your application",
+      { exact: false },
+    ),
+  ).toBeVisible();
+
+  // Check the unfilled mandatory questions section with clear next action link
+  const reviewCheck = page.getByLabel(
+    "I reviewed the current answers, destination and selected resume below.",
+  );
+  const contextCheck = page.getByLabel(
+    "I confirmed the actual page belongs to this company and job.",
+  );
+  await reviewCheck.check();
+  await contextCheck.check();
+
+  const fillBtn = page.getByRole("button", { name: "Fill supported fields" });
+  await fillBtn.click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "filled review on website" }),
+  ).toBeVisible({ timeout: 45000 });
+
+  // Verify the unanswered field reports needing attention
+  await expect(
+    page.getByText("Current CTC: Answer missing or invalid", { exact: true }),
+  ).toBeVisible();
+
+  // Verify clear next action deep-link to Needs Your Input queue
+  const needsInputLink = page.getByRole("link", {
+    name: "Open 'Needs your input' queue",
+  });
+  await expect(needsInputLink).toBeVisible();
+  await expect(needsInputLink).toHaveAttribute("href", "/needs-input");
+
+  // Verify Submit button remains disabled
+  await expect(
+    page.getByRole("button", { name: "Submit", exact: true }),
+  ).toBeDisabled();
+
+  // Navigate to applications pipeline and verify it is NEVER marked as "Submitted"
+  await page.goto("/applications");
+  await expect(
+    page.getByRole("heading", { name: "Your search is taking shape." }),
+  ).toBeVisible();
+
+  // Application packet must be in "Needs Input", never "Applied — User Reported" or "Applied — Provider Confirmed"
+  const needsInputColumn = page
+    .locator(".kanban-column")
+    .filter({ hasText: "Needs Input" });
+  await expect(
+    needsInputColumn.getByText("Example Circuit", { exact: false }),
+  ).toBeVisible();
+  const appliedColumn = page
+    .locator(".kanban-column")
+    .filter({ hasText: "Applied — User Reported" });
+  await expect(
+    appliedColumn.getByText("Example Circuit", { exact: false }),
+  ).not.toBeVisible();
 });

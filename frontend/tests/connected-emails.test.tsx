@@ -72,6 +72,7 @@ function mount() {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(api).mockImplementation(async (path) => {
+    if (path.startsWith("jobs/search")) return { total: 0, jobs: [] } as any;
     if (path === "integrations/gmail/accounts")
       return { accounts, workflow: "readonly", schema_ready: true } as any;
     if (path.endsWith("/evidence"))
@@ -147,7 +148,16 @@ it("configures account-scoped policy with its actual version and no scheduling c
   );
 });
 it("requires owner-supplied job title and reviewed evidence before a scoped import", async () => {
-  vi.mocked(post).mockResolvedValue({ inserted: 1 });
+  vi.mocked(post).mockResolvedValue({
+    total_received: 1,
+    inserted_count: 1,
+    updated_count: 0,
+    duplicate_count: 0,
+    failed_count: 0,
+    rejected_count: 0,
+    skipped_count: 0,
+    job_ids: ["job-backend-1"],
+  });
   mount();
   await userEvent.click(
     await screen.findByRole("button", { name: "Review lead for import" }),
@@ -173,6 +183,12 @@ it("requires owner-supplied job title and reviewed evidence before a scoped impo
       reviewed_job_evidence: true,
     },
   );
+  expect(
+    await screen.findByText(
+      /Reviewed lead imported into workspace \(1 vacancy added\)/,
+    ),
+  ).toBeInTheDocument();
+  expect(screen.getByText(/Job ID: job-backend-1/)).toBeInTheDocument();
 });
 it("filters account evidence without leaking another mailbox and scopes sync", async () => {
   mount();
@@ -206,4 +222,99 @@ it("has no send, modify, archive, delete or compose operation", async () => {
   ])
     expect(screen.queryByRole("button", { name })).toBeNull();
   expect(post).not.toHaveBeenCalled();
+});
+
+it("shows reconnect button when reauthorization is required and prefills email", async () => {
+  const reauthAccount: ReadAccount = {
+    ...accounts[0],
+    status: "reauthorization_required",
+  };
+  vi.mocked(api).mockImplementation(async (path) => {
+    if (path === "integrations/gmail/accounts")
+      return {
+        accounts: [reauthAccount],
+        workflow: "readonly",
+        schema_ready: true,
+      } as any;
+    if (path.endsWith("/evidence")) return { evidence: [] } as any;
+    if (path.endsWith("/leads")) return { leads: [] } as any;
+    return {} as any;
+  });
+  mount();
+  const reconnectBtn = await screen.findByRole("button", {
+    name: "Reconnect account",
+  });
+  await userEvent.click(reconnectBtn);
+  const dialog = await screen.findByRole("dialog");
+  expect(dialog).toHaveTextContent("Connect Secondary Gmail Account");
+  expect(screen.getByDisplayValue("first@example.org")).toBeInTheDocument();
+});
+
+it("displays duplicate status badge and duplicate notice when lead was previously imported", async () => {
+  const importedRecord: JobEmailEvidence = {
+    ...record,
+    imported_job_ids: ["job-101", "job-102"],
+  };
+  vi.mocked(api).mockImplementation(async (path) => {
+    if (path.startsWith("jobs/search"))
+      return {
+        total: 1,
+        jobs: [{ id: "job-101", job_url: importedRecord.links[0] }],
+      } as any;
+    if (path === "integrations/gmail/accounts")
+      return { accounts, workflow: "readonly", schema_ready: true } as any;
+    if (path.endsWith("/evidence"))
+      return { evidence: path.includes(first) ? [importedRecord] : [] } as any;
+    if (path.endsWith("/leads"))
+      return {
+        leads: path.includes(first)
+          ? [
+              {
+                id: "lead-first",
+                url: importedRecord.links[0],
+                evidence_ids: [evidenceId],
+                verification_status: "requires_review",
+                confirmed_vacancy: false,
+              },
+            ]
+          : [],
+      } as any;
+    return {} as any;
+  });
+  mount();
+  expect(
+    await screen.findByText("Imported (Job ID: job-101, job-102)"),
+  ).toBeInTheDocument();
+  expect(screen.getByText("Already imported")).toBeInTheDocument();
+
+  await userEvent.click(
+    screen.getByRole("button", { name: "Review lead for import" }),
+  );
+  const dialog = await screen.findByRole("dialog");
+  expect(dialog).toHaveTextContent("Duplicate status:");
+  expect(dialog).toHaveTextContent("This lead was previously imported.");
+});
+
+it("displays exact error notice and allows retry when lead import fails persistence with 409", async () => {
+  vi.mocked(post).mockRejectedValue(new Error("gmail_lead_import_failed"));
+  mount();
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Review lead for import" }),
+  );
+  const dialog = await screen.findByRole("dialog");
+  await userEvent.type(
+    within(dialog).getByLabelText("Actual job title"),
+    "Platform Engineer",
+  );
+  await userEvent.click(within(dialog).getByRole("checkbox"));
+  await userEvent.click(
+    within(dialog).getByRole("button", { name: "Import reviewed lead" }),
+  );
+  expect(
+    await within(dialog).findByText(/gmail_lead_import_failed/),
+  ).toBeInTheDocument();
+  // Ensure dialog is still open so user can retry
+  expect(
+    within(dialog).getByRole("button", { name: "Import reviewed lead" }),
+  ).toBeInTheDocument();
 });
