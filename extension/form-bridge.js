@@ -3,6 +3,22 @@ import { supportedUrl } from "./preview.js";
 const host = "com.automated_apply.agent";
 const ERROR_CODE_PATTERN = /^[a-z][a-z0-9_]{1,63}$/;
 let current;
+let generation = 0;
+function permittedFormUrl(value) {
+  if (!supportedUrl(value)) return false;
+  const host = new URL(value).hostname.toLowerCase();
+  return ![
+    "simplify.jobs", "linkedin.com", "naukri.com", "wellfound.com",
+    "instahyre.com", "internshala.com", "accounts.google.com", "mail.google.com",
+  ].some(domain => host === domain || host.endsWith("." + domain));
+}
+export function cancelPreparedForm() {
+  generation++;
+  current = null;
+}
+function requireCurrentGeneration(expected) {
+  if (generation !== expected) throw Error("form_cancelled_reprepare_required");
+}
 function sanitizeInspection(raw) {
   if (!raw || typeof raw !== "object") return raw;
   const { unsupported_controls, manual_reason, ...inspection } = raw;
@@ -58,12 +74,13 @@ async function native(command, extra) {
 }
 async function active() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!Number.isInteger(tab?.id) || !supportedUrl(tab.url))
+  if (!Number.isInteger(tab?.id) || !permittedFormUrl(tab.url))
     throw Error("supported_application_page_required");
   return tab;
 }
 export async function inspectForm(applicationId) {
-  current = null;
+  cancelPreparedForm();
+  const expected = generation;
   if (!/^[a-f0-9-]{36}$/.test(applicationId))
     throw Error("application_id_required");
   const tab = await active();
@@ -85,6 +102,7 @@ export async function inspectForm(applicationId) {
     application_id: applicationId,
     inspection: sanitizeInspection(observation.result),
   });
+  requireCurrentGeneration(expected);
   if (
     Array.isArray(observation.result?.unsupported_controls) &&
     observation.result.unsupported_controls.length &&
@@ -96,9 +114,10 @@ export async function inspectForm(applicationId) {
   return data.plan;
 }
 export async function prepareAnswers(tab) {
-  current = null;
+  cancelPreparedForm();
+  const expected = generation;
   tab = tab || (await active());
-  if (!Number.isInteger(tab?.id) || !supportedUrl(tab.url))
+  if (!Number.isInteger(tab?.id) || !permittedFormUrl(tab.url))
     throw Error("supported_application_page_required");
   const before = await active();
   if (before.id !== tab.id || before.url !== tab.url)
@@ -123,6 +142,7 @@ export async function prepareAnswers(tab) {
     title: String(tab.title || "").slice(0, 250),
     inspection: sanitizeInspection(observation.result),
   });
+  requireCurrentGeneration(expected);
   if (
     !data.plan?.inspection ||
     !Array.isArray(data.plan.actions) ||
@@ -141,8 +161,10 @@ export async function prepareAnswers(tab) {
 export async function fillForm() {
   if (!current) throw Error("inspect_and_review_first");
   const snapshot = current;
+  const expected = generation;
   current = null; // One click/plan, including native transport failures.
   const tab = await active();
+  requireCurrentGeneration(expected);
   if (tab.id !== snapshot.tabId || tab.url !== snapshot.url)
     throw Error("page_changed");
   if (
@@ -158,7 +180,9 @@ export async function fillForm() {
     plan_id: snapshot.plan.id,
     field_ids: fieldIds,
   });
+  requireCurrentGeneration(expected);
   const after = await active();
+  requireCurrentGeneration(expected);
   if (after.id !== tab.id || after.url !== tab.url) throw Error("page_changed");
   if (
     plan?.id !== snapshot.plan.id ||

@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -398,74 +398,193 @@ describe("Unanswered Questions Queue ('Needs your input')", () => {
       screen.getByText(/The saved question queue is unavailable/i),
     ).toBeInTheDocument();
   });
-});
 
-it("blocks approval of unsaved edits even after a factual checkbox was checked", async () => {
-  vi.mocked(api).mockImplementation(
-    async (path) =>
-      (path === "profile"
-        ? fictionalProfile
-        : {
-            requests: [fictionalMissingItems[1]],
-            offset: 0,
-            limit: 25,
-          }) as any,
-  );
-  mount();
-  await userEvent.click(
-    await screen.findByRole("button", { name: "Supply truthful answer" }),
-  );
-  const dialog = await screen.findByRole("dialog");
-  const confirmation = within(dialog).getByRole("checkbox");
-  const approve = within(dialog).getByRole("button", {
-    name: "Approve answer for this context",
+  it("blocks approval of unsaved edits even after a factual checkbox was checked", async () => {
+    vi.mocked(api).mockImplementation(
+      async (path) =>
+        (path === "profile"
+          ? fictionalProfile
+          : {
+              requests: [fictionalMissingItems[1]],
+              offset: 0,
+              limit: 25,
+            }) as any,
+    );
+    mount();
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Supply truthful answer" }),
+    );
+    const dialog = await screen.findByRole("dialog");
+    const confirmation = within(dialog).getByRole("checkbox");
+    const approve = within(dialog).getByRole("button", {
+      name: "Approve answer for this context",
+    });
+    await userEvent.click(confirmation);
+    expect(approve).toBeEnabled();
+    await userEvent.type(
+      within(dialog).getByLabelText("Your Truthful Answer"),
+      " Unsaved correction.",
+    );
+    expect(confirmation).not.toBeChecked();
+    await userEvent.click(confirmation);
+    expect(approve).toBeDisabled();
+    expect(post).not.toHaveBeenCalled();
   });
-  await userEvent.click(confirmation);
-  expect(approve).toBeEnabled();
-  await userEvent.type(
-    within(dialog).getByLabelText("Your Truthful Answer"),
-    " Unsaved correction.",
-  );
-  expect(confirmation).not.toBeChecked();
-  await userEvent.click(confirmation);
-  expect(approve).toBeDisabled();
-  expect(post).not.toHaveBeenCalled();
-});
 
-it("uses effective_status to move stale approvals out of the approved filter", async () => {
-  vi.mocked(api).mockImplementation(
-    async (path) =>
-      (path === "profile"
-        ? fictionalProfile
-        : {
-            requests: [
-              {
-                ...fictionalMissingItems[0],
-                stale: true,
-                effective_status: "needs_input",
-              },
-              {
-                ...fictionalMissingItems[1],
-                status: "approved",
-                effective_status: "review_required",
-                stale: true,
-                ever_approved: true,
-              },
-            ],
-            offset: 0,
-            limit: 25,
-          }) as any,
-  );
-  mount();
-  await screen.findByText(fictionalMissingItems[1].question);
-  await userEvent.click(screen.getByRole("tab", { name: "Approved (0)" }));
-  expect(
-    screen.queryByRole("heading", { name: fictionalMissingItems[1].question }),
-  ).toBeNull();
-  await userEvent.click(
-    screen.getByRole("tab", { name: "Review required (1)" }),
-  );
-  expect(
-    screen.getByRole("heading", { name: fictionalMissingItems[1].question }),
-  ).toBeInTheDocument();
+  it("uses effective_status to move stale approvals out of the approved filter", async () => {
+    vi.mocked(api).mockImplementation(
+      async (path) =>
+        (path === "profile"
+          ? fictionalProfile
+          : {
+              requests: [
+                {
+                  ...fictionalMissingItems[0],
+                  stale: true,
+                  effective_status: "needs_input",
+                },
+                {
+                  ...fictionalMissingItems[1],
+                  status: "approved",
+                  effective_status: "review_required",
+                  stale: true,
+                  ever_approved: true,
+                },
+              ],
+              offset: 0,
+              limit: 25,
+            }) as any,
+    );
+    mount();
+    await screen.findByText(fictionalMissingItems[1].question);
+    await userEvent.click(screen.getByRole("tab", { name: "Approved (0)" }));
+    expect(
+      screen.queryByRole("heading", {
+        name: fictionalMissingItems[1].question,
+      }),
+    ).toBeNull();
+    await userEvent.click(
+      screen.getByRole("tab", { name: "Review required (1)" }),
+    );
+    expect(
+      screen.getByRole("heading", { name: fictionalMissingItems[1].question }),
+    ).toBeInTheDocument();
+  });
+
+  it("filters questions by search query and company filter", async () => {
+    mount();
+    await screen.findByText(fictionalMissingItems[0].question);
+
+    // Search by keyword
+    const searchInput = screen.getByLabelText("Search questions");
+    await userEvent.type(searchInput, "Kubernetes");
+    expect(
+      screen.getByText(fictionalMissingItems[0].question),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(fictionalMissingItems[1].question)).toBeNull();
+
+    // Clear search and filter by company
+    await userEvent.clear(searchInput);
+    fireEvent.change(searchInput, { target: { value: "" } });
+    const companyInput = screen.getByLabelText("Filter by company");
+    fireEvent.change(companyInput, { target: { value: "FinPulse Labs" } });
+    expect(
+      screen.getByText(fictionalMissingItems[1].question),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(fictionalMissingItems[0].question)).toBeNull();
+  });
+
+  it("displays duplicate question badge when the same question appears across applications", async () => {
+    const duplicateItem: MissingInputItem = {
+      ...fictionalMissingItems[0],
+      id: "missing-104",
+      company_name: "FinPulse Labs",
+    };
+    vi.mocked(api).mockImplementation(async (path) => {
+      if (path === "profile") return fictionalProfile as any;
+      if (path === "application-answers/missing")
+        return {
+          requests: [fictionalMissingItems[0], duplicateItem],
+          offset: 0,
+          limit: 25,
+        } as any;
+      return {} as any;
+    });
+    mount();
+    const badges = await screen.findAllByText(/Seen in 2 applications/i);
+    expect(badges.length).toBe(2);
+  });
+
+  it("prompts user before closing modal when unsaved changes exist", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    mount();
+    await userEvent.click(
+      (
+        await screen.findAllByRole("button", {
+          name: /Supply truthful answer/i,
+        })
+      )[0],
+    );
+    const dialog = await screen.findByRole("dialog");
+
+    // Type unsaved draft text
+    const answerInput = within(dialog).getByLabelText(/Your Truthful Answer/i);
+    await userEvent.type(answerInput, "Some draft text");
+
+    // Attempt to close
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Close" }),
+    );
+
+    // Confirmation was requested and since it returned false, modal stays open
+    expect(confirmSpy).toHaveBeenCalledWith(
+      expect.stringContaining("unsaved draft changes"),
+    );
+    expect(dialog).toBeInTheDocument();
+
+    // Now allow closing
+    confirmSpy.mockReturnValue(true);
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: "Close" }),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    confirmSpy.mockRestore();
+  });
+
+  it("provides retry button when saving draft fails", async () => {
+    vi.mocked(patch).mockRejectedValueOnce(
+      new Error("Network timeout saving draft"),
+    );
+    mount();
+    await userEvent.click(
+      (
+        await screen.findAllByRole("button", {
+          name: /Supply truthful answer/i,
+        })
+      )[0],
+    );
+    const dialog = await screen.findByRole("dialog");
+    await userEvent.type(
+      within(dialog).getByLabelText(/Your Truthful Answer/i),
+      "A valid answer",
+    );
+    await userEvent.click(
+      within(dialog).getByRole("button", { name: /Save as draft/i }),
+    );
+
+    // Error is shown with Retry button
+    const retryBtn = await within(dialog).findByRole("button", {
+      name: /Retry saving draft/i,
+    });
+    expect(retryBtn).toBeInTheDocument();
+
+    // Clicking retry re-triggers the mutation
+    vi.mocked(patch).mockResolvedValueOnce({
+      ...fictionalMissingItems[0],
+      answer: "A valid answer",
+      status: "draft",
+    });
+    await userEvent.click(retryBtn);
+    expect(patch).toHaveBeenCalledTimes(2);
+  });
 });

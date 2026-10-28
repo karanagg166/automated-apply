@@ -27,6 +27,8 @@ for name in ("COHERE_API_KEY", "GEMINI_API_KEY", "LLM_MODEL", "CANDIDATE_RESUME_
 os.environ["OAUTH_ENCRYPTION_KEYS"] = "{}"
 os.environ["OAUTH_ACTIVE_KEY_ID"] = ""
 os.environ["GMAIL_SENDING_ENABLED"] = "false"
+os.environ["GMAIL_DRAFTS_ENABLED"] = "false"
+os.environ["GMAIL_RETENTION_ENABLED"] = "false"
 os.environ["RESUME_DRIVE_SYNC_ENABLED"] = "false"
 os.environ["AUTOMATION_EXECUTION_ENABLED"] = "false"
 os.environ["MCP_REMOTE_ENABLED"] = "false"
@@ -48,19 +50,20 @@ os.environ["CHROME_NATIVE_MESSAGING_ENABLED"] = "false"
 os.environ["CHROME_EXTENSION_ID"] = ""
 
 from collections.abc import AsyncGenerator
+
 import pytest
 import pytest_asyncio
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
 
-from backend.app.core.config import get_settings
-from backend.app.models.base import Base
 import backend.app.db.session as db_session_module
+from backend.app.core.config import get_settings
 from backend.app.main import app
+from backend.app.models.base import Base
 
 test_engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
 test_session_factory = async_sessionmaker(
@@ -162,8 +165,9 @@ def mcp_auth(monkeypatch):
 
 @pytest_asyncio.fixture
 async def mcp_client(mcp_auth):
-    from backend.app.main import app, mcp_app
     import asyncio
+
+    from backend.app.main import app, mcp_app
     ready, stop = asyncio.Event(), asyncio.Event()
 
     async def serve_lifespan():
@@ -199,8 +203,13 @@ async def oauth_bundle(db_session):
 
 @pytest_asyncio.fixture
 async def sending_bundle(db_session, phase2_profile):
-    from backend.tests.phase4b_fakes import approved_target, bundle, connect_sender, SendFixture
     from backend.app.services.gmail_sending import GmailSendingService
+    from backend.tests.phase4b_fakes import (
+        SendFixture,
+        approved_target,
+        bundle,
+        connect_sender,
+    )
     settings, google = await bundle()
     async with google.client() as http:
         connection = await connect_sender(db_session, settings, google, http)

@@ -93,6 +93,11 @@ async def search_jobs(
     location: str | None = Query(None, max_length=200),
     remote_type: Literal["remote", "hybrid", "onsite", "unknown"] | None = None,
     employment_type: str | None = Query(None, max_length=50),
+    experience_level: str | None = Query(None, min_length=1, max_length=50),
+    country: str | None = Query(None, min_length=2, max_length=100),
+    published_within_days: int | None = Query(None, ge=1, le=3650),
+    company_size_band: Literal["2-10", "11-50"] | None = None,
+    approved_experience_fit: bool = False,
     minimum_match_score: float | None = Query(None, ge=0, le=100),
     max_age_days: int | None = Query(None, ge=1, le=3650),
     sort: Literal["freshness", "match", "oldest"] = "freshness",
@@ -121,6 +126,11 @@ async def search_jobs(
         statement = statement.where(Job.remote_type == remote_type)
     if employment_type:
         statement = statement.where(Job.employment_type == employment_type)
+    if experience_level:
+        statement = statement.where(func.lower(Job.experience_level) == experience_level.casefold())
+    if published_within_days:
+        # Publication is separate from observation freshness; unknown dates do not pass.
+        statement = statement.where(Job.date_posted >= datetime.now(timezone.utc) - timedelta(days=published_within_days))
     if max_age_days:
         # Freshness means observed, not a claim of publication or accepting applications.
         statement = statement.where(
@@ -153,10 +163,52 @@ async def search_jobs(
             422, "Narrow filters to at most 5000 jobs for deterministic ranking"
         )
     items = []
+    from backend.app.local_agent.knowledge import reviewed_profile
+    from backend.app.services.experience_fit import experience_fit
+
+    approved = await reviewed_profile(session) if approved_experience_fit else None
+    if approved_experience_fit and (not approved or approved.verified_experience_years is None):
+        raise HTTPException(409, "Approve current factual experience before filtering experience fit")
+    sizes = {}
+    if company_size_band:
+        from backend.app.models.startup import CompanySourceObservation
+        from backend.app.services.startup_discovery.intelligence import company_size
+
+        company_ids = {company.id for _, company in rows if company}
+        snapshots = (await session.scalars(select(CompanySourceObservation).where(
+            CompanySourceObservation.company_id.in_(company_ids)
+        ).limit(10001))).all() if company_ids else []
+        if len(snapshots) > 10000:
+            raise HTTPException(422, "Narrow filters to at most 10000 company observations")
+        grouped = {}
+        for observation in snapshots:
+            grouped.setdefault(observation.company_id, []).append(observation)
+        sizes = {key: company_size(value) for key, value in grouped.items()}
     from backend.app.dashboard.states import matches_status, packet_map
     packets = await packet_map(session, [job.id for job, _ in rows])
-    matcher = JobDiscoveryMatcher(session)
+    from backend.app.integrations.gmail.history import reviewed_history
+    matcher = JobDiscoveryMatcher(session, await reviewed_history(session))
     for job, company in rows:
+        if approved_experience_fit and experience_fit(job, approved.verified_experience_years) != "within_published_range":
+            continue
+        if country:
+            aliases = {"in": "india", "ind": "india"}
+            actual = str((job.discovery_metadata or {}).get("country") or "").casefold()
+            wanted = country.casefold()
+            if aliases.get(actual, actual) != aliases.get(wanted, wanted):
+                continue
+        if company_size_band:
+            from backend.app.services.startup_discovery.normalizer import size_allowed
+            from backend.app.services.startup_discovery.schemas import StartupFilters
+
+            size = sizes.get(company.id) if company else None
+            minimum, maximum = (2, 10) if company_size_band == "2-10" else (11, 50)
+            if not size or not size_allowed(size, StartupFilters(
+                min_employees=minimum, max_employees=maximum,
+                size_bands=["1-10", "2-10"] if minimum == 2 else ["11-50"],
+                include_unknown_size=False,
+            )):
+                continue
         if not matches_status(job, packets.get(job.id), application_status):
             continue
         if skill and skill.casefold() not in {s.casefold() for s in job.skills_required or []}:
@@ -172,6 +224,7 @@ async def search_jobs(
                 "company_name": company.name if company else None,
                 "application_state": packets[job.id].lifecycle_state if job.id in packets else None,
                 "company_domain": company.domain if company else None,
+                "experience_fit": experience_fit(job, approved.verified_experience_years) if approved else "unknown",
                 "company_intelligence": (company.metadata_ or {}).get(
                     "startup_discovery", {}
                 )

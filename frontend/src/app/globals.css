@@ -1748,6 +1748,11 @@ details[open] > summary {
   .panel-body {
     padding: 18px;
   }
+  .tag-list .badge {
+    white-space: normal;
+    max-width: 100%;
+    word-break: break-word;
+  }
   .filter-grid {
     grid-template-columns: 1fr 1fr;
     gap: 13px;

@@ -11,6 +11,7 @@ from backend.app.services.job_sources.direct_api import (
 )
 from backend.app.services.job_sources.public_ats import AshbyAdapter, LeverAdapter
 from backend.app.services.job_sources.registry import resolve_source, source_registry
+from backend.app.services.job_sources.smartrecruiters import SmartRecruitersAdapter
 
 
 class UnavailableAdapter(JobSourceAdapter):
@@ -45,6 +46,7 @@ class JobSourceFactory:
         "greenhouse": GreenhouseAdapter,
         "lever": LeverAdapter,
         "ashby": AshbyAdapter,
+        "smartrecruiters": SmartRecruitersAdapter,
         "remotive": RemotiveAdapter,
         "arbeitnow": ArbeitnowAdapter,
         "hacker_news": HackerNewsHiringAdapter,

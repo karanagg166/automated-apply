@@ -200,6 +200,7 @@ async def run(
                 COMPANY_SOURCE_URLS=[company_host + "/about"] if company_host else [],
                 UI_FIXTURE_MODE=True,
                 GMAIL_READ_SYNC_ENABLED=phase3_demo,
+                GMAIL_RETENTION_ENABLED=phase3_demo,
                 GMAIL_READ_BODY_REVIEWED=phase3_demo,
                 OAUTH_ACTIVE_KEY_ID="fixture-v1" if phase3_demo else "",
                 OAUTH_ENCRYPTION_KEYS={"fixture-v1": Fernet.generate_key().decode()} if phase3_demo else {},

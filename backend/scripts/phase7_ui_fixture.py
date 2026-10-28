@@ -112,6 +112,7 @@ async def seed():
                     employee_count=count,
                     team_size_band=band,
                     location="Bengaluru, India",
+                    country="India",
                     technology_stack=["Python", "FastAPI", "PostgreSQL"],
                     description="Fictional isolated UI fixture. Building reliable developer infrastructure with Python and FastAPI.",
                 ),

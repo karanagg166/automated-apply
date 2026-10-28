@@ -1,0 +1,11 @@
+{
+  "status": "absent",
+  "ddl_executed": false,
+  "history": "catalog_evidence_only",
+  "owner_approval_required": true,
+  "sync_enabled": false,
+  "body_reviewed": false,
+  "gmail_message_reads": 0,
+  "google_oauth_started": false,
+  "rendered_forward_sql_review": "Exact SHA-256 and operator procedure retained in final-integration.md; complete original receipt retained privately."
+}

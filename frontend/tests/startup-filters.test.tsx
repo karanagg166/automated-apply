@@ -287,6 +287,52 @@ describe("Startup discovery and size filtering", () => {
       await screen.findByText("Your next team is out there."),
     ).toBeInTheDocument();
   });
+
+  it("supports sorting startups, contact discovery badges, and exact headcount filtering", async () => {
+    vi.mocked(post).mockResolvedValue({
+      startups: [fictionalStartupA, fictionalStartupB],
+      total: 2,
+      page: 1,
+      per_page: 20,
+    });
+
+    mount();
+
+    expect(await screen.findByText("Acme Cloud AI")).toBeInTheDocument();
+
+    // Contact discovery status badges
+    expect(screen.getByText("Contacts discovered (6)")).toBeInTheDocument();
+    expect(screen.getByText("Contacts discovered (2)")).toBeInTheDocument();
+
+    // Sorting select (page-level sorting)
+    const sortSelect = screen.getByLabelText(/Sort.*startups/i);
+    expect(sortSelect).toBeInTheDocument();
+    fireEvent.change(sortSelect, { target: { value: "name_asc" } });
+
+    // Extra filters: expand and toggle exact headcount
+    const filtersBtn = screen.getByRole("button", { name: "Filters" });
+    await userEvent.click(filtersBtn);
+
+    const exactCheckbox = screen.getByLabelText(
+      /Exact headcount required \(no size bands\)/i,
+    );
+    expect(exactCheckbox).toBeInTheDocument();
+    await userEvent.click(exactCheckbox);
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        "startups/search",
+        expect.objectContaining({
+          exact_employee_count: true,
+        }),
+      ),
+    );
+
+    // Reset filters
+    const resetBtn = screen.getByRole("button", { name: "Reset filters" });
+    await userEvent.click(resetBtn);
+    expect(screen.getByText("Filters reset.")).toBeInTheDocument();
+  });
 });
 
 it("renders an observed count with the actual backend evidence status", async () => {
@@ -307,4 +353,39 @@ it("renders an observed count with the actual backend evidence status", async ()
   expect(
     await screen.findByText("7 employees (human confirmed)"),
   ).toBeInTheDocument();
+});
+
+it("applies page-level sorting only to current page results without re-querying backend pagination", async () => {
+  const page1Startups = [
+    {
+      ...fictionalStartupB,
+      company_name: "Beta Corp",
+      startup_match_score: 80,
+    },
+    {
+      ...fictionalStartupA,
+      company_name: "Alpha Corp",
+      startup_match_score: 90,
+    },
+  ];
+  vi.mocked(post).mockResolvedValue({
+    startups: page1Startups,
+    total: 25,
+    page: 1,
+    limit: 12,
+  });
+  mount();
+  expect(await screen.findByText("Alpha Corp")).toBeInTheDocument();
+  expect(screen.getByText("Beta Corp")).toBeInTheDocument();
+
+  // Sort by company name A-Z
+  const sortSelect = screen.getByLabelText(/Sort.*startups/i);
+  fireEvent.change(sortSelect, { target: { value: "name_asc" } });
+
+  // Post was called once on mount; page-only sort does NOT dispatch a new backend search
+  expect(post).toHaveBeenCalledTimes(1);
+  expect(post).toHaveBeenCalledWith(
+    "startups/search",
+    expect.objectContaining({ page: 1, limit: 12 }),
+  );
 });

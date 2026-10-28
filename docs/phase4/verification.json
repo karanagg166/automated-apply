@@ -1,0 +1,176 @@
+{
+  "verified_at": "2026-10-28T16:02:15.523664+00:00",
+  "status": "combined_engineering_pass_external_activation_partial",
+  "totals": {
+    "backend_postgresql": 2607,
+    "frontend_vitest": 198,
+    "frontend_postgresql_chromium": 28,
+    "dashboard_fictional_chromium": 13,
+    "extension_unit": 55,
+    "site_shape_chromium": 7,
+    "dom_race_chromium": 25,
+    "actual_react_chromium": 4,
+    "mv3_native_chromium": 23
+  },
+  "additional_journeys": [
+    "unanswered-fields Chromium passed",
+    "popup-answer Chromium passed",
+    "phase4-smoke-acceptance 9-journey browser suite passed"
+  ],
+  "checks": [
+    {
+      "name": "v2-frontend-unit",
+      "exit": 0,
+      "seconds": 22.89
+    },
+    {
+      "name": "v2-frontend-build",
+      "exit": 0,
+      "seconds": 5.59
+    },
+    {
+      "name": "v2-frontend-typecheck",
+      "exit": 0,
+      "seconds": 2.37
+    },
+    {
+      "name": "v2-frontend-format",
+      "exit": 0,
+      "seconds": 2.18
+    },
+    {
+      "name": "postgres-restart",
+      "exit": 0,
+      "seconds": 0.4
+    },
+    {
+      "name": "v2-frontend-dashboard-e2e",
+      "exit": 0,
+      "seconds": 42.2
+    },
+    {
+      "name": "v2-frontend-postgres-e2e",
+      "exit": 0,
+      "seconds": 91.34
+    },
+    {
+      "name": "v2-backend",
+      "exit": 0,
+      "seconds": 788.63
+    },
+    {
+      "name": "v2-gmail-migration",
+      "exit": 0,
+      "seconds": 2.45
+    },
+    {
+      "name": "v2-extension-unit",
+      "exit": 0,
+      "seconds": 4.13
+    },
+    {
+      "name": "v2-extension-build",
+      "exit": 0,
+      "seconds": 0.15
+    },
+    {
+      "name": "v2-site-forms",
+      "exit": 0,
+      "seconds": 2.19
+    },
+    {
+      "name": "v2-dom-races",
+      "exit": 0,
+      "seconds": 2.2
+    },
+    {
+      "name": "v2-react",
+      "exit": 0,
+      "seconds": 1.06
+    },
+    {
+      "name": "v2-unknowns",
+      "exit": 0,
+      "seconds": 0.96
+    },
+    {
+      "name": "v2-popup",
+      "exit": 0,
+      "seconds": 1.05
+    },
+    {
+      "name": "v2-ruff",
+      "exit": 0,
+      "seconds": 0.21
+    },
+    {
+      "name": "v2-bandit",
+      "exit": 0,
+      "seconds": 2.42
+    },
+    {
+      "name": "v2-secrets",
+      "exit": 0,
+      "seconds": 26.02
+    },
+    {
+      "name": "v2-python-audit",
+      "exit": 0,
+      "seconds": 9.92
+    },
+    {
+      "name": "v2-frontend-audit",
+      "exit": 0,
+      "seconds": 0.67
+    },
+    {
+      "name": "v2-openapi",
+      "exit": 0,
+      "seconds": 2.49
+    },
+    {
+      "name": "v2-api-types",
+      "exit": 0,
+      "seconds": 1.37
+    },
+    {
+      "name": "v2-types-check",
+      "exit": 0,
+      "seconds": 1.52
+    },
+    {
+      "name": "api-compatibility",
+      "exit": 0,
+      "seconds": 0.07
+    },
+    {
+      "name": "v2-mv3-native",
+      "exit": 0,
+      "seconds": 34.04
+    }
+  ],
+  "full_frontend_dependency_audit": {
+    "exit": 0,
+    "seconds": 0.48
+  },
+  "native": {
+    "evidence_type": "actual-chrome-for-testing-mv3-native-fastapi-postgresql17",
+    "form_fields_read": false,
+    "form_fields_filled": false,
+    "form_submit_events": 0,
+    "form_post_requests": 0,
+    "submitted": false,
+    "backend_audit": {
+      "total_history_rows": 22,
+      "verified_unique_correlations": 21,
+      "actor": "chrome:gdjbmkffcpicbpiikcohlmokkmcpipgp",
+      "all_submitted_false": true
+    }
+  },
+  "hosted_ci_dispatched": false,
+  "deployment": false,
+  "real_gmail_messages_read": 0,
+  "genuine_employer_submissions": 0,
+  "provider_spend_usd": 0,
+  "implementation_reference": "Tested commit and exact Git tree identifiers are listed in final-integration.md and the private implementation-manifest.json."
+}

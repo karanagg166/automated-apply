@@ -1,5 +1,5 @@
 import { observationMessage } from "./observation.js";
-import { inspectForm, prepareAnswers, fillForm } from "./form-bridge.js";
+import { inspectForm, prepareAnswers, fillForm, cancelPreparedForm } from "./form-bridge.js";
 import {
   formErrorMessage,
   formPlanText,
@@ -86,6 +86,14 @@ chrome.storage.onChanged.addListener(show);
 await show();
 
 let formBusy = false;
+document.querySelector("#cancel-form")?.addEventListener("click", (event) => {
+  if (!event.isTrusted) return;
+  cancelPreparedForm();
+  document.querySelector("#fill-form").disabled = true;
+  document.querySelector("#form-plan").textContent = "";
+  document.querySelector("#answer-status").textContent =
+    "Preparation cancelled. Check the page, then prepare fresh answers to continue.";
+});
 async function prepare(useSavedApplication = false) {
   if (formBusy) return;
   formBusy = true;

@@ -361,8 +361,9 @@ class Settings(BaseSettings):
     LEVER_BOARDS: dict[str, str] = Field(default_factory=dict, max_length=10)
     LEVER_REGION: Literal["global", "eu"] = "global"
     ASHBY_BOARDS: dict[str, str] = Field(default_factory=dict, max_length=10)
+    SMARTRECRUITERS_BOARDS: dict[str, str] = Field(default_factory=dict, max_length=10)
 
-    @field_validator("LEVER_BOARDS", "ASHBY_BOARDS")
+    @field_validator("LEVER_BOARDS", "ASHBY_BOARDS", "SMARTRECRUITERS_BOARDS")
     @classmethod
     def public_ats_boards(cls, value):
         if any(
@@ -397,6 +398,8 @@ class Settings(BaseSettings):
     # Outbound communication always needs a fresh owner confirmation.
     GMAIL_READ_BODY_REVIEWED: bool = False
     GMAIL_READ_SYNC_ENABLED: bool = False
+    GMAIL_DRAFTS_ENABLED: bool = False
+    GMAIL_RETENTION_ENABLED: bool = False
     GMAIL_SENDING_ENABLED: bool = False
     GMAIL_SEND_MAX_PER_DAY: int = Field(default=10, ge=0, le=100)
     GMAIL_SEND_MAX_PER_HOUR: int = Field(default=3, ge=0, le=20)

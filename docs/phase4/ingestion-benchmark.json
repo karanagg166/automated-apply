@@ -1,0 +1,142 @@
+{
+  "fixture": true,
+  "database": "disposable PostgreSQL 17, pool_size=1, max_overflow=0",
+  "provider_transport": "fictional HTTP; no external requests",
+  "simulated_sql_latency_ms": 30,
+  "simulated_network_latency_ms": 100,
+  "before": {
+    "size": 27,
+    "source": "greenhouse",
+    "seconds": 8.7646,
+    "sql": {
+      "INSERT": 55,
+      "SELECT": 113,
+      "SAVEPOINT": 27,
+      "UPDATE": 28,
+      "RELEASE": 27
+    },
+    "sql_seconds": {
+      "INSERT": 1.821022,
+      "SELECT": 3.76829,
+      "SAVEPOINT": 0.99037,
+      "UPDATE": 0.921764,
+      "RELEASE": 0.896633
+    },
+    "commit_ack_seconds": [
+      0.003526,
+      0.040964
+    ],
+    "pool_checked_out_after_run": 0,
+    "simulated_sql_latency_ms": 30.0,
+    "simulated_network_latency_ms": 100.0,
+    "status": "success",
+    "counts": {
+      "discovered": 27,
+      "inserted": 27,
+      "updated": 0,
+      "duplicate": 0,
+      "rejected": 0,
+      "failed": 0,
+      "skipped": 0
+    },
+    "usage": {
+      "public_feed": {
+        "http_attempts": 1,
+        "decoded_bytes": 24371,
+        "json_seconds": 0.0002184590011893306,
+        "request_seconds": 0.10258145799889462,
+        "normalization_seconds": 0.006325250000372762,
+        "adapter_seconds": 0.110126
+      },
+      "diagnostics": {
+        "phase_seconds": {
+          "claim_checkout": 0.000195,
+          "claim": 0.03761,
+          "profile": 0.034586,
+          "profile_checkout": 0.000206,
+          "concurrency_wait": 1.8e-05,
+          "provider": 0.11031,
+          "filtering": 1e-05,
+          "ingestion_checkout": 0.000311,
+          "ingestion": 8.460576,
+          "matching": 0.044463,
+          "finalization": 0.033547
+        },
+        "total_seconds": 8.721854,
+        "last_phase": "finalization",
+        "deadline_seconds": 90.0,
+        "record_attempts": 27,
+        "max_record_seconds": 0.443353
+      }
+    }
+  },
+  "after": {
+    "size": 27,
+    "source": "greenhouse",
+    "seconds": 7.725,
+    "sql": {
+      "INSERT": 55,
+      "SELECT": 86,
+      "SAVEPOINT": 27,
+      "UPDATE": 28,
+      "RELEASE": 27
+    },
+    "sql_seconds": {
+      "INSERT": 1.824684,
+      "SELECT": 2.84347,
+      "SAVEPOINT": 0.883281,
+      "UPDATE": 0.926834,
+      "RELEASE": 0.891234
+    },
+    "commit_ack_seconds": [
+      0.003146,
+      0.039975
+    ],
+    "pool_checked_out_after_run": 0,
+    "simulated_sql_latency_ms": 30.0,
+    "simulated_network_latency_ms": 100.0,
+    "status": "success",
+    "counts": {
+      "discovered": 27,
+      "inserted": 27,
+      "updated": 0,
+      "duplicate": 0,
+      "rejected": 0,
+      "failed": 0,
+      "skipped": 0
+    },
+    "usage": {
+      "public_feed": {
+        "http_attempts": 1,
+        "decoded_bytes": 24371,
+        "json_seconds": 0.00011416699999244884,
+        "request_seconds": 0.10239529200043762,
+        "normalization_seconds": 0.004240916998242028,
+        "adapter_seconds": 0.108309
+      },
+      "diagnostics": {
+        "phase_seconds": {
+          "claim_checkout": 0.000303,
+          "claim": 0.037988,
+          "profile": 0.035877,
+          "profile_checkout": 0.000313,
+          "concurrency_wait": 3.9e-05,
+          "provider": 0.109473,
+          "filtering": 1.6e-05,
+          "ingestion_checkout": 0.000429,
+          "ingestion": 7.421302,
+          "matching": 0.044332,
+          "finalization": 0.033966
+        },
+        "total_seconds": 7.684075,
+        "last_phase": "finalization",
+        "deadline_seconds": 90.0,
+        "record_attempts": 27,
+        "max_record_seconds": 0.306222
+      }
+    }
+  },
+  "elapsed_reduction_percent": 11.86,
+  "selects_avoided": 27,
+  "historical_95_second_live_incident_resolved": false
+}

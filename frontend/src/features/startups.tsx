@@ -43,7 +43,9 @@ export const statuses = [
   ["all", "All"],
 ] as const;
 export const defaultFilters: Schema<"StartupFilters"> = {
+  min_employees: null,
   max_employees: null,
+  query: null,
   include_unknown_size: true,
   use_profile: false,
   application_status: "not_applied",
@@ -64,6 +66,10 @@ export const defaultFilters: Schema<"StartupFilters"> = {
   has_technical_staff: false,
   industries: [],
   country: null,
+  remote_preference: "any",
+  hiring_status: null,
+  observed_after: null,
+  source: null,
 };
 export function sizeFilter(size: string) {
   if (size === "2-10") {
@@ -112,11 +118,13 @@ export function sizeFilter(size: string) {
 }
 export const industries = [
   "All industries",
+  "Software / SaaS",
+  "AI / ML",
+  "Fintech",
+  "Developer Tools",
   "Software",
   "SaaS",
   "AI",
-  "Fintech",
-  "Developer Tools",
 ] as const;
 export const indianLocations = [
   "Any",
@@ -150,6 +158,9 @@ export function StartupExplorer() {
     }),
     [size, setSize] = useState("all"),
     [industry, setIndustry] = useState("All industries"),
+    [sortOrder, setSortOrder] = useState<
+      "match_desc" | "jobs_desc" | "name_asc" | "size_desc"
+    >("match_desc"),
     [extra, setExtra] = useState(false),
     [presetOpen, setPresetOpen] = useState(false),
     [presetName, setPresetName] = useState(""),
@@ -244,18 +255,36 @@ export function StartupExplorer() {
               value={
                 filters.remote_preference === "remote"
                   ? "Remote"
-                  : filters.locations?.[0] || "Any"
+                  : filters.country === "India" && !filters.locations?.length
+                    ? "India"
+                    : filters.locations?.[0] || "Any"
               }
-              onChange={(e) =>
-                update({
-                  locations:
-                    e.target.value === "Remote" || e.target.value === "Any"
-                      ? []
-                      : [e.target.value],
-                  remote_preference:
-                    e.target.value === "Remote" ? "remote" : "any",
-                })
-              }
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === "India") {
+                  update({
+                    country: "India",
+                    locations: [],
+                    remote_preference: "any",
+                  });
+                } else if (val === "Remote") {
+                  update({
+                    locations: [],
+                    remote_preference: "remote",
+                  });
+                } else if (val === "Any") {
+                  update({
+                    locations: [],
+                    country: null,
+                    remote_preference: "any",
+                  });
+                } else {
+                  update({
+                    locations: [val],
+                    remote_preference: "any",
+                  });
+                }
+              }}
             >
               {indianLocations.map((x) => (
                 <option key={x} value={x}>
@@ -296,11 +325,19 @@ export function StartupExplorer() {
               aria-label="Industry"
               value={industry}
               onChange={(e) => {
-                setIndustry(e.target.value);
-                update({
-                  industries:
-                    e.target.value === "All industries" ? [] : [e.target.value],
-                });
+                const val = e.target.value;
+                setIndustry(val);
+                let indList: string[] = [];
+                if (val === "All industries") {
+                  indList = [];
+                } else if (val === "Software / SaaS") {
+                  indList = ["Software", "SaaS"];
+                } else if (val === "AI / ML") {
+                  indList = ["AI"];
+                } else {
+                  indList = [val];
+                }
+                update({ industries: indList });
               }}
             >
               {industries.map((ind) => (
@@ -434,6 +471,10 @@ export function StartupExplorer() {
                 ["has_leader_evidence", "Known founder / leader"],
                 ["has_technical_staff", "Technical staff evidence"],
                 ["has_business_email", "Send-ready email evidence"],
+                [
+                  "exact_employee_count",
+                  "Exact headcount required (no size bands)",
+                ],
                 ["verified_yc", "YC evidence"],
                 ["early_stage", "Early-stage evidence"],
                 ["use_profile", "Use my preferences"],
@@ -481,11 +522,35 @@ export function StartupExplorer() {
           <span className="muted"> · Evidence first. Always.</span>
         </div>
         <div className="actions">
+          <Field
+            label="SORT STARTUPS (PAGE)"
+            hint="Page-only sort; backend pagination orders primary results"
+          >
+            <Select
+              aria-label="Sort startups"
+              value={sortOrder}
+              onChange={(e) =>
+                setSortOrder(
+                  e.target.value as
+                    "match_desc" | "jobs_desc" | "name_asc" | "size_desc",
+                )
+              }
+            >
+              <option value="match_desc">Highest match score (page)</option>
+              <option value="jobs_desc">Most open jobs (page)</option>
+              <option value="name_asc">Company name (A–Z) (page)</option>
+              <option value="size_desc">
+                Team size (largest first) (page)
+              </option>
+            </Select>
+          </Field>
           <Button
             variant="ghost"
             onClick={() => {
               setFilters(defaultFilters);
               setSize("all");
+              setIndustry("All industries");
+              setSortOrder("match_desc");
               setMessage("Filters reset.");
             }}
           >
@@ -562,151 +627,174 @@ export function StartupExplorer() {
       ) : result.data.startups.length ? (
         <>
           <div className="company-grid">
-            {result.data.startups.map((s) => (
-              <article className="company-card" key={s.company_id}>
-                <div className="company-top">
-                  <span className="company-logo">
-                    {s.company_name.slice(0, 2)}
-                  </span>
-                  <div>
-                    <h3>
-                      <Link href={`/startups/${s.company_id}`}>
-                        {s.company_name}
-                      </Link>
-                    </h3>
-                    <p>
-                      {s.attributes.industry ||
-                        s.company_domain ||
-                        "Industry not established"}
-                    </p>
+            {[...result.data.startups]
+              .sort((a, b) => {
+                if (sortOrder === "jobs_desc")
+                  return b.current_job_count - a.current_job_count;
+                if (sortOrder === "name_asc")
+                  return a.company_name.localeCompare(b.company_name);
+                if (sortOrder === "size_desc")
+                  return (b.employee_count || 0) - (a.employee_count || 0);
+                return b.startup_match_score - a.startup_match_score;
+              })
+              .map((s) => (
+                <article className="company-card" key={s.company_id}>
+                  <div className="company-top">
+                    <span className="company-logo">
+                      {s.company_name.slice(0, 2)}
+                    </span>
+                    <div>
+                      <h3>
+                        <Link href={`/startups/${s.company_id}`}>
+                          {s.company_name}
+                        </Link>
+                      </h3>
+                      <p>
+                        {s.attributes.industry ||
+                          s.company_domain ||
+                          "Industry not established"}
+                      </p>
+                    </div>
+                    <Badge
+                      tone={
+                        s.hiring_status === "hiring_confirmed"
+                          ? "green"
+                          : "neutral"
+                      }
+                    >
+                      {readable(s.hiring_status)}
+                    </Badge>
                   </div>
-                  <Badge
-                    tone={
-                      s.hiring_status === "hiring_confirmed"
-                        ? "green"
-                        : "neutral"
-                    }
-                  >
-                    {readable(s.hiring_status)}
-                  </Badge>
-                </div>
-                <p className="company-description">
-                  {s.attributes.description ||
-                    "Explore the saved company and hiring evidence to understand what this team is building."}
-                </p>
-                <div className="company-meta">
-                  <span>
-                    <MapPin size={12} />
-                    {s.attributes.location || "Location unknown"}
-                  </span>
-                  <span>
-                    <Users size={12} />
-                    {s.employee_count !== null &&
-                    ["source_reported", "human_confirmed"].includes(
-                      s.team_size_evidence_status,
-                    )
-                      ? `${s.employee_count} employees (${s.team_size_evidence_status === "human_confirmed" ? "human confirmed" : "source reported"})`
-                      : s.team_size_band && s.team_size_band !== "unknown"
-                        ? `${s.team_size_band} band`
-                        : "Size unknown"}
-                  </span>
-                  {s.company_domain && (
-                    <External href={`https://${s.company_domain}`}>
-                      Official website
-                    </External>
-                  )}
-                </div>
-                <div className="tag-list">
-                  {(s.attributes.technology_stack || [])
-                    .slice(0, 5)
-                    .map((t) => (
-                      <Badge key={t}>{t}</Badge>
-                    ))}
-                  {!s.attributes.technology_stack?.length && (
-                    <Badge>Technology evidence missing</Badge>
-                  )}
-                  {s.attributes.yc_batch && (
-                    <Badge>YC {s.attributes.yc_batch}</Badge>
-                  )}
-                  {s.leader_evidence_count > 0 ? (
-                    <Badge tone="green">
-                      Founder / CEO available ({s.leader_evidence_count})
-                    </Badge>
-                  ) : (
-                    <Badge tone="neutral">No leader recorded</Badge>
-                  )}
-                  {s.technical_staff_count > 0 && (
-                    <Badge tone="neutral">
-                      Technical staff evidence ({s.technical_staff_count})
-                    </Badge>
-                  )}
-                </div>
-                <div className="company-evidence">
-                  <Building2 size={13} />
-                  <strong>
-                    {s.current_job_count} current role
-                    {s.current_job_count === 1 ? "" : "s"}
-                  </strong>
-                  <span>· {s.sources.join(", ") || "No retained source"}</span>
-                  <span style={{ marginLeft: "auto" }} className="score">
-                    {Math.round(s.startup_match_score)}
-                    <small>match</small>
-                  </span>
-                </div>
-                <div className="company-meta">
-                  <Badge
-                    tone={
-                      s.team_size_evidence_status === "human_confirmed"
-                        ? "green"
-                        : s.team_size_evidence_status === "source_reported"
-                          ? "neutral"
-                          : s.team_size_evidence_status === "conflicting"
-                            ? "red"
-                            : "amber"
-                    }
-                  >
-                    Size: {readable(s.team_size_evidence_status)}
-                  </Badge>
-                  <span>
-                    Last observed{" "}
-                    {dateLabel(
-                      s.team_size_evidence[0]?.observed_at ||
-                        s.hiring_evidence[0]?.observed_at ||
-                        null,
+                  <p className="company-description">
+                    {s.attributes.description ||
+                      "Explore the saved company and hiring evidence to understand what this team is building."}
+                  </p>
+                  <div className="company-meta">
+                    <span>
+                      <MapPin size={12} />
+                      {s.attributes.location || "Location unknown"}
+                    </span>
+                    <span>
+                      <Users size={12} />
+                      {s.employee_count !== null &&
+                      ["source_reported", "human_confirmed"].includes(
+                        s.team_size_evidence_status,
+                      )
+                        ? `${s.employee_count} employees (${s.team_size_evidence_status === "human_confirmed" ? "human confirmed" : "source reported"})`
+                        : s.team_size_band && s.team_size_band !== "unknown"
+                          ? `${s.team_size_band} band`
+                          : "Size unknown"}
+                    </span>
+                    {s.company_domain && (
+                      <External href={`https://${s.company_domain}`}>
+                        Official website
+                      </External>
                     )}
-                  </span>
-                </div>
-                <div className="company-actions">
-                  <Link href={`/startups/${s.company_id}`} className="button">
-                    View company
-                    <ArrowUpRight size={12} />
-                  </Link>
-                  <Link
-                    href={`/startups/${s.company_id}?tab=jobs`}
-                    className="button ghost"
-                  >
-                    View jobs
-                  </Link>
-                  <Link
-                    href={`/startups/${s.company_id}?tab=people`}
-                    className="button ghost"
-                  >
-                    View founder
-                  </Link>
-                  <Button
-                    disabled={s.shortlisted || shortlist.isPending}
-                    aria-label={`Shortlist ${s.company_name}`}
-                    onClick={() => shortlist.mutate(s.company_id)}
-                  >
-                    <Bookmark
-                      size={13}
-                      fill={s.shortlisted ? "currentColor" : "none"}
-                    />
-                    {s.shortlisted ? "Saved" : "Save"}
-                  </Button>
-                </div>
-              </article>
-            ))}
+                  </div>
+                  <div className="tag-list">
+                    {(s.attributes.technology_stack || [])
+                      .slice(0, 5)
+                      .map((t) => (
+                        <Badge key={t}>{t}</Badge>
+                      ))}
+                    {!s.attributes.technology_stack?.length && (
+                      <Badge>Technology evidence missing</Badge>
+                    )}
+                    {s.attributes.yc_batch && (
+                      <Badge>YC {s.attributes.yc_batch}</Badge>
+                    )}
+                    {s.leader_evidence_count > 0 ? (
+                      <Badge tone="green">
+                        Founder / CEO available ({s.leader_evidence_count})
+                      </Badge>
+                    ) : (
+                      <Badge tone="neutral">No leader recorded</Badge>
+                    )}
+                    {s.technical_staff_count > 0 && (
+                      <Badge tone="neutral">
+                        Technical staff evidence ({s.technical_staff_count})
+                      </Badge>
+                    )}
+                    {s.professional_contact_count > 0 ? (
+                      <span title="Aggregate contact count. Open company detail to inspect source-backed vs provider-reported evidence.">
+                        <Badge tone="green">
+                          Contacts discovered ({s.professional_contact_count})
+                        </Badge>
+                      </span>
+                    ) : (
+                      <span title="No professional contacts identified in saved observations.">
+                        <Badge tone="neutral">No contacts discovered</Badge>
+                      </span>
+                    )}
+                  </div>
+                  <div className="company-evidence">
+                    <Building2 size={13} />
+                    <strong>
+                      {s.current_job_count} current role
+                      {s.current_job_count === 1 ? "" : "s"}
+                    </strong>
+                    <span>
+                      · {s.sources.join(", ") || "No retained source"}
+                    </span>
+                    <span style={{ marginLeft: "auto" }} className="score">
+                      {Math.round(s.startup_match_score)}
+                      <small>match</small>
+                    </span>
+                  </div>
+                  <div className="company-meta">
+                    <Badge
+                      tone={
+                        s.team_size_evidence_status === "human_confirmed"
+                          ? "green"
+                          : s.team_size_evidence_status === "source_reported"
+                            ? "neutral"
+                            : s.team_size_evidence_status === "conflicting"
+                              ? "red"
+                              : "amber"
+                      }
+                    >
+                      Size: {readable(s.team_size_evidence_status)}
+                    </Badge>
+                    <span>
+                      Last researched{" "}
+                      {dateLabel(
+                        s.team_size_evidence[0]?.observed_at ||
+                          s.hiring_evidence[0]?.observed_at ||
+                          null,
+                      )}
+                    </span>
+                  </div>
+                  <div className="company-actions">
+                    <Link href={`/startups/${s.company_id}`} className="button">
+                      View company
+                      <ArrowUpRight size={12} />
+                    </Link>
+                    <Link
+                      href={`/startups/${s.company_id}?tab=jobs`}
+                      className="button ghost"
+                    >
+                      View jobs
+                    </Link>
+                    <Link
+                      href={`/startups/${s.company_id}?tab=people`}
+                      className="button ghost"
+                    >
+                      View founder
+                    </Link>
+                    <Button
+                      disabled={s.shortlisted || shortlist.isPending}
+                      aria-label={`Shortlist ${s.company_name}`}
+                      onClick={() => shortlist.mutate(s.company_id)}
+                    >
+                      <Bookmark
+                        size={13}
+                        fill={s.shortlisted ? "currentColor" : "none"}
+                      />
+                      {s.shortlisted ? "Saved" : "Save"}
+                    </Button>
+                  </div>
+                </article>
+              ))}
           </div>
           <div className="pagination">
             <Button

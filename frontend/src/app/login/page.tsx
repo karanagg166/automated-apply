@@ -1,10 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowUpRight, Fingerprint, LockKeyhole } from "lucide-react";
 import { Button, Field, Input } from "@/components/ui";
 export default function Login() {
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
   return (
     <main className="login">
       <div className="login-story">
@@ -37,6 +39,8 @@ export default function Login() {
         <h2>Welcome back.</h2>
         <p className="muted">Sign in with your owner passphrase to continue.</p>
         <form
+          method="post"
+          action="/api/auth"
           onSubmit={async (e) => {
             e.preventDefault();
             setBusy(true);
@@ -68,6 +72,7 @@ export default function Login() {
               required
               maxLength={256}
               autoFocus
+              disabled={!ready}
             />
           </Field>
           {error && (
@@ -75,7 +80,7 @@ export default function Login() {
               {error}
             </p>
           )}
-          <Button type="submit" variant="primary" busy={busy}>
+          <Button type="submit" variant="primary" busy={busy} disabled={!ready}>
             Enter workspace
             <ArrowUpRight size={17} />
           </Button>

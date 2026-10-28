@@ -1,7 +1,11 @@
 -- REVIEW ONLY. No startup migration and no live DDL under this task.
 -- This template uses job_agent for disposable tests. The approved live schema
 -- is public; use the explicit schema renderer after owner migration approval.
+-- Requires an exact catalog/security preflight, stopped writers and a verified backup.
 BEGIN;
+SET LOCAL lock_timeout = '5s';
+SET LOCAL statement_timeout = '30s';
+SELECT pg_advisory_xact_lock(350035, 1);
 CREATE TABLE IF NOT EXISTS job_agent.gmail_read_accounts (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     provider varchar(30) NOT NULL DEFAULT 'gmail' CHECK (provider='gmail'),

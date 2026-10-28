@@ -1,10 +1,12 @@
 """Explicit, bounded and restartable per-account Gmail reads; disabled by default."""
 
 import asyncio
+import calendar
 import hashlib
 import re
 from datetime import datetime, timedelta, timezone
 from email.utils import parseaddr
+from typing import Literal
 from uuid import uuid4
 
 from pydantic import EmailStr, Field, StrictBool, model_validator
@@ -19,20 +21,20 @@ from backend.app.integrations.connection_service import (
 )
 from backend.app.integrations.gmail.read_client import GmailReadClient, content_evidence
 from backend.app.integrations.google_oauth import READ_SCOPES, SCOPES
-from backend.app.integrations.token_store import ConnectionError
+from backend.app.integrations.token_store import ConnectionError, TokenStore
 from backend.app.models.connected_account import GmailReadAccount
 from backend.app.services.discovery_budget import insert_for
 
 POLICY = "gmail_sync:"
 MESSAGE = "gmail_msg:"
 TOPIC = re.compile(
-    r"\b(?:job|jobs|application|interview|hiring|vacancy|career|recruit|position)\b",
+    r"\b(?:job|jobs|applied|applying|application|resume|candidature|interview|hiring|vacancy|career|recruit(?:er|ing|ment)?|position|follow[ -]?up)\b",
     re.I,
 )
 
 
 class ReadConnect(Contract):
-    expected_email: EmailStr
+    expected_email: EmailStr | None = None
     read_body: StrictBool = False
     account_consent: StrictBool
 
@@ -54,6 +56,9 @@ class ReadPolicy(Contract):
     backfill_days: int = Field(7, ge=1, le=30)
     retention_days: int = Field(14, ge=1, le=90)
     max_pages: int = Field(1, ge=1, le=3)
+    folders: list[Literal["INBOX", "SENT"]] = Field(default_factory=list, max_length=2)
+    history_months: int | None = Field(None, ge=1, le=24)
+    retain_metadata: StrictBool = False
 
     @model_validator(mode="after")
     def selection(self):
@@ -62,9 +67,15 @@ class ReadPolicy(Contract):
             for label in self.label_allowlist
         ):
             raise ValueError("Choose explicit custom job-related labels")
-        if self.enabled and not (self.sender_allowlist or self.label_allowlist):
+        if len(self.folders) != len(set(self.folders)):
+            raise ValueError("Choose each folder once")
+        if (self.history_months or self.folders) and self.max_pages != 1:
+            raise ValueError("Historical scans allow one page of at most 25 messages per batch")
+        if self.history_months and not self.folders:
+            raise ValueError("Choose Inbox and/or Sent for historical scans")
+        if self.enabled and not (self.sender_allowlist or self.label_allowlist or self.folders):
             raise ValueError("A sender or curated label allowlist is required")
-        if self.enabled and not self.read_body and not self.label_allowlist:
+        if self.enabled and not self.read_body and not (self.label_allowlist or self.folders):
             raise ValueError(
                 "Metadata sync requires a custom label; Gmail metadata scope does not support q"
             )
@@ -248,7 +259,15 @@ class GmailReadService:
                 .limit(limit)
             )
         ).all()
-        return [r.value for r in rows]
+        result = []
+        for r in rows:
+            value = {k: v for k, v in r.value.items() if k != "encrypted_metadata"}
+            if r.value.get("encrypted_metadata"):
+                value["metadata"] = __import__("json").loads(TokenStore(self.settings).decrypt(
+                    r.value["encrypted_metadata"], "gmail-metadata:" + r.value["id"]
+                ))
+            result.append(value)
+        return result
 
     async def sync(self, account_id):
         if not self.settings.GMAIL_READ_SYNC_ENABLED:
@@ -270,6 +289,8 @@ class GmailReadService:
         ) > datetime.now(timezone.utc):
             raise ConnectionError("gmail_sync_already_running")
         policy = ReadPolicy(expected_version=value["version"], **value["policy"])
+        if policy.retain_metadata and not self.settings.GMAIL_RETENTION_ENABLED:
+            raise ConnectionError("gmail_local_retention_worker_required")
         if policy.read_body and (
             set(account.granted_scopes) != READ_SCOPES
             or not self.settings.GMAIL_READ_BODY_REVIEWED
@@ -281,14 +302,18 @@ class GmailReadService:
             if value.get("window_end")
             else datetime.now(timezone.utc)
         )
+        months = policy.history_months
+        month_index = end.year * 12 + end.month - 1 - (months or 0)
+        historical_start = end.replace(year=month_index // 12, month=month_index % 12 + 1,
+            day=min(end.day, calendar.monthrange(month_index // 12, month_index % 12 + 1)[1])) if months else end - timedelta(days=policy.backfill_days)
         start = (
             datetime.fromisoformat(value["window_start"])
             if value.get("window_start")
             else max(
-                end - timedelta(days=policy.backfill_days),
+                historical_start,
                 datetime.fromisoformat(value["checkpoint"]) - timedelta(minutes=5)
                 if value.get("checkpoint")
-                else end - timedelta(days=policy.backfill_days),
+                else historical_start,
             )
         )
         value.update(
@@ -339,8 +364,10 @@ class GmailReadService:
                         if policy.query_allowlist:
                             query += " (" + policy.query_allowlist + ")"
                     await guard()
+                    folder_index = value.get("folder_index", 0)
+                    folder = policy.folders[folder_index] if policy.folders else None
                     page = await reader.messages(
-                        labels=policy.label_allowlist,
+                        labels=[*policy.label_allowlist, *([folder] if folder else [])],
                         query=query,
                         page_token=value.get("page_token"),
                     )
@@ -401,11 +428,21 @@ class GmailReadService:
                             policy.label_allowlist
                         ).issubset(set(metadata.get("labelIds", []))):
                             continue
+                        if folder and folder not in metadata.get("labelIds", []):
+                            continue
                         evidence = {
                             "links": [],
-                            "signals": [],
+                            "signals": [name for name, pattern in {
+                                "possible_acknowledgment": r"\b(?:application (?:received|confirmation)|received your application|thank you for applying)\b",
+                                "possible_interview": r"\binterview\b",
+                                "possible_rejection": r"\b(?:rejection|not moving forward|application unsuccessful)\b",
+                                "possible_recruiter_response": r"\b(?:recruiter|recruiting|talent acquisition)\b",
+                                "possible_status_update": r"\b(?:application (?:status|update)|under review|next steps)\b",
+                            }.items() if re.search(pattern, subject, re.I)] if policy.folders else [],
                             "verification_status": "requires_review",
                             "submission_confirmed": False,
+                            "status_confirmed": False,
+                            "signal_basis": "selected_subject_keywords_uncertain" if policy.folders else "metadata_only_no_status_inference",
                         }
                         if policy.read_body:
                             await guard()
@@ -436,6 +473,12 @@ class GmailReadService:
                             ).hexdigest(),
                             **evidence,
                         }
+                        if policy.retain_metadata:
+                            import json
+                            record["encrypted_metadata"] = TokenStore(self.settings).encrypt(
+                                json.dumps({"subject": subject, "from": by_name.get("from", ""),
+                                    "to": by_name.get("to", ""), "folder": folder,
+                                    "received_at": received.isoformat()}), "gmail-metadata:" + digest)
                         records.append(record)
                     next_token = page.get("nextPageToken")
                     if next_token is not None and (
@@ -446,14 +489,14 @@ class GmailReadService:
                         raise ConnectionError("gmail_page_token_invalid")
                     value["page_token"] = next_token
                     if not next_token:
-                        value.update(
-                            checkpoint=end.isoformat(),
-                            window_start=None,
-                            window_end=None,
-                        )
+                        if policy.folders and folder_index + 1 < len(policy.folders):
+                            value["folder_index"] = folder_index + 1
+                        else:
+                            value.update(checkpoint=end.isoformat(), window_start=None,
+                                window_end=None, folder_index=0)
                         break
             value.update(
-                status="partial" if value.get("page_token") else "completed",
+                status="partial" if value.get("page_token") or value.get("window_end") else "completed",
                 last_sync_at=datetime.now(timezone.utc).isoformat(),
                 inserted=inserted,
                 scanned=scanned,
@@ -525,6 +568,19 @@ class GmailReadService:
                     },
                 )
                 lead["evidence_ids"].append(message["id"])
+                imported = message.get("imported_leads", {}).get(url, [])
+                lead["imported_job_ids"] = sorted(set(lead.get("imported_job_ids", []) + imported))
+                lead["import_state"] = (
+                    "imported" if lead["imported_job_ids"] else
+                    "legacy_message_import_unknown" if (
+                        lead.get("import_state") == "legacy_message_import_unknown"
+                        or set(message.get("imported_job_ids", [])) - {
+                            job_id for ids in message.get("imported_leads", {}).values()
+                            for job_id in ids
+                        }
+                    ) else
+                    "not_imported"
+                )
         return list(unique.values())
 
     async def import_lead(self, account_id, evidence_id, data):
@@ -565,8 +621,13 @@ class GmailReadService:
                 )
             ]
         )
+        if result.failed_count or result.rejected_count or len(result.job_ids) != 1:
+            # A single reviewed lead is successful only after durable ingestion.
+            # Keep its evidence unmarked so the owner can review and retry.
+            raise ConnectionError("gmail_lead_import_failed")
         row.value = {
             **row.value,
+            "imported_leads": {**row.value.get("imported_leads", {}), url: result.job_ids},
             "imported_job_ids": sorted(
                 set(row.value.get("imported_job_ids", []) + result.job_ids)
             ),

@@ -50,13 +50,15 @@ import {
 type Profile = Schema<"CandidateProfileRead">;
 type Compensation = Schema<"CompensationFact-Output">;
 type Project = Schema<"VerifiedProject">;
+type Role = Schema<"ProfessionalExperience">;
+type CountryAuth = Schema<"CountryAuthorization">;
 
 export function CandidateKnowledge() {
   const client = useQueryClient();
   const confirmationId = useId();
 
   const [activeTab, setActiveTab] = useState<
-    "approved" | "edit-facts" | "projects" | "links" | "answers"
+    "approved" | "edit-facts" | "projects" | "links" | "answers" | "stories"
   >("approved");
 
   const [editSuccessMessage, setEditSuccessMessage] = useState("");
@@ -95,8 +97,29 @@ export function CandidateKnowledge() {
   const [projectRole, setProjectRole] = useState("");
   const [projectTech, setProjectTech] = useState("");
   const [projectImpact, setProjectImpact] = useState("");
+  const [projectImplementation, setProjectImplementation] = useState("");
+  const [projectChallenges, setProjectChallenges] = useState("");
   const [projectUrl, setProjectUrl] = useState("");
   const [projectModalOpen, setProjectModalOpen] = useState(false);
+
+  // Work experience (roles) state
+  const [rolesList, setRolesList] = useState<Role[]>([]);
+  const [editingRoleIndex, setEditingRoleIndex] = useState<number | null>(null);
+  const [roleCompany, setRoleCompany] = useState("");
+  const [roleTitle, setRoleTitle] = useState("");
+  const [roleStartDate, setRoleStartDate] = useState("");
+  const [roleEndDate, setRoleEndDate] = useState("");
+  const [roleHighlight, setRoleHighlight] = useState("");
+  const [roleModalOpen, setRoleModalOpen] = useState(false);
+
+  // Work authorizations state
+  const [authsList, setAuthsList] = useState<CountryAuth[]>([]);
+  const [editingAuthIndex, setEditingAuthIndex] = useState<number | null>(null);
+  const [authCountryCode, setAuthCountryCode] = useState("");
+  const [authCountryName, setAuthCountryName] = useState("");
+  const [authAuthorized, setAuthAuthorized] = useState(true);
+  const [authNeedsSponsorship, setAuthNeedsSponsorship] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
 
   // Links state
   const [githubUrl, setGithubUrl] = useState("");
@@ -160,6 +183,10 @@ export function CandidateKnowledge() {
       // Projects
       setProjectsList((p.projects as Project[]) || []);
 
+      // Work experience & authorizations
+      setRolesList((p.verified_roles as Role[]) || []);
+      setAuthsList((p.preferences?.work_authorizations as CountryAuth[]) || []);
+
       // Links
       setGithubUrl(p.github_url || "");
       setLinkedinUrl(p.linkedin_url || "");
@@ -221,7 +248,7 @@ export function CandidateKnowledge() {
           .split(",")
           .map((s) => s.trim())
           .filter(Boolean),
-        verified_roles: existing.verified_roles || [],
+        verified_roles: rolesList,
         education: existing.education || [],
         certifications: existing.certifications || [],
         projects: projectsList,
@@ -233,6 +260,7 @@ export function CandidateKnowledge() {
             null) as Schema<"JobSearchPreferencesUpdate">["remote_preference"],
           current_compensation: currentComp,
           expected_compensation: expectedComp,
+          work_authorizations: authsList,
         },
       };
 
@@ -277,6 +305,8 @@ export function CandidateKnowledge() {
     setProjectRole("");
     setProjectTech("");
     setProjectImpact("");
+    setProjectImplementation("");
+    setProjectChallenges("");
     setProjectUrl("");
     setProjectModalOpen(true);
   };
@@ -289,6 +319,8 @@ export function CandidateKnowledge() {
     setProjectRole(p.contribution || "");
     setProjectTech((p.technologies || []).join(", "));
     setProjectImpact(p.measurable_results || "");
+    setProjectImplementation(p.implementation_details || "");
+    setProjectChallenges(p.engineering_challenges || "");
     setProjectUrl(p.url || "");
     setProjectModalOpen(true);
   };
@@ -306,6 +338,8 @@ export function CandidateKnowledge() {
       contribution: projectRole.trim() || null,
       technologies: techArray,
       measurable_results: projectImpact.trim() || null,
+      implementation_details: projectImplementation.trim() || null,
+      engineering_challenges: projectChallenges.trim() || null,
       url: projectUrl.trim() || null,
     };
 
@@ -324,6 +358,95 @@ export function CandidateKnowledge() {
     setConfirmedTruthful(false);
   };
 
+  const handleOpenAddRole = () => {
+    setEditingRoleIndex(null);
+    setRoleCompany("");
+    setRoleTitle("");
+    setRoleStartDate("");
+    setRoleEndDate("");
+    setRoleHighlight("");
+    setRoleModalOpen(true);
+  };
+
+  const handleOpenEditRole = (idx: number) => {
+    const r = rolesList[idx];
+    setEditingRoleIndex(idx);
+    setRoleCompany(r.company);
+    setRoleTitle(r.role);
+    setRoleStartDate(r.start_date || "");
+    setRoleEndDate(r.end_date || "");
+    setRoleHighlight(r.highlight || "");
+    setRoleModalOpen(true);
+  };
+
+  const handleSaveRole = () => {
+    setConfirmedTruthful(false);
+    if (!roleCompany.trim() || !roleTitle.trim()) return;
+    const newRole: Role = {
+      company: roleCompany.trim(),
+      role: roleTitle.trim(),
+      start_date: roleStartDate.trim() || null,
+      end_date: roleEndDate.trim() || null,
+      highlight: roleHighlight.trim() || null,
+    };
+    if (editingRoleIndex !== null) {
+      const updated = [...rolesList];
+      updated[editingRoleIndex] = newRole;
+      setRolesList(updated);
+    } else {
+      setRolesList([...rolesList, newRole]);
+    }
+    setRoleModalOpen(false);
+  };
+
+  const handleDeleteRole = (idx: number) => {
+    setRolesList(rolesList.filter((_, i) => i !== idx));
+    setConfirmedTruthful(false);
+  };
+
+  const handleOpenAddAuth = () => {
+    setEditingAuthIndex(null);
+    setAuthCountryCode("");
+    setAuthCountryName("");
+    setAuthAuthorized(true);
+    setAuthNeedsSponsorship(false);
+    setAuthModalOpen(true);
+  };
+
+  const handleOpenEditAuth = (idx: number) => {
+    const a = authsList[idx];
+    setEditingAuthIndex(idx);
+    setAuthCountryCode(a.country_code);
+    setAuthCountryName(a.country_name);
+    setAuthAuthorized(a.authorized_to_work);
+    setAuthNeedsSponsorship(a.requires_sponsorship_now_or_future ?? false);
+    setAuthModalOpen(true);
+  };
+
+  const handleSaveAuth = () => {
+    setConfirmedTruthful(false);
+    if (!authCountryCode.trim() || !authCountryName.trim()) return;
+    const newAuth: CountryAuth = {
+      country_code: authCountryCode.trim().toUpperCase(),
+      country_name: authCountryName.trim(),
+      authorized_to_work: authAuthorized,
+      requires_sponsorship_now_or_future: authNeedsSponsorship,
+    };
+    if (editingAuthIndex !== null) {
+      const updated = [...authsList];
+      updated[editingAuthIndex] = newAuth;
+      setAuthsList(updated);
+    } else {
+      setAuthsList([...authsList, newAuth]);
+    }
+    setAuthModalOpen(false);
+  };
+
+  const handleDeleteAuth = (idx: number) => {
+    setAuthsList(authsList.filter((_, i) => i !== idx));
+    setConfirmedTruthful(false);
+  };
+
   if (profileQuery.isPending) return <Skeleton />;
   if (profileQuery.isError) return <ErrorState error={profileQuery.error} />;
 
@@ -332,6 +455,9 @@ export function CandidateKnowledge() {
   const currentComp = prefs?.current_compensation;
   const expectedComp = prefs?.expected_compensation;
   const answers = savedAnswersQuery.data || [];
+  const storiesCount = projectsList.filter((p) =>
+    Boolean(p.implementation_details || p.engineering_challenges),
+  ).length;
 
   return (
     <div className="stack spaced" aria-label="Candidate Knowledge and Facts">
@@ -395,6 +521,7 @@ export function CandidateKnowledge() {
           ["projects", `Projects & achievements (${projectsList.length})`],
           ["links", "Verified links & evidence"],
           ["answers", `Saved answers (${answers.length})`],
+          ["stories", `API integrations & hardest bugs (${storiesCount})`],
         ].map(([key, label]) => (
           <button
             key={key}
@@ -495,6 +622,39 @@ export function CandidateKnowledge() {
                 )}
               </p>
             </div>
+
+            <div className="detail-section">
+              <h4>Verified Work Experience ({rolesList.length})</h4>
+              {rolesList.length > 0 ? (
+                <div className="stack spaced">
+                  {rolesList.map((role, idx) => (
+                    <div key={idx} className="panel panel-body">
+                      <div className="split">
+                        <strong>
+                          {role.role} · {role.company}
+                        </strong>
+                        <Badge tone="neutral">
+                          {role.start_date || "Start unknown"} —{" "}
+                          {role.end_date || "Present"}
+                        </Badge>
+                      </div>
+                      {role.highlight && (
+                        <p
+                          className="preserve-lines muted"
+                          style={{ marginTop: "0.5rem" }}
+                        >
+                          {role.highlight}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <span className="muted">
+                  No work experience entries recorded
+                </span>
+              )}
+            </div>
           </section>
 
           <aside className="panel panel-body stack">
@@ -535,11 +695,10 @@ export function CandidateKnowledge() {
             </div>
 
             <div className="detail-section">
-              <h4>Work Authorizations</h4>
+              <h4>Work Authorizations ({authsList.length})</h4>
               <ul>
-                {prefs?.work_authorizations &&
-                prefs.work_authorizations.length > 0 ? (
-                  prefs.work_authorizations.map((auth, idx) => (
+                {authsList.length > 0 ? (
+                  authsList.map((auth, idx) => (
                     <li key={idx}>
                       <strong>
                         {auth.country_name} ({auth.country_code}):
@@ -780,6 +939,130 @@ export function CandidateKnowledge() {
             </div>
           </fieldset>
 
+          <fieldset className="panel stack" style={{ padding: "1rem" }}>
+            <div className="split">
+              <strong>Verified Work Experience ({rolesList.length})</strong>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handleOpenAddRole}
+              >
+                <Plus size={14} />
+                Add role
+              </Button>
+            </div>
+            {rolesList.length === 0 ? (
+              <p className="muted">No work experience entries recorded</p>
+            ) : (
+              <div className="stack spaced">
+                {rolesList.map((role, idx) => (
+                  <div key={idx} className="panel panel-body">
+                    <div className="split">
+                      <div>
+                        <strong>{role.role}</strong> at{" "}
+                        <strong>{role.company}</strong>
+                        <div className="muted" style={{ fontSize: "0.85rem" }}>
+                          {role.start_date || "Start unknown"} —{" "}
+                          {role.end_date || "Present"}
+                        </div>
+                      </div>
+                      <div className="actions">
+                        <Button
+                          type="button"
+                          onClick={() => handleOpenEditRole(idx)}
+                        >
+                          <Edit3 size={12} />
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="danger"
+                          onClick={() => handleDeleteRole(idx)}
+                        >
+                          <Trash2 size={12} />
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                    {role.highlight && (
+                      <p
+                        className="preserve-lines muted"
+                        style={{ marginTop: "0.5rem" }}
+                      >
+                        {role.highlight}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </fieldset>
+
+          <fieldset className="panel stack" style={{ padding: "1rem" }}>
+            <div className="split">
+              <strong>Work Authorizations ({authsList.length})</strong>
+              <Button
+                type="button"
+                variant="primary"
+                onClick={handleOpenAddAuth}
+              >
+                <Plus size={14} />
+                Add country authorization
+              </Button>
+            </div>
+            {authsList.length === 0 ? (
+              <p className="muted">No country authorization facts saved</p>
+            ) : (
+              <div className="stack spaced">
+                {authsList.map((auth, idx) => (
+                  <div key={idx} className="panel panel-body">
+                    <div className="split">
+                      <div>
+                        <strong>
+                          {auth.country_name} ({auth.country_code})
+                        </strong>
+                        <div
+                          className="tag-list"
+                          style={{ marginTop: "0.25rem" }}
+                        >
+                          <Badge
+                            tone={auth.authorized_to_work ? "green" : "neutral"}
+                          >
+                            {auth.authorized_to_work
+                              ? "Authorized to work"
+                              : "Not authorized"}
+                          </Badge>
+                          {auth.requires_sponsorship_now_or_future && (
+                            <Badge tone="amber">
+                              Requires visa sponsorship
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="actions">
+                        <Button
+                          type="button"
+                          onClick={() => handleOpenEditAuth(idx)}
+                        >
+                          <Edit3 size={12} />
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="danger"
+                          onClick={() => handleDeleteAuth(idx)}
+                        >
+                          <Trash2 size={12} />
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </fieldset>
+
           <label
             className="check-label"
             htmlFor={`confirm-truthful-${confirmationId}`}
@@ -803,6 +1086,11 @@ export function CandidateKnowledge() {
               type="submit"
               variant="primary"
               disabled={!confirmedTruthful || saveFactsMutation.isPending}
+              title={
+                !confirmedTruthful
+                  ? "Confirmation checkbox required before saving and approving"
+                  : undefined
+              }
               busy={saveFactsMutation.isPending}
             >
               <Save size={13} />
@@ -870,6 +1158,26 @@ export function CandidateKnowledge() {
                     >
                       <strong>Measurable Impact:</strong>{" "}
                       {proj.measurable_results}
+                    </div>
+                  )}
+
+                  {proj.implementation_details && (
+                    <div
+                      className="notice"
+                      style={{ fontSize: "0.85rem", marginTop: "0.5rem" }}
+                    >
+                      <strong>API Integrations:</strong>{" "}
+                      {proj.implementation_details}
+                    </div>
+                  )}
+
+                  {proj.engineering_challenges && (
+                    <div
+                      className="notice"
+                      style={{ fontSize: "0.85rem", marginTop: "0.5rem" }}
+                    >
+                      <strong>Hardest Bug / Challenge:</strong>{" "}
+                      {proj.engineering_challenges}
                     </div>
                   )}
 
@@ -1112,6 +1420,138 @@ export function CandidateKnowledge() {
         </section>
       )}
 
+      {/* TAB 6: API INTEGRATION EXAMPLES & HARDEST BUG STORIES */}
+      {activeTab === "stories" && (
+        <section className="panel panel-body stack">
+          <div className="split">
+            <div>
+              <h3>API Integrations & Hardest Bug Stories ({storiesCount})</h3>
+              <p className="section-intro">
+                Evidence-backed technical war stories, difficult bugs resolved,
+                and API architectures ready to cite in technical screeners and
+                application questions.
+              </p>
+            </div>
+            <Button variant="primary" onClick={handleOpenAddProject}>
+              <Plus size={14} />
+              Add technical story
+            </Button>
+          </div>
+
+          {storiesCount === 0 ? (
+            <Empty
+              title="No API integration or hardest bug stories recorded yet"
+              description="Engineering screeners frequently ask: 'Describe a difficult bug you diagnosed' or 'Tell us about an API integration you designed'. Add architectural details or hardest challenges to any project."
+              action={
+                <Button variant="primary" onClick={handleOpenAddProject}>
+                  <Plus size={14} />
+                  Add technical story
+                </Button>
+              }
+            />
+          ) : (
+            <div className="stack spaced" role="list">
+              {projectsList
+                .map((proj, idx) => ({ proj, idx }))
+                .filter(({ proj }) =>
+                  Boolean(
+                    proj.implementation_details || proj.engineering_challenges,
+                  ),
+                )
+                .map(({ proj, idx }) => (
+                  <article
+                    className="panel panel-body"
+                    key={idx}
+                    role="listitem"
+                  >
+                    <div className="split">
+                      <div>
+                        <h4 style={{ margin: 0 }}>{proj.name}</h4>
+                        {proj.contribution && (
+                          <div
+                            className="muted"
+                            style={{ fontSize: "0.85rem" }}
+                          >
+                            {proj.contribution}
+                          </div>
+                        )}
+                      </div>
+                      <div className="actions">
+                        <Button onClick={() => handleOpenEditProject(idx)}>
+                          <Edit3 size={12} />
+                          Edit details
+                        </Button>
+                      </div>
+                    </div>
+
+                    {proj.implementation_details && (
+                      <div
+                        className="notice"
+                        style={{
+                          marginTop: "0.75rem",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.5rem",
+                            marginBottom: "0.25rem",
+                          }}
+                        >
+                          <Code size={14} />
+                          <strong>API Integration Examples & Protocols:</strong>
+                        </div>
+                        <p
+                          className="preserve-lines"
+                          style={{ margin: 0, fontSize: "0.9rem" }}
+                        >
+                          {proj.implementation_details}
+                        </p>
+                      </div>
+                    )}
+
+                    {proj.engineering_challenges && (
+                      <div
+                        className="notice"
+                        style={{
+                          marginTop: "0.75rem",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.5rem",
+                            marginBottom: "0.25rem",
+                          }}
+                        >
+                          <AlertCircle size={14} />
+                          <strong>
+                            Hardest Bug Diagnosed & Engineering Challenge:
+                          </strong>
+                        </div>
+                        <p
+                          className="preserve-lines"
+                          style={{ margin: 0, fontSize: "0.9rem" }}
+                        >
+                          {proj.engineering_challenges}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="tag-list" style={{ marginTop: "0.75rem" }}>
+                      {(proj.technologies || []).map((t) => (
+                        <Badge key={t}>{t}</Badge>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+            </div>
+          )}
+        </section>
+      )}
+
       {/* Project Add/Edit Modal */}
       <Modal
         open={projectModalOpen}
@@ -1179,15 +1619,206 @@ export function CandidateKnowledge() {
             />
           </Field>
 
+          <Field
+            label="API Integration Examples & Protocols"
+            hint="e.g. REST, GraphQL, Webhooks, gRPC, OAuth2, idempotency, retry handling"
+          >
+            <textarea
+              className="input preserve-lines"
+              rows={2}
+              value={projectImplementation}
+              onChange={(e) => setProjectImplementation(e.target.value)}
+              placeholder="e.g. Integrated Stripe webhooks with exponential backoff and Redis distributed lock for payment idempotency."
+            />
+          </Field>
+
+          <Field
+            label="Hardest Bug Story & Engineering Challenges"
+            hint="Root cause, investigation methodology (logs, profiler, tracing), and permanent fix"
+          >
+            <textarea
+              className="input preserve-lines"
+              rows={2}
+              value={projectChallenges}
+              onChange={(e) => setProjectChallenges(e.target.value)}
+              placeholder="e.g. Diagnosed intermittent database connection pool exhaustion caused by unclosed connections in async tasks."
+            />
+          </Field>
+
           <div className="actions">
             <Button
               variant="primary"
               onClick={handleSaveProject}
-              disabled={!projectTitle || !projectDesc}
+              disabled={!projectTitle.trim() || !projectDesc.trim()}
+              title={
+                !projectTitle.trim()
+                  ? "Project title is required"
+                  : !projectDesc.trim()
+                    ? "Project description is required"
+                    : undefined
+              }
             >
               {editingProjectIndex !== null ? "Update project" : "Add project"}
             </Button>
             <Button variant="ghost" onClick={() => setProjectModalOpen(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Work Experience Modal */}
+      <Modal
+        open={roleModalOpen}
+        onOpenChange={setRoleModalOpen}
+        title={
+          editingRoleIndex !== null
+            ? "Edit Work Experience"
+            : "Add Work Experience"
+        }
+        description="Record verified professional roles. Dates and highlights are checked against candidate facts."
+      >
+        <div className="stack">
+          <Field label="Company name" hint="Official employer name">
+            <Input
+              value={roleCompany}
+              onChange={(e) => setRoleCompany(e.target.value)}
+              required
+              maxLength={200}
+            />
+          </Field>
+
+          <Field label="Job role / Title" hint="e.g. Senior Backend Engineer">
+            <Input
+              value={roleTitle}
+              onChange={(e) => setRoleTitle(e.target.value)}
+              required
+              maxLength={200}
+            />
+          </Field>
+
+          <div className="form-grid">
+            <Field label="Start date" hint="YYYY-MM-DD or leave blank">
+              <Input
+                type="date"
+                value={roleStartDate}
+                onChange={(e) => setRoleStartDate(e.target.value)}
+              />
+            </Field>
+
+            <Field label="End date" hint="Leave blank if currently working">
+              <Input
+                type="date"
+                value={roleEndDate}
+                onChange={(e) => setRoleEndDate(e.target.value)}
+              />
+            </Field>
+          </div>
+
+          <Field
+            label="Key responsibilities & highlights"
+            hint="Measurable achievements and impact"
+          >
+            <textarea
+              className="input preserve-lines"
+              rows={3}
+              value={roleHighlight}
+              onChange={(e) => setRoleHighlight(e.target.value)}
+              maxLength={4000}
+            />
+          </Field>
+
+          <div className="actions">
+            <Button
+              variant="primary"
+              onClick={handleSaveRole}
+              disabled={!roleCompany.trim() || !roleTitle.trim()}
+              title={
+                !roleCompany.trim()
+                  ? "Company name is required"
+                  : !roleTitle.trim()
+                    ? "Job role / title is required"
+                    : undefined
+              }
+            >
+              {editingRoleIndex !== null ? "Update role" : "Add role"}
+            </Button>
+            <Button variant="ghost" onClick={() => setRoleModalOpen(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Country Authorization Modal */}
+      <Modal
+        open={authModalOpen}
+        onOpenChange={setAuthModalOpen}
+        title={
+          editingAuthIndex !== null
+            ? "Edit Country Authorization"
+            : "Add Country Authorization"
+        }
+        description="Record verified work authorization facts. Never invent sponsorship status."
+      >
+        <div className="stack">
+          <Field label="Country name" hint="e.g. India, United States, Germany">
+            <Input
+              value={authCountryName}
+              onChange={(e) => setAuthCountryName(e.target.value)}
+              required
+              maxLength={200}
+            />
+          </Field>
+
+          <Field
+            label="Country code"
+            hint="2-letter ISO code (e.g. IN, US, DE)"
+          >
+            <Input
+              maxLength={2}
+              value={authCountryCode}
+              onChange={(e) => setAuthCountryCode(e.target.value.toUpperCase())}
+              required
+            />
+          </Field>
+
+          <label className="check-label">
+            <input
+              type="checkbox"
+              checked={authAuthorized}
+              onChange={(e) => setAuthAuthorized(e.target.checked)}
+            />
+            Legally authorized to work in this country
+          </label>
+
+          <label className="check-label">
+            <input
+              type="checkbox"
+              checked={authNeedsSponsorship}
+              onChange={(e) => setAuthNeedsSponsorship(e.target.checked)}
+            />
+            Requires visa sponsorship now or in the future
+          </label>
+
+          <div className="actions">
+            <Button
+              variant="primary"
+              onClick={handleSaveAuth}
+              disabled={!authCountryName.trim() || !authCountryCode.trim()}
+              title={
+                !authCountryName.trim()
+                  ? "Country name is required"
+                  : !authCountryCode.trim()
+                    ? "Country code is required"
+                    : undefined
+              }
+            >
+              {editingAuthIndex !== null
+                ? "Update authorization"
+                : "Add authorization"}
+            </Button>
+            <Button variant="ghost" onClick={() => setAuthModalOpen(false)}>
               Cancel
             </Button>
           </div>
