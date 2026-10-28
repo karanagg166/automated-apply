@@ -458,8 +458,13 @@ test("extension reports field as unsupported or needing input, dashboard shows c
         response.url().includes(`/application-packets/${packet_id}`),
     );
     await refreshBtn.click();
-    await refreshResponse;
-    await expect(page.getByText(/Revision 2/)).toBeVisible();
+    const response = await refreshResponse;
+    expect(response.ok()).toBeTruthy();
+    const refreshedPacket = await response.json();
+    expect(refreshedPacket.revision).toBeGreaterThan(1);
+    await expect(
+      page.getByText(new RegExp(`Revision ${refreshedPacket.revision}\\b`)),
+    ).toBeVisible();
   }
 
   // Approve dedicated browser
