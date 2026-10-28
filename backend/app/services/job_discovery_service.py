@@ -87,7 +87,7 @@ class JobDiscoveryService:
         self.settings = settings or get_settings()
         self.budget = DiscoveryBudget(factory)
 
-    async def claim(self, request):
+    async def claim(self, request, timings=None):
         fingerprint = hashlib.sha256(
             json.dumps(
                 request.model_dump(mode="json", exclude={"idempotency_key"}),
@@ -96,6 +96,10 @@ class JobDiscoveryService:
         ).hexdigest()
         run_id = uuid.uuid4()
         async with self.factory() as session:
+            if timings is not None:
+                checkout = perf_counter()
+                await session.connection()
+                timings["claim_checkout"] = round(perf_counter() - checkout, 6)
             statement = insert_for(session)(DiscoveryRun).values(
                 id=run_id,
                 source=request.source,
@@ -158,6 +162,8 @@ class JobDiscoveryService:
         }
 
     async def run(self, request):
+        started = perf_counter()
+        timings = {}
         config = resolve_source(request.source, self.settings)
         if (
             request.manual_jobs
@@ -167,7 +173,8 @@ class JobDiscoveryService:
             raise ValueError("Manual records require a manual import source")
         if len(request.manual_jobs) > request.query.limit:
             raise ValueError("Manual records exceed the query result cap")
-        run_id, claimed = await self.claim(request)
+        run_id, claimed = await self.claim(request, timings)
+        timings["claim"] = round(perf_counter() - started - timings.get("claim_checkout", 0), 6)
         if not claimed:
             return run_output(run_id, self.settings)
         result = DiscoveryResult(source=request.source, status=Status.UPSTREAM_ERROR)
@@ -182,9 +189,8 @@ class JobDiscoveryService:
         }
         rankings = []
         saved_job_ids = []
-        started = phase_started = perf_counter()
+        phase_started = perf_counter()
         phase = "profile"
-        timings = {}
         ingestion = None
 
         def next_phase(name):
@@ -214,6 +220,9 @@ class JobDiscoveryService:
                     # during independent pacing claims or public HTTP. Runtime pools
                     # may have just one connection and a short idle transaction limit.
                     async with self.factory() as profile_session:
+                        next_phase("profile_checkout")
+                        await profile_session.connection()
+                        next_phase("profile")
                         try:
                             profile = await CandidateProfileService(
                                 profile_session
@@ -361,6 +370,8 @@ class JobDiscoveryService:
                             continue
                         filtered.append(job)
                     if filtered:
+                        next_phase("ingestion_checkout")
+                        await self.session.connection()
                         next_phase("ingestion")
                         ingestion = JobIngestionService(self.session)
                         ingested = await ingestion.ingest_jobs(filtered)
@@ -418,6 +429,7 @@ class JobDiscoveryService:
                         if ingested.failed_count or ingested.rejected_count:
                             result.status = Status.PARTIAL
                 next_phase("finalization")
+                audit_started = perf_counter()
                 run = await self.session.get(DiscoveryRun, run_id)
                 if (
                     result.status == Status.SUCCESS
@@ -444,9 +456,10 @@ class JobDiscoveryService:
                 # A transaction cannot persist its own acknowledgement duration.
                 # Emit bounded timing metadata only after durability is known.
                 logger.info(
-                    "discovery_commit_ack run_id=%s seconds=%.6f",
+                    "discovery_commit_ack run_id=%s seconds=%.6f audit_seconds=%.6f",
                     run_id,
                     perf_counter() - commit_started,
+                    perf_counter() - audit_started,
                 )
                 return run_output(run)
         except BaseException as exc:

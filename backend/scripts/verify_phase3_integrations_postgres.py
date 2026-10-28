@@ -37,7 +37,9 @@ async def verify(url, write_manifest=False):
         MANIFEST,
         MIGRATION,
         TABLES,
+        migration_preflight,
         render_review_sql,
+        render_rollback_sql,
     )
     from backend.app.operations.migrations import catalog
 
@@ -79,9 +81,49 @@ async def verify(url, write_manifest=False):
                     )
                 created_roles = True
                 before = await catalog(child, schema)
+                # Failed DDL must roll back the entire overlay, including grants.
+                try:
+                    await child.execute(render_review_sql(schema).replace(
+                        "COMMIT;", "SELECT 1/0; COMMIT;"
+                    ))
+                except asyncpg.DivisionByZeroError:
+                    await child.execute("ROLLBACK")
+                else:
+                    raise AssertionError("Injected DDL failure was not observed")
+                assert await catalog(child, schema) == before
                 await child.execute(render_review_sql(schema))
                 await child.execute(render_review_sql(schema))
                 after = await catalog(child, schema)
+                if not write_manifest:
+                    await child.execute("SET ROLE job_agent_runtime")
+                    assert (await migration_preflight(child, schema))["status"] == "installed"
+                    await child.execute("RESET ROLE")
+                    for mutation in (
+                        f"ALTER TABLE {schema}.gmail_read_accounts ADD COLUMN unexpected text",
+                        f"DROP POLICY job_agent_backend ON {schema}.gmail_read_accounts",
+                        f"GRANT SELECT ON {schema}.gmail_read_accounts TO anon",
+                        f"GRANT DELETE ON {schema}.gmail_read_accounts TO job_agent_runtime",
+                        f"DROP TABLE {schema}.gmail_read_oauth_states",
+                        f"CREATE INDEX unexpected_read_index ON {schema}.gmail_read_accounts(status)",
+                    ):
+                        transaction = child.transaction()
+                        await transaction.start()
+                        try:
+                            await child.execute(mutation)
+                            await child.execute("SET LOCAL ROLE job_agent_runtime")
+                            try:
+                                await migration_preflight(child, schema)
+                            except RuntimeError:
+                                pass
+                            else:
+                                raise AssertionError("Drift preflight accepted incompatible schema")
+                        finally:
+                            await transaction.rollback()
+                    assert await catalog(child, schema) == after
+                # Empty-install rollback is real DROP RESTRICT DDL, not data rollback.
+                await child.execute(render_rollback_sql(schema))
+                assert await catalog(child, schema) == before
+                await child.execute(render_review_sql(schema))
                 # No baseline object, grant, constraint or function changes.
                 for category, entries in before.items():
                     if category == "unsafe_grants":
@@ -136,6 +178,24 @@ async def verify(url, write_manifest=False):
                     else:
                         raise AssertionError("Forbidden credential operation succeeded")
                 await child.execute("RESET ROLE")
+                # The forced-RLS owner cannot prove emptiness by reading zero rows.
+                await child.execute("SET ROLE job_agent_owner")
+                try:
+                    await child.execute(render_rollback_sql(schema))
+                except asyncpg.RaiseError as exc:
+                    assert str(exc) == "gmail_rollback_requires_approved_maintenance_identity"
+                    await child.execute("ROLLBACK")
+                else:
+                    raise AssertionError("RLS-hidden populated rollback was allowed")
+                await child.execute("RESET ROLE")
+                try:
+                    await child.execute(render_rollback_sql(schema))
+                except asyncpg.RaiseError as exc:
+                    assert str(exc) == "gmail_rollback_requires_empty_install_and_no_evidence"
+                    await child.execute("ROLLBACK")
+                else:
+                    raise AssertionError("Populated credential rollback was allowed")
+                assert await catalog(child, schema) == after
                 # Verify the exact pinned catalog overlay under the restricted role.
                 if not write_manifest:
                     from backend.app.core.config import Settings
@@ -338,7 +398,7 @@ async def verify(url, write_manifest=False):
 
             assert REVIEW_SQL_SHA256 == checksum
         print(
-            "Phase 3 PostgreSQL PASS: 2 schemas, replay-safe staged DDL, unchanged baseline catalog, isolated accounts, read-only scope constraint, RLS/grant denials, commit/rollback and session recovery"
+            "Phase 3 PostgreSQL PASS: 2 schemas, replay-safe staged DDL, failed-DDL atomicity, empty-install schema rollback, populated rollback denial, unchanged baseline catalog, isolated accounts, read-only scope constraint, RLS/grant denials, commit/rollback and session recovery"
         )
     finally:
         await cluster.close()

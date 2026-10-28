@@ -443,6 +443,14 @@ for await (const line of createInterface({ input: process.stdin })) {
           operation: "verify_fill",
           document_id: req.document_id,
         });
+        // Framework state may revert an optional field asynchronously. Keep the
+        // receipt truthful as well as the overall completion state.
+        for (const check of verified.results || []) {
+          const field = result.results.find(
+            (r) => r.field_id === check.field_id,
+          );
+          if (field) field.status = check.status;
+        }
         send({
           ...result,
           state:

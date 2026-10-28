@@ -11,7 +11,7 @@ import asyncpg
 import httpx
 import pytest
 import pytest_asyncio
-from sqlalchemy import func, select, text
+from sqlalchemy import event, func, select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from backend.app.models.application_packet import ApplicationPacket
@@ -522,6 +522,7 @@ async def test_actual_disposable_postgres_restart_and_recovery(postgres, monkeyp
         ("codex-p22-pg17", 55432),
         ("codex-phase2-final-pg17", 55437),
         ("codex-p3-pg17", 55434),
+        ("automated-apply-p35-postgres", 55435),
     }
     original = JobIngestionService.ingest_jobs
 
@@ -568,3 +569,105 @@ async def test_actual_disposable_postgres_restart_and_recovery(postgres, monkeyp
         request.model_copy(update={"idempotency_key": "owner-requested-after-review"}),
     )
     assert fresh["status"] == "success" and fresh["counts"]["inserted"] == 1
+
+
+async def test_27_listing_batch_query_budget_and_idempotent_retry(postgres):
+    factory, engine = postgres
+    statements = []
+
+    def count_sql(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement.split()[0])
+
+    event.listen(engine.sync_engine, "before_cursor_execute", count_sql)
+    request = RunRequest(
+        source="manual", idempotency_key="27-listing-query-budget", query={"limit": 27},
+        manual_jobs=[{
+            "source_name": "manual", "source_job_id": str(i),
+            "title": "Fictional Engineer", "company_name": "Fictional Company",
+            "original_url": f"https://example.com/fixture/{i}",
+        } for i in range(27)],
+    )
+    try:
+        result = await execute(factory, request)
+        assert result["status"] == "success" and result["counts"]["inserted"] == 27
+        # Bound database round trips while retaining savepoints and every audit.
+        # The pre-optimization implementation performed 140 SELECTs here.
+        assert statements.count("SELECT") <= 115
+        phases = result["usage"]["diagnostics"]["phase_seconds"]
+        assert {"claim", "claim_checkout", "profile_checkout", "ingestion_checkout", "matching"} <= phases.keys()
+        statements.clear()
+        assert await execute(factory, request) == result
+        assert "SAVEPOINT" not in statements and "UPDATE" not in statements
+        async with factory() as session:
+            assert await session.scalar(select(func.count()).select_from(Job)) == 27
+            assert await session.scalar(select(func.count()).select_from(JobSourceObservation)) == 27
+        assert engine.pool.checkedout() == 0
+    finally:
+        event.remove(engine.sync_engine, "before_cursor_execute", count_sql)
+
+
+async def test_gmail_selected_sync_survives_pool_restart_and_rate_limit_isolates_accounts(postgres):
+    from backend.app.integrations.gmail.read_service import GmailReadService, ReadPolicy
+    from backend.app.integrations.google_oauth import GoogleOAuth
+    from backend.app.integrations.token_store import ConnectionError
+    from backend.tests.phase4a_fakes import GoogleFixture, oauth_settings
+    from backend.tests.test_phase3_gmail_readonly import connect
+
+    factory, engine = postgres
+    settings = oauth_settings(DATABASE_SCHEMA="public", GMAIL_READ_SYNC_ENABLED=True)
+    fake = GoogleFixture()
+    calls = []
+    fail_resume = True
+
+    def messages(request):
+        nonlocal fail_resume
+        assert request.method == "GET" and "q" not in request.url.params
+        token = request.headers["Authorization"]
+        calls.append((token, request.url.path, request.url.params.get("pageToken")))
+        assert token in {"Bearer first@example.com-access", "Bearer second@example.com-access"}
+        if request.url.path.endswith("/messages"):
+            assert request.url.params.get_list("labelIds") == ["Label_jobs"]
+            if "second@" in token:
+                assert "pageToken" not in request.url.params
+            if request.url.params.get("pageToken") and fail_resume:
+                fail_resume = False
+                return httpx.Response(429)
+            return httpx.Response(200, json={"messages": [{"id": "same-id"}], **(
+                {"nextPageToken": "first-next"}
+                if "first@" in token and not request.url.params.get("pageToken") else {}
+            )})
+        assert request.url.params["format"] == "metadata"
+        return httpx.Response(200, json={
+            "id": "same-id", "threadId": "same-thread",
+            "internalDate": str(int((datetime.now(timezone.utc) - timedelta(hours=1)).timestamp() * 1000)),
+            "labelIds": ["Label_jobs"], "payload": {"headers": [
+                {"name": "From", "value": "jobs@example.com"},
+                {"name": "Subject", "value": "Job alert"},
+            ]},
+        })
+
+    async with fake.client() as oauth, httpx.AsyncClient(transport=httpx.MockTransport(messages)) as gmail:
+        async with factory() as session:
+            first = await connect(session, settings, fake, oauth, "first@example.com")
+            second = await connect(session, settings, fake, oauth, "second@example.com")
+            service = GmailReadService(session, settings, google=GoogleOAuth(settings, oauth), client=gmail)
+            for account_id in (first, second):
+                await service.configure(account_id, ReadPolicy(expected_version=0, enabled=True, label_allowlist=["Label_jobs"]))
+            assert (await service.sync(first))["sync"]["status"] == "partial"
+        await engine.dispose()  # Durable cursors/tokens must outlive every pooled connection.
+        async with factory() as session:
+            service = GmailReadService(session, settings, google=GoogleOAuth(settings, oauth), client=gmail)
+            with pytest.raises(ConnectionError, match="rate_limited"):
+                await service.sync(first)
+        await engine.dispose()
+        async with factory() as session:
+            service = GmailReadService(session, settings, google=GoogleOAuth(settings, oauth), client=gmail)
+            assert (await service.sync(first))["sync"]["status"] == "completed"
+            assert not await service.evidence(second)
+            assert (await service.sync(second))["sync"]["status"] == "completed"
+            a, b = await service.evidence(first), await service.evidence(second)
+            assert len(a) == len(b) == 1
+            assert a[0]["id"] != b[0]["id"] and a[0]["account_id"] != b[0]["account_id"]
+            assert all(not row["submission_confirmed"] for row in a + b)
+    assert len([call for call in calls if call[1].endswith("/same-id")]) == 2
+    assert engine.pool.checkedout() == 0

@@ -3,7 +3,7 @@
 export function formDOM(request = { operation: "inspect" }) {
   const key = "__automatedApplyFormV1";
   if (!globalThis[key]) {
-    const documentId = crypto.randomUUID();
+    let documentId = crypto.randomUUID();
     const sensitive =
       /password|passcode|passphrase|one.?time|\botp\b|\bmfa\b|\b2fa\b|two.?factor|verification.?code|security.?code|credit.?card|debit.?card|card.?number|\bcvv\b|\bcvc\b|card.?expir|bank.?account|routing.?number|\biban\b|\bifsc\b|\bupi\b|payment|session|token|secret|api.?key|private.?key|social.?security|\bssn\b|\baadhaar\b|\baadhar\b|\bpan\s*(?:card|number|no)\b|tax.?id|national.?id|government.?id|passport|driv(?:er|ing).?licen[sc]e|\bpin\b(?![\s-]*code)|security.?question|\b(?:gender|race|ethnic\w*|religion|disabil\w*|veteran|military|sexual\w*|pronouns?|marital|self.?identif\w*)\b|date.?of.?birth|birth.?date|\bdob\b/i;
     const selfIdentification =
@@ -549,6 +549,7 @@ export function formDOM(request = { operation: "inspect" }) {
     let touched = false;
     let submitArmed = false;
     let fillConsumed = false;
+    let appliedValues = new Map();
     let controlCount = 0;
     let snapshotControls = [];
     let snapshotForms = [];
@@ -660,7 +661,10 @@ export function formDOM(request = { operation: "inspect" }) {
     };
 
     const inspect = (onlyEmpty = false) => {
+      // A second popup/review must invalidate earlier plans in the same document.
+      documentId = crypto.randomUUID();
       fillConsumed = false;
+      appliedValues = new Map();
       const controls = [
         ...document.querySelectorAll("input,textarea,select"),
       ].filter(visible);
@@ -1011,6 +1015,14 @@ export function formDOM(request = { operation: "inspect" }) {
           name: el.name,
           autocomplete: el.autocomplete,
           options: kind === "select" ? [...el.options] : [],
+          optionSnapshot:
+            kind === "select"
+              ? [...el.options].map((o) => ({
+                  value: o.value,
+                  disabled: o.disabled,
+                  hidden: o.hidden,
+                }))
+              : [],
           initialValue: el.value,
           initialChecked: el.checked,
           initialSelectedIndex: kind === "select" ? el.selectedIndex : -1,
@@ -1163,6 +1175,14 @@ export function formDOM(request = { operation: "inspect" }) {
           label(el) !== ref.field.label ||
           (el.tagName === "INPUT" && el.type !== ref.field.kind) ||
           JSON.stringify(options) !== JSON.stringify(ref.field.options) ||
+          (el.tagName === "SELECT" &&
+            [...el.options].some(
+              (o, i) =>
+                o !== ref.options[i] ||
+                o.value !== ref.optionSnapshot[i]?.value ||
+                o.disabled !== ref.optionSnapshot[i]?.disabled ||
+                o.hidden !== ref.optionSnapshot[i]?.hidden,
+            )) ||
           isRequired(el) !== ref.field.required ||
           Math.min(4000, el.maxLength > 0 ? el.maxLength : 1500) !==
             ref.field.max_length
@@ -1209,6 +1229,13 @@ export function formDOM(request = { operation: "inspect" }) {
       );
     };
 
+    const actualValue = (el, kind) =>
+      kind === "select"
+        ? clean(el.selectedOptions[0]?.textContent)
+        : ["radio", "checkbox"].includes(kind)
+          ? String(el.checked)
+          : el.value;
+
     globalThis[key] = (req) => {
       if (req.operation === "inspect") return inspect(req.only_empty === true);
       if (
@@ -1229,10 +1256,24 @@ export function formDOM(request = { operation: "inspect" }) {
       }
       if (req.operation === "verify_fill") {
         const changed = validateSnapshot(req);
+        const results = [...appliedValues].map(([field_id, value]) => {
+          const ref = refs.get(field_id);
+          return {
+            field_id,
+            status: !ref.el.validity.valid
+              ? "validation_error"
+              : actualValue(ref.el, ref.field.kind) === value
+                ? "filled"
+                : "failed",
+          };
+        });
         return (
           changed || {
-            state: incompleteRequired() ? "needs_input" : "form_filled",
-            results: [],
+            state:
+              incompleteRequired() || results.some((r) => r.status !== "filled")
+                ? "needs_input"
+                : "form_filled",
+            results,
             submitted: false,
           }
         );
@@ -1344,6 +1385,7 @@ export function formDOM(request = { operation: "inspect" }) {
 
       touched = true;
       const pendingResults = [];
+      const filledControls = new Set();
       let interrupted = null;
       for (const action of req.actions) {
         // Input/change handlers can navigate, replace controls or change the
@@ -1351,6 +1393,18 @@ export function formDOM(request = { operation: "inspect" }) {
         interrupted = validateSnapshot(req);
         if (interrupted) break;
         const { el, field, options } = refs.get(action.field_id);
+        const peers =
+          field.kind === "radio"
+            ? radioPeers(el, currentControls)
+            : field.kind === "checkbox"
+              ? checkboxPeers(el, currentControls)
+              : [];
+        // A page handler can populate another option after an earlier field's
+        // input event. Preserve that selection, including indeterminate values.
+        const groupChanged = peers.some(
+          (peer) =>
+            (peer.checked || peer.indeterminate) && !filledControls.has(peer),
+        );
         const valueChanged =
           field.kind === "select"
             ? el.selectedIndex !==
@@ -1360,6 +1414,7 @@ export function formDOM(request = { operation: "inspect" }) {
               : el.value !== refs.get(action.field_id).initialValue;
         if (
           !canFill.get(action.field_id) ||
+          groupChanged ||
           userEdited.has(el) ||
           valueChanged
         ) {
@@ -1434,10 +1489,14 @@ export function formDOM(request = { operation: "inspect" }) {
           if (!interrupted)
             el.dispatchEvent(new Event("change", { bubbles: true }));
         }
+        filledControls.add(el);
+        appliedValues.set(action.field_id, action.value);
         pendingResults.push({
           field_id: action.field_id,
           el,
           checkValidity: true,
+          expectedValue: action.value,
+          kind: field.kind,
         });
       }
 
@@ -1446,7 +1505,11 @@ export function formDOM(request = { operation: "inspect" }) {
         item.checkValidity
           ? {
               field_id: item.field_id,
-              status: item.el.validity.valid ? "filled" : "validation_error",
+              status: !item.el.validity.valid
+                ? "validation_error"
+                : actualValue(item.el, item.kind) === item.expectedValue
+                  ? "filled"
+                  : "failed",
             }
           : item,
       );

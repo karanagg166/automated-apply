@@ -76,16 +76,16 @@ class JobRepository(BaseRepository[Job]):
             status=status,
             date_posted=date_posted,
         )
-        inserted_id = (
+        inserted = (
             await self.session.execute(
                 insert_for(self.session)(Job)
                 .values(**values)
                 .on_conflict_do_nothing(index_elements=[Job.job_url])
-                .returning(Job.id)
+                .returning(Job)
             )
         ).scalar_one_or_none()
-        if inserted_id:
-            return await self.session.get(Job, inserted_id), True
+        if inserted is not None:
+            return inserted, True
         return await self.get_by_url(job_url), False
 
     async def list_jobs(

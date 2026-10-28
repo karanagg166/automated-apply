@@ -81,6 +81,29 @@ function setup() {
     },
   };
 }
+for (const lostCommand of ["authorize_form", "record_form_fill"]) {
+  test(`native connection loss during ${lostCommand} never replays a consumed fill`, async () => {
+    setup();
+    const original = chrome.runtime.sendNativeMessage;
+    chrome.runtime.sendNativeMessage = async (host, request) => {
+      const response = await original(host, request);
+      if (request.command === lostCommand)
+        throw Error("Native host disconnected");
+      return response;
+    };
+    await inspectForm(app);
+    await assert.rejects(fillForm(), /Native host disconnected/);
+    await assert.rejects(fillForm(), /inspect_and_review_first/);
+    assert.equal(
+      calls.filter((c) => c.native?.command === "authorize_form").length,
+      1,
+    );
+    assert.equal(
+      calls.filter((c) => c.script?.args?.[0]?.operation === "fill").length,
+      lostCommand === "record_form_fill" ? 1 : 0,
+    );
+  });
+}
 test("manual bridge inspects, authorizes exact nonfile fields, fills once and records status only", async () => {
   setup();
   await inspectForm(app);
