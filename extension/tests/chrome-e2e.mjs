@@ -547,7 +547,8 @@ async function main() {
     await settingsPage.goto(`chrome-extension://${EXPECTED_ID}/settings.html`);
     await expect(settingsPage.locator("#identity")).toContainText(`Extension ID: ${EXPECTED_ID}`);
     await settingsPage.locator("#check").click();
-    await expect(settingsPage.locator("#endpoint")).toContainText(`Active endpoint: http://127.0.0.1:${apiPort}`);
+    // Match the settings/native request budget rather than the default 5s assertion.
+    await expect(settingsPage.locator("#endpoint")).toContainText(`Active endpoint: http://127.0.0.1:${apiPort}`, { timeout: 45000 });
     const capabilitiesCheck = await settingsPage.evaluate(async () => {
       const cap = await chrome.runtime.sendNativeMessage("com.automated_apply.agent", {
         version: 1,
