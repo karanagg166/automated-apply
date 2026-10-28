@@ -565,6 +565,10 @@ class GmailReadService:
                 )
             ]
         )
+        if result.failed_count or result.rejected_count or len(result.job_ids) != 1:
+            # A single reviewed lead is successful only after durable ingestion.
+            # Keep its evidence unmarked so the owner can review and retry.
+            raise ConnectionError("gmail_lead_import_failed")
         row.value = {
             **row.value,
             "imported_job_ids": sorted(
