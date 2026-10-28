@@ -156,5 +156,31 @@
       }
     }
   ],
-  "pool_checked_out_after": 0
+  "pool_checked_out_after": 0,
+  "deduplication_reobservation": {
+    "observed_at": "2026-10-28T15:43:26.562887+00:00",
+    "source": "ashby",
+    "http": [
+      {
+        "method": "GET",
+        "url": "https://api.ashbyhq.com/posting-api/job-board/sarvam?includeCompensation=true",
+        "status": 200,
+        "seconds": 0.605
+      }
+    ],
+    "counts": {
+      "discovered": 20,
+      "inserted": 0,
+      "updated": 1,
+      "duplicate": 1,
+      "rejected": 0,
+      "failed": 0,
+      "skipped": 19
+    },
+    "same_saved_job": true,
+    "one_source_observation": true,
+    "human_application_state_preserved": true,
+    "idempotent_replay_without_http": true,
+    "pool_checked_out_after": 0
+  }
 }
