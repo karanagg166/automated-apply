@@ -2,7 +2,7 @@
 
 **Backend/extension increment verified locally. Broad live application acceptance remains PARTIAL.** No frontend source was changed. AGY integration of the additive filters and URL-specific Gmail import states remains separate frontend work.
 
-Branch: `feat/phase4-codex-job-engine`. Worktree: `/Users/karanagg/Desktop/Projects/automated-apply-codex-p4`, linked to the original repository. Initial base: Phase 3.5 integration `d1c2f44e98e809259ff2a558de688aa6fecc9e9d`; its later transaction/runtime corrections are preserved through merge ancestry. Source candidate before report commits: `7e7bedc41c4fbfcaa88e7defc343a789a7a85550`. Resolve the report-inclusive final head with `git rev-parse feat/phase4-codex-job-engine`.
+Branch: `feat/phase4-codex-job-engine`. Worktree: `/Users/karanagg/Desktop/Projects/automated-apply-codex-p4`, linked to the original repository. Initial base: Phase 3.5 integration `d1c2f44e98e809259ff2a558de688aa6fecc9e9d`; its final corrected integration head `350f6dea28ae89e136987015aa9c15360d53f4ea` is preserved through merge ancestry. Source candidate before report commits: `7e7bedc41c4fbfcaa88e7defc343a789a7a85550`. Resolve the report-inclusive final head with `git rev-parse feat/phase4-codex-job-engine`.
 
 ## Implemented behavior
 
@@ -38,7 +38,7 @@ Unknown factual questions continue through the existing durable NEEDS_INPUT queu
 | Changed Python Ruff / full-app Bandit / existing-baseline secret scan | Passed; no baseline widening |
 | Pinned Python / production frontend vulnerability audits | No known vulnerabilities |
 | Generated API types and standalone TypeScript compilation | Passed |
-| API compatibility comparison | Exactly five additive search query parameters; remainder byte-for-structure equal to the Phase 3.5 export |
+| API compatibility comparison | Exactly five additive search query parameters; remainder structurally identical to the Phase 3.5 export |
 | Frontend and hosted workflow source diff | Empty; workflows remain manual-only |
 
 The full backend began at `9033b2d4c3eeefb34130b1b596598b0e73a03166`. Later changes before the remaining checks only align the runtime lower bound with the already locked/installed FastAPI 0.143.1 and add documentation/history merges; application/test source and installed dependencies stayed the same. Backend source tree for the verified increment: `2316338a0cf72f492fe12b30f9d5ecdb1c5835a0`; extension tree: `6d5c812d672860f789e22d05a442f90a4abec511`. Reconciling the completed Phase 3.5 report/history must preserve these source trees; otherwise rerun affected checks.
