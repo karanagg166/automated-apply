@@ -558,6 +558,11 @@ async def metadata(session, packet_id):
 
 async def prepare(session, data: PrepareBrowser):
     await validate_destination(data.application_url, get_settings())
+    return await prepare_packet(session, data)
+
+
+async def prepare_packet(session, data: PrepareBrowser):
+    # Draft intake performs no navigation; browser grants are checked on open/fill.
     # URL and company/title uniqueness are enforced by the existing jobs table.
     canonical = digest(
         {"company": data.company_name.casefold(), "title": data.job_title.casefold()}

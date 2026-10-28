@@ -1,4 +1,8 @@
 "use client";
+import {
+  ExecutionQuestionAnswer,
+  type ExecutionQuestion,
+} from "@/features/execution-question-answer";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -609,6 +613,8 @@ export function ApplicationDetail({ id }: { id: string }) {
       useState<Schema<"QuestionInput">["field_type"]>("textarea"),
     [templateIdx, setTemplateIdx] = useState(0),
     [notice, setNotice] = useState("");
+  const [answerSuccess, setAnswerSuccess] = useState("");
+
   const packet = useQuery({
     queryKey: ["packet", id],
     queryFn: () => api<Packet>(`application-packets/${id}`),
@@ -618,6 +624,25 @@ export function ApplicationDetail({ id }: { id: string }) {
     queryFn: () =>
       api<Schema<"ApplicationEventRead">[]>(`application-packets/${id}/events`),
   });
+  const executionQuestions = useQuery({
+    queryKey: ["execution-questions", id],
+    queryFn: () => api<ExecutionQuestion[]>("execution/questions"),
+    refetchInterval: 5000,
+  });
+  useEffect(() => {
+    if (
+      Array.isArray(executionQuestions.data) &&
+      executionQuestions.data.some(
+        (q) =>
+          q.packet_id === id &&
+          q.state === "answered" &&
+          q.packet_revision >= (packet.data?.revision ?? Infinity),
+      )
+    ) {
+      void client.invalidateQueries({ queryKey: ["packet", id] });
+      void client.invalidateQueries({ queryKey: ["packet-events", id] });
+    }
+  }, [executionQuestions.data, packet.data?.revision, client, id]);
   useEffect(() => {
     setReviewed([]);
     setResumeConfirmed(false);
@@ -627,12 +652,25 @@ export function ApplicationDetail({ id }: { id: string }) {
   const changed = (p?: unknown) => {
     if (p && typeof p === "object" && "revision" in p)
       client.setQueryData(["packet", id], p);
+    client.invalidateQueries({ queryKey: ["execution-questions", id] });
     client.invalidateQueries({ queryKey: ["packet", id] });
     client.invalidateQueries({ queryKey: ["packet-events", id] });
     client.invalidateQueries({ queryKey: ["packets"] });
     client.invalidateQueries({ queryKey: ["jobs"] });
     client.invalidateQueries({ queryKey: ["overview"] });
   };
+  const askOwner = useMutation({
+    mutationFn: (fieldId: string) =>
+      post(`execution/packets/${id}/questions/${fieldId}`, {
+        expected_revision: packet.data!.revision,
+      }),
+    onSuccess: () => {
+      changed();
+      setNotice(
+        "Question queued for your bound private Telegram chat. Reply to that exact message.",
+      );
+    },
+  });
   const review = useMutation({
     mutationFn: (action: "review" | "approve") =>
       post<Packet>(`application-packets/${id}/review`, {
@@ -749,6 +787,44 @@ export function ApplicationDetail({ id }: { id: string }) {
     (f) => f.review_status === "reviewed",
   ).length;
 
+  const pendingExecQuestion = Array.isArray(executionQuestions.data)
+    ? executionQuestions.data.find(
+        (q) =>
+          q.packet_id === id &&
+          q.packet_revision === p.revision &&
+          (q.state === "pending" || q.state === "sent"),
+      )
+    : undefined;
+
+  const unresolved = p.fields.some(
+    (field) =>
+      field.field_type !== "file" &&
+      ((field.required &&
+        (!field.effective_answer ||
+          field.validation_status === "needs_input")) ||
+        (field.provenance?.answer_expires_at &&
+          Date.parse(field.provenance.answer_expires_at) <= Date.now())),
+  );
+  const approved = p.approved_revision === p.revision && !p.readiness.stale;
+  const nextAction =
+    pendingExecQuestion || unresolved
+      ? "Answer the missing questions, then review the updated packet."
+      : terminal
+        ? "Check the recorded submission status and its evidence below."
+        : p.readiness.stale
+          ? "Refresh the packet and review the changed context."
+          : approved
+            ? "Review the actual form and approve supported fields in the browser assistant."
+            : "Review answers, confirm the resume and destination, then approve the current packet.";
+  const progressSteps = [
+    { label: "Packet prepared", done: true },
+    {
+      label: "Required answers resolved",
+      done: !pendingExecQuestion && !unresolved,
+    },
+    { label: "Current packet approved", done: approved },
+  ];
+
   return (
     <>
       <Link href="/applications" className="external">
@@ -774,6 +850,123 @@ export function ApplicationDetail({ id }: { id: string }) {
           }
         />
       </div>
+
+      {/* Visual Form-Fill Progress Bar */}
+      <div
+        className="panel panel-body"
+        style={{ padding: "0.75rem 1rem", marginTop: "0.5rem" }}
+        aria-label="Application Progress"
+      >
+        <div className="tag-list" style={{ justifyContent: "space-between" }}>
+          {progressSteps.map((s, idx) => (
+            <Badge key={idx} tone={s.done ? "green" : "neutral"}>
+              {s.done ? "✓ " : "○ "}
+              {s.label}
+            </Badge>
+          ))}
+        </div>
+      </div>
+
+      {/* Dynamic Next Action Callout */}
+      <div
+        className="panel panel-body"
+        style={{
+          background: "var(--surface-sunken, rgba(0,0,0,0.02))",
+          borderLeft: "4px solid var(--accent, #2563eb)",
+          marginTop: "0.75rem",
+        }}
+        aria-label="Next Action Guidance"
+      >
+        <div className="split">
+          <div>
+            <strong
+              style={{
+                color: "var(--accent, #2563eb)",
+                fontSize: "0.75rem",
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+              }}
+            >
+              NEXT ACTION
+            </strong>
+            <p style={{ margin: "0.25rem 0 0", fontWeight: 600 }}>
+              {nextAction}
+            </p>
+          </div>
+          <Badge tone={terminal ? "green" : "neutral"}>
+            {readable(p.lifecycle_state)}
+          </Badge>
+        </div>
+      </div>
+
+      {!terminal &&
+        !p.readiness.stale &&
+        p.platform !== "naukri" &&
+        !/https:\/\/(www\.)?naukri\.com\//.test(
+          p.snapshot.destination.application_url || "",
+        ) &&
+        p.fields
+          .filter(
+            (field) =>
+              field.field_type !== "file" &&
+              ((field.required && !field.effective_answer) ||
+                (field.provenance?.answer_expires_at &&
+                  Date.parse(field.provenance?.answer_expires_at) <=
+                    Date.now())),
+          )
+          .map((field) => (
+            <div className="panel panel-body spaced" key={`ask-${field.id}`}>
+              <p>{field.question}</p>
+              <Button
+                disabled={
+                  askOwner.isPending ||
+                  (!!pendingExecQuestion &&
+                    Date.parse(pendingExecQuestion.expires_at) > Date.now())
+                }
+                onClick={() => askOwner.mutate(field.id)}
+              >
+                Ask me on Telegram: {field.question}
+              </Button>
+            </div>
+          ))}
+      {askOwner.isError && <ErrorState error={askOwner.error} />}
+
+      {/* In-Dashboard Telegram Question Answering Card */}
+      {pendingExecQuestion && (
+        <div
+          className="panel panel-body stack spaced"
+          style={{
+            borderLeft: "4px solid var(--amber, #f59e0b)",
+            background: "var(--surface-sunken, rgba(0,0,0,0.02))",
+            marginTop: "0.75rem",
+          }}
+          aria-label="Waiting for Your Answer"
+        >
+          <div className="split">
+            <Badge tone="amber">Waiting for Your Answer</Badge>
+            <small className="muted">Backend paused preparation</small>
+          </div>
+          <h3>{pendingExecQuestion.question}</h3>
+          <p className="text-xs muted">
+            Answer this question here or via Telegram bot. Once submitted, your
+            verified answer updates the packet and allows you to resume.
+          </p>
+          <ExecutionQuestionAnswer
+            key={`${pendingExecQuestion.id}:${pendingExecQuestion.packet_revision}`}
+            question={pendingExecQuestion}
+            onSaved={() => {
+              setAnswerSuccess(
+                "Answer saved. Review and approve the updated packet before filling.",
+              );
+              changed();
+            }}
+          />
+        </div>
+      )}
+      {executionQuestions.isError && (
+        <ErrorState error={executionQuestions.error} />
+      )}
+      {answerSuccess && <Notice>{answerSuccess}</Notice>}
 
       {p.lifecycle_state === "needs_input" && (
         <Notice>
