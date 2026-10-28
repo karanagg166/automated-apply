@@ -2,6 +2,8 @@
 
 Baseline: integrated Phase 3.5 `d1c2f44`. Codex changes backend/extension only; AGY owns frontend. Existing response fields, routes, approval semantics and the manual-only submission boundary remain compatible.
 
+The shared transaction-ordering fix is also incorporated into the same Phase 3.5 candidate and merged back here. Packet/browser database dependencies finish before response delivery, and database commit failure returns a sanitized 503. The runtime FastAPI minimum now matches the already locked/tested 0.143.1 interface; no installed package or lockfile was upgraded.
+
 ## Discovery
 
 `GET /api/v1/discovery/sources` adds `smartrecruiters` (configured public read adapter), `simplify`, `workday` and `company_careers` (manual import only). SmartRecruiters requires `SMARTRECRUITERS_BOARDS`, a maximum of ten explicit company identifier/name pairs. With no boards it reports `configuration_required`. Metadata visibility never proves live connectivity or collection rights.

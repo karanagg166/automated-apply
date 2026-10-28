@@ -1,6 +1,6 @@
 # Phase 4 source and site evidence
 
-Research date: 2026-10-28. Documentation establishes supported interfaces, not a right to use every employer or a successful live vacancy search. All Phase 4 automated acceptance uses fictional/intercepted provider and employer content. Zero genuine new vacancies, mailbox messages, provider collections or employer applications are claimed.
+Research date: 2026-10-28. Documentation establishes supported interfaces, not a right to use every employer. Regression acceptance uses fictional/intercepted provider and employer content. A separate bounded public SmartRecruiters read returned one actual posting successfully through two credential-free GET requests. It was not persisted, matched against candidate data or applied to. No genuine Gmail messages, paid provider collections or employer applications are claimed.
 
 ## Discovery interfaces
 
@@ -16,6 +16,8 @@ Research date: 2026-10-28. Documentation establishes supported interfaces, not a
 | Company career pages | Manual URL and factual listing import | No unrestricted crawler or arbitrary server-side fetch. A company-specific permitted feed requires its own adapter/configuration. |
 
 The employer-facing Simplify HR API at [help.simplify.hr](https://help.simplify.hr/reference/getting-started-1) is a different ATS/account integration. It does not establish job-seeker access to simplify.jobs and is not used.
+
+The genuine SmartRecruiters check used the documented `smartrecruiters` public company identifier, limit one, and the production adapter. Both listing and detail requests returned HTTP 200; normalization succeeded with no rejected records. It transmitted no credential or candidate data and made no database write. Its sanitized receipt is outside Git at `~/Library/Application Support/Automated Apply/phase4-codex-evidence/smartrecruiters-public-read.json`. This proves one public feed/schema path, not exhaustive company coverage, India/startup suitability or an employer application workflow.
 
 Company size remains separate observed evidence. A feed's employer name, job count, funding stage or description is never converted into headcount. Existing startup search supports role/technology/location/remote and 2–10/11–50 evidence filters; new job search uses those same size-resolution rules.
 
