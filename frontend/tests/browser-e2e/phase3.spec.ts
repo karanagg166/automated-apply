@@ -508,10 +508,11 @@ test("extension reports field as unsupported or needing input, dashboard shows c
     page.getByRole("status").filter({ hasText: "filled review on website" }),
   ).toBeVisible({ timeout: 45000 });
 
-  // Verify the unanswered field reports needing attention
-  await expect(
-    page.getByText("Current CTC: Answer missing or invalid", { exact: true }),
-  ).toBeVisible();
+  // Earlier journeys may have approved compensation facts. Legal consent must
+  // still remain manual regardless of which factual answers are now available.
+  await expect(page.getByLabel("Unfilled mandatory questions")).toContainText(
+    "I consent to data processing: Sensitive information or legal attestation requires manual entry",
+  );
 
   // Verify clear next action deep-link to Needs Your Input queue
   const needsInputLink = page.getByRole("link", {
