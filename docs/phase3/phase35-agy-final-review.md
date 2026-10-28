@@ -6,9 +6,10 @@
 - **Repository**: `karanagg166/automated-apply`
 - **Worktree Directory**: `/Users/karanagg/Desktop/Projects/automated-apply-agy-p35`
 - **Branch**: `feat/phase35-agy-ui-hardening`
-- **Final SHA**: `cbfa7db92c9402cdbf900bf65302ad5fda884113`
+- **Final SHA**: `65fd56183d83928331187da2078a29b51bddca8f`
+- **Baseline Included**: `63dd23eb82feb0e149fb7c42827fc402b38c6d92` (all Phase 3.5 frontend hardening preserved)
 - **Prerequisite Integration PR**: PR #39 (`e57178b22e453119f4ba449dae28f36c01b6edc5`)
-- **Codex Branch**: `feat/phase35-codex-activation` (commit `e84e45bf70a62871d04c0fd3c147c4df50e400fb` / preflight `709c814`)
+- **Codex Handoff Branch**: `prep/phase35-final-handoff-20261028` (`0721857b766a8eac0a34262117164766075884d2`)
 - **Scope Compliance**: Strictly modified files within `frontend/**`, frontend tests, and this final delivery document. No edits to `backend/**`, `extension/**`, database migrations, or hosted CI workflows.
 - **Strict Package Manager Rule**: Exclusively used `pnpm` (`pnpm@12.15.0`). Zero invocations of `npm`, `npx`, `yarn`, or `bun`.
 
@@ -243,7 +244,7 @@ Inspected at desktop (1280px) and mobile (375px) widths:
 
 | Gate | Target | Result | Status |
 |---|---|---|---|
-| Vitest Unit Tests | 183 tests across 25 files | 183 passed | **PASS** |
+| Vitest Unit Tests | 185 tests across 25 files | 185 passed | **PASS** |
 | TypeScript Typecheck | `tsc --noEmit` | 0 errors | **PASS** |
 | Prettier Formatting | `prettier --check` | All files styled | **PASS** |
 | Production Build | `next build` (Turbopack) | Compiled in 3.8s | **PASS** |
