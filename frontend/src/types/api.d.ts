@@ -1220,6 +1220,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/application-packets/intake": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Intake Url */
+    post: operations["intake_url_api_v1_application_packets_intake_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/application-packets": {
     parameters: {
       query?: never;
@@ -3193,6 +3210,40 @@ export interface paths {
     put?: never;
     /** Reuse */
     post: operations["reuse_api_v1_execution_questions__question_id__approve_reuse_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/execution/packets/{packet_id}/questions/{field_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Ask Packet Question */
+    post: operations["ask_packet_question_api_v1_execution_packets__packet_id__questions__field_id__post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/execution/questions/{question_id}/answer": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Answer Question */
+    post: operations["answer_question_api_v1_execution_questions__question_id__answer_post"];
     delete?: never;
     options?: never;
     head?: never;
@@ -6443,6 +6494,13 @@ export interface components {
        * @constant
        */
       outreach_mode: "manual";
+    };
+    /** QuestionAnswer */
+    QuestionAnswer: {
+      /** Expected Revision */
+      expected_revision: number;
+      /** Answer */
+      answer: string;
     };
     /** QuestionInput */
     QuestionInput: {
@@ -10793,6 +10851,39 @@ export interface operations {
       };
     };
   };
+  intake_url_api_v1_application_packets_intake_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PrepareBrowser"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PacketRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   list_packets_api_v1_application_packets_get: {
     parameters: {
       query?: {
@@ -14671,6 +14762,77 @@ export interface operations {
       cookie?: never;
     };
     requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  ask_packet_question_api_v1_execution_packets__packet_id__questions__field_id__post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        packet_id: string;
+        field_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RevisionInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  answer_question_api_v1_execution_questions__question_id__answer_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        question_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["QuestionAnswer"];
+      };
+    };
     responses: {
       /** @description Successful Response */
       200: {

@@ -218,7 +218,7 @@ export function Connections() {
                         : enrich
                           ? "Optional professional contact enrichment. Returned addresses require separate mailbox verification."
                           : manual
-                            ? "Prepare a packet, review evidence and continue manually on the official website."
+                            ? "Owner-supplied job URLs and reviewed facts support packet preparation. Account access and live portal filling remain unverified; submission is manual."
                             : "Read public job-board listings through the existing permitted adapter."}
                     </p>
                     <dl>

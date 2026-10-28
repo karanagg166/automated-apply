@@ -3,7 +3,7 @@
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 Mode = Literal["OFF", "ON_DEMAND", "WATCH_AND_NOTIFY", "AUTO_APPLY_WHEN_AUTHORIZED"]
 State = Literal[
@@ -45,6 +45,19 @@ class Start(Contract):
 class Control(Contract):
     action: Literal["pause", "resume", "cancel"]
     expected_revision: int = Field(ge=1)
+
+
+class QuestionAnswer(Contract):
+    expected_revision: int = Field(ge=1, strict=True)
+    answer: str = Field(min_length=1, max_length=4000)
+
+    @field_validator("answer")
+    @classmethod
+    def nonblank_answer(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError("answer_required")
+        return value
 
 
 class ImportJob(Contract):

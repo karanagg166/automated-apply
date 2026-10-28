@@ -15,7 +15,7 @@ from backend.app.knowledge.missing_input import permitted as permit_answer
 from backend.app.models.application_packet import ApplicationPacketField
 from backend.app.repositories.candidate_profile import ProfileConflictError
 from backend.app.schemas.applications import AnswerEdit
-from backend.app.services.applications.service import ApplicationPacketService
+from backend.app.services.applications.service import TERMINAL, ApplicationPacketService
 
 PREFIX = "exec_q:"
 
@@ -103,7 +103,7 @@ async def ask(session, execution_id, field_id):
     packet = await ApplicationPacketService(session).read(
         UUID(execution.value["packet_id"])
     )
-    if packet.readiness.stale:
+    if packet.readiness.stale or packet.lifecycle_state in TERMINAL:
         raise ToolDenied("packet_context_stale")
     field = next((f for f in packet.fields if f.id == field_id), None)
     if field is None or field.field_type == "file":
@@ -182,7 +182,7 @@ def message_text(q):
         )
     return (
         f"{q['employer']} — {q['role']}\nQuestion: {q['question']}\n"
-        f"Application: {q['execution_id']}\n{q['job_url']}\nExpected: {hint}\n"
+        f"Application: {q['execution_id']}\nPacket: {q['packet_id']}\n{q['job_url']}\nExpected: {hint}\n"
         "Reply to THIS message with your verified factual answer. This answers only this application; reuse needs separate approval. A fresh form review is required before filling."
     )
 
@@ -227,6 +227,7 @@ async def receive(session, settings, message, update_id):
         packet.revision != q["packet_revision"]
         or packet.snapshot.context_digest != q["context_digest"]
         or packet.readiness.stale
+        or packet.lifecycle_state in TERMINAL
     ):
         return "Application context changed. Review the current form and ask a new question."
     updated = await service.edit_answer(
@@ -284,6 +285,94 @@ async def receive(session, settings, message, update_id):
     return f"Answer saved for {q['employer']} — {q['role']}. Application {q['execution_id']}. Reuse is OFF. Approve exact-context reuse in the dashboard. Review before filling."
 
 
+async def answer_dashboard(session, question_id, answer, expected_revision):
+    await store.memory_row(session, lock=True)
+    row = await session.get(
+        OwnerPreference, PREFIX + str(question_id), populate_existing=True
+    )
+    if not row:
+        raise ToolDenied("question_not_found")
+    q, now = dict(row.value), await instant(session)
+    if q["state"] == "answered":
+        raise ToolDenied("question_already_answered")
+    if expected_revision != q["packet_revision"]:
+        raise ToolDenied("question_revision_conflict")
+    execution = await store.load(session, q["execution_id"])
+    if (
+        q["expires_at"] <= now.isoformat()
+        or execution.value["state"] != "NEEDS_INPUT"
+        or execution.value.get("cancelled")
+        or execution.value.get("packet_id") != q["packet_id"]
+    ):
+        raise ToolDenied("question_expired_or_application_cancelled")
+    answer = answer.strip()
+    expiry = validate(q, answer, now)
+    service = ApplicationPacketService(session)
+    packet = await service.read(UUID(q["packet_id"]))
+    if (
+        packet.revision != expected_revision
+        or packet.candidate_profile_version != q["profile_version"]
+        or packet.snapshot.context_digest != q["context_digest"]
+        or packet.readiness.stale
+        or packet.lifecycle_state in TERMINAL
+    ):
+        raise ToolDenied("packet_context_stale")
+    updated = await service.edit_answer(
+        packet.id,
+        UUID(q["field_id"]),
+        AnswerEdit(expected_revision=packet.revision, answer=field_answer(q, answer)),
+    )
+    field = await session.get(ApplicationPacketField, UUID(q["field_id"]))
+    field.provenance = {
+        **field.provenance,
+        "telegram_question": q["id"],
+        "answer_expires_at": expiry,
+        "interview_availability": answer
+        if q["answer_type"] == "availability"
+        else None,
+    }
+    q.update(
+        state="answered",
+        answer_revision=field.answer_revision,
+        answer=field_answer(q, answer),
+        factual_context=answer,
+        answer_expires_at=expiry,
+        provenance={
+            "channel": "dashboard",
+            "source": "owner_dashboard",
+        },
+    )
+    row.value = q
+    execution.value = {
+        **execution.value,
+        "answer_revisions": {
+            **execution.value.get("answer_revisions", {}),
+            q["field_id"]: field.answer_revision,
+        },
+    }
+    candidates = (
+        await session.scalars(
+            select(OwnerPreference).where(OwnerPreference.key.startswith(PREFIX))
+        )
+    ).all()
+    waiting = False
+    for sibling in candidates:
+        v = sibling.value
+        if (
+            v["id"] != q["id"]
+            and v["packet_id"] == q["packet_id"]
+            and v["state"] in {"pending", "sent"}
+            and v["packet_revision"] == packet.revision
+        ):
+            sibling.value = {**v, "packet_revision": updated.revision}
+            waiting = True
+    if not waiting:
+        await store.move(
+            session, execution, "PREPARING", "owner_answer_saved_fresh_review_required"
+        )
+    return row.value
+
+
 async def approve_reuse(session, question_id):
     await store.memory_row(session, lock=True)
     row = await session.get(
@@ -337,7 +426,12 @@ async def deliver_one(factory, settings, bot):
             ):
                 continue
             execution = await store.load(session, v["execution_id"])
-            if execution.value["state"] == "NEEDS_INPUT":
+            if execution.value["state"] == "NEEDS_INPUT" and not execution.value.get("cancelled"):
+                packet = await ApplicationPacketService(session).read(UUID(v["packet_id"]))
+                if (packet.revision != v["packet_revision"]
+                    or packet.snapshot.context_digest != v["context_digest"]
+                    or packet.readiness.stale or packet.lifecycle_state in TERMINAL):
+                    continue
                 row = candidate
                 break
         if row is None:

@@ -3,6 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ExecutionQuestionAnswer,
+  type ExecutionQuestion,
+} from "@/features/execution-question-answer";
 import { api, post, readable } from "@/lib/api";
 import {
   Badge,
@@ -33,17 +37,9 @@ type Execution = {
   diagnostic: string | null;
 };
 type Job = { id: string; title: string; job_url: string };
-type Question = {
-  id: string;
-  execution_id: string;
-  employer: string;
-  role: string;
-  question: string;
-  state: string;
-  answer: string | null;
+type Question = ExecutionQuestion & {
   factual_context?: string;
   reuse_approved: boolean;
-  answer_expires_at: string | null;
 };
 type Status = {
   configuration: Configuration;
@@ -325,39 +321,58 @@ export function Naukri() {
       <div className="panel panel-body stack">
         <h2>Telegram questions</h2>
         <p>
-          Reply to the exact bot question message. Dates need a time and time
-          zone. Answers expire and require review before filling.
+          Reply to the exact bot question message or answer directly below.
+          Dates need a time and time zone (for example Asia/Kolkata). Answers
+          expire and require review before filling.
         </p>
         {questions.isError ? <ErrorState error={questions.error} /> : null}
-        {questions.data?.map((q) => (
-          <article className="stack" key={q.id}>
-            <p>
-              {q.employer} — {q.role}: {q.question}
-            </p>
-            <Badge>{readable(q.state)}</Badge>
-            {q.answer && <p>Saved answer: {q.factual_context || q.answer}</p>}
-            <p>Application: {q.execution_id}</p>
-            {q.answer_expires_at && (
-              <p>
-                Reconfirm by: {new Date(q.answer_expires_at).toLocaleString()}
-              </p>
-            )}
-            {q.state === "answered" && (
-              <Button
-                disabled={busy || q.reuse_approved}
-                onClick={() =>
-                  act(() =>
-                    post("execution/questions/" + q.id + "/approve-reuse"),
-                  )
-                }
-              >
-                {q.reuse_approved
-                  ? "Reuse approved for compatible context"
-                  : "Approve reuse for this exact context"}
-              </Button>
-            )}
-          </article>
-        ))}
+        {questions.data?.map((q) => {
+          const isPending = q.state === "pending" || q.state === "sent";
+          return (
+            <article className="stack" key={q.id}>
+              <div className="split">
+                <p>
+                  <strong>{q.employer}</strong> — {q.role}: {q.question}
+                </p>
+                {isPending ? (
+                  <Badge tone="amber">Waiting for Your Answer</Badge>
+                ) : (
+                  <Badge tone="green">{readable(q.state)}</Badge>
+                )}
+              </div>
+              <p>Application: {q.execution_id}</p>
+              {q.answer && <p>Saved answer: {q.factual_context || q.answer}</p>}
+              {q.answer_expires_at && (
+                <p>
+                  Reconfirm by: {new Date(q.answer_expires_at).toLocaleString()}
+                </p>
+              )}
+              {isPending && (
+                <ExecutionQuestionAnswer
+                  key={`${q.id}:${q.packet_revision}`}
+                  question={q}
+                  onSaved={() => {
+                    void act(async () => {});
+                  }}
+                />
+              )}
+              {q.state === "answered" && (
+                <Button
+                  disabled={busy || q.reuse_approved}
+                  onClick={() =>
+                    act(() =>
+                      post("execution/questions/" + q.id + "/approve-reuse"),
+                    )
+                  }
+                >
+                  {q.reuse_approved
+                    ? "Reuse approved for compatible context"
+                    : "Approve reuse for this exact context"}
+                </Button>
+              )}
+            </article>
+          );
+        })}
       </div>
     </section>
   );

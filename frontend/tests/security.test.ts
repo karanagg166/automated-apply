@@ -339,3 +339,17 @@ it("enforces strict read-only Gmail integration routes and rejects all send/muta
     ).toBe(false);
   }
 });
+
+it("allows only exact draft intake and packet-question routes", () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  expect(permittedRoute("application-packets/intake", "POST")).toBe(true);
+  expect(
+    permittedRoute(`execution/packets/${id}/questions/${id}`, "POST"),
+  ).toBe(true);
+  expect(permittedRoute(`execution/packets/${id}/questions/${id}`, "GET")).toBe(
+    false,
+  );
+  expect(
+    permittedRoute(`execution/packets/${id}/questions/${id}/submit`, "POST"),
+  ).toBe(false);
+});

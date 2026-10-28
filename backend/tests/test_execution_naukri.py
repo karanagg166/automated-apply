@@ -16,7 +16,7 @@ from backend.app.execution.naukri import capability_matrix, normalize, normalize
 from backend.app.execution.telegram_commands import command
 from backend.app.execution.worker import eligibility, prepare, watch
 from backend.app.models.application_packet import ApplicationPacketField
-from backend.app.schemas.applications import CreatePacket, QuestionInput
+from backend.app.schemas.applications import AnswerEdit, CreatePacket, QuestionInput
 from backend.app.services.applications.service import ApplicationPacketService
 from backend.app.services.job_ingestion import JobIngestionService
 
@@ -519,6 +519,12 @@ async def test_gateway_api_auth_and_capability_contract(async_client, phase2_aut
         "/api/v1/execution/naukri/submit", headers=phase2_auth
     )
     assert response.status_code in {404, 405}
+    response = await async_client.post(
+        f"/api/v1/execution/questions/{uuid4()}/answer",
+        json={"answer": "Yes", "expected_revision": 1},
+        headers=phase2_auth,
+    )
+    assert response.status_code == 409
 
 
 @pytest.mark.parametrize(
@@ -996,3 +1002,84 @@ def test_optional_expired_answer_also_requires_reconfirmation():
         provenance=SimpleNamespace(answer_expires_at=now - timedelta(seconds=1)),
     )
     assert needs_owner_answer(field, now)
+
+
+@pytest.mark.asyncio
+async def test_dashboard_answer_updates_packet_and_advances_execution(
+    db_session, question_target
+):
+    execution, packet = question_target
+    q = await questions.ask(db_session, execution["id"], packet.fields[-1].id)
+    await db_session.flush()
+    result = await questions.answer_dashboard(db_session, q["id"], "Yes", q["packet_revision"])
+    assert result["state"] == "answered"
+    assert result["answer"] == "Yes"
+    assert result["provenance"]["channel"] == "dashboard"
+
+    field = await db_session.get(ApplicationPacketField, packet.fields[-1].id)
+    assert field.human_answer == "Yes"
+    assert field.provenance["telegram_question"] == q["id"]
+
+    row = await store.load(db_session, execution["id"])
+    assert row.value["state"] == "PREPARING"
+
+
+@pytest.mark.asyncio
+async def test_dashboard_answer_requires_fresh_revision_and_review_and_cannot_replay(
+    db_session, question_target, owner_settings
+):
+    execution, packet = question_target
+    q = await questions.ask(db_session, execution["id"], packet.fields[-1].id)
+    await db_session.commit()
+    with pytest.raises(ToolDenied, match="question_revision_conflict"):
+        await questions.answer_dashboard(db_session, q["id"], "Yes", q["packet_revision"] + 1)
+    await questions.answer_dashboard(db_session, q["id"], "Yes", q["packet_revision"])
+    await db_session.commit()
+    db_session.expunge_all()  # Recover only from durable state, as after restart.
+    field = await db_session.get(ApplicationPacketField, packet.fields[-1].id)
+    assert field.human_answer == "Yes" and field.review_status == "pending"
+    saved = await ApplicationPacketService(db_session).read(packet.id)
+    assert saved.approved_revision is None
+    row = await store.load(db_session, execution["id"])
+    assert row.value["state"] == "PREPARING"
+    assert not row.value.get("approved_answer_revisions")
+    with pytest.raises(ToolDenied, match="question_already_answered"):
+        await questions.answer_dashboard(db_session, q["id"], "No", q["packet_revision"])
+    assert field.human_answer == "Yes"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("condition", ["expired", "paused", "cancelled", "stale", "other_packet", "invalid_choice"])
+async def test_dashboard_answer_rejects_invalid_or_stale_context(db_session, question_target, condition):
+    execution, packet = question_target
+    q = await questions.ask(db_session, execution["id"], packet.fields[-1].id)
+    await db_session.flush()
+    row = await db_session.get(OwnerPreference, questions.PREFIX + q["id"])
+    intent = await store.load(db_session, execution["id"])
+    if condition == "expired":
+        row.value = {**q, "expires_at": (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()}
+    elif condition == "paused":
+        intent.value = {**intent.value, "state": "PAUSED"}
+    elif condition == "cancelled":
+        intent.value = {**intent.value, "cancelled": True}
+    elif condition == "other_packet":
+        intent.value = {**intent.value, "packet_id": str(uuid4())}
+    elif condition == "stale":
+        await ApplicationPacketService(db_session).edit_answer(packet.id, packet.fields[-1].id, AnswerEdit(expected_revision=packet.revision, answer="No"))
+    await db_session.flush()
+    with pytest.raises(ToolDenied):
+        await questions.answer_dashboard(db_session, q["id"], "Maybe" if condition == "invalid_choice" else "Yes", q["packet_revision"])
+    field = await db_session.get(ApplicationPacketField, packet.fields[-1].id)
+    assert field.human_answer == ("No" if condition == "stale" else None)
+    assert row.value["state"] != "answered"
+
+
+@pytest.mark.asyncio
+async def test_dashboard_answer_owner_boundary_and_validation(async_client, phase2_auth):
+    url = f"/api/v1/execution/questions/{uuid4()}/answer"
+    payload = {"answer": "Yes", "expected_revision": 1}
+    assert (await async_client.post(url, json=payload)).status_code == 401
+    for extra in ({"X-Agent-Client": "extension"}, {"Origin": "chrome-extension://fictional"}):
+        assert (await async_client.post(url, json=payload, headers={**phase2_auth, **extra})).status_code == 403
+    for invalid in ({"answer": "Yes"}, {**payload, "expected_revision": 0}, {**payload, "expected_revision": "1"}, {**payload, "answer": "  "}, {**payload, "answer": "a" * 4001}, {**payload, "approved": True}):
+        assert (await async_client.post(url, json=invalid, headers=phase2_auth)).status_code == 422

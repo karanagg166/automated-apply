@@ -8,14 +8,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.agent.router import owner_ui
 from backend.app.agent.tools import ToolDenied
+from backend.app.automation.store import instant
 from backend.app.core.security import require_api_token
 from backend.app.dashboard.models import OwnerPreference
 from backend.app.dashboard.router import OwnerRoute
 from backend.app.db.session import get_db_session
 from backend.app.execution import questions, store
-from backend.app.execution.contracts import Configuration, Control, ImportBatch, Start
+from backend.app.execution.contracts import (
+    Configuration,
+    Control,
+    ImportBatch,
+    QuestionAnswer,
+    Start,
+)
 from backend.app.execution.naukri import capability_matrix, normalize
+from backend.app.execution.worker import needs_owner_answer
 from backend.app.models.job import Job
+from backend.app.schemas.applications import RevisionInput
+from backend.app.services.applications.base import ApplicationError
+from backend.app.services.applications.service import ApplicationPacketService
 from backend.app.services.job_ingestion import JobIngestionService
 
 router = APIRouter(
@@ -31,7 +42,7 @@ async def status(session: AsyncSession = Depends(get_db_session)):
     return {
         "capabilities": capability_matrix(),
         "configuration": await store.configuration(session),
-        "executions": [r.value for r in await store.rows(session)],
+        "executions": [r.value for r in await store.rows(session) if r.value["platform"] == "naukri"],
         "worker_requirement": "awake_local_worker_or_separately_approved_always_on_worker",
         "submitted": False,
     }
@@ -139,6 +150,50 @@ async def reuse(
     try:
         return await questions.approve_reuse(session, question_id)
     except ToolDenied as exc:
+        raise HTTPException(409, str(exc)) from None
+
+
+@router.post("/packets/{packet_id}/questions/{field_id}")
+async def ask_packet_question(
+    packet_id: UUID,
+    field_id: UUID,
+    data: RevisionInput,
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),
+):
+    owner_ui(request)
+    try:
+        await store.memory_row(session, lock=True)
+        packet = await ApplicationPacketService(session).read(packet_id)
+        if packet.revision != data.expected_revision:
+            raise ToolDenied("packet_revision_conflict")
+        field = next((f for f in packet.fields if f.id == field_id), None)
+        if not field or not needs_owner_answer(field, await instant(session)):
+            raise ToolDenied("missing_or_expired_answer_required")
+        questions.permitted(field.question)
+        intent = await store.packet_question_intent(session, packet)
+        return await questions.ask(session, intent["id"], field_id)
+    except ApplicationError as exc:
+        raise HTTPException(exc.status_code, str(exc)) from None
+    except (ToolDenied, ValueError) as exc:
+        raise HTTPException(409, str(exc)) from None
+
+
+@router.post("/questions/{question_id}/answer")
+async def answer_question(
+    question_id: UUID,
+    data: QuestionAnswer,
+    request: Request,
+    session: AsyncSession = Depends(get_db_session),
+):
+    owner_ui(request)
+    try:
+        return await questions.answer_dashboard(
+            session, question_id, data.answer, data.expected_revision
+        )
+    except ApplicationError as exc:
+        raise HTTPException(exc.status_code, str(exc)) from None
+    except (ToolDenied, ValueError) as exc:
         raise HTTPException(409, str(exc)) from None
 
 

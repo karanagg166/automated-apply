@@ -6,7 +6,8 @@ const routes: Array<[RegExp, string[]]> = [
   [/^execution\/[a-f0-9-]{36}\/control$/, ["POST"]],
   [/^execution\/[a-f0-9-]{36}\/questions\/[a-f0-9-]{36}$/, ["POST"]],
   [/^execution\/questions$/, ["GET"]],
-  [/^execution\/questions\/[a-f0-9-]{36}\/approve-reuse$/, ["POST"]],
+  [/^execution\/packets\/[a-f0-9-]{36}\/questions\/[a-f0-9-]{36}$/, ["POST"]],
+  [/^execution\/questions\/[a-f0-9-]{36}\/(approve-reuse|answer)$/, ["POST"]],
 
   [/^integrations\/gmail\/workspace\/(accounts|history|drafts)$/, ["GET"]],
   [
@@ -129,6 +130,7 @@ const routes: Array<[RegExp, string[]]> = [
   [/^discovery\/(sources|runs\/[a-f0-9-]{36})$/, ["GET"]],
   [/^discovery\/(preview|runs)$/, ["POST"]],
   [/^application-packets$/, ["GET"]],
+  [/^application-packets\/intake$/, ["POST"]],
   [/^application-packets\/[a-f0-9-]{36}$/, ["GET", "PATCH"]],
   [/^application-packets\/[a-f0-9-]{36}\/(readiness|handoff|events)$/, ["GET"]],
   [

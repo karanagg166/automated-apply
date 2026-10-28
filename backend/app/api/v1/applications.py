@@ -2,11 +2,12 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.v1.profile import ProtectedProfileRoute
+from backend.app.browser.contracts import PrepareBrowser
 from backend.app.core.security import require_api_token
 from backend.app.db.session import get_db_session
 from backend.app.schemas.applications import (
@@ -91,6 +92,26 @@ async def create(
     result = await service.create(job_id, data)
     await service.session.commit()
     return result
+
+
+@router.post("/application-packets/intake", response_model=PacketRead, status_code=201)
+async def intake_url(
+    data: PrepareBrowser,
+    request: Request,
+    session: AsyncSession = Depends(get_db_session, scope="function"),
+):
+    from backend.app.agent.router import owner_ui
+    from backend.app.browser.service import prepare_packet
+    from backend.app.services.applications.platforms.owner_page import manual_page_url
+
+    owner_ui(request)
+    if not data.company_name.strip() or not data.job_title.strip():
+        raise HTTPException(422, "Company and role from the posting are required")
+    if not manual_page_url(data.application_url):
+        raise HTTPException(422, "Supported official application URL required")
+    packet = await prepare_packet(session, data)
+    await session.commit()
+    return packet
 
 
 @router.get("/application-packets", response_model=PacketList)

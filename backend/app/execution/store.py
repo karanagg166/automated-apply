@@ -111,6 +111,8 @@ async def emit(session, value, event, now):
 
 async def move(session, row, state, reason=None):
     value = dict(row.value)
+    if state in {"FILLING", "SUBMITTING", "SUBMITTED_CONFIRMED"} and value.get("question_only"):
+        raise ToolDenied("question_context_cannot_execute")
     if state in {"SUBMITTING", "SUBMITTED_CONFIRMED"} and value["platform"] == "naukri":
         raise ToolDenied("naukri_submission_capability_not_verified")
     current = value["state"]
@@ -177,6 +179,83 @@ async def start(session, job_ids):
     return result
 
 
+async def packet_question_intent(session, packet):
+    """A question-only context cannot be claimed for execution or submission."""
+    await memory_row(session, lock=True)
+    from backend.app.services.applications.service import TERMINAL as PACKET_TERMINAL
+
+    if (
+        packet.readiness.stale
+        or packet.lifecycle_state in PACKET_TERMINAL
+        or not packet.snapshot.destination.valid
+    ):
+        raise ToolDenied("packet_context_stale_or_destination_invalid")
+    job = await session.get(Job, packet.job_id)
+    if (
+        not job
+        or job.status in {"archived", "applied"}
+        or await previously_applied(session, job)
+    ):
+        raise ToolDenied("application_not_eligible")
+    from backend.app.browser.site_policy import application_page_url
+
+    url = packet.snapshot.destination.application_url
+    if not application_page_url(url):
+        raise ToolDenied("supported_ats_application_required")
+    identity = str(uuid5(NAMESPACE_URL, "packet_questions:" + str(packet.id)))
+    row = await session.get(OwnerPreference, PREFIX + identity, populate_existing=True)
+    if row:
+        if row.value["state"] in TERMINAL | {"PAUSED"} or row.value.get("cancelled"):
+            raise ToolDenied("application_paused_or_cancelled")
+        if (
+            row.value["normalized_url"] != url
+            or row.value["profile_version"] != packet.candidate_profile_version
+            or row.value["employer"] != packet.snapshot.company_name
+            or row.value["role"] != packet.snapshot.job_title
+        ):
+            row.value = {
+                **row.value,
+                "normalized_url": url,
+                "profile_version": packet.candidate_profile_version,
+                "employer": packet.snapshot.company_name,
+                "role": packet.snapshot.job_title,
+                "approved_answer_revisions": {},
+                "revision": row.value["revision"] + 1,
+            }
+        if row.value["state"] == "PREPARING":
+            await move(session, row, "NEEDS_INPUT", "owner_question_requested")
+        return row.value
+    now = await instant(session)
+    value = {
+        "id": identity,
+        "attempt_id": str(uuid4()),
+        "job_id": str(job.id),
+        "platform": packet.platform,
+        "role": packet.snapshot.job_title,
+        "employer": packet.snapshot.company_name,
+        "normalized_url": url,
+        "state": "NEEDS_INPUT",
+        "revision": 1,
+        "history": [],
+        "evidence": [],
+        "profile_version": packet.candidate_profile_version,
+        "approved_answer_revisions": {},
+        "packet_id": str(packet.id),
+        "question_only": True,
+        "fence": 0,
+        "attempts": 0,
+        "cancelled": False,
+        "lease_until": None,
+        "available_at": now.isoformat(),
+        "heartbeat_at": None,
+        "diagnostic": "waiting_for_owner_answer",
+        "created_at": now.isoformat(),
+    }
+    session.add(OwnerPreference(key=PREFIX + identity, value=value))
+    await session.flush()
+    return value
+
+
 async def control(session, execution_id, action, revision):
     await memory_row(session, lock=True)
     row = await load(session, execution_id)
@@ -225,6 +304,8 @@ async def claim(session):
     now = await instant(session)
     for row in await rows(session):
         v = dict(row.value)
+        if v.get("question_only"):
+            continue
         if v["state"] == "FILLING" and (
             not v["lease_until"] or datetime.fromisoformat(v["lease_until"]) <= now
         ):
@@ -316,6 +397,8 @@ async def previously_applied(session, job):
         )
     ):
         return True
+    if job.source_platform != "naukri":
+        return False
     prior_urls = (
         await session.scalars(
             select(Job.job_url)
@@ -382,11 +465,14 @@ async def lock_packet_execution(session, packet_id):
 
 async def lock_plan_execution(session, plan_id):
     plan = await session.get(OwnerPreference, "fill_plan:" + str(plan_id))
-    return (
-        await lock_packet_execution(session, plan.value["application_id"])
-        if plan
-        else None
-    )
+    row = await lock_packet_execution(session, plan.value["application_id"]) if plan else None
+    if row and row.value.get("question_only"):
+        if row.value.get("cancelled") or row.value["state"] in TERMINAL | {"PAUSED"}:
+            raise ToolDenied("execution_paused_or_cancelled")
+        # Native plans retain their own single-use owner authorization. Questions
+        # never grant execution authority or track a browser fill as a worker run.
+        return None
+    return row
 
 
 async def fill_event(session, row, plan, status):
