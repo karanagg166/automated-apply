@@ -1,3 +1,5 @@
+> Historical preparation record. Superseded by [the completed local engineering conclusion](phase35-engineering-conclusion.md). PR #39 gates publication, not local integration or Phase 4 engineering.
+
 # Phase 3.5 final integration — preparation report
 
 ## Final publication dependency recheck — 2026-10-28
