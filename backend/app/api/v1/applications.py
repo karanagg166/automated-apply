@@ -62,7 +62,7 @@ router = APIRouter(
 )
 
 
-def application_service(session: AsyncSession = Depends(get_db_session)):
+def application_service(session: AsyncSession = Depends(get_db_session, scope="function")):
     return ApplicationPacketService(session)
 
 

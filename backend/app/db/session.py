@@ -3,6 +3,8 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
+from fastapi import HTTPException
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -76,6 +78,9 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
         try:
             yield session
             await session.commit()
+        except SQLAlchemyError as exc:
+            await session.rollback()
+            raise HTTPException(503, "Database storage unavailable") from exc
         except Exception:
             await session.rollback()
             raise
