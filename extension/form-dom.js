@@ -1455,11 +1455,14 @@ export function formDOM(request = { operation: "inspect" }) {
             });
             continue;
           }
-          if (field.kind === "radio") {
-            if (action.value === "true") el.checked = true;
-            else if (el.checked) el.checked = false;
+          const checked = action.value === "true";
+          if (req.emit_events === true && el.checked !== checked) {
+            // React's controlled checkbox/radio change plugin observes click,
+            // not a checked assignment followed by synthetic input/change.
+            // The worker's network/submission guard stays active for this event.
+            el.click();
           } else {
-            el.checked = action.value === "true";
+            el.checked = checked;
           }
         } else if (field.kind === "select") {
           const matches = options.filter(
@@ -1483,7 +1486,10 @@ export function formDOM(request = { operation: "inspect" }) {
             action.value,
           );
         }
-        if (req.emit_events === true) {
+        if (
+          req.emit_events === true &&
+          !["checkbox", "radio"].includes(field.kind)
+        ) {
           el.dispatchEvent(new Event("input", { bubbles: true }));
           interrupted = validateSnapshot(req);
           if (!interrupted)
