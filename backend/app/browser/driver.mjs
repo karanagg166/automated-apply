@@ -207,7 +207,7 @@ for await (const line of createInterface({ input: process.stdin })) {
       if (
         !fixture &&
         (url.protocol !== "https:" ||
-          !(allowedHost(url) || (req.operation === "open" && req.permitted_origin === url.origin)) ||
+          !allowedHost(url) ||
           (url.search && !(url.hostname === "jobs.smartrecruiters.com" && url.search === "?oga=true")) ||
           url.hash)
       )

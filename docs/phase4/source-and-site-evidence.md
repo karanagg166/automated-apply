@@ -28,7 +28,7 @@ Company size remains separate observed evidence. A feed's employer name, job cou
 | Ashby | Recognizable board/job/application path | Same engine; reviewed public-source destination | Not run |
 | SmartRecruiters | Company/post path; exact `oga=true` permitted | Same engine; source/application identity agrees | Not run |
 | Workday | Recognizable tenant applicant `/job/` path | Same engine on fictional native controls; dynamic/server-dependent widgets remain manual as needed | Not run |
-| Generic HTML/React | Exact operator-approved public origin | Same engine; React events only through guarded dedicated browser; stale DOM/value preservation tested | Not run |
+| Generic HTML/React | Exact operator-approved public origin | Dashboard dedicated browser with pinned public DNS, or gesture-only extension native controls; separate command worker hands off | Not run |
 | Google Forms | Recognizable forms path | Shared engine and existing MV3 fixture/native coverage | Not run |
 | Complex/custom, login, sensitive, CAPTCHA, server-save steps | Manual handoff where unsupported | Explicit unsupported/needs-input states, no claimed fill | Not automated |
 

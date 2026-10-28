@@ -38,6 +38,8 @@ Existing packet, question, missing-input, review, action, step-preview and cance
 
 The dedicated browser retains event delivery, stale DOM detection, value preservation, safe custom-dropdown review, conditional/multi-step handoff and canonical PDF validation. Submission, legal consent, sensitive self-identification and CAPTCHA remain manual. Extension React/custom widgets remain manual where safe event handling cannot be established; use the guarded dedicated browser when supported.
 
+Generic remote sites use the dashboard's dedicated browser runner, which pins validated public DNS before launching Chromium. The separate command worker retains its fixed ATS-host boundary and hands unsupported generic sites back for dashboard/manual assistance. A configured origin alone does not widen that worker's network access.
+
 The extension adds cancellation of prepared answers and in-flight authorization. A cancelled or superseded native response cannot restore a plan or trigger DOM filling. After refresh/popup restart/native reconnect, prepare and review again. No stale mutation is replayed from storage.
 
 ## Type regeneration and validation
