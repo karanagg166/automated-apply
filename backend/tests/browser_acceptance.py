@@ -158,6 +158,18 @@ async def test_actual_chrome_multistep_and_no_final_submit(chrome, fixture_site)
         progressed["state"] == "progressed"
         and progressed["inspection"]["fields"][0]["kind"] == "email"
     )
+    next_document = progressed["inspection"]["document_id"]
+    assert next_document != document
+    # A stale fill is rejected. Reinspect before authorizing the next field;
+    # rejected mutation attempts conservatively consume the old plan.
+    stale = await chrome.call(
+        "fill", document_id=document,
+        actions=[{"field_id": "f0", "kind": "email", "value": "alex@example.com"}],
+    )
+    assert stale["state"] == "manual_required" and not stale["submitted"]
+    refreshed = await chrome.call("inspect", document_id=next_document)
+    document = refreshed["inspection"]["document_id"]
+    assert document != next_document
     result = await chrome.call(
         "fill",
         document_id=document,

@@ -3079,6 +3079,194 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/execution/naukri": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Status */
+    get: operations["status_api_v1_execution_naukri_get"];
+    /** Configure */
+    put: operations["configure_api_v1_execution_naukri_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/execution/naukri/import": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Imports */
+    post: operations["imports_api_v1_execution_naukri_import_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/execution/naukri/apply": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Start */
+    post: operations["start_api_v1_execution_naukri_apply_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/execution/{execution_id}/control": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Control */
+    post: operations["control_api_v1_execution__execution_id__control_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/execution/{execution_id}/questions/{field_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Ask */
+    post: operations["ask_api_v1_execution__execution_id__questions__field_id__post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/execution/questions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Pending */
+    get: operations["pending_api_v1_execution_questions_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/execution/questions/{question_id}/approve-reuse": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Reuse */
+    post: operations["reuse_api_v1_execution_questions__question_id__approve_reuse_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/execution/naukri/jobs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Find Saved */
+    get: operations["find_saved_api_v1_execution_naukri_jobs_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/execution/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Events */
+    get: operations["events_api_v1_execution_events_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/execution/events/{event_id}/ack": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Acknowledge */
+    post: operations["acknowledge_api_v1_execution_events__event_id__ack_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/execution/{execution_id}/questions/{field_id}/reuse/{question_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Reuse For */
+    post: operations["reuse_for_api_v1_execution__execution_id__questions__field_id__reuse__question_id__post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3927,6 +4115,34 @@ export interface components {
        */
       kind: "ctc" | "base_salary" | "total_compensation";
     };
+    /** Configuration */
+    Configuration: {
+      /**
+       * Mode
+       * @default ON_DEMAND
+       * @enum {string}
+       */
+      mode:
+        "OFF" | "ON_DEMAND" | "WATCH_AND_NOTIFY" | "AUTO_APPLY_WHEN_AUTHORIZED";
+      /**
+       * Interval Seconds
+       * @default 21600
+       */
+      interval_seconds: number;
+      /**
+       * Source
+       * @default saved_owner_imports
+       * @constant
+       */
+      source: "saved_owner_imports";
+      /** Destinations */
+      destinations?: string[];
+      /**
+       * Submission Permission
+       * @default false
+       */
+      submission_permission: boolean;
+    };
     /** ConfigurationUpdateRequest */
     ConfigurationUpdateRequest: {
       configuration: components["schemas"]["CandidateConfiguration"];
@@ -3984,6 +4200,16 @@ export interface components {
       suppression_reason?: string | null;
       /** Human Review Notes */
       human_review_notes?: string | null;
+    };
+    /** Control */
+    Control: {
+      /**
+       * Action
+       * @enum {string}
+       */
+      action: "pause" | "resume" | "cancel";
+      /** Expected Revision */
+      expected_revision: number;
     };
     /** CountryAuthorization */
     CountryAuthorization: {
@@ -4733,6 +4959,60 @@ export interface components {
       retention_days: number;
       /** Owner Reviewed */
       owner_reviewed: boolean;
+    };
+    /** ImportBatch */
+    ImportBatch: {
+      /** Jobs */
+      jobs: components["schemas"]["ImportJob"][];
+    };
+    /** ImportJob */
+    ImportJob: {
+      /** Url */
+      url: string;
+      /** Title */
+      title: string;
+      /** Employer */
+      employer: string;
+      /** Description */
+      description?: string | null;
+      /** Location */
+      location?: string | null;
+      /**
+       * Remote Type
+       * @default unknown
+       * @enum {string}
+       */
+      remote_type: "remote" | "hybrid" | "onsite" | "unknown";
+      /** Required Skills */
+      required_skills?: string[];
+      /** Preferred Skills */
+      preferred_skills?: string[];
+      /** Experience Min */
+      experience_min?: number | null;
+      /** Experience Max */
+      experience_max?: number | null;
+      /**
+       * Experience Requirement
+       * @default unknown
+       * @enum {string}
+       */
+      experience_requirement: "required" | "preferred" | "unknown";
+      /** Salary Min */
+      salary_min?: number | null;
+      /** Salary Max */
+      salary_max?: number | null;
+      /** Salary Currency */
+      salary_currency?: string | null;
+      /** Salary Period */
+      salary_period?: ("year" | "month") | null;
+      /**
+       * Provenance
+       * @default owner_url
+       * @enum {string}
+       */
+      provenance: "owner_url" | "owner_job_alert";
+      /** Message Reference */
+      message_reference?: string | null;
     };
     /** Inspection */
     Inspection: {
@@ -6092,6 +6372,14 @@ export interface components {
         | "manual_upload";
       /** Evidence References */
       evidence_references?: components["schemas"]["EvidenceReference"][];
+      /** Interview Availability */
+      interview_availability?: string | null;
+      /** Telegram Owner Update */
+      telegram_owner_update?: number | null;
+      /** Telegram Question */
+      telegram_question?: string | null;
+      /** Answer Expires At */
+      answer_expires_at?: string | null;
       /** Answer Draft Id */
       answer_draft_id?: string | null;
       /** Missing Input Id */
@@ -7096,6 +7384,11 @@ export interface components {
        * @default 24
        */
       interval_hours: number;
+    };
+    /** Start */
+    Start: {
+      /** Job Ids */
+      job_ids: string[];
     };
     /** StartupAttributes */
     StartupAttributes: {
@@ -14149,6 +14442,347 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ActorMetadata"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  status_api_v1_execution_naukri_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  configure_api_v1_execution_naukri_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["Configuration"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  imports_api_v1_execution_naukri_import_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ImportBatch"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  start_api_v1_execution_naukri_apply_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["Start"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  control_api_v1_execution__execution_id__control_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        execution_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["Control"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  ask_api_v1_execution__execution_id__questions__field_id__post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        execution_id: string;
+        field_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  pending_api_v1_execution_questions_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  reuse_api_v1_execution_questions__question_id__approve_reuse_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        question_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  find_saved_api_v1_execution_naukri_jobs_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  events_api_v1_execution_events_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  acknowledge_api_v1_execution_events__event_id__ack_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        event_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  reuse_for_api_v1_execution__execution_id__questions__field_id__reuse__question_id__post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        execution_id: string;
+        field_id: string;
+        question_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
         };
       };
       /** @description Validation Error */

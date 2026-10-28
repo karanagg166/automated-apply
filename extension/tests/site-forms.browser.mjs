@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { chromium } from "../../frontend/node_modules/@playwright/test/index.mjs";
 import { formDOM } from "../form-dom.js";
 const sites = [
+  ["naukri_fictional", "https://www.naukri.com/job-listings-fictional-backend-281026123456"],
   ["greenhouse", "https://job-boards.greenhouse.io/fictional/jobs/12345"],
   ["lever", "https://jobs.lever.co/fictional/fictional-job-123/apply"],
   ["ashby", "https://jobs.ashbyhq.com/fictional/fictional-job-123/application"],

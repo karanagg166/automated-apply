@@ -13,7 +13,7 @@ def naukri_host(url):
 
 class NaukriPlatform:
     def capabilities(self):
-        return PlatformCapability(platform="naukri")
+        return PlatformCapability(platform="naukri", browser_autofill="assisted_native_fields")
 
     def recognizes(self, job, observations=()):
         # A label alone is insufficient to assert the actual posting source.

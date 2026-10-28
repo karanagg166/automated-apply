@@ -445,3 +445,7 @@ app.include_router(assistant_router)
 from backend.app.api.v1.provider_research import router as provider_research_router
 
 app.include_router(provider_research_router)
+
+from backend.app.execution.router import router as execution_router
+
+app.include_router(execution_router)

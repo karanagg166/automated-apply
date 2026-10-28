@@ -14,6 +14,8 @@ class ApplicationReview:
         self.service, self.repo, self.session = service, service.repo, service.session
 
     async def review(self, packet_id, request):
+        from backend.app.execution.integration import lock_packet_execution
+        execution = await lock_packet_execution(self.session, packet_id)
         packet, _, _ = await self.service.locked(packet_id, request.expected_revision)
         items = await self.repo.fields(packet_id)
         if any(item.field_type == "multi_select" and item.id in request.reviewed_field_ids for item in items):
@@ -76,6 +78,10 @@ class ApplicationReview:
             previous,
         )
         await self.session.flush()
+        if execution:
+            execution.value = {**execution.value, "approved_answer_revisions": {
+                str(f.id): f.answer_revision for f in items if f.review_status == "reviewed"
+            }}
         return await self.service.read(packet_id)
 
     async def handoff(self, packet_id):

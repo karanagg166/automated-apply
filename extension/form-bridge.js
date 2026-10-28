@@ -1,3 +1,4 @@
+import { naukriFormUrl } from "./naukri.js";
 import { formDOM } from "./form-dom.js";
 import { supportedUrl } from "./preview.js";
 const host = "com.automated_apply.agent";
@@ -6,6 +7,7 @@ let current;
 let generation = 0;
 function permittedFormUrl(value) {
   if (!supportedUrl(value)) return false;
+  if (naukriFormUrl(value)) return true;
   const host = new URL(value).hostname.toLowerCase();
   return ![
     "simplify.jobs", "linkedin.com", "naukri.com", "wellfound.com",

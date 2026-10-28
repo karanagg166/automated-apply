@@ -20,14 +20,14 @@ def job(**kwargs):
     )
 
 
-def test_capability_honest_manual_only():
+def test_capability_honest_owner_assisted_manual_submission():
     capability = NaukriPlatform().capabilities()
     assert (
         capability.submission_mode == "manual_handoff"
         and capability.live_verified is False
     )
     assert capability.automated_submission == "not_authorized_or_verified"
-    assert capability.browser_autofill == "not_implemented"
+    assert capability.browser_autofill == "assisted_native_fields"
 
 
 @pytest.mark.parametrize(

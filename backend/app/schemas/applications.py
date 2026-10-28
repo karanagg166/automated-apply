@@ -160,6 +160,10 @@ class Provenance(Contract):
     evidence_references: list[EvidenceReference] = Field(
         default_factory=list, max_length=12
     )
+    interview_availability: str | None = Field(None, max_length=300)
+    telegram_owner_update: int | None = None
+    telegram_question: UUID | None = None
+    answer_expires_at: datetime | None = None
     answer_draft_id: UUID | None = None
     missing_input_id: str | None = None
     resource_id: UUID | None = None

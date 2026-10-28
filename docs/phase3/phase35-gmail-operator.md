@@ -44,3 +44,64 @@ backend/venv/bin/python backend/scripts/verify_phase3_integrations_postgres.py
 ```
 
 The verifier creates unique fictional databases, exercises both `job_agent` and `public`, migration replay, failed-DDL rollback, schema drift, RLS/grant boundaries, empty/populated rollback and durable per-account transactions. It deliberately refuses a nonlocal target. Do not use `--write-manifest` during ordinary verification.
+
+## Target-specific credential and age setup — 2026-10-29
+
+The owner confirmed that neither a target administrator service nor an approved
+age recipient exists, and directed this task to **stop before backup or DDL**.
+The earlier conditional migration approval is retained; prerequisites are unmet.
+These instructions do not authorize stopping live writers, deployment, OAuth or
+mailbox reads.
+
+Preserve existing entries and prepare a new section in ~/.pg_service.conf:
+
+    [automated_apply_admin_luvdmwnlwaqgvfwlmlom]
+    host=db.luvdmwnlwaqgvfwlmlom.supabase.co
+    port=5432
+    dbname=postgres
+    user=postgres
+    sslmode=verify-full
+    sslrootcert=/ABSOLUTE/OWNER_VERIFIED/SUPABASE_CA_FILE
+
+The owner obtains credentials from exactly this project's Supabase database
+settings. Add the matching host/port/database/user password entry to ~/.pgpass
+with a local editor, never chat, shell arguments or Git. Avoid wildcards; set
+both files to 0600. Do not copy, rename, test or substitute the administrator
+service for another project. If the direct host is unreachable, stop for an
+owner-reviewed target-specific session-pooler identity rather than changing it.
+
+Install age only through the owner's approved package method. The owner creates
+a dedicated key with age-keygen -o /PRIVATE/OUTSIDE_GIT/age-identity.txt, protecting
+its directory with 0700 and identity with 0600, or uses their approved macOS
+Keychain storage/recovery procedure. Never expose the private identity in
+arguments, logs, reports or Git. Record and approve the public recipient
+separately, test encryption/decryption with fictional probe bytes, and confirm
+where the recoverable private key is stored. No recipient was generated here.
+
+After connection/key setup and separately established writer coordination, the
+proposed backup method is PostgreSQL 17 pg_dump --format=custom, streaming
+directly through age into a private encrypted artifact. Select the exact service
+with PGSERVICE and preserve verified TLS. The wrapper must check **both** exit
+codes, including failed pg_dump feeding successful encryption, use umask 077,
+avoid plaintext temporary dumps, and retain archive checksum/inventory plus
+separate roles/grants/configuration/application-key recovery material. A complete
+dump is required; a schema-only export or selected-table copy is insufficient.
+Do not run it until the owner establishes the prerequisites.
+
+Independently decrypt through a pipe into pg_restore --exit-on-error against a
+new disposable PostgreSQL 17 database, with the protected role inventory and no
+online credentials. Compare schema, ownership, ACLs, every application table's
+row counts, representative content digests and application readiness with the
+pinned pre-export catalog. Test recovery of the encryption/application keys as
+well as the dump. Preserve an actual private restore receipt and recovery
+procedure; an archive listing alone is insufficient. Abort before live DDL on
+any identity, writer, checksum, role/grant, catalog, completeness or recovery
+mismatch.
+
+The rendered public forward SQL SHA-256 remains
+e61d2e23fb27991715e2689cda14273d11abf4aac04e71babaf8ef4f5c434ebd.
+Only the reviewed two-table migration is in scope. After an authorized execution,
+independently recheck both tables, forced RLS, owners, policies/effective grants,
+and old-data counts/digests using fresh restricted-runtime and maintenance
+read-only connections. Runtime replacement, OAuth and mailbox reads still need
+their separate authorizations.

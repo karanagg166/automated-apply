@@ -1,5 +1,13 @@
 // This fixed route list prevents the server-side bearer from becoming a general proxy.
 const routes: Array<[RegExp, string[]]> = [
+  [/^execution\/naukri$/, ["GET", "PUT"]],
+  [/^execution\/naukri\/jobs$/, ["GET"]],
+  [/^execution\/naukri\/(import|apply)$/, ["POST"]],
+  [/^execution\/[a-f0-9-]{36}\/control$/, ["POST"]],
+  [/^execution\/[a-f0-9-]{36}\/questions\/[a-f0-9-]{36}$/, ["POST"]],
+  [/^execution\/questions$/, ["GET"]],
+  [/^execution\/questions\/[a-f0-9-]{36}\/approve-reuse$/, ["POST"]],
+
   [/^integrations\/gmail\/workspace\/(accounts|history|drafts)$/, ["GET"]],
   [
     /^integrations\/gmail\/workspace\/accounts\/(read_1|read_2|outreach)\/connect$/,
