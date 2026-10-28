@@ -523,6 +523,7 @@ async def test_actual_disposable_postgres_restart_and_recovery(postgres, monkeyp
         ("codex-phase2-final-pg17", 55437),
         ("codex-p3-pg17", 55434),
         ("automated-apply-p35-postgres", 55435),
+        ("automated-apply-phase35-integrated-test", 55436),
     }
     original = JobIngestionService.ingest_jobs
 
