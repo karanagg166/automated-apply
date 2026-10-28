@@ -48,6 +48,10 @@ async function evaluateForm(
     awaitPromise: true,
   });
   if (result.exceptionDetails) throw Error("isolated_inspector_failed");
+  // Reinspection intentionally issues a new DOM identifier. Register that
+  // identifier for this tab as well; formDOM still rejects every stale ID.
+  if (byValue && request.operation === "inspect" && result.result.value?.document_id)
+    documents.set(result.result.value.document_id, state);
   return byValue ? result.result.value : result.result.objectId;
 }
 async function evaluateSubmission(state, request) {
