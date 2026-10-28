@@ -113,7 +113,9 @@ Yes | 2026-11-02T14:00 Asia/Kolkata, or No; only the exact choice fills the cont
 Availability expires at the appointment or seven days, whichever comes first.
 Salary/relocation/work authorization require current verified owner facts, expire
 after seven days and never silently change profile facts. Other answers expire
-after thirty days; questions expire after two days. Sensitive credentials,
+after thirty days; questions expire after two days. The worker queues fresh
+re-confirmation questions for expired answers, including optional populated fields,
+and reissues unanswered expired prompts while rejecting old message IDs. Sensitive credentials,
 identity numbers and legal-consent answers are not retained.
 
 Subjective answers use the existing explicitly invoked, budget/consent-gated

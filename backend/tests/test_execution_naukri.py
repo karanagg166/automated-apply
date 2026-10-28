@@ -893,3 +893,106 @@ async def test_completed_fill_clears_lease_without_submission(
     await store.fill_event(db_session, row, plan, "form_filled")
     assert row.value["state"] == "READY_FOR_REVIEW" and row.value["lease_until"] is None
     assert all(e["submitted"] is False for e in row.value["evidence"])
+
+
+@pytest.mark.asyncio
+async def test_expired_answer_queues_reconfirmation_and_accepts_only_current_reply(
+    db_session, question_target, owner_settings
+):
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from backend.app.execution.worker import ExecutionWorker
+
+    execution, packet = question_target
+    original = await questions.ask(db_session, execution["id"], packet.fields[-1].id)
+    await db_session.flush()
+    qrow = await db_session.get(OwnerPreference, questions.PREFIX + original["id"])
+    qrow.value = {**original, "state": "sent", "message_ids": [101]}
+    await db_session.flush()
+    assert "saved" in await questions.receive(
+        db_session, owner_settings, message(), 900
+    )
+    await db_session.commit()
+    field = await db_session.get(ApplicationPacketField, packet.fields[-1].id)
+    field.provenance = {
+        **field.provenance,
+        "answer_expires_at": (
+            datetime.now(timezone.utc) - timedelta(seconds=1)
+        ).isoformat(),
+    }
+    row = await store.load(db_session, execution["id"])
+    row.value = {**row.value, "state": "READY_FOR_REVIEW"}
+    await db_session.commit()
+    factory = async_sessionmaker(
+        db_session.bind, expire_on_commit=False, autoflush=False
+    )
+    await ExecutionWorker(factory).tick()
+    await db_session.rollback()
+    pending = (
+        await db_session.scalars(
+            select(OwnerPreference).where(
+                OwnerPreference.key.startswith(questions.PREFIX)
+            )
+        )
+    ).all()
+    replacement = next(
+        r
+        for r in pending
+        if r.value["field_id"] == str(field.id) and r.value["state"] == "pending"
+    )
+    assert replacement.value["id"] != original["id"]
+    replacement.value = {**replacement.value, "state": "sent", "message_ids": [202]}
+    await db_session.commit()
+    assert "already answered" in await questions.receive(
+        db_session, owner_settings, message(reply_id=101, answer="No"), 901
+    )
+    assert "saved" in await questions.receive(
+        db_session, owner_settings, message(reply_id=202, answer="No"), 902
+    )
+    await db_session.commit()
+    refreshed = await db_session.get(
+        ApplicationPacketField, field.id, populate_existing=True
+    )
+    assert refreshed.human_answer == "No"
+    assert datetime.fromisoformat(
+        refreshed.provenance["answer_expires_at"]
+    ) > datetime.now(timezone.utc)
+
+
+@pytest.mark.asyncio
+async def test_expired_unanswered_question_reissues_without_accepting_old_message(
+    db_session, question_target, owner_settings
+):
+    execution, packet = question_target
+    q = await questions.ask(db_session, execution["id"], packet.fields[-1].id)
+    await db_session.flush()
+    row = await db_session.get(OwnerPreference, questions.PREFIX + q["id"])
+    row.value = {
+        **q,
+        "state": "sent",
+        "message_ids": [101],
+        "expires_at": (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat(),
+    }
+    await db_session.commit()
+    renewed = await questions.ask(db_session, execution["id"], packet.fields[-1].id)
+    assert renewed["state"] == "pending" and renewed["message_ids"] == []
+    assert renewed["expired_message_ids"] == [101]
+    assert "latest question" in await questions.receive(
+        db_session, owner_settings, message(), 903
+    )
+    assert (
+        await db_session.get(ApplicationPacketField, packet.fields[-1].id)
+    ).human_answer is None
+
+
+def test_optional_expired_answer_also_requires_reconfirmation():
+    from backend.app.execution.worker import needs_owner_answer
+
+    now = datetime.now(timezone.utc)
+    field = SimpleNamespace(
+        required=False,
+        effective_answer="Earlier owner answer",
+        field_type="text",
+        provenance=SimpleNamespace(answer_expires_at=now - timedelta(seconds=1)),
+    )
+    assert needs_owner_answer(field, now)

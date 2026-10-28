@@ -21,6 +21,15 @@ from backend.app.services.applications.service import ApplicationPacketService
 from backend.app.services.job_discovery_matcher import JobDiscoveryMatcher
 
 
+def needs_owner_answer(field, now):
+    if field.field_type == "file":
+        return False
+    expiry = field.provenance.answer_expires_at
+    return bool(
+        (field.required and not field.effective_answer) or (expiry and expiry <= now)
+    )
+
+
 def eligibility(job, profile, match):
     """Unknown/preferred criteria cannot become required or an auto-submit grant."""
     meta = job.discovery_metadata or {}
@@ -51,6 +60,7 @@ def eligibility(job, profile, match):
 
 async def prepare(session, identity):
     row = await store.fenced(session, identity)
+    now = await instant(session)
     job = await session.get(Job, UUID(row.value["job_id"]))
     profile = await session.scalar(
         select(CandidateProfile).where(CandidateProfile.singleton_key == "primary")
@@ -134,11 +144,7 @@ async def prepare(session, identity):
             "READY_FOR_REVIEW",
         }:
             for field in packet.fields:
-                if (
-                    field.required
-                    and field.field_type != "file"
-                    and not field.effective_answer
-                ):
+                if needs_owner_answer(field, now):
                     await ask(session, row.value["id"], field.id)
 
 
@@ -211,6 +217,7 @@ class ExecutionWorker:
             await watch(session)
             from backend.app.execution.questions import ask
 
+            now = await instant(session)
             for row in await store.rows(session):
                 if (
                     row.value["state"] not in {"NEEDS_INPUT", "READY_FOR_REVIEW"}
@@ -223,11 +230,7 @@ class ExecutionWorker:
                 if packet.readiness.stale:
                     continue
                 for field in packet.fields:
-                    if (
-                        field.required
-                        and field.field_type != "file"
-                        and not field.effective_answer
-                    ):
+                    if needs_owner_answer(field, now):
                         await ask(session, row.value["id"], field.id)
             identity = await store.claim(session)
         if not identity:

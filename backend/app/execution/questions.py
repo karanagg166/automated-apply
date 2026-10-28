@@ -116,9 +116,28 @@ async def ask(session, execution_id, field_id):
         )
     )
     row = await session.get(OwnerPreference, PREFIX + identity)
-    if row:
-        return row.value
     now = await instant(session)
+    if row:
+        if (
+            row.value["state"] in {"pending", "sent"}
+            and row.value["expires_at"] <= now.isoformat()
+        ):
+            row.value = {
+                **row.value,
+                "state": "pending",
+                "delivery_lease": None,
+                "expired_message_ids": [
+                    *row.value.get("expired_message_ids", []),
+                    *row.value["message_ids"],
+                ][-50:],
+                "message_ids": [],
+                "expires_at": (now + timedelta(days=2)).isoformat(),
+            }
+            if execution.value["state"] != "NEEDS_INPUT":
+                await store.move(
+                    session, execution, "NEEDS_INPUT", "owner_reconfirmation_required"
+                )
+        return row.value
     value = {
         "id": identity,
         "execution_id": str(execution_id),
@@ -184,6 +203,8 @@ async def receive(session, settings, message, update_id):
     ).all()
     row = next((r for r in candidates if reply_id in r.value["message_ids"]), None)
     if row is None:
+        if any(reply_id in r.value.get("expired_message_ids", []) for r in candidates):
+            return "This question expired. Reply to the latest question message to reconfirm."
         return None
     q, now = dict(row.value), await instant(session)
     if q["state"] == "answered":
