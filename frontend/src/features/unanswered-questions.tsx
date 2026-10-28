@@ -85,14 +85,28 @@ export function UnansweredQuestionsQueue({
     enabled: !!initialRequestId,
   });
   useEffect(() => {
-    if (initialRequest.data && !openedInitial.current) {
+    if (openedInitial.current || !initialRequestId) return;
+    if (initialRequest.data) {
       openedInitial.current = true;
       setSelectedItem(initialRequest.data);
       setAnswerText(initialRequest.data.answer || "");
       setEvidenceNote(initialRequest.data.evidence_note || "");
       setModalOpen(true);
+    } else if (missingQuestionsQuery.data?.requests) {
+      const match = missingQuestionsQuery.data.requests.find(
+        (r) =>
+          r.id === initialRequestId ||
+          (r as unknown as { field_id?: string }).field_id === initialRequestId,
+      );
+      if (match) {
+        openedInitial.current = true;
+        setSelectedItem(match);
+        setAnswerText(match.answer || "");
+        setEvidenceNote(match.evidence_note || "");
+        setModalOpen(true);
+      }
     }
-  }, [initialRequest.data]);
+  }, [initialRequest.data, missingQuestionsQuery.data, initialRequestId]);
   const hasUnsavedChanges =
     !selectedItem ||
     answerText.trim() !== (selectedItem.answer || "").trim() ||
