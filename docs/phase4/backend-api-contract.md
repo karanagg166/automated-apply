@@ -46,7 +46,7 @@ The extension adds cancellation of prepared answers and in-flight authorization.
 
 ## Type regeneration and validation
 
-The additive OpenAPI changes are the five job-search parameters and two optional normalized experience fields. Final verification compares the rest of the schema with the Phase 3.5 export and compiles generated TypeScript separately. Codex does not modify `frontend/**` during Phase 4. AGY should regenerate its owned types after integrating this branch:
+The additive OpenAPI changes are exactly the five job-search parameters. The normalized experience fields are validated within `manual_jobs` records at runtime; the existing OpenAPI exposes those records as dictionaries and does not export a `NormalizedJob` component. Gmail lead/evidence additions likewise extend existing dictionary responses. Final verification compares the rest of the schema with the Phase 3.5 export and compiles generated TypeScript separately. Codex does not modify `frontend/**` during Phase 4. AGY should regenerate its owned types after integrating this branch:
 
 ```sh
 python backend/scripts/export_openapi.py
