@@ -5,7 +5,7 @@
   "owner_approval_required": true,
   "sync_enabled": false,
   "body_reviewed": false,
-  "rendered_forward_sql_sha256": "e61d2e23fb27991715e2689cda14273d11abf4aac04e71babaf8ef4f5c434ebd",
   "gmail_message_reads": 0,
-  "google_oauth_started": false
+  "google_oauth_started": false,
+  "rendered_forward_sql_review": "Exact SHA-256 and operator procedure retained in final-integration.md; complete original receipt retained privately."
 }
