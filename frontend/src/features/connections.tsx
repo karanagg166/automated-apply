@@ -1,5 +1,6 @@
 "use client";
 import { LocalConnections } from "@/features/local-connections";
+import { ConnectedEmails } from "@/features/connected-emails";
 import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -61,6 +62,7 @@ type Enricher = {
 };
 export function Connections() {
   const client = useQueryClient(),
+    [tab, setTab] = useState<"connectors" | "mailboxes">("connectors"),
     [detail, setDetail] = useState<string | null>(null),
     [email, setEmail] = useState(""),
     [mode, setMode] = useState("metadata"),
@@ -123,166 +125,194 @@ export function Connections() {
           </Badge>
         }
       />
-      <LocalConnections />
-      <Notice>
-        Portals without a verified linking protocol use Manual Handoff. There is
-        no portal-password collection or LinkedIn account connection. Gmail
-        requires a separately authorized secondary account.
-      </Notice>
-      {registry.isPending ? (
-        <Skeleton />
-      ) : registry.isError ? (
-        <ErrorState error={registry.error} />
+      <div className="status-tabs" role="tablist" aria-label="Connection views">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "connectors"}
+          className={tab === "connectors" ? "selected" : ""}
+          onClick={() => setTab("connectors")}
+        >
+          Platform connectors
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "mailboxes"}
+          className={tab === "mailboxes" ? "selected" : ""}
+          onClick={() => setTab("mailboxes")}
+        >
+          Connected mailboxes (Read-Only)
+        </button>
+      </div>
+      {tab === "mailboxes" ? (
+        <ConnectedEmails />
       ) : (
-        <div className="connection-grid">
-          {cards.map((c) => {
-            const enrich = enrichment.data?.providers.find(
-              (p) => p.provider === c.platform,
-            );
-            const manual = [
-              "naukri",
-              "instahyre",
-              "wellfound",
-              "internshala",
-              "work_at_a_startup",
-              "linkedin",
-            ].includes(c.platform);
-            const state =
-              c.platform === "gmail"
-                ? gmail.data?.status || "not_connected"
-                : enrich
-                  ? enrich.credentials_configured
-                    ? "configured_not_live_verified"
-                    : "not_connected"
-                  : manual
-                    ? "manual_handoff_only"
-                    : c.discovery_connection?.state || "requires_configuration";
-            return (
-              <article className="connection-card" key={c.platform}>
-                <div className="split">
-                  <span className="row-icon">
-                    {c.platform === "gmail" ? (
-                      <Mail size={19} />
-                    ) : (
-                      <Plug size={19} />
-                    )}
-                  </span>
-                  <Badge
-                    tone={
-                      c.live_verified
-                        ? "green"
-                        : state === "not_connected"
-                          ? "amber"
-                          : "neutral"
-                    }
-                  >
-                    {readable(state)}
-                  </Badge>
-                </div>
-                <h3>
-                  {c.platform === "gmail"
-                    ? "Secondary Gmail"
-                    : readable(c.platform)}
-                </h3>
-                <p>
-                  {c.platform === "gmail"
-                    ? "Local drafts, OAuth identity and exact-content send confirmation."
+        <>
+          <LocalConnections />
+          <Notice>
+            Portals without a verified linking protocol use Manual Handoff.
+            There is no portal-password collection or LinkedIn account
+            connection. Gmail requires a separately authorized secondary
+            account.
+          </Notice>
+          {registry.isPending ? (
+            <Skeleton />
+          ) : registry.isError ? (
+            <ErrorState error={registry.error} />
+          ) : (
+            <div className="connection-grid">
+              {cards.map((c) => {
+                const enrich = enrichment.data?.providers.find(
+                  (p) => p.provider === c.platform,
+                );
+                const manual = [
+                  "naukri",
+                  "instahyre",
+                  "wellfound",
+                  "internshala",
+                  "work_at_a_startup",
+                  "linkedin",
+                ].includes(c.platform);
+                const state =
+                  c.platform === "gmail"
+                    ? gmail.data?.status || "not_connected"
                     : enrich
-                      ? "Optional professional contact enrichment. Returned addresses require separate mailbox verification."
-                      : manual
-                        ? "Prepare a packet, review evidence and continue manually on the official website."
-                        : "Read public job-board listings through the existing permitted adapter."}
-                </p>
-                <dl>
-                  <dt>Live verified</dt>
-                  <dd>{c.live_verified ? "Yes" : "No"}</dd>
-                  <dt>Credential state</dt>
-                  <dd>
-                    {enrich
                       ? enrich.credentials_configured
-                        ? "Available"
-                        : "Missing"
-                      : c.platform === "gmail"
-                        ? gmail.data?.oauth_configured
-                          ? "OAuth configured"
-                          : "OAuth missing"
-                        : manual
-                          ? "No linking protocol"
-                          : "Source configuration"}
-                  </dd>
-                  <dt>Cost / budget</dt>
-                  <dd>
-                    {enrich
-                      ? `${enrich.budget.remaining_local_budget} / ${enrich.budget.monthly_limit} local credits`
-                      : c.platform === "greenhouse"
-                        ? "Public read API"
-                        : "Operation dependent"}
-                  </dd>
-                  <dt>Last verification</dt>
-                  <dd>
-                    {dateLabel(
-                      c.platform === "gmail"
-                        ? gmail.data?.last_verified_at
-                        : c.discovery_connection?.last_check?.finished_at,
-                    )}
-                  </dd>
-                  <dt>Last error</dt>
-                  <dd>
-                    {c.discovery_connection?.last_check?.error_category ||
-                      "None recorded"}
-                  </dd>
-                </dl>
-                <Button
-                  onClick={() => {
-                    setDetail(c.platform);
-                    setConsent(false);
-                  }}
-                >
-                  Review capabilities
-                  <ArrowUpRight size={13} />
-                </Button>
-              </article>
-            );
-          })}
-          {runtime.data?.providers.map((p) => (
-            <article className="connection-card" key={p.provider}>
-              <div className="split">
-                <span className="row-icon">
-                  <KeyRound size={18} />
-                </span>
-                <Badge tone={p.configured ? "neutral" : "amber"}>
-                  {p.configured ? "Configured" : "Not connected"}
-                </Badge>
-              </div>
-              <h3>{p.provider}</h3>
-              <p>{p.next_action}</p>
-              <dl>
-                <dt>Capability</dt>
-                <dd>{readable(p.capability)}</dd>
-                <dt>Permission configured</dt>
-                <dd>
-                  {p.authorized
-                    ? "Yes · operation consent required"
-                    : "Review required"}
-                </dd>
-                <dt>Live verified</dt>
-                <dd>{p.live_verified ? "Yes" : "No"}</dd>
-                <dt>Local budget</dt>
-                <dd>
-                  {p.budget}
-                  {p.provider === "apify" ? " USD / month" : " / month"}
-                </dd>
-              </dl>
-              <Button onClick={() => setDetail(p.provider)}>
-                Review setup
-                <ArrowUpRight size={13} />
-              </Button>
-            </article>
-          ))}
-        </div>
+                        ? "configured_not_live_verified"
+                        : "not_connected"
+                      : manual
+                        ? "manual_handoff_only"
+                        : c.discovery_connection?.state ||
+                          "requires_configuration";
+                return (
+                  <article className="connection-card" key={c.platform}>
+                    <div className="split">
+                      <span className="row-icon">
+                        {c.platform === "gmail" ? (
+                          <Mail size={19} />
+                        ) : (
+                          <Plug size={19} />
+                        )}
+                      </span>
+                      <Badge
+                        tone={
+                          c.live_verified
+                            ? "green"
+                            : state === "not_connected"
+                              ? "amber"
+                              : "neutral"
+                        }
+                      >
+                        {readable(state)}
+                      </Badge>
+                    </div>
+                    <h3>
+                      {c.platform === "gmail"
+                        ? "Secondary Gmail"
+                        : readable(c.platform)}
+                    </h3>
+                    <p>
+                      {c.platform === "gmail"
+                        ? "Local drafts, OAuth identity and exact-content send confirmation."
+                        : enrich
+                          ? "Optional professional contact enrichment. Returned addresses require separate mailbox verification."
+                          : manual
+                            ? "Prepare a packet, review evidence and continue manually on the official website."
+                            : "Read public job-board listings through the existing permitted adapter."}
+                    </p>
+                    <dl>
+                      <dt>Live verified</dt>
+                      <dd>{c.live_verified ? "Yes" : "No"}</dd>
+                      <dt>Credential state</dt>
+                      <dd>
+                        {enrich
+                          ? enrich.credentials_configured
+                            ? "Available"
+                            : "Missing"
+                          : c.platform === "gmail"
+                            ? gmail.data?.oauth_configured
+                              ? "OAuth configured"
+                              : "OAuth missing"
+                            : manual
+                              ? "No linking protocol"
+                              : "Source configuration"}
+                      </dd>
+                      <dt>Cost / budget</dt>
+                      <dd>
+                        {enrich
+                          ? `${enrich.budget.remaining_local_budget} / ${enrich.budget.monthly_limit} local credits`
+                          : c.platform === "greenhouse"
+                            ? "Public read API"
+                            : "Operation dependent"}
+                      </dd>
+                      <dt>Last verification</dt>
+                      <dd>
+                        {dateLabel(
+                          c.platform === "gmail"
+                            ? gmail.data?.last_verified_at
+                            : c.discovery_connection?.last_check?.finished_at,
+                        )}
+                      </dd>
+                      <dt>Last error</dt>
+                      <dd>
+                        {c.discovery_connection?.last_check?.error_category ||
+                          "None recorded"}
+                      </dd>
+                    </dl>
+                    <Button
+                      onClick={() => {
+                        setDetail(c.platform);
+                        setConsent(false);
+                      }}
+                    >
+                      Review capabilities
+                      <ArrowUpRight size={13} />
+                    </Button>
+                  </article>
+                );
+              })}
+              {runtime.data?.providers.map((p) => (
+                <article className="connection-card" key={p.provider}>
+                  <div className="split">
+                    <span className="row-icon">
+                      <KeyRound size={18} />
+                    </span>
+                    <Badge tone={p.configured ? "neutral" : "amber"}>
+                      {p.configured ? "Configured" : "Not connected"}
+                    </Badge>
+                  </div>
+                  <h3>{p.provider}</h3>
+                  <p>{p.next_action}</p>
+                  <dl>
+                    <dt>Capability</dt>
+                    <dd>{readable(p.capability)}</dd>
+                    <dt>Permission configured</dt>
+                    <dd>
+                      {p.authorized
+                        ? "Yes · operation consent required"
+                        : "Review required"}
+                    </dd>
+                    <dt>Live verified</dt>
+                    <dd>{p.live_verified ? "Yes" : "No"}</dd>
+                    <dt>Local budget</dt>
+                    <dd>
+                      {p.budget}
+                      {p.provider === "apify" ? " USD / month" : " / month"}
+                    </dd>
+                  </dl>
+                  <Button onClick={() => setDetail(p.provider)}>
+                    Review setup
+                    <ArrowUpRight size={13} />
+                  </Button>
+                </article>
+              ))}
+            </div>
+          )}
+          {runtime.isError && <ErrorState error={runtime.error} />}{" "}
+          {enrichment.isError && <ErrorState error={enrichment.error} />}
+        </>
       )}
-      {runtime.isError && <ErrorState error={runtime.error} />}{" "}
-      {enrichment.isError && <ErrorState error={enrichment.error} />}
       <Modal
         open={!!detail}
         onOpenChange={(v) => !v && setDetail(null)}

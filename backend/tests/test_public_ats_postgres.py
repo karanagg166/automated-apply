@@ -521,6 +521,7 @@ async def test_actual_disposable_postgres_restart_and_recovery(postgres, monkeyp
     assert (container, parsed.port) in {
         ("codex-p22-pg17", 55432),
         ("codex-phase2-final-pg17", 55437),
+        ("codex-p3-pg17", 55434),
     }
     original = JobIngestionService.ingest_jobs
 

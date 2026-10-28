@@ -108,6 +108,8 @@ def file_inventory():
 
 def compare_catalog(actual, manifest=None, *, restricted_runtime=False):
     expected = manifest or json.loads(MANIFEST.read_text())
+    from backend.app.integrations.gmail.schema import expected_overlay
+    expected = {**expected, "catalog": expected_overlay(expected["catalog"], actual, "job_agent")}
     if restricted_runtime:
         from backend.app.operations.runtime_security import restricted_manifest
 

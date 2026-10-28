@@ -15,6 +15,9 @@ ROLE_PATTERNS = {
     "vp engineering": ("vp engineering", "vp of engineering"),
     "engineering manager": ("engineering manager",),
     "technical recruiter": ("technical recruiter",),
+    "software engineer": ("software engineer",),
+    "software developer": ("software developer",),
+    "technical staff": ("software engineer", "software developer", "platform engineer"),
     "talent acquisition": ("talent acquisition",),
     "recruiter": ("recruiter", "recruiting"),
 }

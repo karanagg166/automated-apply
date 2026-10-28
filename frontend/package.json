@@ -16,6 +16,7 @@
     "test": "vitest run",
     "e2e": "playwright test",
     "e2e:browser": "playwright test --config playwright.browser.config.ts",
+    "e2e:phase3": "playwright test --config playwright.phase3.config.ts",
     "api:types": "openapi-typescript ../reports/phase7-openapi.json -o src/types/api.d.ts && prettier --write src/types/api.d.ts",
     "format:check": "prettier --check src tests *.ts *.mjs"
   },

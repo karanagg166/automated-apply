@@ -13,6 +13,8 @@ PUBLIC_SOURCES = (
 )
 # Conservative deployment limits; Remotive recommends no more than four calls daily.
 INTERVALS = {
+    "apify_metadata": 10,
+    "apollo_capability": 10,
     "remotive": 21600,
     "arbeitnow": 60,
     "greenhouse": 60,

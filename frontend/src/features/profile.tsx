@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ProjectsEditor } from "@/components/projects-editor";
 import { ProfileResources } from "./profile-resources";
@@ -418,11 +419,17 @@ export function ProfileWizard() {
         title="Make it yours."
         description="Your facts, your evidence, your review. Nothing is inferred or sent to an AI provider."
         actions={
-          profile.data ? (
-            <Badge tone="green">Saved · version {profile.data.version}</Badge>
-          ) : (
-            <Badge tone="amber">Awaiting owner review</Badge>
-          )
+          <div className="actions">
+            {profile.data ? (
+              <Badge tone="green">Saved · version {profile.data.version}</Badge>
+            ) : (
+              <Badge tone="amber">Awaiting owner review</Badge>
+            )}
+            <Link className="button" href="/candidate-facts">
+              <ShieldCheck size={13} />
+              Candidate knowledge & facts
+            </Link>
+          </div>
         }
       />
       <div className="stepper" aria-label="Onboarding steps">

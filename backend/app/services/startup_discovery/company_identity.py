@@ -2,7 +2,7 @@
 
 import hashlib
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 
 from backend.app.models.company import Company
 from backend.app.models.startup import CompanySourceObservation
@@ -39,6 +39,8 @@ async def resolve_company(session, item):
     )
     if prior:
         company = await session.get(Company, prior.company_id)
+        if not item.source_company_id and not item.domain and " ".join(company.name.casefold().split()) != " ".join(item.name.casefold().split()):
+            raise ValueError("Unqualified source URL does not establish company identity")
         if (by_domain and by_domain.id != company.id) or (
             item.domain and company.domain and company.domain != item.domain
         ):
@@ -52,27 +54,8 @@ async def resolve_company(session, item):
         return company
     if by_domain:
         return by_domain
-    # An unqualified name must never attach to an arbitrary known-domain namesake.
-    matches = (
-        await session.scalars(
-            select(Company)
-            .where(
-                func.lower(Company.name) == item.name.casefold(),
-                Company.domain.is_(None),
-            )
-            .limit(2)
-        )
-    ).all()
-    if len(matches) == 1 and (
-        not item.domain
-        or (
-            item.verification_status == "human_confirmed"
-            and not (matches[0].metadata_ or {}).get("identity_review_required")
-        )
-    ):
-        if item.domain:
-            matches[0].domain = item.domain
-        return matches[0]
+    # Display-name equality never proves identity. A new domain/source identity
+    # stays separate until an owner reconciles it with attributable evidence.
     company = Company(name=item.name, domain=item.domain, metadata_={})
     session.add(company)
     await session.flush()

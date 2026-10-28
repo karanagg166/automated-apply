@@ -69,7 +69,8 @@ async function proxy(
       ) ||
         /^application-answers\/drafts\/[a-f0-9-]{36}\/approve-reuse$/.test(
           path,
-        ))
+        ) ||
+        /^application-answers\/missing\/[a-f0-9-]{32,36}\/approve$/.test(path))
     ) {
       const approvalKey = process.env.BROWSER_OWNER_APPROVAL_KEY;
       if (!approvalKey || approvalKey.length < 32)
@@ -106,7 +107,12 @@ async function proxy(
       if (v) out.set(name, v);
     }
     // Google callback goes directly to the backend on the same host. Retain its browser binding.
-    if (path === "integrations/gmail/connect/start")
+    if (
+      [
+        "integrations/gmail/connect/start",
+        "integrations/gmail/accounts/connect/start",
+      ].includes(path)
+    )
       for (const cookie of upstream.headers.getSetCookie())
         out.append("Set-Cookie", cookie);
     if (upstream.status >= 500)

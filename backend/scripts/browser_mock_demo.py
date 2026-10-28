@@ -36,6 +36,7 @@ async def run(
     dropdown_demo=False,
     multiple_demo=False,
     company_source_demo=False,
+    phase3_demo=False,
 ):
     import asyncpg
     import httpx
@@ -58,9 +59,12 @@ async def run(
         await admin.close()
         raise ValueError("Disposable PostgreSQL 17 is required")
     name = "candidate_profile_test_browser_" + uuid4().hex
+    role_suffix = uuid4().hex
+    phase3_roles = ("fixture_owner_" + role_suffix, "fixture_runtime_" + role_suffix)
     await admin.execute(f'CREATE DATABASE "{name}"')
     child = urlunsplit(parsed._replace(path="/" + name))
     task, server = None, None
+    phase3_roles_created = False
     try:
         connection = await asyncpg.connect(child)
         try:
@@ -69,6 +73,12 @@ async def run(
                     "SELECT EXISTS(SELECT 1 FROM pg_roles WHERE rolname=$1)", role
                 ):
                     await connection.execute(f'CREATE ROLE "{role}" NOLOGIN')
+            if phase3_demo:
+                bootstrap = (ROOT / "docs/sql/phase9-role-bootstrap.sql").read_text()
+                for original, fixture_role in zip(("job_agent_owner", "job_agent_runtime"), phase3_roles):
+                    bootstrap = bootstrap.replace(original, fixture_role)
+                await connection.execute(bootstrap)
+                phase3_roles_created = True
             for migration in sorted((ROOT / "supabase/migrations").glob("*.sql")):
                 await connection.execute(migration.read_text())
             if (multiple_demo or serve) and multiple_demo != "without_schema":
@@ -95,6 +105,13 @@ async def run(
                         "SELECT has_table_privilege($1,'job_agent.browser_submission_attempts','SELECT,INSERT,UPDATE,DELETE')",
                         role,
                     )
+            if phase3_demo:
+                from backend.app.integrations.gmail.schema import render_review_sql
+
+                read_sql = render_review_sql("job_agent")
+                for original, fixture_role in zip(("job_agent_owner", "job_agent_runtime"), phase3_roles):
+                    read_sql = read_sql.replace(original, fixture_role)
+                await connection.execute(read_sql)
             assert not await connection.fetchval(
                 "SELECT has_table_privilege('anon','job_agent.owner_preferences','SELECT')"
             )
@@ -182,6 +199,10 @@ async def run(
                 COMPANY_SOURCE_FETCH_ENABLED=bool(company_host),
                 COMPANY_SOURCE_URLS=[company_host + "/about"] if company_host else [],
                 UI_FIXTURE_MODE=True,
+                GMAIL_READ_SYNC_ENABLED=phase3_demo,
+                GMAIL_READ_BODY_REVIEWED=phase3_demo,
+                OAUTH_ACTIVE_KEY_ID="fixture-v1" if phase3_demo else "",
+                OAUTH_ENCRYPTION_KEYS={"fixture-v1": Fernet.generate_key().decode()} if phase3_demo else {},
                 **{
                     key: field.get_default(call_default_factory=True)
                     for key, field in Settings.model_fields.items()
@@ -303,6 +324,10 @@ async def run(
                     )
                 )
                 await session.commit()
+            if phase3_demo:
+                from backend.scripts.phase3_browser_fixture import install
+
+                await install(app, settings, get_session_factory())
             server = uvicorn.Server(
                 uvicorn.Config(
                     app,
@@ -893,6 +918,8 @@ async def run(
         if task and not task.done():
             await task
         await admin.execute(f'DROP DATABASE IF EXISTS "{name}" WITH (FORCE)')
+        if phase3_roles_created:
+            await admin.execute(f'DROP ROLE "{phase3_roles[1]}", "{phase3_roles[0]}"')
         await admin.close()
 
 

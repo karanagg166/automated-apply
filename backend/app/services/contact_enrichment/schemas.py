@@ -48,6 +48,7 @@ class PersonObservation(BaseModel):
     linkedin_url: str | None = Field(None, max_length=2048)
     email: str | None = Field(None, max_length=255)
     human_confirmed: bool = False
+    email_publication_url: PublicHTTPSURL | None = None
     professional_url: PublicHTTPSURL | None = None
     permission_evidence_url: PublicHTTPSURL | None = None
     provider_person_id: Text | None = None

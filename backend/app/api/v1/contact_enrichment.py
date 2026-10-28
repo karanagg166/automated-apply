@@ -294,3 +294,32 @@ async def recommended(
         "outreach_mode": "manual_review",
         "outbound_messages_sent": 0,
     }
+
+
+@router.post("/contact-enrichment/providers/apollo/inspect")
+async def inspect_apollo(operation: Literal["enrich_person", "search_people"] = "enrich_person",
+                         service=Depends(enrichment_service)):
+    from backend.app.schemas.discovery import DiscoveryError
+    from backend.app.services.contact_enrichment.apollo_capabilities import (
+        eligibility,
+        inspect,
+    )
+    from backend.app.services.contact_enrichment.base import ProviderError
+    from backend.app.services.startup_discovery.connectivity import claim_access
+    provider = service.providers["apollo"]
+    try:
+        await service.session.commit()
+        await claim_access(service.factory, "apollo_capability")
+        result = await inspect(provider, operation, service.settings.APOLLO_CREDIT_POOL)
+        try:
+            eligibility(service.settings, operation)
+            result["eligibility_verified"] = True
+        except ProviderError:
+            pass
+        return result
+    except DiscoveryError:
+        return {"provider": "apollo", "status": "rate_limited", "error_code": "apollo_capability_interval",
+                "eligibility_verified": False, "lookup_authorized": False}
+    except ProviderError as exc:
+        return {"provider": "apollo", "status": exc.state, "error_code": exc.message,
+                "eligibility_verified": False, "lookup_authorized": False}

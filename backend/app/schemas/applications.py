@@ -161,6 +161,7 @@ class Provenance(Contract):
         default_factory=list, max_length=12
     )
     answer_draft_id: UUID | None = None
+    missing_input_id: str | None = None
     resource_id: UUID | None = None
     provider: str | None = None
     model: str | None = None

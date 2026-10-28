@@ -163,3 +163,15 @@ async def test_new_intent_supersedes_old_callback(oauth_bundle):
     assert (await service.callback(current, "new-browser", CALLBACK, "code"))[
         "status"
     ] == "connected"
+
+
+@pytest.mark.asyncio
+async def test_legacy_random_state_prefix_cannot_route_to_read_account_storage(oauth_bundle, monkeypatch):
+    import backend.app.integrations.connection_service as lifecycle
+    service, _, _ = oauth_bundle
+    original = lifecycle.secrets.token_urlsafe
+    monkeypatch.setattr(lifecycle.secrets, "token_urlsafe", lambda size: "r_" + "x" * 41 if size == 32 else original(size))
+    state = state_from(await service.start(EMAIL, "browser"))
+    assert state.startswith("r_")
+    result = await service.callback(state, "browser", CALLBACK, "code")
+    assert result["workflow"] == "legacy" and result["status"] == "connected"

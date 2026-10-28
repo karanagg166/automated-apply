@@ -5,7 +5,6 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from backend.app.core.config import get_settings
-from backend.app.schemas.discovery import DiscoveryQuery
 
 
 class UnknownSourceError(ValueError):
@@ -81,23 +80,12 @@ def source_registry(settings=None):
         )
     for name in APIFY_PORTALS:
         # Validate deployment config without leaking actor inputs, tokens or credentials.
-        from backend.app.services.job_sources.apify_adapter import ActorConfiguration
-
-        raw = settings.APIFY_SOURCES.get(name, {})
-        try:
-            actor = ActorConfiguration.model_validate(raw)
-            actor.build_input(DiscoveryQuery())
-            configured = (
-                actor.enabled
-                and actor.reviewed
-                and actor.platform_usage_included
-                and actor.account_spending_limit_verified
-                and bool(settings.APIFY_API_TOKEN)
-                and settings.APIFY_PER_RUN_CAP_USD > 0
-                and settings.APIFY_MONTHLY_LIMIT_USD >= settings.APIFY_PER_RUN_CAP_USD
-            )
-        except ValueError:
-            configured = False
+        from backend.app.services.job_sources.apify_adapter import ApifyJobAdapter
+        configurations = settings.APIFY_SOURCE_ROUTES.get(name) or [settings.APIFY_SOURCES.get(name, {})]
+        configured = len(configurations) <= 5 and any(
+            not ApifyJobAdapter(source_name=name, settings=settings, configuration=raw).validate_configuration()
+            for raw in configurations
+        )
         sources[name] = SourceConfig(
             id=name,
             display_name=NAMES.get(name, name.title()),

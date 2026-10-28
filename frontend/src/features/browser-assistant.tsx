@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { ArrowUpRight } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, externalUrl, post, readable, Schema } from "@/lib/api";
 import {
@@ -280,7 +281,7 @@ export function BrowserAssistant({
               </p>
               <p>
                 Official destination:{" "}
-                {packet.snapshot.destination?.application_url ? (
+                {packet.snapshot.destination?.valid ? (
                   <External href={packet.snapshot.destination.application_url}>
                     {packet.snapshot.destination.application_url}
                   </External>
@@ -315,7 +316,7 @@ export function BrowserAssistant({
                   }
                 >
                   {packet.snapshot.resume?.selected?.confirmed
-                    ? "Confirmed & Verified"
+                    ? "Selection confirmed"
                     : "Needs Confirmation"}
                 </Badge>
               </p>
@@ -327,6 +328,58 @@ export function BrowserAssistant({
           </div>
         </div>
       )}
+      {packet.snapshot && (
+        <div
+          className="metrics spaced"
+          aria-label="Application readiness indicators"
+        >
+          <div className="metric">
+            <div className="metric-label">DESTINATION READY</div>
+            <p>
+              {packet.snapshot.destination?.valid ? (
+                <Badge tone="green">Configured</Badge>
+              ) : (
+                <Badge tone="amber">Needs destination review</Badge>
+              )}
+            </p>
+          </div>
+          <div className="metric">
+            <div className="metric-label">RESUME CONFIRMED</div>
+            <p>
+              {packet.snapshot.resume?.selected?.confirmed ? (
+                <Badge tone="green">Resume selection confirmed</Badge>
+              ) : (
+                <Badge tone="amber">Needs Review</Badge>
+              )}
+            </p>
+          </div>
+          <div className="metric">
+            <div className="metric-label">ASSISTANT STATUS</div>
+            <p>
+              <Badge tone={state?.connected ? "green" : "neutral"}>
+                {!state
+                  ? "Not observed"
+                  : state.connected
+                    ? "Connected"
+                    : "Disconnected"}
+              </Badge>
+            </p>
+          </div>
+          <div className="metric">
+            <div className="metric-label">SUBMISSION MODE</div>
+            <p>
+              <Badge tone="neutral">Manual review & handoff</Badge>
+            </p>
+          </div>
+        </div>
+      )}
+      <Notice>
+        <strong>Manual Handoff & Non-Submission Guarantee:</strong> Assisted
+        filling populates reviewed fields into your local Chrome session. It
+        NEVER submits your application to the employer. When filling finishes,
+        inspect every field on the official employer website and submit
+        manually.
+      </Notice>
       <Notice>
         Assisted filling uses a dedicated Chrome profile. Submission is manual.
         Required consent, custom controls, embedded forms and additional steps
@@ -639,6 +692,12 @@ export function BrowserAssistant({
                     </li>
                   ))}
               </ul>
+              <div className="actions" style={{ marginTop: "0.5rem" }}>
+                <Link className="button primary" href="/needs-input">
+                  Open &apos;Needs your input&apos; queue
+                  <ArrowUpRight size={13} />
+                </Link>
+              </div>
             </div>
           )}
           {state.analysis.fields.some((f) => !f.supported) && (

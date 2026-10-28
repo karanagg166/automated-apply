@@ -43,10 +43,13 @@ async def database_health(engine, settings):
                 return await verify_public_database(driver, settings)
             restricted = await driver.fetchval("SELECT current_user") == RUNTIME_ROLE
             expected = json.loads(MANIFEST.read_text())["catalog"]
+            actual = await catalog(driver, settings.DATABASE_SCHEMA)
+            from backend.app.integrations.gmail.schema import expected_overlay
+            expected = expected_overlay(expected, actual, settings.DATABASE_SCHEMA)
             if restricted:
                 await verify_restricted_runtime(driver, expected["tables"])
             plan = compare_catalog(
-                await catalog(driver, settings.DATABASE_SCHEMA),
+                actual,
                 restricted_runtime=restricted,
             )
             if plan.status != "verified":
@@ -85,7 +88,12 @@ async def database_health(engine, settings):
             if not allowed:
                 raise RuntimeError("database_runtime_dml_permissions_missing")
             # Check all expected table/column SELECTs without reading candidate rows.
+            from backend.app.integrations.gmail.schema import (
+                TABLES as optional_gmail_tables,
+            )
             for model_table in Base.metadata.sorted_tables:
+                if model_table.name in optional_gmail_tables and model_table.name not in actual["tables"]:
+                    continue
                 await connection.execute(select(model_table).limit(0))
             actual_database = await connection.scalar(text("SELECT current_database()"))
             if actual_database != database_target(settings).database:

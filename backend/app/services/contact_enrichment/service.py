@@ -68,6 +68,7 @@ class ContactEnrichmentService:
         self.session, self.factory = session, factory
         self.settings = settings or get_settings()
         self.budget = DiscoveryBudget(factory)
+        self.production_providers = providers is None
         self.providers = (
             providers
             if providers is not None
@@ -418,13 +419,36 @@ class ContactEnrichmentService:
                     "Durable lookup already exists; reuse cached evidence or review prior run"
                 ],
             )
+        monthly_limit = self.settings.get_provider_monthly_limit(name)
+        if name == "apollo":
+            from backend.app.services.contact_enrichment.apollo_capabilities import (
+                preflight,
+            )
+            from backend.app.services.contact_enrichment.base import ProviderError
+            # Fixture providers explicitly replace the transport. Production adapters
+            # always inspect the actual account immediately before dispatch.
+            if self.production_providers:
+                try:
+                    from backend.app.services.startup_discovery.connectivity import (
+                        claim_access,
+                    )
+                    await self.session.commit()
+                    await claim_access(self.factory, "apollo_capability")
+                    capability = await preflight(provider, self.settings, operation, cost)
+                    monthly_limit = min(monthly_limit, capability["credits"]["remaining"])
+                except DiscoveryError:
+                    await self.finish_lookup(reservation, State.RATE_LIMITED)
+                    return provider.result(State.RATE_LIMITED, errors=["Apollo local capability interval has not elapsed"])
+                except ProviderError as exc:
+                    await self.finish_lookup(reservation, exc.state)
+                    return provider.error_result(exc)
         if cost:
             try:
                 await self.budget.reserve(
                     name,
                     reservation,
                     cost,
-                    self.settings.get_provider_monthly_limit(name),
+                    monthly_limit,
                 )
             except DiscoveryError as exc:
                 await self.finish_lookup(reservation, str(exc.status))

@@ -76,18 +76,20 @@ export function formPlanText(plan) {
     const answer = isConsent
       ? "Manual completion required: Consent and legal declarations are never selected automatically"
       : action.needs_input
-        ? "Needs a reviewed fact in your profile"
+        ? `NEEDS_INPUT: ${/^[a-f0-9]{32}$/.test(action.missing_input_id || "") ? "Saved question needs your factual input" : "Needs a reviewed fact in your profile"}`
         : action.kind === "file"
           ? "Upload your confirmed PDF yourself"
           : action.value;
     const sources = [
       ...new Set(
         (action.evidence || []).map((source) =>
-          source.startsWith("approved_project:")
-            ? "Approved project"
-            : source.startsWith("candidate_resource:")
-              ? "Reviewed profile link or resume"
-              : "Reviewed profile",
+          source.startsWith("owner_answer:")
+            ? "Owner-approved answer for this context"
+            : source.startsWith("approved_project:")
+              ? "Approved project"
+              : source.startsWith("candidate_resource:")
+                ? "Reviewed profile link or resume"
+                : "Reviewed profile",
         ),
       ),
     ];
@@ -107,4 +109,24 @@ export function formPlanText(plan) {
     return `${item?.label || "Unlabelled control"}${suffix}\nManual completion required: ${item?.reason || "Unsupported control"}\nSource: Manual only`;
   });
   return [...actionBlocks, ...unsupportedBlocks].join("\n\n");
+}
+
+export function missingInputLinks(plan) {
+  const unique = new Map();
+  for (const action of plan?.actions || []) {
+    if (
+      !action.needs_input ||
+      !/^[a-f0-9]{32}$/.test(action.missing_input_id || "")
+    )
+      continue;
+    const field = plan?.inspection?.fields?.find(
+      (item) => item.field_id === action.field_id,
+    );
+    unique.set(action.missing_input_id, {
+      id: action.missing_input_id,
+      label: field?.group_label || field?.label || "Saved question",
+      url: `http://127.0.0.1:3000/profile?missing_input=${action.missing_input_id}`,
+    });
+  }
+  return [...unique.values()];
 }

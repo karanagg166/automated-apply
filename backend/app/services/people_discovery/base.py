@@ -1,7 +1,14 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 from backend.app.core.job_urls import canonical_job_url
 from backend.app.core.urls import PublicHTTPSURL
@@ -16,6 +23,9 @@ Role = Literal[
     "engineering manager",
     "vp engineering",
     "technical recruiter",
+    "software engineer",
+    "software developer",
+    "technical staff",
     "talent acquisition",
     "recruiter",
 ]
@@ -58,6 +68,14 @@ class OfficialPersonEvidence(BaseModel):
     permission_evidence_url: PublicHTTPSURL
     observed_at: datetime
     human_confirmed: bool = False
+    business_email: EmailStr | None = None
+    email_publication_url: PublicHTTPSURL | None = None
+
+    @model_validator(mode="after")
+    def published_email_evidence(self):
+        if bool(self.business_email) != bool(self.email_publication_url):
+            raise ValueError("Published business email requires its attributable source URL")
+        return self
 
     @field_validator("observed_at")
     @classmethod

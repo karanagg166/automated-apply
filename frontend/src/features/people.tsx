@@ -27,6 +27,8 @@ export type Contact = {
   linkedin_url?: string | null;
   email?: string | null;
   email_status: string;
+  email_evidence_status?: string;
+  email_publication_url?: string | null;
   source: string;
   last_checked_at?: string | null;
   confidence: string;
@@ -58,6 +60,7 @@ export function CompanyPeople({
     [provider, setProvider] = useState("apollo"),
     [approved, setApproved] = useState(false),
     [evidenceId, setEvidenceId] = useState<string | null>(null),
+    [roleFilter, setRoleFilter] = useState("all"),
     [researchConsent, setResearchConsent] = useState(false);
   const contacts = useQuery({
     queryKey: ["contacts", companyId],
@@ -139,13 +142,57 @@ export function CompanyPeople({
       setResearchConsent(false);
     },
   });
+  const matchesRole = (title?: string | null) => {
+    if (roleFilter === "all") return true;
+    const t = (title || "").toLowerCase();
+    if (roleFilter === "founder")
+      return (
+        t.includes("founder") ||
+        t.includes("ceo") ||
+        t.includes("co-founder") ||
+        t.includes("president")
+      );
+    if (roleFilter === "cto")
+      return (
+        t.includes("cto") ||
+        t.includes("chief") ||
+        t.includes("head") ||
+        t.includes("vp") ||
+        t.includes("director")
+      );
+    if (roleFilter === "engineer")
+      return (
+        t.includes("engineer") ||
+        t.includes("developer") ||
+        t.includes("architect") ||
+        t.includes("lead")
+      );
+    if (roleFilter === "recruiter")
+      return (
+        t.includes("recruiter") ||
+        t.includes("talent") ||
+        t.includes("hiring") ||
+        t.includes("people") ||
+        t.includes("hr")
+      );
+    return true;
+  };
+
+  const filteredContacts = (contacts.data?.contacts || []).filter((c) =>
+    matchesRole(c.role_title),
+  );
+  const filteredResearch = (people.data?.people || []).filter((p) =>
+    matchesRole(p.role),
+  );
+
   return (
     <>
       <div className="split detail-section">
         <div>
           <h3>People with context</h3>
           <p>
-            Authorized professional evidence. LinkedIn activity stays manual.
+            Founders, engineering leaders, engineers and recruiters. LinkedIn
+            activity and profile review stay manual.
           </p>
         </div>
         <Button
@@ -159,109 +206,199 @@ export function CompanyPeople({
           Find business email
         </Button>
       </div>
+      <div
+        className="status-tabs"
+        role="group"
+        aria-label="Role category filter"
+      >
+        {[
+          ["all", "All roles"],
+          ["founder", "Founders & CEOs"],
+          ["cto", "CTOs & Leaders"],
+          ["engineer", "Engineers"],
+          ["recruiter", "Recruiters"],
+        ].map(([val, label]) => (
+          <button
+            key={val}
+            className={roleFilter === val ? "selected" : ""}
+            aria-pressed={roleFilter === val}
+            onClick={() => setRoleFilter(val)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
       {contacts.isPending ? (
         <Skeleton />
       ) : contacts.isError ? (
         <ErrorState error={contacts.error} />
-      ) : !contacts.data.contacts.length ? (
+      ) : !filteredContacts.length ? (
         <Empty
           title="A name needs evidence."
-          description="No retained professional contacts exist for this team. Review an authorized research plan or configure an enrichment provider."
+          description={
+            roleFilter !== "all"
+              ? `No contacts match the "${roleFilter}" role filter for this team. Select "All roles" or review public research below.`
+              : "No retained professional contacts exist for this team. Review an authorized research plan or configure an enrichment provider."
+          }
         />
       ) : (
         <div className="company-grid">
-          {contacts.data.contacts.map((c) => (
-            <article className="company-card" key={c.id}>
-              <div className="company-top">
-                <span className="avatar">{c.full_name.slice(0, 1)}</span>
-                <div>
-                  <h3>{c.full_name}</h3>
-                  <p>
-                    {c.role_title} · {c.company}
-                  </p>
-                </div>
-                <Badge
-                  tone={
-                    c.do_not_contact
-                      ? "red"
+          {filteredContacts.map((c) => {
+            const unavailable =
+              c.do_not_contact ||
+              c.retention_expired ||
+              c.email_evidence_status === "suppressed_or_stale";
+            const isVerifiedMail =
+              !unavailable &&
+              c.email_evidence_status === "verified_using_authorized_method";
+            const isPublishedMail =
+              !unavailable &&
+              c.email_evidence_status === "published_source_supported";
+            const isGuessedMail = c.email_status === "guessed";
+            const isProviderMail =
+              !unavailable && c.email_evidence_status === "provider_reported";
+            const profileUrl = c.linkedin_url || c.professional_url;
+            return (
+              <article className="company-card" key={c.id}>
+                <div className="company-top">
+                  <span className="avatar">{c.full_name.slice(0, 1)}</span>
+                  <div>
+                    <h3>{c.full_name}</h3>
+                    <p>
+                      {c.role_title} · {c.company}
+                    </p>
+                  </div>
+                  <Badge
+                    tone={
+                      unavailable
+                        ? "amber"
+                        : c.confidence === "supported"
+                          ? "green"
+                          : c.confidence === "provider_reported"
+                            ? "neutral"
+                            : "amber"
+                    }
+                  >
+                    {unavailable
+                      ? c.do_not_contact
+                        ? "Suppressed"
+                        : "Stale source evidence"
                       : c.confidence === "supported"
-                        ? "green"
-                        : "amber"
-                  }
-                >
-                  {c.do_not_contact ? "Suppressed" : readable(c.confidence)}
-                </Badge>
-              </div>
-              <div className="tag-list">
-                <Badge>{readable(c.email_status)} mailbox</Badge>
-                <Badge>{readable(c.source)}</Badge>
-                {c.retention_expired && (
-                  <Badge tone="amber">Retention expired</Badge>
-                )}
-              </div>
-              <p className="section-intro">
-                {c.email
-                  ? `Business email: ${c.email}`
-                  : "Business email not available"}
-                <br />
-                Last observed {dateLabel(c.last_checked_at)}
-                {c.suppression_reason && (
-                  <>
-                    <br />
-                    {c.suppression_reason}
-                  </>
-                )}
-              </p>
-              <div className="actions">
-                {c.manual_linkedin_available && c.linkedin_url ? (
-                  <External href={c.linkedin_url}>
-                    Open professional profile
+                        ? "Verified · Source-backed"
+                        : c.confidence === "provider_reported"
+                          ? "Provider reported"
+                          : readable(c.confidence)}
+                  </Badge>
+                </div>
+                {isPublishedMail && c.email_publication_url && (
+                  <External href={c.email_publication_url}>
+                    Published email source
                   </External>
-                ) : (
-                  <small className="muted">No permitted profile link</small>
                 )}
-                <Button onClick={() => setEvidenceId(c.id)}>
-                  <ShieldCheck size={12} />
-                  Contact evidence
-                </Button>
-                <Button
-                  disabled={
-                    !c.manual_outreach_review_available || c.do_not_contact
-                  }
-                  title={
-                    c.do_not_contact
-                      ? "Contact is suppressed"
-                      : !c.manual_outreach_review_available
-                        ? "Current recipient and company evidence required"
-                        : ""
-                  }
-                  onClick={() => draft.mutate(c.id)}
-                  busy={draft.isPending}
-                >
-                  <Mail size={12} />
-                  Prepare local draft
-                </Button>
-              </div>
-            </article>
-          ))}
+                <div className="tag-list">
+                  {unavailable ? (
+                    <Badge tone="amber">
+                      Suppressed or stale email evidence
+                    </Badge>
+                  ) : isPublishedMail ? (
+                    <Badge tone="neutral">
+                      Published source supported · mailbox unverified
+                    </Badge>
+                  ) : isVerifiedMail ? (
+                    <Badge tone="green">Verified using authorized method</Badge>
+                  ) : isGuessedMail ? (
+                    <Badge tone="amber">Guessed email (Unverified)</Badge>
+                  ) : isProviderMail ? (
+                    <Badge tone="neutral">Provider reported mailbox</Badge>
+                  ) : (
+                    <Badge tone="neutral">
+                      {c.email_status === "verified"
+                        ? "Mailbox verification not established"
+                        : readable(c.email_status)}{" "}
+                      mailbox
+                    </Badge>
+                  )}
+                  <Badge>{readable(c.source)}</Badge>
+                  {c.retention_expired && (
+                    <Badge tone="amber">Retention expired · Stale</Badge>
+                  )}
+                </div>
+                <p className="section-intro">
+                  {c.email
+                    ? `Business email: ${c.email}`
+                    : "Business email not available"}
+                  <br />
+                  Last observed {dateLabel(c.last_checked_at)}
+                  {c.suppression_reason && (
+                    <>
+                      <br />
+                      <strong>Suppression: </strong>
+                      {c.suppression_reason}
+                    </>
+                  )}
+                </p>
+                <div className="actions">
+                  {profileUrl ? (
+                    <External href={profileUrl}>
+                      Open professional profile
+                    </External>
+                  ) : (
+                    <small className="muted">No permitted profile link</small>
+                  )}
+                  <Button onClick={() => setEvidenceId(c.id)}>
+                    <ShieldCheck size={12} />
+                    Contact evidence
+                  </Button>
+                  <Button
+                    disabled={
+                      !c.manual_outreach_review_available || c.do_not_contact
+                    }
+                    title={
+                      c.do_not_contact
+                        ? "Contact is suppressed"
+                        : !c.manual_outreach_review_available
+                          ? "Current recipient and company evidence required"
+                          : ""
+                    }
+                    onClick={() => draft.mutate(c.id)}
+                    busy={draft.isPending}
+                  >
+                    <Mail size={12} />
+                    Prepare local draft
+                  </Button>
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
       {draft.isError && <ErrorState error={draft.error} />}{" "}
       {people.isError && <ErrorState error={people.error} />}{" "}
-      {!!people.data?.people.length && (
+      {!!filteredResearch.length && (
         <section className="detail-section spaced">
           <h3>Retained public research</h3>
-          {people.data.people.map((p, i) => (
+          {filteredResearch.map((p, i) => (
             <div className="evidence-item" key={`${p.evidence_url}-${i}`}>
               <div className="split">
                 <strong>
                   {p.name || "Identity requires review"} ·{" "}
                   {p.role || "Role not established"}
                 </strong>
-                <Badge>{readable(p.verification_status)}</Badge>
+                <Badge
+                  tone={
+                    p.verification_status === "verified"
+                      ? "green"
+                      : p.verification_status === "stale"
+                        ? "amber"
+                        : "neutral"
+                  }
+                >
+                  {readable(p.verification_status)}
+                </Badge>
               </div>
               <p>
-                {readable(p.source)} · {dateLabel(p.observed_at)}
+                Source: {readable(p.source)} · Observed{" "}
+                {dateLabel(p.observed_at)}
               </p>
               <External href={p.evidence_url}>Evidence source</External>
               {p.linkedin_url && (

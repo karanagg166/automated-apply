@@ -234,17 +234,18 @@ class BrowserWorker:
             if a.field_id in plan.approved_fields
         ]
         result = {"state": "form_filled", "results": [], "violations": 0}
-        for action in actions:
-            # Cancellation, expiry and context changes are checked for each field.
+        if actions:
+            # Consume one approved batch: the DOM guard permits exactly one fill
+            # per inspected document and rechecks changes between field mutations.
             async with self.factory() as session:
                 await queue.fenced(session, key, job["fence"])
                 await FormService(session, self.settings).fresh(plan)
                 part = await self.driver.call(
                     "fill",
                     document_id=plan.inspection.document_id,
-                    actions=[action],
+                    actions=actions,
                     pdf=base64.b64encode(raw).decode()
-                    if raw and action["kind"] == "file"
+                    if raw and any(action["kind"] == "file" for action in actions)
                     else None,
                 )
                 await session.commit()
@@ -256,8 +257,7 @@ class BrowserWorker:
                 result.update(
                     state="manual_required", violations=part.get("violations", 0)
                 )
-                break
-            if part.get("state") != "form_filled":
+            elif part.get("state") != "form_filled":
                 result["state"] = "needs_input"
         receipt = FillReceipt(
             plan_id=plan.id,

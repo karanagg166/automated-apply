@@ -75,7 +75,10 @@ async def verify_preserved_function(connection):
 async def verify_public_database(connection, settings):
     manifest = verify_bundle()
     preserved = await verify_preserved_function(connection)
-    await verify_restricted_runtime(connection, manifest["tables"], schema="public", preserved_function_oids=preserved)
+    from backend.app.integrations.gmail.schema import TABLES, expected_overlay
+    installed = await connection.fetchval("SELECT to_regclass('public.gmail_read_accounts') IS NOT NULL OR to_regclass('public.gmail_read_oauth_states') IS NOT NULL")
+    tables = set(manifest["tables"]) | (TABLES if installed else set())
+    await verify_restricted_runtime(connection, tables, schema="public", preserved_function_oids=preserved)
     unsafe_defaults = await connection.fetchval("""
         SELECT EXISTS(SELECT 1 FROM pg_default_acl d
             CROSS JOIN LATERAL aclexplode(d.defaclacl) a
@@ -90,6 +93,7 @@ async def verify_public_database(connection, settings):
     if preserved:
         actual["functions"].pop("rls_auto_enable()", None)
     expected = json.loads((BUNDLE / "catalog.json").read_text())
+    expected = expected_overlay(expected, actual, "public")
     followups = verified_catalog_version(actual, expected, manifest.get("followups", []))
     if settings.DB_REQUIRE_TLS:
         tls = await connection.fetchval("SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()")

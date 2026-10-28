@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from backend.app.core.config import Settings
 from backend.app.schemas.normalized_job import NormalizedJob
 
@@ -26,6 +28,7 @@ def actor_config(**updates):
         "build": "0.1.2",
         "enabled": True,
         "reviewed": True,
+        "review_expires_at": (datetime.now(timezone.utc) + timedelta(hours=12)).isoformat(),
         "platform_usage_included": True,
         "account_spending_limit_verified": True,
         "schema_evidence_url": "https://example.com/input",

@@ -463,7 +463,10 @@ async def test_actual_chrome_keeps_independent_application_tabs(chrome, fixture_
             document_id=doc["inspection"]["document_id"],
             actions=[{"field_id": "f0", "kind": "text", "value": "Alex Example"}],
         )
-        assert result["state"] == "form_filled", result
+        # Both pages still have an unanswered required field after filling only
+        # the name. Tab isolation must not falsely report a complete form.
+        assert result["state"] == "needs_input", result
+        assert result["results"] == [{"field_id": "f0", "status": "filled"}]
 
 
 @pytest.mark.asyncio

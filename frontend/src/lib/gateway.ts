@@ -1,6 +1,10 @@
 // This fixed route list prevents the server-side bearer from becoming a general proxy.
 const routes: Array<[RegExp, string[]]> = [
   [/^application-answers\/(drafts|reuse-approvals)$/, ["GET"]],
+  [/^application-answers\/missing$/, ["GET", "POST"]],
+  [/^application-answers\/missing\/[a-f0-9-]{32,36}$/, ["GET", "PATCH"]],
+  [/^application-answers\/missing\/[a-f0-9-]{32,36}\/approve$/, ["POST"]],
+  [/^application-answers\/missing\/[a-f0-9-]{32,36}\/history$/, ["GET"]],
   [/^application-answers\/drafts\/[a-f0-9-]{36}$/, ["PATCH"]],
   [
     /^application-answers\/drafts\/[a-f0-9-]{36}\/opportunity-evidence$/,
@@ -124,6 +128,20 @@ const routes: Array<[RegExp, string[]]> = [
   ],
   [/^integrations(\/gmail\/status)?$/, ["GET"]],
   [/^integrations\/gmail\/(connect\/start|verify|disconnect)$/, ["POST"]],
+  [/^integrations\/providers\/apify$/, ["GET"]],
+  [/^integrations\/providers\/apify\/(inspect|actors\/inspect)$/, ["POST"]],
+  [/^integrations\/gmail\/accounts$/, ["GET"]],
+  [/^integrations\/gmail\/accounts\/connect\/start$/, ["POST"]],
+  [/^integrations\/gmail\/accounts\/[a-f0-9-]{36}$/, ["GET"]],
+  [/^integrations\/gmail\/accounts\/[a-f0-9-]{36}\/selection$/, ["PUT"]],
+  [/^integrations\/gmail\/accounts\/[a-f0-9-]{36}\/sync$/, ["POST"]],
+  [/^integrations\/gmail\/accounts\/[a-f0-9-]{36}\/(evidence|leads)$/, ["GET"]],
+  [
+    /^integrations\/gmail\/accounts\/[a-f0-9-]{36}\/evidence\/[a-f0-9]{32}\/import$/,
+    ["POST"],
+  ],
+  [/^integrations\/gmail\/accounts\/[a-f0-9-]{36}\/verify$/, ["POST"]],
+  [/^integrations\/gmail\/accounts\/[a-f0-9-]{36}\/disconnect$/, ["POST"]],
   [/^operations\/status$/, ["GET"]],
 ];
 export function permittedRoute(path: string, method: string) {

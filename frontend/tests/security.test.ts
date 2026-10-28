@@ -276,3 +276,66 @@ it("browser gateway exposes only authenticated application operations", () => {
   }
   expect(permittedRoute(`browser-applications/${id}/open`, "GET")).toBe(false);
 });
+
+it("permits missing answer queue operations and blocks generation/unauthorized mutations", () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  expect(permittedRoute("application-answers/missing", "GET")).toBe(true);
+  expect(permittedRoute(`application-answers/missing/${id}`, "GET")).toBe(true);
+  expect(permittedRoute(`application-answers/missing/${id}`, "PATCH")).toBe(
+    true,
+  );
+  expect(
+    permittedRoute(`application-answers/missing/${id}/approve`, "POST"),
+  ).toBe(true);
+  expect(
+    permittedRoute(`application-answers/missing/${id}/history`, "GET"),
+  ).toBe(true);
+  expect(
+    permittedRoute(`application-answers/missing/${id}/approve`, "GET"),
+  ).toBe(false);
+  expect(permittedRoute(`application-answers/missing/${id}`, "DELETE")).toBe(
+    false,
+  );
+  expect(
+    permittedRoute("application-answers/missing/bulk-delete", "POST"),
+  ).toBe(false);
+});
+
+it("enforces strict read-only Gmail integration routes and rejects all send/mutation actions", () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  expect(permittedRoute("integrations/gmail/accounts", "GET")).toBe(true);
+  expect(
+    permittedRoute("integrations/gmail/accounts/connect/start", "POST"),
+  ).toBe(true);
+  expect(
+    permittedRoute(`integrations/gmail/accounts/${id}/disconnect`, "POST"),
+  ).toBe(true);
+  expect(permittedRoute(`integrations/gmail/accounts/${id}/sync`, "POST")).toBe(
+    true,
+  );
+  expect(
+    permittedRoute(`integrations/gmail/accounts/${id}/selection`, "PUT"),
+  ).toBe(true);
+  expect(
+    permittedRoute(`integrations/gmail/accounts/${id}/evidence`, "GET"),
+  ).toBe(true);
+
+  // STRICTLY PROHIBITED: sending, replying, forwarding, drafting, trashing, modifying labels
+  for (const forbidden of [
+    "send",
+    "reply",
+    "forward",
+    "drafts",
+    "delete",
+    "trash",
+    "mark-read",
+    "archive",
+  ]) {
+    expect(
+      permittedRoute(`integrations/gmail/accounts/${id}/${forbidden}`, "POST"),
+    ).toBe(false);
+    expect(
+      permittedRoute(`integrations/gmail/accounts/${forbidden}`, "POST"),
+    ).toBe(false);
+  }
+});

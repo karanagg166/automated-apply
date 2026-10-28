@@ -223,12 +223,13 @@ class AnswerBuilder:
             source=result.provider
             if result.used_llm and result.answer
             else (
-                result.source
+                "approved_answer" if result.source == "owner_approved_exact_context" else result.source
                 if result.source
                 in {
                     "candidate_profile",
                     "candidate_resource",
                     "approved_answer",
+                    "owner_approved_exact_context",
                     "deterministic_extractive",
                 }
                 else "missing"
@@ -236,6 +237,7 @@ class AnswerBuilder:
             resolver="grounded_answer_service" if narrative else "deterministic",
             evidence_references=result.evidence_references,
             answer_draft_id=result.draft_id,
+            missing_input_id=result.missing_input_id,
             provider=result.provider,
             model=result.model,
             error_code=result.error_code,

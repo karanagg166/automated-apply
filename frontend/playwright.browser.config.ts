@@ -14,7 +14,7 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
     {
-      command: `${process.env.PYTHON || "../backend/venv/bin/python"} ../backend/scripts/verify_browser_submission.py --serve`,
+      command: `${process.env.PYTHON || "../backend/venv/bin/python"} ../backend/scripts/phase3_browser_fixture.py`,
       url: "http://127.0.0.1:8767/health",
       reuseExistingServer: false,
       timeout: 60000,
