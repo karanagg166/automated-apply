@@ -1,6 +1,29 @@
 # Phase 4 final combined integration and acceptance
 
-**COMBINED ENGINEERING PASS. Permitted genuine source persistence/deduplication/matching passed; broader live application acceptance remains PARTIAL.** All final suite results below come from this frozen combined implementation, not separate agent results.
+**PHASE 4 ENGINEERING COMPLETE. COMBINED ENGINEERING PASS. Permitted genuine source persistence/deduplication/matching passed; broader live application acceptance remains PARTIAL.** All final suite results below come from this frozen combined implementation, not separate agent results.
+
+## Operational closure check — 2026-10-29
+
+PR #39 remains reviewable at e57178b22e453119f4ba449dae28f36c01b6edc5; PR #40
+remains stacked on it at 08e3cbb6532ba1d1aa0e37199c16209a34be5f35. Both are
+open, ready for review and unmerged. After owner approval/merge of #39, fetch main,
+verify #39's head is an ancestor, then retarget #40 and recheck its diff.
+No merge or premature retarget occurred; preserve the complete merge histories.
+
+Fresh read-only checks found API/dashboard HTTP 200, a successful framed native
+health exchange, and a running Telegram worker with a fresh poll/no error.
+All three installed services still use 975b8fc0afa6b9ce1f30a21c0cdfa667bcfc3009:
+they do **not** match reviewed Phase 4 source. Candidate context and a confirmed
+resume remain available. All unattended execution/submission/mailbox flags are
+false; manual field filling is enabled. No runtime replacement occurred.
+
+Gmail's two tables remain absent and reviewed SQL is unchanged. The owner
+confirmed missing target maintenance credentials/age recipient and directed a
+stop before backup/DDL. Setup and full backup/restore/writer gates are in the
+existing [operator procedure](../phase3/phase35-gmail-operator.md). No full data
+backup or live restoration is claimed. Installation, OAuth/selected mailbox reads
+and employer actions remain separately gated. This does not reopen completed
+Phase 4 engineering.
 
 ## Candidate and ancestry
 

@@ -139,7 +139,18 @@ async def reply_for(session, settings, message, update_id, bot_username):
         async with session.begin_nested():
             if not authorized(message, settings):
                 return "Unauthorized message."
+            from backend.app.execution.questions import receive
+            from backend.app.execution.telegram_commands import (
+                command as naukri_command,
+            )
+
+            correlated = await receive(session, settings, message, update_id)
+            if correlated is not None:
+                return correlated
             text = message.get("text")
+            naukri_reply = await naukri_command(session, text) if isinstance(text, str) else None
+            if naukri_reply is not None:
+                return naukri_reply
             if isinstance(text, str) and not text.lstrip().startswith("/"):
                 from backend.app.agent import store as command_store
                 from backend.app.agent.contracts import Message
@@ -262,6 +273,8 @@ async def run_worker(settings, session_factory, api=None, stop=None):
                 state = await session.get(TelegramState, "primary")
                 state.last_poll_at, state.last_error = datetime.now(timezone.utc), None
                 await session.commit()
+            from backend.app.execution.questions import deliver_one
+            await deliver_one(session_factory, settings, bot)
             from backend.app.agent.executor import CommandExecutor
             await CommandExecutor(session_factory, settings).run_once()
             # Mark attempted before network dispatch. Ambiguous interruption is never replayed.

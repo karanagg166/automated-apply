@@ -35,6 +35,7 @@ const nav = [
   ["Discover", "/discover", Compass],
   ["Startups", "/startups", Building2],
   ["Jobs", "/jobs", BriefcaseBusiness],
+  ["Naukri", "/naukri", BriefcaseBusiness],
   ["People", "/people", Users],
   ["Applications", "/applications", LayoutDashboard],
   ["Needs Input", "/needs-input", CircleHelp],

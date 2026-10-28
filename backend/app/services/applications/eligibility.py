@@ -1,4 +1,5 @@
 """Readiness is computed independently of lifecycle and external submission claims."""
+from datetime import datetime, timezone
 
 from backend.app.schemas.applications import Readiness
 
@@ -60,6 +61,8 @@ def readiness(snapshot, fields, *, stale=False, approved=False, submitted=False)
             warnings=warnings,
         )
     for field in fields:
+        if field.provenance.answer_expires_at and field.provenance.answer_expires_at <= datetime.now(timezone.utc):
+            blockers.append(f"Reconfirm expired answer: {field.question}")
         if (
             field.required
             and field.validation_status != "file_upload_required"

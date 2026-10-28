@@ -15,6 +15,13 @@ def manual_page_url(value, settings=None):
     if parsed.fragment:
         return None
     host = parsed.hostname or ""
+    if host in {"naukri.com", "www.naukri.com"}:
+        from backend.app.execution.naukri import normalized_url
+        try:
+            normalized_url(url)
+        except ValueError:
+            return None
+        return url if not parsed.query else None
     zoho = bool(re.fullmatch(r"[a-z0-9][a-z0-9-]*\.zohorecruit\.(?:in|com)", host))
     if zoho:
         if not re.fullmatch(r"/jobs/Careers/[0-9]+/[A-Za-z0-9_-]+/?", parsed.path):

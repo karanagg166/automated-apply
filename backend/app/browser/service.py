@@ -246,6 +246,9 @@ class FormService:
     async def inspect(
         self, application_id, inspection: Inspection, mode, selected_project=None
     ):
+        if urlsplit(inspection.url).hostname in {"naukri.com", "www.naukri.com"}:
+            from backend.app.execution.store import memory_row
+            await memory_row(self.session, lock=True)
         packet, profile, url = await self.context(application_id, mode)
         if inspection.url != url or inspection.state not in {
             "ready",
@@ -322,7 +325,21 @@ class FormService:
                         action.missing_input_version = saved_question.value["version"]
                     if saved_question and not saved_question.value.get("packet_id"):
                         saved_question.value = {**saved_question.value, "packet_id": str(application_id)}
-                if selected_project and built.category == "project_explanation":
+                reviewed_answer = next((
+                    f for f in packet.fields
+                    if f.question.strip().casefold() == question_text.strip().casefold()
+                    and f.human_answer and f.review_status == "reviewed"
+                    and f.validation_status == "draft_ready"
+                    and (not f.provenance.answer_expires_at or f.provenance.answer_expires_at > datetime.now(timezone.utc))
+                    and not value_error(question, f.human_answer)
+                ), None)
+                if reviewed_answer:
+                    action.value = reviewed_answer.human_answer
+                    action.evidence = ["reviewed_packet_answer:" + str(reviewed_answer.id) + ":" + str(reviewed_answer.answer_revision)]
+                    action.requires_review = True
+                    action.missing_input_id = None
+                    action.missing_input_version = None
+                elif selected_project and built.category == "project_explanation":
                     contexts, projects = await approved_projects(self.session)
                     projects.sort(key=lambda p: p["priority"])
                     rank = next(
@@ -397,6 +414,9 @@ class FormService:
                         action.missing_input_id = None
                         action.missing_input_version = None
             plan.actions.append(action)
+        if urlsplit(inspection.url).hostname in {"naukri.com", "www.naukri.com"}:
+            from backend.app.execution.questions import bridge_form
+            packet = await bridge_form(self.session, packet, plan)
         self.session.add(
             OwnerPreference(
                 key=f"fill_plan:{plan.id}", value=plan.model_dump(mode="json")
@@ -437,6 +457,15 @@ class FormService:
                 saved = await MissingInputService(self.session).read(action.missing_input_id)
                 if saved["version"] != action.missing_input_version or saved["stale"] or saved["status"] != "approved":
                     raise ToolDenied("fill_plan_stale")
+        for action in plan.actions:
+            for reference in action.evidence:
+                if reference.startswith("reviewed_packet_answer:"):
+                    _, field_id, revision = reference.split(":")
+                    field = next((f for f in packet.fields if str(f.id) == field_id), None)
+                    if (not field or field.answer_revision != int(revision)
+                        or field.review_status != "reviewed"
+                        or (field.provenance.answer_expires_at and field.provenance.answer_expires_at <= datetime.now(timezone.utc))):
+                        raise ToolDenied("fill_plan_stale")
         references = [a.safe_reference for a in plan.actions if a.safe_reference]
         if references:
             raw = await pdf_bytes(self.session, packet, self.settings)
@@ -463,6 +492,8 @@ class FormService:
         return plan
 
     async def consume(self, plan_id, mode):
+        from backend.app.execution.store import fill_event, lock_plan_execution
+        execution = await lock_plan_execution(self.session, plan_id)
         if not self.settings.BROWSER_FILL_ENABLED:
             raise ToolDenied("browser_fill_disabled")
         row, plan = await self.load(plan_id)
@@ -471,6 +502,7 @@ class FormService:
             raise ToolDenied("single_use_fill_authorization_required")
         plan.state = "consumed"
         row.value = plan.model_dump(mode="json")
+        await fill_event(self.session, execution, plan, "fill_authorized")
         self.audit(plan, "fill_authorized", [])
         return plan, packet
 
@@ -492,6 +524,8 @@ class FormService:
         )
 
     async def receipt(self, receipt):
+        from backend.app.execution.store import fill_event, lock_plan_execution
+        execution = await lock_plan_execution(self.session, receipt.plan_id)
         row, plan = await self.load(receipt.plan_id)
         if plan.state == "finished":
             return {"status": "already_recorded", "submitted": False}
@@ -509,6 +543,7 @@ class FormService:
             or any(r.status != "filled" for r in receipt.results)
         ):
             state = "needs_input"
+        await fill_event(self.session, execution, plan, state)
         self.audit(plan, state, [r.model_dump() for r in receipt.results])
         return {"status": state, "submitted": False}
 

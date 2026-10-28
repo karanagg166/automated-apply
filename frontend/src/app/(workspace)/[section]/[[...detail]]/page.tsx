@@ -1,3 +1,4 @@
+import { Naukri } from "@/features/naukri";
 import { Agent } from "@/features/agent";
 import { notFound } from "next/navigation";
 import { StartupExplorer } from "@/features/startups";
@@ -34,6 +35,8 @@ export default async function Page({
     notFound();
   }
   switch (section) {
+    case "naukri":
+      return <Naukri />;
     case "agent":
       return <Agent />;
     case "startups":
