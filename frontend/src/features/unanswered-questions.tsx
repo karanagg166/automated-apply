@@ -662,6 +662,11 @@ export function UnansweredQuestionsQueue({
                 onClick={() => saveDraftMutation.mutate(selectedItem)}
                 busy={saveDraftMutation.isPending}
                 disabled={!answerText.trim() || saveDraftMutation.isPending}
+                title={
+                  !answerText.trim()
+                    ? "Answer text is required to save a draft"
+                    : undefined
+                }
               >
                 <Save size={13} />
                 Save as draft
@@ -771,6 +776,21 @@ export function UnansweredQuestionsQueue({
                     !answerText.trim() ||
                     !evidenceNote.trim() ||
                     approveMutation.isPending
+                  }
+                  title={
+                    hasUnsavedChanges
+                      ? "Save draft changes before approving"
+                      : selectedItem.status !== "draft"
+                        ? "Save answer as draft before approval"
+                        : selectedItem.stale
+                          ? "Candidate facts changed; review updated background before approving"
+                          : !answerText.trim()
+                            ? "Answer text is required"
+                            : !evidenceNote.trim()
+                              ? "Supporting evidence note is required"
+                              : !factualConfirmation
+                                ? "Confirmation checkbox required before approval"
+                                : undefined
                   }
                   busy={approveMutation.isPending}
                   onClick={() => approveMutation.mutate(selectedItem)}

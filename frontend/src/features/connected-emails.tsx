@@ -52,6 +52,17 @@ export type ReadAccount = {
     last_error?: string | null;
   };
 };
+
+export function readableScope(scope: string): string {
+  if (scope.includes("gmail.metadata"))
+    return "gmail.metadata (Headers & dates)";
+  if (scope.includes("gmail.readonly"))
+    return "gmail.readonly (Message bodies)";
+  if (scope.startsWith("https://www.googleapis.com/auth/")) {
+    return scope.replace("https://www.googleapis.com/auth/", "");
+  }
+  return scope;
+}
 export type JobEmailEvidence = {
   id: string;
   account_id: string;
@@ -246,6 +257,11 @@ export function ConnectedEmails() {
         actions={
           <Button
             disabled={!schemaReady}
+            title={
+              !schemaReady
+                ? "Read-only Gmail setup required before connecting accounts"
+                : undefined
+            }
             onClick={() => {
               setConnectOpen(true);
               setReadBody(false);
@@ -332,9 +348,9 @@ export function ConnectedEmails() {
                   "None selected"}
               </dd>
               <dt>Granted OAuth scopes</dt>
-              <dd>
+              <dd style={{ wordBreak: "break-word" }}>
                 {account.granted_scopes && account.granted_scopes.length > 0 ? (
-                  account.granted_scopes.join(", ")
+                  account.granted_scopes.map(readableScope).join(", ")
                 ) : (
                   <span className="muted">None recorded</span>
                 )}
@@ -356,6 +372,15 @@ export function ConnectedEmails() {
                   !account.sync_enabled ||
                   !account.sync.policy?.enabled ||
                   account.sync.status === "syncing"
+                }
+                title={
+                  account.status !== "connected"
+                    ? "Account is not connected"
+                    : !account.sync_enabled || !account.sync.policy?.enabled
+                      ? "Read policy is not enabled for synchronization"
+                      : account.sync.status === "syncing"
+                        ? "Sync currently in progress"
+                        : undefined
                 }
                 busy={sync.isPending}
                 onClick={() => sync.mutate(account.id)}
@@ -621,6 +646,11 @@ export function ConnectedEmails() {
           <Button
             busy={policy.isPending}
             disabled={enabled && !readBody && !labels.trim()}
+            title={
+              enabled && !readBody && !labels.trim()
+                ? "Custom labels are required for metadata-only reads"
+                : undefined
+            }
             onClick={() => policy.mutate()}
           >
             Save policy
@@ -654,8 +684,12 @@ export function ConnectedEmails() {
             <External href={importSelection.lead.url}>
               Inspect source posting
             </External>
-            <Field label="Actual job title">
+            <Field
+              label="Actual job title"
+              hint="Required to establish candidate application details"
+            >
               <Input
+                required
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
               />
@@ -679,6 +713,13 @@ export function ConnectedEmails() {
             {importLead.isError && <ErrorState error={importLead.error} />}
             <Button
               disabled={!reviewed || !title.trim()}
+              title={
+                !title.trim()
+                  ? "Actual job title is required before import"
+                  : !reviewed
+                    ? "Confirmation checkbox is required"
+                    : undefined
+              }
               busy={importLead.isPending}
               onClick={() => importLead.mutate()}
             >

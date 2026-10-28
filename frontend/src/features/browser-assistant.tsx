@@ -128,9 +128,11 @@ export function BrowserIntake() {
 export function BrowserAssistant({
   packet,
   hasUnsavedAnswers = false,
+  onRefresh,
 }: {
   packet: Schema<"PacketRead">;
   hasUnsavedAnswers?: boolean;
+  onRefresh?: () => void;
 }) {
   const client = useQueryClient();
   const [state, setState] = useState<BrowserStatus | null>(null);
@@ -726,7 +728,19 @@ export function BrowserAssistant({
           }}
         />
       )}
-      {error && <ErrorState error={error} />}
+      {error && (
+        <ErrorState
+          error={error}
+          retry={
+            error.message.includes("refresh the packet") && onRefresh
+              ? () => {
+                  setError(null);
+                  onRefresh();
+                }
+              : undefined
+          }
+        />
+      )}
       {state?.recovery && <Notice>{state.recovery}</Notice>}
       {state?.in_page_network_isolation && (
         <Notice>

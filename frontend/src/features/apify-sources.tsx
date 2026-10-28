@@ -21,6 +21,7 @@ type ActorMetadata = Schema<"ActorMetadata">;
 export function ApifySourceManagement() {
   const client = useQueryClient();
   const [metadata, setMetadata] = useState<ActorMetadata | null>(null);
+  const [inspectingActor, setInspectingActor] = useState<string | null>(null);
   const status = useQuery({
     queryKey: ["apify-status"],
     queryFn: () => api<ApifyStatus>("integrations/providers/apify"),
@@ -94,6 +95,11 @@ export function ApifySourceManagement() {
         </p>
         <Button
           disabled={!account.local_token_configured}
+          title={
+            !account.local_token_configured
+              ? "Local token is not configured in private environment"
+              : undefined
+          }
           busy={inspectAccount.isPending}
           onClick={() => inspectAccount.mutate()}
         >
@@ -159,8 +165,11 @@ export function ApifySourceManagement() {
               </p>
               <div className="actions">
                 <Button
-                  busy={inspect.isPending}
-                  onClick={() => inspect.mutate(actor)}
+                  busy={inspect.isPending && inspectingActor === actor}
+                  onClick={() => {
+                    setInspectingActor(actor);
+                    inspect.mutate(actor);
+                  }}
                 >
                   Inspect metadata (read only)
                 </Button>
@@ -176,7 +185,12 @@ export function ApifySourceManagement() {
         })}
       </div>
       {inspect.isError && (
-        <ErrorState error={inspect.error} retry={() => inspect.reset()} />
+        <ErrorState
+          error={inspect.error}
+          retry={() =>
+            inspectingActor ? inspect.mutate(inspectingActor) : inspect.reset()
+          }
+        />
       )}
       <Modal
         open={!!metadata}

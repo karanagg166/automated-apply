@@ -43,7 +43,9 @@ export const statuses = [
   ["all", "All"],
 ] as const;
 export const defaultFilters: Schema<"StartupFilters"> = {
+  min_employees: null,
   max_employees: null,
+  query: null,
   include_unknown_size: true,
   use_profile: false,
   application_status: "not_applied",
@@ -64,6 +66,10 @@ export const defaultFilters: Schema<"StartupFilters"> = {
   has_technical_staff: false,
   industries: [],
   country: null,
+  remote_preference: "any",
+  hiring_status: null,
+  observed_after: null,
+  source: null,
 };
 export function sizeFilter(size: string) {
   if (size === "2-10") {

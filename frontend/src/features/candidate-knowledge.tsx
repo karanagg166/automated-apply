@@ -1074,6 +1074,11 @@ export function CandidateKnowledge() {
               type="submit"
               variant="primary"
               disabled={!confirmedTruthful || saveFactsMutation.isPending}
+              title={
+                !confirmedTruthful
+                  ? "Confirmation checkbox required before saving and approving"
+                  : undefined
+              }
               busy={saveFactsMutation.isPending}
             >
               <Save size={13} />
@@ -1454,7 +1459,14 @@ export function CandidateKnowledge() {
             <Button
               variant="primary"
               onClick={handleSaveProject}
-              disabled={!projectTitle || !projectDesc}
+              disabled={!projectTitle.trim() || !projectDesc.trim()}
+              title={
+                !projectTitle.trim()
+                  ? "Project title is required"
+                  : !projectDesc.trim()
+                    ? "Project description is required"
+                    : undefined
+              }
             >
               {editingProjectIndex !== null ? "Update project" : "Add project"}
             </Button>
@@ -1531,6 +1543,13 @@ export function CandidateKnowledge() {
               variant="primary"
               onClick={handleSaveRole}
               disabled={!roleCompany.trim() || !roleTitle.trim()}
+              title={
+                !roleCompany.trim()
+                  ? "Company name is required"
+                  : !roleTitle.trim()
+                    ? "Job role / title is required"
+                    : undefined
+              }
             >
               {editingRoleIndex !== null ? "Update role" : "Add role"}
             </Button>
@@ -1597,6 +1616,13 @@ export function CandidateKnowledge() {
               variant="primary"
               onClick={handleSaveAuth}
               disabled={!authCountryName.trim() || !authCountryCode.trim()}
+              title={
+                !authCountryName.trim()
+                  ? "Country name is required"
+                  : !authCountryCode.trim()
+                    ? "Country code is required"
+                    : undefined
+              }
             >
               {editingAuthIndex !== null
                 ? "Update authorization"

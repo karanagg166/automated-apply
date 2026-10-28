@@ -854,7 +854,11 @@ export function ApplicationDetail({ id }: { id: string }) {
         </section>
       </div>
 
-      <BrowserAssistant packet={p} hasUnsavedAnswers={dirtyFields.length > 0} />
+      <BrowserAssistant
+        packet={p}
+        hasUnsavedAnswers={dirtyFields.length > 0}
+        onRefresh={() => refresh.mutate()}
+      />
       {notice && <Notice>{notice}</Notice>}
 
       {p.lifecycle_state === "submission_unknown" && (
