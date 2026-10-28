@@ -225,6 +225,14 @@ async def claim(session):
     now = await instant(session)
     for row in await rows(session):
         v = dict(row.value)
+        if v["state"] == "FILLING" and (
+            not v["lease_until"] or datetime.fromisoformat(v["lease_until"]) <= now
+        ):
+            await move(
+                session, row, "NEEDS_INPUT", "fill_outcome_unknown_reinspect_manually"
+            )
+            row.value = {**row.value, "lease_until": None}
+            continue
         if v["state"] in TERMINAL | {
             "PAUSED",
             "NEEDS_INPUT",
@@ -389,6 +397,22 @@ async def fill_event(session, row, plan, status):
         if status == "fill_authorized":
             raise ToolDenied("execution_paused_or_cancelled")
         return
+    if (
+        value.get("diagnostic") == "fill_outcome_unknown_reinspect_manually"
+        and status != "fill_authorized"
+    ):
+        row.value = {
+            **value,
+            "evidence": [
+                *value["evidence"],
+                {
+                    "plan_id": str(plan.id),
+                    "status": "late_" + status,
+                    "submitted": False,
+                },
+            ],
+        }
+        return
     next_state = (
         "FILLING"
         if status == "fill_authorized"
@@ -400,8 +424,13 @@ async def fill_event(session, row, plan, status):
         if next_state not in TRANSITIONS.get(value["state"], set()):
             raise ToolDenied("execution_not_ready_for_fill")
         await move(session, row, next_state, status)
+    now = await instant(session)
     row.value = {
         **row.value,
+        "lease_until": (now + timedelta(seconds=90)).isoformat()
+        if status == "fill_authorized"
+        else None,
+        "heartbeat_at": now.isoformat(),
         "evidence": [
             *row.value["evidence"],
             {"plan_id": str(plan.id), "status": status, "submitted": False},

@@ -852,3 +852,44 @@ async def test_history_read_before_owner_storage_migration_is_empty(db_session):
         await connection.run_sync(OwnerPreference.__table__.drop)
     assert await reviewed_history(db_session) == []
     assert not await storage_available(db_session)
+
+
+@pytest.mark.asyncio
+async def test_lost_fill_receipt_requires_reinspection_without_replay(
+    db_session, execution_target
+):
+    execution = (await store.start(db_session, [execution_target]))[0]
+    row = await store.load(db_session, execution["id"])
+    row.value = {**row.value, "state": "READY_FOR_REVIEW"}
+    plan = SimpleNamespace(id=uuid4())
+    await store.fill_event(db_session, row, plan, "fill_authorized")
+    await db_session.flush()
+    assert await store.claim(db_session) is None
+    row = await store.load(db_session, execution["id"])
+    row.value = {
+        **row.value,
+        "lease_until": (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat(),
+    }
+    await db_session.flush()
+    assert await store.claim(db_session) is None
+    row = await store.load(db_session, execution["id"])
+    assert row.value["state"] == "NEEDS_INPUT"
+    assert row.value["diagnostic"] == "fill_outcome_unknown_reinspect_manually"
+    await store.fill_event(db_session, row, plan, "form_filled")
+    assert row.value["state"] == "NEEDS_INPUT"
+    assert row.value["evidence"][-1]["submitted"] is False
+
+
+@pytest.mark.asyncio
+async def test_completed_fill_clears_lease_without_submission(
+    db_session, execution_target
+):
+    execution = (await store.start(db_session, [execution_target]))[0]
+    row = await store.load(db_session, execution["id"])
+    row.value = {**row.value, "state": "READY_FOR_REVIEW"}
+    plan = SimpleNamespace(id=uuid4())
+    await store.fill_event(db_session, row, plan, "fill_authorized")
+    await db_session.flush()
+    await store.fill_event(db_session, row, plan, "form_filled")
+    assert row.value["state"] == "READY_FOR_REVIEW" and row.value["lease_until"] is None
+    assert all(e["submitted"] is False for e in row.value["evidence"])
