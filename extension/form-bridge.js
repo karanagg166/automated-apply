@@ -4,6 +4,14 @@ const host = "com.automated_apply.agent";
 const ERROR_CODE_PATTERN = /^[a-z][a-z0-9_]{1,63}$/;
 let current;
 let generation = 0;
+function permittedFormUrl(value) {
+  if (!supportedUrl(value)) return false;
+  const host = new URL(value).hostname.toLowerCase();
+  return ![
+    "simplify.jobs", "linkedin.com", "naukri.com", "wellfound.com",
+    "instahyre.com", "internshala.com", "accounts.google.com", "mail.google.com",
+  ].some(domain => host === domain || host.endsWith("." + domain));
+}
 export function cancelPreparedForm() {
   generation++;
   current = null;
@@ -66,7 +74,7 @@ async function native(command, extra) {
 }
 async function active() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!Number.isInteger(tab?.id) || !supportedUrl(tab.url))
+  if (!Number.isInteger(tab?.id) || !permittedFormUrl(tab.url))
     throw Error("supported_application_page_required");
   return tab;
 }
@@ -109,7 +117,7 @@ export async function prepareAnswers(tab) {
   cancelPreparedForm();
   const expected = generation;
   tab = tab || (await active());
-  if (!Number.isInteger(tab?.id) || !supportedUrl(tab.url))
+  if (!Number.isInteger(tab?.id) || !permittedFormUrl(tab.url))
     throw Error("supported_application_page_required");
   const before = await active();
   if (before.id !== tab.id || before.url !== tab.url)

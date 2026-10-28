@@ -403,3 +403,12 @@ test("cancelled or superseded preparations cannot replace current reviewed conte
   await prepareAnswers();
   assert.equal((await fillForm()).submitted, false);
 });
+
+for (const host of ["simplify.jobs", "www.linkedin.com", "mail.google.com", "accounts.google.com"]) {
+  test(`restricted form on ${host} is refused before reading the DOM or contacting native host`, async () => {
+    setup();
+    tab.url = `https://${host}/fictional/apply`;
+    await assert.rejects(prepareAnswers(), /supported_application_page_required/);
+    assert.equal(calls.length, 0);
+  });
+}
