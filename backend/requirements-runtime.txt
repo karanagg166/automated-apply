@@ -1,7 +1,7 @@
 # Runtime dependencies; exact tested versions in requirements.lock.
 -c requirements.lock
 # Web Framework & API
-fastapi>=0.115.0
+fastapi>=0.143.1
 uvicorn[standard]>=0.32.0
 
 # Settings & Validation
