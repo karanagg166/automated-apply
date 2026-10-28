@@ -1,8 +1,9 @@
 """Deterministic URL identity; validation only, never follows submitted URLs."""
 
-from urllib.parse import urlsplit, urlunsplit, parse_qsl, urlencode
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic import TypeAdapter
+
 from backend.app.core.urls import PublicHTTPSURL
 
 _validator = TypeAdapter(PublicHTTPSURL)
@@ -44,10 +45,17 @@ def ats_job_url(value: str | None) -> str | None:
     patterns = {
         "job-boards.greenhouse.io": r"/[^/]+/jobs/[0-9]+",
         "jobs.lever.co": r"/[^/]+/[A-Za-z0-9-]{10,}(?:/apply)?",
+        "jobs.eu.lever.co": r"/[^/]+/[A-Za-z0-9-]{10,}(?:/apply)?",
         "jobs.ashbyhq.com": r"/[^/]+/[A-Za-z0-9-]{10,}(?:/application)?",
+        "jobs.smartrecruiters.com": r"/[A-Za-z0-9_-]+/[0-9]{5,}(?:-[A-Za-z0-9_%~-]+)?",
     }
     pattern = patterns.get(parsed.hostname)
     if pattern and re.fullmatch(pattern, parsed.path):
         path = re.sub(r"/(?:apply|application)$", "", parsed.path)
-        return urlunsplit((parsed.scheme, parsed.netloc, path, parsed.query, ""))
+        query = parsed.query
+        if parsed.hostname == "jobs.smartrecruiters.com":
+            path = re.sub(r"(/[0-9]{5,})(?:-.*)?$", r"\1", path)
+            # The documented apply view is the same posting identity.
+            query = urlencode([(k, v) for k, v in parse_qsl(query) if k != "oga"])
+        return urlunsplit((parsed.scheme, parsed.netloc, path, query, ""))
     return None

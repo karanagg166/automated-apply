@@ -361,8 +361,9 @@ class Settings(BaseSettings):
     LEVER_BOARDS: dict[str, str] = Field(default_factory=dict, max_length=10)
     LEVER_REGION: Literal["global", "eu"] = "global"
     ASHBY_BOARDS: dict[str, str] = Field(default_factory=dict, max_length=10)
+    SMARTRECRUITERS_BOARDS: dict[str, str] = Field(default_factory=dict, max_length=10)
 
-    @field_validator("LEVER_BOARDS", "ASHBY_BOARDS")
+    @field_validator("LEVER_BOARDS", "ASHBY_BOARDS", "SMARTRECRUITERS_BOARDS")
     @classmethod
     def public_ats_boards(cls, value):
         if any(

@@ -282,7 +282,7 @@ class JobDiscoveryService:
                             {"budget": self.budget, "settings": self.settings}
                             if config.adapter_type == "apify"
                             else {"settings": self.settings}
-                            if config.id in {"lever", "ashby"}
+                            if config.id in {"lever", "ashby", "smartrecruiters"}
                             else {}
                         )
                         adapter = JobSourceFactory.get_adapter(

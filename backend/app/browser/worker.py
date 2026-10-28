@@ -4,6 +4,7 @@ import asyncio
 import base64
 import json
 from pathlib import Path
+from urllib.parse import urlsplit
 from uuid import UUID
 
 from backend.app.browser import queue
@@ -159,11 +160,18 @@ class BrowserWorker:
                 }
             plan_id = UUID(job["plan_id"])
         else:
+            from backend.app.browser.runner import validate_destination
+
+            # Recheck configured permission and public DNS before opening a
+            # generic employer URL. DOM contents cannot supply this grant.
+            if self.settings.ENVIRONMENT != "testing":
+                await validate_destination(url, self.settings)
             opened = await self.driver.call(
                 "open",
                 url=url,
                 profile=self.driver.profile,
                 headless=self.driver.headless,
+                permitted_origin=urlsplit(url).scheme + "://" + urlsplit(url).netloc,
                 fixture_origin=self.settings.BROWSER_FIXTURE_ORIGIN
                 if self.settings.ENVIRONMENT == "testing"
                 else None,

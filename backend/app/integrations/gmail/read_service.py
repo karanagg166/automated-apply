@@ -26,7 +26,7 @@ from backend.app.services.discovery_budget import insert_for
 POLICY = "gmail_sync:"
 MESSAGE = "gmail_msg:"
 TOPIC = re.compile(
-    r"\b(?:job|jobs|application|interview|hiring|vacancy|career|recruit|position)\b",
+    r"\b(?:job|jobs|application|interview|hiring|vacancy|career|recruit(?:er|ing|ment)?|position|follow[ -]?up)\b",
     re.I,
 )
 
@@ -406,6 +406,8 @@ class GmailReadService:
                             "signals": [],
                             "verification_status": "requires_review",
                             "submission_confirmed": False,
+                            "status_confirmed": False,
+                            "signal_basis": "metadata_only_no_status_inference",
                         }
                         if policy.read_body:
                             await guard()
@@ -525,6 +527,16 @@ class GmailReadService:
                     },
                 )
                 lead["evidence_ids"].append(message["id"])
+                imported = message.get("imported_leads", {}).get(url, [])
+                lead["imported_job_ids"] = sorted(set(lead.get("imported_job_ids", []) + imported))
+                lead["import_state"] = (
+                    "imported" if lead["imported_job_ids"] else
+                    "legacy_message_import_unknown" if (
+                        lead.get("import_state") == "legacy_message_import_unknown"
+                        or message.get("imported_job_ids") and not message.get("imported_leads")
+                    ) else
+                    "not_imported"
+                )
         return list(unique.values())
 
     async def import_lead(self, account_id, evidence_id, data):
@@ -571,6 +583,7 @@ class GmailReadService:
             raise ConnectionError("gmail_lead_import_failed")
         row.value = {
             **row.value,
+            "imported_leads": {**row.value.get("imported_leads", {}), url: result.job_ids},
             "imported_job_ids": sorted(
                 set(row.value.get("imported_job_ids", []) + result.job_ids)
             ),

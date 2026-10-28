@@ -70,7 +70,7 @@ def configuration_fingerprint(provider, settings):
     configuration = {"provider": provider, "adapter_version": 1}
     if provider == "greenhouse":
         configuration["boards"] = settings.GREENHOUSE_BOARDS
-    elif provider in {"lever", "ashby"}:
+    elif provider in {"lever", "ashby", "smartrecruiters"}:
         configuration["boards"] = getattr(settings, provider.upper() + "_BOARDS")
         if provider == "lever":
             configuration["region"] = settings.LEVER_REGION
@@ -210,7 +210,7 @@ class ProviderConnectivity:
                     provider,
                     **(
                         {"settings": self.settings}
-                        if provider in {"lever", "ashby"}
+                        if provider in {"lever", "ashby", "smartrecruiters"}
                         else {}
                     ),
                 )

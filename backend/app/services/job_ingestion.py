@@ -165,6 +165,20 @@ class JobIngestionService:
                     if created:
                         job.source_verification_status = item.source_verification_status
                         job.discovery_metadata = item.model_dump(mode="json")
+                    elif (
+                        item.source_name == job.source_platform
+                        and item.original_url == (job.discovery_metadata or {}).get("original_url")
+                        and item.source_job_id == (job.discovery_metadata or {}).get("source_job_id")
+                        and (previous is None or item.last_observed_date >= previous)
+                    ):
+                        # Refresh explicit range evidence from the same posting.
+                        # Removing a published range makes suitability unknown;
+                        # a secondary source cannot overwrite primary evidence.
+                        job.discovery_metadata = {
+                            **(job.discovery_metadata or {}),
+                            "experience_min_years": item.experience_min_years,
+                            "experience_max_years": item.experience_max_years,
+                        }
                     values = dict(
                         job_id=job.id,
                         source=item.source_name,
