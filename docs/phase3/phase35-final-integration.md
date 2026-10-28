@@ -1,5 +1,88 @@
 # Phase 3.5 final integration — preparation report
 
+## Final publication dependency recheck — 2026-10-28
+
+**ENGINEERING: BLOCKED / NOT EVALUATED on combined source. LIVE ACCEPTANCE: BLOCKED.** This section supersedes the source pins and pending-work status in the historical preparation record below. It does not replace its test receipts or failed-run history.
+
+GitHub PR #39 remains **OPEN and unmerged**, with expected head `e57178b22e453119f4ba449dae28f36c01b6edc5`, no recorded reviews, `mergedAt: null` and no actual merge commit. Both GitHub CLI and the GitHub connector confirmed that it is unmerged. The connector's non-null `merge_commit_sha` on this open PR is a synthetic mergeability commit, not an actual main merge. Remote `refs/heads/main` is currently `ec5dc9b26363b762b4fa508e6d17583741101a5b`, verified with `git ls-remote`; it is the Phase 2 merge and must not be reported as the PR #39 merge.
+
+The exact dependency is owner review/approval and merge of [PR #39](https://github.com/karanagg166/automated-apply/pull/39). This task did not merge it. **Actual Phase 3 main merge SHA: unavailable. Final Phase 3.5 integration branch/SHA: not created. Final Phase 3.5 integration PR: not published.**
+
+Only a documentation handoff was prepared in a new linked worktree of the original repository:
+
+- Branch: `prep/phase35-final-handoff-20261028`.
+- Worktree: `/Users/karanagg/Desktop/Projects/automated-apply-phase35-handoff-20261028`.
+- Starting commit: `ae84afc1b72f3dda44de50026a56aa962698ae77`.
+- Exclusive change: this report. No backend, frontend, extension, migration, configuration or workflow modification.
+
+All existing branches/worktrees remain preserved. No final integration, clone, push, force-push, hosted workflow, deployment or live activation occurred. No message was sent to AGY; no heavy suite was started, so there was no new heavy-test lock acquisition or competing test run. Post-merge work must coordinate the shared lock with AGY before running suites.
+
+### Exact source pins and history preservation
+
+| Source | Exact current commit | Verified ancestry |
+| --- | --- | --- |
+| Codex implementation | `e84e45bf70a62871d04c0fd3c147c4df50e400fb` | Contains PR #39 head |
+| Codex preflight | `ae84afc1b72f3dda44de50026a56aa962698ae77` | Contains full Codex implementation and Gmail fix `709c814ea3062338f8cc8a4cc620a4e7d2facaba` |
+| AGY final delivery | `63dd23eb82feb0e149fb7c42827fc402b38c6d92` | Contains PR #39 head and original AGY commit `08a065fce9d9c744e9c3f252025f8f5833620808`; diverges from preflight at PR #39 head |
+
+AGY's final review document embeds the older SHA `cbfa7db92c9402cdbf900bf65302ad5fda884113`. The delivered Git commit is **63dd23eb82feb0e149fb7c42827fc402b38c6d92**, as required by the owner. Preserve that exact commit and all of its changes in final integration. Compared with the originally reviewed AGY commit, it changes seven frontend feature files, the Phase 3 browser journey file and adds its final review report. It retains the filter reset, OAuth scope labels, disabled-action explanations, Actor inspection retry, profile conflict handling, packet refresh and non-submission UI changes. None was discarded or overwritten during this recheck.
+
+| Source component | Git tree object |
+| --- | --- |
+| Codex backend | `028100a853a6067bc93e900030ad19aa57b9cdd3` |
+| Preflight backend, including Gmail persistence fix | `7f0a88f16560e5cc76d35f1a58b5a9742ccaf427` |
+| Codex/preflight extension | `ca50b760762170d7e5b288cf6dd49dfd601e77d4` |
+| AGY final frontend | `bd9b076720254bedc53c445b1dd7f8dd8566cad6` |
+
+Pinned preflight SHA-256 checksums:
+
+- `backend/app/integrations/gmail/read_service.py`: `2120e0198b025aafbf6e37649be4db4632702192ac681536d7056afbbe7a59c1`.
+- `backend/tests/test_phase35_gmail_import_recovery.py`: `2968889bdb837902dbc1a215898cf9096c470f94cc5b30b30ea11d43672814bc`.
+
+After the dependency opens, fetch actual main, record the actual PR merge and current main SHAs, and repeat ancestry checks against that baseline. Create the one final integration branch/worktree there and merge the pinned histories with history-preserving merge commits. Verify all three pinned heads are ancestors of the final candidate. The new handoff branch contains the original preflight history and this report; preserve it too. If GitHub used squash/rebase merging, explicitly reconcile baseline contents and history rather than assuming ancestry. Keep primary checkout and agent worktrees intact.
+
+### Source findings still present in AGY's exact final commit
+
+These findings were rechecked against `63dd23eb82feb0e149fb7c42827fc402b38c6d92`; they require coordinated resolution and regression verification before combined acceptance:
+
+| Finding | Current evidence and required acceptance |
+| --- | --- |
+| Startup sorting | `startups.tsx` sorts only `result.data.startups`, after pagination. Implement global sorting or explicitly label page-only behavior and verify multiple pages. |
+| Actor configuration attribution | `apify-sources.tsx` compares source portal IDs to Actor IDs with equality/substring checks. Use a reviewed explicit mapping or show unknown association; metadata must never grant collection rights. |
+| Gmail import result | `connected-emails.tsx` retains `inserted_count || 1`, and message-level `imported_job_ids` control duplicate badges. Preserve the preflight backend 409 fix; display exact validated ingestion counts and test individual URL identity in multi-link messages. |
+| Browser fill status | `browser-assistant.tsx` still checks unsupported lifecycle strings `filled` / `manual_submission_required` and submission execution completion for a fill badge. The unit fixture still casts `lifecycle_state: "filled"` through `as any`. Bind the badge to actual current fill analysis/receipts, preserve cancellation/freshness and test valid contract fixtures. |
+
+AGY reports 183 Vitest tests, production build/typecheck/formatting, five Phase 3 Chromium journeys and twelve browser journeys. These are historical AGY branch claims, not a fresh combined acceptance result. Its five Phase 3 journeys do not by themselves establish every owner-required critical check, including 2–10 employees, browser-bound OAuth cookies/scopes, missing profile preconditions (428), failed-persistence frontend recovery, refresh/restart durability or MV3 recovery.
+
+### Current verification accounting and remaining sequence
+
+No engineering suite ran in this dependency recheck: **0 test cases executed, 0 fresh passing cases, 0 fresh failed cases; no runner skip total exists**. All requested combined suites remain **NOT RUN / dependency-blocked**, not passed or counted as skipped test cases. Historical 83-case preparation, 30 HTTP assertions and all original failures remain below unchanged. There is no new security/dependency audit, running API acceptance or Chromium result for combined source.
+
+Documentation validation passed `git diff --check`, exclusive-report-change verification, exact pinned-ref and baseline-ancestry assertions, and manual-only trigger checks for all three workflow files. Source-branch workflows are unchanged from PR #39. These are preparation checks, not engineering test-suite totals.
+
+The post-merge sequence below remains required under atomic locking at `/tmp/automated-apply-heavy-tests.lock`, preserving the existing inode and every failure receipt. Record exact implementation SHA, backend/frontend/extension tree hashes, fixture/runtime identity and commands before testing. Run heavy suites sequentially and handle harness-owned locks without nested deadlock. Resolve source findings before the full run; rerun affected checks if source changes afterward.
+
+Combined acceptance must explicitly cover all owner-required cases: failed Gmail persistence; two-account isolation; denied send/modify/delete/archive; browser-bound OAuth cookies and scope denials; durable NEEDS_INPUT after refresh/restart; factual save before separate human approval; exact evidence/context reuse and stale invalidation; profile 409/428; startup 2–10 and 11–50; metadata without collection rights; provider-reported contacts remaining unverified; preserved form values with zero automatic submission; React DOM races and MV3 restart recovery. Use actual FastAPI, disposable PostgreSQL and the production-built frontend, distinguishing fictional provider/employer transports from genuine live acceptance.
+
+### Outstanding operator gates
+
+The detailed Gmail SQL hashes, staged migration/recovery/consent plan and provider findings below remain historical preparation evidence. No live inventory, provider pricing, allowance, credential or consent was refreshed in this recheck; revalidate them at their own approval gate.
+
+| Gate | Concrete operator action before execution |
+| --- | --- |
+| Phase 3 baseline | Review and merge PR #39 if approved; independently verify GitHub merged state before final integration. |
+| Live Supabase DDL | Confirm exact target/schema, backup and recovery rehearsal, maintenance identity/window, stopped writers and current catalog preflight. Review the rendered forward SQL/hash and separately approve only that transaction; verify forced RLS and restricted runtime grants afterward. No runtime privilege elevation. |
+| Deployment/runtime | After combined engineering acceptance and final PR review, separately approve the exact runtime/extension artifact, target and rollback artifact; perform readiness checks before enabling workers. PR merge alone is insufficient. |
+| Each Gmail account/read | Resolve restricted-scope and retention readiness, confirm schema, then separately consent each account and scope. Approve curated label/sender selection and bounded initial metadata sync; inspect attribution, retries, expiry and zero mailbox mutations before adding another account or body scope. Legacy compose consent is insufficient. |
+| Apify Actor execution | Verify source rights, exact Actor/input/pricing/current account allowance and explicit run/result/cost limits. Obtain bounded execution approval separately; metadata access alone grants no collection permission. Do not rotate accounts or use personal LinkedIn cookies. |
+| Apollo lookup | Owner supplies an eligible credential privately; verify endpoint rights and actual credit pool, then separately approve a bounded lookup and budget. Provider-reported contact data stays unverified without independent evidence. |
+| Genuine employer acceptance | Owner selects the exact vacancy/destination and explicitly authorizes the fill gesture after reviewing evidence. Observe preservation/no automatic submission. Any application submission requires its own explicit authorization; no Gmail/LinkedIn message is automatically sent. |
+| Hosted GitHub Actions | Keep all three workflows manual-only. No dispatch or rerun without deliberate owner authorization. |
+
+Publish exactly one Phase 3.5 integration PR only after the dependency, source findings and full combined local checks pass. Report ENGINEERING PASS only for that tested combined candidate; retain genuine live acceptance gaps separately. Do not automatically merge or deploy it.
+
+## Historical preflight record at ae84afc
+
 Observed 2026-10-28. **ENGINEERING: FAIL** (final acceptance gate unmet; no combined candidate tested). **LIVE ACCEPTANCE: BLOCKED**. Successful preparation checks below do not establish either final engineering acceptance or live activation.
 
 ## Baseline gate and provenance
