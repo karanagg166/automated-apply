@@ -7,7 +7,7 @@ const sites = [
   ["lever", "https://jobs.lever.co/fictional/fictional-job-123/apply"],
   ["ashby", "https://jobs.ashbyhq.com/fictional/fictional-job-123/application"],
   ["workday", "https://fictional.wd5.myworkdayjobs.com/en-US/External/job/India/Engineer_R123"],
-  ["smartrecruiters", "https://jobs.smartrecruiters.com/Fictional/12345678-engineer"],
+  ["smartrecruiters", "https://jobs.smartrecruiters.com/Fictional/12345678-engineer?oga=true"],
   ["generic", "https://fictional-employer.example/careers/apply"],
   ["google_forms", "https://docs.google.com/forms/d/e/fictional/viewform"],
 ];

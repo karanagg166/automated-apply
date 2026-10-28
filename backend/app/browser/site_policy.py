@@ -13,7 +13,8 @@ def application_page_url(value, allowed_origins=()):
         return None
     parsed = urlsplit(url)
     host = parsed.hostname or ""
-    if parsed.query or parsed.fragment or any(
+    public_apply_view = host == "jobs.smartrecruiters.com" and parsed.query == "oga=true"
+    if (parsed.query and not public_apply_view) or parsed.fragment or any(
         host == restricted or host.endswith("." + restricted)
         for restricted in RESTRICTED_HOSTS | {"simplify.jobs", "mail.google.com"}
     ):

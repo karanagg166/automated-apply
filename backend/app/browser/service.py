@@ -50,7 +50,7 @@ def target(url, settings):
         and not parsed.password
     ):
         return url
-    if not safe_url(url) or parsed.query or parsed.fragment:
+    if not safe_url(url) or parsed.fragment:
         raise ToolDenied("verified_public_application_url_required")
     from backend.app.browser.site_policy import application_page_url
 

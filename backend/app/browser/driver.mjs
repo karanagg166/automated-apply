@@ -208,7 +208,7 @@ for await (const line of createInterface({ input: process.stdin })) {
         !fixture &&
         (url.protocol !== "https:" ||
           !(allowedHost(url) || (req.operation === "open" && req.permitted_origin === url.origin)) ||
-          url.search ||
+          (url.search && !(url.hostname === "jobs.smartrecruiters.com" && url.search === "?oga=true")) ||
           url.hash)
       )
         throw Error("unsupported_url");

@@ -13,6 +13,7 @@ ATS_URLS = [
     "https://jobs.eu.lever.co/fictional/fictional-job-123",
     "https://jobs.ashbyhq.com/fictional/fictional-job-123/application",
     "https://jobs.smartrecruiters.com/Fictional/12345678-engineer",
+    "https://jobs.smartrecruiters.com/Fictional/12345678-engineer?oga=true",
     "https://fictional.wd5.myworkdayjobs.com/en-US/External/job/Bengaluru/Engineer_R12345",
     "https://docs.google.com/forms/d/e/fictional/viewform",
 ]
@@ -31,6 +32,7 @@ def test_shared_url_eligibility_covers_documented_host_shapes(url):
     "https://jobs.smartrecruiters.com@evil.example/Fictional/12345678-engineer",
     "https://fictional.wd5.myworkdayjobs.com.evil.example/job/123",
     "https://jobs.ashbyhq.com/fictional/id?token=private",
+    "https://jobs.smartrecruiters.com/Fictional/12345678-engineer?oga=true&token=private",
     "http://127.0.0.1/apply", "https://10.0.0.1/apply",
     "https://simplify.jobs/p/fictional", "https://www.linkedin.com/jobs/123",
     "https://accounts.google.com/login", "https://mail.google.com/mail/u/0",
