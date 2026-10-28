@@ -272,6 +272,8 @@ it("displays duplicate status badge and duplicate notice when lead was previousl
               {
                 id: "lead-first",
                 url: importedRecord.links[0],
+                import_state: "imported",
+                imported_job_ids: ["job-101", "job-102"],
                 evidence_ids: [evidenceId],
                 verification_status: "requires_review",
                 confirmed_vacancy: false,
@@ -283,7 +285,9 @@ it("displays duplicate status badge and duplicate notice when lead was previousl
   });
   mount();
   expect(
-    await screen.findByText("Imported (Job ID: job-101, job-102)"),
+    await screen.findByText(
+      "Message has imported link (Job ID: job-101, job-102)",
+    ),
   ).toBeInTheDocument();
   expect(screen.getByText("Already imported")).toBeInTheDocument();
 

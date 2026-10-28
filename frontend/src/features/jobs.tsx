@@ -60,7 +60,7 @@ export type SourceMetadata = {
 };
 
 export const FALLBACK_SOURCE_OPTIONS = [
-  { id: "simplify_jobs", label: "Simplify Jobs" },
+  { id: "simplify", label: "Simplify Jobs" },
   { id: "lever", label: "Lever" },
   { id: "ashby", label: "Ashby" },
   { id: "greenhouse", label: "Greenhouse" },
@@ -87,57 +87,25 @@ export function getSourceDetails(
   if (meta) {
     return {
       displayName: meta.display_name || readable(sourceId),
-      adapterType: meta.adapter_type || "direct_api",
-      availability: meta.availability || "available",
+      adapterType: meta.adapter_type || "unknown",
+      availability: meta.availability || "unverified",
       readOnly: meta.read_only !== false,
       liveVerified: meta.live_verified === true,
-      pricing: meta.pricing || "free",
+      pricing: meta.pricing || "unknown",
     };
   }
-  if (sourceId === "simplify_jobs") {
-    return {
-      displayName: "Simplify Jobs",
-      adapterType: "manual",
-      availability: "authorized_integration_required",
-      readOnly: true,
-      liveVerified: false,
-      pricing: "free",
-    };
-  }
-  if (sourceId === "gmail_alert") {
-    return {
-      displayName: "Gmail Job Alerts",
-      adapterType: "gmail",
-      availability: "available",
-      readOnly: true,
-      liveVerified: true,
-      pricing: "free",
-    };
-  }
-  if (sourceId === "workday") {
-    return {
-      displayName: "Workday",
-      adapterType: "manual",
-      availability: "manual_import_only",
-      readOnly: true,
-      liveVerified: false,
-      pricing: "free",
-    };
-  }
-  const verifiedList = [
-    "lever",
-    "ashby",
-    "greenhouse",
-    "arbeitnow",
-    "smartrecruiters",
-  ];
+  const manual = ["simplify", "workday", "company_careers", "manual"].includes(
+    sourceId,
+  );
   return {
-    displayName: readable(sourceId),
-    adapterType: "direct_api",
-    availability: "available",
+    displayName:
+      FALLBACK_SOURCE_OPTIONS.find((source) => source.id === sourceId)?.label ||
+      readable(sourceId),
+    adapterType: manual ? "manual" : "unknown",
+    availability: manual ? "manual_import_only" : "unverified",
     readOnly: true,
-    liveVerified: verifiedList.includes(sourceId),
-    pricing: "free",
+    liveVerified: false,
+    pricing: "unknown",
   };
 }
 
@@ -169,6 +137,7 @@ export type Job = Schema<"JobRead"> & {
   salary_range?: string | null;
   application_deadline?: string | null;
   experience_level?: string | null;
+  experience_fit?: string;
   match?: {
     match_score: number;
     matched_skills?: string[];
@@ -410,7 +379,7 @@ export function JobPreviewModal({
               </p>
               <small className="muted">
                 {job.recommended_resume?.reason ||
-                  "Matches technical competencies and experience profile for this position."}
+                  "No match explanation available."}
               </small>
             </div>
             <div>
@@ -869,7 +838,7 @@ export function Jobs() {
   const [country, setCountry] = useState("");
   const [employeeRange, setEmployeeRange] = useState("");
   const [seniority, setSeniority] = useState("");
-  const [minSalary, setMinSalary] = useState("");
+  const [approvedFit, setApprovedFit] = useState(false);
   const [publishedSalaryOnly, setPublishedSalaryOnly] = useState(false);
   const [deadlineOnly, setDeadlineOnly] = useState(false);
   const [freshnessDays, setFreshnessDays] = useState("");
@@ -892,7 +861,12 @@ export function Jobs() {
   if (platform.trim()) queryParams.set("platform", platform.trim());
   if (remoteType) queryParams.set("remote_type", remoteType);
   if (effectiveStatus) queryParams.set("application_status", effectiveStatus);
-  if (freshnessDays) queryParams.set("max_age_days", freshnessDays);
+  if (country) queryParams.set("country", country);
+  if (seniority) queryParams.set("experience_level", seniority);
+  if (employeeRange) queryParams.set("company_size_band", employeeRange);
+  if (approvedFit) queryParams.set("approved_experience_fit", "true");
+  if (status === "matched") queryParams.set("minimum_match_score", "50");
+  if (freshnessDays) queryParams.set("published_within_days", freshnessDays);
   if (status === "new_jobs" && !freshnessDays)
     queryParams.set("max_age_days", "7");
 
@@ -951,114 +925,10 @@ export function Jobs() {
     return Array.from(map.entries()).map(([id, label]) => ({ id, label }));
   }, [sourcesQuery.data?.sources, platform]);
 
-  // Reject mutation
-  const rejectMutation = useMutation({
-    mutationFn: async (jobId: string) => {
-      // Invalidate and refresh local job list optimistically
-      return { success: true, jobId };
-    },
-    onSuccess: () => {
-      client.invalidateQueries({ queryKey: ["jobs"] });
-    },
-  });
-
-  // Client-side refinement for complex filters (country, employee size band, seniority, salary, deadline)
+  // Optional refinements apply to the displayed page; evidence filters run on the server.
   const filteredJobs = useMemo(() => {
     if (!result.data?.jobs) return [];
     let list = [...result.data.jobs];
-
-    // Status: matched filter
-    if (status === "matched") {
-      list = list.filter((j) => {
-        const score = j.match?.match_score ?? j.match_score;
-        return score !== null && score !== undefined && score >= 50;
-      });
-    }
-
-    // Country filter
-    if (country) {
-      list = list.filter((j) => {
-        const c = (j.country || "").toUpperCase();
-        const loc = (j.location || "").toUpperCase();
-        if (country === "IN")
-          return c === "IN" || c === "INDIA" || loc.includes("INDIA");
-        if (country === "US")
-          return c === "US" || c === "USA" || loc.includes("UNITED STATES");
-        if (country === "EU")
-          return ["DE", "FR", "NL", "UK", "GB", "GERMANY"].some((x) =>
-            loc.includes(x),
-          );
-        return c.includes(country.toUpperCase());
-      });
-    }
-
-    // Seniority filter
-    if (seniority) {
-      list = list.filter((j) => {
-        const exp = (j.experience_level || "").toLowerCase();
-        const title = j.title.toLowerCase();
-        if (seniority === "intern")
-          return exp.includes("intern") || title.includes("intern");
-        if (seniority === "junior")
-          return (
-            exp.includes("junior") ||
-            exp.includes("entry") ||
-            title.includes("junior")
-          );
-        if (seniority === "mid")
-          return (
-            exp.includes("mid") ||
-            (!title.includes("senior") && !title.includes("lead"))
-          );
-        if (seniority === "senior")
-          return exp.includes("senior") || title.includes("senior");
-        if (seniority === "lead")
-          return (
-            exp.includes("lead") ||
-            exp.includes("staff") ||
-            title.includes("lead") ||
-            title.includes("principal")
-          );
-        if (seniority === "director")
-          return (
-            exp.includes("director") ||
-            exp.includes("vp") ||
-            title.includes("director")
-          );
-        return true;
-      });
-    }
-
-    // Employee count / size band filter
-    if (employeeRange) {
-      list = list.filter((j) => {
-        const empCount = j.company_intelligence?.employee_count;
-        const band = String(
-          j.company_intelligence?.team_size_band ||
-            j.company_intelligence?.team_size ||
-            j.company_intelligence?.headcount ||
-            "",
-        );
-        if (typeof empCount === "number") {
-          if (employeeRange === "1-10") return empCount >= 1 && empCount <= 10;
-          if (employeeRange === "11-50")
-            return empCount >= 11 && empCount <= 50;
-          if (employeeRange === "51-200")
-            return empCount >= 51 && empCount <= 200;
-          if (employeeRange === "201-500")
-            return empCount >= 201 && empCount <= 500;
-          if (employeeRange === "500+") return empCount > 500;
-        }
-        if (employeeRange === "1-10")
-          return band.includes("1-10") || band.includes("2-10");
-        if (employeeRange === "11-50") return band.includes("11-50");
-        if (employeeRange === "51-200")
-          return band.includes("51-200") || band.includes("100+");
-        if (employeeRange === "500+")
-          return band.includes("500+") || band.includes("1000+");
-        return true;
-      });
-    }
 
     // Published salary only
     if (publishedSalaryOnly) {
@@ -1068,18 +938,6 @@ export function Jobs() {
           j.salary_max != null ||
           Boolean(j.salary_range),
       );
-    }
-
-    // Minimum salary
-    if (minSalary) {
-      const minVal = Number(minSalary);
-      if (!isNaN(minVal) && minVal > 0) {
-        list = list.filter((j) => {
-          const sMin =
-            j.salary_min ?? (j.salary_max ? j.salary_max * 0.8 : null);
-          return sMin !== null && sMin >= minVal;
-        });
-      }
     }
 
     // Known deadline only
@@ -1108,7 +966,6 @@ export function Jobs() {
     seniority,
     employeeRange,
     publishedSalaryOnly,
-    minSalary,
     deadlineOnly,
     sortBy,
   ]);
@@ -1123,7 +980,7 @@ export function Jobs() {
     country ||
     employeeRange ||
     seniority ||
-    minSalary ||
+    approvedFit ||
     publishedSalaryOnly ||
     deadlineOnly ||
     freshnessDays ||
@@ -1140,7 +997,7 @@ export function Jobs() {
     setCountry("");
     setEmployeeRange("");
     setSeniority("");
-    setMinSalary("");
+    setApprovedFit(false);
     setPublishedSalaryOnly(false);
     setDeadlineOnly(false);
     setFreshnessDays("");
@@ -1157,7 +1014,7 @@ export function Jobs() {
       <PageTitle
         eyebrow="OPPORTUNITIES WITH CONTEXT"
         title="Work worth exploring."
-        description="Real listings from verified ATS and job alerts. Clear evidence. A considered next step."
+        description="Observed listings and reviewed imports. Inspect source evidence before preparing an application."
         actions={
           <div className="actions">
             <Link href="/discover" className="button primary">
@@ -1177,21 +1034,18 @@ export function Jobs() {
         <div className="split">
           <div>
             <strong className="text-xs muted">
-              SUPPORTED SOURCES & ATS ADAPTERS:
+              DISCOVERY SOURCES & ACCESS STATUS:
             </strong>
             <div className="tag-list" style={{ marginTop: "0.4rem" }}>
-              {FALLBACK_SOURCE_OPTIONS.map((src) => {
+              {sourceOptions.map((src) => {
                 const details = getSourceDetails(
                   src.id,
                   sourcesQuery.data?.sources,
                 );
                 return (
-                  <Badge
-                    key={src.id}
-                    tone={details.liveVerified ? "green" : "neutral"}
-                  >
-                    {details.displayName}{" "}
-                    {details.liveVerified ? "✓ Verified" : "(Read-only)"}
+                  <Badge key={src.id} tone="neutral">
+                    {details.displayName} ({readable(details.availability)};{" "}
+                    {readable(details.adapterType)})
                   </Badge>
                 );
               })}
@@ -1316,9 +1170,9 @@ export function Jobs() {
           </button>
           <button
             type="button"
-            className={`badge ${country === "US" ? "green" : "neutral"} cursor-pointer`}
+            className={`badge ${country === "United States" ? "green" : "neutral"} cursor-pointer`}
             onClick={() => {
-              setCountry(country === "US" ? "" : "US");
+              setCountry(country === "United States" ? "" : "United States");
               setPage(1);
             }}
           >
@@ -1326,13 +1180,13 @@ export function Jobs() {
           </button>
           <button
             type="button"
-            className={`badge ${country === "EU" ? "green" : "neutral"} cursor-pointer`}
+            className={`badge ${country === "Germany" ? "green" : "neutral"} cursor-pointer`}
             onClick={() => {
-              setCountry(country === "EU" ? "" : "EU");
+              setCountry(country === "Germany" ? "" : "Germany");
               setPage(1);
             }}
           >
-            🇪🇺 Europe
+            🇩🇪 Germany
           </button>
           <Button
             variant="ghost"
@@ -1366,11 +1220,12 @@ export function Jobs() {
                 >
                   <option value="">All seniority levels</option>
                   <option value="intern">Internship</option>
-                  <option value="junior">Junior / Entry-Level</option>
-                  <option value="mid">Mid-Level</option>
+                  <option value="junior">Junior</option>
+                  <option value="Entry Level">Entry Level</option>
+                  <option value="mid">Mid</option>
                   <option value="senior">Senior</option>
-                  <option value="lead">Lead / Staff / Principal</option>
-                  <option value="director">Director / Engineering Exec</option>
+                  <option value="lead">Lead</option>
+                  <option value="director">Director</option>
                 </Select>
               </Field>
 
@@ -1383,11 +1238,8 @@ export function Jobs() {
                   }}
                 >
                   <option value="">All company sizes</option>
-                  <option value="1-10">1–10 employees (Early startup)</option>
-                  <option value="11-50">11–50 employees (Growth)</option>
-                  <option value="51-200">51–200 employees (Scale-up)</option>
-                  <option value="201-500">201–500 employees (Mid-size)</option>
-                  <option value="500+">500+ employees (Enterprise)</option>
+                  <option value="2-10">2–10 employees</option>
+                  <option value="11-50">11–50 employees</option>
                 </Select>
               </Field>
 
@@ -1413,13 +1265,13 @@ export function Jobs() {
                   onChange={(e) => setSortBy(e.target.value as any)}
                 >
                   <option value="freshness">
-                    Publication freshness (Newest first)
+                    Last observed (Newest first)
                   </option>
                   <option value="match">Match score (Highest match)</option>
                   <option value="salary">
-                    Expected compensation (Highest first)
+                    Published salary amount (This page; currencies differ)
                   </option>
-                  <option value="company">Company name (A–Z)</option>
+                  <option value="company">Company name (This page, A–Z)</option>
                   <option value="oldest">Oldest first</option>
                 </Select>
               </Field>
@@ -1443,10 +1295,21 @@ export function Jobs() {
               <label className="check-label">
                 <input
                   type="checkbox"
+                  checked={approvedFit}
+                  onChange={(e) => {
+                    setApprovedFit(e.target.checked);
+                    setPage(1);
+                  }}
+                />
+                Fit approved experience within a published numeric range
+              </label>
+              <label className="check-label">
+                <input
+                  type="checkbox"
                   checked={publishedSalaryOnly}
                   onChange={(e) => setPublishedSalaryOnly(e.target.checked)}
                 />
-                Published compensation only
+                Published compensation only (this page)
               </label>
 
               <label className="check-label">
@@ -1455,7 +1318,7 @@ export function Jobs() {
                   checked={deadlineOnly}
                   onChange={(e) => setDeadlineOnly(e.target.checked)}
                 />
-                Has known application deadline
+                Has known application deadline (this page)
               </label>
             </div>
           </div>
@@ -1498,7 +1361,7 @@ export function Jobs() {
         <Skeleton />
       ) : result.isError ? (
         <ErrorState error={result.error} retry={() => result.refetch()} />
-      ) : filteredJobs.length ? (
+      ) : result.data?.jobs?.length ? (
         <>
           <div className="results-toolbar split">
             <strong>
@@ -1514,10 +1377,16 @@ export function Jobs() {
             </span>
           </div>
 
+          {!filteredJobs.length && (
+            <Notice>
+              No results on this page satisfy the optional compensation/deadline
+              refinements. Change those refinements or continue to the next
+              page.
+            </Notice>
+          )}
           <JobTable
             jobs={filteredJobs}
             onPreview={(job) => setPreviewJob(job)}
-            onReject={(jobId) => rejectMutation.mutate(jobId)}
           />
 
           <div className="pagination">
@@ -1574,10 +1443,6 @@ export function Jobs() {
         job={previewJob}
         open={Boolean(previewJob)}
         onClose={() => setPreviewJob(null)}
-        onReject={(jobId) => {
-          rejectMutation.mutate(jobId);
-          setPreviewJob(null);
-        }}
       />
     </>
   );

@@ -86,22 +86,29 @@ export function readableScope(scope: string): string {
   return scope;
 }
 
+function hostnameMatches(host: string, domain: string) {
+  return host === domain || host.endsWith(`.${domain}`);
+}
+
 export function detectUrlAts(url: string): { name: string; isAts: boolean } {
   try {
     const hostname = new URL(url).hostname.toLowerCase();
-    if (hostname.includes("greenhouse.io"))
+    if (hostnameMatches(hostname, "greenhouse.io"))
       return { name: "Greenhouse", isAts: true };
-    if (hostname.includes("lever.co")) return { name: "Lever", isAts: true };
-    if (hostname.includes("ashbyhq.com")) return { name: "Ashby", isAts: true };
-    if (hostname.includes("smartrecruiters.com"))
+    if (hostnameMatches(hostname, "lever.co"))
+      return { name: "Lever", isAts: true };
+    if (hostnameMatches(hostname, "ashbyhq.com"))
+      return { name: "Ashby", isAts: true };
+    if (hostnameMatches(hostname, "smartrecruiters.com"))
       return { name: "SmartRecruiters", isAts: true };
     if (
-      hostname.includes("workday.com") ||
-      hostname.includes("myworkdayjobs.com")
+      hostnameMatches(hostname, "workday.com") ||
+      hostnameMatches(hostname, "myworkdayjobs.com")
     )
       return { name: "Workday", isAts: true };
-    if (hostname.includes("taleo.net")) return { name: "Taleo", isAts: true };
-    if (hostname.includes("linkedin.com"))
+    if (hostnameMatches(hostname, "taleo.net"))
+      return { name: "Taleo", isAts: true };
+    if (hostnameMatches(hostname, "linkedin.com"))
       return { name: "LinkedIn Jobs", isAts: false };
     return { name: hostname.replace(/^www\./, ""), isAts: false };
   } catch {
@@ -122,6 +129,8 @@ export type JobEmailEvidence = {
   links: string[];
   signals: string[];
   imported_job_ids?: string[];
+  signal_basis?: string;
+  status_confirmed?: false;
 };
 
 type AccountList = {
@@ -150,6 +159,8 @@ type Lead = {
   evidence_ids: string[];
   verification_status: "requires_review";
   confirmed_vacancy: false;
+  imported_job_ids?: string[];
+  import_state?: "imported" | "not_imported" | "legacy_message_import_unknown";
 };
 
 type ImportSelection = { account: ReadAccount; lead: Lead };
@@ -201,18 +212,6 @@ export function ConnectedEmails() {
     queryKey: ["gmail-read-accounts"],
     queryFn: () => api<AccountList>("integrations/gmail/accounts"),
   });
-
-  const importedJobs = useQuery({
-    queryKey: ["jobs", "gmail_alert"],
-    queryFn: () =>
-      api<{ total: number; jobs: Array<{ id: string; job_url: string }> }>(
-        "jobs/search?platform=gmail_alert&limit=100",
-      ),
-  });
-
-  const importedUrls = new Set(
-    importedJobs.data?.jobs?.map((j) => j.job_url) || [],
-  );
 
   const accounts = accountsQuery.data?.accounts || [];
 
@@ -800,10 +799,13 @@ export function ConnectedEmails() {
                         <Badge tone="amber">Requires review</Badge>
                         {isImported && (
                           <Badge tone="green">
-                            Imported (Job ID:{" "}
+                            Message has imported link (Job ID:{" "}
                             {record.imported_job_ids!.join(", ")})
                           </Badge>
                         )}
+                        <Badge tone="neutral">
+                          Tentative signals; status unconfirmed
+                        </Badge>
                         {record.signals.map((sig) => (
                           <Badge key={sig} tone="neutral">
                             {readable(sig)}
@@ -857,17 +859,7 @@ export function ConnectedEmails() {
 
               {/* Candidate Leads List */}
               {leads.map((lead) => {
-                const leadEvidence = records.filter((r) =>
-                  lead.evidence_ids.includes(r.id),
-                );
-                const isImported =
-                  importedUrls.has(lead.url) ||
-                  leadEvidence.some(
-                    (r) =>
-                      r.links.length === 1 &&
-                      r.imported_job_ids &&
-                      r.imported_job_ids.length > 0,
-                  );
+                const isImported = lead.import_state === "imported";
                 const atsInfo = detectUrlAts(lead.url);
 
                 return (
@@ -876,6 +868,12 @@ export function ConnectedEmails() {
                       <Badge tone="amber">Unconfirmed vacancy lead</Badge>
                       {isImported && (
                         <Badge tone="neutral">Already imported</Badge>
+                      )}
+                      {lead.import_state ===
+                        "legacy_message_import_unknown" && (
+                        <Badge tone="amber">
+                          Historical link import mapping unknown
+                        </Badge>
                       )}
                       {atsInfo.isAts && (
                         <Badge tone="green">{atsInfo.name} ATS</Badge>
@@ -970,7 +968,15 @@ export function ConnectedEmails() {
               <strong>Extracted Vacancy Links:</strong>
               {selectedRecordDetail.record.links.map((link) => {
                 const ats = detectUrlAts(link);
-                const isDup = importedUrls.has(link);
+                const isDup = evidence.data
+                  ?.find(
+                    (group) =>
+                      group.account.id === selectedRecordDetail.account.id,
+                  )
+                  ?.leads.some(
+                    (lead) =>
+                      lead.url === link && lead.import_state === "imported",
+                  );
                 return (
                   <div key={link} className="panel panel-body stack">
                     <div className="split">
@@ -1141,20 +1147,7 @@ export function ConnectedEmails() {
       >
         {importSelection && (
           <div className="stack">
-            {Boolean(
-              importedUrls.has(importSelection.lead.url) ||
-              evidence.data
-                ?.find((e) => e.account.id === importSelection.account.id)
-                ?.records.filter((r) =>
-                  importSelection.lead.evidence_ids.includes(r.id),
-                )
-                .some(
-                  (r) =>
-                    r.links.length === 1 &&
-                    r.imported_job_ids &&
-                    r.imported_job_ids.length > 0,
-                ),
-            ) && (
+            {Boolean(importSelection.lead.import_state === "imported") && (
               <Notice>
                 <strong>Duplicate status:</strong> This lead was previously
                 imported. Importing again will update the existing job record.

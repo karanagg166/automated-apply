@@ -1,0 +1,160 @@
+{
+  "observed_at": "2026-10-28T15:22:25.046005+00:00",
+  "target": "existing owner-approved online PostgreSQL; identity retained privately",
+  "candidate_profile_current_owner_approval_checked": true,
+  "candidate_data_sent_to_sources": false,
+  "ddl_executed": false,
+  "provider_spend_usd": 0,
+  "gmail_messages_read": 0,
+  "employer_submissions": 0,
+  "http": [
+    {
+      "method": "GET",
+      "url": "https://api.ashbyhq.com/posting-api/job-board/sarvam?includeCompensation=true",
+      "status": 200,
+      "seconds": 0.408
+    },
+    {
+      "method": "GET",
+      "url": "https://api.lever.co/v0/postings/saviynt?mode=json",
+      "status": 200,
+      "seconds": 1.856
+    },
+    {
+      "method": "GET",
+      "url": "https://api.smartrecruiters.com/v1/companies/smartrecruiters/postings?offset=0&limit=1",
+      "status": 200,
+      "seconds": 0.725
+    },
+    {
+      "method": "GET",
+      "url": "https://api.smartrecruiters.com/v1/companies/smartrecruiters/postings/744000158320111",
+      "status": 200,
+      "seconds": 0.816
+    }
+  ],
+  "runs": [
+    {
+      "source": "ashby",
+      "status": "success",
+      "counts": {
+        "discovered": 20,
+        "inserted": 1,
+        "updated": 0,
+        "duplicate": 0,
+        "rejected": 0,
+        "failed": 0,
+        "skipped": 19
+      },
+      "idempotent_replay_without_http": true,
+      "jobs": [
+        {
+          "title": "Platform Engineer - AI Infrastructure",
+          "company": "Sarvam",
+          "location": "Bengaluru",
+          "url": "https://jobs.ashbyhq.com/sarvam/fcb15601-6440-41f7-aa79-b9992057a4b2",
+          "country": null,
+          "source_observations": 1,
+          "match_performed_locally": true,
+          "unknown_match_evidence": [
+            "required_skills",
+            "experience_suitability",
+            "startup_status",
+            "company_stage",
+            "company_size",
+            "salary"
+          ],
+          "suitability_confirmed": false
+        }
+      ],
+      "phase_diagnostics": {
+        "phase_seconds": {
+          "claim_checkout": 0.612671,
+          "claim": 0.633118,
+          "profile": 0.462424,
+          "profile_checkout": 0.45705,
+          "concurrency_wait": 2.2e-05,
+          "provider": 0.472109,
+          "provider_pacing": 1.380642,
+          "filtering": 0.00123,
+          "ingestion_checkout": 0.465443,
+          "ingestion": 3.930606,
+          "matching": 0.468778,
+          "finalization": 0.308589
+        },
+        "total_seconds": 9.192765,
+        "last_phase": "finalization",
+        "deadline_seconds": 90.0,
+        "record_attempts": 1,
+        "max_record_seconds": 3.469422
+      }
+    },
+    {
+      "source": "lever",
+      "status": "no_results",
+      "counts": {
+        "discovered": 10,
+        "inserted": 0,
+        "updated": 0,
+        "duplicate": 0,
+        "rejected": 0,
+        "failed": 0,
+        "skipped": 10
+      },
+      "idempotent_replay_without_http": true,
+      "jobs": [],
+      "phase_diagnostics": {
+        "phase_seconds": {
+          "claim_checkout": 0.459337,
+          "claim": 0.460952,
+          "profile": 0.463437,
+          "profile_checkout": 0.457514,
+          "concurrency_wait": 6.9e-05,
+          "provider": 3.214735,
+          "provider_pacing": 1.070022,
+          "filtering": 0.000269,
+          "finalization": 0.77006
+        },
+        "total_seconds": 6.89641,
+        "last_phase": "finalization",
+        "deadline_seconds": 90.0,
+        "record_attempts": 0,
+        "max_record_seconds": 0
+      }
+    },
+    {
+      "source": "smartrecruiters",
+      "status": "no_results",
+      "counts": {
+        "discovered": 1,
+        "inserted": 0,
+        "updated": 0,
+        "duplicate": 0,
+        "rejected": 0,
+        "failed": 0,
+        "skipped": 1
+      },
+      "idempotent_replay_without_http": true,
+      "jobs": [],
+      "phase_diagnostics": {
+        "phase_seconds": {
+          "claim_checkout": 0.45731,
+          "claim": 0.468703,
+          "profile": 0.471426,
+          "profile_checkout": 0.458588,
+          "concurrency_wait": 4.2e-05,
+          "provider": 1.549685,
+          "provider_pacing": 1.074761,
+          "filtering": 0.000183,
+          "finalization": 0.763833
+        },
+        "total_seconds": 5.244577,
+        "last_phase": "finalization",
+        "deadline_seconds": 90.0,
+        "record_attempts": 0,
+        "max_record_seconds": 0
+      }
+    }
+  ],
+  "pool_checked_out_after": 0
+}

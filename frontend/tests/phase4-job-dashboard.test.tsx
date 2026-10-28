@@ -41,6 +41,7 @@ const phase4MockJobs: Job[] = [
       description: "Next-gen payments infrastructure for emerging markets.",
     },
     location: "Bengaluru, India (Hybrid)",
+    country: "India",
     remote_type: "hybrid",
     is_remote: false,
     employment_type: "full_time",
@@ -143,7 +144,10 @@ describe("Phase 4: New Job Discovery Experience", () => {
       }
       if (path.startsWith("jobs/search")) {
         return {
-          jobs: phase4MockJobs,
+          jobs:
+            new URLSearchParams(path.split("?")[1]).get("country") === "IN"
+              ? phase4MockJobs.filter((job) => job.country === "India")
+              : phase4MockJobs,
           total: phase4MockJobs.length,
           page: 1,
           limit: 20,
@@ -195,9 +199,11 @@ describe("Phase 4: New Job Discovery Experience", () => {
     expect(
       screen.getByText("Senior Fullstack Engineer (India / Remote)"),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByText("Staff Platform Engineer (100% Remote)"),
-    ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.queryByText("Staff Platform Engineer (100% Remote)"),
+      ).not.toBeInTheDocument(),
+    );
 
     // Reset region filter
     await user.click(indiaFilterBtn);
@@ -623,7 +629,7 @@ describe("Phase 4: Universal Form Assistant UI", () => {
 
     // Initial platform detection from destination URL
     expect(await screen.findByText("Ashby ATS")).toBeInTheDocument();
-    expect(screen.getByText("Recognized ATS")).toBeInTheDocument();
+    expect(screen.getByText("Recognized URL host")).toBeInTheDocument();
 
     // Click 'Get status' to load analysis and field metrics
     const statusBtn = screen.getByRole("button", { name: "Get status" });
@@ -641,7 +647,7 @@ describe("Phase 4: Universal Form Assistant UI", () => {
     ).toBeInTheDocument();
   });
 
-  it("links incomplete question directly to the Needs Input queue", async () => {
+  it("opens Needs Input without inventing a durable ID from the DOM field ID", async () => {
     const user = userEvent.setup();
     render(
       <QueryClientProvider client={createClient()}>
@@ -662,10 +668,7 @@ describe("Phase 4: Universal Form Assistant UI", () => {
     const answerLink = screen.getByRole("link", {
       name: /Answer in Needs Input/i,
     });
-    expect(answerLink).toHaveAttribute(
-      "href",
-      "/needs-input?missing_input=field-missing-q1",
-    );
+    expect(answerLink).toHaveAttribute("href", "/needs-input");
   });
 });
 

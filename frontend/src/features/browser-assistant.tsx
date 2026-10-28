@@ -26,132 +26,34 @@ export function detectAtsPlatform(url?: string | null): {
   supportedControls: string[];
   manualControls: string[];
 } {
-  if (!url) {
-    return {
-      name: "Standard Application Portal",
-      isKnownAts: false,
-      supportedControls: ["Text fields", "Dropdowns", "Checkboxes"],
-      manualControls: ["Resume upload", "Security puzzles"],
-    };
+  let host = "";
+  let pathname = "";
+  try {
+    const parsed = new URL(url || "");
+    host = parsed.hostname.toLowerCase();
+    pathname = parsed.pathname;
+  } catch {
+    /* Await a valid inspected destination. */
   }
-  const low = url.toLowerCase();
-  if (low.includes("greenhouse.io")) {
-    return {
-      name: "Greenhouse ATS",
-      isKnownAts: true,
-      supportedControls: [
-        "Personal info (Name, Email, Phone)",
-        "Social URLs (LinkedIn, GitHub, Portfolio)",
-        "Single-line questions",
-        "Multi-line narrative textareas",
-        "Single-choice radio buttons",
-        "Dropdown selects",
-        "Consent checkboxes",
-      ],
-      manualControls: [
-        "Resume PDF file attachment",
-        "Cloudflare Turnstile / reCAPTCHA",
-        "Custom demographic survey embeds",
-      ],
-    };
-  }
-  if (low.includes("lever.co")) {
-    return {
-      name: "Lever ATS",
-      isKnownAts: true,
-      supportedControls: [
-        "Contact inputs",
-        "URL links",
-        "Custom questions & textareas",
-        "Work authorization radios",
-      ],
-      manualControls: [
-        "Resume document picker",
-        "hCaptcha / CAPTCHA challenge",
-        "External redirect questions",
-      ],
-    };
-  }
-  if (low.includes("ashbyhq.com")) {
-    return {
-      name: "Ashby ATS",
-      isKnownAts: true,
-      supportedControls: [
-        "Contact fields",
-        "Location autocompletes",
-        "Experience textareas",
-        "Boolean checkboxes",
-      ],
-      manualControls: ["Document uploads", "Interactive verification puzzles"],
-    };
-  }
-  if (low.includes("smartrecruiters.com")) {
-    return {
-      name: "SmartRecruiters ATS",
-      isKnownAts: true,
-      supportedControls: [
-        "Profile fields",
-        "Experience entries",
-        "Education fields",
-        "Screening questions",
-      ],
-      manualControls: ["Resume file attachment", "Single sign-on modal"],
-    };
-  }
-  if (low.includes("myworkdayjobs.com") || low.includes("workday.com")) {
-    return {
-      name: "Workday Portal",
-      isKnownAts: true,
-      supportedControls: [
-        "Multi-step contact information",
-        "Questionnaires",
-        "Voluntary disclosures",
-      ],
-      manualControls: [
-        "Candidate account login",
-        "PDF parser upload",
-        "Step-by-step page progression",
-      ],
-    };
-  }
-  if (low.includes("taleo.net") || low.includes("oraclecloud.com")) {
-    return {
-      name: "Taleo Enterprise",
-      isKnownAts: true,
-      supportedControls: ["Profile inputs", "Assessment answers"],
-      manualControls: ["Legacy iframe sessions", "Resume attachment"],
-    };
-  }
-  if (low.includes("docs.google.com/forms")) {
-    return {
-      name: "Google Forms",
-      isKnownAts: true,
-      supportedControls: [
-        "Short answer text",
-        "Paragraph textarea",
-        "Multiple choice radios",
-        "Checkbox groups",
-        "Dropdown lists",
-      ],
-      manualControls: [
-        "Google account authenticated uploads",
-        "Grid rating matrices",
-      ],
-    };
-  }
+  const known = [
+    ["greenhouse.io", "Greenhouse ATS"],
+    ["lever.co", "Lever ATS"],
+    ["ashbyhq.com", "Ashby ATS"],
+    ["smartrecruiters.com", "SmartRecruiters ATS"],
+    ["myworkdayjobs.com", "Workday Portal"],
+    ["workday.com", "Workday Portal"],
+    ["taleo.net", "Taleo Enterprise"],
+    ["oraclecloud.com", "Oracle Careers"],
+    ["simplify.jobs", "Simplify Jobs"],
+  ].find(([domain]) => host === domain || host.endsWith(`.${domain}`));
+  const google = host === "docs.google.com" && pathname.startsWith("/forms/");
   return {
-    name: "Custom HTML Application Form",
-    isKnownAts: false,
-    supportedControls: [
-      "Standard HTML text inputs",
-      "Textareas",
-      "Native HTML select dropdowns",
-      "Checkbox inputs",
-    ],
+    name:
+      known?.[1] || (google ? "Google Forms" : "Custom HTML Application Form"),
+    isKnownAts: Boolean(known || google),
+    supportedControls: [],
     manualControls: [
-      "File uploads",
-      "Complex JavaScript components",
-      "CAPTCHAs",
+      "Legal consent, sensitive disclosures, CAPTCHA and submission",
     ],
   };
 }
@@ -632,9 +534,9 @@ export function BrowserAssistant({
                 </strong>
                 <h4 style={{ margin: "0.25rem 0" }}>
                   {detected.name}{" "}
-                  <Badge tone={detected.isKnownAts ? "green" : "neutral"}>
+                  <Badge tone="neutral">
                     {detected.isKnownAts
-                      ? "Recognized ATS"
+                      ? "Recognized URL host"
                       : "HTML Form Inspector"}
                   </Badge>
                 </h4>
@@ -653,15 +555,27 @@ export function BrowserAssistant({
               </div>
             </div>
 
+            <p className="text-xs muted">
+              URL recognition does not verify a vendor adapter, site permission,
+              or compatibility. Each page and step requires inspection and
+              review.
+            </p>
             <div className="grid-2" style={{ marginTop: "0.5rem" }}>
               <div className="text-xs">
                 <strong className="text-green-700">
-                  Supported Form Elements:
+                  Supported fields from current inspection:
                 </strong>
                 <ul style={{ margin: "0.25rem 0 0 1rem", padding: 0 }}>
-                  {detected.supportedControls.map((c) => (
-                    <li key={c}>{c}</li>
-                  ))}
+                  {state?.analysis?.fields
+                    .filter((field) => field.supported)
+                    .map((field) => (
+                      <li key={field.field_id}>
+                        {field.question} ({field.kind})
+                      </li>
+                    ))}
+                  {!state?.analysis && (
+                    <li>Inspect this page to determine field support.</li>
+                  )}
                 </ul>
               </div>
               <div className="text-xs">
@@ -669,9 +583,18 @@ export function BrowserAssistant({
                   Manual Entry Required (Non-Automated):
                 </strong>
                 <ul style={{ margin: "0.25rem 0 0 1rem", padding: 0 }}>
-                  {detected.manualControls.map((c) => (
-                    <li key={c}>{c}</li>
-                  ))}
+                  {(
+                    state?.analysis?.fields
+                      .filter((field) => !field.supported)
+                      .map(
+                        (field) =>
+                          `${field.question}: ${field.manual_reason || "Manual review required"}`,
+                      ) || []
+                  )
+                    .concat(detected.manualControls)
+                    .map((c) => (
+                      <li key={c}>{c}</li>
+                    ))}
                 </ul>
               </div>
             </div>
@@ -1090,13 +1013,30 @@ export function BrowserAssistant({
                         </strong>
                         : {v.reason}
                       </span>
-                      <Link
-                        className="button text-xs"
-                        href={`/needs-input?missing_input=${v.field_id}`}
-                      >
-                        Answer in Needs Input
-                        <ArrowUpRight size={11} />
-                      </Link>
+                      {(() => {
+                        const matchingField = (state.packet.fields || []).find(
+                          (field) => field.id === v.field_id,
+                        );
+                        const prov = matchingField?.provenance as
+                          Record<string, unknown> | undefined;
+                        const missingInputId =
+                          typeof prov?.missing_input_id === "string"
+                            ? prov.missing_input_id
+                            : undefined;
+                        return (
+                          <Link
+                            className="button text-xs"
+                            href={
+                              missingInputId
+                                ? `/needs-input?missing_input=${encodeURIComponent(missingInputId)}`
+                                : "/needs-input"
+                            }
+                          >
+                            Answer in Needs Input
+                            <ArrowUpRight size={11} />
+                          </Link>
+                        );
+                      })()}
                     </li>
                   ))}
               </ul>

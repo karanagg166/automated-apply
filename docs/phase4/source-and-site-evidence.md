@@ -1,6 +1,6 @@
 # Phase 4 source and site evidence
 
-Research date: 2026-10-28. Documentation establishes supported interfaces, not a right to use every employer. Regression acceptance uses fictional/intercepted provider and employer content. A separate bounded public SmartRecruiters read returned one actual posting successfully through two credential-free GET requests. It was not persisted, matched against candidate data or applied to. No genuine Gmail messages, paid provider collections or employer applications are claimed.
+Research date: 2026-10-28. Documentation establishes supported interfaces, not a right to use every employer. Regression acceptance uses fictional/intercepted provider and employer content. The final combined integration additionally performed four bounded credential-free public GETs across Ashby, Lever and SmartRecruiters. One genuine Bengaluru engineering listing and its source observation were saved to the existing approved online PostgreSQL database and matched locally against the current approved profile. Unknown country, experience, skills, salary and company size were preserved. No suitable vacancy or genuine applicant-site acceptance is certified. See the sanitized [live observation receipt](live-source-observations.json); earlier standalone-agent receipts below remain historical. No genuine Gmail messages, paid provider collections or employer applications are claimed.
 
 ## Discovery interfaces
 
@@ -30,6 +30,8 @@ Company size remains separate observed evidence. A feed's employer name, job cou
 | Ashby | Recognizable board/job/application path | Same engine; reviewed public-source destination | Not run |
 | SmartRecruiters | Company/post path; exact `oga=true` permitted | Same engine; source/application identity agrees | Not run |
 | Workday | Recognizable tenant applicant `/job/` path | Same engine on fictional native controls; dynamic/server-dependent widgets remain manual as needed | Not run |
+| Taleo / Oracle Careers | Name recognition only; no dedicated vendor adapter | Generic dashboard inspection requires a separately approved exact public origin; no vendor workflow acceptance | Not run |
+| Simplify Jobs | Manual discovery import only; form assistance rejected before DOM inspection | No collection authorization, dedicated adapter or applicant workflow verified | Not run |
 | Generic HTML/React | Exact operator-approved public origin | Dashboard dedicated browser with pinned public DNS, or gesture-only extension native controls; separate command worker hands off | Not run |
 | Google Forms | Recognizable forms path | Shared engine and existing MV3 fixture/native coverage | Not run |
 | Complex/custom, login, sensitive, CAPTCHA, server-save steps | Manual handoff where unsupported | Explicit unsupported/needs-input states, no claimed fill | Not automated |
@@ -39,3 +41,5 @@ The seven-site matrix runs actual Chromium with a native-control fixture interce
 The inherited guarded dashboard browser engine additionally verifies safe custom dropdowns, explicit multi-step review, conditional/re-render handoff, cancellation, resume digest/file validation and restoration after process loss. Actual installed React isolated-world tests verify controlled-state event correctness. The MV3/native suite verifies worker restart, extension/browser reload and native-host failure/reconnect; that suite does not claim to read/fill live form fields. Extension widgets whose framework state cannot safely be updated remain manual.
 
 Submission remains off and owner-operated. No genuine employer submission, mailbox modification, personal LinkedIn cookie/outreach or provider spend occurred. Apify/Apollo metadata/rights/budget gates are retained, without rotating accounts or authorizing collection from metadata alone.
+
+The combined dashboard displays registry availability and adapter type without inferred “Verified” badges. Its vendor-name detector displays no supported controls until actual DOM inspection supplies per-field flags. Country, exact source seniority, publication age, supported company-size bands and approved numeric-experience fit are server filters applied before pagination. Optional salary/deadline refinements explicitly apply only to the displayed page; salary currencies are not converted or estimated.

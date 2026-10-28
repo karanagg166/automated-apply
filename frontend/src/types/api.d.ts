@@ -10800,6 +10800,11 @@ export interface operations {
         location?: string | null;
         remote_type?: ("remote" | "hybrid" | "onsite" | "unknown") | null;
         employment_type?: string | null;
+        experience_level?: string | null;
+        country?: string | null;
+        published_within_days?: number | null;
+        company_size_band?: ("2-10" | "11-50") | null;
+        approved_experience_fit?: boolean;
         minimum_match_score?: number | null;
         max_age_days?: number | null;
         sort?: "freshness" | "match" | "oldest";

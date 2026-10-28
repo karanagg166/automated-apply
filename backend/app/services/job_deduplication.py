@@ -3,7 +3,7 @@
 import hashlib
 import re
 
-from sqlalchemy import or_, select, text
+from sqlalchemy import and_, or_, select, text
 
 from backend.app.core.job_urls import canonical_job_url
 from backend.app.models.discovery import JobSourceObservation
@@ -76,16 +76,21 @@ class JobDeduplication:
                 raise ValueError("Source identity conflicts with company evidence")
             return job, "source_identity", []
         key = item.canonical_url
-        job = await self.session.scalar(
-            select(Job).where(or_(Job.canonical_key == key, Job.job_url == key))
-        )
-        if job:
-            return job, "canonical_url", []
-        # Legacy URLs remain unchanged by migration. Normalize them only during observed ingestion.
-        legacy = (
-            await self.session.scalars(select(Job).where(Job.canonical_key.is_(None)))
-        ).all()
-        for candidate in legacy:
+        # Fetch exact and legacy URL candidates together. A separate full legacy
+        # read for every unseen posting adds one remote round trip per job.
+        # Keep source identity first, exact URL second, legacy normalization third.
+        exact = or_(Job.canonical_key == key, Job.job_url == key)
+        exact_exists = select(Job.id).where(exact).correlate(None).exists()
+        candidates = (await self.session.scalars(select(Job).where(or_(
+            exact, and_(Job.canonical_key.is_(None), ~exact_exists),
+        )))).all()
+        for candidate in candidates:
+            if candidate.canonical_key == key or candidate.job_url == key:
+                return candidate, "canonical_url", []
+        # Legacy URLs stay unchanged; normalize only for observed ingestion.
+        for candidate in candidates:
+            if candidate.canonical_key is not None:
+                continue
             try:
                 if canonical_job_url(candidate.job_url) == key:
                     return candidate, "legacy_canonical_url", []
