@@ -74,6 +74,9 @@ async def test_pacing_and_commit_are_measured_without_logging_job_data(
     phases = result["usage"]["diagnostics"]["phase_seconds"]
     assert (
         "provider_pacing" in phases
+        and "claim_checkout" in phases
+        and "claim" in phases
+        and "ingestion_checkout" in phases
         and "ingestion" in phases
         and "finalization" in phases
     )
@@ -83,4 +86,5 @@ async def test_pacing_and_commit_are_measured_without_logging_job_data(
         if "discovery_commit_ack" in r.getMessage()
     )
     assert str(result["id"]) in messages
+    assert "audit_seconds=" in messages
     assert "Python Engineer" not in messages and "jobs.lever.co" not in messages

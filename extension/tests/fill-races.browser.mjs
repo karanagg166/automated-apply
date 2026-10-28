@@ -169,6 +169,139 @@ try {
   assert.equal(await worker.evaluate(formDOM, uploadRequest), null);
   cases += 1;
   await worker.close();
+  for (const change of ["value", "disabled", "hidden", "replacement"]) {
+    const dropdown = await browser.newPage();
+    await dropdown.route("**/*", (route) =>
+      route.fulfill({
+        contentType: "text/html",
+        body: '<form><label>Work location<select><option value="">Select</option><option value="remote">Remote</option></select></label></form>',
+      }),
+    );
+    await dropdown.goto("https://fictional.example/apply");
+    const snapshot = await dropdown.evaluate(formDOM, {
+      operation: "inspect",
+      only_empty: true,
+    });
+    await dropdown.evaluate((change) => {
+      const option = document.querySelectorAll("option")[1];
+      if (change === "value") option.value = "onsite";
+      if (change === "disabled") option.disabled = true;
+      if (change === "hidden") option.hidden = true;
+      if (change === "replacement") option.replaceWith(option.cloneNode(true));
+    }, change);
+    const result = await dropdown.evaluate(formDOM, {
+      operation: "fill",
+      document_id: snapshot.document_id,
+      actions: [{ field_id: "f0", kind: "select", value: "Remote" }],
+      only_empty: true,
+    });
+    assert.equal(result.state, "manual_required", change);
+    assert.equal(await dropdown.locator("select").inputValue(), "");
+    cases++;
+    await dropdown.close();
+  }
+  // Another inspection in this same document must revoke the earlier snapshot.
+  const reinspection = await browser.newPage();
+  await reinspection.route("**/*", (route) =>
+    route.fulfill({
+      contentType: "text/html",
+      body: "<form><label>Full name<input></label></form>",
+    }),
+  );
+  await reinspection.goto("https://fictional.example/apply");
+  const old = await reinspection.evaluate(formDOM, { operation: "inspect" });
+  const fresh = await reinspection.evaluate(formDOM, { operation: "inspect" });
+  assert.notEqual(old.document_id, fresh.document_id);
+  assert.equal(
+    (
+      await reinspection.evaluate(formDOM, {
+        operation: "fill",
+        document_id: old.document_id,
+        actions: [{ field_id: "f0", kind: "text", value: "Stale answer" }],
+      })
+    ).state,
+    "manual_required",
+  );
+  assert.equal(await reinspection.locator("input").inputValue(), "");
+  cases++;
+  await reinspection.close();
+  for (const kind of ["radio", "checkbox"]) {
+    const group = await browser.newPage();
+    await group.route("**/*", (route) =>
+      route.fulfill({
+        contentType: "text/html",
+        body: `<form><label>Full name<input id="first"></label><fieldset><legend>Work arrangement</legend><label>Remote<input id="remote" type="${kind}" name="arrangement"></label><label>Onsite<input id="onsite" type="${kind}" name="arrangement"></label></fieldset></form>`,
+      }),
+    );
+    await group.goto("https://fictional.example/apply");
+    const snapshot = await group.evaluate(formDOM, { operation: "inspect" });
+    await group.evaluate(() =>
+      document.querySelector("#first").addEventListener("input", () => {
+        document.querySelector("#onsite").checked = true;
+      }),
+    );
+    const result = await group.evaluate(formDOM, {
+      operation: "fill",
+      document_id: snapshot.document_id,
+      emit_events: true,
+      actions: [
+        { field_id: "f0", kind: "text", value: "Fictional" },
+        { field_id: "f1", kind, value: "true" },
+      ],
+    });
+    assert.equal(result.state, "needs_input");
+    assert.equal(result.results[1].status, "untouched");
+    assert.equal(await group.locator("#remote").isChecked(), false);
+    assert.equal(await group.locator("#onsite").isChecked(), true);
+    cases++;
+    await group.close();
+  }
+  for (const asynchronous of [false, true]) {
+    const controlled = await browser.newPage();
+    await controlled.route("**/*", (route) =>
+      route.fulfill({
+        contentType: "text/html",
+        body: "<form><label>Full name<input></label></form>",
+      }),
+    );
+    await controlled.goto("https://fictional.example/apply");
+    const snapshot = await controlled.evaluate(formDOM, {
+      operation: "inspect",
+    });
+    await controlled.evaluate((asynchronous) => {
+      const input = document.querySelector("input");
+      input.addEventListener("input", () => {
+        if (asynchronous)
+          setTimeout(() => {
+            input.value = "";
+          }, 0);
+        else input.value = "";
+      });
+    }, asynchronous);
+    const result = await controlled.evaluate(formDOM, {
+      operation: "fill",
+      document_id: snapshot.document_id,
+      emit_events: true,
+      actions: [{ field_id: "f0", kind: "text", value: "Fictional" }],
+    });
+    if (!asynchronous) {
+      assert.equal(result.state, "needs_input");
+      assert.equal(result.results[0].status, "failed");
+    }
+    await controlled.waitForFunction(
+      () => document.querySelector("input").value === "",
+    );
+    const verification = await controlled.evaluate(formDOM, {
+      operation: "verify_fill",
+      document_id: snapshot.document_id,
+    });
+    assert.equal(verification.state, "needs_input");
+    assert.deepEqual(verification.results, [
+      { field_id: "f0", status: "failed" },
+    ]);
+    cases++;
+    await controlled.close();
+  }
   for (const label of [
     "Gender",
     "Disability status",
