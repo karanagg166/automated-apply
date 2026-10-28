@@ -522,7 +522,10 @@ export function StartupExplorer() {
           <span className="muted"> · Evidence first. Always.</span>
         </div>
         <div className="actions">
-          <Field label="SORT BY">
+          <Field
+            label="SORT STARTUPS (PAGE)"
+            hint="Page-only sort; backend pagination orders primary results"
+          >
             <Select
               aria-label="Sort startups"
               value={sortOrder}
@@ -533,10 +536,12 @@ export function StartupExplorer() {
                 )
               }
             >
-              <option value="match_desc">Highest match score</option>
-              <option value="jobs_desc">Most open jobs</option>
-              <option value="name_asc">Company name (A–Z)</option>
-              <option value="size_desc">Team size (largest first)</option>
+              <option value="match_desc">Highest match score (page)</option>
+              <option value="jobs_desc">Most open jobs (page)</option>
+              <option value="name_asc">Company name (A–Z) (page)</option>
+              <option value="size_desc">
+                Team size (largest first) (page)
+              </option>
             </Select>
           </Field>
           <Button
@@ -711,11 +716,15 @@ export function StartupExplorer() {
                       </Badge>
                     )}
                     {s.professional_contact_count > 0 ? (
-                      <Badge tone="green">
-                        Contacts discovered ({s.professional_contact_count})
-                      </Badge>
+                      <span title="Aggregate contact count. Open company detail to inspect source-backed vs provider-reported evidence.">
+                        <Badge tone="green">
+                          Contacts discovered ({s.professional_contact_count})
+                        </Badge>
+                      </span>
                     ) : (
-                      <Badge tone="neutral">No contacts discovered</Badge>
+                      <span title="No professional contacts identified in saved observations.">
+                        <Badge tone="neutral">No contacts discovered</Badge>
+                      </span>
                     )}
                   </div>
                   <div className="company-evidence">

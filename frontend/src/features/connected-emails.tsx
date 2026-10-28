@@ -83,6 +83,18 @@ type AccountList = {
   schema_ready: boolean;
   error_code?: string;
 };
+type IngestionResult = {
+  total_received: number;
+  inserted_count: number;
+  updated_count: number;
+  duplicate_count: number;
+  rejected_count: number;
+  failed_count: number;
+  skipped_count: number;
+  job_ids: string[];
+  possible_duplicates?: Record<string, string[]>;
+  errors?: string[];
+};
 type Lead = {
   id: string;
   url: string;
@@ -113,19 +125,28 @@ export function ConnectedEmails() {
   const [company, setCompany] = useState("");
   const [reviewed, setReviewed] = useState(false);
   const [imported, setImported] = useState(false);
-  const [importResult, setImportResult] = useState<{
-    duplicate_count?: number;
-    inserted_count?: number;
-    job_ids?: string[];
-  } | null>(null);
+  const [importResult, setImportResult] = useState<IngestionResult | null>(
+    null,
+  );
   const accountsQuery = useQuery({
     queryKey: ["gmail-read-accounts"],
     queryFn: () => api<AccountList>("integrations/gmail/accounts"),
   });
+  const importedJobs = useQuery({
+    queryKey: ["jobs", "gmail_alert"],
+    queryFn: () =>
+      api<{ total: number; jobs: Array<{ id: string; job_url: string }> }>(
+        "jobs/search?platform=gmail_alert&limit=100",
+      ),
+  });
+  const importedUrls = new Set(
+    importedJobs.data?.jobs?.map((j) => j.job_url) || [],
+  );
   const accounts = accountsQuery.data?.accounts || [];
   const refresh = () => {
     client.invalidateQueries({ queryKey: ["gmail-read-accounts"] });
     client.invalidateQueries({ queryKey: ["gmail-evidence"] });
+    client.invalidateQueries({ queryKey: ["jobs"] });
   };
   const connect = useMutation({
     mutationFn: () =>
@@ -216,7 +237,7 @@ export function ConnectedEmails() {
   });
   const importLead = useMutation({
     mutationFn: () =>
-      post(
+      post<IngestionResult>(
         `integrations/gmail/accounts/${importSelection!.account.id}/evidence/${importSelection!.lead.evidence_ids[0]}/import`,
         {
           job_url: importSelection!.lead.url,
@@ -225,7 +246,7 @@ export function ConnectedEmails() {
           reviewed_job_evidence: reviewed,
         },
       ),
-    onSuccess: (data: any) => {
+    onSuccess: (data: IngestionResult) => {
       setImportSelection(null);
       setImportResult(data);
       setImported(true);
@@ -296,14 +317,14 @@ export function ConnectedEmails() {
           description="Each mailbox requires its own consent. Existing legacy sending accounts are separate."
         />
       )}
-      {imported && (
+      {imported && importResult && (
         <Notice>
           <div className="split">
             <span>
-              {importResult && (importResult.duplicate_count || 0) > 0
+              {importResult.duplicate_count > 0
                 ? `Lead updated as existing record (${importResult.duplicate_count} duplicate recognized). Current vacancy and submission remain unconfirmed.`
-                : `Reviewed lead imported into workspace (${importResult?.inserted_count || 1} vacancy added). Current vacancy and submission remain unconfirmed.`}
-              {importResult?.job_ids?.length
+                : `Reviewed lead imported into workspace (${importResult.inserted_count} ${importResult.inserted_count === 1 ? "vacancy" : "vacancies"} added). Current vacancy and submission remain unconfirmed.`}
+              {importResult.job_ids.length > 0
                 ? ` Job ID: ${importResult.job_ids.join(", ")}`
                 : ""}
             </span>
@@ -498,9 +519,14 @@ export function ConnectedEmails() {
                 const leadEvidence = records.filter((r) =>
                   lead.evidence_ids.includes(r.id),
                 );
-                const isImported = leadEvidence.some(
-                  (r) => r.imported_job_ids && r.imported_job_ids.length > 0,
-                );
+                const isImported =
+                  importedUrls.has(lead.url) ||
+                  leadEvidence.some(
+                    (r) =>
+                      r.links.length === 1 &&
+                      r.imported_job_ids &&
+                      r.imported_job_ids.length > 0,
+                  );
                 return (
                   <article key={lead.id} className="panel panel-body">
                     <div className="tag-list">
@@ -666,13 +692,17 @@ export function ConnectedEmails() {
         {importSelection && (
           <div className="stack">
             {Boolean(
+              importedUrls.has(importSelection.lead.url) ||
               evidence.data
                 ?.find((e) => e.account.id === importSelection.account.id)
                 ?.records.filter((r) =>
                   importSelection.lead.evidence_ids.includes(r.id),
                 )
                 .some(
-                  (r) => r.imported_job_ids && r.imported_job_ids.length > 0,
+                  (r) =>
+                    r.links.length === 1 &&
+                    r.imported_job_ids &&
+                    r.imported_job_ids.length > 0,
                 ),
             ) && (
               <Notice>

@@ -156,8 +156,8 @@ export function BrowserAssistant({
     description: string;
   } = (() => {
     if (
-      (packet.lifecycle_state as string) === "submission_unknown" ||
-      (state?.packet?.lifecycle_state as string) === "submission_unknown"
+      packet.lifecycle_state === "submission_unknown" ||
+      state?.packet?.lifecycle_state === "submission_unknown"
     ) {
       return {
         label: "Submission unknown",
@@ -168,7 +168,8 @@ export function BrowserAssistant({
     }
     if (
       state?.manual ||
-      (packet.lifecycle_state as string) === "manual_submission_required"
+      state?.analysis?.diagnostic === "manual_required" ||
+      state?.analysis?.diagnostic === "unsupported_fields"
     ) {
       return {
         label: "Manual required",
@@ -194,9 +195,11 @@ export function BrowserAssistant({
       };
     }
     if (
+      state?.analysis?.diagnostic === "filled_review_on_website" ||
+      (state?.execution as any)?.state === "form_filled" ||
+      (state?.execution as any)?.status === "form_filled" ||
       state?.execution?.state === "completed" ||
-      (state?.execution as any)?.status === "completed" ||
-      (packet.lifecycle_state as string) === "filled"
+      (state?.execution as any)?.status === "completed"
     ) {
       return {
         label: "Filled (Not submitted)",

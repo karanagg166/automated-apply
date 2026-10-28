@@ -124,7 +124,9 @@ export function ApifySourceManagement() {
           </details>
         )}
       </section>
-      {sources.isError && <ErrorState error={sources.error} />}
+      {sources.isError && (
+        <ErrorState error={sources.error} retry={() => sources.refetch()} />
+      )}
       <section className="panel panel-body">
         <h4>Configured discovery sources</h4>
         {portals.length ? (
@@ -143,46 +145,37 @@ export function ApifySourceManagement() {
         )}
       </section>
       <div className="company-grid" role="list" aria-label="Actor catalog">
-        {account.investigated_actors.map((actor) => {
-          const isConfigured = portals.some(
-            (p) => p.id === actor || p.id.includes(actor),
-          );
-          return (
-            <article className="company-card" role="listitem" key={actor}>
-              <h4>{actor}</h4>
-              <div className="tag-list">
-                <Badge tone="amber">Metadata review only</Badge>
-                <Badge tone={isConfigured ? "green" : "neutral"}>
-                  {isConfigured
-                    ? "Configured in active source routes"
-                    : "Not configured in active routes"}
-                </Badge>
-              </div>
-              <p>
-                Price, schema, and collection rights are unknown until inspected
-                and reviewed. Public metadata does not authorize LinkedIn
-                collection.
-              </p>
-              <div className="actions">
-                <Button
-                  busy={inspect.isPending && inspectingActor === actor}
-                  onClick={() => {
-                    setInspectingActor(actor);
-                    inspect.mutate(actor);
-                  }}
-                >
-                  Inspect metadata (read only)
-                </Button>
-                <Button
-                  disabled
-                  title="Chargeable Actor execution is disabled in this workflow"
-                >
-                  Blocked by policy
-                </Button>
-              </div>
-            </article>
-          );
-        })}
+        {account.investigated_actors.map((actor) => (
+          <article className="company-card" role="listitem" key={actor}>
+            <h4>{actor}</h4>
+            <div className="tag-list">
+              <Badge tone="amber">Metadata review only</Badge>
+              <Badge tone="neutral">No portal route association</Badge>
+            </div>
+            <p>
+              Price, schema, and collection rights are unknown until inspected
+              and reviewed. Public metadata does not authorize LinkedIn
+              collection.
+            </p>
+            <div className="actions">
+              <Button
+                busy={inspect.isPending && inspectingActor === actor}
+                onClick={() => {
+                  setInspectingActor(actor);
+                  inspect.mutate(actor);
+                }}
+              >
+                Inspect metadata (read only)
+              </Button>
+              <Button
+                disabled
+                title="Chargeable Actor execution is disabled in this workflow"
+              >
+                Blocked by policy
+              </Button>
+            </div>
+          </article>
+        ))}
       </div>
       {inspect.isError && (
         <ErrorState
