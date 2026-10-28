@@ -44,7 +44,7 @@ Heavy suites ran sequentially using atomic `fcntl.flock` on the existing inode a
 | Gmail forward/replay/drift/rollback/RLS readiness | **Passed**, two schemas, failed-DDL atomicity, isolated accounts and session recovery |
 | Full frontend Vitest | **198 passed**, 28 files |
 | Production build, TypeScript, frontend formatting | **Passed** |
-| Production frontend + FastAPI + PostgreSQL Chromium | **19 passed** |
+| Production frontend + FastAPI + PostgreSQL Chromium | **28 passed** (19 baseline + 9 final smoke acceptance) |
 | Complete dashboard Chromium, fictional isolated SQLite | **13 passed**, including scripts-unavailable login |
 | Extension units/build | **55 passed**; final build passed |
 | Seven URL-shape form fixtures in real Chromium | **7 passed**, zero form POSTs; zero live vendor workflows |

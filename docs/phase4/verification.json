@@ -4,7 +4,7 @@
   "totals": {
     "backend_postgresql": 2607,
     "frontend_vitest": 198,
-    "frontend_postgresql_chromium": 19,
+    "frontend_postgresql_chromium": 28,
     "dashboard_fictional_chromium": 13,
     "extension_unit": 55,
     "site_shape_chromium": 7,
@@ -14,7 +14,8 @@
   },
   "additional_journeys": [
     "unanswered-fields Chromium passed",
-    "popup-answer Chromium passed"
+    "popup-answer Chromium passed",
+    "phase4-smoke-acceptance 9-journey browser suite passed"
   ],
   "checks": [
     {
