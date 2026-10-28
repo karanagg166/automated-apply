@@ -1,7 +1,29 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useMemo, useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowUpRight,
+  Briefcase,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  Eye,
+  FileCheck,
+  FilePlus2,
+  Filter,
+  Inbox,
+  Mail,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  UserCheck,
+  XCircle,
+} from "lucide-react";
 import { api, dateLabel, externalUrl, post, readable } from "@/lib/api";
 import {
   Badge,
@@ -63,6 +85,30 @@ export function readableScope(scope: string): string {
   }
   return scope;
 }
+
+export function detectUrlAts(url: string): { name: string; isAts: boolean } {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    if (hostname.includes("greenhouse.io"))
+      return { name: "Greenhouse", isAts: true };
+    if (hostname.includes("lever.co")) return { name: "Lever", isAts: true };
+    if (hostname.includes("ashbyhq.com")) return { name: "Ashby", isAts: true };
+    if (hostname.includes("smartrecruiters.com"))
+      return { name: "SmartRecruiters", isAts: true };
+    if (
+      hostname.includes("workday.com") ||
+      hostname.includes("myworkdayjobs.com")
+    )
+      return { name: "Workday", isAts: true };
+    if (hostname.includes("taleo.net")) return { name: "Taleo", isAts: true };
+    if (hostname.includes("linkedin.com"))
+      return { name: "LinkedIn Jobs", isAts: false };
+    return { name: hostname.replace(/^www\./, ""), isAts: false };
+  } catch {
+    return { name: "Direct Link", isAts: false };
+  }
+}
+
 export type JobEmailEvidence = {
   id: string;
   account_id: string;
@@ -77,12 +123,14 @@ export type JobEmailEvidence = {
   signals: string[];
   imported_job_ids?: string[];
 };
+
 type AccountList = {
   accounts: ReadAccount[];
   workflow: "readonly";
   schema_ready: boolean;
   error_code?: string;
 };
+
 type IngestionResult = {
   total_received: number;
   inserted_count: number;
@@ -95,6 +143,7 @@ type IngestionResult = {
   possible_duplicates?: Record<string, string[]>;
   errors?: string[];
 };
+
 type Lead = {
   id: string;
   url: string;
@@ -102,11 +151,14 @@ type Lead = {
   verification_status: "requires_review";
   confirmed_vacancy: false;
 };
+
 type ImportSelection = { account: ReadAccount; lead: Lead };
 
 export function ConnectedEmails() {
   const client = useQueryClient();
   const confirmationId = useId();
+
+  // Dialog & Connection States
   const [connectOpen, setConnectOpen] = useState(false);
   const [expectedEmail, setExpectedEmail] = useState("");
   const [accountConsent, setAccountConsent] = useState(false);
@@ -118,7 +170,22 @@ export function ConnectedEmails() {
   const [bodyPurpose, setBodyPurpose] = useState("");
   const [backfill, setBackfill] = useState(7);
   const [retention, setRetention] = useState(14);
+
+  // Filters & Selection
   const [selectedAccount, setSelectedAccount] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState<
+    "all" | "alerts" | "recruiters" | "interviews" | "status" | "links"
+  >("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dateFreshness, setDateFreshness] = useState<
+    "all" | "1" | "7" | "14" | "30"
+  >("all");
+  const [selectedRecordDetail, setSelectedRecordDetail] = useState<{
+    record: JobEmailEvidence;
+    account: ReadAccount;
+  } | null>(null);
+
+  // Lead Import States
   const [importSelection, setImportSelection] =
     useState<ImportSelection | null>(null);
   const [title, setTitle] = useState("");
@@ -128,10 +195,13 @@ export function ConnectedEmails() {
   const [importResult, setImportResult] = useState<IngestionResult | null>(
     null,
   );
+
+  // Queries
   const accountsQuery = useQuery({
     queryKey: ["gmail-read-accounts"],
     queryFn: () => api<AccountList>("integrations/gmail/accounts"),
   });
+
   const importedJobs = useQuery({
     queryKey: ["jobs", "gmail_alert"],
     queryFn: () =>
@@ -139,15 +209,19 @@ export function ConnectedEmails() {
         "jobs/search?platform=gmail_alert&limit=100",
       ),
   });
+
   const importedUrls = new Set(
     importedJobs.data?.jobs?.map((j) => j.job_url) || [],
   );
+
   const accounts = accountsQuery.data?.accounts || [];
+
   const refresh = () => {
     client.invalidateQueries({ queryKey: ["gmail-read-accounts"] });
     client.invalidateQueries({ queryKey: ["gmail-evidence"] });
     client.invalidateQueries({ queryKey: ["jobs"] });
   };
+
   const connect = useMutation({
     mutationFn: () =>
       post<{ authorization_url: string }>(
@@ -165,21 +239,25 @@ export function ConnectedEmails() {
       window.location.assign(url);
     },
   });
+
   const sync = useMutation({
     mutationFn: (id: string) =>
       post<ReadAccount>(`integrations/gmail/accounts/${id}/sync`),
     onSuccess: refresh,
   });
+
   const verify = useMutation({
     mutationFn: (id: string) =>
       post<ReadAccount>(`integrations/gmail/accounts/${id}/verify`),
     onSuccess: refresh,
   });
+
   const disconnect = useMutation({
     mutationFn: (id: string) =>
       post(`integrations/gmail/accounts/${id}/disconnect`),
     onSuccess: refresh,
   });
+
   const policy = useMutation({
     mutationFn: () =>
       api<ReadAccount>(
@@ -211,6 +289,7 @@ export function ConnectedEmails() {
       refresh();
     },
   });
+
   const evidence = useQuery({
     queryKey: [
       "gmail-evidence",
@@ -235,6 +314,7 @@ export function ConnectedEmails() {
           }),
       ),
   });
+
   const importLead = useMutation({
     mutationFn: () =>
       post<IngestionResult>(
@@ -254,6 +334,7 @@ export function ConnectedEmails() {
       refresh();
     },
   });
+
   const openPolicy = (account: ReadAccount) => {
     const p = account.sync.policy;
     setPolicyAccount(account);
@@ -265,42 +346,129 @@ export function ConnectedEmails() {
     setBackfill(p?.backfill_days ?? 7);
     setRetention(p?.retention_days ?? 14);
   };
+
   const schemaReady = accountsQuery.data?.schema_ready === true;
+
+  // Filter evidence based on category, freshness, and search query
+  const filteredEvidence = useMemo(() => {
+    if (!evidence.data) return [];
+    return evidence.data.map(({ account, records, leads }) => {
+      let filteredRecords = records;
+
+      // Category filter
+      if (categoryFilter !== "all") {
+        filteredRecords = filteredRecords.filter((rec) => {
+          const sigs = rec.signals.map((s) => s.toLowerCase());
+          if (categoryFilter === "alerts") {
+            return sigs.some(
+              (s) =>
+                s.includes("job") ||
+                s.includes("alert") ||
+                s.includes("vacancy"),
+            );
+          }
+          if (categoryFilter === "recruiters") {
+            return sigs.some(
+              (s) =>
+                s.includes("recruiter") ||
+                s.includes("outreach") ||
+                s.includes("sourcer"),
+            );
+          }
+          if (categoryFilter === "interviews") {
+            return sigs.some(
+              (s) =>
+                s.includes("interview") ||
+                s.includes("meeting") ||
+                s.includes("calendar"),
+            );
+          }
+          if (categoryFilter === "status") {
+            return sigs.some(
+              (s) =>
+                s.includes("status") ||
+                s.includes("received") ||
+                s.includes("reject") ||
+                s.includes("offer"),
+            );
+          }
+          if (categoryFilter === "links") {
+            return rec.links.length > 0;
+          }
+          return true;
+        });
+      }
+
+      // Date freshness filter
+      if (dateFreshness !== "all") {
+        const days = Number(dateFreshness);
+        const threshold = Date.now() - days * 24 * 60 * 60 * 1000;
+        filteredRecords = filteredRecords.filter((rec) => {
+          const t = new Date(rec.received_at || rec.observed_at).getTime();
+          return !isNaN(t) && t >= threshold;
+        });
+      }
+
+      // Search query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        filteredRecords = filteredRecords.filter((rec) => {
+          return (
+            rec.message_id.toLowerCase().includes(q) ||
+            rec.thread_id.toLowerCase().includes(q) ||
+            rec.signals.some((s) => s.toLowerCase().includes(q)) ||
+            rec.links.some((l) => l.toLowerCase().includes(q))
+          );
+        });
+      }
+
+      return { account, records: filteredRecords, leads };
+    });
+  }, [evidence.data, categoryFilter, dateFreshness, searchQuery]);
+
   return (
     <div
       className="stack spaced"
       aria-label="Connected read-only Gmail accounts"
     >
       <PageTitle
-        eyebrow="SELECTED MESSAGE EVIDENCE"
-        title="Connected Gmail accounts"
-        description="Independent read-only accounts with selected labels, bounded reads, and account-attributed evidence."
+        eyebrow="JOB INBOX & SELECTED MESSAGE EVIDENCE"
+        title="Gmail Job Inbox"
+        description="Independent read-only accounts with selected labels, bounded reads, recruiter signal detection, and account-attributed evidence."
         actions={
-          <Button
-            disabled={!schemaReady}
-            title={
-              !schemaReady
-                ? "Read-only Gmail setup required before connecting accounts"
-                : undefined
-            }
-            onClick={() => {
-              setConnectOpen(true);
-              setReadBody(false);
-              setAccountConsent(false);
-            }}
-          >
-            Connect secondary account
-          </Button>
+          <div className="actions">
+            <Button
+              disabled={!schemaReady}
+              title={
+                !schemaReady
+                  ? "Read-only Gmail setup required before connecting accounts"
+                  : undefined
+              }
+              onClick={() => {
+                setExpectedEmail("");
+                setConnectOpen(true);
+                setReadBody(false);
+                setAccountConsent(false);
+              }}
+            >
+              <Mail size={14} />
+              Connect secondary account
+            </Button>
+          </div>
         }
       />
+
+      {/* Strict Read-Only Notice */}
       <Notice>
-        <strong>Strict Read-Only Boundary:</strong> This workflow cannot send,
-        reply, draft, modify, archive, or delete Gmail messages. Disconnect
-        revokes this account's authorization; it does not delete mail. Imported
-        links remain unverified vacancy leads.
+        <strong>Strict Read-Only Boundary:</strong> This Job Inbox cannot send,
+        reply, compose, draft, modify, archive, or delete Gmail messages.
+        Disconnect revokes this account's authorization; it does not delete
+        mail. Extracted links remain unverified vacancy leads until reviewed.
       </Notice>
+
       {accountsQuery.isPending && <Skeleton />}
       {accountsQuery.isError && <ErrorState error={accountsQuery.error} />}
+
       {accountsQuery.data && !schemaReady && (
         <Notice>
           <strong>Read-only Gmail setup required</strong>
@@ -311,12 +479,26 @@ export function ConnectedEmails() {
           </p>
         </Notice>
       )}
+
       {schemaReady && accounts.length === 0 && (
         <Empty
           title="No read-only accounts connected"
           description="Each mailbox requires its own consent. Existing legacy sending accounts are separate."
+          action={
+            <Button
+              onClick={() => {
+                setExpectedEmail("");
+                setConnectOpen(true);
+                setReadBody(false);
+                setAccountConsent(false);
+              }}
+            >
+              Connect Gmail account
+            </Button>
+          }
         />
       )}
+
       {imported && importResult && (
         <Notice>
           <div className="split">
@@ -328,10 +510,18 @@ export function ConnectedEmails() {
                 ? ` Job ID: ${importResult.job_ids.join(", ")}`
                 : ""}
             </span>
-            <Badge tone="green">Reviewed</Badge>
+            <div className="actions">
+              <Badge tone="green">Reviewed</Badge>
+              <Link className="button" href="/jobs">
+                View in Jobs
+                <ArrowUpRight size={13} />
+              </Link>
+            </div>
           </div>
         </Notice>
       )}
+
+      {/* Account Cards Section */}
       <div
         className="company-grid"
         role="list"
@@ -339,7 +529,15 @@ export function ConnectedEmails() {
       >
         {accounts.map((account) => (
           <article className="company-card" role="listitem" key={account.id}>
-            <h3>{account.account_email}</h3>
+            <div className="split">
+              <h3>{account.account_email}</h3>
+              {account.status === "connected" && (
+                <span title="Google Verified OAuth">
+                  <ShieldCheck size={16} className="text-green-600" />
+                </span>
+              )}
+            </div>
+
             <div className="tag-list">
               <Badge tone={account.status === "connected" ? "green" : "amber"}>
                 {readable(account.status)}
@@ -353,6 +551,7 @@ export function ConnectedEmails() {
               </Badge>
               <Badge>Sync: {readable(account.sync.status)}</Badge>
             </div>
+
             <dl>
               <dt>Verified</dt>
               <dd>{dateLabel(account.last_verified_at)}</dd>
@@ -377,9 +576,24 @@ export function ConnectedEmails() {
                 )}
               </dd>
             </dl>
+
             {account.sync.last_error && (
-              <p role="alert">{readable(account.sync.last_error)}</p>
+              <div className="stack" style={{ marginTop: "0.25rem" }}>
+                <p role="alert" className="text-xs text-red-600">
+                  Sync error: {readable(account.sync.last_error)}
+                </p>
+                <Button
+                  variant="ghost"
+                  className="text-xs"
+                  onClick={() => sync.mutate(account.id)}
+                  busy={sync.isPending}
+                >
+                  <RefreshCw size={12} />
+                  Retry sync
+                </Button>
+              </div>
             )}
+
             <div className="actions">
               <Button
                 disabled={account.status !== "connected"}
@@ -437,42 +651,133 @@ export function ConnectedEmails() {
           </article>
         ))}
       </div>
+
       {[sync, verify, disconnect].map(
         (mutation, index) =>
           mutation.isError && <ErrorState key={index} error={mutation.error} />,
       )}
+
+      {/* Inbox Evidence & Leads View */}
       {accounts.length > 0 && (
         <section
           className="panel panel-body stack"
           aria-label="Selected email evidence"
         >
-          <h4>Selected-message evidence and candidate links</h4>
-          <p>
-            Raw senders, subjects, and message bodies are not retained. Links
-            and status signals require human review.
-          </p>
-          <Field label="ORIGINATING ACCOUNT">
-            <Select
-              aria-label="Filter by account"
-              value={selectedAccount}
-              onChange={(event) => setSelectedAccount(event.target.value)}
-            >
-              <option value="all">
-                All connected accounts ({accounts.length})
-              </option>
-              {accounts.map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.account_email}
-                </option>
-              ))}
-            </Select>
-          </Field>
+          <div className="split">
+            <div>
+              <h4>Selected-message evidence and candidate links</h4>
+              <p className="text-sm muted">
+                Raw senders, subjects, and message bodies are not retained.
+                Extracted vacancy links and detected recruiter signals require
+                review before import.
+              </p>
+            </div>
+            <Badge tone="green">Read-only Stream</Badge>
+          </div>
+
+          {/* Account Filter, Category Tabs, Search, and Date Filters */}
+          <div
+            className="filter-panel"
+            style={{
+              padding: "0.75rem",
+              background: "var(--surface-sunken, rgba(0,0,0,0.02))",
+            }}
+          >
+            <div className="filter-grid">
+              <Field label="ORIGINATING ACCOUNT">
+                <Select
+                  aria-label="Filter by account"
+                  value={selectedAccount}
+                  onChange={(event) => setSelectedAccount(event.target.value)}
+                >
+                  <option value="all">
+                    All connected accounts ({accounts.length})
+                  </option>
+                  {accounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.account_email}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+
+              <Field label="SEARCH INBOX EVIDENCE">
+                <Input
+                  placeholder="Search URL, message ID, signals…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </Field>
+
+              <Field label="DATE FRESHNESS">
+                <Select
+                  value={dateFreshness}
+                  onChange={(e) => setDateFreshness(e.target.value as any)}
+                >
+                  <option value="all">All received time</option>
+                  <option value="1">Last 24 hours</option>
+                  <option value="7">Last 7 days</option>
+                  <option value="14">Last 14 days</option>
+                  <option value="30">Last 30 days</option>
+                </Select>
+              </Field>
+            </div>
+
+            {/* Signal Categories Bar */}
+            <div className="tag-list" style={{ marginTop: "0.5rem" }}>
+              <span className="text-xs muted">Signal Categories:</span>
+              <button
+                type="button"
+                className={`badge ${categoryFilter === "all" ? "green" : "neutral"} cursor-pointer`}
+                onClick={() => setCategoryFilter("all")}
+              >
+                All Messages
+              </button>
+              <button
+                type="button"
+                className={`badge ${categoryFilter === "alerts" ? "green" : "neutral"} cursor-pointer`}
+                onClick={() => setCategoryFilter("alerts")}
+              >
+                🔔 Job Alerts
+              </button>
+              <button
+                type="button"
+                className={`badge ${categoryFilter === "recruiters" ? "green" : "neutral"} cursor-pointer`}
+                onClick={() => setCategoryFilter("recruiters")}
+              >
+                👤 Recruiter Outreach
+              </button>
+              <button
+                type="button"
+                className={`badge ${categoryFilter === "interviews" ? "green" : "neutral"} cursor-pointer`}
+                onClick={() => setCategoryFilter("interviews")}
+              >
+                📅 Interview Invitations
+              </button>
+              <button
+                type="button"
+                className={`badge ${categoryFilter === "status" ? "green" : "neutral"} cursor-pointer`}
+                onClick={() => setCategoryFilter("status")}
+              >
+                📝 Status Updates
+              </button>
+              <button
+                type="button"
+                className={`badge ${categoryFilter === "links" ? "green" : "neutral"} cursor-pointer`}
+                onClick={() => setCategoryFilter("links")}
+              >
+                🔗 Career Links
+              </button>
+            </div>
+          </div>
+
           {evidence.isPending && <Skeleton />}
           {evidence.isError && <ErrorState error={evidence.error} />}
-          {evidence.data?.map(({ account, records, leads }) => (
+
+          {filteredEvidence.map(({ account, records, leads }) => (
             <section
               key={account.id}
-              className="stack"
+              className="stack spaced"
               aria-label={`Evidence from ${account.account_email}`}
             >
               <h5>Account: {account.account_email}</h5>
@@ -482,39 +787,75 @@ export function ConnectedEmails() {
                   description="Sync only reads messages matching this account's selected policy."
                 />
               )}
-              {records.map((record) => (
-                <div className="panel panel-body" key={record.id}>
-                  <div className="tag-list">
-                    <Badge tone="amber">Requires review</Badge>
-                    {record.imported_job_ids &&
-                      record.imported_job_ids.length > 0 && (
-                        <Badge tone="green">
-                          Imported (Job ID: {record.imported_job_ids.join(", ")}
-                          )
-                        </Badge>
-                      )}
-                  </div>
-                  <p>
-                    Message ID: {record.message_id} · Thread ID:{" "}
-                    {record.thread_id}
-                  </p>
-                  <p>
-                    Received {dateLabel(record.received_at)} · Retention expires{" "}
-                    {dateLabel(record.expires_at)}
-                  </p>
-                  <p>
-                    {record.signals.map(readable).join(", ") ||
-                      "No status signal observed"}
-                  </p>
-                  {record.links.map((url) => (
-                    <p key={url}>
-                      <External href={url}>
-                        Inspect retained source link
-                      </External>
+
+              {/* Records List */}
+              {records.map((record) => {
+                const isImported =
+                  record.imported_job_ids && record.imported_job_ids.length > 0;
+
+                return (
+                  <div className="panel panel-body" key={record.id}>
+                    <div className="split">
+                      <div className="tag-list">
+                        <Badge tone="amber">Requires review</Badge>
+                        {isImported && (
+                          <Badge tone="green">
+                            Imported (Job ID:{" "}
+                            {record.imported_job_ids!.join(", ")})
+                          </Badge>
+                        )}
+                        {record.signals.map((sig) => (
+                          <Badge key={sig} tone="neutral">
+                            {readable(sig)}
+                          </Badge>
+                        ))}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        className="text-xs"
+                        onClick={() =>
+                          setSelectedRecordDetail({ record, account })
+                        }
+                      >
+                        <Eye size={12} />
+                        Message details
+                      </Button>
+                    </div>
+
+                    <p
+                      className="text-xs muted"
+                      style={{ marginTop: "0.25rem" }}
+                    >
+                      Message ID: {record.message_id} · Thread ID:{" "}
+                      {record.thread_id}
                     </p>
-                  ))}
-                </div>
-              ))}
+                    <p className="text-xs">
+                      Received {dateLabel(record.received_at)} · Retention
+                      expires {dateLabel(record.expires_at)}
+                    </p>
+
+                    {record.links.map((url) => {
+                      const atsInfo = detectUrlAts(url);
+                      return (
+                        <div
+                          key={url}
+                          className="split"
+                          style={{ marginTop: "0.25rem" }}
+                        >
+                          <External href={url}>
+                            Inspect retained source link
+                          </External>
+                          {atsInfo.isAts && (
+                            <Badge tone="green">Detected: {atsInfo.name}</Badge>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+
+              {/* Candidate Leads List */}
               {leads.map((lead) => {
                 const leadEvidence = records.filter((r) =>
                   lead.evidence_ids.includes(r.id),
@@ -527,6 +868,8 @@ export function ConnectedEmails() {
                       r.imported_job_ids &&
                       r.imported_job_ids.length > 0,
                   );
+                const atsInfo = detectUrlAts(lead.url);
+
                 return (
                   <article key={lead.id} className="panel panel-body">
                     <div className="tag-list">
@@ -534,23 +877,30 @@ export function ConnectedEmails() {
                       {isImported && (
                         <Badge tone="neutral">Already imported</Badge>
                       )}
+                      {atsInfo.isAts && (
+                        <Badge tone="green">{atsInfo.name} ATS</Badge>
+                      )}
                     </div>
-                    <p>
+                    <p className="text-sm">
                       <External href={lead.url}>{lead.url}</External>
                     </p>
-                    <p>Source evidence: {lead.evidence_ids.join(", ")}</p>
-                    <Button
-                      disabled={!lead.evidence_ids.length}
-                      onClick={() => {
-                        setImportSelection({ account, lead });
-                        setTitle("");
-                        setCompany("");
-                        setReviewed(false);
-                        importLead.reset();
-                      }}
-                    >
-                      Review lead for import
-                    </Button>
+                    <p className="text-xs muted">
+                      Source evidence: {lead.evidence_ids.join(", ")}
+                    </p>
+                    <div className="actions" style={{ marginTop: "0.5rem" }}>
+                      <Button
+                        disabled={!lead.evidence_ids.length}
+                        onClick={() => {
+                          setImportSelection({ account, lead });
+                          setTitle("");
+                          setCompany("");
+                          setReviewed(false);
+                          importLead.reset();
+                        }}
+                      >
+                        Review lead for import
+                      </Button>
+                    </div>
                   </article>
                 );
               })}
@@ -558,6 +908,87 @@ export function ConnectedEmails() {
           ))}
         </section>
       )}
+
+      {/* Message Detail Modal */}
+      <Modal
+        open={Boolean(selectedRecordDetail)}
+        onOpenChange={(open) => !open && setSelectedRecordDetail(null)}
+        title="Read-Only Message Detail"
+        description="Metadata and observed vacancy links extracted under read-only authorization."
+      >
+        {selectedRecordDetail && (
+          <div className="stack spaced">
+            <Notice>
+              <strong>Read-Only Notice:</strong> Message bodies and raw headers
+              are not retained on disk. You cannot reply, compose, send, or
+              modify this message.
+            </Notice>
+
+            <dl className="grid-2">
+              <div>
+                <dt>Account</dt>
+                <dd>{selectedRecordDetail.account.account_email}</dd>
+              </div>
+              <div>
+                <dt>Message ID</dt>
+                <dd className="text-xs font-mono">
+                  {selectedRecordDetail.record.message_id}
+                </dd>
+              </div>
+              <div>
+                <dt>Thread ID</dt>
+                <dd className="text-xs font-mono">
+                  {selectedRecordDetail.record.thread_id}
+                </dd>
+              </div>
+              <div>
+                <dt>Received</dt>
+                <dd>{dateLabel(selectedRecordDetail.record.received_at)}</dd>
+              </div>
+              <div>
+                <dt>Observed</dt>
+                <dd>{dateLabel(selectedRecordDetail.record.observed_at)}</dd>
+              </div>
+              <div>
+                <dt>Retention Expires</dt>
+                <dd>{dateLabel(selectedRecordDetail.record.expires_at)}</dd>
+              </div>
+            </dl>
+
+            <div className="stack">
+              <strong>Detected Signals:</strong>
+              <div className="tag-list">
+                {selectedRecordDetail.record.signals.map((sig) => (
+                  <Badge key={sig} tone="neutral">
+                    {readable(sig)}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+
+            <div className="stack">
+              <strong>Extracted Vacancy Links:</strong>
+              {selectedRecordDetail.record.links.map((link) => {
+                const ats = detectUrlAts(link);
+                const isDup = importedUrls.has(link);
+                return (
+                  <div key={link} className="panel panel-body stack">
+                    <div className="split">
+                      <span className="text-xs font-bold">{ats.name}</span>
+                      {isDup && (
+                        <Badge tone="neutral">Already in pipeline</Badge>
+                      )}
+                    </div>
+                    <External href={link}>{link}</External>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Connect Account Modal */}
       <Modal
         open={connectOpen}
         onOpenChange={setConnectOpen}
@@ -601,6 +1032,8 @@ export function ConnectedEmails() {
           </Button>
         </div>
       </Modal>
+
+      {/* Policy Modal */}
       <Modal
         open={!!policyAccount}
         onOpenChange={(open) => !open && setPolicyAccount(null)}
@@ -650,39 +1083,56 @@ export function ConnectedEmails() {
               />
             </Field>
           )}
-          <Field label="Backfill Window (Days)">
-            <Input
-              type="number"
-              min={1}
-              max={30}
-              value={backfill}
-              onChange={(event) => setBackfill(Number(event.target.value))}
-            />
-          </Field>
-          <Field label="Evidence Retention (Days)">
-            <Input
-              type="number"
-              min={1}
-              max={90}
-              value={retention}
-              onChange={(event) => setRetention(Number(event.target.value))}
-            />
-          </Field>
+          <div className="split">
+            <Field label="Backfill (days, 1–30)">
+              <Input
+                type="number"
+                min={1}
+                max={30}
+                value={backfill}
+                onChange={(event) =>
+                  setBackfill(
+                    Math.max(1, Math.min(30, Number(event.target.value) || 1)),
+                  )
+                }
+              />
+            </Field>
+            <Field label="Retention (days, 1–90)">
+              <Input
+                type="number"
+                min={1}
+                max={90}
+                value={retention}
+                onChange={(event) =>
+                  setRetention(
+                    Math.max(1, Math.min(90, Number(event.target.value) || 1)),
+                  )
+                }
+              />
+            </Field>
+          </div>
           {policy.isError && <ErrorState error={policy.error} />}
           <Button
-            busy={policy.isPending}
-            disabled={enabled && !readBody && !labels.trim()}
-            title={
-              enabled && !readBody && !labels.trim()
-                ? "Custom labels are required for metadata-only reads"
-                : undefined
+            disabled={
+              policyAccount?.status !== "connected" ||
+              (!labels.trim() && !senders.trim())
             }
+            title={
+              policyAccount?.status !== "connected"
+                ? "Account must be connected"
+                : !labels.trim() && !senders.trim()
+                  ? "At least one label or sender allowlist entry is required"
+                  : undefined
+            }
+            busy={policy.isPending}
             onClick={() => policy.mutate()}
           >
             Save policy
           </Button>
         </div>
       </Modal>
+
+      {/* Review Lead Import Modal */}
       <Modal
         open={!!importSelection}
         onOpenChange={(open) => !open && setImportSelection(null)}

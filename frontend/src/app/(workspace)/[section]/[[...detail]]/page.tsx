@@ -17,14 +17,13 @@ export default async function Page({
   searchParams,
 }: {
   params: Promise<{ section: string; detail?: string[] }>;
-  searchParams?: Promise<{ missing_input?: string }>;
+  searchParams?: Promise<{ missing_input?: string; question_id?: string }>;
 }) {
   const { section, detail } = await params;
-  const missingInput = (await searchParams)?.missing_input;
+  const sp = await searchParams;
+  const rawId = sp?.missing_input || sp?.question_id;
   const initialRequestId =
-    missingInput && /^[a-f0-9]{32}$/.test(missingInput)
-      ? missingInput
-      : undefined;
+    rawId && /^[a-f0-9-]{16,36}$/i.test(rawId) ? rawId : undefined;
   if (section === "profile" && initialRequestId)
     return <UnansweredQuestionsQueue initialRequestId={initialRequestId} />;
   if (detail?.length) {

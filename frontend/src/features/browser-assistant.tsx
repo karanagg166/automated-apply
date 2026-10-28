@@ -20,6 +20,142 @@ import { OpportunityContext } from "@/features/opportunity-context";
 import { BrowserSteps } from "@/features/browser-steps";
 import { BrowserPage } from "@/features/browser-page";
 
+export function detectAtsPlatform(url?: string | null): {
+  name: string;
+  isKnownAts: boolean;
+  supportedControls: string[];
+  manualControls: string[];
+} {
+  if (!url) {
+    return {
+      name: "Standard Application Portal",
+      isKnownAts: false,
+      supportedControls: ["Text fields", "Dropdowns", "Checkboxes"],
+      manualControls: ["Resume upload", "Security puzzles"],
+    };
+  }
+  const low = url.toLowerCase();
+  if (low.includes("greenhouse.io")) {
+    return {
+      name: "Greenhouse ATS",
+      isKnownAts: true,
+      supportedControls: [
+        "Personal info (Name, Email, Phone)",
+        "Social URLs (LinkedIn, GitHub, Portfolio)",
+        "Single-line questions",
+        "Multi-line narrative textareas",
+        "Single-choice radio buttons",
+        "Dropdown selects",
+        "Consent checkboxes",
+      ],
+      manualControls: [
+        "Resume PDF file attachment",
+        "Cloudflare Turnstile / reCAPTCHA",
+        "Custom demographic survey embeds",
+      ],
+    };
+  }
+  if (low.includes("lever.co")) {
+    return {
+      name: "Lever ATS",
+      isKnownAts: true,
+      supportedControls: [
+        "Contact inputs",
+        "URL links",
+        "Custom questions & textareas",
+        "Work authorization radios",
+      ],
+      manualControls: [
+        "Resume document picker",
+        "hCaptcha / CAPTCHA challenge",
+        "External redirect questions",
+      ],
+    };
+  }
+  if (low.includes("ashbyhq.com")) {
+    return {
+      name: "Ashby ATS",
+      isKnownAts: true,
+      supportedControls: [
+        "Contact fields",
+        "Location autocompletes",
+        "Experience textareas",
+        "Boolean checkboxes",
+      ],
+      manualControls: ["Document uploads", "Interactive verification puzzles"],
+    };
+  }
+  if (low.includes("smartrecruiters.com")) {
+    return {
+      name: "SmartRecruiters ATS",
+      isKnownAts: true,
+      supportedControls: [
+        "Profile fields",
+        "Experience entries",
+        "Education fields",
+        "Screening questions",
+      ],
+      manualControls: ["Resume file attachment", "Single sign-on modal"],
+    };
+  }
+  if (low.includes("myworkdayjobs.com") || low.includes("workday.com")) {
+    return {
+      name: "Workday Portal",
+      isKnownAts: true,
+      supportedControls: [
+        "Multi-step contact information",
+        "Questionnaires",
+        "Voluntary disclosures",
+      ],
+      manualControls: [
+        "Candidate account login",
+        "PDF parser upload",
+        "Step-by-step page progression",
+      ],
+    };
+  }
+  if (low.includes("taleo.net") || low.includes("oraclecloud.com")) {
+    return {
+      name: "Taleo Enterprise",
+      isKnownAts: true,
+      supportedControls: ["Profile inputs", "Assessment answers"],
+      manualControls: ["Legacy iframe sessions", "Resume attachment"],
+    };
+  }
+  if (low.includes("docs.google.com/forms")) {
+    return {
+      name: "Google Forms",
+      isKnownAts: true,
+      supportedControls: [
+        "Short answer text",
+        "Paragraph textarea",
+        "Multiple choice radios",
+        "Checkbox groups",
+        "Dropdown lists",
+      ],
+      manualControls: [
+        "Google account authenticated uploads",
+        "Grid rating matrices",
+      ],
+    };
+  }
+  return {
+    name: "Custom HTML Application Form",
+    isKnownAts: false,
+    supportedControls: [
+      "Standard HTML text inputs",
+      "Textareas",
+      "Native HTML select dropdowns",
+      "Checkbox inputs",
+    ],
+    manualControls: [
+      "File uploads",
+      "Complex JavaScript components",
+      "CAPTCHAs",
+    ],
+  };
+}
+
 type BrowserStatus = {
   packet: Schema<"PacketRead">;
   connected: boolean;
@@ -476,6 +612,72 @@ export function BrowserAssistant({
           </div>
         </div>
       )}
+
+      {/* Universal Website & ATS Detector Card */}
+      {(() => {
+        const detected = detectAtsPlatform(
+          state?.analysis?.page_context?.url ||
+            packet.snapshot?.destination?.application_url,
+        );
+        return (
+          <div
+            className="panel panel-body spaced"
+            aria-label="Universal Form Assistant Detection"
+            style={{ background: "var(--surface-sunken, rgba(0,0,0,0.02))" }}
+          >
+            <div className="split">
+              <div>
+                <strong className="text-xs muted">
+                  UNIVERSAL FORM ASSISTANT — DETECTED PLATFORM:
+                </strong>
+                <h4 style={{ margin: "0.25rem 0" }}>
+                  {detected.name}{" "}
+                  <Badge tone={detected.isKnownAts ? "green" : "neutral"}>
+                    {detected.isKnownAts
+                      ? "Recognized ATS"
+                      : "HTML Form Inspector"}
+                  </Badge>
+                </h4>
+                <p className="text-xs muted">
+                  Application Destination:{" "}
+                  {packet.snapshot?.destination?.application_url ||
+                    "Destination URL not provided"}
+                </p>
+              </div>
+              <div className="text-right">
+                <Badge tone={state?.analysis ? "green" : "neutral"}>
+                  {state?.analysis
+                    ? `${state.analysis.fields.length} Fields Recognized`
+                    : "Inspection Pending"}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="grid-2" style={{ marginTop: "0.5rem" }}>
+              <div className="text-xs">
+                <strong className="text-green-700">
+                  Supported Form Elements:
+                </strong>
+                <ul style={{ margin: "0.25rem 0 0 1rem", padding: 0 }}>
+                  {detected.supportedControls.map((c) => (
+                    <li key={c}>{c}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="text-xs">
+                <strong className="text-amber-700">
+                  Manual Entry Required (Non-Automated):
+                </strong>
+                <ul style={{ margin: "0.25rem 0 0 1rem", padding: 0 }}>
+                  {detected.manualControls.map((c) => (
+                    <li key={c}>{c}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       {currentStage.label.startsWith("Filled") && (
         <Notice>
           <div className="split">
@@ -773,6 +975,68 @@ export function BrowserAssistant({
           {state.analysis.warnings.map((w) => (
             <Notice key={w}>{w}</Notice>
           ))}
+
+          {/* Form Field Completion Metrics */}
+          <div
+            className="metrics spaced"
+            aria-label="Form completion count"
+            style={{ margin: "0.75rem 0" }}
+          >
+            <div className="metric">
+              <div className="metric-label">RECOGNIZED FIELDS</div>
+              <p>
+                <strong>{state.analysis.fields.length}</strong>
+              </p>
+            </div>
+            <div className="metric">
+              <div className="metric-label">SUPPORTED CONTROLS</div>
+              <p>
+                <Badge tone="green">
+                  {state.analysis.fields.filter((f) => f.supported).length}{" "}
+                  supported
+                </Badge>
+              </p>
+            </div>
+            <div className="metric">
+              <div className="metric-label">READY TO FILL</div>
+              <p>
+                <Badge tone="green">
+                  {
+                    (state.analysis.validation || []).filter((v) => v.complete)
+                      .length
+                  }{" "}
+                  ready
+                </Badge>
+              </p>
+            </div>
+            <div className="metric">
+              <div className="metric-label">NEEDS INPUT</div>
+              <p>
+                <Badge
+                  tone={
+                    (state.analysis.validation || []).some((v) => !v.complete)
+                      ? "amber"
+                      : "green"
+                  }
+                >
+                  {
+                    (state.analysis.validation || []).filter((v) => !v.complete)
+                      .length
+                  }{" "}
+                  incomplete
+                </Badge>
+              </p>
+            </div>
+            <div className="metric">
+              <div className="metric-label">MANUAL REQUIRED</div>
+              <p>
+                <Badge tone="neutral">
+                  {state.analysis.fields.filter((f) => !f.supported).length}{" "}
+                  manual
+                </Badge>
+              </p>
+            </div>
+          </div>
           <ul>
             {state.analysis.fields.map((f) => (
               <li key={f.field_id}>
@@ -801,23 +1065,38 @@ export function BrowserAssistant({
               </li>
             ))}
           </ul>
-          {state.analysis.validation.some((v) => !v.complete) && (
+          {Boolean(state.analysis.validation?.some((v) => !v.complete)) && (
             <div
               className="stack spaced"
               aria-label="Unfilled mandatory questions"
             >
               <h4>Unfilled or incomplete questions needing attention</h4>
               <ul>
-                {state.analysis.validation
+                {(state.analysis.validation || [])
                   .filter((v) => !v.complete)
                   .map((v) => (
-                    <li key={v.field_id}>
-                      {
-                        state.analysis?.fields.find(
-                          (f) => f.field_id === v.field_id,
-                        )?.question
-                      }
-                      : {v.reason}
+                    <li
+                      key={v.field_id}
+                      className="split"
+                      style={{ alignItems: "center", marginTop: "0.25rem" }}
+                    >
+                      <span>
+                        <strong>
+                          {
+                            state.analysis?.fields.find(
+                              (f) => f.field_id === v.field_id,
+                            )?.question
+                          }
+                        </strong>
+                        : {v.reason}
+                      </span>
+                      <Link
+                        className="button text-xs"
+                        href={`/needs-input?missing_input=${v.field_id}`}
+                      >
+                        Answer in Needs Input
+                        <ArrowUpRight size={11} />
+                      </Link>
                     </li>
                   ))}
               </ul>

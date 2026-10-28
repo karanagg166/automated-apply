@@ -58,7 +58,7 @@ export function CandidateKnowledge() {
   const confirmationId = useId();
 
   const [activeTab, setActiveTab] = useState<
-    "approved" | "edit-facts" | "projects" | "links" | "answers"
+    "approved" | "edit-facts" | "projects" | "links" | "answers" | "stories"
   >("approved");
 
   const [editSuccessMessage, setEditSuccessMessage] = useState("");
@@ -97,6 +97,8 @@ export function CandidateKnowledge() {
   const [projectRole, setProjectRole] = useState("");
   const [projectTech, setProjectTech] = useState("");
   const [projectImpact, setProjectImpact] = useState("");
+  const [projectImplementation, setProjectImplementation] = useState("");
+  const [projectChallenges, setProjectChallenges] = useState("");
   const [projectUrl, setProjectUrl] = useState("");
   const [projectModalOpen, setProjectModalOpen] = useState(false);
 
@@ -303,6 +305,8 @@ export function CandidateKnowledge() {
     setProjectRole("");
     setProjectTech("");
     setProjectImpact("");
+    setProjectImplementation("");
+    setProjectChallenges("");
     setProjectUrl("");
     setProjectModalOpen(true);
   };
@@ -315,6 +319,8 @@ export function CandidateKnowledge() {
     setProjectRole(p.contribution || "");
     setProjectTech((p.technologies || []).join(", "));
     setProjectImpact(p.measurable_results || "");
+    setProjectImplementation(p.implementation_details || "");
+    setProjectChallenges(p.engineering_challenges || "");
     setProjectUrl(p.url || "");
     setProjectModalOpen(true);
   };
@@ -332,6 +338,8 @@ export function CandidateKnowledge() {
       contribution: projectRole.trim() || null,
       technologies: techArray,
       measurable_results: projectImpact.trim() || null,
+      implementation_details: projectImplementation.trim() || null,
+      engineering_challenges: projectChallenges.trim() || null,
       url: projectUrl.trim() || null,
     };
 
@@ -447,6 +455,9 @@ export function CandidateKnowledge() {
   const currentComp = prefs?.current_compensation;
   const expectedComp = prefs?.expected_compensation;
   const answers = savedAnswersQuery.data || [];
+  const storiesCount = projectsList.filter((p) =>
+    Boolean(p.implementation_details || p.engineering_challenges),
+  ).length;
 
   return (
     <div className="stack spaced" aria-label="Candidate Knowledge and Facts">
@@ -510,6 +521,7 @@ export function CandidateKnowledge() {
           ["projects", `Projects & achievements (${projectsList.length})`],
           ["links", "Verified links & evidence"],
           ["answers", `Saved answers (${answers.length})`],
+          ["stories", `API integrations & hardest bugs (${storiesCount})`],
         ].map(([key, label]) => (
           <button
             key={key}
@@ -1149,6 +1161,26 @@ export function CandidateKnowledge() {
                     </div>
                   )}
 
+                  {proj.implementation_details && (
+                    <div
+                      className="notice"
+                      style={{ fontSize: "0.85rem", marginTop: "0.5rem" }}
+                    >
+                      <strong>API Integrations:</strong>{" "}
+                      {proj.implementation_details}
+                    </div>
+                  )}
+
+                  {proj.engineering_challenges && (
+                    <div
+                      className="notice"
+                      style={{ fontSize: "0.85rem", marginTop: "0.5rem" }}
+                    >
+                      <strong>Hardest Bug / Challenge:</strong>{" "}
+                      {proj.engineering_challenges}
+                    </div>
+                  )}
+
                   <div className="tag-list" style={{ marginTop: "0.5rem" }}>
                     {(proj.technologies || []).map((t) => (
                       <Badge key={t}>{t}</Badge>
@@ -1388,6 +1420,138 @@ export function CandidateKnowledge() {
         </section>
       )}
 
+      {/* TAB 6: API INTEGRATION EXAMPLES & HARDEST BUG STORIES */}
+      {activeTab === "stories" && (
+        <section className="panel panel-body stack">
+          <div className="split">
+            <div>
+              <h3>API Integrations & Hardest Bug Stories ({storiesCount})</h3>
+              <p className="section-intro">
+                Evidence-backed technical war stories, difficult bugs resolved,
+                and API architectures ready to cite in technical screeners and
+                application questions.
+              </p>
+            </div>
+            <Button variant="primary" onClick={handleOpenAddProject}>
+              <Plus size={14} />
+              Add technical story
+            </Button>
+          </div>
+
+          {storiesCount === 0 ? (
+            <Empty
+              title="No API integration or hardest bug stories recorded yet"
+              description="Engineering screeners frequently ask: 'Describe a difficult bug you diagnosed' or 'Tell us about an API integration you designed'. Add architectural details or hardest challenges to any project."
+              action={
+                <Button variant="primary" onClick={handleOpenAddProject}>
+                  <Plus size={14} />
+                  Add technical story
+                </Button>
+              }
+            />
+          ) : (
+            <div className="stack spaced" role="list">
+              {projectsList
+                .map((proj, idx) => ({ proj, idx }))
+                .filter(({ proj }) =>
+                  Boolean(
+                    proj.implementation_details || proj.engineering_challenges,
+                  ),
+                )
+                .map(({ proj, idx }) => (
+                  <article
+                    className="panel panel-body"
+                    key={idx}
+                    role="listitem"
+                  >
+                    <div className="split">
+                      <div>
+                        <h4 style={{ margin: 0 }}>{proj.name}</h4>
+                        {proj.contribution && (
+                          <div
+                            className="muted"
+                            style={{ fontSize: "0.85rem" }}
+                          >
+                            {proj.contribution}
+                          </div>
+                        )}
+                      </div>
+                      <div className="actions">
+                        <Button onClick={() => handleOpenEditProject(idx)}>
+                          <Edit3 size={12} />
+                          Edit details
+                        </Button>
+                      </div>
+                    </div>
+
+                    {proj.implementation_details && (
+                      <div
+                        className="notice"
+                        style={{
+                          marginTop: "0.75rem",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.5rem",
+                            marginBottom: "0.25rem",
+                          }}
+                        >
+                          <Code size={14} />
+                          <strong>API Integration Examples & Protocols:</strong>
+                        </div>
+                        <p
+                          className="preserve-lines"
+                          style={{ margin: 0, fontSize: "0.9rem" }}
+                        >
+                          {proj.implementation_details}
+                        </p>
+                      </div>
+                    )}
+
+                    {proj.engineering_challenges && (
+                      <div
+                        className="notice"
+                        style={{
+                          marginTop: "0.75rem",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.5rem",
+                            marginBottom: "0.25rem",
+                          }}
+                        >
+                          <AlertCircle size={14} />
+                          <strong>
+                            Hardest Bug Diagnosed & Engineering Challenge:
+                          </strong>
+                        </div>
+                        <p
+                          className="preserve-lines"
+                          style={{ margin: 0, fontSize: "0.9rem" }}
+                        >
+                          {proj.engineering_challenges}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="tag-list" style={{ marginTop: "0.75rem" }}>
+                      {(proj.technologies || []).map((t) => (
+                        <Badge key={t}>{t}</Badge>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+            </div>
+          )}
+        </section>
+      )}
+
       {/* Project Add/Edit Modal */}
       <Modal
         open={projectModalOpen}
@@ -1452,6 +1616,32 @@ export function CandidateKnowledge() {
               type="url"
               value={projectUrl}
               onChange={(e) => setProjectUrl(e.target.value)}
+            />
+          </Field>
+
+          <Field
+            label="API Integration Examples & Protocols"
+            hint="e.g. REST, GraphQL, Webhooks, gRPC, OAuth2, idempotency, retry handling"
+          >
+            <textarea
+              className="input preserve-lines"
+              rows={2}
+              value={projectImplementation}
+              onChange={(e) => setProjectImplementation(e.target.value)}
+              placeholder="e.g. Integrated Stripe webhooks with exponential backoff and Redis distributed lock for payment idempotency."
+            />
+          </Field>
+
+          <Field
+            label="Hardest Bug Story & Engineering Challenges"
+            hint="Root cause, investigation methodology (logs, profiler, tracing), and permanent fix"
+          >
+            <textarea
+              className="input preserve-lines"
+              rows={2}
+              value={projectChallenges}
+              onChange={(e) => setProjectChallenges(e.target.value)}
+              placeholder="e.g. Diagnosed intermittent database connection pool exhaustion caused by unclosed connections in async tasks."
             />
           </Field>
 
