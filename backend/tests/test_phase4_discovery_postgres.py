@@ -76,3 +76,48 @@ async def test_manual_only_sources_import_factual_records_without_any_provider_c
         await session.commit()
         again = await JobDiscoveryService(session, factory, config()).run(request)
         assert again["id"] == result["id"]
+
+
+async def test_concurrent_application_packets_share_one_durable_id_without_submission(postgres):
+    import asyncio
+
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from backend.app.models.application_packet import (
+        ApplicationEvent,
+        ApplicationPacket,
+    )
+    from backend.app.schemas.applications import CreatePacket
+    from backend.app.services.applications.service import ApplicationPacketService
+
+    factory, existing_engine = postgres
+    async with factory() as session:
+        job = Job(title="Fictional Backend Engineer", job_url="https://fictional.example/careers/123",
+                  application_url="https://fictional.example/careers/123", source_platform="manual_browser")
+        session.add(job)
+        await session.flush()
+        job_id = job.id
+        await session.commit()
+    engine = create_async_engine(existing_engine.url, pool_size=2, max_overflow=0)
+    concurrent_factory = async_sessionmaker(engine, expire_on_commit=False, autoflush=False)
+    ready, count = asyncio.Event(), 0
+    async def create():
+        nonlocal count
+        async with concurrent_factory() as session:
+            count += 1
+            if count == 2:
+                ready.set()
+            await ready.wait()
+            packet = await ApplicationPacketService(session).create(job_id, CreatePacket(idempotency_key="phase4-concurrent-packet"))
+            await session.commit()
+            return packet
+    try:
+        async with asyncio.timeout(15):
+            first, second = await asyncio.gather(create(), create())
+        assert first.id == second.id and first.revision == second.revision == 1
+        assert first.tracking_state == second.tracking_state == "not_applied"
+        async with concurrent_factory() as session:
+            assert await session.scalar(select(func.count()).select_from(ApplicationPacket)) == 1
+            assert await session.scalar(select(func.count()).select_from(ApplicationEvent)) == 1
+    finally:
+        await engine.dispose()
