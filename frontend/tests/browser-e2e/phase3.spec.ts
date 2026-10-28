@@ -535,13 +535,16 @@ test("extension reports field as unsupported or needing input, dashboard shows c
   const needsInputColumn = page
     .locator(".kanban-column")
     .filter({ hasText: "Needs Input" });
-  await expect(
-    needsInputColumn.getByText("Example Circuit", { exact: false }),
-  ).toBeVisible();
+  const packetLink = `a[href="/applications/${packet_id}"]`;
+  await expect(needsInputColumn.locator(packetLink)).toBeVisible();
   const appliedColumn = page
     .locator(".kanban-column")
     .filter({ hasText: "Applied — User Reported" });
+  await expect(appliedColumn.locator(packetLink)).toHaveCount(0);
   await expect(
-    appliedColumn.getByText("Example Circuit", { exact: false }),
-  ).not.toBeVisible();
+    page
+      .locator(".kanban-column")
+      .filter({ hasText: "Applied — Provider Confirmed" })
+      .locator(packetLink),
+  ).toHaveCount(0);
 });
