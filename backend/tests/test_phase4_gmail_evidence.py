@@ -66,6 +66,12 @@ async def test_multi_link_message_tracks_only_imported_url_and_preserves_account
     assert not await service.leads(second_id)
     replay = await service.import_lead(account_id, "b" * 32, data)
     assert replay.duplicate_count == 1 and replay.job_ids == result.job_ids
+    # Resolving one URL must not erase an unrelated historical import's ambiguity.
+    row.value = {**row.value, "imported_job_ids": result.job_ids + ["historical-unmapped-job"]}
+    await db_session.commit()
+    leads = {item["url"]: item for item in await service.leads(account_id)}
+    assert leads[first_url]["import_state"] == "imported"
+    assert leads[other_url]["import_state"] == "legacy_message_import_unknown"
     # Historical message-wide flags cannot identify which URL was imported.
     row.value = {**row.value, "imported_leads": {}}
     await db_session.commit()

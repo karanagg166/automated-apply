@@ -533,7 +533,10 @@ class GmailReadService:
                     "imported" if lead["imported_job_ids"] else
                     "legacy_message_import_unknown" if (
                         lead.get("import_state") == "legacy_message_import_unknown"
-                        or message.get("imported_job_ids") and not message.get("imported_leads")
+                        or set(message.get("imported_job_ids", [])) - {
+                            job_id for ids in message.get("imported_leads", {}).values()
+                            for job_id in ids
+                        }
                     ) else
                     "not_imported"
                 )
