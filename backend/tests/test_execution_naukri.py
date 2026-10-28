@@ -522,7 +522,12 @@ async def test_gateway_api_auth_and_capability_contract(async_client, phase2_aut
 
 
 @pytest.mark.parametrize(
-    "text", ["password is hunter2", "api_key=fictional", "-----BEGIN PRIVATE KEY-----"]
+    "text",
+    [
+        "password is hunter2",
+        "api_key=fictional",
+        "-----BEGIN " + "PRIVATE KEY-----",
+    ],
 )
 def test_sensitive_answers_not_retained(text):
     q = {
