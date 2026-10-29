@@ -50,6 +50,10 @@ export function formErrorMessage(error) {
         "Your saved facts or application changed, or review authorization expired. Prepare and review fresh answers.",
       form_cancelled_reprepare_required:
         "Preparation cancelled. Check the page, then prepare fresh answers to continue.",
+      read_only_preview:
+        "Read-only preview. Filling is disabled. Complete security checks yourself, then prepare and review fresh answers.",
+      security_challenge:
+        "Security checks require your attention. Filling is disabled. Complete them yourself, then prepare and review fresh answers.",
       platform_fill_policy_denied:
         "Filling is disabled for this platform in your owner settings.",
       application_not_eligible:
@@ -70,6 +74,7 @@ export function formPlanText(plan) {
       field?.group_label && field?.label && field.group_label !== field.label
         ? `${field.group_label} (${field.label})`
         : field?.label || field?.group_label || "Unlabelled field";
+    const heading = field?.section ? `${field.section} — ${title}` : title;
     const isConsent =
       ["checkbox", "radio"].includes(action.kind) &&
       CONSENT_LABEL_PATTERN.test(
@@ -85,32 +90,56 @@ export function formPlanText(plan) {
     const sources = [
       ...new Set(
         (action.evidence || []).map((source) =>
-          source.startsWith("owner_answer:")
-            ? "Owner-approved answer for this context"
-            : source.startsWith("approved_project:")
-              ? "Approved project"
-              : source.startsWith("candidate_resource:")
-                ? "Reviewed profile link or resume"
-                : "Reviewed profile",
+          source.startsWith("reviewed_packet_answer:")
+            ? "Saved owner answer for this application"
+            : source.startsWith("owner_answer:")
+              ? "Owner-approved answer for this context"
+              : source.startsWith("approved_project:")
+                ? "Approved project"
+                : source.startsWith("candidate_resource:")
+                  ? "Reviewed profile link or resume"
+                  : "Reviewed profile",
         ),
       ),
     ];
     const flags = [
       field?.required ? "required" : null,
       field?.invalid ? "validation error on page" : null,
+      action.preview_only
+        ? "preview only; manual entry or answer review required"
+        : null,
     ].filter(Boolean);
     const suffix = flags.length ? ` (${flags.join(", ")})` : "";
-    return `${title}${suffix}\n${answer}\nSource: ${sources.join(", ") || "No verified source"}`;
+    return `${heading}${suffix}\n${answer}\nSource: ${sources.join(", ") || "No verified source"}${field?.manual_reason ? `\n${field.manual_reason}` : ""}`;
   });
-  const unsupportedBlocks = (plan?.unsupported_controls || []).map((item) => {
+  const seen = new Set();
+  const diagnostics = (plan?.unsupported_controls || []).filter((item) => {
+    if (!item?.control_id) return true;
+    const key = JSON.stringify([item.control_id, item.context, item.reason]);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const unsupportedBlocks = diagnostics.map((item) => {
     const flags = [
       item?.required ? "required" : null,
       item?.invalid ? "validation error on page" : null,
     ].filter(Boolean);
     const suffix = flags.length ? ` (${flags.join(", ")})` : "";
-    return `${item?.label || "Unlabelled control"}${suffix}\nManual completion required: ${item?.reason || "Unsupported control"}\nSource: Manual only`;
+    return `${item?.context ? `${item.context} — ` : ""}${item?.label || "Unlabelled control"}${suffix}\nManual completion required: ${item?.reason || "Unsupported control"}\nSource: Manual only`;
   });
-  return [...actionBlocks, ...unsupportedBlocks].join("\n\n");
+  const banner =
+    plan?.state !== "read_only"
+      ? []
+      : [
+          plan.security_status === "blocking"
+            ? "Security challenge is blocking access. Read-only preview; all filling is disabled."
+            : plan.security_status === "unverified_widget"
+              ? "Security widget detected; completion is unverified. Read-only preview; all filling is disabled."
+              : "Read-only preview; this page requires manual attention. All filling is disabled.",
+          "Complete security checks yourself. Prepare and review fresh answers afterward; if the widget remains unverified, complete the form manually.",
+        ];
+  return [...banner, ...actionBlocks, ...unsupportedBlocks].join("\n\n");
 }
 
 export function missingInputLinks(plan) {

@@ -194,7 +194,7 @@ class FormService:
         if not profile:
             raise ToolDenied("profile_review_required")
         url = manual_page_url(inspection.url, self.settings)
-        if not url or inspection.state not in {"ready", "validation_errors"}:
+        if not url or inspection.state not in {"ready", "validation_errors", "manual_required"}:
             raise ToolDenied("unsupported_application_form")
         policy = await get_policy(self.session)
         if policy["platforms"].get(page_kind(url)) in {
@@ -250,10 +250,10 @@ class FormService:
             from backend.app.execution.store import memory_row
             await memory_row(self.session, lock=True)
         packet, profile, url = await self.context(application_id, mode)
-        if inspection.url != url or inspection.state not in {
-            "ready",
-            "validation_errors",
-        }:
+        preview_only = mode == "manual_extension" and inspection.state == "manual_required"
+        if inspection.url != url or (inspection.state not in {
+            "ready", "validation_errors",
+        } and not preview_only):
             raise ToolDenied("manual_intervention_or_redirect")
         plan = FillPlan(
             application_id=application_id,
@@ -265,6 +265,7 @@ class FormService:
             packet_revision=packet.revision,
             project_digest=await project_stamp(self.session),
             expires_at=(datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat(),
+            state="read_only" if preview_only else "preview",
         )
         for field in inspection.fields:
             action = FillAction(
@@ -274,8 +275,13 @@ class FormService:
                 field_id=field.field_id,
                 kind=field.kind,
                 candidate_version=profile.version,
+                preview_only=field.preview_only,
             )
-            if manual_only(field.label, field.group_label or "", *field.options):
+            repeated = sum(
+                (other.section, other.group_label, other.label) == (field.section, field.group_label, field.label)
+                for other in inspection.fields
+            ) > 1
+            if repeated or manual_only(field.label, field.group_label or "", field.section or "", *field.options):
                 plan.actions.append(action)
                 continue
             if field.kind == "file":
@@ -296,20 +302,43 @@ class FormService:
             ):
                 # Labels are untrusted; classifier/grounding services can abstain, never execute them.
                 question_text = field.group_label or field.label
+                if field.section:
+                    question_text = f"{field.section}: {question_text}"
                 if re.fullmatch(r"name[\s:*]*", question_text, re.I):
                     question_text = "Full name"
                 question = QuestionInput(
                     question=question_text,
                     field_type="multiple_choice"
-                    if field.kind == "select"
+                    if field.kind == "select" and len(field.options) <= 50
                     else "textarea"
                     if field.kind == "textarea"
                     else "text",
                     required=field.required,
                     max_characters=field.max_length,
-                    options=field.options if field.kind == "select" else [],
+                    options=field.options if field.kind == "select" and len(field.options) <= 50 else [],
                 )
-                built = await AnswerBuilder(self.answers).build(
+                saved_answers = [
+                    f for f in packet.fields
+                    if f.question.strip().casefold() == question_text.strip().casefold()
+                    and f.human_answer and f.validation_status == "draft_ready"
+                    and (not f.provenance.answer_expires_at or f.provenance.answer_expires_at > datetime.now(timezone.utc))
+                    and not value_error(question, f.human_answer)
+                ]
+                # Show an existing owner answer without creating another missing-input
+                # request. Pending answers remain visible but cannot be authorized.
+                if len(saved_answers) > 1:
+                    plan.actions.append(action)
+                    continue
+                saved = saved_answers[0] if saved_answers else None
+                if saved and saved.review_status != "reviewed":
+                    action.value = saved.human_answer
+                    action.evidence = [f"reviewed_packet_answer:{saved.id}:{saved.answer_revision}"]
+                    action.preview_only = True
+                    action.requires_review = True
+                    action.needs_input = False
+                    plan.actions.append(action)
+                    continue
+                built = None if saved else await AnswerBuilder(self.answers).build(
                     question,
                     packet.job_id,
                     profile,
@@ -317,7 +346,7 @@ class FormService:
                     rewrite=False,
                     resume=packet.snapshot.resume,
                 )
-                action.missing_input_id = built.provenance.missing_input_id
+                action.missing_input_id = built.provenance.missing_input_id if built else None
                 if action.missing_input_id:
                     from backend.app.knowledge.missing_input import PREFIX
                     saved_question = await self.session.get(OwnerPreference, PREFIX + action.missing_input_id, with_for_update=True)
@@ -325,14 +354,7 @@ class FormService:
                         action.missing_input_version = saved_question.value["version"]
                     if saved_question and not saved_question.value.get("packet_id"):
                         saved_question.value = {**saved_question.value, "packet_id": str(application_id)}
-                reviewed_answer = next((
-                    f for f in packet.fields
-                    if f.question.strip().casefold() == question_text.strip().casefold()
-                    and f.human_answer and f.review_status == "reviewed"
-                    and f.validation_status == "draft_ready"
-                    and (not f.provenance.answer_expires_at or f.provenance.answer_expires_at > datetime.now(timezone.utc))
-                    and not value_error(question, f.human_answer)
-                ), None)
+                reviewed_answer = saved
                 if reviewed_answer:
                     action.value = reviewed_answer.human_answer
                     action.evidence = ["reviewed_packet_answer:" + str(reviewed_answer.id) + ":" + str(reviewed_answer.answer_revision)]
@@ -406,6 +428,16 @@ class FormService:
                     action.value = None
                 if action.value and field.kind == "url" and not safe_url(action.value):
                     action.value = None
+                if action.value and field.kind in {"date", "month"}:
+                    pattern = r"\d{4}-\d{2}-\d{2}" if field.kind == "date" else r"\d{4}-\d{2}"
+                    try:
+                        if not re.fullmatch(pattern, action.value):
+                            raise ValueError
+                        datetime.strptime(action.value, "%Y-%m-%d" if field.kind == "date" else "%Y-%m")
+                    except ValueError:
+                        action.value = None
+                if action.value and field.kind == "select" and action.value not in field.options:
+                    action.value = None
                 if action.value and action.evidence:
                     action.needs_input = False
                     if not any(source.startswith("owner_answer:") for source in action.evidence):
@@ -463,7 +495,7 @@ class FormService:
                     _, field_id, revision = reference.split(":")
                     field = next((f for f in packet.fields if str(f.id) == field_id), None)
                     if (not field or field.answer_revision != int(revision)
-                        or field.review_status != "reviewed"
+                        or (not action.preview_only and field.review_status != "reviewed")
                         or (field.provenance.answer_expires_at and field.provenance.answer_expires_at <= datetime.now(timezone.utc))):
                         raise ToolDenied("fill_plan_stale")
         references = [a.safe_reference for a in plan.actions if a.safe_reference]
@@ -479,7 +511,7 @@ class FormService:
     async def review(self, plan_id, field_ids):
         row, plan = await self.load(plan_id)
         await self.fresh(plan)
-        allowed = {a.field_id for a in plan.actions if not a.needs_input and a.evidence}
+        allowed = {a.field_id for a in plan.actions if not a.needs_input and a.evidence and not a.preview_only}
         if (
             plan.state != "preview"
             or len(set(field_ids)) != len(field_ids)

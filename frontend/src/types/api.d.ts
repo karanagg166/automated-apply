@@ -4679,6 +4679,8 @@ export interface components {
         | "tel"
         | "url"
         | "number"
+        | "date"
+        | "month"
         | "select"
         | "radio"
         | "checkbox"
@@ -4703,6 +4705,11 @@ export interface components {
        * @default true
        */
       needs_input: boolean;
+      /**
+       * Preview Only
+       * @default false
+       */
+      preview_only: boolean;
       /** Missing Input Id */
       missing_input_id?: string | null;
       /** Missing Input Version */
@@ -4756,7 +4763,7 @@ export interface components {
        * @default preview
        * @enum {string}
        */
-      state: "preview" | "authorized" | "consumed" | "finished";
+      state: "read_only" | "preview" | "authorized" | "consumed" | "finished";
     };
     /** FillReceipt */
     FillReceipt: {
@@ -4855,6 +4862,8 @@ export interface components {
         | "tel"
         | "url"
         | "number"
+        | "date"
+        | "month"
         | "select"
         | "radio"
         | "checkbox"
@@ -4870,6 +4879,15 @@ export interface components {
       required: boolean;
       /** Options */
       options?: string[];
+      /** Section */
+      section?: string | null;
+      /**
+       * Preview Only
+       * @default false
+       */
+      preview_only: boolean;
+      /** Manual Reason */
+      manual_reason?: string | null;
       /**
        * Max Length
        * @default 1500

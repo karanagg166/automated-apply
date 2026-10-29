@@ -10,9 +10,15 @@ function permittedFormUrl(value) {
   if (naukriFormUrl(value)) return true;
   const host = new URL(value).hostname.toLowerCase();
   return ![
-    "simplify.jobs", "linkedin.com", "naukri.com", "wellfound.com",
-    "instahyre.com", "internshala.com", "accounts.google.com", "mail.google.com",
-  ].some(domain => host === domain || host.endsWith("." + domain));
+    "simplify.jobs",
+    "linkedin.com",
+    "naukri.com",
+    "wellfound.com",
+    "instahyre.com",
+    "internshala.com",
+    "accounts.google.com",
+    "mail.google.com",
+  ].some((domain) => host === domain || host.endsWith("." + domain));
 }
 export function cancelPreparedForm() {
   generation++;
@@ -23,8 +29,33 @@ function requireCurrentGeneration(expected) {
 }
 function sanitizeInspection(raw) {
   if (!raw || typeof raw !== "object") return raw;
-  const { unsupported_controls, manual_reason, ...inspection } = raw;
+  const {
+    unsupported_controls,
+    manual_reason,
+    security_status,
+    ...inspection
+  } = raw;
   return inspection;
+}
+function attachPreview(data, observation) {
+  if (
+    !data.plan?.inspection ||
+    !Array.isArray(data.plan.actions) ||
+    data.plan.target_url !== observation.url ||
+    data.plan.inspection.document_id !== observation.document_id
+  )
+    throw Error("form_request_rejected");
+  data.plan.unsupported_controls = observation.unsupported_controls || [];
+  data.plan.manual_reason = observation.manual_reason;
+  data.plan.security_status = observation.security_status;
+  if (observation.state === "manual_required") data.plan.state = "read_only";
+  return data.plan;
+}
+function canPreview(observation) {
+  return (
+    ["ready", "validation_errors"].includes(observation?.state) ||
+    (observation?.state === "manual_required" && observation.fields?.length > 0)
+  );
 }
 function throwInspectionStateError(observationResult) {
   const err = Error(
@@ -94,10 +125,7 @@ export async function inspectForm(applicationId) {
   });
   const after = await active();
   if (after.id !== tab.id || after.url !== tab.url) throw Error("page_changed");
-  if (
-    observation?.result?.state &&
-    !["ready", "validation_errors"].includes(observation.result.state)
-  ) {
+  if (!canPreview(observation?.result)) {
     throwInspectionStateError(observation.result);
   }
   const data = await native("inspect_form", {
@@ -105,13 +133,7 @@ export async function inspectForm(applicationId) {
     inspection: sanitizeInspection(observation.result),
   });
   requireCurrentGeneration(expected);
-  if (
-    Array.isArray(observation.result?.unsupported_controls) &&
-    observation.result.unsupported_controls.length &&
-    data.plan
-  ) {
-    data.plan.unsupported_controls = observation.result.unsupported_controls;
-  }
+  attachPreview(data, observation.result);
   current = { tabId: tab.id, url: tab.url, plan: data.plan };
   return data.plan;
 }
@@ -137,7 +159,7 @@ export async function prepareAnswers(tab) {
     observation?.result?.url !== tab.url
   )
     throw Error("page_changed");
-  if (!["ready", "validation_errors"].includes(observation.result.state)) {
+  if (!canPreview(observation.result)) {
     throwInspectionStateError(observation.result);
   }
   const data = await native("prepare_form_answers", {
@@ -145,18 +167,7 @@ export async function prepareAnswers(tab) {
     inspection: sanitizeInspection(observation.result),
   });
   requireCurrentGeneration(expected);
-  if (
-    !data.plan?.inspection ||
-    !Array.isArray(data.plan.actions) ||
-    data.plan.target_url !== tab.url
-  )
-    throw Error("form_request_rejected");
-  if (
-    Array.isArray(observation.result?.unsupported_controls) &&
-    observation.result.unsupported_controls.length
-  ) {
-    data.plan.unsupported_controls = observation.result.unsupported_controls;
-  }
+  attachPreview(data, observation.result);
   current = { tabId: tab.id, url: tab.url, plan: data.plan };
   return data.plan;
 }
@@ -165,6 +176,7 @@ export async function fillForm() {
   const snapshot = current;
   const expected = generation;
   current = null; // One click/plan, including native transport failures.
+  if (snapshot.plan.state === "read_only") throw Error("read_only_preview");
   const tab = await active();
   requireCurrentGeneration(expected);
   if (tab.id !== snapshot.tabId || tab.url !== snapshot.url)
@@ -176,8 +188,27 @@ export async function fillForm() {
   )
     throw Error("fill_plan_stale");
   const fieldIds = snapshot.plan.actions
-    .filter((a) => !a.needs_input && a.kind !== "file")
+    .filter((a) => !a.needs_input && !a.preview_only && a.kind !== "file")
     .map((a) => a.field_id);
+  if (!fieldIds.length) throw Error("inspect_and_review_first");
+  const [validation] = await chrome.scripting.executeScript({
+    target: { tabId: tab.id, frameIds: [0] },
+    world: "ISOLATED",
+    func: formDOM,
+    args: [
+      {
+        operation: "validate_fill",
+        document_id: snapshot.plan.inspection.document_id,
+      },
+    ],
+  });
+  requireCurrentGeneration(expected);
+  if (validation?.result?.state !== "ready")
+    throw Error(
+      validation?.result?.reason === "security_challenge"
+        ? "security_challenge"
+        : "dom_changed",
+    );
   const { plan } = await native("authorize_form", {
     plan_id: snapshot.plan.id,
     field_ids: fieldIds,

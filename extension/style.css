@@ -1,1 +1,32 @@
-body { font: 14px system-ui, sans-serif; width: 360px; margin: 20px; color: #17231f; background: #f6f8f7; } h1 { font-size: 20px; } button { padding: 12px; border: 0; border-radius: 8px; background: #145d46; color: white; cursor: pointer; } pre { white-space: pre-wrap; overflow-wrap: anywhere; } a { color: #145d46; }
+body {
+  font:
+    14px system-ui,
+    sans-serif;
+  width: 360px;
+  margin: 20px;
+  color: #17231f;
+  background: #f6f8f7;
+}
+h1 {
+  font-size: 20px;
+}
+button {
+  padding: 12px;
+  border: 0;
+  border-radius: 8px;
+  background: #145d46;
+  color: white;
+  cursor: pointer;
+}
+pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+a {
+  color: #145d46;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

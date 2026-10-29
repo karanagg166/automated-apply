@@ -1,5 +1,10 @@
 import { observationMessage } from "./observation.js";
-import { inspectForm, prepareAnswers, fillForm, cancelPreparedForm } from "./form-bridge.js";
+import {
+  inspectForm,
+  prepareAnswers,
+  fillForm,
+  cancelPreparedForm,
+} from "./form-bridge.js";
 import {
   formErrorMessage,
   formPlanText,
@@ -122,12 +127,23 @@ async function prepare(useSavedApplication = false) {
     }
     const ready = plan.actions.filter(
       (action) =>
-        !action.needs_input && action.kind !== "file" && action.evidence.length,
+        !action.needs_input &&
+        !action.preview_only &&
+        action.kind !== "file" &&
+        action.evidence.length,
     ).length;
-    document.querySelector("#answer-status").textContent = ready
-      ? `${ready} answer${ready === 1 ? "" : "s"} ready. Review the proposed answers below before filling.`
-      : "No supported answers are ready. Review missing facts in Profile; no fields were changed.";
-    document.querySelector("#fill-form").disabled = !ready;
+    document.querySelector("#answer-status").textContent =
+      plan.state === "read_only"
+        ? "Read-only answers prepared. Filling is disabled. Complete security checks yourself, then prepare and review fresh answers."
+        : ready
+          ? `${ready} answer${ready === 1 ? "" : "s"} ready. Review the proposed answers below before filling.`
+          : plan.actions.some(
+                (action) => !action.needs_input && action.preview_only,
+              )
+            ? "Proposed answers are shown for manual entry or further answer review. No fields were changed."
+            : "No supported answers are ready. Review missing facts in Profile; no fields were changed.";
+    document.querySelector("#fill-form").disabled =
+      plan.state === "read_only" || !ready;
   } catch (error) {
     if (
       Array.isArray(error?.unsupported_controls) &&

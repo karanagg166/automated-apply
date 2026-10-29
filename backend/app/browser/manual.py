@@ -26,7 +26,8 @@ async def dispatch_form(session, settings, actor, command):
         if (
             actor.channel != "chrome"
             or actor.identity != settings.CHROME_EXTENSION_ID
-            or not settings.BROWSER_FILL_ENABLED
+            or (command.command in {"authorize_form", "record_form_fill"}
+                and not settings.BROWSER_FILL_ENABLED)
         ):
             raise ToolDenied("manual_form_not_authorized")
         service = FormService(session, settings)

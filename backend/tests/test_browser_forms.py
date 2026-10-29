@@ -2,12 +2,12 @@
 
 import hashlib
 from datetime import datetime, timedelta, timezone
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from cryptography.fernet import Fernet
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from backend.app.agent.contracts import Message
 from backend.app.agent.planner import deterministic
@@ -667,3 +667,100 @@ async def test_worker_consumes_one_reviewed_dom_batch_without_replaying_fields(d
     assert len(driver.fills) == 1
     assert [action["value"] for action in driver.fills[0]["actions"]] == ["Alex Example", "alex@example.com"]
     assert await worker.run_once() is None
+
+
+@pytest.mark.asyncio
+async def test_native_security_preview_cannot_authorize_and_pending_answer_is_not_duplicated(
+    db_session, browser_target
+):
+    from backend.app.browser.manual import dispatch_form
+    from backend.app.local_agent.contracts import Actor, Command
+    from backend.app.schemas.applications import AnswerEdit, QuestionInput, QuestionsAdd
+
+    job, packet, _ = browser_target
+    service = ApplicationPacketService(db_session)
+    packet = await service.add_questions(packet.id, QuestionsAdd(
+        expected_revision=packet.revision,
+        questions=[QuestionInput(question="Total Years of Experience", field_type="text")],
+    ))
+    field = next(f for f in packet.fields if f.question == "Total Years of Experience")
+    packet = await service.edit_answer(packet.id, field.id, AnswerEdit(
+        expected_revision=packet.revision, answer="2",
+    ))
+    before = await db_session.scalar(select(func.count()).select_from(OwnerPreference))
+    settings = config(CHROME_EXTENSION_ID="a" * 32).model_copy(update={"BROWSER_FILL_ENABLED": False})
+    actor = Actor(channel="chrome", identity="a" * 32)
+    observed = inspection(job.application_url, [
+        {"field_id": "f0", "kind": "text", "label": "Total Years of Experience"},
+        {"field_id": "f1", "kind": "email", "label": "Email"},
+    ], state="manual_required")
+    result = await dispatch_form(db_session, settings, actor, Command(
+        command="inspect_form", application_id=packet.id, inspection=observed,
+    ))
+    assert result.ok
+    assert result.data["plan"]["state"] == "read_only"
+    plan_id = UUID(result.data["plan"]["id"])
+    assert result.data["plan"]["actions"][0]["value"] == "2"
+    assert result.data["plan"]["actions"][0]["preview_only"]
+    # Only the fill plan was added: no new question or application packet.
+    after = await db_session.scalar(select(func.count()).select_from(OwnerPreference))
+    assert after == before + 1
+    with pytest.raises(ValueError, match="invalid_field_approval"):
+        await FormService(db_session, config()).review(plan_id, ["f1"])
+    denied = await dispatch_form(db_session, settings, actor, Command(
+        command="authorize_form", plan_id=plan_id, field_ids=["f1"],
+    ))
+    assert not denied.ok
+    assert (await service.read(packet.id)).revision == packet.revision
+    assert (await service.read(packet.id)).fields[-1].human_answer == "2"
+
+
+@pytest.mark.asyncio
+async def test_native_preview_only_dropdown_cannot_be_authorized(db_session, browser_target):
+    job, packet, _ = browser_target
+    service = FormService(db_session, config())
+    plan = await service.inspect(packet.id, inspection(job.application_url, [
+        {"field_id": "f0", "kind": "email", "label": "Email", "preview_only": True},
+        {"field_id": "f1", "kind": "text", "label": "Full name"},
+    ]), "manual_extension")
+    assert not plan.actions[0].needs_input
+    with pytest.raises(ValueError, match="invalid_field_approval"):
+        await service.review(plan.id, ["f0"])
+    await service.review(plan.id, ["f1"])
+    await service.consume(plan.id, "manual_extension")
+    with pytest.raises(ValueError, match="single_use_fill_authorization_required"):
+        await service.consume(plan.id, "manual_extension")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("value,expected", [("2026-11-01", "2026-11-01"), ("01/11/2026", None), ("2026-02-30", None)])
+async def test_native_date_requires_exact_verified_value(db_session, browser_target, value, expected):
+    from backend.app.models.application_packet import ApplicationPacketField
+    from backend.app.schemas.applications import AnswerEdit, QuestionInput, QuestionsAdd
+
+    job, packet, _ = browser_target
+    packets = ApplicationPacketService(db_session)
+    packet = await packets.add_questions(packet.id, QuestionsAdd(
+        expected_revision=packet.revision,
+        questions=[QuestionInput(question="Available start date", field_type="text")],
+    ))
+    field = next(f for f in packet.fields if f.question == "Available start date")
+    await packets.edit_answer(packet.id, field.id, AnswerEdit(expected_revision=packet.revision, answer=value))
+    saved = await db_session.get(ApplicationPacketField, field.id)
+    saved.review_status = "reviewed"
+    await db_session.flush()
+    plan = await FormService(db_session, config()).inspect(packet.id, inspection(job.application_url, [
+        {"field_id": "f0", "kind": "date", "label": "Available start date"},
+    ]), "manual_extension")
+    assert plan.actions[0].value == expected
+    assert plan.actions[0].needs_input is (expected is None)
+
+
+@pytest.mark.asyncio
+async def test_native_repeated_unqualified_fields_do_not_share_answers(db_session, browser_target):
+    job, packet, _ = browser_target
+    plan = await FormService(db_session, config()).inspect(packet.id, inspection(job.application_url, [
+        {"field_id": "f0", "kind": "email", "label": "Email"},
+        {"field_id": "f1", "kind": "email", "label": "Email"},
+    ]), "manual_extension")
+    assert all(action.needs_input and action.value is None for action in plan.actions)
