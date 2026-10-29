@@ -92,11 +92,36 @@ function fixture() {
           )
             task.network_guard_active =
               request.task_event === "guard_installed";
-          else if (request.task_event === "bind") task.tab_id = request.tab_id;
-          else if (request.task_event === "recover") {
+          else if (request.task_event === "bind") {
+            if (
+              task.state === "PAUSED" &&
+              ["owner_pause", "global_stop"].includes(task.reason)
+            ) {
+              return {
+                version: 1,
+                ok: false,
+                request_id: request.request_id,
+                error_code: "extension_task_paused_or_cancelled",
+              };
+            }
+            task.tab_id = request.tab_id;
+            task.state = "PACKET_READY";
+          } else if (request.task_event === "recover") {
             task.tab_id = null;
             task.browser_session_id = request.browser_session_id;
             task.state = "PAUSED";
+          } else if (request.task_event === "tab_closed") {
+            task.tab_id = null;
+            if (!["owner_pause", "global_stop"].includes(task.reason)) {
+              task.reason = "tab_closed";
+            }
+            task.state = "PAUSED";
+          } else if (request.task_event === "pause") {
+            task.state = "PAUSED";
+            task.reason = "owner_pause";
+          } else if (request.task_event === "resume") {
+            task.reason = "owner_resume";
+            task.state = task.tab_id ? "PACKET_READY" : "PAUSED";
           } else {
             task.state =
               request.task_event === "cancel" ? "FAILED_FINAL" : "PAUSED";
@@ -268,4 +293,40 @@ test("worker restart cancels the exact saved document before pausing its task", 
     { operation: "cancel_fill", document_id: app },
   ]);
   assert.ok(f.calls.some((request) => request.task_event === "worker_restart"));
+});
+
+test("binding a replacement tab is denied during owner pause until authorized resume", async () => {
+  const f = fixture(),
+    coordinator = new TaskCoordinator(f.api);
+  await coordinator.dispatch({ action: "open", application_id: app });
+  assert.equal(coordinator.bindings[taskId].tabId, 7);
+
+  // 1. Owner pauses the task
+  await coordinator.dispatch({ action: "pause", task_id: taskId });
+  assert.equal(coordinator.bindings[taskId].state, "PAUSED");
+  assert.equal(coordinator.bindings[taskId].reason, "owner_pause");
+
+  // 2. Tab is closed
+  f.tabs.delete(7);
+  // Re-opening while paused must reject and refuse to bind a replacement tab
+  await assert.rejects(
+    coordinator.dispatch({ action: "open", application_id: app }),
+    /extension_task_paused_or_cancelled/,
+  );
+  // Binding remains absent / paused
+  assert.equal(coordinator.bindings[taskId].state, "PAUSED");
+  assert.equal(coordinator.bindings[taskId].reason, "owner_pause");
+
+  // 3. Authorized resume clears the owner pause
+  await coordinator.dispatch({ action: "resume", task_id: taskId });
+  assert.equal(coordinator.bindings[taskId].reason, "owner_resume");
+
+  // 4. Now opening creates and binds the new replacement tab
+  const reopened = await coordinator.dispatch({
+    action: "open",
+    application_id: app,
+  });
+  assert.equal(reopened.task.state, "PACKET_READY");
+  assert.equal(coordinator.bindings[taskId].tabId, 7);
+  assert.equal(coordinator.bindings[taskId].requiresInspection, true);
 });

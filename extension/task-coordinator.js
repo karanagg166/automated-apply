@@ -113,6 +113,7 @@ export class TaskCoordinator {
       browserSessionId: task.browser_session_id,
       url: task.current_url || task.target_url,
       state: task.state,
+      reason: task.reason,
       requiresInspection: previous.requiresInspection ?? true,
     };
     return this.bindings[task.id];
@@ -226,6 +227,12 @@ export class TaskCoordinator {
           await this.update(binding.id, "tab_closed");
           binding = this.bindings[binding.id];
         }
+      }
+      if (
+        binding.state === "PAUSED" &&
+        ["owner_pause", "global_stop"].includes(binding.reason)
+      ) {
+        throw Error("extension_task_paused_or_cancelled");
       }
       const url = new URL(data.task.target_url);
       if (url.protocol !== "https:" || url.username || url.password)

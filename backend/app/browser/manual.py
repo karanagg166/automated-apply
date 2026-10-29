@@ -107,9 +107,20 @@ async def dispatch_form(session, settings, actor, command):
                     next_state = task.value["state"]
                     if next_state == "FILLING":
                         next_state = "FILLED_VERIFIED" if verified and successful and data["status"] == "form_filled" else "NEEDS_INPUT"
-                        if verified and data["status"] == "form_filled" and not plan.inspection.has_next:
+                        has_unresolved_manual = any(c.required for c in plan.inspection.manual_controls)
+                        if (
+                            verified
+                            and data["status"] == "form_filled"
+                            and not plan.inspection.has_next
+                            and not has_unresolved_manual
+                        ):
                             next_state = "READY_FOR_SUBMISSION"
-                    tasks.move(session, task, next_state, "fill_receipt_saved" if verified else "fill_unverified_manual_required",
+                    reason = (
+                        task.value["reason"]
+                        if task.value["state"] == "PAUSED" and task.value.get("reason") in {"owner_pause", "global_stop"}
+                        else ("fill_receipt_saved" if verified else "fill_unverified_manual_required")
+                    )
+                    tasks.move(session, task, next_state, reason,
                         verified_receipts=receipts, counts=counts)
             if task:
                 data["task"] = task.value

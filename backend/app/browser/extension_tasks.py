@@ -290,7 +290,8 @@ async def update(session, settings, command):
     if event in {"recover", "recovered"}:
         if not command.browser_session_id or value["state"] in TERMINAL:
             raise ToolDenied("extension_task_terminal")
-        return move(session, row, "PAUSED", "browser_restart_fresh_inspection_required",
+        reason = value["reason"] if value.get("state") == "PAUSED" and value.get("reason") in {"owner_pause", "global_stop"} else "browser_restart_fresh_inspection_required"
+        return move(session, row, "PAUSED", reason,
             browser_session_id=str(command.browser_session_id), tab_id=None, tab_active=False,
             browser_connection="disconnected", plan_id=None, authorization_id=None, network_guard_active=False)
     if str(command.browser_session_id) != value["browser_session_id"]:
@@ -298,7 +299,8 @@ async def update(session, settings, command):
     if event == "guard_released":
         if command.tab_id != value["tab_id"] or command.tab_id is None:
             raise ToolDenied("extension_tab_binding_mismatch")
-        return move(session, row, value["state"] if value["state"] in TERMINAL else "PAUSED", "owner_returned_browser_control",
+        reason = value["reason"] if value.get("state") == "PAUSED" and value.get("reason") in {"owner_pause", "global_stop"} else "owner_returned_browser_control"
+        return move(session, row, value["state"] if value["state"] in TERMINAL else "PAUSED", reason,
             network_guard_active=False, plan_id=None, authorization_id=None)
     if value["state"] in TERMINAL:
         raise ToolDenied("extension_task_terminal")
@@ -306,6 +308,8 @@ async def update(session, settings, command):
         if command.tab_id is None:
             raise ToolDenied("extension_tab_required")
         await fresh(session, settings, value)
+        if value.get("state") == "PAUSED" and value.get("reason") in {"owner_pause", "global_stop"}:
+            raise ToolDenied("extension_task_paused_or_cancelled")
         if value["tab_id"] is not None and value["tab_id"] != command.tab_id:
             raise ToolDenied("extension_tab_already_bound")
         if command.observed_url and command.observed_url != value["target_url"]:
@@ -315,7 +319,8 @@ async def update(session, settings, command):
             tab_id=command.tab_id, current_url=value["target_url"], tab_active=True,
             browser_connection="connected", plan_id=None, authorization_id=None)
     if event == "worker_restart":
-        return move(session, row, "PAUSED", "worker_restart_fresh_inspection_required",
+        reason = value["reason"] if value.get("state") == "PAUSED" and value.get("reason") in {"owner_pause", "global_stop"} else "worker_restart_fresh_inspection_required"
+        return move(session, row, "PAUSED", reason,
             plan_id=None, authorization_id=None, browser_connection="paused")
     if event in {"pause", "paused", "cancel", "resume"}:
         return await control(session, settings, row, event.replace("paused", "pause"), value["version"])
@@ -331,7 +336,11 @@ async def update(session, settings, command):
         return await attach_plan(session, settings, row, plan)
     if event in {"navigation", "refresh", "refreshed", "focus_lost", "active_tab_changed", "tab_closed", "network_timeout"}:
         destination = permitted_navigation(value, command.observed_url or value["current_url"])
-        reason = "unexpected_navigation" if event == "navigation" and destination is None else event
+        reason = (
+            value["reason"]
+            if value.get("state") == "PAUSED" and value.get("reason") in {"owner_pause", "global_stop"}
+            else ("unexpected_navigation" if event == "navigation" and destination is None else event)
+        )
         return move(session, row, "FAILED_RETRYABLE" if event == "network_timeout" else "PAUSED", reason,
             current_url=destination or value["current_url"], tab_id=None if event == "tab_closed" else value["tab_id"],
             tab_active=False, browser_connection="disconnected" if event == "tab_closed" else "paused",
@@ -356,13 +365,11 @@ async def control(session, settings, row, action, expected_version):
     state = "PAUSED"
     if action == "resume":
         await fresh(session, settings, row.value)
-        if row.value["tab_id"] is None:
-            raise ToolDenied("extension_tab_required")
-        state = "PACKET_READY"
+        state = "PACKET_READY" if row.value["tab_id"] is not None else "PAUSED"
     elif action == "cancel":
         state = "FAILED_FINAL"
     return move(session, row, state, "owner_" + action,
-        browser_connection="connected" if action == "resume" else "paused",
+        browser_connection="connected" if action == "resume" and row.value["tab_id"] is not None else ("disconnected" if row.value["tab_id"] is None else "paused"),
         plan_id=None, authorization_id=None)
 
 

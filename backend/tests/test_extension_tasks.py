@@ -317,3 +317,154 @@ async def test_truncated_question_cannot_generate_or_queue_an_inexact_answer(db_
     assert plan["actions"][0]["value"] is None
     result = await tasks.ask_questions(db_session, settings(), await tasks.load(db_session, task["id"]))
     assert result["questions"] == []
+
+
+@pytest.mark.asyncio
+async def test_filled_native_field_with_unresolved_required_custom_combobox_never_ready_for_submission(db_session, browser_target):
+    job, packet, _ = browser_target
+    task, session_id = await opened(db_session, packet)
+    # Plan has a native required field f0 and an unresolved required custom combobox u0
+    task, plan = await inspect_task(db_session, job, packet, task, session_id,
+        fields=[{"field_id": "f0", "kind": "email", "label": "Email", "required": True}],
+        manual_controls=[{
+            "control_id": "u0", "kind": "custom_combobox", "label": "Preferred Location",
+            "reason": "Custom dropdown requires manual selection", "required": True,
+        }])
+    assert task["counts"]["manual"] == 1
+    assert plan["inspection"]["manual_controls"][0]["required"] is True
+
+    # Authorize native field
+    authorized = await dispatch_form(db_session, settings(), ACTOR, Command(command="authorize_form",
+        plan_id=plan["id"], field_ids=["f0"], **identity(task, session_id)))
+    assert authorized.ok
+    task = authorized.data["task"]
+
+    # Even with retained_after_blur and receipt reporting form_filled for native fields,
+    # READY_FOR_SUBMISSION must NOT be reached while required manual controls remain unresolved
+    received = await dispatch_form(db_session, settings(), ACTOR, Command(command="record_form_fill",
+        receipt=FillReceipt(plan_id=plan["id"], verification_method="retained_after_blur", state="form_filled",
+            results=[{"field_id": "f0", "status": "filled"}]), **identity(task, session_id)))
+    assert received.ok, received.error_code
+    # Must remain in a conservative manual-review status (FILLED_VERIFIED), NOT READY_FOR_SUBMISSION
+    assert received.data["task"]["state"] != "READY_FOR_SUBMISSION"
+    assert received.data["task"]["state"] == "FILLED_VERIFIED"
+    assert received.data["task"]["counts"]["manual"] == 1
+    assert received.data["submitted"] is False
+
+
+@pytest.mark.asyncio
+async def test_binding_replacement_tab_cannot_override_owner_pause_or_global_stop_until_resume(db_session, browser_target):
+    job, packet, _ = browser_target
+    task, session_id = await opened(db_session, packet)
+    task, plan = await inspect_task(db_session, job, packet, task, session_id)
+    row = await tasks.load(db_session, task["id"])
+
+    # 1. Explicit owner pause
+    paused = await tasks.control(db_session, settings(), row, "pause", task["version"])
+    assert paused["state"] == "PAUSED"
+    assert paused["reason"] == "owner_pause"
+
+    # 2. Tab is closed
+    closed = await dispatch(db_session, settings(), ACTOR, Command(command="update_application_task",
+        task_event="tab_closed", **identity(paused, session_id)))
+    assert closed.ok
+    task = closed.data["task"]
+    assert task["state"] == "PAUSED"
+    assert task["tab_id"] is None
+    assert task["reason"] == "owner_pause"
+
+    # 3. Attempting to bind a replacement tab while paused must be denied
+    denied = await dispatch(db_session, settings(), ACTOR, Command(command="update_application_task",
+        task_event="bind", **{**identity(task, session_id), "tab_id": 99}))
+    assert not denied.ok
+    assert denied.error_code == "extension_task_paused_or_cancelled"
+
+    # Verify task state was not modified by the rejected bind attempt
+    current = await tasks.load(db_session, task["id"])
+    assert current.value["state"] == "PAUSED"
+    assert current.value["tab_id"] is None
+    assert current.value["reason"] == "owner_pause"
+
+    # 4. Explicit authorized Resume lifts the pause
+    resumed = await tasks.control(db_session, settings(), current, "resume", current.value["version"])
+    assert resumed["reason"] == "owner_resume"
+
+    # 5. Now replacement tab binding succeeds and moves to PACKET_READY
+    bound = await dispatch(db_session, settings(), ACTOR, Command(command="update_application_task",
+        task_event="bind", **{**identity(resumed, session_id), "tab_id": 99}))
+    assert bound.ok
+    task = bound.data["task"]
+    assert task["state"] == "PACKET_READY"
+    assert task["tab_id"] == 99
+    assert task["reason"] == "tab_bound_fresh_inspection_required"
+    assert task["plan_id"] is None
+
+    # Stale plan authorization or direct fill is rejected until fresh inspection
+    denied_auth = await dispatch_form(db_session, settings(), ACTOR, Command(command="authorize_form",
+        plan_id=plan["id"], field_ids=["f0"], **identity(task, session_id)))
+    assert not denied_auth.ok
+
+
+@pytest.mark.asyncio
+async def test_binding_replacement_tab_cannot_override_global_stop_until_resume(db_session, browser_target):
+    job, packet, _ = browser_target
+    task, session_id = await opened(db_session, packet)
+    task, plan = await inspect_task(db_session, job, packet, task, session_id)
+    row = await tasks.load(db_session, task["id"])
+
+    # Move to PAUSED via global_stop
+    stopped = tasks.move(db_session, row, "PAUSED", "global_stop", plan_id=None, authorization_id=None)
+    assert stopped["state"] == "PAUSED"
+    assert stopped["reason"] == "global_stop"
+
+    # Tab closed preserves global_stop
+    closed = await dispatch(db_session, settings(), ACTOR, Command(command="update_application_task",
+        task_event="tab_closed", **identity(stopped, session_id)))
+    assert closed.ok
+    assert closed.data["task"]["reason"] == "global_stop"
+    assert closed.data["task"]["tab_id"] is None
+
+    # Bind is denied
+    denied = await dispatch(db_session, settings(), ACTOR, Command(command="update_application_task",
+        task_event="bind", **{**identity(closed.data["task"], session_id), "tab_id": 88}))
+    assert not denied.ok
+    assert denied.error_code == "extension_task_paused_or_cancelled"
+
+
+@pytest.mark.asyncio
+async def test_owner_pause_race_with_in_flight_fill_preserves_pause_and_prevents_readiness(db_session, browser_target):
+    job, packet, _ = browser_target
+    task, session_id = await opened(db_session, packet)
+    task, plan = await inspect_task(db_session, job, packet, task, session_id)
+    authorized = await dispatch_form(db_session, settings(), ACTOR, Command(command="authorize_form",
+        plan_id=plan["id"], field_ids=["f0"], **identity(task, session_id)))
+    assert authorized.ok
+    task = authorized.data["task"]
+    assert task["state"] == "FILLING"
+
+    # Owner pauses while fill is in flight
+    row = await tasks.load(db_session, task["id"])
+    paused = await tasks.control(db_session, settings(), row, "pause", task["version"])
+    assert paused["state"] == "PAUSED"
+    assert paused["reason"] == "owner_pause"
+
+    # Late fill receipt arrives from browser
+    received = await dispatch_form(db_session, settings(), ACTOR, Command(command="record_form_fill",
+        receipt=FillReceipt(plan_id=plan["id"], verification_method="retained_after_blur", state="form_filled",
+            results=[{"field_id": "f0", "status": "filled"}]), **identity(paused, session_id)))
+    assert received.ok
+    # Receipt is recorded as audit evidence, but state REMAINS PAUSED!
+    assert received.data["task"]["state"] == "PAUSED"
+    assert received.data["task"]["reason"] == "owner_pause"
+
+    # Tab closed keeps owner_pause
+    closed = await dispatch(db_session, settings(), ACTOR, Command(command="update_application_task",
+        task_event="tab_closed", **identity(received.data["task"], session_id)))
+    assert closed.ok
+    assert closed.data["task"]["reason"] == "owner_pause"
+
+    # Reopen / bind replacement tab is denied
+    denied = await dispatch(db_session, settings(), ACTOR, Command(command="update_application_task",
+        task_event="bind", **{**identity(closed.data["task"], session_id), "tab_id": 77}))
+    assert not denied.ok
+    assert denied.error_code == "extension_task_paused_or_cancelled"

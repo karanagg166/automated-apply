@@ -263,3 +263,32 @@ test("button combobox choices are readable while selected and sensitive widgets 
     f.close();
   }
 });
+
+test("incompleteRequired detects empty required custom combobox and returns needs_input on verify_fill", () => {
+  const f = fixture(
+    "<form><label>Email<input type=email required></label><div role=combobox aria-required=true aria-label=Department tabindex=0>Choose department</div></form>",
+  );
+  try {
+    assert.equal(f.inspection.fields.length, 1);
+    assert.equal(f.inspection.unsupported_controls.length, 1);
+    assert.equal(f.inspection.unsupported_controls[0].required, true);
+
+    // Native field is filled, but required custom combobox is unresolved
+    const filled = fill(f, "alex@example.org");
+    assert.equal(filled.results[0].status, "filled");
+    // Must return needs_input rather than falsely inferring custom widget was filled
+    assert.equal(filled.state, "needs_input");
+
+    // When the custom combobox is answered on the page, verify_fill returns form_filled
+    f.w.document
+      .querySelector('[role="combobox"]')
+      .setAttribute("data-value", "eng");
+    const verified = f.run({
+      operation: "verify_fill",
+      document_id: f.inspection.document_id,
+    });
+    assert.equal(verified.state, "form_filled");
+  } finally {
+    f.close();
+  }
+});

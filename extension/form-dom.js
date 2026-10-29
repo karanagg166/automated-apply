@@ -1759,15 +1759,66 @@ export function formDOM(request = { operation: "inspect" }) {
       return null;
     };
 
+    const isCustomWidgetUnanswered = (widget, controls) => {
+      const innerInputs = [
+        ...widget.querySelectorAll("input,textarea,select"),
+      ].filter(visible);
+      if (innerInputs.length) {
+        return innerInputs.every((input) => unanswered(input, controls));
+      }
+      const isEditor = widget.matches(
+        '[contenteditable="true"],[role="textbox"]',
+      );
+      if (isEditor) {
+        return !clean(widget.textContent);
+      }
+      const val = clean(
+        widget.getAttribute("data-value") ||
+          widget.getAttribute("aria-valuetext") ||
+          widget.getAttribute("aria-valuenow") ||
+          widget.getAttribute("value"),
+      );
+      if (val) return false;
+      if (widget.querySelector?.('[aria-selected="true"]')) return false;
+      const controlsId =
+        widget.getAttribute("aria-controls") ||
+        widget.getAttribute("aria-owns");
+      if (controlsId) {
+        const listbox = document.getElementById(controlsId);
+        if (listbox?.querySelector?.('[aria-selected="true"]')) return false;
+      }
+      return true;
+    };
+
+    const isCustomWidgetIncomplete = (widget, controls) => {
+      if (widget.matches("input,textarea,select")) return false;
+      if (widget.disabled || widget.getAttribute("aria-disabled") === "true")
+        return false;
+      if (!isRequired(widget)) return false;
+      if (isInvalid(widget)) return true;
+      return isCustomWidgetUnanswered(widget, controls);
+    };
+
     const incompleteRequired = () => {
       const controls = [
         ...document.querySelectorAll("input,textarea,select"),
       ].filter(visible);
-      return controls.some(
+      const nativeIncomplete = controls.some(
         (el) =>
           !el.disabled &&
           isRequired(el) &&
           (unanswered(el, controls) || !el.validity.valid || isInvalid(el)),
+      );
+      if (nativeIncomplete) return true;
+
+      const customWidgets = [
+        ...document.querySelectorAll(
+          '[role="combobox"],[role="listbox"]:not(select),lyte-dropdown,lyte-select,lyte-autocomplete,crux-picklist-component,[contenteditable="true"],[role="textbox"]:not(input):not(textarea),[aria-required="true"]',
+        ),
+      ].filter(visible);
+
+      return customWidgets.some((widget) =>
+        isCustomWidgetIncomplete(widget, controls),
       );
     };
 
