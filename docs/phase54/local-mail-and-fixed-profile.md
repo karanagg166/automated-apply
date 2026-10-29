@@ -17,6 +17,11 @@ late receipt preservation remain available. A deliberate owner-requested replace
 must first Stop/fence work, revoke the prior profile, verify the new directory and
 UUID, then replace the pin under the existing owner lock. Preserve the old mapping.
 
+An explicit Open can refresh a changed packet in an unbound task with the same
+destination, clearing all prior plans/authorizations and requiring fresh inspection.
+It preserves owner Pause and global Stop. Bound, guarded, filling and terminal
+tasks cannot use this shortcut to refresh their context or resume execution.
+
 The optional launcher defaults off. Both its deployment flag and the mapping's
 `automatic_launch_enabled` must be true. Only a running authorized scheduler can
 attempt startup, only a verified normal Chrome directory is accepted, and an

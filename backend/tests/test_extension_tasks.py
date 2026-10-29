@@ -81,6 +81,54 @@ async def test_versioned_task_read_validates_window_and_current_packet(db_sessio
     assert display.ok
 
 
+@pytest.mark.parametrize("pause_reason", [None, "owner_pause", "global_stop"])
+async def test_explicit_open_refreshes_only_unbound_packet_and_preserves_stop(db_session, browser_target, pause_reason):
+    from backend.app.models.application_packet import ApplicationPacket
+
+    _, packet, _ = browser_target
+    await connected(db_session, settings(), SESSION)
+    first = await dispatch(db_session, settings(), ACTOR, Command(
+        command="open_application_task", application_id=packet.id))
+    assert first.ok
+    task = first.data["task"]
+    assert task["tab_id"] is None
+    row = await tasks.load(db_session, task["id"])
+    if pause_reason:
+        tasks.move(db_session, row, "PAUSED", pause_reason)
+    row.value = {**row.value, "plan_id": str(uuid4()), "authorization_id": str(uuid4())}
+    saved = await db_session.get(ApplicationPacket, packet.id)
+    saved.revision += 1
+    await db_session.flush()
+    opened_again = await dispatch(db_session, settings(), ACTOR, Command(
+        command="open_application_task", application_id=packet.id))
+    assert opened_again.ok, opened_again.error_code
+    updated = opened_again.data["task"]
+    assert updated["id"] == task["id"] and updated["packet_revision"] == saved.revision
+    assert updated["plan_id"] is None and updated["authorization_id"] is None
+    assert updated["tab_id"] is None and updated["counts"]["completed"] == 0
+    assert updated["state"] == ("PAUSED" if pause_reason else "PACKET_READY")
+    assert updated["reason"] == (pause_reason or "packet_changed_fresh_inspection_required")
+
+
+@pytest.mark.parametrize("unsafe_state", ["bound", "guarded", "FILLING", "FILL_AUTHORIZED"])
+async def test_open_cannot_refresh_a_bound_guarded_or_filling_task(db_session, browser_target, unsafe_state):
+    from backend.app.models.application_packet import ApplicationPacket
+
+    _, packet, _ = browser_target
+    await connected(db_session, settings(), SESSION)
+    first = await dispatch(db_session, settings(), ACTOR, Command(
+        command="open_application_task", application_id=packet.id))
+    row = await tasks.load(db_session, first.data["task"]["id"])
+    change = {"tab_id": 17} if unsafe_state == "bound" else {"network_guard_active": True} if unsafe_state == "guarded" else {"state": unsafe_state}
+    row.value = {**row.value, **change}
+    saved = await db_session.get(ApplicationPacket, packet.id)
+    saved.revision += 1
+    await db_session.flush()
+    result = await dispatch(db_session, settings(), ACTOR, Command(
+        command="open_application_task", application_id=packet.id))
+    assert not result.ok and result.error_code == "extension_task_context_stale"
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("event", ["focus_lost", "active_tab_changed"])
 async def test_focus_loss_allows_only_fresh_inspection_not_old_authorization(db_session, browser_target, event):
