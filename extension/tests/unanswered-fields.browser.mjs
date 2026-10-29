@@ -264,10 +264,10 @@ try {
       `(${formDOM.toString()})({operation:"inspect",only_empty:true})`,
     );
   const runFill = async (request) =>
-    await page.evaluate(
-      ({ source, req }) => (0, eval)(`(${source})`)(req),
-      { source: formDOM.toString(), req: request },
-    );
+    await page.evaluate(({ source, req }) => (0, eval)(`(${source})`)(req), {
+      source: formDOM.toString(),
+      req: request,
+    });
 
   // 1. Baseline test: existing answers, user edit after inspection, consent untouched
   await page.goto(url);
@@ -331,7 +331,10 @@ try {
   assert.equal(zohoSnap.state, "ready");
   // No existing candidate values leaked in snapshot
   const serializedZohoSnap = JSON.stringify(zohoSnap);
-  assert.equal(serializedZohoSnap.includes("Existing Fictional Candidate"), false);
+  assert.equal(
+    serializedZohoSnap.includes("Existing Fictional Candidate"),
+    false,
+  );
   assert.equal(serializedZohoSnap.includes("India"), false);
 
   const labels = zohoSnap.fields.map((f) =>
@@ -347,6 +350,8 @@ try {
     "Work shift:Day",
     "Work shift:Flexible",
     "I agree to the privacy policy and background check",
+    "Available Start Date",
+    "Current CTC",
   ]);
 
   // Verify required detection from Zoho mandatory markers
@@ -374,20 +379,23 @@ try {
   );
   assert.ok(unsupportedKinds.includes("custom_combobox:Department"));
   assert.ok(unsupportedKinds.includes("custom_combobox:Current City"));
-  assert.ok(unsupportedKinds.includes("date:Available Start Date"));
+  assert.equal(findZohoField("Available Start Date").kind, "date");
   assert.ok(unsupportedKinds.includes("text:Date of Birth"));
   assert.equal(
-    zohoSnap.unsupported_controls.find((u) => u.label === "Date of Birth").reason,
+    zohoSnap.unsupported_controls.find((u) => u.label === "Date of Birth")
+      .reason,
     "Sensitive self-identification requires manual entry",
   );
   assert.equal(findZohoField("Date of Birth"), undefined);
-  assert.ok(unsupportedKinds.includes("framework_input:Current CTC"));
+  assert.equal(findZohoField("Current CTC").preview_only, true);
   assert.ok(unsupportedKinds.includes("text:Type here"));
   assert.ok(unsupportedKinds.includes("radio:Option A"));
   assert.ok(unsupportedKinds.includes("select:Preferred Locations"));
 
   // Simulate trusted user typing into LinkedIn Profile after preparation
-  await page.locator("[name=linkedin]").fill("https://linkedin.com/in/owner-live-edit");
+  await page
+    .locator("[name=linkedin]")
+    .fill("https://linkedin.com/in/owner-live-edit");
   await page.evaluate(() => {
     window.events = [];
   });
@@ -464,7 +472,10 @@ try {
     statusById[findZohoField("Remote", "Remote work preference").field_id],
     "filled",
   );
-  assert.equal(statusById[findZohoField("Day", "Work shift").field_id], "filled");
+  assert.equal(
+    statusById[findZohoField("Day", "Work shift").field_id],
+    "filled",
+  );
   assert.equal(
     statusById[findZohoField("Flexible", "Work shift").field_id],
     "filled",
@@ -546,7 +557,7 @@ try {
   });
   assert.equal(valResult.state, "needs_input");
   assert.deepEqual(valResult.results, [
-    { field_id: "f0", status: "filled" },
+    { field_id: "f0", status: "validation_error" },
     { field_id: "f1", status: "validation_error" },
   ]);
 
@@ -600,8 +611,15 @@ try {
   assert.equal(filledConditional.state, "needs_input");
   assert.ok(filledConditional.results.every((r) => r.status === "filled"));
   assert.equal(await page.locator("[name=exp_years]").inputValue(), "2");
-  assert.equal(await page.locator("[name=employer]").inputValue(), "Fictional Corp");
-  assert.ok(await page.locator("[name=email]").evaluate((e) => e.classList.contains("zr-invalid")));
+  assert.equal(
+    await page.locator("[name=employer]").inputValue(),
+    "Fictional Corp",
+  );
+  assert.ok(
+    await page
+      .locator("[name=email]")
+      .evaluate((e) => e.classList.contains("zr-invalid")),
+  );
 
   // Unsafe DOM mutation (mutating form.action) after inspection blocks fill
   await page.evaluate(() => {
@@ -609,7 +627,8 @@ try {
   });
   const beforeMutation = await inspect();
   await page.evaluate(() => {
-    document.getElementById("zr-step-form").action = "https://evil.example/steal";
+    document.getElementById("zr-step-form").action =
+      "https://evil.example/steal";
   });
   const blockedByMutation = await runFill({
     operation: "fill",
@@ -706,19 +725,28 @@ try {
   assert.equal(pinField.required, true);
 
   // Secondary Language (selected option is "None" at index 1) is answered, so absent from unanswered fields
-  const secLangField = advSnap.fields.find((f) => f.label.includes("Secondary Language"));
+  const secLangField = advSnap.fields.find((f) =>
+    f.label.includes("Secondary Language"),
+  );
   assert.equal(secLangField, undefined);
 
   // Consent checkbox with 'hereby declare' is detected as consent
-  const herebyField = advSnap.fields.find((f) => f.label.includes("hereby declare"));
+  const herebyField = advSnap.fields.find((f) =>
+    f.label.includes("hereby declare"),
+  );
   assert.ok(herebyField);
   assert.equal(herebyField.group_label, null);
 
   // Sibling label[for="other-target"] is not adopted as unrelated_peer's label;
   // instead, unrelated_peer is safely reported as an unlabelled unsupported control
-  const unrelatedControl = advSnap.unsupported_controls.find((u) => u.label === "unrelated_peer");
+  const unrelatedControl = advSnap.unsupported_controls.find(
+    (u) => u.label === "unrelated_peer",
+  );
   assert.ok(unrelatedControl);
-  assert.equal(unrelatedControl.reason, "Incomplete or missing field label requires manual entry");
+  assert.equal(
+    unrelatedControl.reason,
+    "Incomplete or missing field label requires manual entry",
+  );
 
   // Verify fill on adversarial form preserves hereby declare consent and fills postal PIN
   const advFill = await runFill({
@@ -739,7 +767,9 @@ try {
     ],
   });
   assert.equal(advFill.state, "needs_input");
-  const herebyResult = advFill.results.find((r) => r.field_id === herebyField.field_id);
+  const herebyResult = advFill.results.find(
+    (r) => r.field_id === herebyField.field_id,
+  );
   assert.equal(herebyResult.status, "untouched");
   assert.equal(await page.locator("[name=hereby_dec]").isChecked(), false);
   assert.equal(await page.locator("[name=pincode]").inputValue(), "560001");
