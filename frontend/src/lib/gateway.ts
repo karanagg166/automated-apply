@@ -1,5 +1,24 @@
 // This fixed route list prevents the server-side bearer from becoming a general proxy.
 const routes: Array<[RegExp, string[]]> = [
+  [/^integrations\/gmail\/local\/accounts$/, ["GET"]],
+  [
+    /^integrations\/gmail\/local\/accounts\/[12]\/(connect|verify|disconnect|search|test-draft)$/,
+    ["POST"],
+  ],
+  [/^integrations\/gmail\/local\/accounts\/[12]\/drafts$/, ["GET", "POST"]],
+  [/^integrations\/apple-mail\/accounts$/, ["GET"]],
+  [
+    /^integrations\/apple-mail\/accounts\/[A-Za-z0-9-]{1,128}\/(search|drafts)$/,
+    ["POST"],
+  ],
+  [
+    /^integrations\/apple-mail\/accounts\/[A-Za-z0-9-]{1,128}\/messages\/[0-9]+\/read$/,
+    ["POST"],
+  ],
+  [
+    /^integrations\/gmail\/local\/accounts\/[12]\/messages\/[A-Za-z0-9_-]{1,200}\/read$/,
+    ["POST"],
+  ],
   [/^execution\/naukri$/, ["GET", "PUT"]],
   [/^execution\/naukri\/automation\/policy$/, ["PUT"]],
   [/^execution\/naukri\/automation\/control$/, ["POST"]],

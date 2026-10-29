@@ -25,6 +25,7 @@ COMPOSE_SCOPE = "https://www.googleapis.com/auth/gmail.compose"
 COMPOSE_SCOPES = frozenset({"openid", "https://www.googleapis.com/auth/userinfo.email", COMPOSE_SCOPE})
 READ_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
 READ_SCOPES = frozenset({"openid", "https://www.googleapis.com/auth/userinfo.email", READ_SCOPE})
+READ_DRAFT_SCOPES = READ_SCOPES | {COMPOSE_SCOPE}
 ALLOWED_SCOPE_SETS = (SCOPES, SEND_SCOPES, COMPOSE_SCOPES, READ_SCOPES)
 
 EMAIL_ALIASES = {"email": "https://www.googleapis.com/auth/userinfo.email"}
@@ -65,7 +66,9 @@ class GoogleOAuth:
             and self.settings.GMAIL_REDIRECT_URI
         )
 
-    def authorization_url(self, state, verifier, expected_email, *, send=False, compose=False, read_body=False):
+    def authorization_url(self, state, verifier, expected_email, *, send=False, compose=False, read_body=False, read_draft=False):
+        if sum(bool(v) for v in (send, compose, read_body, read_draft)) > 1:
+            raise ConnectionError("ambiguous_oauth_authorization_mode")
         challenge = (
             base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest())
             .decode()
@@ -76,7 +79,7 @@ class GoogleOAuth:
                 "client_id": self.settings.GMAIL_CLIENT_ID,
                 "redirect_uri": self.settings.GMAIL_REDIRECT_URI,
                 "response_type": "code",
-                "scope": " ".join(sorted(READ_SCOPES if read_body else COMPOSE_SCOPES if compose else SEND_SCOPES if send else SCOPES)),
+                "scope": " ".join(sorted(READ_DRAFT_SCOPES if read_draft else READ_SCOPES if read_body else COMPOSE_SCOPES if compose else SEND_SCOPES if send else SCOPES)),
                 "state": state,
                 "access_type": "offline",
                 "prompt": "consent select_account",

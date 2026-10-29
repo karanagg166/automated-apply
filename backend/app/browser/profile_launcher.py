@@ -1,0 +1,89 @@
+"""Optional normal-Chrome startup. A verified binding, never a window, routes work."""
+
+import asyncio
+import re
+import sys
+from datetime import datetime, timedelta
+from pathlib import Path
+
+from backend.app.core.config import get_settings
+from backend.app.dashboard.models import OwnerPreference
+from backend.app.execution.store import memory_row
+from backend.app.models.discovery import now
+
+FIXED = "chr_fixed_profile"
+ATTEMPT = "chr_profile_launch"
+
+
+def launch_arguments(mapping):
+    directory = mapping.get("profile_directory", "")
+    root = Path.home() / "Library/Application Support/Google/Chrome"
+    # Do not resolve symlinks or read profile files. The owner verified this path in chrome://version.
+    if (not re.fullmatch(r"Default|Profile [1-9][0-9]{0,3}", directory)
+            or mapping.get("chrome_profile_path") != str(root / directory)
+            or mapping.get("verified_via") != "owner_selected_chrome_version_page"
+            or not mapping.get("profile_binding_id")):
+        raise ValueError("PROFILE_OFFLINE")
+    return ["/usr/bin/open", "-a", "/Applications/Google Chrome.app", "--args", "--profile-directory=" + directory]
+
+
+async def process(arguments):
+    child = await asyncio.create_subprocess_exec(*arguments, stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL)
+    try:
+        return await asyncio.wait_for(child.wait(), 15)
+    except TimeoutError:
+        child.kill()
+        await child.wait()
+        return -1
+
+
+async def ensure_fixed_profile(factory, *, settings=None, run=process):
+    settings = settings or get_settings()
+    if not settings.CHROME_FIXED_PROFILE_LAUNCH_ENABLED or sys.platform != "darwin":
+        return "PROFILE_OFFLINE"
+    async with factory() as session, session.begin():
+        await memory_row(session, lock=True)
+        state = await session.get(OwnerPreference, "naukri_automation")
+        # Startup is an authorized automation operation and stops with the scheduler.
+        if not state or state.value.get("state") != "RUNNING":
+            return "PROFILE_OFFLINE"
+        fixed = await session.get(OwnerPreference, FIXED)
+        selected = await session.get(OwnerPreference, "chr_selection")
+        if not fixed or not selected or selected.value.get("profile_binding_id") != fixed.value.get("profile_binding_id"):
+            return "PROFILE_OFFLINE"
+        mapping = dict(fixed.value)
+        if mapping.get("automatic_launch_enabled") is not True:
+            return "PROFILE_OFFLINE"
+        try:
+            arguments = launch_arguments(mapping)
+        except ValueError:
+            return "PROFILE_OFFLINE"
+        profile = await session.get(OwnerPreference, "chr_prof:" + mapping["profile_binding_id"])
+        from backend.app.browser.chrome_profiles import online
+
+        if profile and online(profile.value):
+            return "CONNECTED"
+        attempt = await session.get(OwnerPreference, ATTEMPT)
+        if attempt and datetime.fromisoformat(attempt.value["next_attempt_at"]) > now():
+            return "PROFILE_OFFLINE"
+        # Reserve before invoking LaunchServices. The next tick must observe the UUID's own fresh heartbeat.
+        value = {"profile_binding_id": mapping["profile_binding_id"], "attempted_at": now().isoformat(),
+            "next_attempt_at": (now() + timedelta(minutes=5)).isoformat(), "status": "PROFILE_OFFLINE"}
+        if attempt:
+            attempt.value = value
+        else:
+            session.add(OwnerPreference(key=ATTEMPT, value=value))
+    # If any normal Chrome is already running, do not open/reuse a possibly different profile.
+    if await run(["/usr/bin/pgrep", "-x", "Google Chrome"]) == 0:
+        return "PROFILE_OFFLINE"
+    # Recheck Stop after the process probe and before launch; dispatch has its own stronger fences.
+    async with factory() as session, session.begin():
+        await memory_row(session, lock=True)
+        state = await session.get(OwnerPreference, "naukri_automation")
+        fixed = await session.get(OwnerPreference, FIXED)
+        if not state or state.value.get("state") != "RUNNING" or not fixed or fixed.value != mapping:
+            return "PROFILE_OFFLINE"
+        # Serialize the bounded launch with Stop. Once Stop is acknowledged no delayed launch remains.
+        await run(arguments)
+    # Launch success is never connection success. No employer work is dispatched here.
+    return "PROFILE_OFFLINE"

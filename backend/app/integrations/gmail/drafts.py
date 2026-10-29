@@ -154,6 +154,8 @@ class DraftAccountService:
         if not tokens.refresh_token or normalized_scopes(tokens.scope) != COMPOSE_SCOPES:
             raise ConnectionError("unexpected_or_insufficient_scopes")
         subject, email = await self.google.identity(tokens.access_token)
+        from backend.app.integrations.token_store import require_approved_mailbox
+        require_approved_mailbox(self.settings, email)
         await self.lock()
         account = await self.row()
         if account.value.get("generation") != value["generation"]:
@@ -176,6 +178,8 @@ class DraftAccountService:
         if not row or row.value.get("status") != "connected" or set(row.value.get("scopes", [])) != COMPOSE_SCOPES:
             raise ConnectionError("gmail_drafts_account_not_connected")
         value = dict(row.value)
+        from backend.app.integrations.token_store import require_approved_mailbox
+        require_approved_mailbox(self.settings, value.get("account_email"))
         store = TokenStore(self.settings)
         if value["expires_at"] <= (now() + timedelta(seconds=60)).isoformat():
             try:

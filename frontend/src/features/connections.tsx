@@ -1,6 +1,6 @@
 "use client";
 import { LocalConnections } from "@/features/local-connections";
-import { GmailWorkspace } from "@/features/gmail-workspace";
+import { LocalMailboxes } from "@/features/local-mailboxes";
 import { useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -146,7 +146,7 @@ export function Connections() {
         </button>
       </div>
       {tab === "mailboxes" ? (
-        <GmailWorkspace />
+        <LocalMailboxes />
       ) : (
         <>
           <LocalConnections />

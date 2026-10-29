@@ -253,6 +253,8 @@ class ConnectionService:
         if scopes != (READ_SCOPES if intent.authorization_mode == "read_body" else COMPOSE_SCOPES if intent.authorization_mode == "compose" else SEND_SCOPES if intent.authorization_mode == "send" else SCOPES):
             raise ConnectionError("unexpected_or_insufficient_scopes")
         subject, email = await self.google.identity(tokens.access_token)
+        from backend.app.integrations.token_store import require_approved_mailbox
+        require_approved_mailbox(self.settings, email)
         if (not intent.expected_email.startswith("pending:") and email != intent.expected_email) or (intent.expected_subject and subject != intent.expected_subject):
             raise ConnectionError("wrong_google_account")
         await self.lock()
@@ -298,6 +300,8 @@ class ConnectionService:
         account = await self.account(lock=True)
         if not account or account.status != "connected":
             raise ConnectionError("gmail_not_connected")
+        from backend.app.integrations.token_store import require_approved_mailbox
+        require_approved_mailbox(self.settings, account.account_email)
         if set(account.granted_scopes) not in ((SCOPES, READ_SCOPES) if self.read_only else ALLOWED_SCOPE_SETS):
             raise ConnectionError("unexpected_or_insufficient_scopes")
         if account.token_expires_at and account.token_expires_at.replace(

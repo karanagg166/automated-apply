@@ -23,6 +23,7 @@ from backend.app.local_agent.contracts import PROFILE_OPERATIONS
 PROFILE = "chr_prof:"
 COMMAND = "chr_cmd:"
 SELECTION = "chr_selection"
+FIXED_PROFILE = "chr_fixed_profile"
 
 NATIVE = PROFILE_OPERATIONS
 LIVE_SECONDS = 100
@@ -214,6 +215,9 @@ async def require_profile(session, command, *, selected=True, receipt=False):
         raise ToolDenied("PROFILE_OFFLINE")
     if receipt:
         return row
+    fixed = await session.get(OwnerPreference, FIXED_PROFILE)
+    if selected and fixed and fixed.value["profile_binding_id"] != row.value["id"]:
+        raise ToolDenied("PROFILE_OFFLINE")
     if not online(row.value):
         await invalidate(session, row.value["id"], "PROFILE_OFFLINE")
         raise ToolDenied("PROFILE_OFFLINE")
@@ -285,6 +289,9 @@ async def select_profile(session, data):
     if data.expected_version != current["version"]:
         raise ToolDenied("PROFILE_SELECTION_CONFLICT")
     identity = str(data.profile_binding_id) if data.profile_binding_id else None
+    fixed = await session.get(OwnerPreference, FIXED_PROFILE)
+    if identity and fixed and fixed.value["profile_binding_id"] != identity:
+        raise ToolDenied("FIXED_PROFILE_REQUIRED")
     if identity:
         row = await session.get(OwnerPreference, PROFILE + identity)
         if not row or not row.value["connected"]:
@@ -345,6 +352,9 @@ async def enqueue(session, settings, actor, data):
             raise ToolDenied("command_id_conflict")
         return previous.value
     selected = await selection(session)
+    fixed = await session.get(OwnerPreference, FIXED_PROFILE)
+    if fixed and fixed.value["profile_binding_id"] != str(data.profile_binding_id):
+        raise ToolDenied("PROFILE_OFFLINE")
     if (
         data.selection_version != selected["version"]
         or str(data.profile_binding_id) != selected["profile_binding_id"]

@@ -42,6 +42,8 @@ afterEach(() => {
 it.each([
   "integrations/gmail/connect/start",
   "integrations/gmail/accounts/connect/start",
+  "integrations/gmail/local/accounts/1/connect",
+  "integrations/gmail/local/accounts/2/connect",
 ])("preserves OAuth browser binding from %s", async (path) => {
   const fetcher = vi.fn().mockResolvedValue(
     new Response(

@@ -5,7 +5,7 @@ from datetime import datetime
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import EmailStr, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from backend.app.core.urls import PublicHTTPSURL
@@ -401,6 +401,11 @@ class Settings(BaseSettings):
     GMAIL_READ_SYNC_ENABLED: bool = False
     NAUKRI_ALERT_EMAILS_ENABLED: bool = False
     GMAIL_DRAFTS_ENABLED: bool = False
+    GMAIL_LOCAL_ACCOUNTS_ENABLED: bool = False
+    GMAIL_LOCAL_ALLOWED_EMAILS: list[EmailStr] = Field(default_factory=list, max_length=2)
+    APPLE_MAIL_ENABLED: bool = False
+    APPLE_MAIL_ACCOUNT_POLICIES: dict[str, dict] = Field(default_factory=dict)
+    CHROME_FIXED_PROFILE_LAUNCH_ENABLED: bool = False
     GMAIL_RETENTION_ENABLED: bool = False
     GMAIL_SENDING_ENABLED: bool = False
     GMAIL_SEND_MAX_PER_DAY: int = Field(default=10, ge=0, le=100)
