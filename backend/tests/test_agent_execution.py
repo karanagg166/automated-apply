@@ -22,6 +22,36 @@ from backend.app.models.startup import CompanySourceObservation
 OWNER = Actor(channel="owner", identity="primary")
 
 
+@pytest.mark.asyncio
+async def test_owner_lock_reuse_ends_at_commit_or_savepoint_rollback(db_session, monkeypatch):
+    from unittest.mock import AsyncMock
+
+    await store.memory_row(db_session, lock=True)
+    await db_session.commit()
+    scalar = AsyncMock(wraps=db_session.scalar)
+    execute = AsyncMock(wraps=db_session.execute)
+    monkeypatch.setattr(db_session, "scalar", scalar)
+    monkeypatch.setattr(db_session, "execute", execute)
+    row = await store.memory_row(db_session, lock=True)
+    calls = (scalar.await_count, execute.await_count)
+    assert await store.memory_row(db_session, lock=True) is row
+    assert (scalar.await_count, execute.await_count) == calls
+    db_session.expire(row)
+    await store.memory_row(db_session, lock=True)
+    assert scalar.await_count == calls[0] + 1
+    await db_session.commit()
+    await store.memory_row(db_session, lock=True)
+    assert scalar.await_count == calls[0] + 2
+    await db_session.commit()
+
+    nested = await db_session.begin_nested()
+    await store.memory_row(db_session, lock=True)
+    inside = scalar.await_count
+    await nested.rollback()
+    await store.memory_row(db_session, lock=True)
+    assert scalar.await_count == inside + 1
+
+
 def config(**changes):
     return Settings(_env_file=None, ENVIRONMENT="testing", **changes)
 
