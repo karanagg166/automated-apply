@@ -11,6 +11,40 @@ from backend.app.models.discovery import now
 from backend.tests.phase4a_fakes import oauth_settings
 
 
+@pytest.mark.parametrize("code", ["backend_not_ready", "backend_timeout", "backend_offline", "backend_authentication_failed"])
+def test_native_errors_keep_validated_request_identity(tmp_path, monkeypatch, code):
+    import io
+    import json
+    import struct
+    from types import SimpleNamespace
+
+    from backend.app.local_agent import native_host
+    from backend.app.local_agent.contracts import Command
+
+    settings = oauth_settings(CHROME_EXTENSION_ID="a" * 32)
+    path = tmp_path / "private.env"
+    path.write_text("")
+    path.chmod(0o600)
+    command = Command(command="health")
+    payload = command.model_dump_json().encode()
+    input_stream = io.BytesIO(struct.pack("<I", len(payload)) + payload)
+    output_stream = io.BytesIO()
+    monkeypatch.setattr("backend.app.operations.configuration.load_settings", lambda _: settings)
+    monkeypatch.setattr(native_host.sys, "argv", ["host", str(path), "chrome-extension://" + "a" * 32 + "/"])
+    monkeypatch.setattr(native_host.sys, "stdin", SimpleNamespace(buffer=SimpleNamespace(raw=input_stream)))
+    monkeypatch.setattr(native_host.sys, "stdout", SimpleNamespace(buffer=output_stream))
+
+    def unavailable(*_):
+        raise ValueError(code)
+
+    monkeypatch.setattr(native_host, "forward", unavailable)
+    native_host.main()
+    frame = output_stream.getvalue()
+    assert struct.unpack("<I", frame[:4])[0] == len(frame) - 4
+    result = json.loads(frame[4:])
+    assert result == {"version": 1, "ok": False, "error_code": code, "request_id": str(command.request_id)}
+
+
 def mail_settings(**values):
     return oauth_settings(APPLE_MAIL_ENABLED=True, APPLE_MAIL_ACCOUNT_POLICIES={"account1": {
         "address": "owner@example.org", "inbox_mailbox": "INBOX", "drafts_mailbox": "Drafts",

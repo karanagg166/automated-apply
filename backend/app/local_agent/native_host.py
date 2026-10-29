@@ -88,6 +88,7 @@ def forward(command, settings, client=None):
 
 def main():
     from backend.app.operations.configuration import load_settings
+    command = None
     # Wrapper passes the private env path; Chrome supplies origin as the next argument.
     try:
         env_path, origin = sys.argv[1:3]
@@ -112,6 +113,8 @@ def main():
         }
         code = str(exc) if isinstance(exc, ValueError) and str(exc) in allowed else "native_configuration_error"
         output = {"version": 1, "ok": False, "error_code": code}
+        if command is not None:
+            output["request_id"] = str(command.request_id)
     write_message(sys.stdout.buffer, output)
 
 
