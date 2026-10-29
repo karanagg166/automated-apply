@@ -23,6 +23,8 @@ Kind = Literal[
     "tel",
     "url",
     "number",
+    "date",
+    "month",
     "select",
     "radio",
     "checkbox",
@@ -36,7 +38,10 @@ class FormField(Contract):
     label: Text
     group_label: Text | None = None
     required: bool = False
-    options: list[Text] = Field(default_factory=list, max_length=20)
+    options: list[Text] = Field(default_factory=list, max_length=300)
+    section: Text | None = None
+    preview_only: bool = False
+    manual_reason: Text | None = None
     max_length: int = Field(default=1500, ge=1, le=4000)
     invalid: bool = False
 
@@ -72,6 +77,7 @@ class FillAction(Contract):
     project_version: str | None = None
     requires_review: bool = False
     needs_input: bool = True
+    preview_only: bool = False
     missing_input_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
     missing_input_version: int | None = Field(default=None, ge=1)
 
@@ -90,7 +96,7 @@ class FillPlan(Contract):
     actions: list[FillAction] = Field(default_factory=list, max_length=24)
     approved_fields: list[str] = Field(default_factory=list, max_length=24)
     expires_at: str
-    state: Literal["preview", "authorized", "consumed", "finished"] = "preview"
+    state: Literal["read_only", "preview", "authorized", "consumed", "finished"] = "preview"
 
 
 class Review(Contract):

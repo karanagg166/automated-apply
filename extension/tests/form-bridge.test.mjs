@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { inspectForm, prepareAnswers, fillForm, cancelPreparedForm } from "../form-bridge.js";
+import {
+  inspectForm,
+  prepareAnswers,
+  fillForm,
+  cancelPreparedForm,
+} from "../form-bridge.js";
 import { formErrorMessage, formPlanText } from "../form-messages.js";
 const url = "https://jobs.lever.co/fictional-owner/fictional-job";
 const zohoUrl =
@@ -385,7 +390,10 @@ test("cancellation during native authorization prevents DOM mutation and replay"
     return response;
   };
   await assert.rejects(fillForm(), /form_cancelled_reprepare_required/);
-  assert.equal(calls.filter(c => c.script?.args?.[0]?.operation === "fill").length, 0);
+  assert.equal(
+    calls.filter((c) => c.script?.args?.[0]?.operation === "fill").length,
+    0,
+  );
   await assert.rejects(fillForm(), /inspect_and_review_first/);
 });
 
@@ -404,11 +412,85 @@ test("cancelled or superseded preparations cannot replace current reviewed conte
   assert.equal((await fillForm()).submitted, false);
 });
 
-for (const host of ["simplify.jobs", "www.linkedin.com", "mail.google.com", "accounts.google.com"]) {
+for (const host of [
+  "simplify.jobs",
+  "www.linkedin.com",
+  "mail.google.com",
+  "accounts.google.com",
+]) {
   test(`restricted form on ${host} is refused before reading the DOM or contacting native host`, async () => {
     setup();
     tab.url = `https://${host}/fictional/apply`;
-    await assert.rejects(prepareAnswers(), /supported_application_page_required/);
+    await assert.rejects(
+      prepareAnswers(),
+      /supported_application_page_required/,
+    );
     assert.equal(calls.length, 0);
   });
 }
+
+test("CAPTCHA preview keeps blocked state in native request and cannot authorize even with ready answers", async () => {
+  setup();
+  inspectionOverride = {
+    version: 1,
+    document_id: app,
+    url,
+    state: "manual_required",
+    fields: [{ field_id: "f0", kind: "email", label: "Email" }],
+    security_status: "unverified_widget",
+    manual_reason: "security_widget",
+  };
+  const plan = await inspectForm(app);
+  assert.equal(plan.state, "read_only");
+  assert.equal(
+    calls.find((c) => c.native).native.inspection.state,
+    "manual_required",
+  );
+  assert.equal(
+    "security_status" in calls.find((c) => c.native).native.inspection,
+    false,
+  );
+  assert.match(formPlanText(plan), /completion is unverified/);
+  await assert.rejects(fillForm(), /read_only_preview/);
+  assert.equal(
+    calls.some((c) => c.native?.command === "authorize_form"),
+    false,
+  );
+});
+
+test("fresh security preflight rejects before native authorization", async () => {
+  setup();
+  await prepareAnswers();
+  const execute = chrome.scripting.executeScript;
+  chrome.scripting.executeScript = async (req) =>
+    req.args[0].operation === "validate_fill"
+      ? [{ result: { state: "manual_required", reason: "security_challenge" } }]
+      : execute(req);
+  await assert.rejects(fillForm(), /security_challenge/);
+  assert.equal(
+    calls.some((c) => c.native?.command === "authorize_form"),
+    false,
+  );
+});
+
+test("read-only action values are never included in fill authorization", async () => {
+  setup();
+  const original = chrome.runtime.sendNativeMessage;
+  chrome.runtime.sendNativeMessage = async (host, req) => {
+    const result = await original(host, req);
+    result.data.plan.actions.push({
+      field_id: "f2",
+      kind: "select",
+      value: "Graduate",
+      needs_input: false,
+      preview_only: true,
+    });
+    return result;
+  };
+  await inspectForm(app);
+  await fillForm();
+  assert.deepEqual(
+    calls.find((c) => c.native?.command === "authorize_form").native.field_ids,
+    ["f0"],
+  );
+});

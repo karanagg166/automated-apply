@@ -473,6 +473,88 @@ export function formDOM(request = { operation: "inspect" }) {
           '[role="combobox"],lyte-dropdown,lyte-select,lyte-autocomplete,crux-picklist-component,[data-custom-combobox]',
         ),
       );
+    const sectionLabel = (el) => {
+      const section = el.closest(
+        "fieldset,[role='group'],[data-employment-entry]",
+      );
+      return section
+        ? cleanLabelText(
+            textWithoutControls(section.querySelector(":scope > legend")) ||
+              ariaLabelledByText(section) ||
+              section.getAttribute("aria-label"),
+          ) || null
+        : null;
+    };
+    // Same binding rules as the dedicated browser: exactly one owner and list,
+    // bounded, unique choices. Preparation never opens a menu or fires events.
+    const choicesFor = (el) => {
+      if (el.tagName === "SELECT") return null;
+      const id = el.getAttribute("list") || el.getAttribute("aria-controls");
+      if (!id) return null;
+      const lists = [...document.querySelectorAll("[id]")].filter(
+        (n) => n.id === id,
+      );
+      if (lists.length !== 1) return null;
+      const list = lists[0];
+      const native = el.tagName === "INPUT" && list.tagName === "DATALIST";
+      const owners = [
+        ...document.querySelectorAll("[list],[role='combobox']"),
+      ].filter(
+        (n) =>
+          (n.getAttribute("list") || n.getAttribute("aria-controls")) === id,
+      );
+      if (
+        owners.length !== 1 ||
+        (!native &&
+          (list.getAttribute("role") !== "listbox" ||
+            !visible(list) ||
+            el.getAttribute("aria-expanded") !== "true")) ||
+        list.getAttribute("aria-multiselectable") === "true"
+      )
+        return null;
+      const options = [
+        ...list.querySelectorAll(native ? "option" : "[role='option']"),
+      ];
+      const labels = options.map((o) =>
+        clean(
+          native
+            ? o.label || o.value
+            : o.getAttribute("aria-label") || o.textContent,
+        ),
+      );
+      if (
+        !options.length ||
+        options.length > 300 ||
+        labels.some((v) => !v) ||
+        new Set(labels.map((v) => v.toLowerCase())).size !== labels.length ||
+        options.some(
+          (o) => o.disabled || o.getAttribute("aria-disabled") === "true",
+        ) ||
+        (!native &&
+          options.some(
+            (o) => !visible(o) || o.closest("[role='listbox']") !== list,
+          ))
+      )
+        return null;
+      return { list, options, labels, native };
+    };
+    const securityState = () => {
+      // Widget presence cannot establish whether a human solved a challenge.
+      // Never inspect challenge frames, response tokens or CAPTCHA internals.
+      const widget = document.querySelector(
+        'iframe[src*="recaptcha"],iframe[src*="hcaptcha"],iframe[src*="turnstile"],iframe[src*="challenges.cloudflare"],iframe[src*="funcaptcha"],iframe[src*="arkoselabs"],[data-sitekey],.cf-turnstile,[class*="captcha"],[id*="captcha"]',
+      );
+      const blocker = [
+        ...document.querySelectorAll("[role='dialog'],[role='alert'],h1,h2"),
+      ]
+        .filter(visible)
+        .some((el) =>
+          /verify (?:that )?you are human|checking your browser|security (?:check|challenge)|complete (?:the |this )?captcha|access denied/i.test(
+            clean(el.textContent),
+          ),
+        );
+      return blocker ? "blocking" : widget ? "unverified_widget" : "none";
+    };
     const isDateControl = (el) => {
       if (["date", "month", "week", "time", "datetime-local"].includes(el.type))
         return true;
@@ -692,16 +774,40 @@ export function formDOM(request = { operation: "inspect" }) {
 
       const fields = [];
       const unsupportedControls = [];
-      const seenUnsupportedGroups = new Set();
+      const diagnosticIds = new Map();
+      const diagnose = (el, item) => {
+        const wrapper = el.closest?.(
+          "[role='combobox'],lyte-dropdown,lyte-select,lyte-autocomplete,crux-picklist-component",
+        );
+        const inputs = wrapper
+          ? [...wrapper.querySelectorAll("input,select,textarea")].filter(
+              visible,
+            )
+          : [];
+        const control = inputs.length === 1 ? inputs[0] : el;
+        if (!diagnosticIds.has(control))
+          diagnosticIds.set(control, `u${diagnosticIds.size}`);
+        const entry = {
+          ...item,
+          control_id: diagnosticIds.get(control),
+          context: sectionLabel(control),
+        };
+        if (
+          !unsupportedControls.some(
+            (d) =>
+              d.control_id === entry.control_id &&
+              d.context === entry.context &&
+              d.reason === entry.reason,
+          )
+        )
+          unsupportedControls.push(entry);
+      };
       refs = new Map();
       let excludedSensitive = false;
       let crossOriginFormFrame = false;
 
-      let challenge = Boolean(
-        document.querySelector(
-          'iframe[src*="recaptcha"],iframe[src*="hcaptcha"],iframe[src*="turnstile"],iframe[src*="challenges.cloudflare"],iframe[src*="funcaptcha"],iframe[src*="arkoselabs"],[data-sitekey],.cf-turnstile,input[autocomplete="one-time-code"]',
-        ),
-      );
+      const security = securityState();
+      let challenge = security !== "none";
 
       for (const frame of [...document.querySelectorAll("iframe")].filter(
         visible,
@@ -720,7 +826,7 @@ export function formDOM(request = { operation: "inspect" }) {
           )
         ) {
           challenge = true;
-          unsupportedControls.push({
+          diagnose(frame, {
             kind: "iframe",
             label: clean(frame.title || "Security challenge") || "Challenge",
             required: true,
@@ -730,7 +836,7 @@ export function formDOM(request = { operation: "inspect" }) {
         }
         if (/stripe|paypal|checkout|payment|braintree|razorpay/i.test(fHint)) {
           excludedSensitive = true;
-          unsupportedControls.push({
+          diagnose(frame, {
             kind: "iframe",
             label: clean(frame.title || "Payment frame") || "Payment frame",
             required: true,
@@ -762,7 +868,7 @@ export function formDOM(request = { operation: "inspect" }) {
           crossOrigin = true;
         }
         if (crossOrigin || frame.closest("form,[role='form']")) {
-          unsupportedControls.push({
+          diagnose(frame, {
             kind: "iframe",
             label:
               clean(
@@ -787,6 +893,16 @@ export function formDOM(request = { operation: "inspect" }) {
           ),
         ].filter(visible)) {
           if (widget.querySelector("input,textarea,select")) continue;
+          if (widget.matches("input,select,textarea")) continue;
+          if (
+            widget.getAttribute("role") === "listbox" &&
+            [...document.querySelectorAll("[role='combobox']")].some(
+              (c) => c.getAttribute("aria-controls") === widget.id,
+            )
+          )
+            continue;
+          if (widget.getAttribute("role") === "combobox" && choicesFor(widget))
+            continue;
           if (widget.getAttribute("aria-disabled") === "true") continue;
           const isEditor = widget.matches(
             '[contenteditable="true"],[role="textbox"]',
@@ -803,7 +919,7 @@ export function formDOM(request = { operation: "inspect" }) {
           const wLabel =
             cleanLabelText(rawLabel(widget)) ||
             (isEditor ? "Rich text field" : "Custom combobox");
-          unsupportedControls.push({
+          diagnose(widget, {
             kind: isEditor ? "custom_widget" : "custom_combobox",
             label: wLabel,
             required: isRequired(widget),
@@ -814,8 +930,24 @@ export function formDOM(request = { operation: "inspect" }) {
         }
       }
 
-      for (const el of controls) {
-        if (["hidden", "submit", "button", "reset", "image"].includes(el.type))
+      const accessible = [
+        ...document.querySelectorAll("[role='combobox']"),
+      ].filter(
+        (el) =>
+          visible(el) &&
+          !controls.includes(el) &&
+          !el.querySelector("input,textarea,select") &&
+          choicesFor(el),
+      );
+      for (const el of [...controls, ...accessible]) {
+        if (
+          ["hidden", "submit", "button", "reset", "image"].includes(el.type) &&
+          !(
+            el.type === "button" &&
+            el.getAttribute("role") === "combobox" &&
+            choicesFor(el)
+          )
+        )
           continue;
         const rawLbl = rawLabel(el);
         const hint = [
@@ -825,6 +957,7 @@ export function formDOM(request = { operation: "inspect" }) {
           el.autocomplete,
           rawLbl,
           rawGroupLabel(el),
+          sectionLabel(el),
         ].join(" ");
         if (/captcha/i.test(hint)) {
           challenge = true;
@@ -832,7 +965,7 @@ export function formDOM(request = { operation: "inspect" }) {
         }
         if (selfIdentification.test(hint.replace(/[_-]/g, " "))) {
           if (onlyEmpty)
-            unsupportedControls.push({
+            diagnose(el, {
               kind: clean(el.type || "select"),
               label: cleanLabelText(rawLbl) || "Self-identification field",
               required: isRequired(el),
@@ -849,11 +982,34 @@ export function formDOM(request = { operation: "inspect" }) {
           excludedSensitive = true;
           continue;
         }
-        if (el.disabled || el.readOnly) continue;
+        const choices = choicesFor(el);
+        if (
+          el.disabled ||
+          el.getAttribute("aria-disabled") === "true" ||
+          (el.readOnly && !choices)
+        )
+          continue;
         if (onlyEmpty && !unanswered(el, controls)) continue;
+        if (
+          onlyEmpty &&
+          choices &&
+          !choices.native &&
+          (clean(
+            el.getAttribute("data-value") || el.getAttribute("aria-valuetext"),
+          ) ||
+            choices.options.some(
+              (o) => o.getAttribute("aria-selected") === "true",
+            ))
+        )
+          continue;
 
-        if (onlyEmpty && isCustomComboboxControl(el)) {
-          unsupportedControls.push({
+        if (
+          onlyEmpty &&
+          el.tagName !== "SELECT" &&
+          isCustomComboboxControl(el) &&
+          !choices
+        ) {
+          diagnose(el, {
             kind: "custom_combobox",
             label: cleanLabelText(rawLbl) || "Custom combobox",
             required: isRequired(el),
@@ -861,8 +1017,12 @@ export function formDOM(request = { operation: "inspect" }) {
           });
           continue;
         }
-        if (onlyEmpty && isDateControl(el)) {
-          unsupportedControls.push({
+        if (
+          onlyEmpty &&
+          isDateControl(el) &&
+          !["date", "month"].includes(el.type)
+        ) {
+          diagnose(el, {
             kind: "date",
             label: cleanLabelText(rawLbl) || "Date field",
             required: isRequired(el),
@@ -870,18 +1030,10 @@ export function formDOM(request = { operation: "inspect" }) {
           });
           continue;
         }
-        if (onlyEmpty && isFrameworkControlled(el)) {
-          unsupportedControls.push({
-            kind: "framework_input",
-            label: cleanLabelText(rawLbl) || "Framework-controlled input",
-            required: isRequired(el),
-            reason: "Framework-controlled input requires manual typing",
-          });
-          continue;
-        }
 
-        const kind =
-          el.tagName === "TEXTAREA"
+        const kind = choices
+          ? "select"
+          : el.tagName === "TEXTAREA"
             ? "textarea"
             : el.tagName === "SELECT"
               ? "select"
@@ -894,6 +1046,8 @@ export function formDOM(request = { operation: "inspect" }) {
             "tel",
             "url",
             "number",
+            "date",
+            "month",
             "select",
             "radio",
             "checkbox",
@@ -901,7 +1055,7 @@ export function formDOM(request = { operation: "inspect" }) {
           ].includes(kind)
         ) {
           if (onlyEmpty) {
-            unsupportedControls.push({
+            diagnose(el, {
               kind: clean(kind) || "input",
               label: cleanLabelText(rawLbl) || "Unsupported input",
               required: isRequired(el),
@@ -915,7 +1069,7 @@ export function formDOM(request = { operation: "inspect" }) {
         const resolvedGroup = groupLabel(el);
 
         if (onlyEmpty && !resolvedLabel) {
-          unsupportedControls.push({
+          diagnose(el, {
             kind,
             label: clean(rawLbl) || "Unlabelled field",
             required: isRequired(el),
@@ -930,30 +1084,43 @@ export function formDOM(request = { operation: "inspect" }) {
           !resolvedGroup &&
           !isConsentControl(el)
         ) {
-          const grpKey = el.name || resolvedLabel;
-          if (!seenUnsupportedGroups.has(grpKey)) {
-            seenUnsupportedGroups.add(grpKey);
-            unsupportedControls.push({
-              kind: "radio",
-              label: resolvedLabel || "Radio group",
-              required: isRequired(el),
-              reason:
-                "Radio group is missing a question label — select an option manually",
-            });
-          }
+          const grp = radioPeers(el, controls)[0] || el;
+          diagnose(grp, {
+            kind: "radio",
+            label: resolvedLabel || "Radio group",
+            required: isRequired(el),
+            reason:
+              "Radio group is missing a question label — select an option manually",
+          });
           continue;
         }
 
-        if (kind === "select") {
-          if (el.options.length > 20 || el.multiple) {
+        if (kind === "select" && !choices) {
+          const labels = [...el.options]
+            .filter(
+              (o, i) =>
+                !o.disabled && !o.hidden && !isPlaceholderSelectOption(o, i),
+            )
+            .map((o) => clean(o.textContent).toLowerCase());
+          if (!labels.length || new Set(labels).size !== labels.length) {
+            diagnose(el, {
+              kind,
+              label: resolvedLabel,
+              required: isRequired(el),
+              reason:
+                "Missing or ambiguous dropdown choices require manual selection",
+            });
+            continue;
+          }
+          if (el.options.length > 300 || el.multiple) {
             if (onlyEmpty) {
-              unsupportedControls.push({
+              diagnose(el, {
                 kind: "select",
                 label: resolvedLabel || "Dropdown",
                 required: isRequired(el),
                 reason: el.multiple
                   ? "Multi-select dropdown requires manual selection"
-                  : "Dropdown with more than 20 options requires manual selection",
+                  : "Dropdown with more than 300 options requires manual selection",
               });
               continue;
             }
@@ -970,39 +1137,46 @@ export function formDOM(request = { operation: "inspect" }) {
         }
 
         if (fields.length >= 24) {
-          const overLimit = {
-            version: 1,
-            document_id: documentId,
-            url: location.href,
-            fields: [],
-            state: "unsupported",
-            has_next: false,
-            has_submit: false,
-          };
-          if (onlyEmpty) {
-            overLimit.manual_reason = "too_many_fields";
-            overLimit.unsupported_controls = [
-              {
-                kind: "form",
-                label: "Application form",
-                required: false,
-                reason:
-                  "Form step has more than 24 unanswered fields — answer some fields manually first",
-              },
-            ];
-          }
-          return overLimit;
+          diagnose(el, {
+            kind,
+            label: resolvedLabel,
+            required: isRequired(el),
+            reason:
+              "Preview is limited to 24 unanswered fields; complete this control manually",
+          });
+          continue;
         }
 
         const field = {
           group_label: resolvedGroup,
+          section: ["radio", "checkbox"].includes(kind)
+            ? null
+            : sectionLabel(el),
+          preview_only: Boolean(
+            (choices && !choices.native) ||
+            (onlyEmpty && isFrameworkControlled(el)),
+          ),
+          manual_reason:
+            choices && !choices.native
+              ? "Choose the exact option yourself; event-driven custom dropdown filling is manual"
+              : onlyEmpty && isFrameworkControlled(el)
+                ? "Framework-controlled field: type the proposed answer yourself"
+                : null,
           field_id: `f${fields.length}`,
           kind,
           label: resolvedLabel,
           required: isRequired(el),
-          options:
-            kind === "select"
-              ? [...el.options].map((o) => clean(o.textContent))
+          options: choices
+            ? choices.labels
+            : kind === "select"
+              ? [...el.options]
+                  .filter(
+                    (o, i) =>
+                      !o.disabled &&
+                      !o.hidden &&
+                      !isPlaceholderSelectOption(o, i),
+                  )
+                  .map((o) => clean(o.textContent))
               : ["radio", "checkbox"].includes(kind)
                 ? [resolvedLabel]
                 : [],
@@ -1012,11 +1186,14 @@ export function formDOM(request = { operation: "inspect" }) {
         refs.set(field.field_id, {
           el,
           field,
+          choices,
+          choiceValues: choices?.options.map((o) => o.value),
+          dateConstraints: [el.min, el.max, el.step],
           name: el.name,
           autocomplete: el.autocomplete,
-          options: kind === "select" ? [...el.options] : [],
+          options: kind === "select" && !choices ? [...el.options] : [],
           optionSnapshot:
-            kind === "select"
+            kind === "select" && !choices
               ? [...el.options].map((o) => ({
                   value: o.value,
                   disabled: o.disabled,
@@ -1028,6 +1205,21 @@ export function formDOM(request = { operation: "inspect" }) {
           initialSelectedIndex: kind === "select" ? el.selectedIndex : -1,
         });
         fields.push(field);
+      }
+
+      for (const field of fields) {
+        if (
+          fields.filter(
+            (other) =>
+              other.section === field.section &&
+              other.group_label === field.group_label &&
+              other.label === field.label,
+          ).length > 1
+        ) {
+          field.preview_only = true;
+          field.manual_reason =
+            "Repeated question needs a distinct employment or form context; answer each control manually";
+        }
       }
 
       const buttons = [
@@ -1065,13 +1257,16 @@ export function formDOM(request = { operation: "inspect" }) {
         ),
       };
       if (onlyEmpty) {
-        last.unsupported_controls = unsupportedControls.slice(0, 24);
+        last.unsupported_controls = unsupportedControls.slice(0, 48);
+        last.security_status = security;
         last.manual_reason = login
           ? "login_required"
           : excludedSensitive
             ? "sensitive_control"
             : challenge
-              ? "security_challenge"
+              ? security === "blocking"
+                ? "security_challenge"
+                : "security_widget"
               : crossOriginFormFrame ||
                   (!fields.length &&
                     unsupportedControls.some((u) => u.kind === "iframe"))
@@ -1084,6 +1279,13 @@ export function formDOM(request = { operation: "inspect" }) {
     };
 
     const validateSnapshot = (req) => {
+      if (securityState() !== "none")
+        return {
+          state: "manual_required",
+          reason: "security_challenge",
+          results: [],
+          submitted: false,
+        };
       const currentControls = [
         ...document.querySelectorAll("input,textarea,select"),
       ].filter(visible);
@@ -1159,21 +1361,53 @@ export function formDOM(request = { operation: "inspect" }) {
 
       for (const ref of refs.values()) {
         const el = ref.el;
+        if (ref.choices) {
+          const now = choicesFor(el);
+          if (
+            !now ||
+            now.list !== ref.choices.list ||
+            JSON.stringify(now.labels) !== JSON.stringify(ref.choices.labels) ||
+            now.options.some(
+              (o, i) =>
+                o !== ref.choices.options[i] || o.value !== ref.choiceValues[i],
+            )
+          )
+            return {
+              state: "manual_required",
+              reason: "dom_changed",
+              results: [],
+              submitted: false,
+            };
+        }
         const group = groupLabel(el);
-        const options =
-          el.tagName === "SELECT"
-            ? [...el.options].map((o) => clean(o.textContent))
+        const options = ref.choices
+          ? ref.choices.labels
+          : el.tagName === "SELECT"
+            ? [...el.options]
+                .filter(
+                  (o, i) =>
+                    !o.disabled &&
+                    !o.hidden &&
+                    !isPlaceholderSelectOption(o, i),
+                )
+                .map((o) => clean(o.textContent))
             : ref.field.options;
         if (
           !el.isConnected ||
           !visible(el) ||
           el.disabled ||
-          el.readOnly ||
+          (el.readOnly && !ref.choices) ||
           el.name !== ref.name ||
           el.autocomplete !== ref.autocomplete ||
           group !== ref.field.group_label ||
+          (!["radio", "checkbox"].includes(ref.field.kind) &&
+            sectionLabel(el) !== ref.field.section) ||
+          JSON.stringify([el.min, el.max, el.step]) !==
+            JSON.stringify(ref.dateConstraints) ||
           label(el) !== ref.field.label ||
-          (el.tagName === "INPUT" && el.type !== ref.field.kind) ||
+          (el.tagName === "INPUT" &&
+            !ref.choices &&
+            el.type !== ref.field.kind) ||
           JSON.stringify(options) !== JSON.stringify(ref.field.options) ||
           (el.tagName === "SELECT" &&
             [...el.options].some(
@@ -1202,10 +1436,12 @@ export function formDOM(request = { operation: "inspect" }) {
           !ref.el.isConnected ||
           !visible(ref.el) ||
           ref.el.disabled ||
-          ref.el.readOnly ||
+          (ref.el.readOnly && !ref.choices) ||
           ref.field.kind !== action.kind ||
           label(ref.el) !== ref.field.label ||
-          (ref.el.tagName === "INPUT" && ref.el.type !== action.kind)
+          (ref.el.tagName === "INPUT" &&
+            !ref.choices &&
+            ref.el.type !== action.kind)
         )
           return {
             state: "manual_required",
@@ -1230,7 +1466,7 @@ export function formDOM(request = { operation: "inspect" }) {
     };
 
     const actualValue = (el, kind) =>
-      kind === "select"
+      kind === "select" && el.tagName === "SELECT"
         ? clean(el.selectedOptions[0]?.textContent)
         : ["radio", "checkbox"].includes(kind)
           ? String(el.checked)
@@ -1254,6 +1490,8 @@ export function formDOM(request = { operation: "inspect" }) {
         submitArmed = true;
         return true;
       }
+      if (req.operation === "validate_fill")
+        return validateSnapshot(req) || { state: "ready", submitted: false };
       if (req.operation === "verify_fill") {
         const changed = validateSnapshot(req);
         const results = [...appliedValues].map(([field_id, value]) => {
@@ -1424,7 +1662,11 @@ export function formDOM(request = { operation: "inspect" }) {
           });
           continue;
         }
-        if (field.kind === "file" || typeof action.value !== "string") {
+        if (
+          field.preview_only ||
+          field.kind === "file" ||
+          typeof action.value !== "string"
+        ) {
           pendingResults.push({
             field_id: action.field_id,
             status: "untouched",
@@ -1464,9 +1706,32 @@ export function formDOM(request = { operation: "inspect" }) {
           } else {
             el.checked = checked;
           }
+        } else if (field.kind === "select" && el.tagName !== "SELECT") {
+          const choices = refs.get(action.field_id).choices;
+          const index = choices?.labels.indexOf(action.value) ?? -1;
+          // A normal native datalist is the only event-free custom choice adapter.
+          if (
+            !choices?.native ||
+            index < 0 ||
+            choices.options[index].value !== action.value
+          ) {
+            pendingResults.push({
+              field_id: action.field_id,
+              status: "failed",
+            });
+            continue;
+          }
+          Object.getOwnPropertyDescriptor(
+            HTMLInputElement.prototype,
+            "value",
+          ).set.call(el, action.value);
         } else if (field.kind === "select") {
           const matches = options.filter(
-            (o) => !o.disabled && clean(o.textContent) === action.value,
+            (o) =>
+              !o.disabled &&
+              !o.hidden &&
+              !isPlaceholderSelectOption(o, o.index) &&
+              clean(o.textContent) === action.value,
           );
           if (matches.length !== 1) {
             pendingResults.push({
@@ -1477,6 +1742,21 @@ export function formDOM(request = { operation: "inspect" }) {
           }
           el.selectedIndex = matches[0].index;
         } else {
+          if (["date", "month"].includes(field.kind)) {
+            const probe = document.createElement("input");
+            probe.type = field.kind;
+            probe.min = el.min;
+            probe.max = el.max;
+            probe.step = el.step;
+            probe.value = action.value;
+            if (probe.value !== action.value || !probe.validity.valid) {
+              pendingResults.push({
+                field_id: action.field_id,
+                status: "failed",
+              });
+              continue;
+            }
+          }
           const proto =
             field.kind === "textarea"
               ? HTMLTextAreaElement.prototype
