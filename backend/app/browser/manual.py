@@ -36,7 +36,8 @@ async def dispatch_form(session, settings, actor, command):
             service = FormService(session, settings)
             task = None
             if command.task_id and command.command != "record_form_fill":
-                task = await tasks.bound(session, command, require_plan=command.command == "authorize_form")
+                task = await tasks.bound(session, command, require_plan=command.command == "authorize_form",
+                    allow_background_inspection=command.command == "inspect_form")
             if command.command == "prepare_form_answers":
                 if not command.inspection:
                     raise ToolDenied("application_and_inspection_required")

@@ -183,7 +183,10 @@ export function ChromeProfiles({
               Boolean(terminal) ||
               !task ||
               task.profile_binding_id !== selected?.id ||
-              task.state === "PAUSED" ||
+              (task.state === "PAUSED" &&
+                !["focus_lost", "active_tab_changed"].includes(
+                  task.reason || "",
+                )) ||
               task.packet_revision !== packet.revision
             }
             onClick={() => command("prepare")}

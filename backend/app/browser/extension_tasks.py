@@ -220,7 +220,7 @@ async def unclaimed(session, task_id, browser_session_id, tab_id):
             raise ToolDenied("extension_tab_already_owned")
 
 
-async def bound(session, command, *, require_plan=False):
+async def bound(session, command, *, require_plan=False, allow_background_inspection=False):
     await store.memory_row(session, lock=True)
     if not command.task_id:
         raise ToolDenied("extension_task_required")
@@ -232,9 +232,12 @@ async def bound(session, command, *, require_plan=False):
         raise ToolDenied("extension_task_revision_conflict")
     if (not command.browser_session_id
         or value["browser_session_id"] != str(command.browser_session_id)
-        or command.tab_id is None or command.tab_id != value["tab_id"]):
+        or command.tab_id is None or command.tab_id != value["tab_id"]
+        or command.window_id is None or command.window_id != value.get("window_id")):
         raise ToolDenied("extension_tab_binding_mismatch")
-    if value["state"] in TERMINAL | {"PAUSED"}:
+    focus_only = (allow_background_inspection and value["state"] == "PAUSED"
+                  and value.get("reason") in {"focus_lost", "active_tab_changed"})
+    if value["state"] in TERMINAL or (value["state"] == "PAUSED" and not focus_only):
         raise ToolDenied("extension_task_paused_or_cancelled")
     if require_plan and str(command.plan_id or (command.receipt.plan_id if command.receipt else "")) != value["plan_id"]:
         raise ToolDenied("extension_task_plan_mismatch")
@@ -359,7 +362,9 @@ async def update(session, settings, command):
         destination = permitted_navigation(value, command.observed_url or value["current_url"])
         reason = (
             value["reason"]
-            if value.get("state") == "PAUSED" and value.get("reason") in {"owner_pause", "global_stop"}
+            if value.get("state") == "PAUSED" and (
+                value.get("reason") in {"owner_pause", "global_stop"}
+                or event in {"focus_lost", "active_tab_changed"})
             else ("unexpected_navigation" if event == "navigation" and destination is None else event)
         )
         return move(session, row, "FAILED_RETRYABLE" if event == "network_timeout" else "PAUSED", reason,
@@ -417,6 +422,9 @@ async def dispatch_task(session, settings, actor, command):
                 row = await load(session, command.task_id)
                 if row.value.get("profile_binding_id") != str(command.profile_binding_id):
                     raise ToolDenied("PROFILE_NOT_SELECTED")
+                if command.expected_task_version is not None:
+                    row = await bound(session, command, allow_background_inspection=True)
+                    await fresh(session, settings, row.value)
                 if row.value["state"] == "FILLING":
                     try:
                         await fresh(session, settings, row.value)

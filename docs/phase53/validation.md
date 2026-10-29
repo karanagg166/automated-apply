@@ -1,5 +1,12 @@
 # Phase 5.3 focused validation
 
+PR #45's subsequent review is recorded in the
+[case-by-case failure classification and bound Prepare verification](pr45-review-followup.md).
+That report distinguishes the intermediate accidental run from the supplied
+`ec432ba` head, compares only affected files with the base, and records the
+background-tab/window regression. The original engineering evidence below is
+historical; it is not a new full-suite or live-acceptance claim.
+
 All automated profiles, employers, questions, servers and test databases are
 fictional. Genuine observations and the one private review draft are recorded
 separately in [acceptance](acceptance.md). No complete backend/extension suite or

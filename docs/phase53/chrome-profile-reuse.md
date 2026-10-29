@@ -83,6 +83,14 @@ flowchart LR
   or submission command is accepted. Retained receipts persist through the existing
   native/API pipeline. `/chrome status` reports command and task state with receipt
   method/count, without answer values. No unsolicited Telegram notification is added.
+- Prepare reads only the stored application tab, even while another tab or
+  window in the selected profile is active. It does not change focus. Before
+  and after inspection it validates the profile/session, versioned task and
+  current packet context, exact window/tab and URL, loading/navigation state,
+  origin permission and command expiry. Focus loss revokes old plans and fill
+  authority; only a fresh inspection may proceed from that focus-only pause.
+  Owner Pause/Stop and navigation/restart pauses remain blocked. See the
+  [focused regression and failure classification](pr45-review-followup.md).
 
 Owner-only Telegram syntax:
 

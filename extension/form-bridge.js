@@ -105,12 +105,14 @@ function throwInspectionStateError(observationResult) {
   throw err;
 }
 async function native(command, extra) {
+  const profile = await profileContext();
   const request = {
     version: 1,
     request_id: crypto.randomUUID(),
     command,
     ...extra,
-    ...(await profileContext()),
+    ...profile,
+    ...(extra.window_id !== undefined ? { window_id: extra.window_id } : {}),
   };
   let timer;
   try {
@@ -150,7 +152,12 @@ export async function inspectForm(applicationId, options = {}) {
   const expected = generation;
   if (!/^[a-f0-9-]{36}$/.test(applicationId))
     throw Error("application_id_required");
-  const tab = await active();
+  // Bound preparation resolves only its saved tab, before and after inspection.
+  // Unbound toolbar preparation retains its foreground-only behavior.
+  const resolveTab = options.resolveTab || active;
+  const tab = await resolveTab();
+  if (!Number.isInteger(tab?.id) || !permittedFormUrl(tab.url))
+    throw Error("supported_application_page_required");
   const [observation] = await chrome.scripting.executeScript({
     target: { tabId: tab.id, frameIds: [0] },
     world: "ISOLATED",
@@ -163,8 +170,14 @@ export async function inspectForm(applicationId, options = {}) {
       },
     ],
   });
-  const after = await active();
-  if (after.id !== tab.id || after.url !== tab.url) throw Error("page_changed");
+  const after = await resolveTab();
+  if (
+    after.id !== tab.id ||
+    after.windowId !== tab.windowId ||
+    after.url !== tab.url ||
+    observation?.result?.url !== tab.url
+  )
+    throw Error("page_changed");
   if (!canPreview(observation?.result)) {
     throwInspectionStateError(observation.result);
   }

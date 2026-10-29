@@ -37,6 +37,10 @@ The proposed bundle is 1.3.1 and must not be loaded until separately approved.
 8. Verify native health through the extension in that same profile. A static
    unverified Settings line or an isolated fixture is not an installed connection
    receipt. Refresh Naukri pages before inspecting with changed DOM rules.
+   After separate channel approval, read-only acceptance should Open an approved
+   application in the selected job profile, switch to an unrelated tab/window,
+   and Prepare that exact bound application without changing focus or filling.
+   The isolated regression does not replace this installed acceptance.
 9. Existing Naukri packets require refresh and fresh revision review because
    imported criteria/expiry now participate in their context digest. Preserve
    owner edits and approved source facts. Resume never restores old fill authority.

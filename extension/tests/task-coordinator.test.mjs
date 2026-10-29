@@ -21,6 +21,8 @@ function fixture() {
   const task = {
     id: taskId,
     application_id: app,
+    profile_binding_id: local.connectedChromeProfileV1.id,
+    packet_revision: 1,
     job_id: app,
     version: 1,
     state: "PACKET_READY",
@@ -134,6 +136,7 @@ function fixture() {
               };
             }
             task.tab_id = request.tab_id;
+            task.window_id = request.window_id;
             task.state = "PACKET_READY";
           } else if (request.task_event === "recover") {
             task.tab_id = null;
@@ -387,8 +390,13 @@ test("revoked origin permission blocks remote preparation before any DOM read", 
   await assert.rejects(
     coordinator.dispatch({
       action: "prepare",
+      application_id: app,
       task_id: taskId,
       expected_task_version: f.task.version,
+      expected_packet_revision: f.task.packet_revision,
+      expected_destination: url,
+      expected_profile_binding_id: f.task.profile_binding_id,
+      expected_browser_session_id: f.task.browser_session_id,
       remote_command: true,
       remote_expires_at: new Date(Date.now() + 120000).toISOString(),
     }),
@@ -396,6 +404,253 @@ test("revoked origin permission blocks remote preparation before any DOM read", 
   );
   assert.equal(
     f.calls.some((value) => value.command === "inspect_form"),
+    false,
+  );
+});
+
+async function boundPreparation() {
+  const f = fixture();
+  const coordinator = new TaskCoordinator(f.api);
+  await coordinator.dispatch({ action: "open", application_id: app });
+  const message = {
+    action: "prepare",
+    application_id: app,
+    task_id: taskId,
+    expected_task_version: f.task.version,
+    expected_packet_revision: f.task.packet_revision,
+    expected_destination: url,
+    expected_profile_binding_id: f.task.profile_binding_id,
+    expected_browser_session_id: f.task.browser_session_id,
+    remote_command: true,
+    remote_expires_at: new Date(Date.now() + 120000).toISOString(),
+  };
+  f.active(99);
+  f.api.tabs.query = async () => {
+    throw Error("unrelated_tab_must_not_be_queried");
+  };
+  f.api.windows.update = f.api.tabs.update = async () => {
+    throw Error("preparation_must_not_change_focus");
+  };
+  f.api.scripting = {
+    executeScript: async (request) => {
+      f.calls.push({ script: request });
+      return [
+        { result: { document_id: app, url, state: "ready", fields: [] } },
+      ];
+    },
+  };
+  const native = f.api.runtime.sendNativeMessage;
+  f.api.runtime.sendNativeMessage = async (host, request) => {
+    const response = await native(host, request);
+    if (request.command === "inspect_form") {
+      f.task.version++;
+      f.task.state = "FORM_INSPECTED";
+      response.data.task = structuredClone(f.task);
+      response.data.plan = {
+        id: app,
+        target_url: url,
+        inspection: request.inspection,
+        actions: [],
+      };
+    }
+    return response;
+  };
+  global.chrome = f.api;
+  f.calls.length = 0;
+  return { ...f, coordinator, message };
+}
+
+test("remote Prepare reads only the exact bound tab in its stored window without focus or filling", async () => {
+  const f = await boundPreparation();
+  // Profile Open defaults are independent of an already bound task's window.
+  f.local.connectedChromeProfileV1.windowId = 20;
+  const result = await f.coordinator.dispatch({
+    ...f.message,
+    interactions_allowed: true,
+  });
+  assert.equal(result.task.state, "FORM_INSPECTED");
+  const scripts = f.calls.filter((call) => call.script);
+  assert.equal(scripts.length, 1);
+  assert.deepEqual(scripts[0].script.target, { tabId: 7, frameIds: [0] });
+  assert.deepEqual(scripts[0].script.args, [
+    { operation: "inspect", only_empty: true },
+  ]);
+  const inspection = f.calls.find((call) => call.command === "inspect_form");
+  assert.equal(inspection.tab_id, 7);
+  assert.equal(inspection.window_id, 10);
+  assert.equal(
+    inspection.profile_binding_id,
+    f.message.expected_profile_binding_id,
+  );
+  assert.equal(
+    inspection.browser_session_id,
+    f.message.expected_browser_session_id,
+  );
+  assert.equal(
+    f.calls.some((call) => call.command === "authorize_form"),
+    false,
+  );
+  assert.ok(
+    f.calls
+      .filter((call) => typeof call === "string")
+      .every((call) => call === "get:7"),
+  );
+});
+
+for (const [name, change, error] of [
+  [
+    "different profile",
+    (f) => {
+      f.task.profile_binding_id = app;
+    },
+    /PROFILE_NOT_SELECTED/,
+  ],
+  [
+    "old browser session",
+    (f) => {
+      f.task.browser_session_id = app;
+    },
+    /browser_restart_reopen_required/,
+  ],
+  [
+    "closed tab",
+    (f) => {
+      f.tabs.delete(7);
+    },
+    /closed/,
+  ],
+  [
+    "moved window",
+    (f) => {
+      f.tabs.get(7).windowId = 20;
+    },
+    /page_changed/,
+  ],
+  [
+    "navigated URL",
+    (f) => {
+      f.tabs.get(7).url = url + "?other";
+    },
+    /page_changed/,
+  ],
+  [
+    "pending navigation",
+    (f) => {
+      f.tabs.get(7).pendingUrl = url;
+    },
+    /page_changed/,
+  ],
+  [
+    "loading document",
+    (f) => {
+      f.tabs.get(7).status = "loading";
+    },
+    /page_changed/,
+  ],
+  [
+    "discarded document",
+    (f) => {
+      f.tabs.get(7).discarded = true;
+    },
+    /page_changed/,
+  ],
+  [
+    "incognito tab",
+    (f) => {
+      f.tabs.get(7).incognito = true;
+    },
+    /page_changed/,
+  ],
+  [
+    "non-normal window",
+    (f) => {
+      f.api.windows.get = async () => ({ type: "popup" });
+    },
+    /extension_tab_binding_mismatch/,
+  ],
+  [
+    "packet revision",
+    (f) => {
+      f.message.expected_packet_revision++;
+    },
+    /extension_task_context_stale/,
+  ],
+  [
+    "task revision",
+    (f) => {
+      f.message.expected_task_version++;
+    },
+    /extension_task_revision_conflict/,
+  ],
+  [
+    "command profile",
+    (f) => {
+      f.message.expected_profile_binding_id = app;
+    },
+    /extension_task_context_stale/,
+  ],
+  [
+    "command session",
+    (f) => {
+      f.message.expected_browser_session_id = app;
+    },
+    /extension_task_context_stale/,
+  ],
+  [
+    "command destination",
+    (f) => {
+      f.message.expected_destination = url + "?other";
+    },
+    /extension_task_context_stale/,
+  ],
+  [
+    "unbound remote command",
+    (f) => {
+      delete f.message.task_id;
+    },
+    /extension_task_required/,
+  ],
+  [
+    "expiry during validation",
+    (f) => {
+      f.api.permissions.contains = async () => {
+        f.message.remote_expires_at = "2000-01-01T00:00:00Z";
+        return true;
+      };
+    },
+    /profile_command_expired/,
+  ],
+]) {
+  test(`remote Prepare rejects ${name} before DOM access`, async () => {
+    const f = await boundPreparation();
+    change(f);
+    await assert.rejects(f.coordinator.dispatch(f.message), error);
+    assert.equal(
+      f.calls.some((call) => call.script),
+      false,
+    );
+    assert.equal(
+      f.calls.some((call) => call.command === "inspect_form"),
+      false,
+    );
+  });
+}
+
+test("bound Prepare revalidates permission after DOM inspection before storing a plan", async () => {
+  const f = await boundPreparation();
+  const execute = f.api.scripting.executeScript;
+  f.api.scripting.executeScript = async (request) => {
+    const result = await execute(request);
+    f.api.permissions.contains = async () => false;
+    return result;
+  };
+  await assert.rejects(
+    f.coordinator.dispatch(f.message),
+    /application_origin_permission_required/,
+  );
+  assert.equal(f.calls.filter((call) => call.script).length, 1);
+  assert.equal(
+    f.calls.some((call) => call.command === "inspect_form"),
     false,
   );
 });

@@ -54,6 +54,77 @@ async def inspect_task(session, job, packet, task, session_id, fields=None, **ch
 
 
 @pytest.mark.asyncio
+async def test_versioned_task_read_validates_window_and_current_packet(db_session, browser_target):
+    _, packet, _ = browser_target
+    task, session_id = await opened(db_session, packet)
+    context = identity(task, session_id)
+    valid = await dispatch(db_session, settings(), ACTOR, Command(
+        command="get_application_task", **context))
+    assert valid.ok, valid.error_code
+    wrong_window = await dispatch(db_session, settings(), ACTOR, Command(
+        command="get_application_task", **context, window_id=11))
+    assert wrong_window.error_code == "extension_tab_binding_mismatch"
+    wrong_version = await dispatch(db_session, settings(), ACTOR, Command(
+        command="get_application_task", **{**context, "expected_task_version": task["version"] + 1}))
+    assert wrong_version.error_code == "extension_task_revision_conflict"
+    # A packet edit after remote command start must fail the pre-inspection read.
+    from backend.app.models.application_packet import ApplicationPacket
+    row = await db_session.get(ApplicationPacket, packet.id)
+    row.revision += 1
+    await db_session.flush()
+    stale = await dispatch(db_session, settings(), ACTOR, Command(
+        command="get_application_task", **context))
+    assert stale.error_code == "extension_task_context_stale"
+    # Unversioned dashboard reads still expose the stale task for owner review.
+    display = await dispatch(db_session, settings(), ACTOR, Command(
+        command="get_application_task", task_id=task["id"]))
+    assert display.ok
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("event", ["focus_lost", "active_tab_changed"])
+async def test_focus_loss_allows_only_fresh_inspection_not_old_authorization(db_session, browser_target, event):
+    job, packet, _ = browser_target
+    task, session_id = await opened(db_session, packet)
+    task, plan = await inspect_task(db_session, job, packet, task, session_id)
+    changed = await dispatch(db_session, settings(), ACTOR, Command(
+        command="update_application_task", task_event=event, **identity(task, session_id)))
+    assert changed.ok
+    paused = changed.data["task"]
+    assert paused["state"] == "PAUSED" and paused["plan_id"] is None
+    assert paused["authorization_id"] is None
+    old = await dispatch_form(db_session, settings(), ACTOR, Command(
+        command="authorize_form", plan_id=plan["id"], field_ids=["f0"], **identity(paused, session_id)))
+    assert old.error_code == "extension_task_paused_or_cancelled"
+    checked = await dispatch(db_session, settings(), ACTOR, Command(
+        command="get_application_task", **identity(paused, session_id)))
+    assert checked.ok, checked.error_code
+    prepared, fresh_plan = await inspect_task(db_session, job, packet, paused, session_id)
+    assert prepared["state"] in {"FORM_INSPECTED", "NEEDS_INPUT"}
+    assert fresh_plan["id"] != plan["id"]
+    assert prepared["authorization_id"] is None
+    assert prepared["verified_receipts"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reason", ["owner_pause", "global_stop", "refresh", "unexpected_navigation",
+                                  "worker_restart_fresh_inspection_required", "browser_restart_fresh_inspection_required"])
+async def test_focus_loss_never_replaces_a_stronger_pause_or_allows_inspection(db_session, browser_target, reason):
+    job, packet, _ = browser_target
+    task, session_id = await opened(db_session, packet)
+    row = await tasks.load(db_session, task["id"])
+    paused = tasks.move(db_session, row, "PAUSED", reason, plan_id=None, authorization_id=None)
+    changed = await dispatch(db_session, settings(), ACTOR, Command(
+        command="update_application_task", task_event="focus_lost", **identity(paused, session_id)))
+    assert changed.ok
+    assert changed.data["task"]["reason"] == reason
+    result = await dispatch_form(db_session, settings(), ACTOR, Command(
+        command="inspect_form", application_id=packet.id, inspection=inspection(job.application_url),
+        **identity(changed.data["task"], session_id)))
+    assert result.error_code == "extension_task_paused_or_cancelled"
+
+
+@pytest.mark.asyncio
 async def test_binding_restart_pause_and_no_replay(db_session, browser_target):
     job, packet, _ = browser_target
     task, session_id = await opened(db_session, packet)

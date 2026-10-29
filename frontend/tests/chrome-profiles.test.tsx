@@ -117,6 +117,67 @@ it("shows both bindings and requires an explicit versioned switch", async () => 
   );
   expect(vi.mocked(post).mock.calls).toHaveLength(1);
 });
+it.each(["focus_lost", "active_tab_changed"])(
+  "queues exact bound Prepare after %s without a resume or fill",
+  async (reason) => {
+    const get = vi.mocked(api).getMockImplementation()!;
+    vi.mocked(api).mockImplementation(async (path, options) =>
+      String(path).includes("extension-tasks")
+        ? {
+            id: "c1111111-1111-4111-8111-111111111111",
+            version: 7,
+            profile_binding_id: a,
+            packet_revision: 4,
+            state: "PAUSED",
+            reason,
+          }
+        : get(path, options),
+    );
+    mount();
+    const prepare = screen.getByRole("button", {
+      name: "Inspect and prepare answers",
+    });
+    await waitFor(() => expect(prepare).toBeEnabled());
+    await userEvent.click(prepare);
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        "browser/chrome-profiles/commands",
+        expect.objectContaining({
+          action: "prepare",
+          profile_binding_id: a,
+          application_id: packet.id,
+          packet_revision: 4,
+          task_id: "c1111111-1111-4111-8111-111111111111",
+          expected_task_version: 7,
+          selection_version: 3,
+          expected_profile_version: 2,
+        }),
+      ),
+    );
+    expect(post).toHaveBeenCalledTimes(1);
+  },
+);
+it("keeps owner-paused Prepare disabled", async () => {
+  const get = vi.mocked(api).getMockImplementation()!;
+  vi.mocked(api).mockImplementation(async (path, options) =>
+    String(path).includes("extension-tasks")
+      ? {
+          id: "c1111111-1111-4111-8111-111111111111",
+          version: 7,
+          profile_binding_id: a,
+          packet_revision: 4,
+          state: "PAUSED",
+          reason: "owner_pause",
+        }
+      : get(path, options),
+  );
+  mount();
+  await screen.findByText("Personal Chrome");
+  expect(
+    screen.getByRole("button", { name: "Inspect and prepare answers" }),
+  ).toBeDisabled();
+  expect(post).not.toHaveBeenCalled();
+});
 it("offline selected profile blocks commands and never chooses the other connected profile", async () => {
   state.profiles[0].status = "PROFILE_OFFLINE";
   mount();

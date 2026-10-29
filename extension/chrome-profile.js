@@ -253,6 +253,8 @@ export class ChromeProfileConnection {
           expected_task_version: command.expected_task_version,
           expected_packet_revision: command.packet_revision,
           expected_destination: command.destination,
+          expected_profile_binding_id: command.profile_binding_id,
+          expected_browser_session_id: command.browser_session_id,
           remote_expires_at: command.expires_at,
           remote_command: true,
         });
