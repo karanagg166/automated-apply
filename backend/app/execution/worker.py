@@ -271,8 +271,10 @@ class ExecutionWorker:
         self.factory = factory
 
     async def tick(self):
+        from backend.app.browser.profile_launcher import ensure_fixed_profile
         from backend.app.execution.alert_email import poll
 
+        await ensure_fixed_profile(self.factory)
         await poll(self.factory)
         async with self.factory() as session, session.begin():
             from backend.app.execution import recurring

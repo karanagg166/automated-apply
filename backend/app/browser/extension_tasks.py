@@ -181,6 +181,29 @@ async def create(session, settings, application_id, browser_session_id, tab_id=N
                  step=None, challenge_state="UNKNOWN")
         if existing.value["browser_session_id"] != str(browser_session_id):
             raise ToolDenied("extension_task_recovery_required")
+        changed = (
+            existing.value["packet_revision"] != packet.revision
+            or existing.value["profile_version"] != profile.version
+            or existing.value["context_digest"] != packet.snapshot.context_digest
+        )
+        if changed:
+            value = existing.value
+            # Explicit Open may refresh an unbound task after a packet answer
+            # changes. A bound page/guard or in-flight fill needs its existing
+            # recovery path; never adopt its document or revive authorization.
+            if (value["tab_id"] is not None or value.get("network_guard_active")
+                    or value["target_url"] != url
+                    or value["state"] not in {"PACKET_READY", "NEEDS_INPUT", "PAUSED", "FAILED_RETRYABLE"}):
+                raise ToolDenied("extension_task_context_stale")
+            paused = value["state"] == "PAUSED" and value.get("reason") in {"owner_pause", "global_stop"}
+            move(session, existing, "PAUSED" if paused else "PACKET_READY",
+                value["reason"] if paused else "packet_changed_fresh_inspection_required",
+                packet_revision=packet.revision, profile_version=profile.version,
+                context_digest=packet.snapshot.context_digest,
+                field_answer_revisions={str(field.id): field.answer_revision for field in packet.fields},
+                plan_id=None, authorization_id=None, step=None, tab_active=False,
+                browser_connection="unverified",
+                counts={"ready": 0, "completed": 0, "missing": 0, "manual": 0, "validation_errors": 0, "existing": 0})
         # Reopening a popup or duplicate click cannot create another task or refresh permissions.
         return existing
     for other in await rows(session):

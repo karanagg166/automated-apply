@@ -2141,6 +2141,211 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/integrations/gmail/local/accounts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Accounts */
+    get: operations["accounts_api_v1_integrations_gmail_local_accounts_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/integrations/gmail/local/accounts/{slot}/connect": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Connect */
+    post: operations["connect_api_v1_integrations_gmail_local_accounts__slot__connect_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/integrations/gmail/local/accounts/{slot}/verify": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Verify */
+    post: operations["verify_api_v1_integrations_gmail_local_accounts__slot__verify_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/integrations/gmail/local/accounts/{slot}/disconnect": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Disconnect */
+    post: operations["disconnect_api_v1_integrations_gmail_local_accounts__slot__disconnect_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/integrations/gmail/local/accounts/{slot}/search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Search */
+    post: operations["search_api_v1_integrations_gmail_local_accounts__slot__search_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/integrations/gmail/local/accounts/{slot}/messages/{message_id}/read": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Read */
+    post: operations["read_api_v1_integrations_gmail_local_accounts__slot__messages__message_id__read_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/integrations/gmail/local/accounts/{slot}/drafts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Drafts */
+    get: operations["drafts_api_v1_integrations_gmail_local_accounts__slot__drafts_get"];
+    put?: never;
+    /** Create Draft */
+    post: operations["create_draft_api_v1_integrations_gmail_local_accounts__slot__drafts_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/integrations/gmail/local/accounts/{slot}/test-draft": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Test Draft */
+    post: operations["test_draft_api_v1_integrations_gmail_local_accounts__slot__test_draft_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/integrations/apple-mail/accounts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Accounts */
+    get: operations["accounts_api_v1_integrations_apple_mail_accounts_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/integrations/apple-mail/accounts/{account_id}/search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Search */
+    post: operations["search_api_v1_integrations_apple_mail_accounts__account_id__search_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/integrations/apple-mail/accounts/{account_id}/messages/{message_id}/read": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Read */
+    post: operations["read_api_v1_integrations_apple_mail_accounts__account_id__messages__message_id__read_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/integrations/apple-mail/accounts/{account_id}/drafts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Draft */
+    post: operations["draft_api_v1_integrations_apple_mail_accounts__account_id__drafts_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/outreach/drafts/preview": {
     parameters: {
       query?: never;
@@ -4608,6 +4813,13 @@ export interface components {
        */
       authorization_mode: "metadata" | "send" | "compose";
     };
+    /** Consent */
+    Consent: {
+      /** Account Consent */
+      account_consent: boolean;
+      /** Read And Draft Consent */
+      read_and_draft_consent: boolean;
+    };
     /** ConsentAction */
     ConsentAction: {
       /** Expected Revision */
@@ -4761,6 +4973,25 @@ export interface components {
       limit: number;
       /** Max Age Days */
       max_age_days?: number | null;
+    };
+    /** Draft */
+    Draft: {
+      /**
+       * Request Id
+       * Format: uuid
+       */
+      request_id: string;
+      /**
+       * Recipient
+       * Format: email
+       */
+      recipient: string;
+      /** Subject */
+      subject: string;
+      /** Body */
+      body: string;
+      /** Owner Reviewed */
+      owner_reviewed: boolean;
     };
     /** DraftApproval */
     DraftApproval: {
@@ -5481,6 +5712,11 @@ export interface components {
        * @default false
        */
       rewrite: boolean;
+    };
+    /** Generation */
+    Generation: {
+      /** Expected Generation */
+      expected_generation: number;
     };
     /** HTTPValidationError */
     HTTPValidationError: {
@@ -7741,6 +7977,29 @@ export interface components {
       /** Company Source Token */
       company_source_token?: string | null;
     };
+    /** ReviewedDraft */
+    ReviewedDraft: {
+      /** Expected Generation */
+      expected_generation: number;
+      /**
+       * Request Id
+       * Format: uuid
+       */
+      request_id: string;
+      /**
+       * Recipient
+       * Format: email
+       */
+      recipient: string;
+      /** Subject */
+      subject: string;
+      /** Body */
+      body: string;
+      /** Content Hash */
+      content_hash: string;
+      /** Owner Reviewed */
+      owner_reviewed: boolean;
+    };
     /** RevisionInput */
     RevisionInput: {
       /** Expected Revision */
@@ -7797,6 +8056,19 @@ export interface components {
       /** Expected Version */
       expected_version: number;
       configuration: components["schemas"]["ScheduleConfiguration"];
+    };
+    /** Search */
+    Search: {
+      /**
+       * Query
+       * @default Naukri newer_than:30d
+       */
+      query: string;
+      /**
+       * Limit
+       * @default 3
+       */
+      limit: number;
     };
     /** SearchPreferences */
     "SearchPreferences-Input": {
@@ -13339,6 +13611,409 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["DraftApproval"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  accounts_api_v1_integrations_gmail_local_accounts_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  connect_api_v1_integrations_gmail_local_accounts__slot__connect_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slot: "1" | "2";
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["Consent"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  verify_api_v1_integrations_gmail_local_accounts__slot__verify_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slot: "1" | "2";
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  disconnect_api_v1_integrations_gmail_local_accounts__slot__disconnect_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slot: "1" | "2";
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  search_api_v1_integrations_gmail_local_accounts__slot__search_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slot: "1" | "2";
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["Search"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_api_v1_integrations_gmail_local_accounts__slot__messages__message_id__read_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slot: "1" | "2";
+        message_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  drafts_api_v1_integrations_gmail_local_accounts__slot__drafts_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slot: "1" | "2";
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_draft_api_v1_integrations_gmail_local_accounts__slot__drafts_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slot: "1" | "2";
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReviewedDraft"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  test_draft_api_v1_integrations_gmail_local_accounts__slot__test_draft_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slot: "1" | "2";
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["Generation"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  accounts_api_v1_integrations_apple_mail_accounts_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  search_api_v1_integrations_apple_mail_accounts__account_id__search_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_api_v1_integrations_apple_mail_accounts__account_id__messages__message_id__read_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+        message_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  draft_api_v1_integrations_apple_mail_accounts__account_id__drafts_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        account_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["Draft"];
       };
     };
     responses: {

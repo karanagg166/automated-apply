@@ -20,9 +20,17 @@ from urllib.parse import urlsplit
 def lock_observation(document, uid):
     """Missing/ambiguous OS telemetry is unknown, never assumed locked."""
     sessions = []
+    console_locks = []
 
     def walk(node):
         if isinstance(node, dict):
+            console_users = node.get("IOConsoleUsers", [])
+            current_console = [s for s in console_users if isinstance(s, dict)
+                               and s.get("kCGSSessionOnConsoleKey") is True]
+            if (len(current_console) == 1
+                    and current_console[0].get("kCGSSessionUserIDKey") == uid
+                    and type(node.get("IOConsoleLocked")) is bool):
+                console_locks.append(node["IOConsoleLocked"])
             sessions.extend(
                 s
                 for s in node.get("IOConsoleUsers", [])
@@ -36,12 +44,18 @@ def lock_observation(document, uid):
                 walk(value)
 
     walk(document)
-    if (
-        len(sessions) != 1
-        or type(sessions[0].get("CGSSessionScreenIsLocked")) is not bool
-    ):
+    if len(sessions) != 1:
         return "UNKNOWN"
-    return "LOCKED" if sessions[0]["CGSSessionScreenIsLocked"] else "UNLOCKED"
+    per_session = sessions[0].get("CGSSessionScreenIsLocked")
+    if type(per_session) is bool:
+        if console_locks and any(value != per_session for value in console_locks):
+            return "UNKNOWN"
+        return "LOCKED" if per_session else "UNLOCKED"
+    # macOS 27 exposes the console property instead of a per-session lock key.
+    # Accept it only when the sole active console belongs to this exact user.
+    if len(console_locks) == 1:
+        return "LOCKED" if console_locks[0] else "UNLOCKED"
+    return "UNKNOWN"
 
 
 def mac_lock_state():

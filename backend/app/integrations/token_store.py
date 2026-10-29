@@ -11,6 +11,13 @@ class ConnectionError(ValueError):
     """Only fixed error codes cross an API/log boundary."""
 
 
+def require_approved_mailbox(settings, email):
+    """An explicit owner restriction applies to legacy grants as well as new ones."""
+    allowed = {str(value).casefold() for value in settings.GMAIL_LOCAL_ALLOWED_EMAILS}
+    if allowed and (not isinstance(email, str) or email.casefold() not in allowed):
+        raise ConnectionError("gmail_account_not_authorized")
+
+
 class TokenStore:
     def __init__(self, settings):
         self.active = settings.OAUTH_ACTIVE_KEY_ID

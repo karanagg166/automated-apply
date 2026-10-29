@@ -112,7 +112,7 @@ async function proxy(
         "integrations/gmail/connect/start",
         "integrations/gmail/accounts/connect/start",
       ].includes(path) ||
-      /^integrations\/gmail\/workspace\/accounts\/(read_1|read_2|outreach)\/connect$/.test(
+      /^integrations\/gmail\/(?:workspace\/accounts\/(?:read_1|read_2|outreach)|local\/accounts\/[12])\/connect$/.test(
         path,
       )
     )

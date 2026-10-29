@@ -85,16 +85,24 @@ async def callback(
     ):
         raise HTTPException(400, "ambiguous_oauth_callback")
     callback_uri = str(request.url.replace(query=""))
+    cookie = COOKIE
     try:
-        if state.startswith("draft."):
+        if state.startswith("mailbox."):
+            from backend.app.integrations.gmail.mailboxes import Mailboxes
+            parts = state.split(".")
+            if len(parts) != 3 or parts[1] not in {"1", "2"}:
+                raise ConnectionError("invalid_oauth_state_or_redirect")
+            cookie = "gmail54_oauth_" + parts[1]
+            service = Mailboxes(service.session, service.settings)
+        elif state.startswith("draft."):
             from backend.app.integrations.gmail.drafts import DraftAccountService
             service = DraftAccountService(service.session, service.settings)
         result = await service.callback(
-            state, request.cookies.get(COOKIE), callback_uri, code, error
+            state, request.cookies.get(cookie), callback_uri, code, error
         )
     except ConnectionError as exc:
         raise HTTPException(400, str(exc)) from None
-    response.delete_cookie(COOKIE, path=CALLBACK)
+    response.delete_cookie(cookie, path=CALLBACK)
     return {"status": "connected", "connection": result}
 
 
@@ -232,3 +240,13 @@ router.include_router(read_router)
 from backend.app.integrations.gmail.workspace import router as workspace_router
 
 router.include_router(workspace_router)
+
+from backend.app.integrations.gmail.mailboxes_router import (
+    router as local_mailboxes_router,
+)
+
+router.include_router(local_mailboxes_router)
+
+from backend.app.local_agent.apple_mail_router import router as apple_mail_router
+
+router.include_router(apple_mail_router)
