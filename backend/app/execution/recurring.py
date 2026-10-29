@@ -44,6 +44,7 @@ async def put(session, key, value):
 async def context(session):
     profile = await session.scalar(
         select(CandidateProfile).where(CandidateProfile.singleton_key == "primary")
+        .execution_options(populate_existing=True)
     )
     confirmation = await session.get(OwnerPreference, "phase1_profile_confirmation")
     resources = (
@@ -66,6 +67,11 @@ async def context(session):
 
 
 async def validate_policy(session, policy):
+    if policy.source == "gmail_job_alerts":
+        from backend.app.execution.alert_email import PHASE54_GMAIL_INTAKE_READY
+
+        if not PHASE54_GMAIL_INTAKE_READY:
+            raise ToolDenied("gmail_intake_deferred_to_phase54")
     profile, confirmed, resume = await context(session)
     if not confirmed or profile.version != policy.profile_version:
         raise ToolDenied("confirmed_profile_version_required")
@@ -305,6 +311,7 @@ async def tick(session):
         return
     jobs_query = (
         select(Job).where(Job.source_platform == "naukri").order_by(Job.id).limit(100)
+        .execution_options(populate_existing=True)
     )
     if value.get("cursor"):
         jobs_query = jobs_query.where(Job.id > UUID(value["cursor"]))
@@ -364,7 +371,7 @@ async def execution_policy(session, row):
     value = await record(session)
     policy = AutomationPolicy.model_validate(value["policy"])
     await validate_policy(session, policy)
-    job = await session.get(Job, UUID(row.value["job_id"]))
+    job = await session.get(Job, UUID(row.value["job_id"]), populate_existing=True)
     if not job:
         raise ToolDenied("saved_naukri_job_required")
     decision = (await review_jobs(session, [job]))[0]
@@ -423,6 +430,8 @@ async def status(session):
     ]
     if source == "saved_owner_imports":
         blockers.insert(0, "recurring_external_source_not_connected")
+    elif not alert_email.PHASE54_GMAIL_INTAKE_READY:
+        blockers.insert(0, "gmail_intake_deferred_to_phase54")
     elif not get_settings().NAUKRI_ALERT_EMAILS_ENABLED:
         blockers.insert(0, "naukri_alert_email_activation_required")
     elif value.get("source_error"):
@@ -465,7 +474,10 @@ async def status(session):
         "scope": "PARTIAL_PREPARATION",
         "source": source,
         "alert_candidates": alerts,
-        "email_source_activation_available": get_settings().NAUKRI_ALERT_EMAILS_ENABLED,
+        "email_source_activation_available": bool(
+            alert_email.PHASE54_GMAIL_INTAKE_READY
+            and get_settings().NAUKRI_ALERT_EMAILS_ENABLED
+        ),
         "chrome_channel_available": get_settings().CHROME_PROFILE_COMMANDS_ENABLED,
         "new_vacancy_discovery": False,
         "worker_online": live,

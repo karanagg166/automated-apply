@@ -110,6 +110,10 @@ class PacketBuilder:
                 )
             )
         ).all()
+        if job.source_platform == "naukri":
+            from backend.app.execution.naukri import reviewed_job_context
+
+            job, company = reviewed_job_context(job, company)
         adapter = next(
             (p for p in self.platforms if p.recognizes(job, observations)), None
         )

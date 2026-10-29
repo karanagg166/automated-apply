@@ -71,6 +71,17 @@ it("shows persisted status and truthful blockers without dispatch on render", ()
   ).toBeDisabled();
   expect(post).not.toHaveBeenCalled();
 });
+it("keeps Gmail intake deferred to Phase 5.4", () => {
+  render(<NaukriAutomation data={data} busy={false} act={act} />);
+  expect(
+    screen.getByRole("option", {
+      name: /job-alert emails.*deferred to Phase 5.4/i,
+    }),
+  ).toBeDisabled();
+  expect(screen.getByText(/two-account Naukri alert detection/)).toBeVisible();
+  expect(api).not.toHaveBeenCalled();
+  expect(post).not.toHaveBeenCalled();
+});
 it("sends versioned Stop and Pause commands through the backend", async () => {
   render(<NaukriAutomation data={data} busy={false} act={act} />);
   await userEvent.click(

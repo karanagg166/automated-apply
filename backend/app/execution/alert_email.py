@@ -22,9 +22,14 @@ from backend.app.integrations.gmail.read_service import GmailReadService
 from backend.app.integrations.token_store import ConnectionError
 
 PREFIX = "nau_alert:"
+# Owner scope decision: Gmail intake, two accounts and multi-account dedupe are
+# Phase 5.4. Deployment flags cannot activate this dormant adapter in Phase 5.3.
+PHASE54_GMAIL_INTAKE_READY = False
 
 
 async def source_ready(session, policy, settings):
+    if not PHASE54_GMAIL_INTAKE_READY:
+        raise ToolDenied("gmail_intake_deferred_to_phase54")
     if not settings.NAUKRI_ALERT_EMAILS_ENABLED:
         raise ToolDenied("naukri_alert_email_activation_required")
     if not settings.GMAIL_READ_SYNC_ENABLED or not settings.GMAIL_READ_BODY_REVIEWED:

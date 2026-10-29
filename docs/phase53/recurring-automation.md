@@ -1,5 +1,12 @@
 # Phase 5.3 recurring preparation — PARTIAL / live acceptance BLOCKED
 
+**Owner scope decision (2026-10-30):** two Gmail accounts, Naukri alert detection
+and multi-account deduplication are deferred to **Phase 5.4**. All Gmail intake
+remains disabled in Phase 5.3. This supersedes the potential email activation
+steps below, which describe dormant engineering only. Neither deployment flags
+nor a previously saved email policy can activate this source in Phase 5.3.
+See [the role-policy correction and release scope](role-policy-correction.md).
+
 This continues Phase 5.3. It does **not** complete the owner's one-click Naukri
 acceptance requirement. No genuine submission has been performed or confirmed.
 The owner confirmed that no written Naukri integration permission or approved

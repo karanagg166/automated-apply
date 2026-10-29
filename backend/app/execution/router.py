@@ -107,7 +107,7 @@ async def imports(
         items = [normalize(item) for item in data.jobs]
     except ValueError:
         raise HTTPException(422, "invalid_naukri_import") from None
-    result = await JobIngestionService(session).ingest_jobs(items)
+    result = await JobIngestionService(session).ingest_jobs(items, owner_reviewed_naukri=True)
     for job_id in result.job_ids:
         job = await session.get(Job, UUID(job_id))
         if job.source_platform != "naukri":

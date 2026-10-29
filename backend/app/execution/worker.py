@@ -11,7 +11,7 @@ from backend.app.agent.tools import ToolDenied
 from backend.app.automation.store import instant
 from backend.app.dashboard.models import Notification, OwnerPreference
 from backend.app.execution import store
-from backend.app.execution.naukri import matching_job
+from backend.app.execution.naukri import reviewed_job_context
 from backend.app.integrations.gmail.history import reviewed_history
 from backend.app.models.application_packet import ApplicationPacket
 from backend.app.models.candidate_profile import CandidateProfile
@@ -73,7 +73,7 @@ async def prepare(session, identity):
         await store.control(session, row.value["id"], "pause", row.value["revision"])
         row.value = {**row.value, "diagnostic": str(exc)}
         return
-    job = await session.get(Job, UUID(row.value["job_id"]))
+    job = await session.get(Job, UUID(row.value["job_id"]), populate_existing=True)
     profile = await session.scalar(
         select(CandidateProfile).where(CandidateProfile.singleton_key == "primary")
     )
@@ -101,8 +101,9 @@ async def prepare(session, identity):
         await store.move(session, row, "MATCHED")
     if row.value["state"] == "MATCHED":
         company = await session.get(Company, job.company_id) if job.company_id else None
+        job, company = reviewed_job_context(job, company)
         match = JobDiscoveryMatcher(session, await reviewed_history(session)).match(
-            matching_job(job), CandidateProfileRead.model_validate(profile), company
+            job, CandidateProfileRead.model_validate(profile), company
         )
         state, reason = eligibility(job, profile, match)
         if await store.previously_applied(session, job):
@@ -229,8 +230,9 @@ async def watch(session):
         if await store.previously_applied(session, job):
             continue
         company = await session.get(Company, job.company_id) if job.company_id else None
+        job, company = reviewed_job_context(job, company)
         match = JobDiscoveryMatcher(session, history).match(
-            matching_job(job), CandidateProfileRead.model_validate(profile), company
+            job, CandidateProfileRead.model_validate(profile), company
         )
         if eligibility(job, profile, match)[0] != "ELIGIBLE":
             continue

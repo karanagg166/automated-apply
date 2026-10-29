@@ -1,5 +1,12 @@
 # Phase 5.3 installation and rollback boundary
 
+**2026-10-30 scope decision:** HOLD on the previously reviewed `1d2bb5a…`.
+The correction needs a new exact-SHA review and owner installation approval.
+Gmail intake, two accounts, Naukri alert detection and multi-account deduplication
+are deferred to Phase 5.4. Keep `NAUKRI_ALERT_EMAILS_ENABLED`,
+`GMAIL_READ_SYNC_ENABLED` and `GMAIL_READ_BODY_REVIEWED` false for Phase 5.3.
+No mailbox activation is part of this release's acceptance scope.
+
 This PR does not install anything. The API/frontend/native services remain pinned
 to `8c1635139a8943e9c2b72f39c4db593e1ccaa5b5`. During supervision the owner manually
 loaded that installed release's extension 1.3.0 into their chosen Chrome profile.

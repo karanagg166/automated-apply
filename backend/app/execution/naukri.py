@@ -99,8 +99,10 @@ def matching_job(job):
             "title": "title", "description": "description", "location": "location",
             "skills_required": "skills_required", "remote_type": "remote_type",
             "employment_type": "employment_type", "salary_min": "salary_min",
+            "experience_level": "experience_level",
             "salary_max": "salary_max", "salary_currency": "salary_currency",
             "salary_period": "salary_period",
+            "application_url": "application_url",
         }.items():
             setattr(view, target, observed.get(source))
         view.is_remote = view.remote_type == "remote"
@@ -109,3 +111,28 @@ def matching_job(job):
         except (KeyError, TypeError, ValueError):
             view.date_posted = None
     return view
+
+
+def reviewed_job_context(job, company):
+    """Use one reviewed listing for matching, policy, packets and answers.
+
+    Canonical Job/Company rows retain human history. An owner-reviewed employer
+    correction is listing evidence, not proof that the old company's domain or
+    enrichment belongs to the newly named employer.
+    """
+    view = matching_job(job)
+    observed = job.discovery_metadata or {}
+    if observed.get("source_name") != "naukri":
+        return job, company
+    name = observed.get("company_name")
+    same_employer = bool(
+        company and name
+        and " ".join(company.name.casefold().split())
+        == " ".join(name.casefold().split())
+    )
+    if not same_employer:
+        company = SimpleNamespace(
+            id=None, name=name, domain=None, metadata_={}
+        ) if name else None
+        view.company_id = None
+    return view, company

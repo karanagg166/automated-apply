@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from backend.app.agent.tools import ToolDenied
 from backend.app.dashboard.models import OwnerPreference
 from backend.app.execution import alert_email, recurring
 from backend.app.execution.contracts import AutomationPolicyUpdate
@@ -20,6 +21,44 @@ from backend.tests.test_naukri_recurring import start
 from backend.tests.test_phase3_gmail_readonly import connect
 
 URL = "https://www.naukri.com/job-listings-fictional-backend-281026123456"
+
+
+@pytest.fixture
+def future_adapter_fixture(monkeypatch):
+    # Retain dormant adapter contracts using fictional transports only. This is
+    # not an environment flag or an activation path in the shipped application.
+    monkeypatch.setattr(alert_email, "PHASE54_GMAIL_INTAKE_READY", True)
+
+
+@pytest.mark.asyncio
+async def test_phase53_deferral_cannot_be_overridden_by_gmail_flags(
+    db_session, prepared_policy, monkeypatch
+):
+    settings = oauth_settings(
+        GMAIL_READ_SYNC_ENABLED=True, GMAIL_READ_BODY_REVIEWED=True,
+        NAUKRI_ALERT_EMAILS_ENABLED=True,
+    )
+    policy = prepared_policy.model_copy(update={
+        "source": "gmail_job_alerts", "gmail_account_id": uuid4(), "gmail_policy_version": 1,
+    })
+    with pytest.raises(ToolDenied, match="gmail_intake_deferred_to_phase54"):
+        await recurring.configure(db_session, AutomationPolicyUpdate(expected_revision=1, policy=policy))
+    with pytest.raises(ToolDenied, match="gmail_intake_deferred_to_phase54"):
+        await alert_email.source_ready(db_session, policy, settings)
+
+    def deny_reader(*args, **kwargs):
+        pytest.fail("Phase 5.3 must not construct a Gmail reader")
+
+    monkeypatch.setattr(alert_email, "GmailReadService", deny_reader)
+    monkeypatch.setattr(alert_email, "get_settings", lambda: settings)
+    # A previously persisted RUNNING Gmail policy also cannot poll after upgrade.
+    value = await recurring.record(db_session)
+    await recurring.put(db_session, recurring.KEY, {
+        **value, "state": "RUNNING", "policy": policy.model_dump(mode="json"),
+    })
+    await db_session.commit()
+    await alert_email.poll(async_sessionmaker(db_session.bind, expire_on_commit=False, autoflush=False))
+    assert (await recurring.record(db_session))["source_error"] == "gmail_intake_deferred_to_phase54"
 
 
 def evidence(account_id):
@@ -59,7 +98,7 @@ def test_candidates_retain_uncertainty_and_exact_requisition():
 
 
 @pytest.mark.asyncio
-async def test_poll_default_never_reads_mailbox(db_session, prepared_policy):
+async def test_poll_default_never_reads_mailbox(db_session, prepared_policy, future_adapter_fixture):
     policy = prepared_policy.model_copy(
         update={
             "source": "gmail_job_alerts",
@@ -82,7 +121,7 @@ async def test_poll_default_never_reads_mailbox(db_session, prepared_policy):
 
 @pytest.mark.asyncio
 async def test_approved_fake_poll_deduplicates_requisitions_and_keeps_manual_review(
-    db_session, prepared_policy, monkeypatch
+    db_session, prepared_policy, monkeypatch, future_adapter_fixture
 ):
     settings = oauth_settings(
         GMAIL_READ_SYNC_ENABLED=True,

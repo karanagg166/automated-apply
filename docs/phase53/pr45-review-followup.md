@@ -1,5 +1,9 @@
 # PR #45 review follow-up
 
+Subsequent release review and correction: see
+[reviewed-facts policy correction and Phase 5.4 scope decision](role-policy-correction.md).
+The owner held `1d2bb5a…`; the replacement head needs new exact-SHA approval.
+
 Reviewed starting head: `ec432baf7eae5393e7c15aa472b25cfd3eb21f46`.
 Comparison base: `8c1635139a8943e9c2b72f39c4db593e1ccaa5b5`.
 

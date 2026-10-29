@@ -126,7 +126,9 @@ export function NaukriAutomation({
         Partial capability: recurring preparation of owner-supplied records. New
         vacancy discovery requires an approved source and factual review.
         Browser filling needs separate permission and exact field approval.
-        Automated submission is unavailable.
+        Automated submission is unavailable. Gmail intake, two-account Naukri
+        alert detection and multi-account deduplication are deferred to Phase
+        5.4 and disabled in Phase 5.3.
       </Notice>
       <p>
         Persisted state: <strong>{data.state}</strong> · {readable(data.scope)}
@@ -265,8 +267,8 @@ export function NaukriAutomation({
         <Field label="Discovery input source">
           <Select value={source} onChange={(e) => setSource(e.target.value)}>
             <option value="saved_owner_imports">Owner-supplied postings</option>
-            <option value="gmail_job_alerts">
-              Official job-alert emails (separate approval required)
+            <option value="gmail_job_alerts" disabled>
+              Official job-alert emails (deferred to Phase 5.4)
             </option>
           </Select>
         </Field>

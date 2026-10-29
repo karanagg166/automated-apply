@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from backend.app.dashboard.models import OwnerPreference
 from backend.app.execution import store
-from backend.app.execution.naukri import matching_job, normalized_url
+from backend.app.execution.naukri import normalized_url, reviewed_job_context
 from backend.app.execution.worker import eligibility
 from backend.app.local_agent.profile_confirmation import confirmation_matches
 from backend.app.models.candidate_profile import CandidateProfile
@@ -44,6 +44,7 @@ def vacancy_review(job, now):
 async def review_jobs(session, jobs):
     profile = await session.scalar(
         select(CandidateProfile).where(CandidateProfile.singleton_key == "primary")
+        .execution_options(populate_existing=True)
     )
     confirmation = await session.get(OwnerPreference, "phase1_profile_confirmation")
     confirmed = confirmation_matches(
@@ -62,12 +63,13 @@ async def review_jobs(session, jobs):
                            "employer": None, "state": "REJECTED", "reason": "invalid_requisition_identity",
                            "match": None, "submission_allowed": False})
             continue
-        company = await session.get(Company, job.company_id) if job.company_id else None
+        company = await session.get(Company, job.company_id, populate_existing=True) if job.company_id else None
+        job, company = reviewed_job_context(job, company)
         already_applied = await store.previously_applied(session, job)
         currentness = "already_applied" if already_applied else vacancy_review(job, now)
         fit = (
             matcher.match(
-                matching_job(job), CandidateProfileRead.model_validate(profile), company
+                job, CandidateProfileRead.model_validate(profile), company
             )
             if profile
             else None
