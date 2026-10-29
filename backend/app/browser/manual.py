@@ -99,6 +99,7 @@ async def dispatch_form(session, settings, actor, command):
                         "profile_version": plan.actions[0].candidate_version if plan.actions else task.value["profile_version"],
                         "results": [r.model_dump() for r in command.receipt.results],
                         "verification_method": command.receipt.verification_method,
+                        "network_guard_active": command.receipt.network_guard_active,
                         "state": data["status"], "recorded_at": tasks.now(), "submitted": False,
                     }][-50:]
                     counts = {**task.value["counts"], "completed": len(successful),

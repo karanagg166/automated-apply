@@ -38,7 +38,7 @@ class Command(StrictModel):
     expected_task_version: int | None = Field(default=None, ge=1)
     browser_session_id: UUID | None = None
     tab_id: int | None = Field(default=None, ge=0)
-    task_event: Literal["bind", "navigation", "refresh", "refreshed", "pause", "paused", "resume", "cancel", "tab_closed", "recover", "recovered", "focus_lost", "active_tab_changed", "network_timeout", "inspection_prepared", "fill_started", "fill_finished"] | None = None
+    task_event: Literal["bind", "navigation", "refresh", "refreshed", "pause", "paused", "resume", "cancel", "tab_closed", "recover", "recovered", "focus_lost", "active_tab_changed", "network_timeout", "inspection_prepared", "fill_started", "fill_finished", "guard_installed", "guard_released", "worker_restart"] | None = None
     observed_url: str | None = Field(default=None, max_length=2048)
     observation: Literal["signed_in_indicator", "login_required", "unverifiable"] | None = None
 

@@ -279,3 +279,12 @@ chrome.tabs.onActivated.addListener(({ tabId }) => {
       void coordinator.event(binding.tabId, "focus_lost");
   }
 });
+chrome.permissions?.onRemoved?.addListener((permissions) => {
+  if (
+    !permissions.permissions?.includes("declarativeNetRequest") &&
+    !permissions.origins?.length
+  )
+    return;
+  for (const binding of Object.values(coordinator.bindings))
+    void coordinator.event(binding.tabId, "pause");
+});

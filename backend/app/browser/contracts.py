@@ -49,7 +49,20 @@ class FormField(Contract):
     invalid: bool = False
 
 
+class ManualControl(Contract):
+    """Bounded explanation only; existing values and frame contents stay in Chrome."""
+    control_id: str = Field(pattern=r"^u[0-9]{1,3}$")
+    kind: Text
+    label: Text
+    reason: Text
+    context: Text | None = None
+    required: bool = False
+    invalid: bool = False
+
+
 class Inspection(Contract):
+    manual_reason: Text | None = None
+    manual_controls: list[ManualControl] = Field(default_factory=list, max_length=48)
     version: Literal[1] = 1
     document_id: str = Field(pattern=r"^[a-f0-9-]{36}$")
     url: str = Field(min_length=1, max_length=2048)
@@ -116,6 +129,7 @@ class FieldResult(Contract):
 
 
 class FillReceipt(Contract):
+    network_guard_active: bool = False
     verification_method: Literal["dom_assignment", "retained_after_blur"] = "dom_assignment"
     plan_id: UUID
     results: list[FieldResult] = Field(max_length=24)

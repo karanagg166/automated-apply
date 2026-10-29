@@ -30,6 +30,12 @@ export function formErrorMessage(error) {
   }
   return (
     {
+      background_network_scope_unverified:
+        "This form uses background network execution outside the tab guard. Complete it manually; eventful filling is unavailable.",
+      network_guard_permission_required:
+        "Chrome requires the block-only submission guard permission at installation. Review the upgrade; no fields have changed.",
+      network_guard_unverified:
+        "The application tab's network guard could not be verified. No fields were changed; check Chrome permission and inspect again.",
       reviewed_field_selection_invalid:
         "Selected fields do not match the current preview. Prepare and review fresh answers.",
       application_origin_permission_required:

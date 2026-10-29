@@ -48,8 +48,8 @@
       </div>
       <label class="check"
         ><input id="allow-interactions" type="checkbox" /> Allow input, change
-        and blur events for reviewed fields. The website may autosave their
-        values.</label
+        and blur events for reviewed fields. Website networking remains blocked
+        until you return browser control.</label
       >
       <p id="answer-status" role="status">
         Existing answers and manual edits are preserved. No application will be
@@ -68,6 +68,12 @@
       </div>
       <p id="review-status">A preview does not authorize a fill.</p>
       <button id="fill-form" disabled>Fill Approved Fields</button>
+      <button id="return-control" class="secondary" disabled>
+        Return browser control
+      </button>
+      <p id="network-guard-status">
+        Website networking is unchanged until guarded filling starts.
+      </p>
       <div class="controls">
         <button id="pause-form" class="secondary">Pause</button
         ><button id="resume-form" class="secondary">Resume</button

@@ -47,6 +47,26 @@ function sanitizeInspection(raw) {
     security_status,
     ...inspection
   } = raw;
+  if (manual_reason)
+    inspection.manual_reason = String(manual_reason).slice(0, 160);
+  if (Array.isArray(unsupported_controls) && unsupported_controls.length) {
+    inspection.manual_controls = unsupported_controls
+      .slice(0, 48)
+      .map((control, index) => ({
+        control_id: /^u[0-9]{1,3}$/.test(control.control_id || "")
+          ? control.control_id
+          : `u${index}`,
+        kind: String(control.kind || "unsupported").slice(0, 160),
+        label: String(control.label || "Unlabelled control").slice(0, 160),
+        reason: String(control.reason || "Manual completion required").slice(
+          0,
+          160,
+        ),
+        context: control.context ? String(control.context).slice(0, 160) : null,
+        required: control.required === true,
+        invalid: control.invalid === true,
+      }));
+  }
   return inspection;
 }
 function attachPreview(data, observation) {
@@ -289,6 +309,7 @@ export async function fillForm(options = {}) {
         {
           operation: "fill",
           document_id: plan.inspection.document_id,
+          expires_at: plan.expires_at,
           actions,
           only_empty: true,
           ...(snapshot.interactions_allowed && options.interaction_authorized
@@ -328,6 +349,7 @@ export async function fillForm(options = {}) {
       results: result.results,
       state: result.state,
       submitted: false,
+      network_guard_active: options.network_guard === true,
       verification_method:
         result.verification === "retained_after_blur"
           ? "retained_after_blur"
@@ -359,4 +381,18 @@ export async function inspectOnly(options = {}) {
   requireCurrentGeneration(expected);
   if (after.id !== tab.id || after.url !== tab.url) throw Error("page_changed");
   return observation.result;
+}
+
+// Recovery uses identifiers only; it does not inspect the saved tab's contents.
+export async function interruptForm(tabId, documentId, api = chrome) {
+  if (!Number.isInteger(tabId) || !/^[a-f0-9-]{36}$/.test(documentId || ""))
+    return;
+  await api.scripting
+    .executeScript({
+      target: { tabId, frameIds: [0] },
+      world: "ISOLATED",
+      func: formDOM,
+      args: [{ operation: "cancel_fill", document_id: documentId }],
+    })
+    .catch(() => {});
 }

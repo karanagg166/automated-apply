@@ -212,3 +212,108 @@ async def test_reload_widget_disappearance_does_not_clear_challenge(db_session, 
     assert plan["state"] == "read_only"
     assert plan["inspection"]["challenge_state"] == "UNKNOWN"
     assert task["state"] == "CHALLENGE_REQUIRED"
+
+
+@pytest.mark.asyncio
+async def test_manual_control_reasons_persist_and_dashboard_counts_them(db_session, browser_target):
+    job, packet, _ = browser_target
+    task, session_id = await opened(db_session, packet)
+    task, plan = await inspect_task(db_session, job, packet, task, session_id, manual_controls=[{
+        "control_id": "u0", "kind": "custom_combobox", "label": "Career stage",
+        "reason": "Closed dropdown requires manual selection", "required": True,
+    }])
+    assert task["counts"]["manual"] == 1
+    assert plan["inspection"]["manual_controls"][0]["label"] == "Career stage"
+    assert all(action["field_id"] != "u0" for action in plan["actions"])
+
+
+@pytest.mark.asyncio
+async def test_task_poll_pauses_when_packet_changes_during_fill(db_session, browser_target):
+    job, packet, _ = browser_target
+    task, session_id = await opened(db_session, packet)
+    task, plan = await inspect_task(db_session, job, packet, task, session_id)
+    authorization = await dispatch_form(db_session, settings(), ACTOR, Command(command="authorize_form",
+        plan_id=plan["id"], field_ids=["f0"], **identity(task, session_id)))
+    assert authorization.ok
+    await ApplicationPacketService(db_session).add_questions(packet.id, QuestionsAdd(
+        expected_revision=packet.revision, questions=[QuestionInput(question="Confirmed first name")]))
+    current = await dispatch(db_session, settings(), ACTOR, Command(command="get_application_task", task_id=task["id"]))
+    assert current.ok
+    assert current.data["task"]["state"] == "PAUSED"
+    assert current.data["task"]["authorization_id"] is None
+    assert current.data["task"]["reason"] == "candidate_or_packet_changed_during_fill"
+
+
+@pytest.mark.asyncio
+async def test_network_guard_state_preserves_plan_and_can_release_after_cancel(db_session, browser_target):
+    job, packet, _ = browser_target
+    task, session_id = await opened(db_session, packet)
+    task, plan = await inspect_task(db_session, job, packet, task, session_id)
+    guarded = await dispatch(db_session, settings(), ACTOR, Command(command="update_application_task",
+        task_event="guard_installed", **identity(task, session_id)))
+    assert guarded.ok
+    task = guarded.data["task"]
+    assert task["network_guard_active"] is True and task["plan_id"] == plan["id"]
+    cancelled = await dispatch(db_session, settings(), ACTOR, Command(command="update_application_task",
+        task_event="cancel", **identity(task, session_id)))
+    task = cancelled.data["task"]
+    assert task["state"] == "FAILED_FINAL" and task["network_guard_active"]
+    released = await dispatch(db_session, settings(), ACTOR, Command(command="update_application_task",
+        task_event="guard_released", **identity(task, session_id)))
+    assert released.ok
+    assert released.data["task"]["state"] == "FAILED_FINAL"
+    assert released.data["task"]["network_guard_active"] is False
+
+
+@pytest.mark.asyncio
+async def test_global_stop_revokes_execution_but_preserves_partial_receipt(db_session, browser_target, async_client, phase2_auth):
+    job, packet, _ = browser_target
+    task, session_id = await opened(db_session, packet)
+    task, plan = await inspect_task(db_session, job, packet, task, session_id)
+    result = await dispatch_form(db_session, settings(), ACTOR, Command(command="authorize_form",
+        plan_id=plan["id"], field_ids=["f0", "f1"], **identity(task, session_id)))
+    assert result.ok
+    task = result.data["task"]
+    await db_session.commit()
+    stopped = await async_client.post("/api/v1/browser/stop", headers=phase2_auth)
+    assert stopped.status_code == 200
+    assert (await tasks.load(db_session, task["id"])).value["state"] == "PAUSED"
+    result = await dispatch_form(db_session, settings(), ACTOR, Command(command="record_form_fill",
+        receipt=FillReceipt(plan_id=plan["id"], state="manual_required", verification_method="retained_after_blur",
+            network_guard_active=True, results=[{"field_id": "f0", "status": "filled"}]), **identity(task, session_id)))
+    assert result.ok, result.error_code
+    assert result.data["task"]["state"] == "PAUSED"
+    assert result.data["task"]["verified_receipts"][-1]["network_guard_active"] is True
+
+
+@pytest.mark.asyncio
+async def test_worker_restart_records_uncertain_fill_and_revokes_old_plan(db_session, browser_target):
+    job, packet, _ = browser_target
+    task, session_id = await opened(db_session, packet)
+    task, plan = await inspect_task(db_session, job, packet, task, session_id)
+    result = await dispatch_form(db_session, settings(), ACTOR, Command(command="authorize_form",
+        plan_id=plan["id"], field_ids=["f0", "f1"], **identity(task, session_id)))
+    assert result.ok
+    task = result.data["task"]
+    recovered = await dispatch(db_session, settings(), ACTOR, Command(command="update_application_task",
+        task_event="worker_restart", **identity(task, session_id)))
+    assert recovered.ok
+    task = recovered.data["task"]
+    assert task["state"] == "PAUSED" and task["plan_id"] is None
+    assert task["counts"]["completed"] == 0
+    assert task["verified_receipts"][-1]["verification_method"] == "unknown"
+    assert task["verified_receipts"][-1]["plan_id"] == plan["id"]
+    assert task["verified_receipts"][-1]["submitted"] is False
+
+
+@pytest.mark.asyncio
+async def test_truncated_question_cannot_generate_or_queue_an_inexact_answer(db_session, browser_target):
+    job, packet, _ = browser_target
+    task, session_id = await opened(db_session, packet)
+    label = ("Email and complete application question " * 6)[:160]
+    task, plan = await inspect_task(db_session, job, packet, task, session_id,
+        [{"field_id": "f0", "kind": "text", "label": label}])
+    assert plan["actions"][0]["needs_input"] is True
+    assert plan["actions"][0]["value"] is None
+    result = await tasks.ask_questions(db_session, settings(), await tasks.load(db_session, task["id"]))
+    assert result["questions"] == []

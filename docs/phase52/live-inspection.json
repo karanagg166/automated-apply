@@ -1,0 +1,954 @@
+{
+  "methodology": "Fresh isolated Chromium, public navigation and isolated-world DOM inspection only; no profile, candidate data, clicks, filling or submissions.",
+  "observations": [
+    {
+      "site": "Razorpay Greenhouse",
+      "requested_url": "https://job-boards.greenhouse.io/razorpaysoftwareprivatelimited/jobs/4744950005",
+      "observed_at": "2026-10-29T11:58:30.610Z",
+      "entered_candidate_data": false,
+      "fill_attempted": false,
+      "submitted": false,
+      "http_status": 200,
+      "final_url": "https://job-boards.greenhouse.io/razorpaysoftwareprivatelimited/jobs/4744950005",
+      "page_title": "Job Application for AI Builder at Razorpay Software Private Limited",
+      "state": "manual_required",
+      "challenge_state": "WIDGET_PRESENT_UNVERIFIED",
+      "manual_reason": "security_widget",
+      "fields": [
+        {
+          "label": "First Name",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "ea593df8080fea0ca23b61e18d44ddcb50d2d209e50b03f6bcd53220658141da"
+        },
+        {
+          "label": "Last Name",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "8c12b231161e675066f245e8301f04c83f7ff52e87df797b2240a3c42be19afe"
+        },
+        {
+          "label": "Email",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "40407e2a28494801d78699ed82d0471baa70d529489ccb614b0c7b7f077fd456"
+        },
+        {
+          "label": "Phone",
+          "kind": "tel",
+          "group_label": null,
+          "section": "Phone",
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "e595d31207d1795b7c8a43eca8e94b32612a8d6de8fda5b4704d635712f90825"
+        },
+        {
+          "label": "Attach",
+          "kind": "file",
+          "group_label": null,
+          "section": "Resume/CV",
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "95a13a4ad3c77e0d1bbff08dd527b2fbf534094024c034116396cd3013d4f290"
+        },
+        {
+          "label": "Company name",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "0da75dd8edbf3eb547ca8ff62d5cdcfd1e8ac72047d4524bebf59260ee687e4b"
+        },
+        {
+          "label": "Title",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "9529ad344bad950a88bbe15a6847399697846c4a98f6f4a5016a701fbf0c26f9"
+        },
+        {
+          "label": "Current role",
+          "kind": "checkbox",
+          "group_label": null,
+          "section": null,
+          "required": false,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "ef2d142160df2dca19008b936fdc43a15863c3bfdf0e535332bc8c1a734d4610"
+        },
+        {
+          "label": "LinkedIn Profile",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "203f9c36285126e73837ef30a4652350463d38329a98b0a5342b104c21120486"
+        },
+        {
+          "label": "Website",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "fe95ba141e8c1f30e673376091da7fb5af7e21f691ff92fb0fc8d013c077db86"
+        },
+        {
+          "label": "Total Years of Experience",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "7359091817407e595b245407b6a19b678e3d3d6ab396a33860da8cb4ffb6cdf7"
+        },
+        {
+          "label": "Current Location",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "8d7aae56db298290e71d6ed5db94d3e8b2e7d555241fa92de91300d971dd31dc"
+        }
+      ],
+      "unsupported_controls": [
+        {
+          "kind": "iframe",
+          "label": "reCAPTCHA",
+          "required": true,
+          "reason": "Security challenge or CAPTCHA requires manual completion",
+          "control_id": "u0",
+          "context": null
+        },
+        {
+          "kind": "custom_combobox",
+          "label": "Country",
+          "required": true,
+          "reason": "Custom combobox or dropdown requires manual selection",
+          "control_id": "u1",
+          "context": "Phone"
+        },
+        {
+          "kind": "custom_combobox",
+          "label": "Start date month",
+          "required": true,
+          "reason": "Custom combobox or dropdown requires manual selection",
+          "control_id": "u2",
+          "context": null
+        },
+        {
+          "kind": "date",
+          "label": "Start date year",
+          "required": true,
+          "reason": "Date field requires manual entry",
+          "control_id": "u3",
+          "context": null
+        },
+        {
+          "kind": "custom_combobox",
+          "label": "End date month",
+          "required": true,
+          "reason": "Custom combobox or dropdown requires manual selection",
+          "control_id": "u4",
+          "context": null
+        },
+        {
+          "kind": "date",
+          "label": "End date year",
+          "required": true,
+          "reason": "Date field requires manual entry",
+          "control_id": "u5",
+          "context": null
+        },
+        {
+          "kind": "custom_combobox",
+          "label": "Current Career Stage",
+          "required": true,
+          "reason": "Custom combobox or dropdown requires manual selection",
+          "control_id": "u6",
+          "context": null
+        },
+        {
+          "kind": "text",
+          "label": "Gender",
+          "required": true,
+          "reason": "Sensitive self-identification requires manual entry",
+          "control_id": "u7",
+          "context": null
+        },
+        {
+          "kind": "custom_combobox",
+          "label": "Current Industry",
+          "required": true,
+          "reason": "Custom combobox or dropdown requires manual selection",
+          "control_id": "u8",
+          "context": null
+        },
+        {
+          "kind": "custom_combobox",
+          "label": "Current Designation",
+          "required": true,
+          "reason": "Custom combobox or dropdown requires manual selection",
+          "control_id": "u9",
+          "context": null
+        }
+      ],
+      "has_next": false,
+      "has_submit": true
+    },
+    {
+      "site": "Cloudflare Greenhouse",
+      "requested_url": "https://job-boards.greenhouse.io/cloudflare/jobs/8097321",
+      "observed_at": "2026-10-29T11:58:32.931Z",
+      "entered_candidate_data": false,
+      "fill_attempted": false,
+      "submitted": false,
+      "http_status": 200,
+      "final_url": "https://job-boards.greenhouse.io/cloudflare/jobs/8097321",
+      "page_title": "Job Application for AI Security Research & Red Team Engineer at Cloudflare",
+      "state": "manual_required",
+      "challenge_state": "WIDGET_PRESENT_UNVERIFIED",
+      "manual_reason": "security_widget",
+      "fields": [
+        {
+          "label": "First Name",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "0461d731461a33853706ed5038ae85bd018411c3b319d9dcb7cdcbe9c615de24"
+        },
+        {
+          "label": "Last Name",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "1fda51a57f7760b8d1a35edc97d6058b7a116bc9fe50f0a4075befae4f565897"
+        },
+        {
+          "label": "Email",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "b0817c5241ab5c84354e6164218aa4291e225f2803a42604f94c1055367caf10"
+        },
+        {
+          "label": "Phone",
+          "kind": "tel",
+          "group_label": null,
+          "section": "Phone",
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "7ec8965d829b7d355142add734f7110551f59b78fc756539e6c10b13655e074d"
+        },
+        {
+          "label": "Attach",
+          "kind": "file",
+          "group_label": null,
+          "section": "Resume/CV",
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "1c6775c8abb16d44c1a548752fe1e5684ea91f4f0bead34972d5d556c97a3a7b"
+        },
+        {
+          "label": "Attach",
+          "kind": "file",
+          "group_label": null,
+          "section": "Cover Letter",
+          "required": false,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "9693247bac2aea3edec862d37678c5d3ed50b2401d450aeb50e6b5df4b55e796"
+        },
+        {
+          "label": "Legal Name (if different than above)",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "c911b6bc04ea6b167504450546c7d06901103198232e27fbe8e23c92d533d027"
+        },
+        {
+          "label": "Would you like to include your LinkedIn profile, personal website or blog?",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": false,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "7fbcf498695206493123bbca7cc3cd5004ee638657efb95670a58a684d970640"
+        },
+        {
+          "label": "How did you hear about this job?",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "025aa01a5b95cb4bd1bf6aeec6b05b8de8c7f8f99828872eae6e5ced2bc1df5c"
+        },
+        {
+          "label": "Acknowledge/Confirm",
+          "kind": "checkbox",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "aeb09a225b60d079ccfd35f231a0fe1a5dbca282c9b36594a0db3ac07acc6ab7"
+        },
+        {
+          "label": "Please indicate your current city, state, and country.",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "8a948d9c840a3967ad88a8f2f1a3b2b402429d01294860545b7fa5a25002dac4"
+        }
+      ],
+      "unsupported_controls": [
+        {
+          "kind": "iframe",
+          "label": "reCAPTCHA",
+          "required": true,
+          "reason": "Security challenge or CAPTCHA requires manual completion",
+          "control_id": "u0",
+          "context": null
+        },
+        {
+          "kind": "custom_combobox",
+          "label": "Country",
+          "required": true,
+          "reason": "Custom combobox or dropdown requires manual selection",
+          "control_id": "u1",
+          "context": "Phone"
+        },
+        {
+          "kind": "custom_combobox",
+          "label": "Location (City)",
+          "required": true,
+          "reason": "Custom combobox or dropdown requires manual selection",
+          "control_id": "u2",
+          "context": null
+        },
+        {
+          "kind": "custom_combobox",
+          "label": "Do you now or will you in the future require immigration sponsorship to work at Cloudflare?",
+          "required": true,
+          "reason": "Custom combobox or dropdown requires manual selection",
+          "control_id": "u3",
+          "context": null
+        },
+        {
+          "kind": "custom_combobox",
+          "label": "This role requires that you live in one of the following hubs: Austin, TX or NYC. Are you currently located in one of the hub locations or willing to relocate?",
+          "required": true,
+          "reason": "Custom combobox or dropdown requires manual selection",
+          "control_id": "u4",
+          "context": null
+        },
+        {
+          "kind": "text",
+          "label": "Gender",
+          "required": false,
+          "reason": "Sensitive self-identification requires manual entry",
+          "control_id": "u5",
+          "context": null
+        },
+        {
+          "kind": "text",
+          "label": "Are you Hispanic/Latino?",
+          "required": false,
+          "reason": "Sensitive self-identification requires manual entry",
+          "control_id": "u6",
+          "context": null
+        },
+        {
+          "kind": "text",
+          "label": "Veteran Status",
+          "required": false,
+          "reason": "Sensitive self-identification requires manual entry",
+          "control_id": "u7",
+          "context": null
+        }
+      ],
+      "has_next": false,
+      "has_submit": true
+    },
+    {
+      "site": "Veeva Lever expired posting",
+      "requested_url": "https://jobs.lever.co/veeva/79256ab7-1862-4195-9f8b-87735247d017/apply",
+      "observed_at": "2026-10-29T11:58:35.007Z",
+      "entered_candidate_data": false,
+      "fill_attempted": false,
+      "submitted": false,
+      "http_status": 404,
+      "final_url": "https://jobs.lever.co/veeva/79256ab7-1862-4195-9f8b-87735247d017/apply",
+      "page_title": "Not found – 404 error",
+      "state": "unsupported",
+      "challenge_state": "NONE",
+      "manual_reason": null,
+      "fields": [],
+      "unsupported_controls": [],
+      "has_next": false,
+      "has_submit": false
+    },
+    {
+      "site": "Veeva Lever current posting",
+      "requested_url": "https://jobs.lever.co/veeva/52ba79af-1086-457d-b5d2-8e184f111ffd/apply",
+      "observed_at": "2026-10-29T11:58:49.071Z",
+      "entered_candidate_data": false,
+      "fill_attempted": false,
+      "submitted": false,
+      "http_status": 200,
+      "final_url": "https://jobs.lever.co/veeva/52ba79af-1086-457d-b5d2-8e184f111ffd/apply",
+      "page_title": "Veeva Systems - Associate Software Engineer - 2027 Start Dates",
+      "state": "manual_required",
+      "challenge_state": "WIDGET_PRESENT_UNVERIFIED",
+      "manual_reason": "security_widget",
+      "fields": [
+        {
+          "label": "Full name✱",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "65af5bd78a15d6a4902633b5a1567887bd499724d03eae7545d65221b34df99b"
+        },
+        {
+          "label": "Email✱",
+          "kind": "email",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "609fd07d4856160387a61667f19856ec41fcdc7d143e549577517ce468c90723"
+        },
+        {
+          "label": "Phone",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": false,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "401f36fd6ce9837c533b8859842a6288b2ffb5a399669372d520d077e05370ad"
+        },
+        {
+          "label": "Current location No location found. Try entering a different locationLoading",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": false,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "cccdc89b7fc65b8f5d53096493452092e4bdd2b4ae40710bd0d1e9cb436a2487"
+        },
+        {
+          "label": "Current company",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": false,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "522732710db80fb02d224c68460f71efb2f46bfb7314ed67b3f7f95a5fdb018c"
+        },
+        {
+          "label": "LinkedIn URL",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": false,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "4cf3dfaabb74c65db97bc6d83fd9e02215a3949868afe3252e3bffdd484e5384"
+        },
+        {
+          "label": "Question 1: Briefly tell us about yourself. What makes you unique, and what are one or two key events that helped shape who you are? (2-3 short paragraphs)",
+          "kind": "textarea",
+          "group_label": null,
+          "section": null,
+          "required": false,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "5ec0152fdea532145f5a1262e2e012058684cb407355773f92cafa90d6682877"
+        },
+        {
+          "label": "Question 2: Tell us about some of the jobs or projects you had as a younger person. What was the job/project, at what age, and what is something you learned? (2",
+          "kind": "textarea",
+          "group_label": null,
+          "section": null,
+          "required": false,
+          "preview_only": true,
+          "manual_reason": "Question exceeds the inspection text limit; read and answer the complete question manually",
+          "semantic_key": "653dc58b16cb6edd3c51f2b50d8860a70e839171093bb098be8d673b3e091809"
+        },
+        {
+          "label": "How did you hear about Veeva?✱",
+          "kind": "select",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "3e3c19d75ef7e189395525050448881d5670258467ae5da55197d5bae58b0eaa"
+        },
+        {
+          "label": "Please select your field of study:✱",
+          "kind": "select",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "9383da06fec617cfb8301ef6f2e8f1556c7a1c0884e4fac63e21c9f49ab6484d"
+        },
+        {
+          "label": "If you selected Other, please indicate your field of study:",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": false,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "189107e12693403de27539e003852a14cef5f0d388def05466e2924fccdcc5cb"
+        },
+        {
+          "label": "Please rank the following roles in order of preference: Associate Software Engineer, Associate Performance Engineer, Associate DevOps Engineer, Associate Mobile",
+          "kind": "textarea",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": true,
+          "manual_reason": "Question exceeds the inspection text limit; read and answer the complete question manually",
+          "semantic_key": "2694c11ce39d9c7448c46d029dd279ae0c194ad95ba0f5c2219165b92e8a51f1"
+        },
+        {
+          "label": "Front-end",
+          "kind": "checkbox",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "ee9a956c8d09784323bd0af39132de900c6a6193f0a5dd7a20f14ec42919034a"
+        },
+        {
+          "label": "Back-end",
+          "kind": "checkbox",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "16ae38b79ddf34cb2cee7c4f43d660696fdaded1336114600c783debcf1781a5"
+        },
+        {
+          "label": "Full-stack",
+          "kind": "checkbox",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "adc7194de6b5df0250a47e976f587c34d022772ea4352c377bd69911955a290e"
+        },
+        {
+          "label": "Mobile (iOS or Android)",
+          "kind": "checkbox",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "ce895caac936e6636f08dace9745c03f1ee836172cc67912817abfa3b5d358e7"
+        },
+        {
+          "label": "DevOps",
+          "kind": "checkbox",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "56a684dda7b63cac8a19b54029dff2ae8b5dcd3323547267347fb3570133309b"
+        },
+        {
+          "label": "Performance",
+          "kind": "checkbox",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "abc058947e6072ddbe26c6c7a2e1d3191f429741943104604a54db3d29fba84d"
+        },
+        {
+          "label": "Not sure yet",
+          "kind": "checkbox",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "e760b8c92a7690bcf5374ec3fc6e8f2c2ee6a94ba25434b8efc6e24bde73d7b8"
+        },
+        {
+          "label": "Please rank your top 3 programming languages:✱",
+          "kind": "textarea",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "a3241f6338ca5c042387d61f30cdfcc448706a634b13f365e394a4e5be1b52ff"
+        },
+        {
+          "label": "I understand that next steps will be sent via email and I have marked the sender address above as safe.",
+          "kind": "checkbox",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "cf91a45a64048c05d6e32a2b5a8e0a87f80d80663157a83515b9af4c9c94cffb"
+        },
+        {
+          "label": "Yes, Veeva Systems can contact me about future job opportunities for up to 2 yearsPrivacy policy",
+          "kind": "checkbox",
+          "group_label": null,
+          "section": null,
+          "required": false,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "45379ebad582fd8254c5c3a699478f0c72a996639ab2dbd4b316758797d03640"
+        }
+      ],
+      "unsupported_controls": [
+        {
+          "kind": "custom_combobox",
+          "label": "If you are unable to find your college or university, please select \"Other\"",
+          "required": false,
+          "reason": "Custom combobox or dropdown requires manual selection",
+          "control_id": "u0",
+          "context": null
+        },
+        {
+          "kind": "radio",
+          "label": "Yes",
+          "required": true,
+          "reason": "Radio group is missing a question label — select an option manually",
+          "control_id": "u1",
+          "context": null
+        },
+        {
+          "kind": "radio",
+          "label": "Yes",
+          "required": true,
+          "reason": "Radio group is missing a question label — select an option manually",
+          "control_id": "u2",
+          "context": null
+        },
+        {
+          "kind": "radio",
+          "label": "3.7 - 4.0",
+          "required": true,
+          "reason": "Radio group is missing a question label — select an option manually",
+          "control_id": "u3",
+          "context": null
+        },
+        {
+          "kind": "radio",
+          "label": "December 2027 or later",
+          "required": true,
+          "reason": "Radio group is missing a question label — select an option manually",
+          "control_id": "u4",
+          "context": null
+        },
+        {
+          "kind": "radio",
+          "label": "0 years",
+          "required": true,
+          "reason": "Radio group is missing a question label — select an option manually",
+          "control_id": "u5",
+          "context": null
+        },
+        {
+          "kind": "radio",
+          "label": "Yes",
+          "required": true,
+          "reason": "Radio group is missing a question label — select an option manually",
+          "control_id": "u6",
+          "context": null
+        },
+        {
+          "kind": "select-one",
+          "label": "Gender",
+          "required": false,
+          "reason": "Sensitive self-identification requires manual entry",
+          "control_id": "u7",
+          "context": null
+        },
+        {
+          "kind": "select-one",
+          "label": "RaceHispanic or LatinoA person of Cuban, Mexican, Puerto Rican, South or Central American, or other Spanish culture or origin regardless of race.White (Not Hisp",
+          "required": false,
+          "reason": "Sensitive self-identification requires manual entry",
+          "control_id": "u8",
+          "context": null
+        },
+        {
+          "kind": "select-one",
+          "label": "Veteran status",
+          "required": false,
+          "reason": "Sensitive self-identification requires manual entry",
+          "control_id": "u9",
+          "context": null
+        }
+      ],
+      "has_next": false,
+      "has_submit": true
+    },
+    {
+      "site": "Hevo Lever saved packet",
+      "requested_url": "https://jobs.lever.co/hevodata/6cbbe304-e065-4711-bf3e-756795d2bc2a/apply",
+      "observed_at": "2026-10-29T11:58:51.511Z",
+      "entered_candidate_data": false,
+      "fill_attempted": false,
+      "submitted": false,
+      "http_status": 200,
+      "final_url": "https://jobs.lever.co/hevodata/6cbbe304-e065-4711-bf3e-756795d2bc2a/apply",
+      "page_title": "Hevo Data - SDE I",
+      "state": "manual_required",
+      "challenge_state": "WIDGET_PRESENT_UNVERIFIED",
+      "manual_reason": "security_widget",
+      "fields": [
+        {
+          "label": "Full name✱",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "3114cc42ed14ab66522acd01b6418370b7cc896917038616c2bb0a87b6d42684"
+        },
+        {
+          "label": "Email✱",
+          "kind": "email",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "6d24ecd2e3df713c7026804e94da17a0a60f8c9980c9edf172d72c57d82ab2ac"
+        },
+        {
+          "label": "Phone ✱",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "67e89caeb2434f1719add485f3878c8fb90bfa6654ab3cb6e80b57856de16e6d"
+        },
+        {
+          "label": "Current location No location found. Try entering a different locationLoading",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": false,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "377b54b4432b89f75941b3b3c887570b31a3a8fbdf6c5563e276175bf4446fdc"
+        },
+        {
+          "label": "Current company ✱",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "e39ae8ae8e91595ba516896984c3cbb4977762b313a5149d479421fe77b08f71"
+        },
+        {
+          "label": "LinkedIn URL",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": false,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "28660f4dda89301700f6afc5f58ba928120ec00c020c89c92ec4d568ea9b5eab"
+        },
+        {
+          "label": "Current CTC✱",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "c9bc86e6e27dd4eb0c995930523f43f4aebcdb9964bc1f604eedd8912c1c385f"
+        },
+        {
+          "label": "Expected CTC✱",
+          "kind": "textarea",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "245ed623e95ae9ef3e78c9f73350b929d5c887967aaf9767fd30fb90a9f1b966"
+        },
+        {
+          "label": "Notice Period✱",
+          "kind": "textarea",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "ce287cfb0f887585e41861c271dd654897fa223b6c792704a174e18828195a60"
+        },
+        {
+          "label": "This is a 5 day work from office from HSR Layout, BLR. Would that be comfortable for you?✱",
+          "kind": "textarea",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "0ed271fec110960c6548f958cb75ad348d3da00f9afad26b044e651bb27b8bbc"
+        }
+      ],
+      "unsupported_controls": [
+        {
+          "kind": "iframe",
+          "label": "LinkedIn Embedded Content",
+          "required": false,
+          "reason": "Cross-origin frame cannot be inspected safely — complete manually",
+          "control_id": "u0",
+          "context": null
+        }
+      ],
+      "has_next": false,
+      "has_submit": true
+    },
+    {
+      "site": "Sarvam Ashby",
+      "requested_url": "https://jobs.ashbyhq.com/sarvam/fcb15601-6440-41f7-aa79-b9992057a4b2/application",
+      "observed_at": "2026-10-29T11:58:53.715Z",
+      "entered_candidate_data": false,
+      "fill_attempted": false,
+      "submitted": false,
+      "http_status": 200,
+      "final_url": "https://jobs.ashbyhq.com/sarvam/fcb15601-6440-41f7-aa79-b9992057a4b2/application",
+      "page_title": "Platform Engineer - AI Infrastructure @ Sarvam",
+      "state": "manual_required",
+      "challenge_state": "WIDGET_PRESENT_UNVERIFIED",
+      "manual_reason": "security_widget",
+      "fields": [
+        {
+          "label": "Autofill from resumeUpload your resume here to autofill key application fields.Drop your resume here!Parsing your resume. Autofilling key fields...",
+          "kind": "file",
+          "group_label": null,
+          "section": null,
+          "required": false,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "4e32b97a99354a5810aa0a8e035d91bb48307eda697ddb6c5d7839a41b37cfdd"
+        },
+        {
+          "label": "Name",
+          "kind": "text",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "236ab5c40947061d8a3711defa36a49f80108aeaae28fe0053d5a99c0d93c10c"
+        },
+        {
+          "label": "Email",
+          "kind": "email",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "166220e1fb7de7b91e9b4771ad572b5392f09c911de08f8843cc1d7e8f87c52e"
+        },
+        {
+          "label": "Phone number",
+          "kind": "tel",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "7c1bab76c4a6e06fa74153639023114d4b08e141fb3c1325f05220d063ba5a9c"
+        },
+        {
+          "label": "Resume",
+          "kind": "file",
+          "group_label": null,
+          "section": null,
+          "required": true,
+          "preview_only": false,
+          "manual_reason": null,
+          "semantic_key": "67b13868e4d33afb4fb5493aa8e4dc63e455a90a24c90e41aa0cf2ed3bbcad52"
+        }
+      ],
+      "unsupported_controls": [],
+      "has_next": false,
+      "has_submit": true
+    }
+  ]
+}

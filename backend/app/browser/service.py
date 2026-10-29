@@ -284,7 +284,7 @@ class FormService:
                 (other.section, other.group_label, other.label) == (field.section, field.group_label, field.label)
                 for other in inspection.fields
             ) > 1
-            if repeated or manual_only(field.label, field.group_label or "", field.section or "", *field.options):
+            if repeated or len(field.label) >= 160 or len(field.group_label or "") >= 160 or manual_only(field.label, field.group_label or "", field.section or "", *field.options):
                 plan.actions.append(action)
                 continue
             if field.kind == "file":

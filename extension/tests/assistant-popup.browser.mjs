@@ -82,6 +82,7 @@ try {
         onChanged: { addListener() {} },
       },
       permissions: {
+        contains: async () => true,
         request: async (value) => {
           window.permissionCalls.push(value);
           return true;
@@ -94,7 +95,16 @@ try {
           if (message.action === "destination" || message.action === "open")
             return { ok: true, task };
           if (message.action === "inspect") return { ok: true, inspection };
-          if (message.action === "prepare")
+          if (message.action === "prepare") {
+            task.state = window.challenge
+              ? "CHALLENGE_REQUIRED"
+              : "NEEDS_INPUT";
+            task.challenge_state = window.challenge
+              ? "WIDGET_PRESENT_UNVERIFIED"
+              : "NONE";
+            task.next_action = window.challenge
+              ? "Complete the challenge manually; this proposal is read-only."
+              : "Review proposed answers and provide missing facts.";
             return {
               ok: true,
               task,
@@ -109,7 +119,9 @@ try {
                 },
               },
             };
-          if (message.action === "fill")
+          }
+          if (message.action === "fill") {
+            task.network_guard_active = true;
             return {
               ok: true,
               task,
@@ -120,6 +132,12 @@ try {
                 submitted: false,
               },
             };
+          }
+          if (message.action === "return_control") {
+            task.network_guard_active = false;
+            return { ok: true, task, synchronized: true };
+          }
+          task.state = message.action === "cancel" ? "FAILED_FINAL" : "PAUSED";
           return {
             ok: true,
             task: {
@@ -207,9 +225,15 @@ try {
     ),
     1,
   );
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.locator("#return-control").click();
+  assert.match(
+    await page.locator("#answer-status").innerText(),
+    /networking restored/,
+  );
   console.log(
     JSON.stringify({
-      cases: 8,
+      cases: 9,
       scope: "fictional popup worker contract",
       submissions: 0,
     }),

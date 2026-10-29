@@ -13,9 +13,12 @@ assert.deepEqual(
     "nativeMessaging",
     "storage",
     "scripting",
+    "declarativeNetRequest",
   ]),
 );
 assert.equal(manifest.host_permissions, undefined);
+assert.equal(manifest.optional_permissions, undefined);
+assert.deepEqual(manifest.optional_host_permissions, ["https://*/*"]);
 assert.equal(manifest.content_scripts, undefined);
 assert.equal(manifest.externally_connectable, undefined);
 assert.ok(
@@ -38,6 +41,7 @@ for (const file of [
   "form-messages.js",
   "background.js",
   "task-coordinator.js",
+  "network-guard.js",
   "preview.js",
   "session-indicator.js",
   "observation.js",
@@ -53,5 +57,5 @@ for (const file of [
   );
 }
 console.log(
-  `MV3 extension built; stable ID ${id}; gesture-only preview and observation.`,
+  `MV3 extension built; stable ID ${id}; optional per-origin access and guarded application filling.`,
 );

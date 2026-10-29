@@ -264,9 +264,9 @@ test("real Python native host enforces origin, private config, frame size, schem
     assert.equal(zeroFrame.ok, false);
     assert.equal(zeroFrame.error_code, "native_message_size");
 
-    // 4. Oversized frame (> 16384 bytes) -> native_message_size
+    // 4. Oversized frame (> 262144 bytes) -> native_message_size
     const oversizedHeader = Buffer.alloc(4);
-    oversizedHeader.writeUInt32LE(16385, 0);
+    oversizedHeader.writeUInt32LE(262145, 0);
     const oversized = await runNativeFrame(
       python,
       envPath,

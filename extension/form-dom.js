@@ -1399,6 +1399,14 @@ export function formDOM(request = { operation: "inspect" }) {
           max_length: Math.min(4000, el.maxLength > 0 ? el.maxLength : 1500),
           invalid: isInvalid(el),
         };
+        if (
+          field.label.length >= 160 ||
+          (field.group_label || "").length >= 160
+        ) {
+          field.preview_only = true;
+          field.manual_reason =
+            "Question exceeds the inspection text limit; read and answer the complete question manually";
+        }
         refs.set(field.field_id, {
           el,
           field,
@@ -1448,9 +1456,14 @@ export function formDOM(request = { operation: "inspect" }) {
           /^(next|continue)$/i.test(clean(el.textContent)),
       );
       const login = controls.some((el) => el.type === "password");
+      const backgroundNetwork =
+        interactionsAllowed && Boolean(navigator.serviceWorker?.controller);
       const state = login
         ? "login_required"
-        : challenge || excludedSensitive || crossOriginFormFrame
+        : challenge ||
+            excludedSensitive ||
+            crossOriginFormFrame ||
+            backgroundNetwork
           ? "manual_required"
           : fields.length
             ? fields.some((f) => f.invalid)
@@ -1501,18 +1514,38 @@ export function formDOM(request = { operation: "inspect" }) {
               ? security === "blocking"
                 ? "security_challenge"
                 : "security_widget"
-              : crossOriginFormFrame ||
-                  (!fields.length &&
-                    unsupportedControls.some((u) => u.kind === "iframe"))
-                ? "cross_origin_frame"
-                : !fields.length && unsupportedControls.length
-                  ? "unsupported_controls"
-                  : null;
+              : backgroundNetwork
+                ? "background_network_scope_unverified"
+                : crossOriginFormFrame ||
+                    (!fields.length &&
+                      unsupportedControls.some((u) => u.kind === "iframe"))
+                  ? "cross_origin_frame"
+                  : !fields.length && unsupportedControls.length
+                    ? "unsupported_controls"
+                    : null;
       }
       return last;
     };
 
     const validateSnapshot = (req) => {
+      if (req.interaction_authorized && navigator.serviceWorker?.controller)
+        return {
+          state: "manual_required",
+          reason: "background_network_scope_unverified",
+          results: [],
+          submitted: false,
+        };
+      if (
+        req.expires_at &&
+        (!Number.isFinite(Date.parse(req.expires_at)) ||
+          Date.parse(req.expires_at) <= Date.now())
+      )
+        return {
+          state: "manual_required",
+          reason: "fill_plan_stale",
+          results: [],
+          submitted: false,
+        };
       if (req.document_id !== documentId || location.href !== last?.url)
         return {
           state: "manual_required",

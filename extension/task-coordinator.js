@@ -1,3 +1,4 @@
+import { installGuard, guardActive, releaseGuard } from "./network-guard.js";
 // Privileged MV3 worker coordinator. Only extension pages may call this API.
 // Persist identifiers/status only. Candidate answers remain in backend plan storage.
 import {
@@ -6,13 +7,19 @@ import {
   fillForm,
   cancelPreparedForm,
   inspectOnly,
+  interruptForm,
 } from "./form-bridge.js";
 
 const host = "com.automated_apply.agent";
 const storageKey = "applicationTaskBindingsV1";
 const sessionKey = "applicationBrowserSessionV1";
 const uuid = /^[a-f0-9-]{36}$/;
-const terminal = new Set(["FAILED_FINAL", "SUBMITTED_CONFIRMED", "CANCELLED"]);
+const terminal = new Set([
+  "FAILED_FINAL",
+  "SUBMITTED_CONFIRMED",
+  "SUBMISSION_UNKNOWN",
+  "CANCELLED",
+]);
 export class TaskCoordinator {
   constructor(api = chrome) {
     this.api = api;
@@ -39,9 +46,13 @@ export class TaskCoordinator {
       binding.requiresInspection = true;
       if (terminal.has(binding.state)) continue;
       try {
+        if (binding.browserSessionId === this.sessionId)
+          await interruptForm(binding.tabId, binding.documentId, this.api);
         await this.update(
           binding.id,
-          binding.browserSessionId === this.sessionId ? "pause" : "recover",
+          binding.browserSessionId === this.sessionId
+            ? "worker_restart"
+            : "recover",
         );
       } catch {
         // Offline recovery never turns a stale local binding into executable context.
@@ -119,6 +130,10 @@ export class TaskCoordinator {
     const data = await this.native("get_application_task", { task_id: id });
     this.accept(data.task, this.bindings[id]);
     await this.persist();
+    data.task.network_guard_active = await guardActive(
+      this.api,
+      this.bindings[id].tabId,
+    );
     return data.task;
   }
   async update(id, event, extra = {}) {
@@ -265,7 +280,14 @@ export class TaskCoordinator {
           observed_url: tab.url,
         });
         binding = this.bindings[task.id];
+        if (task.state === "CHALLENGE_REQUIRED") {
+          plan.state = "read_only";
+          plan.inspection.challenge_state = task.challenge_state;
+        }
       } else if (plan.task) binding = this.accept(plan.task, binding);
+      for (const other of Object.values(this.bindings))
+        other.requiresInspection = true;
+      binding.documentId = plan.inspection.document_id;
       binding.requiresInspection = false;
       await this.persist();
       // Store review display in trusted session storage, never executable authorization.
@@ -283,6 +305,42 @@ export class TaskCoordinator {
       await this.api.storage.session.remove("applicationReviewV1");
       return { task };
     }
+    if (action === "return_control") {
+      cancelPreparedForm();
+      const saved = this.bindings[id];
+      saved.requiresInspection = true;
+      let task,
+        synchronized = false;
+      try {
+        task = await this.task(id);
+        if (!terminal.has(task.state)) task = await this.update(id, "pause");
+        synchronized = true;
+      } catch {
+        saved.state = "PAUSED";
+        await this.persist();
+      }
+      // Explicit owner takeover must restore the website even if the backend is offline.
+      await releaseGuard(this.api, saved.tabId);
+      if (synchronized) {
+        try {
+          task = await this.update(id, "guard_released");
+        } catch {
+          synchronized = false;
+        }
+      }
+      task = task || {
+        id,
+        application_id: saved.applicationId,
+        state: "PAUSED",
+        tab_id: saved.tabId,
+      };
+      task.network_guard_active = false;
+      if (!synchronized)
+        task.next_action =
+          "Browser control restored locally. Backend synchronization is pending; reconnect before using the assistant.";
+      await this.api.storage.session.remove("applicationReviewV1");
+      return { task, synchronized };
+    }
     if (action === "ask") {
       await this.task(id);
       const data = await this.native(
@@ -295,7 +353,7 @@ export class TaskCoordinator {
     }
     if (action === "fill") {
       const task = await this.task(id);
-      const latest = this.bindings[id];
+      let latest = this.bindings[id];
       if (
         terminal.has(task.state) ||
         ["PAUSED", "CHALLENGE_REQUIRED"].includes(task.state)
@@ -303,9 +361,14 @@ export class TaskCoordinator {
         throw Error("task_paused_or_closed");
       if (latest.requiresInspection) throw Error("inspect_and_review_first");
       await this.active(latest);
+      // Install before native authorization or any field event. No rule reads bodies.
+      await installGuard(this.api, latest.tabId);
+      await this.update(id, "guard_installed");
+      latest = this.bindings[id];
       if (this.busy.has(binding.tabId)) throw Error("application_tab_busy");
       this.busy.add(binding.tabId);
       binding.requiresInspection = true; // Consume even if native transport fails.
+      latest.requiresInspection = true;
       await this.persist();
       let watching = true,
         checking = false;
@@ -313,6 +376,10 @@ export class TaskCoordinator {
         if (!watching || checking) return;
         checking = true;
         try {
+          if (!(await guardActive(this.api, latest.tabId))) {
+            cancelPreparedForm();
+            return;
+          }
           const data = await this.native("get_application_task", {
             task_id: id,
           });
@@ -335,11 +402,17 @@ export class TaskCoordinator {
           interaction_authorized: message.interaction_authorized === true,
           taskContext: this.context(latest),
           field_ids: message.field_ids,
+          network_guard: true,
         });
         if (result.task) this.accept(result.task, binding);
         await this.persist();
         await this.api.storage.session.remove("applicationReviewV1");
-        return { result, task: result.task || (await this.task(id)) };
+        const finalTask = result.task || (await this.task(id));
+        finalTask.network_guard_active = await guardActive(
+          this.api,
+          latest.tabId,
+        );
+        return { result, task: finalTask };
       } finally {
         watching = false;
         clearInterval(monitor);
@@ -369,6 +442,7 @@ export class TaskCoordinator {
         )
           continue;
         binding.requiresInspection = true;
+        if (event === "tab_closed") await releaseGuard(this.api, tabId);
         try {
           await this.update(
             binding.id,

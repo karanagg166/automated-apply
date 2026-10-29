@@ -93,6 +93,7 @@ class ExtensionTask(Contract):
     browser_connection: Literal["connected", "paused", "disconnected", "unverified"]
     tab_active: bool
     challenge_observed: bool = False
+    network_guard_active: bool = False
     updated_at: str
 
 
@@ -180,7 +181,7 @@ async def create(session, settings, application_id, browser_session_id, tab_id=N
         "tab_id": tab_id, "state": "PACKET_READY", "challenge_state": "UNKNOWN",
         "step": None, "plan_id": None, "authorization_id": None,
         "field_answer_revisions": {str(f.id): f.answer_revision for f in packet.fields},
-        "verified_receipts": [], "reason": None, "next_action": NEXT["PACKET_READY"],
+        "verified_receipts": [], "network_guard_active": False, "reason": None, "next_action": NEXT["PACKET_READY"],
         "mode": "ASSISTED_FILL", "capabilities": {"preview": True,
             "assisted_fill": bool(settings.BROWSER_FILL_ENABLED),
             "reviewed_submission": False, "unattended_approved": False},
@@ -240,7 +241,7 @@ async def attach_plan(session, settings, row, plan):
     saved.value = plan.model_dump(mode="json")
     challenge = plan.inspection.challenge_state
     state = ("CHALLENGE_REQUIRED" if challenge not in CHALLENGE_SAFE else
-             "NEEDS_INPUT" if any(a.needs_input for a in plan.actions) else "FORM_INSPECTED")
+             "NEEDS_INPUT" if plan.state == "read_only" or any(a.needs_input for a in plan.actions) else "FORM_INSPECTED")
     packet, profile, _ = await FormService(session, settings).context(plan.application_id, "manual_extension")
     return move(session, row, state, "fresh_inspection_prepared", plan_id=str(plan.id), authorization_id=None,
         packet_revision=packet.revision, profile_version=profile.version, context_digest=packet.snapshot.context_digest,
@@ -251,10 +252,12 @@ async def attach_plan(session, settings, row, plan):
         counts={"ready": sum(not a.needs_input and not a.preview_only and a.kind != "file" for a in plan.actions),
                 "completed": 0,
                 "missing": sum(a.needs_input for a in plan.actions),
-                "manual": sum(a.preview_only or a.kind == "file" for a in plan.actions),
-                "validation_errors": sum(f.invalid for f in plan.inspection.fields),
+                "manual": sum(a.preview_only or a.kind == "file" for a in plan.actions) + len({c.control_id for c in plan.inspection.manual_controls}),
+                "validation_errors": sum(f.invalid for f in plan.inspection.fields) + sum(c.invalid for c in plan.inspection.manual_controls),
                 "existing": plan.inspection.completed_count},
-        browser_connection="connected", tab_active=True)
+        browser_connection="connected", tab_active=True,
+        **({"next_action": "Complete unsupported page interactions manually. This plan is read-only; a fresh inspection and review are required."}
+           if plan.state == "read_only" and challenge in CHALLENGE_SAFE else {}))
 
 
 def permitted_navigation(value, url):
@@ -275,14 +278,28 @@ async def update(session, settings, command):
     value, event = row.value, command.task_event
     if command.expected_task_version != value["version"]:
         raise ToolDenied("extension_task_revision_conflict")
+    if event in {"recover", "recovered", "worker_restart"} and value["state"] == "FILLING":
+        # A lost worker cannot attest which writes completed. Retain uncertainty.
+        value = {**value, "verified_receipts": [*value["verified_receipts"], {
+            "plan_id": value["plan_id"], "authorization_id": value["authorization_id"],
+            "packet_revision": value["packet_revision"], "profile_version": value["profile_version"],
+            "verification_method": "unknown", "state": "manual_required", "results": [],
+            "reason": event, "recorded_at": now(), "submitted": False,
+        }][-50:]}
+        row.value = value
     if event in {"recover", "recovered"}:
         if not command.browser_session_id or value["state"] in TERMINAL:
             raise ToolDenied("extension_task_terminal")
         return move(session, row, "PAUSED", "browser_restart_fresh_inspection_required",
             browser_session_id=str(command.browser_session_id), tab_id=None, tab_active=False,
-            browser_connection="disconnected", plan_id=None, authorization_id=None)
+            browser_connection="disconnected", plan_id=None, authorization_id=None, network_guard_active=False)
     if str(command.browser_session_id) != value["browser_session_id"]:
         raise ToolDenied("extension_tab_binding_mismatch")
+    if event == "guard_released":
+        if command.tab_id != value["tab_id"] or command.tab_id is None:
+            raise ToolDenied("extension_tab_binding_mismatch")
+        return move(session, row, value["state"] if value["state"] in TERMINAL else "PAUSED", "owner_returned_browser_control",
+            network_guard_active=False, plan_id=None, authorization_id=None)
     if value["state"] in TERMINAL:
         raise ToolDenied("extension_task_terminal")
     if event == "bind":
@@ -297,10 +314,15 @@ async def update(session, settings, command):
         return move(session, row, "PACKET_READY", "tab_bound_fresh_inspection_required",
             tab_id=command.tab_id, current_url=value["target_url"], tab_active=True,
             browser_connection="connected", plan_id=None, authorization_id=None)
+    if event == "worker_restart":
+        return move(session, row, "PAUSED", "worker_restart_fresh_inspection_required",
+            plan_id=None, authorization_id=None, browser_connection="paused")
     if event in {"pause", "paused", "cancel", "resume"}:
         return await control(session, settings, row, event.replace("paused", "pause"), value["version"])
     if command.tab_id != value["tab_id"] or command.tab_id is None:
         raise ToolDenied("extension_tab_binding_mismatch")
+    if event == "guard_installed":
+        return move(session, row, value["state"], "tab_network_guard_installed", network_guard_active=True)
     if event == "inspection_prepared":
         if value["state"] == "PAUSED":
             raise ToolDenied("extension_task_paused_or_cancelled")
@@ -313,7 +335,7 @@ async def update(session, settings, command):
         return move(session, row, "FAILED_RETRYABLE" if event == "network_timeout" else "PAUSED", reason,
             current_url=destination or value["current_url"], tab_id=None if event == "tab_closed" else value["tab_id"],
             tab_active=False, browser_connection="disconnected" if event == "tab_closed" else "paused",
-            plan_id=None, authorization_id=None)
+            plan_id=None, authorization_id=None, network_guard_active=False if event == "tab_closed" else value.get("network_guard_active", False))
     if event == "fill_started":
         if value["state"] == "FILLING" and str(command.plan_id) == value["plan_id"]:
             return value
@@ -362,7 +384,14 @@ async def dispatch_task(session, settings, actor, command):
                 row = await create(session, settings, command.application_id, command.browser_session_id, command.tab_id)
                 data = {"task": row.value, "submitted": False}
             elif command.command == "get_application_task":
-                data = {"task": (await load(session, command.task_id)).value, "submitted": False}
+                row = await load(session, command.task_id)
+                if row.value["state"] == "FILLING":
+                    try:
+                        await fresh(session, settings, row.value)
+                    except ToolDenied:
+                        move(session, row, "PAUSED", "candidate_or_packet_changed_during_fill",
+                            plan_id=None, authorization_id=None, browser_connection="paused")
+                data = {"task": row.value, "submitted": False}
             elif command.command == "update_application_task":
                 data = {"task": await update(session, settings, command), "submitted": False}
             else:
@@ -405,7 +434,7 @@ async def ask_questions(session, settings, row):
     unresolved = {a.field_id for a in plan.actions if a.needs_input}
     field_ids = []
     for form_field in plan.inspection.fields:
-        if form_field.field_id not in unresolved or form_field.kind in {"file", "checkbox", "radio"}:
+        if form_field.field_id not in unresolved or form_field.kind in {"file", "checkbox", "radio"} or len(form_field.label) >= 160 or len(form_field.group_label or "") >= 160:
             continue
         question_text = field_question(form_field)
         try:

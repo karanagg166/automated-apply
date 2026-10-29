@@ -266,3 +266,20 @@ it("refreshes a version conflict without silently retrying the owner control", a
   expect(post).toHaveBeenCalledTimes(1);
   await waitFor(() => expect(api).toHaveBeenCalledTimes(2));
 });
+
+it("explains that the observed network guard remains until manual browser takeover", async () => {
+  vi.mocked(api).mockResolvedValue({
+    ...savedTask,
+    network_guard_active: true,
+  });
+  mount();
+  expect(
+    await screen.findByText(/browser networking is blocked by the fill guard/),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(/Return browser control in the extension/),
+  ).toBeInTheDocument();
+  expect(
+    screen.queryByRole("button", { name: /release|network|takeover/i }),
+  ).not.toBeInTheDocument();
+});

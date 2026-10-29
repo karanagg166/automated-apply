@@ -343,3 +343,64 @@ test("stable history container identity survives entry reorder without swapping 
     f.close();
   }
 });
+
+test("expiration during eventful filling stops before writing the next field", async () => {
+  const f = fixture(
+    "<label>Email<input id=email></label><label>Phone<input id=phone></label>",
+    { interactions_allowed: true },
+  );
+  try {
+    const inspection = f.inspect();
+    const result = await f.run({
+      operation: "fill",
+      document_id: inspection.document_id,
+      expires_at: new Date(Date.now() + 50).toISOString(),
+      only_empty: true,
+      interaction_authorized: true,
+      actions: inspection.fields.map((field) => action(field, "fictional")),
+    });
+    assert.equal(result.state, "manual_required");
+    assert.equal(result.reason, "fill_plan_stale");
+    assert.equal(f.w.document.querySelector("#phone").value, "");
+  } finally {
+    f.close();
+  }
+});
+
+test("service-worker-controlled pages remain read-only for eventful filling", () => {
+  const f = fixture("<label>Email<input id=email></label>", {
+    interactions_allowed: true,
+  });
+  try {
+    Object.defineProperty(f.w.navigator, "serviceWorker", {
+      value: { controller: {} },
+    });
+    const inspection = f.inspect();
+    assert.equal(inspection.state, "manual_required");
+    assert.equal(
+      inspection.manual_reason,
+      "background_network_scope_unverified",
+    );
+    assert.equal(f.w.document.querySelector("input").value, "");
+  } finally {
+    f.close();
+  }
+});
+
+test("questions reaching the bounded label limit remain manual rather than answering truncated text", () => {
+  const f = fixture(
+    `<label>${"Complete question ".repeat(15)}<textarea></textarea></label>`,
+    { interactions_allowed: true },
+  );
+  try {
+    const inspection = f.inspect();
+    assert.equal(inspection.fields[0].label.length, 160);
+    assert.equal(inspection.fields[0].preview_only, true);
+    assert.match(
+      inspection.fields[0].manual_reason,
+      /complete question manually/,
+    );
+  } finally {
+    f.close();
+  }
+});

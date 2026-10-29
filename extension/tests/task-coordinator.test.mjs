@@ -10,6 +10,7 @@ function fixture() {
     calls = [],
     tabs = new Map();
   let active = 7;
+  let guardRules = [];
   const task = {
     id: taskId,
     application_id: app,
@@ -33,7 +34,9 @@ function fixture() {
     storage: { local: store(local), session: store(session) },
     permissions: {
       contains: async (request) => {
-        assert.deepEqual(request.origins, ["https://jobs.lever.co/*"]);
+        if (request.origins)
+          assert.deepEqual(request.origins, ["https://jobs.lever.co/*"]);
+        else assert.deepEqual(request.permissions, ["declarativeNetRequest"]);
         return true;
       },
     },
@@ -60,6 +63,15 @@ function fixture() {
         return tab;
       },
     },
+    declarativeNetRequest: {
+      getSessionRules: async () => structuredClone(guardRules),
+      updateSessionRules: async ({ removeRuleIds = [], addRules = [] }) => {
+        guardRules = [
+          ...guardRules.filter((rule) => !removeRuleIds.includes(rule.id)),
+          ...addRules,
+        ];
+      },
+    },
     runtime: {
       sendNativeMessage: async (_host, request) => {
         calls.push(request);
@@ -75,7 +87,12 @@ function fixture() {
         if (request.command === "update_application_task") {
           assert.equal(request.expected_task_version, task.version);
           task.version++;
-          if (request.task_event === "bind") task.tab_id = request.tab_id;
+          if (
+            ["guard_installed", "guard_released"].includes(request.task_event)
+          )
+            task.network_guard_active =
+              request.task_event === "guard_installed";
+          else if (request.task_event === "bind") task.tab_id = request.tab_id;
           else if (request.task_event === "recover") {
             task.tab_id = null;
             task.browser_session_id = request.browser_session_id;
@@ -206,4 +223,49 @@ test("native correlation mismatch never opens a tab", async () => {
     /native_protocol_error/,
   );
   assert.equal(f.tabs.size, 0);
+});
+
+test("Open refuses absent origin permission before creating or reading an application tab", async () => {
+  const f = fixture();
+  f.api.permissions.contains = async () => false;
+  const coordinator = new TaskCoordinator(f.api);
+  await assert.rejects(
+    coordinator.dispatch({ action: "open", application_id: app }),
+    /application_origin_permission_required/,
+  );
+  assert.equal(f.tabs.size, 0);
+});
+
+test("destination review creates no tab or permission grant", async () => {
+  const f = fixture(),
+    coordinator = new TaskCoordinator(f.api);
+  const result = await coordinator.dispatch({
+    action: "destination",
+    application_id: app,
+  });
+  assert.equal(result.task.target_url, url);
+  assert.equal(f.tabs.size, 0);
+});
+
+test("worker restart cancels the exact saved document before pausing its task", async () => {
+  const f = fixture(),
+    first = new TaskCoordinator(f.api);
+  await first.dispatch({ action: "open", application_id: app });
+  first.bindings[taskId].documentId = app;
+  await first.persist();
+  const interrupted = [];
+  f.api.scripting = {
+    executeScript: async (request) => {
+      interrupted.push(request);
+      return [{ result: { state: "manual_required", submitted: false } }];
+    },
+  };
+  const restarted = new TaskCoordinator(f.api);
+  await restarted.ready;
+  assert.equal(interrupted.length, 1);
+  assert.deepEqual(interrupted[0].target, { tabId: 7, frameIds: [0] });
+  assert.deepEqual(interrupted[0].args, [
+    { operation: "cancel_fill", document_id: app },
+  ]);
+  assert.ok(f.calls.some((request) => request.task_event === "worker_restart"));
 });

@@ -65,6 +65,13 @@ function renderTask(task) {
       "Inspect the current step, then prepare and review answers.",
   );
   text("#connection-status", "Local agent connected · submission disabled");
+  text(
+    "#network-guard-status",
+    task.network_guard_active
+      ? "Application tab networking is blocked. Review the page, then explicitly return browser control for manual use."
+      : "No active network guard reported for this task.",
+  );
+  disable("#return-control", !task.network_guard_active);
 }
 function resetReview() {
   reviewed = false;
@@ -153,7 +160,18 @@ function renderPlan(value) {
   disable("#ask-telegram", !selectedTask || !missingInputLinks(plan).length);
   status(
     plan.state === "read_only"
-      ? "Read-only preview generated. Complete the security challenge yourself. Fresh inspection and review are required before any fill."
+      ? plan.manual_reason === "background_network_scope_unverified"
+        ? "Read-only preview generated. This website uses background networking outside the tab guard; complete it manually."
+        : ["security_widget", "security_challenge"].includes(
+              plan.manual_reason,
+            ) ||
+            [
+              "WIDGET_PRESENT_UNVERIFIED",
+              "CHALLENGE_BLOCKING",
+              "UNKNOWN",
+            ].includes(plan.inspection?.challenge_state)
+          ? "Read-only preview generated. Complete the security challenge yourself. Fresh inspection and review are required before any fill."
+          : "Read-only preview generated. This page requires manual attention. Fresh inspection and review are required before any fill."
       : `${ready} answers prepared. Review every proposed value, destination and packet before authorizing fields.`,
   );
 }
@@ -196,6 +214,15 @@ async function run(action, extra = {}) {
         `${verified} fields ${result.result.verification === "retained_after_blur" ? "retained after blur and a delayed website check" : "verified by value readback"}; ${errors} errors. ${result.result.reason ? "The page changed or filling stopped; inspect again. " : ""}Review the website and complete remaining manual fields. No application submitted.`,
       );
       resetReview();
+    }
+    if (action === "return_control") {
+      resetReview();
+      plan = null;
+      status(
+        result.synchronized === false
+          ? "Website networking restored locally. Backend status could not synchronize; reconnect before using the assistant."
+          : "Extension execution paused. Website networking restored for your manual control.",
+      );
     }
     if (action === "ask") {
       resetReview();
@@ -291,12 +318,39 @@ click("#review-answers", () => {
 });
 click("#fill-form", async () => {
   if (!reviewed) return;
+  try {
+    // Chrome requires the block-only API permission at installation. Guard activation
+    // is still a separate explicit fill action; no request bodies are inspected.
+    const granted = await chrome.permissions.contains({
+      permissions: ["declarativeNetRequest"],
+    });
+    if (!granted) {
+      status(
+        "The installed extension lacks its submission guard permission. Review the installation upgrade; no fields were changed.",
+      );
+      return;
+    }
+  } catch {
+    status(
+      "Chrome could not activate the submission guard. No fields were changed.",
+    );
+    return;
+  }
   disable("#fill-form", true);
   await run("fill", {
     interaction_authorized: $("#allow-interactions")?.checked === true,
   });
 });
 click("#ask-telegram", () => run("ask"));
+click("#return-control", () => {
+  if (
+    !confirm(
+      "Restore this application's website networking for manual control? Any page-scheduled autosave or requests may then resume. This pauses extension execution; review the site yourself.",
+    )
+  )
+    return;
+  return run("return_control");
+});
 for (const action of ["pause", "resume", "cancel"])
   click(`#${action}-form`, () => {
     // Cancellation must reach the worker even while another action awaits a reply.

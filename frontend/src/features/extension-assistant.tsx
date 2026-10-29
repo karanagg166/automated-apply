@@ -19,6 +19,7 @@ export type ExtensionTask = {
   current_url: string;
   tab_id: number | null;
   tab_active: boolean;
+  network_guard_active?: boolean;
   browser_connection: "connected" | "paused" | "disconnected" | "unverified";
   state: string;
   challenge_state:
@@ -285,6 +286,14 @@ export function ExtensionAssistant({
                   challengeMessages.UNKNOWN}
               </p>
             </div>
+            {current.network_guard_active && (
+              <Notice>
+                This application's browser networking is blocked by the fill
+                guard. Review the page, then use Return browser control in the
+                extension for manual website actions. Pausing or cancelling
+                keeps the guard active.
+              </Notice>
+            )}
             {current.reason && <Notice>{readable(current.reason)}</Notice>}
             <p role="status">
               <strong>Next action:</strong>{" "}

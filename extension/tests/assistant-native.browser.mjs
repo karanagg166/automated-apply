@@ -58,7 +58,9 @@ const server = createServer(async (req, res) => {
     else if (command.command === "update_application_task") {
       assert.equal(command.expected_task_version, task.version);
       task.version++;
-      if (command.task_event === "bind") {
+      if (["guard_installed", "guard_released"].includes(command.task_event)) {
+        task.network_guard_active = command.task_event === "guard_installed";
+      } else if (command.task_event === "bind") {
         task.tab_id = command.tab_id;
         task.state = "PACKET_READY";
       } else if (command.task_event === "recover") {
@@ -197,6 +199,7 @@ try {
       args: [
         `--disable-extensions-except=${extension}`,
         `--load-extension=${extension}`,
+        "--host-resolver-rules=MAP jobs.lever.co ~NOTFOUND",
       ],
     });
     await browserContext.route("https://jobs.lever.co/**", (route) => {
@@ -221,12 +224,15 @@ try {
         }),
       { action, extra },
     );
+  const createdApplication = browserContext.waitForEvent("page");
   let opened = await send("open", { application_id: app });
   assert.equal(opened.ok, true, JSON.stringify(opened));
-  let application =
-    browserContext.pages().find((page) => page.url() === url) ||
-    (await browserContext.waitForEvent("page"));
-  await application.waitForLoadState();
+  let application = await createdApplication;
+  await application.waitForLoadState().catch(() => {});
+  // Extension-created tab initial navigation precedes Playwright target routing.
+  // DNS is blocked above; navigate again once the fictional route is attached.
+  await application.goto(url, { waitUntil: "domcontentloaded" });
+  await application.locator("#email").waitFor();
   await send("resume", { task_id: taskId });
   const prepared = await send("prepare", {
     task_id: taskId,
@@ -264,7 +270,10 @@ try {
   assert.equal(receipts.length, 1);
   const unrelated = await browserContext.newPage();
   await unrelated.goto("about:blank");
-  await new Promise((resolve) => setTimeout(resolve, 200));
+  await unrelated.bringToFront();
+  const focusDeadline = Date.now() + 10000;
+  while (task.state !== "PAUSED" && Date.now() < focusDeadline)
+    await new Promise((resolve) => setTimeout(resolve, 100));
   assert.equal(task.state, "PAUSED");
   await unrelated.close();
   await application.bringToFront();

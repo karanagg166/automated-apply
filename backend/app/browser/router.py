@@ -104,10 +104,11 @@ async def stop(request: Request, session: AsyncSession = Depends(get_db_session,
     from backend.app.browser.queue import stop_all
 
     owner_ui(request)
-    await stop_all(session)
     from backend.app.browser import extension_tasks
     from backend.app.execution.store import memory_row
+    # Match native lock order: owner before queue/plan rows.
     await memory_row(session, lock=True)
+    await stop_all(session)
     for task in await extension_tasks.rows(session):
         if task.value["state"] not in extension_tasks.TERMINAL:
             extension_tasks.move(session, task, "PAUSED", "global_stop",
