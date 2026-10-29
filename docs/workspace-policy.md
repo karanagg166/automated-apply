@@ -14,7 +14,8 @@ Keep private account details and credentials out of the registry and Git.
 
 Reuse an existing owned worktree. When isolation is necessary, create a linked
 worktree from the canonical repository with a dedicated branch, normally under
-`/Users/karanagg/Desktop/Projects/agent-worktrees/`. Register it before edits.
+`~/Library/Application Support/Automated Apply/development-worktrees/`.
+Keep exactly one Automated Apply folder in Projects. Register worktrees before edits.
 Existing worktrees remain at their current paths until explicitly released.
 Different agents may continue concurrently with separate ownership and coordinated
 build/test windows. Hosted CI stays manual and requires deliberate authorization.
