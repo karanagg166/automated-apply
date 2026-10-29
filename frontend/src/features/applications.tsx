@@ -4,7 +4,7 @@ import {
   type ExecutionQuestion,
 } from "@/features/execution-question-answer";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -32,7 +32,12 @@ import {
   Skeleton,
 } from "@/components/ui";
 import { BrowserAssistant, BrowserIntake } from "@/features/browser-assistant";
-import { ExtensionAssistant } from "@/features/extension-assistant";
+import {
+  ExtensionAssistant,
+  challengeMessages,
+  retainedFieldCount,
+  type ExtensionTask,
+} from "@/features/extension-assistant";
 type Packet = Schema<"PacketRead">;
 export function pipelineColumn(
   packet: Pick<Packet, "tracking_state" | "lifecycle_state">,
@@ -233,37 +238,156 @@ export function Applications() {
     </>
   );
 }
+export type FieldReviewStatus =
+  | "Ready"
+  | "Needs Answer"
+  | "Pending Review"
+  | "Manual Only"
+  | "Challenge Required"
+  | "Failed Validation";
+
+export function getFieldReviewStatus({
+  field,
+  task,
+  isReviewed,
+  isDirty,
+  exceedsLimit,
+}: {
+  field: Schema<"PacketField">;
+  task?: ExtensionTask | null;
+  isReviewed: boolean;
+  isDirty?: boolean;
+  exceedsLimit?: boolean;
+}): {
+  status: FieldReviewStatus;
+  nextAction: string;
+  tone: "green" | "amber" | "neutral" | "red";
+} {
+  // Receipt field IDs address a DOM snapshot, not PacketField UUIDs. The API
+  // provides no mapping, so receipt verification belongs in the history only.
+  // 2. Failed Validation
+  const hasValidationError = Boolean(
+    field.validation_status === "validation_failed" || exceedsLimit,
+  );
+  if (hasValidationError) {
+    return {
+      status: "Failed Validation",
+      nextAction: exceedsLimit
+        ? "Shorten answer to satisfy character or word limit constraints."
+        : "Correct the answer to pass format and validation checks.",
+      tone: "red",
+    };
+  }
+
+  // 3. Challenge Required
+  const isChallenge = Boolean(
+    task?.challenge_state === "CHALLENGE_BLOCKING" ||
+    task?.challenge_state === "WIDGET_PRESENT_UNVERIFIED" ||
+    task?.challenge_state === "UNKNOWN" ||
+    task?.state === "CHALLENGE_REQUIRED" ||
+    (field.category as string) === "challenge" ||
+    (field.category as string) === "captcha",
+  );
+  if (isChallenge) {
+    return {
+      status: "Challenge Required",
+      nextAction:
+        "Complete the security challenge on the official page before filling.",
+      tone: "red",
+    };
+  }
+
+  // 4. Manual Only
+  const isManualOnly = Boolean(
+    field.field_type === "file" ||
+    field.validation_status === "file_upload_required" ||
+    field.category === "resume_upload",
+  );
+  if (isManualOnly) {
+    return {
+      status: "Manual Only",
+      nextAction:
+        field.field_type === "file" || field.category === "resume_upload"
+          ? "Download approved resume PDF and upload manually on employer portal."
+          : "Complete manually on the employer portal.",
+      tone: "neutral",
+    };
+  }
+
+  // 5. Needs Answer
+  const isExpired = Boolean(
+    field.provenance?.answer_expires_at &&
+    Date.parse(field.provenance.answer_expires_at) <= Date.now(),
+  );
+  const isNeedsAnswer = Boolean(
+    field.validation_status === "needs_input" ||
+    field.validation_status === "provider_unavailable" ||
+    (!field.effective_answer && field.required) ||
+    isExpired,
+  );
+  if (isNeedsAnswer) {
+    return {
+      status: "Needs Answer",
+      nextAction: "Provide an answer below or queue for Telegram.",
+      tone: "amber",
+    };
+  }
+
+  // 6. Ready (checked by owner or already reviewed in packet, not dirty)
+  if (isReviewed && !isDirty) {
+    return {
+      status: "Ready",
+      nextAction: "Ready to fill in Chrome once packet is approved.",
+      tone: "green",
+    };
+  }
+
+  // 7. Pending Review
+  return {
+    status: "Pending Review",
+    nextAction: "Review proposed answer and mark reviewed.",
+    tone: "amber",
+  };
+}
+
 function AnswerField({
   field,
   packet,
   onReviewed,
   onDirty,
   checked,
+  task,
 }: {
   field: Schema<"PacketField">;
   packet: Packet;
   onReviewed: (checked: boolean) => void;
   onDirty: (id: string, dirty: boolean) => void;
   checked: boolean;
+  task?: ExtensionTask | null;
 }) {
   const client = useQueryClient(),
     [answer, setAnswer] = useState(field.effective_answer || ""),
     [copied, setCopied] = useState(false);
-  useEffect(
-    () => setAnswer(field.effective_answer || ""),
-    [field.effective_answer],
-  );
+  const savedAnswer = useRef(field.effective_answer || "");
+  useEffect(() => {
+    const updated = field.effective_answer || "";
+    const previous = savedAnswer.current;
+    setAnswer((draft) => (draft === previous ? updated : draft));
+    savedAnswer.current = updated;
+  }, [field.effective_answer]);
   const dirty = answer !== (field.effective_answer || "");
   useEffect(() => onDirty(field.id, dirty), [field.id, dirty, onDirty]);
   useEffect(() => () => onDirty(field.id, false), [field.id, onDirty]);
   const edit = useMutation({
-    mutationFn: () =>
+    mutationFn: (submitted: string) =>
       patch(`application-packets/${packet.id}/questions/${field.id}`, {
         expected_revision: packet.revision,
-        answer,
+        answer: submitted,
       }),
-    onSuccess: () =>
-      client.invalidateQueries({ queryKey: ["packet", packet.id] }),
+    onSuccess: (_data, submitted) => {
+      savedAnswer.current = submitted;
+      return client.invalidateQueries({ queryKey: ["packet", packet.id] });
+    },
   });
   const generate = useMutation({
     mutationFn: () =>
@@ -311,172 +435,295 @@ function AnswerField({
       selectedOptions = [];
     }
   }
+
+  const isReviewed = Boolean(checked || field.review_status === "reviewed");
+  const reviewStatus = getFieldReviewStatus({
+    field,
+    task,
+    isReviewed,
+    isDirty: dirty,
+    exceedsLimit,
+  });
+
   return (
-    <div className="evidence-item">
+    <div className="evidence-item" data-field-id={field.id}>
+      {/* 1. Field */}
       <div className="split">
-        <strong>
-          {field.question}
-          {field.required ? " *" : ""}
-        </strong>
+        <div>
+          <small
+            className="muted"
+            style={{
+              fontWeight: 600,
+              fontSize: "9px",
+              letterSpacing: "0.05em",
+              textTransform: "uppercase",
+            }}
+          >
+            Field
+          </small>
+          <div style={{ marginTop: "2px" }}>
+            <strong>
+              {field.question}
+              {field.required ? " *" : ""}
+            </strong>
+          </div>
+        </div>
         <div className="actions">
           <Badge tone={isNarrative ? "amber" : "neutral"}>
             {readable(field.category)}
           </Badge>
-          <Badge
-            tone={field.validation_status === "draft_ready" ? "green" : "amber"}
-          >
-            {readable(field.validation_status)}
-          </Badge>
-        </div>
-      </div>
-      <div
-        className="split"
-        style={{ alignItems: "center", marginTop: "0.25rem" }}
-      >
-        <p>
-          source: {readable(field.provenance?.source)}
-          {field.provenance?.provider && (
-            <span>
-              {" "}
-              · provider: {field.provenance.provider}
-              {field.provenance.model ? ` (${field.provenance.model})` : ""}
-            </span>
-          )}
-        </p>
-        <div className="tag-list">
-          {((field.provenance?.source as string) === "owner_answer" ||
-            field.provenance?.source === "human") && (
-            <Badge tone="green">Human-approved (exact context)</Badge>
-          )}
-          {field.provenance?.source === "approved_answer" && (
-            <Badge tone="green">Reused from approved answers</Badge>
-          )}
-          {((field.provenance?.source as string) === "profile_fact" ||
-            field.provenance?.source === "candidate_profile") && (
-            <Badge tone="neutral">Verified profile fact</Badge>
-          )}
-          {((field.provenance?.source as string) === "approved_project" ||
-            field.provenance?.source === "candidate_resource") && (
-            <Badge tone="neutral">Approved project evidence</Badge>
-          )}
+          <Badge tone="neutral">{readable(field.field_type)}</Badge>
         </div>
       </div>
       {!!field.options?.length && (
-        <p>
+        <p style={{ margin: "4px 0" }}>
           {field.field_type === "multi_select"
             ? "Available options"
             : "Choose one exact option"}
           : {field.options.join(" · ")}
         </p>
       )}
-      {field.field_type === "file" ? (
-        <Notice>
-          Download the selected private resume and upload the actual file on the
-          official website during manual handoff. The dedicated browser can
-          attach the approved canonical PDF when upload checks pass. Chrome
-          extension attachments remain manual.
-        </Notice>
-      ) : field.field_type === "multi_select" ? (
-        <fieldset>
-          <legend>Review multiple selections</legend>
-          <p>
-            Review every selected and unselected option. Proposals use confirmed
-            facts; other options remain unknown. Filling replaces existing
-            selections on the website.
-          </p>
-          {(field.options || []).map((option) => (
-            <label className="check-label" key={option}>
-              <input
-                type="checkbox"
-                disabled={terminal}
-                checked={selectedOptions.includes(option)}
-                onChange={(event) => {
-                  const chosen = new Set(selectedOptions);
-                  if (event.target.checked) chosen.add(option);
-                  else chosen.delete(option);
-                  setAnswer(
-                    JSON.stringify(
-                      (field.options || []).filter((item) => chosen.has(item)),
-                    ),
-                  );
-                }}
-              />{" "}
-              {option}
-            </label>
-          ))}
-          <Button disabled={terminal} onClick={() => setAnswer("[]")}>
-            Clear selections
-          </Button>
-        </fieldset>
-      ) : (
-        <Field label="Reviewable answer">
-          <textarea
-            className="input spaced"
-            value={answer}
-            maxLength={field.max_characters}
-            disabled={terminal}
-            onChange={(e) => setAnswer(e.target.value)}
-          />
-          <div className="split">
-            <small className={exceedsLimit ? "missing-skills" : "muted"}>
-              {charCount} / {field.max_characters} characters · {wordCount}{" "}
-              {field.max_words ? `/ ${field.max_words} ` : ""}words
-              {exceedsCharLimit
-                ? " (exceeds character limit)"
-                : exceedsWordLimit
-                  ? " (exceeds word limit)"
-                  : ""}
-            </small>
-          </div>
-        </Field>
-      )}
-      {field.provenance?.error_code && (
-        <Notice>
-          {field.provenance.error_code === "rate_limit_exceeded"
-            ? "AI rate limit reached. Draft your answer manually or retry later."
-            : field.provenance.error_code === "model_unavailable"
-              ? "AI model is currently unavailable. Enter your answer manually."
-              : field.provenance.error_code === "missing_candidate_facts"
-                ? "Required candidate facts were not found in your profile. Real qualifications cannot be invented."
-                : `AI generation notice: ${readable(field.provenance.error_code)}`}
-        </Notice>
-      )}
-      {field.validation_status === "provider_unavailable" && (
-        <Notice>
-          AI provider is unavailable for this answer. Please provide your answer
-          manually.
-        </Notice>
-      )}
-      {(field.missing_information || []).length > 0 && (
-        <Notice>
-          Missing candidate facts:{" "}
-          {(field.missing_information || []).join(" · ")}. Real qualifications
-          and employment history cannot be invented. Enter manually or update
-          your profile.
-        </Notice>
-      )}
-      {!!field.provenance?.evidence_references?.length && (
-        <details className="evidence-details spaced">
-          <summary>
-            {field.provenance.evidence_references.length} evidence reference(s)
-          </summary>
-          <ul>
-            {field.provenance.evidence_references.map((ref, idx) => (
-              <li key={idx}>
-                <small>
-                  {readable(ref.source_type)}: {ref.source_id}
-                </small>
-              </li>
+      {/* 2. Proposed Answer */}
+      <div style={{ marginTop: "10px" }}>
+        <small
+          className="muted"
+          style={{
+            fontWeight: 600,
+            fontSize: "9px",
+            letterSpacing: "0.05em",
+            textTransform: "uppercase",
+          }}
+        >
+          Proposed Answer
+        </small>
+        {field.field_type === "file" ? (
+          <Notice>
+            Download the selected private resume and upload the actual file on
+            the official website during manual handoff. The dedicated browser
+            can attach the approved canonical PDF when upload checks pass.
+            Chrome extension attachments remain manual.
+          </Notice>
+        ) : field.field_type === "multi_select" ? (
+          <fieldset>
+            <legend>Review multiple selections</legend>
+            <p>
+              Review every selected and unselected option. Proposals use
+              confirmed facts; other options remain unknown. Filling replaces
+              existing selections on the website.
+            </p>
+            {(field.options || []).map((option) => (
+              <label className="check-label" key={option}>
+                <input
+                  type="checkbox"
+                  disabled={terminal}
+                  checked={selectedOptions.includes(option)}
+                  onChange={(event) => {
+                    const chosen = new Set(selectedOptions);
+                    if (event.target.checked) chosen.add(option);
+                    else chosen.delete(option);
+                    setAnswer(
+                      JSON.stringify(
+                        (field.options || []).filter((item) =>
+                          chosen.has(item),
+                        ),
+                      ),
+                    );
+                  }}
+                />{" "}
+                {option}
+              </label>
             ))}
-          </ul>
-        </details>
-      )}
+            <Button disabled={terminal} onClick={() => setAnswer("[]")}>
+              Clear selections
+            </Button>
+          </fieldset>
+        ) : (
+          <Field label="Reviewable answer">
+            <textarea
+              className="input spaced"
+              value={answer}
+              maxLength={field.max_characters}
+              disabled={terminal}
+              onChange={(e) => setAnswer(e.target.value)}
+            />
+            <div className="split">
+              <small className={exceedsLimit ? "missing-skills" : "muted"}>
+                {charCount} / {field.max_characters} characters · {wordCount}{" "}
+                {field.max_words ? `/ ${field.max_words} ` : ""}words
+                {exceedsCharLimit
+                  ? " (exceeds character limit)"
+                  : exceedsWordLimit
+                    ? " (exceeds word limit)"
+                    : ""}
+              </small>
+            </div>
+          </Field>
+        )}
+        {field.provenance?.error_code && (
+          <Notice>
+            {field.provenance.error_code === "rate_limit_exceeded"
+              ? "AI rate limit reached. Draft your answer manually or retry later."
+              : field.provenance.error_code === "model_unavailable"
+                ? "AI model is currently unavailable. Enter your answer manually."
+                : field.provenance.error_code === "missing_candidate_facts"
+                  ? "Required candidate facts were not found in your profile. Real qualifications cannot be invented."
+                  : `AI generation notice: ${readable(field.provenance.error_code)}`}
+          </Notice>
+        )}
+        {field.validation_status === "provider_unavailable" && (
+          <Notice>
+            AI provider is unavailable for this answer. Please provide your
+            answer manually.
+          </Notice>
+        )}
+        {(field.missing_information || []).length > 0 && (
+          <Notice>
+            Missing candidate facts:{" "}
+            {(field.missing_information || []).join(" · ")}. Real qualifications
+            and employment history cannot be invented. Enter manually or update
+            your profile.
+          </Notice>
+        )}
+      </div>
+      {/* 3. Evidence */}
+      <div style={{ marginTop: "10px" }}>
+        <small
+          className="muted"
+          style={{
+            fontWeight: 600,
+            fontSize: "9px",
+            letterSpacing: "0.05em",
+            textTransform: "uppercase",
+          }}
+        >
+          Evidence &amp; Provenance
+        </small>
+        <div
+          className="split"
+          style={{ alignItems: "center", marginTop: "0.25rem" }}
+        >
+          <p>
+            source: {readable(field.provenance?.source)}
+            {field.provenance?.provider && (
+              <span>
+                {" "}
+                · provider: {field.provenance.provider}
+                {field.provenance.model ? ` (${field.provenance.model})` : ""}
+              </span>
+            )}
+          </p>
+          <div className="tag-list">
+            {((field.provenance?.source as string) === "owner_answer" ||
+              field.provenance?.source === "human") && (
+              <Badge tone="green">Human-approved (exact context)</Badge>
+            )}
+            {field.provenance?.source === "approved_answer" && (
+              <Badge tone="green">Reused from approved answers</Badge>
+            )}
+            {((field.provenance?.source as string) === "profile_fact" ||
+              field.provenance?.source === "candidate_profile") && (
+              <Badge tone="neutral">Verified profile fact</Badge>
+            )}
+            {((field.provenance?.source as string) === "approved_project" ||
+              field.provenance?.source === "candidate_resource") && (
+              <Badge tone="neutral">Approved project evidence</Badge>
+            )}
+            {field.provenance?.source === "deterministic_extractive" && (
+              <Badge tone="neutral">Deterministic extractive</Badge>
+            )}
+          </div>
+        </div>
+        {!!field.provenance?.evidence_references?.length && (
+          <details className="evidence-details spaced">
+            <summary>
+              {field.provenance.evidence_references.length} evidence
+              reference(s)
+            </summary>
+            <ul>
+              {field.provenance.evidence_references.map((ref, idx) => (
+                <li key={idx}>
+                  <small>
+                    {readable(ref.source_type)}: {ref.source_id}
+                  </small>
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+        {field.provenance?.answer_expires_at && (
+          <small
+            className="muted"
+            style={{ display: "block", marginTop: "4px" }}
+          >
+            Answer expires:{" "}
+            {new Date(field.provenance.answer_expires_at).toLocaleString()}
+          </small>
+        )}
+      </div>
+      {/* 4 & 5. Status and Next Action */}
+      <div
+        style={{
+          marginTop: "10px",
+          padding: "8px 10px",
+          background: "var(--surface-sunken, rgba(0,0,0,0.02))",
+          borderRadius: "6px",
+        }}
+      >
+        <div className="split" style={{ alignItems: "flex-start" }}>
+          <div>
+            <small
+              className="muted"
+              style={{
+                fontWeight: 600,
+                fontSize: "9px",
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+              }}
+            >
+              Status
+            </small>
+            <div style={{ marginTop: "3px" }}>
+              <Badge tone={reviewStatus.tone}>{reviewStatus.status}</Badge>
+            </div>
+          </div>
+          <div style={{ maxWidth: "65%" }}>
+            <small
+              className="muted"
+              style={{
+                fontWeight: 600,
+                fontSize: "9px",
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+              }}
+            >
+              Next Action
+            </small>
+            <p
+              style={{
+                margin: "3px 0 0",
+                fontSize: "11px",
+                fontWeight: 550,
+              }}
+            >
+              {reviewStatus.nextAction}
+            </p>
+          </div>
+        </div>
+      </div>
       {dirty && (
         <Notice>
           Save answer changes before reviewing or filling this application.
         </Notice>
       )}
-      <div className="actions spaced">
+      {/* Action Buttons & Review Checkbox */}
+      <div
+        className="actions spaced"
+        style={{
+          marginTop: "12px",
+          borderTop: "1px solid var(--line)",
+          paddingTop: "10px",
+        }}
+      >
         {field.field_type !== "file" && (
           <>
             <Button
@@ -487,7 +734,7 @@ function AnswerField({
                 answer === field.effective_answer
               }
               busy={edit.isPending}
-              onClick={() => edit.mutate()}
+              onClick={() => edit.mutate(answer)}
             >
               Save answer
             </Button>
@@ -615,6 +862,15 @@ export function ApplicationDetail({ id }: { id: string }) {
     [templateIdx, setTemplateIdx] = useState(0),
     [notice, setNotice] = useState("");
   const [answerSuccess, setAnswerSuccess] = useState("");
+  useEffect(() => {
+    if (!dirtyFields.length) return;
+    const protect = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", protect);
+    return () => window.removeEventListener("beforeunload", protect);
+  }, [dirtyFields.length]);
 
   const packet = useQuery({
     queryKey: ["packet", id],
@@ -629,6 +885,16 @@ export function ApplicationDetail({ id }: { id: string }) {
     queryKey: ["execution-questions", id],
     queryFn: () => api<ExecutionQuestion[]>("execution/questions"),
     refetchInterval: 5000,
+  });
+  const extensionTask = useQuery({
+    queryKey: ["extension-task", id],
+    queryFn: ({ signal }) =>
+      api<ExtensionTask | null>(`browser/extension-tasks/application/${id}`, {
+        signal,
+      }),
+    retry: false,
+    refetchInterval: 5000,
+    refetchIntervalInBackground: false,
   });
   useEffect(() => {
     if (
@@ -784,6 +1050,24 @@ export function ApplicationDetail({ id }: { id: string }) {
     "submission_unknown",
   ].includes(p.lifecycle_state);
 
+  const task = extensionTask.data;
+  const identityMatches =
+    task?.application_id === id && task?.job_id === p.job_id;
+  const currentTask = task && identityMatches ? task : null;
+  const taskStale = Boolean(
+    currentTask && currentTask.packet_revision !== p.revision,
+  );
+  const challengeState =
+    extensionTask.isError || taskStale
+      ? "UNKNOWN"
+      : currentTask?.challenge_state || "UNKNOWN";
+  const formChanged = Boolean(
+    currentTask &&
+    currentTask.current_url &&
+    currentTask.target_url &&
+    currentTask.current_url !== currentTask.target_url,
+  );
+
   const reviewedCount = p.fields.filter(
     (f) => f.review_status === "reviewed",
   ).length;
@@ -807,16 +1091,33 @@ export function ApplicationDetail({ id }: { id: string }) {
           Date.parse(field.provenance.answer_expires_at) <= Date.now())),
   );
   const approved = p.approved_revision === p.revision && !p.readiness.stale;
-  const nextAction =
-    pendingExecQuestion || unresolved
-      ? "Answer the missing questions, then review the updated packet."
-      : terminal
-        ? "Check the recorded submission status and its evidence below."
-        : p.readiness.stale
-          ? "Refresh the packet and review the changed context."
-          : approved
-            ? "Review the actual form and approve supported fields in the browser assistant."
-            : "Review answers, confirm the resume and destination, then approve the current packet.";
+  const nextAction = extensionTask.isError
+    ? "Connection unverified. Refresh saved extension status before continuing in Chrome."
+    : dirtyFields.length
+      ? "Save your edited answers before continuing."
+      : currentTask?.challenge_state === "UNKNOWN"
+        ? challengeMessages.UNKNOWN
+        : pendingExecQuestion
+          ? "Answer the missing questions, then review the updated packet."
+          : unresolved
+            ? "Answer the missing questions, then review the updated packet."
+            : currentTask?.challenge_state === "CHALLENGE_BLOCKING" ||
+                currentTask?.challenge_state === "WIDGET_PRESENT_UNVERIFIED"
+              ? "Complete security verification on the employer portal, then inspect and review again in Chrome."
+              : currentTask?.state === "PAUSED"
+                ? "Application paused. Resume in the Chrome extension panel once ready."
+                : terminal
+                  ? "Check the recorded submission status and its evidence below."
+                  : p.readiness.stale || taskStale
+                    ? "Refresh the packet and review the changed context."
+                    : approved
+                      ? currentTask?.state === "FILLED_VERIFIED"
+                        ? "Review verified retained fields and complete remaining manual steps on official portal."
+                        : currentTask?.next_action
+                          ? currentTask.next_action
+                          : "Review the actual form and approve supported fields in the browser assistant."
+                      : "Review answers, confirm the resume and destination, then approve the current packet.";
+
   const progressSteps = [
     { label: "Packet prepared", done: true },
     {
@@ -824,7 +1125,52 @@ export function ApplicationDetail({ id }: { id: string }) {
       done: !pendingExecQuestion && !unresolved,
     },
     { label: "Current packet approved", done: approved },
+    {
+      label: "Retained fill recorded for current packet",
+      done: Boolean(
+        !taskStale &&
+        currentTask?.verified_receipts?.some(
+          (r) => r.packet_revision === p.revision && retainedFieldCount(r) > 0,
+        ),
+      ),
+    },
+    {
+      label: "Official portal submission (Manual)",
+      done: [
+        "user_reported_submitted",
+        "provider_confirmed_submitted",
+      ].includes(p.lifecycle_state),
+    },
   ];
+
+  const timelineItems = [
+    ...(events.data || []).map((e) => ({
+      key: `event-${e.id}`,
+      title: readable(e.event_type),
+      description: "",
+      timestamp: e.created_at,
+      revision: e.packet_revision,
+    })),
+    ...(currentTask?.verified_receipts || []).map((r, idx) => ({
+      key: `receipt-${r.plan_id || idx}`,
+      title:
+        retainedFieldCount(r) > 0
+          ? "Fill verified (retained after blur)"
+          : "Fill receipt — manual review required",
+      description: `${retainedFieldCount(r)} field(s) verified retained (${r.verification_method}); ${r.results.map((res) => `${res.field_id}: ${res.status}`).join(", ") || "outcome unknown"}. Page-local IDs belong to this receipt's snapshot; submission unconfirmed.`,
+      timestamp: r.recorded_at,
+      revision: r.packet_revision,
+    })),
+  ].sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
+
+  const lastVerified = currentTask?.verified_receipts
+    ?.filter((r) => retainedFieldCount(r) > 0)
+    .at(-1);
+  const lastSuccessfulActivity = lastVerified
+    ? `${dateLabel(lastVerified.recorded_at)} · Verified retained fill`
+    : events.data?.length
+      ? `${dateLabel(events.data[0].created_at)} · ${readable(events.data[0].event_type)}`
+      : `${dateLabel(p.updated_at)} · Packet saved`;
 
   return (
     <>
@@ -869,7 +1215,7 @@ export function ApplicationDetail({ id }: { id: string }) {
       </div>
 
       {/* Dynamic Next Action Callout */}
-      <div
+      <section
         className="panel panel-body"
         style={{
           background: "var(--surface-sunken, rgba(0,0,0,0.02))",
@@ -894,11 +1240,46 @@ export function ApplicationDetail({ id }: { id: string }) {
               {nextAction}
             </p>
           </div>
-          <Badge tone={terminal ? "green" : "neutral"}>
-            {readable(p.lifecycle_state)}
-          </Badge>
+          <div className="actions">
+            <Badge tone={terminal ? "green" : "neutral"}>
+              {readable(p.lifecycle_state)}
+            </Badge>
+            {currentTask && (
+              <Badge
+                tone={
+                  currentTask.browser_connection === "connected"
+                    ? "green"
+                    : "neutral"
+                }
+              >
+                Chrome: {readable(currentTask.state)}
+              </Badge>
+            )}
+          </div>
         </div>
-      </div>
+      </section>
+
+      {taskStale && currentTask && (
+        <Notice>
+          Extension task belongs to packet revision{" "}
+          {currentTask.packet_revision}, but the saved application packet is at
+          revision {p.revision}. Your saved answers and in-progress edits are
+          preserved. Re-inspect this step in Chrome to synchronize.
+        </Notice>
+      )}
+      {formChanged && currentTask && (
+        <Notice>
+          Form page changed: observed {currentTask.current_url} (target was{" "}
+          {currentTask.target_url}). Your saved answers are preserved. Inspect
+          the current step in Chrome.
+        </Notice>
+      )}
+      {dirtyFields.length > 0 && (
+        <Notice>
+          You have unsaved answer edits. Save your answers before resuming or
+          inspecting.
+        </Notice>
+      )}
 
       {!terminal &&
         !p.readiness.stale &&
@@ -1029,7 +1410,8 @@ export function ApplicationDetail({ id }: { id: string }) {
           </div>
           <div className="split spaced">
             <small>
-              Source platform: {readable(p.snapshot.source_platform)}
+              Candidate profile: v{p.candidate_profile_version} · Source
+              platform: {readable(p.snapshot.source_platform)}
               {p.snapshot.original_job_url && (
                 <span>
                   {" "}
@@ -1043,6 +1425,79 @@ export function ApplicationDetail({ id }: { id: string }) {
             <small>
               Reviewed questions: {reviewedCount} of {p.fields.length} · Last
               updated: {dateLabel(p.updated_at)}
+            </small>
+          </div>
+        </section>
+      </div>
+
+      <div className="detail-grid" style={{ marginTop: "0.75rem" }}>
+        <section
+          className="panel panel-body"
+          aria-label="Required Manual Actions"
+        >
+          <h3>Required manual actions</h3>
+          <ul
+            className="section-intro spaced"
+            style={{ paddingLeft: "1.2rem", margin: "0.5rem 0" }}
+          >
+            <li>
+              <strong>Resume upload:</strong> Download the approved canonical
+              PDF and upload it directly on the employer portal (file uploads
+              are completed manually on the website).
+            </li>
+            <li>
+              <strong>Security challenge / CAPTCHA:</strong> Interactive
+              challenges must be solved manually on the official page. Automated
+              solving is not permitted.
+            </li>
+            <li>
+              <strong>Manual-only fields:</strong> Self-identification (e.g.
+              gender, race) and non-standard custom controls must be completed
+              manually.
+            </li>
+            <li>
+              <strong>Portal submission:</strong> Automated submission is
+              strictly disabled. Review your completed form and submit manually
+              on the employer portal.
+            </li>
+          </ul>
+        </section>
+
+        <section
+          className="panel panel-body"
+          aria-label="Security & Verification State"
+        >
+          <h3>Security &amp; verification status</h3>
+          <p style={{ margin: "0.25rem 0 0.5rem" }}>
+            {currentTask
+              ? challengeMessages[challengeState]
+              : "Security state unverified. Inspect the exact application in Chrome before continuing."}
+          </p>
+          <div className="split" style={{ marginTop: "0.5rem" }}>
+            <small className="muted">
+              Challenge status: <strong>{challengeState}</strong>
+            </small>
+            <Badge
+              tone={
+                challengeState === "NONE" ||
+                challengeState === "MANUALLY_RESOLVED_AND_SITE_VERIFIED"
+                  ? "green"
+                  : "amber"
+              }
+            >
+              {challengeState === "NONE" ? "Clear" : readable(challengeState)}
+            </Badge>
+          </div>
+          <div
+            style={{
+              marginTop: "0.75rem",
+              borderTop: "1px solid var(--line)",
+              paddingTop: "0.5rem",
+            }}
+          >
+            <small className="muted">
+              Preserved fields: Existing website answers and manual inputs are
+              preserved and never overwritten by Automated Apply.
             </small>
           </div>
         </section>
@@ -1097,6 +1552,7 @@ export function ApplicationDetail({ id }: { id: string }) {
                   )
                 }
                 onDirty={onDirty}
+                task={taskStale || extensionTask.isError ? null : currentTask}
               />
             ))}
             {!terminal && (
@@ -1429,21 +1885,58 @@ export function ApplicationDetail({ id }: { id: string }) {
           <section className="panel">
             <div className="panel-header">
               <h2>Application history</h2>
+              {timelineItems.length > 0 && (
+                <Badge>{timelineItems.length} events</Badge>
+              )}
             </div>
             <div className="panel-body">
               {events.isError ? (
                 <ErrorState error={events.error} />
               ) : (
                 <div className="timeline">
-                  {events.data?.map((event) => (
-                    <div key={event.id}>
-                      {readable(event.event_type)}
+                  {timelineItems.map((item) => (
+                    <div key={item.key}>
+                      <strong>{item.title}</strong>
+                      {item.description && (
+                        <p
+                          style={{
+                            margin: "2px 0",
+                            fontSize: "10px",
+                            color: "var(--muted)",
+                          }}
+                        >
+                          {item.description}
+                        </p>
+                      )}
                       <time>
-                        {dateLabel(event.created_at)} · revision{" "}
-                        {event.packet_revision}
+                        {dateLabel(item.timestamp)} · revision {item.revision}
                       </time>
                     </div>
                   ))}
+                  {!timelineItems.length &&
+                    events.data?.map((event) => (
+                      <div key={event.id}>
+                        {readable(event.event_type)}
+                        <time>
+                          {dateLabel(event.created_at)} · revision{" "}
+                          {event.packet_revision}
+                        </time>
+                      </div>
+                    ))}
+                </div>
+              )}
+              {lastSuccessfulActivity && (
+                <div
+                  style={{
+                    marginTop: "12px",
+                    borderTop: "1px solid var(--line)",
+                    paddingTop: "8px",
+                  }}
+                >
+                  <small className="muted">
+                    <strong>Last successful activity:</strong>{" "}
+                    {lastSuccessfulActivity}
+                  </small>
                 </div>
               )}
             </div>

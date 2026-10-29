@@ -1,5 +1,10 @@
 # Phase 5.2 dashboard extension contract
 
+Final combined release evidence is in [final-integration.md](final-integration.md).
+The earlier counts below describe the reviewed implementation before final AGY
+integration; they were not rerun as complete suites.
+
+
 The application detail now reads the extension's persisted task independently
 of the existing dedicated browser automation assistant. The extension remains
 responsible for choosing an application tab, inspecting a page and authorizing

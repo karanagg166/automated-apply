@@ -14,7 +14,30 @@ const packet = {
   approved_revision: null,
   review_status: "pending",
   submission_mode: "manual_handoff",
-  fields: [],
+  fields: [
+    {
+      id: "55555555-5555-4555-8555-555555555555",
+      question: "Email",
+      category: "contact_information",
+      field_type: "text",
+      required: true,
+      max_characters: 200,
+      max_words: null,
+      writing_style: "professional",
+      validation_status: "draft_ready",
+      review_status: "pending",
+      effective_answer: "alex@example.com",
+      proposed_answer: "alex@example.com",
+      answer_revision: 1,
+      requires_review: true,
+      provenance: {
+        origin: "packet_core",
+        source: "candidate_profile",
+        resolver: "deterministic",
+        evidence_references: [],
+      },
+    },
+  ],
   readiness: {
     state: "needs_review",
     blockers: [],
@@ -154,6 +177,14 @@ test("shows challenge and packet context, preserves a versioned pause and preven
   await mkdir(screenshotDir, { recursive: true });
   await assistant.screenshot({
     path: resolve(screenshotDir, "extension-dashboard-challenge-fictional.png"),
+  });
+  await expect(page.getByText("Evidence & Provenance")).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "Reviewable answer" }),
+  ).toHaveValue("alex@example.com");
+  await page.screenshot({
+    path: resolve(screenshotDir, "extension-field-review-fictional.png"),
+    fullPage: true,
   });
   await assistant.getByRole("button", { name: "Pause", exact: true }).click();
   await expect(

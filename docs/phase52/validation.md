@@ -1,5 +1,10 @@
 # Phase 5.2 targeted validation receipt
 
+Final combined release evidence is in [final-integration.md](final-integration.md).
+The earlier counts below describe the reviewed implementation before final AGY
+integration; they were not rerun as complete suites.
+
+
 All data-changing acceptance uses fictional fixtures. No full backend suite,
 complete frontend regression suite, genuine employer fill/submission, real
 Telegram delivery, credential change or hosted GitHub Action was run.

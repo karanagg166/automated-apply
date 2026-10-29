@@ -274,7 +274,14 @@ it("explains that the observed network guard remains until manual browser takeov
   });
   mount();
   expect(
-    await screen.findByText(/browser networking is blocked by the fill guard/),
+    await screen.findByText(
+      /New requests associated with this application tab are blocked/,
+    ),
+  ).toBeInTheDocument();
+  expect(
+    screen.getByText(
+      /Pre-existing streams and independent background activity are outside its verified scope/,
+    ),
   ).toBeInTheDocument();
   expect(
     screen.getByText(/Return browser control in the extension/),

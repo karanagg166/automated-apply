@@ -1,5 +1,10 @@
 # Phase 5.2 — Chrome application assistant acceptance
 
+Final combined release evidence is in [final-integration.md](final-integration.md).
+The earlier counts below describe the reviewed implementation before final AGY
+integration; they were not rerun as complete suites.
+
+
 Base release: `0384fb403618c396fa60c7fb79a6b4ecebafa925`.
 Review branch: `feat/phase52-extension-hardening`.
 

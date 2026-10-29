@@ -1,9 +1,10 @@
-"""Explicit isolated fictional FastAPI/SQLite fixture for the Chrome stack smoke."""
+"""Explicit isolated fictional FastAPI fixture for the Chrome stack smoke."""
 
 import argparse
 import asyncio
 import sys
 from pathlib import Path
+from urllib.parse import urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -17,15 +18,28 @@ def main():
     from backend.app.operations.configuration import load_settings
 
     settings = load_settings(args.env_file)
-    if settings.ENVIRONMENT != "testing" or not settings.DATABASE_URL.startswith("sqlite+aiosqlite:////"):
-        raise SystemExit("fictional_sqlite_fixture_required")
-    database = Path(settings.DATABASE_URL.removeprefix("sqlite+aiosqlite:///"))
-    if database.exists() or database.parent != Path(args.env_file).parent:
-        raise SystemExit("fresh_same_directory_fixture_required")
+    if settings.ENVIRONMENT != "testing":
+        raise SystemExit("fictional_fixture_required")
+    postgres = settings.DATABASE_URL.startswith("postgresql+asyncpg://")
+    if postgres:
+        target = urlsplit(settings.DATABASE_URL)
+        if (target.hostname != "127.0.0.1" or target.port in {None, 5432, 54322}
+                or target.path != "/candidate_profile_test" or target.username != "postgres"
+                or target.password != "fictional_stack_only" or target.query
+                or settings.DATABASE_SCHEMA != "job_agent"):
+            raise SystemExit("disposable_loopback_postgresql_required")
+    else:
+        if not settings.DATABASE_URL.startswith("sqlite+aiosqlite:////"):
+            raise SystemExit("fictional_sqlite_fixture_required")
+        database = Path(settings.DATABASE_URL.removeprefix("sqlite+aiosqlite:///"))
+        if database.exists() or database.parent != Path(args.env_file).parent:
+            raise SystemExit("fresh_same_directory_fixture_required")
     configure_operator(Settings(**settings.model_dump(), _env_file=None))
     from backend.app.main import app
 
     async def seed():
+        from sqlalchemy import text
+
         from backend.app.db.session import (
             close_db_engine,
             get_engine,
@@ -40,6 +54,10 @@ def main():
         from backend.app.schemas.candidate_profile import CandidateProfileCreate
 
         async with get_engine().begin() as connection:
+            if postgres:
+                if await connection.scalar(text("SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname='job_agent')")):
+                    raise SystemExit("fresh_database_required")
+                await connection.execute(text("CREATE SCHEMA job_agent"))
             await connection.run_sync(Base.metadata.create_all)
         async with get_session_factory()() as session:
             profile = await CandidateProfileRepository(session).create_primary_profile(CandidateProfileCreate(

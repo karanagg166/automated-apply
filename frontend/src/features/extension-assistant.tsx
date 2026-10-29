@@ -4,55 +4,49 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Badge, Button, ErrorState, External, Notice } from "@/components/ui";
 import { api, post, readable, type Schema } from "@/lib/api";
 
-// The native host and owner dashboard share this durable task. Opening Chrome,
-// inspection and fill authorization remain separate extension gestures.
-export type ExtensionTask = {
-  id: string;
-  version: number;
-  application_id: string;
-  job_id: string;
-  company_name: string;
-  job_title: string;
-  packet_revision: number;
-  profile_version: number;
-  target_url: string;
-  current_url: string;
-  tab_id: number | null;
-  tab_active: boolean;
-  network_guard_active?: boolean;
-  browser_connection: "connected" | "paused" | "disconnected" | "unverified";
-  state: string;
-  challenge_state:
-    | "NONE"
-    | "WIDGET_PRESENT_UNVERIFIED"
-    | "CHALLENGE_BLOCKING"
-    | "MANUALLY_RESOLVED_AND_SITE_VERIFIED"
-    | "UNKNOWN";
-  step: string | null;
+export type VerifiedReceipt = {
   plan_id: string | null;
   authorization_id: string | null;
-  field_answer_revisions: Record<string, number>;
-  reason: string | null;
-  next_action: string;
-  mode: "ASSISTED_FILL";
-  capabilities: {
-    preview: boolean;
-    assisted_fill: boolean;
-    reviewed_submission: false;
-    unattended_approved: false;
-  };
-  counts: {
-    ready: number;
-    completed: number;
-    existing?: number;
-    missing: number;
-    manual: number;
-    validation_errors: number;
-  };
-  updated_at: string;
+  document_id?: string;
+  packet_revision: number;
+  profile_version: number;
+  results: Array<{
+    field_id: string;
+    status: Schema<"FieldResult">["status"];
+  }>;
+  verification_method: string;
+  state: string;
+  recorded_at: string;
+  submitted: false;
 };
 
-const challengeMessages: Record<ExtensionTask["challenge_state"], string> = {
+export function retainedFieldCount(receipt: VerifiedReceipt) {
+  return receipt.verification_method === "retained_after_blur"
+    ? receipt.results.filter((result) => result.status === "filled").length
+    : 0;
+}
+
+// The native host and owner dashboard share this durable task. Opening Chrome,
+// inspection and fill authorization remain separate extension gestures.
+type ApiTask = Schema<"ExtensionTask">;
+export type ExtensionTask = Omit<
+  ApiTask,
+  | "context_digest"
+  | "browser_session_id"
+  | "challenge_observed"
+  | "network_guard_active"
+  | "verified_receipts"
+  | "counts"
+> & {
+  network_guard_active?: boolean;
+  verified_receipts?: VerifiedReceipt[];
+  counts: Omit<ApiTask["counts"], "existing"> & { existing?: number };
+};
+
+export const challengeMessages: Record<
+  ExtensionTask["challenge_state"],
+  string
+> = {
   NONE: "No challenge observed in the latest inspection.",
   WIDGET_PRESENT_UNVERIFIED:
     "Security widget present; completion is unverified. Proposals are read-only. Complete the check yourself, then inspect and review again.",
@@ -288,10 +282,11 @@ export function ExtensionAssistant({
             </div>
             {current.network_guard_active && (
               <Notice>
-                This application's browser networking is blocked by the fill
-                guard. Review the page, then use Return browser control in the
-                extension for manual website actions. Pausing or cancelling
-                keeps the guard active.
+                New requests associated with this application tab are blocked by
+                the fill guard. Pre-existing streams and independent background
+                activity are outside its verified scope. Review the page, then
+                use Return browser control in the extension for manual website
+                actions. Pausing or cancelling keeps the guard active.
               </Notice>
             )}
             {current.reason && <Notice>{readable(current.reason)}</Notice>}

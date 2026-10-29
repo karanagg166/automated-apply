@@ -9,8 +9,8 @@ The stable Chrome extension ID remains `gdjbmkffcpicbpiikcohlmokkmcpipgp`.
 
 Use the exact reviewed PR head, not a mutable worktree with other edits. The
 engineering checkout is the linked worktree
-`/Users/karanagg/Desktop/Projects/automated-apply-codex-p52`, branch
-`feat/phase52-extension-hardening`. The primary repository remains untouched.
+`/Users/karanagg/Desktop/Projects/automated-apply-phase52-final`, branch
+`integration/phase52-final-20261029`. The primary repository remains untouched.
 
 ```sh
 pnpm -C extension build
