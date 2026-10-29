@@ -5,6 +5,7 @@ establishes account features, not permission for third-party automation.
 """
 
 import re
+from datetime import datetime
 from types import SimpleNamespace
 from urllib.parse import urlsplit, urlunsplit
 
@@ -67,6 +68,7 @@ def normalize(item):
         description=item.description,
         location=item.location,
         remote_type=item.remote_type,
+        employment_type=item.employment_type,
         skills_required=item.required_skills,
         skills_preferred=item.preferred_skills,
         experience_min_years=item.experience_min,
@@ -75,6 +77,7 @@ def normalize(item):
         salary_max=item.salary_max,
         salary_currency=item.salary_currency,
         salary_period=item.salary_period,
+        date_posted=item.posted_at,
         data_provenance={
             "method": item.provenance,
             "reference": item.message_reference,
@@ -101,4 +104,8 @@ def matching_job(job):
         }.items():
             setattr(view, target, observed.get(source))
         view.is_remote = view.remote_type == "remote"
+        try:
+            view.date_posted = datetime.fromisoformat(observed["date_posted"])
+        except (KeyError, TypeError, ValueError):
+            view.date_posted = None
     return view

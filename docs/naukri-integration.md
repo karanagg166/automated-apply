@@ -1,3 +1,5 @@
+> Latest Phase 5.3 engineering: [recurring preparation and potential approved job-alert emails](phase53/recurring-automation.md). Status remains PARTIAL / live acceptance BLOCKED. Historical evidence below does not establish locked-screen or submission acceptance.
+
 # Naukri integration and execution contract
 
 The supported flow is owner-provided Naukri postings/structured alert facts →

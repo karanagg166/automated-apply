@@ -67,9 +67,16 @@ async def configure(session, config):
         for r in await rows(session):
             if r.value["state"] not in TERMINAL | {"PAUSED"}:
                 await control(session, r.value["id"], "pause", r.value["revision"])
+        from backend.app.execution import recurring
+        await recurring.fence(session, "stop")
+        automation = await recurring.record(session)
+        if automation["revision"]:
+            automation.update(state="STOPPED", revision=automation["revision"] + 1, next_check_at=None)
+            await recurring.put(session, recurring.KEY, automation)
 
 
 async def rows(session):
+    await session.flush()
     return list(
         (
             await session.scalars(
@@ -130,6 +137,8 @@ async def move(session, row, state, reason=None):
 
 async def start(session, job_ids):
     await memory_row(session, lock=True)
+    from backend.app.execution.recurring import require_enabled
+    await require_enabled(session)
     if (await configuration(session)).mode == "OFF":
         raise ToolDenied("execution_mode_off")
     now, result = await instant(session), []
@@ -191,6 +200,9 @@ async def packet_question_intent(session, packet):
     ):
         raise ToolDenied("packet_context_stale_or_destination_invalid")
     job = await session.get(Job, packet.job_id)
+    if job and job.source_platform == "naukri":
+        from backend.app.execution.recurring import require_enabled
+        await require_enabled(session)
     if (
         not job
         or job.status in {"archived", "applied"}
@@ -271,6 +283,12 @@ async def control(session, execution_id, action, revision):
     if v["state"] in TERMINAL:
         raise ToolDenied("execution_terminal_check_history")
     if action == "resume":
+        from backend.app.execution.recurring import require_enabled
+        await require_enabled(session)
+        if "automation_revision" in v:
+            from backend.app.execution import recurring
+            await recurring.execution_policy(session, row)
+            v["automation_revision"] = (await recurring.record(session))["revision"]
         if (
             v["state"] not in {"PAUSED", "NEEDS_INPUT"}
             or (await configuration(session)).mode == "OFF"
@@ -310,6 +328,11 @@ async def claim(session):
     now = await instant(session)
     for row in await rows(session):
         v = dict(row.value)
+        if "automation_revision" in v:
+            from backend.app.execution.recurring import record
+            automation = await record(session)
+            if automation["state"] != "RUNNING" or automation["revision"] != v["automation_revision"]:
+                continue
         if v.get("question_only"):
             continue
         if v["state"] == "FILLING" and (
@@ -360,6 +383,11 @@ async def fenced(session, identity):
     await memory_row(session, lock=True)
     row = await load(session, identity[0])
     v, now = row.value, await instant(session)
+    if "automation_revision" in v:
+        from backend.app.execution.recurring import record
+        automation = await record(session)
+        if automation["state"] != "RUNNING" or automation["revision"] != v["automation_revision"]:
+            raise ToolDenied("automation_authority_lost")
     if (
         v["fence"] != identity[1]
         or not v["lease_until"]

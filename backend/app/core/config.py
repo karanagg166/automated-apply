@@ -399,6 +399,7 @@ class Settings(BaseSettings):
     # Outbound communication always needs a fresh owner confirmation.
     GMAIL_READ_BODY_REVIEWED: bool = False
     GMAIL_READ_SYNC_ENABLED: bool = False
+    NAUKRI_ALERT_EMAILS_ENABLED: bool = False
     GMAIL_DRAFTS_ENABLED: bool = False
     GMAIL_RETENTION_ENABLED: bool = False
     GMAIL_SENDING_ENABLED: bool = False

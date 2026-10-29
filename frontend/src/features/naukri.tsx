@@ -9,6 +9,10 @@ import {
 } from "@/features/execution-question-answer";
 import { api, post, readable } from "@/lib/api";
 import {
+  NaukriAutomation,
+  type NaukriAutomationStatus,
+} from "@/features/naukri-automation";
+import {
   Badge,
   Button,
   ErrorState,
@@ -60,6 +64,7 @@ type Question = ExecutionQuestion & {
   reuse_approved: boolean;
 };
 type Status = {
+  automation?: NaukriAutomationStatus;
   configuration: Configuration;
   executions: Execution[];
   capabilities: Record<string, unknown>;
@@ -75,6 +80,7 @@ export function Naukri() {
   const [url, setUrl] = useState(""),
     [title, setTitle] = useState(""),
     [employer, setEmployer] = useState("");
+  const [alertId, setAlertId] = useState<string | null>(null);
   const [skills, setSkills] = useState(""),
     [minimum, setMinimum] = useState(""),
     [maximum, setMaximum] = useState("");
@@ -84,6 +90,9 @@ export function Naukri() {
   const [applicationUrl, setApplicationUrl] = useState("");
   const [postingStatus, setPostingStatus] = useState("unknown");
   const [validThrough, setValidThrough] = useState("");
+  const [postedAt, setPostedAt] = useState("");
+  const [remoteType, setRemoteType] = useState("unknown");
+  const [employmentType, setEmploymentType] = useState("");
   const [error, setError] = useState<unknown>(null),
     [busy, setBusy] = useState(false);
   const status = useQuery({
@@ -171,6 +180,31 @@ export function Naukri() {
         </p>
         {error ? <ErrorState error={error} /> : null}
       </div>
+      {status.data.automation && (
+        <NaukriAutomation
+          data={status.data.automation}
+          busy={busy}
+          act={act}
+          reviewAlert={(id, alertUrl) => {
+            setAlertId(id);
+            setUrl(alertUrl);
+            setTitle("");
+            setEmployer("");
+            setSkills("");
+            setDescription("");
+            setApplicationUrl("");
+            setMinimum("");
+            setMaximum("");
+            setRequirement("unknown");
+            setLocation("");
+            setPostingStatus("unknown");
+            setValidThrough("");
+            setPostedAt("");
+            setRemoteType("unknown");
+            setEmploymentType("");
+          }}
+        />
+      )}
       <form
         className="panel panel-body stack"
         onSubmit={(e) => {
@@ -182,6 +216,7 @@ export function Naukri() {
                   url,
                   title,
                   employer,
+                  ...(alertId ? { alert_candidate_id: alertId } : {}),
                   ...(skills
                     ? {
                         required_skills: skills
@@ -207,6 +242,13 @@ export function Naukri() {
                       }
                     : {}),
                   ...(validThrough ? { valid_through: validThrough } : {}),
+                  ...(postedAt ? { posted_at: `${postedAt}T00:00:00Z` } : {}),
+                  ...(remoteType !== "unknown"
+                    ? { remote_type: remoteType }
+                    : {}),
+                  ...(employmentType
+                    ? { employment_type: employmentType }
+                    : {}),
                 },
               ],
             }),
@@ -214,6 +256,12 @@ export function Naukri() {
         }}
       >
         <h2>Import job URL</h2>
+        {alertId && (
+          <Notice>
+            Reviewing alert {alertId}. Supply verified posting facts; the email
+            alone does not establish current availability.
+          </Notice>
+        )}
         <Field label="Naukri posting URL">
           <Input
             aria-label="Naukri posting URL"
@@ -278,6 +326,36 @@ export function Naukri() {
                 value={validThrough}
                 onChange={(e) => setValidThrough(e.target.value)}
               />
+            </Field>
+            <Field label="Posting publication date, if known">
+              <Input
+                type="date"
+                value={postedAt}
+                onChange={(e) => setPostedAt(e.target.value)}
+              />
+            </Field>
+            <Field label="Advertised work mode">
+              <Select
+                value={remoteType}
+                onChange={(e) => setRemoteType(e.target.value)}
+              >
+                <option value="unknown">Unknown</option>
+                <option value="remote">Remote</option>
+                <option value="hybrid">Hybrid</option>
+                <option value="onsite">On site</option>
+              </Select>
+            </Field>
+            <Field label="Advertised employment type">
+              <Select
+                value={employmentType}
+                onChange={(e) => setEmploymentType(e.target.value)}
+              >
+                <option value="">Unknown</option>
+                <option value="full_time">Full time</option>
+                <option value="part_time">Part time</option>
+                <option value="contract">Contract</option>
+                <option value="internship">Internship</option>
+              </Select>
             </Field>
             <p>
               These are your observations, not provider verification. Active

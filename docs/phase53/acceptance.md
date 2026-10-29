@@ -1,3 +1,5 @@
+> Latest Phase 5.3 engineering: [recurring preparation and potential approved job-alert emails](recurring-automation.md). Status remains PARTIAL / live acceptance BLOCKED. Historical evidence below does not establish locked-screen or submission acceptance.
+
 # Phase 5.3 — Naukri discovery and monitored application acceptance
 
 Base/installed release: `8c1635139a8943e9c2b72f39c4db593e1ccaa5b5`.

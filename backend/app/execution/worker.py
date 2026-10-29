@@ -1,6 +1,7 @@
 """Bounded local preparation worker; never dispatches a Naukri submission."""
 
 import asyncio
+import logging
 from datetime import timedelta
 from uuid import UUID
 
@@ -64,6 +65,14 @@ def eligibility(job, profile, match):
 
 async def prepare(session, identity):
     row = await store.fenced(session, identity)
+    from backend.app.execution import recurring
+
+    try:
+        policy = await recurring.execution_policy(session, row)
+    except ToolDenied as exc:
+        await store.control(session, row.value["id"], "pause", row.value["revision"])
+        row.value = {**row.value, "diagnostic": str(exc)}
+        return
     job = await session.get(Job, UUID(row.value["job_id"]))
     profile = await session.scalar(
         select(CandidateProfile).where(CandidateProfile.singleton_key == "primary")
@@ -126,6 +135,21 @@ async def prepare(session, identity):
             "packet_id": str(packet.id),
             "profile_version": packet.candidate_profile_version,
         }
+        if packet.readiness.stale or (
+            policy
+            and (
+                not packet.snapshot.resume.selected
+                or packet.snapshot.resume.selected.resource_id
+                != policy.resume_resource_id
+                or packet.snapshot.resume.selected.resource_version
+                != policy.resume_version
+            )
+        ):
+            await store.move(
+                session, row, "NEEDS_INPUT", "stale_packet_or_unapproved_resume"
+            )
+            row.value = {**row.value, "lease_until": None}
+            return
         await store.move(
             session,
             row,
@@ -136,13 +160,41 @@ async def prepare(session, identity):
             packet.readiness.state,
         )
     row.value = {**row.value, "lease_until": None, "attempts": 0}
-    # Preparation never authorizes Telegram delivery. The owner must choose an
-    # exact question through an authenticated Ask action, including reconfirmation.
+    await queue_policy_questions(session, row, policy)
+
+
+async def queue_policy_questions(session, row, policy):
+    if (
+        not policy
+        or not policy.telegram_questions
+        or row.value["state"] != "NEEDS_INPUT"
+        or not row.value["packet_id"]
+    ):
+        return
+    from backend.app.execution import questions
+
+    packet = await ApplicationPacketService(session).read(UUID(row.value["packet_id"]))
+    if packet.readiness.stale:
+        return
+    for field in packet.fields:
+        if needs_owner_answer(field, await instant(session)):
+            try:
+                async with session.begin_nested():
+                    await questions.ask(session, row.value["id"], field.id)
+            except (ToolDenied, ValueError):
+                row.value = {**row.value, "diagnostic": "manual_question_required"}
+    # Only a saved opt-in policy may queue these prompts. The separately
+    # approved Telegram worker performs delivery using the existing outbox.
 
 
 async def watch(session):
     """Scan only already imported data. Never poll a Naukri portal or mailbox."""
     await store.memory_row(session, lock=True)
+    from backend.app.execution.recurring import require_enabled
+    try:
+        await require_enabled(session)
+    except ToolDenied:
+        return 0
     config = await store.configuration(session)
     if config.mode != "WATCH_AND_NOTIFY":
         return 0
@@ -205,15 +257,41 @@ class ExecutionWorker:
         self.factory = factory
 
     async def tick(self):
+        from backend.app.execution.alert_email import poll
+
+        await poll(self.factory)
         async with self.factory() as session, session.begin():
+            from backend.app.execution import recurring
+
+            await recurring.tick(session)
             await watch(session)
             now = await instant(session)
+            automation = await recurring.record(session)
             for row in await store.rows(session):
-                if row.value["state"] != "READY_FOR_REVIEW" or not row.value["packet_id"]:
+                if (
+                    row.value["state"] not in {"READY_FOR_REVIEW", "NEEDS_INPUT"}
+                    or not row.value["packet_id"]
+                ):
                     continue
-                packet = await ApplicationPacketService(session).read(UUID(row.value["packet_id"]))
-                if not packet.readiness.stale and any(needs_owner_answer(field, now) for field in packet.fields):
-                    await store.move(session, row, "NEEDS_INPUT", "owner_question_approval_required")
+                packet = await ApplicationPacketService(session).read(
+                    UUID(row.value["packet_id"])
+                )
+                if (
+                    row.value["state"] == "READY_FOR_REVIEW"
+                    and not packet.readiness.stale
+                    and any(needs_owner_answer(field, now) for field in packet.fields)
+                ):
+                    await store.move(
+                        session, row, "NEEDS_INPUT", "owner_question_approval_required"
+                    )
+                if (
+                    automation["state"] == "RUNNING"
+                    and row.value.get("automation_revision") == automation["revision"]
+                ):
+                    from backend.app.execution.contracts import AutomationPolicy
+
+                    policy = AutomationPolicy.model_validate(automation["policy"])
+                    await queue_policy_questions(session, row, policy)
             identity = await store.claim(session)
         if not identity:
             return None
@@ -224,7 +302,10 @@ class ExecutionWorker:
             return None
         except Exception:
             async with self.factory() as session, session.begin():
-                row = await store.fenced(session, identity)
+                try:
+                    row = await store.fenced(session, identity)
+                except ToolDenied:
+                    return None
                 now = await instant(session)
                 row.value = {
                     **row.value,
@@ -240,9 +321,19 @@ class ExecutionWorker:
 
 async def serve(factory, stop):
     worker = ExecutionWorker(factory)
+    delay = 5
     while not stop.is_set():
-        await worker.tick()
         try:
-            await asyncio.wait_for(stop.wait(), timeout=5)
+            await worker.tick()
+            delay = 5
+        except Exception:
+            # Heartbeats go stale during outages; never report an alive thread as
+            # a successful DB check. No exception details containing URLs/secrets.
+            logging.getLogger(__name__).warning(
+                "Execution worker tick failed; retrying in %s seconds", delay
+            )
+            delay = min(60, delay * 2)
+        try:
+            await asyncio.wait_for(stop.wait(), timeout=delay)
         except TimeoutError:
             pass

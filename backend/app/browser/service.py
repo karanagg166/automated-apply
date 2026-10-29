@@ -149,6 +149,8 @@ class FormService:
         if saved_job.status in {"applied", "archived"}:
             raise ToolDenied("application_not_eligible")
         if saved_job.source_platform == "naukri":
+            from backend.app.execution.recurring import require_enabled
+            await require_enabled(self.session)
             from backend.app.execution.store import previously_applied
             from backend.app.services.applications.platforms.naukri import (
                 posting_unavailable,

@@ -6,7 +6,7 @@ from sqlalchemy import select
 
 from backend.app.dashboard.models import OwnerPreference
 from backend.app.execution import store
-from backend.app.execution.naukri import matching_job
+from backend.app.execution.naukri import matching_job, normalized_url
 from backend.app.execution.worker import eligibility
 from backend.app.local_agent.profile_confirmation import confirmation_matches
 from backend.app.models.candidate_profile import CandidateProfile
@@ -55,6 +55,13 @@ async def review_jobs(session, jobs):
     now = datetime.now(timezone.utc)
     result = []
     for job in jobs:
+        try:
+            normalized_url(job.job_url)
+        except (ValueError, TypeError):
+            result.append({"id": str(job.id), "title": job.title, "job_url": job.job_url,
+                           "employer": None, "state": "REJECTED", "reason": "invalid_requisition_identity",
+                           "match": None, "submission_allowed": False})
+            continue
         company = await session.get(Company, job.company_id) if job.company_id else None
         already_applied = await store.previously_applied(session, job)
         currentness = "already_applied" if already_applied else vacancy_review(job, now)

@@ -269,9 +269,11 @@ class GmailReadService:
             result.append(value)
         return result
 
-    async def sync(self, account_id):
+    async def sync(self, account_id, *, authorization_guard=None):
         if not self.settings.GMAIL_READ_SYNC_ENABLED:
             raise ConnectionError("gmail_read_sync_disabled")
+        if authorization_guard:
+            await authorization_guard()
         connection = self.connection(account_id)
         # Refresh commits before taking the account lock used by sync/disconnect/configuration.
         token = await connection.access_token()
@@ -334,6 +336,8 @@ class GmailReadService:
         records = []
 
         async def guard():
+            if authorization_guard:
+                await authorization_guard()
             current = await self.account(account_id)
             state = await self.policy_row(account_id)
             valid = (
@@ -459,6 +463,8 @@ class GmailReadService:
                             raise ConnectionError("gmail_thread_id_invalid")
                         record = {
                             "id": digest,
+                            "selection_version": value["version"],
+                            "body_selected": policy.read_body,
                             "account_id": str(account_id),
                             "message_id": message_id,
                             "thread_id": thread,
@@ -521,6 +527,8 @@ class GmailReadService:
                 }
                 await self.session.commit()
             raise exc
+        if authorization_guard:
+            await authorization_guard()
         current = await self.account(account_id, lock=True)
         row = await self.policy_row(account_id, lock=True)
         if (

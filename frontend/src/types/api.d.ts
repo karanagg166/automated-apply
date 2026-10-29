@@ -3233,6 +3233,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/execution/naukri/automation/policy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Automation Policy */
+    put: operations["automation_policy_api_v1_execution_naukri_automation_policy_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/execution/naukri/automation/control": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Automation Control */
+    post: operations["automation_control_api_v1_execution_naukri_automation_control_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/execution/naukri/import": {
     parameters: {
       query?: never;
@@ -3791,6 +3825,96 @@ export interface components {
       scope: string;
       /** Confirm Reviewed Answer */
       confirm_reviewed_answer: boolean;
+    };
+    /** AutomationControl */
+    AutomationControl: {
+      /**
+       * Action
+       * @enum {string}
+       */
+      action: "start" | "pause" | "stop";
+      /** Expected Revision */
+      expected_revision: number;
+    };
+    /**
+     * AutomationPolicy
+     * @description Preparation authority only; unsupported employer actions cannot be enabled.
+     */
+    AutomationPolicy: {
+      /** Profile Version */
+      profile_version: number;
+      /**
+       * Resume Resource Id
+       * Format: uuid
+       */
+      resume_resource_id: string;
+      /** Resume Version */
+      resume_version: string;
+      /** Allowed Roles */
+      allowed_roles: string[];
+      /** Allowed Locations */
+      allowed_locations: string[];
+      /** Excluded Companies */
+      excluded_companies?: string[];
+      /** Experience Min */
+      experience_min: number;
+      /** Experience Max */
+      experience_max: number;
+      /**
+       * Minimum Match Score
+       * @default 90
+       */
+      minimum_match_score: number;
+      /**
+       * Interval Seconds
+       * @default 21600
+       */
+      interval_seconds: number;
+      /**
+       * Max Preparations Per Day
+       * @default 5
+       */
+      max_preparations_per_day: number;
+      /**
+       * Max Posting Age Days
+       * @default 14
+       */
+      max_posting_age_days: number;
+      /**
+       * Max Applications Per Day
+       * @default 0
+       * @constant
+       */
+      max_applications_per_day: 0;
+      /**
+       * Permitted Platform
+       * @default naukri
+       * @constant
+       */
+      permitted_platform: "naukri";
+      /** Permitted Actions */
+      permitted_actions?: "PREPARATION"[];
+      /**
+       * Source
+       * @default saved_owner_imports
+       * @enum {string}
+       */
+      source: "saved_owner_imports" | "gmail_job_alerts";
+      /** Gmail Account Id */
+      gmail_account_id?: string | null;
+      /** Gmail Policy Version */
+      gmail_policy_version?: number | null;
+      /**
+       * Telegram Questions
+       * @default false
+       */
+      telegram_questions: boolean;
+    };
+    /** AutomationPolicyUpdate */
+    AutomationPolicyUpdate: {
+      /** Expected Revision */
+      expected_revision: number;
+      policy: components["schemas"]["AutomationPolicy"];
     };
     /** BrowserAction */
     BrowserAction: {
@@ -5472,6 +5596,9 @@ export interface components {
        * @enum {string}
        */
       remote_type: "remote" | "hybrid" | "onsite" | "unknown";
+      /** Employment Type */
+      employment_type?:
+        ("full_time" | "part_time" | "contract" | "internship") | null;
       /** Required Skills */
       required_skills?: string[];
       /** Preferred Skills */
@@ -5502,6 +5629,8 @@ export interface components {
       provenance: "owner_url" | "owner_job_alert";
       /** Message Reference */
       message_reference?: string | null;
+      /** Alert Candidate Id */
+      alert_candidate_id?: string | null;
       /** Application Url */
       application_url?: string | null;
       /**
@@ -5514,6 +5643,8 @@ export interface components {
       observed_at?: string | null;
       /** Valid Through */
       valid_through?: string | null;
+      /** Posted At */
+      posted_at?: string | null;
     };
     /** Inspection */
     Inspection: {
@@ -15371,6 +15502,72 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["Configuration"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  automation_policy_api_v1_execution_naukri_automation_policy_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AutomationPolicyUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  automation_control_api_v1_execution_naukri_automation_control_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AutomationControl"];
       };
     };
     responses: {
