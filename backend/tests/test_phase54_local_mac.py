@@ -100,6 +100,66 @@ async def test_mail_defaults_never_start_scripting(db_session):
         await service.search("account1")
 
 
+async def test_online_launcher_status_does_not_take_owner_lock(db_session, monkeypatch):
+    from pathlib import Path
+
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from backend.app.browser import profile_launcher
+
+    monkeypatch.setattr(profile_launcher.sys, "platform", "darwin")
+    binding = str(uuid4())
+    mapping = {"profile_binding_id": binding, "profile_directory": "Profile 8", "automatic_launch_enabled": True,
+        "chrome_profile_path": str(Path.home() / "Library/Application Support/Google/Chrome/Profile 8"),
+        "verified_via": "owner_selected_chrome_version_page"}
+    for key, value in [("chr_fixed_profile", mapping), ("chr_selection", {"profile_binding_id": binding}),
+            ("naukri_automation", {"state": "RUNNING"}),
+            ("chr_prof:" + binding, {"connected": True, "last_heartbeat": now().isoformat()})]:
+        db_session.add(OwnerPreference(key=key, value=value))
+    await db_session.commit()
+
+    async def forbidden(*_, **__):
+        pytest.fail("Online status must neither acquire the owner lock nor invoke a process")
+
+    monkeypatch.setattr(profile_launcher, "memory_row", forbidden)
+    result = await profile_launcher.ensure_fixed_profile(
+        async_sessionmaker(db_session.bind, expire_on_commit=False),
+        settings=oauth_settings(CHROME_FIXED_PROFILE_LAUNCH_ENABLED=True), run=forbidden)
+    assert result == "CONNECTED"
+
+
+async def test_offline_launcher_rechecks_stop_after_waiting_for_lock(db_session, monkeypatch):
+    from pathlib import Path
+
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from backend.app.browser import profile_launcher
+
+    monkeypatch.setattr(profile_launcher.sys, "platform", "darwin")
+    binding = str(uuid4())
+    mapping = {"profile_binding_id": binding, "profile_directory": "Profile 8", "automatic_launch_enabled": True,
+        "chrome_profile_path": str(Path.home() / "Library/Application Support/Google/Chrome/Profile 8"),
+        "verified_via": "owner_selected_chrome_version_page"}
+    for key, value in [("chr_fixed_profile", mapping), ("chr_selection", {"profile_binding_id": binding}),
+            ("naukri_automation", {"state": "RUNNING"})]:
+        db_session.add(OwnerPreference(key=key, value=value))
+    await db_session.commit()
+    actual_lock = profile_launcher.memory_row
+
+    async def stopped_before_lock(session, **kwargs):
+        state = await session.get(OwnerPreference, "naukri_automation")
+        state.value = {"state": "STOPPED"}
+        await actual_lock(session, **kwargs)
+
+    async def forbidden(*_):
+        pytest.fail("Stop won the lock; no launch probe or startup is allowed")
+
+    monkeypatch.setattr(profile_launcher, "memory_row", stopped_before_lock)
+    assert await profile_launcher.ensure_fixed_profile(
+        async_sessionmaker(db_session.bind, expire_on_commit=False),
+        settings=oauth_settings(CHROME_FIXED_PROFILE_LAUNCH_ENABLED=True), run=forbidden) == "PROFILE_OFFLINE"
+
+
 async def test_fixed_profile_launcher_never_falls_back_or_claims_launch_as_connection(db_session, monkeypatch):
     from pathlib import Path
 

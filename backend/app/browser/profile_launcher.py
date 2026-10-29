@@ -42,7 +42,8 @@ async def ensure_fixed_profile(factory, *, settings=None, run=process):
     if not settings.CHROME_FIXED_PROFILE_LAUNCH_ENABLED or sys.platform != "darwin":
         return "PROFILE_OFFLINE"
     async with factory() as session, session.begin():
-        await memory_row(session, lock=True)
+        # An online status observation launches and dispatches nothing. Avoid
+        # serializing normal browser RPCs behind this read on every worker tick.
         state = await session.get(OwnerPreference, "naukri_automation")
         # Startup is an authorized automation operation and stops with the scheduler.
         if not state or state.value.get("state") != "RUNNING":
@@ -63,6 +64,18 @@ async def ensure_fixed_profile(factory, *, settings=None, run=process):
 
         if profile and online(profile.value):
             return "CONNECTED"
+        # Reserve a real launch only after obtaining authority and re-reading
+        # everything that could have changed while waiting for the owner lock.
+        await memory_row(session, lock=True)
+        for record in (state, fixed, selected):
+            await session.refresh(record)
+        if (state.value.get("state") != "RUNNING" or fixed.value != mapping
+                or selected.value.get("profile_binding_id") != mapping["profile_binding_id"]):
+            return "PROFILE_OFFLINE"
+        if profile:
+            await session.refresh(profile)
+            if online(profile.value):
+                return "CONNECTED"
         attempt = await session.get(OwnerPreference, ATTEMPT)
         if attempt and datetime.fromisoformat(attempt.value["next_attempt_at"]) > now():
             return "PROFILE_OFFLINE"
