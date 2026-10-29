@@ -22,6 +22,9 @@ async def dispatch_form(session, settings, actor, command):
         return Result(request_id=command.request_id, ok=False, capability="form_fill",
             error_code="native_request_conflict" if previous.payload_hash != digest else "form_request_already_consumed")
     try:
+        from backend.app.browser.chrome_profiles import require_profile
+        if actor.channel == "chrome" and actor.identity == settings.CHROME_EXTENSION_ID:
+            await require_profile(session, command, receipt=command.command == "record_form_fill")
         async with session.begin_nested():
             if (
                 actor.channel != "chrome"
@@ -33,7 +36,8 @@ async def dispatch_form(session, settings, actor, command):
             service = FormService(session, settings)
             task = None
             if command.task_id and command.command != "record_form_fill":
-                task = await tasks.bound(session, command, require_plan=command.command == "authorize_form")
+                task = await tasks.bound(session, command, require_plan=command.command == "authorize_form",
+                    allow_background_inspection=command.command == "inspect_form")
             if command.command == "prepare_form_answers":
                 if not command.inspection:
                     raise ToolDenied("application_and_inspection_required")
@@ -54,6 +58,10 @@ async def dispatch_form(session, settings, actor, command):
                 if not command.plan_id:
                     raise ToolDenied("plan_required")
                 _, current_plan = await service.load(command.plan_id)
+                if (current_plan.profile_binding_id != command.profile_binding_id or
+                    current_plan.browser_session_id != command.browser_session_id or
+                    current_plan.tab_id != command.tab_id or command.tab_id is None):
+                    raise ToolDenied("extension_tab_binding_mismatch")
                 if current_plan.extension_task_id and (not task or current_plan.extension_task_id != UUID(task.value["id"])):
                     raise ToolDenied("extension_task_required")
                 if task:
@@ -77,24 +85,46 @@ async def dispatch_form(session, settings, actor, command):
                 if not command.receipt:
                     raise ToolDenied("receipt_required")
                 _, plan = await service.load(command.receipt.plan_id)
+                if (plan.profile_binding_id != command.profile_binding_id or
+                    plan.browser_session_id != command.browser_session_id or
+                    plan.tab_id != command.tab_id or command.tab_id is None):
+                    raise ToolDenied("extension_tab_binding_mismatch")
                 if plan.extension_task_id:
                     if command.task_id != plan.extension_task_id:
                         raise ToolDenied("extension_task_required")
                     task = await tasks.load(session, command.task_id)
-                    if (str(command.browser_session_id) != task.value["browser_session_id"]
-                        or command.tab_id is None or command.tab_id != task.value["tab_id"]):
-                        raise ToolDenied("extension_tab_binding_mismatch")
+                    if (str(command.profile_binding_id) != task.value.get("profile_binding_id")
+                        or str(command.browser_session_id) != task.value["browser_session_id"]
+                        or command.tab_id != task.value["tab_id"]):
+                        # The original authenticated plan may report a late partial
+                        # outcome after explicit profile transfer/restart. Keep its
+                        # audit receipt without changing the new profile's task.
+                        task = None
                     # Receipts from an interrupted fill are audit evidence only. They cannot
                     # revive a paused/cancelled task or authorize any further write.
-                    if task.value["state"] == "FILLING":
+                    if task and task.value["state"] == "FILLING":
                         if command.expected_task_version != task.value["version"] or task.value["plan_id"] != str(plan.id):
                             raise ToolDenied("extension_task_revision_conflict")
                 data = await service.receipt(command.receipt)
+                from backend.app.dashboard.models import OwnerPreference
+                receipt_key = "ext_receipt:" + str(plan.id)
+                if data["status"] != "already_recorded" and not await session.get(OwnerPreference, receipt_key):
+                    session.add(OwnerPreference(key=receipt_key, value={
+                        **command.receipt.model_dump(mode="json"), "application_id": str(plan.application_id),
+                        "profile_binding_id": str(plan.profile_binding_id), "browser_session_id": str(plan.browser_session_id),
+                        "tab_id": plan.tab_id, "packet_revision": plan.packet_revision, "recorded_at": tasks.now(),
+                        "submitted": False,
+                    }))
+                if plan.extension_task_id and task is None:
+                    data = {**data, "status": "historical_receipt_recorded", "historical_profile_receipt": True,
+                            "original_profile_binding_id": str(plan.profile_binding_id)}
                 if task and data["status"] != "already_recorded":
                     verified = command.receipt.verification_method == "retained_after_blur"
                     successful = [r for r in command.receipt.results if r.status == "filled"] if verified else []
                     receipts = [*task.value["verified_receipts"], {
                         "plan_id": str(plan.id), "authorization_id": str(plan.extension_authorization_id) if plan.extension_authorization_id else None,
+                        "profile_binding_id": str(plan.profile_binding_id), "browser_session_id": str(plan.browser_session_id),
+                        "tab_id": plan.tab_id,
                         "document_id": plan.inspection.document_id, "packet_revision": plan.packet_revision,
                         "profile_version": plan.actions[0].candidate_version if plan.actions else task.value["profile_version"],
                         "results": [r.model_dump() for r in command.receipt.results],
@@ -122,6 +152,15 @@ async def dispatch_form(session, settings, actor, command):
                     )
                     tasks.move(session, task, next_state, reason,
                         verified_receipts=receipts, counts=counts)
+            if command.command in {"inspect_form", "prepare_form_answers"}:
+                if command.tab_id is None:
+                    raise ToolDenied("extension_tab_binding_mismatch")
+                plan.profile_binding_id = command.profile_binding_id
+                plan.browser_session_id = command.browser_session_id
+                plan.tab_id = command.tab_id
+                saved_plan, _ = await service.load(plan.id)
+                saved_plan.value = plan.model_dump(mode="json")
+                data["plan"] = plan.model_dump(mode="json")
             if task:
                 data["task"] = task.value
             result = Result(request_id=command.request_id, ok=True, capability="form_fill", data=data)
@@ -132,6 +171,7 @@ async def dispatch_form(session, settings, actor, command):
             return result
     except ValueError as exc:
         allowed = {
+            "PROFILE_OFFLINE", "PROFILE_NOT_SELECTED", "PROFILE_SESSION_CHANGED",
             "manual_form_not_authorized", "profile_review_required",
             "unsupported_application_form", "platform_fill_policy_denied",
             "application_not_eligible", "fill_plan_stale", "extension_task_required",

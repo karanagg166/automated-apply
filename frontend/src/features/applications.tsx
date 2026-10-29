@@ -1130,7 +1130,11 @@ export function ApplicationDetail({ id }: { id: string }) {
       done: Boolean(
         !taskStale &&
         currentTask?.verified_receipts?.some(
-          (r) => r.packet_revision === p.revision && retainedFieldCount(r) > 0,
+          (r) =>
+            r.packet_revision === p.revision &&
+            (!currentTask?.profile_binding_id ||
+              r.profile_binding_id === currentTask.profile_binding_id) &&
+            retainedFieldCount(r) > 0,
         ),
       ),
     },
@@ -1157,14 +1161,19 @@ export function ApplicationDetail({ id }: { id: string }) {
         retainedFieldCount(r) > 0
           ? "Fill verified (retained after blur)"
           : "Fill receipt — manual review required",
-      description: `${retainedFieldCount(r)} field(s) verified retained (${r.verification_method}); ${r.results.map((res) => `${res.field_id}: ${res.status}`).join(", ") || "outcome unknown"}. Page-local IDs belong to this receipt's snapshot; submission unconfirmed.`,
+      description: `${r.profile_binding_id ? `Chrome profile ${r.profile_binding_id}; ` : ""}${retainedFieldCount(r)} field(s) verified retained (${r.verification_method}); ${r.results.map((res) => `${res.field_id}: ${res.status}`).join(", ") || "outcome unknown"}. Page-local IDs belong to this receipt's snapshot; submission unconfirmed.`,
       timestamp: r.recorded_at,
       revision: r.packet_revision,
     })),
   ].sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
 
   const lastVerified = currentTask?.verified_receipts
-    ?.filter((r) => retainedFieldCount(r) > 0)
+    ?.filter(
+      (r) =>
+        (!currentTask?.profile_binding_id ||
+          r.profile_binding_id === currentTask.profile_binding_id) &&
+        retainedFieldCount(r) > 0,
+    )
     .at(-1);
   const lastSuccessfulActivity = lastVerified
     ? `${dateLabel(lastVerified.recorded_at)} · Verified retained fill`
@@ -1283,10 +1292,6 @@ export function ApplicationDetail({ id }: { id: string }) {
 
       {!terminal &&
         !p.readiness.stale &&
-        p.platform !== "naukri" &&
-        !/https:\/\/(www\.)?naukri\.com\//.test(
-          p.snapshot.destination.application_url || "",
-        ) &&
         p.fields
           .filter(
             (field) =>

@@ -9,6 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.agent.router import owner_ui
 from backend.app.api.v1.applications import ProtectedApplicationRoute
+from backend.app.browser.chrome_profiles import (
+    ChromeCommandInput,
+    ChromeProfiles,
+    ProfileDisconnect,
+    ProfileSelection,
+)
 from backend.app.browser.company_source import ReadCompanySource
 from backend.app.browser.contracts import (
     BrowserAction,
@@ -43,6 +49,48 @@ from backend.app.services.applications.service import ApplicationPacketService
 router = APIRouter(
     prefix="/api/v1/browser", tags=["Browser forms"], route_class=OwnerRoute
 )
+
+
+@router.get("/chrome-profiles", response_model=ChromeProfiles)
+async def chrome_profiles(session: AsyncSession = Depends(get_db_session, scope="function")):
+    from backend.app.browser.chrome_profiles import listing
+    return await listing(session, get_settings())
+
+
+@router.post("/chrome-profiles/select")
+async def select_chrome_profile(data: ProfileSelection, request: Request,
+                               session: AsyncSession = Depends(get_db_session, scope="function")):
+    from backend.app.browser.chrome_profiles import select_profile
+    owner_ui(request)
+    try:
+        return await select_profile(session, data)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from None
+
+
+@router.post("/chrome-profiles/{profile_id}/disconnect")
+async def disconnect_chrome_profile(profile_id: UUID, data: ProfileDisconnect, request: Request,
+                                   session: AsyncSession = Depends(get_db_session, scope="function")):
+    from backend.app.browser.chrome_profiles import disconnect
+    owner_ui(request)
+    try:
+        return await disconnect(session, profile_id, data.expected_version)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from None
+
+
+@router.post("/chrome-profiles/commands")
+async def chrome_profile_command(data: ChromeCommandInput, request: Request,
+                                 session: AsyncSession = Depends(get_db_session, scope="function")):
+    from backend.app.agent.router import OWNER
+    from backend.app.browser.chrome_profiles import enqueue
+    owner_ui(request)
+    try:
+        return await enqueue(session, get_settings(), OWNER, data)
+    except ValueError as exc:
+        # Keep offline invalidations; dependency commits this paused state.
+        from fastapi.responses import JSONResponse
+        return JSONResponse(status_code=409, content={"detail": str(exc)})
 
 
 @router.get("/extension-tasks", response_model=list[ExtensionTask])
@@ -109,6 +157,9 @@ async def stop(request: Request, session: AsyncSession = Depends(get_db_session,
     # Match native lock order: owner before queue/plan rows.
     await memory_row(session, lock=True)
     await stop_all(session)
+    from backend.app.browser.chrome_profiles import PROFILE, invalidate, records
+    for profile in await records(session, PROFILE):
+        await invalidate(session, profile.value["id"], "global_stop")
     for task in await extension_tasks.rows(session):
         if task.value["state"] not in extension_tasks.TERMINAL:
             extension_tasks.move(session, task, "PAUSED", "global_stop",

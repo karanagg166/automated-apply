@@ -1,4 +1,5 @@
 "use client";
+import { ChromeProfiles } from "@/features/chrome-profiles";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, dateLabel, readable } from "@/lib/api";
@@ -79,6 +80,7 @@ export function LocalConnections() {
   const value = draft || policy.data;
   return (
     <section className="stack" aria-label="Local foundation connections">
+      <ChromeProfiles />
       <Notice>
         Phase 1 permits previews. Submission, email sending and paid provider
         execution remain disabled. A configured credential is not verification.

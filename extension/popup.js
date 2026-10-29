@@ -10,7 +10,7 @@ let selectedTask = null,
   reviewed = false,
   plan = null,
   busy = false;
-const codePattern = /^[a-z][a-z0-9_]{1,63}$/;
+const codePattern = /^[A-Za-z][A-Za-z0-9_]{1,63}$/;
 function text(selector, value) {
   const element = $(selector);
   if (element) element.textContent = value;

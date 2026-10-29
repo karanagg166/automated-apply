@@ -110,6 +110,10 @@ class PacketBuilder:
                 )
             )
         ).all()
+        if job.source_platform == "naukri":
+            from backend.app.execution.naukri import reviewed_job_context
+
+            job, company = reviewed_job_context(job, company)
         adapter = next(
             (p for p in self.platforms if p.recognizes(job, observations)), None
         )
@@ -197,6 +201,15 @@ class PacketBuilder:
                 ],
                 "evidence": stamps,
                 "observations": sorted({(s, u) for s, u in observations}),
+            }
+        if job.source_platform == "naukri":
+            from backend.app.services.applications.platforms.naukri import (
+                posting_unavailable,
+            )
+
+            context_data["naukri_listing_review"] = {
+                "observed_criteria": job.discovery_metadata or {},
+                "posting_unavailable": posting_unavailable(job),
             }
         if profile:
             from backend.app.knowledge.missing_input import approved_input_revisions

@@ -100,21 +100,26 @@ async def job_digest(session, job_id):
     if not job:
         return None
     company = await session.get(Company, job.company_id) if job.company_id else None
-    return digest(
-        {
-            "id": str(job.id),
-            "title": job.title,
-            "url": job.application_url or job.job_url,
-            "description": job.description,
-            "reviewed_opportunity": (job.discovery_metadata or {}).get(
-                "application_opportunity"
-            ),
-            "company_id": str(job.company_id),
-            "company": company.name if company else None,
-            "domain": company.domain if company else None,
-            "metadata": company.metadata_ if company else None,
-        }
-    )
+    if job.source_platform == "naukri":
+        from backend.app.execution.naukri import reviewed_job_context
+
+        job, company = reviewed_job_context(job, company)
+    context = {
+        "id": str(job.id),
+        "title": job.title,
+        "url": job.application_url or job.job_url,
+        "description": job.description,
+        "reviewed_opportunity": (job.discovery_metadata or {}).get(
+            "application_opportunity"
+        ),
+        "company_id": str(job.company_id),
+        "company": company.name if company else None,
+        "domain": company.domain if company else None,
+        "metadata": company.metadata_ if company else None,
+    }
+    if job.source_platform == "naukri":
+        context["naukri_listing_review"] = job.discovery_metadata or {}
+    return digest(context)
 
 
 def draft_digest(draft):

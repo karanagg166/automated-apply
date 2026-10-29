@@ -11,7 +11,12 @@ from backend.app.automation.store import instant
 from backend.app.dashboard.models import OwnerPreference
 
 
-async def enqueue(session, settings, campaign, job, inspect_only=False):
+async def enqueue(session, settings, campaign, job, inspect_only=False, *, executor="connected_extension"):
+    if executor == "connected_extension":
+        from backend.app.browser.chrome_profiles import enqueue_campaign
+        return await enqueue_campaign(session, settings, campaign, job, inspect_only=inspect_only)
+    if executor != "isolated_browser":
+        raise ToolDenied("explicit_executor_required")
     from backend.app.browser.service import FormService
     from backend.app.models.application_packet import ApplicationPacket
 

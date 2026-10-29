@@ -1,6 +1,7 @@
 """Bounded local preparation worker; never dispatches a Naukri submission."""
 
 import asyncio
+import logging
 from datetime import timedelta
 from uuid import UUID
 
@@ -10,6 +11,7 @@ from backend.app.agent.tools import ToolDenied
 from backend.app.automation.store import instant
 from backend.app.dashboard.models import Notification, OwnerPreference
 from backend.app.execution import store
+from backend.app.execution.naukri import reviewed_job_context
 from backend.app.integrations.gmail.history import reviewed_history
 from backend.app.models.application_packet import ApplicationPacket
 from backend.app.models.candidate_profile import CandidateProfile
@@ -17,6 +19,7 @@ from backend.app.models.company import Company
 from backend.app.models.job import Job
 from backend.app.schemas.applications import CreatePacket
 from backend.app.schemas.candidate_profile import CandidateProfileRead
+from backend.app.services.applications.platforms.naukri import posting_unavailable
 from backend.app.services.applications.service import ApplicationPacketService
 from backend.app.services.job_discovery_matcher import JobDiscoveryMatcher
 
@@ -34,6 +37,8 @@ def eligibility(job, profile, match):
     """Unknown/preferred criteria cannot become required or an auto-submit grant."""
     meta = job.discovery_metadata or {}
     provenance = meta.get("data_provenance", {})
+    if posting_unavailable(job):
+        return "REJECTED", "vacancy_closed_expired_or_invalid"
     required = provenance.get("experience_requirement") == "required"
     years, lower, upper = (
         profile.verified_experience_years,
@@ -60,8 +65,29 @@ def eligibility(job, profile, match):
 
 async def prepare(session, identity):
     row = await store.fenced(session, identity)
-    now = await instant(session)
-    job = await session.get(Job, UUID(row.value["job_id"]))
+    from backend.app.execution import recurring
+
+    job = await session.get(Job, UUID(row.value["job_id"]), populate_existing=True)
+    if job:
+        company = (
+            await session.get(Company, job.company_id, populate_existing=True)
+            if job.company_id else None
+        )
+        job, company = reviewed_job_context(job, company)
+        # Labels and identity exposed by the dashboard must describe the same
+        # current listing as policy/packet checks, including a rejected change.
+        row.value = {
+            **row.value,
+            "role": job.title,
+            "employer": company.name if company else None,
+            "employer_id": str(job.company_id) if job.company_id else None,
+        }
+    try:
+        policy = await recurring.execution_policy(session, row)
+    except ToolDenied as exc:
+        await store.control(session, row.value["id"], "pause", row.value["revision"])
+        row.value = {**row.value, "diagnostic": str(exc)}
+        return
     profile = await session.scalar(
         select(CandidateProfile).where(CandidateProfile.singleton_key == "primary")
     )
@@ -88,7 +114,6 @@ async def prepare(session, identity):
     if row.value["state"] == "DISCOVERED":
         await store.move(session, row, "MATCHED")
     if row.value["state"] == "MATCHED":
-        company = await session.get(Company, job.company_id) if job.company_id else None
         match = JobDiscoveryMatcher(session, await reviewed_history(session)).match(
             job, CandidateProfileRead.model_validate(profile), company
         )
@@ -123,6 +148,21 @@ async def prepare(session, identity):
             "packet_id": str(packet.id),
             "profile_version": packet.candidate_profile_version,
         }
+        if packet.readiness.stale or (
+            policy
+            and (
+                not packet.snapshot.resume.selected
+                or packet.snapshot.resume.selected.resource_id
+                != policy.resume_resource_id
+                or packet.snapshot.resume.selected.resource_version
+                != policy.resume_version
+            )
+        ):
+            await store.move(
+                session, row, "NEEDS_INPUT", "stale_packet_or_unapproved_resume"
+            )
+            row.value = {**row.value, "lease_until": None}
+            return
         await store.move(
             session,
             row,
@@ -133,24 +173,41 @@ async def prepare(session, identity):
             packet.readiness.state,
         )
     row.value = {**row.value, "lease_until": None, "attempts": 0}
-    if row.value["packet_id"]:
-        from backend.app.execution.questions import ask
+    await queue_policy_questions(session, row, policy)
 
-        packet = await ApplicationPacketService(session).read(
-            UUID(row.value["packet_id"])
-        )
-        if not packet.readiness.stale and row.value["state"] in {
-            "NEEDS_INPUT",
-            "READY_FOR_REVIEW",
-        }:
-            for field in packet.fields:
-                if needs_owner_answer(field, now):
-                    await ask(session, row.value["id"], field.id)
+
+async def queue_policy_questions(session, row, policy):
+    if (
+        not policy
+        or not policy.telegram_questions
+        or row.value["state"] != "NEEDS_INPUT"
+        or not row.value["packet_id"]
+    ):
+        return
+    from backend.app.execution import questions
+
+    packet = await ApplicationPacketService(session).read(UUID(row.value["packet_id"]))
+    if packet.readiness.stale:
+        return
+    for field in packet.fields:
+        if needs_owner_answer(field, await instant(session)):
+            try:
+                async with session.begin_nested():
+                    await questions.ask(session, row.value["id"], field.id)
+            except (ToolDenied, ValueError):
+                row.value = {**row.value, "diagnostic": "manual_question_required"}
+    # Only a saved opt-in policy may queue these prompts. The separately
+    # approved Telegram worker performs delivery using the existing outbox.
 
 
 async def watch(session):
     """Scan only already imported data. Never poll a Naukri portal or mailbox."""
     await store.memory_row(session, lock=True)
+    from backend.app.execution.recurring import require_enabled
+    try:
+        await require_enabled(session)
+    except ToolDenied:
+        return 0
     config = await store.configuration(session)
     if config.mode != "WATCH_AND_NOTIFY":
         return 0
@@ -185,6 +242,7 @@ async def watch(session):
         if await store.previously_applied(session, job):
             continue
         company = await session.get(Company, job.company_id) if job.company_id else None
+        job, company = reviewed_job_context(job, company)
         match = JobDiscoveryMatcher(session, history).match(
             job, CandidateProfileRead.model_validate(profile), company
         )
@@ -213,25 +271,41 @@ class ExecutionWorker:
         self.factory = factory
 
     async def tick(self):
-        async with self.factory() as session, session.begin():
-            await watch(session)
-            from backend.app.execution.questions import ask
+        from backend.app.execution.alert_email import poll
 
+        await poll(self.factory)
+        async with self.factory() as session, session.begin():
+            from backend.app.execution import recurring
+
+            await recurring.tick(session)
+            await watch(session)
             now = await instant(session)
+            automation = await recurring.record(session)
             for row in await store.rows(session):
                 if (
-                    row.value["state"] not in {"NEEDS_INPUT", "READY_FOR_REVIEW"}
+                    row.value["state"] not in {"READY_FOR_REVIEW", "NEEDS_INPUT"}
                     or not row.value["packet_id"]
                 ):
                     continue
                 packet = await ApplicationPacketService(session).read(
                     UUID(row.value["packet_id"])
                 )
-                if packet.readiness.stale:
-                    continue
-                for field in packet.fields:
-                    if needs_owner_answer(field, now):
-                        await ask(session, row.value["id"], field.id)
+                if (
+                    row.value["state"] == "READY_FOR_REVIEW"
+                    and not packet.readiness.stale
+                    and any(needs_owner_answer(field, now) for field in packet.fields)
+                ):
+                    await store.move(
+                        session, row, "NEEDS_INPUT", "owner_question_approval_required"
+                    )
+                if (
+                    automation["state"] == "RUNNING"
+                    and row.value.get("automation_revision") == automation["revision"]
+                ):
+                    from backend.app.execution.contracts import AutomationPolicy
+
+                    policy = AutomationPolicy.model_validate(automation["policy"])
+                    await queue_policy_questions(session, row, policy)
             identity = await store.claim(session)
         if not identity:
             return None
@@ -242,7 +316,10 @@ class ExecutionWorker:
             return None
         except Exception:
             async with self.factory() as session, session.begin():
-                row = await store.fenced(session, identity)
+                try:
+                    row = await store.fenced(session, identity)
+                except ToolDenied:
+                    return None
                 now = await instant(session)
                 row.value = {
                     **row.value,
@@ -258,9 +335,19 @@ class ExecutionWorker:
 
 async def serve(factory, stop):
     worker = ExecutionWorker(factory)
+    delay = 5
     while not stop.is_set():
-        await worker.tick()
         try:
-            await asyncio.wait_for(stop.wait(), timeout=5)
+            await worker.tick()
+            delay = 5
+        except Exception:
+            # Heartbeats go stale during outages; never report an alive thread as
+            # a successful DB check. No exception details containing URLs/secrets.
+            logging.getLogger(__name__).warning(
+                "Execution worker tick failed; retrying in %s seconds", delay
+            )
+            delay = min(60, delay * 2)
+        try:
+            await asyncio.wait_for(stop.wait(), timeout=delay)
         except TimeoutError:
             pass

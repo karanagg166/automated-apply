@@ -77,6 +77,8 @@ class ExtensionTask(Contract):
     target_url: str
     current_url: str
     browser_session_id: UUID
+    profile_binding_id: UUID | None = None
+    window_id: int | None = None
     tab_id: int | None
     state: Literal["DISCOVERED", "PACKET_READY", "FORM_INSPECTED", "NEEDS_INPUT", "ANSWERS_REVIEWED", "FILL_AUTHORIZED", "FILLING", "FILLED_VERIFIED", "READY_FOR_SUBMISSION", "PAUSED", "FAILED_RETRYABLE", "FAILED_FINAL", "CHALLENGE_REQUIRED", "SUBMISSION_UNKNOWN", "SUBMITTED_CONFIRMED"]
     challenge_state: Literal["NONE", "WIDGET_PRESENT_UNVERIFIED", "CHALLENGE_BLOCKING", "MANUALLY_RESOLVED_AND_SITE_VERIFIED", "UNKNOWN"]
@@ -152,7 +154,7 @@ async def fresh(session, settings, value):
     return packet
 
 
-async def create(session, settings, application_id, browser_session_id, tab_id=None):
+async def create(session, settings, application_id, browser_session_id, tab_id=None, profile_binding_id=None, window_id=None, expected_version=None):
     from backend.app.browser.service import FormService
     if not browser_session_id:
         raise ToolDenied("browser_session_required")
@@ -161,8 +163,22 @@ async def create(session, settings, application_id, browser_session_id, tab_id=N
     identity = uuid5(NAMESPACE_URL, "extension_task:" + str(application_id))
     existing = await session.get(OwnerPreference, PREFIX + str(identity), populate_existing=True)
     if existing:
+        if expected_version is not None and expected_version != existing.value["version"]:
+            raise ToolDenied("extension_task_revision_conflict")
         if existing.value["state"] in TERMINAL:
             raise ToolDenied("extension_task_terminal")
+        if existing.value.get("profile_binding_id") != str(profile_binding_id):
+            # Explicit Open in the newly selected profile is the only transfer gesture.
+            # Selection/disconnect has already paused the old task and revoked plans.
+            if existing.value["state"] != "PAUSED":
+                raise ToolDenied("PROFILE_NOT_SELECTED")
+            paused = existing.value.get("reason") in {"owner_pause", "global_stop"}
+            move(session, existing, "PAUSED" if paused else "PACKET_READY", existing.value["reason"] if paused else "owner_profile_transfer",
+                 profile_binding_id=str(profile_binding_id), browser_session_id=str(browser_session_id),
+                 window_id=window_id, tab_id=None, tab_active=False, plan_id=None,
+                 authorization_id=None, network_guard_active=False, browser_connection="unverified",
+                 counts={"ready": 0, "completed": 0, "missing": 0, "manual": 0, "validation_errors": 0, "existing": 0},
+                 step=None, challenge_state="UNKNOWN")
         if existing.value["browser_session_id"] != str(browser_session_id):
             raise ToolDenied("extension_task_recovery_required")
         # Reopening a popup or duplicate click cannot create another task or refresh permissions.
@@ -178,6 +194,7 @@ async def create(session, settings, application_id, browser_session_id, tab_id=N
         "job_title": packet.snapshot.job_title, "packet_revision": packet.revision,
         "profile_version": profile.version, "context_digest": packet.snapshot.context_digest,
         "target_url": url, "current_url": url, "browser_session_id": str(browser_session_id),
+        "profile_binding_id": str(profile_binding_id), "window_id": window_id,
         "tab_id": tab_id, "state": "PACKET_READY", "challenge_state": "UNKNOWN",
         "step": None, "plan_id": None, "authorization_id": None,
         "field_answer_revisions": {str(f.id): f.answer_revision for f in packet.fields},
@@ -203,19 +220,24 @@ async def unclaimed(session, task_id, browser_session_id, tab_id):
             raise ToolDenied("extension_tab_already_owned")
 
 
-async def bound(session, command, *, require_plan=False):
+async def bound(session, command, *, require_plan=False, allow_background_inspection=False):
     await store.memory_row(session, lock=True)
     if not command.task_id:
         raise ToolDenied("extension_task_required")
     row = await load(session, command.task_id)
     value = row.value
+    if value.get("profile_binding_id") != str(command.profile_binding_id):
+        raise ToolDenied("PROFILE_NOT_SELECTED")
     if command.expected_task_version != value["version"]:
         raise ToolDenied("extension_task_revision_conflict")
     if (not command.browser_session_id
         or value["browser_session_id"] != str(command.browser_session_id)
-        or command.tab_id is None or command.tab_id != value["tab_id"]):
+        or command.tab_id is None or command.tab_id != value["tab_id"]
+        or command.window_id is None or command.window_id != value.get("window_id")):
         raise ToolDenied("extension_tab_binding_mismatch")
-    if value["state"] in TERMINAL | {"PAUSED"}:
+    focus_only = (allow_background_inspection and value["state"] == "PAUSED"
+                  and value.get("reason") in {"focus_lost", "active_tab_changed"})
+    if value["state"] in TERMINAL or (value["state"] == "PAUSED" and not focus_only):
         raise ToolDenied("extension_task_paused_or_cancelled")
     if require_plan and str(command.plan_id or (command.receipt.plan_id if command.receipt else "")) != value["plan_id"]:
         raise ToolDenied("extension_task_plan_mismatch")
@@ -276,6 +298,8 @@ async def update(session, settings, command):
     await store.memory_row(session, lock=True)
     row = await load(session, command.task_id)
     value, event = row.value, command.task_event
+    if value.get("profile_binding_id") != str(command.profile_binding_id):
+        raise ToolDenied("PROFILE_NOT_SELECTED")
     if command.expected_task_version != value["version"]:
         raise ToolDenied("extension_task_revision_conflict")
     if event in {"recover", "recovered", "worker_restart"} and value["state"] == "FILLING":
@@ -316,7 +340,7 @@ async def update(session, settings, command):
             raise ToolDenied("extension_destination_mismatch")
         await unclaimed(session, command.task_id, command.browser_session_id, command.tab_id)
         return move(session, row, "PACKET_READY", "tab_bound_fresh_inspection_required",
-            tab_id=command.tab_id, current_url=value["target_url"], tab_active=True,
+            tab_id=command.tab_id, window_id=command.window_id, current_url=value["target_url"], tab_active=True,
             browser_connection="connected", plan_id=None, authorization_id=None)
     if event == "worker_restart":
         reason = value["reason"] if value.get("state") == "PAUSED" and value.get("reason") in {"owner_pause", "global_stop"} else "worker_restart_fresh_inspection_required"
@@ -338,7 +362,9 @@ async def update(session, settings, command):
         destination = permitted_navigation(value, command.observed_url or value["current_url"])
         reason = (
             value["reason"]
-            if value.get("state") == "PAUSED" and value.get("reason") in {"owner_pause", "global_stop"}
+            if value.get("state") == "PAUSED" and (
+                value.get("reason") in {"owner_pause", "global_stop"}
+                or event in {"focus_lost", "active_tab_changed"})
             else ("unexpected_navigation" if event == "navigation" and destination is None else event)
         )
         return move(session, row, "FAILED_RETRYABLE" if event == "network_timeout" else "PAUSED", reason,
@@ -379,8 +405,9 @@ async def dispatch_task(session, settings, actor, command):
     if actor.channel != "chrome" or actor.identity != settings.CHROME_EXTENSION_ID:
         return Result(request_id=command.request_id, ok=False, capability="extension_task", error_code="extension_identity_required")
     try:
+        from backend.app.browser.chrome_profiles import require_profile
+        await require_profile(session, command)
         async with session.begin_nested():
-            await store.memory_row(session, lock=True)
             key = f"extension_request:{actor.identity}:{command.request_id}"
             previous = await session.get(AgentOperation, key)
             if previous:
@@ -388,10 +415,16 @@ async def dispatch_task(session, settings, actor, command):
             if command.command == "open_application_task":
                 if not command.application_id:
                     raise ToolDenied("application_id_required")
-                row = await create(session, settings, command.application_id, command.browser_session_id, command.tab_id)
+                row = await create(session, settings, command.application_id, command.browser_session_id, command.tab_id,
+                    command.profile_binding_id, command.window_id, command.expected_task_version)
                 data = {"task": row.value, "submitted": False}
             elif command.command == "get_application_task":
                 row = await load(session, command.task_id)
+                if row.value.get("profile_binding_id") != str(command.profile_binding_id):
+                    raise ToolDenied("PROFILE_NOT_SELECTED")
+                if command.expected_task_version is not None:
+                    row = await bound(session, command, allow_background_inspection=True)
+                    await fresh(session, settings, row.value)
                 if row.value["state"] == "FILLING":
                     try:
                         await fresh(session, settings, row.value)

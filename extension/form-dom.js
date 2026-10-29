@@ -932,6 +932,17 @@ export function formDOM(request = { operation: "inspect" }) {
       const controls = [
         ...document.querySelectorAll("input,textarea,select"),
       ].filter(visible);
+      const applicationControl = (el) => {
+        if (!["naukri.com", "www.naukri.com"].includes(location.hostname))
+          return true;
+        // A posting's global search bar is not an application form. Naukri
+        // drawers without an explicit form/dialog scope remain manual until
+        // a genuine adapter establishes their boundaries.
+        return (
+          !el.closest("header,nav,[role='search'],[class*='nI-gNb']") &&
+          Boolean(el.closest("form,[role='form'],[role='dialog']"))
+        );
+      };
       controlCount = controls.length;
       snapshotControls = controls.map((el) => ({
         el,
@@ -1125,6 +1136,7 @@ export function formDOM(request = { operation: "inspect" }) {
           choicesFor(el),
       );
       for (const el of [...controls, ...accessible]) {
+        if (!applicationControl(el)) continue;
         if (
           ["hidden", "submit", "button", "reset", "image"].includes(el.type) &&
           !(
@@ -1448,7 +1460,7 @@ export function formDOM(request = { operation: "inspect" }) {
 
       const buttons = [
         ...document.querySelectorAll("button,input[type=submit],[role=button]"),
-      ].filter(visible);
+      ].filter((el) => visible(el) && applicationControl(el));
       const next = buttons.filter(
         (el) =>
           el.tagName === "BUTTON" &&
@@ -1486,6 +1498,7 @@ export function formDOM(request = { operation: "inspect" }) {
                 : "NONE",
         completed_count: controls.filter(
           (el) =>
+            applicationControl(el) &&
             !["hidden", "submit", "button", "reset", "image"].includes(
               el.type,
             ) &&

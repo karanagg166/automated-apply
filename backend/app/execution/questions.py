@@ -428,7 +428,7 @@ async def approve_reuse(session, question_id):
 
 
 async def deliver_one(factory, settings, bot):
-    """At-least-once notification; reply IDs persist. Never retries applications."""
+    """One send attempt; persist ambiguity rather than duplicate an owner prompt."""
     if not settings.TELEGRAM_OWNER_USER_ID or not settings.TELEGRAM_OWNER_CHAT_ID:
         return False
     async with factory() as session, session.begin():
@@ -467,9 +467,9 @@ async def deliver_one(factory, settings, bot):
             return False
         q = dict(row.value)
         row.value = {**q, "delivery_lease": (now + timedelta(seconds=60)).isoformat(),
-            # Telegram has no sendMessage idempotency key. For extension prompts,
+            # Telegram has no sendMessage idempotency key. For every owner prompt,
             # an interrupted send must be reconciled manually, never resent on restart.
-            "state": "delivery_unknown" if q.get("extension_task_id") else q["state"]}
+            "state": "delivery_unknown"}
     result = await bot.call(
         "sendMessage",
         {
@@ -498,7 +498,7 @@ async def deliver_one(factory, settings, bot):
 
 
 async def bridge_form(session, packet, plan):
-    """Persist actual unanswered form questions before queueing owner messages.
+    """Persist actual unanswered questions without authorizing a Telegram send.
 
     Caller holds the owner lock before locking packet context. Native DOM field
     references are deliberately not reused after the answer; a new inspection
@@ -512,7 +512,6 @@ async def bridge_form(session, packet, plan):
     except ValueError:
         return packet
     unresolved = {a.field_id for a in plan.actions if a.needs_input}
-    envelopes = []
     for field in plan.inspection.fields:
         if (
             not field.required
@@ -542,23 +541,7 @@ async def bridge_form(session, packet, plan):
                 ),
             )
             existing = next(f for f in packet.fields if f.question == question)
-        intent = (await store.start(session, [packet.job_id]))[0]
-        execution = await store.load(session, intent["id"])
-        if execution.value["state"] in store.TERMINAL | {"PAUSED"}:
-            continue
-        execution.value = {
-            **execution.value,
-            "packet_id": str(packet.id),
-            "state": "NEEDS_INPUT",
-            "lease_until": None,
-            "fence": execution.value["fence"] + 1,
-        }
-        envelope = await ask(session, intent["id"], existing.id)
-        envelopes.append(envelope["id"])
     await session.flush()
-    for identity in envelopes:
-        row = await session.get(OwnerPreference, PREFIX + identity)
-        row.value = {**row.value, "packet_revision": packet.revision}
     plan.packet_revision = packet.revision
     return packet
 

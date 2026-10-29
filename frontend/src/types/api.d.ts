@@ -2586,6 +2586,74 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/browser/chrome-profiles": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Chrome Profiles */
+    get: operations["chrome_profiles_api_v1_browser_chrome_profiles_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser/chrome-profiles/select": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Select Chrome Profile */
+    post: operations["select_chrome_profile_api_v1_browser_chrome_profiles_select_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser/chrome-profiles/{profile_id}/disconnect": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Disconnect Chrome Profile */
+    post: operations["disconnect_chrome_profile_api_v1_browser_chrome_profiles__profile_id__disconnect_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser/chrome-profiles/commands": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Chrome Profile Command */
+    post: operations["chrome_profile_command_api_v1_browser_chrome_profiles_commands_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/browser/extension-tasks": {
     parameters: {
       query?: never;
@@ -3165,6 +3233,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/execution/naukri/automation/policy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Automation Policy */
+    put: operations["automation_policy_api_v1_execution_naukri_automation_policy_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/execution/naukri/automation/control": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Automation Control */
+    post: operations["automation_control_api_v1_execution_naukri_automation_control_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/execution/naukri/import": {
     parameters: {
       query?: never;
@@ -3724,6 +3826,96 @@ export interface components {
       /** Confirm Reviewed Answer */
       confirm_reviewed_answer: boolean;
     };
+    /** AutomationControl */
+    AutomationControl: {
+      /**
+       * Action
+       * @enum {string}
+       */
+      action: "start" | "pause" | "stop";
+      /** Expected Revision */
+      expected_revision: number;
+    };
+    /**
+     * AutomationPolicy
+     * @description Preparation authority only; unsupported employer actions cannot be enabled.
+     */
+    AutomationPolicy: {
+      /** Profile Version */
+      profile_version: number;
+      /**
+       * Resume Resource Id
+       * Format: uuid
+       */
+      resume_resource_id: string;
+      /** Resume Version */
+      resume_version: string;
+      /** Allowed Roles */
+      allowed_roles: string[];
+      /** Allowed Locations */
+      allowed_locations: string[];
+      /** Excluded Companies */
+      excluded_companies?: string[];
+      /** Experience Min */
+      experience_min: number;
+      /** Experience Max */
+      experience_max: number;
+      /**
+       * Minimum Match Score
+       * @default 90
+       */
+      minimum_match_score: number;
+      /**
+       * Interval Seconds
+       * @default 21600
+       */
+      interval_seconds: number;
+      /**
+       * Max Preparations Per Day
+       * @default 5
+       */
+      max_preparations_per_day: number;
+      /**
+       * Max Posting Age Days
+       * @default 14
+       */
+      max_posting_age_days: number;
+      /**
+       * Max Applications Per Day
+       * @default 0
+       * @constant
+       */
+      max_applications_per_day: 0;
+      /**
+       * Permitted Platform
+       * @default naukri
+       * @constant
+       */
+      permitted_platform: "naukri";
+      /** Permitted Actions */
+      permitted_actions?: "PREPARATION"[];
+      /**
+       * Source
+       * @default saved_owner_imports
+       * @enum {string}
+       */
+      source: "saved_owner_imports" | "gmail_job_alerts";
+      /** Gmail Account Id */
+      gmail_account_id?: string | null;
+      /** Gmail Policy Version */
+      gmail_policy_version?: number | null;
+      /**
+       * Telegram Questions
+       * @default false
+       */
+      telegram_questions: boolean;
+    };
+    /** AutomationPolicyUpdate */
+    AutomationPolicyUpdate: {
+      /** Expected Revision */
+      expected_revision: number;
+      policy: components["schemas"]["AutomationPolicy"];
+    };
     /** BrowserAction */
     BrowserAction: {
       /** Expected Revision */
@@ -4055,6 +4247,90 @@ export interface components {
       /** Credential Url */
       credential_url?: string | null;
     };
+    /** ChromeCommandInput */
+    ChromeCommandInput: {
+      /**
+       * Request Id
+       * Format: uuid
+       */
+      request_id: string;
+      /**
+       * Profile Binding Id
+       * Format: uuid
+       */
+      profile_binding_id: string;
+      /** Selection Version */
+      selection_version: number;
+      /** Expected Profile Version */
+      expected_profile_version: number;
+      /**
+       * Application Id
+       * Format: uuid
+       */
+      application_id: string;
+      /** Packet Revision */
+      packet_revision: number;
+      /**
+       * Action
+       * @enum {string}
+       */
+      action: "open" | "prepare" | "pause" | "resume" | "cancel";
+      /** Task Id */
+      task_id?: string | null;
+      /** Expected Task Version */
+      expected_task_version?: number | null;
+    };
+    /** ChromeProfile */
+    ChromeProfile: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Label */
+      label: string;
+      /** Version */
+      version: number;
+      /** Connected */
+      connected: boolean;
+      /** Selected */
+      selected: boolean;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "CONNECTED" | "PROFILE_OFFLINE" | "DISCONNECTED";
+      /** Last Heartbeat */
+      last_heartbeat: string;
+      /**
+       * Browser Session Id
+       * Format: uuid
+       */
+      browser_session_id: string;
+      /** Window Id */
+      window_id: number | null;
+      /** Commands Enabled */
+      commands_enabled: boolean;
+    };
+    /** ChromeProfiles */
+    ChromeProfiles: {
+      /** Selection */
+      selection: {
+        [key: string]: unknown;
+      };
+      /** Profiles */
+      profiles: components["schemas"]["ChromeProfile"][];
+      /** Channel Available */
+      channel_available: boolean;
+      /** Commands */
+      commands: {
+        [key: string]: unknown;
+      }[];
+      /** Receipts */
+      receipts?: {
+        [key: string]: unknown;
+      }[];
+    };
     /** Command */
     Command: {
       /**
@@ -4073,6 +4349,12 @@ export interface components {
        * @enum {string}
        */
       command:
+        | "connect_chrome_profile"
+        | "heartbeat_chrome_profile"
+        | "disconnect_chrome_profile"
+        | "poll_chrome_command"
+        | "start_chrome_command"
+        | "ack_chrome_command"
         | "health"
         | "connection_status"
         | "preview_application_url"
@@ -4090,6 +4372,31 @@ export interface components {
         | "get_application_task"
         | "update_application_task"
         | "ask_form_questions";
+      /** Profile Binding Id */
+      profile_binding_id?: string | null;
+      /** Profile Secret */
+      profile_secret?: string | null;
+      /** Profile Label */
+      profile_label?: string | null;
+      /**
+       * Profile Commands Enabled
+       * @default false
+       */
+      profile_commands_enabled: boolean;
+      /** Expected Profile Version */
+      expected_profile_version?: number | null;
+      /** Window Id */
+      window_id?: number | null;
+      /** Chrome Command Id */
+      chrome_command_id?: string | null;
+      /** Expected Command Version */
+      expected_command_version?: number | null;
+      /** Command Lease Token */
+      command_lease_token?: string | null;
+      /** Command Outcome */
+      command_outcome?: ("completed" | "failed" | "outcome_unknown") | null;
+      /** Command Error */
+      command_error?: string | null;
       /** Url */
       url?: string | null;
       /** Title */
@@ -4754,6 +5061,10 @@ export interface components {
        * Format: uuid
        */
       browser_session_id: string;
+      /** Profile Binding Id */
+      profile_binding_id?: string | null;
+      /** Window Id */
+      window_id?: number | null;
       /** Tab Id */
       tab_id: number | null;
       /**
@@ -4954,6 +5265,12 @@ export interface components {
       inspection: components["schemas"]["Inspection"];
       /** Context Digest */
       context_digest: string;
+      /** Profile Binding Id */
+      profile_binding_id?: string | null;
+      /** Browser Session Id */
+      browser_session_id?: string | null;
+      /** Tab Id */
+      tab_id?: number | null;
       /** Extension Task Id */
       extension_task_id?: string | null;
       /** Extension Authorization Id */
@@ -5279,6 +5596,9 @@ export interface components {
        * @enum {string}
        */
       remote_type: "remote" | "hybrid" | "onsite" | "unknown";
+      /** Employment Type */
+      employment_type?:
+        ("full_time" | "part_time" | "contract" | "internship") | null;
       /** Required Skills */
       required_skills?: string[];
       /** Preferred Skills */
@@ -5309,6 +5629,22 @@ export interface components {
       provenance: "owner_url" | "owner_job_alert";
       /** Message Reference */
       message_reference?: string | null;
+      /** Alert Candidate Id */
+      alert_candidate_id?: string | null;
+      /** Application Url */
+      application_url?: string | null;
+      /**
+       * Posting Status
+       * @default unknown
+       * @enum {string}
+       */
+      posting_status: "unknown" | "active" | "closed" | "already_applied";
+      /** Observed At */
+      observed_at?: string | null;
+      /** Valid Through */
+      valid_through?: string | null;
+      /** Posted At */
+      posted_at?: string | null;
     };
     /** Inspection */
     Inspection: {
@@ -6091,6 +6427,11 @@ export interface components {
     OpenBrowser: {
       /** Expected Revision */
       expected_revision: number;
+      /**
+       * Executor
+       * @constant
+       */
+      executor: "isolated_browser";
       /** Approve Dedicated Profile */
       approve_dedicated_profile: boolean;
       /** Confirm Destination Permission */
@@ -6604,6 +6945,11 @@ export interface components {
        */
       owner_confirmed: true;
     };
+    /** ProfileDisconnect */
+    ProfileDisconnect: {
+      /** Expected Version */
+      expected_version: number;
+    };
     /** ProfileLinks */
     ProfileLinks: {
       /** Github */
@@ -6637,6 +6983,13 @@ export interface components {
        * @default []
        */
       other: string[];
+    };
+    /** ProfileSelection */
+    ProfileSelection: {
+      /** Expected Version */
+      expected_version: number;
+      /** Profile Binding Id */
+      profile_binding_id: string | null;
     };
     /** ProjectApproveRequest */
     ProjectApproveRequest: {
@@ -13995,6 +14348,127 @@ export interface operations {
       };
     };
   };
+  chrome_profiles_api_v1_browser_chrome_profiles_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ChromeProfiles"];
+        };
+      };
+    };
+  };
+  select_chrome_profile_api_v1_browser_chrome_profiles_select_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProfileSelection"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  disconnect_chrome_profile_api_v1_browser_chrome_profiles__profile_id__disconnect_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        profile_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProfileDisconnect"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  chrome_profile_command_api_v1_browser_chrome_profiles_commands_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ChromeCommandInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   extension_tasks_api_v1_browser_extension_tasks_get: {
     parameters: {
       query?: never;
@@ -15028,6 +15502,72 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": components["schemas"]["Configuration"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  automation_policy_api_v1_execution_naukri_automation_policy_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AutomationPolicyUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  automation_control_api_v1_execution_naukri_automation_control_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AutomationControl"];
       };
     };
     responses: {

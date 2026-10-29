@@ -11,7 +11,7 @@ sys.path.insert(0, str(ROOT))
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("service", choices=["api", "telegram", "preflight", "status"])
+    parser.add_argument("service", choices=["api", "telegram", "execution", "preflight", "status"])
     parser.add_argument("--env-file", required=True)
     args = parser.parse_args()
     from backend.app.core.config import configure_operator
@@ -47,6 +47,13 @@ async def run(service, settings):
             print(json.dumps(output, indent=2))
             return
         await database_health(get_engine(), settings)
+        if service == "execution":
+            from backend.app.execution.worker import serve
+            stop = asyncio.Event()
+            for sig in (signal.SIGINT, signal.SIGTERM):
+                asyncio.get_running_loop().add_signal_handler(sig, stop.set)
+            await serve(get_session_factory(), stop)
+            return
         from backend.app.local_agent.telegram import (
             TelegramError,
             run_worker,

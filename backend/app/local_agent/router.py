@@ -103,12 +103,13 @@ async def owner_command(command: Command, session: AsyncSession = Depends(get_db
 
 
 @router.post("/chrome", response_model=Result)
-async def chrome_command(command: Command, request: Request, session: AsyncSession = Depends(get_db_session)):
+async def chrome_command(command: Command, request: Request, session: AsyncSession = Depends(get_db_session, scope="function")):
     settings = get_settings()
     if (not settings.CHROME_NATIVE_MESSAGING_ENABLED or not settings.CHROME_EXTENSION_ID
             or request.headers.get("X-Agent-Client") != settings.CHROME_EXTENSION_ID):
         raise HTTPException(403, "extension_identity_not_authorized")
-    if command.command not in {"health", "connection_status", "get_agent_capabilities", "preview_application_url", "observe_platform_session", "inspect_form", "prepare_form_answers", "authorize_form", "record_form_fill", "open_application_task", "get_application_task", "update_application_task", "ask_form_questions"}:
+    from backend.app.browser.chrome_profiles import NATIVE
+    if command.command not in NATIVE | {"health", "connection_status", "get_agent_capabilities", "preview_application_url", "observe_platform_session", "inspect_form", "prepare_form_answers", "authorize_form", "record_form_fill", "open_application_task", "get_application_task", "update_application_task", "ask_form_questions"}:
         raise HTTPException(403, "extension_capability_denied")
     return await dispatch(session, settings, Actor(channel="chrome", identity=settings.CHROME_EXTENSION_ID), command)
 

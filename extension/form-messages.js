@@ -30,6 +30,12 @@ export function formErrorMessage(error) {
   }
   return (
     {
+      PROFILE_OFFLINE:
+        "PROFILE_OFFLINE: connect this Chrome profile in extension Settings. No isolated browser will open.",
+      PROFILE_NOT_SELECTED:
+        "Select this connected Chrome profile in the dashboard before using application tasks.",
+      PROFILE_SESSION_CHANGED:
+        "Chrome restarted. Inspect and review again; no fill authorization was restored.",
       background_network_scope_unverified:
         "This form uses background network execution outside the tab guard. Complete it manually; eventful filling is unavailable.",
       network_guard_permission_required:

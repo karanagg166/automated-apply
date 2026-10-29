@@ -15,6 +15,12 @@ async def command(session, text):
         return None
     action = words[1] if len(words) > 1 else "status"
     try:
+        if action == "automation" and len(words) == 3 and words[2] in {"start", "pause", "stop"}:
+            from backend.app.execution import recurring
+            from backend.app.execution.contracts import AutomationControl
+            current = await recurring.record(session)
+            value = await recurring.control(session, AutomationControl(action=words[2], expected_revision=current["revision"]))
+            return f"Naukri automation: {value['state']}; preparation only; submission unavailable."
         if action == "find" and len(words) == 2:
             jobs = (
                 await session.scalars(
@@ -43,8 +49,11 @@ async def command(session, text):
             )
             return f"{value['id']}: {value['state']}. Check application history before any manual submission."
         if action == "status" and len(words) <= 2:
+            from backend.app.execution.recurring import status
+            automation = await status(session)
             return (
-                f"Naukri: {(await store.configuration(session)).mode}; live account not verified; automated submission unavailable.\n"
+                f"Naukri: {automation['state']}; scope {automation['scope']}; worker {'online' if automation['worker_online'] else 'offline'}; source {automation['source']}; automated submission unavailable.\n"
+                f"Counts: {automation['counts']}. Blockers: {', '.join(automation['blockers'])}.\n"
                 + "\n".join(
                     f"{r.value['id']}: {r.value['state']}"
                     for r in await store.rows(session)

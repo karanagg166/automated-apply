@@ -11,6 +11,7 @@ from backend.app.local_agent.service import dispatch
 from backend.app.models.application_packet import ApplicationPacket
 from backend.app.models.job import Job
 from backend.app.services.applications.platforms.owner_page import manual_page_url
+from backend.tests.chrome_profile_fixture import BINDING, SESSION, connected
 from backend.tests.test_browser_forms import inspection
 
 URL = "https://fictional-employer.zohorecruit.in/jobs/Careers/123456/Backend-Engineer?source=CareerSite&ref=fixture"
@@ -25,10 +26,11 @@ def config(**changes):
 
 
 def command():
-    return Command(command="prepare_form_answers", title="Fictional Backend Engineer", inspection=inspection(URL))
+    return Command(**BINDING, browser_session_id=SESSION, tab_id=17, command="prepare_form_answers", title="Fictional Backend Engineer", inspection=inspection(URL))
 
 
 async def prepare(session, **changes):
+    await connected(session, config(**changes))
     return await dispatch(session, config(**changes), Actor(channel="chrome", identity=EXTENSION), command())
 
 
@@ -76,6 +78,7 @@ async def test_existing_answer_authorizations_expire_after_profile_edit(db_sessi
 @pytest.mark.asyncio
 @pytest.mark.parametrize("actor,enabled", [("owner", True), ("chrome", False)])
 async def test_answer_requests_cannot_bypass_manual_extension_activation(db_session, actor, enabled):
+    await connected(db_session, config(BROWSER_FILL_ENABLED=enabled))
     result = await dispatch(db_session, config(BROWSER_FILL_ENABLED=enabled), Actor(channel=actor, identity=EXTENSION), command())
     assert not result.ok
     assert result.error_code == ("profile_review_required" if actor == "chrome" else "manual_form_not_authorized")

@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -139,11 +139,15 @@ function mount(packet = fictionalPacket) {
       mutations: { retry: false },
     },
   });
-  return render(
+  const mounted = render(
     <QueryClientProvider client={client}>
       <BrowserAssistant packet={packet} />
     </QueryClientProvider>,
   );
+  fireEvent.change(screen.getByLabelText("Application browser"), {
+    target: { value: "isolated" },
+  });
+  return mounted;
 }
 
 describe("Browser Assistant UI Improvements", () => {

@@ -15,7 +15,7 @@ from backend.app.agent.tools import ToolDenied
 from backend.app.automation.store import instant
 from backend.app.dashboard.models import OwnerPreference
 from backend.app.execution.contracts import Configuration
-from backend.app.execution.naukri import normalized_url
+from backend.app.execution.naukri import normalized_url, reviewed_job_context
 from backend.app.models.application_packet import ApplicationPacket
 from backend.app.models.company import Company
 from backend.app.models.job import Job
@@ -67,9 +67,16 @@ async def configure(session, config):
         for r in await rows(session):
             if r.value["state"] not in TERMINAL | {"PAUSED"}:
                 await control(session, r.value["id"], "pause", r.value["revision"])
+        from backend.app.execution import recurring
+        await recurring.fence(session, "stop")
+        automation = await recurring.record(session)
+        if automation["revision"]:
+            automation.update(state="STOPPED", revision=automation["revision"] + 1, next_check_at=None)
+            await recurring.put(session, recurring.KEY, automation)
 
 
 async def rows(session):
+    await session.flush()
     return list(
         (
             await session.scalars(
@@ -130,17 +137,21 @@ async def move(session, row, state, reason=None):
 
 async def start(session, job_ids):
     await memory_row(session, lock=True)
+    from backend.app.execution.recurring import require_enabled
+    await require_enabled(session)
     if (await configuration(session)).mode == "OFF":
         raise ToolDenied("execution_mode_off")
     now, result = await instant(session), []
     for job_id in dict.fromkeys(job_ids):
-        job = await session.get(Job, job_id)
+        job = await session.get(Job, job_id, populate_existing=True)
         if not job or job.source_platform != "naukri":
             raise ToolDenied("saved_naukri_job_required")
         url = normalized_url(job.job_url)
         employer = (
-            await session.get(Company, job.company_id) if job.company_id else None
+            await session.get(Company, job.company_id, populate_existing=True)
+            if job.company_id else None
         )
+        job, employer = reviewed_job_context(job, employer)
         identity = str(uuid5(NAMESPACE_URL, "naukri:" + url.rsplit("-", 1)[-1]))
         row = await session.get(OwnerPreference, PREFIX + identity)
         if row is None:
@@ -191,6 +202,9 @@ async def packet_question_intent(session, packet):
     ):
         raise ToolDenied("packet_context_stale_or_destination_invalid")
     job = await session.get(Job, packet.job_id)
+    if job and job.source_platform == "naukri":
+        from backend.app.execution.recurring import require_enabled
+        await require_enabled(session)
     if (
         not job
         or job.status in {"archived", "applied"}
@@ -200,7 +214,13 @@ async def packet_question_intent(session, packet):
     from backend.app.browser.site_policy import application_page_url
 
     url = packet.snapshot.destination.application_url
-    if not application_page_url(url):
+    naukri_posting = False
+    if packet.platform == "naukri":
+        try:
+            naukri_posting = normalized_url(url) == url
+        except ValueError:
+            pass
+    if not application_page_url(url) and not naukri_posting:
         raise ToolDenied("supported_ats_application_required")
     identity = str(uuid5(NAMESPACE_URL, "packet_questions:" + str(packet.id)))
     row = await session.get(OwnerPreference, PREFIX + identity, populate_existing=True)
@@ -265,6 +285,12 @@ async def control(session, execution_id, action, revision):
     if v["state"] in TERMINAL:
         raise ToolDenied("execution_terminal_check_history")
     if action == "resume":
+        from backend.app.execution.recurring import require_enabled
+        await require_enabled(session)
+        if "automation_revision" in v:
+            from backend.app.execution import recurring
+            await recurring.execution_policy(session, row)
+            v["automation_revision"] = (await recurring.record(session))["revision"]
         if (
             v["state"] not in {"PAUSED", "NEEDS_INPUT"}
             or (await configuration(session)).mode == "OFF"
@@ -304,6 +330,11 @@ async def claim(session):
     now = await instant(session)
     for row in await rows(session):
         v = dict(row.value)
+        if "automation_revision" in v:
+            from backend.app.execution.recurring import record
+            automation = await record(session)
+            if automation["state"] != "RUNNING" or automation["revision"] != v["automation_revision"]:
+                continue
         if v.get("question_only"):
             continue
         if v["state"] == "FILLING" and (
@@ -354,6 +385,11 @@ async def fenced(session, identity):
     await memory_row(session, lock=True)
     row = await load(session, identity[0])
     v, now = row.value, await instant(session)
+    if "automation_revision" in v:
+        from backend.app.execution.recurring import record
+        automation = await record(session)
+        if automation["state"] != "RUNNING" or automation["revision"] != v["automation_revision"]:
+            raise ToolDenied("automation_authority_lost")
     if (
         v["fence"] != identity[1]
         or not v["lease_until"]
@@ -375,6 +411,8 @@ async def heartbeat(session, identity):
 
 
 async def previously_applied(session, job):
+    if job.source_platform == "naukri" and (job.discovery_metadata or {}).get("data_provenance", {}).get("posting_status") == "already_applied":
+        return True
     if getattr(job, "application_status", None) in {
         "applied",
         "submitted",

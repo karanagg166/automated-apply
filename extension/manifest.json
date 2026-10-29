@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Automated Apply \u2014 Application Assistant",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Inspect, review and fill approved application fields with packet-bound recovery. Submission stays owner-operated.",
   "permissions": [
     "contextMenus",
@@ -9,7 +9,8 @@
     "nativeMessaging",
     "storage",
     "scripting",
-    "declarativeNetRequest"
+    "declarativeNetRequest",
+    "alarms"
   ],
   "background": {
     "service_worker": "background.js",
@@ -21,5 +22,6 @@
   },
   "options_page": "settings.html",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmYFkzoP/T9SxjfW09IDlGRSb5yFi2rEiZeUkUZYiYj2/jzacV09Lliv4f15Kmk2yTzdcu69R1uvzcGkOwFQ/4T3X123dfikj8G/7CZeikgfgKfb0AEFz5XNYcjDWnwnlBKiFuK+Ga4u3UX8rAq2XdXdzbPQt0h40OSw+zuM05mQgqOBTDP77M8QOt3tE/eRn+CaZC5CP04S/CUkVp/VQN9mu3b1aatdUpkPjgIOHXuaLmd8ZIlJfJjTuakzqwj/9fvF5u0gLmAaU1Pyck24pa14tCKT6dCbmwx4aGo4E2ISh5080gfipiQ+nDzHRfw9Y7WWKYXi9K10Tt5nRh/a3jwIDAQAB",
-  "optional_host_permissions": ["https://*/*"]
+  "optional_host_permissions": ["https://*/*"],
+  "minimum_chrome_version": "120"
 }

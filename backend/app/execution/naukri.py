@@ -5,6 +5,8 @@ establishes account features, not permission for third-party automation.
 """
 
 import re
+from datetime import datetime
+from types import SimpleNamespace
 from urllib.parse import urlsplit, urlunsplit
 
 from backend.app.schemas.normalized_job import NormalizedJob
@@ -42,8 +44,8 @@ def normalized_url(url):
     if p.hostname not in {"naukri.com", "www.naukri.com"}:
         raise ValueError("naukri_job_url_required")
     # Accept only a posting, never a login, search, profile or redirect endpoint.
-    if not p.path.startswith("/job-listings-") or not re.search(
-        r"-([0-9]{10,20})(?:/)?$", p.path
+    if not re.fullmatch(
+        r"/job-listings-[a-zA-Z0-9%_-]+-[0-9]{10,20}/?", p.path
     ):
         raise ValueError("naukri_posting_path_required")
     return urlunsplit(("https", "www.naukri.com", p.path.rstrip("/"), "", ""))
@@ -60,11 +62,13 @@ def normalize(item):
         source_name="naukri",
         source_job_id=source_id,
         original_url=url,
+        application_url=str(item.application_url) if item.application_url else None,
         title=item.title,
         company_name=item.employer,
         description=item.description,
         location=item.location,
         remote_type=item.remote_type,
+        employment_type=item.employment_type,
         skills_required=item.required_skills,
         skills_preferred=item.preferred_skills,
         experience_min_years=item.experience_min,
@@ -73,11 +77,62 @@ def normalize(item):
         salary_max=item.salary_max,
         salary_currency=item.salary_currency,
         salary_period=item.salary_period,
+        date_posted=item.posted_at,
         data_provenance={
             "method": item.provenance,
             "reference": item.message_reference,
             "experience_requirement": item.experience_requirement,
             "provider_verified": False,
+            "posting_status": item.posting_status,
+            "owner_observed_at": item.observed_at.isoformat() if item.observed_at else None,
+            "valid_through": item.valid_through.isoformat() if item.valid_through else None,
         },
         source_verification_status="requires_review",
     )
+
+def matching_job(job):
+    """Use the latest explicit re-import without changing human-edited Job columns."""
+    observed = job.discovery_metadata or {}
+    view = SimpleNamespace(**vars(job))
+    if observed.get("source_name") == "naukri":
+        for target, source in {
+            "title": "title", "description": "description", "location": "location",
+            "skills_required": "skills_required", "remote_type": "remote_type",
+            "employment_type": "employment_type", "salary_min": "salary_min",
+            "experience_level": "experience_level",
+            "salary_max": "salary_max", "salary_currency": "salary_currency",
+            "salary_period": "salary_period",
+            "application_url": "application_url",
+        }.items():
+            setattr(view, target, observed.get(source))
+        view.is_remote = view.remote_type == "remote"
+        try:
+            view.date_posted = datetime.fromisoformat(observed["date_posted"])
+        except (KeyError, TypeError, ValueError):
+            view.date_posted = None
+    return view
+
+
+def reviewed_job_context(job, company):
+    """Use one reviewed listing for matching, policy, packets and answers.
+
+    Canonical Job/Company rows retain human history. An owner-reviewed employer
+    correction is listing evidence, not proof that the old company's domain or
+    enrichment belongs to the newly named employer.
+    """
+    view = matching_job(job)
+    observed = job.discovery_metadata or {}
+    if observed.get("source_name") != "naukri":
+        return job, company
+    name = observed.get("company_name")
+    same_employer = bool(
+        company and name
+        and " ".join(company.name.casefold().split())
+        == " ".join(name.casefold().split())
+    )
+    if not same_employer:
+        company = SimpleNamespace(
+            id=None, name=name, domain=None, metadata_={}
+        ) if name else None
+        view.company_id = None
+    return view, company

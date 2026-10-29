@@ -16,6 +16,7 @@ from backend.app.operations.health import database_health
 
 async def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--executor", choices=["isolated_browser"], required=True, help="Explicit isolated testing only; interactive work uses the connected extension")
     parser.add_argument("--profile-parent", type=Path, required=True)
     parser.add_argument(
         "--sign-in", help="Owner-operated sign-in only; no agent inspection or filling"
@@ -28,7 +29,7 @@ async def main():
     stop = asyncio.Event()
     for name in (signal.SIGINT, signal.SIGTERM):
         asyncio.get_running_loop().add_signal_handler(name, stop.set)
-    driver = ChromeDriver(args.profile_parent.resolve() / "automated-apply-automation")
+    driver = ChromeDriver(args.profile_parent.resolve() / "automated-apply-automation", executor=args.executor)
     if args.sign_in:
         from backend.app.browser.service import target
 

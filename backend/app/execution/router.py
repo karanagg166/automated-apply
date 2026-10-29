@@ -13,8 +13,10 @@ from backend.app.core.security import require_api_token
 from backend.app.dashboard.models import OwnerPreference
 from backend.app.dashboard.router import OwnerRoute
 from backend.app.db.session import get_db_session
-from backend.app.execution import questions, store
+from backend.app.execution import questions, recurring, store
 from backend.app.execution.contracts import (
+    AutomationControl,
+    AutomationPolicyUpdate,
     Configuration,
     Control,
     ImportBatch,
@@ -22,6 +24,7 @@ from backend.app.execution.contracts import (
     Start,
 )
 from backend.app.execution.naukri import capability_matrix, normalize
+from backend.app.execution.naukri_review import review_jobs
 from backend.app.execution.worker import needs_owner_answer
 from backend.app.models.job import Job
 from backend.app.schemas.applications import RevisionInput
@@ -39,13 +42,35 @@ router = APIRouter(
 
 @router.get("/naukri")
 async def status(session: AsyncSession = Depends(get_db_session)):
+    from backend.app.local_agent.platforms import platform_connections
+
     return {
+        "automation": await recurring.status(session),
         "capabilities": capability_matrix(),
         "configuration": await store.configuration(session),
         "executions": [r.value for r in await store.rows(session) if r.value["platform"] == "naukri"],
         "worker_requirement": "awake_local_worker_or_separately_approved_always_on_worker",
         "submitted": False,
+        "account_session": next(item for item in await platform_connections(session) if item["platform"] == "naukri"),
     }
+
+
+@router.put("/naukri/automation/policy")
+async def automation_policy(data: AutomationPolicyUpdate, request: Request, session: AsyncSession = Depends(get_db_session)):
+    owner_ui(request)
+    try:
+        return await recurring.configure(session, data)
+    except ToolDenied as exc:
+        raise HTTPException(409, str(exc)) from None
+
+
+@router.post("/naukri/automation/control")
+async def automation_control(data: AutomationControl, request: Request, session: AsyncSession = Depends(get_db_session)):
+    owner_ui(request)
+    try:
+        return await recurring.control(session, data)
+    except ToolDenied as exc:
+        raise HTTPException(409, str(exc)) from None
 
 
 @router.put("/naukri")
@@ -68,10 +93,21 @@ async def imports(
 ):
     owner_ui(request)
     try:
+        await store.memory_row(session, lock=True)
+        for item in data.jobs:
+            if item.alert_candidate_id:
+                from backend.app.execution.alert_email import PREFIX
+                from backend.app.execution.naukri import normalized_url
+                candidate = await session.get(OwnerPreference, PREFIX + str(item.alert_candidate_id))
+                if not candidate or candidate.value.get("state") != "NEEDS_INPUT" or candidate.value["expires_at"] <= (await instant(session)).isoformat() or normalized_url(item.url) != candidate.value["url"]:
+                    raise ValueError("current_alert_candidate_required")
+                item.provenance = "owner_job_alert"
+                item.message_reference = "gmail-alert:" + str(item.alert_candidate_id)
+                candidate.value = {**candidate.value, "state": "OWNER_REVIEWED", "reviewed_at": (await instant(session)).isoformat()}
         items = [normalize(item) for item in data.jobs]
     except ValueError:
         raise HTTPException(422, "invalid_naukri_import") from None
-    result = await JobIngestionService(session).ingest_jobs(items)
+    result = await JobIngestionService(session).ingest_jobs(items, owner_reviewed_naukri=True)
     for job_id in result.job_ids:
         job = await session.get(Job, UUID(job_id))
         if job.source_platform != "naukri":
@@ -208,9 +244,7 @@ async def find_saved(session: AsyncSession = Depends(get_db_session)):
         )
     ).all()
     return {
-        "jobs": [
-            {"id": job.id, "title": job.title, "job_url": job.job_url} for job in rows
-        ],
+        "jobs": await review_jobs(session, rows),
         "source": "owner_imports",
         "portal_search_executed": False,
     }

@@ -345,7 +345,7 @@ describe("Applications Pipeline & Detail Views", () => {
       ).toBeGreaterThanOrEqual(1);
       expect(
         screen.getByText(
-          /The dedicated browser can attach the approved canonical PDF when upload checks pass/,
+          /Isolated testing can attach an approved canonical PDF after upload checks/,
         ),
       ).toBeInTheDocument();
       expect(

@@ -1,8 +1,9 @@
+import { profileContext } from "./chrome-profile.js";
 import { naukriFormUrl } from "./naukri.js";
 import { formDOM } from "./form-dom.js";
 import { supportedUrl } from "./preview.js";
 const host = "com.automated_apply.agent";
-const ERROR_CODE_PATTERN = /^[a-z][a-z0-9_]{1,63}$/;
+const ERROR_CODE_PATTERN = /^[A-Za-z][A-Za-z0-9_]{1,63}$/;
 let current;
 let activeFill;
 let generation = 0;
@@ -104,11 +105,14 @@ function throwInspectionStateError(observationResult) {
   throw err;
 }
 async function native(command, extra) {
+  const profile = await profileContext();
   const request = {
     version: 1,
     request_id: crypto.randomUUID(),
     command,
     ...extra,
+    ...profile,
+    ...(extra.window_id !== undefined ? { window_id: extra.window_id } : {}),
   };
   let timer;
   try {
@@ -148,7 +152,12 @@ export async function inspectForm(applicationId, options = {}) {
   const expected = generation;
   if (!/^[a-f0-9-]{36}$/.test(applicationId))
     throw Error("application_id_required");
-  const tab = await active();
+  // Bound preparation resolves only its saved tab, before and after inspection.
+  // Unbound toolbar preparation retains its foreground-only behavior.
+  const resolveTab = options.resolveTab || active;
+  const tab = await resolveTab();
+  if (!Number.isInteger(tab?.id) || !permittedFormUrl(tab.url))
+    throw Error("supported_application_page_required");
   const [observation] = await chrome.scripting.executeScript({
     target: { tabId: tab.id, frameIds: [0] },
     world: "ISOLATED",
@@ -161,13 +170,21 @@ export async function inspectForm(applicationId, options = {}) {
       },
     ],
   });
-  const after = await active();
-  if (after.id !== tab.id || after.url !== tab.url) throw Error("page_changed");
+  const after = await resolveTab();
+  if (
+    after.id !== tab.id ||
+    after.windowId !== tab.windowId ||
+    after.url !== tab.url ||
+    observation?.result?.url !== tab.url
+  )
+    throw Error("page_changed");
   if (!canPreview(observation?.result)) {
     throwInspectionStateError(observation.result);
   }
   const data = await native("inspect_form", {
     application_id: applicationId,
+    tab_id: tab.id,
+    window_id: tab.windowId,
     ...options.taskContext,
     inspection: sanitizeInspection(observation.result),
   });
@@ -215,6 +232,8 @@ export async function prepareAnswers(tab, options = {}) {
   }
   const data = await native("prepare_form_answers", {
     title: String(tab.title || "").slice(0, 250),
+    tab_id: tab.id,
+    window_id: tab.windowId,
     ...options.taskContext,
     inspection: sanitizeInspection(observation.result),
   });
@@ -278,6 +297,7 @@ export async function fillForm(options = {}) {
     );
   const authorization = await native("authorize_form", {
     ...options.taskContext,
+    tab_id: snapshot.tabId,
     plan_id: snapshot.plan.id,
     field_ids: fieldIds,
   });
@@ -344,6 +364,7 @@ export async function fillForm(options = {}) {
     ...(authorization.task
       ? { expected_task_version: authorization.task.version }
       : {}),
+    tab_id: snapshot.tabId,
     receipt: {
       plan_id: plan.id,
       results: result.results,

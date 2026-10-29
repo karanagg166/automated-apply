@@ -34,7 +34,7 @@ def private_write(path, content):
 
 
 def prepare_private_logs(directory, service="telegram"):
-    if service not in {"telegram", "api"}:
+    if service not in {"telegram", "api", "execution"}:
         raise SystemExit("unsupported_local_service")
     if directory.is_symlink() or (directory.exists() and
             (not directory.is_dir() or directory.stat().st_uid != os.getuid())):
@@ -61,7 +61,7 @@ def main():
     parser.add_argument("action", choices=["native-plan", "native-install", "native-uninstall", "launchd-plan", "launchd-install", "launchd-uninstall", "agy-profile-plan", "agy-profile-install", "agy-profile-uninstall"])
     parser.add_argument("--env-file")
     parser.add_argument("--extension-id")
-    parser.add_argument("--service", choices=["telegram", "api"], default="telegram")
+    parser.add_argument("--service", choices=["telegram", "api", "execution"], default="telegram")
     args = parser.parse_args()
     if sys.platform != "darwin":
         raise SystemExit("macos_only")
@@ -94,7 +94,7 @@ def main():
     support = home / "Library/Application Support/Automated Apply"
     manifest = home / "Library/Application Support/Google/Chrome/NativeMessagingHosts" / (NAME + ".json")
     wrapper = support / "native-host"
-    label = LABEL if args.service == "telegram" else "com.automated-apply.api"
+    label = LABEL if args.service == "telegram" else "com.automated-apply." + args.service
     plist_path = home / "Library/LaunchAgents" / (label + ".plist")
     if args.action.endswith("uninstall"):
         paths = [manifest, wrapper] if args.action.startswith("native") else [plist_path]

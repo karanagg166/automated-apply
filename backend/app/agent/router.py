@@ -78,11 +78,13 @@ async def provider_status(session: AsyncSession = Depends(get_db_session)):
     worker = await session.get(OwnerPreference, "agent_worker:primary")
     last = worker.value.get("heartbeat_at") if worker else None
     ready = bool(last and (datetime.now(timezone.utc) - datetime.fromisoformat(last)).total_seconds() < 150)
-    browser_worker = await session.get(OwnerPreference, "browser_worker:primary")
-    browser_last = browser_worker.value.get("heartbeat_at") if browser_worker else None
-    browser_ready = bool(settings.BROWSER_AUTOMATION_ENABLED and browser_last and (datetime.now(timezone.utc) - datetime.fromisoformat(browser_last)).total_seconds() < 15)
+    from backend.app.browser.chrome_profiles import listing
+    chrome = await listing(session, settings)
+    selected = next((profile for profile in chrome["profiles"] if profile["selected"]), None)
+    browser_last = selected["last_heartbeat"] if selected else None
+    browser_ready = bool(selected and selected["status"] == "CONNECTED" and selected["commands_enabled"] and settings.CHROME_PROFILE_COMMANDS_ENABLED)
     return {"browser_worker_ready": browser_ready, "browser_last_heartbeat": browser_last,
-            "browser_fill_enabled": settings.BROWSER_FILL_ENABLED, "browser_availability": "available" if browser_ready else "offline_or_sleeping_or_worker_unavailable",
+            "browser_fill_enabled": settings.BROWSER_FILL_ENABLED, "browser_availability": "available" if browser_ready else "PROFILE_COMMANDS_DISABLED" if selected and selected["status"] == "CONNECTED" else "PROFILE_OFFLINE",
             "worker_ready": ready, "worker_last_heartbeat": last,
             "execution": "available" if ready else "pending_worker_unavailable",
             "provider": "cohere", "model": settings.COHERE_MODEL,

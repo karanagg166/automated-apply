@@ -1,1 +1,49 @@
-<!doctype html><html lang="en"><meta charset="utf-8"><title>Local agent settings</title><link rel="stylesheet" href="style.css"><body><h1>Local agent connection</h1><p>Native host: com.automated_apply.agent</p><p id="endpoint">Active endpoint: unverified · default http://127.0.0.1:8000</p><p>The authoritative active endpoint is in the private host configuration. Page scripts cannot change it. Install the host with your extension ID and private env file as described in docs/phase1/setup.md.</p><p id="identity"></p><button id="check">Verify connection</button><script src="settings.js" type="module"></script></body></html>
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><title>Local agent settings</title
+  ><link rel="stylesheet" href="style.css" />
+  <body>
+    <h1>Local agent connection</h1>
+    <p>Native host: com.automated_apply.agent</p>
+    <p id="endpoint">
+      Active endpoint: unverified · default http://127.0.0.1:8000
+    </p>
+    <p>
+      The authoritative active endpoint is in the private host configuration.
+      Page scripts cannot change it. Install the host with your extension ID and
+      private env file as described in docs/phase1/setup.md.
+    </p>
+    <p id="identity"></p>
+    <p id="version"></p>
+    <p id="guard-permission" role="status">
+      Network-blocking permission: checking…
+    </p>
+    <button id="check">Verify connection</button>
+    <h2>Chrome profile</h2>
+    <p>
+      Connect from the normal Chrome profile you want to use. Select it in the
+      dashboard. Connecting never signs you in or copies another profile.
+    </p>
+    <label
+      >Profile name
+      <input
+        id="profile-label"
+        maxlength="80"
+        placeholder="Personal Chrome or Job applications"
+    /></label>
+    <button id="profile-connect">Connect this Chrome profile</button>
+    <button id="profile-disconnect">Disconnect this profile</button>
+    <p id="profile-status" role="status">Not connected</p>
+    <label
+      ><input type="checkbox" id="profile-commands" /> Allow dashboard and owner
+      Telegram commands while this profile is selected and Chrome is
+      running</label
+    >
+    <p>
+      Commands require separate server opt-in. They can open and inspect saved
+      applications. Review and authorize filling in the extension; submission
+      remains manual.
+    </p>
+    <script src="settings.js" type="module"></script>
+  </body>
+</html>

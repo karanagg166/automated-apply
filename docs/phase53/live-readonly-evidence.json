@@ -1,0 +1,155 @@
+{
+  "methodology": "Owner-supervised read-only inspection of one ordinary Naukri search page; bounded to 20 visible requisitions. Three selected detail pages inspected. No private APIs, crawling, mailbox reads, login automation or Apply clicks. Search criteria entry is separate from application filling.",
+  "search_url": "https://www.naukri.com/backend-developer-jobs-in-india?k=backend%20developer&l=india&nignbevent_src=jobsearchDeskGNB",
+  "observed_at": "2026-10-29T14:59:29.695Z",
+  "visible_requisitions_reviewed": 20,
+  "reported_candidates": [
+    {
+      "requisition": "261026028027",
+      "url": "https://www.naukri.com/job-listings-backend-developer-naukri-e-hire-gurugram-0-to-2-years-261026028027",
+      "title": "Backend Developer",
+      "employer": "QTrino Labs Limited (posted by Naukri E-hire)",
+      "displayed_experience_years": "0-2",
+      "decision": "manual_review_shortlist",
+      "reason": "Junior backend role; Node.js/Python, PostgreSQL, API security and Docker evidence align. Graduate-batch eligibility reviewed privately. Apply button may immediately submit; no employer form opened."
+    },
+    {
+      "requisition": "291026501718",
+      "url": "https://www.naukri.com/job-listings-backend-developer-outsource-big-data-bengaluru-0-to-4-years-291026501718",
+      "title": "Backend Developer",
+      "employer": "Aimleap / Outsource Big Data",
+      "displayed_experience_years": "0-4",
+      "decision": "employer_confirmation_required",
+      "reason": "Naukri aggregates a Java/Python/big-data listing. The current similarly named official company role requires Kotlin/JVM and 4\u20137 years; equivalence and availability of the aggregated vacancy are unconfirmed."
+    },
+    {
+      "requisition": "121125500441",
+      "url": "https://www.naukri.com/job-listings-backend-developer-routematic-bengaluru-0-to-3-years-121125500441",
+      "title": "backend developer",
+      "employer": "Routematic",
+      "displayed_experience_years": "0-3",
+      "decision": "expired",
+      "reason": "Visible Apply-on-company-site control does not override structured validThrough 2026-02-10. Conflicting experience statements also require review."
+    },
+    {
+      "requisition": "271026500546",
+      "url": "https://www.naukri.com/job-listings-backend-developer-qrestik-technologies-chennai-bengaluru-1-to-3-years-271026500546",
+      "title": "Backend Developer",
+      "employer": "Qrestik Technologies",
+      "displayed_experience_years": "1-3",
+      "decision": "not_shortlisted",
+      "reason": "Displayed 1\u20133 years; Azure/cloud requirements need separate skills review."
+    },
+    {
+      "requisition": "230726500412",
+      "url": "https://www.naukri.com/job-listings-backend-developer-mitigata-bengaluru-1-to-2-years-230726500412",
+      "title": "Backend Developer",
+      "employer": "Mitigata Insurance",
+      "displayed_experience_years": "1-2",
+      "decision": "not_shortlisted",
+      "reason": "Displayed 1\u20132 years; older posting and Hibernate/Spring requirements not established by saved skills."
+    },
+    {
+      "requisition": "210826502092",
+      "url": "https://www.naukri.com/job-listings-backend-developer-kuku-fm-bengaluru-1-to-2-years-210826502092",
+      "title": "Backend Developer",
+      "employer": "Kuku Fm",
+      "displayed_experience_years": "1-2",
+      "decision": "not_shortlisted",
+      "reason": "Displayed 1\u20132 years; description explicitly seeks that experience; older listing."
+    },
+    {
+      "requisition": "181121500855",
+      "url": "https://www.naukri.com/job-listings-backend-developer-talent-anywhere-bengaluru-1-to-4-years-181121500855",
+      "title": "Backend Developer",
+      "employer": "Talent Anywhere",
+      "displayed_experience_years": "1-4",
+      "decision": "not_shortlisted",
+      "reason": "PostgreSQL/Node.js/Git overlap, but displayed minimum is one year and currentness is unverified."
+    },
+    {
+      "requisition": "071026044924",
+      "url": "https://www.naukri.com/job-listings-opening-net-developer-backend-developer-creative-solutions-bengaluru-0-to-0-years-071026044924",
+      "title": "Job Opening .NET Developer / Backend Developer",
+      "employer": "Creative Solution (posted by Creative Solutions)",
+      "displayed_experience_years": "0",
+      "decision": "skills_mismatch",
+      "reason": "Fresher band fits a junior search, but C#, ASP.NET Core and SQL Server expertise is not established by the approved skill evidence."
+    },
+    {
+      "requisition": "261026921461",
+      "url": "https://www.naukri.com/job-listings-ai-ml-backend-developer-cgi-information-systems-and-management-consultants-bengaluru-4-to-7-years-261026921461",
+      "title": "AI/ML Backend Developer",
+      "employer": "CGI",
+      "displayed_experience_years": "4-7",
+      "decision": "experience_mismatch",
+      "reason": "Agentic AI/RAG/Python overlap, but the advertised 4\u20137 years is outside this junior acceptance scope."
+    },
+    {
+      "requisition": "221026032280",
+      "url": "https://www.naukri.com/job-listings-backend-developer-quess-it-solutions-mysuru-bangalore-rural-bengaluru-4-to-9-years-221026032280",
+      "title": "Backend Developer",
+      "employer": "Quess IT Solutions",
+      "displayed_experience_years": "4-9",
+      "decision": "experience_mismatch",
+      "reason": "Node.js/TypeScript/Prisma overlap does not override the advertised 4\u20139 years."
+    }
+  ],
+  "recommendation_rejection": {
+    "employer": "Wipro",
+    "role": "ADMINISTRATOR L3",
+    "url": "https://www.naukri.com/job-listings-administrator-l3-wipro-limited-chennai-0-to-5-years-241026005967",
+    "reason": "Non-target role; recommendations requested account job preferences."
+  },
+  "genuine_application_fields_filled": 0,
+  "apply_clicked": false,
+  "submitted": false,
+  "live_telegram_messages_sent": 0,
+  "detail_inspections": [
+    {
+      "url": "https://www.naukri.com/job-listings-backend-developer-outsource-big-data-bengaluru-0-to-4-years-291026501718",
+      "observed_at": "2026-10-29T14:49:31.748Z",
+      "challenge_state": "NO_WIDGET_OBSERVED_NOT_SITE_VERIFIED",
+      "apply_controls": ["Apply on company site"],
+      "only_search_inputs_observed": true,
+      "structured_posting_dates": [
+        {
+          "date_posted": "2026-10-29",
+          "valid_through": "2027-01-27"
+        }
+      ],
+      "application_form_opened": false,
+      "application_fields_touched": false
+    },
+    {
+      "url": "https://www.naukri.com/job-listings-backend-developer-routematic-bengaluru-0-to-3-years-121125500441",
+      "observed_at": "2026-10-29T14:49:32.075Z",
+      "challenge_state": "NO_WIDGET_OBSERVED_NOT_SITE_VERIFIED",
+      "apply_controls": ["Apply on company site", "Apply on company site"],
+      "only_search_inputs_observed": true,
+      "structured_posting_dates": [
+        {
+          "date_posted": "2025-11-12",
+          "valid_through": "2026-02-10"
+        }
+      ],
+      "application_form_opened": false,
+      "application_fields_touched": false
+    },
+    {
+      "url": "https://www.naukri.com/job-listings-backend-developer-naukri-e-hire-gurugram-0-to-2-years-261026028027",
+      "observed_at": "2026-10-29T15:00:05.777Z",
+      "challenge_state": "NO_WIDGET_OBSERVED_NOT_SITE_VERIFIED",
+      "apply_controls": ["Apply"],
+      "only_search_inputs_observed": true,
+      "structured_posting_dates": [
+        {
+          "date_posted": "2026-10-26",
+          "valid_through": "2027-01-24"
+        }
+      ],
+      "application_form_opened": false,
+      "application_fields_touched": false
+    }
+  ]
+}

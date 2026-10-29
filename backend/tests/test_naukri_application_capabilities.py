@@ -78,3 +78,14 @@ def test_spoofed_source_and_host_suffix_do_not_match():
         )
     )
     assert result.source_confidence == "source_conflict"
+
+
+@pytest.mark.parametrize("expiry", ["2026-02-10", "not-a-date"])
+def test_expiry_evidence_overrides_active_observation_and_apply_control(expiry):
+    from datetime import datetime, timezone
+
+    from backend.app.services.applications.platforms.naukri import posting_unavailable
+
+    posting = job(discovery_metadata={"data_provenance": {"posting_status": "active", "valid_through": expiry}})
+    assert posting_unavailable(posting, datetime(2026, 10, 29, tzinfo=timezone.utc))
+    assert not NaukriPlatform().destination(posting).valid

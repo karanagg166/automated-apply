@@ -12,7 +12,9 @@ from backend.app.browser.service import FormService, pdf_bytes
 
 
 class ChromeDriver:
-    def __init__(self, profile, headless=False):
+    def __init__(self, profile, headless=False, *, executor=None):
+        if executor != "isolated_browser":
+            raise ValueError("explicit_isolated_browser_required")
         self.profile, self.headless, self.process = str(profile), headless, None
 
     async def call(self, operation, **payload):
@@ -27,7 +29,7 @@ class ChromeDriver:
             )
         async with asyncio.timeout(30):
             self.process.stdin.write(
-                (json.dumps({"operation": operation, **payload}) + "\n").encode()
+                (json.dumps({"operation": operation, **payload, "executor": "isolated_browser"}) + "\n").encode()
             )
             await self.process.stdin.drain()
             line = await self.process.stdout.readline()

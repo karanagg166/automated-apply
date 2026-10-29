@@ -47,6 +47,63 @@ test("Naukri imports a fictional posting and controls one durable intent without
     .click();
   await expect(page.getByText("FAILED FINAL", { exact: true })).toBeVisible();
   await expect(page.getByText(/Submission remains manual/)).toBeVisible();
+  // The shared fixture deliberately starts unconfirmed. Explicitly review only
+  // this fictional profile through the authenticated owner gateway.
+  await page.evaluate(async () => {
+    const csrf = document.cookie
+      .split("; ")
+      .find((c) => c.startsWith("aa_csrf="))!
+      .split("=")[1];
+    const current = await (await fetch("/api/backend/profile")).json();
+    const updated = await fetch("/api/backend/profile", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRF-Token": csrf,
+        "If-Match": `"${current.version}"`,
+      },
+      body: JSON.stringify({ verified_experience_years: 2 }),
+    });
+    if (!updated.ok) throw new Error("fictional_profile_update_failed");
+    const profile = await updated.json();
+    const confirmed = await fetch(
+      "/api/backend/local-agent/profile-confirmation",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrf,
+        },
+        body: JSON.stringify({
+          expected_version: profile.version,
+          owner_confirmed: true,
+        }),
+      },
+    );
+    if (!confirmed.ok) throw new Error("fictional_profile_confirmation_failed");
+  });
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "START AUTOMATION" }),
+  ).toBeDisabled();
+  await page
+    .getByLabel("Allowed exact role titles (comma separated)")
+    .fill("Backend Developer");
+  await page
+    .getByLabel("Allowed exact locations (comma separated)")
+    .fill("India");
+  await page
+    .getByRole("button", { name: "Save bounded preparation policy" })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "START AUTOMATION" }),
+  ).toBeEnabled();
+  await page.getByRole("button", { name: "START AUTOMATION" }).click();
+  await expect(page.getByText(/Persisted state:/)).toContainText("RUNNING");
+  await page.reload();
+  await expect(page.getByText(/Persisted state:/)).toContainText("RUNNING");
+  await page.getByRole("button", { name: "STOP AUTOMATION" }).click();
+  await expect(page.getByText(/Persisted state:/)).toContainText("STOPPED");
   await page.screenshot({
     path: "test-results-browser/naukri-fictional.png",
     fullPage: true,

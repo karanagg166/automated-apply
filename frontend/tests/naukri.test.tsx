@@ -157,3 +157,99 @@ it("displays waiting for your answer and supports answering from the dashboard",
     expected_revision: 7,
   });
 });
+
+it("shows an observed session as historical evidence without claiming API access", async () => {
+  const original = vi.mocked(api).getMockImplementation()!;
+  vi.mocked(api).mockImplementation(async (path, options) => {
+    const response = await original(path, options);
+    return path === "execution/naukri"
+      ? {
+          ...(response as object),
+          account_session: {
+            state: "browser_session_observed",
+            last_verification_time: "2026-10-29T12:00:00Z",
+            evidence_type: "extension_gesture_dom_indicator",
+          },
+        }
+      : response;
+  });
+  mount();
+  expect(
+    await screen.findByText(
+      /does not verify account identity or a Naukri API connection/,
+    ),
+  ).toBeVisible();
+  expect(screen.getByText(/This is a past observation/)).toBeVisible();
+  expect(post).not.toHaveBeenCalled();
+});
+
+it("explains skill matches and unknown experience while refusing closed jobs", async () => {
+  const original = vi.mocked(api).getMockImplementation()!;
+  vi.mocked(api).mockImplementation(async (path, options) =>
+    path === "execution/naukri/jobs"
+      ? {
+          jobs: [
+            {
+              id: "fictional-job",
+              title: "Fictional Backend Engineer",
+              job_url:
+                "https://www.naukri.com/job-listings-fictional-281026123456",
+              vacancy_review: "closed",
+              state: "REJECTED",
+              reason: "closed",
+              profile_version: 1,
+              match: {
+                match_score: 45,
+                matched_skills: ["Python"],
+                missing_skills: ["Rust"],
+                unknown_fields: ["experience_suitability"],
+                negative_factors: [],
+                explanation: "Experience unknown; no seniority points awarded.",
+              },
+            },
+          ],
+        }
+      : original(path, options),
+  );
+  mount();
+  expect(
+    await screen.findByText("Experience unknown; no seniority points awarded."),
+  ).toBeVisible();
+  expect(screen.getByText("Matched skills: Python")).toBeVisible();
+  expect(screen.getByText("Missing skills: Rust")).toBeVisible();
+  expect(screen.getByText("Unknown: experience_suitability")).toBeVisible();
+  expect(
+    screen.getByRole("button", { name: "Prepare selected job" }),
+  ).toBeDisabled();
+  expect(post).not.toHaveBeenCalled();
+});
+
+it("does not present uncertain Telegram delivery as success or resend it", async () => {
+  const original = vi.mocked(api).getMockImplementation()!;
+  vi.mocked(api).mockImplementation(async (path, options) =>
+    path === "execution/questions"
+      ? [
+          {
+            id: "q-unknown",
+            execution_id: "exec-unknown",
+            employer: "Fictional",
+            role: "Backend Engineer",
+            question: "What is your notice period?",
+            state: "delivery_unknown",
+            answer_type: "text",
+            packet_revision: 2,
+            expires_at: "2099-01-01T00:00:00Z",
+            reuse_approved: false,
+          },
+        ]
+      : original(path, options),
+  );
+  mount();
+  expect(
+    await screen.findByText(/this prompt will not be automatically resent/),
+  ).toBeVisible();
+  expect(
+    screen.queryByRole("button", { name: "Submit Answer from Dashboard" }),
+  ).not.toBeInTheDocument();
+  expect(post).not.toHaveBeenCalled();
+});

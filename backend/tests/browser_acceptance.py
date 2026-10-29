@@ -84,7 +84,7 @@ async def fixture_site():
 @pytest.fixture
 async def chrome(tmp_path):
     driver = ChromeDriver(
-        (tmp_path / "automated-apply-automation").resolve(), headless=True
+        (tmp_path / "automated-apply-automation").resolve(), headless=True, executor="isolated_browser"
     )
     yield driver
     await driver.close()

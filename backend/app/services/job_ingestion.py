@@ -42,7 +42,7 @@ class JobIngestionService:
             JobRepository(session),
         )
 
-    async def ingest_jobs(self, jobs, auto_commit=False):
+    async def ingest_jobs(self, jobs, auto_commit=False, *, owner_reviewed_naukri=False):
         self.record_seconds = []
         if len(jobs) > 100:
             raise ValueError("Ingestion is limited to 100 records")
@@ -76,9 +76,24 @@ class JobIngestionService:
                         if item.company_name and " ".join(
                             item.company_name.casefold().split()
                         ) != " ".join(company.name.casefold().split()):
-                            raise ValueError(
-                                "Changed employer name requires identity review"
+                            from backend.app.execution.naukri import normalized_url
+
+                            # Only the authenticated owner import may correct
+                            # listing facts for the exact same Naukri requisition.
+                            # Keep the canonical employer/history association;
+                            # consumers use the separate reviewed listing view.
+                            reviewed_same_requisition = (
+                                owner_reviewed_naukri
+                                and item.source_name == job.source_platform == "naukri"
+                                and item.data_provenance.get("method")
+                                in {"owner_url", "owner_job_alert"}
+                                and normalized_url(item.original_url).rsplit("-", 1)[-1]
+                                == normalized_url(job.job_url).rsplit("-", 1)[-1]
                             )
+                            if not reviewed_same_requisition:
+                                raise ValueError(
+                                    "Changed employer name requires identity review"
+                                )
                     elif item.company_name:
                         company = companies.get(company_key)
                         if company is None:

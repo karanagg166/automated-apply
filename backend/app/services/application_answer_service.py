@@ -105,6 +105,10 @@ class ApplicationAnswerService:
                 if job.company_id
                 else None
             )
+            if job.source_platform == "naukri":
+                from backend.app.execution.naukri import reviewed_job_context
+
+                job, company = reviewed_job_context(job, company)
             if (
                 request.company_name
                 and company

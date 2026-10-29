@@ -63,6 +63,7 @@ async def create(client, base, path="/basic"):
         f"/api/v1/browser-applications/{packet['id']}/open",
         json={
             "expected_revision": packet["revision"],
+            "executor": "isolated_browser",
             "approve_dedicated_profile": True,
             "confirm_destination_permission": True,
         },
@@ -267,6 +268,7 @@ async def test_owner_auth_expiry_permission_revision_and_csrf_boundaries(browser
         path + "/open",
         json={
             "expected_revision": 1,
+            "executor": "isolated_browser",
             "approve_dedicated_profile": False,
             "confirm_destination_permission": True,
         },
@@ -389,6 +391,7 @@ async def test_unknown_profile_directory_and_unrelated_navigation_are_rejected(
         f"/api/v1/browser-applications/{state['packet']['id']}/open",
         json={
             "expected_revision": state["packet"]["revision"],
+            "executor": "isolated_browser",
             "approve_dedicated_profile": True,
             "confirm_destination_permission": True,
         },
