@@ -494,3 +494,34 @@ test("read-only action values are never included in fill authorization", async (
     ["f0"],
   );
 });
+
+test("fill authorizes only the owner's selected subset and rejects forged field IDs", async () => {
+  setup();
+  const original = chrome.runtime.sendNativeMessage;
+  chrome.runtime.sendNativeMessage = async (host, request) => {
+    const result = await original(host, request);
+    if (request.command !== "authorize_form")
+      result.data.plan.actions.push({
+        field_id: "f2",
+        kind: "text",
+        value: "confirmed",
+        needs_input: false,
+      });
+    return result;
+  };
+  await prepareAnswers();
+  await fillForm({ field_ids: ["f0"] });
+  assert.deepEqual(
+    calls.find((c) => c.native?.command === "authorize_form").native.field_ids,
+    ["f0"],
+  );
+  await prepareAnswers();
+  await assert.rejects(
+    fillForm({ field_ids: ["f99"] }),
+    /reviewed_field_selection_invalid/,
+  );
+  assert.equal(
+    calls.filter((c) => c.native?.command === "authorize_form").length,
+    1,
+  );
+});

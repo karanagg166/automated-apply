@@ -1,0 +1,63 @@
+{
+  "url": "https://jobs.lever.co/hevodata/6cbbe304-e065-4711-bf3e-756795d2bc2a/apply",
+  "final_url": "https://jobs.lever.co/hevodata/6cbbe304-e065-4711-bf3e-756795d2bc2a/apply",
+  "observed_at": "2026-10-29T12:21:19.193Z",
+  "http_status": 200,
+  "challenge_state": "WIDGET_PRESENT_UNVERIFIED",
+  "state": "manual_required",
+  "fields": [
+    {
+      "label": "Full name✱",
+      "kind": "text",
+      "required": true
+    },
+    {
+      "label": "Email✱",
+      "kind": "email",
+      "required": true
+    },
+    {
+      "label": "Phone ✱",
+      "kind": "text",
+      "required": true
+    },
+    {
+      "label": "Current location No location found. Try entering a different locationLoading",
+      "kind": "text",
+      "required": false
+    },
+    {
+      "label": "Current company ✱",
+      "kind": "text",
+      "required": true
+    },
+    {
+      "label": "LinkedIn URL",
+      "kind": "text",
+      "required": false
+    },
+    {
+      "label": "Current CTC✱",
+      "kind": "text",
+      "required": true
+    },
+    {
+      "label": "Expected CTC✱",
+      "kind": "textarea",
+      "required": true
+    },
+    {
+      "label": "Notice Period✱",
+      "kind": "textarea",
+      "required": true
+    },
+    {
+      "label": "This is a 5 day work from office from HSR Layout, BLR. Would that be comfortable for you?✱",
+      "kind": "textarea",
+      "required": true
+    }
+  ],
+  "fill_attempted": false,
+  "submitted": false,
+  "owner_scope": "Hevo remains read-only"
+}

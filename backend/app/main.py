@@ -193,6 +193,8 @@ async def private_discovery_boundary(request: Request, call_next):
                     if size > (
                         5 * 1024 * 1024
                         if request.url.path == "/api/v1/dashboard/resumes"
+                        else 262144
+                        if request.url.path == "/api/v1/local-agent/chrome"
                         else 65536
                         if application_request
                         else 1048576
@@ -200,7 +202,9 @@ async def private_discovery_boundary(request: Request, call_next):
                         return JSONResponse(
                             status_code=413,
                             content={
-                                "detail": "Application request exceeds 64 KiB"
+                                "detail": "Chrome request exceeds 256 KiB"
+                                if request.url.path == "/api/v1/local-agent/chrome"
+                                else "Application request exceeds 64 KiB"
                                 if application_request
                                 else "Discovery request exceeds 1 MiB"
                             },

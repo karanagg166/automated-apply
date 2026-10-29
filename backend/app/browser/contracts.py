@@ -43,10 +43,26 @@ class FormField(Contract):
     preview_only: bool = False
     manual_reason: Text | None = None
     max_length: int = Field(default=1500, ge=1, le=4000)
+    semantic_key: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    control_identity: Text | None = None
+    page_step: Text | None = None
+    invalid: bool = False
+
+
+class ManualControl(Contract):
+    """Bounded explanation only; existing values and frame contents stay in Chrome."""
+    control_id: str = Field(pattern=r"^u[0-9]{1,3}$")
+    kind: Text
+    label: Text
+    reason: Text
+    context: Text | None = None
+    required: bool = False
     invalid: bool = False
 
 
 class Inspection(Contract):
+    manual_reason: Text | None = None
+    manual_controls: list[ManualControl] = Field(default_factory=list, max_length=48)
     version: Literal[1] = 1
     document_id: str = Field(pattern=r"^[a-f0-9-]{36}$")
     url: str = Field(min_length=1, max_length=2048)
@@ -56,6 +72,8 @@ class Inspection(Contract):
     ] = "ready"
     has_next: bool = False
     has_submit: bool = False
+    challenge_state: Literal["NONE", "WIDGET_PRESENT_UNVERIFIED", "CHALLENGE_BLOCKING", "MANUALLY_RESOLVED_AND_SITE_VERIFIED", "UNKNOWN"] = "NONE"
+    completed_count: int = Field(default=0, ge=0, le=1000)
 
     @model_validator(mode="after")
     def unique_fields(self):
@@ -91,6 +109,8 @@ class FillPlan(Contract):
     target_url: str
     inspection: Inspection
     context_digest: str
+    extension_task_id: UUID | None = None
+    extension_authorization_id: UUID | None = None
     packet_revision: int
     project_digest: str
     actions: list[FillAction] = Field(default_factory=list, max_length=24)
@@ -109,6 +129,8 @@ class FieldResult(Contract):
 
 
 class FillReceipt(Contract):
+    network_guard_active: bool = False
+    verification_method: Literal["dom_assignment", "retained_after_blur"] = "dom_assignment"
     plan_id: UUID
     results: list[FieldResult] = Field(max_length=24)
     state: Literal["form_filled", "needs_input", "manual_required", "failed"]

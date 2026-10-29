@@ -473,17 +473,173 @@ export function formDOM(request = { operation: "inspect" }) {
           '[role="combobox"],lyte-dropdown,lyte-select,lyte-autocomplete,crux-picklist-component,[data-custom-combobox]',
         ),
       );
-    const sectionLabel = (el) => {
-      const section = el.closest(
-        "fieldset,[role='group'],[data-employment-entry]",
+    const sectionSelector =
+      "fieldset,[role='group'],[data-employment-entry],[data-education-entry],[data-work-experience]";
+    const sectionTitle = (section) =>
+      cleanLabelText(
+        [
+          ...section.querySelectorAll(
+            ":scope > legend,:scope > h2,:scope > h3,:scope > h4",
+          ),
+        ]
+          .map(textWithoutControls)
+          .filter(Boolean)
+          .join(" / ") ||
+          ariaLabelledByText(section) ||
+          section.getAttribute("aria-label") ||
+          section.getAttribute("data-employment-entry") ||
+          section.getAttribute("data-education-entry"),
       );
-      return section
-        ? cleanLabelText(
-            textWithoutControls(section.querySelector(":scope > legend")) ||
-              ariaLabelledByText(section) ||
-              section.getAttribute("aria-label"),
-          ) || null
-        : null;
+    const sectionPeers = (section) =>
+      [...document.querySelectorAll(sectionSelector)].filter(
+        (other) =>
+          other.parentElement?.closest(sectionSelector) ===
+            section.parentElement?.closest(sectionSelector) &&
+          sectionTitle(other) === sectionTitle(section),
+      );
+    const stableSectionIdentity = (section) => {
+      for (const attribute of [
+        "id",
+        "data-employment-entry",
+        "data-education-entry",
+      ]) {
+        const value = section.getAttribute(attribute);
+        if (
+          value &&
+          [...document.querySelectorAll(`[${attribute}]`)].filter(
+            (el) => el.getAttribute(attribute) === value,
+          ).length === 1
+        )
+          return clean(`${attribute}:${value}`);
+      }
+      return "";
+    };
+    const ambiguousSection = (el) => {
+      for (
+        let section = el.closest(sectionSelector);
+        section;
+        section = section.parentElement?.closest(sectionSelector)
+      ) {
+        if (sectionPeers(section).length > 1 && !stableSectionIdentity(section))
+          return true;
+      }
+      return false;
+    };
+    const sectionLabel = (el) => {
+      const sections = [];
+      for (
+        let section = el.closest(sectionSelector);
+        section;
+        section = section.parentElement?.closest(sectionSelector)
+      ) {
+        const title = sectionTitle(section);
+        const peers = sectionPeers(section);
+        const identity = stableSectionIdentity(section);
+        const suffix =
+          peers.length > 1
+            ? identity
+              ? ` [${identity}]`
+              : ` [entry ${peers.indexOf(section) + 1}]`
+            : "";
+        if (title || suffix) sections.unshift(`${title || "History"}${suffix}`);
+      }
+      return clean(sections.join(" / ")) || null;
+    };
+    // Synchronous SHA-256 keeps inspection usable by the native worker and popup.
+    // The key contains metadata only, never entered values or CAPTCHA material.
+    const semanticHash = (text) => {
+      const bytes = new TextEncoder().encode(text);
+      const words = [];
+      for (let i = 0; i < bytes.length; i++)
+        words[i >> 2] = (words[i >> 2] || 0) | (bytes[i] << (24 - (i % 4) * 8));
+      words[bytes.length >> 2] =
+        (words[bytes.length >> 2] || 0) |
+        (0x80 << (24 - (bytes.length % 4) * 8));
+      const total = (((bytes.length + 8) >> 6) + 1) * 16;
+      words[total - 1] = bytes.length * 8;
+      const primes = [],
+        constants = [],
+        state = [];
+      for (let n = 2; primes.length < 64; n++) {
+        if (primes.some((p) => p * p <= n && n % p === 0)) continue;
+        primes.push(n);
+        if (state.length < 8)
+          state.push(((Math.sqrt(n) % 1) * 0x100000000) | 0);
+        constants.push(((Math.cbrt(n) % 1) * 0x100000000) | 0);
+      }
+      const rotate = (x, n) => (x >>> n) | (x << (32 - n));
+      for (let start = 0; start < total; start += 16) {
+        const schedule = [],
+          hash = state.slice();
+        for (let i = 0; i < 64; i++) {
+          const a = schedule[i - 15],
+            b = schedule[i - 2];
+          schedule[i] =
+            i < 16
+              ? words[start + i] | 0
+              : ((rotate(a, 7) ^ rotate(a, 18) ^ (a >>> 3)) +
+                  schedule[i - 16] +
+                  (rotate(b, 17) ^ rotate(b, 19) ^ (b >>> 10)) +
+                  schedule[i - 7]) |
+                0;
+          const t1 =
+            (hash[7] +
+              (rotate(hash[4], 6) ^ rotate(hash[4], 11) ^ rotate(hash[4], 25)) +
+              ((hash[4] & hash[5]) ^ (~hash[4] & hash[6])) +
+              constants[i] +
+              schedule[i]) |
+            0;
+          const t2 =
+            ((rotate(hash[0], 2) ^ rotate(hash[0], 13) ^ rotate(hash[0], 22)) +
+              ((hash[0] & hash[1]) ^
+                (hash[0] & hash[2]) ^
+                (hash[1] & hash[2]))) |
+            0;
+          hash.pop();
+          hash.unshift((t1 + t2) | 0);
+          hash[4] = (hash[4] + t1) | 0;
+        }
+        for (let i = 0; i < 8; i++) state[i] = (state[i] + hash[i]) | 0;
+      }
+      return state.map((x) => (x >>> 0).toString(16).padStart(8, "0")).join("");
+    };
+    const pageStep = () =>
+      clean(
+        [
+          ...document.querySelectorAll(
+            '[aria-current="step"],.zr-step-active,.active-step,[data-step-active="true"]',
+          ),
+        ]
+          .filter(visible)
+          .map((el) =>
+            clean(el.getAttribute("aria-label") || textWithoutControls(el)),
+          )
+          .join(" / "),
+      ) || "Application";
+    const controlIdentity = (el) => {
+      const scope = el.closest(sectionSelector) || el.form || document;
+      const unique = (attribute, value) =>
+        value &&
+        [...scope.querySelectorAll(`[${attribute}]`)].filter(
+          (other) => other.getAttribute(attribute) === value,
+        ).length === 1;
+      for (const attribute of [
+        "id",
+        "name",
+        "data-testid",
+        "data-automation-id",
+      ]) {
+        const value = el.getAttribute(attribute);
+        if (unique(attribute, value)) return clean(`${attribute}:${value}`);
+      }
+      // An ordinal avoids merging repeated controls while the section signature
+      // forces a fresh review when the employer rearranges a repeated history.
+      const peers = primaryControlsIn(scope).filter(
+        (other) => label(other) === label(el) && other.type === el.type,
+      );
+      return clean(
+        `${el.tagName.toLowerCase()}:${el.type || el.getAttribute("role") || "control"}:${label(el)}:${peers.indexOf(el) + 1}`,
+      );
     };
     // Same binding rules as the dedicated browser: exactly one owner and list,
     // bounded, unique choices. Preparation never opens a menu or fires events.
@@ -538,6 +694,7 @@ export function formDOM(request = { operation: "inspect" }) {
         return null;
       return { list, options, labels, native };
     };
+    let challengeObserved = false;
     const securityState = () => {
       // Widget presence cannot establish whether a human solved a challenge.
       // Never inspect challenge frames, response tokens or CAPTCHA internals.
@@ -553,7 +710,14 @@ export function formDOM(request = { operation: "inspect" }) {
             clean(el.textContent),
           ),
         );
-      return blocker ? "blocking" : widget ? "unverified_widget" : "none";
+      if (blocker || widget) challengeObserved = true;
+      return blocker
+        ? "blocking"
+        : widget
+          ? "unverified_widget"
+          : challengeObserved
+            ? "unknown"
+            : "none";
     };
     const isDateControl = (el) => {
       if (["date", "month", "week", "time", "datetime-local"].includes(el.type))
@@ -631,6 +795,8 @@ export function formDOM(request = { operation: "inspect" }) {
     let touched = false;
     let submitArmed = false;
     let fillConsumed = false;
+    let fillCancelled = false;
+    let interactiveExecution = false;
     let appliedValues = new Map();
     let controlCount = 0;
     let snapshotControls = [];
@@ -703,6 +869,21 @@ export function formDOM(request = { operation: "inspect" }) {
           }
         } else if (m.type === "attributes" && m.target?.nodeType === 1) {
           const t = m.target;
+          // Framework renders may assign the same native attributes again.
+          // During approved interactions, accept records only when the same node
+          // still has the exact reviewed attribute. Actual identity changes and
+          // node replacements continue to invalidate the reviewed snapshot.
+          if (
+            interactiveExecution &&
+            ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName) &&
+            snapshotControls.some(
+              (saved) =>
+                saved.el === t &&
+                saved.attributes[m.attributeName] ===
+                  t.getAttribute(m.attributeName),
+            )
+          )
+            continue;
           if (
             (t.tagName === "FORM" &&
               ["action", "method", "target", "enctype"].includes(
@@ -742,10 +923,11 @@ export function formDOM(request = { operation: "inspect" }) {
       observer?.disconnect();
     };
 
-    const inspect = (onlyEmpty = false) => {
+    const inspect = (onlyEmpty = false, interactionsAllowed = false) => {
       // A second popup/review must invalidate earlier plans in the same document.
       documentId = crypto.randomUUID();
       fillConsumed = false;
+      fillCancelled = false;
       appliedValues = new Map();
       const controls = [
         ...document.querySelectorAll("input,textarea,select"),
@@ -759,6 +941,9 @@ export function formDOM(request = { operation: "inspect" }) {
         id: el.id,
         disabled: el.disabled,
         readOnly: el.readOnly,
+        attributes: Object.fromEntries(
+          observedAttributes.map((name) => [name, el.getAttribute(name)]),
+        ),
       }));
       snapshotForms = [...document.forms].map((f) => ({
         el: f,
@@ -1147,22 +1332,53 @@ export function formDOM(request = { operation: "inspect" }) {
           continue;
         }
 
+        const eventChoiceSupported = Boolean(
+          choices &&
+          !choices.native &&
+          interactionsAllowed &&
+          el.tagName === "INPUT" &&
+          ["text", "search"].includes(el.type) &&
+          choices.options.every(
+            (option) =>
+              ["DIV", "SPAN", "LI"].includes(option.tagName) &&
+              !option.querySelector("a,button,input,select,textarea"),
+          ),
+        );
         const field = {
           group_label: resolvedGroup,
           section: ["radio", "checkbox"].includes(kind)
             ? null
             : sectionLabel(el),
           preview_only: Boolean(
-            (choices && !choices.native) ||
-            (onlyEmpty && isFrameworkControlled(el)),
+            ambiguousSection(el) ||
+            (choices && !choices.native && !eventChoiceSupported) ||
+            (onlyEmpty && isFrameworkControlled(el) && !interactionsAllowed),
           ),
-          manual_reason:
-            choices && !choices.native
+          manual_reason: ambiguousSection(el)
+            ? "Repeated history entry has no stable employer or education identity; complete this entry manually"
+            : choices && !choices.native && !eventChoiceSupported
               ? "Choose the exact option yourself; event-driven custom dropdown filling is manual"
-              : onlyEmpty && isFrameworkControlled(el)
-                ? "Framework-controlled field: type the proposed answer yourself"
+              : onlyEmpty && isFrameworkControlled(el) && !interactionsAllowed
+                ? "Framework-controlled field: authorize website interactions or type the proposed answer yourself"
                 : null,
           field_id: `f${fields.length}`,
+          control_identity: controlIdentity(el),
+          page_step: pageStep(),
+          semantic_key: semanticHash(
+            JSON.stringify([
+              location.origin,
+              location.pathname,
+              pageStep(),
+              sectionLabel(el),
+              resolvedGroup,
+              resolvedLabel,
+              kind,
+              controlIdentity(el),
+              clean(el.getAttribute("aria-label")),
+              clean(el.getAttribute("aria-labelledby")),
+              clean(el.autocomplete),
+            ]),
+          ),
           kind,
           label: resolvedLabel,
           required: isRequired(el),
@@ -1183,6 +1399,14 @@ export function formDOM(request = { operation: "inspect" }) {
           max_length: Math.min(4000, el.maxLength > 0 ? el.maxLength : 1500),
           invalid: isInvalid(el),
         };
+        if (
+          field.label.length >= 160 ||
+          (field.group_label || "").length >= 160
+        ) {
+          field.preview_only = true;
+          field.manual_reason =
+            "Question exceeds the inspection text limit; read and answer the complete question manually";
+        }
         refs.set(field.field_id, {
           el,
           field,
@@ -1232,9 +1456,14 @@ export function formDOM(request = { operation: "inspect" }) {
           /^(next|continue)$/i.test(clean(el.textContent)),
       );
       const login = controls.some((el) => el.type === "password");
+      const backgroundNetwork =
+        interactionsAllowed && Boolean(navigator.serviceWorker?.controller);
       const state = login
         ? "login_required"
-        : challenge || excludedSensitive || crossOriginFormFrame
+        : challenge ||
+            excludedSensitive ||
+            crossOriginFormFrame ||
+            backgroundNetwork
           ? "manual_required"
           : fields.length
             ? fields.some((f) => f.invalid)
@@ -1247,6 +1476,24 @@ export function formDOM(request = { operation: "inspect" }) {
         url: location.href,
         fields,
         state,
+        challenge_state:
+          security === "blocking"
+            ? "CHALLENGE_BLOCKING"
+            : security === "unverified_widget"
+              ? "WIDGET_PRESENT_UNVERIFIED"
+              : security === "unknown"
+                ? "UNKNOWN"
+                : "NONE",
+        completed_count: controls.filter(
+          (el) =>
+            !["hidden", "submit", "button", "reset", "image"].includes(
+              el.type,
+            ) &&
+            !sensitive.test(
+              [el.type, el.name, el.id, rawLabel(el)].join(" "),
+            ) &&
+            !unanswered(el, controls),
+        ).length,
         has_next: next.length === 1,
         has_submit: buttons.some(
           (el) =>
@@ -1267,18 +1514,52 @@ export function formDOM(request = { operation: "inspect" }) {
               ? security === "blocking"
                 ? "security_challenge"
                 : "security_widget"
-              : crossOriginFormFrame ||
-                  (!fields.length &&
-                    unsupportedControls.some((u) => u.kind === "iframe"))
-                ? "cross_origin_frame"
-                : !fields.length && unsupportedControls.length
-                  ? "unsupported_controls"
-                  : null;
+              : backgroundNetwork
+                ? "background_network_scope_unverified"
+                : crossOriginFormFrame ||
+                    (!fields.length &&
+                      unsupportedControls.some((u) => u.kind === "iframe"))
+                  ? "cross_origin_frame"
+                  : !fields.length && unsupportedControls.length
+                    ? "unsupported_controls"
+                    : null;
       }
       return last;
     };
 
     const validateSnapshot = (req) => {
+      if (req.interaction_authorized && navigator.serviceWorker?.controller)
+        return {
+          state: "manual_required",
+          reason: "background_network_scope_unverified",
+          results: [],
+          submitted: false,
+        };
+      if (
+        req.expires_at &&
+        (!Number.isFinite(Date.parse(req.expires_at)) ||
+          Date.parse(req.expires_at) <= Date.now())
+      )
+        return {
+          state: "manual_required",
+          reason: "fill_plan_stale",
+          results: [],
+          submitted: false,
+        };
+      if (req.document_id !== documentId || location.href !== last?.url)
+        return {
+          state: "manual_required",
+          reason: "step_changed",
+          results: [],
+          submitted: false,
+        };
+      if (fillCancelled)
+        return {
+          state: "manual_required",
+          reason: "form_cancelled_reprepare_required",
+          results: [],
+          submitted: false,
+        };
       if (securityState() !== "none")
         return {
           state: "manual_required",
@@ -1362,11 +1643,36 @@ export function formDOM(request = { operation: "inspect" }) {
       for (const ref of refs.values()) {
         const el = ref.el;
         if (ref.choices) {
-          const now = choicesFor(el);
+          let now = choicesFor(el);
+          // A narrowly supported static list may close after its reviewed option
+          // was clicked. Do not reopen it or fetch choices: bind the same mounted
+          // list/options and require the owning input to retain the exact label.
+          if (
+            !now &&
+            interactiveExecution &&
+            ref.choiceClicked &&
+            el.getAttribute("aria-expanded") === "false" &&
+            document.getElementById(el.getAttribute("aria-controls")) ===
+              ref.choices.list &&
+            el.value === ref.choiceClicked &&
+            ref.choices.list.isConnected
+          ) {
+            const options = [
+              ...ref.choices.list.querySelectorAll("[role='option']"),
+            ];
+            now = {
+              list: ref.choices.list,
+              options,
+              labels: options.map((o) =>
+                clean(o.getAttribute("aria-label") || o.textContent),
+              ),
+            };
+          }
           if (
             !now ||
             now.list !== ref.choices.list ||
             JSON.stringify(now.labels) !== JSON.stringify(ref.choices.labels) ||
+            now.options.length !== ref.choices.options.length ||
             now.options.some(
               (o, i) =>
                 o !== ref.choices.options[i] || o.value !== ref.choiceValues[i],
@@ -1453,15 +1759,66 @@ export function formDOM(request = { operation: "inspect" }) {
       return null;
     };
 
+    const isCustomWidgetUnanswered = (widget, controls) => {
+      const innerInputs = [
+        ...widget.querySelectorAll("input,textarea,select"),
+      ].filter(visible);
+      if (innerInputs.length) {
+        return innerInputs.every((input) => unanswered(input, controls));
+      }
+      const isEditor = widget.matches(
+        '[contenteditable="true"],[role="textbox"]',
+      );
+      if (isEditor) {
+        return !clean(widget.textContent);
+      }
+      const val = clean(
+        widget.getAttribute("data-value") ||
+          widget.getAttribute("aria-valuetext") ||
+          widget.getAttribute("aria-valuenow") ||
+          widget.getAttribute("value"),
+      );
+      if (val) return false;
+      if (widget.querySelector?.('[aria-selected="true"]')) return false;
+      const controlsId =
+        widget.getAttribute("aria-controls") ||
+        widget.getAttribute("aria-owns");
+      if (controlsId) {
+        const listbox = document.getElementById(controlsId);
+        if (listbox?.querySelector?.('[aria-selected="true"]')) return false;
+      }
+      return true;
+    };
+
+    const isCustomWidgetIncomplete = (widget, controls) => {
+      if (widget.matches("input,textarea,select")) return false;
+      if (widget.disabled || widget.getAttribute("aria-disabled") === "true")
+        return false;
+      if (!isRequired(widget)) return false;
+      if (isInvalid(widget)) return true;
+      return isCustomWidgetUnanswered(widget, controls);
+    };
+
     const incompleteRequired = () => {
       const controls = [
         ...document.querySelectorAll("input,textarea,select"),
       ].filter(visible);
-      return controls.some(
+      const nativeIncomplete = controls.some(
         (el) =>
           !el.disabled &&
           isRequired(el) &&
           (unanswered(el, controls) || !el.validity.valid || isInvalid(el)),
+      );
+      if (nativeIncomplete) return true;
+
+      const customWidgets = [
+        ...document.querySelectorAll(
+          '[role="combobox"],[role="listbox"]:not(select),lyte-dropdown,lyte-select,lyte-autocomplete,crux-picklist-component,[contenteditable="true"],[role="textbox"]:not(input):not(textarea),[aria-required="true"]',
+        ),
+      ].filter(visible);
+
+      return customWidgets.some((widget) =>
+        isCustomWidgetIncomplete(widget, controls),
       );
     };
 
@@ -1473,7 +1830,20 @@ export function formDOM(request = { operation: "inspect" }) {
           : el.value;
 
     globalThis[key] = (req) => {
-      if (req.operation === "inspect") return inspect(req.only_empty === true);
+      if (req.operation === "inspect")
+        return inspect(
+          req.only_empty === true,
+          req.interactions_allowed === true,
+        );
+      if (req.operation === "cancel_fill" && req.document_id === documentId) {
+        fillCancelled = true;
+        return {
+          state: "manual_required",
+          reason: "form_cancelled_reprepare_required",
+          results: [],
+          submitted: false,
+        };
+      }
       if (
         !last ||
         req.document_id !== documentId ||
@@ -1625,95 +1995,66 @@ export function formDOM(request = { operation: "inspect" }) {
       const pendingResults = [];
       const filledControls = new Set();
       let interrupted = null;
-      for (const action of req.actions) {
-        // Input/change handlers can navigate, replace controls or change the
-        // destination synchronously. Recheck the reviewed page before EACH write.
-        interrupted = validateSnapshot(req);
-        if (interrupted) break;
-        const { el, field, options } = refs.get(action.field_id);
-        const peers =
-          field.kind === "radio"
-            ? radioPeers(el, currentControls)
-            : field.kind === "checkbox"
-              ? checkboxPeers(el, currentControls)
-              : [];
-        // A page handler can populate another option after an earlier field's
-        // input event. Preserve that selection, including indeterminate values.
-        const groupChanged = peers.some(
-          (peer) =>
-            (peer.checked || peer.indeterminate) && !filledControls.has(peer),
-        );
-        const valueChanged =
-          field.kind === "select"
-            ? el.selectedIndex !==
-              refs.get(action.field_id).initialSelectedIndex
-            : ["radio", "checkbox"].includes(field.kind)
-              ? el.checked !== refs.get(action.field_id).initialChecked
-              : el.value !== refs.get(action.field_id).initialValue;
-        if (
-          !canFill.get(action.field_id) ||
-          groupChanged ||
-          userEdited.has(el) ||
-          valueChanged
-        ) {
-          pendingResults.push({
-            field_id: action.field_id,
-            status: "untouched",
-          });
-          continue;
-        }
-        if (
-          field.preview_only ||
-          field.kind === "file" ||
-          typeof action.value !== "string"
-        ) {
-          pendingResults.push({
-            field_id: action.field_id,
-            status: "untouched",
-          });
-          continue;
-        }
-        if (isConsentControl(el, field.group_label || "")) {
-          pendingResults.push({
-            field_id: action.field_id,
-            status: "untouched",
-          });
-          continue;
-        }
-        if (req.only_empty === true && isFrameworkControlled(el)) {
-          pendingResults.push({ field_id: action.field_id, status: "failed" });
-          continue;
-        }
-        if (action.value.length > field.max_length) {
-          pendingResults.push({ field_id: action.field_id, status: "failed" });
-          continue;
-        }
-        // No change/input events in manual mode: those may trigger external writes.
-        if (["checkbox", "radio"].includes(field.kind)) {
-          if (!["true", "false"].includes(action.value)) {
+      const applyActions = function* () {
+        for (const action of req.actions) {
+          // Input/change handlers can navigate, replace controls or change the
+          // destination synchronously. Recheck the reviewed page before EACH write.
+          interrupted = validateSnapshot(req);
+          if (interrupted) break;
+          const { el, field, options } = refs.get(action.field_id);
+          const peers =
+            field.kind === "radio"
+              ? radioPeers(el, currentControls)
+              : field.kind === "checkbox"
+                ? checkboxPeers(el, currentControls)
+                : [];
+          // A page handler can populate another option after an earlier field's
+          // input event. Preserve that selection, including indeterminate values.
+          const groupChanged = peers.some(
+            (peer) =>
+              (peer.checked || peer.indeterminate) && !filledControls.has(peer),
+          );
+          const valueChanged =
+            field.kind === "select"
+              ? el.selectedIndex !==
+                refs.get(action.field_id).initialSelectedIndex
+              : ["radio", "checkbox"].includes(field.kind)
+                ? el.checked !== refs.get(action.field_id).initialChecked
+                : el.value !== refs.get(action.field_id).initialValue;
+          if (
+            !canFill.get(action.field_id) ||
+            groupChanged ||
+            userEdited.has(el) ||
+            valueChanged
+          ) {
             pendingResults.push({
               field_id: action.field_id,
-              status: "failed",
+              status: "untouched",
             });
             continue;
           }
-          const checked = action.value === "true";
-          if (req.emit_events === true && el.checked !== checked) {
-            // React's controlled checkbox/radio change plugin observes click,
-            // not a checked assignment followed by synthetic input/change.
-            // The worker's network/submission guard stays active for this event.
-            el.click();
-          } else {
-            el.checked = checked;
-          }
-        } else if (field.kind === "select" && el.tagName !== "SELECT") {
-          const choices = refs.get(action.field_id).choices;
-          const index = choices?.labels.indexOf(action.value) ?? -1;
-          // A normal native datalist is the only event-free custom choice adapter.
           if (
-            !choices?.native ||
-            index < 0 ||
-            choices.options[index].value !== action.value
+            field.preview_only ||
+            field.kind === "file" ||
+            typeof action.value !== "string"
+          ) {
+            pendingResults.push({
+              field_id: action.field_id,
+              status: "untouched",
+            });
+            continue;
+          }
+          if (isConsentControl(el, field.group_label || "")) {
+            pendingResults.push({
+              field_id: action.field_id,
+              status: "untouched",
+            });
+            continue;
+          }
+          if (
+            req.only_empty === true &&
+            isFrameworkControlled(el) &&
+            req.interaction_authorized !== true
           ) {
             pendingResults.push({
               field_id: action.field_id,
@@ -1721,95 +2062,203 @@ export function formDOM(request = { operation: "inspect" }) {
             });
             continue;
           }
-          Object.getOwnPropertyDescriptor(
-            HTMLInputElement.prototype,
-            "value",
-          ).set.call(el, action.value);
-        } else if (field.kind === "select") {
-          const matches = options.filter(
-            (o) =>
-              !o.disabled &&
-              !o.hidden &&
-              !isPlaceholderSelectOption(o, o.index) &&
-              clean(o.textContent) === action.value,
-          );
-          if (matches.length !== 1) {
+          if (action.value.length > field.max_length) {
             pendingResults.push({
               field_id: action.field_id,
               status: "failed",
             });
             continue;
           }
-          el.selectedIndex = matches[0].index;
-        } else {
-          if (["date", "month"].includes(field.kind)) {
-            const probe = document.createElement("input");
-            probe.type = field.kind;
-            probe.min = el.min;
-            probe.max = el.max;
-            probe.step = el.step;
-            probe.value = action.value;
-            if (probe.value !== action.value || !probe.validity.valid) {
+          // Website events may autosave. They require a separate explicit review.
+          if (req.interaction_authorized === true) {
+            el.focus();
+            interrupted = validateSnapshot(req);
+            if (interrupted) break;
+          }
+          if (["checkbox", "radio"].includes(field.kind)) {
+            if (!["true", "false"].includes(action.value)) {
               pendingResults.push({
                 field_id: action.field_id,
                 status: "failed",
               });
               continue;
             }
+            const checked = action.value === "true";
+            if (
+              (req.emit_events === true ||
+                req.interaction_authorized === true) &&
+              el.checked !== checked
+            ) {
+              // React's controlled checkbox/radio change plugin observes click,
+              // not a checked assignment followed by synthetic input/change.
+              // The worker's network/submission guard stays active for this event.
+              el.click();
+            } else {
+              el.checked = checked;
+            }
+          } else if (field.kind === "select" && el.tagName !== "SELECT") {
+            const choices = refs.get(action.field_id).choices;
+            const index = choices?.labels.indexOf(action.value) ?? -1;
+            if (
+              !choices ||
+              index < 0 ||
+              (!choices.native && req.interaction_authorized !== true)
+            ) {
+              pendingResults.push({
+                field_id: action.field_id,
+                status: "failed",
+              });
+              continue;
+            }
+            if (choices.native) {
+              if (choices.options[index].value !== action.value) {
+                pendingResults.push({
+                  field_id: action.field_id,
+                  status: "failed",
+                });
+                continue;
+              }
+              Object.getOwnPropertyDescriptor(
+                HTMLInputElement.prototype,
+                "value",
+              ).set.call(el, action.value);
+            } else {
+              // Exact already-visible option only. The site's handler must retain
+              // its own selected value; the extension never forges that value.
+              refs.get(action.field_id).choiceClicked = action.value;
+              choices.options[index].click();
+            }
+          } else if (field.kind === "select") {
+            const matches = options.filter(
+              (o) =>
+                !o.disabled &&
+                !o.hidden &&
+                !isPlaceholderSelectOption(o, o.index) &&
+                clean(o.textContent) === action.value,
+            );
+            if (matches.length !== 1) {
+              pendingResults.push({
+                field_id: action.field_id,
+                status: "failed",
+              });
+              continue;
+            }
+            el.selectedIndex = matches[0].index;
+          } else {
+            if (["date", "month"].includes(field.kind)) {
+              const probe = document.createElement("input");
+              probe.type = field.kind;
+              probe.min = el.min;
+              probe.max = el.max;
+              probe.step = el.step;
+              probe.value = action.value;
+              if (probe.value !== action.value || !probe.validity.valid) {
+                pendingResults.push({
+                  field_id: action.field_id,
+                  status: "failed",
+                });
+                continue;
+              }
+            }
+            const proto =
+              field.kind === "textarea"
+                ? HTMLTextAreaElement.prototype
+                : HTMLInputElement.prototype;
+            Object.getOwnPropertyDescriptor(proto, "value").set.call(
+              el,
+              action.value,
+            );
           }
-          const proto =
-            field.kind === "textarea"
-              ? HTMLTextAreaElement.prototype
-              : HTMLInputElement.prototype;
-          Object.getOwnPropertyDescriptor(proto, "value").set.call(
+          if (
+            (req.emit_events === true || req.interaction_authorized === true) &&
+            !["checkbox", "radio"].includes(field.kind)
+          ) {
+            el.dispatchEvent(new Event("input", { bubbles: true }));
+            interrupted = validateSnapshot(req);
+            if (!interrupted)
+              el.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+          if (req.interaction_authorized === true) el.blur();
+          filledControls.add(el);
+          appliedValues.set(action.field_id, action.value);
+          pendingResults.push({
+            field_id: action.field_id,
             el,
-            action.value,
-          );
+            checkValidity: true,
+            expectedValue: action.value,
+            kind: field.kind,
+          });
+          if (req.interaction_authorized === true) yield;
         }
-        if (
-          req.emit_events === true &&
-          !["checkbox", "radio"].includes(field.kind)
-        ) {
-          el.dispatchEvent(new Event("input", { bubbles: true }));
-          interrupted = validateSnapshot(req);
-          if (!interrupted)
-            el.dispatchEvent(new Event("change", { bubbles: true }));
-        }
-        filledControls.add(el);
-        appliedValues.set(action.field_id, action.value);
-        pendingResults.push({
-          field_id: action.field_id,
-          el,
-          checkValidity: true,
-          expectedValue: action.value,
-          kind: field.kind,
+
+        interrupted = interrupted || validateSnapshot(req);
+        const results = pendingResults.map((item) =>
+          item.checkValidity
+            ? {
+                field_id: item.field_id,
+                status: !item.el.isConnected
+                  ? "failed"
+                  : !item.el.validity.valid || isInvalid(item.el)
+                    ? "validation_error"
+                    : actualValue(item.el, item.kind) === item.expectedValue
+                      ? "filled"
+                      : "failed",
+              }
+            : item,
+        );
+        stopObserving();
+        return {
+          ...(interrupted ? { reason: interrupted.reason } : {}),
+          state: interrupted
+            ? "manual_required"
+            : incompleteRequired() || results.some((r) => r.status !== "filled")
+              ? "needs_input"
+              : "form_filled",
+          results,
+          submitted: false,
+        };
+      };
+      const execution = applyActions();
+      if (req.interaction_authorized === true) {
+        interactiveExecution = true;
+        return (async () => {
+          let step = execution.next();
+          while (!step.done) {
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            step = execution.next();
+          }
+          const result = step.value;
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          const changed = validateSnapshot(req);
+          for (const item of result.results) {
+            if (item.status !== "filled") continue;
+            const ref = refs.get(item.field_id);
+            if (
+              !ref?.el.isConnected ||
+              actualValue(ref.el, ref.field.kind) !==
+                appliedValues.get(item.field_id)
+            )
+              item.status = "failed";
+            else if (!ref.el.validity.valid || isInvalid(ref.el))
+              item.status = "validation_error";
+          }
+          interactiveExecution = false;
+          if (changed)
+            return {
+              ...result,
+              state: "manual_required",
+              reason: changed.reason,
+            };
+          if (result.results.some((item) => item.status !== "filled"))
+            result.state = "needs_input";
+          return { ...result, verification: "retained_after_blur" };
+        })().finally(() => {
+          interactiveExecution = false;
         });
       }
-
-      interrupted = interrupted || validateSnapshot(req);
-      const results = pendingResults.map((item) =>
-        item.checkValidity
-          ? {
-              field_id: item.field_id,
-              status: !item.el.validity.valid
-                ? "validation_error"
-                : actualValue(item.el, item.kind) === item.expectedValue
-                  ? "filled"
-                  : "failed",
-            }
-          : item,
-      );
-      stopObserving();
-      return {
-        ...(interrupted ? { reason: interrupted.reason } : {}),
-        state: interrupted
-          ? "manual_required"
-          : incompleteRequired() || results.some((r) => r.status !== "filled")
-            ? "needs_input"
-            : "form_filled",
-        results,
-        submitted: false,
-      };
+      let step = execution.next();
+      while (!step.done) step = execution.next();
+      return step.value;
     };
   }
   return globalThis[key](request);

@@ -54,6 +54,7 @@ class OwnerRoute(APIRoute):
             maximum = (
                 MAX_PDF
                 if request.url.path.endswith("/resumes") and request.method == "POST"
+                else 262144 if request.url.path == "/api/v1/local-agent/chrome"
                 else 65536
             )
             chunks, size = [], 0

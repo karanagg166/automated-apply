@@ -244,4 +244,8 @@ async def stop_all(session):
         )
     ).all()
     for row in plans:
+        if row.value.get("extension_task_id") and row.value.get("state") == "consumed":
+            # A consumed plan cannot authorize another fill. Keep it available
+            # solely for the interrupted worker's eventual partial audit receipt.
+            continue
         row.value = {**row.value, "state": "finished"}

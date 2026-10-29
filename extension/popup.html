@@ -1,55 +1,100 @@
 <!doctype html>
 <html lang="en">
   <meta charset="utf-8" />
-  <title>Automated Apply</title>
+  <title>Automated Apply · Application assistant</title>
   <link rel="stylesheet" href="style.css" />
   <body>
-    <h1>Automated Apply</h1>
-    <p>Answer unanswered application questions using your reviewed facts.</p>
-    <button id="prepare-answers">Prepare answers for this form</button>
-    <p id="answer-status" role="status">
-      Open the application form, then prepare and review answers. Fields you
-      already answered are preserved.
-    </p>
-    <pre id="form-plan"></pre>
-    <ul id="missing-answers" aria-label="Questions needing your input"></ul>
-    <button id="fill-form" disabled>
-      I reviewed these answers — fill unanswered fields
-    </button>
-    <button id="cancel-form">Cancel prepared answers</button>
-    <p>
-      Unknown facts need your review in
-      <a href="http://127.0.0.1:3000/profile" target="_blank" rel="noreferrer"
-        >Profile</a
-      >. Upload your PDF yourself and review the completed form before
-      submitting it yourself.
-    </p>
-    <p>
-      Some custom fields and framework-controlled inputs may need manual
-      handling. The extension does not submit your application.
-    </p>
-    <details>
-      <summary>Connection and URL preview</summary>
-      <button id="preview">Save a preview of this URL</button>
-      <p id="status" role="status">No connection verified yet.</p>
-      <pre id="result"></pre>
-      <p id="menu-status"></p>
-      <button id="repair">Repair right-click menu</button>
-      <button id="observe">Check this portal session</button>
-      <p id="observation" role="status">
-        Only visible sign-in indicators are checked after your click. Account
-        identity and API access stay unverified.
-      </p>
-    </details>
-    <details>
-      <summary>Use an existing saved application</summary>
+    <header>
+      <h1>Application assistant</h1>
+      <a
+        href="http://127.0.0.1:3000/applications"
+        target="_blank"
+        rel="noreferrer"
+        >Open Dashboard ↗</a
+      >
+    </header>
+    <p id="connection-status" role="status">Connecting to the local agent…</p>
+    <section aria-label="Current application">
+      <h2 id="application-title">Choose an application</h2>
+      <label
+        >Pending application
+        <select id="task-list">
+          <option value="">Current active form</option>
+        </select></label
+      >
       <label
         >Saved application ID
         <input id="application-id" maxlength="36" autocomplete="off"
       /></label>
-      <button id="inspect-form">Prepare answers for saved application</button>
+      <button id="open-application">Open Application</button>
+      <dl id="application-context">
+        <dt>Packet</dt>
+        <dd id="packet-status">Prepare answers to bind the exact packet</dd>
+        <dt>Browser tab</dt>
+        <dd id="tab-status">Only the application tab is inspected</dd>
+        <dt>Current step</dt>
+        <dd id="step-status">Not inspected</dd>
+        <dt>Security challenge</dt>
+        <dd id="challenge-status">UNKNOWN</dd>
+      </dl>
+      <p id="next-action">
+        Open an application, then inspect its unanswered fields.
+      </p>
+    </section>
+    <section aria-label="Inspect and review">
+      <div class="controls">
+        <button id="inspect-form">Inspect</button
+        ><button id="prepare-answers">Prepare Answers</button>
+      </div>
+      <label class="check"
+        ><input id="allow-interactions" type="checkbox" /> Allow input, change
+        and blur events for reviewed fields. Website networking remains blocked
+        until you return browser control.</label
+      >
+      <p id="answer-status" role="status">
+        Existing answers and manual edits are preserved. No application will be
+        submitted.
+      </p>
+      <div id="field-summary" aria-live="polite"></div>
+      <div id="form-plan" aria-label="Proposed answers"></div>
+      <fieldset id="field-approvals">
+        <legend>Fields to authorize</legend>
+        <div id="approved-fields"></div>
+      </fieldset>
+      <ul id="missing-answers" aria-label="Questions needing your input"></ul>
+      <div class="controls">
+        <button id="review-answers" disabled>Review Answers</button
+        ><button id="ask-telegram" disabled>Ask Me on Telegram</button>
+      </div>
+      <p id="review-status">A preview does not authorize a fill.</p>
+      <button id="fill-form" disabled>Fill Approved Fields</button>
+      <button id="return-control" class="secondary" disabled>
+        Return browser control
+      </button>
+      <p id="network-guard-status">
+        Website networking is unchanged until guarded filling starts.
+      </p>
+      <div class="controls">
+        <button id="pause-form" class="secondary">Pause</button
+        ><button id="resume-form" class="secondary">Resume</button
+        ><button id="cancel-form" class="secondary">Cancel</button>
+      </div>
+    </section>
+    <p class="note">
+      Resume attachments and unsupported custom controls need manual completion.
+      Review the website before proceeding to its next step. Submission stays
+      owner-operated.
+    </p>
+    <details>
+      <summary>Connection tools</summary>
+      <button id="preview">Save URL Preview</button>
+      <p id="status" role="status">No connection verified yet.</p>
+      <p id="menu-status"></p>
+      <button id="repair">Repair right-click menu</button
+      ><button id="observe">Check portal session</button>
+      <p id="observation" role="status"></p>
+      <a href="settings.html" target="_blank">Connection settings ↗</a>
     </details>
-    <a href="settings.html" target="_blank">Connection settings</a>
     <script src="popup.js" type="module"></script>
   </body>
 </html>

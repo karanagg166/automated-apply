@@ -687,7 +687,7 @@ async def test_native_security_preview_cannot_authorize_and_pending_answer_is_no
     packet = await service.edit_answer(packet.id, field.id, AnswerEdit(
         expected_revision=packet.revision, answer="2",
     ))
-    before = await db_session.scalar(select(func.count()).select_from(OwnerPreference))
+    before = await db_session.scalar(select(func.count()).select_from(OwnerPreference).where(OwnerPreference.key.startswith("needs_input:")))
     settings = config(CHROME_EXTENSION_ID="a" * 32).model_copy(update={"BROWSER_FILL_ENABLED": False})
     actor = Actor(channel="chrome", identity="a" * 32)
     observed = inspection(job.application_url, [
@@ -702,9 +702,9 @@ async def test_native_security_preview_cannot_authorize_and_pending_answer_is_no
     plan_id = UUID(result.data["plan"]["id"])
     assert result.data["plan"]["actions"][0]["value"] == "2"
     assert result.data["plan"]["actions"][0]["preview_only"]
-    # Only the fill plan was added: no new question or application packet.
-    after = await db_session.scalar(select(func.count()).select_from(OwnerPreference))
-    assert after == before + 1
+    # Read-only inspection cannot duplicate a question or rewrite an owner answer.
+    after = await db_session.scalar(select(func.count()).select_from(OwnerPreference).where(OwnerPreference.key.startswith("needs_input:")))
+    assert after == before
     with pytest.raises(ValueError, match="invalid_field_approval"):
         await FormService(db_session, config()).review(plan_id, ["f1"])
     denied = await dispatch_form(db_session, settings, actor, Command(

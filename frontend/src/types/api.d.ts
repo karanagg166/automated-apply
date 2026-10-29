@@ -2586,6 +2586,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/browser/extension-tasks": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Extension Tasks */
+    get: operations["extension_tasks_api_v1_browser_extension_tasks_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser/extension-tasks/application/{application_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Extension Task */
+    get: operations["extension_task_api_v1_browser_extension_tasks_application__application_id__get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser/extension-tasks/{task_id}/control": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Control Extension Task */
+    post: operations["control_extension_task_api_v1_browser_extension_tasks__task_id__control_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/browser/plans": {
     parameters: {
       query?: never;
@@ -4034,7 +4085,11 @@ export interface components {
         | "inspect_form"
         | "prepare_form_answers"
         | "authorize_form"
-        | "record_form_fill";
+        | "record_form_fill"
+        | "open_application_task"
+        | "get_application_task"
+        | "update_application_task"
+        | "ask_form_questions";
       /** Url */
       url?: string | null;
       /** Title */
@@ -4048,6 +4103,41 @@ export interface components {
       /** Field Ids */
       field_ids?: string[];
       receipt?: components["schemas"]["FillReceipt"] | null;
+      /** Task Id */
+      task_id?: string | null;
+      /** Expected Task Version */
+      expected_task_version?: number | null;
+      /** Browser Session Id */
+      browser_session_id?: string | null;
+      /** Tab Id */
+      tab_id?: number | null;
+      /** Task Event */
+      task_event?:
+        | (
+            | "bind"
+            | "navigation"
+            | "refresh"
+            | "refreshed"
+            | "pause"
+            | "paused"
+            | "resume"
+            | "cancel"
+            | "tab_closed"
+            | "recover"
+            | "recovered"
+            | "focus_lost"
+            | "active_tab_changed"
+            | "network_timeout"
+            | "inspection_prepared"
+            | "fill_started"
+            | "fill_finished"
+            | "guard_installed"
+            | "guard_released"
+            | "worker_restart"
+          )
+        | null;
+      /** Observed Url */
+      observed_url?: string | null;
       /** Observation */
       observation?:
         ("signed_in_indicator" | "login_required" | "unverifiable") | null;
@@ -4626,6 +4716,122 @@ export interface components {
       user_confirmed: boolean;
       project?: components["schemas"]["VerifiedProject"] | null;
     };
+    /** ExtensionTask */
+    ExtensionTask: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Version */
+      version: number;
+      /**
+       * Application Id
+       * Format: uuid
+       */
+      application_id: string;
+      /**
+       * Job Id
+       * Format: uuid
+       */
+      job_id: string;
+      /** Company Name */
+      company_name: string | null;
+      /** Job Title */
+      job_title: string;
+      /** Packet Revision */
+      packet_revision: number;
+      /** Profile Version */
+      profile_version: number;
+      /** Context Digest */
+      context_digest: string;
+      /** Target Url */
+      target_url: string;
+      /** Current Url */
+      current_url: string;
+      /**
+       * Browser Session Id
+       * Format: uuid
+       */
+      browser_session_id: string;
+      /** Tab Id */
+      tab_id: number | null;
+      /**
+       * State
+       * @enum {string}
+       */
+      state:
+        | "DISCOVERED"
+        | "PACKET_READY"
+        | "FORM_INSPECTED"
+        | "NEEDS_INPUT"
+        | "ANSWERS_REVIEWED"
+        | "FILL_AUTHORIZED"
+        | "FILLING"
+        | "FILLED_VERIFIED"
+        | "READY_FOR_SUBMISSION"
+        | "PAUSED"
+        | "FAILED_RETRYABLE"
+        | "FAILED_FINAL"
+        | "CHALLENGE_REQUIRED"
+        | "SUBMISSION_UNKNOWN"
+        | "SUBMITTED_CONFIRMED";
+      /**
+       * Challenge State
+       * @enum {string}
+       */
+      challenge_state:
+        | "NONE"
+        | "WIDGET_PRESENT_UNVERIFIED"
+        | "CHALLENGE_BLOCKING"
+        | "MANUALLY_RESOLVED_AND_SITE_VERIFIED"
+        | "UNKNOWN";
+      /** Step */
+      step: string | null;
+      /** Plan Id */
+      plan_id: string | null;
+      /** Authorization Id */
+      authorization_id: string | null;
+      /** Field Answer Revisions */
+      field_answer_revisions: {
+        [key: string]: number;
+      };
+      /** Verified Receipts */
+      verified_receipts: {
+        [key: string]: unknown;
+      }[];
+      /** Reason */
+      reason: string | null;
+      /** Next Action */
+      next_action: string;
+      /**
+       * Mode
+       * @constant
+       */
+      mode: "ASSISTED_FILL";
+      capabilities: components["schemas"]["TaskCapabilities"];
+      counts: components["schemas"]["TaskCounts"];
+      /**
+       * Browser Connection
+       * @enum {string}
+       */
+      browser_connection:
+        "connected" | "paused" | "disconnected" | "unverified";
+      /** Tab Active */
+      tab_active: boolean;
+      /**
+       * Challenge Observed
+       * @default false
+       */
+      challenge_observed: boolean;
+      /**
+       * Network Guard Active
+       * @default false
+       */
+      network_guard_active: boolean;
+      /** Updated At */
+      updated_at: string;
+    };
     /** FactDifference */
     FactDifference: {
       /** Category */
@@ -4748,6 +4954,10 @@ export interface components {
       inspection: components["schemas"]["Inspection"];
       /** Context Digest */
       context_digest: string;
+      /** Extension Task Id */
+      extension_task_id?: string | null;
+      /** Extension Authorization Id */
+      extension_authorization_id?: string | null;
       /** Packet Revision */
       packet_revision: number;
       /** Project Digest */
@@ -4767,6 +4977,17 @@ export interface components {
     };
     /** FillReceipt */
     FillReceipt: {
+      /**
+       * Network Guard Active
+       * @default false
+       */
+      network_guard_active: boolean;
+      /**
+       * Verification Method
+       * @default dom_assignment
+       * @enum {string}
+       */
+      verification_method: "dom_assignment" | "retained_after_blur";
       /**
        * Plan Id
        * Format: uuid
@@ -4893,6 +5114,12 @@ export interface components {
        * @default 1500
        */
       max_length: number;
+      /** Semantic Key */
+      semantic_key?: string | null;
+      /** Control Identity */
+      control_identity?: string | null;
+      /** Page Step */
+      page_step?: string | null;
       /**
        * Invalid
        * @default false
@@ -5085,6 +5312,10 @@ export interface components {
     };
     /** Inspection */
     Inspection: {
+      /** Manual Reason */
+      manual_reason?: string | null;
+      /** Manual Controls */
+      manual_controls?: components["schemas"]["ManualControl"][];
       /**
        * Version
        * @default 1
@@ -5118,6 +5349,22 @@ export interface components {
        * @default false
        */
       has_submit: boolean;
+      /**
+       * Challenge State
+       * @default NONE
+       * @enum {string}
+       */
+      challenge_state:
+        | "NONE"
+        | "WIDGET_PRESENT_UNVERIFIED"
+        | "CHALLENGE_BLOCKING"
+        | "MANUALLY_RESOLVED_AND_SITE_VERIFIED"
+        | "UNKNOWN";
+      /**
+       * Completed Count
+       * @default 0
+       */
+      completed_count: number;
     };
     /** Intent */
     Intent: {
@@ -5475,6 +5722,32 @@ export interface components {
       company_domain?: string | null;
       /** Reviewed Job Evidence */
       reviewed_job_evidence: boolean;
+    };
+    /**
+     * ManualControl
+     * @description Bounded explanation only; existing values and frame contents stay in Chrome.
+     */
+    ManualControl: {
+      /** Control Id */
+      control_id: string;
+      /** Kind */
+      kind: string;
+      /** Label */
+      label: string;
+      /** Reason */
+      reason: string;
+      /** Context */
+      context?: string | null;
+      /**
+       * Required
+       * @default false
+       */
+      required: boolean;
+      /**
+       * Invalid
+       * @default false
+       */
+      invalid: boolean;
     };
     /** ManualRun */
     ManualRun: {
@@ -6447,6 +6720,12 @@ export interface components {
       telegram_owner_update?: number | null;
       /** Telegram Question */
       telegram_question?: string | null;
+      /** Form Semantic Key */
+      form_semantic_key?: string | null;
+      /** Form Page Step */
+      form_page_step?: string | null;
+      /** Form Section */
+      form_section?: string | null;
       /** Answer Expires At */
       answer_expires_at?: string | null;
       /** Answer Draft Id */
@@ -8046,6 +8325,75 @@ export interface components {
        * @default Public downloads expose Last-Modified/ETag only when provided. Drive revision metadata may be unavailable; checks always verify PDF SHA-256.
        */
       metadata_note: string;
+    };
+    /** TaskCapabilities */
+    TaskCapabilities: {
+      /**
+       * Preview
+       * @default true
+       * @constant
+       */
+      preview: true;
+      /**
+       * Assisted Fill
+       * @default false
+       */
+      assisted_fill: boolean;
+      /**
+       * Reviewed Submission
+       * @default false
+       * @constant
+       */
+      reviewed_submission: false;
+      /**
+       * Unattended Approved
+       * @default false
+       * @constant
+       */
+      unattended_approved: false;
+    };
+    /** TaskControl */
+    TaskControl: {
+      /**
+       * Action
+       * @enum {string}
+       */
+      action: "pause" | "resume" | "cancel";
+      /** Expected Version */
+      expected_version: number;
+    };
+    /** TaskCounts */
+    TaskCounts: {
+      /**
+       * Ready
+       * @default 0
+       */
+      ready: number;
+      /**
+       * Completed
+       * @default 0
+       */
+      completed: number;
+      /**
+       * Missing
+       * @default 0
+       */
+      missing: number;
+      /**
+       * Manual
+       * @default 0
+       */
+      manual: number;
+      /**
+       * Validation Errors
+       * @default 0
+       */
+      validation_errors: number;
+      /**
+       * Existing
+       * @default 0
+       */
+      existing: number;
     };
     /** TokenUsage */
     TokenUsage: {
@@ -13643,6 +13991,92 @@ export interface operations {
         };
         content: {
           "application/json": unknown;
+        };
+      };
+    };
+  };
+  extension_tasks_api_v1_browser_extension_tasks_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ExtensionTask"][];
+        };
+      };
+    };
+  };
+  extension_task_api_v1_browser_extension_tasks_application__application_id__get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        application_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ExtensionTask"] | null;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  control_extension_task_api_v1_browser_extension_tasks__task_id__control_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        task_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TaskControl"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ExtensionTask"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

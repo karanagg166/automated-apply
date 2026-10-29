@@ -19,6 +19,9 @@ CAPABILITIES = {name: "preview_only" for name in (
 
 
 async def dispatch(session, settings, actor: Actor, command: Command):
+    if command.command in {"open_application_task", "get_application_task", "update_application_task", "ask_form_questions"}:
+        from backend.app.browser.extension_tasks import dispatch_task
+        return await dispatch_task(session, settings, actor, command)
     if command.command in {"inspect_form", "prepare_form_answers", "authorize_form", "record_form_fill"}:
         from backend.app.browser.manual import dispatch_form
         return await dispatch_form(session, settings, actor, command)
