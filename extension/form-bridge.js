@@ -4,6 +4,7 @@ import { supportedUrl } from "./preview.js";
 const host = "com.automated_apply.agent";
 const ERROR_CODE_PATTERN = /^[a-z][a-z0-9_]{1,63}$/;
 let current;
+let activeFill;
 let generation = 0;
 function permittedFormUrl(value) {
   if (!supportedUrl(value)) return false;
@@ -23,6 +24,17 @@ function permittedFormUrl(value) {
 export function cancelPreparedForm() {
   generation++;
   current = null;
+  if (activeFill) {
+    const filling = activeFill;
+    void chrome.scripting
+      .executeScript({
+        target: { tabId: filling.tabId, frameIds: [0] },
+        world: "ISOLATED",
+        func: formDOM,
+        args: [{ operation: "cancel_fill", document_id: filling.documentId }],
+      })
+      .catch(() => {});
+  }
 }
 function requireCurrentGeneration(expected) {
   if (generation !== expected) throw Error("form_cancelled_reprepare_required");
@@ -111,7 +123,7 @@ async function active() {
     throw Error("supported_application_page_required");
   return tab;
 }
-export async function inspectForm(applicationId) {
+export async function inspectForm(applicationId, options = {}) {
   cancelPreparedForm();
   const expected = generation;
   if (!/^[a-f0-9-]{36}$/.test(applicationId))
@@ -121,7 +133,13 @@ export async function inspectForm(applicationId) {
     target: { tabId: tab.id, frameIds: [0] },
     world: "ISOLATED",
     func: formDOM,
-    args: [{ operation: "inspect", only_empty: true }],
+    args: [
+      {
+        operation: "inspect",
+        only_empty: true,
+        ...(options.interactions_allowed ? { interactions_allowed: true } : {}),
+      },
+    ],
   });
   const after = await active();
   if (after.id !== tab.id || after.url !== tab.url) throw Error("page_changed");
@@ -130,14 +148,21 @@ export async function inspectForm(applicationId) {
   }
   const data = await native("inspect_form", {
     application_id: applicationId,
+    ...options.taskContext,
     inspection: sanitizeInspection(observation.result),
   });
   requireCurrentGeneration(expected);
   attachPreview(data, observation.result);
-  current = { tabId: tab.id, url: tab.url, plan: data.plan };
+  if (data.task) data.plan.task = data.task;
+  current = {
+    tabId: tab.id,
+    url: tab.url,
+    plan: data.plan,
+    interactions_allowed: options.interactions_allowed === true,
+  };
   return data.plan;
 }
-export async function prepareAnswers(tab) {
+export async function prepareAnswers(tab, options = {}) {
   cancelPreparedForm();
   const expected = generation;
   tab = tab || (await active());
@@ -150,7 +175,13 @@ export async function prepareAnswers(tab) {
     target: { tabId: tab.id, frameIds: [0] },
     world: "ISOLATED",
     func: formDOM,
-    args: [{ operation: "inspect", only_empty: true }],
+    args: [
+      {
+        operation: "inspect",
+        only_empty: true,
+        ...(options.interactions_allowed ? { interactions_allowed: true } : {}),
+      },
+    ],
   });
   const after = await active();
   if (
@@ -164,14 +195,21 @@ export async function prepareAnswers(tab) {
   }
   const data = await native("prepare_form_answers", {
     title: String(tab.title || "").slice(0, 250),
+    ...options.taskContext,
     inspection: sanitizeInspection(observation.result),
   });
   requireCurrentGeneration(expected);
   attachPreview(data, observation.result);
-  current = { tabId: tab.id, url: tab.url, plan: data.plan };
+  if (data.task) data.plan.task = data.task;
+  current = {
+    tabId: tab.id,
+    url: tab.url,
+    plan: data.plan,
+    interactions_allowed: options.interactions_allowed === true,
+  };
   return data.plan;
 }
-export async function fillForm() {
+export async function fillForm(options = {}) {
   if (!current) throw Error("inspect_and_review_first");
   const snapshot = current;
   const expected = generation;
@@ -187,9 +225,18 @@ export async function fillForm() {
     Date.parse(snapshot.plan.expires_at) <= Date.now()
   )
     throw Error("fill_plan_stale");
-  const fieldIds = snapshot.plan.actions
+  const availableFieldIds = snapshot.plan.actions
     .filter((a) => !a.needs_input && !a.preview_only && a.kind !== "file")
     .map((a) => a.field_id);
+  const fieldIds =
+    options.field_ids === undefined ? availableFieldIds : options.field_ids;
+  if (
+    !Array.isArray(fieldIds) ||
+    fieldIds.length > 24 ||
+    new Set(fieldIds).size !== fieldIds.length ||
+    fieldIds.some((id) => !availableFieldIds.includes(id))
+  )
+    throw Error("reviewed_field_selection_invalid");
   if (!fieldIds.length) throw Error("inspect_and_review_first");
   const [validation] = await chrome.scripting.executeScript({
     target: { tabId: tab.id, frameIds: [0] },
@@ -209,10 +256,12 @@ export async function fillForm() {
         ? "security_challenge"
         : "dom_changed",
     );
-  const { plan } = await native("authorize_form", {
+  const authorization = await native("authorize_form", {
+    ...options.taskContext,
     plan_id: snapshot.plan.id,
     field_ids: fieldIds,
   });
+  const { plan } = authorization;
   requireCurrentGeneration(expected);
   const after = await active();
   requireCurrentGeneration(expected);
@@ -229,19 +278,37 @@ export async function fillForm() {
   const actions = plan.actions.filter((a) =>
     plan.approved_fields.includes(a.field_id),
   );
-  const [filled] = await chrome.scripting.executeScript({
-    target: { tabId: tab.id, frameIds: [0] },
-    world: "ISOLATED",
-    func: formDOM,
-    args: [
-      {
-        operation: "fill",
-        document_id: plan.inspection.document_id,
-        actions,
-        only_empty: true,
+  activeFill = { tabId: tab.id, documentId: plan.inspection.document_id };
+  let filled;
+  try {
+    [filled] = await chrome.scripting.executeScript({
+      target: { tabId: tab.id, frameIds: [0] },
+      world: "ISOLATED",
+      func: formDOM,
+      args: [
+        {
+          operation: "fill",
+          document_id: plan.inspection.document_id,
+          actions,
+          only_empty: true,
+          ...(snapshot.interactions_allowed && options.interaction_authorized
+            ? { interaction_authorized: true }
+            : {}),
+        },
+      ],
+    });
+  } catch {
+    filled = {
+      result: {
+        state: "manual_required",
+        reason: "tab_unavailable_fill_unknown",
+        results: [],
+        submitted: false,
       },
-    ],
-  });
+    };
+  } finally {
+    activeFill = null;
+  }
   const result = filled.result;
   try {
     const finalTab = await active();
@@ -251,13 +318,45 @@ export async function fillForm() {
     result.state = "manual_required";
     result.reason = "step_changed";
   }
-  await native("record_form_fill", {
+  const recorded = await native("record_form_fill", {
+    ...options.taskContext,
+    ...(authorization.task
+      ? { expected_task_version: authorization.task.version }
+      : {}),
     receipt: {
       plan_id: plan.id,
       results: result.results,
       state: result.state,
       submitted: false,
+      verification_method:
+        result.verification === "retained_after_blur"
+          ? "retained_after_blur"
+          : "dom_assignment",
     },
   });
+  if (recorded.task) result.task = recorded.task;
   return result;
+}
+
+// Read-only inspection has no packet preparation or authorization side effects.
+export async function inspectOnly(options = {}) {
+  cancelPreparedForm();
+  const expected = generation;
+  const tab = await active();
+  const [observation] = await chrome.scripting.executeScript({
+    target: { tabId: tab.id, frameIds: [0] },
+    world: "ISOLATED",
+    func: formDOM,
+    args: [
+      {
+        operation: "inspect",
+        only_empty: true,
+        ...(options.interactions_allowed ? { interactions_allowed: true } : {}),
+      },
+    ],
+  });
+  const after = await active();
+  requireCurrentGeneration(expected);
+  if (after.id !== tab.id || after.url !== tab.url) throw Error("page_changed");
+  return observation.result;
 }

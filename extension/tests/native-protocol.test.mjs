@@ -2,11 +2,21 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync, chmodSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+  chmodSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { assertDisposableLocalDatabaseUrl, buildSanitizedChildEnv } from "./chrome-e2e.mjs";
+import {
+  assertDisposableLocalDatabaseUrl,
+  buildSanitizedChildEnv,
+} from "./chrome-e2e.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, "../..");
@@ -21,7 +31,10 @@ function findPython() {
   ].filter(Boolean);
   for (const candidate of candidates) {
     if (candidate.startsWith("/") && !existsSync(candidate)) continue;
-    const probe = spawnSync(candidate, ["-c", "import pydantic"], { cwd: root, stdio: "ignore" });
+    const probe = spawnSync(candidate, ["-c", "import pydantic"], {
+      cwd: root,
+      stdio: "ignore",
+    });
     if (probe.status === 0) return candidate;
   }
   throw new Error(
@@ -29,12 +42,22 @@ function findPython() {
   );
 }
 
-function runNativeFrame(python, envPath, origin, rawInputBuffer, closeStdin = true) {
+function runNativeFrame(
+  python,
+  envPath,
+  origin,
+  rawInputBuffer,
+  closeStdin = true,
+) {
   return new Promise((resolvePromise, rejectPromise) => {
     const child = spawn(
       python,
       ["-m", "backend.app.local_agent.native_host", envPath, origin],
-      { cwd: root, env: buildSanitizedChildEnv(), stdio: ["pipe", "pipe", "ignore"] },
+      {
+        cwd: root,
+        env: buildSanitizedChildEnv(),
+        stdio: ["pipe", "pipe", "ignore"],
+      },
     );
     const timer = setTimeout(() => {
       child.kill();
@@ -49,7 +72,9 @@ function runNativeFrame(python, envPath, origin, rawInputBuffer, closeStdin = tr
           clearTimeout(timer);
           child.stdin.end();
           try {
-            resolvePromise(JSON.parse(output.subarray(4, len + 4).toString("utf8")));
+            resolvePromise(
+              JSON.parse(output.subarray(4, len + 4).toString("utf8")),
+            );
           } catch (err) {
             rejectPromise(err);
           }
@@ -74,48 +99,95 @@ function runNativeFrame(python, envPath, origin, rawInputBuffer, closeStdin = tr
 function encodeFrame(objOrBytes) {
   const payload = Buffer.isBuffer(objOrBytes)
     ? objOrBytes
-    : Buffer.from(typeof objOrBytes === "string" ? objOrBytes : JSON.stringify(objOrBytes), "utf8");
+    : Buffer.from(
+        typeof objOrBytes === "string"
+          ? objOrBytes
+          : JSON.stringify(objOrBytes),
+        "utf8",
+      );
   const header = Buffer.alloc(4);
   header.writeUInt32LE(payload.length, 0);
   return Buffer.concat([header, payload]);
 }
 
-test("manifest version 1.2.2 and public RSA key derive exact stable extension ID", () => {
-  const manifest = JSON.parse(readFileSync(resolve(here, "../manifest.json"), "utf8"));
+test("manifest version 1.3.0 and public RSA key derive exact stable extension ID", () => {
+  const manifest = JSON.parse(
+    readFileSync(resolve(here, "../manifest.json"), "utf8"),
+  );
   assert.equal(manifest.manifest_version, 3);
-  assert.equal(manifest.version, "1.2.2");
-  const hash = createHash("sha256").update(Buffer.from(manifest.key, "base64")).digest("hex").slice(0, 32);
-  const derivedId = [...hash].map((c) => String.fromCharCode(97 + Number.parseInt(c, 16))).join("");
+  assert.equal(manifest.version, "1.3.0");
+  const hash = createHash("sha256")
+    .update(Buffer.from(manifest.key, "base64"))
+    .digest("hex")
+    .slice(0, 32);
+  const derivedId = [...hash]
+    .map((c) => String.fromCharCode(97 + Number.parseInt(c, 16)))
+    .join("");
   assert.equal(derivedId, EXPECTED_ID);
 
   // Verify disposable DB safety guards fail closed on nonlocal, Supabase, or unexpected targets
-  const validLocalUrl = ["postgresql://postgres", "disposable@127.0.0.1:55449/candidate_profile_test"].join(":");
+  const validLocalUrl = [
+    "postgresql://postgres",
+    "disposable@127.0.0.1:55449/candidate_profile_test",
+  ].join(":");
   assert.equal(
-    assertDisposableLocalDatabaseUrl(validLocalUrl, 55449, "candidate_profile_test", "postgres"),
+    assertDisposableLocalDatabaseUrl(
+      validLocalUrl,
+      55449,
+      "candidate_profile_test",
+      "postgres",
+    ),
     validLocalUrl,
   );
   for (const unsafeUrl of [
     "",
-    ["postgresql://postgres", "pw@db.projectref.supabase.co:5432/postgres"].join(":"),
-    ["postgresql://postgres.ref", "pw@aws-0-ap-south-1.pooler.supabase.com:6543/postgres"].join(":"),
-    ["postgresql://postgres", "pw@localhost:55449/candidate_profile_test"].join(":"),
-    ["postgresql://postgres", "pw@127.0.0.1:5432/candidate_profile_test"].join(":"),
-    ["postgresql://postgres", "pw@127.0.0.1:54322/candidate_profile_test"].join(":"),
+    [
+      "postgresql://postgres",
+      "pw@db.projectref.supabase.co:5432/postgres",
+    ].join(":"),
+    [
+      "postgresql://postgres.ref",
+      "pw@aws-0-ap-south-1.pooler.supabase.com:6543/postgres",
+    ].join(":"),
+    ["postgresql://postgres", "pw@localhost:55449/candidate_profile_test"].join(
+      ":",
+    ),
+    ["postgresql://postgres", "pw@127.0.0.1:5432/candidate_profile_test"].join(
+      ":",
+    ),
+    ["postgresql://postgres", "pw@127.0.0.1:54322/candidate_profile_test"].join(
+      ":",
+    ),
     ["postgresql://postgres", "pw@127.0.0.1:55449/production"].join(":"),
-    ["postgresql://postgres", "pw@127.0.0.1:55449/candidate_profile_test?sslmode=require"].join(":"),
-    ["postgresql://wrong_user", "pw@127.0.0.1:55449/candidate_profile_test"].join(":"),
+    [
+      "postgresql://postgres",
+      "pw@127.0.0.1:55449/candidate_profile_test?sslmode=require",
+    ].join(":"),
+    [
+      "postgresql://wrong_user",
+      "pw@127.0.0.1:55449/candidate_profile_test",
+    ].join(":"),
   ]) {
-    assert.throws(() => assertDisposableLocalDatabaseUrl(unsafeUrl, 55449, "candidate_profile_test", "postgres"));
+    assert.throws(() =>
+      assertDisposableLocalDatabaseUrl(
+        unsafeUrl,
+        55449,
+        "candidate_profile_test",
+        "postgres",
+      ),
+    );
   }
   const prevEnv = process.env.PHASE1_DISPOSABLE_DATABASE_URL;
-  process.env.PHASE1_DISPOSABLE_DATABASE_URL = "postgresql://should-be-stripped";
+  process.env.PHASE1_DISPOSABLE_DATABASE_URL =
+    "postgresql://should-be-stripped";
   try {
     const clean = buildSanitizedChildEnv();
     assert.equal("PHASE1_DISPOSABLE_DATABASE_URL" in clean, false);
     assert.equal("DATABASE_URL" in clean, false);
     assert.equal("SUPABASE_URL" in clean, false);
   } finally {
-    if (prevEnv === undefined) delete process.env.PHASE1_DISPOSABLE_DATABASE_URL;
+    if (prevEnv === undefined)
+      delete process.env.PHASE1_DISPOSABLE_DATABASE_URL;
     else process.env.PHASE1_DISPOSABLE_DATABASE_URL = prevEnv;
   }
 });
@@ -125,7 +197,10 @@ test("real Python native host enforces origin, private config, frame size, schem
   const tempDir = mkdtempSync(join(tmpdir(), "automated-apply-native-proto-"));
   try {
     const envPath = join(tempDir, "probe.private.env");
-    const dbScheme = ["postgresql+asyncpg://job_agent_runtime", "fictional@127.0.0.1:55499/candidate_profile_test"].join(":");
+    const dbScheme = [
+      "postgresql+asyncpg://job_agent_runtime",
+      "fictional@127.0.0.1:55499/candidate_profile_test",
+    ].join(":");
     const secretKeyName = ["SECRET", "KEY"].join("_");
     const tokenKeyName = ["JOB_AGENT_API", "TOKEN"].join("_");
     const envLines = [
@@ -154,9 +229,17 @@ test("real Python native host enforces origin, private config, frame size, schem
 
     // 1. Insecure file permissions (0o644) -> native_private_configuration_required
     chmodSync(envPath, 0o644);
-    const insecurePerm = await runNativeFrame(python, envPath, validOrigin, validFrame);
+    const insecurePerm = await runNativeFrame(
+      python,
+      envPath,
+      validOrigin,
+      validFrame,
+    );
     assert.equal(insecurePerm.ok, false);
-    assert.equal(insecurePerm.error_code, "native_private_configuration_required");
+    assert.equal(
+      insecurePerm.error_code,
+      "native_private_configuration_required",
+    );
     chmodSync(envPath, 0o600);
 
     // 2. Wrong / stale extension origin -> native_origin_denied
@@ -172,19 +255,34 @@ test("real Python native host enforces origin, private config, frame size, schem
     // 3. Zero-length frame -> native_message_size
     const zeroHeader = Buffer.alloc(4);
     zeroHeader.writeUInt32LE(0, 0);
-    const zeroFrame = await runNativeFrame(python, envPath, validOrigin, zeroHeader);
+    const zeroFrame = await runNativeFrame(
+      python,
+      envPath,
+      validOrigin,
+      zeroHeader,
+    );
     assert.equal(zeroFrame.ok, false);
     assert.equal(zeroFrame.error_code, "native_message_size");
 
     // 4. Oversized frame (> 16384 bytes) -> native_message_size
     const oversizedHeader = Buffer.alloc(4);
     oversizedHeader.writeUInt32LE(16385, 0);
-    const oversized = await runNativeFrame(python, envPath, validOrigin, oversizedHeader);
+    const oversized = await runNativeFrame(
+      python,
+      envPath,
+      validOrigin,
+      oversizedHeader,
+    );
     assert.equal(oversized.ok, false);
     assert.equal(oversized.error_code, "native_message_size");
 
     // 5. Malformed JSON payload -> native_invalid_message
-    const malformed = await runNativeFrame(python, envPath, validOrigin, encodeFrame("{not-json"));
+    const malformed = await runNativeFrame(
+      python,
+      envPath,
+      validOrigin,
+      encodeFrame("{not-json"),
+    );
     assert.equal(malformed.ok, false);
     assert.equal(malformed.error_code, "native_invalid_message");
 
@@ -206,13 +304,23 @@ test("real Python native host enforces origin, private config, frame size, schem
       python,
       envPath,
       validOrigin,
-      encodeFrame({ version: 1, request_id: crypto.randomUUID(), command: "get_application_policy" }),
+      encodeFrame({
+        version: 1,
+        request_id: crypto.randomUUID(),
+        command: "get_application_policy",
+      }),
     );
     assert.equal(deniedCap.ok, false);
     assert.equal(deniedCap.error_code, "native_capability_denied");
 
     // 8. Refused loopback endpoint -> backend_offline (leaving stdin open like Chrome)
-    const offline = await runNativeFrame(python, envPath, validOrigin, validFrame, false);
+    const offline = await runNativeFrame(
+      python,
+      envPath,
+      validOrigin,
+      validFrame,
+      false,
+    );
     assert.equal(offline.ok, false);
     assert.equal(offline.error_code, "backend_offline");
   } finally {

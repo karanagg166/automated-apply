@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Automated Apply — Form Answers",
-  "version": "1.2.2",
-  "description": "Review grounded answers and fill unanswered application fields after your click.",
+  "name": "Automated Apply \u2014 Application Assistant",
+  "version": "1.3.0",
+  "description": "Inspect, review and fill approved application fields with packet-bound recovery. Submission stays owner-operated.",
   "permissions": [
     "contextMenus",
     "activeTab",
@@ -19,5 +19,6 @@
     "default_title": "Apply with Automated Apply"
   },
   "options_page": "settings.html",
-  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmYFkzoP/T9SxjfW09IDlGRSb5yFi2rEiZeUkUZYiYj2/jzacV09Lliv4f15Kmk2yTzdcu69R1uvzcGkOwFQ/4T3X123dfikj8G/7CZeikgfgKfb0AEFz5XNYcjDWnwnlBKiFuK+Ga4u3UX8rAq2XdXdzbPQt0h40OSw+zuM05mQgqOBTDP77M8QOt3tE/eRn+CaZC5CP04S/CUkVp/VQN9mu3b1aatdUpkPjgIOHXuaLmd8ZIlJfJjTuakzqwj/9fvF5u0gLmAaU1Pyck24pa14tCKT6dCbmwx4aGo4E2ISh5080gfipiQ+nDzHRfw9Y7WWKYXi9K10Tt5nRh/a3jwIDAQAB"
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmYFkzoP/T9SxjfW09IDlGRSb5yFi2rEiZeUkUZYiYj2/jzacV09Lliv4f15Kmk2yTzdcu69R1uvzcGkOwFQ/4T3X123dfikj8G/7CZeikgfgKfb0AEFz5XNYcjDWnwnlBKiFuK+Ga4u3UX8rAq2XdXdzbPQt0h40OSw+zuM05mQgqOBTDP77M8QOt3tE/eRn+CaZC5CP04S/CUkVp/VQN9mu3b1aatdUpkPjgIOHXuaLmd8ZIlJfJjTuakzqwj/9fvF5u0gLmAaU1Pyck24pa14tCKT6dCbmwx4aGo4E2ISh5080gfipiQ+nDzHRfw9Y7WWKYXi9K10Tt5nRh/a3jwIDAQAB",
+  "optional_host_permissions": ["https://*/*"]
 }

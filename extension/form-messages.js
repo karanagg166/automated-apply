@@ -30,6 +30,28 @@ export function formErrorMessage(error) {
   }
   return (
     {
+      reviewed_field_selection_invalid:
+        "Selected fields do not match the current preview. Prepare and review fresh answers.",
+      application_origin_permission_required:
+        "Grant Chrome access to this exact application origin using Open Application, or inspect via a new toolbar click.",
+      assistant_unavailable:
+        "The application assistant is unavailable. Check the local backend and native host in Connection settings.",
+      application_task_required:
+        "Choose a saved application task or prepare answers on the active application tab first.",
+      browser_restart_reopen_required:
+        "Chrome restarted. Open Application to reconnect the saved task, then inspect and review fresh answers.",
+      application_tab_not_active:
+        "Activate this application's dedicated tab, then inspect and review its current step.",
+      task_paused_or_closed:
+        "This task is paused, cancelled or blocked by a challenge. Review its status in the dashboard before continuing.",
+      application_tab_busy:
+        "Another application action owns this tab. Wait for it to finish or cancel it first.",
+      extension_task_conflict:
+        "The application changed in another window. Refresh its task status and inspect again.",
+      native_protocol_error:
+        "The local agent returned an unexpected response. Check the installed backend version in Connection settings.",
+      read_only_preview:
+        "This is a read-only preview. Fresh inspection and answer review are required after owner action.",
       manual_form_not_authorized:
         "Answer filling is disabled in your local installation. Approve the prepared upgrade and manual extension filling first.",
       profile_review_required:
