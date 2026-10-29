@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from backend.app.local_agent.contracts import Command, Result
 
-MAX_MESSAGE_BYTES = 16384
+MAX_MESSAGE_BYTES = 262144
 HOST_NAME = "com.automated_apply.agent"
 
 
@@ -53,7 +53,7 @@ def write_message(stream, value):
 
 
 def forward(command, settings, client=None):
-    if command.command not in {"health", "connection_status", "get_agent_capabilities", "preview_application_url", "observe_platform_session", "inspect_form", "prepare_form_answers", "authorize_form", "record_form_fill"}:
+    if command.command not in {"health", "connection_status", "get_agent_capabilities", "preview_application_url", "observe_platform_session", "inspect_form", "prepare_form_answers", "authorize_form", "record_form_fill", "open_application_task", "get_application_task", "update_application_task", "ask_form_questions"}:
         raise ValueError("native_capability_denied")
     token = settings.JOB_AGENT_API_TOKEN
     if not token or not settings.CHROME_NATIVE_MESSAGING_ENABLED or not settings.CHROME_EXTENSION_ID:

@@ -77,7 +77,8 @@ async def test_existing_answer_authorizations_expire_after_profile_edit(db_sessi
 @pytest.mark.parametrize("actor,enabled", [("owner", True), ("chrome", False)])
 async def test_answer_requests_cannot_bypass_manual_extension_activation(db_session, actor, enabled):
     result = await dispatch(db_session, config(BROWSER_FILL_ENABLED=enabled), Actor(channel=actor, identity=EXTENSION), command())
-    assert not result.ok and result.error_code == "manual_form_not_authorized"
+    assert not result.ok
+    assert result.error_code == ("profile_review_required" if actor == "chrome" else "manual_form_not_authorized")
     assert await db_session.scalar(select(func.count()).select_from(Job)) == 0
 
 

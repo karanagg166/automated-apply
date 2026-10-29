@@ -250,7 +250,10 @@ class FormService:
             from backend.app.execution.store import memory_row
             await memory_row(self.session, lock=True)
         packet, profile, url = await self.context(application_id, mode)
-        preview_only = mode == "manual_extension" and inspection.state == "manual_required"
+        preview_only = mode == "manual_extension" and (
+            inspection.state == "manual_required"
+            or inspection.challenge_state not in {"NONE", "MANUALLY_RESOLVED_AND_SITE_VERIFIED"}
+        )
         if inspection.url != url or (inspection.state not in {
             "ready", "validation_errors",
         } and not preview_only):
@@ -286,7 +289,7 @@ class FormService:
                 continue
             if field.kind == "file":
                 raw = await pdf_bytes(self.session, packet, self.settings)
-                if raw and "resume" in field.label.casefold():
+                if raw and re.search(r"\b(?:resume|cv)\b", f"{field.section or ''} {field.label}", re.I) and not re.search(r"cover letter", field.label, re.I):
                     action.safe_reference = (
                         "canonical_pdf:" + hashlib.sha256(raw).hexdigest()
                     )
@@ -301,9 +304,8 @@ class FormService:
                 re.I,
             ):
                 # Labels are untrusted; classifier/grounding services can abstain, never execute them.
-                question_text = field.group_label or field.label
-                if field.section:
-                    question_text = f"{field.section}: {question_text}"
+                from backend.app.browser.extension_tasks import field_question
+                question_text = field_question(field)
                 if re.fullmatch(r"name[\s:*]*", question_text, re.I):
                     question_text = "Full name"
                 question = QuestionInput(
@@ -320,6 +322,8 @@ class FormService:
                 saved_answers = [
                     f for f in packet.fields
                     if f.question.strip().casefold() == question_text.strip().casefold()
+                    and (not field.semantic_key or f.provenance.form_semantic_key in {None, field.semantic_key})
+                    and (not f.provenance.form_semantic_key or f.provenance.form_semantic_key == field.semantic_key)
                     and f.human_answer and f.validation_status == "draft_ready"
                     and (not f.provenance.answer_expires_at or f.provenance.answer_expires_at > datetime.now(timezone.utc))
                     and not value_error(question, f.human_answer)
@@ -336,6 +340,15 @@ class FormService:
                     action.preview_only = True
                     action.requires_review = True
                     action.needs_input = False
+                    plan.actions.append(action)
+                    continue
+                # A history section is not evidence that an aggregate profile fact
+                # answers an individual employer/institution/date control.
+                contextual_history = bool(re.search(
+                    r"employment|work experience|education|previous employer|experience [0-9]",
+                    field.section or "", re.I,
+                ))
+                if contextual_history and not saved:
                     plan.actions.append(action)
                     continue
                 built = None if saved else await AnswerBuilder(self.answers).build(

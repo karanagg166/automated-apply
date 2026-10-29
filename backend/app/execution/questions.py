@@ -48,6 +48,23 @@ def validate(question, answer, now):
     value = field_answer(question, answer)
     if not value.strip() or len(value) > question["max_characters"]:
         raise ToolDenied("answer_length_invalid")
+    kind = question.get("form_kind")
+    if kind == "number" and not re.fullmatch(r"-?[0-9]+(?:\.[0-9]+)?", value):
+        raise ToolDenied("numeric_answer_required")
+    if kind in {"date", "month"}:
+        pattern = r"[0-9]{4}-[0-9]{2}-[0-9]{2}" if kind == "date" else r"[0-9]{4}-[0-9]{2}"
+        try:
+            if not re.fullmatch(pattern, value):
+                raise ValueError
+            datetime.strptime(value, "%Y-%m-%d" if kind == "date" else "%Y-%m")
+        except ValueError:
+            raise ToolDenied("iso_date_answer_required") from None
+    if kind == "email" and not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", value):
+        raise ToolDenied("email_answer_required")
+    if kind == "url":
+        from backend.app.services.applications.platforms.base import safe_url
+        if not safe_url(value):
+            raise ToolDenied("public_https_answer_required")
     if question["options"] and value not in question["options"]:
         raise ToolDenied("answer_must_match_option")
     if (
@@ -209,6 +226,10 @@ async def receive(session, settings, message, update_id):
     q, now = dict(row.value), await instant(session)
     if q["state"] == "answered":
         return "This question was already answered. Review the saved application before changing it."
+    if q.get("extension_task_id"):
+        task = await session.get(OwnerPreference, "ext_task:" + q["extension_task_id"])
+        if not task or task.value["state"] in {"PAUSED", "FAILED_FINAL", "SUBMISSION_UNKNOWN", "SUBMITTED_CONFIRMED"}:
+            return "This application is paused or cancelled. Review it in the dashboard before answering."
     execution = await store.load(session, q["execution_id"])
     if (
         q["expires_at"] <= now.isoformat()
@@ -282,6 +303,8 @@ async def receive(session, settings, message, update_id):
         await store.move(
             session, execution, "PREPARING", "owner_answer_saved_fresh_review_required"
         )
+    from backend.app.browser.extension_tasks import answer_saved
+    await answer_saved(session, q, updated, waiting)
     return f"Answer saved for {q['employer']} — {q['role']}. Application {q['execution_id']}. Reuse is OFF. Approve exact-context reuse in the dashboard. Review before filling."
 
 
@@ -370,6 +393,8 @@ async def answer_dashboard(session, question_id, answer, expected_revision):
         await store.move(
             session, execution, "PREPARING", "owner_answer_saved_fresh_review_required"
         )
+    from backend.app.browser.extension_tasks import answer_saved
+    await answer_saved(session, q, updated, waiting)
     return row.value
 
 
@@ -425,6 +450,10 @@ async def deliver_one(factory, settings, bot):
                 or (v["delivery_lease"] and v["delivery_lease"] > now.isoformat())
             ):
                 continue
+            if v.get("extension_task_id"):
+                task = await session.get(OwnerPreference, "ext_task:" + v["extension_task_id"])
+                if not task or task.value["state"] in {"PAUSED", "FAILED_FINAL", "SUBMISSION_UNKNOWN", "SUBMITTED_CONFIRMED"}:
+                    continue
             execution = await store.load(session, v["execution_id"])
             if execution.value["state"] == "NEEDS_INPUT" and not execution.value.get("cancelled"):
                 packet = await ApplicationPacketService(session).read(UUID(v["packet_id"]))
@@ -437,7 +466,10 @@ async def deliver_one(factory, settings, bot):
         if row is None:
             return False
         q = dict(row.value)
-        row.value = {**q, "delivery_lease": (now + timedelta(seconds=60)).isoformat()}
+        row.value = {**q, "delivery_lease": (now + timedelta(seconds=60)).isoformat(),
+            # Telegram has no sendMessage idempotency key. For extension prompts,
+            # an interrupted send must be reconciled manually, never resent on restart.
+            "state": "delivery_unknown" if q.get("extension_task_id") else q["state"]}
     result = await bot.call(
         "sendMessage",
         {
@@ -458,7 +490,7 @@ async def deliver_one(factory, settings, bot):
         )
         row.value = {
             **row.value,
-            "state": "sent" if row.value["state"] == "pending" else row.value["state"],
+            "state": "sent" if row.value["state"] in {"pending", "delivery_unknown"} else row.value["state"],
             "message_ids": [*row.value["message_ids"], result["message_id"]],
             "delivery_lease": None,
         }

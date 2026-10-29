@@ -17,6 +17,7 @@ from backend.app.browser.contracts import (
     PrepareBrowser,
     Review,
 )
+from backend.app.browser.extension_tasks import ExtensionTask, TaskControl
 from backend.app.browser.navigation import ResumePage
 from backend.app.browser.opportunity import ReviewOpportunity
 from backend.app.browser.owner_approval import require_owner_approval
@@ -42,6 +43,31 @@ from backend.app.services.applications.service import ApplicationPacketService
 router = APIRouter(
     prefix="/api/v1/browser", tags=["Browser forms"], route_class=OwnerRoute
 )
+
+
+@router.get("/extension-tasks", response_model=list[ExtensionTask])
+async def extension_tasks(session: AsyncSession = Depends(get_db_session, scope="function")):
+    from backend.app.browser.extension_tasks import rows
+    return [row.value for row in await rows(session)]
+
+
+@router.get("/extension-tasks/application/{application_id}", response_model=ExtensionTask | None)
+async def extension_task(application_id: UUID, session: AsyncSession = Depends(get_db_session, scope="function")):
+    from backend.app.browser.extension_tasks import by_application
+    return await by_application(session, application_id)
+
+
+@router.post("/extension-tasks/{task_id}/control", response_model=ExtensionTask)
+async def control_extension_task(task_id: UUID, data: TaskControl, request: Request,
+                                 session: AsyncSession = Depends(get_db_session, scope="function")):
+    from backend.app.browser.extension_tasks import control, load
+    from backend.app.execution.store import memory_row
+    owner_ui(request)
+    try:
+        await memory_row(session, lock=True)
+        return await control(session, get_settings(), await load(session, task_id), data.action, data.expected_version)
+    except ValueError as exc:
+        raise HTTPException(409, str(exc)) from None
 
 
 @router.get("/plans", response_model=list[FillPlan])
@@ -79,6 +105,13 @@ async def stop(request: Request, session: AsyncSession = Depends(get_db_session,
 
     owner_ui(request)
     await stop_all(session)
+    from backend.app.browser import extension_tasks
+    from backend.app.execution.store import memory_row
+    await memory_row(session, lock=True)
+    for task in await extension_tasks.rows(session):
+        if task.value["state"] not in extension_tasks.TERMINAL:
+            extension_tasks.move(session, task, "PAUSED", "global_stop",
+                plan_id=None, authorization_id=None, browser_connection="paused")
     return {"status": "cancelled", "submitted": False}
 
 

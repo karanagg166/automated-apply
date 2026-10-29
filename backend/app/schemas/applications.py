@@ -163,6 +163,9 @@ class Provenance(Contract):
     interview_availability: str | None = Field(None, max_length=300)
     telegram_owner_update: int | None = None
     telegram_question: UUID | None = None
+    form_semantic_key: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
+    form_page_step: str | None = Field(default=None, max_length=160)
+    form_section: str | None = Field(default=None, max_length=160)
     answer_expires_at: datetime | None = None
     answer_draft_id: UUID | None = None
     missing_input_id: str | None = None
