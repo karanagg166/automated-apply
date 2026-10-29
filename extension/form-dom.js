@@ -477,16 +477,54 @@ export function formDOM(request = { operation: "inspect" }) {
       "fieldset,[role='group'],[data-employment-entry],[data-education-entry],[data-work-experience]";
     const sectionTitle = (section) =>
       cleanLabelText(
-        textWithoutControls(
-          section.querySelector(
+        [
+          ...section.querySelectorAll(
             ":scope > legend,:scope > h2,:scope > h3,:scope > h4",
           ),
-        ) ||
+        ]
+          .map(textWithoutControls)
+          .filter(Boolean)
+          .join(" / ") ||
           ariaLabelledByText(section) ||
           section.getAttribute("aria-label") ||
           section.getAttribute("data-employment-entry") ||
           section.getAttribute("data-education-entry"),
       );
+    const sectionPeers = (section) =>
+      [...document.querySelectorAll(sectionSelector)].filter(
+        (other) =>
+          other.parentElement?.closest(sectionSelector) ===
+            section.parentElement?.closest(sectionSelector) &&
+          sectionTitle(other) === sectionTitle(section),
+      );
+    const stableSectionIdentity = (section) => {
+      for (const attribute of [
+        "id",
+        "data-employment-entry",
+        "data-education-entry",
+      ]) {
+        const value = section.getAttribute(attribute);
+        if (
+          value &&
+          [...document.querySelectorAll(`[${attribute}]`)].filter(
+            (el) => el.getAttribute(attribute) === value,
+          ).length === 1
+        )
+          return clean(`${attribute}:${value}`);
+      }
+      return "";
+    };
+    const ambiguousSection = (el) => {
+      for (
+        let section = el.closest(sectionSelector);
+        section;
+        section = section.parentElement?.closest(sectionSelector)
+      ) {
+        if (sectionPeers(section).length > 1 && !stableSectionIdentity(section))
+          return true;
+      }
+      return false;
+    };
     const sectionLabel = (el) => {
       const sections = [];
       for (
@@ -495,20 +533,13 @@ export function formDOM(request = { operation: "inspect" }) {
         section = section.parentElement?.closest(sectionSelector)
       ) {
         const title = sectionTitle(section);
-        const peers = [...document.querySelectorAll(sectionSelector)].filter(
-          (other) =>
-            other.parentElement?.closest(sectionSelector) ===
-              section.parentElement?.closest(sectionSelector) &&
-            sectionTitle(other) === title,
-        );
-        const identity =
-          section.id ||
-          section.getAttribute("data-employment-entry") ||
-          section.getAttribute("data-education-entry") ||
-          "";
+        const peers = sectionPeers(section);
+        const identity = stableSectionIdentity(section);
         const suffix =
           peers.length > 1
-            ? ` [entry ${peers.indexOf(section) + 1}${identity ? `: ${clean(identity)}` : ""}]`
+            ? identity
+              ? ` [${identity}]`
+              : ` [entry ${peers.indexOf(section) + 1}]`
             : "";
         if (title || suffix) sections.unshift(`${title || "History"}${suffix}`);
       }
@@ -1301,17 +1332,31 @@ export function formDOM(request = { operation: "inspect" }) {
           continue;
         }
 
+        const eventChoiceSupported = Boolean(
+          choices &&
+          !choices.native &&
+          interactionsAllowed &&
+          el.tagName === "INPUT" &&
+          ["text", "search"].includes(el.type) &&
+          choices.options.every(
+            (option) =>
+              ["DIV", "SPAN", "LI"].includes(option.tagName) &&
+              !option.querySelector("a,button,input,select,textarea"),
+          ),
+        );
         const field = {
           group_label: resolvedGroup,
           section: ["radio", "checkbox"].includes(kind)
             ? null
             : sectionLabel(el),
           preview_only: Boolean(
-            (choices && !choices.native) ||
+            ambiguousSection(el) ||
+            (choices && !choices.native && !eventChoiceSupported) ||
             (onlyEmpty && isFrameworkControlled(el) && !interactionsAllowed),
           ),
-          manual_reason:
-            choices && !choices.native
+          manual_reason: ambiguousSection(el)
+            ? "Repeated history entry has no stable employer or education identity; complete this entry manually"
+            : choices && !choices.native && !eventChoiceSupported
               ? "Choose the exact option yourself; event-driven custom dropdown filling is manual"
               : onlyEmpty && isFrameworkControlled(el) && !interactionsAllowed
                 ? "Framework-controlled field: authorize website interactions or type the proposed answer yourself"
@@ -1565,11 +1610,36 @@ export function formDOM(request = { operation: "inspect" }) {
       for (const ref of refs.values()) {
         const el = ref.el;
         if (ref.choices) {
-          const now = choicesFor(el);
+          let now = choicesFor(el);
+          // A narrowly supported static list may close after its reviewed option
+          // was clicked. Do not reopen it or fetch choices: bind the same mounted
+          // list/options and require the owning input to retain the exact label.
+          if (
+            !now &&
+            interactiveExecution &&
+            ref.choiceClicked &&
+            el.getAttribute("aria-expanded") === "false" &&
+            document.getElementById(el.getAttribute("aria-controls")) ===
+              ref.choices.list &&
+            el.value === ref.choiceClicked &&
+            ref.choices.list.isConnected
+          ) {
+            const options = [
+              ...ref.choices.list.querySelectorAll("[role='option']"),
+            ];
+            now = {
+              list: ref.choices.list,
+              options,
+              labels: options.map((o) =>
+                clean(o.getAttribute("aria-label") || o.textContent),
+              ),
+            };
+          }
           if (
             !now ||
             now.list !== ref.choices.list ||
             JSON.stringify(now.labels) !== JSON.stringify(ref.choices.labels) ||
+            now.options.length !== ref.choices.options.length ||
             now.options.some(
               (o, i) =>
                 o !== ref.choices.options[i] || o.value !== ref.choiceValues[i],
@@ -1945,11 +2015,10 @@ export function formDOM(request = { operation: "inspect" }) {
           } else if (field.kind === "select" && el.tagName !== "SELECT") {
             const choices = refs.get(action.field_id).choices;
             const index = choices?.labels.indexOf(action.value) ?? -1;
-            // A normal native datalist is the only event-free custom choice adapter.
             if (
-              !choices?.native ||
+              !choices ||
               index < 0 ||
-              choices.options[index].value !== action.value
+              (!choices.native && req.interaction_authorized !== true)
             ) {
               pendingResults.push({
                 field_id: action.field_id,
@@ -1957,10 +2026,24 @@ export function formDOM(request = { operation: "inspect" }) {
               });
               continue;
             }
-            Object.getOwnPropertyDescriptor(
-              HTMLInputElement.prototype,
-              "value",
-            ).set.call(el, action.value);
+            if (choices.native) {
+              if (choices.options[index].value !== action.value) {
+                pendingResults.push({
+                  field_id: action.field_id,
+                  status: "failed",
+                });
+                continue;
+              }
+              Object.getOwnPropertyDescriptor(
+                HTMLInputElement.prototype,
+                "value",
+              ).set.call(el, action.value);
+            } else {
+              // Exact already-visible option only. The site's handler must retain
+              // its own selected value; the extension never forges that value.
+              refs.get(action.field_id).choiceClicked = action.value;
+              choices.options[index].click();
+            }
           } else if (field.kind === "select") {
             const matches = options.filter(
               (o) =>

@@ -239,3 +239,107 @@ test("a fresh inspection during an in-flight fill invalidates all remaining writ
     f.close();
   }
 });
+
+test("an already-open uniquely bound ARIA combobox supports exact reviewed option interaction", async () => {
+  const f = fixture(
+    "<label>Career stage<input role=combobox aria-expanded=true aria-controls=stages></label><div role=listbox id=stages><div role=option>Graduate</div><div role=option>Experienced</div></div>",
+    { interactions_allowed: true },
+  );
+  try {
+    const el = f.w.document.querySelector("input");
+    const list = f.w.document.querySelector("[role=listbox]");
+    const option = list.querySelector("[role=option]");
+    let clicks = 0;
+    option.addEventListener("click", () => {
+      clicks++;
+      el.value = option.textContent;
+      option.setAttribute("aria-selected", "true");
+      el.setAttribute("aria-expanded", "false");
+      list.hidden = true;
+    });
+    const inspection = f.inspect();
+    assert.equal(inspection.fields[0].preview_only, false);
+    assert.equal(clicks, 0);
+    const result = await f.run({
+      operation: "fill",
+      only_empty: true,
+      interaction_authorized: true,
+      document_id: inspection.document_id,
+      actions: [action(inspection.fields[0], "Graduate")],
+    });
+    assert.equal(result.results[0].status, "filled");
+    assert.equal(result.state, "form_filled");
+    assert.equal(clicks, 1);
+    assert.equal(el.value, "Graduate");
+  } finally {
+    f.close();
+  }
+});
+
+test("ARIA option click without a retained site value remains manual and never writes a fake selection", async () => {
+  const f = fixture(
+    "<label>Career stage<input role=combobox aria-expanded=true aria-controls=stages></label><div role=listbox id=stages><div role=option>Graduate</div></div>",
+    { interactions_allowed: true },
+  );
+  try {
+    const inspection = f.inspect();
+    const result = await f.run({
+      operation: "fill",
+      only_empty: true,
+      interaction_authorized: true,
+      document_id: inspection.document_id,
+      actions: [action(inspection.fields[0], "Graduate")],
+    });
+    assert.equal(result.results[0].status, "failed");
+    assert.equal(f.w.document.querySelector("input").value, "");
+  } finally {
+    f.close();
+  }
+});
+
+test("reordered history rows without stable entry identities remain manual", () => {
+  const f = fixture(
+    "<fieldset data-test=first><legend>Employment history</legend><label>Start date<input type=date name=start></label></fieldset><fieldset data-test=second><legend>Employment history</legend><label>Start date<input type=date name=start></label></fieldset>",
+  );
+  try {
+    const first = f.inspect();
+    assert.ok(
+      first.fields.every(
+        (field) => field.preview_only && /no stable/.test(field.manual_reason),
+      ),
+    );
+    f.w.document.body.prepend(f.w.document.querySelector("[data-test=second]"));
+    const reordered = f.inspect();
+    assert.ok(reordered.fields.every((field) => field.preview_only));
+    const result = f.run({
+      operation: "fill",
+      document_id: reordered.document_id,
+      only_empty: true,
+      actions: [action(reordered.fields[0], "2020-01-01")],
+    });
+    assert.equal(result.results[0].status, "untouched");
+    assert.ok(
+      [...f.w.document.querySelectorAll("input")].every(
+        (el) => el.value === "",
+      ),
+    );
+  } finally {
+    f.close();
+  }
+});
+
+test("stable history container identity survives entry reorder without swapping answers", () => {
+  const f = fixture(
+    "<fieldset id=employment-alpha><legend>Employment history</legend><label>Start date<input type=date name=start></label></fieldset><fieldset id=employment-beta><legend>Employment history</legend><label>Start date<input type=date name=start></label></fieldset>",
+  );
+  try {
+    const first = f.inspect();
+    assert.ok(first.fields.every((field) => !field.preview_only));
+    f.w.document.body.prepend(f.w.document.querySelector("#employment-beta"));
+    const second = f.inspect();
+    assert.equal(second.fields[0].semantic_key, first.fields[1].semantic_key);
+    assert.equal(second.fields[1].semantic_key, first.fields[0].semantic_key);
+  } finally {
+    f.close();
+  }
+});
