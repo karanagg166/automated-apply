@@ -11,6 +11,7 @@ import json
 import os
 import plistlib
 import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -167,6 +168,9 @@ async def monitor(args):
 
 
 if __name__ == "__main__":
+    # Immutable releases invoke tools by absolute path, including outside the
+    # checkout. Resolve this release rather than relying on cwd or PYTHONPATH.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--env-file", required=True)
     parser.add_argument("--output", required=True)

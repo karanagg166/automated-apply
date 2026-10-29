@@ -150,6 +150,10 @@ async def test_latest_owner_facts_rechecked_after_claim_and_on_resume(
     assert execution.value["diagnostic"] == reason
     assert execution.value["packet_id"] is None
     assert execution.value["lease_until"] is None
+    assert execution.value["role"] == changes.get("title", "Backend Developer")
+    assert execution.value["employer"] == changes.get("employer", "Fictional Circuit")
+    if "employer" in changes:
+        assert execution.value["employer_id"] is None
     assert not await db_session.scalar(
         select(ApplicationPacket.id).where(ApplicationPacket.job_id == job_id)
     )
@@ -186,6 +190,10 @@ async def test_accepted_corrections_use_same_facts_in_review_worker_and_packet(
         required_skills=["Python", "FastAPI"],
     )
     await start(db_session)
+    await recurring.tick(db_session)
+    queued = (await store.rows(db_session))[0].value
+    assert queued["role"] == "Backend Developer II"
+    assert queued["employer"] == "Reviewed Circuit" and queued["employer_id"] is None
     await db_session.commit()
     factory = async_sessionmaker(
         db_session.bind, expire_on_commit=False, autoflush=False
@@ -195,6 +203,9 @@ async def test_accepted_corrections_use_same_facts_in_review_worker_and_packet(
     db_session.expire_all()
     execution = await store.load(db_session, claim[0])
     assert execution.value["state"] in {"READY_FOR_REVIEW", "NEEDS_INPUT"}
+    assert execution.value["role"] == "Backend Developer II"
+    assert execution.value["employer"] == "Reviewed Circuit"
+    assert execution.value["employer_id"] is None
     packet = await ApplicationPacketService(db_session).read(
         UUID(execution.value["packet_id"])
     )
@@ -222,6 +233,41 @@ async def test_accepted_corrections_use_same_facts_in_review_worker_and_packet(
     assert decision["title"] == packet.snapshot.job_title
     assert decision["employer"] == packet.snapshot.company_name
     assert decision["match"] == packet.snapshot.match.model_dump()
+
+
+@pytest.mark.asyncio
+async def test_execution_identity_refreshes_after_committed_claim(
+    async_client, phase2_auth, db_session, prepared_policy
+):
+    policy = prepared_policy.model_copy(
+        update={"allowed_roles": ["backend developer", "backend developer ii"]}
+    )
+    await recurring.configure(
+        db_session, AutomationPolicyUpdate(expected_revision=1, policy=policy)
+    )
+    job_id = await imported(db_session)
+    cached_job = await db_session.get(Job, job_id)
+    url = cached_job.job_url
+    historical_company_id = cached_job.company_id
+    await start(db_session)
+    await recurring.tick(db_session)
+    claim = await store.claim(db_session)
+    assert claim
+    await db_session.commit()
+    await reimport(
+        async_client, phase2_auth, url,
+        title="Backend Developer II", employer="Reviewed Circuit",
+    )
+    await prepare(db_session, claim)
+    execution = await store.load(db_session, claim[0])
+    packet = await ApplicationPacketService(db_session).read(
+        UUID(execution.value["packet_id"])
+    )
+    assert execution.value["role"] == packet.snapshot.job_title == "Backend Developer II"
+    assert execution.value["employer"] == packet.snapshot.company_name == "Reviewed Circuit"
+    assert execution.value["employer_id"] is None and packet.snapshot.company_id is None
+    assert cached_job.title == "Backend Developer"
+    assert cached_job.company_id == historical_company_id
 
 
 @pytest.mark.asyncio

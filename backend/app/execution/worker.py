@@ -67,13 +67,27 @@ async def prepare(session, identity):
     row = await store.fenced(session, identity)
     from backend.app.execution import recurring
 
+    job = await session.get(Job, UUID(row.value["job_id"]), populate_existing=True)
+    if job:
+        company = (
+            await session.get(Company, job.company_id, populate_existing=True)
+            if job.company_id else None
+        )
+        job, company = reviewed_job_context(job, company)
+        # Labels and identity exposed by the dashboard must describe the same
+        # current listing as policy/packet checks, including a rejected change.
+        row.value = {
+            **row.value,
+            "role": job.title,
+            "employer": company.name if company else None,
+            "employer_id": str(job.company_id) if job.company_id else None,
+        }
     try:
         policy = await recurring.execution_policy(session, row)
     except ToolDenied as exc:
         await store.control(session, row.value["id"], "pause", row.value["revision"])
         row.value = {**row.value, "diagnostic": str(exc)}
         return
-    job = await session.get(Job, UUID(row.value["job_id"]), populate_existing=True)
     profile = await session.scalar(
         select(CandidateProfile).where(CandidateProfile.singleton_key == "primary")
     )
@@ -100,8 +114,6 @@ async def prepare(session, identity):
     if row.value["state"] == "DISCOVERED":
         await store.move(session, row, "MATCHED")
     if row.value["state"] == "MATCHED":
-        company = await session.get(Company, job.company_id) if job.company_id else None
-        job, company = reviewed_job_context(job, company)
         match = JobDiscoveryMatcher(session, await reviewed_history(session)).match(
             job, CandidateProfileRead.model_validate(profile), company
         )

@@ -1,5 +1,8 @@
 # Phase 5.3 installation and rollback boundary
 
+The [renewed final review](final-release-review.md) supersedes earlier approval
+candidates. Approve only its replacement exact SHA and frozen installation plan.
+
 **2026-10-30 scope decision:** HOLD on the previously reviewed `1d2bb5a…`.
 The correction needs a new exact-SHA review and owner installation approval.
 Gmail intake, two accounts, Naukri alert detection and multi-account deduplication
@@ -26,6 +29,10 @@ The proposed bundle is 1.3.1 and must not be loaded until separately approved.
 4. Generate and review the existing installer plan commands before applying
    separately approved backend/frontend/native-wrapper changes. Keep genuine
    submission, new provider budgets and background polling disabled.
+   Stage the execution LaunchAgent outside `~/Library/LaunchAgents`; installing
+   or bootstrapping it requires the separate activation approval. The existing
+   `launchd-install` command immediately bootstraps and is not an inactive staging
+   command. Keep the prior frozen plans and rollback helpers preserved.
 5. In the owner-selected Chrome profile only, load the approved release's
    `extension/dist`. Verify version 1.3.1 and unchanged ID
    `gdjbmkffcpicbpiikcohlmokkmcpipgp`. Settings shows the loaded version and queries

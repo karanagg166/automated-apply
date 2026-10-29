@@ -15,7 +15,7 @@ from backend.app.agent.tools import ToolDenied
 from backend.app.automation.store import instant
 from backend.app.dashboard.models import OwnerPreference
 from backend.app.execution.contracts import Configuration
-from backend.app.execution.naukri import normalized_url
+from backend.app.execution.naukri import normalized_url, reviewed_job_context
 from backend.app.models.application_packet import ApplicationPacket
 from backend.app.models.company import Company
 from backend.app.models.job import Job
@@ -143,13 +143,15 @@ async def start(session, job_ids):
         raise ToolDenied("execution_mode_off")
     now, result = await instant(session), []
     for job_id in dict.fromkeys(job_ids):
-        job = await session.get(Job, job_id)
+        job = await session.get(Job, job_id, populate_existing=True)
         if not job or job.source_platform != "naukri":
             raise ToolDenied("saved_naukri_job_required")
         url = normalized_url(job.job_url)
         employer = (
-            await session.get(Company, job.company_id) if job.company_id else None
+            await session.get(Company, job.company_id, populate_existing=True)
+            if job.company_id else None
         )
+        job, employer = reviewed_job_context(job, employer)
         identity = str(uuid5(NAMESPACE_URL, "naukri:" + url.rsplit("-", 1)[-1]))
         row = await session.get(OwnerPreference, PREFIX + identity)
         if row is None:
