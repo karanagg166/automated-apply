@@ -289,6 +289,16 @@ class ExecutionWorker:
                     or not row.value["packet_id"]
                 ):
                     continue
+                question_policy_active = (
+                    automation["state"] == "RUNNING"
+                    and row.value.get("automation_revision") == automation["revision"]
+                    and bool((automation.get("policy") or {}).get("telegram_questions"))
+                )
+                # An intent already waiting for owner input needs no packet
+                # read unless its current policy can queue an owner question.
+                # Keep READY_FOR_REVIEW expiry checks even without that opt-in.
+                if row.value["state"] == "NEEDS_INPUT" and not question_policy_active:
+                    continue
                 packet = await ApplicationPacketService(session).read(
                     UUID(row.value["packet_id"])
                 )
@@ -300,10 +310,7 @@ class ExecutionWorker:
                     await store.move(
                         session, row, "NEEDS_INPUT", "owner_question_approval_required"
                     )
-                if (
-                    automation["state"] == "RUNNING"
-                    and row.value.get("automation_revision") == automation["revision"]
-                ):
+                if question_policy_active:
                     from backend.app.execution.contracts import AutomationPolicy
 
                     policy = AutomationPolicy.model_validate(automation["policy"])

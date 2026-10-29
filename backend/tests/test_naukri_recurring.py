@@ -101,6 +101,34 @@ async def test_default_no_dispatch_start_requires_policy(db_session):
 
 
 @pytest.mark.asyncio
+async def test_waiting_intent_does_not_reload_packet_without_question_opt_in(
+    db_session, prepared_policy, monkeypatch
+):
+    from unittest.mock import AsyncMock
+
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from backend.app.services.applications.service import ApplicationPacketService
+
+    await imported(db_session)
+    await start(db_session)
+    await db_session.commit()
+    factory = async_sessionmaker(db_session.bind, expire_on_commit=False, autoflush=False)
+    identity = await ExecutionWorker(factory).tick()
+    row = await store.load(db_session, identity[0])
+    row.value = {**row.value, "state": "NEEDS_INPUT"}
+    await db_session.commit()
+    read = AsyncMock(side_effect=AssertionError("An idle waiting intent must not load a full packet"))
+    monkeypatch.setattr(ApplicationPacketService, "read", read)
+    assert await ExecutionWorker(factory).tick() is None
+    read.assert_not_awaited()
+    db_session.expire_all()
+    saved = await store.load(db_session, identity[0])
+    assert saved.value["state"] == "NEEDS_INPUT"
+    assert not saved.value["approved_answer_revisions"]
+
+
+@pytest.mark.asyncio
 async def test_real_worker_tick_creates_packet_and_deduplicates(
     db_session, prepared_policy
 ):

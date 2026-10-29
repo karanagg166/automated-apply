@@ -8,7 +8,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, select
+from sqlalchemy import func, inspect, select
 
 from backend.app.agent.contracts import Approval, Campaign, Filters, Message, Plan
 from backend.app.agent.tools import ToolDenied, owner_allowed
@@ -41,9 +41,22 @@ def transition(campaign, state, now, reason=None):
 
 
 async def memory_row(session, *, lock=False):
+    # A PostgreSQL row lock lasts for its transaction. Nested service guards
+    # need the same lock, not another remote INSERT/SELECT on every check.
+    # Scope the cache to the innermost transaction: rolling back a savepoint
+    # can release a lock acquired inside it, so a parent must acquire afresh.
+    transaction = session.sync_session.get_nested_transaction() or session.sync_session.get_transaction()
+    cached = session.info.get("agent_owner_lock")
+    if (lock and transaction and cached and cached[0] is transaction
+            and cached[1] in session and not inspect(cached[1]).expired_attributes):
+        return cached[1]
     await session.execute(insert_for(session)(OwnerPreference).values(key=MEMORY_KEY, value={}).on_conflict_do_nothing())
     query = select(OwnerPreference).where(OwnerPreference.key == MEMORY_KEY).execution_options(populate_existing=True)
-    return await session.scalar(query.with_for_update() if lock else query)
+    row = await session.scalar(query.with_for_update() if lock else query)
+    if lock:
+        transaction = session.sync_session.get_nested_transaction() or session.sync_session.get_transaction()
+        session.info["agent_owner_lock"] = (transaction, row)
+    return row
 
 
 def bounded_memory(row, now):
