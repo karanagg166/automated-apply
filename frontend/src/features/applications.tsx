@@ -32,6 +32,7 @@ import {
   Skeleton,
 } from "@/components/ui";
 import { BrowserAssistant, BrowserIntake } from "@/features/browser-assistant";
+import { ExtensionAssistant } from "@/features/extension-assistant";
 type Packet = Schema<"PacketRead">;
 export function pipelineColumn(
   packet: Pick<Packet, "tracking_state" | "lifecycle_state">,
@@ -1047,6 +1048,10 @@ export function ApplicationDetail({ id }: { id: string }) {
         </section>
       </div>
 
+      <ExtensionAssistant
+        packet={p}
+        hasUnsavedAnswers={dirtyFields.length > 0}
+      />
       <BrowserAssistant
         packet={p}
         hasUnsavedAnswers={dirtyFields.length > 0}
