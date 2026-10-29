@@ -7,7 +7,7 @@ import re
 import secrets
 from datetime import timedelta
 from email.message import EmailMessage
-from email.utils import parseaddr
+from email.utils import getaddresses, parseaddr
 from typing import Literal
 from uuid import UUID, uuid4
 
@@ -35,6 +35,8 @@ ACCOUNT = "gm54_account:"
 INTENT = "gm54_oauth:"
 SELECTION = "gm54_selected:"
 TEST = "gm54_test:"
+TEST_SUBJECT = "Automated Apply TEST - UNSENT read/draft acceptance"
+TEST_BODY = "This is an owner-authorized Automated Apply connectivity test draft. It has not been sent. No application or candidate claims are included."
 
 
 def digest(value):
@@ -74,9 +76,32 @@ def headers(message):
     for h in message.get("payload", {}).get("headers", [])[:100]:
         if isinstance(h, dict) and isinstance(h.get("name"), str) and isinstance(h.get("value"), str):
             name = h["name"].casefold()
-            if name in {"from", "to", "subject", "date", "message-id", "authentication-results"}:
+            if name in {"from", "to", "cc", "bcc", "subject", "date", "message-id", "authentication-results"}:
                 values.setdefault(name, " ".join(h["value"].split())[:1000])
     return values
+
+
+def verified_draft_content(message, account_email, recipient, subject, body):
+    """Check exact content against the durable draft ID, not a rewritten RFC ID."""
+    raw_headers = message.get("payload", {}).get("headers", [])
+    names = [str(item.get("name", "")).casefold() for item in raw_headers if isinstance(item, dict)]
+    if len(raw_headers) > 100 or any(names.count(name) > 1 for name in ("from", "to", "cc", "bcc", "subject", "message-id")):
+        raise ConnectionError("gmail_draft_content_unverified")
+    h = headers(message)
+    encoded = message.get("payload", {}).get("body", {}).get("data", "")
+    try:
+        if not isinstance(encoded, str) or len(encoded) > 60000:
+            raise ValueError
+        actual_body = base64.b64decode(encoded + "=" * (-len(encoded) % 4), altchars=b"-_", validate=True).decode("utf-8")
+    except (ValueError, UnicodeError):
+        raise ConnectionError("gmail_draft_content_unverified") from None
+    recipients = getaddresses([h.get("to", "")])
+    if ("DRAFT" not in message.get("labelIds", []) or "SENT" in message.get("labelIds", [])
+            or parseaddr(h.get("from", ""))[1].casefold() != account_email
+            or len(recipients) != 1 or h.get("cc") or h.get("bcc")
+            or draft_hash(recipients[0][1], h.get("subject", ""), actual_body) != draft_hash(recipient, subject, body)):
+        raise ConnectionError("gmail_draft_content_unverified")
+    return h
 
 
 class MailboxClient(GmailReadClient):
@@ -411,19 +436,9 @@ class Mailboxes:
         draft = await client.draft_request("GET", "drafts/" + value["draft_id"], params={"format": "full"})
         await self.fence(slot, account["generation"])
         message = draft.get("message", {})
-        h, payload = headers(message), message.get("payload", {})
-        encoded = payload.get("body", {}).get("data", "")
-        try:
-            if not isinstance(encoded, str) or len(encoded) > 60000:
-                raise ValueError
-            body = base64.b64decode(encoded + "=" * (-len(encoded) % 4), altchars=b"-_", validate=True).decode("utf-8")
-        except (ValueError, UnicodeError):
-            raise ConnectionError("gmail_draft_content_unverified") from None
-        if (draft.get("id") != value["draft_id"] or "DRAFT" not in message.get("labelIds", []) or "SENT" in message.get("labelIds", [])
-                or h.get("message-id") != "<" + value["message_id"] + ">"
-                or parseaddr(h.get("from", ""))[1].casefold() != account["account_email"]
-                or draft_hash(parseaddr(h.get("to", ""))[1], h.get("subject", ""), body) != data.content_hash):
+        if draft.get("id") != value["draft_id"]:
             raise ConnectionError("gmail_draft_content_unverified")
+        verified_draft_content(message, account["account_email"], data.recipient, data.subject, data.body)
         value.update(status="verified", verified_at=now().isoformat())
         await self.put(key, value)
         await self.session.commit()
@@ -439,7 +454,7 @@ class Mailboxes:
         record = await self.session.get(OwnerPreference, key, with_for_update=True, populate_existing=True)
         value = dict(record.value) if record else {}
         client = MailboxClient(token, self.client)
-        if value.get("status") == "verified":
+        if value.get("draft_id"):
             await self.session.commit()
             return await self.confirm_test(slot, token, account, key, value)
         if value:
@@ -461,9 +476,9 @@ class Mailboxes:
         await self.check(slot, account["generation"])
         message = EmailMessage()
         message["From"] = message["To"] = account["account_email"]
-        message["Subject"] = "Automated Apply TEST - UNSENT read/draft acceptance"
+        message["Subject"] = TEST_SUBJECT
         message["Message-ID"] = "<" + marker + ">"
-        message.set_content("This is an owner-authorized Automated Apply connectivity test draft. It has not been sent. No application or candidate claims are included.")
+        message.set_content(TEST_BODY)
         try:
             result = await client.draft_request("POST", "drafts", payload={"message": {"raw": base64.urlsafe_b64encode(message.as_bytes()).decode()}})
             if not isinstance(result.get("id"), str) or not IDENTIFIER.fullmatch(result["id"]):
@@ -481,19 +496,23 @@ class Mailboxes:
     async def confirm_test(self, slot, token, account, key, value):
         client = MailboxClient(token, self.client)
         await self.check(slot, account["generation"])
-        draft = await client.draft_request("GET", "drafts/" + value["draft_id"], params={"format": "metadata"})
+        draft = await client.draft_request("GET", "drafts/" + value["draft_id"], params={"format": "full"})
         await self.check(slot, account["generation"])
         message = draft.get("message", {})
-        h = headers(message)
-        if (draft.get("id") != value["draft_id"] or "DRAFT" not in message.get("labelIds", []) or "SENT" in message.get("labelIds", [])
-                or parseaddr(h.get("to", ""))[1].casefold() != account["account_email"]
-                or h.get("message-id") != "<" + value["message_id"] + ">"):
+        if draft.get("id") != value["draft_id"]:
             raise ConnectionError("gmail_test_draft_verification_failed")
-        sent = await client.messages(labels=["SENT"], query="rfc822msgid:" + value["message_id"], limit=1)
+        h = verified_draft_content(message, account["account_email"], account["account_email"], TEST_SUBJECT, TEST_BODY)
+        provider_id = re.fullmatch(r"<([A-Za-z0-9._+=/-]{1,200}@[A-Za-z0-9.-]{1,200})>", h.get("message-id", ""))
+        if not provider_id:
+            raise ConnectionError("gmail_test_draft_verification_failed")
+        for marker in sorted({value["message_id"], provider_id[1]}):
+            sent = await client.messages(labels=["SENT"], query="rfc822msgid:" + marker, limit=1)
+            await self.check(slot, account["generation"])
+            if sent.get("messages"):
+                raise ConnectionError("gmail_test_message_found_in_sent")
         await self.fence(slot, account["generation"])
-        if sent.get("messages"):
-            raise ConnectionError("gmail_test_message_found_in_sent")
         receipt = {**value, "status": "verified", "verified_at": now().isoformat(), "draft_exists": True,
+            "provider_message_id": provider_id[1], "content_verified": True,
             "sent_search_empty": True, "sending_enabled": False}
         await self.put(key, receipt)
         await self.session.commit()

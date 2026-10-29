@@ -59,10 +59,15 @@ Sender-domain matching is explicitly not authenticated-origin proof.
 Reviewed general drafts require the exact content hash, current account generation
 and a stable request UUID. Only `users.drafts.create` is used for writing. A durable
 fence commits before dispatch. Retrying an uncertain dispatch only reconciles by a
-server-generated RFC Message-ID; it never repeats the POST. A confirmed draft is
-read back and its recipient, subject, body and DRAFT status checked. The one-time
-self-test draft is addressed only to the authenticated account and additionally
-searches Sent for its exact Message-ID. Deleting/sending/editing a draft remains a
+server-generated RFC Message-ID; it never repeats the POST. Once Google's stable
+draft resource ID is recorded, retries read that exact draft directly. The live
+test showed Google replacing the submitted RFC Message-ID, so verification checks
+the stable draft ID, exact sender, sole recipient, subject, body and DRAFT status,
+rejecting extra recipients and duplicate critical headers. The one-time self-test
+draft additionally searches Sent for both the submitted and returned Message-IDs.
+An ambiguous dispatch without a recorded draft ID remains blocked if the original
+marker cannot be reconciled; it never creates a replacement draft.
+Deleting/sending/editing a draft remains a
 separate human Gmail operation; the application provides no such operation.
 
 Google's official Gmail MCP currently requires Developer Preview membership and

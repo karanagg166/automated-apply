@@ -106,11 +106,13 @@ async def test_inbox_selection_is_account_bound_and_body_is_not_persisted(db_ses
             assert len(requests) == 3
 
 
-async def test_self_draft_is_real_endpoint_idempotent_and_checks_sent(db_session):
+@pytest.mark.parametrize("rewrite_message_id", [False, True])
+@pytest.mark.parametrize("initial_read_failure", [False, True])
+async def test_self_draft_is_real_endpoint_idempotent_and_checks_sent(db_session, rewrite_message_id, initial_read_failure):
     settings, fake = configured(), GoogleFixture()
     async with fake.client() as oauth:
         service, account, _ = await connect(db_session, settings, fake, oauth)
-        writes, marker = [], []
+        writes, marker, saved, sent_queries, reads = [], [], [], [], []
 
         def respond(request):
             if request.method == "POST":
@@ -119,18 +121,65 @@ async def test_self_draft_is_real_endpoint_idempotent_and_checks_sent(db_session
                 msg = message_from_bytes(base64.urlsafe_b64decode(json.loads(request.content)["message"]["raw"]))
                 assert msg["From"] == msg["To"] == account["account_email"]
                 marker.append(msg["Message-ID"])
+                saved.append(msg)
                 return httpx.Response(200, json={"id": "draft1"})
             if request.url.path.endswith("/messages"):
                 assert request.url.params.get_list("labelIds") == ["SENT"]
                 assert "rfc822msgid:" in request.url.params["q"]
+                sent_queries.append(request.url.params["q"])
                 return httpx.Response(200, json={})
-            return httpx.Response(200, json={"id": "draft1", "message": {"labelIds": ["DRAFT"], "payload": {"headers": [
-                {"name": "To", "value": account["account_email"]}, {"name": "Message-ID", "value": marker[0]}]}}})
+            assert request.url.params["format"] == "full"
+            reads.append(request)
+            if initial_read_failure and len(reads) == 1:
+                return httpx.Response(503, json={})
+            message = saved[0]
+            return httpx.Response(200, json={"id": "draft1", "message": {"labelIds": ["DRAFT"], "payload": {
+                "headers": [{"name": k, "value": message[k]} for k in ["From", "To", "Subject"]]
+                    + [{"name": "Message-ID", "value": "<provider.generated@mail.gmail.com>" if rewrite_message_id else marker[0]}],
+                "body": {"data": base64.urlsafe_b64encode(message.get_payload(decode=True)).decode()}}}})
         async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as mailbox:
             service.client = mailbox
+            if initial_read_failure:
+                with pytest.raises(ConnectionError, match="draft_read_failed"):
+                    await service.self_test_draft("1", account["generation"])
             first = await service.self_test_draft("1", account["generation"])
             again = await service.self_test_draft("1", account["generation"])
             assert first["draft_exists"] and again["sent_search_empty"]
+            assert len(writes) == 1
+            assert "rfc822msgid:" + marker[0][1:-1] in sent_queries
+            if rewrite_message_id:
+                assert "rfc822msgid:provider.generated@mail.gmail.com" in sent_queries
+
+
+@pytest.mark.parametrize("changed", ["body", "cc", "duplicate_to"])
+async def test_existing_self_draft_readback_rejects_edits_without_posting_again(db_session, changed):
+    settings, fake = configured(), GoogleFixture()
+    async with fake.client() as oauth:
+        service, account, _ = await connect(db_session, settings, fake, oauth)
+        saved, writes = [], []
+        edited = False
+
+        def respond(request):
+            if request.method == "POST":
+                writes.append(request)
+                saved.append(message_from_bytes(base64.urlsafe_b64decode(json.loads(request.content)["message"]["raw"])))
+                return httpx.Response(200, json={"id": "draft1"})
+            if request.url.path.endswith("/messages"):
+                return httpx.Response(200, json={})
+            message = saved[0]
+            values = [{"name": key, "value": message[key]} for key in ["From", "To", "Subject", "Message-ID"]]
+            if edited and changed in {"cc", "duplicate_to"}:
+                values.append({"name": "Cc" if changed == "cc" else "To", "value": "unapproved@example.org"})
+            body = b'Changed body' if edited and changed == "body" else message.get_payload(decode=True)
+            return httpx.Response(200, json={"id": "draft1", "message": {"labelIds": ["DRAFT"], "payload": {
+                "headers": values, "body": {"data": base64.urlsafe_b64encode(body).decode()}}}})
+
+        async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as mailbox:
+            service.client = mailbox
+            assert (await service.self_test_draft("1", account["generation"]))["draft_exists"]
+            edited = True
+            with pytest.raises(ConnectionError, match="content_unverified"):
+                await service.self_test_draft("1", account["generation"])
             assert len(writes) == 1
 
 
