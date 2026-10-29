@@ -148,6 +148,14 @@ class FormService:
         saved_job = await self.session.get(Job, packet.job_id)
         if saved_job.status in {"applied", "archived"}:
             raise ToolDenied("application_not_eligible")
+        if saved_job.source_platform == "naukri":
+            from backend.app.execution.store import previously_applied
+            from backend.app.services.applications.platforms.naukri import (
+                posting_unavailable,
+            )
+
+            if posting_unavailable(saved_job) or await previously_applied(self.session, saved_job):
+                raise ToolDenied("application_not_eligible")
         fixture = (
             self.settings.ENVIRONMENT == "testing"
             and self.settings.BROWSER_FIXTURE_ORIGIN

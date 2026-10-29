@@ -2586,6 +2586,74 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/browser/chrome-profiles": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Chrome Profiles */
+    get: operations["chrome_profiles_api_v1_browser_chrome_profiles_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser/chrome-profiles/select": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Select Chrome Profile */
+    post: operations["select_chrome_profile_api_v1_browser_chrome_profiles_select_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser/chrome-profiles/{profile_id}/disconnect": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Disconnect Chrome Profile */
+    post: operations["disconnect_chrome_profile_api_v1_browser_chrome_profiles__profile_id__disconnect_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/browser/chrome-profiles/commands": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Chrome Profile Command */
+    post: operations["chrome_profile_command_api_v1_browser_chrome_profiles_commands_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/browser/extension-tasks": {
     parameters: {
       query?: never;
@@ -4055,6 +4123,90 @@ export interface components {
       /** Credential Url */
       credential_url?: string | null;
     };
+    /** ChromeCommandInput */
+    ChromeCommandInput: {
+      /**
+       * Request Id
+       * Format: uuid
+       */
+      request_id: string;
+      /**
+       * Profile Binding Id
+       * Format: uuid
+       */
+      profile_binding_id: string;
+      /** Selection Version */
+      selection_version: number;
+      /** Expected Profile Version */
+      expected_profile_version: number;
+      /**
+       * Application Id
+       * Format: uuid
+       */
+      application_id: string;
+      /** Packet Revision */
+      packet_revision: number;
+      /**
+       * Action
+       * @enum {string}
+       */
+      action: "open" | "prepare" | "pause" | "resume" | "cancel";
+      /** Task Id */
+      task_id?: string | null;
+      /** Expected Task Version */
+      expected_task_version?: number | null;
+    };
+    /** ChromeProfile */
+    ChromeProfile: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Label */
+      label: string;
+      /** Version */
+      version: number;
+      /** Connected */
+      connected: boolean;
+      /** Selected */
+      selected: boolean;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "CONNECTED" | "PROFILE_OFFLINE" | "DISCONNECTED";
+      /** Last Heartbeat */
+      last_heartbeat: string;
+      /**
+       * Browser Session Id
+       * Format: uuid
+       */
+      browser_session_id: string;
+      /** Window Id */
+      window_id: number | null;
+      /** Commands Enabled */
+      commands_enabled: boolean;
+    };
+    /** ChromeProfiles */
+    ChromeProfiles: {
+      /** Selection */
+      selection: {
+        [key: string]: unknown;
+      };
+      /** Profiles */
+      profiles: components["schemas"]["ChromeProfile"][];
+      /** Channel Available */
+      channel_available: boolean;
+      /** Commands */
+      commands: {
+        [key: string]: unknown;
+      }[];
+      /** Receipts */
+      receipts?: {
+        [key: string]: unknown;
+      }[];
+    };
     /** Command */
     Command: {
       /**
@@ -4073,6 +4225,12 @@ export interface components {
        * @enum {string}
        */
       command:
+        | "connect_chrome_profile"
+        | "heartbeat_chrome_profile"
+        | "disconnect_chrome_profile"
+        | "poll_chrome_command"
+        | "start_chrome_command"
+        | "ack_chrome_command"
         | "health"
         | "connection_status"
         | "preview_application_url"
@@ -4090,6 +4248,31 @@ export interface components {
         | "get_application_task"
         | "update_application_task"
         | "ask_form_questions";
+      /** Profile Binding Id */
+      profile_binding_id?: string | null;
+      /** Profile Secret */
+      profile_secret?: string | null;
+      /** Profile Label */
+      profile_label?: string | null;
+      /**
+       * Profile Commands Enabled
+       * @default false
+       */
+      profile_commands_enabled: boolean;
+      /** Expected Profile Version */
+      expected_profile_version?: number | null;
+      /** Window Id */
+      window_id?: number | null;
+      /** Chrome Command Id */
+      chrome_command_id?: string | null;
+      /** Expected Command Version */
+      expected_command_version?: number | null;
+      /** Command Lease Token */
+      command_lease_token?: string | null;
+      /** Command Outcome */
+      command_outcome?: ("completed" | "failed" | "outcome_unknown") | null;
+      /** Command Error */
+      command_error?: string | null;
       /** Url */
       url?: string | null;
       /** Title */
@@ -4754,6 +4937,10 @@ export interface components {
        * Format: uuid
        */
       browser_session_id: string;
+      /** Profile Binding Id */
+      profile_binding_id?: string | null;
+      /** Window Id */
+      window_id?: number | null;
       /** Tab Id */
       tab_id: number | null;
       /**
@@ -4954,6 +5141,12 @@ export interface components {
       inspection: components["schemas"]["Inspection"];
       /** Context Digest */
       context_digest: string;
+      /** Profile Binding Id */
+      profile_binding_id?: string | null;
+      /** Browser Session Id */
+      browser_session_id?: string | null;
+      /** Tab Id */
+      tab_id?: number | null;
       /** Extension Task Id */
       extension_task_id?: string | null;
       /** Extension Authorization Id */
@@ -5309,6 +5502,18 @@ export interface components {
       provenance: "owner_url" | "owner_job_alert";
       /** Message Reference */
       message_reference?: string | null;
+      /** Application Url */
+      application_url?: string | null;
+      /**
+       * Posting Status
+       * @default unknown
+       * @enum {string}
+       */
+      posting_status: "unknown" | "active" | "closed" | "already_applied";
+      /** Observed At */
+      observed_at?: string | null;
+      /** Valid Through */
+      valid_through?: string | null;
     };
     /** Inspection */
     Inspection: {
@@ -6091,6 +6296,11 @@ export interface components {
     OpenBrowser: {
       /** Expected Revision */
       expected_revision: number;
+      /**
+       * Executor
+       * @constant
+       */
+      executor: "isolated_browser";
       /** Approve Dedicated Profile */
       approve_dedicated_profile: boolean;
       /** Confirm Destination Permission */
@@ -6604,6 +6814,11 @@ export interface components {
        */
       owner_confirmed: true;
     };
+    /** ProfileDisconnect */
+    ProfileDisconnect: {
+      /** Expected Version */
+      expected_version: number;
+    };
     /** ProfileLinks */
     ProfileLinks: {
       /** Github */
@@ -6637,6 +6852,13 @@ export interface components {
        * @default []
        */
       other: string[];
+    };
+    /** ProfileSelection */
+    ProfileSelection: {
+      /** Expected Version */
+      expected_version: number;
+      /** Profile Binding Id */
+      profile_binding_id: string | null;
     };
     /** ProjectApproveRequest */
     ProjectApproveRequest: {
@@ -13991,6 +14213,127 @@ export interface operations {
         };
         content: {
           "application/json": unknown;
+        };
+      };
+    };
+  };
+  chrome_profiles_api_v1_browser_chrome_profiles_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ChromeProfiles"];
+        };
+      };
+    };
+  };
+  select_chrome_profile_api_v1_browser_chrome_profiles_select_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProfileSelection"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  disconnect_chrome_profile_api_v1_browser_chrome_profiles__profile_id__disconnect_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        profile_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ProfileDisconnect"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  chrome_profile_command_api_v1_browser_chrome_profiles_commands_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ChromeCommandInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

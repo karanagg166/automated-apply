@@ -14,6 +14,7 @@ assert.deepEqual(
     "storage",
     "scripting",
     "declarativeNetRequest",
+    "alarms",
   ]),
 );
 assert.equal(manifest.host_permissions, undefined);
@@ -41,6 +42,7 @@ for (const file of [
   "form-messages.js",
   "background.js",
   "task-coordinator.js",
+  "chrome-profile.js",
   "network-guard.js",
   "preview.js",
   "session-indicator.js",

@@ -7,11 +7,13 @@ import pytest
 from backend.app.browser import extension_tasks as tasks
 from backend.app.browser.contracts import FillReceipt
 from backend.app.browser.manual import dispatch_form
-from backend.app.local_agent.contracts import Actor, Command
+from backend.app.local_agent.contracts import Actor
+from backend.app.local_agent.contracts import Command as NativeCommand
 from backend.app.local_agent.service import dispatch
 from backend.app.models.application_packet import ApplicationPacketField
 from backend.app.schemas.applications import AnswerEdit, QuestionInput, QuestionsAdd
 from backend.app.services.applications.service import ApplicationPacketService
+from backend.tests.chrome_profile_fixture import BINDING, SESSION, connected
 from backend.tests.test_browser_forms import browser_target as browser_target_fixture
 from backend.tests.test_browser_forms import config, inspection
 
@@ -21,12 +23,17 @@ EXTENSION = "a" * 32
 ACTOR = Actor(channel="chrome", identity=EXTENSION)
 
 
+def Command(**values):
+    return NativeCommand(**{**BINDING, "browser_session_id": SESSION, **values})
+
+
 def settings():
     return config(CHROME_EXTENSION_ID=EXTENSION)
 
 
 async def opened(session, packet):
-    session_id = uuid4()
+    session_id = SESSION
+    await connected(session, settings(), session_id)
     result = await dispatch(session, settings(), ACTOR, Command(command="open_application_task",
         application_id=packet.id, browser_session_id=session_id, tab_id=17))
     assert result.ok, result.error_code
@@ -59,7 +66,9 @@ async def test_binding_restart_pause_and_no_replay(db_session, browser_target):
     replay = await dispatch_form(db_session, settings(), ACTOR, command)
     assert replay.error_code == "form_request_already_consumed"
     new_session = uuid4()
-    task = authorized.data["task"]
+    heartbeat = await dispatch(db_session, settings(), ACTOR, Command(command="heartbeat_chrome_profile", browser_session_id=new_session))
+    assert heartbeat.ok
+    task = (await tasks.load(db_session, authorized.data["task"]["id"])).value
     recovered = await dispatch(db_session, settings(), ACTOR, Command(command="update_application_task",
         task_id=task["id"], expected_task_version=task["version"], browser_session_id=new_session,
         task_event="recover"))

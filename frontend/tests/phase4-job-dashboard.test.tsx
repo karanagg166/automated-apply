@@ -1,4 +1,10 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -626,6 +632,9 @@ describe("Phase 4: Universal Form Assistant UI", () => {
         <BrowserAssistant packet={fictionalPacket} />
       </QueryClientProvider>,
     );
+    fireEvent.change(screen.getByLabelText("Application browser"), {
+      target: { value: "isolated" },
+    });
 
     // Initial platform detection from destination URL
     expect(await screen.findByText("Ashby ATS")).toBeInTheDocument();
@@ -654,6 +663,9 @@ describe("Phase 4: Universal Form Assistant UI", () => {
         <BrowserAssistant packet={fictionalPacket} />
       </QueryClientProvider>,
     );
+    fireEvent.change(screen.getByLabelText("Application browser"), {
+      target: { value: "isolated" },
+    });
 
     // Click 'Get status' to load analyzed fields
     const statusBtn = screen.getByRole("button", { name: "Get status" });

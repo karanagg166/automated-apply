@@ -62,6 +62,7 @@ def inspection(url, fields=None, **updates):
 async def browser_target(db_session, phase2_profile, application_target):
     job, resume = application_target
     job.application_url = "https://jobs.lever.co/example/fictional-backend"
+    job.job_url = "https://www.naukri.com/job-listings-example-backend-123456789012"
     await confirm_profile(db_session, phase2_profile, phase2_profile.version)
     await db_session.commit()
     packet = await ApplicationPacketService(db_session).create(
@@ -310,9 +311,9 @@ async def test_queue_duplicate_command_fencing_stop_and_recovery(
     )
     row, _ = await store.load(db_session, c.id)
     store.save(row, c)
-    first = await queue.enqueue(db_session, config(), c, job)
+    first = await queue.enqueue(db_session, config(), c, job, executor="isolated_browser")
     await db_session.flush()
-    second = await queue.enqueue(db_session, config(), c, job)
+    second = await queue.enqueue(db_session, config(), c, job, executor="isolated_browser")
     assert first["browser_job"] == second["browser_job"]
     await db_session.commit()
     key, claimed = await queue.claim(db_session)
@@ -335,7 +336,10 @@ async def test_manual_native_identity_and_duplicate_protection(
 
     job, packet, _ = browser_target
     settings = config(CHROME_EXTENSION_ID="a" * 32)
+    from backend.tests.chrome_profile_fixture import connected
+    context = {**await connected(db_session, settings), "tab_id": 17}
     command = Command(
+        **context,
         command="inspect_form",
         application_id=packet.id,
         inspection=inspection(job.application_url),
@@ -425,7 +429,7 @@ async def test_lost_browser_lease_never_replays_fill(db_session, browser_target)
     )
     row, _ = await store.load(db_session, c.id)
     store.save(row, c)
-    await queue.enqueue(db_session, config(), c, job)
+    await queue.enqueue(db_session, config(), c, job, executor="isolated_browser")
     await db_session.commit()
     key, claimed = await queue.claim(db_session)
     await db_session.commit()
@@ -534,7 +538,7 @@ async def test_sleep_offline_browser_heartbeat_is_unavailable(
     assert response.json()["browser_worker_ready"] is False
     assert (
         response.json()["browser_availability"]
-        == "offline_or_sleeping_or_worker_unavailable"
+        == "PROFILE_OFFLINE"
     )
 
 
@@ -658,7 +662,7 @@ async def test_worker_consumes_one_reviewed_dom_batch_without_replaying_fields(d
     campaign.approval = Approval(expected_revision=campaign.revision, nonce=campaign.approval_nonce, scope="fill", platforms=["employer_forms"], maximum_applications=1)
     row, _ = await store.load(db_session, campaign.id)
     store.save(row, campaign)
-    await queue.enqueue(db_session, settings, campaign, job)
+    await queue.enqueue(db_session, settings, campaign, job, executor="isolated_browser")
     await db_session.commit()
     driver = OneShotDriver()
     worker = BrowserWorker(get_session_factory(), settings, driver)
@@ -694,8 +698,10 @@ async def test_native_security_preview_cannot_authorize_and_pending_answer_is_no
         {"field_id": "f0", "kind": "text", "label": "Total Years of Experience"},
         {"field_id": "f1", "kind": "email", "label": "Email"},
     ], state="manual_required")
+    from backend.tests.chrome_profile_fixture import connected
+    context = {**await connected(db_session, settings), "tab_id": 17}
     result = await dispatch_form(db_session, settings, actor, Command(
-        command="inspect_form", application_id=packet.id, inspection=observed,
+        **context, command="inspect_form", application_id=packet.id, inspection=observed,
     ))
     assert result.ok
     assert result.data["plan"]["state"] == "read_only"
@@ -708,7 +714,7 @@ async def test_native_security_preview_cannot_authorize_and_pending_answer_is_no
     with pytest.raises(ValueError, match="invalid_field_approval"):
         await FormService(db_session, config()).review(plan_id, ["f1"])
     denied = await dispatch_form(db_session, settings, actor, Command(
-        command="authorize_form", plan_id=plan_id, field_ids=["f1"],
+        **context, command="authorize_form", plan_id=plan_id, field_ids=["f1"],
     ))
     assert not denied.ok
     assert (await service.read(packet.id)).revision == packet.revision

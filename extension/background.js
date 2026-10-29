@@ -1,3 +1,4 @@
+import { ChromeProfileConnection, profileAlarm } from "./chrome-profile.js";
 import { TaskCoordinator } from "./task-coordinator.js";
 const host = "com.automated_apply.agent";
 export const menuId = "automated-apply-preview";
@@ -208,6 +209,38 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     sender.url.startsWith(`chrome-extension://${chrome.runtime.id}/`);
   if (sender.id !== chrome.runtime.id || (sender.tab && !isExtensionPage))
     return false;
+  if (message?.command === "chrome_profile") {
+    if (
+      !["settings.html", "popup.html"].some(
+        (page) =>
+          sender.url === `chrome-extension://${chrome.runtime.id}/${page}`,
+      )
+    )
+      return false;
+    const run = async () => {
+      await profiles.ready;
+      if (message.action === "connect") return profiles.connect(message.label);
+      if (message.action === "disconnect") return profiles.disconnect();
+      if (message.action === "commands")
+        return profiles.setCommands(message.enabled);
+      if (message.action === "status") {
+        if (profiles.value?.connected) await profiles.heartbeat();
+        return profiles.status();
+      }
+      throw Error("unsupported_profile_action");
+    };
+    run()
+      .then((data) => reply({ ok: true, ...data }))
+      .catch((error) =>
+        reply({
+          ok: false,
+          error_code: /^[A-Za-z][A-Za-z0-9_]{1,63}$/.test(error.message)
+            ? error.message
+            : "profile_unavailable",
+        }),
+      );
+    return true;
+  }
   if (message?.command === "application_assistant") {
     if (sender.url !== `chrome-extension://${chrome.runtime.id}/popup.html`)
       return false;
@@ -215,7 +248,7 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
       .dispatch(message)
       .then((data) => reply({ ok: true, ...data }))
       .catch((error) => {
-        const code = /^[a-z][a-z0-9_]{1,63}$/.test(error.message)
+        const code = /^[A-Za-z][A-Za-z0-9_]{1,63}$/.test(error.message)
           ? error.message
           : "assistant_unavailable";
         reply({ ok: false, error_code: code });
@@ -263,7 +296,17 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
 });
 
 // Only the popup can operate bound application tasks. No page/external messaging.
-const coordinator = new TaskCoordinator();
+const profiles = new ChromeProfileConnection();
+const coordinator = new TaskCoordinator(chrome, profiles);
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === profileAlarm)
+    void profiles.tick((message) => coordinator.dispatch(message));
+});
+// Heartbeat restores only explicit local connection consent, never fill authorization.
+void profiles.ready.then(() => {
+  if (profiles.value?.connected)
+    return profiles.tick((message) => coordinator.dispatch(message));
+});
 chrome.tabs.onUpdated.addListener((tabId, change) => {
   if (change.url) void coordinator.event(tabId, "navigation", change.url);
   else if (change.status === "loading")

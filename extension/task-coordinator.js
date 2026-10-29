@@ -1,3 +1,4 @@
+import { ChromeProfileConnection, profileContext } from "./chrome-profile.js";
 import { installGuard, guardActive, releaseGuard } from "./network-guard.js";
 // Privileged MV3 worker coordinator. Only extension pages may call this API.
 // Persist identifiers/status only. Candidate answers remain in backend plan storage.
@@ -21,7 +22,8 @@ const terminal = new Set([
   "CANCELLED",
 ]);
 export class TaskCoordinator {
-  constructor(api = chrome) {
+  constructor(api = chrome, profiles = new ChromeProfileConnection(api)) {
+    this.profiles = profiles;
     this.api = api;
     this.bindings = {};
     this.busy = new Set();
@@ -36,11 +38,19 @@ export class TaskCoordinator {
     await this.api.storage.session.setAccessLevel?.({
       accessLevel: "TRUSTED_CONTEXTS",
     });
+    await this.profiles.ready;
     const stored = await this.api.storage.session.get(sessionKey);
     this.sessionId = stored[sessionKey] || crypto.randomUUID();
     await this.api.storage.session.set({ [sessionKey]: this.sessionId });
     this.bindings =
       (await this.api.storage.local.get(storageKey))[storageKey] || {};
+    if (this.profiles.value?.connected) {
+      try {
+        await this.profiles.heartbeat();
+      } catch {
+        /* Paused recovery below. */
+      }
+    }
     // No executable plan or fill authorization is restored after worker restart.
     for (const binding of Object.values(this.bindings)) {
       binding.requiresInspection = true;
@@ -67,6 +77,9 @@ export class TaskCoordinator {
       request_id: crypto.randomUUID(),
       command,
       ...extra,
+      ...(command === "get_agent_capabilities"
+        ? {}
+        : await profileContext(this.api)),
     };
     let timer;
     try {
@@ -84,7 +97,7 @@ export class TaskCoordinator {
         throw Error("native_protocol_error");
       if (!result.ok)
         throw Error(
-          /^[a-z][a-z0-9_]{1,63}$/.test(result.error_code)
+          /^[A-Za-z][A-Za-z0-9_]{1,63}$/.test(result.error_code)
             ? result.error_code
             : "native_protocol_error",
         );
@@ -109,6 +122,8 @@ export class TaskCoordinator {
       id: task.id,
       version: task.version,
       applicationId: task.application_id,
+      profileBindingId: task.profile_binding_id,
+      windowId: task.window_id,
       tabId: task.tab_id,
       browserSessionId: task.browser_session_id,
       url: task.current_url || task.target_url,
@@ -124,6 +139,7 @@ export class TaskCoordinator {
       expected_task_version: binding.version,
       browser_session_id: this.sessionId,
       tab_id: binding.tabId,
+      window_id: binding.windowId,
     };
   }
   async task(id) {
@@ -158,7 +174,8 @@ export class TaskCoordinator {
     });
     if (!Number.isInteger(tab?.id) || (binding && tab.id !== binding.tabId))
       throw Error("application_tab_not_active");
-    if (tab.url !== binding.url) throw Error("page_changed");
+    if (tab.incognito === true || tab.url !== binding.url)
+      throw Error("page_changed");
     return tab;
   }
   // Serializes task versions, native calls and the single active DOM review context.
@@ -173,6 +190,23 @@ export class TaskCoordinator {
   }
   async handle(message) {
     const { action, task_id: id } = message;
+    // Local owner takeover must release the guard even while the profile/API is offline.
+    const freshCommand = () => {
+      if (
+        message.remote_command &&
+        (!Number.isFinite(Date.parse(message.remote_expires_at)) ||
+          Date.parse(message.remote_expires_at) <= Date.now())
+      )
+        throw Error("profile_command_expired");
+    };
+    freshCommand();
+    if (action !== "return_control") await this.profiles.verify();
+    freshCommand();
+    if (message.remote_command && id && action !== "open") {
+      const current = await this.task(id);
+      if (current.version !== message.expected_task_version)
+        throw Error("extension_task_revision_conflict");
+    }
     if (action === "list") {
       await this.native("get_agent_capabilities");
       const items = [];
@@ -202,12 +236,27 @@ export class TaskCoordinator {
       const data = await this.native("open_application_task", {
         application_id: message.application_id,
         browser_session_id: this.sessionId,
+        ...(message.remote_command
+          ? { expected_task_version: message.expected_task_version }
+          : {}),
       });
+      if (
+        message.remote_command &&
+        (data.task.packet_revision !== message.expected_packet_revision ||
+          data.task.target_url !== message.expected_destination)
+      )
+        throw Error("extension_task_context_stale");
       let binding = this.accept(data.task);
       await this.persist();
       if (terminal.has(data.task.state))
         throw Error("application_not_eligible");
       if (action === "destination") return { task: data.task };
+      if (
+        binding.state === "PAUSED" &&
+        ["owner_pause", "global_stop"].includes(binding.reason)
+      ) {
+        throw Error("extension_task_paused_or_cancelled");
+      }
       const origin = new URL(data.task.target_url).origin;
       if (!(await this.api.permissions.contains({ origins: [origin + "/*"] })))
         throw Error("application_origin_permission_required");
@@ -218,29 +267,55 @@ export class TaskCoordinator {
       ) {
         try {
           const existing = await this.api.tabs.get(binding.tabId);
-          if (existing.url === binding.url) {
+          if (existing.url === binding.url && existing.incognito !== true) {
+            await this.api.windows.update(existing.windowId, { focused: true });
             await this.api.tabs.update(binding.tabId, { active: true });
+            if (binding.windowId !== existing.windowId) {
+              const task = await this.update(binding.id, "bind", {
+                window_id: existing.windowId,
+                observed_url: existing.url,
+              });
+              return { task };
+            }
             return { task: data.task };
           }
+          throw Error("page_changed");
         } catch {
           // A closed/replaced saved tab must be released before assigning a new one.
           await this.update(binding.id, "tab_closed");
           binding = this.bindings[binding.id];
         }
       }
-      if (
-        binding.state === "PAUSED" &&
-        ["owner_pause", "global_stop"].includes(binding.reason)
-      ) {
-        throw Error("extension_task_paused_or_cancelled");
-      }
       const url = new URL(data.task.target_url);
       if (url.protocol !== "https:" || url.username || url.password)
         throw Error("unsupported_application_page_required");
-      const tab = await this.api.tabs.create({ url: url.href, active: true });
+      await this.profiles.verify();
+      const windowId = await this.profiles.window();
+      await this.api.windows.update(windowId, { focused: true });
+      freshCommand();
+      const tab = await this.api.tabs.create({
+        url: url.href,
+        active: true,
+        windowId,
+      });
+      // Bind after the requested navigation completes. Loading events for this
+      // newly created, not-yet-bound tab cannot be mistaken for a later refresh.
+      const deadline = Date.now() + 12000;
+      while (true) {
+        const observed = await this.api.tabs.get(tab.id);
+        if (observed.status !== "loading") {
+          if (observed.url !== url.href) throw Error("page_changed");
+          break;
+        }
+        if (Date.now() >= deadline)
+          throw Error("application_navigation_timeout");
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      await this.profiles.verify();
       try {
         const task = await this.update(binding.id, "bind", {
           tab_id: tab.id,
+          window_id: tab.windowId,
           observed_url: url.href,
         });
         return { task };
@@ -262,11 +337,21 @@ export class TaskCoordinator {
     }
     if (action === "prepare") {
       let binding = id ? (await this.task(id), this.bindings[id]) : null;
-      if (binding) await this.active(binding);
+      if (binding) {
+        await this.active(binding);
+        if (
+          message.remote_command &&
+          !(await this.api.permissions.contains({
+            origins: [new URL(binding.url).origin + "/*"],
+          }))
+        )
+          throw Error("application_origin_permission_required");
+      }
       const options = {
         interactions_allowed: message.interactions_allowed === true,
         taskContext: binding ? this.context(binding) : undefined,
       };
+      freshCommand();
       const plan = binding
         ? await inspectForm(binding.applicationId, options)
         : await prepareAnswers(undefined, options);
@@ -279,6 +364,7 @@ export class TaskCoordinator {
           application_id: plan.application_id,
           browser_session_id: this.sessionId,
           tab_id: tab.id,
+          window_id: tab.windowId,
         });
         binding = this.accept(data.task);
         await this.persist();

@@ -90,6 +90,8 @@ uses an everyday Chrome profile. Each application keeps its own tab for review.
 Native inspection uses a CDP isolated world; website JavaScript cannot replace the
 inspector's field-reference closure.
 
+For interactive applications, use the [selected connected Chrome extension](../phase53/chrome-profile-reuse.md). The following browser is explicitly for isolated testing.
+
 ```sh
 # Install with pnpm, using the repository's pinned versions.
 pnpm -C frontend install --frozen-lockfile
@@ -98,7 +100,7 @@ pnpm -C frontend exec playwright install chromium
 # In the owner's approved private configuration, opt in explicitly:
 # BROWSER_FILL_ENABLED=true
 # BROWSER_AUTOMATION_ENABLED=true
-python backend/scripts/run_browser_worker.py --profile-parent /absolute/private/directory
+python backend/scripts/run_browser_worker.py --executor isolated_browser --profile-parent /absolute/private/directory
 ```
 
 The existing operator configuration/startup database restrictions still apply.
@@ -110,7 +112,7 @@ and jobs, and append-only agent operations store audit receipts.
 For sign-in, stop the browser worker first, then run:
 
 ```sh
-python backend/scripts/run_browser_worker.py --profile-parent /absolute/private/directory --sign-in https://jobs.lever.co/your-employer/your-job
+python backend/scripts/run_browser_worker.py --executor isolated_browser --profile-parent /absolute/private/directory --sign-in https://jobs.lever.co/your-employer/your-job
 ```
 
 This is an owner-operated, headed browser session with no agent inspection or

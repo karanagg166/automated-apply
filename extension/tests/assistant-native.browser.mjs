@@ -32,7 +32,23 @@ const server = createServer(async (req, res) => {
     const command = JSON.parse(raw);
     requests.push(command.command);
     let data = { submitted: false };
-    if (command.command === "get_agent_capabilities")
+    if (
+      ["connect_chrome_profile", "heartbeat_chrome_profile"].includes(
+        command.command,
+      )
+    ) {
+      data.profile = {
+        id: command.profile_binding_id,
+        label: "Fictional profile",
+        version: 1,
+        connected: true,
+        selected: true,
+        status: "CONNECTED",
+        last_heartbeat: new Date().toISOString(),
+        browser_session_id: command.browser_session_id,
+        commands_enabled: false,
+      };
+    } else if (command.command === "get_agent_capabilities")
       data = { submissions: false };
     else if (command.command === "open_application_task") {
       task ||= {
@@ -209,6 +225,33 @@ try {
         body: `<!doctype html><title>Fictional Engineer</title><h1>Fictional Employer</h1><form onsubmit="event.preventDefault();window.submits++"><label>Email<input id="email" type="email" required></label><label>Portfolio<input value="owner-entered-preserved"></label><button type="submit">Submit</button></form><script>window.submits=0;window.retained='';document.querySelector('#email').addEventListener('input',e=>{window.retained=e.target.value;});</script>`,
       });
     });
+    const settingsPage = await browserContext.newPage();
+    await settingsPage.goto(`chrome-extension://${extensionId}/settings.html`);
+    assert.equal(
+      await settingsPage.locator("#version").innerText(),
+      `Version: ${manifest.version}`,
+    );
+    await settingsPage.waitForFunction(() =>
+      document
+        .querySelector("#guard-permission")
+        .textContent.includes("permission: granted"),
+    );
+    if (
+      !(await settingsPage.evaluate(
+        async () =>
+          (await chrome.storage.local.get("connectedChromeProfileV1"))
+            .connectedChromeProfileV1?.connected,
+      ))
+    ) {
+      await settingsPage.locator("#profile-label").fill("Fictional profile");
+      await settingsPage.locator("#profile-connect").click();
+      await settingsPage.waitForFunction(() =>
+        document
+          .querySelector("#profile-status")
+          .textContent.includes("selected"),
+      );
+    }
+    await settingsPage.close();
     const popup = await browserContext.newPage();
     await popup.goto(`chrome-extension://${extensionId}/popup.html`);
     return popup;
@@ -231,7 +274,16 @@ try {
   await application.waitForLoadState().catch(() => {});
   // Extension-created tab initial navigation precedes Playwright target routing.
   // DNS is blocked above; navigate again once the fictional route is attached.
-  await application.goto(url, { waitUntil: "domcontentloaded" });
+  try {
+    await application.goto(url, { waitUntil: "domcontentloaded" });
+  } catch (error) {
+    // tabs.create can commit its initial navigation after Playwright attaches.
+    // Retry fixture setup only for that exact competing navigation; all DOM,
+    // authorization and receipt assertions below still have to pass.
+    if (!/interrupted by another navigation/.test(error.message)) throw error;
+    await application.waitForLoadState("domcontentloaded").catch(() => {});
+    await application.goto(url, { waitUntil: "domcontentloaded" });
+  }
   await application.locator("#email").waitFor();
   await send("resume", { task_id: taskId });
   const prepared = await send("prepare", {

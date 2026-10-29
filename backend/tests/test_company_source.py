@@ -430,7 +430,8 @@ async def test_source_budget_survives_browser_restart_and_never_refetches_automa
                 route + "/open",
                 json={
                     "expected_revision": packet["revision"],
-                    "approve_dedicated_profile": True,
+                    "executor": "isolated_browser",
+            "approve_dedicated_profile": True,
                     "confirm_destination_permission": True,
                 },
             )

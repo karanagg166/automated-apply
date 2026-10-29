@@ -96,7 +96,7 @@ async def verify(url):
             fixture = submission_site.__wrapped__(Path(tmp), monkeypatch)
             site = await anext(fixture)
             driver = ChromeDriver(
-                (Path(tmp) / "automated-apply-automation").resolve(), headless=True
+                (Path(tmp) / "automated-apply-automation").resolve(), headless=True, executor="isolated_browser"
             )
             async with factory() as session:
                 profile = await CandidateProfileRepository(

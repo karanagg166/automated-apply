@@ -1,9 +1,12 @@
 """Private execution contracts. Modes never grant submission permission."""
 
+from datetime import date, datetime, timedelta, timezone
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from backend.app.core.urls import PublicHTTPSURL
 
 Mode = Literal["OFF", "ON_DEMAND", "WATCH_AND_NOTIFY", "AUTO_APPLY_WHEN_AUTHORIZED"]
 State = Literal[
@@ -78,6 +81,29 @@ class ImportJob(Contract):
     salary_period: Literal["year", "month"] | None = None
     provenance: Literal["owner_url", "owner_job_alert"] = "owner_url"
     message_reference: str | None = Field(None, max_length=200)
+    application_url: PublicHTTPSURL | None = None
+    posting_status: Literal["unknown", "active", "closed", "already_applied"] = "unknown"
+    observed_at: datetime | None = None
+    valid_through: date | None = None
+
+    @field_validator("title", "employer")
+    @classmethod
+    def nonblank_listing_text(cls, value):
+        if not value.strip():
+            raise ValueError("listing_text_required")
+        return value.strip()
+
+    @model_validator(mode="after")
+    def reviewed_criteria(self):
+        for lower, upper in ((self.experience_min, self.experience_max), (self.salary_min, self.salary_max)):
+            if lower is not None and upper is not None and lower > upper:
+                raise ValueError("minimum_exceeds_maximum")
+        if self.observed_at is not None:
+            if self.observed_at.tzinfo is None or self.observed_at > datetime.now(timezone.utc) + timedelta(minutes=5):
+                raise ValueError("observation_requires_nonfuture_timezone_timestamp")
+        if self.posting_status != "unknown" and self.observed_at is None:
+            raise ValueError("posting_status_requires_owner_observation_time")
+        return self
 
 
 class ImportBatch(Contract):

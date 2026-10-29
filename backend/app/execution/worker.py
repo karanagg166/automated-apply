@@ -10,6 +10,7 @@ from backend.app.agent.tools import ToolDenied
 from backend.app.automation.store import instant
 from backend.app.dashboard.models import Notification, OwnerPreference
 from backend.app.execution import store
+from backend.app.execution.naukri import matching_job
 from backend.app.integrations.gmail.history import reviewed_history
 from backend.app.models.application_packet import ApplicationPacket
 from backend.app.models.candidate_profile import CandidateProfile
@@ -17,6 +18,7 @@ from backend.app.models.company import Company
 from backend.app.models.job import Job
 from backend.app.schemas.applications import CreatePacket
 from backend.app.schemas.candidate_profile import CandidateProfileRead
+from backend.app.services.applications.platforms.naukri import posting_unavailable
 from backend.app.services.applications.service import ApplicationPacketService
 from backend.app.services.job_discovery_matcher import JobDiscoveryMatcher
 
@@ -34,6 +36,8 @@ def eligibility(job, profile, match):
     """Unknown/preferred criteria cannot become required or an auto-submit grant."""
     meta = job.discovery_metadata or {}
     provenance = meta.get("data_provenance", {})
+    if posting_unavailable(job):
+        return "REJECTED", "vacancy_closed_expired_or_invalid"
     required = provenance.get("experience_requirement") == "required"
     years, lower, upper = (
         profile.verified_experience_years,
@@ -60,7 +64,6 @@ def eligibility(job, profile, match):
 
 async def prepare(session, identity):
     row = await store.fenced(session, identity)
-    now = await instant(session)
     job = await session.get(Job, UUID(row.value["job_id"]))
     profile = await session.scalar(
         select(CandidateProfile).where(CandidateProfile.singleton_key == "primary")
@@ -90,7 +93,7 @@ async def prepare(session, identity):
     if row.value["state"] == "MATCHED":
         company = await session.get(Company, job.company_id) if job.company_id else None
         match = JobDiscoveryMatcher(session, await reviewed_history(session)).match(
-            job, CandidateProfileRead.model_validate(profile), company
+            matching_job(job), CandidateProfileRead.model_validate(profile), company
         )
         state, reason = eligibility(job, profile, match)
         if await store.previously_applied(session, job):
@@ -133,19 +136,8 @@ async def prepare(session, identity):
             packet.readiness.state,
         )
     row.value = {**row.value, "lease_until": None, "attempts": 0}
-    if row.value["packet_id"]:
-        from backend.app.execution.questions import ask
-
-        packet = await ApplicationPacketService(session).read(
-            UUID(row.value["packet_id"])
-        )
-        if not packet.readiness.stale and row.value["state"] in {
-            "NEEDS_INPUT",
-            "READY_FOR_REVIEW",
-        }:
-            for field in packet.fields:
-                if needs_owner_answer(field, now):
-                    await ask(session, row.value["id"], field.id)
+    # Preparation never authorizes Telegram delivery. The owner must choose an
+    # exact question through an authenticated Ask action, including reconfirmation.
 
 
 async def watch(session):
@@ -186,7 +178,7 @@ async def watch(session):
             continue
         company = await session.get(Company, job.company_id) if job.company_id else None
         match = JobDiscoveryMatcher(session, history).match(
-            job, CandidateProfileRead.model_validate(profile), company
+            matching_job(job), CandidateProfileRead.model_validate(profile), company
         )
         if eligibility(job, profile, match)[0] != "ELIGIBLE":
             continue
@@ -215,23 +207,13 @@ class ExecutionWorker:
     async def tick(self):
         async with self.factory() as session, session.begin():
             await watch(session)
-            from backend.app.execution.questions import ask
-
             now = await instant(session)
             for row in await store.rows(session):
-                if (
-                    row.value["state"] not in {"NEEDS_INPUT", "READY_FOR_REVIEW"}
-                    or not row.value["packet_id"]
-                ):
+                if row.value["state"] != "READY_FOR_REVIEW" or not row.value["packet_id"]:
                     continue
-                packet = await ApplicationPacketService(session).read(
-                    UUID(row.value["packet_id"])
-                )
-                if packet.readiness.stale:
-                    continue
-                for field in packet.fields:
-                    if needs_owner_answer(field, now):
-                        await ask(session, row.value["id"], field.id)
+                packet = await ApplicationPacketService(session).read(UUID(row.value["packet_id"]))
+                if not packet.readiness.stale and any(needs_owner_answer(field, now) for field in packet.fields):
+                    await store.move(session, row, "NEEDS_INPUT", "owner_question_approval_required")
             identity = await store.claim(session)
         if not identity:
             return None

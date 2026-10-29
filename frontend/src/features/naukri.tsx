@@ -12,6 +12,7 @@ import {
   Badge,
   Button,
   ErrorState,
+  External,
   Field,
   Input,
   Notice,
@@ -36,7 +37,24 @@ type Execution = {
   revision: number;
   diagnostic: string | null;
 };
-type Job = { id: string; title: string; job_url: string };
+type Job = {
+  id: string;
+  title: string;
+  job_url: string;
+  employer?: string | null;
+  vacancy_review?: string;
+  state?: string;
+  reason?: string;
+  profile_version?: number | null;
+  match?: {
+    match_score: number;
+    matched_skills: string[];
+    missing_skills: string[];
+    explanation: string;
+    unknown_fields: string[];
+    negative_factors: string[];
+  } | null;
+};
 type Question = ExecutionQuestion & {
   factual_context?: string;
   reuse_approved: boolean;
@@ -45,6 +63,11 @@ type Status = {
   configuration: Configuration;
   executions: Execution[];
   capabilities: Record<string, unknown>;
+  account_session?: {
+    state: string;
+    last_verification_time: string | null;
+    evidence_type: string;
+  };
 };
 
 export function Naukri() {
@@ -57,6 +80,10 @@ export function Naukri() {
     [maximum, setMaximum] = useState("");
   const [requirement, setRequirement] = useState("unknown");
   const [location, setLocation] = useState("");
+  const [description, setDescription] = useState("");
+  const [applicationUrl, setApplicationUrl] = useState("");
+  const [postingStatus, setPostingStatus] = useState("unknown");
+  const [validThrough, setValidThrough] = useState("");
   const [error, setError] = useState<unknown>(null),
     [busy, setBusy] = useState(false);
   const status = useQuery({
@@ -96,10 +123,23 @@ export function Naukri() {
       <div className="panel panel-body stack">
         <h1>Naukri</h1>
         <Notice>
-          Account access and live Naukri forms have not been verified. Import a
-          posting from your normal Naukri session or job alert. Preparation uses
-          your saved candidate profile. Submission remains manual.
+          {status.data.account_session?.state === "browser_session_observed"
+            ? "A local browser sign-in indicator was observed. This does not verify account identity or a Naukri API connection. "
+            : "Account access and live Naukri forms have not been verified. "}
+          Import a posting from your normal Naukri session or job alert.
+          Preparation uses your saved candidate profile. Submission remains
+          manual.
         </Notice>
+        {status.data.account_session?.last_verification_time && (
+          <p>
+            Session last observed:{" "}
+            {new Date(
+              status.data.account_session.last_verification_time,
+            ).toLocaleString()}
+            . This is a past observation; confirm your current Naukri tab before
+            proceeding.
+          </p>
+        )}
         <Field label="Automation mode">
           <Select
             aria-label="Automation mode"
@@ -156,6 +196,17 @@ export function Naukri() {
                     ? { experience_requirement: requirement }
                     : {}),
                   ...(location ? { location } : {}),
+                  ...(description ? { description } : {}),
+                  ...(applicationUrl
+                    ? { application_url: applicationUrl }
+                    : {}),
+                  ...(postingStatus !== "unknown"
+                    ? {
+                        posting_status: postingStatus,
+                        observed_at: new Date().toISOString(),
+                      }
+                    : {}),
+                  ...(validThrough ? { valid_through: validThrough } : {}),
                 },
               ],
             }),
@@ -191,6 +242,47 @@ export function Naukri() {
         <details>
           <summary>Listing criteria for matching</summary>
           <div className="stack">
+            <Field label="Description copied from the reviewed posting">
+              <textarea
+                className="input"
+                value={description}
+                maxLength={30000}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </Field>
+            <Field label="Reviewed external employer application URL (optional)">
+              <Input
+                type="url"
+                value={applicationUrl}
+                onChange={(e) => setApplicationUrl(e.target.value)}
+              />
+            </Field>
+            <Field label="Status you just observed on Naukri">
+              <Select
+                value={postingStatus}
+                onChange={(e) => setPostingStatus(e.target.value)}
+              >
+                <option value="unknown">Not checked / unknown</option>
+                <option value="active">Active posting observed</option>
+                <option value="closed">
+                  Closed / expired posting observed
+                </option>
+                <option value="already_applied">
+                  Already applied indicator observed
+                </option>
+              </Select>
+            </Field>
+            <Field label="Posting expiry date, if shown">
+              <Input
+                type="date"
+                value={validThrough}
+                onChange={(e) => setValidThrough(e.target.value)}
+              />
+            </Field>
+            <p>
+              These are your observations, not provider verification. Active
+              evidence becomes stale after 24 hours.
+            </p>
             <Field label="Required technical skills">
               <Input
                 aria-label="Required technical skills"
@@ -256,11 +348,43 @@ export function Naukri() {
         {jobs.isError ? <ErrorState error={jobs.error} /> : null}
         {jobs.data?.jobs.map((job) => (
           <div key={job.id} className="stack">
-            <a href={job.job_url} target="_blank" rel="noreferrer">
-              {job.title}
-            </a>
+            <External href={job.job_url}>{job.title}</External>
+            {job.vacancy_review && (
+              <p>
+                Vacancy: {readable(job.vacancy_review)} · {readable(job.state)}{" "}
+                — {readable(job.reason)}
+              </p>
+            )}
+            {job.match && (
+              <div>
+                <p>
+                  Profile v{job.profile_version} · Match:{" "}
+                  {job.match.match_score}/100
+                </p>
+                <p>{job.match.explanation}</p>
+                <p>
+                  Matched skills:{" "}
+                  {job.match.matched_skills.join(", ") || "None verified"}
+                </p>
+                <p>
+                  Missing skills:{" "}
+                  {job.match.missing_skills.join(", ") || "None identified"}
+                </p>
+                <p>
+                  Unknown:{" "}
+                  {job.match.unknown_fields.join(", ") || "None identified"}
+                </p>
+                {job.match.negative_factors.map((reason) => (
+                  <p key={reason}>{reason}</p>
+                ))}
+              </div>
+            )}
             <Button
-              disabled={busy || status.data.configuration.mode === "OFF"}
+              disabled={
+                busy ||
+                status.data.configuration.mode === "OFF" ||
+                job.state === "REJECTED"
+              }
               onClick={() =>
                 act(() => post("execution/naukri/apply", { job_ids: [job.id] }))
               }
@@ -270,6 +394,11 @@ export function Naukri() {
           </div>
         ))}
         {jobs.data?.jobs.length === 0 && <p>No imported jobs yet.</p>}
+        <p>
+          This reads saved imports only. A match score cannot establish that a
+          vacancy is active or authorize filling. Preparation queues a review
+          draft; it does not start a worker or send Telegram questions.
+        </p>
       </div>
       <div className="panel panel-body stack">
         <h2>Application status</h2>
@@ -337,10 +466,18 @@ export function Naukri() {
                 {isPending ? (
                   <Badge tone="amber">Waiting for Your Answer</Badge>
                 ) : (
-                  <Badge tone="green">{readable(q.state)}</Badge>
+                  <Badge tone={q.state === "answered" ? "green" : "amber"}>
+                    {readable(q.state)}
+                  </Badge>
                 )}
               </div>
               <p>Application: {q.execution_id}</p>
+              {q.state === "delivery_unknown" && (
+                <Notice>
+                  Telegram delivery outcome is unknown. Check your private chat;
+                  this prompt will not be automatically resent.
+                </Notice>
+              )}
               {q.answer && <p>Saved answer: {q.factual_context || q.answer}</p>}
               {q.answer_expires_at && (
                 <p>

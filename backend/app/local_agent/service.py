@@ -19,6 +19,9 @@ CAPABILITIES = {name: "preview_only" for name in (
 
 
 async def dispatch(session, settings, actor: Actor, command: Command):
+    from backend.app.browser.chrome_profiles import NATIVE, native
+    if command.command in NATIVE:
+        return await native(session, settings, actor, command)
     if command.command in {"open_application_task", "get_application_task", "update_application_task", "ask_form_questions"}:
         from backend.app.browser.extension_tasks import dispatch_task
         return await dispatch_task(session, settings, actor, command)

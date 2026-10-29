@@ -3,6 +3,7 @@ import test from "node:test";
 const callbacks = {};
 let stored, lastBadge;
 global.chrome = {
+  alarms: { onAlarm: { addListener() {} } },
   runtime: {
     id: "a".repeat(32),
     onInstalled: { addListener: (fn) => (callbacks.install = fn) },

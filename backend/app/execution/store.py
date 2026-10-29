@@ -200,7 +200,13 @@ async def packet_question_intent(session, packet):
     from backend.app.browser.site_policy import application_page_url
 
     url = packet.snapshot.destination.application_url
-    if not application_page_url(url):
+    naukri_posting = False
+    if packet.platform == "naukri":
+        try:
+            naukri_posting = normalized_url(url) == url
+        except ValueError:
+            pass
+    if not application_page_url(url) and not naukri_posting:
         raise ToolDenied("supported_ats_application_required")
     identity = str(uuid5(NAMESPACE_URL, "packet_questions:" + str(packet.id)))
     row = await session.get(OwnerPreference, PREFIX + identity, populate_existing=True)
@@ -375,6 +381,8 @@ async def heartbeat(session, identity):
 
 
 async def previously_applied(session, job):
+    if job.source_platform == "naukri" and (job.discovery_metadata or {}).get("data_provenance", {}).get("posting_status") == "already_applied":
+        return True
     if getattr(job, "application_status", None) in {
         "applied",
         "submitted",

@@ -19,6 +19,19 @@ function setup() {
   inspectionOverride = null;
   planOverride = null;
   global.chrome = {
+    storage: {
+      local: {
+        get: async () => ({
+          connectedChromeProfileV1: {
+            id: app,
+            secret: "f".repeat(64),
+            connected: true,
+            windowId: 1,
+          },
+        }),
+      },
+      session: { get: async () => ({ applicationBrowserSessionV1: app }) },
+    },
     tabs: { query: async () => [tab] },
     scripting: {
       executeScript: async (request) => {

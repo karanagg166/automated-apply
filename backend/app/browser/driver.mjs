@@ -33,7 +33,8 @@ const allowedHost = (url) =>
     "jobs.ashbyhq.com",
     "jobs.smartrecruiters.com",
   ].includes(url.hostname) ||
-  (/^[a-z0-9-]+\.wd[0-9]+\.myworkdayjobs\.com$/.test(url.hostname) && url.pathname.includes("/job/")) ||
+  (/^[a-z0-9-]+\.wd[0-9]+\.myworkdayjobs\.com$/.test(url.hostname) &&
+    url.pathname.includes("/job/")) ||
   (url.hostname === "docs.google.com" && url.pathname.startsWith("/forms/"));
 async function evaluateForm(
   state,
@@ -50,7 +51,11 @@ async function evaluateForm(
   if (result.exceptionDetails) throw Error("isolated_inspector_failed");
   // Reinspection intentionally issues a new DOM identifier. Register that
   // identifier for this tab as well; formDOM still rejects every stale ID.
-  if (byValue && request.operation === "inspect" && result.result.value?.document_id)
+  if (
+    byValue &&
+    request.operation === "inspect" &&
+    result.result.value?.document_id
+  )
     documents.set(result.result.value.document_id, state);
   return byValue ? result.result.value : result.result.objectId;
 }
@@ -66,6 +71,8 @@ async function evaluateSubmission(state, request) {
   return r.result.value;
 }
 async function launch(req) {
+  if (req.executor !== "isolated_browser")
+    throw Error("explicit_isolated_browser_required");
   const profile = resolve(req.profile);
   if (
     !profile.endsWith("/automated-apply-automation") ||
@@ -212,7 +219,11 @@ for await (const line of createInterface({ input: process.stdin })) {
         !fixture &&
         (url.protocol !== "https:" ||
           !allowedHost(url) ||
-          (url.search && !(url.hostname === "jobs.smartrecruiters.com" && url.search === "?oga=true")) ||
+          (url.search &&
+            !(
+              url.hostname === "jobs.smartrecruiters.com" &&
+              url.search === "?oga=true"
+            )) ||
           url.hash)
       )
         throw Error("unsupported_url");

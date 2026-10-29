@@ -198,6 +198,15 @@ class PacketBuilder:
                 "evidence": stamps,
                 "observations": sorted({(s, u) for s, u in observations}),
             }
+        if job.source_platform == "naukri":
+            from backend.app.services.applications.platforms.naukri import (
+                posting_unavailable,
+            )
+
+            context_data["naukri_listing_review"] = {
+                "observed_criteria": job.discovery_metadata or {},
+                "posting_unavailable": posting_unavailable(job),
+            }
         if profile:
             from backend.app.knowledge.missing_input import approved_input_revisions
             revisions = await approved_input_revisions(self.session, profile.id, job.id)

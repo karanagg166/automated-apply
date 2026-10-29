@@ -620,6 +620,15 @@ async def test_naukri_form_question_bridge_and_reviewed_answer_fill(
             )
         )
     ).all()
+    assert len(qs) == 0  # Inspection cannot authorize a Telegram notification.
+    current = await service.read(packet.id)
+    field = next(f for f in current.fields if f.question == observation.fields[0].label)
+    intent = await store.packet_question_intent(db_session, current)
+    await questions.ask(db_session, intent["id"], field.id)  # Explicit owner Ask.
+    await db_session.flush()
+    qs = (await db_session.scalars(select(OwnerPreference).where(
+        OwnerPreference.key.startswith(questions.PREFIX)
+    ))).all()
     assert len(qs) == 1
     q = qs[0].value
     qs[0].value = {**q, "state": "sent", "message_ids": [101]}
@@ -788,17 +797,16 @@ async def test_question_delivery_restart_and_unknown_ack_are_safe(
             ).isoformat(),
         }
     bot.fail = False
-    assert await questions.deliver_one(test_session_factory, owner_settings, bot)
-    payload = bot.calls[-1][1]
+    assert not await questions.deliver_one(test_session_factory, owner_settings, bot)
+    assert len(bot.calls) == 1  # Telegram has no idempotency key; never guess/resend.
+    payload = bot.calls[0][1]
     assert payload["chat_id"] == owner_settings.TELEGRAM_OWNER_CHAT_ID
     assert q["question"] in payload["text"] and execution["id"] in payload["text"]
     async with test_session_factory() as session:
         row = await session.get(OwnerPreference, questions.PREFIX + q["id"])
-        assert row.value["message_ids"] == [103] and row.value["state"] == "sent"
-        assert (await store.load(session, execution["id"])).value[
-            "state"
-        ] == "NEEDS_INPUT"
-    assert not await questions.deliver_one(test_session_factory, owner_settings, bot)
+        assert row.value["message_ids"] == [] and row.value["state"] == "delivery_unknown"
+        assert (await store.load(session, execution["id"])).value["state"] == "NEEDS_INPUT"
+
 
 
 @pytest.mark.asyncio
@@ -902,7 +910,7 @@ async def test_completed_fill_clears_lease_without_submission(
 
 
 @pytest.mark.asyncio
-async def test_expired_answer_queues_reconfirmation_and_accepts_only_current_reply(
+async def test_expired_answer_requires_explicit_reconfirmation_and_accepts_only_current_reply(
     db_session, question_target, owner_settings
 ):
     from sqlalchemy.ext.asyncio import async_sessionmaker
@@ -934,6 +942,12 @@ async def test_expired_answer_queues_reconfirmation_and_accepts_only_current_rep
     )
     await ExecutionWorker(factory).tick()
     await db_session.rollback()
+    unapproved = (await db_session.scalars(select(OwnerPreference).where(
+        OwnerPreference.key.startswith(questions.PREFIX)
+    ))).all()
+    assert not any(r.value["state"] == "pending" for r in unapproved)
+    await questions.ask(db_session, execution["id"], field.id)
+    await db_session.flush()
     pending = (
         await db_session.scalars(
             select(OwnerPreference).where(
@@ -1083,3 +1097,129 @@ async def test_dashboard_answer_owner_boundary_and_validation(async_client, phas
         assert (await async_client.post(url, json=payload, headers={**phase2_auth, **extra})).status_code == 403
     for invalid in ({"answer": "Yes"}, {**payload, "expected_revision": 0}, {**payload, "expected_revision": "1"}, {**payload, "answer": "  "}, {**payload, "answer": "a" * 4001}, {**payload, "approved": True}):
         assert (await async_client.post(url, json=invalid, headers=phase2_auth)).status_code == 422
+
+
+@pytest.mark.parametrize("changes", [
+    {"experience_min": 4, "experience_max": 1},
+    {"salary_min": 100, "salary_max": 10},
+    {"employer": "   "}, {"title": "\t"},
+    {"posting_status": "active"},
+    {"posting_status": "active", "observed_at": "2099-01-01T00:00:00Z"},
+    {"posting_status": "active", "observed_at": "2026-10-29T10:00:00"},
+])
+def test_reviewed_import_rejects_ambiguous_or_invalid_criteria(changes):
+    with pytest.raises(ValueError):
+        ImportJob.model_validate({"url": URL, "title": "Backend Engineer", "employer": "Fictional", **changes})
+
+
+@pytest.mark.parametrize("path", ["a/nested", "a%2Fredirect", "a?next=x", "a#x"])
+def test_naukri_posting_path_matches_extension_boundary(path):
+    # Tracking on an actual posting is stripped; separators inside the path
+    # cannot turn arbitrary account/navigation endpoints into postings.
+    if path == "a%2Fredirect":
+        # Percent-encoded slug text is allowed by the extension, too.
+        assert normalized_url(f"https://www.naukri.com/job-listings-{path}-281026123456")
+    else:
+        with pytest.raises(ValueError):
+            normalized_url(f"https://www.naukri.com/job-listings-{path}-281026123456")
+
+
+@pytest.mark.asyncio
+async def test_preparation_and_worker_tick_do_not_authorize_telegram(db_session, execution_target):
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from backend.app.execution.worker import ExecutionWorker
+
+    await store.start(db_session, [execution_target])
+    identity = await store.claim(db_session)
+    await prepare(db_session, identity)
+    await db_session.commit()
+    factory = async_sessionmaker(db_session.bind, expire_on_commit=False, autoflush=False)
+    await ExecutionWorker(factory).tick()
+    assert not (await db_session.scalars(select(OwnerPreference).where(
+        OwnerPreference.key.startswith(questions.PREFIX)
+    ))).all()
+
+
+@pytest.mark.asyncio
+async def test_review_explains_unknown_experience_and_owner_observed_currentness(db_session, execution_target, phase2_profile):
+    from backend.app.execution.naukri_review import review_jobs
+    from backend.app.local_agent.profile_confirmation import confirm_profile
+    from backend.app.models.job import Job
+
+    job = await db_session.get(Job, execution_target)
+    phase2_profile.verified_experience_years = None
+    await confirm_profile(db_session, phase2_profile, phase2_profile.version)
+    await db_session.flush()
+    review = (await review_jobs(db_session, [job]))[0]
+    assert review["state"] == "NEEDS_INPUT"
+    assert review["vacancy_review"] == "unverified"
+    assert "experience_suitability" in review["match"]["unknown_fields"]
+    assert review["submission_allowed"] is False
+    assert review["provider_verified"] is False
+
+
+@pytest.mark.asyncio
+async def test_owner_applied_and_closed_observations_prevent_preparation(db_session, execution_target, phase2_profile):
+    from backend.app.execution.naukri_review import review_jobs
+    from backend.app.models.job import Job
+
+    job = await db_session.get(Job, execution_target)
+    for status in ["already_applied", "closed"]:
+        job.discovery_metadata = {**job.discovery_metadata, "data_provenance": {
+            "posting_status": status, "owner_observed_at": datetime.now(timezone.utc).isoformat()}}
+        result = (await review_jobs(db_session, [job]))[0]
+        assert result["state"] == "REJECTED"
+        if status == "already_applied":
+            assert await store.previously_applied(db_session, job)
+        else:
+            fit = SimpleNamespace(exclusion_reasons=[], matched_skills=["Python"], missing_skills=[], match_score=90)
+            assert eligibility(job, phase2_profile, fit) == ("REJECTED", "vacancy_closed_expired_or_invalid")
+
+
+def test_latest_imported_criteria_are_used_without_mutating_human_job_fields():
+    from backend.app.execution.naukri import matching_job
+
+    job = SimpleNamespace(title="Owner title", skills_required=["Python"], discovery_metadata={
+        "source_name": "naukri", "title": "Backend Engineer", "skills_required": ["Rust"], "remote_type": "remote"})
+    view = matching_job(job)
+    assert view.title == "Backend Engineer" and view.skills_required == ["Rust"]
+    assert job.title == "Owner title" and job.skills_required == ["Python"]
+
+
+def test_currentness_expires_and_never_invents_provider_verification():
+    from backend.app.execution.naukri_review import vacancy_review
+
+    now = datetime.now(timezone.utc)
+    for age, expected in [(timedelta(hours=1), "owner_observed_active"), (timedelta(days=2), "stale")]:
+        item = normalize(ImportJob(url=URL, title="Backend", employer="Fictional",
+            posting_status="active", observed_at=now-age))
+        job = SimpleNamespace(discovery_metadata=item.model_dump(mode="json"), status="discovered", source_verification_status="requires_review")
+        assert vacancy_review(job, now) == expected
+        assert item.data_provenance["provider_verified"] is False
+
+
+@pytest.mark.asyncio
+async def test_reimported_criteria_and_expiry_invalidate_saved_packet_review(db_session, execution_target):
+    from backend.app.models.job import Job
+
+    service = ApplicationPacketService(db_session)
+    packet = await service.create(execution_target, CreatePacket(idempotency_key="phase53-stale-criteria"))
+    job = await db_session.get(Job, execution_target)
+    original_title, original_skills = job.title, list(job.skills_required)
+    job.discovery_metadata = {**job.discovery_metadata, "skills_required": ["Rust"],
+        "data_provenance": {**job.discovery_metadata["data_provenance"], "valid_through": "2026-02-10"}}
+    await db_session.flush()
+    current = await service.read(packet.id)
+    assert current.readiness.stale and current.approved_revision is None
+    assert job.title == original_title and job.skills_required == original_skills
+    assert not (await service.builder.context(job.id))[2].destination.valid
+
+
+@pytest.mark.parametrize("expiry,expected", [("2026-02-10", "expired"), ("bad-date", "invalid_evidence")])
+def test_vacancy_labels_distinguish_expiry_and_invalid_evidence(expiry, expected):
+    from backend.app.execution.naukri_review import vacancy_review
+
+    job = SimpleNamespace(status="discovered", source_verification_status="requires_review",
+        discovery_metadata={"data_provenance": {"posting_status": "active", "valid_through": expiry}})
+    assert vacancy_review(job, datetime(2026, 10, 29, tzinfo=timezone.utc)) == expected

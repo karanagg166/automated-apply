@@ -13,7 +13,7 @@ from backend.app.local_agent.contracts import Actor, Command
 from backend.app.local_agent.models import TelegramDelivery, TelegramState
 from backend.app.local_agent.service import dispatch
 
-HELP = '/start /help /ping /status /connections /jobs /reset /apply <https-url>. Ask naturally about jobs, application status, your resume or connections; choose a listed job number and add follow-up filters. Project answers need approved context. Job commands use a durable worker and approved candidate facts. Cloud understanding needs private evaluation-key consent. Local drafts only; no submissions or email sends.'
+HELP = '/start /help /ping /status /connections /jobs /reset /apply <https-url> /chrome status. Ask naturally about jobs, application status, your resume or connections; choose a listed job number and add follow-up filters. Project answers need approved context. Job commands use a durable worker and approved candidate facts. Cloud understanding needs private evaluation-key consent. Local drafts only; no submissions or email sends.'
 
 
 @asynccontextmanager
@@ -148,6 +148,10 @@ async def reply_for(session, settings, message, update_id, bot_username):
             if correlated is not None:
                 return correlated
             text = message.get("text")
+            from backend.app.browser.chrome_telegram import command as chrome_command
+            chrome_reply = await chrome_command(session, settings, text, update_id, bot_username)
+            if chrome_reply is not None:
+                return chrome_reply
             naukri_reply = await naukri_command(session, text) if isinstance(text, str) else None
             if naukri_reply is not None:
                 return naukri_reply

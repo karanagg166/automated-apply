@@ -69,7 +69,7 @@ def summary(campaign):
                 lines.extend(result.get("missing_information", []))
     for result in campaign.results:
         if result.get("tool") in {"fill_application", "inspect_application"}:
-            labels = {"pending_browser":"Waiting for the separate browser worker", "form_inspected":"Form inspected",
+            labels = {"PROFILE_OFFLINE": "Selected Chrome profile is offline; work paused", "PROFILE_COMMANDS_DISABLED": "Selected Chrome command channel is disabled", "pending_chrome": "Open queued in the selected Chrome profile; inspection still required", "extension_field_approval_required": "Review and authorize exact fields in the selected Chrome extension", "pending_browser":"Waiting for the separate browser worker", "form_inspected":"Form inspected",
                 "form_filled":"Form filled; inspect the values in Chrome", "needs_input":"Form needs input",
                 "manual_required":"Manual intervention required", "awaiting_review":"Form inspected; review the field plan in Agent",
                 "failed":"Form filling failed", "cancelled":"Filling stopped", "capability_not_enabled":"Browser capability is disabled"}

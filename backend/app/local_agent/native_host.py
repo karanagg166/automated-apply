@@ -8,7 +8,7 @@ from pathlib import Path
 import httpx
 from pydantic import ValidationError
 
-from backend.app.local_agent.contracts import Command, Result
+from backend.app.local_agent.contracts import PROFILE_OPERATIONS, Command, Result
 
 MAX_MESSAGE_BYTES = 262144
 HOST_NAME = "com.automated_apply.agent"
@@ -53,16 +53,20 @@ def write_message(stream, value):
 
 
 def forward(command, settings, client=None):
-    if command.command not in {"health", "connection_status", "get_agent_capabilities", "preview_application_url", "observe_platform_session", "inspect_form", "prepare_form_answers", "authorize_form", "record_form_fill", "open_application_task", "get_application_task", "update_application_task", "ask_form_questions"}:
+    if command.command not in PROFILE_OPERATIONS | {"health", "connection_status", "get_agent_capabilities", "preview_application_url", "observe_platform_session", "inspect_form", "prepare_form_answers", "authorize_form", "record_form_fill", "open_application_task", "get_application_task", "update_application_task", "ask_form_questions"}:
         raise ValueError("native_capability_denied")
     token = settings.JOB_AGENT_API_TOKEN
     if not token or not settings.CHROME_NATIVE_MESSAGING_ENABLED or not settings.CHROME_EXTENSION_ID:
         raise ValueError("native_not_configured")
     headers = {"Authorization": "Bearer " + token.get_secret_value(), "X-Agent-Client": settings.CHROME_EXTENSION_ID}
+    payload = command.model_dump(mode="json")
+    # SecretStr stays redacted in logs/audit; unwrap only for the authenticated host transport.
+    if command.profile_secret:
+        payload["profile_secret"] = command.profile_secret.get_secret_value()
     try:
         with httpx.Client(timeout=40, follow_redirects=False, trust_env=False) if client is None else client as transport:
             with transport.stream("POST", settings.LOCAL_AGENT_ENDPOINT + "/api/v1/local-agent/chrome",
-                    json=command.model_dump(mode="json"), headers=headers) as response:
+                    json=payload, headers=headers) as response:
                 if response.status_code != 200:
                     raise ValueError("backend_authentication_failed" if response.status_code in {401, 403} else "backend_not_ready")
                 content = bytearray()

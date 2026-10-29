@@ -93,6 +93,7 @@ class Settings(BaseSettings):
     BROWSER_FILL_ENABLED: bool = False
     BROWSER_AUTOMATION_ENABLED: bool = False
     BROWSER_FIXTURE_ORIGIN: str | None = None
+    CHROME_PROFILE_COMMANDS_ENABLED: bool = False
     CHROME_NATIVE_MESSAGING_ENABLED: bool = False
     CHROME_EXTENSION_ID: str | None = Field(default=None, pattern=r"^[a-p]{32}$")
     TELEGRAM_BOT_TOKEN: SecretStr | None = None

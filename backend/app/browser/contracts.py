@@ -109,6 +109,9 @@ class FillPlan(Contract):
     target_url: str
     inspection: Inspection
     context_digest: str
+    profile_binding_id: UUID | None = None
+    browser_session_id: UUID | None = None
+    tab_id: int | None = None
     extension_task_id: UUID | None = None
     extension_authorization_id: UUID | None = None
     packet_revision: int
@@ -146,6 +149,7 @@ class PrepareBrowser(AssistantContract):
 
 
 class OpenBrowser(RevisionInput):
+    executor: Literal["isolated_browser"]
     approve_dedicated_profile: StrictBool
     confirm_destination_permission: StrictBool
     confirm_asset_permissions: StrictBool = False

@@ -19,6 +19,7 @@ import { BrowserSubmission, Execution } from "@/features/browser-submission";
 import { OpportunityContext } from "@/features/opportunity-context";
 import { BrowserSteps } from "@/features/browser-steps";
 import { BrowserPage } from "@/features/browser-page";
+import { ChromeProfiles } from "@/features/chrome-profiles";
 
 export function detectAtsPlatform(url?: string | null): {
   name: string;
@@ -137,9 +138,9 @@ export function BrowserIntake() {
     <section className="panel panel-body">
       <h2>Employer application URL</h2>
       <p>
-        Prepare a packet using your saved facts. A dedicated browser opens only
-        after your explicit approval. Destinations require configured
-        permission.
+        Prepare a packet using your saved facts. Use your selected connected
+        Chrome profile. Isolated browser testing requires a separate explicit
+        choice. Destinations require permission.
       </p>
       <Field label="Application URL">
         <Input value={url} onChange={(e) => setUrl(e.target.value)} />
@@ -163,7 +164,50 @@ export function BrowserIntake() {
   );
 }
 
-export function BrowserAssistant({
+export function BrowserAssistant(props: {
+  packet: Schema<"PacketRead">;
+  hasUnsavedAnswers?: boolean;
+  onRefresh?: () => void;
+}) {
+  // Deliberately not persisted: returning to an application always defaults to Chrome.
+  const [mode, setMode] = useState<"extension" | "isolated">("extension");
+  return (
+    <>
+      <section className="panel panel-body">
+        <Field label="Application browser">
+          <select
+            aria-label="Application browser"
+            value={mode}
+            onChange={(event) =>
+              setMode(event.target.value as "extension" | "isolated")
+            }
+          >
+            <option value="extension">Use connected Chrome extension</option>
+            <option value="isolated">Use isolated automation browser</option>
+          </select>
+        </Field>
+        {mode === "isolated" && (
+          <Notice>
+            Isolated testing opens a separate dedicated browser profile. It does
+            not reuse your personal Chrome session. Existing Chrome tasks remain
+            paused or owner-controlled; switching this view grants no filling
+            permission.
+          </Notice>
+        )}
+      </section>
+      {mode === "extension" ? (
+        <ChromeProfiles
+          packet={props.packet}
+          hasUnsavedAnswers={props.hasUnsavedAnswers}
+        />
+      ) : (
+        <IsolatedBrowserAssistant {...props} />
+      )}
+    </>
+  );
+}
+
+function IsolatedBrowserAssistant({
   packet,
   hasUnsavedAnswers = false,
   onRefresh,
@@ -371,6 +415,7 @@ export function BrowserAssistant({
             ? await post<BrowserStatus>(
                 `browser-applications/${packet.id}/open`,
                 {
+                  executor: "isolated_browser",
                   expected_revision: packet.revision,
                   approve_dedicated_profile: permission,
                   confirm_destination_permission: permission,

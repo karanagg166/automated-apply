@@ -5,6 +5,9 @@ import { Badge, Button, ErrorState, External, Notice } from "@/components/ui";
 import { api, post, readable, type Schema } from "@/lib/api";
 
 export type VerifiedReceipt = {
+  profile_binding_id?: string;
+  browser_session_id?: string;
+  tab_id?: number;
   plan_id: string | null;
   authorization_id: string | null;
   document_id?: string;

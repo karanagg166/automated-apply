@@ -2,7 +2,7 @@
 from typing import Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from backend.app.browser.contracts import FillReceipt, Inspection
 from backend.app.core.urls import PublicHTTPSURL
@@ -13,7 +13,14 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
 
 
+PROFILE_OPERATIONS = frozenset({
+    "connect_chrome_profile", "heartbeat_chrome_profile", "disconnect_chrome_profile",
+    "poll_chrome_command", "start_chrome_command", "ack_chrome_command",
+})
+
 Operation = Literal[
+    "connect_chrome_profile", "heartbeat_chrome_profile", "disconnect_chrome_profile",
+    "poll_chrome_command", "start_chrome_command", "ack_chrome_command",
     "health", "connection_status", "preview_application_url", "preview_job_filters",
     "get_discovery_status", "get_agent_capabilities", "get_application_policy",
     "conversation",
@@ -26,6 +33,17 @@ class Command(StrictModel):
     version: Literal[1] = 1
     request_id: UUID = Field(default_factory=uuid4)
     command: Operation
+    profile_binding_id: UUID | None = None
+    profile_secret: SecretStr | None = Field(default=None, min_length=64, max_length=64)
+    profile_label: str | None = Field(default=None, min_length=1, max_length=80, pattern=r"^[^\x00-\x1f\x7f]+$")
+    profile_commands_enabled: bool = False
+    expected_profile_version: int | None = Field(default=None, ge=1)
+    window_id: int | None = Field(default=None, ge=0)
+    chrome_command_id: UUID | None = None
+    expected_command_version: int | None = Field(default=None, ge=1)
+    command_lease_token: UUID | None = None
+    command_outcome: Literal["completed", "failed", "outcome_unknown"] | None = None
+    command_error: str | None = Field(default=None, max_length=64, pattern=r"^[A-Za-z][A-Za-z0-9_]+$")
     url: PublicHTTPSURL | None = None
     title: str | None = Field(default=None, max_length=250)
     intent: Intent | None = None

@@ -5,7 +5,14 @@ const app = "11111111-1111-4111-8111-111111111111";
 const taskId = "22222222-2222-4222-8222-222222222222";
 const url = "https://jobs.lever.co/fictional/fictional/apply";
 function fixture() {
-  const local = {},
+  const local = {
+      connectedChromeProfileV1: {
+        id: "a1111111-1111-4111-8111-111111111111",
+        secret: "f".repeat(64),
+        connected: true,
+        windowId: 10,
+      },
+    },
     session = {},
     calls = [],
     tabs = new Map();
@@ -40,6 +47,12 @@ function fixture() {
         return true;
       },
     },
+    alarms: { create: async () => {}, clear: async () => {} },
+    windows: {
+      get: async (id) => ({ id, type: "normal" }),
+      getLastFocused: async () => ({ id: 10, type: "normal" }),
+      update: async () => {},
+    },
     tabs: {
       query: async (filter) => {
         assert.deepEqual(filter, { active: true, currentWindow: true });
@@ -58,7 +71,7 @@ function fixture() {
       },
       create: async (data) => {
         calls.push("create");
-        const tab = { id: 7, url: data.url };
+        const tab = { id: 7, windowId: data.windowId, url: data.url };
         tabs.set(7, tab);
         return tab;
       },
@@ -75,6 +88,22 @@ function fixture() {
     runtime: {
       sendNativeMessage: async (_host, request) => {
         calls.push(request);
+        if (request.command === "heartbeat_chrome_profile")
+          return {
+            version: 1,
+            ok: true,
+            request_id: request.request_id,
+            data: {
+              submitted: false,
+              profile: {
+                id: request.profile_binding_id,
+                selected: true,
+                connected: true,
+                status: "CONNECTED",
+                version: 1,
+              },
+            },
+          };
         if (request.command === "get_agent_capabilities")
           return {
             version: 1,
@@ -329,4 +358,44 @@ test("binding a replacement tab is denied during owner pause until authorized re
   assert.equal(reopened.task.state, "PACKET_READY");
   assert.equal(coordinator.bindings[taskId].tabId, 7);
   assert.equal(coordinator.bindings[taskId].requiresInspection, true);
+});
+
+test("expired remote command cannot open or inspect any tab", async () => {
+  const f = fixture(),
+    coordinator = new TaskCoordinator(f.api);
+  await assert.rejects(
+    coordinator.dispatch({
+      action: "open",
+      application_id: app,
+      remote_command: true,
+      remote_expires_at: "2000-01-01T00:00:00Z",
+    }),
+    /profile_command_expired/,
+  );
+  assert.equal(f.tabs.size, 0);
+  assert.equal(
+    f.calls.some((value) => value.command === "open_application_task"),
+    false,
+  );
+});
+
+test("revoked origin permission blocks remote preparation before any DOM read", async () => {
+  const f = fixture(),
+    coordinator = new TaskCoordinator(f.api);
+  await coordinator.dispatch({ action: "open", application_id: app });
+  f.api.permissions.contains = async () => false;
+  await assert.rejects(
+    coordinator.dispatch({
+      action: "prepare",
+      task_id: taskId,
+      expected_task_version: f.task.version,
+      remote_command: true,
+      remote_expires_at: new Date(Date.now() + 120000).toISOString(),
+    }),
+    /application_origin_permission_required/,
+  );
+  assert.equal(
+    f.calls.some((value) => value.command === "inspect_form"),
+    false,
+  );
 });

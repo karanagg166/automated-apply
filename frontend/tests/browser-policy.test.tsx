@@ -33,7 +33,16 @@ function mount() {
 }
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(api).mockResolvedValue(policy);
+  vi.mocked(api).mockImplementation(async (path) =>
+    String(path) === "browser/chrome-profiles"
+      ? {
+          profiles: [],
+          commands: [],
+          selection: { version: 0, profile_binding_id: null },
+          channel_available: false,
+        }
+      : policy,
+  );
   vi.mocked(post).mockResolvedValue({
     packet,
     connected: true,
@@ -44,6 +53,10 @@ beforeEach(() => {
 
 it("requires visible approval of the configured asset origins and sends their exact policy digest", async () => {
   mount();
+  await userEvent.selectOptions(
+    screen.getByLabelText("Application browser"),
+    "isolated",
+  );
   await userEvent.click(
     screen.getByLabelText("I approve a dedicated browser profile", {
       exact: false,
@@ -73,6 +86,10 @@ it("requires visible approval of the configured asset origins and sends their ex
 
 it("invalidates the asset approval if the advertised policy changes", async () => {
   const client = mount();
+  await userEvent.selectOptions(
+    screen.getByLabelText("Application browser"),
+    "isolated",
+  );
   await screen.findByText(/static\.employer\.example/);
   await userEvent.click(
     screen.getByLabelText("I approve a dedicated browser profile", {
@@ -127,6 +144,10 @@ it("blocks filling unsaved edits and requires fresh value/context review after s
     </QueryClientProvider>
   );
   const { rerender } = render(node(false));
+  await userEvent.selectOptions(
+    screen.getByLabelText("Application browser"),
+    "isolated",
+  );
   await userEvent.click(
     screen.getByLabelText("I approve a dedicated browser profile", {
       exact: false,
@@ -167,6 +188,10 @@ it("blocks filling unsaved edits and requires fresh value/context review after s
 
 it("waits for the refreshed packet before accepting review of an analysis result", async () => {
   const client = mount();
+  await userEvent.selectOptions(
+    screen.getByLabelText("Application browser"),
+    "isolated",
+  );
   await screen.findByText(/static\.employer\.example/);
   await userEvent.click(
     screen.getByLabelText("I approve a dedicated browser profile", {

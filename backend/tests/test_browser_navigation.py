@@ -246,6 +246,7 @@ async def test_preview_from_a_closed_browser_cannot_authorize_a_reopened_documen
         route + "/open",
         json={
             "expected_revision": state["packet"]["revision"],
+            "executor": "isolated_browser",
             "approve_dedicated_profile": True,
             "confirm_destination_permission": True,
         },

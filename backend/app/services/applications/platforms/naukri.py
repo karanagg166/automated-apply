@@ -1,5 +1,6 @@
 """Naukri preparation pilot: validate saved URLs locally, hand off manually."""
 
+from datetime import date, datetime, timezone
 from urllib.parse import urlsplit
 
 from backend.app.schemas.applications import Destination, PlatformCapability
@@ -9,6 +10,20 @@ from backend.app.services.applications.platforms.base import safe_url
 def naukri_host(url):
     host = (urlsplit(url).hostname or "").lower()
     return host == "naukri.com" or host.endswith(".naukri.com")
+
+
+def posting_unavailable(job, now=None):
+    """An Apply control cannot override saved closed/expired posting evidence."""
+    evidence = (getattr(job, "discovery_metadata", None) or {}).get("data_provenance", {})
+    if getattr(job, "status", None) in {"archived", "closed"} or getattr(job, "source_verification_status", None) in {"expired", "invalid", "closed"} or evidence.get("posting_status") == "closed":
+        return True
+    valid_through = evidence.get("valid_through")
+    if valid_through:
+        try:
+            return date.fromisoformat(valid_through) < (now or datetime.now(timezone.utc)).date()
+        except (TypeError, ValueError):
+            return True  # Corrupt expiry evidence needs review, never authorization.
+    return False
 
 
 class NaukriPlatform:
@@ -53,11 +68,7 @@ class NaukriPlatform:
         # Only a stored application URL or the actual Naukri posting is usable. No fabricated path.
         raw = job.application_url or (job.job_url if source_valid else observed)
         url = safe_url(raw)
-        if job.status == "archived" or job.source_verification_status in {
-            "expired",
-            "invalid",
-            "closed",
-        }:
+        if posting_unavailable(job):
             return Destination(
                 application_url=url,
                 kind="expired_or_invalid",

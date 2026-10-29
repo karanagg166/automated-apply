@@ -22,6 +22,7 @@ from backend.app.execution.contracts import (
     Start,
 )
 from backend.app.execution.naukri import capability_matrix, normalize
+from backend.app.execution.naukri_review import review_jobs
 from backend.app.execution.worker import needs_owner_answer
 from backend.app.models.job import Job
 from backend.app.schemas.applications import RevisionInput
@@ -39,12 +40,15 @@ router = APIRouter(
 
 @router.get("/naukri")
 async def status(session: AsyncSession = Depends(get_db_session)):
+    from backend.app.local_agent.platforms import platform_connections
+
     return {
         "capabilities": capability_matrix(),
         "configuration": await store.configuration(session),
         "executions": [r.value for r in await store.rows(session) if r.value["platform"] == "naukri"],
         "worker_requirement": "awake_local_worker_or_separately_approved_always_on_worker",
         "submitted": False,
+        "account_session": next(item for item in await platform_connections(session) if item["platform"] == "naukri"),
     }
 
 
@@ -208,9 +212,7 @@ async def find_saved(session: AsyncSession = Depends(get_db_session)):
         )
     ).all()
     return {
-        "jobs": [
-            {"id": job.id, "title": job.title, "job_url": job.job_url} for job in rows
-        ],
+        "jobs": await review_jobs(session, rows),
         "source": "owner_imports",
         "portal_search_executed": False,
     }
