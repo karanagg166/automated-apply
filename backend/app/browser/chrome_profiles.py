@@ -278,8 +278,17 @@ async def _listing(session, settings, *, locked):
                     {"version": 0, "profile_binding_id": None})
     profiles = [row for row in snapshot if row.key.startswith(PROFILE)]
     tasks_now = [row for row in snapshot if row.key.startswith(tasks.PREFIX)]
-    commands_now = [row for row in snapshot if row.key.startswith(COMMAND)]
-    receipts_now = [row for row in snapshot if row.key.startswith("ext_receipt:")]
+    # UNION ALL does not guarantee row order. Bound history by creation time,
+    # with a stable key tie-breaker, so a new command/receipt cannot disappear
+    # behind older rows after a database scan or physical row order changes.
+    commands_now = sorted(
+        (row for row in snapshot if row.key.startswith(COMMAND)),
+        key=lambda row: (row.created_at, row.key),
+    )
+    receipts_now = sorted(
+        (row for row in snapshot if row.key.startswith("ext_receipt:")),
+        key=lambda row: (row.created_at, row.key),
+    )
     offline = [
         row for row in profiles
         if not online(row.value) and (
