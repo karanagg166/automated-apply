@@ -1,5 +1,7 @@
 # Status contention and Chrome reliability: candidate implementation, live acceptance pending
 
+**After owner approval:** capacity preflight succeeded, but the approved eager checkout reproduced extra contention before installation. Cutover stopped; production remains on `79ce5f6…`. See the [pre-install stop, measured overhead and corrected SHA awaiting review](status-contention-preflight-20261030.md).
+
 **Overall: FAIL / incomplete live acceptance.** This milestone contains implementation changes and local measurements. It does not establish continuous Chrome reliability. The dominant stage of the historical 16–20-second native requests is still **NOT PROVEN**: those requests did not have internal spans, and installing new instrumentation requires exact-SHA approval. The installed release remains `79ce5f6b514279e6d9022d85b659ad77fb31bd89`.
 
 Implementation branch: `fix/live-prepare-discovery-20261030`, base `main`, [PR #48](https://github.com/karanagg166/automated-apply/pull/48).

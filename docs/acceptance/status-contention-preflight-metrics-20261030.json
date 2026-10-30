@@ -1,0 +1,325 @@
+{
+  "approved_sha": "d504d26e889859b2b39111bb5deedce80c4bd589",
+  "candidate_sha": "074fb828e6da04a093024c0ac4227b0d4ebca712",
+  "installed_sha": "79ce5f6b514279e6d9022d85b659ad77fb31bd89",
+  "cutover_attempted": false,
+  "rollback_required": false,
+  "capacity_preflight": {
+    "status": "inventory_captured",
+    "role_limit": 5,
+    "sessions_including_audit": 3,
+    "sessions": [
+      {
+        "application_name": "automated-apply:execution",
+        "state": "idle",
+        "wait_event_type": "Client",
+        "wait_event": "ClientRead"
+      },
+      {
+        "application_name": "automated-apply:api",
+        "state": "idle",
+        "wait_event_type": "Client",
+        "wait_event": "ClientRead"
+      },
+      {
+        "application_name": "automated-apply:capacity-audit",
+        "state": "active",
+        "wait_event_type": null,
+        "wait_event": null
+      }
+    ],
+    "events": [
+      {
+        "action": "telegram_quiesce",
+        "at": "2026-10-30T13:00:44.741976+00:00"
+      },
+      {
+        "action": "telegram_restored",
+        "returncode": 0,
+        "at": "2026-10-30T13:00:59.787380+00:00"
+      }
+    ]
+  },
+  "rejection_before": {
+    "fixture": "native_rejection_under_occupied_pool",
+    "finished_before_release": false,
+    "observation_hold_seconds": 0.15,
+    "elapsed_including_observation_seconds": 0.1529,
+    "status": 403,
+    "trace": {
+      "request_id": "fictional-rejection",
+      "stages": {
+        "session_creation": {
+          "count": 1,
+          "seconds": 1.3291000868775882e-05,
+          "max_seconds": 1.3291000868775882e-05
+        },
+        "pool_checkout_wait": {
+          "count": 1,
+          "seconds": 0.1506286670010013,
+          "max_seconds": 0.1506286670010013
+        },
+        "connection_occupancy": {
+          "count": 1,
+          "seconds": 0.0004684589985117782,
+          "max_seconds": 0.0004684589985117782
+        }
+      },
+      "pool_peak_checked_out": 1
+    }
+  },
+  "rejection_after": {
+    "fixture": "native_rejection_under_occupied_pool",
+    "finished_before_release": true,
+    "observation_hold_seconds": 0.15,
+    "response_seconds": 0.001311,
+    "elapsed_including_observation_seconds": 0.1515,
+    "status": 403,
+    "trace": {
+      "request_id": "fictional-rejection",
+      "stages": {
+        "session_creation": {
+          "count": 1,
+          "seconds": 9.291999958804809e-06,
+          "max_seconds": 9.291999958804809e-06
+        }
+      }
+    }
+  },
+  "checkout_overhead_fixture": [
+    {
+      "fixture": "checkout_overhead",
+      "variant": "approved_eager",
+      "pre_sql_delay_seconds": 0.05,
+      "occupied_before_sql": 1,
+      "peer_finished_before_sql": false,
+      "request_trace": {
+        "request_id": "fixture-approved_eager",
+        "stages": {
+          "session_creation": {
+            "count": 1,
+            "seconds": 0.00013379200026975013,
+            "max_seconds": 0.00013379200026975013
+          },
+          "pool_acquisition": {
+            "count": 1,
+            "seconds": 0.0009513749992038356,
+            "max_seconds": 0.0009513749992038356
+          },
+          "pool_checkout_wait": {
+            "count": 1,
+            "seconds": 0.0012286250002944143,
+            "max_seconds": 0.0012286250002944143
+          },
+          "sql_read": {
+            "count": 1,
+            "seconds": 0.0002479169997968711,
+            "max_seconds": 0.0002479169997968711
+          },
+          "connection_occupancy": {
+            "count": 1,
+            "seconds": 0.052742083000339335,
+            "max_seconds": 0.052742083000339335
+          },
+          "flush_commit": {
+            "count": 1,
+            "seconds": 0.00026937499933410436,
+            "max_seconds": 0.00026937499933410436
+          }
+        },
+        "pool_peak_checked_out": 1
+      },
+      "peer_trace": {
+        "request_id": "fixture-peer-approved_eager",
+        "stages": {
+          "pool_acquisition": {
+            "count": 1,
+            "seconds": 0.05269595800018578,
+            "max_seconds": 0.05269595800018578
+          },
+          "sql_read": {
+            "count": 1,
+            "seconds": 9.308299922849983e-05,
+            "max_seconds": 9.308299922849983e-05
+          },
+          "connection_occupancy": {
+            "count": 1,
+            "seconds": 0.0005086249984742608,
+            "max_seconds": 0.0005086249984742608
+          }
+        },
+        "pool_peak_checked_out": 1
+      }
+    },
+    {
+      "fixture": "checkout_overhead",
+      "variant": "corrected_lazy",
+      "pre_sql_delay_seconds": 0.05,
+      "occupied_before_sql": 0,
+      "peer_finished_before_sql": true,
+      "request_trace": {
+        "request_id": "fixture-corrected_lazy",
+        "stages": {
+          "session_creation": {
+            "count": 1,
+            "seconds": 3.124999966530595e-05,
+            "max_seconds": 3.124999966530595e-05
+          },
+          "pool_acquisition": {
+            "count": 1,
+            "seconds": 8.454199996776879e-05,
+            "max_seconds": 8.454199996776879e-05
+          },
+          "sql_read": {
+            "count": 1,
+            "seconds": 0.00010679199840524234,
+            "max_seconds": 0.00010679199840524234
+          },
+          "connection_occupancy": {
+            "count": 1,
+            "seconds": 0.0005507080004463205,
+            "max_seconds": 0.0005507080004463205
+          },
+          "flush_commit": {
+            "count": 1,
+            "seconds": 0.00020695800048997626,
+            "max_seconds": 0.00020695800048997626
+          }
+        },
+        "pool_peak_checked_out": 1
+      },
+      "peer_trace": {
+        "request_id": "fixture-peer-corrected_lazy",
+        "stages": {
+          "pool_acquisition": {
+            "count": 1,
+            "seconds": 0.0005426250008895295,
+            "max_seconds": 0.0005426250008895295
+          },
+          "sql_read": {
+            "count": 1,
+            "seconds": 9.775000035006087e-05,
+            "max_seconds": 9.775000035006087e-05
+          },
+          "connection_occupancy": {
+            "count": 1,
+            "seconds": 0.00041083299947786145,
+            "max_seconds": 0.00041083299947786145
+          }
+        },
+        "pool_peak_checked_out": 1
+      }
+    }
+  ],
+  "final_installed_checks": {
+    "at": "2026-10-30T13:06:46.412888+00:00",
+    "installed_sha": "79ce5f6b514279e6d9022d85b659ad77fb31bd89",
+    "cutover_attempted": false,
+    "http": [
+      {
+        "endpoint": "/health",
+        "status": 200,
+        "seconds": 0.0261
+      },
+      {
+        "endpoint": "/ready",
+        "status": 200,
+        "seconds": 4.049
+      },
+      {
+        "endpoint": "/api/v1/browser/chrome-profiles",
+        "status": 200,
+        "seconds": 1.4494
+      },
+      {
+        "endpoint": "task",
+        "status": 200,
+        "seconds": 0.9682
+      }
+    ],
+    "selection_unchanged": true,
+    "active_commands": 0,
+    "task_paused": true,
+    "task_has_authorization": false,
+    "prior_installation_static_checks": [
+      {
+        "name": "com.automated-apply.api.plist",
+        "matches": true,
+        "baseline": "approved_79ce5f6_install_plan"
+      },
+      {
+        "name": "com.automated-apply.execution.plist",
+        "matches": true,
+        "baseline": "approved_79ce5f6_install_plan"
+      },
+      {
+        "name": "com.automated-apply.telegram.plist",
+        "matches": true,
+        "baseline": "approved_79ce5f6_install_plan"
+      },
+      {
+        "name": "com.automated-apply.frontend.plist",
+        "matches": true,
+        "baseline": "approved_79ce5f6_install_plan"
+      },
+      {
+        "name": "native-host",
+        "matches": true,
+        "baseline": "approved_79ce5f6_install_plan"
+      },
+      {
+        "name": "start-frontend.py",
+        "matches": true,
+        "baseline": "approved_79ce5f6_install_plan"
+      },
+      {
+        "name": "phase54.private.env",
+        "matches": true,
+        "baseline": "preserved_79ce5f6_preinstall_private_file"
+      },
+      {
+        "name": "frontend.private.env",
+        "matches": true,
+        "baseline": "preserved_79ce5f6_preinstall_private_file"
+      },
+      {
+        "name": "com.automated_apply.agent.json",
+        "matches": true,
+        "baseline": "preserved_79ce5f6_preinstall_private_file"
+      }
+    ],
+    "service_definitions": {
+      "api": {
+        "loaded": true,
+        "references_installed_sha": true
+      },
+      "execution": {
+        "loaded": true,
+        "references_installed_sha": true
+      },
+      "telegram": {
+        "loaded": true,
+        "references_installed_sha": true
+      },
+      "frontend": {
+        "loaded": true,
+        "references_installed_sha": true
+      }
+    },
+    "discarded_baseline_comparison": "The earlier backup manifest predates installation79ce5f6; expected service/native/frontend differences are replaced by comparison to approved79ce5f6 plans. No file was changed."
+  },
+  "test_results": {
+    "backend": {
+      "passed": 394,
+      "seconds": 40.47
+    },
+    "disposable_postgres": {
+      "passed": 9,
+      "seconds": 3.24
+    },
+    "explicit_checkout_benchmark": {
+      "passed": 2,
+      "seconds": 0.31
+    }
+  }
+}
