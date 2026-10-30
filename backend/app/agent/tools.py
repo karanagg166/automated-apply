@@ -69,10 +69,10 @@ class ToolDenied(ValueError):
     pass
 
 
-async def approved_projects(session):
+async def approved_projects(session, *, records=None):
     from backend.app.candidate_context.persistence import SQLRecordStore
     from backend.app.candidate_context.service import CandidateContextService
-    service = CandidateContextService(SQLRecordStore(session))
+    service = CandidateContextService(records if records is not None else SQLRecordStore(session))
     config = (await service.configuration()).configuration
     names = {p.id: p.name for p in config.projects}
     return service, [{"project_id": p.project_id, "name": names[p.project_id], "revision": p.revision,

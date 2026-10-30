@@ -1,5 +1,6 @@
 """Integrated owner-reviewed browser workflows with separate route and approval boundaries."""
 
+import copy
 import hashlib
 import re
 from datetime import datetime, timedelta, timezone
@@ -7,7 +8,7 @@ from urllib.parse import urlsplit
 from uuid import UUID
 
 from fastapi import HTTPException
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from backend.app.agent.tools import ToolDenied, approved_projects
 from backend.app.browser.contracts import (
@@ -60,8 +61,35 @@ def target(url, settings):
     return url
 
 
+class _ProjectStampRecords:
+    """One fresh SQL snapshot for a read-only fingerprint, never an answer cache."""
+
+    def __init__(self, values):
+        self.values = values
+
+    async def read(self, key):
+        from backend.app.candidate_context.persistence import validate_key
+        validate_key(key)
+        return copy.deepcopy(self.values.get(key))
+
+    async def compare_and_swap(self, *args, **kwargs):
+        raise ToolDenied("project_stamp_read_only")
+
+
+@timed("project_stamp")
 async def project_stamp(session):
-    _, projects = await approved_projects(session)
+    from backend.app.candidate_context.service import CONFIGURATION_KEY
+
+    # Configuration and its project approvals come from the same statement.
+    # Keep both project-key namespaces for repository/document compatibility.
+    values = dict((await session.execute(
+        select(OwnerPreference.key, OwnerPreference.value).where(or_(
+            OwnerPreference.key == CONFIGURATION_KEY,
+            OwnerPreference.key.startswith("candidate_project-"),
+            OwnerPreference.key.startswith("document_project-"),
+        ))
+    )).all())
+    _, projects = await approved_projects(session, records=_ProjectStampRecords(values))
     return digest(projects)
 
 
