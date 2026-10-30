@@ -38,6 +38,14 @@ pnpm -C extension build
 - Describe the problem, behavior, and validation; link issues and include screenshots for UI changes. Explain migration and configuration changes.
 - AI-authored commits must include a `Co-Authored-By:` trailer identifying the agent/model.
 
+## Mandatory GitHub Milestone Reports
+- After every meaningful milestone, commit the relevant implementation, push the appropriate feature branch, and create or update its PR with the correct base. Do not force-push shared branches or include unrelated modifications.
+- Publish a sanitized Markdown report under `docs/acceptance/` or the existing equivalent. Critical implementation and acceptance evidence must be accessible through the connected GitHub repository, not only private application-support folders.
+- Each report must identify the exact implementation branch/SHA, changes, exact test counts, actual Mac/live evidence versus fixtures, timing/resource comparisons, sanitized logs/failure codes, reproduction commands, remaining failures and next actions. Include a clear PASS / FAIL / BLOCKED / NOT TESTED matrix and relevant commit/PR links.
+- Link the report from the PR description and provide the PR and report URLs in the final response. If publication fails, preserve local commits and report the actual error; do not claim the report is published.
+- Never publish environment files, tokens, Gmail contents, candidate PII, resumes, browser secrets, raw private logs or unredacted screenshots. Keep raw evidence private and publish sanitized summaries.
+- Do not merge changes or replace an installed production release without owner review and approval of its exact SHA. Fixture success is not production acceptance. Hosted Actions remain manual-only and require deliberate owner authorization.
+
 ## Security & Configuration
 - Start from `backend/.env.example` and `frontend/.env.example`. Keep credentials, candidate data, and private reports out of commits.
 - Real data requires owner-approved online PostgreSQL; SQLite is for fictional fixtures/tests. See `docs/online-postgresql.md`.

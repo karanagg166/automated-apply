@@ -247,3 +247,19 @@ Original logs and process/database snapshots remain in the private
 Design references: [SQLAlchemy async sessions](https://docs.sqlalchemy.org/en/20/orm/extensions/asyncio.html)
 and [Supabase connection management](https://supabase.com/docs/guides/database/connection-management).
 Neither reference is evidence of this application's production acceptance.
+
+## Follow-up: approved installation preparation
+
+The owner subsequently approved exact candidate
+`48e6c3a2ba7a0283a2e07e79ab2c59ecddd45a14` and read-only reliability/Chrome
+acceptance. The private upgrade receipt and 12-file backup were recorded at
+2026-10-30 10:12:37 UTC. A detached immutable release is being built from that
+exact source. This approval includes Telegram and aligned native/frontend/extension
+components; it authorizes no field filling, email sends, employer submissions,
+cleanup or merge. Installed acceptance remains pending until cutover and tests.
+
+The owner's permanent milestone-reporting requirement is also now recorded in
+[AGENTS.md](../../AGENTS.md) so future repository work inherits it. This policy and
+report update changes no runtime source and does not change the approved candidate
+SHA. Validation for this documentation-only follow-up: manual policy review and
+`git diff --check`; runtime tests are the completed counts above.
