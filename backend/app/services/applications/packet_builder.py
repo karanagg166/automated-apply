@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from sqlalchemy import select
 
+from backend.app.core.timing import timed
 from backend.app.models.application_answer import CandidateEvidence, CandidateResource
 from backend.app.models.candidate_profile import CandidateProfile
 from backend.app.models.company import Company
@@ -50,6 +51,7 @@ class PacketBuilder:
         self.session, self.answers = session, AnswerBuilder(answer_service)
         self.platforms = application_platforms()
 
+    @timed("packet_context_build")
     async def context(self, job_id, selected_resume=None, *, lock=False):
         async def one(model, condition):
             query = (

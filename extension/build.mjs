@@ -41,6 +41,7 @@ for (const file of [
   "form-bridge.js",
   "form-messages.js",
   "background.js",
+  "tab-audit.js",
   "task-coordinator.js",
   "chrome-profile.js",
   "network-guard.js",

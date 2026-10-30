@@ -1,3 +1,4 @@
+import { auditTab } from "./tab-audit.js";
 import { ChromeProfileConnection, profileContext } from "./chrome-profile.js";
 import { installGuard, guardActive, releaseGuard } from "./network-guard.js";
 // Privileged MV3 worker coordinator. Only extension pages may call this API.
@@ -339,6 +340,7 @@ export class TaskCoordinator {
           if (existing.url === binding.url && existing.incognito !== true) {
             freshCommand();
             await this.api.windows.update(existing.windowId, { focused: true });
+            await auditTab(this.api, "activation_requested", { id: binding.tabId, windowId: existing.windowId }, "automated_apply");
             await this.api.tabs.update(binding.tabId, { active: true });
             if (binding.windowId !== existing.windowId) {
               const task = await this.update(binding.id, "bind", {
@@ -371,6 +373,7 @@ export class TaskCoordinator {
         active: true,
         windowId,
       });
+      await auditTab(this.api, "created_result", tab, "automated_apply");
       // Bind after the requested navigation completes. Loading events for this
       // newly created, not-yet-bound tab cannot be mistaken for a later refresh.
       const deadline = Date.now() + 12000;

@@ -13,6 +13,7 @@ from sqlalchemy import select
 from backend.app.agent.store import memory_row as owner_lock
 from backend.app.agent.tools import ToolDenied
 from backend.app.automation.store import instant
+from backend.app.core.timing import timed
 from backend.app.dashboard.models import OwnerPreference
 from backend.app.execution.contracts import Configuration
 from backend.app.execution.naukri import normalized_url, reviewed_job_context
@@ -35,6 +36,7 @@ TRANSITIONS = {
 }
 
 
+@timed("owner_lock")
 async def memory_row(session, *, lock=False):
     # Factories disable autoflush; refresh must not discard pending transitions.
     await session.flush()

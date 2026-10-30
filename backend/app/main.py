@@ -478,3 +478,8 @@ app.include_router(provider_research_router)
 from backend.app.execution.router import router as execution_router
 
 app.include_router(execution_router)
+
+
+from backend.app.core.timing import RequestTimingMiddleware
+
+app.add_middleware(RequestTimingMiddleware)

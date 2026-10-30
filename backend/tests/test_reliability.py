@@ -254,6 +254,7 @@ async def test_raw_asyncpg_limit_is_503_with_no_replay_marker(monkeypatch):
         async def __aexit__(self, *_):
             pass
 
+        connection = AsyncMock()
         rollback = AsyncMock()
 
     session = Session()

@@ -1,3 +1,4 @@
+import { auditTab } from "./tab-audit.js";
 import { ChromeProfileConnection, profileAlarm } from "./chrome-profile.js";
 import { TaskCoordinator } from "./task-coordinator.js";
 const host = "com.automated_apply.agent";
@@ -307,15 +308,32 @@ void profiles.ready.then(() => {
   if (profiles.value?.connected)
     return profiles.tick((message) => coordinator.dispatch(message));
 });
-chrome.tabs.onUpdated.addListener((tabId, change) => {
+chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
+  if (change.url || change.status) void auditTab(chrome, change.url ? "navigation" : "load", { ...tab, id: tabId });
   if (change.url) void coordinator.event(tabId, "navigation", change.url);
   else if (change.status === "loading")
     void coordinator.event(tabId, "refresh");
 });
-chrome.tabs.onRemoved.addListener((tabId) => {
+chrome.tabs.onAttached?.addListener((id, info) => {
+  void auditTab(chrome, "attached", { id, windowId: info.newWindowId });
+});
+chrome.tabs.onDetached?.addListener((id, info) => {
+  void auditTab(chrome, "detached", { id, windowId: info.oldWindowId });
+});
+chrome.tabs.onReplaced?.addListener((added, removed) => {
+  void auditTab(chrome, "replaced_added", { id: added });
+  void auditTab(chrome, "replaced_removed", { id: removed });
+});
+chrome.windows?.onFocusChanged?.addListener((windowId) => {
+  void auditTab(chrome, "window_focus", { windowId });
+});
+chrome.tabs.onCreated.addListener((tab) => { void auditTab(chrome, "created", tab); });
+chrome.tabs.onRemoved.addListener((tabId, info) => {
+  void auditTab(chrome, "removed", { id: tabId, windowId: info?.windowId });
   void coordinator.event(tabId, "tab_closed");
 });
-chrome.tabs.onActivated.addListener(({ tabId }) => {
+chrome.tabs.onActivated.addListener(({ tabId, windowId }) => {
+  void auditTab(chrome, "activated", { id: tabId, windowId });
   // Compare numeric IDs only; do not inspect the newly active personal tab.
   for (const binding of Object.values(coordinator.bindings)) {
     if (binding.tabId !== tabId)

@@ -19,6 +19,7 @@ from backend.app.browser.contracts import (
 from backend.app.browser.field_policy import manual_only
 from backend.app.browser.runner import browser, validate_destination
 from backend.app.core.config import get_settings
+from backend.app.core.timing import timed
 from backend.app.dashboard.models import OwnerPreference, PrivateResume
 from backend.app.dashboard.resumes import MAX_PDF, cipher
 from backend.app.local_agent.contracts import page_kind
@@ -64,6 +65,7 @@ async def project_stamp(session):
     return digest(projects)
 
 
+@timed("resume_read")
 async def pdf_bytes(session, packet, settings):
     """Only the confirmed canonical private PDF, never arbitrary URLs or file paths."""
     from cryptography.fernet import Fernet, InvalidToken
@@ -124,12 +126,23 @@ class FormService:
         self.answers = ApplicationAnswerService(session, local)
         self.packets = ApplicationPacketService(session, self.answers)
 
+    @timed("packet_context_resume")
     async def context(self, application_id, mode="local_automation", *, lock_context=True):
         packet = await self.packets.read(application_id, lock_context=lock_context)
-        profile = await reviewed_profile(self.session)
-        stored = await self.session.get(
-            ApplicationPacket, application_id, populate_existing=True
-        )
+        from backend.app.local_agent.profile_confirmation import confirmation_matches
+        from backend.app.models.candidate_profile import CandidateProfile
+
+        row = (await self.session.execute(
+            select(ApplicationPacket, CandidateProfile, Job, OwnerPreference)
+            .join(Job, Job.id == ApplicationPacket.job_id)
+            .outerjoin(CandidateProfile, CandidateProfile.singleton_key == "primary")
+            .outerjoin(OwnerPreference, OwnerPreference.key == "phase1_profile_confirmation")
+            .where(ApplicationPacket.id == application_id)
+            .execution_options(populate_existing=True)
+        )).one()
+        stored, profile, saved_job, confirmation = row
+        if not confirmation_matches(profile, confirmation.value if confirmation else {}):
+            profile = None
         if (
             not profile
             or profile.id != packet.candidate_profile_id
@@ -143,9 +156,6 @@ class FormService:
             }
         ):
             raise ToolDenied("stale_or_unreviewed_candidate_context")
-        from backend.app.models.job import Job
-
-        saved_job = await self.session.get(Job, packet.job_id)
         if saved_job.status in {"applied", "archived"}:
             raise ToolDenied("application_not_eligible")
         if saved_job.source_platform == "naukri":
@@ -169,8 +179,6 @@ class FormService:
             self.settings.ENVIRONMENT == "testing"
             and self.settings.BROWSER_FIXTURE_ORIGIN
         ):
-            from backend.app.models.job import Job
-
             job = await self.session.get(Job, packet.job_id)
             destination = job.application_url
         url = (
@@ -253,6 +261,7 @@ class FormService:
             packet_id = packet.id
         return await self.inspect(packet_id, inspection, "manual_extension")
 
+    @timed("form_inspection_answers")
     async def inspect(
         self, application_id, inspection: Inspection, mode, selected_project=None
     ):
@@ -481,6 +490,7 @@ class FormService:
         await self.session.flush()
         return plan
 
+    @timed("plan_load")
     async def load(self, plan_id, lock=True):
         await self.session.flush()
         row = await self.session.get(
@@ -496,6 +506,7 @@ class FormService:
 
         return row, FillPlan.model_validate_json(json.dumps(row.value))
 
+    @timed("plan_revalidation")
     async def fresh(self, plan):
         packet, _, url = await self.context(plan.application_id, plan.mode)
         if (

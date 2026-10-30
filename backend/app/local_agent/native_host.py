@@ -76,6 +76,16 @@ def forward(command, settings, client=None):
             for attempt in range(3):
                 with transport.stream("POST", settings.LOCAL_AGENT_ENDPOINT + "/api/v1/local-agent/chrome",
                         json=payload, headers=headers, timeout=max(0.1, deadline - time.monotonic())) as response:
+                    from uuid import UUID
+
+                    from backend.app.core.logging import logger
+                    backend_id = response.headers.get("X-Request-ID")
+                    try:
+                        backend_id = str(UUID(backend_id)) if backend_id else None
+                    except ValueError:
+                        backend_id = None
+                    logger.info("native_backend_trace native_request_id=%s native_command_id=%s backend_request_id=%s attempt=%s",
+                                command.request_id, command.chrome_command_id, backend_id, attempt + 1)
                     if response.status_code != 200:
                         rolled_back = (
                             response.status_code == 503

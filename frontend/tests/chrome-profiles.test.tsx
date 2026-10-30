@@ -126,6 +126,7 @@ it.each(["focus_lost", "active_tab_changed"])(
         ? {
             id: "c1111111-1111-4111-8111-111111111111",
             version: 7,
+            application_id: packet.id,
             profile_binding_id: a,
             packet_revision: 4,
             state: "PAUSED",
@@ -212,4 +213,56 @@ it("disconnects the exact binding with its version and does not launch a replace
       { expected_version: 2 },
     ),
   );
+});
+
+it("reads the authoritative task version immediately before command admission", async () => {
+  const get = vi.mocked(api).getMockImplementation()!;
+  let version = 7;
+  vi.mocked(api).mockImplementation(async (path, options) =>
+    String(path).includes("extension-tasks")
+      ? {
+          id: "c1111111-1111-4111-8111-111111111111",
+          application_id: packet.id,
+          version,
+          profile_binding_id: a,
+          packet_revision: 4,
+          state: "PAUSED",
+          reason: "focus_lost",
+        }
+      : get(path, options),
+  );
+  mount();
+  const prepare = screen.getByRole("button", {
+    name: "Inspect and prepare answers",
+  });
+  await waitFor(() => expect(prepare).toBeEnabled());
+  version = 8;
+  await userEvent.click(prepare);
+  await waitFor(() =>
+    expect(post).toHaveBeenCalledWith(
+      "browser/chrome-profiles/commands",
+      expect.objectContaining({ expected_task_version: 8 }),
+    ),
+  );
+  expect(post).toHaveBeenCalledTimes(1);
+});
+
+it("refuses a changed selected profile at admission without posting", async () => {
+  mount();
+  await screen.findByText("Personal Chrome");
+  state = {
+    ...state,
+    selection: { version: 4, profile_binding_id: b },
+    profiles: state.profiles.map((profile) => ({
+      ...profile,
+      selected: profile.id === b,
+    })),
+  };
+  await userEvent.click(
+    screen.getByRole("button", { name: "Open in selected Chrome profile" }),
+  );
+  await screen.findByText(
+    "Chrome context changed. Review the current task before continuing.",
+  );
+  expect(post).not.toHaveBeenCalled();
 });

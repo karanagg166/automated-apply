@@ -777,3 +777,27 @@ async def test_late_partial_receipt_survives_transfer_without_changing_new_task(
     assert (
         str(personal["profile_binding_id"]) in status and "1 retained fields" in status
     )
+
+
+@pytest.mark.asyncio
+async def test_profile_authorization_batches_fresh_snapshot_without_reacquiring_parent_lock(db_session):
+    from sqlalchemy import event
+
+    from backend.app.execution.store import memory_row
+    context = await connect(db_session)
+    await choose(db_session, context)
+    await memory_row(db_session, lock=True)
+    selects = []
+    def observe(connection, cursor, statement, parameters, execution_context, executemany):
+        if statement.lstrip().upper().startswith("SELECT"):
+            selects.append(statement)
+    engine = db_session.bind.sync_engine
+    event.listen(engine, "before_cursor_execute", observe)
+    try:
+        async with db_session.begin_nested():
+            await profiles.require_profile(db_session, Command(command="inspect_form", **context))
+            assert len(selects) == 1
+            await profiles.require_profile(db_session, Command(command="inspect_form", **context))
+            assert len(selects) == 2  # Every boundary gets a fresh authoritative snapshot.
+    finally:
+        event.remove(engine, "before_cursor_execute", observe)

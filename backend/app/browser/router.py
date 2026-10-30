@@ -53,8 +53,13 @@ router = APIRouter(
 
 @router.get("/chrome-profiles", response_model=ChromeProfiles)
 async def chrome_profiles(session: AsyncSession = Depends(get_db_session, scope="function")):
+    from fastapi.responses import JSONResponse
+
     from backend.app.browser.chrome_profiles import listing
-    return await listing(session, get_settings())
+    from backend.app.core.timing import span
+    result = await listing(session, get_settings())
+    with span("response_serialization"):
+        return JSONResponse(ChromeProfiles.model_validate(result).model_dump(mode="json"))
 
 
 @router.post("/chrome-profiles/select")

@@ -15,6 +15,7 @@ from sqlalchemy import select
 
 from backend.app.agent.tools import ToolDenied
 from backend.app.browser.contracts import Contract
+from backend.app.core.timing import timed
 from backend.app.dashboard.models import OwnerPreference
 from backend.app.execution import store
 from backend.app.local_agent.models import AgentOperation
@@ -112,6 +113,7 @@ async def rows(session):
     )).all())
 
 
+@timed("task_load")
 async def load(session, task_id):
     await session.flush()
     row = await session.get(OwnerPreference, PREFIX + str(UUID(str(task_id))), populate_existing=True)
@@ -245,6 +247,7 @@ async def unclaimed(session, task_id, browser_session_id, tab_id):
             raise ToolDenied("extension_tab_already_owned")
 
 
+@timed("task_authorization")
 async def bound(session, command, *, require_plan=False, allow_background_inspection=False, read_only=False):
     if not read_only:
         await store.memory_row(session, lock=True)
@@ -396,6 +399,13 @@ async def update(session, settings, command):
                 or event in {"focus_lost", "active_tab_changed"})
             else ("unexpected_navigation" if event == "navigation" and destination is None else event)
         )
+        if (event in {"focus_lost", "active_tab_changed"}
+            and value["state"] == "PAUSED" and value.get("reason") == reason
+            and value.get("tab_active") is False
+            and value.get("browser_connection") == "paused"
+            and value.get("plan_id") is None and value.get("authorization_id") is None
+            and (destination or value["current_url"]) == value["current_url"]):
+            return value
         return move(session, row, "FAILED_RETRYABLE" if event == "network_timeout" else "PAUSED", reason,
             current_url=destination or value["current_url"], tab_id=None if event == "tab_closed" else value["tab_id"],
             tab_active=False, browser_connection="disconnected" if event == "tab_closed" else "paused",

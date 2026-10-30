@@ -6,10 +6,12 @@ from uuid import UUID
 from backend.app.agent.tools import ToolDenied
 from backend.app.browser import extension_tasks as tasks
 from backend.app.browser.service import FormService
+from backend.app.core.timing import timed
 from backend.app.local_agent.contracts import Result
 from backend.app.local_agent.models import AgentOperation
 
 
+@timed("native_form")
 async def dispatch_form(session, settings, actor, command):
     from backend.app.execution.store import memory_row
 

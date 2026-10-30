@@ -73,19 +73,50 @@ export function ChromeProfiles({
       setBusy(false);
     }
   }
-  function command(action: "open" | "prepare") {
-    if (!selected || !state || !packet) return;
-    void run("browser/chrome-profiles/commands", {
-      request_id: crypto.randomUUID(),
-      action,
-      profile_binding_id: selected.id,
-      selection_version: state.selection.version,
-      expected_profile_version: selected.version,
-      application_id: packet.id,
-      packet_revision: packet.revision,
-      task_id: task?.id,
-      expected_task_version: task?.version,
-    });
+  async function command(action: "open" | "prepare") {
+    if (!selected || !state || !packet || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      // Profile reads can queue behind native work. Read the task last, at admission.
+      const profiles = await api<Profiles>("browser/chrome-profiles");
+      const fresh = profiles.profiles.find((profile) => profile.selected);
+      const current = await api<Task | null>(
+        `browser/extension-tasks/application/${packet.id}`,
+      );
+      if (
+        !fresh ||
+        fresh.id !== selected.id ||
+        profiles.selection.version !== state.selection.version ||
+        (current &&
+          (current.id !== task?.id ||
+            current.application_id !== packet.id ||
+            current.packet_revision !== packet.revision ||
+            current.profile_binding_id !== selected.id))
+      )
+        throw new Error(
+          "Chrome context changed. Review the current task before continuing.",
+        );
+      await post("browser/chrome-profiles/commands", {
+        request_id: crypto.randomUUID(),
+        action,
+        profile_binding_id: fresh.id,
+        selection_version: profiles.selection.version,
+        expected_profile_version: fresh.version,
+        application_id: packet.id,
+        packet_revision: packet.revision,
+        task_id: current?.id,
+        expected_task_version: current?.version,
+      });
+    } catch (err) {
+      setError(err as Error);
+    } finally {
+      await client.invalidateQueries({ queryKey: ["chrome-profiles"] });
+      await client.invalidateQueries({
+        queryKey: ["extension-task", packet.id],
+      });
+      setBusy(false);
+    }
   }
   return (
     <section

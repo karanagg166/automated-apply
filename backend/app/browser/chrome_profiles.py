@@ -16,6 +16,7 @@ from sqlalchemy import select, union_all
 
 from backend.app.agent.tools import ToolDenied
 from backend.app.browser.contracts import Contract
+from backend.app.core.timing import timed
 from backend.app.dashboard.models import OwnerPreference
 from backend.app.execution import store
 from backend.app.local_agent.contracts import PROFILE_OPERATIONS
@@ -198,14 +199,21 @@ async def invalidate(session, identity, reason):
             }
 
 
+@timed("profile_authorization")
 async def require_profile(session, command, *, selected=True, receipt=False, read_only=False):
     if not read_only:
         await store.memory_row(session, lock=True)
-    row = await session.get(
-        OwnerPreference,
-        PROFILE + str(command.profile_binding_id),
-        populate_existing=True,
-    )
+    keys = [PROFILE + str(command.profile_binding_id), FIXED_PROFILE, SELECTION]
+    if command.chrome_command_id:
+        keys.append(COMMAND + str(command.chrome_command_id))
+    await session.flush()
+    snapshot = {row.key: row for row in (await session.scalars(
+        select(OwnerPreference).where(OwnerPreference.key.in_(keys))
+        .execution_options(populate_existing=True)
+    )).all()}
+    row = snapshot.get(PROFILE + str(command.profile_binding_id))
+    selected_value = snapshot.get(SELECTION)
+    selected_value = selected_value.value if selected_value else {"version": 0, "profile_binding_id": None}
     if (
         not row
         or not command.profile_secret
@@ -216,26 +224,26 @@ async def require_profile(session, command, *, selected=True, receipt=False, rea
         raise ToolDenied("PROFILE_OFFLINE")
     if receipt:
         return row
-    fixed = await session.get(OwnerPreference, FIXED_PROFILE)
+    fixed = snapshot.get(FIXED_PROFILE)
     if selected and fixed and fixed.value["profile_binding_id"] != row.value["id"]:
         raise ToolDenied("PROFILE_OFFLINE")
     if not online(row.value):
         if not read_only:
             await invalidate(session, row.value["id"], "PROFILE_OFFLINE")
         raise ToolDenied("PROFILE_OFFLINE")
-    if selected and (await selection(session))["profile_binding_id"] != row.value["id"]:
+    if selected and selected_value["profile_binding_id"] != row.value["id"]:
         raise ToolDenied("PROFILE_NOT_SELECTED")
     if str(command.browser_session_id) != row.value["browser_session_id"]:
         raise ToolDenied("PROFILE_SESSION_CHANGED")
     if command.chrome_command_id and command.command not in NATIVE:
-        lease = await session.get(OwnerPreference, COMMAND + str(command.chrome_command_id), populate_existing=True)
+        lease = snapshot.get(COMMAND + str(command.chrome_command_id))
         value = lease.value if lease else {}
         if (value.get("state") != "executing"
                 or value.get("version") != command.expected_command_version
                 or value.get("lease_token") != str(command.command_lease_token)
                 or value.get("profile_binding_id") != row.value["id"]
                 or value.get("browser_session_id") != str(command.browser_session_id)
-                or value.get("selection_version") != (await selection(session))["version"]
+                or value.get("selection_version") != selected_value["version"]
                 or value.get("expected_profile_version") != row.value["version"]
                 or datetime.fromisoformat(value.get("expires_at", "1970-01-01T00:00:00+00:00")) <= now()
                 or datetime.fromisoformat(value.get("lease_expires_at") or "1970-01-01T00:00:00+00:00") <= now()
@@ -245,6 +253,7 @@ async def require_profile(session, command, *, selected=True, receipt=False, rea
     return row
 
 
+@timed("profile_status")
 async def listing(session, settings):
     # The usual status read has no mutation. Only stale commands/tasks need
     # the owner fence; re-read under that fence before changing them.

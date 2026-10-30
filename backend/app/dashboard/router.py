@@ -50,7 +50,9 @@ class OwnerRoute(APIRoute):
         handler = super().get_route_handler()
 
         async def boundary(request: Request):
-            await require_api_token(request)
+            from backend.app.core.timing import span
+            with span("authentication_authorization"):
+                await require_api_token(request)
             maximum = (
                 MAX_PDF
                 if request.url.path.endswith("/resumes") and request.method == "POST"

@@ -264,7 +264,7 @@ it("refreshes a version conflict without silently retrying the owner control", a
   await userEvent.click(await screen.findByRole("button", { name: "Pause" }));
   expect(await screen.findByText("extension_task_stale")).toBeInTheDocument();
   expect(post).toHaveBeenCalledTimes(1);
-  await waitFor(() => expect(api).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(api).toHaveBeenCalledTimes(3));
 });
 
 it("explains that the observed network guard remains until manual browser takeover", async () => {

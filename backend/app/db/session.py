@@ -13,12 +13,27 @@ from sqlalchemy.ext.asyncio import (
 
 from backend.app.core.config import get_settings
 from backend.app.core.logging import logger
+from backend.app.core.timing import instrument_engine, span, timed
 from backend.app.db.errors import DATABASE_ERRORS
 from backend.app.db.safety import database_connect_args, database_target
 
 _engine: AsyncEngine | None = None
 _readiness_engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
+
+
+class TimedSession(AsyncSession):
+    @timed("flush")
+    async def flush(self, objects=None):
+        return await super().flush(objects)
+
+    @timed("commit")
+    async def commit(self):
+        return await super().commit()
+
+    @timed("rollback")
+    async def rollback(self):
+        return await super().rollback()
 
 
 def get_engine() -> AsyncEngine:
@@ -54,6 +69,7 @@ def get_engine() -> AsyncEngine:
                 echo=settings.DB_ECHO,
                 hide_parameters=True,
             )
+        instrument_engine(_engine)
         logger.info(f"Database engine initialized for schema: {settings.DATABASE_SCHEMA}")
     return _engine
 
@@ -65,7 +81,7 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
     if _session_factory is None:
         _session_factory = async_sessionmaker(
             bind=engine,
-            class_=AsyncSession,
+            class_=TimedSession,
             expire_on_commit=False,
             autoflush=False,
         )
@@ -103,11 +119,16 @@ def get_readiness_engine() -> AsyncEngine:
 
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI dependency for obtaining an isolated async database session."""
-    factory = get_session_factory()
-    async with factory() as session:
+    with span("session_creation"):
+        factory = get_session_factory()
+        session = factory()
+    async with session:
         try:
+            with span("pool_checkout_wait"):
+                await session.connection()
             yield session
-            await session.commit()
+            with span("flush_commit"):
+                await session.commit()
         except DATABASE_ERRORS as exc:
             await session.rollback()
             # Only PostgreSQL's explicit transaction-abort codes establish a

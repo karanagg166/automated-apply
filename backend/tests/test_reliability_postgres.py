@@ -285,3 +285,40 @@ async def test_four_runtime_pools_and_one_operator_fit_five_slot_role_budget(pos
     finally:
         for engine in pools:
             await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_focus_observations_keep_noops_stable_and_fence_real_changes(postgres):
+    from backend.app.agent.tools import ToolDenied
+    from backend.app.browser import extension_tasks as tasks
+    from backend.app.core.config import Settings
+    from backend.app.local_agent.contracts import Command
+
+    _, _, _, engine = postgres
+    factory = async_sessionmaker(engine, expire_on_commit=False, autoflush=False)
+    identity, binding, browser, application = (uuid4() for _ in range(4))
+    value = {"id": str(identity), "application_id": str(application), "version": 7,
+             "profile_binding_id": str(binding), "browser_session_id": str(browser),
+             "tab_id": 17, "window_id": 10, "state": "PAUSED", "reason": "focus_lost",
+             "tab_active": False, "browser_connection": "paused", "plan_id": None,
+             "authorization_id": None, "network_guard_active": False,
+             "current_url": "https://jobs.lever.co/fixture", "target_url": "https://jobs.lever.co/fixture"}
+    async with factory() as session, session.begin():
+        session.add(OwnerPreference(key=tasks.PREFIX + str(identity), value=value))
+    command = Command(command="update_application_task", task_id=identity,
+                      task_event="focus_lost", expected_task_version=7,
+                      profile_binding_id=binding, browser_session_id=browser, tab_id=17)
+    async def observe():
+        async with factory() as session, session.begin():
+            try:
+                return await tasks.update(session, Settings(_env_file=None), command)
+            except ToolDenied as exc:
+                return str(exc)
+    unchanged = await asyncio.gather(observe(), observe())
+    assert all(result["version"] == 7 for result in unchanged)
+    async with factory() as session, session.begin():
+        row = await session.get(OwnerPreference, tasks.PREFIX + str(identity))
+        row.value = {**row.value, "state": "FORM_INSPECTED", "tab_active": True, "plan_id": str(uuid4())}
+    changed = await asyncio.gather(observe(), observe())
+    assert sum(isinstance(result, dict) and result["version"] == 8 for result in changed) == 1
+    assert changed.count("extension_task_revision_conflict") == 1

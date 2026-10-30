@@ -112,9 +112,17 @@ async def chrome_command(command: Command, request: Request, session: AsyncSessi
     if command.command not in NATIVE | {"health", "connection_status", "get_agent_capabilities", "preview_application_url", "observe_platform_session", "inspect_form", "prepare_form_answers", "authorize_form", "record_form_fill", "open_application_task", "get_application_task", "update_application_task", "ask_form_questions"}:
         raise HTTPException(403, "extension_capability_denied")
     from backend.app.core.logging import logger
-
+    from backend.app.core.timing import trace
+    if trace.get() is not None:
+        trace.get()["native_request_id"] = str(command.request_id)
+        trace.get()["native_command_id"] = str(command.chrome_command_id) if command.chrome_command_id else None
     logger.info("Native command=%s request_id=%s", command.command, command.request_id)
-    return await dispatch(session, settings, Actor(channel="chrome", identity=settings.CHROME_EXTENSION_ID), command)
+    from fastapi.responses import JSONResponse
+
+    from backend.app.core.timing import span
+    result = await dispatch(session, settings, Actor(channel="chrome", identity=settings.CHROME_EXTENSION_ID), command)
+    with span("response_serialization"):
+        return JSONResponse(Result.model_validate(result).model_dump(mode="json"))
 
 
 @router.get("/history")

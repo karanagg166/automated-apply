@@ -73,6 +73,9 @@ async def test_database_abort_marker_requires_postgres_proof(monkeypatch, sqlsta
         async def __aexit__(self, *_):
             pass
 
+        async def connection(self):
+            return None
+
         async def rollback(self):
             self.rolled_back = True
 

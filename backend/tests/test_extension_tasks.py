@@ -625,3 +625,19 @@ async def test_owner_pause_race_with_in_flight_fill_preserves_pause_and_prevents
         task_event="bind", **{**identity(closed.data["task"], session_id), "tab_id": 77}))
     assert not denied.ok
     assert denied.error_code == "extension_task_paused_or_cancelled"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("event", ["focus_lost", "active_tab_changed"])
+async def test_duplicate_focus_observation_preserves_version_and_stale_commands_fail(db_session, browser_target, event):
+    _, packet, _ = browser_target
+    task, session_id = await opened(db_session, packet)
+    first = await dispatch(db_session, settings(), ACTOR, Command(
+        command="update_application_task", task_event=event, **identity(task, session_id)))
+    paused = first.data["task"]
+    again = await dispatch(db_session, settings(), ACTOR, Command(
+        command="update_application_task", task_event=event, **identity(paused, session_id)))
+    assert again.ok and again.data["task"] == paused
+    stale = await dispatch(db_session, settings(), ACTOR, Command(
+        command="update_application_task", task_event=event, **identity(task, session_id)))
+    assert stale.error_code == "extension_task_revision_conflict"

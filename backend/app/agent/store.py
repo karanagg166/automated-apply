@@ -13,6 +13,7 @@ from sqlalchemy import func, inspect, select
 from backend.app.agent.contracts import Approval, Campaign, Filters, Message, Plan
 from backend.app.agent.tools import ToolDenied, owner_allowed
 from backend.app.automation.store import instant
+from backend.app.core.timing import span
 from backend.app.dashboard.models import OwnerPreference
 from backend.app.local_agent.models import AgentOperation, TelegramDelivery
 from backend.app.services.discovery_budget import insert_for
@@ -47,12 +48,19 @@ async def memory_row(session, *, lock=False):
     # can release a lock acquired inside it, so a parent must acquire afresh.
     transaction = session.sync_session.get_nested_transaction() or session.sync_session.get_transaction()
     cached = session.info.get("agent_owner_lock")
-    if (lock and transaction and cached and cached[0] is transaction
+    ancestors = []
+    parent = transaction
+    while parent is not None:
+        ancestors.append(parent)
+        parent = parent.parent
+    if (lock and transaction and cached and cached[0] in ancestors
             and cached[1] in session and not inspect(cached[1]).expired_attributes):
         return cached[1]
-    await session.execute(insert_for(session)(OwnerPreference).values(key=MEMORY_KEY, value={}).on_conflict_do_nothing())
+    with span("owner_row_insert_wait"):
+        await session.execute(insert_for(session)(OwnerPreference).values(key=MEMORY_KEY, value={}).on_conflict_do_nothing())
     query = select(OwnerPreference).where(OwnerPreference.key == MEMORY_KEY).execution_options(populate_existing=True)
-    row = await session.scalar(query.with_for_update() if lock else query)
+    with span("owner_row_lock_wait"):
+        row = await session.scalar(query.with_for_update() if lock else query)
     if lock:
         transaction = session.sync_session.get_nested_transaction() or session.sync_session.get_transaction()
         session.info["agent_owner_lock"] = (transaction, row)

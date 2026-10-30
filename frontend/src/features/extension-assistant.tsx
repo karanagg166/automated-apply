@@ -41,6 +41,8 @@ export type ExtensionTask = Omit<
   | "verified_receipts"
   | "counts"
 > & {
+  context_digest?: ApiTask["context_digest"];
+  browser_session_id?: ApiTask["browser_session_id"];
   network_guard_active?: boolean;
   verified_receipts?: VerifiedReceipt[];
   counts: Omit<ApiTask["counts"], "existing"> & { existing?: number };
@@ -102,17 +104,45 @@ export function ExtensionAssistant({
   const stale = task?.packet_revision !== packet.revision;
   const current = task && identityMatches ? task : null;
   const control = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       task,
       action,
     }: {
       task: ExtensionTask;
       action: "pause" | "resume" | "cancel";
-    }) =>
-      post<ExtensionTask>(`browser/extension-tasks/${task.id}/control`, {
+    }) => {
+      const fresh = await api<ExtensionTask | null>(
+        `browser/extension-tasks/application/${task.application_id}`,
+      );
+      const safetyKeys = [
+        "id",
+        "application_id",
+        "job_id",
+        "profile_binding_id",
+        "browser_session_id",
+        "tab_id",
+        "window_id",
+        "packet_revision",
+        "profile_version",
+        "context_digest",
+        "current_url",
+        "target_url",
+        "state",
+        "reason",
+        "plan_id",
+        "authorization_id",
+        "tab_active",
+        "network_guard_active",
+      ] as const;
+      if (!fresh || safetyKeys.some((key) => fresh[key] !== task[key]))
+        throw new Error(
+          "Task changed. Review its current state before continuing.",
+        );
+      return post<ExtensionTask>(`browser/extension-tasks/${task.id}/control`, {
         action,
-        expected_version: task.version,
-      }),
+        expected_version: fresh.version,
+      });
+    },
     onSuccess: (updated, { task }) => {
       if (
         updated.id === task.id &&

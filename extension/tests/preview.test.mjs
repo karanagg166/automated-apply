@@ -36,6 +36,7 @@ global.chrome = {
   },
   tabs: {
     onUpdated: { addListener() {} },
+    onCreated: { addListener() {} },
     onRemoved: { addListener() {} },
     onActivated: { addListener() {} },
   },
