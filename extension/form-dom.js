@@ -1470,12 +1470,17 @@ export function formDOM(request = { operation: "inspect" }) {
       const login = controls.some((el) => el.type === "password");
       const backgroundNetwork =
         interactionsAllowed && Boolean(navigator.serviceWorker?.controller);
+      const noVerifiedApplicationForm =
+        ["naukri.com", "www.naukri.com"].includes(location.hostname) &&
+        fields.length === 0 &&
+        unsupportedControls.length === 0;
       const state = login
         ? "login_required"
         : challenge ||
             excludedSensitive ||
             crossOriginFormFrame ||
-            backgroundNetwork
+            backgroundNetwork ||
+            noVerifiedApplicationForm
           ? "manual_required"
           : fields.length
             ? fields.some((f) => f.invalid)
@@ -1535,7 +1540,9 @@ export function formDOM(request = { operation: "inspect" }) {
                   ? "cross_origin_frame"
                   : !fields.length && unsupportedControls.length
                     ? "unsupported_controls"
-                    : null;
+                    : noVerifiedApplicationForm
+                      ? "verified_application_form_not_present"
+                      : null;
       }
       return last;
     };

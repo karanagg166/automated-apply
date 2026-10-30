@@ -2158,6 +2158,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/integrations/gmail/local/accounts/{slot}/job-alerts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Configure Alerts */
+    put: operations["configure_alerts_api_v1_integrations_gmail_local_accounts__slot__job_alerts_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/integrations/gmail/local/accounts/{slot}/job-alerts/sync": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Sync Alerts */
+    post: operations["sync_alerts_api_v1_integrations_gmail_local_accounts__slot__job_alerts_sync_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/integrations/gmail/local/accounts/{slot}/connect": {
     parameters: {
       query?: never;
@@ -3735,6 +3769,20 @@ export interface components {
       idempotency_key: string;
       /** Confirm Values And Consents */
       confirm_values_and_consents: boolean;
+    };
+    /** AlertPolicy */
+    AlertPolicy: {
+      /** Expected Version */
+      expected_version: number;
+      /** Expected Generation */
+      expected_generation: number;
+      /** Enabled */
+      enabled: boolean;
+      /**
+       * Interval Seconds
+       * @default 900
+       */
+      interval_seconds: number;
     };
     /** AnswerEdit */
     AnswerEdit: {
@@ -13650,6 +13698,72 @@ export interface operations {
         };
         content: {
           "application/json": unknown;
+        };
+      };
+    };
+  };
+  configure_alerts_api_v1_integrations_gmail_local_accounts__slot__job_alerts_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slot: "1" | "2";
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AlertPolicy"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  sync_alerts_api_v1_integrations_gmail_local_accounts__slot__job_alerts_sync_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slot: "1" | "2";
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

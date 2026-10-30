@@ -80,7 +80,19 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
             await session.commit()
         except SQLAlchemyError as exc:
             await session.rollback()
-            raise HTTPException(503, "Database storage unavailable") from exc
+            # Only PostgreSQL's explicit transaction-abort codes establish a
+            # retryable rollback. Connection loss and commit timeouts remain
+            # ambiguous; never label those safe to replay.
+            original = getattr(exc, "orig", None)
+            sqlstate = getattr(original, "sqlstate", None)
+            retryable = sqlstate in {"55P03", "40P01", "40001"}
+            logger.warning("Database transaction rejected; category=%s retry_safe=%s",
+                           sqlstate if sqlstate in {"55P03", "40P01", "40001"} else "storage_unavailable", retryable)
+            raise HTTPException(
+                503, "Database storage unavailable",
+                headers={"X-Automated-Apply-Transaction": "rolled-back"}
+                if retryable else None,
+            ) from exc
         except Exception:
             await session.rollback()
             raise

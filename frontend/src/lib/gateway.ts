@@ -6,6 +6,8 @@ const routes: Array<[RegExp, string[]]> = [
     ["POST"],
   ],
   [/^integrations\/gmail\/local\/accounts\/[12]\/drafts$/, ["GET", "POST"]],
+  [/^integrations\/gmail\/local\/accounts\/[12]\/job-alerts$/, ["PUT"]],
+  [/^integrations\/gmail\/local\/accounts\/[12]\/job-alerts\/sync$/, ["POST"]],
   [/^integrations\/apple-mail\/accounts$/, ["GET"]],
   [
     /^integrations\/apple-mail\/accounts\/[A-Za-z0-9-]{1,128}\/(search|drafts)$/,

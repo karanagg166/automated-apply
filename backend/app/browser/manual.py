@@ -163,6 +163,10 @@ async def dispatch_form(session, settings, actor, command):
                 data["plan"] = plan.model_dump(mode="json")
             if task:
                 data["task"] = task.value
+            if command.chrome_command_id:
+                # A long inspection must not publish after its original remote
+                # command lease has expired. Roll back the complete savepoint.
+                await require_profile(session, command)
             result = Result(request_id=command.request_id, ok=True, capability="form_fill", data=data)
             # No answer values, resume bytes or raw employer content in the protocol audit.
             session.add(AgentOperation(key=key, actor=f"chrome:{actor.identity}", command=command.command,
@@ -171,6 +175,7 @@ async def dispatch_form(session, settings, actor, command):
             return result
     except ValueError as exc:
         allowed = {
+            "profile_command_expired",
             "PROFILE_OFFLINE", "PROFILE_NOT_SELECTED", "PROFILE_SESSION_CHANGED",
             "manual_form_not_authorized", "profile_review_required",
             "unsupported_application_form", "platform_fill_policy_denied",

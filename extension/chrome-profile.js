@@ -255,7 +255,13 @@ export class ChromeProfileConnection {
           expected_destination: command.destination,
           expected_profile_binding_id: command.profile_binding_id,
           expected_browser_session_id: command.browser_session_id,
-          remote_expires_at: command.expires_at,
+          remote_expires_at: new Date(
+            Math.min(
+              Date.parse(command.expires_at),
+              Date.parse(command.lease_expires_at),
+            ),
+          ).toISOString(),
+          remote_command_context: this.commandContext(command),
           remote_command: true,
         });
         await this.ack(command, "completed");

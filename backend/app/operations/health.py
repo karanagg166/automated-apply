@@ -8,6 +8,42 @@ from sqlalchemy import select, text
 from backend.app.db.safety import database_target, verify_remote_address
 
 
+async def database_connectivity(engine, settings):
+    """Probe the dependency on every request; startup retains the full audit.
+
+    Repeating the catalog audit for each readiness sample monopolizes a small
+    runtime pool. This single read checks the live connection, pinned database,
+    runtime identity and TLS without weakening startup's schema/grant checks.
+    """
+    target = database_target(settings)
+    if engine.url != target:
+        raise RuntimeError("database_engine_target_mismatch")
+    async with asyncio.timeout(5):
+        await verify_remote_address(settings)
+        async with engine.connect() as connection:
+            if settings.ENVIRONMENT == "testing":
+                await connection.execute(text("SELECT 1"))
+                return
+            await connection.execute(text("SET TRANSACTION READ ONLY"))
+            row = (await connection.execute(text("""
+                SELECT current_database() AS database, current_user AS role,
+                    (SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()) AS tls,
+                    (SELECT bool_and(
+                        has_table_privilege(current_user,format('%I.%I',CAST(:schema AS text),name),'SELECT')
+                        AND has_table_privilege(current_user,format('%I.%I',CAST(:schema AS text),name),'INSERT')
+                        AND has_table_privilege(current_user,format('%I.%I',CAST(:schema AS text),name),'UPDATE'))
+                     FROM unnest(ARRAY['owner_preferences','jobs','candidate_profiles','application_packets']) AS t(name)) AS access
+            """), {"schema": settings.DATABASE_SCHEMA})).mappings().one()
+            if row["database"] != target.database:
+                raise RuntimeError("database_identity_mismatch")
+            if settings.DATABASE_SCHEMA == "public" and row["role"] != "job_agent_runtime":
+                raise RuntimeError("database_runtime_identity_mismatch")
+            if settings.DB_REQUIRE_TLS and row["tls"] is not True:
+                raise RuntimeError("database_tls_required")
+            if row["access"] is not True:
+                raise RuntimeError("database_runtime_access_incompatible")
+
+
 async def database_health(engine, settings):
     if engine.url != database_target(settings):
         raise RuntimeError("database_engine_target_mismatch")

@@ -111,6 +111,9 @@ async def chrome_command(command: Command, request: Request, session: AsyncSessi
     from backend.app.browser.chrome_profiles import NATIVE
     if command.command not in NATIVE | {"health", "connection_status", "get_agent_capabilities", "preview_application_url", "observe_platform_session", "inspect_form", "prepare_form_answers", "authorize_form", "record_form_fill", "open_application_task", "get_application_task", "update_application_task", "ask_form_questions"}:
         raise HTTPException(403, "extension_capability_denied")
+    from backend.app.core.logging import logger
+
+    logger.info("Native command=%s request_id=%s", command.command, command.request_id)
     return await dispatch(session, settings, Actor(channel="chrome", identity=settings.CHROME_EXTENSION_ID), command)
 
 

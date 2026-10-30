@@ -538,3 +538,34 @@ test("fill authorizes only the owner's selected subset and rejects forged field 
     1,
   );
 });
+
+test("Naukri posting with no application fields retains a read-only inspection", async () => {
+  setup();
+  tab.url = "https://www.naukri.com/job-listings-fixture-261026028027";
+  inspectionOverride = {
+    version: 1,
+    document_id: app,
+    url: tab.url,
+    fields: [],
+    state: "manual_required",
+    manual_reason: "verified_application_form_not_present",
+    has_next: false,
+    has_submit: false,
+  };
+  planOverride = {
+    id: app,
+    target_url: tab.url,
+    inspection: inspectionOverride,
+    actions: [],
+    approved_fields: [],
+    state: "read_only",
+  };
+  const plan = await inspectForm(app);
+  assert.equal(plan.state, "read_only");
+  assert.deepEqual(plan.actions, []);
+  await assert.rejects(fillForm(), /read_only_preview/);
+  assert.deepEqual(
+    calls.filter((c) => c.native).map((c) => c.native.command),
+    ["inspect_form"],
+  );
+});

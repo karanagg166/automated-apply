@@ -143,9 +143,11 @@ def move(session, row, state, reason, **changes):
     return value
 
 
-async def fresh(session, settings, value):
+async def fresh(session, settings, value, *, read_only=False):
     from backend.app.browser.service import FormService
-    packet, profile, url = await FormService(session, settings).context(UUID(value["application_id"]), "manual_extension")
+    packet, profile, url = await FormService(session, settings).context(
+        UUID(value["application_id"]), "manual_extension", lock_context=not read_only
+    )
     if (packet.revision != value["packet_revision"]
         or profile.version != value["profile_version"]
         or packet.snapshot.context_digest != value["context_digest"]
@@ -243,8 +245,9 @@ async def unclaimed(session, task_id, browser_session_id, tab_id):
             raise ToolDenied("extension_tab_already_owned")
 
 
-async def bound(session, command, *, require_plan=False, allow_background_inspection=False):
-    await store.memory_row(session, lock=True)
+async def bound(session, command, *, require_plan=False, allow_background_inspection=False, read_only=False):
+    if not read_only:
+        await store.memory_row(session, lock=True)
     if not command.task_id:
         raise ToolDenied("extension_task_required")
     row = await load(session, command.task_id)
@@ -273,7 +276,7 @@ async def attach_plan(session, settings, row, plan):
     if (str(plan.application_id) != value["application_id"] or plan.target_url != value["current_url"]
         or plan.state not in {"preview", "read_only"}):
         raise ToolDenied("extension_task_plan_mismatch")
-    await FormService(session, settings).fresh(plan)
+    packet = await FormService(session, settings).fresh(plan)
     if plan.extension_task_id and str(plan.extension_task_id) != value["id"]:
         raise ToolDenied("extension_task_plan_mismatch")
     plan.extension_task_id = UUID(value["id"])
@@ -287,9 +290,8 @@ async def attach_plan(session, settings, row, plan):
     challenge = plan.inspection.challenge_state
     state = ("CHALLENGE_REQUIRED" if challenge not in CHALLENGE_SAFE else
              "NEEDS_INPUT" if plan.state == "read_only" or any(a.needs_input for a in plan.actions) else "FORM_INSPECTED")
-    packet, profile, _ = await FormService(session, settings).context(plan.application_id, "manual_extension")
     return move(session, row, state, "fresh_inspection_prepared", plan_id=str(plan.id), authorization_id=None,
-        packet_revision=packet.revision, profile_version=profile.version, context_digest=packet.snapshot.context_digest,
+        packet_revision=packet.revision, profile_version=packet.candidate_profile_version, context_digest=packet.snapshot.context_digest,
         step=next((f.page_step for f in plan.inspection.fields if f.page_step), None),
         challenge_state=challenge,
         challenge_observed=value.get("challenge_observed", False) or challenge in {"WIDGET_PRESENT_UNVERIFIED", "CHALLENGE_BLOCKING"},
@@ -301,7 +303,11 @@ async def attach_plan(session, settings, row, plan):
                 "validation_errors": sum(f.invalid for f in plan.inspection.fields) + sum(c.invalid for c in plan.inspection.manual_controls),
                 "existing": plan.inspection.completed_count},
         browser_connection="connected", tab_active=True,
-        **({"next_action": "Complete unsupported page interactions manually. This plan is read-only; a fresh inspection and review are required."}
+        **({"next_action": (
+            "This page has no verified application form. Review the site's application step manually; no fields were filled."
+            if plan.inspection.manual_reason == "verified_application_form_not_present"
+            else "Complete unsupported page interactions manually. This plan is read-only; a fresh inspection and review are required."
+        )}
            if plan.state == "read_only" and challenge in CHALLENGE_SAFE else {}))
 
 
@@ -429,7 +435,11 @@ async def dispatch_task(session, settings, actor, command):
         return Result(request_id=command.request_id, ok=False, capability="extension_task", error_code="extension_identity_required")
     try:
         from backend.app.browser.chrome_profiles import require_profile
-        await require_profile(session, command)
+        # Read-only DOM checkpoints must not hold the global execution lock over
+        # a full remote packet read. Every mutator still reacquires that lock and
+        # validates the complete context before saving a plan or authorizing work.
+        read_only = command.command == "get_application_task"
+        await require_profile(session, command, read_only=read_only)
         async with session.begin_nested():
             key = f"extension_request:{actor.identity}:{command.request_id}"
             previous = await session.get(AgentOperation, key)
@@ -445,10 +455,16 @@ async def dispatch_task(session, settings, actor, command):
                 row = await load(session, command.task_id)
                 if row.value.get("profile_binding_id") != str(command.profile_binding_id):
                     raise ToolDenied("PROFILE_NOT_SELECTED")
+                filling = row.value["state"] == "FILLING"
+                if filling:
+                    # Keep owner-before-packet lock ordering for the mutating
+                    # interrupted-fill check, including concurrent STOP.
+                    await require_profile(session, command)
+                    row = await load(session, command.task_id)
                 if command.expected_task_version is not None:
-                    row = await bound(session, command, allow_background_inspection=True)
-                    await fresh(session, settings, row.value)
-                if row.value["state"] == "FILLING":
+                    row = await bound(session, command, allow_background_inspection=True, read_only=not filling)
+                    await fresh(session, settings, row.value, read_only=not filling)
+                if filling and row.value["state"] == "FILLING":
                     try:
                         await fresh(session, settings, row.value)
                     except ToolDenied:

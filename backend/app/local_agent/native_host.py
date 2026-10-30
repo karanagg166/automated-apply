@@ -3,6 +3,7 @@ import json
 import select
 import struct
 import sys
+import time
 from pathlib import Path
 
 import httpx
@@ -12,6 +13,12 @@ from backend.app.local_agent.contracts import PROFILE_OPERATIONS, Command, Resul
 
 MAX_MESSAGE_BYTES = 262144
 HOST_NAME = "com.automated_apply.agent"
+# These operations execute only local database transactions. Never infer a
+# rollback from an HTTP status, timeout or disconnected native pipe.
+ROLLBACK_RETRY_OPERATIONS = PROFILE_OPERATIONS | {
+    "get_application_task", "open_application_task", "update_application_task",
+    "inspect_form", "prepare_form_answers",
+}
 
 
 def read_exact(stream, count):
@@ -65,19 +72,35 @@ def forward(command, settings, client=None):
         payload["profile_secret"] = command.profile_secret.get_secret_value()
     try:
         with httpx.Client(timeout=40, follow_redirects=False, trust_env=False) if client is None else client as transport:
-            with transport.stream("POST", settings.LOCAL_AGENT_ENDPOINT + "/api/v1/local-agent/chrome",
-                    json=payload, headers=headers) as response:
-                if response.status_code != 200:
-                    raise ValueError("backend_authentication_failed" if response.status_code in {401, 403} else "backend_not_ready")
-                content = bytearray()
-                for chunk in response.iter_bytes():
-                    content.extend(chunk)
-                    if len(content) > MAX_MESSAGE_BYTES:
-                        raise ValueError("native_response_size")
-                result = Result.model_validate_json(bytes(content))
-                if result.request_id != command.request_id:
-                    raise ValueError("native_request_id_mismatch")
-                return result.model_dump(mode="json")
+            deadline = time.monotonic() + 35
+            for attempt in range(3):
+                with transport.stream("POST", settings.LOCAL_AGENT_ENDPOINT + "/api/v1/local-agent/chrome",
+                        json=payload, headers=headers, timeout=max(0.1, deadline - time.monotonic())) as response:
+                    if response.status_code != 200:
+                        rolled_back = (
+                            response.status_code == 503
+                            and response.headers.get("X-Automated-Apply-Transaction") == "rolled-back"
+                            and command.command in ROLLBACK_RETRY_OPERATIONS
+                        )
+                        if rolled_back and attempt < 2 and time.monotonic() + 1 < deadline:
+                            pass  # Close the error stream without retaining its body.
+                        else:
+                            raise ValueError(
+                                "backend_authentication_failed" if response.status_code in {401, 403}
+                                else "backend_transaction_rolled_back" if rolled_back
+                                else "backend_not_ready"
+                            )
+                    else:
+                        content = bytearray()
+                        for chunk in response.iter_bytes():
+                            content.extend(chunk)
+                            if len(content) > MAX_MESSAGE_BYTES:
+                                raise ValueError("native_response_size")
+                        result = Result.model_validate_json(bytes(content))
+                        if result.request_id != command.request_id:
+                            raise ValueError("native_request_id_mismatch")
+                        return result.model_dump(mode="json")
+                time.sleep(0.2 * (attempt + 1))
     except httpx.TimeoutException:
         raise ValueError("backend_timeout") from None
     except httpx.TransportError:
@@ -109,6 +132,7 @@ def main():
             "native_origin_denied", "native_message_size", "native_invalid_message", "native_truncated_message",
             "native_read_timeout", "native_capability_denied", "native_not_configured", "backend_offline",
             "backend_timeout", "backend_authentication_failed", "backend_not_ready", "backend_invalid_response",
+            "backend_transaction_rolled_back",
             "native_response_size", "native_request_id_mismatch", "native_private_configuration_required",
         }
         code = str(exc) if isinstance(exc, ValueError) and str(exc) in allowed else "native_configuration_error"

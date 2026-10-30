@@ -455,6 +455,14 @@ async def status(session):
             blockers.insert(0, str(exc))
     if value.get("blocked_reason") and value["blocked_reason"] not in blockers:
         blockers.insert(0, value["blocked_reason"])
+    from backend.app.integrations.gmail.job_alerts import status as alert_status
+
+    gmail_alerts = [await alert_status(session, slot) for slot in
+                   ("1", "2")[:len(get_settings().GMAIL_LOCAL_ALLOWED_EMAILS)]]
+    active_alert_source = any(a.get("enabled") and a.get("last_check_at") and not a.get("error") for a in gmail_alerts)
+    if active_alert_source:
+        blockers = [b for b in blockers if b != "recurring_external_source_not_connected"]
+        blockers.insert(0, "email_candidates_require_verified_vacancy_facts")
     profile, confirmed, resume = await context(session)
     alerts = []
     for row in (
@@ -474,6 +482,8 @@ async def status(session):
         "scope": "PARTIAL_PREPARATION",
         "source": source,
         "alert_candidates": alerts,
+        "gmail_alert_discovery": gmail_alerts,
+        "job_candidate_discovery": active_alert_source,
         "email_source_activation_available": bool(
             alert_email.PHASE54_GMAIL_INTAKE_READY
             and get_settings().NAUKRI_ALERT_EMAILS_ENABLED

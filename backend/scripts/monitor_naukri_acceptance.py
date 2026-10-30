@@ -76,6 +76,29 @@ def mac_lock_state():
         return "UNKNOWN"
 
 
+async def observe(operation):
+    """Retain independent dependency results without private exception text."""
+    started = asyncio.get_running_loop().time()
+    try:
+        async with asyncio.timeout(15):
+            data = await operation()
+        return {"status": "PASS", "seconds": round(asyncio.get_running_loop().time() - started, 3), "data": data}
+    except Exception as exc:
+        response = getattr(exc, "response", None)
+        return {"status": "FAIL", "seconds": round(asyncio.get_running_loop().time() - started, 3),
+                "error_type": type(exc).__name__, "http_status": getattr(response, "status_code", None)}
+
+
+async def dependency_sample(api, database, health, ready):
+    results = await asyncio.gather(*(observe(op) for op in (api, database, health, ready)))
+    sample = dict(zip(("api", "database", "health", "ready"), results, strict=True))
+    if sample["api"]["status"] == sample["database"]["status"] == "PASS":
+        actual = sample["database"]["data"].get("automation", {"state": "STOPPED", "revision": 0})
+        reported = sample["api"]["data"]
+        sample["database_agrees"] = all(actual.get(k) == reported.get(k) for k in ("state", "revision"))
+    return sample
+
+
 async def monitor(args):
     import httpx
     from sqlalchemy import select
@@ -91,92 +114,53 @@ async def monitor(args):
 
     endpoint = settings.LOCAL_AGENT_ENDPOINT.rstrip("/")
     parsed = urlsplit(endpoint)
-    if (
-        parsed.hostname not in {"localhost", "127.0.0.1", "::1"}
-        or parsed.scheme != "http"
-        or parsed.username
-        or parsed.password
-        or parsed.query
-        or parsed.fragment
-    ):
+    if (parsed.hostname not in {"localhost", "127.0.0.1", "::1"}
+            or parsed.scheme != "http" or parsed.username or parsed.password
+            or parsed.query or parsed.fragment):
         raise ValueError("approved_loopback_endpoint_required")
     output = Path(args.output).expanduser()
-    descriptor = os.open(
-        output, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600
-    )
+    descriptor = os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     try:
-        async with httpx.AsyncClient(
-            trust_env=False, follow_redirects=False, timeout=15
-        ) as client:
+        async with httpx.AsyncClient(trust_env=False, follow_redirects=False, timeout=15) as client:
+            async def request(path):
+                response = await client.get(endpoint + path, headers={
+                    "Authorization": "Bearer " + settings.JOB_AGENT_API_TOKEN.get_secret_value()})
+                response.raise_for_status()
+                return response.json()
+
+            async def api():
+                return (await request("/api/v1/execution/naukri"))["automation"]
+
+            async def database():
+                async with get_session_factory()() as session:
+                    rows = {row.key: row.value for row in (await session.scalars(
+                        select(OwnerPreference).where(OwnerPreference.key.in_([KEY, HEALTH, "chr_selection"]))
+                    )).all()}
+                return {"automation": rows.get(KEY, {"state": "STOPPED", "revision": 0}),
+                        "worker_heartbeat_at": rows.get(HEALTH, {}).get("heartbeat_at"),
+                        "selected_profile": rows.get("chr_selection", {}).get("profile_binding_id")}
+
             with os.fdopen(descriptor, "w") as log:
-                started = asyncio.get_running_loop().time()
-                while (
-                    asyncio.get_running_loop().time() - started <= args.duration_seconds
-                ):
-                    sample = {
-                        "at": datetime.now(timezone.utc).isoformat(),
-                        "screen": mac_lock_state(),
-                        "evidence_type": "live_readonly_monitoring",
-                        "submitted_by_monitor": False,
-                    }
-                    try:
-                        response = await client.get(
-                            endpoint + "/api/v1/execution/naukri",
-                            headers={
-                                "Authorization": "Bearer "
-                                + settings.JOB_AGENT_API_TOKEN.get_secret_value()
-                            },
-                        )
-                        response.raise_for_status()
-                        api = response.json()["automation"]
-                        async with get_session_factory()() as session:
-                            rows = {
-                                row.key: row.value
-                                for row in (
-                                    await session.scalars(
-                                        select(OwnerPreference).where(
-                                            OwnerPreference.key.in_(
-                                                [KEY, HEALTH, "chr_selection"]
-                                            )
-                                        )
-                                    )
-                                ).all()
-                            }
-                        actual = rows.get(KEY, {"state": "STOPPED", "revision": 0})
-                        sample.update(
-                            state=api["state"],
-                            revision=api["revision"],
-                            database_agrees=actual["state"] == api["state"]
-                            and actual["revision"] == api["revision"],
-                            worker_heartbeat_at=rows.get(HEALTH, {}).get(
-                                "heartbeat_at"
-                            ),
-                            selected_profile=rows.get("chr_selection", {}).get(
-                                "profile_binding_id"
-                            ),
-                            extension_heartbeat_at=(
-                                api.get("chrome_profile") or {}
-                            ).get("last_heartbeat"),
-                            last_check_at=api.get("last_check_at"),
-                            source_last_check_at=api.get("source_last_check_at"),
-                            counts=api["counts"],
-                            blockers=api["blockers"],
-                        )
-                    except Exception:
-                        sample["error"] = (
-                            "api_or_independent_database_observation_failed"
-                        )
+                loop = asyncio.get_running_loop()
+                started = loop.time()
+                previous = None
+                while loop.time() - started <= args.duration_seconds:
+                    began = loop.time()
+                    sample = {"at": datetime.now(timezone.utc).isoformat(), "screen": mac_lock_state(),
+                              "sample_gap_seconds": None if previous is None else round(began - previous, 3),
+                              "evidence_type": "live_readonly_monitoring", "submitted_by_monitor": False}
+                    sample.update(await dependency_sample(api, database,
+                        lambda: request("/health"), lambda: request("/ready")))
+                    sample["screen_after"] = mac_lock_state()
+                    sample["completed_at"] = datetime.now(timezone.utc).isoformat()
                     log.write(json.dumps(sample) + "\n")
                     log.flush()
                     os.fsync(log.fileno())
-                    if (
-                        asyncio.get_running_loop().time()
-                        - started
-                        + args.interval_seconds
-                        > args.duration_seconds
-                    ):
+                    previous = began
+                    delay = max(0, args.interval_seconds - (loop.time() - began))
+                    if loop.time() - started + delay >= args.duration_seconds:
                         break
-                    await asyncio.sleep(args.interval_seconds)
+                    await asyncio.sleep(delay)
     finally:
         await close_db_engine()
 

@@ -23,6 +23,18 @@ type Account = {
   body_review_enabled: boolean;
   token_health: string;
   last_verified_at?: string;
+  job_alerts?: {
+    version: number;
+    enabled: boolean;
+    sender: string;
+    last_check_at?: string;
+    error?: string;
+    last_result?: {
+      messages: number;
+      candidates_added: number;
+      direct_links: number;
+    };
+  };
 };
 type Message = { id: string; from?: string; subject?: string };
 const base = "integrations/gmail/local/accounts";
@@ -40,7 +52,8 @@ export function LocalMailboxes() {
       <h2>Approved Gmail accounts</h2>
       <p>
         Choose each account through Google. Read selected inbox messages and
-        create unsent drafts. Sending and background monitoring remain disabled.
+        create unsent drafts. Enable Naukri alert discovery for a connected
+        account below. Sending remains disabled.
       </p>
       <div className="grid-2">
         {query.data.accounts.map((account) => (
@@ -71,10 +84,13 @@ function Mailbox({ account }: { account: Account }) {
       name: string;
       body?: unknown;
     }) => {
-      const result = await post<Record<string, unknown>>(
-        `${path}/${name}`,
-        body,
-      );
+      const result =
+        name === "job-alerts"
+          ? await api<Record<string, unknown>>(`${path}/${name}`, {
+              method: "PUT",
+              body: JSON.stringify(body),
+            })
+          : await post<Record<string, unknown>>(`${path}/${name}`, body);
       if (name === "connect") {
         const url = new URL(String(result.authorization_url));
         if (url.origin !== "https://accounts.google.com")
@@ -149,6 +165,55 @@ function Mailbox({ account }: { account: Account }) {
           <Button busy={busy} onClick={() => action.mutate({ name: "verify" })}>
             Verify connection
           </Button>
+          <div className="stack">
+            <h4>Naukri job-alert discovery</h4>
+            <p>
+              Read up to five Inbox alerts from naukrialerts@naukri.com per
+              cycle. Sender authentication is checked before reading message
+              content. Links are saved as candidates for vacancy review. Email
+              links are never opened. Start, Pause and Stop control recurring
+              reads.
+            </p>
+            <p>
+              {account.job_alerts?.enabled ? "Enabled" : "Disabled"} · Last
+              check {dateLabel(account.job_alerts?.last_check_at)}
+            </p>
+            {account.job_alerts?.last_result && (
+              <p>
+                Messages: {account.job_alerts.last_result.messages} · New
+                candidates: {account.job_alerts.last_result.candidates_added} ·
+                Direct job links: {account.job_alerts.last_result.direct_links}
+              </p>
+            )}
+            {account.job_alerts?.error && (
+              <Notice>{readable(account.job_alerts.error)}</Notice>
+            )}
+            <Button
+              busy={busy}
+              disabled={!account.body_review_enabled}
+              onClick={() =>
+                action.mutate({
+                  name: "job-alerts",
+                  body: {
+                    expected_version: account.job_alerts?.version ?? 0,
+                    expected_generation: account.generation,
+                    enabled: !account.job_alerts?.enabled,
+                  },
+                })
+              }
+            >
+              {account.job_alerts?.enabled
+                ? "Disable alert discovery"
+                : "Enable alert discovery"}
+            </Button>
+            <Button
+              busy={busy}
+              disabled={!account.job_alerts?.enabled}
+              onClick={() => action.mutate({ name: "job-alerts/sync" })}
+            >
+              Check approved alerts now
+            </Button>
+          </div>
           <Field label="Search this account’s Inbox">
             <Input
               value={search}

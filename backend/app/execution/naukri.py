@@ -24,14 +24,14 @@ def capability_matrix():
         "live_verified": False,
         "discovery": "owner_supplied_urls_and_alert_facts",
         "account_profile_association": "local_session_manual_unverified",
-        "job_alert_import": "owner_supplied_structured_facts",
+        "job_alert_import": "opt_in_approved_gmail_candidates_then_verified_facts",
         "application_history_import": "reviewed_mailbox_history_existing_owner_flow",
         "job_url_import": "supported_local_validation_only",
         "application_preparation": "saved_profile_resume_and_grounded_answers",
         "browser_form_assistance": "existing_owner_reviewed_engine_site_unverified",
         "submission_support": "manual_only_no_verified_naukri_contract",
         "public_jobseeker_api": "not_established",
-        "background_source": "saved_owner_imports_only_no_portal_polling",
+        "background_source": "saved_imports_and_opt_in_gmail_alerts_no_portal_polling",
         "evidence": EVIDENCE,
     }
 

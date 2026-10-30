@@ -119,3 +119,24 @@ it("allows only fixed account and read/draft routes through the owner gateway", 
     permittedRoute("integrations/gmail/local/accounts/3/connect", "POST"),
   ).toBe(false);
 });
+
+it("permits only bounded job alert controls through the authenticated gateway", () => {
+  expect(
+    permittedRoute("integrations/gmail/local/accounts/1/job-alerts", "PUT"),
+  ).toBe(true);
+  expect(
+    permittedRoute(
+      "integrations/gmail/local/accounts/1/job-alerts/sync",
+      "POST",
+    ),
+  ).toBe(true);
+  expect(
+    permittedRoute("integrations/gmail/local/accounts/3/job-alerts", "PUT"),
+  ).toBe(false);
+  expect(
+    permittedRoute(
+      "integrations/gmail/local/accounts/1/job-alerts/send",
+      "POST",
+    ),
+  ).toBe(false);
+});

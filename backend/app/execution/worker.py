@@ -276,6 +276,16 @@ class ExecutionWorker:
 
         await ensure_fixed_profile(self.factory)
         await poll(self.factory)
+        from backend.app.core.config import get_settings
+        from backend.app.integrations.gmail.job_alerts import poll as poll_local_alerts
+
+        settings = get_settings()
+        if settings.GMAIL_LOCAL_ACCOUNTS_ENABLED:
+            for slot in ("1", "2")[:len(settings.GMAIL_LOCAL_ALLOWED_EMAILS)]:
+                try:
+                    await poll_local_alerts(self.factory, settings, slot)
+                except Exception:
+                    logging.getLogger(__name__).warning("Local Gmail alert cycle failed")
         async with self.factory() as session, session.begin():
             from backend.app.execution import recurring
 

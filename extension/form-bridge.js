@@ -87,7 +87,12 @@ function attachPreview(data, observation) {
 function canPreview(observation) {
   return (
     ["ready", "validation_errors"].includes(observation?.state) ||
-    (observation?.state === "manual_required" && observation.fields?.length > 0)
+    (observation?.state === "manual_required" &&
+      (observation.fields?.length > 0 ||
+        (observation.manual_reason ===
+          "verified_application_form_not_present" &&
+          observation.fields?.length === 0 &&
+          naukriFormUrl(observation.url))))
   );
 }
 function throwInspectionStateError(observationResult) {

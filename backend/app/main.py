@@ -28,7 +28,7 @@ from backend.app.integrations.logging import install_oauth_log_filter
 from backend.app.mcp.auth import MCPBoundary
 from backend.app.mcp.registry import mcp
 from backend.app.operations.boundary import transport_error
-from backend.app.operations.health import database_health
+from backend.app.operations.health import database_connectivity, database_health
 from backend.app.operations.readiness import require_safe_startup
 from backend.app.resume_sync.router import router as resume_sync_router
 from backend.app.schemas.credit import CreditBudgetStatus
@@ -47,8 +47,10 @@ async def lifespan(app: FastAPI):
     """Manage application startup and shutdown lifecycle."""
     logger.info(f"Starting Job Pulse Agent API in '{settings.ENVIRONMENT}' mode...")
     require_safe_startup(settings)
+    app.state.database_audit_verified = False
     try:
         await database_health(get_engine(), settings)
+        app.state.database_audit_verified = True
         logger.info("Database connectivity and required schema checked")
     except Exception:
         logger.error("Database startup probe failed")
@@ -262,7 +264,9 @@ async def health_check() -> dict[str, Any]:
 async def readiness_check() -> dict[str, Any]:
     """Readiness probe verifying database connectivity."""
     try:
-        await database_health(get_engine(), settings)
+        if settings.ENVIRONMENT != "testing" and not getattr(app.state, "database_audit_verified", False):
+            raise RuntimeError("database_startup_audit_required")
+        await database_connectivity(get_engine(), settings)
         return {
             "status": "ready",
             "database": "connected",

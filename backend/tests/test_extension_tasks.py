@@ -81,6 +81,35 @@ async def test_versioned_task_read_validates_window_and_current_packet(db_sessio
     assert display.ok
 
 
+async def test_dom_checkpoint_keeps_global_owner_lock_available(db_session, browser_target, monkeypatch):
+    _, packet, _ = browser_target
+    task, session_id = await opened(db_session, packet)
+    await db_session.commit()
+
+    async def forbidden(*_, **__):
+        pytest.fail("A read-only DOM checkpoint must not take the execution owner lock")
+
+    monkeypatch.setattr("backend.app.execution.store.memory_row", forbidden)
+    read = await dispatch(db_session, settings(), ACTOR, Command(
+        command="get_application_task", **identity(task, session_id)))
+    assert read.ok, read.error_code
+
+
+async def test_posting_without_application_fields_saves_read_only_terminal(db_session, browser_target):
+    job, packet, _ = browser_target
+    task, session_id = await opened(db_session, packet)
+    view = inspection(job.application_url, [])
+    view.fields = []
+    view.state = "manual_required"
+    view.manual_reason = "verified_application_form_not_present"
+    result = await dispatch_form(db_session, settings(), ACTOR, Command(command="inspect_form",
+        application_id=packet.id, inspection=view, **identity(task, session_id)))
+    assert result.ok, result.error_code
+    assert result.data["task"]["state"] == "NEEDS_INPUT"
+    assert result.data["plan"]["actions"] == [] and result.data["plan"]["state"] == "read_only"
+    assert result.data["task"]["authorization_id"] is None
+
+
 @pytest.mark.parametrize("pause_reason", [None, "owner_pause", "global_stop"])
 async def test_explicit_open_refreshes_only_unbound_packet_and_preserves_stop(db_session, browser_target, pause_reason):
     from backend.app.models.application_packet import ApplicationPacket

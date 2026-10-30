@@ -202,7 +202,10 @@ export class TaskCoordinator {
       throw Error("extension_tab_binding_mismatch");
     // This authenticated, versioned read also checks the current packet/context
     // before any DOM access. Do not adopt a moved, replaced or restored tab.
-    const task = await this.task(binding.id, this.context(binding));
+    const task = await this.task(binding.id, {
+      ...this.context(binding),
+      ...(message.remote_command ? message.remote_command_context : {}),
+    });
     if (
       task.application_id !== binding.applicationId ||
       task.packet_revision !== binding.packetRevision ||
@@ -300,7 +303,10 @@ export class TaskCoordinator {
         application_id: message.application_id,
         browser_session_id: this.sessionId,
         ...(message.remote_command
-          ? { expected_task_version: message.expected_task_version }
+          ? {
+              expected_task_version: message.expected_task_version,
+              ...message.remote_command_context,
+            }
           : {}),
       });
       if (
@@ -331,10 +337,14 @@ export class TaskCoordinator {
         try {
           const existing = await this.api.tabs.get(binding.tabId);
           if (existing.url === binding.url && existing.incognito !== true) {
+            freshCommand();
             await this.api.windows.update(existing.windowId, { focused: true });
             await this.api.tabs.update(binding.tabId, { active: true });
             if (binding.windowId !== existing.windowId) {
               const task = await this.update(binding.id, "bind", {
+                ...(message.remote_command
+                  ? message.remote_command_context
+                  : {}),
                 window_id: existing.windowId,
                 observed_url: existing.url,
               });
@@ -377,6 +387,7 @@ export class TaskCoordinator {
       await this.profiles.verify();
       try {
         const task = await this.update(binding.id, "bind", {
+          ...(message.remote_command ? message.remote_command_context : {}),
           tab_id: tab.id,
           window_id: tab.windowId,
           observed_url: url.href,
@@ -404,7 +415,12 @@ export class TaskCoordinator {
       const options = {
         interactions_allowed:
           !message.remote_command && message.interactions_allowed === true,
-        taskContext: binding ? this.context(binding) : undefined,
+        taskContext: binding
+          ? {
+              ...this.context(binding),
+              ...(message.remote_command ? message.remote_command_context : {}),
+            }
+          : undefined,
         resolveTab: binding
           ? () => this.inspectionTab(binding, message, freshCommand)
           : undefined,

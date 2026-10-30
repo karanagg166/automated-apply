@@ -198,8 +198,9 @@ async def invalidate(session, identity, reason):
             }
 
 
-async def require_profile(session, command, *, selected=True, receipt=False):
-    await store.memory_row(session, lock=True)
+async def require_profile(session, command, *, selected=True, receipt=False, read_only=False):
+    if not read_only:
+        await store.memory_row(session, lock=True)
     row = await session.get(
         OwnerPreference,
         PROFILE + str(command.profile_binding_id),
@@ -219,12 +220,28 @@ async def require_profile(session, command, *, selected=True, receipt=False):
     if selected and fixed and fixed.value["profile_binding_id"] != row.value["id"]:
         raise ToolDenied("PROFILE_OFFLINE")
     if not online(row.value):
-        await invalidate(session, row.value["id"], "PROFILE_OFFLINE")
+        if not read_only:
+            await invalidate(session, row.value["id"], "PROFILE_OFFLINE")
         raise ToolDenied("PROFILE_OFFLINE")
     if selected and (await selection(session))["profile_binding_id"] != row.value["id"]:
         raise ToolDenied("PROFILE_NOT_SELECTED")
     if str(command.browser_session_id) != row.value["browser_session_id"]:
         raise ToolDenied("PROFILE_SESSION_CHANGED")
+    if command.chrome_command_id and command.command not in NATIVE:
+        lease = await session.get(OwnerPreference, COMMAND + str(command.chrome_command_id), populate_existing=True)
+        value = lease.value if lease else {}
+        if (value.get("state") != "executing"
+                or value.get("version") != command.expected_command_version
+                or value.get("lease_token") != str(command.command_lease_token)
+                or value.get("profile_binding_id") != row.value["id"]
+                or value.get("browser_session_id") != str(command.browser_session_id)
+                or value.get("selection_version") != (await selection(session))["version"]
+                or value.get("expected_profile_version") != row.value["version"]
+                or datetime.fromisoformat(value.get("expires_at", "1970-01-01T00:00:00+00:00")) <= now()
+                or datetime.fromisoformat(value.get("lease_expires_at") or "1970-01-01T00:00:00+00:00") <= now()
+                or (command.application_id and value.get("application_id") != str(command.application_id))
+                or (value.get("action") == "prepare" and value.get("task_id") != str(command.task_id))):
+            raise ToolDenied("profile_command_expired")
     return row
 
 

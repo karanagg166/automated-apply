@@ -124,8 +124,8 @@ class FormService:
         self.answers = ApplicationAnswerService(session, local)
         self.packets = ApplicationPacketService(session, self.answers)
 
-    async def context(self, application_id, mode="local_automation"):
-        packet = await self.packets.read(application_id, lock_context=True)
+    async def context(self, application_id, mode="local_automation", *, lock_context=True):
+        packet = await self.packets.read(application_id, lock_context=lock_context)
         profile = await reviewed_profile(self.session)
         stored = await self.session.get(
             ApplicationPacket, application_id, populate_existing=True

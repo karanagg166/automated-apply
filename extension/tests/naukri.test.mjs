@@ -55,7 +55,8 @@ test("Naukri global search and Apply teaser are never application fields or comp
     assert.deepEqual(Array.from(view.fields), []);
     assert.equal(view.completed_count, 0);
     assert.equal(view.has_submit, false);
-    assert.equal(view.state, "unsupported");
+    assert.equal(view.state, "manual_required");
+    assert.equal(view.manual_reason, "verified_application_form_not_present");
   } finally {
     f.close();
   }

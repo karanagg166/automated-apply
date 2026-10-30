@@ -278,6 +278,27 @@ async def test_native_start_and_ack_receipts_and_expired_leases(
     )
     assert ack.ok and ack.data["command"]["state"] == "completed"
     assert ack.data["submitted"] is False
+
+
+async def test_remote_inspection_cannot_outlive_original_command_lease(db_session, browser_target):
+    _, packet, _ = browser_target
+    context = await connect(db_session)
+    await choose(db_session, context)
+    _, queued = await queue(db_session, context, packet)
+    claimed = (await dispatch(db_session, settings(), ACTOR,
+        Command(command="poll_chrome_command", **context))).data["command"]
+    extra = {"chrome_command_id": queued["id"], "command_lease_token": claimed["lease_token"],
+             "expected_command_version": claimed["version"]}
+    started = await dispatch(db_session, settings(), ACTOR,
+        Command(command="start_chrome_command", **context, **extra))
+    extra["expected_command_version"] = started.data["command"]["version"]
+    command = Command(command="inspect_form", application_id=packet.id, **context, **extra)
+    assert await profiles.require_profile(db_session, command)
+    row = await db_session.get(OwnerPreference, profiles.COMMAND + queued["id"])
+    row.value = {**row.value, "lease_expires_at": (profiles.now() - timedelta(seconds=1)).isoformat()}
+    await db_session.flush()
+    with pytest.raises(ToolDenied, match="profile_command_expired"):
+        await profiles.require_profile(db_session, command)
     _, next_command = await queue(db_session, context, packet)
     claimed = (
         await dispatch(
