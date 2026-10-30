@@ -1,5 +1,9 @@
 # Naukri worker milestone: truthful receipts and bounded source diagnosis
 
+> Subsequent owner instruction: no provider outreach. The earlier email draft is
+> not a pending owner task. Continue local engineering; see the
+> [chooser-free browser probe](naukri-chooser-free-upload-probe-20261031.md).
+
 **Implementation PASS locally; Naukri unattended phase OPEN / BLOCKED.**
 The genuine QTrino receipt is preserved. No new application, upload, browser
 submission, installation, merge, hosted Action or cleanup occurred.
@@ -215,7 +219,7 @@ evidence; **never click Apply or re-upload to QTrino**.
 | Continuous discovery source health | NOT ACCEPTED | One generic failure then one healthy bounded sync; no sustained window |
 | New genuine candidate → match → prepare | NOT TESTED | Zero new real candidates; fixture workflow regression passes |
 | Minimum score 80 | PASS installed configuration | API save/Start and later status; submission cap still zero |
-| Applicable Naukri recurring submission permission (A) | BLOCKED | [Precise provider request prepared](naukri-unattended-plan-and-permission-20261031.md#one-precise-owner-action-send-this-request-to-naukri); not sent or granted |
+| Applicable Naukri recurring submission permission (A) | BLOCKED | No applicable grant; owner subsequently declined outreach, so the historical draft is not an action request |
 | Installed unattended discover/prepare/submit executor (B) | BLOCKED / NOT IMPLEMENTED | This code fixes evidence/source diagnosis; full worker stages and standing submission policy remain pending |
 | Unattended resume/questions while locked (C) | BLOCKED / NOT TESTED | Native chooser is NEEDS_HUMAN; browser-only candidate unverified; no new genuine UI flow |
 | Multiple distinct worker-recorded applications (D) | NOT MET | Lifetime 1 supervised QTrino application, 0 recurring-worker submissions |
@@ -226,8 +230,8 @@ evidence; **never click Apply or re-upload to QTrino**.
 | Full consolidated release build/install acceptance | NOT TESTED / NOT INSTALLED | Source candidate only; review/build/exact-SHA approval required |
 | Hosted CI, merge, production release, cleanup | NOT PERFORMED | All three workflows remain manual-only; no dispatch |
 
-The next owner/provider action is the single prepared permission request. In
-parallel, the next permitted code increment is the Naukri-specific stage and
+No provider outreach is requested following the owner's subsequent instruction.
+The next permitted code increment is the Naukri-specific stage and
 upload admission implementation described in the plan, with real submissions
 disabled. No other platform or migration phase was started.
 

@@ -1,5 +1,11 @@
 # Naukri unattended execution: scope, permission request and next implementation
 
+**Owner update:** provider outreach was declined. No email is authorized,
+planned or required from the owner. The draft below is historical research, not
+a pending action. Continue independent Naukri engineering; do not ask again to
+contact Naukri. Missing platform permission remains unresolved under the original
+completion gate.
+
 **Phase OPEN / BLOCKED. Recurring submissions remain disabled.** The preserved
 [QTrino receipt](qtrino-first-genuine-receipt-20261031.md) proves one
 owner-authorized, software-operated application, with a supplied factual answer
@@ -53,12 +59,11 @@ claim that all private partnerships are impossible or a current legal ruling.
 An employer-side integration and the native paid product cannot be substituted
 for the missing permission. No access restriction was bypassed.
 
-## One precise owner action: send this request to Naukri
+## Historical permission draft: no owner action requested
 
-**Prepared only; not sent.** Send from the registered account to
-`service@naukri.com`, asking support to route it to the responsible policy or
-integration team. Retain the complete response privately. Do not attach a resume,
-personal answers, authentication data or applicant screenshots to the public PR.
+**Not sent; outreach declined.** This earlier draft is preserved for context only.
+Do not send it or ask the owner to send it. No resume, personal answer,
+authentication data or applicant screenshot belongs in the public PR.
 
 > Subject: Written platform authorization for bounded applicant-owned local automation
 >
