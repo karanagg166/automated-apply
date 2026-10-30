@@ -1,5 +1,7 @@
 # Approved diagnostic preflight stopped: eager checkout regression corrected
 
+**Later installed evidence:** [074fb82 live diagnostic acceptance, two status timeouts, rollback/capacity failures and focused follow-up](status-contention-live-20261030.md).
+
 **Cutover STOPPED before installation under the owner's condition 2.** Database capacity preflight succeeded, but a real disposable PostgreSQL regression proved the approved instrumentation made SQL-free native rejection wait behind unrelated database work. Production remains installed at **`79ce5f6b514279e6d9022d85b659ad77fb31bd89`**. No genuine browser cycle was attempted on the candidate, and no new live reliability PASS is claimed.
 
 Branch `fix/live-prepare-discovery-20261030`, base `main`, [PR #48](https://github.com/karanagg166/automated-apply/pull/48). Approved diagnostic SHA was `d504d26e889859b2b39111bb5deedce80c4bd589`; it was **not installed**. Corrected candidate requiring new review is [074fb828e6da04a093024c0ac4227b0d4ebca712](https://github.com/karanagg166/automated-apply/commit/074fb828e6da04a093024c0ac4227b0d4ebca712). This report's later commit changes only public evidence. [Sanitized measurements](status-contention-preflight-metrics-20261030.json). [Prior candidate report and installation/rollback proposal](status-contention-fix-20261030.md).

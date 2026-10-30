@@ -1,0 +1,1297 @@
+{
+  "tested_sha": "074fb828e6da04a093024c0ac4227b0d4ebca712",
+  "followup_sha": "90f2f2ade50a1c31b26ca85cc7fdf5e93bb67c20",
+  "overall": "FAIL",
+  "attempts": [
+    {
+      "number": 1,
+      "result": "PASS",
+      "seconds": 161.4551,
+      "commands": [
+        {
+          "action": "open",
+          "terminal_state": "completed",
+          "seconds_admission_attempt_to_observed_terminal": 62.1804,
+          "observed_before_original_expiry": true
+        },
+        {
+          "action": "prepare",
+          "terminal_state": "completed",
+          "seconds_admission_attempt_to_observed_terminal": 70.9449,
+          "observed_before_original_expiry": true
+        }
+      ],
+      "fields": 0,
+      "actions": 0,
+      "approved_fields": 0,
+      "plan_state": "read_only",
+      "task_state": "NEEDS_INPUT",
+      "manual_reason": "verified_application_form_not_present",
+      "paused_after": true
+    },
+    {
+      "number": 2,
+      "result": "PASS",
+      "seconds": 115.2771,
+      "commands": [
+        {
+          "action": "open",
+          "terminal_state": "completed",
+          "seconds_admission_attempt_to_observed_terminal": 29.5969,
+          "observed_before_original_expiry": true
+        },
+        {
+          "action": "prepare",
+          "terminal_state": "completed",
+          "seconds_admission_attempt_to_observed_terminal": 63.9077,
+          "observed_before_original_expiry": true
+        }
+      ],
+      "fields": 0,
+      "actions": 0,
+      "approved_fields": 0,
+      "plan_state": "read_only",
+      "task_state": "NEEDS_INPUT",
+      "manual_reason": "verified_application_form_not_present",
+      "paused_after": true
+    },
+    {
+      "number": 3,
+      "result": "PASS",
+      "seconds": 126.648,
+      "commands": [
+        {
+          "action": "open",
+          "terminal_state": "completed",
+          "seconds_admission_attempt_to_observed_terminal": 39.6251,
+          "observed_before_original_expiry": true
+        },
+        {
+          "action": "prepare",
+          "terminal_state": "completed",
+          "seconds_admission_attempt_to_observed_terminal": 68.8844,
+          "observed_before_original_expiry": true
+        }
+      ],
+      "fields": 0,
+      "actions": 0,
+      "approved_fields": 0,
+      "plan_state": "read_only",
+      "task_state": "NEEDS_INPUT",
+      "manual_reason": "verified_application_form_not_present",
+      "paused_after": true
+    }
+  ],
+  "monitor": {
+    "samples": 88,
+    "started_at": "2026-10-30T13:27:06.170145+00:00",
+    "last_sample_at": "2026-10-30T13:34:55.221741+00:00",
+    "stopped_after_three_attempts": true,
+    "endpoints": {
+      "/health": {
+        "count": 88,
+        "counts": {
+          "200": 88
+        },
+        "mean": 0.02,
+        "p95": 0.0424,
+        "max": 0.1595,
+        "failures": []
+      },
+      "/ready": {
+        "count": 88,
+        "counts": {
+          "200": 88
+        },
+        "mean": 1.1805,
+        "p95": 1.5384,
+        "max": 2.3673,
+        "failures": []
+      },
+      "/api/v1/browser/chrome-profiles": {
+        "count": 88,
+        "counts": {
+          "200": 86,
+          "ReadTimeout": 2
+        },
+        "mean": 3.0293,
+        "p95": 7.7182,
+        "max": 12.0087,
+        "failures": [
+          {
+            "at": "2026-10-30T13:29:22.322021+00:00",
+            "path": "/api/v1/browser/chrome-profiles",
+            "error": "ReadTimeout",
+            "seconds": 12.0068
+          },
+          {
+            "at": "2026-10-30T13:33:23.132165+00:00",
+            "path": "/api/v1/browser/chrome-profiles",
+            "error": "ReadTimeout",
+            "seconds": 12.0087
+          }
+        ]
+      }
+    }
+  },
+  "resources": {
+    "api": {
+      "present_samples": 88,
+      "mean_cpu_percent": 2.991,
+      "peak_cpu_percent": 6.7,
+      "peak_rss_mib": 78.531
+    },
+    "execution": {
+      "present_samples": 88,
+      "mean_cpu_percent": 0.67,
+      "peak_cpu_percent": 4.0,
+      "peak_rss_mib": 45.828
+    },
+    "telegram": {
+      "present_samples": 88,
+      "mean_cpu_percent": 0.308,
+      "peak_cpu_percent": 2.9,
+      "peak_rss_mib": 51.906
+    },
+    "frontend": {
+      "present_samples": 88,
+      "mean_cpu_percent": 0.05,
+      "peak_cpu_percent": 3.0,
+      "peak_rss_mib": 10.391
+    }
+  },
+  "inspection_traces": [
+    {
+      "request_id": "8df75589-d27e-41fe-9c6f-b2c5367736ea",
+      "stages": {
+        "authentication_authorization": {
+          "count": 1,
+          "seconds": 3.0499999411404133e-05,
+          "max_seconds": 3.0499999411404133e-05
+        },
+        "session_creation": {
+          "count": 1,
+          "seconds": 0.00026545800028543454,
+          "max_seconds": 0.00026545800028543454
+        },
+        "flush": {
+          "count": 15,
+          "seconds": 1.3797471260040766,
+          "max_seconds": 0.5762913329999719
+        },
+        "pool_acquisition": {
+          "count": 1,
+          "seconds": 1.2316890000001877,
+          "max_seconds": 1.2316890000001877
+        },
+        "sql_write": {
+          "count": 7,
+          "seconds": 1.6512451690014132,
+          "max_seconds": 0.2875678340005834
+        },
+        "owner_row_insert_wait": {
+          "count": 1,
+          "seconds": 1.9485150420005084,
+          "max_seconds": 1.9485150420005084
+        },
+        "sql_read": {
+          "count": 63,
+          "seconds": 9.869855711003765,
+          "max_seconds": 0.33766149999974004
+        },
+        "owner_row_lock_wait": {
+          "count": 1,
+          "seconds": 0.14590183299878845,
+          "max_seconds": 0.14590183299878845
+        },
+        "owner_lock": {
+          "count": 5,
+          "seconds": 2.2437808330032567,
+          "max_seconds": 2.0954212920005375
+        },
+        "profile_authorization": {
+          "count": 2,
+          "seconds": 0.4412275819995557,
+          "max_seconds": 0.2968166659993585
+        },
+        "task_load": {
+          "count": 1,
+          "seconds": 0.28901854200012167,
+          "max_seconds": 0.28901854200012167
+        },
+        "task_authorization": {
+          "count": 1,
+          "seconds": 0.2893290000010893,
+          "max_seconds": 0.2893290000010893
+        },
+        "packet_context_build": {
+          "count": 2,
+          "seconds": 3.1594349580009293,
+          "max_seconds": 1.977652790999855
+        },
+        "packet_context_resume": {
+          "count": 2,
+          "seconds": 5.8125020830011636,
+          "max_seconds": 3.311038333000397
+        },
+        "form_inspection_answers": {
+          "count": 1,
+          "seconds": 5.389394125000763,
+          "max_seconds": 5.389394125000763
+        },
+        "plan_revalidation": {
+          "count": 1,
+          "seconds": 3.9973678330006805,
+          "max_seconds": 3.9973678330006805
+        },
+        "plan_load": {
+          "count": 2,
+          "seconds": 0.8123363339982461,
+          "max_seconds": 0.6666141669993522
+        },
+        "native_form": {
+          "count": 1,
+          "seconds": 13.4659434160003,
+          "max_seconds": 13.4659434160003
+        },
+        "response_serialization": {
+          "count": 1,
+          "seconds": 0.0007015840001258766,
+          "max_seconds": 0.0007015840001258766
+        },
+        "connection_occupancy": {
+          "count": 1,
+          "seconds": 11.952231749999555,
+          "max_seconds": 11.952231749999555
+        },
+        "commit": {
+          "count": 1,
+          "seconds": 0.14549408399943786,
+          "max_seconds": 0.14549408399943786
+        },
+        "flush_commit": {
+          "count": 1,
+          "seconds": 0.1455100000002858,
+          "max_seconds": 0.1455100000002858
+        }
+      },
+      "native_request_id": "718fef74-9c3e-4b37-9d07-28d97df034c4",
+      "native_command_id": "e8302a85-fb22-42f0-a6c3-f13124110401",
+      "pool_peak_checked_out": 1,
+      "status": 200,
+      "response_start_seconds": 13.630725541999709,
+      "http_seconds": 13.631623541999943
+    },
+    {
+      "request_id": "d3f083bd-934e-4d93-bd8b-c09aae2cb1ec",
+      "stages": {
+        "authentication_authorization": {
+          "count": 1,
+          "seconds": 2.804200084938202e-05,
+          "max_seconds": 2.804200084938202e-05
+        },
+        "session_creation": {
+          "count": 1,
+          "seconds": 0.00022079200061853044,
+          "max_seconds": 0.00022079200061853044
+        },
+        "flush": {
+          "count": 15,
+          "seconds": 0.8924869160036906,
+          "max_seconds": 0.30170150000049034
+        },
+        "pool_acquisition": {
+          "count": 1,
+          "seconds": 1.5635135829998035,
+          "max_seconds": 1.5635135829998035
+        },
+        "sql_write": {
+          "count": 7,
+          "seconds": 1.1694865840017883,
+          "max_seconds": 0.2901942919997964
+        },
+        "owner_row_insert_wait": {
+          "count": 1,
+          "seconds": 2.2903781669992895,
+          "max_seconds": 2.2903781669992895
+        },
+        "sql_read": {
+          "count": 63,
+          "seconds": 9.952374165994115,
+          "max_seconds": 0.2940525840003829
+        },
+        "owner_row_lock_wait": {
+          "count": 1,
+          "seconds": 0.14677629200014053,
+          "max_seconds": 0.14677629200014053
+        },
+        "owner_lock": {
+          "count": 5,
+          "seconds": 2.585279000999435,
+          "max_seconds": 2.437947417000032
+        },
+        "profile_authorization": {
+          "count": 2,
+          "seconds": 0.44364683400090144,
+          "max_seconds": 0.2950082500010467
+        },
+        "task_load": {
+          "count": 1,
+          "seconds": 0.2918126669992489,
+          "max_seconds": 0.2918126669992489
+        },
+        "task_authorization": {
+          "count": 1,
+          "seconds": 0.2920044170004985,
+          "max_seconds": 0.2920044170004985
+        },
+        "packet_context_build": {
+          "count": 2,
+          "seconds": 2.393130958000256,
+          "max_seconds": 1.1982963329992344
+        },
+        "packet_context_resume": {
+          "count": 2,
+          "seconds": 5.078684791998967,
+          "max_seconds": 2.5413343330001226
+        },
+        "form_inspection_answers": {
+          "count": 1,
+          "seconds": 4.823627583000416,
+          "max_seconds": 4.823627583000416
+        },
+        "plan_revalidation": {
+          "count": 1,
+          "seconds": 4.335250375001124,
+          "max_seconds": 4.335250375001124
+        },
+        "plan_load": {
+          "count": 2,
+          "seconds": 0.5940295420004986,
+          "max_seconds": 0.4480049590001727
+        },
+        "native_form": {
+          "count": 1,
+          "seconds": 13.371953207999468,
+          "max_seconds": 13.371953207999468
+        },
+        "response_serialization": {
+          "count": 1,
+          "seconds": 0.0005447500006994233,
+          "max_seconds": 0.0005447500006994233
+        },
+        "connection_occupancy": {
+          "count": 1,
+          "seconds": 11.519839665999825,
+          "max_seconds": 11.519839665999825
+        },
+        "commit": {
+          "count": 1,
+          "seconds": 0.1463969590004126,
+          "max_seconds": 0.1463969590004126
+        },
+        "flush_commit": {
+          "count": 1,
+          "seconds": 0.14641745799963246,
+          "max_seconds": 0.14641745799963246
+        }
+      },
+      "native_request_id": "615c6750-99f7-4664-a65d-df6cd699a15f",
+      "native_command_id": "04af550a-fd9f-4917-8a77-2719f44a73f0",
+      "pool_peak_checked_out": 1,
+      "status": 200,
+      "response_start_seconds": 13.527663791001032,
+      "http_seconds": 13.528973125001357
+    },
+    {
+      "request_id": "46e084a9-e05c-4098-82a6-ba2e6924ef90",
+      "stages": {
+        "authentication_authorization": {
+          "count": 1,
+          "seconds": 2.7874999432242475e-05,
+          "max_seconds": 2.7874999432242475e-05
+        },
+        "session_creation": {
+          "count": 1,
+          "seconds": 0.0002303749988641357,
+          "max_seconds": 0.0002303749988641357
+        },
+        "flush": {
+          "count": 15,
+          "seconds": 0.8844309569994948,
+          "max_seconds": 0.29643783299979987
+        },
+        "pool_acquisition": {
+          "count": 1,
+          "seconds": 2.042019208000056,
+          "max_seconds": 2.042019208000056
+        },
+        "sql_write": {
+          "count": 7,
+          "seconds": 1.1654310840003745,
+          "max_seconds": 0.2914531669994176
+        },
+        "owner_row_insert_wait": {
+          "count": 1,
+          "seconds": 2.7699424579986953,
+          "max_seconds": 2.7699424579986953
+        },
+        "sql_read": {
+          "count": 63,
+          "seconds": 11.11290962599196,
+          "max_seconds": 0.4414215830001922
+        },
+        "owner_row_lock_wait": {
+          "count": 1,
+          "seconds": 0.1490714579995256,
+          "max_seconds": 0.1490714579995256
+        },
+        "owner_lock": {
+          "count": 5,
+          "seconds": 3.067037166998489,
+          "max_seconds": 2.9198101249985484
+        },
+        "profile_authorization": {
+          "count": 2,
+          "seconds": 0.44166745800066565,
+          "max_seconds": 0.2936564999999973
+        },
+        "task_load": {
+          "count": 1,
+          "seconds": 0.29395404199931363,
+          "max_seconds": 0.29395404199931363
+        },
+        "task_authorization": {
+          "count": 1,
+          "seconds": 0.294191500001034,
+          "max_seconds": 0.294191500001034
+        },
+        "packet_context_build": {
+          "count": 2,
+          "seconds": 2.4072152090011514,
+          "max_seconds": 1.209724209000342
+        },
+        "packet_context_resume": {
+          "count": 2,
+          "seconds": 5.385546917001193,
+          "max_seconds": 2.6983439169998746
+        },
+        "form_inspection_answers": {
+          "count": 1,
+          "seconds": 5.368431250000867,
+          "max_seconds": 5.368431250000867
+        },
+        "plan_revalidation": {
+          "count": 1,
+          "seconds": 4.941120625000622,
+          "max_seconds": 4.941120625000622
+        },
+        "plan_load": {
+          "count": 2,
+          "seconds": 0.5925375009992422,
+          "max_seconds": 0.44451308399948175
+        },
+        "native_form": {
+          "count": 1,
+          "seconds": 15.00297933299953,
+          "max_seconds": 15.00297933299953
+        },
+        "response_serialization": {
+          "count": 1,
+          "seconds": 0.00039570799890498165,
+          "max_seconds": 0.00039570799890498165
+        },
+        "connection_occupancy": {
+          "count": 1,
+          "seconds": 12.672509083999103,
+          "max_seconds": 12.672509083999103
+        },
+        "commit": {
+          "count": 1,
+          "seconds": 0.14628441700006078,
+          "max_seconds": 0.14628441700006078
+        },
+        "flush_commit": {
+          "count": 1,
+          "seconds": 0.14630141700035892,
+          "max_seconds": 0.14630141700035892
+        }
+      },
+      "native_request_id": "c1291126-e6c9-4c16-930d-a7136d150111",
+      "native_command_id": "0045bf86-820e-4adc-83f4-028adf9c6a37",
+      "pool_peak_checked_out": 1,
+      "status": 200,
+      "response_start_seconds": 15.156911208001475,
+      "http_seconds": 15.157736832999944
+    }
+  ],
+  "lazy_rejection": {
+    "http": 403,
+    "seconds": 0.032212,
+    "backend_request_id": "ce3fb96c-29f1-493d-816a-50d96408ae65"
+  },
+  "lazy_trace": {
+    "request_id": "ce3fb96c-29f1-493d-816a-50d96408ae65",
+    "stages": {
+      "authentication_authorization": {
+        "count": 1,
+        "seconds": 3.762499909498729e-05,
+        "max_seconds": 3.762499909498729e-05
+      },
+      "session_creation": {
+        "count": 1,
+        "seconds": 0.0002225419993919786,
+        "max_seconds": 0.0002225419993919786
+      },
+      "rollback": {
+        "count": 1,
+        "seconds": 8.21249996079132e-05,
+        "max_seconds": 8.21249996079132e-05
+      }
+    },
+    "status": 403,
+    "response_start_seconds": 0.005680666999978712,
+    "http_seconds": 0.006594459000552888
+  },
+  "tab_preservation": {
+    "baseline_non_target_including_two_own_diagnostic_tabs": 9,
+    "unchanged": 9,
+    "missing": 0,
+    "modified": 0,
+    "new_unrelated_or_diagnostic": 0,
+    "explicit_inspector_tabs_excluded": 2,
+    "scope": "IDs/window IDs/URL hashes, not DOM equality"
+  },
+  "tab_audit": {
+    "until": 1793367416028,
+    "truncated": false,
+    "count": 11,
+    "events": [
+      {
+        "at": 1793366885420,
+        "event": "window_focus",
+        "origin": null,
+        "restored": null,
+        "source": "unattributed",
+        "tab": null,
+        "window": "632d65d83681e0952d9b36bd918d5ba468a269614ba33ac4c4803d954c10588b"
+      },
+      {
+        "at": 1793366885457,
+        "event": "created",
+        "origin": null,
+        "restored": null,
+        "source": "unattributed",
+        "tab": "ab00f9ea307bfe86936eeb2de76900530238ddd67c03b7bb762cc2653b11f2bd",
+        "window": "632d65d83681e0952d9b36bd918d5ba468a269614ba33ac4c4803d954c10588b"
+      },
+      {
+        "at": 1793366885463,
+        "event": "activated",
+        "origin": null,
+        "restored": null,
+        "source": "unattributed",
+        "tab": "ab00f9ea307bfe86936eeb2de76900530238ddd67c03b7bb762cc2653b11f2bd",
+        "window": "632d65d83681e0952d9b36bd918d5ba468a269614ba33ac4c4803d954c10588b"
+      },
+      {
+        "at": 1793366885464,
+        "event": "created_result",
+        "origin": null,
+        "restored": null,
+        "source": "automated_apply",
+        "tab": "ab00f9ea307bfe86936eeb2de76900530238ddd67c03b7bb762cc2653b11f2bd",
+        "window": "632d65d83681e0952d9b36bd918d5ba468a269614ba33ac4c4803d954c10588b"
+      },
+      {
+        "at": 1793366885716,
+        "event": "navigation",
+        "origin": "76bf830a8c66f97a6a8bfddfdab503af8e92adcbe32a5fa7fe73a58f43793d85",
+        "restored": null,
+        "source": "unattributed",
+        "tab": "ab00f9ea307bfe86936eeb2de76900530238ddd67c03b7bb762cc2653b11f2bd",
+        "window": "632d65d83681e0952d9b36bd918d5ba468a269614ba33ac4c4803d954c10588b"
+      },
+      {
+        "at": 1793366886016,
+        "event": "load",
+        "origin": "76bf830a8c66f97a6a8bfddfdab503af8e92adcbe32a5fa7fe73a58f43793d85",
+        "restored": null,
+        "source": "unattributed",
+        "tab": "ab00f9ea307bfe86936eeb2de76900530238ddd67c03b7bb762cc2653b11f2bd",
+        "window": "632d65d83681e0952d9b36bd918d5ba468a269614ba33ac4c4803d954c10588b"
+      },
+      {
+        "at": 1793366886071,
+        "event": "load",
+        "origin": "76bf830a8c66f97a6a8bfddfdab503af8e92adcbe32a5fa7fe73a58f43793d85",
+        "restored": null,
+        "source": "unattributed",
+        "tab": "ab00f9ea307bfe86936eeb2de76900530238ddd67c03b7bb762cc2653b11f2bd",
+        "window": "632d65d83681e0952d9b36bd918d5ba468a269614ba33ac4c4803d954c10588b"
+      },
+      {
+        "at": 1793367023461,
+        "event": "activation_requested",
+        "origin": null,
+        "restored": null,
+        "source": "automated_apply",
+        "tab": "ab00f9ea307bfe86936eeb2de76900530238ddd67c03b7bb762cc2653b11f2bd",
+        "window": "632d65d83681e0952d9b36bd918d5ba468a269614ba33ac4c4803d954c10588b"
+      },
+      {
+        "at": 1793367144559,
+        "event": "activation_requested",
+        "origin": null,
+        "restored": null,
+        "source": "automated_apply",
+        "tab": "ab00f9ea307bfe86936eeb2de76900530238ddd67c03b7bb762cc2653b11f2bd",
+        "window": "632d65d83681e0952d9b36bd918d5ba468a269614ba33ac4c4803d954c10588b"
+      },
+      {
+        "at": 1793367254822,
+        "event": "window_focus",
+        "origin": null,
+        "restored": null,
+        "source": "unattributed",
+        "tab": null,
+        "window": "974a987bae48e913c60ceb8793a433621ec57157c32196ff096bec88c0133539"
+      },
+      {
+        "at": 1793367298586,
+        "event": "window_focus",
+        "origin": null,
+        "restored": null,
+        "source": "unattributed",
+        "tab": null,
+        "window": "96821dcb62e683b5d3d7aa1a6f52dd9c5e64f9af94b161d5e2a23260eb1bf534"
+      }
+    ]
+  },
+  "final_audit": {
+    "at": "2026-10-30T13:45:32.041838+00:00",
+    "role_limit": 5,
+    "sessions": [
+      {
+        "application_name": "automated-apply:api",
+        "state": "idle",
+        "sessions": 1
+      },
+      {
+        "application_name": "automated-apply:execution",
+        "state": "idle",
+        "sessions": 1
+      },
+      {
+        "application_name": "automated-apply:final-audit",
+        "state": "active",
+        "sessions": 1
+      },
+      {
+        "application_name": "automated-apply:readiness",
+        "state": "idle",
+        "sessions": 1
+      },
+      {
+        "application_name": "automated-apply:telegram",
+        "state": "idle",
+        "sessions": 1
+      }
+    ],
+    "sessions_including_audit": 5,
+    "terminal_commands_unchanged": 30,
+    "selection_unchanged": true,
+    "task_paused": true,
+    "has_authorization": false,
+    "active_commands": 0,
+    "new_packets_for_same_job_candidate": 0,
+    "new_plan_count": 3,
+    "same_packet_revision_across_attempts": true,
+    "same_task_and_tab_across_attempts": true
+  },
+  "project_stamp_readonly": {
+    "scope": "Actual owner-approved database, READ ONLY, one operator connection, routine comparison; corrected source NOT installed",
+    "configured_project_count": 4,
+    "runs": [
+      {
+        "variant": "installed_sequential",
+        "seconds": 1.653633,
+        "SQL_operations": 10
+      },
+      {
+        "variant": "development_snapshot",
+        "seconds": 0.457622,
+        "SQL_operations": 1
+      }
+    ],
+    "digests_equal": true
+  },
+  "locked_screen": "Owner-deferred, NOT ACCEPTED; ordinary-run incidental111LOCKED/18UNKNOWN events, not activated as locked acceptance",
+  "new_fixture_tests": {
+    "backend_passed": 494,
+    "seconds": 46.67
+  },
+  "pre_cutover_capacity": {
+    "status": "inventory_captured",
+    "role_limit": 5,
+    "sessions_including_audit": 4,
+    "sessions": [
+      {
+        "application_name": "automated-apply:readiness",
+        "state": "idle",
+        "wait_event_type": "Client",
+        "wait_event": "ClientRead"
+      },
+      {
+        "application_name": "automated-apply:execution",
+        "state": "idle in transaction",
+        "wait_event_type": "Client",
+        "wait_event": "ClientRead"
+      },
+      {
+        "application_name": "automated-apply:api",
+        "state": "idle",
+        "wait_event_type": "Client",
+        "wait_event": "ClientRead"
+      },
+      {
+        "application_name": "automated-apply:capacity-audit",
+        "state": "active",
+        "wait_event_type": null,
+        "wait_event": null
+      }
+    ],
+    "events": [
+      {
+        "action": "telegram_quiesce",
+        "at": "2026-10-30T13:17:45.442018+00:00"
+      },
+      {
+        "action": "telegram_restored",
+        "returncode": 0,
+        "at": "2026-10-30T13:17:49.047955+00:00"
+      }
+    ]
+  },
+  "rollback": {
+    "from_sha": "074fb828e6da04a093024c0ac4227b0d4ebca712",
+    "to_sha": "79ce5f6b514279e6d9022d85b659ad77fb31bd89",
+    "reason": "Retained unexpected12s status ReadTimeout during genuine inspection; approved acceptance-failure rollback plan",
+    "result": "references_and_extension_restored_capacity_degraded",
+    "events": [
+      {
+        "at": "2026-10-30T13:47:04.637961+00:00",
+        "action": "terminal_outcomes_reconciled_no_replay"
+      },
+      {
+        "at": "2026-10-30T13:47:05.163006+00:00",
+        "action": "stopped",
+        "service": "execution"
+      },
+      {
+        "at": "2026-10-30T13:47:29.316354+00:00",
+        "action": "stopped",
+        "service": "telegram"
+      },
+      {
+        "at": "2026-10-30T13:47:29.594856+00:00",
+        "action": "stopped",
+        "service": "frontend"
+      },
+      {
+        "at": "2026-10-30T13:47:30.119120+00:00",
+        "action": "stopped",
+        "service": "api"
+      },
+      {
+        "at": "2026-10-30T13:47:30.130272+00:00",
+        "action": "previous_definitions_restored"
+      },
+      {
+        "at": "2026-10-30T13:47:30.148256+00:00",
+        "action": "started",
+        "service": "api"
+      },
+      {
+        "at": "2026-10-30T13:47:54.806296+00:00",
+        "action": "previous_api_ready"
+      },
+      {
+        "at": "2026-10-30T13:47:54.829068+00:00",
+        "action": "started",
+        "service": "frontend"
+      },
+      {
+        "at": "2026-10-30T13:47:54.842409+00:00",
+        "action": "started",
+        "service": "execution"
+      },
+      {
+        "at": "2026-10-30T13:47:54.854014+00:00",
+        "action": "started",
+        "service": "telegram"
+      },
+      {
+        "at": "2026-10-30T13:47:54.854592+00:00",
+        "action": "backend_rollback_completed"
+      }
+    ],
+    "extension_restored": true
+  },
+  "installation": {
+    "result": "installed",
+    "events": [
+      {
+        "at": "2026-10-30T13:18:10.319051+00:00",
+        "action": "backup_revalidated"
+      },
+      {
+        "at": "2026-10-30T13:18:14.467171+00:00",
+        "action": "stopped",
+        "service": "execution"
+      },
+      {
+        "at": "2026-10-30T13:18:40.510699+00:00",
+        "action": "stopped",
+        "service": "telegram"
+      },
+      {
+        "at": "2026-10-30T13:18:41.060574+00:00",
+        "action": "stopped",
+        "service": "frontend"
+      },
+      {
+        "at": "2026-10-30T13:18:41.609088+00:00",
+        "action": "stopped",
+        "service": "api"
+      },
+      {
+        "at": "2026-10-30T13:18:41.659258+00:00",
+        "action": "approved_definitions_installed"
+      },
+      {
+        "at": "2026-10-30T13:18:41.673119+00:00",
+        "action": "started",
+        "service": "api"
+      },
+      {
+        "at": "2026-10-30T13:19:06.290057+00:00",
+        "action": "api_ready",
+        "seconds": 3.54
+      },
+      {
+        "at": "2026-10-30T13:19:06.315027+00:00",
+        "action": "started",
+        "service": "frontend"
+      },
+      {
+        "at": "2026-10-30T13:19:06.333351+00:00",
+        "action": "started",
+        "service": "execution"
+      },
+      {
+        "at": "2026-10-30T13:19:06.350543+00:00",
+        "action": "started",
+        "service": "telegram"
+      },
+      {
+        "at": "2026-10-30T13:19:08.920524+00:00",
+        "action": "frontend_healthy"
+      },
+      {
+        "at": "2026-10-30T13:19:08.921580+00:00",
+        "action": "cutover_complete"
+      }
+    ],
+    "cold_start_poll_results": {
+      "ConnectError": 7,
+      "200": 1
+    }
+  },
+  "screen_observations": {
+    "LOCKED": 111,
+    "UNKNOWN": 18
+  },
+  "slow_status_traces": [
+    {
+      "request_id": "33d85e19-e431-4f95-98a0-8c731d8d1fdd",
+      "stages": {
+        "authentication_authorization": {
+          "count": 1,
+          "seconds": 1.4458999430644326e-05,
+          "max_seconds": 1.4458999430644326e-05
+        },
+        "session_creation": {
+          "count": 1,
+          "seconds": 0.00010062499859486707,
+          "max_seconds": 0.00010062499859486707
+        },
+        "flush": {
+          "count": 1,
+          "seconds": 7.041699973342475e-05,
+          "max_seconds": 7.041699973342475e-05
+        },
+        "pool_acquisition": {
+          "count": 1,
+          "seconds": 12.318686708000314,
+          "max_seconds": 12.318686708000314
+        },
+        "sql_read": {
+          "count": 1,
+          "seconds": 0.2902831250012241,
+          "max_seconds": 0.2902831250012241
+        },
+        "profile_status": {
+          "count": 1,
+          "seconds": 13.048917791000349,
+          "max_seconds": 13.048917791000349
+        },
+        "response_serialization": {
+          "count": 1,
+          "seconds": 0.001277792000109912,
+          "max_seconds": 0.001277792000109912
+        },
+        "connection_occupancy": {
+          "count": 1,
+          "seconds": 0.4432532500013622,
+          "max_seconds": 0.4432532500013622
+        },
+        "commit": {
+          "count": 1,
+          "seconds": 0.14428558299914584,
+          "max_seconds": 0.14428558299914584
+        },
+        "flush_commit": {
+          "count": 1,
+          "seconds": 0.14429899999959162,
+          "max_seconds": 0.14429899999959162
+        }
+      },
+      "pool_peak_checked_out": 1,
+      "status": 200,
+      "response_start_seconds": 13.20077266699991,
+      "http_seconds": 13.201811791999717
+    },
+    {
+      "request_id": "83ed1453-1052-4387-aa2d-cb29bcd33eb8",
+      "stages": {
+        "authentication_authorization": {
+          "count": 1,
+          "seconds": 2.8832999305450357e-05,
+          "max_seconds": 2.8832999305450357e-05
+        },
+        "session_creation": {
+          "count": 1,
+          "seconds": 0.000170458000866347,
+          "max_seconds": 0.000170458000866347
+        },
+        "flush": {
+          "count": 1,
+          "seconds": 8.262499977718107e-05,
+          "max_seconds": 8.262499977718107e-05
+        },
+        "pool_acquisition": {
+          "count": 1,
+          "seconds": 10.629874709000433,
+          "max_seconds": 10.629874709000433
+        },
+        "sql_read": {
+          "count": 1,
+          "seconds": 0.29529158399964217,
+          "max_seconds": 0.29529158399964217
+        },
+        "profile_status": {
+          "count": 1,
+          "seconds": 11.364096624998638,
+          "max_seconds": 11.364096624998638
+        },
+        "response_serialization": {
+          "count": 1,
+          "seconds": 0.001549082999190432,
+          "max_seconds": 0.001549082999190432
+        },
+        "connection_occupancy": {
+          "count": 1,
+          "seconds": 0.44469704199946136,
+          "max_seconds": 0.44469704199946136
+        },
+        "commit": {
+          "count": 1,
+          "seconds": 0.1442127080008504,
+          "max_seconds": 0.1442127080008504
+        },
+        "flush_commit": {
+          "count": 1,
+          "seconds": 0.1442307500001334,
+          "max_seconds": 0.1442307500001334
+        }
+      },
+      "pool_peak_checked_out": 1,
+      "status": 200,
+      "response_start_seconds": 11.519532207999873,
+      "http_seconds": 11.520638291000068
+    },
+    {
+      "request_id": "694807e9-28b6-49be-a0d3-4974d4bf69fb",
+      "stages": {
+        "authentication_authorization": {
+          "count": 1,
+          "seconds": 4.13329998991685e-05,
+          "max_seconds": 4.13329998991685e-05
+        },
+        "session_creation": {
+          "count": 1,
+          "seconds": 0.0003847919997497229,
+          "max_seconds": 0.0003847919997497229
+        },
+        "flush": {
+          "count": 1,
+          "seconds": 0.00012054199942213017,
+          "max_seconds": 0.00012054199942213017
+        },
+        "pool_acquisition": {
+          "count": 1,
+          "seconds": 13.015637250000509,
+          "max_seconds": 13.015637250000509
+        },
+        "sql_read": {
+          "count": 1,
+          "seconds": 0.440865708000274,
+          "max_seconds": 0.440865708000274
+        },
+        "profile_status": {
+          "count": 1,
+          "seconds": 13.902934292000282,
+          "max_seconds": 13.902934292000282
+        },
+        "response_serialization": {
+          "count": 1,
+          "seconds": 0.001646791999519337,
+          "max_seconds": 0.001646791999519337
+        },
+        "connection_occupancy": {
+          "count": 1,
+          "seconds": 0.5927298749993497,
+          "max_seconds": 0.5927298749993497
+        },
+        "commit": {
+          "count": 1,
+          "seconds": 0.14536670899906312,
+          "max_seconds": 0.14536670899906312
+        },
+        "flush_commit": {
+          "count": 1,
+          "seconds": 0.14538608299881162,
+          "max_seconds": 0.14538608299881162
+        }
+      },
+      "pool_peak_checked_out": 1,
+      "status": 200,
+      "response_start_seconds": 14.063966666999477,
+      "http_seconds": 14.064799207999386
+    },
+    {
+      "request_id": "7e31e6e0-4a4f-4e11-bb8c-e3783d655fad",
+      "stages": {
+        "authentication_authorization": {
+          "count": 1,
+          "seconds": 1.9332999727339484e-05,
+          "max_seconds": 1.9332999727339484e-05
+        },
+        "session_creation": {
+          "count": 1,
+          "seconds": 0.0002287499992235098,
+          "max_seconds": 0.0002287499992235098
+        },
+        "flush": {
+          "count": 1,
+          "seconds": 5.1125000027241185e-05,
+          "max_seconds": 5.1125000027241185e-05
+        },
+        "pool_acquisition": {
+          "count": 1,
+          "seconds": 9.150612333000026,
+          "max_seconds": 9.150612333000026
+        },
+        "sql_read": {
+          "count": 1,
+          "seconds": 0.43903408300138835,
+          "max_seconds": 0.43903408300138835
+        },
+        "profile_status": {
+          "count": 1,
+          "seconds": 10.028325541999948,
+          "max_seconds": 10.028325541999948
+        },
+        "response_serialization": {
+          "count": 1,
+          "seconds": 0.0015149579994613305,
+          "max_seconds": 0.0015149579994613305
+        },
+        "connection_occupancy": {
+          "count": 1,
+          "seconds": 0.5899227500012785,
+          "max_seconds": 0.5899227500012785
+        },
+        "commit": {
+          "count": 1,
+          "seconds": 0.1457167919998028,
+          "max_seconds": 0.1457167919998028
+        },
+        "flush_commit": {
+          "count": 1,
+          "seconds": 0.14573766700050328,
+          "max_seconds": 0.14573766700050328
+        }
+      },
+      "pool_peak_checked_out": 1,
+      "status": 200,
+      "response_start_seconds": 10.183053167000253,
+      "http_seconds": 10.18425841700082
+    }
+  ],
+  "rollback_final": {
+    "backend_sha": "79ce5f6b514279e6d9022d85b659ad77fb31bd89",
+    "extension_restored": true,
+    "static_checks": [
+      {
+        "name": "com.automated-apply.api.plist",
+        "matches": true
+      },
+      {
+        "name": "com.automated-apply.execution.plist",
+        "matches": true
+      },
+      {
+        "name": "com.automated-apply.telegram.plist",
+        "matches": true
+      },
+      {
+        "name": "com.automated-apply.frontend.plist",
+        "matches": true
+      },
+      {
+        "name": "native-host",
+        "matches": true
+      },
+      {
+        "name": "start-frontend.py",
+        "matches": true
+      },
+      {
+        "name": "phase54.private.env",
+        "matches": true
+      },
+      {
+        "name": "frontend.private.env",
+        "matches": true
+      },
+      {
+        "name": "com.automated_apply.agent.json",
+        "matches": true
+      }
+    ],
+    "services": {
+      "api": {
+        "loaded": true,
+        "has_pid": true
+      },
+      "execution": {
+        "loaded": true,
+        "has_pid": true
+      },
+      "telegram": {
+        "loaded": true,
+        "has_pid": true
+      },
+      "frontend": {
+        "loaded": true,
+        "has_pid": true
+      }
+    },
+    "extension_file_count": 17,
+    "original_extension_location_restored": true
+  },
+  "capacity_after_rollback": {
+    "status": "inventory_captured",
+    "role_limit": 5,
+    "sessions_including_audit": 5,
+    "sessions": [
+      {
+        "application_name": "automated-apply:api",
+        "state": "idle",
+        "wait_event_type": "Client",
+        "wait_event": "ClientRead"
+      },
+      {
+        "application_name": "automated-apply:telegram",
+        "state": "idle",
+        "wait_event_type": "Client",
+        "wait_event": "ClientRead"
+      },
+      {
+        "application_name": "automated-apply:api",
+        "state": "idle",
+        "wait_event_type": "Client",
+        "wait_event": "ClientRead"
+      },
+      {
+        "application_name": "automated-apply:execution",
+        "state": "idle",
+        "wait_event_type": "Client",
+        "wait_event": "ClientRead"
+      },
+      {
+        "application_name": "automated-apply:capacity-audit",
+        "state": "active",
+        "wait_event_type": null,
+        "wait_event": null
+      }
+    ],
+    "events": [
+      {
+        "action": "telegram_quiesce",
+        "at": "2026-10-30T14:41:17.986982+00:00"
+      },
+      {
+        "action": "telegram_restored",
+        "returncode": 0,
+        "at": "2026-10-30T14:41:35.844628+00:00"
+      }
+    ]
+  },
+  "rollback_verification_failures": {
+    "readiness_503_count": 3,
+    "operator_connection_limit": true,
+    "telegram_exit_on_connection_limit": true,
+    "recovery_execution_quiesce_connection_limit": true,
+    "unidentified_sessions_killed": 0,
+    "final_readiness_503_count": 1
+  },
+  "rollback_final_http": [
+    {
+      "endpoint": "/health",
+      "http": 200,
+      "seconds": 0.0368
+    },
+    {
+      "endpoint": "/ready",
+      "http": 503,
+      "seconds": 1.3228
+    },
+    {
+      "endpoint": "/api/v1/browser/chrome-profiles",
+      "http": 200,
+      "seconds": 1.1525,
+      "active_commands": 0,
+      "selected_binding_unchanged": true
+    },
+    {
+      "endpoint": "task",
+      "http": 200,
+      "seconds": 0.9644,
+      "task_paused": true,
+      "has_authorization": false
+    }
+  ]
+}
