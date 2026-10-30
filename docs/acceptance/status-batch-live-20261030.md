@@ -1,133 +1,217 @@
-# Installed profile-status batching: live acceptance
+# Installed profile-status batching: completed bounded acceptance
 
 Branch `fix/live-prepare-discovery-20261030`, base `main`; [PR 48](https://github.com/karanagg166/automated-apply/pull/48).
-Exact owner-approved installed implementation:
+Exact approved installed implementation:
 [`79ce5f6b514279e6d9022d85b659ad77fb31bd89`](https://github.com/karanagg166/automated-apply/commit/79ce5f6b514279e6d9022d85b659ad77fb31bd89).
-The recorded owner answer at **2026-10-30 11:25:51 UTC** was
-“Approve this SHA and read-only acceptance.” The locked-screen test remains
-explicitly owner-deferred. This approval excludes field filling, employer
-submissions, email sends, merging and cleanup.
+Installation and intermediate evidence were published in
+[6121546](https://github.com/karanagg166/automated-apply/commit/6121546fd1badd8f4d9eb24fa1b1be96620e8cc2)
+and [06e3067](https://github.com/karanagg166/automated-apply/commit/06e3067b248b08beae18f74e1b8e2b3e6fe1e754).
+[Sanitized final measurements](status-batch-live-metrics-20261030.json).
 
-## Installation and recovered handoff
+**Overall acceptance: FAIL.** Three full read-only cycles and recovery/control
+checks completed, but three profile-status timeouts remain. Two revision-conflict
+attempts interrupt the requested consecutive-success sequence. The broader
+unrelated-tab preservation check also failed without causal attribution.
+Complete 24/7 automation is not accepted by this report.
 
-The previous task installed the approved release on October 30 and stopped
-before starting its native workload acceptance. This continuation verified the
-private approval receipt, clean installed tracked source, all four service
-definitions pointing at this SHA, current gates and the paused acceptance task.
-No second installation or source replacement was performed by this continuation.
+## Approved installation and continuation scope
 
-The installation preserved and revalidated a **12-file rollback backup**. Its
-private receipts record successful constrained dependency installation, `pip
-check`, frozen pnpm installation, frontend and extension builds, and full
-restricted-role/TLS/catalog preflight. Cutover ran **11:26:50–11:27:38 UTC**.
-The first successful readiness request took **3.474s**, including its database
-probe; this is a request duration, not total service-start time. Native wrapper
-health passed with a matching framed request ID. The existing Profile 8
-extension remains at its older immutable release path; its **17 files** match
-the approved build, with no profile, identity or permission change.
+The owner answer recorded at **2026-10-30 11:25:51 UTC** was
+“Approve this SHA and read-only acceptance.” It excludes filling, employer
+submissions, email sending, merging and cleanup. The locked-screen test remains
+explicitly owner-deferred; no repeat lock request was made.
 
-All **nine initial HTTP checks returned 200**. The three readiness requests took
-1.231s, 1.056s and 1.052s; profile status took 1.484s. A fresh continuation
-preflight found the selected profile `CONNECTED`, command transport enabled,
-screen `UNLOCKED`, no active commands and the task `PAUSED` without field
-authorization. Sending, submission and automatic execution gates remain off.
+The implementation combines five profile-status reads into one SQL snapshot
+and gives the monitor a two-second idle connection expiry. It preserves status
+redaction, expiry/cancellation rechecks, command deadlines and connection limits.
+This continuation changed acceptance documentation and private helper ordering;
+no installed source or production configuration was replaced.
 
-## Acceptance status
+Installation receipts retain a revalidated **12-file rollback backup**, successful
+constrained dependency installation, `pip check`, frozen pnpm installation,
+frontend/extension builds and full restricted-role/TLS/catalog preflight. Cutover
+ran **11:26:50–11:27:38 UTC**. Six cold-start ConnectError polls preceded the
+first successful readiness request, which took **3.474s**; this is a request
+duration, not total startup time. All nine subsequent installation HTTP checks
+returned 200, and framed native health passed. The existing extension's **17
+files** match the approved build while its older immutable install path remains.
+No schema migration, profile switch or permission change occurred.
 
-| Check | Status | Evidence / limitation |
+The continuation revalidated clean installed tracked source, all four service
+definitions at this SHA, four fresh HTTP preflight checks, selected Profile 8
+`CONNECTED`, no active commands, screen `UNLOCKED` and a paused task without
+field authorization. Sending, submission and automatic execution gates were off.
+
+## Final status matrix
+
+| Requirement | Status | Actual evidence / limit |
 | --- | --- | --- |
-| Exact approved release and preserved rollback | PASS | Current SHA and service definitions revalidated; installed tracked source clean |
-| Dependency/build and full DB preflight | PASS | Completed installation receipts; no new schema migration |
-| Initial HTTP and framed native health | PASS | Nine HTTP 200 checks and actual installed native wrapper |
-| Existing selected profile and paused task | PASS | Fresh continuation preflight; no fill authorization or active command |
-| Three new real Open → Prepare cycles | NOT TESTED to completion | Two cycles passed; third running; first rejected attempt retained below |
-| Installed HTTP latency under native work | FAIL | Two 12s status timeouts in the first completed 120-sample window; no monitor retries |
-| Graceful API/worker restart on this SHA | PASS | Same approved source; no active commands; first successful readiness request 3.447s |
-| Quiescent worker SIGKILL recovery on this SHA | PASS | LaunchAgent new worker observed at 26.198s; fresh heartbeat at 44.091s; no task resume/replay |
-| Concurrent Stop on this SHA | NOT TESTED to completion | New control check pending |
-| Locked-screen DOM cycle | NOT TESTED | Explicit owner deferral; no repeated lock request |
-| Real fill, submission and genuine employer receipt | BLOCKED / NOT TESTED | Outside the recorded read-only approval |
-| Complete 24/7 operation and continuous discovery | NOT TESTED | A bounded acceptance window does not establish long-term operation |
+| Exact approved source, rollback, builds and DB preflight | PASS | Current identity revalidated; inherited installation receipts retained |
+| Three completed real Open → Prepare cycles | PASS for completed count | Three distinct zero-field read-only plans across five retained attempts |
+| Three uninterrupted consecutive attempts | FAIL | Attempts 1 and 4 rejected stale task versions; not relabeled as successes |
+| Profile-status deadline under native work | FAIL | Three retained 12s ReadTimeout observations; server completions exceeded deadline |
+| Readiness during native work | PASS for bounded window, excluding deliberate outage | 207 HTTP 200, three planned-restart ConnectError, zero 503 |
+| Health polling transport | PASS outside deliberate restart | 207 HTTP 200, same three restart gaps, zero ReadError |
+| Graceful API/worker restart | PASS for exercised case | Same exact SHA; first successful readiness request 3.447s |
+| Quiescent execution-worker SIGKILL recovery | PASS for exercised case | LaunchAgent replacement observed at 26.198s; fresh heartbeat at 44.091s; no resume/replay |
+| Concurrent task Pause / global Stop | PASS | Queued Prepare cancelled with global_stop; restoring RUNNING did not resume task or replay command |
+| Packet identity and terminal-command preservation | PASS | Same packet/revision across complete cycles; zero new packets for exercised job/candidate; historical terminal commands unchanged |
+| All baseline unrelated tabs preserved | FAIL; cause NOT DETERMINED | Four of five unchanged; one outside acceptance window disappeared; seven new unrelated tabs observed |
+| Final task, profile and connection snapshot | PASS for observed state | Task PAUSED, no authorization/active command, selected binding unchanged, four runtime sessions plus one audit within role limit five |
+| Final HTTP/native transport checks | PASS | Nine HTTP 200 checks and framed native health; not DOM/fill proof |
+| Locked-screen DOM acceptance | NOT TESTED | Explicit owner deferral |
+| Real filling, submission and genuine employer receipt | BLOCKED / NOT TESTED | Outside recorded read-only authorization |
+| Long-term uptime and continuous discovery | NOT TESTED | Bounded checks do not establish 24/7 reliability |
 
-The implementation's existing validation is **346 focused backend tests passed
-in 36.01s** and **7 disposable PostgreSQL tests passed in 2.56s**, plus Ruff
-E9/F/I and diff checks. These are carried-forward fixture/process regressions,
-not new live tests or additional executions in this continuation. No source
-change requires repeating them at this checkpoint.
+## Real native attempts and controls
 
-## Comparison and retained failures
+| Attempt | Result | Helper duration | Evidence |
+| --- | --- | --- | --- |
+| 1 | FAIL | 16.398s | Resume rejected before native admission |
+| 2 | PASS | 182.636s | Open + Prepare complete; new read-only plan |
+| 3 | PASS | 151.538s | Open + Prepare complete after restart/crash |
+| 4 | FAIL | 106.492s | Open complete; Prepare admission rejected |
+| 5 | PASS | 178.677s | Open + Prepare complete; new read-only plan |
 
-The [previous installed workload](readiness-isolation-live-20261030.md) recorded
-180 readiness observations: 177 HTTP 200, three connection failures during a
-planned API restart and zero HTTP 503. It also retained **three profile-status
-12s timeouts and two health ReadErrors**. Those failures remain historical
-evidence. The [candidate investigation](profile-status-latency-20261030.md)
-measured remote routine cost falling from five reads averaging 0.8554s to one
-read averaging 0.1819s. That direct read-only benchmark does not substitute for
-the newly installed HTTP workload or resource measurements.
+The three completed cycles saved distinct `read_only` / `NEEDS_INPUT` plans with
+**zero fields, actions and approved fields**. Seven Open/Prepare commands
+completed in total: two in each full cycle and the Open in attempt 4. An eighth
+command, the control-race Prepare, was cancelled. Request IDs and terminal states
+were reconciled in private receipts; no ambiguous native command was replayed.
+Helper durations include alarm/polling, reconciliation and final Pause.
 
-The new monitor uses the approved two-second idle connection expiry, retains
-every first-attempt error and observes process CPU/RSS without a database
-connection. Only one native acceptance helper may occupy the fifth runtime
-role slot; no independent DB observer runs concurrently. Final HTTP/resource
-comparisons will be published when the window finishes.
+Attempt 1 returned **409 / extension_task_revision_conflict** at Resume after a
+focus observation advanced the paused task version and changed tab_active.
+No native command was admitted. Attempt 4 completed Open, then another focus
+observation advanced the task while the helper read profile status; Prepare
+admission returned the same 409 and created no Prepare command. Both failures
+remain visible. The helper subsequently read profile status **before** the task,
+obtaining the revision closer to admission. It used a new request ID for the new
+attempt; server fences and installed code did not change. This is a helper
+ordering correction, not proof that product-level revision conflicts are solved.
 
-## Reproduction, evidence and next actions
+The restart ran **11:46:24–11:46:47 UTC** with no in-flight command and a paused
+task. The quiescent worker was killed at **11:46:52 UTC**; its replacement and
+fresh DB heartbeat were observed before the second completed cycle. During
+**11:57:55–11:58:31 UTC**, Pause/Start preserved the paused task, then concurrent
+Pause/Stop cancelled a newly queued Prepare. Original RUNNING state was restored
+without resuming the task, old paused executions or terminal commands.
+
+## Completed HTTP windows and remaining latency
+
+Three **non-overlapping** windows collected **120 + 60 + 30 = 210 samples per
+endpoint**, or **630 monitor requests**, from **11:41:07–11:59:41 UTC** with
+short gaps between windows. Every first-attempt failure is retained; no monitor
+retry or deadline increase was used. The observer used HTTP only while one
+acceptance helper occupied the remaining DB slot.
+
+| Endpoint | Final results | Mean / p95 / maximum seconds |
+| --- | --- | --- |
+| Health | 207 HTTP 200; 3 ConnectError during deliberate API restart | 0.0298 / 0.0583 / 0.4819 |
+| Readiness | 207 HTTP 200; same 3 restart ConnectError; zero 503 | 1.1630 / 1.5145 / 4.2275 |
+| Profile status | 204 HTTP 200; same 3 restart ConnectError; **3 ReadTimeout** | 2.4880 / 6.5874 / 12.0157 |
+
+All three endpoint connection gaps began at **11:46:28, 11:46:33 and 11:46:38
+UTC**, inside the recorded deliberate API restart. The status timeout samples
+began **11:45:29, 11:49:52 and 11:57:00 UTC**, outside that outage.
+
+Server logs recorded the corresponding native inspection requests at **17.5237s,
+19.6243s and 16.8151s**. Overlapping status requests eventually returned 200 after
+**17.5423s, 19.1990s and 15.8539s**, beyond the observer deadline. Another native
+HTTP request took 12.2539s during final verification; its internal operation was
+not correlated and is retained as unattributed in the sanitized trace.
+
+The fast status SQL still shares one business connection with long native
+transactions. Queueing behind those transactions is consistent with these
+overlapping timings and the configured pool. **Per-query and pool-wait tracing
+has not yet isolated the full internal cost.** No cancellation/freshness check,
+connection limit or command deadline was weakened to manufacture a PASS.
+
+The [previous release](readiness-isolation-live-20261030.md) had 180 observations,
+three status timeouts and two health ReadErrors. Its combined mean status duration
+was **2.9362s**, versus **2.4880s** here; mean readiness was **1.1271s**, versus
+**1.1630s** here. These are sequential, non-identical workloads, not a controlled
+benchmark. The earlier direct remote routine improvement from 0.8554s to 0.1819s
+remains valid for that measured read cost, but does not establish HTTP acceptance.
+
+## Resource and tab audits
+
+The following values use the same process grouping as the previous 180-sample
+window. Current data has 210 samples and additional rejected attempts. Means use
+samples where each service was present; execution was absent during planned
+recovery in 10 current samples, versus five previous samples. Startup/restart
+spikes and OS memory pressure are included. Lower RSS is not proof of a memory
+optimization.
+
+| Service | Mean CPU %, previous / current | Peak CPU %, previous / current | Peak RSS MiB, previous / current |
+| --- | --- | --- | --- |
+| api | 1.967 / 3.173 | 88.0 / 84.0 | 137.938 / 133.922 |
+| execution | 0.993 / 1.201 | 83.0 / 93.2 | 96.359 / 94.875 |
+| telegram | 0.274 / 0.293 | 5.1 / 4.0 | 62.188 / 49.781 |
+| frontend | 0.015 / 0.021 | 1.5 / 1.0 | 13.656 / 9.109 |
+
+The final read-only DB audit found one API, execution, Telegram and readiness
+session, plus the temporary audit session: **five with a role limit of five**.
+This is a snapshot, not continuous session telemetry. Profile and worker
+heartbeats were 2.450s and 3.283s old; no active browser command remained. Packet
+creation timestamps found **zero** new packets for the exercised job/candidate
+over all five attempts, and the three completed cycles retained the same packet
+revision. This does not assert a global historical duplicate count.
+
+The tab comparison normalized AppleScript string IDs and native integer IDs,
+then excluded the acceptance target. **Four of five** original unrelated tabs
+retained their window/tab IDs and URL hashes. One tab outside the acceptance
+window disappeared, no retained baseline tab changed URL, and seven new unrelated
+tabs appeared. No event provenance was captured for those external-window
+changes, so neither user activity nor application causation is asserted. The
+initial failed audit and raw private snapshots are retained; the published
+reconciled counts preserve the failure. No URL, title, DOM content or tab ID is
+published. A controlled preservation rerun remains necessary.
+
+## Validation, reproduction and next actions
+
+Existing implementation validation remains **346 focused backend tests passed
+in 36.01s**, **7 disposable PostgreSQL tests passed in 2.56s**, and Ruff E9/F/I.
+Those are prior fixture/process regressions for this exact source, not new live
+or unit test executions. This continuation ran **zero new automated unit tests**
+for documentation/private helper ordering. New evidence comprises the actual Mac
+attempts, 630 HTTP monitor requests, four continuation preflight HTTP checks,
+nine final HTTP checks, native framing, controls and read-only audits. Public
+JSON parsing, privacy-field scan and Git diff checks passed.
 
 ```sh
 release="$HOME/Library/Application Support/Automated Apply/releases/79ce5f6b514279e6d9022d85b659ad77fb31bd89"
 git -C "$release" rev-parse HEAD
 git -C "$release" status --porcelain --untracked-files=no
-# Use a fresh filename and do not start a second concurrent observer.
+# Use a fresh filename; never overlap DB observers or acceptance helpers.
 "$release/.venv/bin/python" "$release/backend/scripts/measure_reliability.py" \
   --env-file "$HOME/Library/Application Support/Automated Apply/phase54.private.env" \
   --output /tmp/automated-apply-status-batch-new.jsonl \
   --samples 120 --interval-seconds 5
+# The other bounded windows use 60 and 30 samples with new output filenames.
+git diff --check
 ```
 
-Private installation, preflight, monitor and command-reconciliation receipts
-remain under `status-batch-upgrade-20261030T112551Z`. Raw response bodies, account
-details, tab URLs, candidate data, credentials and screenshots are not published.
-Complete and reconcile the third read-only native cycle and concurrent control
-check; then finalize timing/resource counts and every remaining failure.
-Preserve the deferred lock check and all rollback releases. No hosted
-workflow was dispatched or rerun, no merge occurred, and no cleanup was performed.
+For native reproduction, start from the existing selected Profile 8 and paused,
+unauthorized acceptance task. Use explicit Open and Prepare gestures, reconcile
+the original command IDs and saved plan/tab/window/session binding, then Pause.
+Read profile status before reading the task revision for command admission;
+a 409 requires fresh state and a separately recorded attempt. Do not grant field
+authorization. Quiescent recovery checks require verifying no active commands
+and the exact service executable/PID before restarting the registered API/worker
+or killing the worker; retain the deliberate outage and recovery timestamps.
 
-## Two-cycle and recovery checkpoint
+Next work is to instrument and shorten the native inspection transaction while
+preserving owner/packet locks, cancellation, original-command expiry and unknown
+outcomes; verify HTTP deadlines under the same workload. Repeat the consecutive
+cycle and tab-preservation criteria under controlled conditions. Keep the locked
+cycle pending as requested. No continuous discovery workload was added on the
+strength of this failed latency acceptance. Any new installed implementation
+still requires owner review and approval of its exact SHA under AGENTS.md.
 
-Two genuine Open → Prepare cycles passed on this installed SHA. Each saved a
-distinct zero-field, zero-action, zero-approved-field read-only `NEEDS_INPUT`
-plan, then paused. Their helper durations were **182.636s** and **151.538s**,
-including polling and reconciliation. The second followed both a graceful
-backend/worker restart and an injected quiescent-worker SIGKILL. The task stayed
-paused across recovery; no terminal command was replayed.
-
-One earlier attempt failed before admitting any native command: Resume returned
-**409 / `extension_task_revision_conflict`** after a concurrent focus observation
-advanced the paused task's version and changed `tab_active` from true to false.
-The task remained paused without authorization. A fresh attempt used the new
-version; no stale request was blindly replayed. The failed attempt remains in
-the [sanitized measurements](status-batch-live-metrics-20261030.json).
-
-The first monitor completed **120 samples per endpoint**, retaining all first
-attempts:
-
-| Endpoint | Results | Mean / maximum seconds |
-| --- | --- | --- |
-| Health | 117 HTTP 200; 3 ConnectError during deliberate API restart | 0.0294 / 0.3183 |
-| Readiness | 117 HTTP 200; same 3 restart ConnectError; zero 503 | 1.1711 / 4.2275 |
-| Profile status | 115 HTTP 200; same 3 restart ConnectError; **2 ReadTimeout** | 2.3455 / 12.0157 |
-
-The timeout samples began **11:45:29 UTC** and **11:49:52 UTC**. For the first,
-server logs show `inspect_form` took **17.5237s** and the overlapping status route
-eventually returned HTTP 200 after **17.5423s**, beyond the observer's 12s
-deadline. Thus a fast one-statement status routine still queues behind long
-native transactions in the single business connection. This is direct timing
-evidence of overlap and a queueing explanation consistent with the configured
-pool; per-query/pool-wait tracing has not yet been collected, so it does not
-assign all 17.5 seconds to one internal operation.
-
-The second, non-overlapping monitor continues through the third cycle and Stop
-check. Its eventual counts and resource comparison will be appended. The
-batching improvement is **not** an unconditional HTTP latency PASS; no timeout,
-pool limit or cancellation fence was relaxed to make the acceptance succeed.
+Private receipts remain under `status-batch-upgrade-20261030T112551Z`; all new raw
+evidence is owner-readable only. Raw logs, credentials, candidate data, resumes,
+Gmail contents and screenshots are excluded from Git. All current/historical
+releases, private configuration, backups and runtime files remain preserved.
+No hosted workflow was dispatched or rerun, no merge occurred and no cleanup
+was performed. A completed bounded test run is not production automation PASS.

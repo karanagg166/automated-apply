@@ -74,34 +74,67 @@
     },
     {
       "attempt": 4,
-      "status": "in_progress",
-      "duration_seconds": 34.787,
+      "status": "FAIL",
+      "duration_seconds": 106.492,
       "commands": [
         {
           "action": "open",
-          "terminal": "queued",
-          "observed_admission_to_completion_seconds": 9.843
+          "terminal": "completed",
+          "observed_admission_to_completion_seconds": 56.351
         }
       ],
-      "paused_after": false,
+      "paused_after": true,
+      "has_field_authorization_after": false,
+      "http_failures": [
+        {
+          "status": 409,
+          "seconds": 6.366,
+          "code": "extension_task_revision_conflict"
+        }
+      ],
+      "all_observed_screens_unlocked": true
+    },
+    {
+      "attempt": 5,
+      "status": "PASS",
+      "duration_seconds": 178.677,
+      "commands": [
+        {
+          "action": "open",
+          "terminal": "completed",
+          "observed_admission_to_completion_seconds": 49.073
+        },
+        {
+          "action": "prepare",
+          "terminal": "completed",
+          "observed_admission_to_completion_seconds": 87.777
+        }
+      ],
+      "plan_state": "read_only",
+      "task_state": "NEEDS_INPUT",
+      "fields": 0,
+      "actions": 0,
+      "approved_fields": 0,
+      "new_read_only_plans": 1,
+      "paused_after": true,
       "has_field_authorization_after": false,
       "http_failures": [],
       "all_observed_screens_unlocked": true
     }
   ],
   "monitor": {
-    "samples": 126,
-    "completed": false,
+    "samples": 210,
+    "completed": true,
     "http": {
       "/health": {
-        "samples": 126,
+        "samples": 210,
         "status_counts": {
-          "200": 123,
+          "200": 207,
           "ConnectError": 3
         },
-        "mean_seconds": 0.0291,
+        "mean_seconds": 0.0298,
         "p95_seconds": 0.0583,
-        "max_seconds": 0.3183,
+        "max_seconds": 0.4819,
         "failures": [
           {
             "at": "2026-10-30T11:46:28.528520+00:00",
@@ -121,13 +154,13 @@
         ]
       },
       "/ready": {
-        "samples": 126,
+        "samples": 210,
         "status_counts": {
-          "200": 123,
+          "200": 207,
           "ConnectError": 3
         },
-        "mean_seconds": 1.185,
-        "p95_seconds": 1.5268,
+        "mean_seconds": 1.163,
+        "p95_seconds": 1.5145,
         "max_seconds": 4.2275,
         "failures": [
           {
@@ -148,13 +181,13 @@
         ]
       },
       "/api/v1/browser/chrome-profiles": {
-        "samples": 126,
+        "samples": 210,
         "status_counts": {
-          "200": 121,
-          "ReadTimeout": 2,
+          "200": 204,
+          "ReadTimeout": 3,
           "ConnectError": 3
         },
-        "mean_seconds": 2.4169,
+        "mean_seconds": 2.488,
         "p95_seconds": 6.5874,
         "max_seconds": 12.0157,
         "failures": [
@@ -182,42 +215,47 @@
             "at": "2026-10-30T11:49:52.386881+00:00",
             "status": "ReadTimeout",
             "seconds": 12.0097
+          },
+          {
+            "at": "2026-10-30T11:57:00.328276+00:00",
+            "status": "ReadTimeout",
+            "seconds": 12.0089
           }
         ]
       }
     },
     "resources": {
       "api": {
-        "present_samples": 126,
-        "mean_cpu_percent": 3.402,
+        "present_samples": 210,
+        "mean_cpu_percent": 3.173,
         "peak_cpu_percent": 84.0,
-        "mean_rss_mib": 55.927,
+        "mean_rss_mib": 54.217,
         "peak_rss_mib": 133.922
       },
       "execution": {
-        "present_samples": 116,
-        "mean_cpu_percent": 1.484,
+        "present_samples": 200,
+        "mean_cpu_percent": 1.201,
         "peak_cpu_percent": 93.2,
-        "mean_rss_mib": 31.724,
+        "mean_rss_mib": 30.297,
         "peak_rss_mib": 94.875
       },
       "telegram": {
-        "present_samples": 126,
-        "mean_cpu_percent": 0.263,
-        "peak_cpu_percent": 3.3,
-        "mean_rss_mib": 17.09,
-        "peak_rss_mib": 48.312
+        "present_samples": 210,
+        "mean_cpu_percent": 0.293,
+        "peak_cpu_percent": 4.0,
+        "mean_rss_mib": 16.646,
+        "peak_rss_mib": 49.781
       },
       "frontend": {
-        "present_samples": 126,
-        "mean_cpu_percent": 0.017,
-        "peak_cpu_percent": 0.6,
-        "mean_rss_mib": 4.864,
+        "present_samples": 210,
+        "mean_cpu_percent": 0.021,
+        "peak_cpu_percent": 1.0,
+        "mean_rss_mib": 4.353,
         "peak_rss_mib": 9.109
       }
     },
     "start": "2026-10-30T11:41:07.206926+00:00",
-    "end": "2026-10-30T11:52:08.622754+00:00"
+    "end": "2026-10-30T11:59:41.815351+00:00"
   },
   "monitors": [
     {
@@ -353,72 +391,148 @@
     },
     {
       "name": "monitor-final.jsonl",
-      "samples": 6,
-      "completed": false,
+      "samples": 60,
+      "completed": true,
       "http": {
         "/health": {
-          "samples": 6,
+          "samples": 60,
           "status_counts": {
-            "200": 6
+            "200": 60
           },
-          "mean_seconds": 0.024,
-          "p95_seconds": 0.0624,
-          "max_seconds": 0.0624,
+          "mean_seconds": 0.0307,
+          "p95_seconds": 0.0465,
+          "max_seconds": 0.4819,
           "failures": []
         },
         "/ready": {
-          "samples": 6,
+          "samples": 60,
           "status_counts": {
-            "200": 6
+            "200": 60
           },
-          "mean_seconds": 1.4635,
-          "p95_seconds": 2.1877,
+          "mean_seconds": 1.1456,
+          "p95_seconds": 1.4442,
           "max_seconds": 2.1877,
           "failures": []
         },
         "/api/v1/browser/chrome-profiles": {
-          "samples": 6,
+          "samples": 60,
           "status_counts": {
-            "200": 6
+            "200": 60
           },
-          "mean_seconds": 3.8449,
-          "p95_seconds": 8.4916,
+          "mean_seconds": 2.4684,
+          "p95_seconds": 5.9312,
           "max_seconds": 8.4916,
           "failures": []
         }
       },
       "resources": {
         "api": {
-          "present_samples": 6,
-          "mean_cpu_percent": 3.383,
-          "peak_cpu_percent": 4.7,
-          "mean_rss_mib": 49.167,
-          "peak_rss_mib": 68.25
+          "present_samples": 60,
+          "mean_cpu_percent": 3.037,
+          "peak_cpu_percent": 6.7,
+          "mean_rss_mib": 50.309,
+          "peak_rss_mib": 68.859
         },
         "execution": {
-          "present_samples": 6,
-          "mean_cpu_percent": 0.65,
-          "peak_cpu_percent": 2.2,
-          "mean_rss_mib": 23.078,
-          "peak_rss_mib": 34.625
+          "present_samples": 60,
+          "mean_cpu_percent": 0.723,
+          "peak_cpu_percent": 2.9,
+          "mean_rss_mib": 26.031,
+          "peak_rss_mib": 47.922
         },
         "telegram": {
-          "present_samples": 6,
-          "mean_cpu_percent": 0.15,
-          "peak_cpu_percent": 0.9,
-          "mean_rss_mib": 9.724,
-          "peak_rss_mib": 32.359
+          "present_samples": 60,
+          "mean_cpu_percent": 0.355,
+          "peak_cpu_percent": 3.3,
+          "mean_rss_mib": 15.402,
+          "peak_rss_mib": 45.078
         },
         "frontend": {
-          "present_samples": 6,
-          "mean_cpu_percent": 0.0,
-          "peak_cpu_percent": 0.0,
-          "mean_rss_mib": 3.977,
+          "present_samples": 60,
+          "mean_cpu_percent": 0.027,
+          "peak_cpu_percent": 1.0,
+          "mean_rss_mib": 3.586,
           "peak_rss_mib": 6.469
         }
       },
       "start": "2026-10-30T11:51:38.312805+00:00",
-      "end": "2026-10-30T11:52:08.622754+00:00"
+      "end": "2026-10-30T11:56:43.981201+00:00"
+    },
+    {
+      "name": "monitor-controls.jsonl",
+      "samples": 30,
+      "completed": true,
+      "http": {
+        "/health": {
+          "samples": 30,
+          "status_counts": {
+            "200": 30
+          },
+          "mean_seconds": 0.0301,
+          "p95_seconds": 0.0742,
+          "max_seconds": 0.2956,
+          "failures": []
+        },
+        "/ready": {
+          "samples": 30,
+          "status_counts": {
+            "200": 30
+          },
+          "mean_seconds": 1.1656,
+          "p95_seconds": 2.2176,
+          "max_seconds": 2.2729,
+          "failures": []
+        },
+        "/api/v1/browser/chrome-profiles": {
+          "samples": 30,
+          "status_counts": {
+            "ReadTimeout": 1,
+            "200": 29
+          },
+          "mean_seconds": 3.097,
+          "p95_seconds": 11.8073,
+          "max_seconds": 12.0089,
+          "failures": [
+            {
+              "at": "2026-10-30T11:57:00.328276+00:00",
+              "status": "ReadTimeout",
+              "seconds": 12.0089
+            }
+          ]
+        }
+      },
+      "resources": {
+        "api": {
+          "present_samples": 30,
+          "mean_cpu_percent": 2.53,
+          "peak_cpu_percent": 4.2,
+          "mean_rss_mib": 53.84,
+          "peak_rss_mib": 67.875
+        },
+        "execution": {
+          "present_samples": 30,
+          "mean_cpu_percent": 0.953,
+          "peak_cpu_percent": 5.3,
+          "mean_rss_mib": 31.865,
+          "peak_rss_mib": 52.5
+        },
+        "telegram": {
+          "present_samples": 30,
+          "mean_cpu_percent": 0.263,
+          "peak_cpu_percent": 4.0,
+          "mean_rss_mib": 15.881,
+          "peak_rss_mib": 49.781
+        },
+        "frontend": {
+          "present_samples": 30,
+          "mean_cpu_percent": 0.027,
+          "peak_cpu_percent": 0.7,
+          "mean_rss_mib": 3.664,
+          "peak_rss_mib": 6.297
+        }
+      },
+      "start": "2026-10-30T11:57:00.328276+00:00",
+      "end": "2026-10-30T11:59:41.815351+00:00"
     }
   ],
   "previous_release_comparison": {
@@ -641,6 +755,223 @@
       {
         "at": "2026-10-30T11:47:40.583340+00:00",
         "action": "worker_recovery_verified_no_task_resume_or_command_replay"
+      }
+    ]
+  },
+  "controls": {
+    "result": "PASS",
+    "events": [
+      {
+        "at": "2026-10-30T11:58:00.999682+00:00",
+        "action": "pause_start_did_not_resume_task"
+      },
+      {
+        "at": "2026-10-30T11:58:08.023797+00:00",
+        "action": "admission_attempt"
+      },
+      {
+        "at": "2026-10-30T11:58:25.313568+00:00",
+        "action": "concurrent_pause_stop_fenced",
+        "command_state": "cancelled",
+        "reason": "global_stop"
+      },
+      {
+        "at": "2026-10-30T11:58:31.777862+00:00",
+        "action": "original_run_state_restored_without_task_resume"
+      }
+    ]
+  },
+  "packet-creation-audit": {
+    "existing_packet_predates_all_attempts": true,
+    "same_application_all_three_completed_cycles": true,
+    "same_packet_revision_all_three_completed_cycles": true,
+    "new_packets_for_same_job_and_candidate_during_all_attempts": 0,
+    "scope": "Authoritative packet creation timestamps over the bounded acceptance interval for this job/candidate; not all historical packets"
+  },
+  "unrelated-tabs-reconciled": {
+    "observed_preservation_status": "FAIL",
+    "non_target_tabs_compared": 5,
+    "unchanged_window_tab_ids_and_url_hashes": 4,
+    "missing_baseline_tabs": 1,
+    "changed_url_baseline_tabs": 0,
+    "missing_tabs_outside_acceptance_window": 1,
+    "new_non_target_tabs_observed": 7,
+    "causal_attribution": "NOT DETERMINED; user browser activity was not controlled or attributed",
+    "scope": "Original tab/window identities and URL hashes, excluding acceptance target IDs after normalizing AppleScript strings and native integer IDs. No raw URLs or identities published. Initial audit retained privately."
+  },
+  "post-install-sessions": {
+    "at": "2026-10-30T11:59:20.253442+00:00",
+    "sessions": [
+      {
+        "application_name": "automated-apply:acceptance",
+        "state": "active",
+        "sessions": 1
+      },
+      {
+        "application_name": "automated-apply:api",
+        "state": "idle in transaction",
+        "sessions": 1
+      },
+      {
+        "application_name": "automated-apply:execution",
+        "state": "idle in transaction",
+        "sessions": 1
+      },
+      {
+        "application_name": "automated-apply:readiness",
+        "state": "idle",
+        "sessions": 1
+      },
+      {
+        "application_name": "automated-apply:telegram",
+        "state": "idle",
+        "sessions": 1
+      }
+    ],
+    "selected_binding_unchanged": true,
+    "task_state": "PAUSED",
+    "task_has_fill_authorization": false,
+    "profile_connected": true,
+    "profile_heartbeat_age_seconds": 2.449601,
+    "worker_heartbeat_age_seconds": 3.282696,
+    "automation_state": "RUNNING",
+    "active_commands": 0,
+    "scope": "One final connection snapshot including the temporary read-only audit; not continuous session telemetry",
+    "role_connection_limit": 5
+  },
+  "server-request-timing": {
+    "scope": "Sanitized server logs since continuation preflight: inspect_form dispatch and slow HTTP completions. No SQL/pool-wait attribution, request IDs, bodies, candidate data or credentials retained.",
+    "events": [
+      {
+        "at": "2026-10-30T11:45:28+00:00",
+        "kind": "native_dispatch",
+        "command": "inspect_form"
+      },
+      {
+        "at": "2026-10-30T11:45:46+00:00",
+        "kind": "server_request_completed",
+        "method": "POST",
+        "path": "/api/v1/local-agent/chrome",
+        "http": 200,
+        "seconds": 17.5237
+      },
+      {
+        "at": "2026-10-30T11:45:47+00:00",
+        "kind": "server_request_completed",
+        "method": "GET",
+        "path": "/api/v1/browser/chrome-profiles",
+        "http": 200,
+        "seconds": 17.5423
+      },
+      {
+        "at": "2026-10-30T11:49:50+00:00",
+        "kind": "native_dispatch",
+        "command": "inspect_form"
+      },
+      {
+        "at": "2026-10-30T11:50:10+00:00",
+        "kind": "server_request_completed",
+        "method": "POST",
+        "path": "/api/v1/local-agent/chrome",
+        "http": 200,
+        "seconds": 19.6243
+      },
+      {
+        "at": "2026-10-30T11:50:11+00:00",
+        "kind": "server_request_completed",
+        "method": "GET",
+        "path": "/api/v1/browser/chrome-profiles",
+        "http": 200,
+        "seconds": 19.199
+      },
+      {
+        "at": "2026-10-30T11:56:58+00:00",
+        "kind": "native_dispatch",
+        "command": "inspect_form"
+      },
+      {
+        "at": "2026-10-30T11:57:15+00:00",
+        "kind": "server_request_completed",
+        "method": "POST",
+        "path": "/api/v1/local-agent/chrome",
+        "http": 200,
+        "seconds": 16.8151
+      },
+      {
+        "at": "2026-10-30T11:57:16+00:00",
+        "kind": "server_request_completed",
+        "method": "GET",
+        "path": "/api/v1/browser/chrome-profiles",
+        "http": 200,
+        "seconds": 15.8539
+      },
+      {
+        "at": "2026-10-30T11:59:15+00:00",
+        "kind": "server_request_completed",
+        "method": "POST",
+        "path": "/api/v1/local-agent/chrome",
+        "http": 200,
+        "seconds": 12.2539
+      }
+    ]
+  },
+  "helper-ordering-change": {
+    "at": "2026-10-30T11:54:30.921722+00:00",
+    "scope": "Private acceptance helper only; installed release unchanged",
+    "change": "Read selected profile status before the task, obtaining the task revision closer to command admission. Keep each rejected attempt and use a fresh request ID; no hidden retry or fence changes."
+  },
+  "final-verification": {
+    "http_checks": 9,
+    "status_counts": {
+      "200": 9
+    },
+    "native_framed_health": "PASS",
+    "selected_binding_and_historical_terminal_commands_unchanged": true,
+    "checks": [
+      {
+        "path": "/health",
+        "http": 200,
+        "seconds": 0.013
+      },
+      {
+        "path": "/ready",
+        "http": 200,
+        "seconds": 0.722
+      },
+      {
+        "path": "/ready",
+        "http": 200,
+        "seconds": 1.062
+      },
+      {
+        "path": "/ready",
+        "http": 200,
+        "seconds": 1.061
+      },
+      {
+        "path": "/api/v1/browser/chrome-profiles",
+        "http": 200,
+        "seconds": 1.088
+      },
+      {
+        "path": "/api/v1/browser/extension-tasks/application/:id",
+        "http": 200,
+        "seconds": 2.445
+      },
+      {
+        "path": "/api/v1/execution/naukri",
+        "http": 200,
+        "seconds": 7.129
+      },
+      {
+        "path": "/api/v1/integrations/gmail/local/accounts",
+        "http": 200,
+        "seconds": 2.341
+      },
+      {
+        "path": "/api/v1/browser/plans",
+        "http": 200,
+        "seconds": 2.532
       }
     ]
   }
