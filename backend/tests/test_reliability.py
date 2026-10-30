@@ -1,6 +1,7 @@
 """Isolated regression evidence for idle contention, worker leases and outages."""
 
 import asyncio
+import json
 import subprocess
 import sys
 from datetime import datetime, timedelta, timezone
@@ -70,6 +71,41 @@ async def test_profile_status_without_maintenance_does_not_take_owner_lock(db_se
     monkeypatch.setattr(store, "memory_row", forbidden_lock)
     result = await listing(db_session, Settings(_env_file=None))
     assert result["commands"] == result["profiles"] == []
+
+
+@pytest.mark.asyncio
+async def test_profile_status_uses_one_snapshot_and_redacts_command_credentials(db_session):
+    from sqlalchemy import event
+
+    from backend.app.browser import chrome_profiles
+
+    db_session.add_all([
+        OwnerPreference(key=chrome_profiles.SELECTION, value={"version": 3, "profile_binding_id": None}),
+        OwnerPreference(key=chrome_profiles.COMMAND + "fixture", value={
+            "id": "fictional", "state": "completed", "lease_token": "private-lease",
+            "payload_hash": "private-hash", "version": 2,
+        }),
+        OwnerPreference(key="ext_receipt:fixture", value={"state": "read_only", "submitted": False}),
+    ])
+    await db_session.commit()
+    selects = []
+
+    def observed(connection, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().upper().startswith("SELECT"):
+            selects.append(statement)
+
+    engine = db_session.bind.sync_engine
+    event.listen(engine, "before_cursor_execute", observed)
+    try:
+        result = await chrome_profiles.listing(db_session, Settings(_env_file=None))
+    finally:
+        event.remove(engine, "before_cursor_execute", observed)
+    assert len(selects) == 1
+    assert result["selection"]["version"] == 3
+    assert result["commands"][0]["state"] == "completed"
+    assert result["receipts"] == [{"state": "read_only", "submitted": False}]
+    assert "private-lease" not in json.dumps(result)
+    assert "private-hash" not in json.dumps(result)
 
 
 @pytest.mark.asyncio

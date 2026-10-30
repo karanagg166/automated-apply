@@ -12,7 +12,7 @@ from typing import Literal
 from uuid import UUID, uuid4
 
 from pydantic import Field
-from sqlalchemy import select
+from sqlalchemy import select, union_all
 
 from backend.app.agent.tools import ToolDenied
 from backend.app.browser.contracts import Contract
@@ -252,12 +252,25 @@ async def listing(session, settings):
 
 
 async def _listing(session, settings, *, locked):
-    selected = await selection(session)
-    profiles = await records(session, PROFILE)
     from backend.app.browser import extension_tasks as tasks
 
-    tasks_now = await tasks.rows(session)
-    commands_now = await records(session, COMMAND)
+    # One server statement gives this status read a coherent snapshot and
+    # avoids five remote round trips while occupying the single business slot.
+    # Each disjoint branch retains the existing records query semantics.
+    await session.flush()
+    snapshot = list((await session.scalars(
+        select(OwnerPreference).from_statement(union_all(
+            select(OwnerPreference).where(OwnerPreference.key == SELECTION),
+            *(select(OwnerPreference).where(OwnerPreference.key.startswith(prefix))
+              for prefix in (PROFILE, tasks.PREFIX, COMMAND, "ext_receipt:")),
+        )).execution_options(populate_existing=True)
+    )).all())
+    selected = next((row.value for row in snapshot if row.key == SELECTION),
+                    {"version": 0, "profile_binding_id": None})
+    profiles = [row for row in snapshot if row.key.startswith(PROFILE)]
+    tasks_now = [row for row in snapshot if row.key.startswith(tasks.PREFIX)]
+    commands_now = [row for row in snapshot if row.key.startswith(COMMAND)]
+    receipts_now = [row for row in snapshot if row.key.startswith("ext_receipt:")]
     offline = [
         row for row in profiles
         if not online(row.value) and (
@@ -303,7 +316,7 @@ async def _listing(session, settings, *, locked):
             public(row.value, selected["profile_binding_id"]) for row in profiles
         ],
         "channel_available": settings.CHROME_PROFILE_COMMANDS_ENABLED,
-        "receipts": [row.value for row in await records(session, "ext_receipt:")][-30:],
+        "receipts": [row.value for row in receipts_now][-30:],
         "commands": [
             {
                 k: v

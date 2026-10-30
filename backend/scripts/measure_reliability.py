@@ -89,7 +89,13 @@ async def measure(args):
                 except Exception as exc:
                     metadata["database_error"] = database_failure_code(exc)
             output.write(json.dumps(metadata) + "\n")
-            async with httpx.AsyncClient(trust_env=False, follow_redirects=False, timeout=12) as client:
+            # Polling at the server's five-second keep-alive boundary can race
+            # its idle close. Retire our idle connections earlier; never hide a
+            # failed probe with a retry or change the server timeout to pass it.
+            async with httpx.AsyncClient(
+                trust_env=False, follow_redirects=False, timeout=12,
+                limits=httpx.Limits(keepalive_expiry=2),
+            ) as client:
                 async def request(path):
                     began = time.monotonic()
                     result = {"path": path}
