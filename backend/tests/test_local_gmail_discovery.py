@@ -109,6 +109,10 @@ async def test_authority_change_during_http_prevents_publication_and_cursor_adva
     assert not rows
     sync = await alerts.status(db_session, "1")
     assert not sync.get("watermark") and not sync.get("last_result")
+    if change == "policy":
+        assert "last_failure" not in sync  # An old lease cannot write a successor policy.
+    else:
+        assert sync["last_failure"]["code"] in {"gmail_alert_authority_changed", "gmail_account_changed"}
 
 
 def test_sender_authentication_does_not_accept_lookalike_domain_or_duplicate_headers():
@@ -165,6 +169,8 @@ async def test_failed_page_preserves_committed_message_receipts_and_restarts_cur
             await alerts.poll(factory, settings, force=True, mailbox_factory=construct)
         failed = await alerts.status(db_session, "1")
         assert not failed.get("watermark") and failed["error"]
+        assert failed["last_failure"]["code"] == "gmail_read_upstream_error"
+        assert failed["last_failure"]["stage"] == "message_metadata"
         first_reads = reads.count("mail1")
         fail[0] = False
         result = await alerts.poll(factory, settings, force=True, mailbox_factory=construct)
@@ -174,6 +180,29 @@ async def test_failed_page_preserves_committed_message_receipts_and_restarts_cur
         assert not current.get("watermark")
         assert result["has_more_pages"] is True
         assert result["listed_messages"] == 2 and result["already_processed"] == 1
+        assert current["error"] is None
+        assert current["last_failure"] == failed["last_failure"]
+
+
+async def test_source_failure_diagnostics_never_retain_arbitrary_exception_text(db_session):
+    settings, fake = configured(), GoogleFixture()
+    factory = async_sessionmaker(db_session.bind, expire_on_commit=False, autoflush=False)
+
+    def respond(request):
+        raise RuntimeError("PRIVATE fixture mailbox and credential text")
+
+    async with fake.client() as oauth, httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+        mailbox = await activate(db_session, settings, fake, oauth)
+
+        def construct(session, settings):
+            return type(mailbox)(session, settings, mailbox.google, client)
+
+        with pytest.raises(RuntimeError):
+            await alerts.poll(factory, settings, force=True, mailbox_factory=construct)
+    view = await alerts.status(db_session, "1")
+    assert view["last_failure"]["code"] == "gmail_alert_unclassified_failure"
+    assert view["last_failure"]["stage"] == "message_list"
+    assert "PRIVATE" not in json.dumps(view)
 
 
 @pytest.mark.parametrize("variant, expected", [

@@ -31,6 +31,17 @@ from backend.app.models.job import Job
 
 PREFIX = "gm54_alerts:"
 SENDER = "naukrialerts@naukri.com"
+# Only fixed internal codes may be retained, never upstream exception text.
+FAILURE_CODES = frozenset({
+    "gmail_alert_authority_changed", "gmail_account_changed",
+    "gmail_alert_page_invalid", "gmail_message_id_invalid",
+    "gmail_message_selection_changed", "gmail_read_permission_required",
+    "gmail_read_rate_limited", "gmail_read_upstream_error",
+    "gmail_read_response_limit", "gmail_read_invalid_response",
+    "gmail_read_transport_or_response_error", "gmail_refresh_in_progress",
+    "gmail_refresh_unavailable", "gmail_reauthorization_required",
+    "gmail_mime_limits", "gmail_mime_invalid",
+})
 
 
 class AlertPolicy(Contract):
@@ -236,13 +247,16 @@ async def poll(factory, settings, slot: Slot = "1", *, force=False, mailbox_fact
                 raise ConnectionError("gmail_alert_authority_changed")
             await mailbox.fence(slot, value["generation"])
 
+        stage = "authority"
         try:
             await guard()
             await session.commit()
+            stage = "account_access"
             token, account = await mailbox.access(slot)
             await guard()
             await session.commit()
             reader = GmailReadClient(token, mailbox.client)
+            stage = "message_list"
             page = await reader.messages(labels=["INBOX"], query=query_for(value),
                                          page_token=value.get("page_token"), limit=5)
             messages = page.get("messages", [])
@@ -261,6 +275,7 @@ async def poll(factory, settings, slot: Slot = "1", *, force=False, mailbox_fact
                     result["already_processed"] += 1
                     continue
                 # Metadata selection and authentication precede the body read.
+                stage = "message_metadata"
                 message = await reader.message(message_id)
                 if message.get("id") != message_id or "INBOX" not in message.get("labelIds", []):
                     raise ConnectionError("gmail_message_selection_changed")
@@ -269,6 +284,7 @@ async def poll(factory, settings, slot: Slot = "1", *, force=False, mailbox_fact
                 if trusted:
                     await guard()
                     await session.commit()
+                    stage = "message_body"
                     message = await reader.message(message_id, body=True)
                     if (message.get("id") != message_id or "INBOX" not in message.get("labelIds", [])
                             or not authenticated_alert(message)):
@@ -277,6 +293,7 @@ async def poll(factory, settings, slot: Slot = "1", *, force=False, mailbox_fact
                 else:
                     result["rejected_origin"] += 1
                 await guard()
+                stage = "candidate_publish"
                 if trusted:
                     # Only job alert topics, never arbitrary official newsletters.
                     if re.search(r"\b(?:jobs?|hiring|vacanc\w*|recommend\w*|opportunit\w*)\b", headers(message).get("subject", ""), re.I):
@@ -291,6 +308,7 @@ async def poll(factory, settings, slot: Slot = "1", *, force=False, mailbox_fact
                     "generation": value["generation"], "origin_accepted": trusted,
                     "processed_at": now().isoformat(), "body_stored": False})
                 await session.commit()
+            stage = "cursor_publish"
             await guard()
             row = await session.get(OwnerPreference, PREFIX + slot, populate_existing=True)
             next_page = page.get("nextPageToken")
@@ -303,7 +321,8 @@ async def poll(factory, settings, slot: Slot = "1", *, force=False, mailbox_fact
                          "lease": None, "lease_until": None, "error": None}
             await session.commit()
             return {"status": "observed", **result}
-        except Exception:
+        except Exception as exc:
+            code = str(exc) if isinstance(exc, ConnectionError) and str(exc) in FAILURE_CODES else "gmail_alert_unclassified_failure"
             await session.rollback()
             # Keep the cursor and any committed message receipts. A later safe
             # read resumes, while STOP/account changes fence publication now.
@@ -314,6 +333,8 @@ async def poll(factory, settings, slot: Slot = "1", *, force=False, mailbox_fact
                 if row and row.value.get("lease") == lease and row.value["version"] == value["version"]:
                     row.value = {**row.value, "lease": None, "lease_until": None,
                                  "page_token": None, "error": "gmail_alert_cycle_failed",
+                                 "last_failure": {"code": code, "stage": stage,
+                                                  "at": now().isoformat()},
                                  "last_check_at": now().isoformat()}
                     await session.commit()
             except Exception:
