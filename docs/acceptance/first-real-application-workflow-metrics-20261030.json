@@ -1,0 +1,338 @@
+{
+  "implementation_sha": "0efc7cdecdf71a902ab257a4d2fea7f58e170c63",
+  "branch": "fix/live-prepare-discovery-20261030",
+  "base": "main",
+  "installed_service_sha": "90f2f2ade50a1c31b26ca85cc7fdf5e93bb67c20",
+  "history_install_candidate_sha": "98965f7607a4714371599fef0143d5e1f8eed25b",
+  "current_state": {
+    "service_source": {
+      "api": {
+        "references_approved90": true,
+        "references989": false
+      },
+      "frontend": {
+        "references_approved90": true,
+        "references989": false
+      },
+      "execution": {
+        "references_approved90": true,
+        "references989": false
+      },
+      "telegram": {
+        "references_approved90": true,
+        "references989": false
+      }
+    },
+    "flags": {
+      "GMAIL_LOCAL_ACCOUNTS_ENABLED": true,
+      "GMAIL_READ_BODY_REVIEWED": true,
+      "GMAIL_READ_SYNC_ENABLED": false,
+      "NAUKRI_ALERT_EMAILS_ENABLED": false,
+      "GMAIL_SENDING_ENABLED": false
+    },
+    "http": [
+      {
+        "operation": "workflow",
+        "status": 200,
+        "seconds": 4.828
+      },
+      {
+        "operation": "mailbox_policy",
+        "status": 200,
+        "seconds": 1.1705
+      },
+      {
+        "operation": "selected_packet",
+        "status": 200,
+        "seconds": 4.0369
+      }
+    ],
+    "workflow": {
+      "state": "RUNNING",
+      "blocked_reason": "recurring_external_source_not_connected",
+      "counts": {
+        "alert_candidates": 0,
+        "matching": 0,
+        "prepared": 0,
+        "submitted_confirmed": 0,
+        "user_reported": 0,
+        "unknown": 0,
+        "failed": 0,
+        "manual_required": 1
+      },
+      "source": "saved_owner_imports",
+      "blockers": [
+        "email_candidates_require_verified_vacancy_facts",
+        "naukri_browser_permission_not_verified",
+        "naukri_submission_capability_not_verified",
+        "locked_screen_acceptance_not_run"
+      ]
+    },
+    "mailbox_policy": {
+      "sending_enabled": false,
+      "monitoring_enabled": true,
+      "accounts": [
+        {
+          "slot": "1",
+          "status": "connected",
+          "body_review_enabled": true,
+          "alerts_enabled": true,
+          "alert_policy_version": 1
+        }
+      ]
+    },
+    "selected_packet": {
+      "platform": "naukri",
+      "readiness": {
+        "state": "needs_review",
+        "blockers": [
+          "Review the exact packet revision, selected resume and application destination"
+        ],
+        "manual_steps": [
+          "Open the official application website yourself",
+          "manual_resume_upload_required: open the selected resource and upload the actual file if requested",
+          "Complete the form and submit it on that website"
+        ],
+        "warnings": [
+          "A recently observed job is not guaranteed to remain open",
+          "URL syntax was checked locally; availability and destination ownership have not been live verified"
+        ],
+        "stale": false
+      },
+      "lifecycle_state": "ready_for_review",
+      "review_status": "pending",
+      "revision": 4,
+      "approved_revision": null,
+      "fields": [
+        {
+          "type": "text",
+          "category": "personal_information",
+          "required": true,
+          "has_answer": true,
+          "validation_status": "draft_ready",
+          "source": "candidate_profile"
+        },
+        {
+          "type": "text",
+          "category": "contact_information",
+          "required": true,
+          "has_answer": true,
+          "validation_status": "draft_ready",
+          "source": "candidate_profile"
+        },
+        {
+          "type": "text",
+          "category": "contact_information",
+          "required": false,
+          "has_answer": true,
+          "validation_status": "draft_ready",
+          "source": "candidate_profile"
+        },
+        {
+          "type": "url",
+          "category": "professional_profile_url",
+          "required": false,
+          "has_answer": true,
+          "validation_status": "draft_ready",
+          "source": "candidate_profile"
+        },
+        {
+          "type": "url",
+          "category": "professional_profile_url",
+          "required": false,
+          "has_answer": true,
+          "validation_status": "draft_ready",
+          "source": "candidate_profile"
+        },
+        {
+          "type": "url",
+          "category": "professional_profile_url",
+          "required": false,
+          "has_answer": true,
+          "validation_status": "draft_ready",
+          "source": "candidate_profile"
+        },
+        {
+          "type": "file",
+          "category": "resume_upload",
+          "required": true,
+          "has_answer": false,
+          "validation_status": "file_upload_required",
+          "source": "missing"
+        },
+        {
+          "type": "text",
+          "category": "notice_period",
+          "required": true,
+          "has_answer": true,
+          "validation_status": "draft_ready",
+          "source": "candidate_profile"
+        }
+      ]
+    }
+  },
+  "last_recorded_alert_cycle": {
+    "enabled": true,
+    "version": 1,
+    "sender": "naukrialerts@naukri.com",
+    "error": null,
+    "last_result": {
+      "messages": 0,
+      "submitted": false,
+      "direct_links": 0,
+      "links_opened": false,
+      "authenticated": 0,
+      "rejected_origin": 0,
+      "candidates_added": 0
+    },
+    "last_check_at": "2026-10-30T17:01:05.952614+00:00",
+    "next_check_at": "2026-10-30T17:31:02.229756+00:00"
+  },
+  "extension_disk_audits": {
+    "prepared_candidate": {
+      "source_sha": "98965f7607a4714371599fef0143d5e1f8eed25b",
+      "extension_id": "gdjbmkffcpicbpiikcohlmokkmcpipgp",
+      "expected_file_count": 18,
+      "matching_file_count": 18,
+      "mismatched_files": [],
+      "extra_file_count": 0,
+      "expected_sha256": {
+        "manifest.json": "fb39e45fb1f3835820363f4432c00dc5d8ac0dfa6f09fbcab97d46d1f4276797",
+        "form-dom.js": "d189edb82fa17c7c1b94393ecb2116ec1d616522cc5fafaa3407ce22f77f522f",
+        "naukri.js": "a8de6e53f214cfd52755de86b1ff312081a236f650c897b1dd7b2a065f25a24a",
+        "form-bridge.js": "78a147009f7711c82035ad4a4350f18697b7d56338bfd3f03bfaadb139a08820",
+        "form-messages.js": "afa4fae184a8b1ea8b1877644303937f6b17d907860305a9e220a4b9eacfb069",
+        "background.js": "7aef5417f5adeca86105da2ea068295e5691f969768d2c9ad5fec82c49e729fd",
+        "tab-audit.js": "bf75dab22105624fe67d420095523f446fd11435a1ac59f7ba2e6d5ba82ae8c9",
+        "task-coordinator.js": "3f3cbcd34fd4254a9d2305c15379df172f5d2caecce6dd55c5fd23c7273f6826",
+        "chrome-profile.js": "b2329e441abf588020b747270390d4a57cc311d4ea4b22557212e4771a33611c",
+        "network-guard.js": "06a4263d76845fce7431b3ad25b33677a8bb4b2b0ead43a870c6b70de55d3ad6",
+        "preview.js": "e028a5646d628e1e784497e792bacf87743c1e9de9e720bf44da455a04b3a9e5",
+        "session-indicator.js": "7a8a35031aacfb82e9a6620ddf324dd2b91bad455ee7b712916d9705f4a85ac6",
+        "observation.js": "2eb609e14a693f2634a3b5efa19c5c8d11d9d47689a3a2b1c6286d2b90add953",
+        "popup.html": "ed777873d87a8e2b53197edd6718f9b77c664980ee6dc2f53e8bfd0cfb021ef9",
+        "popup.js": "94eb5fac953028df4f3c0a9f15be6b9234ca672dc1391172d40984b457605f63",
+        "settings.html": "066e24a61322a91f499053df60bd44c53648074f143dd4b37560fe8d8e1d7312",
+        "settings.js": "f08e3ce5dd27757adabb65386189e682cd5b31b98d2c71aa86835bba9b2402f9",
+        "style.css": "ce9c13b3fa9a9b216ce6d395b94d5e82651260c8cab9a71aad5e90b03258ce23"
+      },
+      "disk_matches_sha": true,
+      "profile_checked": true,
+      "persisted_extension_record_found": true,
+      "persisted_path_matches_directory": false,
+      "runtime_reload_verified": false,
+      "writes_performed": 0
+    },
+    "installed90_build": {
+      "source_sha": "98965f7607a4714371599fef0143d5e1f8eed25b",
+      "extension_id": "gdjbmkffcpicbpiikcohlmokkmcpipgp",
+      "expected_file_count": 18,
+      "matching_file_count": 18,
+      "mismatched_files": [],
+      "extra_file_count": 0,
+      "expected_sha256": {
+        "manifest.json": "fb39e45fb1f3835820363f4432c00dc5d8ac0dfa6f09fbcab97d46d1f4276797",
+        "form-dom.js": "d189edb82fa17c7c1b94393ecb2116ec1d616522cc5fafaa3407ce22f77f522f",
+        "naukri.js": "a8de6e53f214cfd52755de86b1ff312081a236f650c897b1dd7b2a065f25a24a",
+        "form-bridge.js": "78a147009f7711c82035ad4a4350f18697b7d56338bfd3f03bfaadb139a08820",
+        "form-messages.js": "afa4fae184a8b1ea8b1877644303937f6b17d907860305a9e220a4b9eacfb069",
+        "background.js": "7aef5417f5adeca86105da2ea068295e5691f969768d2c9ad5fec82c49e729fd",
+        "tab-audit.js": "bf75dab22105624fe67d420095523f446fd11435a1ac59f7ba2e6d5ba82ae8c9",
+        "task-coordinator.js": "3f3cbcd34fd4254a9d2305c15379df172f5d2caecce6dd55c5fd23c7273f6826",
+        "chrome-profile.js": "b2329e441abf588020b747270390d4a57cc311d4ea4b22557212e4771a33611c",
+        "network-guard.js": "06a4263d76845fce7431b3ad25b33677a8bb4b2b0ead43a870c6b70de55d3ad6",
+        "preview.js": "e028a5646d628e1e784497e792bacf87743c1e9de9e720bf44da455a04b3a9e5",
+        "session-indicator.js": "7a8a35031aacfb82e9a6620ddf324dd2b91bad455ee7b712916d9705f4a85ac6",
+        "observation.js": "2eb609e14a693f2634a3b5efa19c5c8d11d9d47689a3a2b1c6286d2b90add953",
+        "popup.html": "ed777873d87a8e2b53197edd6718f9b77c664980ee6dc2f53e8bfd0cfb021ef9",
+        "popup.js": "94eb5fac953028df4f3c0a9f15be6b9234ca672dc1391172d40984b457605f63",
+        "settings.html": "066e24a61322a91f499053df60bd44c53648074f143dd4b37560fe8d8e1d7312",
+        "settings.js": "f08e3ce5dd27757adabb65386189e682cd5b31b98d2c71aa86835bba9b2402f9",
+        "style.css": "ce9c13b3fa9a9b216ce6d395b94d5e82651260c8cab9a71aad5e90b03258ce23"
+      },
+      "disk_matches_sha": true,
+      "profile_checked": true,
+      "persisted_extension_record_found": true,
+      "persisted_path_matches_directory": false,
+      "runtime_reload_verified": false,
+      "writes_performed": 0
+    },
+    "persisted_historical_build": {
+      "source_sha": "98965f7607a4714371599fef0143d5e1f8eed25b",
+      "extension_id": "gdjbmkffcpicbpiikcohlmokkmcpipgp",
+      "expected_file_count": 18,
+      "matching_file_count": 15,
+      "mismatched_files": [
+        "background.js",
+        "tab-audit.js",
+        "task-coordinator.js"
+      ],
+      "extra_file_count": 0,
+      "expected_sha256": {
+        "manifest.json": "fb39e45fb1f3835820363f4432c00dc5d8ac0dfa6f09fbcab97d46d1f4276797",
+        "form-dom.js": "d189edb82fa17c7c1b94393ecb2116ec1d616522cc5fafaa3407ce22f77f522f",
+        "naukri.js": "a8de6e53f214cfd52755de86b1ff312081a236f650c897b1dd7b2a065f25a24a",
+        "form-bridge.js": "78a147009f7711c82035ad4a4350f18697b7d56338bfd3f03bfaadb139a08820",
+        "form-messages.js": "afa4fae184a8b1ea8b1877644303937f6b17d907860305a9e220a4b9eacfb069",
+        "background.js": "7aef5417f5adeca86105da2ea068295e5691f969768d2c9ad5fec82c49e729fd",
+        "tab-audit.js": "bf75dab22105624fe67d420095523f446fd11435a1ac59f7ba2e6d5ba82ae8c9",
+        "task-coordinator.js": "3f3cbcd34fd4254a9d2305c15379df172f5d2caecce6dd55c5fd23c7273f6826",
+        "chrome-profile.js": "b2329e441abf588020b747270390d4a57cc311d4ea4b22557212e4771a33611c",
+        "network-guard.js": "06a4263d76845fce7431b3ad25b33677a8bb4b2b0ead43a870c6b70de55d3ad6",
+        "preview.js": "e028a5646d628e1e784497e792bacf87743c1e9de9e720bf44da455a04b3a9e5",
+        "session-indicator.js": "7a8a35031aacfb82e9a6620ddf324dd2b91bad455ee7b712916d9705f4a85ac6",
+        "observation.js": "2eb609e14a693f2634a3b5efa19c5c8d11d9d47689a3a2b1c6286d2b90add953",
+        "popup.html": "ed777873d87a8e2b53197edd6718f9b77c664980ee6dc2f53e8bfd0cfb021ef9",
+        "popup.js": "94eb5fac953028df4f3c0a9f15be6b9234ca672dc1391172d40984b457605f63",
+        "settings.html": "066e24a61322a91f499053df60bd44c53648074f143dd4b37560fe8d8e1d7312",
+        "settings.js": "f08e3ce5dd27757adabb65386189e682cd5b31b98d2c71aa86835bba9b2402f9",
+        "style.css": "ce9c13b3fa9a9b216ce6d395b94d5e82651260c8cab9a71aad5e90b03258ce23"
+      },
+      "disk_matches_sha": false,
+      "profile_checked": true,
+      "persisted_extension_record_found": true,
+      "persisted_path_matches_directory": true,
+      "runtime_reload_verified": false,
+      "writes_performed": 0
+    }
+  },
+  "validation": {
+    "final_pytest_passed": 217,
+    "new_regressions_passed": 21,
+    "existing_regressions_passed": 196,
+    "skipped": 0,
+    "failed": 0,
+    "seconds": 28.11,
+    "fixture_only": true,
+    "ruff_E9_F_I": "PASS",
+    "git_diff_check": "PASS",
+    "initial_corrected_failures": [
+      {
+        "code": "test_collection_wrong_schema_symbol",
+        "detail": "One collection error importing AddQuestions; corrected to QuestionsAdd before final verification."
+      },
+      {
+        "code": "ruff_import_order",
+        "detail": "Corrected import formatting before final checks."
+      }
+    ]
+  },
+  "live_actions_this_task": {
+    "owner_api_status_gets": 3,
+    "mailbox_scans_requested": 0,
+    "mailbox_policy_changes": 0,
+    "portal_browser_actions": 0,
+    "apply_activations": 0,
+    "submissions": 0,
+    "genuine_new_receipts": 0,
+    "installation_changes": 0,
+    "service_restarts": 0,
+    "hosted_ci_runs": 0
+  },
+  "performance": {
+    "optimization_changes": 0,
+    "new_before_after_comparison": "NOT TESTED; no performance change",
+    "prior_installation_metrics": "approved90-installation-metrics-20261030.json",
+    "status_get_timings_are_acceptance_of_read_only_observations_only": true
+  }
+}
