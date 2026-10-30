@@ -148,6 +148,13 @@ async def prepare(session, identity):
             "packet_id": str(packet.id),
             "profile_version": packet.candidate_profile_version,
         }
+        from backend.app.core.config import get_settings
+        from backend.app.execution.naukri_upload import preflight
+
+        row.value = {
+            **row.value,
+            "upload_preflight": await preflight(session, packet, get_settings(), policy),
+        }
         if packet.readiness.stale or (
             policy
             and (

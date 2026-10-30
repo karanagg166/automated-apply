@@ -532,6 +532,14 @@ async def status(session):
             "naukri_recorded": receipts["naukri_recorded"],
             "installed_worker_recorded": receipts["installed_recurring_worker"],
             "employer_acknowledged": receipts["employer_acknowledged"],
+            "resume_preflights_verified": sum(
+                (e.get("upload_preflight") or {}).get("state") == "PDF_VERIFIED_LOCAL"
+                for e in executions
+            ),
+            "resume_preflight_needs_input": sum(
+                (e.get("upload_preflight") or {}).get("state") == "NEEDS_INPUT"
+                for e in executions
+            ),
             "user_reported": sum(
                 p.lifecycle_state == "user_reported_submitted" for p in packets
             ),

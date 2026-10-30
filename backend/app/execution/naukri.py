@@ -36,6 +36,7 @@ def capability_matrix():
             "enabled": False,
         },
         "resume_upload": {
+            "canonical_pdf_preflight": "integrated_with_packet_preparation",
             "unattended_worker_verified": False,
             "native_chooser_path": "NEEDS_HUMAN",
             "upload_control_initialization_required": True,
