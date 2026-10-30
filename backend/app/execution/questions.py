@@ -432,6 +432,12 @@ async def deliver_one(factory, settings, bot):
     if not settings.TELEGRAM_OWNER_USER_ID or not settings.TELEGRAM_OWNER_CHAT_ID:
         return False
     async with factory() as session, session.begin():
+        pending = await session.scalar(select(OwnerPreference.key).where(
+            OwnerPreference.key.startswith(PREFIX),
+            OwnerPreference.value["state"].as_string() == "pending",
+        ).limit(1))
+        if pending is None:
+            return False
         await store.memory_row(session, lock=True)
         now = await instant(session)
         qs = (

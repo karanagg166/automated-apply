@@ -1,6 +1,7 @@
 """Explicit loopback services. No hidden API-startup workers."""
 import argparse
 import asyncio
+import os
 import signal
 import sys
 from pathlib import Path
@@ -14,6 +15,7 @@ def main():
     parser.add_argument("service", choices=["api", "telegram", "execution", "preflight", "status"])
     parser.add_argument("--env-file", required=True)
     args = parser.parse_args()
+    os.environ["AUTOMATED_APPLY_PROCESS"] = args.service
     from backend.app.core.config import configure_operator
     from backend.app.operations.configuration import load_settings
     settings = load_settings(args.env_file)
@@ -46,13 +48,15 @@ async def run(service, settings):
                 output["database_probe"] = {"state": "disconnected", "error": "database_not_ready"}
             print(json.dumps(output, indent=2))
             return
-        await database_health(get_engine(), settings)
         if service == "execution":
             from backend.app.execution.worker import serve
+            from backend.app.local_agent.process_lock import process_lock
             stop = asyncio.Event()
             for sig in (signal.SIGINT, signal.SIGTERM):
                 asyncio.get_running_loop().add_signal_handler(sig, stop.set)
-            await serve(get_session_factory(), stop)
+            async with process_lock(settings, "execution"):
+                await database_health(get_engine(), settings)
+                await serve(get_session_factory(), stop)
             return
         from backend.app.local_agent.telegram import (
             TelegramError,
@@ -65,6 +69,7 @@ async def run(service, settings):
             loop.add_signal_handler(name, stop.set)
         try:
             async with worker_lock(settings):
+                await database_health(get_engine(), settings)
                 await run_worker(settings, get_session_factory(), stop=stop)
         except TelegramError as exc:
             raise SystemExit(exc.code) from None

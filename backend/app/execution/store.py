@@ -42,7 +42,8 @@ async def memory_row(session, *, lock=False):
 
 
 async def configuration(session):
-    row = await session.get(OwnerPreference, "exec_config:naukri")
+    await session.flush()
+    row = await session.get(OwnerPreference, "exec_config:naukri", populate_existing=True)
     return Configuration.model_validate(row.value if row else {})
 
 
@@ -324,6 +325,23 @@ async def control(session, execution_id, action, revision):
 
 
 async def claim(session):
+    # An idle poll must not reserve the owner's global fence. This read is
+    # advisory only: every candidate is re-read after acquiring the fence.
+    if (await configuration(session)).mode == "OFF":
+        return None
+    now = await instant(session)
+    candidates = await rows(session)
+    inactive = TERMINAL | {"PAUSED", "NEEDS_INPUT", "READY_FOR_REVIEW"}
+    if not any(
+        not row.value.get("question_only")
+        and row.value["state"] not in inactive
+        and (not row.value["lease_until"]
+             or datetime.fromisoformat(row.value["lease_until"]) <= now)
+        and (row.value["state"] in {"FILLING", "SUBMITTING"}
+             or datetime.fromisoformat(row.value["available_at"]) <= now)
+        for row in candidates
+    ):
+        return None
     await memory_row(session, lock=True)
     if (await configuration(session)).mode == "OFF":
         return None

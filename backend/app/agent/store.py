@@ -137,6 +137,14 @@ async def intake(session, settings, actor, message: Message, *, telegram_update_
 
 
 async def claim(session):
+    # A long-polling Telegram worker usually has no queued campaign. Observe
+    # without the global fence; the locked claim below remains authoritative.
+    pending = await session.scalar(select(OwnerPreference.key).where(
+        OwnerPreference.key.like("campaign:%"),
+        OwnerPreference.value["state"].as_string().in_(["queued", "running"]),
+    ).limit(1))
+    if pending is None:
+        return None
     # One writer/owner even across two worker processes. No row lock survives commit.
     await memory_row(session, lock=True)
     now = await instant(session)

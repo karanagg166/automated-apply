@@ -246,15 +246,20 @@ async def require_profile(session, command, *, selected=True, receipt=False, rea
 
 
 async def listing(session, settings):
-    # A read refreshes expiry honestly; it never invents a heartbeat.
-    await store.memory_row(session, lock=True)
+    # The usual status read has no mutation. Only stale commands/tasks need
+    # the owner fence; re-read under that fence before changing them.
+    return await _listing(session, settings, locked=False)
+
+
+async def _listing(session, settings, *, locked):
     selected = await selection(session)
     profiles = await records(session, PROFILE)
     from backend.app.browser import extension_tasks as tasks
 
     tasks_now = await tasks.rows(session)
     commands_now = await records(session, COMMAND)
-    for row in profiles:
+    offline = [
+        row for row in profiles
         if not online(row.value) and (
             any(
                 task.value.get("profile_binding_id") == row.value["id"]
@@ -266,8 +271,18 @@ async def listing(session, settings):
                 and cmd.value["state"] not in TERMINAL
                 for cmd in commands_now
             )
-        ):
-            await invalidate(session, row.value["id"], "PROFILE_OFFLINE")
+        )
+    ]
+    expired = [
+        item for item in commands_now
+        if item.value["state"] not in TERMINAL
+        and datetime.fromisoformat(item.value["expires_at"]) <= now()
+    ]
+    if (offline or expired) and not locked:
+        await store.memory_row(session, lock=True)
+        return await _listing(session, settings, locked=True)
+    for row in offline:
+        await invalidate(session, row.value["id"], "PROFILE_OFFLINE")
     for item in commands_now:
         value = item.value
         if (
@@ -295,7 +310,7 @@ async def listing(session, settings):
                 for k, v in r.value.items()
                 if k not in {"lease_token", "payload_hash"}
             }
-            for r in await records(session, COMMAND)
+            for r in commands_now
         ][-30:],
     }
 

@@ -71,8 +71,8 @@ class Settings(BaseSettings):
         default="public",
         description="Application schema; public for the dedicated Phase 1 project",
     )
-    DB_POOL_SIZE: int = Field(default=5, ge=1, le=50)
-    DB_MAX_OVERFLOW: int = Field(default=10, ge=0, le=100)
+    DB_POOL_SIZE: int = Field(default=1, ge=1, le=50)
+    DB_MAX_OVERFLOW: int = Field(default=0, ge=0, le=100)
     DB_ECHO: bool = False
     DB_REQUIRE_TLS: bool = True
     DB_REMOTE_ONLY: bool = True

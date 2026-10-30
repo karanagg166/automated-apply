@@ -89,7 +89,10 @@ async def imported(session, requisition="281026123456", **updates):
 
 @pytest.mark.asyncio
 async def test_default_no_dispatch_start_requires_policy(db_session):
-    await recurring.tick(db_session)
+    from backend.app.db.session import get_session_factory
+
+    # The real worker commits its heartbeat before any scheduler/claim fence.
+    assert await ExecutionWorker(get_session_factory()).tick() is None
     assert await store.claim(db_session) is None
     view = await recurring.status(db_session)
     assert view["state"] == "STOPPED" and view["worker_online"]

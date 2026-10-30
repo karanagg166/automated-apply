@@ -273,8 +273,10 @@ async def readiness_check() -> dict[str, Any]:
             "schema": settings.DATABASE_SCHEMA,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-    except Exception:
-        logger.error("Readiness database probe failed")
+    except Exception as exc:
+        from backend.app.db.errors import database_failure_code
+
+        logger.error("Readiness database probe failed; category=%s", database_failure_code(exc))
         return JSONResponse(
             status_code=503,
             content={

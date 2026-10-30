@@ -6,7 +6,7 @@ candidate requisition links only; missing employer/criteria/currentness remain
 NEEDS_INPUT. No inference from a URL slug, and no raw body retention.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from sqlalchemy import select
@@ -136,27 +136,28 @@ async def retain_candidates(session, policy):
     return found
 
 
+def source_due(value, now):
+    return bool(
+        value["state"] == "RUNNING"
+        and value["policy"]
+        and value["policy"]["source"] == "gmail_job_alerts"
+        and (not value.get("source_next_at")
+             or datetime.fromisoformat(value["source_next_at"]) <= now)
+        and (not value.get("source_lease_until")
+             or datetime.fromisoformat(value["source_lease_until"]) <= now)
+    )
+
+
 async def poll(factory):
     settings = get_settings()
     async with factory() as session, session.begin():
+        value = await recurring.record(session)
+        if not source_due(value, datetime.now(timezone.utc)):
+            return
         await recurring.store.memory_row(session, lock=True)
         value = await recurring.record(session)
-        if (
-            value["state"] != "RUNNING"
-            or not value["policy"]
-            or value["policy"]["source"] != "gmail_job_alerts"
-        ):
-            return
         now = await instant(session)
-        if (
-            value.get("source_next_at")
-            and datetime.fromisoformat(value["source_next_at"]) > now
-        ):
-            return
-        if (
-            value.get("source_lease_until")
-            and datetime.fromisoformat(value["source_lease_until"]) > now
-        ):
+        if not source_due(value, now):
             return
         policy = AutomationPolicy.model_validate(value["policy"])
         try:

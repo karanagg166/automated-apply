@@ -4,7 +4,6 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import HTTPException
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -14,6 +13,7 @@ from sqlalchemy.ext.asyncio import (
 
 from backend.app.core.config import get_settings
 from backend.app.core.logging import logger
+from backend.app.db.errors import DATABASE_ERRORS
 from backend.app.db.safety import database_connect_args, database_target
 
 _engine: AsyncEngine | None = None
@@ -78,16 +78,18 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
         try:
             yield session
             await session.commit()
-        except SQLAlchemyError as exc:
+        except DATABASE_ERRORS as exc:
             await session.rollback()
             # Only PostgreSQL's explicit transaction-abort codes establish a
             # retryable rollback. Connection loss and commit timeouts remain
             # ambiguous; never label those safe to replay.
-            original = getattr(exc, "orig", None)
+            original = getattr(exc, "orig", exc)
             sqlstate = getattr(original, "sqlstate", None)
             retryable = sqlstate in {"55P03", "40P01", "40001"}
+            from backend.app.db.errors import database_failure_code
+
             logger.warning("Database transaction rejected; category=%s retry_safe=%s",
-                           sqlstate if sqlstate in {"55P03", "40P01", "40001"} else "storage_unavailable", retryable)
+                           database_failure_code(exc), retryable)
             raise HTTPException(
                 503, "Database storage unavailable",
                 headers={"X-Automated-Apply-Transaction": "rolled-back"}

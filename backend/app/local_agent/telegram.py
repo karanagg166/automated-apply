@@ -9,6 +9,7 @@ from uuid import NAMESPACE_URL, uuid5
 import httpx
 from sqlalchemy import select
 
+from backend.app.db.errors import DATABASE_ERRORS
 from backend.app.local_agent.contracts import Actor, Command
 from backend.app.local_agent.models import TelegramDelivery, TelegramState
 from backend.app.local_agent.service import dispatch
@@ -18,21 +19,14 @@ HELP = '/start /help /ping /status /connections /jobs /reset /apply <https-url> 
 
 @asynccontextmanager
 async def worker_lock(settings):
-    """Keep the process lease outside the session pool, including one-slot pools."""
-    import asyncpg
+    """One Mac worker, without consuming a permanent PostgreSQL connection."""
+    from backend.app.local_agent.process_lock import WorkerAlreadyRunning, process_lock
 
-    from backend.app.db.safety import database_connect_args, database_target
-    target = database_target(settings)
-    if target.drivername != "postgresql+asyncpg":
-        raise TelegramError("telegram_postgresql_required")
-    connection = await asyncpg.connect(settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://", 1),
-        **database_connect_args(settings))
     try:
-        if not await connection.fetchval("SELECT pg_try_advisory_lock(407001, 1)"):
-            raise TelegramError("telegram_worker_already_running")
-        yield
-    finally:
-        await connection.close()
+        async with process_lock(settings, "telegram"):
+            yield
+    except WorkerAlreadyRunning:
+        raise TelegramError("telegram_worker_already_running") from None
 
 
 class TelegramError(Exception):
@@ -306,11 +300,27 @@ async def run_worker(settings, session_factory, api=None, stop=None):
                     await session.commit()
                 await asyncio.sleep(1)
             failures = 0
+        except DATABASE_ERRORS:
+            # Session contexts have rolled back/closed. Outbox states remain
+            # durable: an ambiguous send is not put back in the pending queue.
+            # Do not attempt another DB write just to record this DB outage.
+            failures += 1
+            delay = min(60, 2 ** min(failures, 6))
+            logging.getLogger(__name__).warning(
+                "Telegram database unavailable; retrying in %s seconds", delay
+            )
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=delay)
+            except TimeoutError:
+                pass
         except TelegramError as exc:
-            async with session_factory() as session:
-                state = await session.get(TelegramState, "primary")
-                state.last_error = exc.code
-                await session.commit()
+            try:
+                async with session_factory() as session:
+                    state = await session.get(TelegramState, "primary")
+                    state.last_error = exc.code
+                    await session.commit()
+            except DATABASE_ERRORS:
+                logging.getLogger(__name__).warning("Telegram error status storage unavailable")
             if exc.code in {"telegram_authentication_failed", "telegram_polling_conflict", "telegram_webhook_conflict_owner_approval_required"}:
                 raise
             failures += 1

@@ -202,7 +202,6 @@ async def queue_policy_questions(session, row, policy):
 
 async def watch(session):
     """Scan only already imported data. Never poll a Naukri portal or mailbox."""
-    await store.memory_row(session, lock=True)
     from backend.app.execution.recurring import require_enabled
     try:
         await require_enabled(session)
@@ -213,6 +212,18 @@ async def watch(session):
         return 0
     now = await instant(session)
     row = await session.get(OwnerPreference, "exec_watch:naukri")
+    if row and row.value["next_at"] > now.isoformat():
+        return 0
+    await store.memory_row(session, lock=True)
+    try:
+        await require_enabled(session)
+    except ToolDenied:
+        return 0
+    config = await store.configuration(session)
+    if config.mode != "WATCH_AND_NOTIFY":
+        return 0
+    now = await instant(session)
+    row = await session.get(OwnerPreference, "exec_watch:naukri", populate_existing=True)
     if row and row.value["next_at"] > now.isoformat():
         return 0
     state = {
@@ -272,8 +283,10 @@ class ExecutionWorker:
 
     async def tick(self):
         from backend.app.browser.profile_launcher import ensure_fixed_profile
+        from backend.app.execution import recurring
         from backend.app.execution.alert_email import poll
 
+        await recurring.heartbeat(self.factory)
         await ensure_fixed_profile(self.factory)
         await poll(self.factory)
         from backend.app.core.config import get_settings
@@ -287,8 +300,6 @@ class ExecutionWorker:
                 except Exception:
                     logging.getLogger(__name__).warning("Local Gmail alert cycle failed")
         async with self.factory() as session, session.begin():
-            from backend.app.execution import recurring
-
             await recurring.tick(session)
             await watch(session)
             now = await instant(session)
@@ -307,6 +318,19 @@ class ExecutionWorker:
                 # An intent already waiting for owner input needs no packet
                 # read unless its current policy can queue an owner question.
                 # Keep READY_FOR_REVIEW expiry checks even without that opt-in.
+                if row.value["state"] == "NEEDS_INPUT" and not question_policy_active:
+                    continue
+                await store.memory_row(session, lock=True)
+                row = await store.load(session, row.value["id"])
+                automation = await recurring.record(session)
+                if (row.value["state"] not in {"READY_FOR_REVIEW", "NEEDS_INPUT"}
+                        or not row.value["packet_id"]):
+                    continue
+                question_policy_active = (
+                    automation["state"] == "RUNNING"
+                    and row.value.get("automation_revision") == automation["revision"]
+                    and bool((automation.get("policy") or {}).get("telegram_questions"))
+                )
                 if row.value["state"] == "NEEDS_INPUT" and not question_policy_active:
                     continue
                 packet = await ApplicationPacketService(session).read(

@@ -2,6 +2,7 @@
 
 import asyncio
 import ipaddress
+import os
 import re
 import socket
 import ssl
@@ -76,6 +77,10 @@ def database_connect_args(settings):
         "command_timeout": 30,
         "server_settings": {"search_path": f"{settings.DATABASE_SCHEMA},public"},
     }
+    process = os.environ.get("AUTOMATED_APPLY_PROCESS", "operator")
+    if process not in {"api", "execution", "telegram", "preflight", "status", "operator"}:
+        process = "operator"
+    args["server_settings"]["application_name"] = "automated-apply:" + process
     if settings.DB_REQUIRE_TLS and not (settings.ENVIRONMENT == "testing" and local_target(url.host)):
         try:
             args["ssl"] = ssl.create_default_context(cafile=settings.DB_SSL_ROOT_CERT)

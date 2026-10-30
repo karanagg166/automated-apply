@@ -281,12 +281,23 @@ def policy_reason(job, decision, policy):
     return None
 
 
+async def heartbeat(factory):
+    # Commit independently before acquiring the owner fence. Gmail guards
+    # update this row after that fence, so holding it during a claim would
+    # invert lock order. A heartbeat grants no work or policy authority.
+    from backend.app.services.discovery_budget import insert_for
+
+    async with factory() as session, session.begin():
+        value = {"heartbeat_at": (await instant(session)).isoformat()}
+        await session.execute(insert_for(session)(OwnerPreference).values(
+            key=HEALTH, value=value,
+        ).on_conflict_do_update(index_elements=[OwnerPreference.key], set_={"value": value}))
+
+
 async def tick(session):
     from backend.app.execution.naukri_review import review_jobs
 
-    await store.memory_row(session, lock=True)
     now = await instant(session)
-    await put(session, HEALTH, {"heartbeat_at": now.isoformat()})
     value = await record(session)
     if (
         value["state"] != "RUNNING"
@@ -297,6 +308,14 @@ async def tick(session):
         value.get("next_check_at")
         and datetime.fromisoformat(value["next_check_at"]) > now
     ):
+        return
+    await store.memory_row(session, lock=True)
+    now = await instant(session)
+    value = await record(session)
+    if (value["state"] != "RUNNING"
+            or (await store.configuration(session)).mode == "OFF"
+            or (value.get("next_check_at")
+                and datetime.fromisoformat(value["next_check_at"]) > now)):
         return
     policy = AutomationPolicy.model_validate(value["policy"])
     value.update(
