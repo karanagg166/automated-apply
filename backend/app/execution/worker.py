@@ -174,6 +174,10 @@ async def prepare(session, identity):
         )
     row.value = {**row.value, "lease_until": None, "attempts": 0}
     await queue_policy_questions(session, row, policy)
+    if row.value["state"] == "READY_FOR_REVIEW" and row.value["packet_id"]:
+        from backend.app.execution.notifications import notify_packet
+
+        await notify_packet(session, row, packet)
 
 
 async def queue_policy_questions(session, row, policy):

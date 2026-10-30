@@ -87,3 +87,66 @@ Exact route-validation counts: one genuine page observed, zero application quest
 | Awake/locked unattended workflow | NOT TESTED / NOT ACCEPTED | Functional and desktop gates unmet; no sleep/logout/off claim |
 
 Do not turn the platform blocker into another backend rewrite. Finish review of the narrow history correction, preserve the background-only constraint, then choose a specifically authorized, platform-supported route or owner-operated Direct Apply. Until one genuine application is independently confirmed, fully automatic Naukri applying remains unproven.
+
+## Owner-operated first application: exact next action
+
+The extension and history-fix installation are **not prerequisites** for this
+manual application. In the existing Profile 8, the owner should open the
+[selected QTrino Backend Developer listing261026028027](https://www.naukri.com/job-listings-backend-developer-naukri-e-hire-gurugram-0-to-2-years-261026028027),
+check that the live heading still identifies QTrino Labs Limited, and verify the
+account's currently saved resume/profile. The saved application packet's local
+checklist is not evidence of a portal form or of the resume currently on Naukri.
+
+Check Applied Jobs first for this exact requisition; if already recorded, do
+not click again. Otherwise, when satisfied with the vacancy and saved resume,
+the **owner** activates Apply once. That activation may itself submit the saved
+profile/resume. It may also change company-follow state; inspect any visible
+follow option beforehand, deselect it if unwanted, or stop if its effect is
+unacceptable/unclear. A second confirmation screen cannot be assumed.
+
+If a questionnaire appears, use its actual wording/options, answer truthfully
+from confirmed facts, and leave unknown salary, authorization, availability or
+other facts for owner input. Additional submission buttons are separate manual
+actions. If profile completion, login, expiry, challenge or an external redirect
+appears, record that result and stop; do not call an internal endpoint or retry
+Apply to investigate. An external route needs the actual employer/requisition
+and its own permitted interface verified before submission.
+
+After a success or ambiguous result, use Naukri's own **Applied Jobs** navigation
+to find the exact listing/requisition, role and displayed hiring company/posting
+recruiter. Reopen the status through normal navigation to check persistence;
+retain the displayed status, application time and any receipt/reference privately.
+Do not treat a click, follow notification, saved job, toast alone or opened page
+as proof. If absent/ambiguous, mark outcome unconfirmed and do not resubmit.
+The owner can retain a private screenshot of the exact status with candidate
+details redacted before sharing any evidence. Gmail confirmation is optional;
+only the already approved account/purpose/selection may be used for a later read.
+
+An exact persistent **Applied Jobs** record is a genuine **Naukri-recorded manual
+application receipt**. Employer acknowledgment, recruiter viewing and shortlisting
+are separate later evidence; they are not prerequisites for recognizing that
+Naukri recorded the application. The app's owner-report endpoint still labels a
+manually entered report `user_reported` / `self_reported_unverified`; it cannot
+independently attest to a screenshot or upgrade it to an automatic provider receipt.
+Record it through Applications → the selected packet → Report manual submission
+only after the real action, with the private receipt reference. No automatic
+submission is implemented or claimed.
+
+Fresh primary-source review on2026-10-30:
+
+- [Naukri communication guidance](https://www.naukri.com/blog/greater-control-over-communication-from-naukri-com/amp/)
+  confirms custom job alerts and Applied Jobs/status communications.
+- [Naukri's Apply Integration description](https://recruiterzone.naukri.com/tag/apply-integration/)
+  addresses recruiters and collecting applications into their ATS.
+- [Greenhouse's Naukri setup](https://support.greenhouse.io/hc/en-us/articles/16297968058651-Naukri-integration)
+  requires employer integration credentials, a Naukri subscription and integration
+  module. It does not offer this applicant agent a general submission grant.
+- [Ashby's Naukri integration](https://docs.ashbyhq.com/naukri) likewise concerns
+  employer job posting with a Naukri-issued team API key.
+
+**No officially supported or explicitly permitted third-party Naukri submission
+path available to this project was found.** This is a scoped research conclusion,
+not a claim that no private commercial partnership could ever exist. Current
+public terms retrieval remained robots-restricted; the earlier normal-profile
+terms observation is retained above. No unofficial MCP, authenticated Apply POST,
+cookie replay or speculative partner credential was implemented or tested.

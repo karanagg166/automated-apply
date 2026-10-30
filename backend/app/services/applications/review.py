@@ -82,7 +82,14 @@ class ApplicationReview:
             execution.value = {**execution.value, "approved_answer_revisions": {
                 str(f.id): f.answer_revision for f in items if f.review_status == "reviewed"
             }}
-        return await self.service.read(packet_id)
+        result = await self.service.read(packet_id)
+        from backend.app.knowledge.missing_input import storage_available
+
+        if result.platform == "naukri" and await storage_available(self.session):
+            from backend.app.execution.notifications import notify_packet
+
+            await notify_packet(self.session, execution, result)
+        return result
 
     async def handoff(self, packet_id):
         packet = await self.service.read(packet_id, lock_context=True)
