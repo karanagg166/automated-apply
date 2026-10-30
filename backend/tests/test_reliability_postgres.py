@@ -16,6 +16,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from backend.app.core.config import Settings
+from backend.app.core.timing import TimedAsyncAdaptedQueuePool
 from backend.app.dashboard.models import OwnerPreference
 from backend.app.db.errors import database_failure_code
 from backend.app.models.base import Base
@@ -37,6 +38,7 @@ async def postgres():
     await admin.execute(f'CREATE ROLE "{role}" LOGIN CONNECTION LIMIT 2')
     child_url = urlunsplit(target._replace(path="/" + database))
     engine = create_async_engine(child_url.replace("postgresql://", "postgresql+asyncpg://", 1),
+                                 poolclass=TimedAsyncAdaptedQueuePool,
                                  pool_size=1, max_overflow=0, pool_pre_ping=True,
                                  connect_args={"server_settings": {"lock_timeout": "200ms"}})
     try:
@@ -322,3 +324,51 @@ async def test_concurrent_focus_observations_keep_noops_stable_and_fence_real_ch
     changed = await asyncio.gather(observe(), observe())
     assert sum(isinstance(result, dict) and result["version"] == 8 for result in changed) == 1
     assert changed.count("extension_task_revision_conflict") == 1
+
+
+@pytest.mark.asyncio
+async def test_native_identity_rejection_does_not_wait_for_database_checkout(postgres, monkeypatch):
+    """An authenticated native request with the wrong extension needs no SQL."""
+    import httpx
+    from fastapi import FastAPI
+
+    from backend.app.core.timing import instrument_engine, trace
+    from backend.app.db import session as database
+    from backend.app.local_agent import router as native_router
+
+    _, _, _, engine = postgres
+    instrument_engine(engine)
+    factory = async_sessionmaker(engine, expire_on_commit=False, autoflush=False)
+    monkeypatch.setattr(database, "get_session_factory", lambda: factory)
+    settings = Settings(_env_file=None, CHROME_NATIVE_MESSAGING_ENABLED=True,
+                        CHROME_EXTENSION_ID="a" * 32)
+    monkeypatch.setattr(native_router, "get_settings", lambda: settings)
+    app = FastAPI()
+    app.add_api_route("/chrome", native_router.chrome_command, methods=["POST"])
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://fixture") as client:
+        async with factory() as holder:
+            await holder.connection()
+            current = {"request_id": "fictional-rejection", "stages": {}}
+            token = trace.set(current)
+            started = time.perf_counter()
+            async def rejected_request():
+                response = await client.post("/chrome", json={"command": "health"},
+                                             headers={"X-Agent-Client": "b" * 32})
+                return response, time.perf_counter() - started
+            pending = asyncio.create_task(rejected_request())
+            try:
+                await asyncio.sleep(.15)
+                finished_before_release = pending.done()
+            finally:
+                trace.reset(token)
+        response, response_seconds = await asyncio.wait_for(pending, 2)
+        elapsed = time.perf_counter() - started
+        print(json.dumps({"fixture": "native_rejection_under_occupied_pool",
+                          "finished_before_release": finished_before_release,
+                          "observation_hold_seconds": .15,
+                          "response_seconds": round(response_seconds, 6),
+                          "elapsed_including_observation_seconds": round(elapsed, 4),
+                          "status": response.status_code, "trace": current}))
+        assert response.status_code == 403
+        assert finished_before_release, "native authorization rejection waited for an unrelated database transaction"
+        assert "pool_acquisition" not in current["stages"]

@@ -13,7 +13,12 @@ from sqlalchemy.ext.asyncio import (
 
 from backend.app.core.config import get_settings
 from backend.app.core.logging import logger
-from backend.app.core.timing import instrument_engine, span, timed
+from backend.app.core.timing import (
+    TimedAsyncAdaptedQueuePool,
+    instrument_engine,
+    span,
+    timed,
+)
 from backend.app.db.errors import DATABASE_ERRORS
 from backend.app.db.safety import database_connect_args, database_target
 
@@ -55,6 +60,7 @@ def get_engine() -> AsyncEngine:
                 hide_parameters=True,
                 pool_pre_ping=True,
                 pool_recycle=300,
+                poolclass=TimedAsyncAdaptedQueuePool,
                 pool_size=settings.DB_POOL_SIZE,
                 max_overflow=settings.DB_MAX_OVERFLOW,
                 connect_args=database_connect_args(settings),
@@ -124,8 +130,6 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
         session = factory()
     async with session:
         try:
-            with span("pool_checkout_wait"):
-                await session.connection()
             yield session
             with span("flush_commit"):
                 await session.commit()

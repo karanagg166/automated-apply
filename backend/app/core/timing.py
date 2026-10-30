@@ -5,6 +5,8 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import wraps
 
+from sqlalchemy.pool import AsyncAdaptedQueuePool
+
 from backend.app.core.logging import logger
 
 trace = ContextVar("request_timing", default=None)
@@ -40,6 +42,19 @@ def timed(stage):
 
 def emit(current):
     logger.info("request_timing %s", json.dumps(current, separators=(",", ":")))
+
+
+class TimedAsyncAdaptedQueuePool(AsyncAdaptedQueuePool):
+    """Observe actual pool demand without obtaining a connection speculatively.
+
+    SQLAlchemy's _do_get hook covers queue wait and new connection creation.
+    It does not include checkout pre-ping, which happens after this hook.
+    Keep the override transparent: return the same record, propagate all errors.
+    """
+
+    def _do_get(self):
+        with span("pool_acquisition"):
+            return super()._do_get()
 
 
 def instrument_engine(engine):
