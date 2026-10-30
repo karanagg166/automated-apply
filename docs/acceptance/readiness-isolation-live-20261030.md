@@ -137,3 +137,41 @@ Private receipts are `cycle-1`, `restart`, `worker-crash` and the ongoing
 HTTP-only monitor in the same upgrade directory. The known 503s from the prior
 release remain in the earlier reports. No new source change or additional
 installation approval was needed for these already-authorized tests.
+
+## Two cycles and Stop/Pause checkpoint
+
+The second cycle **PASS** after both the graceful restart and unexpected worker
+crash. It saved a distinct read-only zero-field `NEEDS_INPUT` plan, then paused.
+Concurrent task Pause and global Stop fenced an additional queued Prepare as
+**cancelled / global_stop**. Restoring the original automation RUNNING state did
+not resume the acceptance task, older paused executions or that terminal command.
+Old terminal command values and selected binding remained unchanged.
+
+The completed 120-sample monitor ran **10:59:16–11:09:40 UTC**:
+
+| Endpoint | Actual result | Mean / maximum seconds |
+| --- | --- | --- |
+| Health | 116 HTTP 200; 3 ConnectError during planned API restart; **1 unexplained ReadError before restart** | 0.0153 / 0.3160 |
+| Readiness | 117 HTTP 200; 3 ConnectError during planned API restart; **zero HTTP 503** | 1.1065 / 3.6459 |
+| Profile status | 115 HTTP 200; 3 planned-restart ConnectError; **2 ReadTimeout** | 2.7632 / 12.0044 |
+
+The health ReadError occurred at **11:02:58 UTC**, before the planned restart
+started at 11:03:23. It is not attributed to that restart. The sanitized monitor
+did not retain enough transport detail to establish its individual cause. No
+backend restart was observed at that time. A keep-alive race is only a hypothesis,
+not a proven root cause. The two profile-status timeouts remain real observer
+failures; server logs also retained status durations exceeding 12 seconds.
+Overall HTTP reliability is therefore not labeled an unconditional PASS.
+
+The owner selected **“Keep locked-screen test pending.”** No locked cycle was
+started. A third normal cycle is being run after an explicit UNLOCKED telemetry
+precondition; it cannot substitute for the deferred locked-screen check.
+Sanitized checkpoint:
+[readiness-two-cycles-controls-20261030.json](readiness-two-cycles-controls-20261030.json).
+
+The remaining status-latency development change batches its disjoint profile,
+selection, task, command and receipt reads into one SQL statement. It keeps the
+same output redaction and re-reads under the owner fence before expiry/invalidation
+mutations. It has not been installed. Its focused snapshot/profile regressions
+currently pass **37 tests in 8.23s**; full validation and exact-SHA review remain
+required before any production use.

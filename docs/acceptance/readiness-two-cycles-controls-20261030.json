@@ -1,0 +1,72 @@
+{
+  "sha": "5ca05d844fbaa7ca0ada093aa37556c831c89edf",
+  "sample_count": 120,
+  "first_sample": "2026-10-30T10:59:16.946276+00:00",
+  "last_sample": "2026-10-30T11:09:40.479164+00:00",
+  "all_http": {
+    "/health": {
+      "samples": 120,
+      "status_counts": {
+        "200": 116,
+        "ReadError": 1,
+        "ConnectError": 3
+      },
+      "mean_seconds": 0.0153,
+      "max_seconds": 0.316
+    },
+    "/ready": {
+      "samples": 120,
+      "status_counts": {
+        "200": 117,
+        "ConnectError": 3
+      },
+      "mean_seconds": 1.1065,
+      "max_seconds": 3.6459
+    },
+    "/api/v1/browser/chrome-profiles": {
+      "samples": 120,
+      "status_counts": {
+        "200": 115,
+        "ReadTimeout": 2,
+        "ConnectError": 3
+      },
+      "mean_seconds": 2.7632,
+      "max_seconds": 12.0044
+    }
+  },
+  "planned_restart_window": {
+    "start": "2026-10-30T11:03:23.510579+00:00",
+    "end": "2026-10-30T11:03:52.391692+00:00"
+  },
+  "unplanned_readiness_503s": 0,
+  "cycles": [
+    {
+      "cycle": 1,
+      "result": "PASS",
+      "start": "2026-10-30T10:59:25.906486+00:00",
+      "end": "2026-10-30T11:02:12.601162+00:00",
+      "plan_state": "read_only",
+      "task_state": "NEEDS_INPUT",
+      "paused": true,
+      "field_count": 0,
+      "approved_field_count": 0
+    },
+    {
+      "cycle": 2,
+      "result": "PASS",
+      "start": "2026-10-30T11:05:25.860337+00:00",
+      "end": "2026-10-30T11:08:06.767165+00:00",
+      "plan_state": "read_only",
+      "task_state": "NEEDS_INPUT",
+      "paused": true,
+      "field_count": 0,
+      "approved_field_count": 0
+    }
+  ],
+  "controls": {
+    "result": "PASS",
+    "stop_fenced_command_state": "cancelled",
+    "original_running_state_restored_without_task_resume": true
+  },
+  "locked_cycle": "NOT TESTED; owner requested pending"
+}
