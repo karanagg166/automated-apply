@@ -1,0 +1,66 @@
+{
+  "implementation_sha": "0efc7cdecdf71a902ab257a4d2fea7f58e170c63",
+  "previous_report_sha": "a6effa587c468f28675e5657ffa949f3c8b7fd1e",
+  "branch": "fix/live-prepare-discovery-20261030",
+  "base": "main",
+  "installed_services_sha": "90f2f2ade50a1c31b26ca85cc7fdf5e93bb67c20",
+  "history_fix_installed": false,
+  "genuine_receipt": {
+    "requisition": "261026028027",
+    "hiring_company": "QTrino Labs Limited",
+    "posting_recruiter": "Naukri E-hire",
+    "job_title": "Backend Developer",
+    "application_date_displayed": "31 Oct '26",
+    "status": "Application Sent",
+    "awaiting_recruiter_action": true,
+    "confirmation_source": "naukri_application_status_ui",
+    "operation_mode": "owner_authorized_software_operated_ui",
+    "observed_at": "2026-10-30T19:34:56.796007+00:00",
+    "persistent_after_reload": true,
+    "employer_receipt_verified": false
+  },
+  "local_duplicate_fence": {
+    "title": "Backend Developer",
+    "employer": "QTrino Labs Limited",
+    "state": "REJECTED",
+    "reason": "already_applied",
+    "vacancy_review": "already_applied",
+    "submission_allowed": false
+  },
+  "receipt_recording": {
+    "job_marked_applied": true,
+    "receipt_record_present": true,
+    "status_source": "naukri_application_status_ui",
+    "packet_falsely_marked_human_reported": false,
+    "submission_endpoint_called": false
+  },
+  "action_counts": {
+    "selected_job_Apply_activations_total": 1,
+    "earlier_file_transfer_failures": 1,
+    "successful_native_file_selections": 1,
+    "genuine_applications": 1,
+    "initial_history_verifications": 1,
+    "history_reload_verifications": 1,
+    "independent_employer_acknowledgments": 0,
+    "additional_jobs_submitted": 0,
+    "private_apply_endpoint_replays": 0,
+    "new_installations": 0,
+    "service_restarts": 0,
+    "new_mailbox_reads": 0,
+    "hosted_actions_dispatched": 0
+  },
+  "new_automated_tests": {
+    "passed": 0,
+    "failed": 0,
+    "not_run_reason": "Live UI execution and documentation/data reconciliation only; no implementation change. Prior217 fixture passes are not real-application evidence."
+  },
+  "scope": {
+    "first_genuine_application": "PASS",
+    "software_operated_UI": "PASS_for_one_owner_authorized_job",
+    "unattended_24_7": "NOT_TESTED_NOT_ENABLED",
+    "automatic_submission_API": "NOT_ESTABLISHED",
+    "always_on_host": "NOT_PROVISIONED",
+    "performance_optimization": "NONE",
+    "before_after_resource_benchmark": "NOT_TESTED"
+  }
+}

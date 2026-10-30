@@ -1,5 +1,9 @@
 # QTrino: real application reached, resume attachment failed
 
+> Historical failure, subsequently resolved through owner-authorized native file
+> selection. See [the first genuine receipt](qtrino-first-genuine-receipt-20261031.md):
+> Naukri records Applied / Application Sent, and local duplicate exclusion is active.
+
 **Next action: the owner selects the confirmed PDF through Upload Resume in the
 existing Naukri questionnaire, then asks Codex to continue.** The selected PDF is
 available privately. The site reported `File upload was unsuccessful. Please try
