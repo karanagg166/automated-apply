@@ -1,0 +1,647 @@
+{
+  "installed_sha": "79ce5f6b514279e6d9022d85b659ad77fb31bd89",
+  "branch": "fix/live-prepare-discovery-20261030",
+  "cycles": [
+    {
+      "attempt": 1,
+      "status": "FAIL",
+      "duration_seconds": 16.398,
+      "commands": [],
+      "paused_after": true,
+      "has_field_authorization_after": false,
+      "http_failures": [
+        {
+          "status": 409,
+          "seconds": 5.435,
+          "code": "extension_task_revision_conflict"
+        }
+      ],
+      "all_observed_screens_unlocked": true
+    },
+    {
+      "attempt": 2,
+      "status": "PASS",
+      "duration_seconds": 182.636,
+      "commands": [
+        {
+          "action": "open",
+          "terminal": "completed",
+          "observed_admission_to_completion_seconds": 49.392
+        },
+        {
+          "action": "prepare",
+          "terminal": "completed",
+          "observed_admission_to_completion_seconds": 88.174
+        }
+      ],
+      "plan_state": "read_only",
+      "task_state": "NEEDS_INPUT",
+      "fields": 0,
+      "actions": 0,
+      "approved_fields": 0,
+      "new_read_only_plans": 1,
+      "paused_after": true,
+      "has_field_authorization_after": false,
+      "http_failures": [],
+      "all_observed_screens_unlocked": true
+    },
+    {
+      "attempt": 3,
+      "status": "PASS",
+      "duration_seconds": 151.538,
+      "commands": [
+        {
+          "action": "open",
+          "terminal": "completed",
+          "observed_admission_to_completion_seconds": 29.054
+        },
+        {
+          "action": "prepare",
+          "terminal": "completed",
+          "observed_admission_to_completion_seconds": 85.369
+        }
+      ],
+      "plan_state": "read_only",
+      "task_state": "NEEDS_INPUT",
+      "fields": 0,
+      "actions": 0,
+      "approved_fields": 0,
+      "new_read_only_plans": 1,
+      "paused_after": true,
+      "has_field_authorization_after": false,
+      "http_failures": [],
+      "all_observed_screens_unlocked": true
+    },
+    {
+      "attempt": 4,
+      "status": "in_progress",
+      "duration_seconds": 34.787,
+      "commands": [
+        {
+          "action": "open",
+          "terminal": "queued",
+          "observed_admission_to_completion_seconds": 9.843
+        }
+      ],
+      "paused_after": false,
+      "has_field_authorization_after": false,
+      "http_failures": [],
+      "all_observed_screens_unlocked": true
+    }
+  ],
+  "monitor": {
+    "samples": 126,
+    "completed": false,
+    "http": {
+      "/health": {
+        "samples": 126,
+        "status_counts": {
+          "200": 123,
+          "ConnectError": 3
+        },
+        "mean_seconds": 0.0291,
+        "p95_seconds": 0.0583,
+        "max_seconds": 0.3183,
+        "failures": [
+          {
+            "at": "2026-10-30T11:46:28.528520+00:00",
+            "status": "ConnectError",
+            "seconds": 0.0048
+          },
+          {
+            "at": "2026-10-30T11:46:33.531396+00:00",
+            "status": "ConnectError",
+            "seconds": 0.0064
+          },
+          {
+            "at": "2026-10-30T11:46:38.533847+00:00",
+            "status": "ConnectError",
+            "seconds": 0.0077
+          }
+        ]
+      },
+      "/ready": {
+        "samples": 126,
+        "status_counts": {
+          "200": 123,
+          "ConnectError": 3
+        },
+        "mean_seconds": 1.185,
+        "p95_seconds": 1.5268,
+        "max_seconds": 4.2275,
+        "failures": [
+          {
+            "at": "2026-10-30T11:46:28.528520+00:00",
+            "status": "ConnectError",
+            "seconds": 0.0037
+          },
+          {
+            "at": "2026-10-30T11:46:33.531396+00:00",
+            "status": "ConnectError",
+            "seconds": 0.0031
+          },
+          {
+            "at": "2026-10-30T11:46:38.533847+00:00",
+            "status": "ConnectError",
+            "seconds": 0.0039
+          }
+        ]
+      },
+      "/api/v1/browser/chrome-profiles": {
+        "samples": 126,
+        "status_counts": {
+          "200": 121,
+          "ReadTimeout": 2,
+          "ConnectError": 3
+        },
+        "mean_seconds": 2.4169,
+        "p95_seconds": 6.5874,
+        "max_seconds": 12.0157,
+        "failures": [
+          {
+            "at": "2026-10-30T11:45:29.858441+00:00",
+            "status": "ReadTimeout",
+            "seconds": 12.0157
+          },
+          {
+            "at": "2026-10-30T11:46:28.528520+00:00",
+            "status": "ConnectError",
+            "seconds": 0.0035
+          },
+          {
+            "at": "2026-10-30T11:46:33.531396+00:00",
+            "status": "ConnectError",
+            "seconds": 0.0029
+          },
+          {
+            "at": "2026-10-30T11:46:38.533847+00:00",
+            "status": "ConnectError",
+            "seconds": 0.0036
+          },
+          {
+            "at": "2026-10-30T11:49:52.386881+00:00",
+            "status": "ReadTimeout",
+            "seconds": 12.0097
+          }
+        ]
+      }
+    },
+    "resources": {
+      "api": {
+        "present_samples": 126,
+        "mean_cpu_percent": 3.402,
+        "peak_cpu_percent": 84.0,
+        "mean_rss_mib": 55.927,
+        "peak_rss_mib": 133.922
+      },
+      "execution": {
+        "present_samples": 116,
+        "mean_cpu_percent": 1.484,
+        "peak_cpu_percent": 93.2,
+        "mean_rss_mib": 31.724,
+        "peak_rss_mib": 94.875
+      },
+      "telegram": {
+        "present_samples": 126,
+        "mean_cpu_percent": 0.263,
+        "peak_cpu_percent": 3.3,
+        "mean_rss_mib": 17.09,
+        "peak_rss_mib": 48.312
+      },
+      "frontend": {
+        "present_samples": 126,
+        "mean_cpu_percent": 0.017,
+        "peak_cpu_percent": 0.6,
+        "mean_rss_mib": 4.864,
+        "peak_rss_mib": 9.109
+      }
+    },
+    "start": "2026-10-30T11:41:07.206926+00:00",
+    "end": "2026-10-30T11:52:08.622754+00:00"
+  },
+  "monitors": [
+    {
+      "name": "monitor-native.jsonl",
+      "samples": 120,
+      "completed": true,
+      "http": {
+        "/health": {
+          "samples": 120,
+          "status_counts": {
+            "200": 117,
+            "ConnectError": 3
+          },
+          "mean_seconds": 0.0294,
+          "p95_seconds": 0.0533,
+          "max_seconds": 0.3183,
+          "failures": [
+            {
+              "at": "2026-10-30T11:46:28.528520+00:00",
+              "status": "ConnectError",
+              "seconds": 0.0048
+            },
+            {
+              "at": "2026-10-30T11:46:33.531396+00:00",
+              "status": "ConnectError",
+              "seconds": 0.0064
+            },
+            {
+              "at": "2026-10-30T11:46:38.533847+00:00",
+              "status": "ConnectError",
+              "seconds": 0.0077
+            }
+          ]
+        },
+        "/ready": {
+          "samples": 120,
+          "status_counts": {
+            "200": 117,
+            "ConnectError": 3
+          },
+          "mean_seconds": 1.1711,
+          "p95_seconds": 1.5085,
+          "max_seconds": 4.2275,
+          "failures": [
+            {
+              "at": "2026-10-30T11:46:28.528520+00:00",
+              "status": "ConnectError",
+              "seconds": 0.0037
+            },
+            {
+              "at": "2026-10-30T11:46:33.531396+00:00",
+              "status": "ConnectError",
+              "seconds": 0.0031
+            },
+            {
+              "at": "2026-10-30T11:46:38.533847+00:00",
+              "status": "ConnectError",
+              "seconds": 0.0039
+            }
+          ]
+        },
+        "/api/v1/browser/chrome-profiles": {
+          "samples": 120,
+          "status_counts": {
+            "200": 115,
+            "ReadTimeout": 2,
+            "ConnectError": 3
+          },
+          "mean_seconds": 2.3455,
+          "p95_seconds": 6.1364,
+          "max_seconds": 12.0157,
+          "failures": [
+            {
+              "at": "2026-10-30T11:45:29.858441+00:00",
+              "status": "ReadTimeout",
+              "seconds": 12.0157
+            },
+            {
+              "at": "2026-10-30T11:46:28.528520+00:00",
+              "status": "ConnectError",
+              "seconds": 0.0035
+            },
+            {
+              "at": "2026-10-30T11:46:33.531396+00:00",
+              "status": "ConnectError",
+              "seconds": 0.0029
+            },
+            {
+              "at": "2026-10-30T11:46:38.533847+00:00",
+              "status": "ConnectError",
+              "seconds": 0.0036
+            },
+            {
+              "at": "2026-10-30T11:49:52.386881+00:00",
+              "status": "ReadTimeout",
+              "seconds": 12.0097
+            }
+          ]
+        }
+      },
+      "resources": {
+        "api": {
+          "present_samples": 120,
+          "mean_cpu_percent": 3.403,
+          "peak_cpu_percent": 84.0,
+          "mean_rss_mib": 56.265,
+          "peak_rss_mib": 133.922
+        },
+        "execution": {
+          "present_samples": 110,
+          "mean_cpu_percent": 1.529,
+          "peak_cpu_percent": 93.2,
+          "mean_rss_mib": 32.196,
+          "peak_rss_mib": 94.875
+        },
+        "telegram": {
+          "present_samples": 120,
+          "mean_cpu_percent": 0.269,
+          "peak_cpu_percent": 3.3,
+          "mean_rss_mib": 17.458,
+          "peak_rss_mib": 48.312
+        },
+        "frontend": {
+          "present_samples": 120,
+          "mean_cpu_percent": 0.018,
+          "peak_cpu_percent": 0.6,
+          "mean_rss_mib": 4.909,
+          "peak_rss_mib": 9.109
+        }
+      },
+      "start": "2026-10-30T11:41:07.206926+00:00",
+      "end": "2026-10-30T11:51:27.726959+00:00"
+    },
+    {
+      "name": "monitor-final.jsonl",
+      "samples": 6,
+      "completed": false,
+      "http": {
+        "/health": {
+          "samples": 6,
+          "status_counts": {
+            "200": 6
+          },
+          "mean_seconds": 0.024,
+          "p95_seconds": 0.0624,
+          "max_seconds": 0.0624,
+          "failures": []
+        },
+        "/ready": {
+          "samples": 6,
+          "status_counts": {
+            "200": 6
+          },
+          "mean_seconds": 1.4635,
+          "p95_seconds": 2.1877,
+          "max_seconds": 2.1877,
+          "failures": []
+        },
+        "/api/v1/browser/chrome-profiles": {
+          "samples": 6,
+          "status_counts": {
+            "200": 6
+          },
+          "mean_seconds": 3.8449,
+          "p95_seconds": 8.4916,
+          "max_seconds": 8.4916,
+          "failures": []
+        }
+      },
+      "resources": {
+        "api": {
+          "present_samples": 6,
+          "mean_cpu_percent": 3.383,
+          "peak_cpu_percent": 4.7,
+          "mean_rss_mib": 49.167,
+          "peak_rss_mib": 68.25
+        },
+        "execution": {
+          "present_samples": 6,
+          "mean_cpu_percent": 0.65,
+          "peak_cpu_percent": 2.2,
+          "mean_rss_mib": 23.078,
+          "peak_rss_mib": 34.625
+        },
+        "telegram": {
+          "present_samples": 6,
+          "mean_cpu_percent": 0.15,
+          "peak_cpu_percent": 0.9,
+          "mean_rss_mib": 9.724,
+          "peak_rss_mib": 32.359
+        },
+        "frontend": {
+          "present_samples": 6,
+          "mean_cpu_percent": 0.0,
+          "peak_cpu_percent": 0.0,
+          "mean_rss_mib": 3.977,
+          "peak_rss_mib": 6.469
+        }
+      },
+      "start": "2026-10-30T11:51:38.312805+00:00",
+      "end": "2026-10-30T11:52:08.622754+00:00"
+    }
+  ],
+  "previous_release_comparison": {
+    "sha": "5ca05d844fbaa7ca0ada093aa37556c831c89edf",
+    "metrics": {
+      "samples": 180,
+      "completed": true,
+      "http": {
+        "/health": {
+          "samples": 180,
+          "status_counts": {
+            "200": 175,
+            "ReadError": 2,
+            "ConnectError": 3
+          },
+          "mean_seconds": 0.0144,
+          "p95_seconds": 0.0238,
+          "max_seconds": 0.316,
+          "failures": [
+            {
+              "at": "2026-10-30T11:02:58.706448+00:00",
+              "status": "ReadError",
+              "seconds": 0.0055
+            },
+            {
+              "at": "2026-10-30T11:03:33.714116+00:00",
+              "status": "ConnectError",
+              "seconds": 0.0073
+            },
+            {
+              "at": "2026-10-30T11:03:38.715545+00:00",
+              "status": "ConnectError",
+              "seconds": 0.004
+            },
+            {
+              "at": "2026-10-30T11:03:43.716643+00:00",
+              "status": "ConnectError",
+              "seconds": 0.0039
+            },
+            {
+              "at": "2026-10-30T11:16:09.639626+00:00",
+              "status": "ReadError",
+              "seconds": 0.027
+            }
+          ]
+        },
+        "/ready": {
+          "samples": 180,
+          "status_counts": {
+            "200": 177,
+            "ConnectError": 3
+          },
+          "mean_seconds": 1.1271,
+          "p95_seconds": 1.328,
+          "max_seconds": 3.6459,
+          "failures": [
+            {
+              "at": "2026-10-30T11:03:33.714116+00:00",
+              "status": "ConnectError",
+              "seconds": 0.0054
+            },
+            {
+              "at": "2026-10-30T11:03:38.715545+00:00",
+              "status": "ConnectError",
+              "seconds": 0.0025
+            },
+            {
+              "at": "2026-10-30T11:03:43.716643+00:00",
+              "status": "ConnectError",
+              "seconds": 0.0028
+            }
+          ]
+        },
+        "/api/v1/browser/chrome-profiles": {
+          "samples": 180,
+          "status_counts": {
+            "200": 174,
+            "ReadTimeout": 3,
+            "ConnectError": 3
+          },
+          "mean_seconds": 2.9362,
+          "p95_seconds": 7.4061,
+          "max_seconds": 12.0048,
+          "failures": [
+            {
+              "at": "2026-10-30T11:01:29.008067+00:00",
+              "status": "ReadTimeout",
+              "seconds": 12.0044
+            },
+            {
+              "at": "2026-10-30T11:03:33.714116+00:00",
+              "status": "ConnectError",
+              "seconds": 0.0052
+            },
+            {
+              "at": "2026-10-30T11:03:38.715545+00:00",
+              "status": "ConnectError",
+              "seconds": 0.0023
+            },
+            {
+              "at": "2026-10-30T11:03:43.716643+00:00",
+              "status": "ConnectError",
+              "seconds": 0.0027
+            },
+            {
+              "at": "2026-10-30T11:07:25.765625+00:00",
+              "status": "ReadTimeout",
+              "seconds": 12.0041
+            },
+            {
+              "at": "2026-10-30T11:14:04.463113+00:00",
+              "status": "ReadTimeout",
+              "seconds": 12.0048
+            }
+          ]
+        }
+      },
+      "resources": {
+        "api": {
+          "present_samples": 180,
+          "mean_cpu_percent": 1.967,
+          "peak_cpu_percent": 88.0,
+          "mean_rss_mib": 66.799,
+          "peak_rss_mib": 137.938
+        },
+        "execution": {
+          "present_samples": 175,
+          "mean_cpu_percent": 0.993,
+          "peak_cpu_percent": 83.0,
+          "mean_rss_mib": 42.026,
+          "peak_rss_mib": 96.359
+        },
+        "telegram": {
+          "present_samples": 180,
+          "mean_cpu_percent": 0.274,
+          "peak_cpu_percent": 5.1,
+          "mean_rss_mib": 38.406,
+          "peak_rss_mib": 62.188
+        },
+        "frontend": {
+          "present_samples": 180,
+          "mean_cpu_percent": 0.015,
+          "peak_cpu_percent": 1.5,
+          "mean_rss_mib": 8.734,
+          "peak_rss_mib": 13.656
+        }
+      },
+      "start": "2026-10-30T10:59:16.946276+00:00",
+      "end": "2026-10-30T11:16:59.647979+00:00"
+    },
+    "scope": "Non-identical sequential workload windows; same process grouping, not a controlled resource benchmark"
+  },
+  "locked_cycle": "NOT TESTED; owner explicitly deferred",
+  "new_source_tests_executed": 0,
+  "prior_fixture_validation": {
+    "backend_passed": 346,
+    "backend_seconds": 36.01,
+    "disposable_postgres_passed": 7,
+    "disposable_postgres_seconds": 2.56
+  },
+  "restart": {
+    "result": "PASS",
+    "events": [
+      {
+        "at": "2026-10-30T11:46:24.593977+00:00",
+        "action": "no_inflight_commands_and_task_paused"
+      },
+      {
+        "at": "2026-10-30T11:46:25.150255+00:00",
+        "action": "stopped",
+        "service": "execution"
+      },
+      {
+        "at": "2026-10-30T11:46:26.212849+00:00",
+        "action": "stopped",
+        "service": "api"
+      },
+      {
+        "at": "2026-10-30T11:46:26.277771+00:00",
+        "action": "started",
+        "service": "api"
+      },
+      {
+        "at": "2026-10-30T11:46:47.767787+00:00",
+        "action": "ready",
+        "seconds": 3.447
+      },
+      {
+        "at": "2026-10-30T11:46:47.800852+00:00",
+        "action": "started",
+        "service": "execution"
+      },
+      {
+        "at": "2026-10-30T11:46:47.801367+00:00",
+        "action": "restart_completed_same_sha"
+      }
+    ]
+  },
+  "worker-crash": {
+    "result": "PASS",
+    "events": [
+      {
+        "at": "2026-10-30T11:46:52.861139+00:00",
+        "action": "verified_quiescent_worker"
+      },
+      {
+        "at": "2026-10-30T11:46:52.862027+00:00",
+        "action": "unexpected_worker_crash_injected"
+      },
+      {
+        "at": "2026-10-30T11:47:19.059656+00:00",
+        "action": "launchagent_new_worker",
+        "restart_seconds": 26.198
+      },
+      {
+        "at": "2026-10-30T11:47:36.952360+00:00",
+        "action": "fresh_post_crash_database_heartbeat",
+        "recovery_seconds": 44.091
+      },
+      {
+        "at": "2026-10-30T11:47:40.583340+00:00",
+        "action": "worker_recovery_verified_no_task_resume_or_command_replay"
+      }
+    ]
+  }
+}
