@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, expect, it, vi } from "vitest";
 import {
   ApplicationQueue,
+  ProfileReconciliation,
   QueuePolicyForm,
   type QueueConfiguration,
 } from "@/features/application-queue";
@@ -70,6 +71,71 @@ const configuration: QueueConfiguration = {
   },
 };
 const saved = async () => {};
+
+it("requires explicit version-bound summary approval and exposes unsupported fields", async () => {
+  let sync = {
+    configuration: {
+      revision: 0,
+      policy: {
+        enabled: false,
+        auto_profile_sync: false,
+        profile_version: null as number | null,
+        approved_fields: [] as string[],
+        interval_seconds: 3600,
+      },
+    },
+    current_profile_version: 4,
+    profile_confirmed: true,
+    latest: {
+      outcome: "COMPARED",
+      observed_at: "2026-10-31T00:00:00Z",
+      decisions: [
+        { field: "email", state: "UNSUPPORTED", update_supported: false },
+      ],
+    },
+    last_error: null,
+  };
+  const writes: unknown[] = [];
+  vi.mocked(api).mockImplementation(async (_path, options) => {
+    if (options?.method === "PUT") {
+      const payload = JSON.parse(String(options.body));
+      writes.push(payload);
+      sync = {
+        ...sync,
+        configuration: {
+          revision: sync.configuration.revision + 1,
+          policy: payload.policy,
+        },
+      };
+      return sync.configuration;
+    }
+    return sync;
+  });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={client}>
+      <ProfileReconciliation />
+    </QueryClientProvider>,
+  );
+  expect(await screen.findByText("Unsupported")).toBeVisible();
+  const approval = screen.getByLabelText(/Approve automatic Profile summary/);
+  expect(approval).toBeDisabled();
+  await userEvent.click(screen.getByLabelText("Compare profile periodically"));
+  await waitFor(() => expect(approval).toBeEnabled());
+  await userEvent.click(approval);
+  await waitFor(() => expect(writes).toHaveLength(2));
+  expect(writes[1]).toMatchObject({
+    expected_revision: 1,
+    policy: {
+      auto_profile_sync: true,
+      approved_fields: ["summary"],
+      profile_version: 4,
+    },
+  });
+  client.clear();
+});
 
 it("starts with 80/day, two-day postings and explicit unknown-applicant handling", () => {
   render(<QueuePolicyForm configuration={configuration} saved={saved} />);

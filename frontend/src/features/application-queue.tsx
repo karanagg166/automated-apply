@@ -45,6 +45,8 @@ type PlatformPolicy = {
   preferences: Preferences;
   discovery_interval_seconds: number;
   supervised_submission_cap: number;
+  hourly_submission_cap?: number;
+  notify_telegram?: boolean;
 };
 export type QueuePolicy = {
   global_limits: QueueLimits;
@@ -75,6 +77,10 @@ type QueueItem = {
   posted_at: string | null;
   applicants_min: number | null;
   applicants_max: number | null;
+  url?: string | null;
+  packet_id?: string | null;
+  submission_mode?: string | null;
+  receipt_source?: string | null;
 };
 type QueueView = {
   items: QueueItem[];
@@ -92,6 +98,12 @@ type QueueView = {
     last_error: string | null;
   } | null;
   consumer?: { last_poll_at: string; busy: boolean; capability: string } | null;
+  quota?: {
+    reserved_today: number;
+    daily_cap: number;
+    remaining: number;
+    hourly_cap: number;
+  };
 };
 const words = (value: string) =>
   value
@@ -109,6 +121,7 @@ const stages = [
   "RESUME_ATTACHMENT",
   "VERIFYING",
   "SUBMITTED_RECORDED",
+  "SUBMITTED_CONFIRMED",
   "NEEDS_INPUT",
   "PAUSED",
   "FAILED_RETRYABLE",
@@ -116,6 +129,136 @@ const stages = [
   "SUBMISSION_UNKNOWN",
   "SKIPPED",
 ];
+
+type SyncView = {
+  configuration: {
+    revision: number;
+    policy: {
+      enabled: boolean;
+      auto_profile_sync: boolean;
+      profile_version: number | null;
+      approved_fields: string[];
+      interval_seconds: number;
+    };
+  };
+  current_profile_version: number | null;
+  profile_confirmed: boolean;
+  latest: {
+    outcome: string;
+    observed_at: string;
+    decisions: { field: string; state: string; update_supported: boolean }[];
+  } | null;
+  last_error: string | null;
+};
+
+export function ProfileReconciliation() {
+  const query = useQuery({
+    queryKey: ["naukri-profile-sync"],
+    queryFn: () => api<SyncView>("execution/naukri/profile-sync"),
+    refetchInterval: 15000,
+  });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  if (query.isPending) return <p>Loading profile reconciliation…</p>;
+  if (query.error) return <ErrorState error={query.error} />;
+  const view = query.data!;
+  const policy = view.configuration.policy;
+  const automaticCurrent =
+    policy.auto_profile_sync &&
+    policy.profile_version === view.current_profile_version;
+  async function save(enabled: boolean, automatic: boolean) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api("execution/naukri/profile-sync/policy", {
+        method: "PUT",
+        body: JSON.stringify({
+          expected_revision: view.configuration.revision,
+          policy: {
+            ...policy,
+            enabled,
+            auto_profile_sync: automatic,
+            profile_version: view.current_profile_version,
+            approved_fields: automatic ? ["summary"] : [],
+          },
+        }),
+      });
+      await query.refetch();
+    } catch (e) {
+      setError(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="stack" aria-label="Naukri profile reconciliation">
+      <h2>Profile reconciliation</h2>
+      <p>
+        Compare supported portal fields with your confirmed profile. Unknown
+        facts never replace portal information. Automatic updates currently
+        support Profile summary; other fields retain explicit unsupported or
+        conflict states.
+      </p>
+      <label>
+        <input
+          type="checkbox"
+          checked={policy.enabled}
+          disabled={busy || !view.profile_confirmed}
+          onChange={(e) => void save(e.target.checked, automaticCurrent)}
+        />{" "}
+        Compare profile periodically
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={automaticCurrent}
+          disabled={busy || !view.profile_confirmed || !policy.enabled}
+          onChange={(e) => void save(policy.enabled, e.target.checked)}
+        />{" "}
+        Approve automatic Profile summary updates from confirmed profile version{" "}
+        {view.current_profile_version ?? "unknown"}
+      </label>
+      {!view.profile_confirmed && (
+        <Notice>
+          Review and confirm the current profile before enabling
+          synchronization.
+        </Notice>
+      )}
+      {error ? <ErrorState error={error} /> : null}
+      {view.last_error && <Notice>{readable(view.last_error)}</Notice>}
+      <p>
+        {view.latest
+          ? `${readable(view.latest.outcome)} · ${new Date(view.latest.observed_at).toLocaleString()}`
+          : "No portal comparison recorded."}{" "}
+        Installed live acceptance pending.
+      </p>
+      {view.latest && (
+        <table>
+          <thead>
+            <tr>
+              <th>Field</th>
+              <th>Comparison</th>
+              <th>Update support</th>
+            </tr>
+          </thead>
+          <tbody>
+            {view.latest.decisions.map((d) => (
+              <tr key={d.field}>
+                <td>{readable(d.field)}</td>
+                <td>{readable(d.state)}</td>
+                <td>
+                  {d.update_supported
+                    ? "Supported layout required"
+                    : "Unsupported"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
 
 export function QueuePolicyForm({
   configuration,
@@ -194,8 +337,10 @@ export function QueuePolicyForm({
     <div className="stack">
       <h2>Background job queue</h2>
       <Notice>
-        This build discovers and prepares jobs. Automatic submission is not
-        available yet.
+        Automatic mode supports eligible direct Apply journeys with verified
+        account, saved resume and persistent Application Status evidence.
+        Questionnaires, resume replacement and unrecognized layouts require
+        review. Installed live and locked-screen acceptance is still pending.
       </Notice>
       <p>
         Persisted state: <strong>{configuration.state}</strong>. Background tabs
@@ -337,6 +482,27 @@ export function QueuePolicyForm({
         </fieldset>
         <fieldset className="stack">
           <legend>Naukri</legend>
+          <label>
+            <input
+              type="checkbox"
+              checked={naukri.notify_telegram ?? false}
+              onChange={(e) => update({ notify_telegram: e.target.checked })}
+            />{" "}
+            Notify confirmed submissions through the configured Telegram owner
+            channel
+          </label>
+          <Field label="Maximum Naukri submissions per rolling hour">
+            <Input
+              type="number"
+              min={1}
+              max={20}
+              required
+              value={naukri.hourly_submission_cap ?? 5}
+              onChange={(e) =>
+                update({ hourly_submission_cap: Number(e.target.value) })
+              }
+            />
+          </Field>
           <fieldset>
             <legend>Naukri discovery sources</legend>
             {(
@@ -730,7 +896,16 @@ export function ApplicationQueue() {
           client.invalidateQueries({ queryKey: ["application-queue"] })
         }
       />
+      <ProfileReconciliation />
       <h3>Queue and application history</h3>
+      {queue.data.quota && (
+        <p>
+          {queue.data.quota.reserved_today} reserved today ·{" "}
+          {queue.data.quota.remaining} remaining of {queue.data.quota.daily_cap}{" "}
+          · {queue.data.quota.hourly_cap} per rolling hour. Uncertain attempts
+          retain their reservation.
+        </p>
+      )}
       <p>
         {queue.data.consumer?.last_poll_at
           ? `Background browser last checked in: ${new Date(queue.data.consumer.last_poll_at).toLocaleString()}.`
@@ -829,12 +1004,21 @@ export function ApplicationQueue() {
               <th>Applicants</th>
               <th>Posting date</th>
               <th>Reason</th>
+              <th>Mode / receipt</th>
             </tr>
           </thead>
           <tbody>
             {queue.data.items.map((item) => (
               <tr key={item.id}>
-                <td>{item.title || item.requisition}</td>
+                <td>
+                  {item.url ? (
+                    <a href={item.url} target="_blank" rel="noreferrer">
+                      {item.title || item.requisition}
+                    </a>
+                  ) : (
+                    item.title || item.requisition
+                  )}
+                </td>
                 <td>{item.company || "Unverified"}</td>
                 <td>{item.location || "Unknown"}</td>
                 <td>{readable(item.stage)}</td>
@@ -854,6 +1038,15 @@ export function ApplicationQueue() {
                     : "Unknown"}
                 </td>
                 <td>{readable(item.reason)}</td>
+                <td>
+                  {readable(item.submission_mode)} ·{" "}
+                  {readable(item.receipt_source)}{" "}
+                  {item.packet_id && (
+                    <a href={`/applications/${item.packet_id}`}>
+                      View application
+                    </a>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

@@ -14,7 +14,7 @@ Stage = Literal[
     "DISCOVERED", "MATCHED", "ELIGIBLE", "PREPARING", "READY_TO_APPLY",
     "APPLYING", "QUESTIONS", "RESUME_ATTACHMENT", "VERIFYING", "SUBMITTED_RECORDED",
     "NEEDS_INPUT", "PAUSED", "BLOCKED_PLATFORM", "FAILED_RETRYABLE", "FAILED_FINAL",
-    "SUBMISSION_UNKNOWN", "SKIPPED",
+    "SUBMISSION_UNKNOWN", "SUBMITTED_CONFIRMED", "SKIPPED",
 ]
 
 
@@ -70,6 +70,8 @@ class PlatformQueuePolicy(Contract):
     discovery_interval_seconds: int = Field(300, ge=60, le=86400)
     # First actual validation is deliberately below the standing daily cap.
     supervised_submission_cap: int = Field(1, ge=1, le=5)
+    hourly_submission_cap: int = Field(5, ge=1, le=20)
+    notify_telegram: bool = False
 
 
 class QueuePolicy(Contract):
@@ -156,11 +158,36 @@ class ObservedNaukriJob(Contract):
         return self
 
 
+class NaukriExecutionObservation(Contract):
+    state: Literal["PROFILE_VERIFIED", "NOT_APPLIED", "APPLIED", "CLICKED", "APPLICATION_SENT", "QUESTIONNAIRE", "PROFILE_OBSERVED", "PROFILE_SAVE_ATTEMPTED"]
+    document_id: str = Field(min_length=16, max_length=100, pattern=r"^[A-Za-z0-9_-]+$")
+    evidence_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    account_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    resume_sha256: str | None = Field(None, pattern=r"^[a-f0-9]{64}$")
+    resume_bytes: int | None = Field(None, ge=1, le=2_000_000)
+    title: str | None = Field(None, min_length=1, max_length=255)
+    company: str | None = Field(None, min_length=1, max_length=255)
+    control_sha256: str | None = Field(None, pattern=r"^[a-f0-9]{64}$")
+    profile_fields: dict[str, str | list | dict | int | None] = Field(default_factory=dict, max_length=18)
+
+    @field_validator("profile_fields")
+    @classmethod
+    def supported_profile_fields(cls, values):
+        import json
+
+        from backend.app.execution.profile_sync import FIELDS
+
+        if set(values) - set(FIELDS) or len(json.dumps(values).encode()) > 65536:
+            raise ValueError("bounded_supported_profile_fields_required")
+        return values
+
+
 class NaukriWorkReport(Contract):
-    kind: Literal["job_facts", "application_view", "source_candidates", "needs_input", "failed"]
+    kind: Literal["job_facts", "application_view", "source_candidates", "needs_input", "failed", "execution_observation"]
     observed_url: PublicHTTPSURL | None = None
     requisition: str | None = Field(None, pattern=r"^[0-9]{10,20}$")
     stage: Literal["ALREADY_APPLIED"] | None = None
     job: ObservedNaukriJob | None = None
+    execution: NaukriExecutionObservation | None = None
     candidates: list[PublicHTTPSURL] = Field(default_factory=list, max_length=20)
     reason: str | None = Field(None, max_length=64, pattern=r"^[a-zA-Z][a-zA-Z0-9_]+$")

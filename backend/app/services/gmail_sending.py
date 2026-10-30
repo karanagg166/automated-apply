@@ -87,6 +87,8 @@ class GmailSendingService:
         )
 
     def enabled(self):
+        if self.settings.GMAIL_READ_DRAFT_ONLY:
+            raise DraftConflict("gmail_read_draft_only")
         if not self.settings.GMAIL_SENDING_ENABLED:
             raise DraftConflict("gmail_sending_disabled")
         if (

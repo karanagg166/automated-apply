@@ -12,6 +12,7 @@ def test_disabled_default_and_confirmation_cannot_be_disabled():
     from pydantic import ValidationError
 
     settings = Settings(_env_file=None)
+    assert settings.GMAIL_READ_DRAFT_ONLY
     assert (
         not settings.GMAIL_SENDING_ENABLED
         and settings.GMAIL_REQUIRE_EXPLICIT_CONFIRMATION
@@ -23,6 +24,14 @@ def test_disabled_default_and_confirmation_cannot_be_disabled():
     ):
         with pytest.raises(ValidationError):
             Settings(_env_file=None, **changes)
+
+
+async def test_read_draft_product_scope_fences_legacy_sender_even_when_enabled(sending_bundle):
+    service, draft, client, *_ = sending_bundle
+    service.settings.GMAIL_READ_DRAFT_ONLY = True
+    with pytest.raises(DraftConflict, match="gmail_read_draft_only"):
+        await service.preview(draft["id"])
+    assert not client.calls
 
 
 @pytest.mark.asyncio

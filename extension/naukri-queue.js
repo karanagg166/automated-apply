@@ -1,5 +1,6 @@
 import { profileContext, profileNative } from "./chrome-profile.js";
 import { observeNaukri } from "./naukri-observation.js";
+import { executeNaukri } from "./naukri-execution.js";
 
 const key = "naukriReadInFlightV1";
 // Only this trusted service-worker module creates these inactive tabs. It never
@@ -74,7 +75,6 @@ export class NaukriQueue {
       // concurrent authenticated journey while that platform is being used.
       const ownerTabs = await this.api.tabs.query({
         active: true,
-        windowId: context.window_id,
       });
       if (
         ownerTabs.some((t) =>
@@ -85,7 +85,16 @@ export class NaukriQueue {
       const polled = await this.send(this.api, "poll_naukri_work", context);
       work = polled.work;
       if (!work) return;
-      if (!["inspect_job", "search_jobs"].includes(work.operation))
+      if (
+        ![
+          "inspect_job",
+          "search_jobs",
+          "inspect_profile",
+          "inspect_application",
+          "reconcile_application",
+          "inspect_profile_sync",
+        ].includes(work.operation)
+      )
         throw Error("background_operation_not_supported");
       const tab = await this.api.tabs.create({
         url: "about:blank",
@@ -102,6 +111,12 @@ export class NaukriQueue {
       });
       work = { ...bound.work, ownedTabId: tab.id };
       await this.api.storage.session.set({ [key]: work });
+      if (work.execution) {
+        work = await this.execute(work, context);
+        await this.closeOwned(work);
+        await this.api.storage.session.remove(key);
+        return;
+      }
       if ((await this.api.tabs.get(tab.id)).active || this.adopted.has(tab.id))
         throw Error("owner_tab_active");
       await this.api.tabs.update(tab.id, { url: work.url, active: false });
@@ -139,6 +154,7 @@ export class NaukriQueue {
       await this.closeOwned(work);
       await this.api.storage.session.remove(key);
     } catch (error) {
+      work = (await this.api.storage.session.get(key))[key] || work;
       if (work) {
         try {
           await this.command("abandon_naukri_work", work, {
@@ -157,6 +173,81 @@ export class NaukriQueue {
       await this.api.storage.session.remove(key);
     }
   }
+  async execute(initial, context) {
+    let work = initial;
+    for (let step = 0; step < 3; step++) {
+      const tabId = work.ownedTabId;
+      if (!["apply", "sync_profile"].includes(work.operation)) {
+        await this.assertInactive(work, context);
+        await this.api.tabs.update(tabId, {
+          url: work.target_url,
+          active: false,
+        });
+        for (let i = 0; i < 50; i++) {
+          const tab = await this.assertInactive(work, context);
+          if (tab.status === "complete") break;
+          if (i === 49) throw Error("background_page_timeout");
+          await this.delay(200);
+        }
+      }
+      await this.assertInactive(work, context);
+      if ((await this.api.tabs.get(tabId)).url !== work.target_url)
+        throw Error("provider_context_changed");
+      const admitted = await this.command("admit_naukri_work", work);
+      work = { ...admitted.work, ownedTabId: tabId };
+      await this.api.storage.session.set({ [key]: work });
+      await this.assertInactive(work, context);
+      const injected = await this.api.scripting.executeScript({
+        target: { tabId, frameIds: [0] },
+        world: "ISOLATED",
+        func: executeNaukri,
+        args: [work],
+      });
+      let report = injected.length === 1 && injected[0].result;
+      if (!report) throw Error("provider_execution_unconfirmed");
+      if (
+        work.operation === "inspect_application" &&
+        report.execution?.state === "NOT_APPLIED"
+      ) {
+        const observed = await this.api.scripting.executeScript({
+          target: { tabId, frameIds: [0] },
+          world: "ISOLATED",
+          func: observeNaukri,
+          args: [work.url, "inspect_job"],
+        });
+        if (observed.length !== 1 || observed[0].result?.kind !== "job_facts")
+          throw Error(
+            observed[0]?.result?.reason || "provider_job_facts_required",
+          );
+        report = { ...report, job: observed[0].result.job };
+      }
+      await this.assertInactive(work, context);
+      const finished = await this.command("finish_naukri_work", work, {
+        work_report: report,
+      });
+      work = { ...finished.work, ownedTabId: tabId };
+      await this.api.storage.session.set({ [key]: work });
+      if (!finished.continue) return work;
+    }
+    throw Error("background_step_limit_reached");
+  }
+  async assertInactive(work, context) {
+    const tab = await this.api.tabs.get(work.ownedTabId);
+    if (
+      tab.active ||
+      this.adopted.has(tab.id) ||
+      tab.windowId !== context.window_id
+    )
+      throw Error("owner_tab_active");
+    const ownerTabs = await this.api.tabs.query({ active: true });
+    if (
+      ownerTabs.some((t) =>
+        /^https:\/\/(?:www\.)?naukri\.com\//.test(t.url || ""),
+      )
+    )
+      throw Error("owner_platform_active");
+    return tab;
+  }
   async closeOwned(work) {
     if (
       !Number.isInteger(work?.ownedTabId) ||
@@ -166,7 +257,11 @@ export class NaukriQueue {
       return;
     try {
       const tab = await this.api.tabs.get(work.ownedTabId);
-      if (!tab.active && tab.windowId === work.binding.window_id)
+      if (
+        !tab.active &&
+        !this.adopted.has(tab.id) &&
+        tab.windowId === work.binding.window_id
+      )
         await this.api.tabs.remove(tab.id);
     } catch {
       /* Closed or moved tabs are never replaced. */

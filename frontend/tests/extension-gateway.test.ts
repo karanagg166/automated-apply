@@ -4,6 +4,18 @@ import { permittedRoute } from "@/lib/gateway";
 
 const id = "11111111-1111-4111-8111-111111111111";
 
+it("exposes profile comparison and policy without a browser save proxy", () => {
+  expect(permittedRoute("execution/naukri/profile-sync", "GET")).toBe(true);
+  expect(permittedRoute("execution/naukri/profile-sync/policy", "PUT")).toBe(
+    true,
+  );
+  for (const path of [
+    "execution/naukri/profile-sync/save",
+    "execution/naukri/profile-sync/execute",
+  ])
+    expect(permittedRoute(path, "POST")).toBe(false);
+});
+
 it("allows read-only extension task lists and exact application status", () => {
   expect(permittedRoute("browser/extension-tasks", "GET")).toBe(true);
   expect(

@@ -16,6 +16,7 @@ import { chromium } from "../../frontend/node_modules/@playwright/test/index.mjs
 const root = mkdtempSync(join(tmpdir(), "automated-apply-background-fixture-"));
 for (const name of [
   "naukri-queue.js",
+  "naukri-execution.js",
   "naukri-observation.js",
   "chrome-profile.js",
 ])

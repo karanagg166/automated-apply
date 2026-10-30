@@ -376,7 +376,7 @@ async def test_telegram_commands_share_intent_and_controls(
     assert "FAILED_FINAL" in await command(
         db_session, "/naukri cancel " + row.value["id"]
     )
-    assert "automated submission unavailable" in await command(
+    assert "Live installed acceptance pending" in await command(
         db_session, "/naukri status"
     )
 

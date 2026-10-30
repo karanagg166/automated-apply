@@ -408,6 +408,9 @@ class Settings(BaseSettings):
     CHROME_FIXED_PROFILE_LAUNCH_ENABLED: bool = False
     GMAIL_RETENTION_ENABLED: bool = False
     GMAIL_SENDING_ENABLED: bool = False
+    # Product scope is read + create draft. A legacy sending opt-in alone no
+    # longer admits sends; any future scope change requires a separate decision.
+    GMAIL_READ_DRAFT_ONLY: bool = True
     GMAIL_SEND_MAX_PER_DAY: int = Field(default=10, ge=0, le=100)
     GMAIL_SEND_MAX_PER_HOUR: int = Field(default=3, ge=0, le=20)
     GMAIL_SEND_MAX_RECIPIENTS: Literal[1] = 1

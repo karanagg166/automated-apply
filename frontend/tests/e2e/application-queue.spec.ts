@@ -74,6 +74,23 @@ test("background queue policy, ledger filters and revocable controls", async ({
         executions: [],
         capabilities: {},
       };
+    else if (path === "execution/naukri/profile-sync")
+      data = {
+        configuration: {
+          revision: 0,
+          policy: {
+            enabled: false,
+            auto_profile_sync: false,
+            profile_version: null,
+            approved_fields: [],
+            interval_seconds: 3600,
+          },
+        },
+        current_profile_version: 1,
+        profile_confirmed: true,
+        latest: null,
+        last_error: null,
+      };
     else if (path === "execution/naukri/jobs") data = { jobs: [] };
     else if (path === "execution/queue") {
       filters.push(url);
@@ -82,7 +99,7 @@ test("background queue policy, ledger filters and revocable controls", async ({
         total: 1,
         counts: { NEEDS_INPUT: 1 },
         capabilities: {
-          submission: "executor_pending",
+          submission: "direct_apply_candidate_not_live_accepted",
           background_read: "implemented_not_live_accepted",
           locked_screen: "NOT_TESTED",
         },
@@ -187,10 +204,12 @@ test("background queue policy, ledger filters and revocable controls", async ({
     panel.getByLabel("Naukri applicant threshold (skip at or above)"),
   ).toHaveValue("500");
   await expect(
-    panel.getByText(/Automatic submission is still being implemented/),
+    panel.getByText(
+      /Installed live and locked-screen acceptance is still pending/,
+    ),
   ).toBeVisible();
   await mkdir("../docs/acceptance/screenshots", { recursive: true });
   await panel.screenshot({
-    path: "../docs/acceptance/screenshots/naukri-background-queue-fictional.png",
+    path: "../docs/acceptance/screenshots/naukri-direct-apply-candidate-fictional.png",
   });
 });

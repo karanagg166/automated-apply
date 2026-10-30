@@ -25,6 +25,7 @@ from backend.app.execution.contracts import (
 )
 from backend.app.execution.naukri import capability_matrix, normalize
 from backend.app.execution.naukri_review import review_jobs
+from backend.app.execution.profile_sync import SyncPolicyUpdate
 from backend.app.execution.queue_contracts import (
     Platform,
     QueueControl,
@@ -44,6 +45,25 @@ router = APIRouter(
     route_class=OwnerRoute,
     dependencies=[Depends(require_api_token)],
 )
+
+
+@router.get("/naukri/profile-sync")
+async def profile_sync_status(session: AsyncSession = Depends(get_db_session)):
+    from backend.app.execution.profile_sync import status
+
+    return await status(session)
+
+
+@router.put("/naukri/profile-sync/policy")
+async def profile_sync_policy(data: SyncPolicyUpdate, request: Request,
+                              session: AsyncSession = Depends(get_db_session)):
+    owner_ui(request)
+    from backend.app.execution.profile_sync import configure
+
+    try:
+        return await configure(session, data)
+    except ToolDenied as exc:
+        raise HTTPException(409, str(exc)) from None
 
 
 @router.get("/queue")

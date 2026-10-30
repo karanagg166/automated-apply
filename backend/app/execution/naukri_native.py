@@ -1,8 +1,7 @@
-"""Authenticated, profile-bound background vacancy observation.
+"""Authenticated, profile-bound ordinary UI work with durable write admission.
 
-This adapter exposes no submitting browser operations. Future mutations still
-need the queue's durable write admission, current provider CV proof and release
-acceptance; choosing AUTOMATIC in the dashboard cannot grant missing code.
+Every click requires fresh eligibility/CV proof; separate history documents
+establish receipts. Unsupported questionnaires and downloads remain blocked.
 """
 
 import re
@@ -14,7 +13,8 @@ from backend.app.automation.store import instant
 from backend.app.browser import chrome_profiles as profiles
 from backend.app.dashboard.models import OwnerPreference
 from backend.app.execution import application_queue as queue
-from backend.app.execution import store
+from backend.app.execution import naukri_submission as submission
+from backend.app.execution import profile_sync, store
 from backend.app.execution.queue_contracts import QueuePolicy
 from backend.app.local_agent.contracts import Result
 
@@ -23,6 +23,9 @@ READS = {"inspect_job", "search_jobs"}
 
 
 async def workrow(session, identity):
+    sync = await session.get(OwnerPreference, profile_sync.WORK, populate_existing=True)
+    if sync and sync.value["id"] == str(identity):
+        return sync
     search = await session.get(OwnerPreference, SEARCH, populate_existing=True)
     if search and search.value["id"] == str(identity):
         return search
@@ -31,9 +34,15 @@ async def workrow(session, identity):
 
 def transport(value):
     # No packet answers, browser secrets, source-message references or PDF bytes.
-    return {k: value.get(k) for k in (
+    result = {k: value.get(k) for k in (
         "id", "revision", "lease_token", "lease_until", "operation", "url", "requisition", "binding",
     )}
+    if value["operation"] in submission.OPERATIONS | profile_sync.OPERATIONS:
+        result.update(target_url=submission.browser_url(value), execution=submission.descriptor(value))
+        if value["operation"] in profile_sync.OPERATIONS:
+            result["execution"].update(approved_summary=value.get("approved_summary"),
+                                       previous_summary_reference=value.get("previous_summary_reference"))
+    return result
 
 
 async def search_work(session, config, policy, binding):
@@ -86,7 +95,7 @@ async def checked(session, command, binding):
             or value["binding"] != binding or value["status"] not in {"leased", "executing"}
             or not value["lease_until"] or datetime.fromisoformat(value["lease_until"]) <= now):
         raise ToolDenied("queue_lease_lost")
-    if value["operation"] not in READS:
+    if value["operation"] not in READS | submission.OPERATIONS | profile_sync.OPERATIONS:
         raise ToolDenied("background_submission_executor_pending")
     return row
 
@@ -147,6 +156,21 @@ async def dispatch(session, settings, actor, command):
     try:
         if actor.channel != "chrome" or actor.identity != settings.CHROME_EXTENSION_ID:
             raise ToolDenied("extension_identity_required")
+        if command.command in {"naukri_queue_status", "naukri_queue_control"}:
+            profile = await profiles.require_profile(session, command, read_only=command.command == "naukri_queue_status")
+            if command.command == "naukri_queue_control":
+                from backend.app.execution.queue_contracts import QueueControl
+
+                if command.queue_action is None or command.expected_queue_revision is None:
+                    raise ToolDenied("queue_control_fields_required")
+                if command.queue_action == "start" and (not settings.CHROME_PROFILE_COMMANDS_ENABLED or not profile.value["commands_enabled"]):
+                    raise ToolDenied("PROFILE_COMMANDS_DISABLED")
+                await queue.control(session, QueueControl(action=command.queue_action, expected_revision=command.expected_queue_revision))
+            status = await queue.listing(session, platform="naukri", limit=5)
+            return Result(request_id=command.request_id, ok=True, capability="naukri_queue_controls",
+                          data={"queue": {"state": status["configuration"]["state"], "revision": status["configuration"]["revision"],
+                                          "counts": status["counts"], "total": status["total"], "consumer": status["consumer"]},
+                                "submitted": False})
         if not settings.CHROME_PROFILE_COMMANDS_ENABLED:
             raise ToolDenied("PROFILE_COMMANDS_DISABLED")
         await store.memory_row(session, lock=True)
@@ -185,13 +209,18 @@ async def dispatch(session, settings, actor, command):
                 busy |= any(r.value["status"] in {"leased", "executing"} and r.value.get("lease_until") and datetime.fromisoformat(r.value["lease_until"]) > now for r in await queue.items(session, active_only=True))
                 search = await session.get(OwnerPreference, SEARCH, populate_existing=True)
                 busy |= bool(search and search.value.get("lease_until") and datetime.fromisoformat(search.value["lease_until"]) > now)
+                sync = await session.get(OwnerPreference, profile_sync.WORK, populate_existing=True)
+                busy |= bool(sync and sync.value.get("lease_until") and datetime.fromisoformat(sync.value["lease_until"]) > now)
                 if not busy:
-                    value = await search_work(session, config, policy, binding)
+                    await submission.recover_unknown(session)
+                    value = await profile_sync.work(session, config, binding)
                     if value is None:
-                        value = await queue.claim(session, "naukri", binding, operations={"inspect_job"})
+                        value = await search_work(session, config, policy, binding)
+                    if value is None:
+                        value = await queue.claim(session, "naukri", binding, operations={"inspect_job"} | submission.READS)
                 await queue.put(session, "apply_consumer:naukri", {
                     "last_poll_at": now.isoformat(), "profile_binding_id": profile.value["id"],
-                    "busy": bool(busy), "capability": "background_observation_only",
+                    "busy": bool(busy), "capability": "ordinary_ui_direct_apply_candidate",
                 })
             return Result(request_id=command.request_id, ok=True, capability="naukri_background_read",
                           data={"work": transport(value) if value else None, "submitted": False})
@@ -206,13 +235,42 @@ async def dispatch(session, settings, actor, command):
             if command.command == "admit_naukri_work":
                 if value["status"] != "leased" or command.tab_id is None:
                     raise ToolDenied("queue_action_already_admitted")
-                value.update(status="executing", revision=value["revision"] + 1)
+                if value["operation"] in profile_sync.OPERATIONS:
+                    if value["operation"] == "sync_profile" and local_policy["platforms"].get("naukri", local_policy["default"]) in {"manual_only", "draft_only"}:
+                        raise ToolDenied("platform_policy_requires_manual_review")
+                    value = await profile_sync.admit(session, value)
+                elif value["operation"] == "apply":
+                    value = await queue.admit(session, value["id"], value["revision"], value["lease_token"], binding, settings)
+                    value = {**value, "permit_expires_at": ((await instant(session)) + timedelta(seconds=2)).isoformat()}
+                else:
+                    value.update(status="executing", revision=value["revision"] + 1)
             elif command.command in {"finish_naukri_work", "abandon_naukri_work"}:
                 report = command.work_report
                 if not report:
                     raise ToolDenied("queue_observation_required")
                 if command.command == "finish_naukri_work" and value["status"] != "executing":
                     raise ToolDenied("queue_action_not_admitted")
+                if value["operation"] in profile_sync.OPERATIONS:
+                    continuing = await profile_sync.receive(session, value, report)
+                    value.update(revision=value["revision"] + 1)
+                    if not continuing:
+                        value.update(lease_token=None, lease_until=None)
+                    row.value = value
+                    return Result(request_id=command.request_id, ok=True, capability="naukri_profile_sync",
+                                  data={"work": transport(value), "continue": continuing, "submitted": False})
+                if value["operation"] in submission.OPERATIONS:
+                    if command.command == "abandon_naukri_work":
+                        report = report.model_copy(update={"kind": "failed", "execution": None})
+                    if value["operation"] == "reconcile_application":
+                        value["reconciliation_attempts"] = value.get("reconciliation_attempts", 0) + 1
+                    continuing = await submission.receive(session, value, report, settings)
+                    value.update(updated_at=(await instant(session)).isoformat(), revision=value["revision"] + 1)
+                    if not continuing:
+                        value.update(lease_token=None, lease_until=None)
+                    row.value = value
+                    await queue.event(session, value, "browser_execution_observed")
+                    return Result(request_id=command.request_id, ok=True, capability="naukri_ui_execution",
+                                  data={"work": transport(value), "continue": continuing, "submitted": False})
                 if report.kind not in {"needs_input", "failed", "job_facts", "source_candidates", "application_view"}:
                     raise ToolDenied("background_report_not_supported")
                 if value["operation"] == "search_jobs":

@@ -38,6 +38,58 @@ async function assistant(action, extra = {}) {
   if (result.task) renderTask(result.task);
   return result;
 }
+let queueRevision = null,
+  queueBusy = false;
+async function showQueue(action = "status") {
+  if (queueBusy || !$("#naukri-queue-status")) return;
+  queueBusy = true;
+  for (const name of ["refresh", "pause", "start", "stop"])
+    disable("#naukri-queue-" + name, true);
+  try {
+    const result = await chrome.runtime.sendMessage({
+      command: "naukri_queue",
+      action,
+      revision: queueRevision,
+    });
+    if (!result?.ok || !Number.isInteger(result.queue?.revision))
+      throw Error(
+        codePattern.test(result?.error_code)
+          ? result.error_code
+          : "queue_unavailable",
+      );
+    queueRevision = result.queue.revision;
+    text(
+      "#naukri-queue-status",
+      `${result.queue.state} · ${result.queue.total} records · ${
+        Object.entries(result.queue.counts)
+          .map(([name, count]) => `${name}: ${count}`)
+          .join(", ") || "No queued tasks"
+      }`,
+    );
+    disable("#naukri-queue-pause", result.queue.state !== "RUNNING");
+    disable("#naukri-queue-stop", result.queue.state === "STOPPED");
+    disable("#naukri-queue-start", result.queue.state === "RUNNING");
+  } catch (error) {
+    text(
+      "#naukri-queue-status",
+      `Background queue: ${codePattern.test(error.message) ? error.message : "queue_unavailable"}. Check connection in extension settings.`,
+    );
+  } finally {
+    queueBusy = false;
+    disable("#naukri-queue-refresh", false);
+  }
+}
+for (const [button, action] of [
+  ["refresh", "status"],
+  ["pause", "pause"],
+  ["start", "start"],
+  ["stop", "stop"],
+])
+  $("#naukri-queue-" + button)?.addEventListener(
+    "click",
+    () => void showQueue(action),
+  );
+void showQueue();
 function renderTask(task) {
   selectedTask = task;
   if ($("#task-list")) $("#task-list").value = task.id;

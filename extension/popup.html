@@ -14,6 +14,22 @@
       >
     </header>
     <p id="connection-status" role="status">Connecting to the local agent…</p>
+    <section aria-label="Naukri background automation">
+      <h2>Naukri background automation</h2>
+      <p id="naukri-queue-status" role="status">
+        Checking selected profile and queue…
+      </p>
+      <div class="controls">
+        <button id="naukri-queue-refresh">Refresh status</button>
+        <button id="naukri-queue-pause" disabled>Pause queue</button>
+        <button id="naukri-queue-start" disabled>Resume queue</button>
+        <button id="naukri-queue-stop" disabled>Stop queue</button>
+      </div>
+      <p>
+        Uses the saved dashboard policy. Unsupported forms need review; live and
+        locked-screen acceptance is pending.
+      </p>
+    </section>
     <section aria-label="Current application">
       <h2 id="application-title">Choose an application</h2>
       <label

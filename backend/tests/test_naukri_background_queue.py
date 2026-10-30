@@ -76,7 +76,8 @@ async def test_actual_native_fact_ingestion_and_worker_preparation_survive_fresh
         assert saved["stage"] == "READY_TO_APPLY", saved
         assert saved["packet_id"] and saved["match_score"] >= 80
         assert saved["upload_preflight"]["state"] == "PDF_VERIFIED_LOCAL"
-        assert saved["status"] == "waiting" and saved["reason"] == "submission_executor_pending"
+        assert saved["status"] == "queued" and saved["operation"] == "inspect_profile"
+        assert saved["reason"] is None
         assert not saved["admitted_actions"]
         job = await dashboard.get(Job, UUID(saved["job_id"]))
         assert job.discovery_metadata["data_provenance"]["method"] == "bound_browser_ui"

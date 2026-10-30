@@ -29,7 +29,7 @@ def capability_matrix():
         "job_url_import": "supported_local_validation_only",
         "application_preparation": "saved_profile_resume_and_grounded_answers",
         "browser_form_assistance": "existing_owner_reviewed_engine_site_unverified",
-        "submission_support": "recurring_executor_under_implementation_no_live_acceptance",
+        "submission_support": "ordinary_ui_direct_apply_candidate_no_live_acceptance",
         "recurring_submission": {
             "state": "BLOCKED_TECHNICAL",
             "reason": "submission_resume_receipt_and_locked_acceptance_pending",

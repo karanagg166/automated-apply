@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Automated Apply \u2014 Application Assistant",
-  "version": "1.3.2",
-  "description": "Inspect, review and fill approved application fields with packet-bound recovery. Submission stays owner-operated.",
+  "version": "1.3.3",
+  "description": "Local Naukri queue controls, guarded ordinary-UI direct Apply and persistent history reconciliation. Unsupported forms require review.",
   "permissions": [
     "contextMenus",
     "activeTab",

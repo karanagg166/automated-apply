@@ -81,5 +81,5 @@ async def connect_sender(session, settings, fake, http):
 
 async def bundle():
     # Caller owns fake HTTP context lifetime.
-    settings, google = oauth_settings(GMAIL_SENDING_ENABLED=True), GoogleFixture()
+    settings, google = oauth_settings(GMAIL_SENDING_ENABLED=True, GMAIL_READ_DRAFT_ONLY=False), GoogleFixture()
     return settings, google

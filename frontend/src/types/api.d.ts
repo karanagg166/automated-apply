@@ -3454,6 +3454,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/execution/naukri/profile-sync": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Profile Sync Status */
+    get: operations["profile_sync_status_api_v1_execution_naukri_profile_sync_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/execution/naukri/profile-sync/policy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Profile Sync Policy */
+    put: operations["profile_sync_policy_api_v1_execution_naukri_profile_sync_policy_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/execution/queue": {
     parameters: {
       query?: never;
@@ -4653,6 +4687,8 @@ export interface components {
        * @enum {string}
        */
       command:
+        | "naukri_queue_status"
+        | "naukri_queue_control"
         | "poll_naukri_work"
         | "bind_naukri_work"
         | "admit_naukri_work"
@@ -4682,6 +4718,10 @@ export interface components {
         | "get_application_task"
         | "update_application_task"
         | "ask_form_questions";
+      /** Queue Action */
+      queue_action?: ("start" | "pause" | "stop") | null;
+      /** Expected Queue Revision */
+      expected_queue_revision?: number | null;
       /** Work Id */
       work_id?: string | null;
       /** Expected Work Revision */
@@ -6649,6 +6689,49 @@ export interface components {
        */
       recorded_at: string;
     };
+    /** NaukriExecutionObservation */
+    NaukriExecutionObservation: {
+      /**
+       * State
+       * @enum {string}
+       */
+      state:
+        | "PROFILE_VERIFIED"
+        | "NOT_APPLIED"
+        | "APPLIED"
+        | "CLICKED"
+        | "APPLICATION_SENT"
+        | "QUESTIONNAIRE"
+        | "PROFILE_OBSERVED"
+        | "PROFILE_SAVE_ATTEMPTED";
+      /** Document Id */
+      document_id: string;
+      /** Evidence Sha256 */
+      evidence_sha256: string;
+      /** Account Sha256 */
+      account_sha256: string;
+      /** Resume Sha256 */
+      resume_sha256?: string | null;
+      /** Resume Bytes */
+      resume_bytes?: number | null;
+      /** Title */
+      title?: string | null;
+      /** Company */
+      company?: string | null;
+      /** Control Sha256 */
+      control_sha256?: string | null;
+      /** Profile Fields */
+      profile_fields?: {
+        [key: string]:
+          | string
+          | unknown[]
+          | {
+              [key: string]: unknown;
+            }
+          | number
+          | null;
+      };
+    };
     /** NaukriWorkReport */
     NaukriWorkReport: {
       /**
@@ -6660,7 +6743,8 @@ export interface components {
         | "application_view"
         | "source_candidates"
         | "needs_input"
-        | "failed";
+        | "failed"
+        | "execution_observation";
       /** Observed Url */
       observed_url?: string | null;
       /** Requisition */
@@ -6668,6 +6752,7 @@ export interface components {
       /** Stage */
       stage?: "ALREADY_APPLIED" | null;
       job?: components["schemas"]["ObservedNaukriJob"] | null;
+      execution?: components["schemas"]["NaukriExecutionObservation"] | null;
       /** Candidates */
       candidates?: string[];
       /** Reason */
@@ -7350,6 +7435,16 @@ export interface components {
        * @default 1
        */
       supervised_submission_cap: number;
+      /**
+       * Hourly Submission Cap
+       * @default 5
+       */
+      hourly_submission_cap: number;
+      /**
+       * Notify Telegram
+       * @default false
+       */
+      notify_telegram: boolean;
     };
     /** PolicyUpdate */
     PolicyUpdate: {
@@ -9232,6 +9327,53 @@ export interface components {
     SyncNow: {
       /** Expected Generation */
       expected_generation: number;
+    };
+    /** SyncPolicy */
+    SyncPolicy: {
+      /**
+       * Enabled
+       * @default false
+       */
+      enabled: boolean;
+      /**
+       * Auto Profile Sync
+       * @default false
+       */
+      auto_profile_sync: boolean;
+      /** Profile Version */
+      profile_version?: number | null;
+      /** Approved Fields */
+      approved_fields?: (
+        | "full_name"
+        | "email"
+        | "phone"
+        | "summary"
+        | "skills"
+        | "experience"
+        | "education"
+        | "projects"
+        | "location"
+        | "preferences"
+        | "notice_period"
+        | "expected_compensation"
+        | "resume"
+        | "github"
+        | "portfolio"
+        | "linkedin"
+        | "headline"
+        | "professional_title"
+      )[];
+      /**
+       * Interval Seconds
+       * @default 3600
+       */
+      interval_seconds: number;
+    };
+    /** SyncPolicyUpdate */
+    SyncPolicyUpdate: {
+      /** Expected Revision */
+      expected_revision: number;
+      policy: components["schemas"]["SyncPolicy"];
     };
     /** SyncResult */
     SyncResult: {
@@ -16565,6 +16707,59 @@ export interface operations {
       };
     };
   };
+  profile_sync_status_api_v1_execution_naukri_profile_sync_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  profile_sync_policy_api_v1_execution_naukri_profile_sync_policy_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SyncPolicyUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   application_queue_status_api_v1_execution_queue_get: {
     parameters: {
       query?: {
@@ -16587,6 +16782,7 @@ export interface operations {
               | "FAILED_RETRYABLE"
               | "FAILED_FINAL"
               | "SUBMISSION_UNKNOWN"
+              | "SUBMITTED_CONFIRMED"
               | "SKIPPED"
             )
           | null;

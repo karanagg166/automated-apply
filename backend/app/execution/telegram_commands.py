@@ -15,6 +15,23 @@ async def command(session, text):
         return None
     action = words[1] if len(words) > 1 else "status"
     try:
+        if action == "queue" and len(words) == 3 and words[2] in {"start", "pause", "resume", "stop"}:
+            from backend.app.execution import application_queue as queue
+            from backend.app.execution.queue_contracts import QueueControl
+
+            current = await queue.configuration(session)
+            value = await queue.control(session, QueueControl(action="start" if words[2] == "resume" else words[2], expected_revision=current["revision"]))
+            return f"Naukri queue: {value['state']}; saved platform policy and limits apply. Live acceptance remains pending."
+        if action == "add" and len(words) == 3:
+            from backend.app.execution.application_queue import enqueue
+
+            value = await enqueue(session, "naukri", words[2], "saved_verified_job")
+            return f"Naukri queue {value['id']}: {value['stage']}. No application sent by this command."
+        if action == "queue" and len(words) == 2:
+            from backend.app.execution.application_queue import listing
+
+            value = await listing(session, platform="naukri", limit=5)
+            return f"Naukri queue: {value['configuration']['state']}; {value['counts']}. Direct Apply candidate; genuine installed acceptance pending."
         if action == "automation" and len(words) == 3 and words[2] in {"start", "pause", "stop"}:
             from backend.app.execution import recurring
             from backend.app.execution.contracts import AutomationControl
@@ -49,10 +66,14 @@ async def command(session, text):
             )
             return f"{value['id']}: {value['state']}. Check application history before any manual submission."
         if action == "status" and len(words) <= 2:
+            from backend.app.execution.application_queue import listing
             from backend.app.execution.recurring import status
+
             automation = await status(session)
+            queued = await listing(session, platform="naukri", limit=5)
             return (
-                f"Naukri: {automation['state']}; scope {automation['scope']}; worker {'online' if automation['worker_online'] else 'offline'}; source {automation['source']}; automated submission unavailable.\n"
+                f"Naukri queue: {queued['configuration']['state']}; {queued['counts']}. Live installed acceptance pending.\n"
+                f"Legacy preparation: {automation['state']}; scope {automation['scope']}; worker {'online' if automation['worker_online'] else 'offline'}; source {automation['source']}.\n"
                 f"Counts: {automation['counts']}. Blockers: {', '.join(automation['blockers'])}.\n"
                 + "\n".join(
                     f"{r.value['id']}: {r.value['state']}"
@@ -61,4 +82,4 @@ async def command(session, text):
             )
     except (ValueError, ToolDenied):
         return "Naukri command rejected. Check the exact saved job/application reference and current state."
-    return "/naukri find | apply <job UUID...> | pause <application UUID> | resume <application UUID> | cancel <application UUID> | status"
+    return "/naukri add <job URL> | queue [start|pause|resume|stop] | find | apply <job UUID...> | pause <application UUID> | resume <application UUID> | cancel <application UUID> | status"

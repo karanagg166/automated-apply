@@ -1,5 +1,6 @@
 """Bounded queue producers and local preparation; no provider network requests."""
 
+import hashlib
 from datetime import datetime
 from uuid import NAMESPACE_URL, UUID, uuid5
 
@@ -72,6 +73,17 @@ async def seed_saved_sources(session):
 
 async def prepare_one(session, settings):
     """Actual queued job -> verified matching -> persisted packet, one per tick."""
+    config = await queue.configuration(session)
+    policy = QueuePolicy.model_validate(config["policy"])
+    platform = policy.platforms["naukri"]
+    if config["state"] == "RUNNING" and platform.enabled and platform.mode in {"AUTOMATIC", "SUPERVISED"} and platform.owner_submission_authorized:
+        await store.memory_row(session, lock=True)
+        for waiting in await queue.items(session, active_only=True):
+            v = dict(waiting.value)
+            if v["stage"] == "READY_TO_APPLY" and v["status"] == "waiting" and not v.get("admitted_actions"):
+                waiting.value = {**v, "operation": "prepare", "status": "queued", "reason": None, "revision": v["revision"] + 1}
+                await queue.event(session, waiting.value, "standing_policy_requires_fresh_preparation")
+                break
     value = await queue.claim(session, "naukri", {"worker": "local_preparation"}, operations={"prepare"})
     if not value:
         return False
@@ -107,7 +119,10 @@ async def prepare_one(session, settings):
             raise ToolDenied("packet_factual_input_required")
         # The background consumer in this release is read-only. An AUTOMATIC
         # preference is never mistaken for a delivered submission capability.
-        value.update(stage="READY_TO_APPLY", reason="submission_executor_pending", status="waiting")
+        automatic = policy.platforms["naukri"].mode in {"AUTOMATIC", "SUPERVISED"} and policy.platforms["naukri"].owner_submission_authorized
+        value.update(stage="READY_TO_APPLY", reason=None if automatic else "automatic_submission_scope_required",
+                     status="queued" if automatic else "waiting", operation="inspect_profile",
+                     account_sha256=hashlib.sha256(profile.email.strip().casefold().encode()).hexdigest())
     except ToolDenied as exc:
         reason = str(exc)
         excluded = reason in {

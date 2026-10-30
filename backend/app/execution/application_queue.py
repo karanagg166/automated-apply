@@ -21,7 +21,7 @@ from backend.app.execution.queue_contracts import QueuePolicy
 POLICY_KEY = "application_queue_policy"
 PREFIX = "apply_work:"
 EVENT = "apply_event:"
-TERMINAL = {"SUBMITTED_RECORDED", "FAILED_FINAL", "SKIPPED"}
+TERMINAL = {"SUBMITTED_RECORDED", "SUBMITTED_CONFIRMED", "FAILED_FINAL", "SKIPPED"}
 WRITES = {"apply", "answer", "upload_resume"}
 
 
@@ -64,6 +64,12 @@ async def event(session, value, name):
 
 
 async def fence(session, reason):
+    sync = await session.get(OwnerPreference, "apply_profile_sync:naukri", populate_existing=True)
+    if sync:
+        value = dict(sync.value)
+        value.pop("approved_summary", None)
+        sync.value = {**value, "status": "idle", "lease_token": None, "lease_until": None,
+                      "revision": value["revision"] + 1, "last_error": reason}
     search = await session.get(OwnerPreference, "apply_search:naukri", populate_existing=True)
     if search:
         search.value = {**search.value, "status": "idle", "lease_token": None, "lease_until": None,
@@ -122,7 +128,7 @@ async def control(session, data):
                          operation=previous.get("operation", "inspect_job"),
                          reason=previous.get("reason"), revision=v["revision"] + 1)
                 if not waiting and v["operation"] in WRITES:
-                    v.update(operation="inspect_application", stage="VERIFYING")
+                    v.update(operation="inspect_profile" if v.get("account_sha256") and not v.get("admitted_actions") else "inspect_application", stage="VERIFYING")
                 row.value = v
                 await event(session, v, "resumed_for_fresh_inspection")
     else:
@@ -250,6 +256,10 @@ async def claim(session, platform, binding, *, operations=None):
             continue
         if v["lease_until"] and datetime.fromisoformat(v["lease_until"]) <= now:
             uncertain = v["status"] == "executing" and v["operation"] in WRITES
+            # An Apply grant not yet admitted can be inspected again; an
+            # admitted grant can only be reconciled. Never redeliver its click.
+            if v["operation"] == "apply" and not uncertain:
+                v["operation"] = "inspect_profile" if v.get("account_sha256") else "inspect_application"
             v.update(stage="SUBMISSION_UNKNOWN" if uncertain else "FAILED_RETRYABLE",
                      status="unknown" if uncertain else "queued", reason="lease_expired",
                      revision=v["revision"] + 1, lease_token=None, lease_until=None)
@@ -418,6 +428,8 @@ async def admit(session, identity, revision, token, binding, settings=None):
     if not setting.enabled:
         raise ToolDenied("platform_disabled")
     if v["operation"] in WRITES:
+        if local_policy["platforms"].get(v["platform"], local_policy["default"]) in {"manual_only", "draft_only"}:
+            raise ToolDenied("platform_policy_requires_manual_review")
         if not setting.owner_submission_authorized or setting.mode == "PREPARE_ONLY":
             raise ToolDenied("standing_submission_scope_required")
         from backend.app.execution.naukri_receipts import prevents_replay
@@ -446,12 +458,39 @@ async def admit(session, identity, revision, token, binding, settings=None):
         if v["id"] not in used["reservations"]:
             if len(used["reservations"]) >= cap:
                 raise ToolDenied("daily_application_cap_reached")
+            now = await instant(session)
+            # Admission timestamps survive midnight and process restarts. Every
+            # uncertain application keeps its reservation; no automatic refund.
+            recent = [r.value for r in await items(session) if r.value["platform"] == v["platform"]]
+            hourly = sum(any(
+                now - timedelta(hours=1) <= datetime.fromisoformat(a["at"]) <= now
+                for a in x.get("admitted_actions", [])
+            ) for x in recent)
+            if hourly >= setting.hourly_submission_cap:
+                raise ToolDenied("hourly_application_cap_reached")
             used["reservations"] = [*used["reservations"], v["id"]]
             await put(session, budget_key, used)
         v["admitted_actions"] = [*v["admitted_actions"], {
             "id": str(uuid4()), "fingerprint": fingerprint,
             "at": (await instant(session)).isoformat(),
         }]
+        if v["operation"] == "apply":
+            from backend.app.models.application_packet import (
+                ApplicationEvent,
+                ApplicationPacket,
+            )
+
+            packet = await session.get(ApplicationPacket, UUID(v["packet_id"]), populate_existing=True)
+            previous_state = packet.lifecycle_state
+            packet.lifecycle_state = "submitting"
+            packet.revision += 1
+            packet.approved_revision = None
+            v["packet_revision"] = packet.revision
+            session.add(ApplicationEvent(packet_id=packet.id, packet_revision=packet.revision,
+                                         event_type="naukri_apply_admitted", previous_state=previous_state,
+                                         next_state="submitting", origin="local_worker"))
+            # The same canonical packet fences every legacy/manual channel
+            # before the external click, including a lost admission response.
     v.update(status="executing", revision=v["revision"] + 1)
     row.value = v
     await event(session, v, "admitted")
@@ -498,10 +537,20 @@ async def listing(session, *, platform=None, stage=None, search=None, location=N
     consumer = {k: discovery.value.get(k) for k in ("last_started_at", "last_finished_at", "next_at", "last_cycle_count", "last_error")} if discovery else None
     heartbeat = await session.get(OwnerPreference, "apply_consumer:naukri", populate_existing=True)
     worker = {k: heartbeat.value.get(k) for k in ("last_poll_at", "busy", "capability")} if heartbeat else None
+    config = await configuration(session)
+    policy = QueuePolicy.model_validate(config["policy"])
+    day = (await instant(session)).astimezone(ZoneInfo(policy.day_timezone)).date().isoformat()
+    budget = await session.get(OwnerPreference, "apply_budget:naukri:" + day, populate_existing=True)
+    used = len(budget.value.get("reservations", [])) if budget else 0
+    cap = limits(policy, "naukri")["daily_cap"]
+    if policy.platforms["naukri"].mode == "SUPERVISED":
+        cap = min(cap, policy.platforms["naukri"].supervised_submission_cap)
     return {"items": [public(r.value) for r in rows], "total": total,
             "counts": dict(counts), "limit": limit, "offset": offset,
-            "configuration": await configuration(session), "discovery": consumer, "consumer": worker,
-            "capabilities": {"background_read": "implemented_not_live_accepted", "submission": "executor_pending",
+            "configuration": config, "discovery": consumer, "consumer": worker,
+            "quota": {"reserved_today": used, "daily_cap": cap, "remaining": max(0, cap - used),
+                      "hourly_cap": policy.platforms["naukri"].hourly_submission_cap},
+            "capabilities": {"background_read": "implemented_not_live_accepted", "submission": "direct_apply_candidate_not_live_accepted",
                              "locked_screen": "NOT_TESTED", "queue": "existing_postgresql"}}
 
 

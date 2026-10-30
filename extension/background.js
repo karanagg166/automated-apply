@@ -1,5 +1,10 @@
 import { auditTab } from "./tab-audit.js";
-import { ChromeProfileConnection, profileAlarm } from "./chrome-profile.js";
+import {
+  ChromeProfileConnection,
+  profileAlarm,
+  profileContext,
+  profileNative,
+} from "./chrome-profile.js";
 import { TaskCoordinator } from "./task-coordinator.js";
 import { NaukriQueue } from "./naukri-queue.js";
 const host = "com.automated_apply.agent";
@@ -211,6 +216,40 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
     sender.url.startsWith(`chrome-extension://${chrome.runtime.id}/`);
   if (sender.id !== chrome.runtime.id || (sender.tab && !isExtensionPage))
     return false;
+  if (message?.command === "naukri_queue") {
+    if (sender.url !== `chrome-extension://${chrome.runtime.id}/popup.html`)
+      return false;
+    const run = async () => {
+      await profiles.ready;
+      const action = message.action;
+      if (!["status", "start", "pause", "stop"].includes(action))
+        throw Error("unsupported_queue_action");
+      return profileNative(
+        chrome,
+        action === "status" ? "naukri_queue_status" : "naukri_queue_control",
+        {
+          ...(await profileContext(chrome)),
+          ...(action === "status"
+            ? {}
+            : {
+                queue_action: action,
+                expected_queue_revision: message.revision,
+              }),
+        },
+      );
+    };
+    run()
+      .then((data) => reply({ ok: true, ...data }))
+      .catch((error) =>
+        reply({
+          ok: false,
+          error_code: /^[A-Za-z][A-Za-z0-9_]{1,63}$/.test(error.message)
+            ? error.message
+            : "queue_unavailable",
+        }),
+      );
+    return true;
+  }
   if (message?.command === "chrome_profile") {
     if (
       !["settings.html", "popup.html"].some(

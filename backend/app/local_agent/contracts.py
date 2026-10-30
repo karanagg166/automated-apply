@@ -21,9 +21,11 @@ PROFILE_OPERATIONS = frozenset({
 NAUKRI_QUEUE_OPERATIONS = frozenset({
     "poll_naukri_work", "bind_naukri_work", "admit_naukri_work", "finish_naukri_work",
     "abandon_naukri_work", "check_naukri_work",
+    "naukri_queue_status", "naukri_queue_control",
 })
 
 Operation = Literal[
+    "naukri_queue_status", "naukri_queue_control",
     "poll_naukri_work", "bind_naukri_work", "admit_naukri_work", "finish_naukri_work",
     "abandon_naukri_work", "check_naukri_work",
     "connect_chrome_profile", "heartbeat_chrome_profile", "disconnect_chrome_profile",
@@ -40,6 +42,8 @@ class Command(StrictModel):
     version: Literal[1] = 1
     request_id: UUID = Field(default_factory=uuid4)
     command: Operation
+    queue_action: Literal["start", "pause", "stop"] | None = None
+    expected_queue_revision: int | None = Field(None, ge=0)
     work_id: UUID | None = None
     expected_work_revision: int | None = Field(None, ge=1)
     work_lease_token: UUID | None = None

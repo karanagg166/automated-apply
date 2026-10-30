@@ -22,6 +22,8 @@ const routes: Array<[RegExp, string[]]> = [
     ["POST"],
   ],
   [/^execution\/naukri$/, ["GET", "PUT"]],
+  [/^execution\/naukri\/profile-sync$/, ["GET"]],
+  [/^execution\/naukri\/profile-sync\/policy$/, ["PUT"]],
   [/^execution\/queue$/, ["GET"]],
   [/^execution\/queue\/policy$/, ["PUT"]],
   [/^execution\/queue\/control$/, ["POST"]],
