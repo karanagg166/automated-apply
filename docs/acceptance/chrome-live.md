@@ -124,7 +124,10 @@ concurrent successful readiness calls while an ordinary command connection was
 occupied, plus the real five-slot role budget. A final safety subset passed
 103 tests in 10.08s. Final candidate identity and consolidated counts will be
 published in the reliability report before requesting another installation.
-These are fixtures, not a new installed PASS.
+These are fixtures, not a new installed PASS. The final replacement is now
+[`5ca05d844fbaa7ca0ada093aa37556c831c89edf`](https://github.com/karanagg166/automated-apply/commit/5ca05d844fbaa7ca0ada093aa37556c831c89edf),
+with **345 final backend tests passed in 37.21s** and the seven PostgreSQL tests
+above. It requires new exact-SHA review and approval; `48e6c3a…` stays installed.
 
 Sanitized metrics:
 [chrome-workload-metrics-20261030.json](chrome-workload-metrics-20261030.json).

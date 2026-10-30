@@ -263,3 +263,73 @@ The owner's permanent milestone-reporting requirement is also now recorded in
 report update changes no runtime source and does not change the approved candidate
 SHA. Validation for this documentation-only follow-up: manual policy review and
 `git diff --check`; runtime tests are the completed counts above.
+
+## Follow-up: native workload failure and replacement candidate
+
+The approved `48e6c3a…` release was installed and passed its background monitoring
+window, but the subsequent real native cycle produced **nine readiness 503s**.
+Production workload reliability remains **FAIL**. See the [installed
+observations](reliability-installation-20261030.md) and [Chrome live report](chrome-live.md)
+for the completed cycle, graceful restart, original failures and observer limits.
+
+The new exact implementation for review is
+[`5ca05d844fbaa7ca0ada093aa37556c831c89edf`](https://github.com/karanagg166/automated-apply/commit/5ca05d844fbaa7ca0ada093aa37556c831c89edf)
+on the same feature branch, based on the already installed source. It has **not
+been installed**. The prior approval applies only to `48e6c3a…`; it is not reused
+for this replacement. No automatic merge is requested or performed.
+
+| Replacement check | Status | Evidence / scope |
+| --- | --- | --- |
+| Remaining failure mechanism | PASS for reproduction | An occupied ordinary API slot prevents the shared-pool DB probe from acquiring a connection; the live log classified all nine observed readiness errors as `probe_timeout` |
+| Probe/command isolation | PASS in real PostgreSQL fixture | One occupied command connection; eight concurrent `/ready` calls all return 200 through the separate one-slot probe pool |
+| Bounded role budget | PASS in real PostgreSQL fixture | Four one-slot pools plus one temporary operator fit a role cap of five; sixth connection rejected, operator close/reconnect succeeds |
+| Concurrent probe sharing and cancellation | PASS in isolated fixture | Three callers share one live operation; cancellation of one caller does not cancel the others; next request performs a new observation |
+| Startup audit / target pin / shutdown cleanup | PASS in focused fixtures | A first readiness probe cannot move to a different DB after startup; both pools disposed on shutdown |
+| Final focused backend regressions | PASS — **345 tests, 37.21s** | Fictional isolated fixtures and actual local process tests |
+| Final disposable PostgreSQL regressions | PASS — **7 tests, 2.44s** | Existing local PostgreSQL 14.24; no production faults injected |
+| Ruff E9/F/I and diff checks | PASS | All five changed Python files |
+| Replacement production timings and connection counts | NOT TESTED | New exact-SHA installation approval required |
+| Remaining profile-status timeout | FAIL in previous workload | One 12-second observer timeout retained; isolation does not claim to solve every business-request latency |
+| Three consecutive native cycles / crash / locked DOM | NOT TESTED to completion | One prior cycle passed; further cycles wait for replacement acceptance |
+
+The replacement gives readiness one separate API-only pool of size **1**,
+overflow **0**, with bounded pool wait, existing connection/query deadlines,
+pre-ping and recycling. General API, execution and Telegram pool settings stay
+unchanged. Concurrent readiness calls share only a currently running observation;
+there is no success cache that could hide a later outage. Startup still runs the
+full restricted-role/TLS/catalog audit. Live probes still check DB target,
+role, TLS and core grants. HTTP caller cancellation cannot cancel a probe another
+caller is awaiting; shutdown cancels any remaining operation and disposes both
+API pools. No command admission, command lease, Stop fence, field authorization,
+idempotency or submission-outcome logic changes in this follow-up.
+
+The budget is measured from the installed three-service baseline and checked in
+a real capped-role fixture: API business **1** + execution **1** + Telegram **1**
++ readiness **1** = **4**, leaving **1** for one acceptance/helper/observer. The
+role remains capped at five and the server at 60. This isolates traffic within
+the existing role budget; it does not raise general pool sizes or DB limits.
+Do not run a DB observer and a separate DB acceptance helper concurrently on the
+replacement. Use HTTP-only monitoring alongside real Chrome acceptance. Actual
+production counts and recovery remain mandatory after approval.
+
+One intermediate PostgreSQL regression failed because its fictional fixture URL
+omitted the password required by the repository's DB boundary. The fixture was
+corrected with a fictional local password and the final seven tests passed. This
+does not weaken the real database configuration rules. The final backend run is
+the 345-test count above; earlier 344/103-test runs are retained in the Chrome
+report rather than summed as separate coverage.
+
+Reproduction: use the [same full backend command above](#reproduction), plus
+`pytest backend/tests/test_reliability_postgres.py -q -s` against a disposable
+localhost `candidate_profile_test`. The specific regressions are
+`test_readiness_live_query_is_not_queued_behind_command_transaction`,
+`test_four_runtime_pools_and_one_operator_fit_five_slot_role_budget`, and
+`test_concurrent_readiness_shares_live_probe_and_survives_one_cancelled_caller`.
+Raw final logs remain private as `probe-regressions-final.log` and
+`probe-postgres-final.log` in `reliability-20261030`.
+
+After review and explicit approval of this new full SHA, install it without
+changing Profile 8's extension content/permissions, then repeat the real workload
+with HTTP monitoring. Preserve the previous 503s and timeout. Verify the fifth
+slot is sufficient for the single helper, then complete three cycles, Stop,
+unexpected crash and awake/locked DOM acceptance before discovery expansion.
