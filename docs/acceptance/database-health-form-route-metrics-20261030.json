@@ -1,0 +1,606 @@
+{
+  "installed_sha": "79ce5f6b514279e6d9022d85b659ad77fb31bd89",
+  "candidate_sha": "90f2f2ade50a1c31b26ca85cc7fdf5e93bb67c20",
+  "candidate_installed": false,
+  "initial_quiescence": {
+    "installed_sha": "79ce5f6b514279e6d9022d85b659ad77fb31bd89",
+    "target": {
+      "mode": "direct",
+      "port": 5432,
+      "pool_size": 1,
+      "max_overflow": 0
+    },
+    "role_limit": 5,
+    "initial_http": [
+      {
+        "path": "/health",
+        "status": 200,
+        "seconds": 0.021809708001455874
+      },
+      {
+        "path": "/ready",
+        "status": 503,
+        "seconds": 1.0485427500007063
+      },
+      {
+        "path": "/api/v1/browser/chrome-profiles",
+        "status": 200,
+        "seconds": 1.816268417000174
+      }
+    ],
+    "paused_without_authorization": true,
+    "settings": [
+      {
+        "name": "client_connection_check_interval",
+        "setting": "0",
+        "unit": "ms",
+        "context": "user",
+        "source": "default"
+      },
+      {
+        "name": "idle_in_transaction_session_timeout",
+        "setting": "30000",
+        "unit": "ms",
+        "context": "user",
+        "source": "user"
+      },
+      {
+        "name": "idle_session_timeout",
+        "setting": "0",
+        "unit": "ms",
+        "context": "user",
+        "source": "default"
+      },
+      {
+        "name": "server_version",
+        "setting": "17.11",
+        "unit": null,
+        "context": "internal",
+        "source": "default"
+      },
+      {
+        "name": "statement_timeout",
+        "setting": "30000",
+        "unit": "ms",
+        "context": "user",
+        "source": "user"
+      },
+      {
+        "name": "tcp_keepalives_count",
+        "setting": "9",
+        "unit": null,
+        "context": "user",
+        "source": "default"
+      },
+      {
+        "name": "tcp_keepalives_idle",
+        "setting": "1800",
+        "unit": "s",
+        "context": "user",
+        "source": "default"
+      },
+      {
+        "name": "tcp_keepalives_interval",
+        "setting": "60",
+        "unit": "s",
+        "context": "user",
+        "source": "default"
+      },
+      {
+        "name": "tcp_user_timeout",
+        "setting": "0",
+        "unit": "ms",
+        "context": "user",
+        "source": "default"
+      }
+    ],
+    "quiescence": [
+      {
+        "label": "telegram_stopped",
+        "at": "2026-10-30T15:03:05.752958+00:00",
+        "session_count_including_audit": 5,
+        "states": [
+          "idle",
+          "idle",
+          "idle",
+          "idle",
+          "active"
+        ],
+        "unattributed_older_idle_sessions": 2
+      },
+      {
+        "label": "execution_stopped",
+        "at": "2026-10-30T15:03:06.746478+00:00",
+        "session_count_including_audit": 4,
+        "states": [
+          "idle",
+          "idle",
+          "idle",
+          "active"
+        ],
+        "unattributed_older_idle_sessions": 2
+      },
+      {
+        "label": "all_database_services_stopped",
+        "at": "2026-10-30T15:03:07.738930+00:00",
+        "session_count_including_audit": 3,
+        "states": [
+          "idle",
+          "idle",
+          "active"
+        ],
+        "unattributed_older_idle_sessions": 2
+      },
+      {
+        "label": "all_stopped_confirmed",
+        "at": "2026-10-30T15:03:11.203187+00:00",
+        "session_count_including_audit": 3,
+        "states": [
+          "idle",
+          "idle",
+          "active"
+        ],
+        "unattributed_older_idle_sessions": 2
+      }
+    ],
+    "at": "2026-10-30T15:02:47.812507+00:00"
+  },
+  "later_degraded_checks": [
+    [
+      {
+        "at": "2026-10-30T15:13:47.287742+00:00",
+        "path": "/health",
+        "status": 200,
+        "seconds": 0.0063
+      },
+      {
+        "at": "2026-10-30T15:13:48.310236+00:00",
+        "path": "/ready",
+        "status": 503,
+        "seconds": 1.0225
+      },
+      {
+        "at": "2026-10-30T15:13:49.979597+00:00",
+        "path": "/api/v1/browser/chrome-profiles",
+        "status": 200,
+        "seconds": 1.6694
+      }
+    ],
+    [
+      {
+        "at": "2026-10-30T15:17:45.062790+00:00",
+        "path": "/health",
+        "status": 200,
+        "seconds": 0.0071
+      },
+      {
+        "at": "2026-10-30T15:17:46.148194+00:00",
+        "path": "/ready",
+        "status": 503,
+        "seconds": 1.0855
+      },
+      {
+        "at": "2026-10-30T15:17:47.182005+00:00",
+        "path": "/api/v1/browser/chrome-profiles",
+        "status": 200,
+        "seconds": 1.0338
+      }
+    ]
+  ],
+  "recovered_inventory": {
+    "at": "2026-10-30T15:20:36.788812+00:00",
+    "role_limit": 5,
+    "isolation": "read committed",
+    "tls": true,
+    "runtime_counts": {
+      "api": 2,
+      "execution": 1,
+      "telegram": 1
+    },
+    "capacity_pass": true,
+    "audit_closed": true,
+    "finished_at": "2026-10-30T15:20:40.020290+00:00",
+    "old_backends_remaining_count": 0,
+    "sessions": [
+      {
+        "application_name": "automated-apply:execution",
+        "state": "idle",
+        "actual_service": "execution"
+      },
+      {
+        "application_name": "automated-apply:api",
+        "state": "idle",
+        "actual_service": "api"
+      },
+      {
+        "application_name": "automated-apply:telegram",
+        "state": "idle",
+        "actual_service": "telegram"
+      },
+      {
+        "application_name": "automated-apply:readiness",
+        "state": "idle",
+        "actual_service": "api"
+      },
+      {
+        "application_name": "automated-apply:capacity-audit",
+        "state": "active",
+        "actual_service": "audit"
+      }
+    ]
+  },
+  "post_recycle_inventory": {
+    "at": "2026-10-30T15:27:04.625633+00:00",
+    "role_limit": 5,
+    "isolation": "read committed",
+    "tls": true,
+    "runtime_counts": {
+      "api": 2,
+      "execution": 1,
+      "telegram": 1
+    },
+    "capacity_pass": true,
+    "audit_closed": true,
+    "finished_at": "2026-10-30T15:27:07.746313+00:00",
+    "old_backends_remaining_count": 0,
+    "sessions": [
+      {
+        "application_name": "automated-apply:execution",
+        "state": "idle",
+        "actual_service": "execution"
+      },
+      {
+        "application_name": "automated-apply:api",
+        "state": "idle",
+        "actual_service": "api"
+      },
+      {
+        "application_name": "automated-apply:telegram",
+        "state": "idle",
+        "actual_service": "telegram"
+      },
+      {
+        "application_name": "automated-apply:readiness",
+        "state": "idle",
+        "actual_service": "api"
+      },
+      {
+        "application_name": "automated-apply:capacity-audit",
+        "state": "active",
+        "actual_service": "audit"
+      }
+    ]
+  },
+  "recovered_http_and_safety": {
+    "http": [
+      {
+        "at": "2026-10-30T15:20:23.272990+00:00",
+        "path": "/health",
+        "status": 200,
+        "seconds": 0.0104
+      },
+      {
+        "at": "2026-10-30T15:20:26.594191+00:00",
+        "path": "/ready",
+        "status": 200,
+        "seconds": 3.3213
+      },
+      {
+        "at": "2026-10-30T15:20:28.074610+00:00",
+        "path": "/api/v1/browser/chrome-profiles",
+        "status": 200,
+        "seconds": 1.4804
+      },
+      {
+        "at": "2026-10-30T15:20:31.011308+00:00",
+        "path": "task",
+        "status": 200,
+        "seconds": 2.9346
+      }
+    ],
+    "safety": {
+      "selection_unchanged": true,
+      "active_commands": 0,
+      "task_paused": true,
+      "task_authorized": false,
+      "static_hashes_match": 9,
+      "static_hashes_expected": 9,
+      "services": {
+        "api": {
+          "loaded": true,
+          "has_pid": true
+        },
+        "execution": {
+          "loaded": true,
+          "has_pid": true
+        },
+        "telegram": {
+          "loaded": true,
+          "has_pid": true
+        },
+        "frontend": {
+          "loaded": true,
+          "has_pid": true
+        }
+      }
+    }
+  },
+  "stability_window": {
+    "first_sample_at": "2026-10-30T15:21:25.993055+00:00",
+    "last_sample_at": "2026-10-30T15:26:40.961410+00:00",
+    "deadline_seconds": 12,
+    "interval_seconds": 45,
+    "planned_and_completed_samples_per_endpoint": 8,
+    "endpoints": {
+      "/health": {
+        "count": 8,
+        "http_200": 8,
+        "errors": [],
+        "seconds_mean": 0.025624,
+        "seconds_max": 0.048178
+      },
+      "/ready": {
+        "count": 8,
+        "http_200": 8,
+        "errors": [],
+        "seconds_mean": 1.208629,
+        "seconds_max": 2.160295
+      },
+      "/api/v1/browser/chrome-profiles": {
+        "count": 8,
+        "http_200": 8,
+        "errors": [],
+        "seconds_mean": 1.26773,
+        "seconds_max": 1.468239
+      }
+    },
+    "runtime_log_checks": {
+      "api": {
+        "connection_limit_markers": 0
+      },
+      "execution": {
+        "connection_limit_markers": 0
+      },
+      "telegram": {
+        "connection_limit_markers": 0
+      }
+    },
+    "samples": [
+      {
+        "at": "2026-10-30T15:21:25.993055+00:00",
+        "path": "/health",
+        "status": 200,
+        "seconds": 0.033143
+      },
+      {
+        "at": "2026-10-30T15:21:26.009892+00:00",
+        "path": "/ready",
+        "status": 200,
+        "seconds": 1.151647
+      },
+      {
+        "at": "2026-10-30T15:21:26.010035+00:00",
+        "path": "/api/v1/browser/chrome-profiles",
+        "status": 200,
+        "active_commands": 0,
+        "seconds": 1.304988
+      },
+      {
+        "at": "2026-10-30T15:22:10.968904+00:00",
+        "path": "/health",
+        "status": 200,
+        "seconds": 0.022296
+      },
+      {
+        "at": "2026-10-30T15:22:10.970208+00:00",
+        "path": "/ready",
+        "status": 200,
+        "seconds": 1.027861
+      },
+      {
+        "at": "2026-10-30T15:22:10.970457+00:00",
+        "path": "/api/v1/browser/chrome-profiles",
+        "status": 200,
+        "active_commands": 0,
+        "seconds": 1.30893
+      },
+      {
+        "at": "2026-10-30T15:22:55.968772+00:00",
+        "path": "/health",
+        "status": 200,
+        "seconds": 0.026621
+      },
+      {
+        "at": "2026-10-30T15:22:55.970289+00:00",
+        "path": "/ready",
+        "status": 200,
+        "seconds": 1.018614
+      },
+      {
+        "at": "2026-10-30T15:22:55.970579+00:00",
+        "path": "/api/v1/browser/chrome-profiles",
+        "status": 200,
+        "active_commands": 0,
+        "seconds": 1.308444
+      },
+      {
+        "at": "2026-10-30T15:23:40.966971+00:00",
+        "path": "/health",
+        "status": 200,
+        "seconds": 0.048178
+      },
+      {
+        "at": "2026-10-30T15:23:40.968476+00:00",
+        "path": "/ready",
+        "status": 200,
+        "seconds": 1.036996
+      },
+      {
+        "at": "2026-10-30T15:23:40.968724+00:00",
+        "path": "/api/v1/browser/chrome-profiles",
+        "status": 200,
+        "active_commands": 0,
+        "seconds": 1.331506
+      },
+      {
+        "at": "2026-10-30T15:24:25.966529+00:00",
+        "path": "/health",
+        "status": 200,
+        "seconds": 0.021347
+      },
+      {
+        "at": "2026-10-30T15:24:25.970115+00:00",
+        "path": "/ready",
+        "status": 200,
+        "seconds": 1.023881
+      },
+      {
+        "at": "2026-10-30T15:24:25.970474+00:00",
+        "path": "/api/v1/browser/chrome-profiles",
+        "status": 200,
+        "active_commands": 0,
+        "seconds": 1.468239
+      },
+      {
+        "at": "2026-10-30T15:25:10.964606+00:00",
+        "path": "/health",
+        "status": 200,
+        "seconds": 0.020993
+      },
+      {
+        "at": "2026-10-30T15:25:10.967087+00:00",
+        "path": "/ready",
+        "status": 200,
+        "seconds": 1.023611
+      },
+      {
+        "at": "2026-10-30T15:25:10.967309+00:00",
+        "path": "/api/v1/browser/chrome-profiles",
+        "status": 200,
+        "active_commands": 0,
+        "seconds": 1.152072
+      },
+      {
+        "at": "2026-10-30T15:25:55.962089+00:00",
+        "path": "/health",
+        "status": 200,
+        "seconds": 0.016258
+      },
+      {
+        "at": "2026-10-30T15:25:55.963570+00:00",
+        "path": "/ready",
+        "status": 200,
+        "seconds": 2.160295
+      },
+      {
+        "at": "2026-10-30T15:25:55.963801+00:00",
+        "path": "/api/v1/browser/chrome-profiles",
+        "status": 200,
+        "active_commands": 0,
+        "seconds": 1.132719
+      },
+      {
+        "at": "2026-10-30T15:26:40.960333+00:00",
+        "path": "/health",
+        "status": 200,
+        "seconds": 0.016155
+      },
+      {
+        "at": "2026-10-30T15:26:40.961193+00:00",
+        "path": "/ready",
+        "status": 200,
+        "seconds": 1.226124
+      },
+      {
+        "at": "2026-10-30T15:26:40.961410+00:00",
+        "path": "/api/v1/browser/chrome-profiles",
+        "status": 200,
+        "active_commands": 0,
+        "seconds": 1.134941
+      }
+    ]
+  },
+  "candidate_build": {
+    "steps": [
+      {
+        "name": "candidate-venv",
+        "exit_code": 0,
+        "at": "2026-10-30T15:09:40.065371+00:00"
+      },
+      {
+        "name": "candidate-pip",
+        "exit_code": 0,
+        "at": "2026-10-30T15:09:49.908027+00:00"
+      },
+      {
+        "name": "candidate-pip-check",
+        "exit_code": 0,
+        "at": "2026-10-30T15:09:50.167365+00:00"
+      },
+      {
+        "name": "candidate-pnpm",
+        "exit_code": 0,
+        "at": "2026-10-30T15:09:52.047076+00:00"
+      },
+      {
+        "name": "candidate-frontend-build",
+        "exit_code": 0,
+        "at": "2026-10-30T15:10:04.359457+00:00"
+      },
+      {
+        "name": "candidate-extension-build",
+        "exit_code": 0,
+        "at": "2026-10-30T15:10:04.580272+00:00"
+      }
+    ],
+    "tracked_clean": true,
+    "independent_environment": true,
+    "installed": false
+  },
+  "candidate_database_preflight": {
+    "schema": "public",
+    "runtime_security": "restricted_public_v1",
+    "migration_bundle": "2887a98812a797c3ef9d10f37fe5f14959778d802e126d0170776059ccee6a9e",
+    "tls_required": true,
+    "verified_followups": [
+      "followups/002_gmail_compose.sql"
+    ],
+    "postgresql_version": "17.11"
+  },
+  "tests": {
+    "focused_unit_passed": 22,
+    "focused_unit_seconds": 2.63,
+    "lifecycle_unit_passed": 4,
+    "lifecycle_unit_seconds": 4.47,
+    "local_postgresql_passed": 2,
+    "local_postgresql_seconds": 0.82,
+    "initial_wrong_local_role_setup_errors": 2,
+    "initial_wrong_local_role_seconds": 0.32,
+    "new_passes_total": 28
+  },
+  "form": {
+    "forms": 0,
+    "frames": 0,
+    "file_inputs": 0,
+    "visible_search_inputs": 3,
+    "visible_apply_buttons": 2,
+    "apply_activated": false,
+    "genuine_preparation_packet_saved": false,
+    "independently_navigation_only": false,
+    "public_workflow_uses_authenticated_post": true,
+    "public_source_assets": [
+      {
+        "url": "https://static.naukimg.com/s/9/121/_next/static/chunks/app/jd/page-3579924741a096ea.js",
+        "bytes": 143436,
+        "sha256": "fb689eb06a8658e59a528e38f447731a2ca8b8fd7918ad5ee2d91015b5d553fc"
+      },
+      {
+        "url": "https://static.naukimg.com/s/9/121/_next/static/chunks/nkworkflowutility.93cf0c49ad6c7e94.js",
+        "bytes": 16765,
+        "sha256": "b572b93e92c4ef2de3e9478806be93a84d87e31898ed4604d1e1d575d453e481"
+      }
+    ]
+  },
+  "new_live_open_prepare_cycles": 0,
+  "new_live_application_submission": false
+}

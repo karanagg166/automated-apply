@@ -1,6 +1,6 @@
 # Database recovery and real application-form route — PR #48
 
-Status at 2026-10-30 15:10 UTC: **capacity remains degraded; installation is blocked**. Controlled quiescence verified that current service shutdown releases its mapped connections, while two older idle backends survive. No unknown backend was terminated. The exact correction is built but uninstalled. Read-only examination establishes that Apply is connected to an authenticated POST workflow, not a proven navigation-only link. No application form or new preparation packet is claimed.
+Update at 2026-10-30 15:27 UTC: **database readiness and the intended connection budget are restored in the measured window**. All24 HTTP checks across pool recycling passed; the post-recycle inventory again proves four mapped runtime connections plus the temporary audit within limit5. Both older idle backends disappeared without manual termination. Exact90f2f2a is built and its actual online database preflight passes; it remains uninstalled pending owner approval. Read-only examination establishes that Apply is connected to an authenticated POST workflow, not a proven navigation-only link. No application form or new preparation packet is claimed.
 
 - Repository / branch / base: `karanagg166/automated-apply`, `fix/live-prepare-discovery-20261030`, `main`; [PR #48](https://github.com/karanagg166/automated-apply/pull/48).
 - Installed throughout this milestone: [`79ce5f6b514279e6d9022d85b659ad77fb31bd89`](https://github.com/karanagg166/automated-apply/commit/79ce5f6b514279e6d9022d85b659ad77fb31bd89).
@@ -41,9 +41,31 @@ Observed server settings on PostgreSQL17.11:
 | `tcp_user_timeout` | 0 |
 | `client_connection_check_interval` | 0 |
 
-These settings allow delayed dead-peer cleanup: approximately 39 minutes from the last relevant TCP activity under the documented keepalive model. Query timestamps are not TCP packet timestamps, so this is a **bounded diagnostic expectation, not a guaranteed expiry time**. One natural-cleanup observation window is pending; repeating restarts does not recover those two sessions. No limit, credentials, database defaults, schema, runtime connection options or production application data were changed by the investigation.
+These settings allow delayed dead-peer cleanup: approximately 39 minutes from the last relevant TCP activity under the documented keepalive model. Query timestamps are not TCP packet timestamps, so this is a **bounded diagnostic expectation, not a guaranteed expiry time**. The natural-cleanup observation below recovered capacity; repeated service restarts were not used to clear those two sessions. No limit, credentials, database defaults, schema, runtime connection options or production application data were changed by the investigation.
 
 Primary references: [PostgreSQL17 TCP connection settings](https://www.postgresql.org/docs/17/runtime-config-connection.html), [Supabase direct/session/transaction connection modes](https://supabase.com/docs/guides/database/connecting-to-postgres). Direct and session connections support the session/prepared-statement behavior this backend requires; switching to transaction pooling is not a drop-in recovery.
+
+## Natural cleanup and restored capacity
+
+No services were restarted after the single controlled quiescence sequence at15:03. Readiness still returned503 at15:13:48 (1.0225s) and15:17:46 (1.0855s); API logs classify both as `connection_limit` (PostgreSQL53300). At15:20:26 it returned200 (3.3213s). These three initial/in-window-recovery503s, including the15:02 baseline, remain failures in the recovery record; they are not hidden or moved into a planned restart window.
+
+One final audit at **15:20:36–15:20:40 UTC**, with all normal services running, succeeded within the unchanged limit5. Both older backend IDs were absent. The audit saw exactly **five**: execution idle, API business idle, Telegram idle, API readiness idle, audit active. TCP client tuples map both API connections to its actual local PID, and the other two to execution/Telegram PIDs. No non-audit session was idle-in-transaction. TLS was true and isolation `read committed`. The audit closed cleanly, leaving **four runtime connections and one available operator slot**. No unknown backend termination, role/pool increase, credential rotation or database configuration change was required.
+
+The older address was absent from current Mac interfaces and both old tuples were absent from the kernel TCP inventory. Their disappearance between the last failure and successful inventory is consistent with dead-peer cleanup under the observed defaults. No provider-side termination reason/log is available, so the precise cleanup mechanism and original process ownership remain unproven. Do not report these as conclusively identified API/Telegram process leaks.
+
+Final HTTP safety check at15:20 returned health200 (0.0104s), readiness200 (3.3213s), status200 (1.4804s), task200 (2.9346s). The selected binding is unchanged, task PAUSED, no authorization, zero active commands, all four services loaded with PIDs, and all nine static hashes still match. Installed native transport health also passed without an application/browser action.
+
+The exact90 candidate then completed its **actual online read-only preflight** using the available operator slot: PostgreSQL17.11, `restricted_public_v1`, TLS required, compatible migration/grant checks including the Gmail-compose follow-up. It disposed its connection before the HTTP stability window. Its manifest key and required/optional browser/host permission sets equal the installed release. Candidate source/build preparation and the dated capacity/stability preflight are complete; installation approval is still absent. Recheck those time-sensitive gates immediately before any approved cutover.
+
+One HTTP-only window **15:21:25–15:26:40 UTC** spans315 seconds and the300-second recycle, with eight concurrent endpoint samples at45-second intervals and unchanged12-second deadlines. **24/24 requests returned200**, with zero timeout, zero readiness503, zero active commands and zero connection-limit markers in API/execution/Telegram logs during the window. No production DB observer overlapped it.
+
+| Installed79 endpoint | HTTP200 / samples | Mean / max seconds |
+| --- | ---: | ---: |
+| health | 8/8 | 0.025624 /0.048178 |
+| readiness | 8/8 | 1.208629 /2.160295 |
+| profile status | 8/8 | 1.267730 /1.468239 |
+
+At **15:27:04–15:27:07 UTC**, a single post-recycle audit again succeeded and verified exactly four process-mapped runtime sessions plus itself within limit5; both old backend IDs remain absent and no runtime session is idle-in-transaction. The audit then closed. This is genuine installed Mac/online readiness and capacity evidence, **not corrected90 native-workload acceptance**. It does not erase the three earlier recovery503s or the previous two native-window status timeouts. [Sanitized inventories, HTTP samples, timings, test counts and public-asset hashes](database-health-form-route-metrics-20261030.json). Network-change recurrence remains a known operational risk: the unchanged defaults can delay orphan cleanup. If that recurs, the smallest prospective correction to review is bounded **per-connection TCP keepalive settings** in the existing connection arguments, with no new pool and preserved transactional deadlines. That would require a new reviewed runtime SHA and a verified dead-peer fixture; it was not implemented or represented as tested here. Do not use an idle-transaction timeout or a higher role limit as a substitute for the observed idle-session issue.
 
 ## Exact90f2f2a review and preparation
 
@@ -81,7 +103,7 @@ The smallest owner action authorization, if desired after review, must explicitl
 
 ## Exact installation preflight and bounded continuation
 
-**Not an installation authorization. Do not execute cutover while capacity is degraded.** Before asking the owner to approve installation, complete and publish the dated capacity result and finish the candidate/rollback plan review. Required preflight for exact90f2f2a:
+**Not an installation authorization. Do not execute cutover unless the current capacity/stability gates pass and the owner approves the exact SHA.** The dated capacity/stability results and candidate/rollback plan are now reviewable. These are snapshots, not a permanent reservation; repeat the time-sensitive guard checks at cutover. Required preflight for exact90f2f2a:
 
 1. Confirm all current installed references still point to exact79ce5f6 and all nine static backup hashes match. Keep every old release and all raw evidence. Confirm the candidate's tracked runtime source matches the exact reviewed SHA, pip check/builds pass, extension identity/permissions match, and no schema migration is required.
 2. Use HTTP to verify the selected Profile8 binding, PAUSED task without authorization, and zero queued/leased/executing commands. Obtain a fresh task revision at each later admission; do not carry revisions through cutover.
@@ -91,7 +113,26 @@ The smallest owner action authorization, if desired after review, must explicitl
 6. Only after healthy post-install budget verification run **three genuine consecutive Open→Prepare cycles**. Use one HTTP-only observer and original12s status deadline. Retain every original command/terminal outcome, no hidden retry; preserve unrelated tab IDs/windows/URLs; reconcile commands and Pause after each cycle. Stop on a critical capacity/timeout/unknown-outcome failure rather than repeating the loop.
 7. A no-form plan is not application-preparation success. Keep Apply untouched until its separate action authority is resolved. At a genuine form, inspect fields, required questions, existing values, resume attachment and validation without submission, then persist and verify the actual preparation packet. Any additional runtime correction needs a new reviewed SHA. Rollback restores only reviewed references/content after command reconciliation, never stale authorization or database history.
 
-Reproduction of focused review tests: `backend/tests/test_project_stamp_snapshot.py`, `backend/tests/test_request_timing.py`, the stale-plan case in `test_browser_forms.py`; task-revision/expiry/Stop cases in `test_chrome_profiles.py` and `test_extension_tasks.py`; the three named lifecycle cases in `test_reliability.py`. Disposable PostgreSQL command:
+Exact focused reproduction commands (fictional fixtures; run from repository root):
+
+```sh
+.venv/bin/python -m pytest \
+  backend/tests/test_project_stamp_snapshot.py \
+  backend/tests/test_request_timing.py \
+  backend/tests/test_browser_forms.py::test_stale_plan_rejected \
+  backend/tests/test_chrome_profiles.py::test_expiry_no_redelivery_stale_versions_and_channel_opt_in \
+  backend/tests/test_chrome_profiles.py::test_remote_inspection_cannot_outlive_original_command_lease \
+  backend/tests/test_chrome_profiles.py::test_pause_survives_profile_switch_and_global_stop_cancels_commands \
+  backend/tests/test_extension_tasks.py::test_versioned_task_read_validates_window_and_current_packet \
+  backend/tests/test_extension_tasks.py::test_stale_packet_and_wrong_tab_cannot_authorize \
+  backend/tests/test_extension_tasks.py::test_owner_pause_race_with_in_flight_fill_preserves_pause_and_prevents_readiness -q
+.venv/bin/python -m pytest \
+  backend/tests/test_reliability.py::test_probe_pool_has_one_slot_and_shutdown_disposes_both_engines \
+  backend/tests/test_reliability.py::test_concurrent_readiness_shares_live_probe_and_survives_one_cancelled_caller \
+  backend/tests/test_reliability.py::test_telegram_database_outage_does_not_exit_or_resend -q
+```
+
+Disposable PostgreSQL command:
 
 ```sh
 # Set PROFILE_TEST_DATABASE_URL from the existing disposable fixture metadata only.
@@ -107,12 +148,13 @@ Raw scripts, exact commands, receipts, source hashes and build/test logs remain 
 | Requirement | Status | Current evidence / next action |
 | --- | --- | --- |
 | Identify current process-owned connections | PASS | Full TCP tuple mapping plus backend disappearance on verified graceful exit |
-| Identify actual owner of two older sessions | BLOCKED | Labels/address/history insufficient; no termination authorized/performed |
+| Identify original process owner of two older sessions | UNPROVEN / historical limitation | Labels/address/history insufficient; both sessions ended naturally; no termination performed |
 | Dispose current API/worker pools | PASS for measured exits | Known backends disappear; API shutdown/pool logs agree |
-| Stable readiness and four-runtime-plus-audit budget | FAIL / recovery pending | Initial readiness503; natural cleanup observation pending |
+| Four-runtime-plus-audit budget | PASS at15:20 | Actual TCP mapping;5/5 including audit; both older backends absent; audit closed |
+| Stable readiness across pool recycle | PASS for observed installed79 window | 24/24 HTTP200; zero12s timeout, readiness503 or connection-limit log marker; three earlier503s retained |
 | Exact90 approval/freshness/lazy-checkout review | PASS for review/tests | 26 isolated unit cases and2 disposable PostgreSQL cases |
 | Candidate build and rollback preparation | PASS, uninstalled | Exact candidate built; nine backups verified; six reference plans prepared |
-| Exact90 installation | BLOCKED | Healthy capacity and explicit exact-SHA approval required |
+| Exact90 installation | BLOCKED on exact-SHA owner approval | Candidate built; online preflight and healthy budget/window pass; installed79 unchanged |
 | Three new corrected live cycles / zero12s timeouts | NOT TESTED | No installation or loop attempted |
 | Genuine Apply metadata/source inspection | PASS read-only | Authenticated POST workflow established; navigation-only safety not established |
 | Genuine form / required answers / resume / saved packet | BLOCKED | No genuine form reached; no success claimed |
