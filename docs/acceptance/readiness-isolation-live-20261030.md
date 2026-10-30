@@ -92,3 +92,48 @@ is running. The private upgrade directory is
 build/preflight, cutover, initial HTTP/native/history verification and new native
 cycle/monitor receipts. Only sanitized summaries are published. No hosted CI,
 merge, credential rotation, cleanup or production DB fault injection occurred.
+
+## Completed first cycle and restart/crash recovery
+
+The first real cycle on this SHA **PASS**: Open and Prepare completed through
+Profile 8 and the native mailbox. One new read-only `NEEDS_INPUT` plan was saved
+with zero fields/actions/approved fields; the task was paused afterward. The
+complete helper took 166.695s, including command alarm/polling, reconciliation and
+Pause. This is not a form-fill or application-submission result.
+
+Through that cycle's completion, the HTTP monitor captured **33/33 HTTP 200**
+for both health and readiness; readiness maximum was **1.7153s**. Profile status
+had 32 HTTP 200 and **one retained 12.0044s ReadTimeout**. The readiness isolation
+does not claim to eliminate all business-request queue latency. That failure
+remains open while subsequent cycles and controls are exercised.
+
+With the task paused and no active browser command, a graceful API/worker restart
+ran **11:03:23–11:03:52 UTC**. Readiness recovered in **2.967s**. The ongoing
+monitor records expected transport gaps during this deliberate API restart;
+those samples must remain visible and be distinguished from unexpected live
+503s rather than silently discarded.
+
+An actual unexpected execution-worker crash was then injected with **SIGKILL**,
+after checking the exact service executable/PID, no active commands and the
+paused task. The existing LaunchAgent created a new worker in **2.032s**; a
+database heartbeat newer than the crash appeared by **23.896s**. Independent
+HTTP checks confirmed the task remained paused without fill authorization and
+no command was re-admitted. No second worker was launched manually. This is
+observed single-worker crash recovery, not proof of every possible interrupted
+external action; command unknown-outcome fixtures remain separate evidence.
+
+| Additional live requirement | Status | Evidence / remaining limit |
+| --- | --- | --- |
+| First real Open → Prepare on replacement | PASS | Persisted accurately labeled zero-field read-only plan; terminal commands and final Pause |
+| Readiness during first native cycle | PASS for 33-sample checkpoint | No readiness 503; max 1.7153s |
+| Profile-status monitor latency | FAIL for one request | One 12-second observer timeout retained |
+| Graceful backend/worker restart | PASS for observed recovery | Same exact source; readiness 2.967s |
+| Unexpected worker crash recovery | PASS for exercised case | LaunchAgent new PID, fresh post-crash DB heartbeat, no task resume/replay |
+| Three consecutive cycles, concurrent Stop, locked DOM | NOT TESTED to completion | Second cycle running; owner asked to manually lock screen for a later bounded cycle |
+
+Sanitized numerical evidence:
+[readiness-recovery-metrics-20261030.json](readiness-recovery-metrics-20261030.json).
+Private receipts are `cycle-1`, `restart`, `worker-crash` and the ongoing
+HTTP-only monitor in the same upgrade directory. The known 503s from the prior
+release remain in the earlier reports. No new source change or additional
+installation approval was needed for these already-authorized tests.
