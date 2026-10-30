@@ -41,10 +41,10 @@ The native manifest retained its stable wrapper path and allowed extension origi
 | Initial nine HTTP checks | PASS | Health, 3 readiness, profile status, paused task, automation status, mailbox metadata, saved plans all 200 |
 | Stored selection / old terminal commands | PASS | Independent DB comparison retained selection and historical terminal values |
 | Duplicate execution/Telegram start guard | PASS | Both real duplicate invocations rejected before DB engine initialization; existing services retained |
-| Chrome extension location | BLOCKED — owner UI action pending | Profile 8 still records previous release directory at this milestone; owner asked to load approved directory |
+| Chrome extension installed content | PASS — retained in place | Owner clarified the existing installation is unchanged in Profile 8; all 17 files match the approved build exactly |
 | Extension ID and declared permissions | PASS for build comparison | Same key/permission declarations; 17 built files byte-identical to old installed extension |
 | Sustained fixed-release production reliability | NOT TESTED to completion | Forty-sample bounded monitor running; no final PASS yet |
-| Three Chrome cycles / restart / locked-screen DOM | NOT TESTED | Awaiting extension location verification and actual cycles |
+| Three Chrome cycles / restart / locked-screen DOM | BLOCKED for Chrome cycles | Profile heartbeat is stale after the Mac reboot; extension Settings status requested to diagnose reconnection |
 | Real filling / employer submission / email send | NOT TESTED / not authorized here | No such action performed by installation |
 
 The initial health request took 0.035s. Other initial HTTP durations were 2.196s
@@ -66,6 +66,21 @@ remains **342 backend regressions passed**, **5 real disposable PostgreSQL tests
 passed**; those fixtures are not relabeled as installed acceptance. New live
 evidence here is the cutover, nine initial HTTP checks, framed native transport,
 stored-history comparison and the two rejected duplicate process invocations.
+
+The extension remains at its previous `b069092…/extension/dist` directory. A
+directory migration is unnecessary because its installed content is byte-identical
+to the approved candidate. No Chrome preferences, permissions, extension identity
+or local binding were changed. The initial request to load a new directory was
+withdrawn after the owner clarified the existing installation. Content equivalence
+does not establish a working Chrome connection: a later independent audit found a
+stale profile heartbeat (1,004 seconds old), while the execution worker heartbeat
+was 2.746 seconds old. The owner was asked only to read the existing Settings
+status; no reconnect action or live cycle is claimed yet.
+
+That audit also showed exactly one database session each for API, execution and
+Telegram, plus the monitor and the temporary audit connection (5/5 while that
+audit ran). The audit connection closed afterward. This confirms the ordinary
+three-service budget under the new process labels without raising role limits.
 
 ```sh
 release="$HOME/Library/Application Support/Automated Apply/releases/48e6c3a2ba7a0283a2e07e79ab2c59ecddd45a14"
@@ -89,8 +104,8 @@ receipts contain the exact local evidence. No cleanup was performed.
 
 ## Next actions
 
-Verify the approved extension directory in Profile 8 through Chrome's protected
-controls, complete the monitor and real Open → Prepare cycles, then test recovery
+Diagnose the existing Profile 8 connection, complete the monitor and real
+Open → Prepare cycles, then test recovery
 and awake/locked DOM completion. Preserve every failed or unknown attempt. Continue
 to report fixed-release acceptance as pending until those checks actually finish.
 Discovery expansion remains behind the reliability gate. No merge or hosted CI
