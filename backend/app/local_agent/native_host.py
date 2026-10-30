@@ -9,7 +9,12 @@ from pathlib import Path
 import httpx
 from pydantic import ValidationError
 
-from backend.app.local_agent.contracts import PROFILE_OPERATIONS, Command, Result
+from backend.app.local_agent.contracts import (
+    NAUKRI_QUEUE_OPERATIONS,
+    PROFILE_OPERATIONS,
+    Command,
+    Result,
+)
 
 MAX_MESSAGE_BYTES = 262144
 HOST_NAME = "com.automated_apply.agent"
@@ -60,7 +65,7 @@ def write_message(stream, value):
 
 
 def forward(command, settings, client=None):
-    if command.command not in PROFILE_OPERATIONS | {"health", "connection_status", "get_agent_capabilities", "preview_application_url", "observe_platform_session", "inspect_form", "prepare_form_answers", "authorize_form", "record_form_fill", "open_application_task", "get_application_task", "update_application_task", "ask_form_questions"}:
+    if command.command not in PROFILE_OPERATIONS | NAUKRI_QUEUE_OPERATIONS | {"health", "connection_status", "get_agent_capabilities", "preview_application_url", "observe_platform_session", "inspect_form", "prepare_form_answers", "authorize_form", "record_form_fill", "open_application_task", "get_application_task", "update_application_task", "ask_form_questions"}:
         raise ValueError("native_capability_denied")
     token = settings.JOB_AGENT_API_TOKEN
     if not token or not settings.CHROME_NATIVE_MESSAGING_ENABLED or not settings.CHROME_EXTENSION_ID:

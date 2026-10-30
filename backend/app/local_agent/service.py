@@ -19,6 +19,11 @@ CAPABILITIES = {name: "preview_only" for name in (
 
 
 async def dispatch(session, settings, actor: Actor, command: Command):
+    from backend.app.local_agent.contracts import NAUKRI_QUEUE_OPERATIONS
+    if command.command in NAUKRI_QUEUE_OPERATIONS:
+        from backend.app.execution.naukri_native import dispatch as dispatch_queue
+
+        return await dispatch_queue(session, settings, actor, command)
     from backend.app.browser.chrome_profiles import NATIVE, native
     if command.command in NATIVE:
         return await native(session, settings, actor, command)

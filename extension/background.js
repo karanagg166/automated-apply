@@ -1,6 +1,7 @@
 import { auditTab } from "./tab-audit.js";
 import { ChromeProfileConnection, profileAlarm } from "./chrome-profile.js";
 import { TaskCoordinator } from "./task-coordinator.js";
+import { NaukriQueue } from "./naukri-queue.js";
 const host = "com.automated_apply.agent";
 export const menuId = "automated-apply-preview";
 import {
@@ -299,17 +300,28 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
 // Only the popup can operate bound application tasks. No page/external messaging.
 const profiles = new ChromeProfileConnection();
 const coordinator = new TaskCoordinator(chrome, profiles);
+const naukriQueue = new NaukriQueue(chrome);
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === profileAlarm)
-    void profiles.tick((message) => coordinator.dispatch(message));
+    void profiles.tick(
+      (message) => coordinator.dispatch(message),
+      () => naukriQueue.tick(),
+    );
 });
 // Heartbeat restores only explicit local connection consent, never fill authorization.
 void profiles.ready.then(() => {
   if (profiles.value?.connected)
-    return profiles.tick((message) => coordinator.dispatch(message));
+    return profiles.tick(
+      (message) => coordinator.dispatch(message),
+      () => naukriQueue.tick(),
+    );
 });
 chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
-  if (change.url || change.status) void auditTab(chrome, change.url ? "navigation" : "load", { ...tab, id: tabId });
+  if (change.url || change.status)
+    void auditTab(chrome, change.url ? "navigation" : "load", {
+      ...tab,
+      id: tabId,
+    });
   if (change.url) void coordinator.event(tabId, "navigation", change.url);
   else if (change.status === "loading")
     void coordinator.event(tabId, "refresh");
@@ -327,7 +339,9 @@ chrome.tabs.onReplaced?.addListener((added, removed) => {
 chrome.windows?.onFocusChanged?.addListener((windowId) => {
   void auditTab(chrome, "window_focus", { windowId });
 });
-chrome.tabs.onCreated.addListener((tab) => { void auditTab(chrome, "created", tab); });
+chrome.tabs.onCreated.addListener((tab) => {
+  void auditTab(chrome, "created", tab);
+});
 chrome.tabs.onRemoved.addListener((tabId, info) => {
   void auditTab(chrome, "removed", { id: tabId, windowId: info?.windowId });
   void coordinator.event(tabId, "tab_closed");

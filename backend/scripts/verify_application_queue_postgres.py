@@ -1,0 +1,118 @@
+"""Concurrent queue checks on a fresh loopback-only fictional PostgreSQL DB."""
+
+import argparse
+import asyncio
+import json
+import sys
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from time import perf_counter
+from urllib.parse import urlsplit
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+
+async def verify(url):
+    parsed = urlsplit(url)
+    if (parsed.scheme != "postgresql" or parsed.hostname != "127.0.0.1"
+            or parsed.path != "/candidate_profile_test" or parsed.port in {None, 5432, 54322}
+            or parsed.query or parsed.username != "postgres" or parsed.password):
+        raise ValueError("fresh_disposable_loopback_postgresql_required")
+    from backend.app.core.config import Settings, configure_operator
+
+    settings = Settings(_env_file=None, ENVIRONMENT="testing", DATABASE_SCHEMA="job_agent",
+                        DATABASE_URL=url.replace("postgresql://", "postgresql+asyncpg://", 1))
+    configure_operator(settings)
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from backend.app.agent.tools import ToolDenied
+    from backend.app.execution import application_queue as queue
+    from backend.app.execution.queue_contracts import (
+        PlatformQueuePolicy,
+        QueueControl,
+        QueuePolicy,
+        QueuePolicyUpdate,
+    )
+    from backend.app.main import app  # noqa: F401 -- registers ORM metadata
+    from backend.app.models.base import Base
+
+    started = perf_counter()
+    engine = create_async_engine(settings.DATABASE_URL, hide_parameters=True, pool_size=2, max_overflow=0,
+                                 connect_args={"server_settings": {"search_path": "job_agent,public"}})
+    factory = async_sessionmaker(engine, expire_on_commit=False, autoflush=False)
+    results = []
+    url = "https://www.naukri.com/job-listings-fictional-291026123456"
+    try:
+        async with engine.begin() as connection:
+            assert not await connection.scalar(text("SELECT EXISTS(SELECT 1 FROM pg_namespace WHERE nspname='job_agent')")), "fresh_database_required"
+            await connection.execute(text("CREATE SCHEMA job_agent"))
+            await connection.run_sync(Base.metadata.create_all)
+            version = await connection.scalar(text("SHOW server_version"))
+        async with factory() as session, session.begin():
+            policy = QueuePolicy(platforms={"naukri": PlatformQueuePolicy(enabled=True)})
+            saved = await queue.configure(session, QueuePolicyUpdate(expected_revision=0, policy=policy))
+            current = await queue.control(session, QueueControl(expected_revision=saved["revision"], action="start"))
+
+        async def enqueue():
+            async with factory() as session, session.begin():
+                return await queue.enqueue(session, "naukri", url, "saved_verified_job")
+
+        messages = await asyncio.gather(enqueue(), enqueue())
+        assert messages[0]["id"] == messages[1]["id"]
+        results.append("concurrent_publish_one_durable_identity")
+
+        async def claim(worker):
+            async with factory() as session, session.begin():
+                return await queue.claim(session, "naukri", {"worker": worker})
+
+        claims = await asyncio.gather(claim("one"), claim("two"))
+        assert sum(c is not None for c in claims) == 1
+        winner = next(c for c in claims if c)
+        results.append("concurrent_claim_one_lease")
+
+        async def pause():
+            async with factory() as session, session.begin():
+                try:
+                    return await queue.control(session, QueueControl(action="pause", expected_revision=current["revision"]))
+                except ToolDenied:
+                    return None
+
+        pauses = await asyncio.gather(pause(), pause())
+        assert sum(p is not None for p in pauses) == 1
+        paused = next(p for p in pauses if p)
+        results.append("concurrent_policy_control_one_revision_winner")
+        async with factory() as session, session.begin():
+            try:
+                await queue.admit(session, winner["id"], winner["revision"], winner["lease_token"], winner["binding"])
+            except ToolDenied as exc:
+                assert str(exc) == "queue_lease_lost"
+            else:
+                raise AssertionError("paused_claim_was_admitted")
+            await queue.control(session, QueueControl(action="start", expected_revision=paused["revision"]))
+        results.append("stop_fences_prior_committed_lease")
+        fresh = await claim("restart")
+        assert fresh["lease_token"] != winner["lease_token"] and fresh["operation"] == "inspect_job"
+        results.append("new_connection_resume_requires_fresh_read")
+        async with factory() as session, session.begin():
+            row = await queue.load(session, fresh["id"])
+            row.value = {**row.value, "operation": "apply", "status": "executing", "stage": "APPLYING",
+                         "lease_until": (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()}
+        assert await claim("after_crash") is None
+        async with factory() as session:
+            saved = (await queue.load(session, fresh["id"])).value
+            assert saved["stage"] == "SUBMISSION_UNKNOWN" and not saved["lease_token"]
+            listing = await queue.listing(session, stage="SUBMISSION_UNKNOWN")
+            assert listing["total"] == 1 and "lease_token" not in listing["items"][0]
+        results.append("expired_possible_submission_is_never_redelivered")
+        print(json.dumps({"fixture_only": True, "database_version": version, "cases_passed": len(results),
+                          "duration_seconds": round(perf_counter() - started, 3), "pool_limit": 2,
+                          "provider_requests": 0, "applications": 0, "results": results}))
+    finally:
+        await engine.dispose()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--url", required=True)
+    asyncio.run(verify(parser.parse_args().url))

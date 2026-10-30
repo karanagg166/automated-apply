@@ -109,7 +109,8 @@ async def chrome_command(command: Command, request: Request, session: AsyncSessi
             or request.headers.get("X-Agent-Client") != settings.CHROME_EXTENSION_ID):
         raise HTTPException(403, "extension_identity_not_authorized")
     from backend.app.browser.chrome_profiles import NATIVE
-    if command.command not in NATIVE | {"health", "connection_status", "get_agent_capabilities", "preview_application_url", "observe_platform_session", "inspect_form", "prepare_form_answers", "authorize_form", "record_form_fill", "open_application_task", "get_application_task", "update_application_task", "ask_form_questions"}:
+    from backend.app.local_agent.contracts import NAUKRI_QUEUE_OPERATIONS
+    if command.command not in NATIVE | NAUKRI_QUEUE_OPERATIONS | {"health", "connection_status", "get_agent_capabilities", "preview_application_url", "observe_platform_session", "inspect_form", "prepare_form_answers", "authorize_form", "record_form_fill", "open_application_task", "get_application_task", "update_application_task", "ask_form_questions"}:
         raise HTTPException(403, "extension_capability_denied")
     from backend.app.core.logging import logger
     from backend.app.core.timing import trace

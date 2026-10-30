@@ -63,10 +63,12 @@ async def execution_target(db_session, phase2_profile):
 def test_matrix_does_not_claim_live():
     m = capability_matrix()
     assert m["live_verified"] is False
-    assert "manual_only" in m["submission_support"]
+    assert "no_live_acceptance" in m["submission_support"]
     assert m["public_jobseeker_api"] == "not_established"
-    assert m["background_source"].endswith("no_portal_polling")
-    assert m["recurring_submission"]["state"] == "BLOCKED_PLATFORM"
+    assert m["background_source"].endswith("not_live_accepted")
+    assert m["recurring_submission"]["state"] == "BLOCKED_TECHNICAL"
+    assert m["recurring_submission"]["platform_permission_status"] == "not_established"
+    assert m["recurring_submission"]["owner_requires_provider_outreach"] is False
     assert m["recurring_submission"]["enabled"] is False
     assert m["resume_upload"]["native_chooser_path"] == "NEEDS_HUMAN"
     assert m["resume_upload"]["file_selection_may_submit"] is True

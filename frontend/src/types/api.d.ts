@@ -3454,6 +3454,57 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/execution/queue": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Application Queue Status */
+    get: operations["application_queue_status_api_v1_execution_queue_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/execution/queue/policy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Application Queue Policy */
+    put: operations["application_queue_policy_api_v1_execution_queue_policy_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/execution/queue/control": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Application Queue Control */
+    post: operations["application_queue_control_api_v1_execution_queue_control_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/execution/naukri": {
     parameters: {
       query?: never;
@@ -4602,6 +4653,12 @@ export interface components {
        * @enum {string}
        */
       command:
+        | "poll_naukri_work"
+        | "bind_naukri_work"
+        | "admit_naukri_work"
+        | "finish_naukri_work"
+        | "abandon_naukri_work"
+        | "check_naukri_work"
         | "connect_chrome_profile"
         | "heartbeat_chrome_profile"
         | "disconnect_chrome_profile"
@@ -4625,6 +4682,13 @@ export interface components {
         | "get_application_task"
         | "update_application_task"
         | "ask_form_questions";
+      /** Work Id */
+      work_id?: string | null;
+      /** Expected Work Revision */
+      expected_work_revision?: number | null;
+      /** Work Lease Token */
+      work_lease_token?: string | null;
+      work_report?: components["schemas"]["NaukriWorkReport"] | null;
       /** Profile Binding Id */
       profile_binding_id?: string | null;
       /** Profile Secret */
@@ -6585,6 +6649,30 @@ export interface components {
        */
       recorded_at: string;
     };
+    /** NaukriWorkReport */
+    NaukriWorkReport: {
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind:
+        | "job_facts"
+        | "application_view"
+        | "source_candidates"
+        | "needs_input"
+        | "failed";
+      /** Observed Url */
+      observed_url?: string | null;
+      /** Requisition */
+      requisition?: string | null;
+      /** Stage */
+      stage?: "ALREADY_APPLIED" | null;
+      job?: components["schemas"]["ObservedNaukriJob"] | null;
+      /** Candidates */
+      candidates?: string[];
+      /** Reason */
+      reason?: string | null;
+    };
     /** NotificationPreferences */
     NotificationPreferences: {
       /**
@@ -6673,6 +6761,55 @@ export interface components {
        * Format: date-time
        */
       created_at: string;
+    };
+    /** ObservedNaukriJob */
+    ObservedNaukriJob: {
+      /** Requisition */
+      requisition: string;
+      /** Title */
+      title: string;
+      /** Company */
+      company: string;
+      /** Posting Recruiter */
+      posting_recruiter?: string | null;
+      /** Location */
+      location: string;
+      /** Description */
+      description: string;
+      /** Skills */
+      skills: string[];
+      /** Experience Min */
+      experience_min: number;
+      /** Experience Max */
+      experience_max: number;
+      /**
+       * Posted At
+       * Format: date-time
+       */
+      posted_at: string;
+      /** Applicants Min */
+      applicants_min?: number | null;
+      /** Applicants Max */
+      applicants_max?: number | null;
+      /**
+       * Remote Type
+       * @default unknown
+       * @enum {string}
+       */
+      remote_type: "remote" | "hybrid" | "onsite" | "unknown";
+      /** Employment Type */
+      employment_type?:
+        ("full_time" | "part_time" | "contract" | "internship") | null;
+      /** Salary Min */
+      salary_min?: number | null;
+      /** Salary Max */
+      salary_max?: number | null;
+      /** Salary Currency */
+      salary_currency?: string | null;
+      /** Salary Period */
+      salary_period?: ("year" | "month") | null;
+      /** Evidence Sha256 */
+      evidence_sha256: string;
     };
     /** OfficialPersonEvidence */
     OfficialPersonEvidence: {
@@ -7155,6 +7292,65 @@ export interface components {
        */
       live_verified: false;
     };
+    /** PlatformQueuePolicy */
+    PlatformQueuePolicy: {
+      /**
+       * Enabled
+       * @default false
+       */
+      enabled: boolean;
+      /** Sources */
+      sources?: (
+        "approved_gmail_alerts" | "saved_verified_job" | "naukri_ui_search"
+      )[];
+      /**
+       * Mode
+       * @default PREPARE_ONLY
+       * @enum {string}
+       */
+      mode: "PREPARE_ONLY" | "SUPERVISED" | "AUTOMATIC";
+      /**
+       * Owner Submission Authorized
+       * @default false
+       */
+      owner_submission_authorized: boolean;
+      /**
+       * Cap Mode
+       * @default global
+       * @enum {string}
+       */
+      cap_mode: "global" | "custom";
+      /**
+       * Age Mode
+       * @default global
+       * @enum {string}
+       */
+      age_mode: "global" | "custom";
+      /**
+       * Applicants Mode
+       * @default global
+       * @enum {string}
+       */
+      applicants_mode: "global" | "custom";
+      /**
+       * Preferences Mode
+       * @default global
+       * @enum {string}
+       */
+      preferences_mode: "global" | "custom";
+      limits?: components["schemas"]["QueueLimits"];
+      preferences?: components["schemas"]["QueuePreferences"];
+      /**
+       * Discovery Interval Seconds
+       * @default 300
+       */
+      discovery_interval_seconds: number;
+      /**
+       * Supervised Submission Cap
+       * @default 1
+       */
+      supervised_submission_cap: number;
+    };
     /** PolicyUpdate */
     PolicyUpdate: {
       /** Expected Version */
@@ -7509,6 +7705,114 @@ export interface components {
       expected_revision: number;
       /** Questions */
       questions: components["schemas"]["QuestionInput"][];
+    };
+    /** QueueControl */
+    QueueControl: {
+      /** Expected Revision */
+      expected_revision: number;
+      /**
+       * Action
+       * @enum {string}
+       */
+      action: "start" | "pause" | "stop";
+    };
+    /** QueueLimits */
+    QueueLimits: {
+      /**
+       * Daily Cap
+       * @default 80
+       */
+      daily_cap: number;
+      /**
+       * Max Job Age Days
+       * @default 2
+       */
+      max_job_age_days: number;
+      /**
+       * Applicant Limit
+       * @default 10000
+       */
+      applicant_limit: number | null;
+      /**
+       * Unknown Applicants
+       * @default needs_review
+       * @enum {string}
+       */
+      unknown_applicants: "needs_review" | "skip" | "allow";
+      /**
+       * Minimum Match Score
+       * @default 80
+       */
+      minimum_match_score: number;
+    };
+    /** QueuePolicy */
+    QueuePolicy: {
+      global_limits?: components["schemas"]["QueueLimits"];
+      /** Platforms */
+      platforms?: {
+        [key: string]: components["schemas"]["PlatformQueuePolicy"];
+      };
+      /**
+       * Day Timezone
+       * @default Asia/Kolkata
+       */
+      day_timezone: string;
+      /**
+       * Concurrency
+       * @default 1
+       * @constant
+       */
+      concurrency: 1;
+      /**
+       * Max Pending
+       * @default 200
+       */
+      max_pending: number;
+      /**
+       * Background Only
+       * @default true
+       * @constant
+       */
+      background_only: true;
+      /**
+       * Notify Submitted
+       * @default true
+       */
+      notify_submitted: boolean;
+    };
+    /** QueuePolicyUpdate */
+    QueuePolicyUpdate: {
+      /** Expected Revision */
+      expected_revision: number;
+      policy: components["schemas"]["QueuePolicy"];
+    };
+    /** QueuePreferences */
+    QueuePreferences: {
+      /** Roles */
+      roles?: string[];
+      /** Locations */
+      locations?: string[];
+      /** Experience Min */
+      experience_min?: number | null;
+      /** Experience Max */
+      experience_max?: number | null;
+      /** Minimum Salary */
+      minimum_salary?: number | null;
+      /** Maximum Salary */
+      maximum_salary?: number | null;
+      /**
+       * Salary Currency
+       * @default INR
+       */
+      salary_currency: string;
+      /**
+       * Salary Period
+       * @default year
+       * @enum {string}
+       */
+      salary_period: "year" | "month";
+      /** Excluded Companies */
+      excluded_companies?: string[];
     };
     /** ReadCompanySource */
     ReadCompanySource: {
@@ -16248,6 +16552,129 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ActorMetadata"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  application_queue_status_api_v1_execution_queue_get: {
+    parameters: {
+      query?: {
+        platform?: "naukri" | null;
+        stage?:
+          | (
+              | "DISCOVERED"
+              | "MATCHED"
+              | "ELIGIBLE"
+              | "PREPARING"
+              | "READY_TO_APPLY"
+              | "APPLYING"
+              | "QUESTIONS"
+              | "RESUME_ATTACHMENT"
+              | "VERIFYING"
+              | "SUBMITTED_RECORDED"
+              | "NEEDS_INPUT"
+              | "PAUSED"
+              | "BLOCKED_PLATFORM"
+              | "FAILED_RETRYABLE"
+              | "FAILED_FINAL"
+              | "SUBMISSION_UNKNOWN"
+              | "SKIPPED"
+            )
+          | null;
+        search?: string | null;
+        location?: string | null;
+        minimum_score?: number | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  application_queue_policy_api_v1_execution_queue_policy_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["QueuePolicyUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  application_queue_control_api_v1_execution_queue_control_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["QueueControl"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
         };
       };
       /** @description Validation Error */

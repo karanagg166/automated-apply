@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,6 +25,12 @@ from backend.app.execution.contracts import (
 )
 from backend.app.execution.naukri import capability_matrix, normalize
 from backend.app.execution.naukri_review import review_jobs
+from backend.app.execution.queue_contracts import (
+    Platform,
+    QueueControl,
+    QueuePolicyUpdate,
+    Stage,
+)
 from backend.app.execution.worker import needs_owner_answer
 from backend.app.models.job import Job
 from backend.app.schemas.applications import RevisionInput
@@ -38,6 +44,47 @@ router = APIRouter(
     route_class=OwnerRoute,
     dependencies=[Depends(require_api_token)],
 )
+
+
+@router.get("/queue")
+async def application_queue_status(
+    platform: Platform | None = None, stage: Stage | None = None,
+    search: str | None = Query(None, max_length=200),
+    location: str | None = Query(None, max_length=200),
+    minimum_score: int | None = Query(None, ge=0, le=100),
+    limit: int = Query(100, ge=1, le=200), offset: int = Query(0, ge=0),
+    session: AsyncSession = Depends(get_db_session),
+):
+    from backend.app.execution.application_queue import listing
+
+    return await listing(session, platform=platform, stage=stage, search=search, location=location,
+                         minimum_score=minimum_score, limit=limit, offset=offset)
+
+
+@router.put("/queue/policy")
+async def application_queue_policy(
+    data: QueuePolicyUpdate, request: Request, session: AsyncSession = Depends(get_db_session),
+):
+    owner_ui(request)
+    from backend.app.execution.application_queue import configure
+
+    try:
+        return await configure(session, data)
+    except ToolDenied as exc:
+        raise HTTPException(409, str(exc)) from None
+
+
+@router.post("/queue/control")
+async def application_queue_control(
+    data: QueueControl, request: Request, session: AsyncSession = Depends(get_db_session),
+):
+    owner_ui(request)
+    from backend.app.execution.application_queue import control
+
+    try:
+        return await control(session, data)
+    except ToolDenied as exc:
+        raise HTTPException(409, str(exc)) from None
 
 
 @router.get("/naukri")

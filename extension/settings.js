@@ -19,6 +19,32 @@ async function showGuardPermission() {
   }
 }
 void showGuardPermission();
+async function showNaukriAccess() {
+  const status = document.querySelector("#naukri-access");
+  if (!status) return;
+  try {
+    const allowed = await chrome.permissions.contains({
+      origins: ["https://www.naukri.com/*"],
+    });
+    status.textContent = allowed
+      ? "Naukri website access: granted. Dashboard policy is still required."
+      : "Naukri website access: missing. Background discovery is paused.";
+  } catch {
+    status.textContent = "Naukri website access: unverified.";
+  }
+}
+document
+  .querySelector("#naukri-access-enable")
+  ?.addEventListener("click", async () => {
+    try {
+      await chrome.permissions.request({
+        origins: ["https://www.naukri.com/*"],
+      });
+    } finally {
+      await showNaukriAccess();
+    }
+  });
+void showNaukriAccess();
 let checkBusy = false;
 document.querySelector("#check").addEventListener("click", async () => {
   if (checkBusy) return;

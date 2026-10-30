@@ -67,6 +67,14 @@ async def configure(session, config):
             )
         )
     if config.mode == "OFF":
+        from backend.app.execution import application_queue
+
+        await application_queue.fence(session, "global_stop")
+        queue_config = await application_queue.configuration(session)
+        if queue_config["revision"]:
+            await application_queue.put(session, application_queue.POLICY_KEY, {
+                **queue_config, "state": "STOPPED", "revision": queue_config["revision"] + 1,
+            })
         for r in await rows(session):
             if r.value["state"] not in TERMINAL | {"PAUSED"}:
                 await control(session, r.value["id"], "pause", r.value["revision"])

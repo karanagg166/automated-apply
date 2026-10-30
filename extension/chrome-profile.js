@@ -202,7 +202,7 @@ export class ChromeProfileConnection {
     }
     return this.status();
   }
-  async tick(execute) {
+  async tick(execute, idle) {
     if (this.ticking) return;
     this.ticking = true;
     try {
@@ -236,7 +236,7 @@ export class ChromeProfileConnection {
         "poll_chrome_command",
         await profileContext(this.api),
       );
-      if (!data.command) return;
+      if (!data.command) return await idle?.();
       let command = data.command;
       await this.api.storage.local.set({ chromeCommandInFlightV1: command });
       try {

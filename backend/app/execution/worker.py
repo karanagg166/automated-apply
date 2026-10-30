@@ -298,6 +298,20 @@ class ExecutionWorker:
         from backend.app.execution.alert_email import poll
 
         await recurring.heartbeat(self.factory)
+        from backend.app.execution.application_queue import index_retained_receipts
+
+        async with self.factory() as session, session.begin():
+            await index_retained_receipts(session)
+        from backend.app.core.config import get_settings
+        from backend.app.execution.queue_preparation import (
+            prepare_one,
+            seed_saved_sources,
+        )
+
+        async with self.factory() as session, session.begin():
+            await seed_saved_sources(session)
+        async with self.factory() as session, session.begin():
+            await prepare_one(session, get_settings())
         await ensure_fixed_profile(self.factory)
         await poll(self.factory)
         from backend.app.core.config import get_settings

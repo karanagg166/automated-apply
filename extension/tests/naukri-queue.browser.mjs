@@ -1,0 +1,195 @@
+// Real isolated Chromium tabs + shipped queue/DOM code; fictional provider pages
+// and native responses only. Never opens the owner's Chrome or a live vacancy.
+import assert from "node:assert/strict";
+import {
+  cpSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
+import { spawn } from "node:child_process";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { chromium } from "../../frontend/node_modules/@playwright/test/index.mjs";
+
+const root = mkdtempSync(join(tmpdir(), "automated-apply-background-fixture-"));
+for (const name of [
+  "naukri-queue.js",
+  "naukri-observation.js",
+  "chrome-profile.js",
+])
+  cpSync(new URL("../" + name, import.meta.url), join(root, name));
+writeFileSync(
+  join(root, "manifest.json"),
+  JSON.stringify({
+    manifest_version: 3,
+    version: "0.0.1",
+    name: "Fictional background queue acceptance",
+    permissions: ["storage", "scripting"],
+    host_permissions: ["https://www.naukri.com/*"],
+    background: { service_worker: "fixture.js", type: "module" },
+  }),
+);
+writeFileSync(
+  join(root, "fixture.js"),
+  `
+import { NaukriQueue } from './naukri-queue.js';
+globalThis.calls = [];
+globalThis.prepare = async (operation, url, stop=false) => {
+  const [owner] = await chrome.tabs.query({active:true});
+  await chrome.storage.local.set({connectedChromeProfileV1:{id:'fictional', secret:'f'.repeat(64),connected:true,windowId:owner.windowId}});
+  await chrome.storage.session.set({applicationBrowserSessionV1:'fictional-session'});
+  globalThis.calls=[];
+  let work={id:'fictional',revision:1,lease_token:'fictional-token',operation,url,binding:{tab_id:null,window_id:owner.windowId}};
+  const send=async (_, name, input) => {
+    calls.push({name,input});
+    if(name==='poll_naukri_work') return {work};
+    if(name==='bind_naukri_work') await new Promise((r)=>setTimeout(r,200));
+    if(name==='admit_naukri_work' && stop) throw Error('queue_lease_lost');
+    work={...work,revision:work.revision+1,binding:{...work.binding,tab_id:input.tab_id}};
+    return {work};
+  };
+  globalThis.queue = new NaukriQueue(chrome,send);
+  await queue.tick();
+  return {calls, tabs:await chrome.tabs.query({}), ownerId:owner.id};
+};`,
+);
+const started = performance.now();
+// Connect with the documented noDefaults option: ordinary Playwright page
+// attachment otherwise forces focus emulation, making inactive tabs "visible".
+// The real browser owns its visibility; no DOM visibility spoofing is used.
+const profile = join(root, "profile");
+const child = spawn(
+  chromium.executablePath(),
+  [
+    "--headless=new",
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--enable-unsafe-extension-debugging",
+    "--disable-background-networking",
+    "--disable-component-update",
+    "--disable-sync",
+    "--host-resolver-rules=MAP www.naukri.com ~NOTFOUND",
+    "--remote-debugging-port=0",
+    `--user-data-dir=${profile}`,
+    `--disable-extensions-except=${root}`,
+    `--load-extension=${root}`,
+    "about:blank",
+  ],
+  { stdio: "ignore" },
+);
+const endpointFile = join(profile, "DevToolsActivePort");
+for (let i = 0; !existsSync(endpointFile); i++) {
+  if (i >= 100 || child.exitCode !== null) {
+    child.kill();
+    throw Error("isolated_browser_start_timeout");
+  }
+  await new Promise((r) => setTimeout(r, 100));
+}
+const [port] = readFileSync(endpointFile, "utf8").trim().split("\n");
+const browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, {
+  noDefaults: true,
+});
+const context = browser.contexts()[0];
+context.setDefaultTimeout(15000);
+let unexpectedRequests = 0,
+  chooserEvents = 0,
+  fixtureRequests = 0;
+const req = "291026123456";
+const jobUrl = `https://www.naukri.com/job-listings-fictional-${req}`;
+const searchUrl = "https://www.naukri.com/backend-developer-jobs";
+const evidence = [];
+try {
+  await context.route("**/*", async (route) => {
+    const url = new URL(route.request().url());
+    if (url.origin !== "https://www.naukri.com") {
+      unexpectedRequests++;
+      return route.abort();
+    }
+    fixtureRequests++;
+    const body = url.pathname.endsWith("-jobs")
+      ? `<a href="${jobUrl}">Fictional job</a>`
+      : `<div class="styles_jd-header"><h1>Backend Developer</h1><span class="styles_comp-name">Fictional Labs</span><span class="styles_loc-wrap">India</span><span class="styles_exp-wrap">0 - 3 Yrs</span><span>120 Applicants</span><button onclick="window.accidentalClicks=(window.accidentalClicks||0)+1">Apply</button></div><div class="styles_job-desc">Build Python services</div><div class="styles_key-skill"><span class="chip">Python</span></div><script type="application/ld+json">${JSON.stringify({ "@type": "JobPosting", title: "Backend Developer", datePosted: new Date().toISOString(), identifier: { value: req } })}</script>`;
+    return route.fulfill({ contentType: "text/html", body });
+  });
+  context.on("page", (page) =>
+    page.on("filechooser", () => {
+      chooserEvents++;
+    }),
+  );
+  const owner = context.pages()[0] || (await context.newPage());
+  await owner.goto("about:blank");
+  await owner.bringToFront(); // Isolated fictional owner tab; never real Chrome.
+  const worker =
+    context.serviceWorkers().find((w) => w.url().endsWith("/fixture.js")) ||
+    (await context.waitForEvent("serviceworker", {
+      predicate: (w) => w.url().endsWith("/fixture.js"),
+    }));
+  await worker.evaluate(async () => {
+    for (let i = 0; !globalThis.prepare; i++) {
+      if (i >= 100) throw Error("fixture_module_start_timeout");
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  });
+  for (const [name, operation, url, stop] of [
+    ["background_job_facts", "inspect_job", jobUrl, false],
+    ["background_search_links", "search_jobs", searchUrl, false],
+    ["stop_before_dom", "inspect_job", jobUrl, true],
+  ]) {
+    const result = await worker.evaluate(
+      ({ operation, url, stop }) => globalThis.prepare(operation, url, stop),
+      { operation, url, stop },
+    );
+    const finished = result.calls.find((c) => c.name === "finish_naukri_work");
+    if (stop) {
+      assert.equal(finished, undefined);
+      assert.ok(result.calls.some((c) => c.name === "abandon_naukri_work"));
+    } else {
+      assert.ok(finished, JSON.stringify(result.calls));
+      assert.equal(
+        finished.input.work_report.kind,
+        operation === "inspect_job" ? "job_facts" : "source_candidates",
+        JSON.stringify(finished.input.work_report),
+      );
+      if (operation === "inspect_job")
+        assert.equal(finished.input.work_report.job.applicants_min, 120);
+      else assert.deepEqual(finished.input.work_report.candidates, [jobUrl]);
+    }
+    assert.equal(result.tabs.length, 1);
+    assert.equal(result.tabs[0].id, result.ownerId);
+    assert.equal(result.tabs[0].active, true);
+    assert.equal(owner.url(), "about:blank");
+    evidence.push({
+      name,
+      result: "PASS",
+      actual_inactive_chromium_tab: true,
+      owner_tab_preserved: true,
+      provider_requests_routed_to_fixture: true,
+    });
+  }
+  assert.equal(unexpectedRequests, 0);
+  assert.equal(chooserEvents, 0);
+  const report = {
+    fixture_only: true,
+    browser: context.browser()?.version(),
+    cases: evidence.length,
+    duration_ms: Math.round(performance.now() - started),
+    live_naukri_requests: 0,
+    dns_route_to_provider_blocked: true,
+    fixtureRequests,
+    unexpectedRequests,
+    chooserEvents,
+    evidence,
+  };
+  const args = process.argv.slice(2);
+  if (args.length === 2 && args[0] === "--report")
+    writeFileSync(args[1], JSON.stringify(report, null, 2) + "\n");
+  else if (args.length)
+    throw Error("usage: node tests/naukri-queue.browser.mjs [--report FILE]");
+  console.log(JSON.stringify(report));
+} finally {
+  await browser.close();
+  child.kill();
+  // Preserve this isolated temporary artifact; no workspace or release cleanup.
+}

@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from backend.app.browser.contracts import FillReceipt, Inspection
 from backend.app.core.urls import PublicHTTPSURL
+from backend.app.execution.queue_contracts import NaukriWorkReport
 from backend.app.local_agent.intents import Intent
 
 
@@ -17,8 +18,14 @@ PROFILE_OPERATIONS = frozenset({
     "connect_chrome_profile", "heartbeat_chrome_profile", "disconnect_chrome_profile",
     "poll_chrome_command", "start_chrome_command", "ack_chrome_command",
 })
+NAUKRI_QUEUE_OPERATIONS = frozenset({
+    "poll_naukri_work", "bind_naukri_work", "admit_naukri_work", "finish_naukri_work",
+    "abandon_naukri_work", "check_naukri_work",
+})
 
 Operation = Literal[
+    "poll_naukri_work", "bind_naukri_work", "admit_naukri_work", "finish_naukri_work",
+    "abandon_naukri_work", "check_naukri_work",
     "connect_chrome_profile", "heartbeat_chrome_profile", "disconnect_chrome_profile",
     "poll_chrome_command", "start_chrome_command", "ack_chrome_command",
     "health", "connection_status", "preview_application_url", "preview_job_filters",
@@ -33,6 +40,10 @@ class Command(StrictModel):
     version: Literal[1] = 1
     request_id: UUID = Field(default_factory=uuid4)
     command: Operation
+    work_id: UUID | None = None
+    expected_work_revision: int | None = Field(None, ge=1)
+    work_lease_token: UUID | None = None
+    work_report: NaukriWorkReport | None = None
     profile_binding_id: UUID | None = None
     profile_secret: SecretStr | None = Field(default=None, min_length=64, max_length=64)
     profile_label: str | None = Field(default=None, min_length=1, max_length=80, pattern=r"^[^\x00-\x1f\x7f]+$")

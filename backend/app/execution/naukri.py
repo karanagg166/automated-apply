@@ -22,18 +22,20 @@ def capability_matrix():
     return {
         "platform": "naukri",
         "live_verified": False,
-        "discovery": "owner_supplied_urls_and_alert_facts",
+        "discovery": "background_ui_observer_and_approved_alert_queue_source_candidate",
         "account_profile_association": "local_session_manual_unverified",
         "job_alert_import": "opt_in_approved_gmail_candidates_then_verified_facts",
         "application_history_import": "reviewed_mailbox_history_existing_owner_flow",
         "job_url_import": "supported_local_validation_only",
         "application_preparation": "saved_profile_resume_and_grounded_answers",
         "browser_form_assistance": "existing_owner_reviewed_engine_site_unverified",
-        "submission_support": "manual_only_no_verified_naukri_contract",
+        "submission_support": "recurring_executor_under_implementation_no_live_acceptance",
         "recurring_submission": {
-            "state": "BLOCKED_PLATFORM",
-            "reason": "applicable_third_party_platform_permission_not_established",
+            "state": "BLOCKED_TECHNICAL",
+            "reason": "submission_resume_receipt_and_locked_acceptance_pending",
             "enabled": False,
+            "platform_permission_status": "not_established",
+            "owner_requires_provider_outreach": False,
         },
         "resume_upload": {
             "canonical_pdf_preflight": "integrated_with_packet_preparation",
@@ -44,7 +46,7 @@ def capability_matrix():
             "locked_screen_verified": False,
         },
         "public_jobseeker_api": "not_established",
-        "background_source": "saved_imports_and_opt_in_gmail_alerts_no_portal_polling",
+        "background_source": "normal_ui_search_and_approved_local_alerts_not_live_accepted",
         "evidence": EVIDENCE,
     }
 

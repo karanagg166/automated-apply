@@ -38,6 +38,8 @@ for (const file of [
   "manifest.json",
   "form-dom.js",
   "naukri.js",
+  "naukri-observation.js",
+  "naukri-queue.js",
   "form-bridge.js",
   "form-messages.js",
   "background.js",

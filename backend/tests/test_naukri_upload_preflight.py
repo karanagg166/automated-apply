@@ -25,6 +25,10 @@ from backend.tests.test_naukri_recurring import imported
 async def upload_case(db_session, phase2_profile, application_target):
     old_job, resource = application_target
     old_job.source_platform = "fictional_fixture"
+    phase2_profile.preferences = {
+        **phase2_profile.preferences, "target_titles": ["Backend Developer"],
+        "preferred_locations": ["India"],
+    }
     raw = b"%PDF-1.4\nFictional worker preflight only\n%%EOF"
     key = Fernet.generate_key()
     private = PrivateResume(

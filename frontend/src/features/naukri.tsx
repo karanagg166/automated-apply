@@ -12,6 +12,7 @@ import {
   NaukriAutomation,
   type NaukriAutomationStatus,
 } from "@/features/naukri-automation";
+import { ApplicationQueue } from "@/features/application-queue";
 import {
   Badge,
   Button,
@@ -180,6 +181,7 @@ export function Naukri() {
         </p>
         {error ? <ErrorState error={error} /> : null}
       </div>
+      <ApplicationQueue />
       {status.data.automation && (
         <NaukriAutomation
           data={status.data.automation}
