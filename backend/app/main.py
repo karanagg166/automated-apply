@@ -22,6 +22,7 @@ from backend.app.db.session import (
     close_db_engine,
     get_db_session,
     get_engine,
+    get_readiness_engine,
     get_session_factory,
 )
 from backend.app.integrations.logging import install_oauth_log_filter
@@ -40,6 +41,7 @@ from backend.app.services.credit_manager import (
 
 install_oauth_log_filter()
 settings = get_settings()
+_readiness_task: asyncio.Task | None = None
 
 
 @asynccontextmanager
@@ -78,6 +80,12 @@ async def lifespan(app: FastAPI):
         async with mcp_app.lifespan(app):
             yield
     finally:
+        global _readiness_task
+        if _readiness_task is not None and not _readiness_task.done():
+            _readiness_task.cancel()
+            with suppress(asyncio.CancelledError, Exception):
+                await _readiness_task
+        _readiness_task = None
         if gmail_retention is not None:
             gmail_retention.cancel()
             with suppress(asyncio.CancelledError):
@@ -266,7 +274,18 @@ async def readiness_check() -> dict[str, Any]:
     try:
         if settings.ENVIRONMENT != "testing" and not getattr(app.state, "database_audit_verified", False):
             raise RuntimeError("database_startup_audit_required")
-        await database_connectivity(get_engine(), settings)
+        # Concurrent probes share only a currently running DB observation; no
+        # success cache can mask an outage. One cancelled HTTP caller must not
+        # cancel the bounded observation used by other callers.
+        global _readiness_task
+        if _readiness_task is None or _readiness_task.done():
+            _readiness_task = asyncio.create_task(
+                database_connectivity(get_readiness_engine(), settings)
+            )
+            _readiness_task.add_done_callback(
+                lambda task: task.exception() if not task.cancelled() else None
+            )
+        await asyncio.shield(_readiness_task)
         return {
             "status": "ready",
             "database": "connected",

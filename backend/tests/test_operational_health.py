@@ -61,7 +61,7 @@ async def test_readiness_exception_is_redacted(async_client, monkeypatch, caplog
     def broken():
         raise RuntimeError("postgresql://private-user:private-password@private-host/db")
 
-    monkeypatch.setattr(main, "get_engine", broken)
+    monkeypatch.setattr(main, "get_readiness_engine", broken)
     response = await async_client.get("/ready")
     assert response.status_code == 503
     assert "private-password" not in response.text + caplog.text

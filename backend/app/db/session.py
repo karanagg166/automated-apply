@@ -17,6 +17,7 @@ from backend.app.db.errors import DATABASE_ERRORS
 from backend.app.db.safety import database_connect_args, database_target
 
 _engine: AsyncEngine | None = None
+_readiness_engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
 
 
@@ -71,6 +72,35 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
     return _session_factory
 
 
+def get_readiness_engine() -> AsyncEngine:
+    """Reserve one API-only probe slot; command transactions keep their own slot.
+
+    The three runtime pools plus this bounded slot use four of the observed
+    five role connections. Workers never call this accessor. Readiness cannot
+    wait behind a valid long native transaction and falsely report a DB outage.
+    """
+    global _readiness_engine
+    settings = get_settings()
+    target = database_target(settings)
+    # Retain the startup engine's pin even before the first probe connection.
+    normal = get_engine()
+    if target.drivername != "postgresql+asyncpg":
+        return normal
+    if _readiness_engine is not None and _readiness_engine.url != target:
+        from backend.app.db.safety import DatabaseConfigurationError
+
+        raise DatabaseConfigurationError("database_target_changed_restart_required")
+    if _readiness_engine is None:
+        arguments = database_connect_args(settings)
+        arguments["server_settings"]["application_name"] = "automated-apply:readiness"
+        _readiness_engine = create_async_engine(
+            settings.DATABASE_URL, hide_parameters=True, pool_pre_ping=True,
+            pool_recycle=300, pool_size=1, max_overflow=0, pool_timeout=1,
+            connect_args=arguments,
+        )
+    return _readiness_engine
+
+
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI dependency for obtaining an isolated async database session."""
     factory = get_session_factory()
@@ -119,7 +149,10 @@ async def get_db_context() -> AsyncGenerator[AsyncSession, None]:
 
 async def close_db_engine() -> None:
     """Gracefully dispose of database engine connection pool upon shutdown."""
-    global _engine, _session_factory
+    global _engine, _readiness_engine, _session_factory
+    if _readiness_engine is not None:
+        await _readiness_engine.dispose()
+        _readiness_engine = None
     if _engine is not None:
         await _engine.dispose()
         _engine = None

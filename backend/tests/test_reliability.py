@@ -228,3 +228,74 @@ async def test_raw_asyncpg_limit_is_503_with_no_replay_marker(monkeypatch):
         await dependency.athrow(asyncpg.TooManyConnectionsError("private role"))
     assert failure.value.status_code == 503 and not failure.value.headers
     session.rollback.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_readiness_shares_live_probe_and_survives_one_cancelled_caller(async_client, monkeypatch):
+    import backend.app.main as main
+
+    entered, release = asyncio.Event(), asyncio.Event()
+    calls = []
+
+    async def connectivity(*args):
+        calls.append(1)
+        entered.set()
+        await release.wait()
+
+    monkeypatch.setattr(main, "database_connectivity", connectivity)
+    monkeypatch.setattr(main, "_readiness_task", None)
+    tasks = [asyncio.create_task(async_client.get("/ready")) for _ in range(3)]
+    await asyncio.wait_for(entered.wait(), 1)
+    await asyncio.sleep(.01)
+    tasks[0].cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await tasks[0]
+    assert not main._readiness_task.cancelled()
+    release.set()
+    assert all(response.status_code == 200 for response in await asyncio.gather(*tasks[1:]))
+    assert calls == [1]
+    # Once that observation finishes, a new request must see a new DB result.
+    assert (await async_client.get("/ready")).status_code == 200
+    assert calls == [1, 1]
+
+
+@pytest.mark.asyncio
+async def test_probe_pool_has_one_slot_and_shutdown_disposes_both_engines(monkeypatch):
+    from backend.app.db import session as module
+    from backend.app.db.safety import database_target
+
+    config = lock_settings()
+    created = []
+    engine = SimpleNamespace(url=database_target(config), dispose=AsyncMock())
+    normal = SimpleNamespace(url=database_target(config), dispose=AsyncMock())
+
+    def create(url, **kwargs):
+        created.append(kwargs)
+        return engine
+
+    monkeypatch.setattr(module, "get_settings", lambda: config)
+    monkeypatch.setattr(module, "create_async_engine", create)
+    monkeypatch.setattr(module, "_engine", normal)
+    monkeypatch.setattr(module, "_session_factory", None)
+    monkeypatch.setattr(module, "_readiness_engine", None)
+    assert module.get_readiness_engine() is module.get_readiness_engine()
+    assert len(created) == 1
+    assert created[0]["pool_size"] == 1 and created[0]["max_overflow"] == 0
+    assert created[0]["connect_args"]["server_settings"]["application_name"] == "automated-apply:readiness"
+    await module.close_db_engine()
+    engine.dispose.assert_awaited_once()
+    normal.dispose.assert_awaited_once()
+
+
+def test_first_probe_cannot_switch_away_from_audited_startup_target(monkeypatch):
+    from backend.app.db import session as module
+    from backend.app.db.safety import DatabaseConfigurationError, database_target
+
+    config = lock_settings()
+    audited = database_target(config).set(database="different_fixture")
+    monkeypatch.setattr(module, "get_settings", lambda: config)
+    monkeypatch.setattr(module, "_engine", SimpleNamespace(url=audited))
+    monkeypatch.setattr(module, "_readiness_engine", None)
+    with pytest.raises(DatabaseConfigurationError, match="database_target_changed_restart_required"):
+        module.get_readiness_engine()
+    assert module._readiness_engine is None

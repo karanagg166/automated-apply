@@ -4,7 +4,7 @@ import asyncio
 import json
 import os
 import time
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
@@ -218,7 +218,7 @@ async def test_readiness_detects_real_database_outage_and_recovers(postgres, asy
     config = Settings(_env_file=None, ENVIRONMENT="testing", DATABASE_SCHEMA="public",
                       DATABASE_URL=config_url, DB_REQUIRE_TLS=False, DB_REMOTE_ONLY=False)
     monkeypatch.setattr(main, "settings", config)
-    monkeypatch.setattr(main, "get_engine", lambda: engine)
+    monkeypatch.setattr(main, "get_readiness_engine", lambda: engine)
     try:
         assert (await async_client.get("/ready")).status_code == 200
         await engine.dispose()
@@ -231,3 +231,57 @@ async def test_readiness_detects_real_database_outage_and_recovers(postgres, asy
         await admin.execute(f'ALTER ROLE "{role}" LOGIN')
         await engine.dispose()
     assert engine.pool.checkedout() == 0
+
+
+@pytest.mark.asyncio
+async def test_readiness_live_query_is_not_queued_behind_command_transaction(postgres, async_client, monkeypatch):
+    import backend.app.main as main
+    from backend.app.operations.health import database_connectivity
+
+    _, _, _, base_engine = postgres
+    config_url = base_engine.url.set(password="fictional").render_as_string(hide_password=False)
+    engine = create_async_engine(config_url, pool_size=1, max_overflow=0)
+    config = Settings(_env_file=None, ENVIRONMENT="testing", DATABASE_SCHEMA="public",
+                      DATABASE_URL=config_url, DB_REQUIRE_TLS=False, DB_REMOTE_ONLY=False)
+    probe = create_async_engine(config_url, pool_size=1, max_overflow=0, pool_pre_ping=True)
+    monkeypatch.setattr(main, "settings", config)
+    monkeypatch.setattr(main, "get_readiness_engine", lambda: probe)
+    monkeypatch.setattr(main, "_readiness_task", None)
+    try:
+        async with engine.begin() as command:
+            await command.execute(text("SELECT 1"))
+            with pytest.raises(TimeoutError):
+                await asyncio.wait_for(database_connectivity(engine, config), .2)
+            assert engine.pool.checkedout() == 1
+            responses = await asyncio.gather(*(async_client.get("/ready") for _ in range(8)))
+            assert all(response.status_code == 200 for response in responses)
+            assert probe.pool.checkedout() == 0 and probe.pool.size() == 1
+        assert engine.pool.checkedout() == 0
+    finally:
+        await probe.dispose()
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_four_runtime_pools_and_one_operator_fit_five_slot_role_budget(postgres):
+    admin, url, role, _ = postgres
+    await admin.execute(f'ALTER ROLE "{role}" CONNECTION LIMIT 5')
+    target = urlsplit(url)
+    config_url = f"postgresql+asyncpg://{role}:fictional@{target.hostname}:{target.port}{target.path}"
+    pools = [create_async_engine(config_url, pool_size=1, max_overflow=0) for _ in range(4)]
+    try:
+        async with AsyncExitStack() as stack:
+            for engine in pools:
+                connection = await stack.enter_async_context(engine.connect())
+                assert await connection.scalar(text("SELECT 1")) == 1
+            async with limited_connection(url, role) as operator:
+                assert await operator.fetchval("SELECT 1") == 1
+                with pytest.raises(asyncpg.TooManyConnectionsError):
+                    async with limited_connection(url, role):
+                        pytest.fail("Sixth connection bypassed the fixed role budget")
+            async with limited_connection(url, role) as operator:
+                assert await operator.fetchval("SELECT 1") == 1
+        assert all(engine.pool.checkedout() == 0 for engine in pools)
+    finally:
+        for engine in pools:
+            await engine.dispose()
