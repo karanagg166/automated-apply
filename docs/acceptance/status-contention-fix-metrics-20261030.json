@@ -1,0 +1,166 @@
+{
+  "implementation_sha": "d504d26e889859b2b39111bb5deedce80c4bd589",
+  "scope": "fictional SQLite native dispatch with injected 20ms SQL RTT; not installed acceptance",
+  "benchmark": [
+    {
+      "variant": "before",
+      "seconds": 2.57,
+      "roundtrips": 101,
+      "injected_roundtrip_seconds": 0.02,
+      "stages": {
+        "sql_write": {
+          "count": 10,
+          "seconds": 0.2440275830012979,
+          "max_seconds": 0.02559879099862883
+        },
+        "sql_read": {
+          "count": 91,
+          "seconds": 2.16919020500427,
+          "max_seconds": 0.02688233300068532
+        },
+        "owner_lock": {
+          "count": 3,
+          "seconds": 0.12391495699921506,
+          "max_seconds": 0.07438849999925878
+        },
+        "task_load": {
+          "count": 1,
+          "seconds": 0.025683208999907947,
+          "max_seconds": 0.025683208999907947
+        },
+        "task_authorization": {
+          "count": 1,
+          "seconds": 0.10016083300070022,
+          "max_seconds": 0.10016083300070022
+        },
+        "packet_context_build": {
+          "count": 2,
+          "seconds": 0.4137861669987615,
+          "max_seconds": 0.2088134589994297
+        },
+        "form_inspection_answers": {
+          "count": 1,
+          "seconds": 1.449540416999298,
+          "max_seconds": 1.449540416999298
+        },
+        "plan_revalidation": {
+          "count": 1,
+          "seconds": 0.6823455409994494,
+          "max_seconds": 0.6823455409994494
+        },
+        "plan_load": {
+          "count": 2,
+          "seconds": 0.10088491599890403,
+          "max_seconds": 0.07378383299874258
+        },
+        "native_form": {
+          "count": 1,
+          "seconds": 2.5644237920005253,
+          "max_seconds": 2.5644237920005253
+        },
+        "connection_occupancy": {
+          "count": 1,
+          "seconds": 2.5645844169994234,
+          "max_seconds": 2.5645844169994234
+        }
+      }
+    },
+    {
+      "variant": "after",
+      "seconds": 2.4084,
+      "roundtrips": 93,
+      "injected_roundtrip_seconds": 0.02,
+      "stages": {
+        "sql_write": {
+          "count": 9,
+          "seconds": 0.21565012599785405,
+          "max_seconds": 0.02565616700121609
+        },
+        "owner_row_insert_wait": {
+          "count": 1,
+          "seconds": 0.0230150829993363,
+          "max_seconds": 0.0230150829993363
+        },
+        "sql_read": {
+          "count": 84,
+          "seconds": 2.029596003005281,
+          "max_seconds": 0.02604287500071223
+        },
+        "owner_row_lock_wait": {
+          "count": 1,
+          "seconds": 0.02569670799857704,
+          "max_seconds": 0.02569670799857704
+        },
+        "owner_lock": {
+          "count": 3,
+          "seconds": 0.04895520900026895,
+          "max_seconds": 0.04889629199897172
+        },
+        "profile_authorization": {
+          "count": 1,
+          "seconds": 0.025950124998416868,
+          "max_seconds": 0.025950124998416868
+        },
+        "task_load": {
+          "count": 1,
+          "seconds": 0.048251124999296735,
+          "max_seconds": 0.048251124999296735
+        },
+        "task_authorization": {
+          "count": 1,
+          "seconds": 0.04830704200139735,
+          "max_seconds": 0.04830704200139735
+        },
+        "packet_context_build": {
+          "count": 2,
+          "seconds": 0.4146944580006675,
+          "max_seconds": 0.21082570799990208
+        },
+        "packet_context_resume": {
+          "count": 2,
+          "seconds": 0.8771421250021376,
+          "max_seconds": 0.44331058300122095
+        },
+        "form_inspection_answers": {
+          "count": 1,
+          "seconds": 1.4418916250015172,
+          "max_seconds": 1.4418916250015172
+        },
+        "plan_revalidation": {
+          "count": 1,
+          "seconds": 0.6388284579988976,
+          "max_seconds": 0.6388284579988976
+        },
+        "plan_load": {
+          "count": 2,
+          "seconds": 0.09731016699879547,
+          "max_seconds": 0.07181054200009385
+        },
+        "native_form": {
+          "count": 1,
+          "seconds": 2.4036080000005313,
+          "max_seconds": 2.4036080000005313
+        },
+        "connection_occupancy": {
+          "count": 1,
+          "seconds": 2.4035874999990483,
+          "max_seconds": 2.4035874999990483
+        }
+      }
+    }
+  ],
+  "tests": {
+    "backend": 392,
+    "postgres": 8,
+    "extension": 134,
+    "frontend": 284,
+    "explicit_benchmark": 2,
+    "timing_recheck": 3
+  },
+  "live_remote_benchmark": {
+    "status": "FAIL",
+    "failure_code": "role_connection_limit",
+    "completed_queries": 0,
+    "latency_comparison_available": false
+  }
+}
