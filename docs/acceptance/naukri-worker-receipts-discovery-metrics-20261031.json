@@ -1,0 +1,217 @@
+{
+  "observed_at_utc": "2026-10-30T20:28:58.637109+00:00",
+  "repository": "karanagg166/automated-apply",
+  "branch": "fix/live-prepare-discovery-20261030",
+  "base": "main",
+  "pr_url": "https://github.com/karanagg166/automated-apply/pull/48",
+  "implementation_sha": "a3472fcebe389ab4ec03739095cc4a841185a6c9",
+  "baseline_evidence_sha": "040c336e9ab5994fa9211a05501c325f36057ea8",
+  "phase": "OPEN_BLOCKED_NOT_COMPLETE",
+  "platform_permission": "NOT_ESTABLISHED_request_prepared_not_sent",
+  "installed_services_sha": "90f2f2ade50a1c31b26ca85cc7fdf5e93bb67c20",
+  "profile_8_persisted_extension_sha": "b06909293b1866e8191277d17fc284c398b4307b",
+  "extension_inventory": {
+    "matching": 15,
+    "expected": 18,
+    "mismatched": [
+      "background.js",
+      "tab-audit.js",
+      "task-coordinator.js"
+    ],
+    "runtime_reload_verified": false
+  },
+  "live_receipt_projection": {
+    "naukri_recorded": 1,
+    "owner_authorized_software_operated_ui": 1,
+    "installed_recurring_worker": 0,
+    "employer_acknowledged": 0,
+    "records_requiring_review": 0,
+    "live_provider_reverification": false,
+    "receipt_mutations": 0
+  },
+  "task_genuine_application_actions": {
+    "apply_activations": 0,
+    "questions_answered": 0,
+    "resume_uploads": 0,
+    "submissions": 0,
+    "unknown_outcomes": 0,
+    "failed_submission_outcomes": 0,
+    "qtrino_replays": 0
+  },
+  "metadata_only_gmail_diagnostic": {
+    "listed_messages": 0,
+    "already_processed": 0,
+    "has_more_pages": false,
+    "scan_after_utc": "2026-10-29T19:49:20+00:00",
+    "scan_until_utc": "2026-10-30T20:04:28+00:00",
+    "body_reads": 0,
+    "links_opened": 0,
+    "cursor_changes": 0,
+    "policy_scope_changes": 0
+  },
+  "later_live_source_failure": {
+    "at": "2026-10-30T20:19:51.496754+00:00",
+    "code": "gmail_alert_cycle_failed",
+    "cause": "UNPROVEN",
+    "bounded_installed_sync_after_failure": {
+      "http_status": 200,
+      "status": "observed",
+      "messages": 0,
+      "authenticated": 0,
+      "candidates_added": 0,
+      "direct_links": 0,
+      "submitted": false,
+      "links_opened": false
+    }
+  },
+  "preparation_policy_alignment": {
+    "before_score": 90,
+    "after_score": 80,
+    "before_revision": 22,
+    "after_revision": 24,
+    "active_browser_work_preflight": 0,
+    "save_http_status": 200,
+    "start_http_status": 200,
+    "individually_paused_browser_tasks_resumed": false,
+    "other_policy_fields_changed": false
+  },
+  "final_installed_status": {
+    "http_status": 200,
+    "state": "RUNNING",
+    "revision": 24,
+    "minimum_match_score": 80,
+    "max_applications_per_day": 0,
+    "submission_permission": false,
+    "worker_online": true,
+    "counts_from_unmodified_installed_api": {
+      "alert_candidates": 0,
+      "matching": 0,
+      "prepared": 0,
+      "submitted_confirmed": 0,
+      "user_reported": 0,
+      "unknown": 0,
+      "failed": 0,
+      "manual_required": 0
+    },
+    "alert_cycles": [
+      {
+        "version": 1,
+        "enabled": true,
+        "last_check_at": "2026-10-30T20:25:23.921154+00:00",
+        "last_result": {
+          "messages": 0,
+          "submitted": false,
+          "direct_links": 0,
+          "links_opened": false,
+          "authenticated": 0,
+          "rejected_origin": 0,
+          "candidates_added": 0
+        },
+        "error": null,
+        "interval_seconds": 900
+      }
+    ]
+  },
+  "validation": {
+    "backend_final": {
+      "passed": 178,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 16.41,
+      "new_cases": 20,
+      "evidence": "isolated_fictional_records_and_mock_HTTP"
+    },
+    "frontend_full_before_final_copy_edit": {
+      "files_passed": 37,
+      "tests_passed": 285,
+      "seconds": 21.58
+    },
+    "frontend_final_focused": {
+      "files_passed": 1,
+      "tests_passed": 6,
+      "seconds": 1.16,
+      "new_cases": 1,
+      "overlaps_full_suite": true
+    },
+    "typecheck": "PASS",
+    "ruff_E9_F_I": "PASS",
+    "changed_file_prettier": "PASS",
+    "openapi_types_regenerated": true,
+    "diff_check": "PASS",
+    "new_disposable_postgresql_integration": "NOT_TESTED",
+    "production_build": "NOT_TESTED"
+  },
+  "preserved_failures": [
+    {
+      "code": "42P01",
+      "context": "operator_schema_import_order",
+      "resolution": "configure_selected_schema_before_model_import_no_DDL"
+    },
+    {
+      "code": "HTTP_404",
+      "context": "incorrect_diagnostic_route",
+      "resolution": "used_existing_documented_source_sync_route"
+    },
+    {
+      "code": "PRETTIER_CHECK_FAILED",
+      "resolution": "formatted_changed_component"
+    },
+    {
+      "code": "TEST_ASSERTION_POLICY_SUCCESSOR",
+      "passed": 177,
+      "failed": 1,
+      "seconds": 15.87,
+      "resolution": "assert_no_old_lease_write_to_successor_policy"
+    }
+  ],
+  "resource_snapshot": {
+    "role_limit": 5,
+    "sessions_including_one_operator_audit": 5,
+    "operator_pool": "NullPool",
+    "runtime_pool_changes": 0,
+    "comparative_performance": "NOT_TESTED"
+  },
+  "locked_screen": {
+    "observation": "UNLOCKED",
+    "locked_workflow": "NOT_TESTED",
+    "extended_uptime": "NOT_TESTED"
+  },
+  "unattended_upload": {
+    "worker_verified": false,
+    "native_chooser_path": "NEEDS_HUMAN",
+    "normal_initialization_required": true,
+    "selection_may_submit": true,
+    "genuine_new_upload_tests": 0
+  },
+  "operations_not_performed": [
+    "production_install",
+    "service_restart",
+    "chrome_restart",
+    "profile_change",
+    "permission_expansion",
+    "hosted_actions_dispatch",
+    "merge",
+    "cleanup",
+    "other_platform_work"
+  ],
+  "files_changed_in_implementation": [
+    "backend/app/execution/contracts.py",
+    "backend/app/execution/naukri.py",
+    "backend/app/execution/naukri_receipts.py",
+    "backend/app/execution/recurring.py",
+    "backend/app/execution/store.py",
+    "backend/app/integrations/gmail/job_alerts.py",
+    "backend/tests/test_execution_naukri.py",
+    "backend/tests/test_local_gmail_discovery.py",
+    "backend/tests/test_naukri_receipts.py",
+    "docs/acceptance/naukri-receipt-counts-fixture-20261031.png",
+    "docs/acceptance/naukri-unattended-plan-and-permission-20261031.md",
+    "frontend/src/features/naukri-automation.tsx",
+    "frontend/src/types/api.d.ts",
+    "frontend/tests/naukri-automation.test.tsx"
+  ],
+  "report_files": [
+    "docs/acceptance/naukri-worker-receipts-discovery-20261031.md",
+    "docs/acceptance/naukri-worker-receipts-discovery-metrics-20261031.json"
+  ]
+}
