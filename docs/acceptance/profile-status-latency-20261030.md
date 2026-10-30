@@ -1,5 +1,10 @@
 # Remaining profile-status latency: measured correction for review
 
+**Subsequent status:** the owner approved exact `79ce5f6…`, which is now
+installed. See [installed acceptance](status-batch-live-20261030.md) for the
+approval, installation and new workload results. The candidate and installation
+statements below describe the earlier review checkpoint and remain historical.
+
 Branch `fix/live-prepare-discovery-20261030`, base `main`; [PR 48](https://github.com/karanagg166/automated-apply/pull/48).
 Installed and live-tested source:
 [`5ca05d844fbaa7ca0ada093aa37556c831c89edf`](https://github.com/karanagg166/automated-apply/commit/5ca05d844fbaa7ca0ada093aa37556c831c89edf).
