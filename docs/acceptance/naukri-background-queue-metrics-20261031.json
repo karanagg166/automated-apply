@@ -1,0 +1,297 @@
+{
+  "implementation_branch": "fix/live-prepare-discovery-20261030",
+  "implementation_sha": "81a678cdce4ac9fd7b1761e0f43d67f7fa6a1cd2",
+  "pr": "https://github.com/karanagg166/automated-apply/pull/48",
+  "phase": "OPEN",
+  "files_changed": [
+    "backend/app/execution/application_queue.py",
+    "backend/app/execution/naukri.py",
+    "backend/app/execution/naukri_native.py",
+    "backend/app/execution/queue_contracts.py",
+    "backend/app/execution/queue_preparation.py",
+    "backend/app/execution/router.py",
+    "backend/app/execution/store.py",
+    "backend/app/execution/worker.py",
+    "backend/app/local_agent/contracts.py",
+    "backend/app/local_agent/native_host.py",
+    "backend/app/local_agent/router.py",
+    "backend/app/local_agent/service.py",
+    "backend/scripts/verify_application_queue_postgres.py",
+    "backend/tests/test_application_queue.py",
+    "backend/tests/test_execution_naukri.py",
+    "backend/tests/test_naukri_background_queue.py",
+    "backend/tests/test_naukri_upload_preflight.py",
+    "docs/acceptance/naukri-background-queue-scope-20261031.md",
+    "docs/acceptance/screenshots/naukri-background-queue-fictional.png",
+    "extension/background.js",
+    "extension/build.mjs",
+    "extension/chrome-profile.js",
+    "extension/naukri-observation.js",
+    "extension/naukri-queue.js",
+    "extension/settings.html",
+    "extension/settings.js",
+    "extension/tests/naukri-observation.test.mjs",
+    "extension/tests/naukri-queue.browser.mjs",
+    "extension/tests/naukri-queue.test.mjs",
+    "frontend/src/features/application-queue.tsx",
+    "frontend/src/features/naukri.tsx",
+    "frontend/src/lib/gateway.ts",
+    "frontend/src/types/api.d.ts",
+    "frontend/tests/application-queue.test.tsx",
+    "frontend/tests/e2e/application-queue.spec.ts"
+  ],
+  "tests": {
+    "backend": {
+      "passed": 305,
+      "seconds": 25.41,
+      "fixture_only": true
+    },
+    "candidate_python": {
+      "passed": 51,
+      "seconds": 5.55,
+      "overlaps_backend": true
+    },
+    "frontend_unit": {
+      "files": 2,
+      "passed": 11,
+      "seconds": 2.18,
+      "fixture_only": true
+    },
+    "frontend_browser": {
+      "passed": 1,
+      "seconds": 7.9,
+      "journey_seconds": 1.9,
+      "fixture_only": true
+    },
+    "extension_new_cases": {
+      "passed": 21,
+      "seconds": 0.93,
+      "fixture_only": true
+    },
+    "postgres": {
+      "fixture_only": true,
+      "database_version": "14.24 (Homebrew)",
+      "cases_passed": 6,
+      "duration_seconds": 0.19,
+      "pool_limit": 2,
+      "provider_requests": 0,
+      "applications": 0,
+      "results": [
+        "concurrent_publish_one_durable_identity",
+        "concurrent_claim_one_lease",
+        "concurrent_policy_control_one_revision_winner",
+        "stop_fences_prior_committed_lease",
+        "new_connection_resume_requires_fresh_read",
+        "expired_possible_submission_is_never_redelivered"
+      ]
+    },
+    "chromium": {
+      "fixture_only": true,
+      "browser": "156.0.8078.4",
+      "cases": 3,
+      "duration_ms": 5990,
+      "live_naukri_requests": 0,
+      "dns_route_to_provider_blocked": true,
+      "fixtureRequests": 3,
+      "unexpectedRequests": 0,
+      "chooserEvents": 0,
+      "evidence": [
+        {
+          "name": "background_job_facts",
+          "result": "PASS",
+          "actual_inactive_chromium_tab": true,
+          "owner_tab_preserved": true,
+          "provider_requests_routed_to_fixture": true
+        },
+        {
+          "name": "background_search_links",
+          "result": "PASS",
+          "actual_inactive_chromium_tab": true,
+          "owner_tab_preserved": true,
+          "provider_requests_routed_to_fixture": true
+        },
+        {
+          "name": "stop_before_dom",
+          "result": "PASS",
+          "actual_inactive_chromium_tab": true,
+          "owner_tab_preserved": true,
+          "provider_requests_routed_to_fixture": true
+        }
+      ]
+    },
+    "frontend_production_build": "PASS",
+    "frontend_typecheck": "PASS",
+    "frontend_format": "PASS",
+    "ruff_E9_F_I": "PASS",
+    "api_types_regenerated": true,
+    "diff_check": "PASS",
+    "extension_full": {
+      "passed": 155,
+      "seconds": 6.959480208,
+      "fixture_only": true,
+      "includes_new_cases": 21
+    }
+  },
+  "platform_permission": {
+    "established": false,
+    "owner_requires_provider_outreach": false,
+    "owner_scope_changed_explicitly": true,
+    "captcha_rate_access_controls_preserved": true
+  },
+  "installation": {
+    "services_sha": "90f2f2ade50a1c31b26ca85cc7fdf5e93bb67c20",
+    "launch_agents_rechecked": 4,
+    "native_source_sha": "90f2f2ade50a1c31b26ca85cc7fdf5e93bb67c20",
+    "profile8": {
+      "source_sha": "81a678cdce4ac9fd7b1761e0f43d67f7fa6a1cd2",
+      "expected_file_count": 20,
+      "matching_file_count": 12,
+      "mismatched_files": [
+        "background.js",
+        "chrome-profile.js",
+        "naukri-observation.js",
+        "naukri-queue.js",
+        "settings.html",
+        "settings.js",
+        "tab-audit.js",
+        "task-coordinator.js"
+      ],
+      "extra_file_count": 0,
+      "disk_matches_sha": false,
+      "runtime_reload_verified": false,
+      "writes_performed": 0,
+      "installed_extension_saved_sha": "b06909293b1866e8191277d17fc284c398b4307b",
+      "native_wrapper_source_shas": [
+        "90f2f2ade50a1c31b26ca85cc7fdf5e93bb67c20"
+      ]
+    },
+    "candidate_extension": {
+      "disk_matches_sha": true,
+      "expected_file_count": 20,
+      "expected_sha256": {
+        "background.js": "bf87e2dbebd53ab2941d0dcdeeba6d1ef2b04002e5caa91df94e968dea878049",
+        "chrome-profile.js": "2ee41d9907f5cdf6cfb2dd9315bb6fb87d74c97525d0c058fee385c634a719ba",
+        "form-bridge.js": "78a147009f7711c82035ad4a4350f18697b7d56338bfd3f03bfaadb139a08820",
+        "form-dom.js": "d189edb82fa17c7c1b94393ecb2116ec1d616522cc5fafaa3407ce22f77f522f",
+        "form-messages.js": "afa4fae184a8b1ea8b1877644303937f6b17d907860305a9e220a4b9eacfb069",
+        "manifest.json": "fb39e45fb1f3835820363f4432c00dc5d8ac0dfa6f09fbcab97d46d1f4276797",
+        "naukri-observation.js": "f97cfd6e9639b7fe98403c0d99f9deaeded3da55d6fa49e2c533951dbe1acf86",
+        "naukri-queue.js": "951606da1bba91628dba1a598e4092cb3b75f347184371fe75df5a85e54c2130",
+        "naukri.js": "a8de6e53f214cfd52755de86b1ff312081a236f650c897b1dd7b2a065f25a24a",
+        "network-guard.js": "06a4263d76845fce7431b3ad25b33677a8bb4b2b0ead43a870c6b70de55d3ad6",
+        "observation.js": "2eb609e14a693f2634a3b5efa19c5c8d11d9d47689a3a2b1c6286d2b90add953",
+        "popup.html": "ed777873d87a8e2b53197edd6718f9b77c664980ee6dc2f53e8bfd0cfb021ef9",
+        "popup.js": "94eb5fac953028df4f3c0a9f15be6b9234ca672dc1391172d40984b457605f63",
+        "preview.js": "e028a5646d628e1e784497e792bacf87743c1e9de9e720bf44da455a04b3a9e5",
+        "session-indicator.js": "7a8a35031aacfb82e9a6620ddf324dd2b91bad455ee7b712916d9705f4a85ac6",
+        "settings.html": "4ed78fdaa2fd2e1742deb215675f98b5576b49d23ca8e2838e3e7d1c1275e30c",
+        "settings.js": "a44baf56b9f2877dd75fc04e6fc96d4b936187297838b6de4134640785d56152",
+        "style.css": "ce9c13b3fa9a9b216ce6d395b94d5e82651260c8cab9a71aad5e90b03258ce23",
+        "tab-audit.js": "bf75dab22105624fe67d420095523f446fd11435a1ac59f7ba2e6d5ba82ae8c9",
+        "task-coordinator.js": "3f3cbcd34fd4254a9d2305c15379df172f5d2caecce6dd55c5fd23c7273f6826"
+      },
+      "extension_id": "gdjbmkffcpicbpiikcohlmokkmcpipgp",
+      "extra_file_count": 0,
+      "matching_file_count": 20,
+      "mismatched_files": [],
+      "persisted_extension_record_found": false,
+      "persisted_path_matches_directory": false,
+      "profile_checked": false,
+      "runtime_reload_verified": false,
+      "source_sha": "81a678cdce4ac9fd7b1761e0f43d67f7fa6a1cd2",
+      "writes_performed": 0
+    },
+    "candidate_prepared_not_installed": true,
+    "independent_python_environment": true,
+    "independent_frontend_standalone": true,
+    "candidate_login_http_status": 200,
+    "external_dependency_symlinks": 0,
+    "candidate_allocated_kib": 415484,
+    "production_services_restarted": 0,
+    "production_reference_writes": 0,
+    "chrome_permissions_changed": false
+  },
+  "real_results": {
+    "new_eligible_opportunities": 0,
+    "approved_gmail_cycles_this_milestone": 0,
+    "new_application_attempts": 0,
+    "new_provider_recorded_submissions": 0,
+    "existing_genuine_qtrino_submissions": 1,
+    "qtrino_requisition": "261026028027",
+    "qtrino_replays": 0,
+    "installed_recurring_worker_submissions": 0,
+    "new_unknown_submission_outcomes": 0,
+    "new_failed_application_outcomes": 0,
+    "employer_acknowledgments_verified": 0,
+    "new_telegram_notifications": 0
+  },
+  "browser_upload": {
+    "background_read": "real_isolated_Chromium_fixtures_pass_installed_not_tested",
+    "resume_preflight": "integrated_local_verified_bytes_only",
+    "runtime_upload": "NOT_IMPLEMENTED",
+    "provider_saved_resume_binding": "NOT_IMPLEMENTED",
+    "native_chooser_fallback": "NEEDS_HUMAN",
+    "locked_screen": "NOT_TESTED",
+    "extended_uptime": "NOT_TESTED"
+  },
+  "initial_failures": [
+    {
+      "kind": "postgres_query",
+      "code": "42803",
+      "resolved": "group_by_reused_stage_alias",
+      "final_cases_passed": 6
+    },
+    {
+      "kind": "ui_fixture_locator",
+      "resolved": "target_state_element_instead_of_hidden_option"
+    },
+    {
+      "kind": "browser_harness_focus",
+      "resolved": "isolated_CDP_noDefaults_true_no_DOM_spoofing"
+    },
+    {
+      "kind": "browser_harness_public_challenge",
+      "network_requests_during_failed_probe": "not_fully_captured_possible_public_Naukri_read_in_fresh_isolated_profile",
+      "authenticated_account_used": false,
+      "apply_action_performed": false,
+      "resolved": "bind_about_blank_tab_before_navigation_and_test_only_block_provider_DNS"
+    }
+  ],
+  "queue": {
+    "storage": "existing_private_PostgreSQL_OwnerPreference_JSONB",
+    "new_production_pools": 0,
+    "new_broker_processes": 0,
+    "online_database_role_limit_changed": false,
+    "default_daily_cap": 80,
+    "custom_cap_maximum": 100,
+    "default_max_age_days": 2,
+    "default_applicant_threshold": 10000,
+    "threshold_boundary": "skip_at_or_above",
+    "unknown_applicants_default": "needs_review",
+    "default_minimum_match_score": 80,
+    "default_state": "STOPPED",
+    "background_only": true,
+    "concurrency": 1
+  },
+  "remaining_blockers": [
+    "exact_SHA_installation_approval_and_one_time_Profile8_extension_cutover",
+    "actual_installed_Naukri_search_job_DOM_acceptance",
+    "provider_saved_canonical_resume_verification",
+    "supported_question_answer_and_chooser_free_upload_mutations",
+    "installed_Apply_and_persistent_provider_history_receipt_loop",
+    "transactional_worker_submission_notifications",
+    "multiple_genuine_worker_submissions",
+    "awake_locked_and_extended_uptime_acceptance"
+  ],
+  "hosted_actions_dispatched": 0,
+  "merges": 0,
+  "cleanup_operations": 0,
+  "source_sha256": {
+    "extension/naukri-queue.js": "951606da1bba91628dba1a598e4092cb3b75f347184371fe75df5a85e54c2130",
+    "extension/naukri-observation.js": "f97cfd6e9639b7fe98403c0d99f9deaeded3da55d6fa49e2c533951dbe1acf86",
+    "extension/tests/naukri-queue.browser.mjs": "34f8e945047aaa949ce647e06e8fd71bd7420465798530db5875f6ec709cb86b",
+    "backend/app/execution/application_queue.py": "a97ad19f211527bb0927dc07e897e78c8654a8ea74e96342414d9f4885ba3468",
+    "backend/app/execution/naukri_native.py": "1dfd62dac4f3793f4a0b46a4972c22f07b1d94799f300b3d66f5e33d35e066e3",
+    "backend/app/execution/queue_preparation.py": "df891b8ec2c0bd53d8ed7756893d278ddbe8797493503110df8167da827c83c6"
+  }
+}
