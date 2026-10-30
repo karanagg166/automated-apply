@@ -99,7 +99,7 @@ export function NaukriAutomation({
   );
   const [minimum, setMinimum] = useState(data.policy?.experience_min ?? 0);
   const [maximum, setMaximum] = useState(data.policy?.experience_max ?? 3);
-  const [score, setScore] = useState(data.policy?.minimum_match_score ?? 90);
+  const [score, setScore] = useState(data.policy?.minimum_match_score ?? 80);
   const [cadence, setCadence] = useState(
     (data.policy?.interval_seconds ?? 21600) / 60,
   );
@@ -126,9 +126,9 @@ export function NaukriAutomation({
         Partial capability: recurring preparation of owner-supplied records. New
         vacancy discovery requires an approved source and factual review.
         Browser filling needs separate permission and exact field approval.
-        Automated submission is unavailable. Gmail intake, two-account Naukri
-        alert detection and multi-account deduplication are deferred to Phase
-        5.4 and disabled in Phase 5.3.
+        Automated submission is unavailable. Only an existing approved local
+        Gmail alert policy may supply email candidates. The separate legacy
+        Gmail adapter remains disabled.
       </Notice>
       <p>
         Persisted state: <strong>{data.state}</strong> · {readable(data.scope)}
@@ -198,8 +198,11 @@ export function NaukriAutomation({
         {Object.entries({
           matching: "Matching jobs found",
           prepared: "Applications prepared",
-          submitted_confirmed:
-            "Applications actually submitted and provider confirmed",
+          naukri_recorded:
+            "Naukri-recorded applications (retained UI evidence)",
+          installed_worker_recorded:
+            "Applications recorded from recurring worker",
+          employer_acknowledged: "Independent employer acknowledgments",
           failed: "Failed jobs",
           unknown: "Unknown submission outcomes",
           manual_required: "Manual-required items",
@@ -268,7 +271,7 @@ export function NaukriAutomation({
           <Select value={source} onChange={(e) => setSource(e.target.value)}>
             <option value="saved_owner_imports">Owner-supplied postings</option>
             <option value="gmail_job_alerts" disabled>
-              Official job-alert emails (deferred to Phase 5.4)
+              Legacy Gmail job-alert adapter (unavailable)
             </option>
           </Select>
         </Field>

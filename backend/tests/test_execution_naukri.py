@@ -66,6 +66,11 @@ def test_matrix_does_not_claim_live():
     assert "manual_only" in m["submission_support"]
     assert m["public_jobseeker_api"] == "not_established"
     assert m["background_source"].endswith("no_portal_polling")
+    assert m["recurring_submission"]["state"] == "BLOCKED_PLATFORM"
+    assert m["recurring_submission"]["enabled"] is False
+    assert m["resume_upload"]["native_chooser_path"] == "NEEDS_HUMAN"
+    assert m["resume_upload"]["file_selection_may_submit"] is True
+    assert m["resume_upload"]["unattended_worker_verified"] is False
 
 
 @pytest.mark.parametrize(

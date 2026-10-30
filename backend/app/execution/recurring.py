@@ -404,8 +404,10 @@ async def status(session):
     from backend.app.browser import chrome_profiles
     from backend.app.core.config import get_settings
     from backend.app.execution import alert_email
+    from backend.app.execution.naukri_receipts import summary as receipt_summary
 
     now = await instant(session)
+    receipts = await receipt_summary(session)
     value = await record(session)
     health = await session.get(OwnerPreference, HEALTH)
     heartbeat = health.value["heartbeat_at"] if health else None
@@ -523,9 +525,13 @@ async def status(session):
             "prepared": sum(
                 bool(e["packet_id"]) and not e.get("question_only") for e in executions
             ),
-            # No genuine Naukri confirmation adapter exists. In particular,
-            # fixture mock_employer receipts must never count as real.
-            "submitted_confirmed": 0,
+            # Retained operator-observed platform records count independently
+            # of packets. They do not establish installed-worker acceptance.
+            # Fixture mock_employer receipts never count as Naukri records.
+            "submitted_confirmed": receipts["naukri_recorded"],
+            "naukri_recorded": receipts["naukri_recorded"],
+            "installed_worker_recorded": receipts["installed_recurring_worker"],
+            "employer_acknowledged": receipts["employer_acknowledged"],
             "user_reported": sum(
                 p.lifecycle_state == "user_reported_submitted" for p in packets
             ),
@@ -547,6 +553,7 @@ async def status(session):
             "resume": resume.model_dump(mode="json") if resume else None,
         },
         "decisions": decisions,
+        "application_receipts": receipts,
         "stages": {
             "DISCOVERY": "email_candidates_require_review"
             if source == "gmail_job_alerts"

@@ -56,7 +56,7 @@ class AutomationPolicy(Contract):
     excluded_companies: list[str] = Field(default_factory=list, max_length=100)
     experience_min: float = Field(ge=0, le=60, allow_inf_nan=False)
     experience_max: float = Field(ge=0, le=60, allow_inf_nan=False)
-    minimum_match_score: int = Field(90, ge=80, le=100)
+    minimum_match_score: int = Field(80, ge=80, le=100)
     interval_seconds: int = Field(21600, ge=900, le=604800)
     max_preparations_per_day: int = Field(5, ge=1, le=25)
     max_posting_age_days: int = Field(14, ge=1, le=30)

@@ -218,8 +218,10 @@ async def poll(factory, settings, slot: Slot = "1", *, force=False, mailbox_fact
                          scan_until=int(now().timestamp()) + 1)
         await recurring.put(session, PREFIX + slot, value)
         await session.commit()
-    result = {"messages": 0, "authenticated": 0, "candidates_added": 0, "direct_links": 0,
-              "rejected_origin": 0, "submitted": False, "links_opened": False}
+    result = {"messages": 0, "listed_messages": 0, "already_processed": 0,
+              "authenticated": 0, "candidates_added": 0, "direct_links": 0,
+              "rejected_origin": 0, "rejected_topic": 0, "without_direct_links": 0,
+              "submitted": False, "links_opened": False}
     async with factory() as session:
         mailbox = mailbox_factory(session, settings)
 
@@ -246,6 +248,7 @@ async def poll(factory, settings, slot: Slot = "1", *, force=False, mailbox_fact
             messages = page.get("messages", [])
             if not isinstance(messages, list) or len(messages) > 5:
                 raise ConnectionError("gmail_alert_page_invalid")
+            result["listed_messages"] = len(messages)
             for item in messages:
                 message_id = item.get("id") if isinstance(item, dict) else None
                 if not isinstance(message_id, str) or not IDENTIFIER.fullmatch(message_id):
@@ -255,6 +258,7 @@ async def poll(factory, settings, slot: Slot = "1", *, force=False, mailbox_fact
                 seen = await session.get(OwnerPreference, key)
                 await session.commit()
                 if seen:
+                    result["already_processed"] += 1
                     continue
                 # Metadata selection and authentication precede the body read.
                 message = await reader.message(message_id)
@@ -279,6 +283,10 @@ async def poll(factory, settings, slot: Slot = "1", *, force=False, mailbox_fact
                         added, links = await retain(session, slot, account, message, now().isoformat())
                         result["candidates_added"] += added
                         result["direct_links"] += links
+                        if not links:
+                            result["without_direct_links"] += 1
+                    else:
+                        result["rejected_topic"] += 1
                 await recurring.put(session, key, {"message_id": message_id,
                     "generation": value["generation"], "origin_accepted": trusted,
                     "processed_at": now().isoformat(), "body_stored": False})
@@ -288,6 +296,7 @@ async def poll(factory, settings, slot: Slot = "1", *, force=False, mailbox_fact
             next_page = page.get("nextPageToken")
             if next_page is not None and (not isinstance(next_page, str) or len(next_page) > 2048):
                 raise ConnectionError("gmail_alert_page_invalid")
+            result["has_more_pages"] = bool(next_page)
             row.value = {**row.value, "page_token": next_page,
                          "watermark": value.get("watermark", 0) if next_page else value["scan_until"] - 1,
                          "last_result": result, "last_check_at": now().isoformat(),

@@ -457,6 +457,11 @@ async def previously_applied(session, job):
         return True
     if job.source_platform != "naukri":
         return False
+    from backend.app.execution.naukri_receipts import prevents_replay
+
+    requisition = normalized_url(job.job_url).rsplit("-", 1)[-1]
+    if await prevents_replay(session, requisition):
+        return True
     prior_urls = (
         await session.scalars(
             select(Job.job_url)
@@ -467,7 +472,6 @@ async def previously_applied(session, job):
             )
         )
     ).all()
-    requisition = normalized_url(job.job_url).rsplit("-", 1)[-1]
     for url in prior_urls:
         try:
             if normalized_url(url).rsplit("-", 1)[-1] == requisition:

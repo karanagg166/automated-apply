@@ -4115,7 +4115,7 @@ export interface components {
       experience_max: number;
       /**
        * Minimum Match Score
-       * @default 90
+       * @default 80
        */
       minimum_match_score: number;
       /**

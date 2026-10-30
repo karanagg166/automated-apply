@@ -56,6 +56,30 @@ const data: NaukriAutomationStatus = {
 const act = async (work: () => Promise<unknown>) => {
   await work();
 };
+it("separates retained Naukri records from unattended and employer evidence", () => {
+  render(
+    <NaukriAutomation
+      data={{
+        ...data,
+        counts: {
+          naukri_recorded: 1,
+          installed_worker_recorded: 0,
+          employer_acknowledged: 0,
+        },
+      }}
+      busy={false}
+      act={act}
+    />,
+  );
+  for (const [label, count] of [
+    ["Naukri-recorded applications (retained UI evidence)", "1"],
+    ["Applications recorded from recurring worker", "0"],
+    ["Independent employer acknowledgments", "0"],
+  ]) {
+    expect(screen.getByText(label).nextElementSibling).toHaveTextContent(count);
+  }
+  expect(post).not.toHaveBeenCalled();
+});
 it("shows persisted status and truthful blockers without dispatch on render", () => {
   render(<NaukriAutomation data={data} busy={false} act={act} />);
   expect(screen.getByText(/Persisted state/)).toHaveTextContent("RUNNING");
@@ -71,14 +95,16 @@ it("shows persisted status and truthful blockers without dispatch on render", ()
   ).toBeDisabled();
   expect(post).not.toHaveBeenCalled();
 });
-it("keeps Gmail intake deferred to Phase 5.4", () => {
+it("distinguishes approved local alerts from the unavailable legacy adapter", () => {
   render(<NaukriAutomation data={data} busy={false} act={act} />);
   expect(
     screen.getByRole("option", {
-      name: /job-alert emails.*deferred to Phase 5.4/i,
+      name: /legacy Gmail job-alert adapter.*unavailable/i,
     }),
   ).toBeDisabled();
-  expect(screen.getByText(/two-account Naukri alert detection/)).toBeVisible();
+  expect(
+    screen.getByText(/existing approved local Gmail alert policy/),
+  ).toBeVisible();
   expect(api).not.toHaveBeenCalled();
   expect(post).not.toHaveBeenCalled();
 });

@@ -57,11 +57,16 @@ async def test_incremental_alert_cycle_deduplicates_and_authenticates_before_bod
 
         first = await alerts.poll(factory, settings, force=True, mailbox_factory=construct)
         assert first["status"] == "observed"
+        assert first["listed_messages"] == first["messages"] == 2
+        assert first["already_processed"] == 0
+        assert first["has_more_pages"] is False
         assert first["candidates_added"] == int(trusted)
         assert first["rejected_origin"] == (0 if trusted else 2)
         count = len(calls)
         second = await alerts.poll(factory, settings, force=True, mailbox_factory=construct)
         assert second["candidates_added"] == 0 and len(calls) == count + 1
+        assert second["listed_messages"] == second["already_processed"] == 2
+        assert second["messages"] == 0
     rows = list((await db_session.scalars(select(OwnerPreference).where(OwnerPreference.key.startswith("nau_alert:")))).all())
     assert len(rows) == int(trusted)
     if trusted:
@@ -167,6 +172,46 @@ async def test_failed_page_preserves_committed_message_receipts_and_restarts_cur
         # The upper boundary advances only after the final page, never page one.
         current = await alerts.status(db_session, "1")
         assert not current.get("watermark")
+        assert result["has_more_pages"] is True
+        assert result["listed_messages"] == 2 and result["already_processed"] == 1
+
+
+@pytest.mark.parametrize("variant, expected", [
+    ("empty", {"listed_messages": 0, "messages": 0, "already_processed": 0}),
+    ("newsletter", {"listed_messages": 1, "rejected_topic": 1, "without_direct_links": 0}),
+    ("tracking_only", {"listed_messages": 1, "rejected_topic": 0, "without_direct_links": 1}),
+])
+async def test_empty_discovery_explains_selected_source_without_widening_it(db_session, variant, expected):
+    settings, fake = configured(), GoogleFixture()
+    factory = async_sessionmaker(db_session.bind, expire_on_commit=False, autoflush=False)
+
+    def respond(request):
+        assert request.method == "GET"
+        if request.url.path.endswith("/messages"):
+            assert request.url.params["q"].startswith("in:inbox from:" + alerts.SENDER + " after:")
+            return httpx.Response(200, json={"messages": [] if variant == "empty" else [{"id": "mail1"}]})
+        view = message()
+        if variant == "newsletter":
+            view["payload"]["headers"][1]["value"] = "Account newsletter"
+        if variant == "tracking_only":
+            view["payload"]["body"]["data"] = base64.urlsafe_b64encode(
+                b'<a href="https://tracking.example.org/redirect">Jobs</a>'
+            ).decode()
+        return httpx.Response(200, json=view)
+
+    async with fake.client() as oauth, httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+        mailbox = await activate(db_session, settings, fake, oauth)
+
+        def construct(session, settings):
+            return type(mailbox)(session, settings, mailbox.google, client)
+
+        result = await alerts.poll(factory, settings, force=True, mailbox_factory=construct)
+    assert all(result[key] == value for key, value in expected.items())
+    assert result["candidates_added"] == 0 and result["links_opened"] is False
+    assert result["submitted"] is False
+    assert (await alerts.status(db_session, "1"))["last_result"] == {
+        k: v for k, v in result.items() if k != "status"
+    }
 
 
 async def test_multi_job_alert_does_not_hold_owner_lock_over_per_link_queries(db_session):

@@ -30,6 +30,18 @@ def capability_matrix():
         "application_preparation": "saved_profile_resume_and_grounded_answers",
         "browser_form_assistance": "existing_owner_reviewed_engine_site_unverified",
         "submission_support": "manual_only_no_verified_naukri_contract",
+        "recurring_submission": {
+            "state": "BLOCKED_PLATFORM",
+            "reason": "applicable_third_party_platform_permission_not_established",
+            "enabled": False,
+        },
+        "resume_upload": {
+            "unattended_worker_verified": False,
+            "native_chooser_path": "NEEDS_HUMAN",
+            "upload_control_initialization_required": True,
+            "file_selection_may_submit": True,
+            "locked_screen_verified": False,
+        },
         "public_jobseeker_api": "not_established",
         "background_source": "saved_imports_and_opt_in_gmail_alerts_no_portal_polling",
         "evidence": EVIDENCE,
