@@ -1,0 +1,439 @@
+{
+  "installed_sha": "5ca05d844fbaa7ca0ada093aa37556c831c89edf",
+  "new_candidate_sha": "79ce5f6b514279e6d9022d85b659ad77fb31bd89",
+  "new_candidate_installed": false,
+  "cycles": [
+    {
+      "cycle": 1,
+      "status": "PASS",
+      "commands": [
+        {
+          "action": "open",
+          "terminal": "completed",
+          "observed_admission_to_completion_seconds": 31.925
+        },
+        {
+          "action": "prepare",
+          "terminal": "completed",
+          "observed_admission_to_completion_seconds": 88.336
+        }
+      ],
+      "plan_state": "read_only",
+      "task_state": "NEEDS_INPUT",
+      "paused_after": true,
+      "fields": 0,
+      "actions": 0,
+      "approved_fields": 0,
+      "new_read_only_plans": 1
+    },
+    {
+      "cycle": 2,
+      "status": "PASS",
+      "commands": [
+        {
+          "action": "open",
+          "terminal": "completed",
+          "observed_admission_to_completion_seconds": 29.131
+        },
+        {
+          "action": "prepare",
+          "terminal": "completed",
+          "observed_admission_to_completion_seconds": 92.236
+        }
+      ],
+      "plan_state": "read_only",
+      "task_state": "NEEDS_INPUT",
+      "paused_after": true,
+      "fields": 0,
+      "actions": 0,
+      "approved_fields": 0,
+      "new_read_only_plans": 1
+    },
+    {
+      "cycle": 3,
+      "status": "PASS",
+      "commands": [
+        {
+          "action": "open",
+          "terminal": "completed",
+          "observed_admission_to_completion_seconds": 49.83
+        },
+        {
+          "action": "prepare",
+          "terminal": "completed",
+          "observed_admission_to_completion_seconds": 89.425
+        }
+      ],
+      "plan_state": "read_only",
+      "task_state": "NEEDS_INPUT",
+      "paused_after": true,
+      "fields": 0,
+      "actions": 0,
+      "approved_fields": 0,
+      "new_read_only_plans": 1
+    }
+  ],
+  "monitors": [
+    {
+      "name": "monitor-native.jsonl",
+      "samples": 120,
+      "start": "2026-10-30T10:59:16.946276+00:00",
+      "end": "2026-10-30T11:09:40.479164+00:00",
+      "http": {
+        "/health": {
+          "samples": 120,
+          "status_counts": {
+            "200": 116,
+            "ReadError": 1,
+            "ConnectError": 3
+          },
+          "mean_seconds": 0.0153,
+          "max_seconds": 0.316
+        },
+        "/ready": {
+          "samples": 120,
+          "status_counts": {
+            "200": 117,
+            "ConnectError": 3
+          },
+          "mean_seconds": 1.1065,
+          "max_seconds": 3.6459
+        },
+        "/api/v1/browser/chrome-profiles": {
+          "samples": 120,
+          "status_counts": {
+            "200": 115,
+            "ReadTimeout": 2,
+            "ConnectError": 3
+          },
+          "mean_seconds": 2.7632,
+          "max_seconds": 12.0044
+        }
+      }
+    },
+    {
+      "name": "monitor-third.jsonl",
+      "samples": 60,
+      "start": "2026-10-30T11:11:34.068652+00:00",
+      "end": "2026-10-30T11:16:59.647979+00:00",
+      "http": {
+        "/health": {
+          "samples": 60,
+          "status_counts": {
+            "200": 59,
+            "ReadError": 1
+          },
+          "mean_seconds": 0.0127,
+          "max_seconds": 0.033
+        },
+        "/ready": {
+          "samples": 60,
+          "status_counts": {
+            "200": 60
+          },
+          "mean_seconds": 1.1683,
+          "max_seconds": 2.8386
+        },
+        "/api/v1/browser/chrome-profiles": {
+          "samples": 60,
+          "status_counts": {
+            "200": 59,
+            "ReadTimeout": 1
+          },
+          "mean_seconds": 3.2822,
+          "max_seconds": 12.0048
+        }
+      }
+    }
+  ],
+  "locked_cycle": "NOT TESTED; owner explicitly deferred",
+  "packet_creation_audit": {
+    "at": "2026-10-30T11:20:46.890795+00:00",
+    "existing_packet_predates_cycle": true,
+    "existing_application_identity_retained": true,
+    "new_packets_for_same_job_and_candidate_during_three_cycles": 0,
+    "scope": "authoritative packet creation timestamps covering all three cycles for this job/candidate; not a global historical count"
+  },
+  "unrelated_tabs": {
+    "non_target_tabs_compared": 4,
+    "all_same_tab_id_and_url_hash": true,
+    "scope": "IDs/presence/URL hashes only; no personal page titles, DOM contents or values collected",
+    "raw_urls_retained": false
+  },
+  "session_audit": {
+    "at": "2026-10-30T11:17:09.994162+00:00",
+    "sessions": [
+      {
+        "application_name": "automated-apply:acceptance",
+        "state": "active",
+        "sessions": 1
+      },
+      {
+        "application_name": "automated-apply:api",
+        "state": "idle",
+        "sessions": 1
+      },
+      {
+        "application_name": "automated-apply:execution",
+        "state": "idle",
+        "sessions": 1
+      },
+      {
+        "application_name": "automated-apply:readiness",
+        "state": "idle",
+        "sessions": 1
+      },
+      {
+        "application_name": "automated-apply:telegram",
+        "state": "idle",
+        "sessions": 1
+      }
+    ],
+    "selected_binding_unchanged": true,
+    "task_state": "PAUSED",
+    "task_has_fill_authorization": false,
+    "profile_connected": true,
+    "profile_heartbeat_age_seconds": 24.8829,
+    "worker_heartbeat_age_seconds": 12.699946
+  },
+  "health_transport": {
+    "scope": "Paired live loopback health clients at five-second intervals; no retries, DB queries or production configuration changes",
+    "server_timeout_keep_alive_seconds": 5,
+    "clients": {
+      "default5": {
+        "samples": 30,
+        "status_counts": {
+          "200": 26,
+          "ERROR": 4
+        },
+        "max_seconds": 0.0218
+      },
+      "expiry2": {
+        "samples": 30,
+        "status_counts": {
+          "200": 30
+        },
+        "max_seconds": 0.0092
+      }
+    },
+    "failures": [
+      {
+        "at": "2026-10-30T11:14:44.421716+00:00",
+        "sample": 8,
+        "client": "default5",
+        "error_chain": [
+          {
+            "type": "ReadError"
+          },
+          {
+            "type": "ReadError"
+          },
+          {
+            "type": "BrokenResourceError"
+          },
+          {
+            "type": "ConnectionResetError",
+            "errno": 54
+          }
+        ],
+        "seconds": 0.0023,
+        "transport_events": [
+          {
+            "event": "http11.receive_response_headers.failed",
+            "exception_chain": [
+              {
+                "type": "ReadError"
+              },
+              {
+                "type": "BrokenResourceError"
+              },
+              {
+                "type": "ConnectionResetError",
+                "errno": 54
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "at": "2026-10-30T11:15:34.429260+00:00",
+        "sample": 18,
+        "client": "default5",
+        "error_chain": [
+          {
+            "type": "ReadError"
+          },
+          {
+            "type": "ReadError"
+          },
+          {
+            "type": "BrokenResourceError"
+          },
+          {
+            "type": "ConnectionResetError",
+            "errno": 54
+          }
+        ],
+        "seconds": 0.0031,
+        "transport_events": [
+          {
+            "event": "http11.receive_response_headers.failed",
+            "exception_chain": [
+              {
+                "type": "ReadError"
+              },
+              {
+                "type": "BrokenResourceError"
+              },
+              {
+                "type": "ConnectionResetError",
+                "errno": 54
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "at": "2026-10-30T11:15:54.432938+00:00",
+        "sample": 22,
+        "client": "default5",
+        "error_chain": [
+          {
+            "type": "ReadError"
+          },
+          {
+            "type": "ReadError"
+          },
+          {
+            "type": "BrokenResourceError"
+          },
+          {
+            "type": "ConnectionResetError",
+            "errno": 54
+          }
+        ],
+        "seconds": 0.0044,
+        "transport_events": [
+          {
+            "event": "http11.receive_response_headers.failed",
+            "exception_chain": [
+              {
+                "type": "ReadError"
+              },
+              {
+                "type": "BrokenResourceError"
+              },
+              {
+                "type": "ConnectionResetError",
+                "errno": 54
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "at": "2026-10-30T11:16:29.439266+00:00",
+        "sample": 29,
+        "client": "default5",
+        "error_chain": [
+          {
+            "type": "ReadError"
+          },
+          {
+            "type": "ReadError"
+          },
+          {
+            "type": "BrokenResourceError"
+          },
+          {
+            "type": "ConnectionResetError",
+            "errno": 54
+          }
+        ],
+        "seconds": 0.0035,
+        "transport_events": [
+          {
+            "event": "http11.receive_response_headers.failed",
+            "exception_chain": [
+              {
+                "type": "ReadError"
+              },
+              {
+                "type": "BrokenResourceError"
+              },
+              {
+                "type": "ConnectionResetError",
+                "errno": 54
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "direct_remote_comparison": {
+    "scope": "Actual owner-approved remote PostgreSQL; standalone direct status routine inside enforced read-only transactions; one temporary operator connection, no API process or installed source replaced. This does not measure HTTP queue latency.",
+    "installed_sha": "5ca05d844fbaa7ca0ada093aa37556c831c89edf",
+    "stable_public_output_equal_excluding_heartbeat_timestamp": true,
+    "measurements": {
+      "installed": {
+        "cycles": 5,
+        "observed_read_operations_per_cycle": [
+          5,
+          5,
+          5,
+          5,
+          5
+        ],
+        "mean_seconds": 0.8554,
+        "maximum_seconds": 1.3599
+      },
+      "batched_candidate": {
+        "cycles": 5,
+        "observed_read_operations_per_cycle": [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "mean_seconds": 0.1819,
+        "maximum_seconds": 0.3031
+      }
+    },
+    "raw_profile_or_command_data_published": false,
+    "candidate_sha": "79ce5f6b514279e6d9022d85b659ad77fb31bd89"
+  },
+  "fictional_roundtrip_comparison": {
+    "scope": "Fictional SQLite records; inject 200ms delay per SELECT/get to model remote round-trip cost. This is not a production after measurement.",
+    "installed_sha": "5ca05d844fbaa7ca0ada093aa37556c831c89edf",
+    "identical_sanitized_outputs": true,
+    "measurements": {
+      "installed": {
+        "cycles": 5,
+        "roundtrips_per_cycle": [
+          5,
+          5,
+          5,
+          5,
+          5
+        ],
+        "mean_seconds": 1.0136,
+        "max_seconds": 1.0163
+      },
+      "batched_candidate": {
+        "cycles": 5,
+        "roundtrips_per_cycle": [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "mean_seconds": 0.2036,
+        "max_seconds": 0.2059
+      }
+    },
+    "candidate_sha": "79ce5f6b514279e6d9022d85b659ad77fb31bd89"
+  }
+}

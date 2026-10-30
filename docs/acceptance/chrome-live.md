@@ -1,5 +1,12 @@
 # Chrome live acceptance: one cycle passed, workload reliability failed
 
+**Later acceptance:** the owner-approved `5ca05d8…` release subsequently passed
+three normal cycles, restart/crash recovery and Stop fencing. Locked-screen
+acceptance was explicitly deferred. Remaining profile-status timeouts and their
+replacement candidate are retained in [the current live report](readiness-isolation-live-20261030.md)
+and [latency report](profile-status-latency-20261030.md). The observations below
+remain the historical evidence for `48e6c3a…`.
+
 Branch `fix/live-prepare-discovery-20261030`; [PR 48](https://github.com/karanagg166/automated-apply/pull/48),
 base `main`. Installed and exercised SHA:
 [`48e6c3a2ba7a0283a2e07e79ab2c59ecddd45a14`](https://github.com/karanagg166/automated-apply/commit/48e6c3a2ba7a0283a2e07e79ab2c59ecddd45a14).

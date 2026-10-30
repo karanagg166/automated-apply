@@ -1,5 +1,13 @@
 # Reliability investigation and candidate: production acceptance pending
 
+**Latest state:** owner-approved `5ca05d8…` is installed and has passed three
+normal real Chrome cycles, restart/crash recovery and Stop fencing, with zero
+readiness 503s in the observed workload. Profile-status latency still needs the
+separately reviewed `79ce5f6b514279e6d9022d85b659ad77fb31bd89` candidate, which
+is not installed. Locked-screen acceptance is pending at the owner's request.
+See [current installed acceptance](readiness-isolation-live-20261030.md) and
+[the remaining latency correction](profile-status-latency-20261030.md).
+
 Recorded 2026-10-30. Branch: `fix/live-prepare-discovery-20261030`; PR:
 [48](https://github.com/karanagg166/automated-apply/pull/48), base `main` at
 `f745068cbfac7e6c052429745a613ebd9ad8844e`.

@@ -175,3 +175,48 @@ same output redaction and re-reads under the owner fence before expiry/invalidat
 mutations. It has not been installed. Its focused snapshot/profile regressions
 currently pass **37 tests in 8.23s**; full validation and exact-SHA review remain
 required before any production use.
+
+## Completed three normal cycles; locked acceptance owner-deferred
+
+All **three consecutive normal Open → Prepare cycles PASS** on installed
+`5ca05d844fbaa7ca0ada093aa37556c831c89edf`. Each persisted a separate read-only
+`NEEDS_INPUT` plan with zero fields/actions/approved fields and returned the
+task to PAUSED. Request IDs, task revisions, profile/session, exact tab/window
+and packet identity reconciled in every cycle. The second followed the same-SHA
+graceful restart and automatic recovery from the intentionally killed worker.
+Stop/Pause fencing passed as described above. The final packet timestamp audit
+found **zero new packets for this job/candidate during the three-cycle interval**.
+Four pre-existing unrelated tabs retained their IDs and URL hashes.
+
+The additional 60-sample window around the third cycle recorded readiness
+**60/60 HTTP 200**, health 59 HTTP 200 plus one ReadError, and profile status
+59 HTTP 200 plus one ReadTimeout. Across both complete windows, readiness had
+**177 HTTP 200, 3 planned-restart ConnectError and zero HTTP 503**. There were
+three profile timeouts and two untraced health ReadErrors overall. These are
+retained even though the native commands completed.
+
+An independent final DB snapshot found exactly one session each for API,
+execution, Telegram and readiness, plus the single temporary audit connection:
+**5/5 during the audit**, returning to a calculated four-service budget when
+that audit closed. It confirmed the selected binding unchanged, acceptance task
+PAUSED, no fill authorization and fresh worker/Chrome heartbeats. No connection
+exhaustion was observed during these cycles or the final single-slot audit.
+
+| Final scope on this release | Status | Limit |
+| --- | --- | --- |
+| Three consecutive real normal cycles | PASS | Zero-field read-only inspection, not fill/submission |
+| Native binding/history and no duplicate packet for exercised job | PASS | Scoped command/revision and creation-time audit |
+| Graceful restart and unexpected worker crash recovery | PASS for exercised cases | No interrupted employer write was tested |
+| Start/Pause/Stop fencing | PASS | Cancelled queued command; prior paused tasks did not resume |
+| Readiness HTTP 503 correction | PASS for observed workload | 180 samples include three deliberate-restart transport gaps; zero 503 |
+| Connection budget during observed acceptance | PASS | Four runtime sessions plus one temporary helper/audit; no limit increase |
+| Complete HTTP latency/transport reliability | FAIL / correction prepared | Three profile timeouts and two health ReadErrors retained |
+| Awake locked-screen DOM cycle | NOT TESTED — owner deferred | No locked-screen claim and no further prompt |
+| Continuous discovery expansion | NOT ACTIVATED in this stage | Remaining latency correction is reviewed first |
+
+The paired health diagnostic reproduced reused-socket resets and the status
+batching development change has now been measured against the actual remote
+database in enforced read-only transactions. The new candidate and full
+validation are documented in [the profile-status report](profile-status-latency-20261030.md).
+It has not replaced this installed release. Full sanitized results:
+[readiness-live-final-metrics-20261030.json](readiness-live-final-metrics-20261030.json).
