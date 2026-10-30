@@ -1,0 +1,88 @@
+{
+  "implementation_sha": "48e6c3a2ba7a0283a2e07e79ab2c59ecddd45a14",
+  "started_at": "2026-10-30T10:17:41.705514+00:00",
+  "last_sample_at": "2026-10-30T10:27:26.765000+00:00",
+  "samples": 40,
+  "http": {
+    "/health": {
+      "samples": 40,
+      "status_counts": {
+        "200": 40
+      },
+      "mean_seconds": 0.0329,
+      "max_seconds": 0.1501
+    },
+    "/ready": {
+      "samples": 40,
+      "status_counts": {
+        "200": 40
+      },
+      "mean_seconds": 1.5776,
+      "max_seconds": 2.9695
+    },
+    "/api/v1/browser/chrome-profiles": {
+      "samples": 40,
+      "status_counts": {
+        "200": 40
+      },
+      "mean_seconds": 2.4393,
+      "max_seconds": 4.3918
+    }
+  },
+  "database": {
+    "sessions_including_observer": {
+      "minimum": 4,
+      "maximum": 4
+    },
+    "blocked": {
+      "minimum": 0,
+      "maximum": 0
+    },
+    "max_transaction_seconds": {
+      "minimum": 0.000182,
+      "maximum": 1.986605
+    }
+  },
+  "processes": {
+    "api": {
+      "minimum_count": 1,
+      "maximum_count": 1,
+      "distinct_pid_count": 1,
+      "maximum_cpu_percent": 3.1,
+      "rss_kib_minimum": 40016,
+      "rss_kib_maximum": 62656,
+      "first_rss_kib": 56080,
+      "last_rss_kib": 43872
+    },
+    "execution": {
+      "minimum_count": 1,
+      "maximum_count": 1,
+      "distinct_pid_count": 1,
+      "maximum_cpu_percent": 9.1,
+      "rss_kib_minimum": 22880,
+      "rss_kib_maximum": 64144,
+      "first_rss_kib": 43408,
+      "last_rss_kib": 22880
+    },
+    "telegram": {
+      "minimum_count": 1,
+      "maximum_count": 1,
+      "distinct_pid_count": 1,
+      "maximum_cpu_percent": 3.6,
+      "rss_kib_minimum": 5456,
+      "rss_kib_maximum": 51168,
+      "first_rss_kib": 26128,
+      "last_rss_kib": 5456
+    },
+    "frontend": {
+      "minimum_count": 1,
+      "maximum_count": 1,
+      "distinct_pid_count": 1,
+      "maximum_cpu_percent": 0.0,
+      "rss_kib_minimum": 4400,
+      "rss_kib_maximum": 11840,
+      "first_rss_kib": 7392,
+      "last_rss_kib": 4400
+    }
+  }
+}

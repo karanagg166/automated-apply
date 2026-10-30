@@ -43,7 +43,7 @@ The native manifest retained its stable wrapper path and allowed extension origi
 | Duplicate execution/Telegram start guard | PASS | Both real duplicate invocations rejected before DB engine initialization; existing services retained |
 | Chrome extension installed content | PASS — retained in place | Owner clarified the existing installation is unchanged in Profile 8; all 17 files match the approved build exactly |
 | Extension ID and declared permissions | PASS for build comparison | Same key/permission declarations; 17 built files byte-identical to old installed extension |
-| Sustained fixed-release production reliability | NOT TESTED to completion | Forty-sample bounded monitor running; no final PASS yet |
+| Fixed-release background reliability, observed ten minutes | PASS for this window | 40/40 HTTP 200 each for health, ready and profile status; real Chrome workload remains pending |
 | Three Chrome cycles / restart / locked-screen DOM | BLOCKED for Chrome cycles | Profile heartbeat is stale after the Mac reboot; extension Settings status requested to diagnose reconnection |
 | Real filling / employer submission / email send | NOT TESTED / not authorized here | No such action performed by installation |
 
@@ -52,12 +52,38 @@ for profile status, 1.250s for the paused acceptance task, 5.923s for automation
 status, 2.419s for mailbox metadata, and 1.474s for saved plans. Their response
 bodies remain private; no Gmail contents were fetched by this verification.
 
-Two early fixed-release monitor samples saw **4 connections including the one
-observer**, compared with 5 including an observer in every final pre-fix sample.
-This is an initial measured reduction of one slot, consistent with removal of
-Telegram's dedicated database lease. It is not yet proof of stability under real
-native preparation workload. Sustained timing and resource trends will be
-published when the bounded monitor completes.
+The completed 40-sample fixed-release window ran from **10:17:41 to 10:27:26 UTC**,
+at 15-second intervals. All three endpoints returned HTTP 200 in all 40 samples.
+Every DB snapshot saw **4 connections including the one observer**, compared with
+5 including an observer in every final pre-fix sample. No connection exhaustion
+occurred in this window. This confirms removal of one steady-state lease slot;
+it does not prove stability under real native preparation workload.
+
+| Endpoint | Pre-fix mean / maximum, seconds (12 samples) | Fixed mean / maximum, seconds (40 samples) | Fixed HTTP results |
+| --- | --- | --- | --- |
+| Health | 0.0304 / 0.0785 | 0.0329 / 0.1501 | 40/40 HTTP 200 |
+| Readiness | 2.2073 / 4.6494 | 1.5776 / 2.9695 | 40/40 HTTP 200 |
+| Profile status | 3.8116 / 5.6524; 1 HTTP 503 | 2.4393 / 4.3918 | 40/40 HTTP 200 |
+
+The windows have different lengths and ordinary background activity; this is a
+measured operational comparison, not a controlled benchmark. Maximum observed
+transaction age was 1.986605s, and no blocked session was captured in the
+post-HTTP snapshots. These snapshots can miss brief waits. Each service had one
+distinct PID throughout. No new warning/error lines were found in API, execution
+or Telegram logs at the 29-sample checkpoint; later or long-term behavior is not
+implied by that check.
+
+| Process | Maximum sampled CPU | RSS min–max, KiB | First → last RSS, KiB |
+| --- | --- | --- | --- |
+| API | 3.1% | 40,016–62,656 | 56,080 → 43,872 |
+| Execution | 9.1% | 22,880–64,144 | 43,408 → 22,880 |
+| Telegram | 3.6% | 5,456–51,168 | 26,128 → 5,456 |
+| Frontend | 0.0% | 4,400–11,840 | 7,392 → 4,400 |
+
+There was no persistent upward RSS trend in this short window. `ps` RSS does not
+measure total physical footprint and ten minutes cannot exclude a slow leak.
+Sanitized figures are published in
+[reliability-fixed-metrics-20261030.json](reliability-fixed-metrics-20261030.json).
 
 ## Validation scope and reproduction
 
