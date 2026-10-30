@@ -80,9 +80,11 @@ binding IDs, screenshots and raw logs are intentionally absent here.
 
 Publication checks: clean source identities, installed process/LaunchAgent paths,
 manual-only triggers in all three workflows, and `git diff --check` passed.
-No new unit suite was run for this documentation handoff. Prior fixture tests
-are not relabeled as new runtime validation; their exact counts were not in the
-final private status report and are therefore not invented here.
+No new unit suite was run for this documentation handoff. A later inspection of
+the retained pre-upgrade fixture logs found 256 backend tests passed in 26.05s
+and 132 extension tests passed in 6.492s. These are prior fixture results, not
+new runtime validation. The current investigation and candidate are documented
+in [the reliability report](reliability.md).
 
 ```sh
 git rev-parse HEAD
@@ -104,4 +106,5 @@ reliability** until an exact-SHA-reviewed replacement is explicitly approved,
 installed and tested. Then repeat three real cycles including restart and
 awake/locked DOM completion. Discovery expansion waits for that reliability gate.
 
-The feature PR links this report and the installed implementation commit.
+The [feature PR](https://github.com/karanagg166/automated-apply/pull/48) links this
+report and the installed implementation commit.

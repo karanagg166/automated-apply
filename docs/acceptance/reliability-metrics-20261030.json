@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "candidate_sha": "48e6c3a2ba7a0283a2e07e79ab2c59ecddd45a14",
+  "installed_sha": "b06909293b1866e8191277d17fc284c398b4307b",
+  "production_after_fix": "NOT TESTED; installation approval required",
+  "windows": [
+    {
+      "name": "baseline.jsonl",
+      "started_at": "2026-10-30T09:34:49.373065+00:00",
+      "last_sample_at": "2026-10-30T09:36:46.081320+00:00",
+      "samples": 24,
+      "http": {
+        "/api/v1/local-agent/chrome/profiles": {
+          "samples": 24,
+          "status_counts": {
+            "404": 24
+          },
+          "median_seconds": 0.0215,
+          "max_seconds": 0.085
+        },
+        "/health": {
+          "samples": 24,
+          "status_counts": {
+            "200": 23,
+            "ReadError": 1
+          },
+          "median_seconds": 0.0235,
+          "max_seconds": 0.093
+        },
+        "/ready": {
+          "samples": 24,
+          "status_counts": {
+            "200": 19,
+            "503": 5
+          },
+          "median_seconds": 2.2895000000000003,
+          "max_seconds": 6.499
+        }
+      },
+      "limitations": [
+        "Profile status route was incorrect and returned 404; those are observer errors, not product readiness failures.",
+        "One HTTP health ReadError has no proven root cause."
+      ]
+    },
+    {
+      "name": "baseline-status.jsonl",
+      "started_at": "2026-10-30T09:35:46.710308+00:00",
+      "last_sample_at": "2026-10-30T09:37:22.108674+00:00",
+      "samples": 18,
+      "http": {
+        "/api/v1/browser/chrome-profiles": {
+          "samples": 18,
+          "status_counts": {
+            "200": 18
+          },
+          "median_seconds": 4.798500000000001,
+          "max_seconds": 9.094
+        },
+        "/health": {
+          "samples": 18,
+          "status_counts": {
+            "200": 18
+          },
+          "median_seconds": 0.0155,
+          "max_seconds": 0.047
+        },
+        "/ready": {
+          "samples": 18,
+          "status_counts": {
+            "200": 16,
+            "503": 2
+          },
+          "median_seconds": 2.1975,
+          "max_seconds": 5.019
+        }
+      },
+      "limitations": [
+        "Database observer connection rejected while the initial observer was still connected; HTTP observations continued without a new DB connection.",
+        "Some samples overlap the first window; do not sum these windows as independent trials."
+      ]
+    },
+    {
+      "name": "reproducible-baseline",
+      "configuration": {
+        "type": "configuration",
+        "pool_size": 1,
+        "max_overflow": 0,
+        "database_observer": true,
+        "role_limit": 5,
+        "server_limit": 60,
+        "lock_timeout": "2s",
+        "statement_timeout": "30s"
+      },
+      "started_at": "2026-10-30T09:47:29.505379+00:00",
+      "last_sample_at": "2026-10-30T09:48:25.741068+00:00",
+      "http": {
+        "/health": {
+          "samples": 12,
+          "status_counts": {
+            "200": 12
+          },
+          "mean_seconds": 0.0304,
+          "max_seconds": 0.0785
+        },
+        "/ready": {
+          "samples": 12,
+          "status_counts": {
+            "200": 12
+          },
+          "mean_seconds": 2.2073,
+          "max_seconds": 4.6494
+        },
+        "/api/v1/browser/chrome-profiles": {
+          "samples": 12,
+          "status_counts": {
+            "200": 11,
+            "503": 1
+          },
+          "mean_seconds": 3.8116,
+          "max_seconds": 5.6524
+        }
+      },
+      "processes": {
+        "api": {
+          "minimum_count": 1,
+          "maximum_count": 1,
+          "cpu_percent_max": 5.0,
+          "rss_kib_min": 29696,
+          "rss_kib_max": 43584
+        },
+        "execution": {
+          "minimum_count": 1,
+          "maximum_count": 1,
+          "cpu_percent_max": 2.1,
+          "rss_kib_min": 4336,
+          "rss_kib_max": 31408
+        },
+        "telegram": {
+          "minimum_count": 1,
+          "maximum_count": 1,
+          "cpu_percent_max": 6.3,
+          "rss_kib_min": 3584,
+          "rss_kib_max": 40704
+        },
+        "frontend": {
+          "minimum_count": 1,
+          "maximum_count": 1,
+          "cpu_percent_max": 0.0,
+          "rss_kib_min": 2192,
+          "rss_kib_max": 2224
+        }
+      },
+      "database": {
+        "sessions_including_observer_min": 5,
+        "sessions_including_observer_max": 5,
+        "maximum_transaction_seconds": 1.742335,
+        "blocked_snapshots": 0
+      }
+    }
+  ],
+  "fixture_comparison": {
+    "postgresql_version": "14.24 Homebrew, disposable localhost only",
+    "owner_lock_entry_before": {
+      "sqlstate": "55P03",
+      "seconds": 0.2046,
+      "lock_timeout_ms": 200
+    },
+    "candidate_status_and_idle_claim": {
+      "successful_cycles": 10,
+      "mean_seconds_per_cycle": 0.0095
+    },
+    "warning": "This reproduces the previous unconditional lock entry; it is not an installed old/new end-to-end comparison."
+  },
+  "tests": {
+    "backend": {
+      "passed": 342,
+      "seconds": 39.64
+    },
+    "disposable_postgresql": {
+      "passed": 5,
+      "seconds": 1.99
+    },
+    "ruff": "PASS; E9,F,I on changed Python files",
+    "production_fixed_release": "NOT TESTED"
+  }
+}
