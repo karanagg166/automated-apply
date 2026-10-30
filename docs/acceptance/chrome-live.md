@@ -36,8 +36,10 @@ Prepare saved exactly one new read-only plan, accurately labeled `NEEDS_INPUT`,
 with **zero fields, zero actions, zero approved fields and no fill authorization**.
 The page did not provide a verified application form. A completed read-only DOM
 inspection does not establish that a form can be filled or that an application
-was submitted. The existing application identity was reused; an independent
-before/after count of the application-packet table was not captured.
+was submitted. A subsequent read-only DB audit verified that the reused packet
+predates the cycle and that **zero packets for the same job/candidate were
+created during the cycle**, using authoritative creation timestamps. This is
+scoped evidence for the observed cycle, not a global historical duplicate count.
 
 The task was paused after the cycle. No uncertain command was replayed. Both new
 commands completed; old terminal command values and selected binding were
@@ -91,7 +93,7 @@ the observed latency failure.
 | Correct native/task/tab/window/session binding | PASS for this cycle | IDs/revisions reconciled privately; historical terminal values preserved |
 | Three consecutive successful cycles on a reliable release | NOT TESTED to completion | One completed; further cycles held for readiness correction |
 | No duplicate read-only plan | PASS for this cycle | Exactly one new plan for the successful Prepare |
-| No duplicate application packet | NOT TESTED by table count | Pre-existing application identity retained; do not infer a count from plans |
+| No new duplicate application packet in this cycle | PASS for creation-time audit | Existing packet predates cycle; zero new packets for this job/candidate in the cycle interval |
 | Unrelated tabs retained | PASS for observed IDs/URLs | Four pre-existing tabs unchanged; no DOM-content claim |
 | Graceful API/worker restart recovery | PASS for observed checks/cycle | Independent native and DB comparison; no crash claim |
 | Unexpected crash recovery | NOT TESTED on this release | Still required after reliability correction |

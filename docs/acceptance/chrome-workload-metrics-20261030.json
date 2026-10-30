@@ -58,7 +58,13 @@
     ],
     "new_read_only_plans": 1,
     "application_packet_identity_reused": true,
-    "duplicate_application_packet_count": "Not independently counted in this observation"
+    "packet_creation_audit": {
+      "at": "2026-10-30T10:43:18.015426+00:00",
+      "existing_packet_predates_cycle": true,
+      "existing_application_identity_retained": true,
+      "new_packets_for_same_job_and_candidate_during_cycle": 0,
+      "scope": "authoritative packet creation timestamps for this job/candidate; not a global historical count"
+    }
   },
   "unrelated_tabs": {
     "untouched_url_hash_count": 4,
