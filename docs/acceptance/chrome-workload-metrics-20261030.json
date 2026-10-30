@@ -1,0 +1,79 @@
+{
+  "installed_implementation_sha": "48e6c3a2ba7a0283a2e07e79ab2c59ecddd45a14",
+  "window": "real Chrome Open and Prepare with HTTP monitor; no independent DB observer",
+  "started_at": "2026-10-30T10:31:28.450791+00:00",
+  "last_sample_at": "2026-10-30T10:37:59.010079+00:00",
+  "complete_samples": 71,
+  "observer_stopped_after_first_cycle_failure_evidence": true,
+  "http": {
+    "/health": {
+      "samples": 71,
+      "status_counts": {
+        "200": 71
+      },
+      "mean_seconds": 0.0146,
+      "maximum_seconds": 0.1173
+    },
+    "/ready": {
+      "samples": 71,
+      "status_counts": {
+        "200": 62,
+        "503": 9
+      },
+      "mean_seconds": 2.546,
+      "maximum_seconds": 5.9354
+    },
+    "/api/v1/browser/chrome-profiles": {
+      "samples": 71,
+      "status_counts": {
+        "200": 70,
+        "ReadTimeout": 1
+      },
+      "mean_seconds": 4.1316,
+      "maximum_seconds": 12.0034
+    }
+  },
+  "cycle": {
+    "status": "PASS",
+    "resulting_task_state": "NEEDS_INPUT",
+    "final_task_state": "PAUSED",
+    "plan_state": "read_only",
+    "fields": 0,
+    "actions": 0,
+    "approved_fields": 0,
+    "open_prepare_bound_to_same_tab_window_session": true,
+    "historical_terminal_commands_unchanged": true,
+    "selected_binding_unchanged": true,
+    "commands": [
+      {
+        "action": "open",
+        "terminal_state": "completed",
+        "observed_admission_to_completion_seconds": 65.029
+      },
+      {
+        "action": "prepare",
+        "terminal_state": "completed",
+        "observed_admission_to_completion_seconds": 99.559
+      }
+    ],
+    "new_read_only_plans": 1,
+    "application_packet_identity_reused": true,
+    "duplicate_application_packet_count": "Not independently counted in this observation"
+  },
+  "unrelated_tabs": {
+    "untouched_url_hash_count": 4,
+    "all_preexisting_non_target_tabs_still_present_same_url": true,
+    "snapshot_started_after_first_open_admission": true,
+    "target_matched_applescript_tab": true,
+    "before_tabs": 4,
+    "after_tabs": 5
+  },
+  "planned_samples": 90,
+  "monitor_ended_early_after_failure_reproduction": true,
+  "readiness_classified_log_errors": {
+    "count": 9,
+    "categories": [
+      "probe_timeout"
+    ]
+  }
+}

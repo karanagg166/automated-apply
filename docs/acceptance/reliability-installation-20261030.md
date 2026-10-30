@@ -136,3 +136,12 @@ and awake/locked DOM completion. Preserve every failed or unknown attempt. Conti
 to report fixed-release acceptance as pending until those checks actually finish.
 Discovery expansion remains behind the reliability gate. No merge or hosted CI
 was performed.
+
+## Subsequent workload finding
+
+Profile 8 reconnected and one real Open → Prepare cycle passed after an approved
+API/worker restart. That representative workload nevertheless produced nine
+readiness 503s and one profile-status observer timeout. Therefore **overall
+production workload reliability remains FAIL**, despite the background-window
+PASS above. The task is paused. See [the Chrome live report](chrome-live.md) for
+the exact evidence, scope and proposed separately reviewed correction.
