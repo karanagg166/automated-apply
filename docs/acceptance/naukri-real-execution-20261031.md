@@ -4,12 +4,12 @@ Repository `karanagg166/automated-apply`, branch
 `fix/live-prepare-discovery-20261030`, base `main`, [PR #48](https://github.com/karanagg166/automated-apply/pull/48).
 Implementation [aa47599a3bd8bfb2848844835fbc36654def361b](https://github.com/karanagg166/automated-apply/commit/aa47599a3bd8bfb2848844835fbc36654def361b).
 [Sanitized measurements](naukri-real-execution-20261031-metrics.json).
-Observation window starts 2026-10-31 17:09 UTC; queue snapshot below is **17:24:02 UTC**.
+Observation window starts 2026-10-31 17:09 UTC; queue snapshot below is **17:28:47 UTC**.
 
 **Outcome B: zero new submissions, zero new independently confirmed receipts,
 zero admitted Apply actions.** The one historical QTrino receipt is retained.
 No duplicate, uncertain action replay, policy relaxation or AUTOMATIC activation.
-No eligible job has yet been established; **120 records still await inspection**.
+No eligible job has yet been established; **128 records still await inspection**.
 This does not establish that no eligible job exists in the backlog or on Naukri.
 
 ## Exact installed versions and actual restart
@@ -44,15 +44,15 @@ pending limit 200, background-only. No filter or cap was loosened.
 
 ## Genuine discovery, filtering and queue
 
-The persistent queue grew **243 → 252** records. Nine added records came from
+The persistent queue grew **243 → 267** records. Nine added records came from
 previously captured genuine Date-sorted search URLs, not synthetic or guessed
 URLs. Seventeen such read candidates were prioritized; 114 other metadata reads
 were deferred ten minutes with original availability values preserved privately.
-The existing search scheduler performed genuine cycles **17:13:01–17:13:16** and
-**17:18:30–17:18:50**; both admitted zero new distinct URLs. Its cumulative
-admission counter remained 239; that source counter differs from total queue
-records, which include saved sources and the retained receipt. Another cycle was
-leased at 17:23:55. Discovery interval remains the configured 300 seconds.
+The existing search scheduler performed genuine cycles **17:13:01–17:13:16**,
+**17:18:30–17:18:50** and **17:23:55–17:24:10**. The first two admitted zero
+new distinct URLs; the third admitted **15 actual new URLs**, contributing the
+remaining queue growth. Its cumulative admission counter reached 254; that source counter differs from total queue
+records, which include saved sources and the retained receipt. The next cycle is due at 17:28:55. Discovery interval remains the configured 300 seconds.
 Repeated URLs are deduplicated; these cycles are not 40 new eligible jobs.
 
 The live Date-sorting observer captured zero completed results in this run.
@@ -60,20 +60,20 @@ Prior operator-assisted Date evidence is not relabelled automatic acceptance.
 The shipped 1.3.6 search consumer still observes default ordering; the follow-up
 source corrects this before candidates are admitted.
 
-| Queue / blocking reason at 17:24:02 UTC | Count | Classification |
+| Queue / blocking reason at 17:28:47 UTC | Count | Classification |
 | --- | ---: | --- |
-| DISCOVERED, queued for actual metadata inspection | 120 | Pending, eligibility unknown |
-| SKIPPED: `posting_outside_age_limit` | 111 | Observed posting facts fail saved age bound |
+| DISCOVERED, queued for actual metadata inspection | 128 | Pending, eligibility unknown |
+| SKIPPED: `posting_outside_age_limit` | 114 | Observed posting facts fail saved age bound |
 | SKIPPED: `current_profile_preferences_or_required_skills_exclude_job` | 4 | Actual matching exclusions |
 | NEEDS_INPUT: `posting_age_requires_review` | 9 | Date-only precision cannot establish saved age bound |
 | NEEDS_INPUT: `applicant_count_requires_review` | 2 | Provider lower bound does not establish upper limit |
-| NEEDS_INPUT: `backend_not_ready` | 2 | Software/remote-transaction failure; read-only work |
-| NEEDS_INPUT: `job_required_facts_unrecognized` | 3 | Unsupported or incomplete observed page facts; not personal input |
+| NEEDS_INPUT: `backend_not_ready` | 4 | Software/remote-transaction failure; read-only work |
+| NEEDS_INPUT: `job_required_facts_unrecognized` | 5 | Unsupported or incomplete observed page facts; not personal input |
 | Historical `SUBMITTED_RECORDED` | 1 | Retained QTrino; never retried |
-| Leased / executing queue jobs | 0 / 0 | Separate search lease is active |
+| Leased / executing queue jobs | 0 / 0 | Separate search is idle; next cycle scheduled |
 | READY / BLOCKED_PLATFORM / SUBMISSION_UNKNOWN / new receipt | 0 / 0 / 0 / 0 | No new submission admission |
 
-Counts sum to 252: 120 pending, 115 skipped, 16 blocked, one historical receipt.
+Counts sum to 267: 128 pending, 118 skipped, 20 blocked, one historical receipt.
 Applicant-limit-reached, prior-application skips and direct minimum-score skips
 were zero in this snapshot. Matching diagnostics on all four persisted inspected
 job records found four title mismatches and four missing-required-skill results
@@ -121,7 +121,7 @@ unsupported multi-step forms remain capability gaps, not successful automation.
 Actual new installed requests still returned **HTTP 503 / `lock_timeout`**:
 two metadata admissions and one heartbeat in the retained timing sample.
 Owner-row lock waits were approximately **2.16–2.17 s**. The 104 mixed request
-samples had HTTP min/median/max **1.552 / 2.997 / 13.273 s**; these are not
+samples retained through approximately 17:24 UTC had HTTP min/median/max **1.552 / 2.997 / 13.273 s**; these are not
 104 discovery polls. The API repeatedly holds owner transactions over many
 remote statements. This is not pool-capacity proof; capacity/timeouts were unchanged.
 
@@ -207,7 +207,12 @@ All historical releases, PDFs, configurations and rollback files remain intact.
 | Automatic Date sorting | BLOCKED installation | Exact aa47599 approval, then genuine installed observation |
 | New questionnaire / unattended resume / receipt / Telegram result | NOT TESTED live | Need eligible job and supported flow; no false success notification |
 | Recurring AUTOMATIC | BLOCKED | First genuine receipt plus critical acceptance; standing limits retained |
-| Awake locked-browser submissions / extended reliability | NOT TESTED | 12 samples: 11 UNLOCKED, one UNKNOWN, none LOCKED; no locked-operation claim |
+| Awake locked-browser submissions / extended reliability | NOT TESTED | 14 samples: 13 UNLOCKED, one UNKNOWN, none LOCKED; no locked-operation claim |
+
+At 17:28:42 UTC all four LaunchAgents had running PIDs. API `/ready` returned
+200 in 2.361 s, frontend `/login` returned 200 in 0.283 s, and the selected
+Chrome profile was CONNECTED with commands enabled. These bounded checks are
+not sustained reliability or a Telegram delivery test. Gmail sending is disabled.
 
 Raw evidence stays private; this report publishes sanitized counts, codes and
 job URLs. No Gmail sending, other-platform activation, hosted Actions, PR merge,

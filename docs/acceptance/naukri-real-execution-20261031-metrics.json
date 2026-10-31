@@ -593,6 +593,97 @@
         "last_error": null,
         "last_record": "a7740fe5-f212-4b62-81ee-5391b99b115c"
       }
+    },
+    {
+      "at": "2026-10-31T17:27:07.578095+00:00",
+      "screen": "UNLOCKED",
+      "query_seconds": 4.106,
+      "queue": "RUNNING",
+      "counts": {
+        "SUBMITTED_RECORDED": 1,
+        "SKIPPED": 117,
+        "DISCOVERED": 131,
+        "NEEDS_INPUT": 18
+      },
+      "reasons": {
+        "retained_provider_ui_observation": 1,
+        "posting_outside_age_limit": 113,
+        "pending": 131,
+        "posting_age_requires_review": 9,
+        "current_profile_preferences_or_required_skills_exclude_job": 4,
+        "applicant_count_requires_review": 2,
+        "backend_not_ready": 4,
+        "job_required_facts_unrecognized": 3
+      },
+      "status_counts": {
+        "complete": 118,
+        "queued": 130,
+        "waiting": 18,
+        "executing": 1
+      },
+      "admitted_action_count": 0,
+      "ready_jobs": [],
+      "heartbeat": "2026-10-31T17:27:05.101650+00:00",
+      "search": {
+        "status": "idle",
+        "last_started_at": "2026-10-31T17:23:55.487660+00:00",
+        "last_finished_at": "2026-10-31T17:24:10.463290+00:00",
+        "last_cycle_count": 15,
+        "last_error": null,
+        "candidates_found": 254,
+        "next_at": "2026-10-31T17:28:55.487660+00:00"
+      },
+      "sync": {
+        "status": "idle",
+        "operation": "inspect_profile_sync",
+        "last_error": null,
+        "last_record": "a7740fe5-f212-4b62-81ee-5391b99b115c"
+      }
+    },
+    {
+      "at": "2026-10-31T17:28:47.998718+00:00",
+      "screen": "UNLOCKED",
+      "query_seconds": 4.31,
+      "queue": "RUNNING",
+      "counts": {
+        "SUBMITTED_RECORDED": 1,
+        "SKIPPED": 118,
+        "DISCOVERED": 128,
+        "NEEDS_INPUT": 20
+      },
+      "reasons": {
+        "retained_provider_ui_observation": 1,
+        "posting_outside_age_limit": 114,
+        "pending": 128,
+        "posting_age_requires_review": 9,
+        "current_profile_preferences_or_required_skills_exclude_job": 4,
+        "applicant_count_requires_review": 2,
+        "backend_not_ready": 4,
+        "job_required_facts_unrecognized": 5
+      },
+      "status_counts": {
+        "complete": 119,
+        "queued": 128,
+        "waiting": 20
+      },
+      "admitted_action_count": 0,
+      "ready_jobs": [],
+      "heartbeat": "2026-10-31T17:28:46.133568+00:00",
+      "search": {
+        "status": "idle",
+        "last_started_at": "2026-10-31T17:23:55.487660+00:00",
+        "last_finished_at": "2026-10-31T17:24:10.463290+00:00",
+        "last_cycle_count": 15,
+        "last_error": null,
+        "candidates_found": 254,
+        "next_at": "2026-10-31T17:28:55.487660+00:00"
+      },
+      "sync": {
+        "status": "idle",
+        "operation": "inspect_profile_sync",
+        "last_error": null,
+        "last_record": "a7740fe5-f212-4b62-81ee-5391b99b115c"
+      }
     }
   ],
   "match_summary": {
@@ -1686,7 +1777,42 @@
   },
   "lock_observation_counts": {
     "UNKNOWN": 1,
-    "UNLOCKED": 11
+    "UNLOCKED": 13
   },
-  "locked_submission_accepted": false
+  "locked_submission_accepted": false,
+  "final_service_check": {
+    "at": "2026-10-31T17:28:42.660799+00:00",
+    "services": {
+      "api": {
+        "running": true,
+        "pid": 67601
+      },
+      "execution": {
+        "running": true,
+        "pid": 58182
+      },
+      "frontend": {
+        "running": true,
+        "pid": 58186
+      },
+      "telegram": {
+        "running": true,
+        "pid": 58184
+      }
+    },
+    "ready": {
+      "http": 200,
+      "seconds": 2.361
+    },
+    "frontend_login": {
+      "http": 200,
+      "seconds": 0.283
+    },
+    "profiles": {
+      "http": 200,
+      "seconds": 1.272,
+      "selected_connected": true
+    },
+    "gmail_sending_enabled": false
+  }
 }
