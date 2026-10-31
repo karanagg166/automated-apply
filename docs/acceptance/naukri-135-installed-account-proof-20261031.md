@@ -157,6 +157,28 @@ timeout or queue-integrity protection was increased. CPU/RAM were not benchmarke
 The 13-second search cycle and earlier differently loaded cycles are observations,
 not a controlled performance comparison. Slow Stop/readiness remain open.
 
+A subsequent **read-only production EXPLAIN ANALYZE** of the actual active-queue
+selection shape returned **170 rows**, planning **0.726 ms**, server execution
+**1.718 ms**, **316 shared-buffer hits / 0 reads**. Three separate clock-query
+round trips took **326.88 / 163.22 / 162.63 ms**. The role cap remained **5**;
+the snapshot contained four connections including the sole temporary operator,
+zero blockers, idle execution/Telegram connections and API waiting for its client
+inside a transaction. The operator connection was closed after the probe.
+
+The last **40** retained request timings containing profile authorization
+(a mixture of native operations, not 40 polls) all had HTTP **200**. Their request
+latency was **1.539 / 3.044 / 10.263 s min/median/max**, SQL read count
+**3 / 11 / 25**, SQL-read duration **0.454 / 1.828 / 8.687 s**, owner-lock stage
+**0.908 / 0.997 / 3.525 s**, and connection occupancy
+**1.072 / 2.520 / 9.754 s**. Pool acquisition was at most **1 ms** in this sample.
+The owner-row insert stage alone had median **0.779 s**, versus median **0.165 s**
+for the row-lock stage. These observations identify repeated remote statements
+and lock occupancy as optimization targets; they do not establish a controlled
+before/after improvement or resolve earlier 503s. Review reducing redundant reads
+and the existing-singleton insert round trip while retaining transaction-scoped
+locks, missing-row creation, savepoint handling and admission fences. This probe
+made no source, installed runtime, SQL schema or capacity change.
+
 Candidate `331ce17` has clean immutable source, its own venv with matching pinned
 dependencies and passing `pip check`, plus **22/22** exact extension build files.
 Private inventory preserves the current API plist and all **22/22** installed
