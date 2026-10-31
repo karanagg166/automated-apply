@@ -134,7 +134,8 @@ async def receive_job(session, value, report):
         date_posted=observed.posted_at, source_verification_status="observed",
         data_provenance={"method": "bound_browser_ui", "evidence_sha256": observed.evidence_sha256,
                          "observed_at": (await instant(session)).isoformat(),
-                         "posting_recruiter": observed.posting_recruiter, "experience_requirement": "required"},
+                         "posting_recruiter": observed.posting_recruiter, "experience_requirement": "required",
+                         "observed_posted_date": observed.posted_date.isoformat() if observed.posted_date else None},
     )
     result = await JobIngestionService(session).ingest_jobs([item])
     if len(result.job_ids) != 1 or result.failed_count or result.rejected_count:
@@ -277,18 +278,7 @@ async def dispatch(session, settings, actor, command):
                     if report.kind == "source_candidates":
                         if str(report.observed_url) != value["url"]:
                             raise ToolDenied("queue_document_identity_changed")
-                        added = 0
-                        observed = set()
-                        for candidate in report.candidates:
-                            try:
-                                url = queue.normalized_url(str(candidate))
-                                if url in observed:
-                                    continue
-                                observed.add(url)
-                                await queue.enqueue(session, "naukri", str(candidate), "naukri_ui_search")
-                                added += 1
-                            except (ValueError, ToolDenied):
-                                continue
+                        added = await queue.enqueue_batch(session, report.candidates, "naukri_ui_search")
                         value.update(candidates_found=value["candidates_found"] + added, last_cycle_count=added)
                     else:
                         value["last_error"] = report.reason or "source_observation_unavailable"

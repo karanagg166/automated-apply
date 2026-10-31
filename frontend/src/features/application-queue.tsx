@@ -75,6 +75,7 @@ type QueueItem = {
   match_score: number | null;
   created_at: string;
   posted_at: string | null;
+  posted_date?: string | null;
   applicants_min: number | null;
   applicants_max: number | null;
   url?: string | null;
@@ -1035,7 +1036,9 @@ export function ApplicationQueue() {
                 <td>
                   {item.posted_at
                     ? new Date(item.posted_at).toLocaleString()
-                    : "Unknown"}
+                    : item.posted_date
+                      ? `${item.posted_date} (time unknown)`
+                      : "Unknown"}
                 </td>
                 <td>{readable(item.reason)}</td>
                 <td>

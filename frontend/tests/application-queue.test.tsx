@@ -272,6 +272,7 @@ it("filters the ledger without inventing unknown applicant counts", async () => 
         reason: "applicant_count_requires_review",
         match_score: 90,
         posted_at: null,
+        posted_date: "2026-10-31",
         applicants_min: null,
         applicants_max: null,
         created_at: "2026-10-31T00:00:00Z",
@@ -287,6 +288,7 @@ it("filters the ledger without inventing unknown applicant counts", async () => 
     </QueryClientProvider>,
   );
   expect(await screen.findByText("Fictional Developer")).toBeVisible();
+  expect(screen.getByText("2026-10-31 (time unknown)")).toBeVisible();
   await userEvent.selectOptions(
     screen.getByLabelText("Queue status filter"),
     "NEEDS_INPUT",

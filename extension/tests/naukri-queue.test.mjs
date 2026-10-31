@@ -84,7 +84,10 @@ function fixture(options = {}) {
         }
         return [
           {
-            result: { kind: "needs_input", reason: "fictional_unknown_layout" },
+            result: options.reports?.shift() || {
+              kind: "needs_input",
+              reason: "fictional_unknown_layout",
+            },
           },
         ];
       },
@@ -240,4 +243,44 @@ test("concurrent alarms share one consumer run", async () => {
     1,
   );
   assert.equal(f.calls.filter(([name]) => name === "create").length, 1);
+});
+
+test("delayed read-only hydration is bounded and returns the first complete facts", async () => {
+  const f = fixture({
+    reports: [
+      { kind: "needs_input", reason: "job_header_unrecognized" },
+      { kind: "needs_input", reason: "job_required_facts_unrecognized" },
+      { kind: "job_facts", job: { evidence_sha256: "fictional" } },
+    ],
+  });
+  await f.queue.tick();
+  assert.equal(f.calls.filter(([name]) => name === "inspect").length, 3);
+  assert.equal(
+    f.calls.find(([name]) => name === "finish_naukri_work")[1].work_report.kind,
+    "job_facts",
+  );
+  assert.equal(
+    f.calls.filter(([name]) => name === "admit_naukri_work").length,
+    1,
+  );
+});
+test("hydration retries are bounded and never retry a provider challenge", async () => {
+  const pending = fixture({
+    reports: Array.from({ length: 12 }, () => ({
+      kind: "needs_input",
+      reason: "job_header_unrecognized",
+    })),
+  });
+  await pending.queue.tick();
+  assert.equal(pending.calls.filter(([name]) => name === "inspect").length, 9);
+  const challenge = fixture({
+    reports: [
+      { kind: "needs_input", reason: "provider_challenge_requires_owner" },
+    ],
+  });
+  await challenge.queue.tick();
+  assert.equal(
+    challenge.calls.filter(([name]) => name === "inspect").length,
+    1,
+  );
 });

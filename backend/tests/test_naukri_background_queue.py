@@ -227,3 +227,29 @@ async def test_existing_global_execution_off_stops_new_queue_and_fences_native_w
     assert not (await call(db_session, context, "finish_naukri_work", work, work_report=job_report())).ok
     with pytest.raises(ToolDenied, match="execution_mode_off"):
         await queue.control(db_session, QueueControl(action="start", expected_revision=stopped["revision"]))
+
+
+@pytest.mark.parametrize("day,now,reason", [
+    ("2026-10-31", "2026-10-31T12:00:00+00:00", None),
+    ("2026-10-30", "2026-10-31T12:00:00+00:00", "posting_age_requires_review"),
+    ("2026-10-25", "2026-10-31T12:00:00+00:00", "posting_outside_age_limit"),
+    ("2026-02-31", "2026-10-31T12:00:00+00:00", "posting_timestamp_unknown"),
+])
+def test_calendar_posting_date_enforces_worst_case_age_without_invented_time(day, now, reason):
+    facts = {"posted_at": None, "posted_date": day, "applicants_min": 5, "applicants_max": 5}
+    assert queue.listing_exclusion(facts, {"max_job_age_days": 2, "applicant_limit": 1000}, datetime.fromisoformat(now)) == reason
+
+
+async def test_calendar_date_native_ingestion_preserves_unknown_exact_timestamp(db_session):
+    context = await setup(db_session)
+    item = await queue.enqueue(db_session, "naukri", URL, "saved_verified_job")
+    work = await observe(db_session, context, item)
+    today = datetime.now(timezone.utc).date().isoformat()
+    result = await call(db_session, context, "finish_naukri_work", work,
+                        work_report=job_report(posted_at=None, posted_date=today))
+    assert result.ok, result.error_code
+    saved = (await queue.load(db_session, item["id"])).value
+    assert saved["stage"] == "MATCHED", saved
+    job = await db_session.get(Job, UUID(saved["job_id"]))
+    assert job.date_posted is None
+    assert job.discovery_metadata["data_provenance"]["observed_posted_date"] == today

@@ -1,6 +1,6 @@
 """Dashboard-owned background queue policy; facts remain in the verified profile."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -121,7 +121,8 @@ class ObservedNaukriJob(Contract):
     skills: list[str] = Field(min_length=1, max_length=50)
     experience_min: float = Field(ge=0, le=60, allow_inf_nan=False)
     experience_max: float = Field(ge=0, le=60, allow_inf_nan=False)
-    posted_at: datetime
+    posted_at: datetime | None = None
+    posted_date: date | None = None
     applicants_min: int | None = Field(None, ge=0, le=10_000_000)
     applicants_max: int | None = Field(None, ge=0, le=10_000_000)
     remote_type: Literal["remote", "hybrid", "onsite", "unknown"] = "unknown"
@@ -148,8 +149,12 @@ class ObservedNaukriJob(Contract):
 
     @model_validator(mode="after")
     def factual_bounds(self):
-        if self.posted_at.tzinfo is None or self.posted_at > datetime.now(timezone.utc) + timedelta(minutes=5):
+        if self.posted_at is not None and (self.posted_at.tzinfo is None or self.posted_at > datetime.now(timezone.utc) + timedelta(minutes=5)):
             raise ValueError("nonfuture_timezone_posting_timestamp_required")
+        if self.posted_at is not None and self.posted_date is not None:
+            raise ValueError("posting_precision_must_be_unambiguous")
+        if self.posted_date is not None and self.posted_date > datetime.now(timezone.utc).date() + timedelta(days=1):
+            raise ValueError("nonfuture_posting_date_required")
         for lower, upper in ((self.experience_min, self.experience_max),
                              (self.applicants_min, self.applicants_max),
                              (self.salary_min, self.salary_max)):

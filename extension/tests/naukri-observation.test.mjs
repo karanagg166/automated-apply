@@ -78,7 +78,12 @@ for (const [name, body, options, reason] of [
     { actual: url + "-other" },
     "provider_navigation_changed",
   ],
-  ["date only", html({ date: "2026-10-31" }), {}, "posting_timestamp_unknown"],
+  [
+    "invalid date",
+    html({ date: "2026-02-31" }),
+    {},
+    "posting_timestamp_unknown",
+  ],
   [
     "ambiguous title",
     html({ title: "Another job" }),
@@ -109,4 +114,32 @@ test("search returns unique canonical posting links only and never invents job f
   );
   assert.deepEqual(report.candidates, [url]);
   assert.equal(report.job, undefined);
+});
+
+test("calendar date is retained without inventing a timestamp or timezone", async () => {
+  const report = await observe(html({ date: "2026-10-31" }));
+  assert.equal(report.job.posted_at, null);
+  assert.equal(report.job.posted_date, "2026-10-31");
+});
+test("current public layout reads the full header and excludes ratings/sticky duplicates", async () => {
+  const body =
+    html()
+      .replace(
+        '<div class="styles_jd-header">',
+        '<section id="job_header" class="styles_job-header-container">',
+      )
+      .replace("<h1>", '<h1 class="styles_jd-header-title">')
+      .replace(
+        '<a class="styles_comp-name">Fictional Labs</a>',
+        '<div class="styles_jd-header-comp-name"><a>Fictional Labs</a><div>3.9 95 Reviews</div></div>',
+      )
+      .replace("styles_exp-wrap", "styles_jhc__exp__abc")
+      .replace("0 - 3 Yrs", "0 - 3 years")
+      .replace("120 Applicants", "<label>Applicants: </label><span>120</span>")
+      .replace("</button></div>", "</button></section>") +
+    '<div class="sticky"><h1 class="styles_jd-header-title">Backend Developer</h1></div>';
+  const report = await observe(body);
+  assert.equal(report.kind, "job_facts");
+  assert.equal(report.job.company, "Fictional Labs");
+  assert.equal(report.job.applicants_max, 120);
 });

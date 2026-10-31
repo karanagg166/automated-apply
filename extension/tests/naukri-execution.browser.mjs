@@ -128,6 +128,20 @@ try {
       body = `<header>${email}</header><article><a href="${jobUrl}">Backend Developer</a><span class="company">Fictional Labs</span><span>${mode === "missing_receipt" ? "Viewed" : "Application Sent"}</span></article>`;
     else
       body = `<header>${mode === "wrong_account" ? '<span class="email">other@example.com</span>' : email}</header><div class="styles_jd-header"><h1>Backend Developer</h1><span class="styles_comp-name">Fictional Labs</span><button onclick="window.fixtureClicks=(window.fixtureClicks||0)+1">Apply</button></div>${mode === "challenge" ? "<p>Verify you are human</p>" : ""}`;
+    if (mode === "modern")
+      body =
+        body
+          .replace(
+            '<div class="styles_jd-header">',
+            '<section id="job_header" class="styles_job-header-container">',
+          )
+          .replace("<h1>", '<h1 class="styles_jd-header-title">')
+          .replace(
+            '<span class="styles_comp-name">Fictional Labs</span>',
+            '<div class="styles_jd-header-comp-name"><a>Fictional Labs</a><span>3.9 95 Reviews</span></div>',
+          )
+          .replace("</button></div>", "</button></section>") +
+        '<div class="styles_jd-header-sticky-background" style="display:none"><h1 class="styles_jd-header-title">Backend Developer</h1></div>';
     return route.fulfill({ contentType: "text/html", body });
   });
   context.on("page", (p) => p.on("filechooser", () => chooserEvents++));
@@ -237,13 +251,14 @@ try {
 
   for (const variant of [
     "normal",
+    "modern",
     "expired",
     "changed",
     "double",
     "wrong_account",
     "challenge",
   ]) {
-    mode = ["wrong_account", "challenge"].includes(variant)
+    mode = ["wrong_account", "challenge", "modern"].includes(variant)
       ? variant
       : "normal";
     tabId = await create(jobUrl);

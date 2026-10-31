@@ -141,13 +141,7 @@ export class NaukriQueue {
       const admitted = await this.command("admit_naukri_work", work);
       work = { ...admitted.work, ownedTabId: tab.id };
       await this.api.storage.session.set({ [key]: work });
-      const result = await this.api.scripting.executeScript({
-        target: { tabId: tab.id, frameIds: [0] },
-        world: "ISOLATED",
-        func: observeNaukri,
-        args: [work.url, work.operation],
-      });
-      const report = result.length === 1 && result[0].result;
+      const report = await this.observeReady(work, context);
       if (!report || (await this.api.tabs.get(tab.id)).active)
         throw Error("owner_tab_active");
       await this.command("finish_naukri_work", work, { work_report: report });
@@ -209,17 +203,13 @@ export class NaukriQueue {
         work.operation === "inspect_application" &&
         report.execution?.state === "NOT_APPLIED"
       ) {
-        const observed = await this.api.scripting.executeScript({
-          target: { tabId, frameIds: [0] },
-          world: "ISOLATED",
-          func: observeNaukri,
-          args: [work.url, "inspect_job"],
-        });
-        if (observed.length !== 1 || observed[0].result?.kind !== "job_facts")
-          throw Error(
-            observed[0]?.result?.reason || "provider_job_facts_required",
-          );
-        report = { ...report, job: observed[0].result.job };
+        const observed = await this.observeReady(
+          { ...work, operation: "inspect_job" },
+          context,
+        );
+        if (observed?.kind !== "job_facts")
+          throw Error(observed?.reason || "provider_job_facts_required");
+        report = { ...report, job: observed.job };
       }
       await this.assertInactive(work, context);
       const finished = await this.command("finish_naukri_work", work, {
@@ -230,6 +220,36 @@ export class NaukriQueue {
       if (!finished.continue) return work;
     }
     throw Error("background_step_limit_reached");
+  }
+  async observeReady(work, context) {
+    // Navigation complete can precede React hydration. Only read-only layout
+    // absence is retried; challenges, ambiguity and all writes are terminal.
+    const transient = new Set([
+      "job_header_unrecognized",
+      "job_required_facts_unrecognized",
+      "search_layout_unrecognized",
+    ]);
+    for (let attempt = 0; attempt < 9; attempt++) {
+      const tab = await this.assertInactive(work, context);
+      const actual = new URL(tab.url),
+        expected = new URL(work.url);
+      if (
+        actual.origin !== expected.origin ||
+        actual.pathname !== expected.pathname
+      )
+        throw Error("provider_context_changed");
+      const result = await this.api.scripting.executeScript({
+        target: { tabId: work.ownedTabId, frameIds: [0] },
+        world: "ISOLATED",
+        func: observeNaukri,
+        args: [work.url, work.operation],
+      });
+      const report = result.length === 1 && result[0].result;
+      await this.assertInactive(work, context);
+      if (!report || !transient.has(report.reason) || attempt === 8)
+        return report;
+      await this.delay(250);
+    }
   }
   async assertInactive(work, context) {
     const tab = await this.api.tabs.get(work.ownedTabId);

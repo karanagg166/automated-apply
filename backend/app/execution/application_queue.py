@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 
 from backend.app.agent.tools import ToolDenied
 from backend.app.automation.store import instant
@@ -63,6 +63,23 @@ async def event(session, value, name):
     })
 
 
+async def events_batch(session, values, name, now=None):
+    """Publish state-transition outbox records in the caller's transaction."""
+    if not values:
+        return
+    from backend.app.services.discovery_budget import insert_for
+
+    now = now or await instant(session)
+    records = []
+    for value in values:
+        identity = str(uuid5(NAMESPACE_URL, f"queue:{value['id']}:{value['revision']}:{name}"))
+        records.append({"key": EVENT + identity, "created_at": now, "updated_at": now,
+                        "value": {"id": identity, "queue_id": value["id"], "platform": value["platform"],
+                                  "stage": value["stage"], "event": name,
+                                  "at": now.isoformat(), "delivered": False}})
+    await session.execute(insert_for(session)(OwnerPreference).values(records).on_conflict_do_nothing(index_elements=[OwnerPreference.key]))
+
+
 async def fence(session, reason):
     sync = await session.get(OwnerPreference, "apply_profile_sync:naukri", populate_existing=True)
     if sync:
@@ -74,6 +91,7 @@ async def fence(session, reason):
     if search:
         search.value = {**search.value, "status": "idle", "lease_token": None, "lease_until": None,
                         "next_at": None, "revision": search.value["revision"] + 1, "last_error": reason}
+    changed = []
     for row in await items(session, active_only=True):
         value = dict(row.value)
         if value["stage"] in TERMINAL:
@@ -90,7 +108,9 @@ async def fence(session, reason):
             lease_token=None, lease_until=None,
         )
         row.value = value
-        await event(session, value, "fenced")
+        changed.append(value)
+    await session.flush()
+    await events_batch(session, changed, "fenced")
 
 
 async def configure(session, data):
@@ -118,6 +138,7 @@ async def control(session, data):
         if not any(p.enabled for p in policy.platforms.values()):
             raise ToolDenied("enabled_platform_required")
         state = "RUNNING"
+        changed = []
         for row in await items(session, active_only=True):
             v = dict(row.value)
             if v["stage"] == "PAUSED" and v["reason"] in {"owner_pause", "global_stop", "queue_policy_changed"}:
@@ -130,7 +151,9 @@ async def control(session, data):
                 if not waiting and v["operation"] in WRITES:
                     v.update(operation="inspect_profile" if v.get("account_sha256") and not v.get("admitted_actions") else "inspect_application", stage="VERIFYING")
                 row.value = v
-                await event(session, v, "resumed_for_fresh_inspection")
+                changed.append(v)
+        await session.flush()
+        await events_batch(session, changed, "resumed_for_fresh_inspection")
     else:
         await fence(session, "global_stop" if data.action == "stop" else "owner_pause")
         from backend.app.execution import recurring
@@ -162,8 +185,27 @@ def limits(policy, platform):
 
 def listing_exclusion(facts, effective, now):
     try:
-        posted = datetime.fromisoformat(facts["posted_at"])
-        if posted.tzinfo is None or not timedelta(0) <= now - posted <= timedelta(days=effective["max_job_age_days"]):
+        if facts.get("posted_at"):
+            posted = datetime.fromisoformat(facts["posted_at"])
+            if posted.tzinfo is None:
+                return "posting_timestamp_unknown"
+        elif facts.get("posted_date"):
+            # Exact time and source timezone are unknown. Use the earliest
+            # possible instant across civil offsets (-12..+14) for eligibility,
+            # never persist that bound as an actual provider posting timestamp.
+            from datetime import date, timezone
+
+            day = date.fromisoformat(facts["posted_date"])
+            posted = datetime.combine(day, datetime.min.time(), timezone.utc) - timedelta(hours=14)
+            latest = posted + timedelta(hours=50)
+            if now < posted:
+                return "posting_outside_age_limit"
+            if now - posted > timedelta(days=effective["max_job_age_days"]):
+                return ("posting_outside_age_limit" if now - latest > timedelta(days=effective["max_job_age_days"])
+                        else "posting_age_requires_review")
+        else:
+            return "posting_timestamp_unknown"
+        if not timedelta(0) <= now - posted <= timedelta(days=effective["max_job_age_days"]):
             return "posting_outside_age_limit"
     except (KeyError, TypeError, ValueError):
         return "posting_timestamp_unknown"
@@ -217,7 +259,16 @@ async def enqueue(session, platform, url, source, reference=None):
     if pending >= policy.max_pending:
         raise ToolDenied("queue_backpressure")
     now = await instant(session)
-    value = {
+    value = initial_item(config, platform, url, source, reference, now)
+    await put(session, key, value)
+    await event(session, value, "enqueued")
+    return value
+
+
+def initial_item(config, platform, url, source, reference, now):
+    requisition = url.rsplit("-", 1)[-1]
+    identity = str(uuid5(NAMESPACE_URL, platform + ":" + requisition))
+    return {
         "id": identity, "platform": platform, "requisition": requisition, "url": url,
         "source": source, "source_reference_hash": hashlib.sha256(reference.encode()).hexdigest() if reference else None,
         "stage": "DISCOVERED", "status": "queued", "operation": "inspect_job",
@@ -228,9 +279,81 @@ async def enqueue(session, platform, url, source, reference=None):
         "available_at": now.isoformat(), "lease_until": None, "lease_token": None,
         "binding": None, "reason": None, "admitted_actions": [],
     }
-    await put(session, key, value)
-    await event(session, value, "enqueued")
-    return value
+
+
+async def enqueue_batch(session, urls, source):
+    """One bounded discovery batch, including permanent replay checks/outbox.
+
+    The native deadline cannot tolerate per-candidate remote transactions/reads.
+    The same owner fence and canonical identity apply, with set-based SQL instead
+    of weakening replay checks or increasing the transport deadline.
+    """
+    if source not in {"naukri_ui_search", "saved_verified_job", "approved_gmail_alerts"} or len(urls) > 20:
+        raise ToolDenied("bounded_supported_queue_batch_required")
+    await store.memory_row(session, lock=True)
+    config = await configuration(session)
+    policy = QueuePolicy.model_validate(config["policy"])
+    if source not in policy.platforms["naukri"].sources:
+        raise ToolDenied("queue_source_disabled")
+    normalized = {}
+    for raw in urls:
+        try:
+            url = normalized_url(str(raw))
+        except ValueError:
+            continue
+        normalized.setdefault(url.rsplit("-", 1)[-1], url)
+    if not normalized:
+        return 0
+    identities = {req: str(uuid5(NAMESPACE_URL, "naukri:" + req)) for req in normalized}
+    keys = [PREFIX + identity for identity in identities.values()]
+    receipt_keys = [prefix + req for req in normalized for prefix in ("naukri_receipt:", "naukri_worker_receipt:")]
+    existing = set((await session.scalars(select(OwnerPreference.key).where(
+        OwnerPreference.key.in_([*keys, *receipt_keys])
+    ))).all())
+    from backend.app.models.application_packet import ApplicationPacket
+    from backend.app.models.job import Job
+
+    # Match all slug variants for these requisitions. A prior packet under any
+    # matching canonical row fences the entire requisition, including unknowns.
+    jobs = (await session.scalars(select(Job).where(Job.source_platform == "naukri", or_(
+        *(Job.job_url.like("%-" + req + suffix) for req in normalized for suffix in ("", "/"))
+    )))).all()
+    terminal_packets = set((await session.scalars(select(ApplicationPacket.job_id).where(
+        ApplicationPacket.job_id.in_([job.id for job in jobs]),
+        ApplicationPacket.lifecycle_state.in_([
+            "user_reported_submitted", "provider_confirmed_submitted", "submitting", "submission_unknown",
+        ]),
+    ))).all()) if jobs else set()
+    excluded = set()
+    for job in jobs:
+        applied = (job.id in terminal_packets or job.status in {"applied", "submitted"}
+                   or getattr(job, "application_status", None) in {"applied", "submitted", "interview", "offer", "applied_manually", "applied_verified"}
+                   or (job.discovery_metadata or {}).get("data_provenance", {}).get("posting_status") == "already_applied")
+        if applied:
+            # Do not need a valid old slug/host to protect a matching suffix.
+            excluded.update(req for req in normalized if job.job_url.rstrip("/").endswith("-" + req))
+    pending = await session.scalar(select(func.count()).select_from(OwnerPreference).where(
+        OwnerPreference.key.startswith(PREFIX), OwnerPreference.value["stage"].as_string().not_in(TERMINAL),
+    ))
+    available = max(0, policy.max_pending - pending)
+    now = await instant(session)
+    values = []
+    for req, url in normalized.items():
+        if (req in excluded or PREFIX + identities[req] in existing
+                or any(prefix + req in existing for prefix in ("naukri_receipt:", "naukri_worker_receipt:"))):
+            continue
+        if len(values) >= available:
+            break
+        values.append(initial_item(config, "naukri", url, source, None, now))
+    if not values:
+        return 0
+    from backend.app.services.discovery_budget import insert_for
+
+    inserted = set((await session.scalars(insert_for(session)(OwnerPreference).values([
+        {"key": PREFIX + v["id"], "value": v, "created_at": now, "updated_at": now} for v in values
+    ]).on_conflict_do_nothing(index_elements=[OwnerPreference.key]).returning(OwnerPreference.key))).all())
+    await events_batch(session, [v for v in values if PREFIX + v["id"] in inserted], "enqueued", now)
+    return len(inserted)
 
 
 async def load(session, identity):
@@ -362,6 +485,10 @@ async def eligible_context(session, value, policy, job):
     allowed_unknowns = {"company_size", "salary", "experience_suitability"}
     if candidate.preferences.remote_preference in {None, "any"}:
         allowed_unknowns.add("remote_policy")
+    if value["facts"].get("posted_date") and not reason:
+        # The precision-aware freshness check above establishes the configured
+        # age bound without inventing an exact timestamp for the matcher.
+        allowed_unknowns.add("publication_date")
     if set(match.unknown_fields) - allowed_unknowns:
         raise ToolDenied("uncertain_job_requirements_require_review")
     return profile
@@ -504,6 +631,7 @@ def public(value):
         "match_score", "attempts", "reason", "created_at", "updated_at",
         "submission_mode", "receipt_source",
     )} | {"posted_at": value.get("facts", {}).get("posted_at"),
+         "posted_date": value.get("facts", {}).get("posted_date"),
          "applicants_min": value.get("facts", {}).get("applicants_min"),
          "applicants_max": value.get("facts", {}).get("applicants_max")}
 

@@ -105,6 +105,21 @@ async def verify(url):
             listing = await queue.listing(session, stage="SUBMISSION_UNKNOWN")
             assert listing["total"] == 1 and "lease_token" not in listing["items"][0]
         results.append("expired_possible_submission_is_never_redelivered")
+        batch_urls = [f"https://www.naukri.com/job-listings-fictional-{291026220000 + i}" for i in range(20)]
+        async def publish_batch():
+            async with factory() as session, session.begin():
+                return await queue.enqueue_batch(session, batch_urls, "naukri_ui_search")
+        counts = await asyncio.gather(publish_batch(), publish_batch())
+        assert sum(counts) == 20 and sorted(counts) == [0, 20]
+        results.append("concurrent_twenty_item_batches_commit_one_outbox_per_identity")
+        async with factory() as session, session.begin():
+            config = await queue.configuration(session)
+            await queue.control(session, QueueControl(action="stop", expected_revision=config["revision"]))
+        async with factory() as reader:
+            rows = [row.value for row in await queue.items(reader)]
+            assert sum(v["stage"] == "PAUSED" for v in rows) == 20
+            assert sum(v["stage"] == "SUBMISSION_UNKNOWN" for v in rows) == 1
+        results.append("bulk_stop_persists_all_read_fences_and_keeps_unknown_submission")
         print(json.dumps({"fixture_only": True, "database_version": version, "cases_passed": len(results),
                           "duration_seconds": round(perf_counter() - started, 3), "pool_limit": 2,
                           "provider_requests": 0, "applications": 0, "results": results}))

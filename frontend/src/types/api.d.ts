@@ -6867,11 +6867,10 @@ export interface components {
       experience_min: number;
       /** Experience Max */
       experience_max: number;
-      /**
-       * Posted At
-       * Format: date-time
-       */
-      posted_at: string;
+      /** Posted At */
+      posted_at?: string | null;
+      /** Posted Date */
+      posted_date?: string | null;
       /** Applicants Min */
       applicants_min?: number | null;
       /** Applicants Max */

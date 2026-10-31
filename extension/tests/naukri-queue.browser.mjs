@@ -101,6 +101,7 @@ const req = "291026123456";
 const jobUrl = `https://www.naukri.com/job-listings-fictional-${req}`;
 const searchUrl = "https://www.naukri.com/backend-developer-jobs";
 const evidence = [];
+let modern = false;
 try {
   await context.route("**/*", async (route) => {
     const url = new URL(route.request().url());
@@ -109,9 +110,26 @@ try {
       return route.abort();
     }
     fixtureRequests++;
-    const body = url.pathname.endsWith("-jobs")
+    let body = url.pathname.endsWith("-jobs")
       ? `<a href="${jobUrl}">Fictional job</a>`
       : `<div class="styles_jd-header"><h1>Backend Developer</h1><span class="styles_comp-name">Fictional Labs</span><span class="styles_loc-wrap">India</span><span class="styles_exp-wrap">0 - 3 Yrs</span><span>120 Applicants</span><button onclick="window.accidentalClicks=(window.accidentalClicks||0)+1">Apply</button></div><div class="styles_job-desc">Build Python services</div><div class="styles_key-skill"><span class="chip">Python</span></div><script type="application/ld+json">${JSON.stringify({ "@type": "JobPosting", title: "Backend Developer", datePosted: new Date().toISOString(), identifier: { value: req } })}</script>`;
+    if (modern)
+      body = body
+        .replace(
+          '<div class="styles_jd-header">',
+          '<section id="job_header" class="styles_job-header-container">',
+        )
+        .replace("<h1>", '<h1 class="styles_jd-header-title">')
+        .replace(
+          '<span class="styles_comp-name">Fictional Labs</span>',
+          '<div class="styles_jd-header-comp-name"><a>Fictional Labs</a><span>3.9 95 Reviews</span></div>',
+        )
+        .replace("styles_exp-wrap", "styles_jhc__exp__abc")
+        .replace(
+          "120 Applicants",
+          "<label>Applicants: </label><span>120</span>",
+        )
+        .replace("</button></div>", "</button></section>");
     return route.fulfill({ contentType: "text/html", body });
   });
   context.on("page", (page) =>
@@ -135,9 +153,11 @@ try {
   });
   for (const [name, operation, url, stop] of [
     ["background_job_facts", "inspect_job", jobUrl, false],
+    ["current_header_layout", "inspect_job", jobUrl, false],
     ["background_search_links", "search_jobs", searchUrl, false],
     ["stop_before_dom", "inspect_job", jobUrl, true],
   ]) {
+    modern = name === "current_header_layout";
     const result = await worker.evaluate(
       ({ operation, url, stop }) => globalThis.prepare(operation, url, stop),
       { operation, url, stop },

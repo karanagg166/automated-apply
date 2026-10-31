@@ -91,14 +91,25 @@ export async function executeNaukri(work) {
   const snapshot = async () => {
     safe();
     await account();
-    const headers = [
+    const modern = [...document.querySelectorAll("#job_header")].filter(
+      visible,
+    );
+    const legacy = [
       ...document.querySelectorAll('[class*="jd-header"], [class*="jdHeader"]'),
-    ].filter(visible);
+    ].filter(
+      (e) =>
+        visible(e) &&
+        e.querySelectorAll("h1").length === 1 &&
+        e.querySelector('[class*="comp-name"], [class*="compName"]'),
+    );
+    const headers = modern.length ? modern : legacy;
     if (headers.length !== 1) throw Error("job_header_unrecognized");
     const header = headers[0];
     const title = clean(header.querySelector("h1"));
     const company = clean(
-      header.querySelector('[class*="comp-name"], [class*="compName"]'),
+      header.querySelector(
+        '[class*="comp-name"] > a, [class*="compName"] > a',
+      ) || header.querySelector('[class*="comp-name"], [class*="compName"]'),
     );
     if (
       title !== request.expected_title ||

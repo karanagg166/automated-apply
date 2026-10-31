@@ -46,9 +46,19 @@ export async function observeNaukri(expectedUrl, operation) {
   }
   const requisition = url.pathname.match(/-(\d{10,20})\/?$/)?.[1];
   if (!requisition) return failure("provider_job_identity_missing");
-  const header = document.querySelector(
-    '[class*="jd-header"], [class*="jdHeader"]',
+  // Current Naukri classes put "jd-header" on the title and company too.
+  // Anchor the full listing container; never use a sticky duplicate or the
+  // first title-shaped descendant as the application header.
+  const modern = [...document.querySelectorAll("#job_header")];
+  const legacy = [
+    ...document.querySelectorAll('[class*="jd-header"], [class*="jdHeader"]'),
+  ].filter(
+    (e) =>
+      e.querySelectorAll("h1").length === 1 &&
+      e.querySelector('[class*="comp-name"], [class*="compName"]'),
   );
+  const headers = modern.length ? modern : legacy;
+  const header = headers.length === 1 && headers[0];
   if (!header) return failure("job_header_unrecognized");
   const status = [...header.querySelectorAll("button, [role=button]")].some(
     (e) => /^(already applied|applied)$/i.test(e.textContent.trim()),
@@ -63,13 +73,16 @@ export async function observeNaukri(expectedUrl, operation) {
   const clean = (x) => x?.textContent?.replace(/\s+/g, " ").trim();
   const title = clean(header.querySelector("h1"));
   const company = clean(
-    header.querySelector('[class*="comp-name"], [class*="compName"]'),
+    header.querySelector('[class*="comp-name"] > a, [class*="compName"] > a') ||
+      header.querySelector('[class*="comp-name"], [class*="compName"]'),
   );
   const locationText = clean(
     header.querySelector('[class*="loc-wrap"], [class*="location"]'),
   );
   const experience = clean(
-    header.querySelector('[class*="exp-wrap"], [class*="experience"]'),
+    header.querySelector(
+      '[class*="jhc__exp__"], [class*="exp-wrap"], [class*="experience"]',
+    ),
   );
   const band = experience?.match(
     /^(\d+(?:\.\d+)?)\s*(?:-|–|to)\s*(\d+(?:\.\d+)?)\s*(?:yrs?|years?)$/i,
@@ -122,13 +135,16 @@ export async function observeNaukri(expectedUrl, operation) {
     return failure("structured_job_identity_ambiguous");
   const posting = postings[0];
   const posted = posting.datePosted;
-  // A date-only label or "2 days ago" cannot prove an exact rolling 48h bound.
-  if (
-    typeof posted !== "string" ||
-    !/T.*(?:Z|[+-]\d\d:\d\d)$/.test(posted) ||
-    !Number.isFinite(Date.parse(posted))
-  )
-    return failure("posting_timestamp_unknown");
+  const dateOnly =
+    typeof posted === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(posted) &&
+    Number.isFinite(Date.parse(posted)) &&
+    new Date(posted).toISOString().slice(0, 10) === posted;
+  const exact =
+    typeof posted === "string" &&
+    /T.*(?:Z|[+-]\d\d:\d\d)$/.test(posted) &&
+    Number.isFinite(Date.parse(posted));
+  if (!dateOnly && !exact) return failure("posting_timestamp_unknown");
   if (
     posting.identifier?.value &&
     String(posting.identifier.value) !== requisition
@@ -162,7 +178,8 @@ export async function observeNaukri(expectedUrl, operation) {
     skills: skills.slice(0, 50),
     experience_min: Number(band[1]),
     experience_max: Number(band[2]),
-    posted_at: new Date(posted).toISOString(),
+    posted_at: exact ? new Date(posted).toISOString() : null,
+    posted_date: dateOnly ? posted : null,
     applicants_min: lower,
     applicants_max: upper,
   };
