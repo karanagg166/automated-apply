@@ -1,0 +1,321 @@
+{
+  "schema_version": 1,
+  "branch": "fix/live-prepare-discovery-20261030",
+  "pr": "https://github.com/karanagg166/automated-apply/pull/48",
+  "status": "OPEN_NO_NEW_APPLICATION_RECEIPT",
+  "installed": {
+    "api": "99466234ab33cef09fd7389af440f8982066d0ed",
+    "execution": "f90cfe7ea3dfc7ca20efe1a1995b3da26707a028",
+    "frontend": "f90cfe7ea3dfc7ca20efe1a1995b3da26707a028",
+    "telegram": "f90cfe7ea3dfc7ca20efe1a1995b3da26707a028",
+    "native": "fc91a219d5b824f934bb733eaf20166661e1f08b",
+    "extension": "f856d7322b83bdde0c9c48f079e42b40618319f1",
+    "extension_version": "1.3.12",
+    "stable_extension_id_preserved": true,
+    "exact_extension_files": 22
+  },
+  "actual_policy": {
+    "state": "RUNNING",
+    "revision": 32,
+    "minimum_match_score": 50,
+    "mode": "SUPERVISED",
+    "first_application_cap": 1,
+    "hourly_cap": 1,
+    "other_filters_changed": false,
+    "recurring_automatic_activated": false,
+    "discovery_interval_seconds": 300,
+    "candidate_links_per_cycle": 20,
+    "max_sweep_pages": 3
+  },
+  "actual_prior_failure": {
+    "extension_version": "1.3.11",
+    "started_at": "2026-10-31T22:50:21.554342+00:00",
+    "finished_at": "2026-10-31T22:50:37.482259+00:00",
+    "failure_code": "provider_context_changed",
+    "new_candidate_admissions": 0,
+    "application_actions": 0
+  },
+  "actual_corrected_source": {
+    "started_at": "2026-10-31T23:00:57.380417+00:00",
+    "finished_at": "2026-10-31T23:01:18.252185+00:00",
+    "elapsed_seconds": 20.872,
+    "new_queue_messages": 15,
+    "queue_records_before": 297,
+    "queue_records_after": 312,
+    "source_admissions_before": 284,
+    "source_admissions_after": 299,
+    "source_error": null,
+    "application_actions": 0,
+    "new_receipts": 0,
+    "historical_receipts_preserved": 1
+  },
+  "actual_dom_samples": [
+    {
+      "at": "2026-10-31T22:56:05.793950+00:00",
+      "work_page": 1,
+      "selected_pages": [
+        "1"
+      ],
+      "sort": "Recommended",
+      "listing_link_count": 20,
+      "lock_before": "LOCKED",
+      "lock_after": "LOCKED"
+    },
+    {
+      "at": "2026-10-31T22:56:11.182287+00:00",
+      "work_page": 1,
+      "selected_pages": [
+        "1"
+      ],
+      "sort": "Date",
+      "listing_link_count": 20,
+      "lock_before": "LOCKED",
+      "lock_after": "LOCKED"
+    },
+    {
+      "at": "2026-10-31T22:56:16.549769+00:00",
+      "work_page": 1,
+      "selected_pages": [
+        "1"
+      ],
+      "sort": "Date",
+      "listing_link_count": 20,
+      "lock_before": "LOCKED",
+      "lock_after": "LOCKED"
+    },
+    {
+      "at": "2026-10-31T23:01:06.071986+00:00",
+      "work_page": 2,
+      "selected_pages": [
+        "2"
+      ],
+      "sort": "Recommended",
+      "listing_link_count": 20,
+      "lock_before": "LOCKED",
+      "lock_after": "LOCKED"
+    },
+    {
+      "at": "2026-10-31T23:01:11.796404+00:00",
+      "work_page": 2,
+      "selected_pages": [
+        "2"
+      ],
+      "sort": "Date",
+      "listing_link_count": 20,
+      "lock_before": "LOCKED",
+      "lock_after": "LOCKED"
+    }
+  ],
+  "actual_new_cohort": {
+    "at": "2026-10-31T23:05:07.417274+00:00",
+    "screen": "LOCKED",
+    "queue_state": "RUNNING",
+    "minimum_match_score": 50,
+    "cohort_size": 15,
+    "stages": {
+      "DISCOVERED": 9,
+      "NEEDS_INPUT": 3,
+      "SKIPPED": 3
+    },
+    "reasons": {
+      "pending": 9,
+      "posting_age_requires_review": 1,
+      "experience_requirement_evidence_conflict": 2,
+      "posting_outside_age_limit": 3
+    },
+    "remaining_inspections": 9,
+    "cohort_admitted_actions": 0,
+    "cohort_new_receipts": 0,
+    "actual_match_scores": []
+  },
+  "actual_locked_ready_samples": [
+    {
+      "at": "2026-10-31T22:56:14.087095+00:00",
+      "lock_before": "LOCKED",
+      "ready_http": 200,
+      "ready_seconds": 2.262,
+      "lock_after": "LOCKED"
+    },
+    {
+      "at": "2026-10-31T22:56:16.434502+00:00",
+      "lock_before": "LOCKED",
+      "ready_http": 200,
+      "ready_seconds": 2.146,
+      "lock_after": "LOCKED"
+    },
+    {
+      "at": "2026-10-31T22:56:18.687595+00:00",
+      "lock_before": "LOCKED",
+      "ready_http": 200,
+      "ready_seconds": 2.158,
+      "lock_after": "LOCKED"
+    }
+  ],
+  "actual_readiness": {
+    "at": "2026-10-31T23:01:27.228710+00:00",
+    "backend_database": {
+      "http": 200,
+      "seconds": 2.657
+    },
+    "frontend_login_http": 200,
+    "native_selected_profile": {
+      "status": "CONNECTED",
+      "commands_enabled": true,
+      "last_heartbeat": "2026-10-31T23:00:49.932668+00:00"
+    },
+    "queue": {
+      "state": "RUNNING",
+      "revision": 32,
+      "minimum_match_score": 50,
+      "records": 312
+    }
+  },
+  "actual_focus_comparisons": [
+    {
+      "at": "2026-10-31T22:56:41.562602+00:00",
+      "front_active_snapshot_matches_before": true,
+      "before_at": "2026-10-31T22:46:35.511478+00:00"
+    },
+    {
+      "at": "2026-10-31T23:01:20.570914+00:00",
+      "front_active_snapshot_matches_before": true,
+      "before_at": "2026-10-31T22:56:41.562602+00:00"
+    }
+  ],
+  "actual_database_profile": {
+    "at": "2026-10-31T22:58:41.576921+00:00",
+    "connect_seconds": 3.247,
+    "activity": [
+      {
+        "state": "active",
+        "wait_event_type": null,
+        "wait_event": null,
+        "count": 1,
+        "oldest_transaction_seconds": "0.000000"
+      },
+      {
+        "state": "idle",
+        "wait_event_type": "Client",
+        "wait_event": "ClientRead",
+        "count": 2,
+        "oldest_transaction_seconds": null
+      },
+      {
+        "state": "idle in transaction",
+        "wait_event_type": "Client",
+        "wait_event": "ClientRead",
+        "count": 1,
+        "oldest_transaction_seconds": "0.145989"
+      }
+    ],
+    "activity_client_seconds": 0.506,
+    "locks": [
+      {
+        "locktype": "relation",
+        "mode": "AccessShareLock",
+        "granted": true,
+        "count": 8
+      },
+      {
+        "locktype": "virtualxid",
+        "mode": "ExclusiveLock",
+        "granted": true,
+        "count": 1
+      }
+    ],
+    "role_connection_limit": 5,
+    "queue_read_client_seconds": 0.338,
+    "queue_read_plan": {
+      "planning_ms": 0.53,
+      "execution_ms": 5.307,
+      "rows": 72,
+      "node": "Sort",
+      "shared_hit_blocks": 1154,
+      "shared_read_blocks": 0
+    },
+    "pool_configuration": {
+      "pool_size": 1,
+      "max_overflow": 0,
+      "operator_pool": "NullPool"
+    }
+  },
+  "actual_resource_sample": {
+    "at": "2026-10-31T22:47:12.772580+00:00",
+    "power_source": "AC",
+    "power_settings": {
+      "Battery Power": {
+        "powernap": 1,
+        "displaysleep": 2,
+        "sleep": 1,
+        "tcpkeepalive": 1
+      },
+      "AC Power": {
+        "powernap": 1,
+        "displaysleep": 10,
+        "sleep": 1,
+        "tcpkeepalive": 1
+      }
+    },
+    "service_rss": {
+      "api": {
+        "pid": 11808,
+        "rss_kib": 16208,
+        "wrapper_only": false
+      },
+      "execution": {
+        "pid": 9805,
+        "rss_kib": 41440,
+        "wrapper_only": false
+      },
+      "telegram": {
+        "pid": 10274,
+        "rss_kib": 47696,
+        "wrapper_only": false
+      },
+      "frontend": {
+        "pid": 9803,
+        "rss_kib": 3136,
+        "wrapper_only": true
+      }
+    },
+    "changed_power_settings": false,
+    "prevent_sleep_assertion_added": false,
+    "existing_assertion_summary": {
+      "UserIsActive": 1,
+      "PreventUserIdleDisplaySleep": 0,
+      "PreventSystemSleep": 0,
+      "PreventUserIdleSystemSleep": 1
+    },
+    "assertions_observed_at": "2026-10-31T22:47:42.062041+00:00"
+  },
+  "fixture_tests": {
+    "backend_cases": 40,
+    "backend_seconds": 4.59,
+    "same_pinned_repeat_cases": 40,
+    "pinned_seconds": 3.92,
+    "overlapping_strengthened_restart_cases": 5,
+    "restart_seconds": 0.77,
+    "focused_node_cases": 41,
+    "node_seconds": 1.158,
+    "corrected_isolated_chromium": {
+      "fixture_only": true,
+      "cases": 11,
+      "duration_ms": 63959,
+      "live_naukri_requests": 0,
+      "unexpectedRequests": 0,
+      "chooserEvents": 0,
+      "fixtureRequests": 9
+    }
+  },
+  "outstanding": [
+    "first_qualifying_new_application_and_independent_receipt",
+    "recurring_questionnaire_cohere_telegram_resumption",
+    "recurring_automatic_after_first_receipt_and_critical_checks",
+    "locked_form_filling_submission_and_extended_reliability",
+    "stop_native_scheduling_latency"
+  ],
+  "rollback_preserved": true,
+  "rollback_exercised": false,
+  "hosted_actions_run": false,
+  "question_unknown_company_stage": "pending_no_policy_change"
+}
