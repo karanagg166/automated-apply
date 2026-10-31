@@ -77,7 +77,9 @@ export async function observeNaukri(expectedUrl, operation) {
       header.querySelector('[class*="comp-name"], [class*="compName"]'),
   );
   const locationText = clean(
-    header.querySelector('[class*="loc-wrap"], [class*="location"]'),
+    header.querySelector(
+      '[class*="jhc__location__"], [class*="loc-wrap"], [class*="location"]:not(i)',
+    ),
   );
   const experience = clean(
     header.querySelector(

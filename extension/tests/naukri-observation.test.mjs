@@ -134,6 +134,10 @@ test("current public layout reads the full header and excludes ratings/sticky du
         '<div class="styles_jd-header-comp-name"><a>Fictional Labs</a><div>3.9 95 Reviews</div></div>',
       )
       .replace("styles_exp-wrap", "styles_jhc__exp__abc")
+      .replace(
+        '<span class="styles_loc-wrap">India</span>',
+        '<div class="styles_jhc__loc___Du2H"><i class="ni-icon-location"></i><span class="styles_jhc__location__W_pVs"><a>India</a></span></div>',
+      )
       .replace("0 - 3 Yrs", "0 - 3 years")
       .replace("120 Applicants", "<label>Applicants: </label><span>120</span>")
       .replace("</button></div>", "</button></section>") +
@@ -141,5 +145,14 @@ test("current public layout reads the full header and excludes ratings/sticky du
   const report = await observe(body);
   assert.equal(report.kind, "job_facts");
   assert.equal(report.job.company, "Fictional Labs");
+  assert.equal(report.job.location, "India");
   assert.equal(report.job.applicants_max, 120);
+});
+
+test("an empty location icon alone never establishes a job location", async () => {
+  const body = html().replace(
+    '<span class="styles_loc-wrap">India</span>',
+    '<i class="ni-icon-location"></i>',
+  );
+  assert.equal((await observe(body)).reason, "job_required_facts_unrecognized");
 });

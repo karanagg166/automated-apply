@@ -127,6 +127,10 @@ try {
         )
         .replace("styles_exp-wrap", "styles_jhc__exp__abc")
         .replace(
+          '<span class="styles_loc-wrap">India</span>',
+          '<div class="styles_jhc__loc___Du2H"><i class="ni-icon-location"></i><span class="styles_jhc__location__W_pVs"><a>India</a></span></div>',
+        )
+        .replace(
           "120 Applicants",
           "<label>Applicants: </label><span>120</span>",
         )
