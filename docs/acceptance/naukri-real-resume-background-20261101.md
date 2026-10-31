@@ -217,6 +217,12 @@ expected **307 redirect to `/login`, then 200**. Telegram's actual durable
 `last_error` was null. No test message or fictional success notification was sent.
 These checks do not establish a genuine application receipt or locked-Mac readiness.
 
+A later snapshot at **22:00:51** still found RUNNING, a fresh worker heartbeat,
+**3 DISCOVERED**, **68 NEEDS_INPUT**, **225 SKIPPED**, the same historical receipt,
+and **zero new admissions/receipts**. Another real discovery completed
+**21:57:21–21:57:42**, admitted zero duplicates and reported no source error.
+The 297-record queue continues processing independently of the dashboard.
+
 The final standing-policy read at **21:49:21** verified queue **RUNNING revision 23**,
 SUPERVISED cap **one/hour one**, `owner_submission_authorized=true`, local Naukri
 preference `automatic_preferred`, execution mode `ON_DEMAND`, and Telegram

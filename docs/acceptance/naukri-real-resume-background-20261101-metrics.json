@@ -810,5 +810,44 @@
     "gmail_policy": "draft_only",
     "gmail_sending_enabled": false,
     "notify_verified_receipt_telegram": true
+  },
+  "latest_snapshot": {
+    "at": "2026-10-31T22:00:51.185552+00:00",
+    "screen": "UNLOCKED",
+    "query_seconds": 3.978,
+    "queue": "RUNNING",
+    "counts": {
+      "DISCOVERED": 3,
+      "NEEDS_INPUT": 68,
+      "SKIPPED": 225,
+      "SUBMITTED_RECORDED": 1
+    },
+    "status_counts": {
+      "queued": 3,
+      "waiting": 68,
+      "complete": 226
+    },
+    "reasons": {
+      "pending": 3,
+      "applicant_count_requires_review": 13,
+      "experience_requirement_evidence_conflict": 13,
+      "owner_tab_active": 1,
+      "posting_age_requires_review": 41,
+      "current_profile_preferences_or_required_skills_exclude_job": 8,
+      "posting_outside_age_limit": 217,
+      "retained_provider_ui_observation": 1
+    },
+    "admitted_action_count": 0,
+    "ready_jobs": [],
+    "heartbeat": "2026-10-31T22:00:39.300784+00:00",
+    "search": {
+      "status": "idle",
+      "last_started_at": "2026-10-31T21:57:21.665554+00:00",
+      "last_finished_at": "2026-10-31T21:57:42.337477+00:00",
+      "last_cycle_count": 0,
+      "last_error": null,
+      "candidates_found": 284,
+      "next_at": "2026-10-31T22:02:21.665554+00:00"
+    }
   }
 }
