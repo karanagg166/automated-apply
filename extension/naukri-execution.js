@@ -37,7 +37,7 @@ export async function executeNaukri(work) {
       ...new Set(
         [
           ...document.querySelectorAll(
-            'header [class*="email"], [class*="user-details"] [class*="email"], [class*="profile-details"] [class*="email"], [class*="personal-details"] [class*="email"], input[type=email]',
+            'header [class*="email"], .chip-summary .email-verify, [class*="user-details"] [class*="email"], [class*="profile-details"] [class*="email"], [class*="personal-details"] [class*="email"], input[type=email]',
           ),
         ]
           .filter(visible)
@@ -278,6 +278,31 @@ export async function executeNaukri(work) {
     }
     if (work.operation === "inspect_profile") {
       await account();
+      if (request.provider_pdf_observation) {
+        const pdf = request.provider_pdf_observation;
+        if (
+          pdf.kind !== "provider_pdf_digest" ||
+          !/^[a-f0-9]{64}$/.test(pdf.sha256) ||
+          !Number.isInteger(pdf.byte_count) ||
+          pdf.byte_count < 5 ||
+          pdf.byte_count > 2000000
+        )
+          throw Error("provider_saved_resume_download_unverified");
+        if (pdf.sha256 !== request.expected_resume_sha256)
+          throw Error("provider_saved_resume_differs_from_canonical_pdf");
+        safe();
+        return await result("PROFILE_VERIFIED", {
+          resume_sha256: pdf.sha256,
+          resume_bytes: pdf.byte_count,
+        });
+      }
+      const buttons = [
+        ...document.querySelectorAll(
+          ".section.resume .action-container .download",
+        ),
+      ].filter(visible);
+      if (buttons.length === 1)
+        return failure("profile_resume_download_capture_required");
       const links = [...document.querySelectorAll("a[href]")].filter(
         (e) =>
           visible(e) &&

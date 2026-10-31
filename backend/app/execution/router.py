@@ -24,6 +24,7 @@ from backend.app.execution.contracts import (
     Start,
 )
 from backend.app.execution.naukri import capability_matrix, normalize
+from backend.app.execution.naukri_identity import AccountApproval
 from backend.app.execution.naukri_review import review_jobs
 from backend.app.execution.profile_sync import SyncPolicyUpdate
 from backend.app.execution.queue_contracts import (
@@ -45,6 +46,25 @@ router = APIRouter(
     route_class=OwnerRoute,
     dependencies=[Depends(require_api_token)],
 )
+
+
+@router.get("/naukri/account-binding")
+async def account_binding_status(session: AsyncSession = Depends(get_db_session)):
+    from backend.app.execution.naukri_identity import status
+
+    return await status(session)
+
+
+@router.put("/naukri/account-binding")
+async def account_binding_approval(data: AccountApproval, request: Request,
+                                   session: AsyncSession = Depends(get_db_session)):
+    owner_ui(request)
+    from backend.app.execution.naukri_identity import approve
+
+    try:
+        return await approve(session, data)
+    except ToolDenied as exc:
+        raise HTTPException(409, str(exc)) from None
 
 
 @router.get("/naukri/profile-sync")

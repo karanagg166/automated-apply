@@ -236,6 +236,10 @@ async def dispatch(session, settings, actor, command):
             if command.command == "admit_naukri_work":
                 if value["status"] != "leased" or command.tab_id is None:
                     raise ToolDenied("queue_action_already_admitted")
+                if value["operation"] in {"inspect_profile", "inspect_application", "apply"}:
+                    from backend.app.execution.naukri_identity import check_work
+
+                    await check_work(session, value)
                 if value["operation"] in profile_sync.OPERATIONS:
                     if value["operation"] == "sync_profile" and local_policy["platforms"].get("naukri", local_policy["default"]) in {"manual_only", "draft_only"}:
                         raise ToolDenied("platform_policy_requires_manual_review")

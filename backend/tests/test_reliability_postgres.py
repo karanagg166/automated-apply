@@ -245,7 +245,10 @@ async def test_readiness_live_query_is_not_queued_behind_command_transaction(pos
     engine = create_async_engine(config_url, pool_size=1, max_overflow=0)
     config = Settings(_env_file=None, ENVIRONMENT="testing", DATABASE_SCHEMA="public",
                       DATABASE_URL=config_url, DB_REQUIRE_TLS=False, DB_REMOTE_ONLY=False)
-    probe = create_async_engine(config_url, pool_size=1, max_overflow=0, pool_pre_ping=True)
+    from sqlalchemy.pool import NullPool
+
+    probe = create_async_engine(config_url, poolclass=NullPool,
+                               connect_args={"server_settings": {"application_name": "naukri-probe-fixture"}})
     monkeypatch.setattr(main, "settings", config)
     monkeypatch.setattr(main, "get_readiness_engine", lambda: probe)
     monkeypatch.setattr(main, "_readiness_task", None)
@@ -257,7 +260,14 @@ async def test_readiness_live_query_is_not_queued_behind_command_transaction(pos
             assert engine.pool.checkedout() == 1
             responses = await asyncio.gather(*(async_client.get("/ready") for _ in range(8)))
             assert all(response.status_code == 200 for response in responses)
-            assert probe.pool.checkedout() == 0 and probe.pool.size() == 1
+            # Closing the response releases the actual server connection. No
+            # idle probe session remains to starve execution or recovery.
+            assert isinstance(probe.pool, NullPool)
+            check = await asyncpg.connect(postgres[1])
+            try:
+                assert await check.fetchval("SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND application_name=$1", "naukri-probe-fixture") == 0
+            finally:
+                await check.close()
         assert engine.pool.checkedout() == 0
     finally:
         await probe.dispose()

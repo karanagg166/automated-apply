@@ -496,12 +496,14 @@ async def eligible_context(session, value, policy, job):
 
 async def write_context(session, value, policy, settings):
     """A queued action or owner grant alone cannot make a vacancy eligible."""
+    from backend.app.execution.naukri_identity import check_work
     from backend.app.execution.naukri_upload import preflight
     from backend.app.models.job import Job
     from backend.app.services.applications.service import ApplicationPacketService
 
     if not value.get("job_id") or not value.get("packet_id"):
         raise ToolDenied("prepared_application_required")
+    await check_work(session, value)
     job = await session.get(Job, UUID(value["job_id"]), populate_existing=True)
     if not job or await store.previously_applied(session, job):
         raise ToolDenied("prior_application_or_unknown_submission_no_replay")

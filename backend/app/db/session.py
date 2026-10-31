@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy.pool import NullPool
 
 from backend.app.core.config import get_settings
 from backend.app.core.logging import logger
@@ -95,11 +96,12 @@ def get_session_factory() -> async_sessionmaker[AsyncSession]:
 
 
 def get_readiness_engine() -> AsyncEngine:
-    """Reserve one API-only probe slot; command transactions keep their own slot.
+    """Use one in-flight API probe without retaining an idle database session.
 
-    The three runtime pools plus this bounded slot use four of the observed
-    five role connections. Workers never call this accessor. Readiness cannot
-    wait behind a valid long native transaction and falsely report a DB outage.
+    The readiness route coalesces simultaneous callers. NullPool returns its
+    transient slot on completion, leaving capacity for recovery and operators.
+    Business transactions retain their own bounded pools; probes never queue
+    behind them. Workers never call this accessor.
     """
     global _readiness_engine
     settings = get_settings()
@@ -116,8 +118,7 @@ def get_readiness_engine() -> AsyncEngine:
         arguments = database_connect_args(settings)
         arguments["server_settings"]["application_name"] = "automated-apply:readiness"
         _readiness_engine = create_async_engine(
-            settings.DATABASE_URL, hide_parameters=True, pool_pre_ping=True,
-            pool_recycle=300, pool_size=1, max_overflow=0, pool_timeout=1,
+            settings.DATABASE_URL, hide_parameters=True, poolclass=NullPool,
             connect_args=arguments,
         )
     return _readiness_engine

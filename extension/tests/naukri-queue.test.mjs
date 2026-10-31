@@ -33,6 +33,7 @@ function fixture(options = {}) {
     operation: "inspect_job",
     url,
     binding: { tab_id: null, window_id: 10 },
+    ...options.work,
   };
   const api = {
     storage: { local: store(local), session: store(session) },
@@ -120,6 +121,78 @@ function fixture(options = {}) {
     queue: new NaukriQueue(api, send, async () => {}),
   };
 }
+
+test("saved resume Download uses one owned-tab capture and isolated account recheck", async () => {
+  const report = {
+    kind: "execution_observation",
+    execution: {
+      state: "PROFILE_VERIFIED",
+      resume_sha256: "a".repeat(64),
+      resume_bytes: 42,
+    },
+  };
+  const f = fixture({
+    operation: "inspect_profile",
+    work: {
+      operation: "inspect_profile",
+      target_url: "https://www.naukri.com/mnjuser/profile",
+      execution: { expected_resume_sha256: "a".repeat(64) },
+    },
+    reports: [
+      {
+        kind: "needs_input",
+        reason: "profile_resume_download_capture_required",
+      },
+      { kind: "provider_pdf_digest", sha256: "a".repeat(64), byte_count: 42 },
+      report,
+    ],
+  });
+  await f.queue.tick();
+  const injections = f.calls
+    .filter(([name]) => name === "inspect")
+    .map(([, input]) => input);
+  assert.deepEqual(
+    injections.map((x) => x.world),
+    ["ISOLATED", "MAIN", "ISOLATED"],
+  );
+  assert.ok(injections.every((x) => x.target.tabId === 44));
+  assert.equal(
+    injections[2].args[0].execution.provider_pdf_observation.kind,
+    "provider_pdf_digest",
+  );
+  assert.deepEqual(
+    f.calls.find(([name]) => name === "finish_naukri_work")[1].work_report,
+    report,
+  );
+});
+
+test("unsupported Download capture waits without false profile verification", async () => {
+  const f = fixture({
+    operation: "inspect_profile",
+    work: {
+      operation: "inspect_profile",
+      target_url: "https://www.naukri.com/mnjuser/profile",
+      execution: {},
+    },
+    reports: [
+      {
+        kind: "needs_input",
+        reason: "profile_resume_download_capture_required",
+      },
+      {
+        kind: "needs_input",
+        reason: "profile_resume_download_pdf_not_observed",
+      },
+    ],
+  });
+  await f.queue.tick();
+  assert.ok(!f.calls.some(([name]) => name === "finish_naukri_work"));
+  assert.equal(
+    f.calls.find(([name]) => name === "abandon_naukri_work")[1].work_report
+      .reason,
+    "profile_resume_download_pdf_not_observed",
+  );
+});
 
 test("background read creates and closes only its own inactive exact-window tab", async () => {
   const f = fixture();

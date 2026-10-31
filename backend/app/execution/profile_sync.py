@@ -128,12 +128,19 @@ async def work(session, config, binding):
         return None
     if old.get("next_at") and datetime.fromisoformat(old["next_at"]) > now:
         return None
+    from backend.app.execution.naukri_identity import require
+
+    try:
+        account = await require(session, profile.id, binding["profile_binding_id"])
+    except ToolDenied:
+        return None
     value = {"id": str(uuid5(NAMESPACE_URL, WORK)), "revision": old.get("revision", 0) + 1,
              "policy_revision": config["revision"], "sync_policy_revision": settings["revision"],
              "profile_version": profile.version, "binding": binding, "status": "leased",
              "operation": "inspect_profile_sync", "url": "https://www.naukri.com/mnjuser/profile",
              "requisition": None, "lease_token": str(uuid4()), "lease_until": (now + timedelta(seconds=180)).isoformat(),
-             "account_sha256": hashlib.sha256(profile.email.strip().casefold().encode()).hexdigest(),
+             "candidate_profile_id": str(profile.id), "account_binding_revision": account["revision"],
+             "account_sha256": account["account_sha256"],
              "next_at": (now + timedelta(seconds=policy.interval_seconds)).isoformat(),
              "sync_attempt": old.get("sync_attempt"), "last_record": old.get("last_record")}
     await queue.put(session, WORK, value)
@@ -141,6 +148,9 @@ async def work(session, config, binding):
 
 
 async def validate(session, value):
+    from backend.app.execution.naukri_identity import check_work
+
+    await check_work(session, value)
     settings = await configuration(session)
     policy = SyncPolicy.model_validate(settings["policy"])
     profile, confirmed, resume = await context(session)

@@ -1,6 +1,7 @@
 import { profileContext, profileNative } from "./chrome-profile.js";
 import { observeNaukri } from "./naukri-observation.js";
 import { executeNaukri } from "./naukri-execution.js";
+import { captureNaukriResumeDownload } from "./naukri-resume-download.js";
 
 const key = "naukriReadInFlightV1";
 // Only this trusted service-worker module creates these inactive tabs. It never
@@ -199,6 +200,35 @@ export class NaukriQueue {
       });
       let report = injected.length === 1 && injected[0].result;
       if (!report) throw Error("provider_execution_unconfirmed");
+      if (
+        work.operation === "inspect_profile" &&
+        report.reason === "profile_resume_download_capture_required"
+      ) {
+        await this.assertInactive(work, context);
+        const capture = await this.api.scripting.executeScript({
+          target: { tabId, frameIds: [0] },
+          world: "MAIN",
+          func: captureNaukriResumeDownload,
+          args: [work],
+        });
+        const pdf = capture.length === 1 && capture[0].result;
+        if (pdf?.kind !== "provider_pdf_digest")
+          throw Error(pdf?.reason || "profile_resume_download_capture_failed");
+        await this.assertInactive(work, context);
+        const verified = await this.api.scripting.executeScript({
+          target: { tabId, frameIds: [0] },
+          world: "ISOLATED",
+          func: executeNaukri,
+          args: [
+            {
+              ...work,
+              execution: { ...work.execution, provider_pdf_observation: pdf },
+            },
+          ],
+        });
+        report = verified.length === 1 && verified[0].result;
+        if (!report) throw Error("provider_execution_unconfirmed");
+      }
       if (
         work.operation === "inspect_application" &&
         report.execution?.state === "NOT_APPLIED"

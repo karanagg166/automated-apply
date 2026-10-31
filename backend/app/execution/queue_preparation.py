@@ -1,6 +1,5 @@
 """Bounded queue producers and local preparation; no provider network requests."""
 
-import hashlib
 from datetime import datetime
 from uuid import NAMESPACE_URL, UUID, uuid5
 
@@ -120,9 +119,13 @@ async def prepare_one(session, settings):
         # The background consumer in this release is read-only. An AUTOMATIC
         # preference is never mistaken for a delivered submission capability.
         automatic = policy.platforms["naukri"].mode in {"AUTOMATIC", "SUPERVISED"} and policy.platforms["naukri"].owner_submission_authorized
+        from backend.app.execution.naukri_identity import require
+
+        account = await require(session, profile.id)
         value.update(stage="READY_TO_APPLY", reason=None if automatic else "automatic_submission_scope_required",
                      status="queued" if automatic else "waiting", operation="inspect_profile",
-                     account_sha256=hashlib.sha256(profile.email.strip().casefold().encode()).hexdigest())
+                     candidate_profile_id=str(profile.id), account_binding_revision=account["revision"],
+                     account_sha256=account["account_sha256"])
     except ToolDenied as exc:
         reason = str(exc)
         excluded = reason in {

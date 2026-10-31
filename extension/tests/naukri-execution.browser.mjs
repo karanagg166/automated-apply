@@ -18,6 +18,7 @@ const root = mkdtempSync(join(tmpdir(), "automated-apply-background-fixture-"));
 for (const name of [
   "naukri-queue.js",
   "naukri-execution.js",
+  "naukri-resume-download.js",
   "naukri-observation.js",
   "chrome-profile.js",
 ])
@@ -37,6 +38,10 @@ writeFileSync(
   join(root, "fixture.js"),
   `
 import { executeNaukri } from './naukri-execution.js';
+import { captureNaukriResumeDownload } from './naukri-resume-download.js';
+globalThis.download = async (tabId, work) => (await chrome.scripting.executeScript({
+ target:{tabId,frameIds:[0]},world:'MAIN',func:captureNaukriResumeDownload,args:[work]
+}))[0].result;
 globalThis.run = async (tabId, work) => (await chrome.scripting.executeScript({
  target:{tabId,frameIds:[0]},world:'ISOLATED',func:executeNaukri,args:[work]
 }))[0].result;
@@ -128,6 +133,19 @@ try {
       body = `<header>${email}</header><article><a href="${jobUrl}">Backend Developer</a><span class="company">Fictional Labs</span><span>${mode === "missing_receipt" ? "Viewed" : "Application Sent"}</span></article>`;
     else
       body = `<header>${mode === "wrong_account" ? '<span class="email">other@example.com</span>' : email}</header><div class="styles_jd-header"><h1>Backend Developer</h1><span class="styles_comp-name">Fictional Labs</span><button onclick="window.fixtureClicks=(window.fixtureClicks||0)+1">Apply</button></div>${mode === "challenge" ? "<p>Verify you are human</p>" : ""}`;
+    if (
+      ["modern_download", "bad_download"].includes(mode) &&
+      u.pathname === "/mnjuser/profile"
+    )
+      body = `<div class="chip-summary"><span class="email-verify">alex@example.com</span></div><div class="section resume"><div class="action-container"><div class="border-box download">Download</div></div><input type="file"><button>Update resume</button></div><script>
+        window.originalCreateURL=URL.createObjectURL;window.originalAnchorClick=HTMLAnchorElement.prototype.click;
+        document.querySelector('.download').onclick=async()=>{
+          window.downloadClicks=(window.downloadClicks||0)+1;
+          const response=await fetch('/download-fictional-resume.pdf');
+          const bytes=${mode === "bad_download" ? "'fictional invalid PDF'" : "await response.arrayBuffer()"};
+          const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+          const a=document.createElement('a');a.href=url;a.download='fictional.pdf';a.click();URL.revokeObjectURL(url);
+        };</script>`;
     if (mode === "modern")
       body =
         body
@@ -211,6 +229,64 @@ try {
   );
   record("wrong_saved_resume_refused");
   await close(tabId);
+
+  for (const downloadMode of ["modern_download", "bad_download"]) {
+    mode = downloadMode;
+    tabId = await create(profileUrl);
+    result = await run(tabId, work("inspect_profile"));
+    assert.equal(result.reason, "profile_resume_download_capture_required");
+    const captured = await worker.evaluate(
+      ({ tabId, w }) => globalThis.download(tabId, w),
+      { tabId, w: work("inspect_profile") },
+    );
+    if (downloadMode === "modern_download") {
+      assert.equal(captured.sha256, hash(pdf));
+      result = await run(
+        tabId,
+        work("inspect_profile", { provider_pdf_observation: captured }),
+      );
+      assert.equal(result.execution?.state, "PROFILE_VERIFIED");
+      assert.equal(result.execution.resume_bytes, pdf.length);
+      const wrong = await run(
+        tabId,
+        work("inspect_profile", {
+          provider_pdf_observation: captured,
+          expected_resume_sha256: "0".repeat(64),
+        }),
+      );
+      assert.equal(
+        wrong.reason,
+        "provider_saved_resume_differs_from_canonical_pdf",
+      );
+    } else {
+      assert.equal(captured.reason, "provider_saved_resume_not_pdf");
+    }
+    const restored = await worker.evaluate(
+      async (tabId) =>
+        (
+          await chrome.scripting.executeScript({
+            target: { tabId },
+            world: "MAIN",
+            func: () => ({
+              url: URL.createObjectURL === window.originalCreateURL,
+              click:
+                HTMLAnchorElement.prototype.click ===
+                window.originalAnchorClick,
+              count: window.downloadClicks,
+            }),
+          })
+        )[0].result,
+      tabId,
+    );
+    assert.deepEqual(restored, { url: true, click: true, count: 1 });
+    record(
+      downloadMode === "modern_download"
+        ? "genuine_layout_download_blob_digest_hooks_restored"
+        : "invalid_download_pdf_refused_hooks_restored",
+    );
+    await close(tabId);
+  }
+  mode = "normal";
 
   tabId = await create(profileUrl);
   const compared = await run(tabId, work("inspect_profile_sync"));

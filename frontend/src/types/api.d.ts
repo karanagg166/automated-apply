@@ -3454,6 +3454,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/execution/naukri/account-binding": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Account Binding Status */
+    get: operations["account_binding_status_api_v1_execution_naukri_account_binding_get"];
+    /** Account Binding Approval */
+    put: operations["account_binding_approval_api_v1_execution_naukri_account_binding_put"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/execution/naukri/profile-sync": {
     parameters: {
       query?: never;
@@ -3799,6 +3817,27 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** AccountApproval */
+    AccountApproval: {
+      /** Expected Revision */
+      expected_revision: number;
+      /**
+       * Candidate Profile Id
+       * Format: uuid
+       */
+      candidate_profile_id: string;
+      /**
+       * Profile Binding Id
+       * Format: uuid
+       */
+      profile_binding_id: string;
+      /** Account Sha256 */
+      account_sha256: string;
+      /** Evidence Sha256 */
+      evidence_sha256: string;
+      /** Owner Confirmed */
+      owner_confirmed: boolean;
+    };
     /** AccountConsent */
     AccountConsent: {
       /** Account Consent */
@@ -16693,6 +16732,59 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ActorMetadata"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  account_binding_status_api_v1_execution_naukri_account_binding_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
+  account_binding_approval_api_v1_execution_naukri_account_binding_put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AccountApproval"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
         };
       };
       /** @description Validation Error */

@@ -32,6 +32,18 @@ async def setup(session, *, browser_search=False):
     context = await connect(session)
     await choose(session, context)
     await running(session)
+    import hashlib
+
+    from sqlalchemy import select
+
+    from backend.app.execution.naukri_identity import AccountApproval, approve
+    from backend.app.models.candidate_profile import CandidateProfile
+
+    candidate = await session.scalar(select(CandidateProfile).where(CandidateProfile.singleton_key == "primary"))
+    if candidate:
+        await approve(session, AccountApproval(expected_revision=0, candidate_profile_id=candidate.id,
+            profile_binding_id=context["profile_binding_id"], account_sha256=hashlib.sha256(b"login-alias@example.org").hexdigest(),
+            evidence_sha256="a" * 64, owner_confirmed=True))
     if not browser_search:
         config = await queue.configuration(session)
         policy = QueuePolicy.model_validate(config["policy"])

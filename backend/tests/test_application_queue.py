@@ -35,6 +35,16 @@ async def running(session, *, cap=80, mode="AUTOMATIC", authorized=True):
 
 
 async def prepared_message(session, case, requisition):
+    from backend.app.execution import naukri_identity as identity
+    from backend.tests.test_chrome_profiles import choose, connect
+
+    if not (await identity.status(session)).get("approved"):
+        chrome = await connect(session)
+        await choose(session, chrome)
+        await identity.approve(session, identity.AccountApproval(expected_revision=0,
+            candidate_profile_id=case.packet.candidate_profile_id, profile_binding_id=chrome["profile_binding_id"],
+            account_sha256="a" * 64, evidence_sha256="b" * 64, owner_confirmed=True))
+    account = await identity.require(session, case.packet.candidate_profile_id)
     job_id = await imported(session, requisition=requisition)
     await session.commit()
     packet = await ApplicationPacketService(session).create(job_id, CreatePacket(idempotency_key="queue-fixture-" + requisition))
@@ -42,6 +52,8 @@ async def prepared_message(session, case, requisition):
     row = await queue.load(session, value["id"])
     now = datetime.now(timezone.utc).isoformat()
     row.value = {**row.value, "job_id": str(job_id), "packet_id": str(packet.id),
+                 "candidate_profile_id": str(packet.candidate_profile_id), "account_sha256": account["account_sha256"],
+                 "account_binding_revision": account["revision"],
                  "packet_revision": packet.revision, "profile_version": packet.candidate_profile_version,
                  "operation": "apply", "stage": "READY_TO_APPLY", "match_score": 90,
                  "facts": {"posted_at": now, "applicants_min": 4, "applicants_max": 4,
@@ -156,16 +168,18 @@ async def test_daily_cap_is_reserved_transactionally_and_waiting_jobs_are_indepe
     ids = []
     for req in ["291026111111", "291026222222", "291026333333"]:
         ids.append((await prepared_message(db_session, case, req))["id"])
+    from backend.app.execution.naukri_identity import require
+    binding = {**BINDING, "profile_binding_id": (await require(db_session))["profile_binding_id"]}
     for identity in ids[:2]:
-        claimed = await queue.claim(db_session, "naukri", BINDING)
+        claimed = await queue.claim(db_session, "naukri", binding)
         assert claimed["id"] == identity
-        admitted = await queue.admit(db_session, identity, claimed["revision"], claimed["lease_token"], BINDING, case.settings)
+        admitted = await queue.admit(db_session, identity, claimed["revision"], claimed["lease_token"], binding, case.settings)
         row = await queue.load(db_session, identity)
         row.value = {**admitted, "stage": "NEEDS_INPUT", "status": "waiting", "lease_until": None, "lease_token": None}
         await db_session.commit()
-    third = await queue.claim(db_session, "naukri", BINDING)
+    third = await queue.claim(db_session, "naukri", binding)
     with pytest.raises(ToolDenied, match="daily_application_cap_reached"):
-        await queue.admit(db_session, third["id"], third["revision"], third["lease_token"], BINDING, case.settings)
+        await queue.admit(db_session, third["id"], third["revision"], third["lease_token"], binding, case.settings)
 
 
 async def test_local_pdf_without_provider_resume_proof_cannot_admit_apply(db_session, upload_case):
@@ -174,9 +188,11 @@ async def test_local_pdf_without_provider_resume_proof_cannot_admit_apply(db_ses
     message = await prepared_message(db_session, case, "291026111111")
     row = await queue.load(db_session, message["id"])
     row.value = {**row.value, "facts": {**row.value["facts"], "provider_resume_sha256": "0" * 64}}
-    claimed = await queue.claim(db_session, "naukri", BINDING)
+    from backend.app.execution.naukri_identity import require
+    binding = {**BINDING, "profile_binding_id": (await require(db_session))["profile_binding_id"]}
+    claimed = await queue.claim(db_session, "naukri", binding)
     with pytest.raises(ToolDenied, match="fresh_provider_resume_binding_required"):
-        await queue.admit(db_session, claimed["id"], claimed["revision"], claimed["lease_token"], BINDING, case.settings)
+        await queue.admit(db_session, claimed["id"], claimed["revision"], claimed["lease_token"], binding, case.settings)
 
 
 async def test_dashboard_queue_api_owner_policy_and_filters(async_client, phase2_auth, db_session):

@@ -297,7 +297,7 @@ async def test_concurrent_readiness_shares_live_probe_and_survives_one_cancelled
 
 
 @pytest.mark.asyncio
-async def test_probe_pool_has_one_slot_and_shutdown_disposes_both_engines(monkeypatch):
+async def test_probe_does_not_retain_idle_slot_and_shutdown_disposes_both_engines(monkeypatch):
     from backend.app.db import session as module
     from backend.app.db.safety import database_target
 
@@ -317,7 +317,10 @@ async def test_probe_pool_has_one_slot_and_shutdown_disposes_both_engines(monkey
     monkeypatch.setattr(module, "_readiness_engine", None)
     assert module.get_readiness_engine() is module.get_readiness_engine()
     assert len(created) == 1
-    assert created[0]["pool_size"] == 1 and created[0]["max_overflow"] == 0
+    from sqlalchemy.pool import NullPool
+
+    assert created[0]["poolclass"] is NullPool
+    assert "pool_size" not in created[0] and "max_overflow" not in created[0]
     assert created[0]["connect_args"]["server_settings"]["application_name"] == "automated-apply:readiness"
     await module.close_db_engine()
     engine.dispose.assert_awaited_once()
