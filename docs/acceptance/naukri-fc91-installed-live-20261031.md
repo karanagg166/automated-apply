@@ -104,6 +104,18 @@ poll and profile-sync records have not advanced. No tab was activated or closed
 to defeat that boundary. The owner was asked once to switch that window to a
 non-Naukri tab; no popup or repeated setup is required.
 
+One actual Stop/Start exercise at **14:25:57 UTC** kept the same PREPARE_ONLY
+policy and historical receipt. Stop returned HTTP 200 in **5.992 s**, STOPPED
+revision **6**; Start returned HTTP 200 in **4.208 s**, RUNNING revision **7**.
+Counts remained 14 DISCOVERED, 6 NEEDS_INPUT and 1 SUBMITTED_RECORDED, with no
+leased/executing browser work at admission. The previous installed Stop took
+26.05 s under a different workload; the new single sample is an observed
+improvement, not a controlled throughput benchmark or a complete responsiveness
+PASS. The accompanying slow control trace recorded **8 SQL writes, 15 SQL reads**,
+**5.515 s** connection occupancy and **0.146 s** acquisition. A contemporaneous
+native request spent **3.773 s** acquiring the API pool. This identifies remaining
+remote round trips and serialized API-pool occupancy; no timeout/limit was raised.
+
 Next: once the owner switches tabs, observe the actual background profile read and
 Download bytes, run genuine discovery/filter/match, and enable only the already
 authorized one-application supervised path after prerequisites pass. Any ambiguous
@@ -118,7 +130,8 @@ original PIDs, queue/profile snapshots, framed native result, post-install readi
 samples and canonical verification. Public evidence contains no account identifiers,
 contact details, tokens, resume bytes or private logs. **New fictional test count:
 0**; the pinned candidate's earlier exact test counts are in its linked report.
-No new installed throughput/CPU/RAM benchmark or comparable Stop duration is claimed.
+No controlled installed throughput/CPU/RAM or equivalent-workload Stop benchmark
+is claimed.
 
 ```sh
 # Non-mutating installed-source/disk checks:
