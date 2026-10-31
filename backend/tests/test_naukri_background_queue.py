@@ -223,7 +223,10 @@ async def test_exhausted_search_pages_are_bounded_and_keep_interval_and_role_rot
         "candidates_found": 20,
     })
     binding = {"profile_binding_id": "fixture", "tab_id": None}
-    work = await search_work(db_session, config, policy, binding)
+    await db_session.commit()
+    factory = async_sessionmaker(db_session.bind, expire_on_commit=False, autoflush=False)
+    async with factory() as restarted, restarted.begin():
+        work = await search_work(restarted, config, policy, binding)
     slug = roles[expected_role].lower().replace(" ", "-")
     expected_url = "https://www.naukri.com/" + slug + "-jobs"
     if expected_page > 1:
@@ -232,7 +235,8 @@ async def test_exhausted_search_pages_are_bounded_and_keep_interval_and_role_rot
     assert work["role_index"] == expected_role + 1
     assert work["candidates_found"] == 20 and work["binding"] == binding
     assert datetime.fromisoformat(work["next_at"]) - datetime.fromisoformat(work["last_started_at"]) == timedelta(seconds=300)
-    assert await search_work(db_session, config, policy, binding) is None
+    async with factory() as restarted, restarted.begin():
+        assert await search_work(restarted, config, policy, binding) is None
 
 
 async def test_saved_source_cursors_do_not_read_mail_or_enable_deferred_mailboxes(db_session):

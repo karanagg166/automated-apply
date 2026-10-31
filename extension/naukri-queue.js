@@ -7,19 +7,28 @@ import { captureNaukriResumeDownload } from "./naukri-resume-download.js";
 // Use the observed ordinary Sort menu; never guess a provider query parameter.
 export async function sortNaukriSearchDate(expectedUrl) {
   const failure = (reason) => ({ kind: "needs_input", reason });
+  const expected = new URL(expectedUrl);
+  const pagePath = expected.pathname.match(/^(\/[a-z0-9-]+-jobs)(?:-([23]))?$/);
+  const targetPage = Number(pagePath?.[2] || 1);
+  let allowedPaths = new Set([expected.pathname]);
+  let pendingPage = null;
+  let previousLinks = null;
+  const listingLinks = () =>
+    [...document.querySelectorAll('a[href*="/job-listings-"]')]
+      .map((e) => e.href)
+      .join("\n");
   let adopted = false;
   const visibilityChanged = () => {
     if (document.visibilityState !== "hidden") adopted = true;
   };
   const safe = () => {
-    const actual = new URL(location.href),
-      expected = new URL(expectedUrl);
+    const actual = new URL(location.href);
     if (adopted || document.visibilityState !== "hidden")
       return "owner_tab_active";
     if (
       actual.origin !== "https://www.naukri.com" ||
       actual.origin !== expected.origin ||
-      actual.pathname !== expected.pathname
+      !allowedPaths.has(actual.pathname)
     )
       return "provider_context_changed";
     if (
@@ -65,6 +74,76 @@ export async function sortNaukriSearchDate(expectedUrl) {
         continue;
       }
       if (control?.textContent.trim() === "Date") {
+        if (targetPage > 1) {
+          if (!pagePath) return failure("search_page_path_unrecognized");
+          const pagers = [
+            ...document.querySelectorAll('nav[aria-label="Pagination"]'),
+          ].filter(visible);
+          const current =
+            pagers.length === 1
+              ? [
+                  ...pagers[0].querySelectorAll('a[aria-current="page"]'),
+                ].filter(visible)
+              : [];
+          const number =
+            current.length === 1 &&
+            /^([1-3])$/.exec(current[0].textContent.trim());
+          if (!number) return failure("search_page_control_unrecognized");
+          const page = Number(number[1]);
+          const path = pagePath[1] + (page > 1 ? "-" + page : "");
+          if (
+            new URL(location.href).pathname !== path ||
+            (pendingPage && page !== pendingPage)
+          ) {
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            continue;
+          }
+          if (pendingPage && listingLinks() === previousLinks) {
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            continue;
+          }
+          pendingPage = null;
+          if (page < targetPage) {
+            const next = [...pagers[0].querySelectorAll("a")].filter(
+              (e) => visible(e) && e.textContent.trim() === "Next",
+            );
+            const nextPath = pagePath[1] + "-" + (page + 1);
+            let destination;
+            try {
+              destination = next.length === 1 && new URL(next[0].href);
+            } catch {
+              /* Refuse malformed navigation. */
+            }
+            if (
+              !destination ||
+              destination.origin !== expected.origin ||
+              destination.pathname !== nextPath ||
+              destination.search ||
+              destination.hash ||
+              destination.username ||
+              destination.password ||
+              destination.port ||
+              next[0].hasAttribute("disabled") ||
+              next[0].getAttribute("aria-disabled") === "true" ||
+              ![null, "", "_self"].includes(next[0].getAttribute("target"))
+            )
+              return failure("search_next_page_control_unsupported");
+            const refused = safe();
+            if (refused) return failure(refused);
+            previousLinks = listingLinks();
+            pendingPage = page + 1;
+            allowedPaths = new Set([path, nextPath]);
+            settled = 0;
+            next[0].click();
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            continue;
+          }
+          if (
+            page !== targetPage ||
+            new URL(location.href).pathname !== expected.pathname
+          )
+            return failure("search_page_identity_changed");
+        }
         // Let the SPA replace its cards before observing them. Eligibility still
         // uses the actual job page's dates, never a search-card age label.
         if (++settled >= 5) return { kind: "date_sort", state: "selected" };
@@ -92,6 +171,11 @@ export async function sortNaukriSearchDate(expectedUrl) {
           const refused = safe();
           if (refused) return failure(refused);
           selected = true;
+          // The genuine Date control resets a paginated search to page one.
+          // Permit only that explicit same-role transition, then advance via
+          // its ordinary Next links while preserving Date in the SPA.
+          if (targetPage > 1 && pagePath)
+            allowedPaths = new Set([expected.pathname, pagePath[1]]);
           links[0].click();
         } else if (!opened) {
           opened = true;
