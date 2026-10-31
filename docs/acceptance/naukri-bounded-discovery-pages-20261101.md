@@ -168,6 +168,21 @@ initially used a finish-time cutoff later than the enqueue transaction's timesta
 its read-only cohort assertion failed, then was corrected to the cycle start and
 froze the exact 15 IDs. No queue mutation or retry came from that monitor correction.
 
+**Complete genuine 15-job cohort at 23:11:04.897105, screen LOCKED:**
+**9 SKIPPED** for the saved posting-age limit; **6 NEEDS_INPUT** comprising three
+posting-age precision holds and three conflicting experience observations.
+**0 DISCOVERED remaining, 0 admitted application actions, 0 new receipts.**
+Every newly queued job received its real individual listing inspection. None
+passed those prerequisite gates, so no matching/packet, form, Apply or receipt
+success is claimed for them. No hold was treated as an approved fact.
+
+The final completion sample was **587.473 s after the enqueue transaction's
+timestamp**, including native polling, browser loads, an interleaved source cycle
+and 25-second monitoring intervals. This is an end-to-end cohort observation,
+not pure per-job latency or a controlled throughput comparison. Discovery remains
+RUNNING under the unchanged interval and cap-one policy; additional jobs must
+independently meet the same saved conditions.
+
 ## Actual locked-Mac readiness and browser operation
 
 The owner locked the Mac independently; the agent did not change its lock state.
@@ -249,8 +264,8 @@ applicant uncertainty, experience and other restrictions remain enforced.
 | Actual locked background search/sort | PASS | Recommended → Date, 20 links, paired LOCKED DOM observations |
 | Bounded focus preservation | PASS | Front/active IDs identical before/after; no continuous claim |
 | Actual page-2 navigation/source candidates while locked | PASS | Date, selected page 2, 20 links, 15 new durable jobs; no source error |
-| Actual new-job inspections/filtering while locked | PASS (bounded) | Five inspected outcomes at 23:04:12; ten still pending |
-| All 15 new jobs matched/prepared | NOT TESTED | Pending inspections and genuine holds are not eligibility or packets |
+| Actual new-job inspections/filtering while locked | PASS | All 15 finished: nine age exclusions, six genuine metadata holds |
+| All 15 new jobs matched/prepared | NOT TESTED | None passed prerequisite age/metadata gates; no matching/packet success claimed |
 | New eligible application, fill, Apply, independent receipt | BLOCKED | No qualifying inspected vacancy yet; no fabricated outcome |
 | Recurring AUTOMATIC | BLOCKED | First new verified receipt and critical checks required |
 | Questionnaire/Cohere/Telegram resumption | BLOCKED | Recurring form adapter still unfinished |

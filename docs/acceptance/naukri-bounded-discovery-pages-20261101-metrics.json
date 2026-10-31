@@ -107,26 +107,25 @@
     }
   ],
   "actual_new_cohort": {
-    "at": "2026-10-31T23:05:07.417274+00:00",
+    "at": "2026-10-31T23:11:04.897105+00:00",
     "screen": "LOCKED",
     "queue_state": "RUNNING",
     "minimum_match_score": 50,
     "cohort_size": 15,
     "stages": {
-      "DISCOVERED": 9,
-      "NEEDS_INPUT": 3,
-      "SKIPPED": 3
+      "NEEDS_INPUT": 6,
+      "SKIPPED": 9
     },
     "reasons": {
-      "pending": 9,
-      "posting_age_requires_review": 1,
-      "experience_requirement_evidence_conflict": 2,
-      "posting_outside_age_limit": 3
+      "posting_age_requires_review": 3,
+      "posting_outside_age_limit": 9,
+      "experience_requirement_evidence_conflict": 3
     },
-    "remaining_inspections": 9,
+    "remaining_inspections": 0,
     "cohort_admitted_actions": 0,
     "cohort_new_receipts": 0,
-    "actual_match_scores": []
+    "actual_match_scores": [],
+    "elapsed_from_enqueue_seconds": 587.473
   },
   "actual_locked_ready_samples": [
     {
@@ -317,5 +316,81 @@
   "rollback_preserved": true,
   "rollback_exercised": false,
   "hosted_actions_run": false,
-  "question_unknown_company_stage": "pending_no_policy_change"
+  "question_unknown_company_stage": "pending_no_policy_change",
+  "latest_queue_snapshot": {
+    "at": "2026-10-31T23:11:40.316709+00:00",
+    "screen": "LOCKED",
+    "query_seconds": 4.629,
+    "queue_state": "RUNNING",
+    "queue_revision": 32,
+    "minimum_match_score": 50,
+    "consumer": {
+      "last_poll_at": "2026-10-31T23:11:24.918760+00:00",
+      "busy": false,
+      "capability": "ordinary_ui_direct_apply_candidate"
+    },
+    "cohort_statuses": {
+      "waiting": 2,
+      "complete": 7
+    },
+    "cohort_operations": {
+      "inspect_job": 2,
+      "prepare": 7
+    },
+    "cohort_count": 9,
+    "cohort_stages": {
+      "NEEDS_INPUT": 2,
+      "SKIPPED": 7
+    },
+    "cohort_reasons": {
+      "applicant_count_requires_review": 2,
+      "current_profile_preferences_or_required_skills_exclude_job": 7
+    },
+    "cohort_remaining": 0,
+    "queue_total": 312,
+    "all_stages": {
+      "SUBMITTED_RECORDED": 1,
+      "SKIPPED": 233,
+      "NEEDS_INPUT": 78
+    },
+    "admitted_action_count": 0,
+    "new_receipt_count": 0,
+    "historical_receipt_count": 1,
+    "heartbeat": "2026-10-31T23:11:32.063039+00:00",
+    "search": {
+      "status": "executing",
+      "last_started_at": "2026-10-31T23:11:27.338712+00:00",
+      "last_finished_at": null,
+      "last_cycle_count": null,
+      "last_error": null,
+      "candidates_found": 299,
+      "next_at": "2026-10-31T23:16:27.338712+00:00",
+      "search_page": 2
+    },
+    "telegram": {
+      "last_poll_at": "2026-10-31 23:11:35.677440+00:00",
+      "last_error": null,
+      "evidence_type": "live_poll",
+      "identity_bound": true
+    }
+  },
+  "actual_final_readiness": {
+    "at": "2026-10-31T23:11:36.743795+00:00",
+    "backend_database": {
+      "http": 200,
+      "seconds": 2.256
+    },
+    "frontend_login_http": 200,
+    "native_selected_profile": {
+      "status": "CONNECTED",
+      "commands_enabled": true,
+      "last_heartbeat": "2026-10-31T23:11:19.927723+00:00"
+    },
+    "queue": {
+      "state": "RUNNING",
+      "revision": 32,
+      "minimum_match_score": 50,
+      "records": 312
+    }
+  }
 }
