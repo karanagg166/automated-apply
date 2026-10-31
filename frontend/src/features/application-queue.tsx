@@ -449,7 +449,7 @@ export function QueuePolicyForm({
           <Field label="Global minimum match score">
             <Input
               type="number"
-              min={80}
+              min={50}
               max={100}
               required
               value={policy.global_limits.minimum_match_score}

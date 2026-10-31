@@ -89,6 +89,19 @@ def test_independent_global_and_platform_overrides():
     assert effective["applicant_limit"] == 250
 
 
+def test_owner_can_lower_match_threshold_to_50_without_relaxing_other_limits():
+    policy = QueuePolicy(global_limits=QueueLimits(minimum_match_score=50))
+    effective = queue.limits(policy, "naukri")
+    assert effective["minimum_match_score"] == 50
+    assert effective["daily_cap"] == 80
+    assert effective["max_job_age_days"] == 2
+    assert effective["applicant_limit"] == 10000
+    assert effective["unknown_applicants"] == "needs_review"
+    for rejected in (49, 101):
+        with pytest.raises(ValidationError):
+            QueueLimits(minimum_match_score=rejected)
+
+
 @pytest.mark.parametrize("facts, reason", [
     ({"posted_at": "invalid"}, "posting_timestamp_unknown"),
     ({"posted_at": (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()}, "posting_outside_age_limit"),

@@ -216,6 +216,24 @@ it("saves independent Naukri limits and multiple typed preferences without losin
   );
 });
 
+it("saves the owner's match threshold of 50 while retaining the other global limits", async () => {
+  render(<QueuePolicyForm configuration={configuration} saved={saved} />);
+  const user = userEvent.setup();
+  const score = screen.getByLabelText("Global minimum match score");
+  expect(score).toHaveAttribute("min", "50");
+  await user.clear(score);
+  await user.type(score, "50");
+  await user.click(screen.getByRole("button", { name: "Save queue policy" }));
+  await waitFor(() => expect(api).toHaveBeenCalled());
+  const [, options] = vi.mocked(api).mock.calls[0];
+  const payload = JSON.parse(String(options?.body));
+  expect(payload.policy.global_limits).toEqual({
+    ...configuration.policy.global_limits,
+    minimum_match_score: 50,
+  });
+  expect(payload.policy.platforms).toEqual(configuration.policy.platforms);
+});
+
 it("retains dirty edits and prevents overwriting a newer server policy", async () => {
   const { rerender } = render(
     <QueuePolicyForm configuration={configuration} saved={saved} />,
