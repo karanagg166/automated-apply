@@ -1,0 +1,313 @@
+{
+  "phase": "OPEN",
+  "branch": "fix/live-prepare-discovery-20261030",
+  "implementation_sha": "70dad04b5235e1232e2b1fffc38a47a68cf8a013",
+  "installed_sha": "ee8c591b382626f657f3e99f2e757c303ec217b0",
+  "installed_extension_version": "1.3.3",
+  "source_extension_version": "1.3.4",
+  "pr": "https://github.com/karanagg166/automated-apply/pull/48",
+  "backend": {
+    "passed": 377,
+    "failed": 0,
+    "files": 16,
+    "seconds": 29.26,
+    "fixture_only": true
+  },
+  "frontend": {
+    "passed": 292,
+    "failed": 0,
+    "files": 38,
+    "seconds": 11.13,
+    "fixture_only": true
+  },
+  "extension_node": {
+    "passed": 159,
+    "failed": 0,
+    "milliseconds": 6616.451625,
+    "fixture_only": true
+  },
+  "sql_counts": {
+    "one_candidate": 8,
+    "twenty_candidates": 8,
+    "twenty_item_fence": 5,
+    "fixture_only": true
+  },
+  "checks": {
+    "frontend_build": "PASS",
+    "typecheck": "PASS",
+    "api_regeneration": "PASS",
+    "extension_build": "PASS",
+    "ruff": "PASS",
+    "format": "PASS",
+    "diff": "PASS"
+  },
+  "live": {
+    "new_submissions": 0,
+    "qtrino_replays": 0,
+    "retained_receipts": 1,
+    "discovered_urls": 20,
+    "queue_state": "STOPPED",
+    "queue_revision": 4,
+    "paused_items": 20,
+    "extension_stable_id_preserved": true,
+    "extension_matching_files": 21,
+    "extension_files": 21,
+    "permissions_unchanged": true,
+    "account_email_comparison": "DIFFERENT",
+    "approved_login_alias": "OWNER_CLARIFICATION_PENDING",
+    "provider_resume_bytes_verified": false,
+    "actual_profile_sync_writes": 0,
+    "profile_sync_record": null,
+    "source_compatibility_fix_installed": false
+  },
+  "installed_failures": [
+    "initial_ready_503_database_unavailable",
+    "native_discovery_finish_timeout_with_later_commit",
+    "job_required_facts_unrecognized",
+    "status_read_timeout_12_seconds",
+    "stop_read_timeout_12_seconds_then_succeeded_26_05_seconds"
+  ],
+  "initial_regression_failures": [
+    "40_backend_failures_from_accidental_validator_edit_corrected_before_commit",
+    "2_extension_failures_version_assertion_and_company_rating_contamination_corrected"
+  ],
+  "changed_files": [
+    "backend/app/execution/application_queue.py",
+    "backend/app/execution/naukri_native.py",
+    "backend/app/execution/queue_contracts.py",
+    "backend/scripts/verify_application_queue_postgres.py",
+    "backend/tests/test_naukri_background_queue.py",
+    "backend/tests/test_naukri_batch_admission.py",
+    "extension/manifest.json",
+    "extension/naukri-execution.js",
+    "extension/naukri-observation.js",
+    "extension/naukri-queue.js",
+    "extension/tests/native-protocol.test.mjs",
+    "extension/tests/naukri-execution.browser.mjs",
+    "extension/tests/naukri-observation.test.mjs",
+    "extension/tests/naukri-queue.browser.mjs",
+    "extension/tests/naukri-queue.test.mjs",
+    "frontend/src/features/application-queue.tsx",
+    "frontend/src/types/api.d.ts",
+    "frontend/tests/application-queue.test.tsx"
+  ],
+  "locked_mac": {
+    "result": "FAIL_READINESS",
+    "samples": 3,
+    "all_samples_locked_before_and_after": true,
+    "start": "2026-10-31T09:37:36.608565+00:00",
+    "last_sample_completed": "2026-10-31T09:38:42.731404+00:00",
+    "submission": "NOT_TESTED",
+    "browser_operation": "NOT_TESTED",
+    "worker_heartbeat_advanced": true,
+    "probes": {
+      "api": {
+        "passed": 3,
+        "failed": 0
+      },
+      "database": {
+        "passed": 3,
+        "failed": 0
+      },
+      "health": {
+        "passed": 3,
+        "failed": 0
+      },
+      "ready": {
+        "passed": 0,
+        "failed": 3
+      }
+    },
+    "readiness_failures": [
+      {
+        "seconds": 3.816,
+        "error_type": "HTTPStatusError",
+        "http_status": 503
+      },
+      {
+        "seconds": 1.663,
+        "error_type": "HTTPStatusError",
+        "http_status": 503
+      },
+      {
+        "seconds": 1.338,
+        "error_type": "HTTPStatusError",
+        "http_status": 503
+      }
+    ],
+    "monitor_exit": 0,
+    "added_observer_connection": true,
+    "lock_causality": "NOT_ESTABLISHED"
+  },
+  "chromium_queue": {
+    "fixture_only": true,
+    "browser": "156.0.8078.4",
+    "cases": 4,
+    "duration_ms": 5539,
+    "live_naukri_requests": 0,
+    "dns_route_to_provider_blocked": true,
+    "fixtureRequests": 4,
+    "unexpectedRequests": 0,
+    "chooserEvents": 0,
+    "evidence": [
+      {
+        "name": "background_job_facts",
+        "result": "PASS",
+        "actual_inactive_chromium_tab": true,
+        "owner_tab_preserved": true,
+        "provider_requests_routed_to_fixture": true
+      },
+      {
+        "name": "current_header_layout",
+        "result": "PASS",
+        "actual_inactive_chromium_tab": true,
+        "owner_tab_preserved": true,
+        "provider_requests_routed_to_fixture": true
+      },
+      {
+        "name": "background_search_links",
+        "result": "PASS",
+        "actual_inactive_chromium_tab": true,
+        "owner_tab_preserved": true,
+        "provider_requests_routed_to_fixture": true
+      },
+      {
+        "name": "stop_before_dom",
+        "result": "PASS",
+        "actual_inactive_chromium_tab": true,
+        "owner_tab_preserved": true,
+        "provider_requests_routed_to_fixture": true
+      }
+    ]
+  },
+  "chromium_execution": {
+    "fixture_only": true,
+    "cases": 12,
+    "browser": "156.0.8078.4",
+    "duration_ms": 6434,
+    "live_naukri_requests": 0,
+    "unexpectedRequests": 0,
+    "chooserEvents": 0,
+    "fixtureRequests": 16,
+    "evidence": [
+      {
+        "name": "canonical_provider_pdf_bytes",
+        "result": "PASS",
+        "fictional_page": true,
+        "actual_inactive_chromium_tab": true
+      },
+      {
+        "name": "wrong_saved_resume_refused",
+        "result": "PASS",
+        "fictional_page": true,
+        "actual_inactive_chromium_tab": true
+      },
+      {
+        "name": "profile_summary_save_and_independent_reload",
+        "result": "PASS",
+        "fictional_page": true,
+        "actual_inactive_chromium_tab": true
+      },
+      {
+        "name": "normal",
+        "result": "PASS",
+        "fictional_page": true,
+        "actual_inactive_chromium_tab": true
+      },
+      {
+        "name": "modern",
+        "result": "PASS",
+        "fictional_page": true,
+        "actual_inactive_chromium_tab": true
+      },
+      {
+        "name": "expired",
+        "result": "PASS",
+        "fictional_page": true,
+        "actual_inactive_chromium_tab": true
+      },
+      {
+        "name": "changed",
+        "result": "PASS",
+        "fictional_page": true,
+        "actual_inactive_chromium_tab": true
+      },
+      {
+        "name": "double",
+        "result": "PASS",
+        "fictional_page": true,
+        "actual_inactive_chromium_tab": true
+      },
+      {
+        "name": "wrong_account",
+        "result": "PASS",
+        "fictional_page": true,
+        "actual_inactive_chromium_tab": true
+      },
+      {
+        "name": "challenge",
+        "result": "PASS",
+        "fictional_page": true,
+        "actual_inactive_chromium_tab": true
+      },
+      {
+        "name": "independent_persistent_history_documents",
+        "result": "PASS",
+        "fictional_page": true,
+        "actual_inactive_chromium_tab": true
+      },
+      {
+        "name": "generic_status_is_not_receipt",
+        "result": "PASS",
+        "fictional_page": true,
+        "actual_inactive_chromium_tab": true
+      }
+    ]
+  },
+  "postgres_queue": {
+    "fixture_only": true,
+    "database_version": "14.24 (Homebrew)",
+    "cases_passed": 8,
+    "duration_seconds": 0.222,
+    "pool_limit": 2,
+    "provider_requests": 0,
+    "applications": 0,
+    "results": [
+      "concurrent_publish_one_durable_identity",
+      "concurrent_claim_one_lease",
+      "concurrent_policy_control_one_revision_winner",
+      "stop_fences_prior_committed_lease",
+      "new_connection_resume_requires_fresh_read",
+      "expired_possible_submission_is_never_redelivered",
+      "concurrent_twenty_item_batches_commit_one_outbox_per_identity",
+      "bulk_stop_persists_all_read_fences_and_keeps_unknown_submission"
+    ]
+  },
+  "postgres_submission": {
+    "fixture_only": true,
+    "database_version": "14.24 (Homebrew)",
+    "cases_passed": 2,
+    "duration_seconds": 0.526,
+    "pool_limit": 2,
+    "provider_requests": 0,
+    "real_applications": 0,
+    "results": [
+      "committed_native_worker_apply_and_independent_receipt_journey",
+      "profile_sync_reference_record_survives_new_connection"
+    ]
+  },
+  "diagnostic_blockers": [
+    "actual_resume_download_is_button_without_supported_href",
+    "canonical_contact_email_differs_from_visible_platform_email"
+  ],
+  "post_monitor": {
+    "health_http": 200,
+    "health_seconds": 0.034,
+    "ready_http": 200,
+    "ready_seconds": 3.01,
+    "profile_http": 200,
+    "profile_seconds": 2.241,
+    "selected_profile_connected": true,
+    "native_heartbeat_at": "2026-10-31T09:39:57.825772+00:00"
+  }
+}
