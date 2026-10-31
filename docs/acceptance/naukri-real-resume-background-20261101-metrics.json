@@ -687,5 +687,128 @@
     "last_error": null,
     "evidence_type": "live_poll",
     "bot_identity_bound": true
+  },
+  "original128_completion": {
+    "at": "2026-10-31T21:44:11.571872+00:00",
+    "original_pending_ids": 128,
+    "current_stage_counts": {
+      "SKIPPED": 104,
+      "NEEDS_INPUT": 24
+    },
+    "current_reason_counts": {
+      "posting_outside_age_limit": 103,
+      "applicant_count_requires_review": 4,
+      "posting_age_requires_review": 16,
+      "experience_requirement_evidence_conflict": 3,
+      "current_profile_preferences_or_required_skills_exclude_job": 1,
+      "owner_tab_active": 1
+    },
+    "remaining_uninspected": 0
+  },
+  "original128_followup_samples": [
+    {
+      "at": "2026-10-31T21:42:28.725277+00:00",
+      "original_pending_ids": 128,
+      "current_stage_counts": {
+        "SKIPPED": 104,
+        "NEEDS_INPUT": 21,
+        "DISCOVERED": 3
+      },
+      "current_reason_counts": {
+        "posting_outside_age_limit": 103,
+        "applicant_count_requires_review": 3,
+        "posting_age_requires_review": 14,
+        "pending": 3,
+        "experience_requirement_evidence_conflict": 3,
+        "current_profile_preferences_or_required_skills_exclude_job": 1,
+        "owner_tab_active": 1
+      },
+      "remaining_uninspected": 3
+    },
+    {
+      "at": "2026-10-31T21:43:03.061191+00:00",
+      "original_pending_ids": 128,
+      "current_stage_counts": {
+        "SKIPPED": 104,
+        "NEEDS_INPUT": 22,
+        "DISCOVERED": 2
+      },
+      "current_reason_counts": {
+        "posting_outside_age_limit": 103,
+        "applicant_count_requires_review": 4,
+        "posting_age_requires_review": 14,
+        "pending": 2,
+        "experience_requirement_evidence_conflict": 3,
+        "current_profile_preferences_or_required_skills_exclude_job": 1,
+        "owner_tab_active": 1
+      },
+      "remaining_uninspected": 2
+    },
+    {
+      "at": "2026-10-31T21:43:37.475027+00:00",
+      "original_pending_ids": 128,
+      "current_stage_counts": {
+        "SKIPPED": 104,
+        "NEEDS_INPUT": 23,
+        "DISCOVERED": 1
+      },
+      "current_reason_counts": {
+        "posting_outside_age_limit": 103,
+        "applicant_count_requires_review": 4,
+        "posting_age_requires_review": 15,
+        "experience_requirement_evidence_conflict": 3,
+        "pending": 1,
+        "current_profile_preferences_or_required_skills_exclude_job": 1,
+        "owner_tab_active": 1
+      },
+      "remaining_uninspected": 1
+    },
+    {
+      "at": "2026-10-31T21:44:11.571872+00:00",
+      "original_pending_ids": 128,
+      "current_stage_counts": {
+        "SKIPPED": 104,
+        "NEEDS_INPUT": 24
+      },
+      "current_reason_counts": {
+        "posting_outside_age_limit": 103,
+        "applicant_count_requires_review": 4,
+        "posting_age_requires_review": 16,
+        "experience_requirement_evidence_conflict": 3,
+        "current_profile_preferences_or_required_skills_exclude_job": 1,
+        "owner_tab_active": 1
+      },
+      "remaining_uninspected": 0
+    }
+  ],
+  "final_matching_diagnostic": {
+    "at": "2026-10-31T21:47:15.969816+00:00",
+    "observed_fact_records": 259,
+    "queue_total": 297,
+    "fully_eligible_count": 0,
+    "counts_overlapping": {
+      "posting_outside_age_limit": 217,
+      "minimum_match_score_required": 259,
+      "uncertain_job_requirements_require_review": 259,
+      "current_profile_preferences_or_required_skills_exclude_job": 258,
+      "posting_age_requires_review": 30,
+      "applicant_count_requires_review": 6
+    },
+    "max_score": 70.0
+  },
+  "standing_policy": {
+    "at": "2026-10-31T21:49:21.662825+00:00",
+    "queue_state": "RUNNING",
+    "queue_revision": 23,
+    "naukri_mode": "SUPERVISED",
+    "owner_submission_authorized": true,
+    "hourly_cap": 1,
+    "supervised_cap": 1,
+    "local_naukri_preference": "automatic_preferred",
+    "execution_mode": "ON_DEMAND",
+    "only_naukri_queue_adapter": true,
+    "gmail_policy": "draft_only",
+    "gmail_sending_enabled": false,
+    "notify_verified_receipt_telegram": true
   }
 }

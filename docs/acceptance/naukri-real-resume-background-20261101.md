@@ -150,6 +150,10 @@ requirements and age/applicant ambiguities were retained. The uninspected backlo
 is not declared ineligible. No score, skill, qualification or posting date was
 manufactured, and no filter was loosened to obtain an application.
 
+The follow-up diagnostic at **21:47:15** covered **259 actual fact records**:
+again **zero fully eligible**, all below 80, maximum **70**. This diagnostic was
+read-only; it did not promote work, create a packet, change a score or submit.
+
 The structured `monthsOfExperience` minimum is now enforced even when it fits
 inside the visible range: a one-month minimum under a 0–3-year label produces
 minimum **1/12 year**, not zero. A minimum above the visible maximum still returns
@@ -197,6 +201,14 @@ inspection outcome at **21:35:53** (99 SKIPPED, 16 NEEDS_INPUT), while **13**
 remained DISCOVERED. That original backlog was still incomplete at this snapshot;
 processing continues without changing filters or replaying an employer action.
 
+At **21:44:11**, all **128 original IDs had inspection outcomes**: **104 SKIPPED**
+and **24 NEEDS_INPUT**, **zero still DISCOVERED**. The exclusions were 103 outside
+the posting-age limit and one profile/skills exclusion. Unresolved outcomes were
+16 date-precision reviews, four applicant-count reviews, three experience conflicts
+and one owner-tab refusal. Completion of inspection does not mean those jobs were
+applied to or that unresolved metadata was approved. Newly discovered work remains
+separate from this completed cohort.
+
 At **21:31:21**, all four installed LaunchAgents had live PIDs. Backend/database
 readiness returned **200 in 2.105 s**, selected Profile 8 was CONNECTED with
 commands enabled and a fresh native heartbeat, and frontend `/` returned its
@@ -204,6 +216,13 @@ expected **307 redirect to `/login`, then 200**. Telegram's actual durable
 `live_poll` state advanced to **21:31:56**, bot identity remained bound, and
 `last_error` was null. No test message or fictional success notification was sent.
 These checks do not establish a genuine application receipt or locked-Mac readiness.
+
+The final standing-policy read at **21:49:21** verified queue **RUNNING revision 23**,
+SUPERVISED cap **one/hour one**, `owner_submission_authorized=true`, local Naukri
+preference `automatic_preferred`, execution mode `ON_DEMAND`, and Telegram
+notification on a verified receipt enabled. Only the Naukri queue adapter is
+configured. Gmail remains `draft_only`, with sending disabled. No per-job approval
+or release approval is pending for that standing first eligible application.
 
 ## Focused verification, actual versus fixtures
 
@@ -253,6 +272,7 @@ open; no CPU/RAM before/after benchmark or definitive locked-browser test occurr
 | No repeated update approvals | PASS | Standing owner policy recorded; reviewed installs automated |
 | Own inactive setup / actual focused-window guard | PASS bounded actual and regression evidence | Respect owner adoption; no continuous-focus or locked claim |
 | Real recurring discovery/filter/match | PASS exercised cycles/exclusions | Uninspected jobs remain unknown; no currently eligible observed candidate |
+| Original 128-job inspection cohort | PASS completed at 21:44:11 | 104 excluded, 24 held; no fabricated qualification or application |
 | New supported form/Apply and independent receipt | BLOCKED | Zero new admissions/submissions/receipts; do not weaken filters |
 | Questionnaire/Cohere/Telegram resumption | NOT ACCEPTED live | No new eligible form reached; existing recurring questionnaire integration unfinished |
 | New receipt notification accuracy | NOT TESTED live | No success notification fabricated |
