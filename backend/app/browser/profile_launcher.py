@@ -6,6 +6,8 @@ import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from sqlalchemy import select
+
 from backend.app.core.config import get_settings
 from backend.app.dashboard.models import OwnerPreference
 from backend.app.execution.store import memory_row
@@ -24,7 +26,22 @@ def launch_arguments(mapping):
             or mapping.get("verified_via") != "owner_selected_chrome_version_page"
             or not mapping.get("profile_binding_id")):
         raise ValueError("PROFILE_OFFLINE")
-    return ["/usr/bin/open", "-a", "/Applications/Google Chrome.app", "--args", "--profile-directory=" + directory]
+    return ["/usr/bin/open", "-g", "-a", "/Applications/Google Chrome.app", "--args", "--profile-directory=" + directory]
+
+
+async def automation_active(session):
+    """Either Naukri scheduler can authorize startup; global OFF fences both."""
+    await session.flush()
+    rows = (await session.scalars(select(OwnerPreference).where(
+        OwnerPreference.key.in_(["naukri_automation", "application_queue_policy", "exec_config:naukri"])
+    ).execution_options(populate_existing=True))).all()
+    values = {row.key: row.value for row in rows}
+    if values.get("exec_config:naukri", {}).get("mode") == "OFF":
+        return False
+    queue = values.get("application_queue_policy", {})
+    platform = queue.get("policy", {}).get("platforms", {}).get("naukri", {})
+    return (values.get("naukri_automation", {}).get("state") == "RUNNING"
+            or (queue.get("state") == "RUNNING" and platform.get("enabled") is True))
 
 
 async def process(arguments):
@@ -44,9 +61,9 @@ async def ensure_fixed_profile(factory, *, settings=None, run=process):
     async with factory() as session, session.begin():
         # An online status observation launches and dispatches nothing. Avoid
         # serializing normal browser RPCs behind this read on every worker tick.
-        state = await session.get(OwnerPreference, "naukri_automation")
-        # Startup is an authorized automation operation and stops with the scheduler.
-        if not state or state.value.get("state") != "RUNNING":
+        # The durable queue and legacy scheduler have independent controls.
+        # Startup must stop with both channels, including global OFF.
+        if not await automation_active(session):
             return "PROFILE_OFFLINE"
         fixed = await session.get(OwnerPreference, FIXED)
         selected = await session.get(OwnerPreference, "chr_selection")
@@ -67,9 +84,9 @@ async def ensure_fixed_profile(factory, *, settings=None, run=process):
         # Reserve a real launch only after obtaining authority and re-reading
         # everything that could have changed while waiting for the owner lock.
         await memory_row(session, lock=True)
-        for record in (state, fixed, selected):
+        for record in (fixed, selected):
             await session.refresh(record)
-        if (state.value.get("state") != "RUNNING" or fixed.value != mapping
+        if (not await automation_active(session) or fixed.value != mapping
                 or selected.value.get("profile_binding_id") != mapping["profile_binding_id"]):
             return "PROFILE_OFFLINE"
         if profile:
@@ -92,9 +109,8 @@ async def ensure_fixed_profile(factory, *, settings=None, run=process):
     # Recheck Stop after the process probe and before launch; dispatch has its own stronger fences.
     async with factory() as session, session.begin():
         await memory_row(session, lock=True)
-        state = await session.get(OwnerPreference, "naukri_automation")
         fixed = await session.get(OwnerPreference, FIXED)
-        if not state or state.value.get("state") != "RUNNING" or not fixed or fixed.value != mapping:
+        if not await automation_active(session) or not fixed or fixed.value != mapping:
             return "PROFILE_OFFLINE"
         # Serialize the bounded launch with Stop. Once Stop is acknowledged no delayed launch remains.
         await run(arguments)

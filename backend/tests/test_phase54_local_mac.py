@@ -205,6 +205,81 @@ async def test_pin_refuses_other_profile_and_paused_launcher_is_inert(db_session
     assert await ensure_fixed_profile(test_session_factory, settings=oauth_settings(CHROME_FIXED_PROFILE_LAUNCH_ENABLED=True), run=denied) == "PROFILE_OFFLINE"
 
 
+@pytest.mark.parametrize("queue_state,enabled,global_mode,chrome_running,expected_calls", [
+    ("RUNNING", True, "ON_DEMAND", False, 2),
+    ("RUNNING", True, "ON_DEMAND", True, 1),
+    ("PAUSED", True, "ON_DEMAND", False, 0),
+    ("STOPPED", True, "ON_DEMAND", False, 0),
+    ("RUNNING", False, "ON_DEMAND", False, 0),
+    ("RUNNING", True, "OFF", False, 0),
+])
+async def test_queue_startup_independent_of_legacy_and_preserves_other_chrome(
+    db_session, monkeypatch, queue_state, enabled, global_mode, chrome_running, expected_calls,
+):
+    from pathlib import Path
+
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from backend.app.browser import profile_launcher
+
+    monkeypatch.setattr(profile_launcher.sys, "platform", "darwin")
+    binding = str(uuid4())
+    mapping = {"profile_binding_id": binding, "profile_directory": "Profile 8", "automatic_launch_enabled": True,
+        "chrome_profile_path": str(Path.home() / "Library/Application Support/Google/Chrome/Profile 8"),
+        "verified_via": "owner_selected_chrome_version_page"}
+    for key, value in [("chr_fixed_profile", mapping), ("chr_selection", {"profile_binding_id": binding}),
+            ("naukri_automation", {"state": "STOPPED"}), ("exec_config:naukri", {"mode": global_mode}),
+            ("application_queue_policy", {"state": queue_state, "policy": {"platforms": {"naukri": {"enabled": enabled}}}})]:
+        db_session.add(OwnerPreference(key=key, value=value))
+    await db_session.commit()
+    calls = []
+
+    async def run(arguments):
+        calls.append(arguments)
+        return int(not chrome_running) if arguments[0].endswith("pgrep") else 0
+
+    result = await profile_launcher.ensure_fixed_profile(
+        async_sessionmaker(db_session.bind, expire_on_commit=False),
+        settings=oauth_settings(CHROME_FIXED_PROFILE_LAUNCH_ENABLED=True), run=run)
+    assert result == "PROFILE_OFFLINE"  # A launch never replaces the required heartbeat.
+    assert len(calls) == expected_calls
+    if expected_calls == 2:
+        assert calls[-1] == ["/usr/bin/open", "-g", "-a", "/Applications/Google Chrome.app",
+                             "--args", "--profile-directory=Profile 8"]
+
+
+async def test_queue_startup_rechecks_stop_after_process_probe(db_session, monkeypatch):
+    from pathlib import Path
+
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+
+    from backend.app.browser import profile_launcher
+
+    monkeypatch.setattr(profile_launcher.sys, "platform", "darwin")
+    binding = str(uuid4())
+    for key, value in [("chr_fixed_profile", {"profile_binding_id": binding, "profile_directory": "Profile 8",
+            "automatic_launch_enabled": True, "verified_via": "owner_selected_chrome_version_page",
+            "chrome_profile_path": str(Path.home() / "Library/Application Support/Google/Chrome/Profile 8")}),
+            ("chr_selection", {"profile_binding_id": binding}),
+            ("application_queue_policy", {"state": "RUNNING", "policy": {"platforms": {"naukri": {"enabled": True}}}})]:
+        db_session.add(OwnerPreference(key=key, value=value))
+    await db_session.commit()
+    factory = async_sessionmaker(db_session.bind, expire_on_commit=False)
+    calls = []
+
+    async def run(arguments):
+        calls.append(arguments)
+        assert arguments[0].endswith("pgrep")
+        async with factory() as session, session.begin():
+            row = await session.get(OwnerPreference, "application_queue_policy")
+            row.value = {**row.value, "state": "STOPPED"}
+        return 1
+
+    assert await profile_launcher.ensure_fixed_profile(
+        factory, settings=oauth_settings(CHROME_FIXED_PROFILE_LAUNCH_ENABLED=True), run=run) == "PROFILE_OFFLINE"
+    assert len(calls) == 1
+
+
 @pytest.mark.parametrize("locked,expected", [(True, "LOCKED"), (False, "UNLOCKED")])
 def test_current_macos_console_lock_requires_exact_active_user(locked, expected):
     from backend.scripts.monitor_naukri_acceptance import lock_observation
