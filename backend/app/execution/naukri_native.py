@@ -6,7 +6,7 @@ establish receipts. Unsupported questionnaires and downloads remain blocked.
 
 import re
 from datetime import datetime, timedelta
-from uuid import NAMESPACE_URL, uuid4, uuid5
+from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from backend.app.agent.tools import ToolDenied
 from backend.app.automation.store import instant
@@ -19,6 +19,7 @@ from backend.app.execution.queue_contracts import QueuePolicy
 from backend.app.local_agent.contracts import Result
 
 SEARCH = "apply_search:naukri"
+MAINTENANCE = "naukri_extension_maintenance"
 READS = {"inspect_job", "search_jobs"}
 
 
@@ -201,6 +202,21 @@ async def dispatch(session, settings, actor, command):
         if command.command == "poll_naukri_work":
             if command.tab_id is not None:
                 raise ToolDenied("queue_poll_without_tab_required")
+            if config["state"] == "STOPPED":
+                request = await session.get(OwnerPreference, MAINTENANCE, populate_existing=True)
+                value = request.value if request else {}
+                try:
+                    expires = datetime.fromisoformat(value["expires_at"])
+                    valid = timedelta(0) < expires - await instant(session) <= timedelta(minutes=2)
+                    valid = valid and isinstance(value["request_id"], str) and str(UUID(value["request_id"])) == value["request_id"]
+                except (KeyError, TypeError, ValueError):
+                    valid = False
+                if (valid and value.get("kind") == "open_extension_manager"
+                        and value.get("binding") == binding and setting and setting.enabled):
+                    return Result(request_id=command.request_id, ok=True, capability="naukri_extension_maintenance",
+                                  data={"work": None, "maintenance": {k: value[k] for k in ("kind", "request_id", "expires_at")},
+                                        "submitted": False})
+                value = None
             if config["state"] == "RUNNING" and setting and setting.enabled:
                 # Never overlap an owner's legacy command or a background read.
                 from backend.app.browser import extension_tasks

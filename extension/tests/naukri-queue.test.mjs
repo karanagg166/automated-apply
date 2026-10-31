@@ -48,6 +48,7 @@ function fixture(options = {}) {
         {
           id: 7,
           active: true,
+          windowId: 10,
           url: options.ownerNaukri
             ? "https://www.naukri.com/mnjuser/profile"
             : "https://example.com/owner-work",
@@ -73,6 +74,9 @@ function fixture(options = {}) {
         Object.assign(tabs.get(id), values);
         return tabs.get(id);
       },
+    },
+    windows: {
+      getAll: async () => [{ id: 10, focused: options.focused !== false }],
     },
     scripting: {
       executeScript: async (input) => {
@@ -107,6 +111,7 @@ function fixture(options = {}) {
     calls.push([name, input]);
     if (name === "poll_naukri_work")
       return {
+        maintenance: options.maintenance,
         work: options.operation
           ? { ...work, operation: options.operation }
           : work,
@@ -130,6 +135,33 @@ function fixture(options = {}) {
     queue: new NaukriQueue(api, send, async () => {}),
   };
 }
+test("a Naukri tab selected in an unfocused window does not block background work", async () => {
+  const f = fixture({ ownerNaukri: true, focused: false });
+  await f.queue.tick();
+  assert.ok(f.calls.some(([name]) => name === "poll_naukri_work"));
+  assert.equal(f.calls.find(([name]) => name === "create")[1].active, false);
+});
+test("trusted maintenance opens only one own inactive setup tab and admits no job", async () => {
+  const maintenance = {
+    kind: "open_extension_manager",
+    request_id: "11111111-1111-4111-8111-111111111111",
+    expires_at: new Date(Date.now() + 60000).toISOString(),
+  };
+  const f = fixture({ maintenance });
+  await f.queue.tick();
+  await f.queue.tick();
+  assert.equal(f.calls.filter(([name]) => name === "create").length, 1);
+  assert.deepEqual(f.calls.find(([name]) => name === "create")[1], {
+    url: "chrome://extensions/",
+    active: false,
+    windowId: 10,
+  });
+  assert.ok(
+    !f.calls.some(([name]) =>
+      ["bind_naukri_work", "admit_naukri_work", "inspect"].includes(name),
+    ),
+  );
+});
 
 test("search observes candidates only after Date sorting succeeds", async () => {
   const f = fixture({

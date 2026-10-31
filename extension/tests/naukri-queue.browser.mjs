@@ -238,6 +238,64 @@ try {
       provider_requests_routed_to_fixture: true,
     });
   }
+  const backgroundFocus = await worker.evaluate(async () => {
+    const [original] = await chrome.tabs.query({ active: true });
+    const other = await chrome.windows.create({
+      url: "https://www.naukri.com/mnjuser/homepage",
+      focused: false,
+    });
+    const focused = (await chrome.windows.get(other.id)).focused;
+    const busy = await globalThis.queue.ownerUsingNaukri();
+    await chrome.windows.remove(other.id);
+    return {
+      focused,
+      busy,
+      ownerStillActive: (await chrome.tabs.get(original.id)).active,
+    };
+  });
+  assert.deepEqual(backgroundFocus, {
+    focused: false,
+    busy: false,
+    ownerStillActive: true,
+  });
+  evidence.push({
+    name: "selected_naukri_in_unfocused_window_allows_background_work",
+    result: "PASS",
+    owner_tab_preserved: true,
+  });
+  const maintenance = await worker.evaluate(async () => {
+    const [original] = await chrome.tabs.query({ active: true });
+    const request = {
+      kind: "open_extension_manager",
+      request_id: crypto.randomUUID(),
+      expires_at: new Date(Date.now() + 60000).toISOString(),
+    };
+    await globalThis.queue.maintenance(request, {
+      window_id: original.windowId,
+    });
+    const saved = (await chrome.storage.session.get("naukriMaintenanceTabV1"))
+      .naukriMaintenanceTabV1;
+    const tab = await chrome.tabs.get(saved.tab_id);
+    const result = {
+      active: tab.active,
+      window: tab.windowId === original.windowId,
+      ownerStillActive: (await chrome.tabs.get(original.id)).active,
+      status: saved.status,
+    };
+    await chrome.tabs.remove(tab.id);
+    return result;
+  });
+  assert.deepEqual(maintenance, {
+    active: false,
+    window: true,
+    ownerStillActive: true,
+    status: "opened",
+  });
+  evidence.push({
+    name: "native_maintenance_creates_only_own_inactive_extensions_tab",
+    result: "PASS",
+    owner_tab_preserved: true,
+  });
   assert.equal(unexpectedRequests, 0);
   assert.equal(chooserEvents, 0);
   const report = {

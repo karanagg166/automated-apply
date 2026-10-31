@@ -96,6 +96,37 @@ async def test_actual_native_fact_ingestion_and_worker_preparation_survive_fresh
         assert await call(dashboard, context, "poll_naukri_work")
 
 
+@pytest.mark.parametrize("change", [None, "running", "expired", "too_far", "binding", "nonce"])
+async def test_extension_maintenance_requires_stopped_queue_current_binding_and_bounded_request(db_session, change):
+    from datetime import timedelta
+
+    from backend.app.browser import chrome_profiles as profiles
+    from backend.app.execution.naukri_native import MAINTENANCE
+
+    context = await setup(db_session)
+    config = await queue.configuration(db_session)
+    if change != "running":
+        await queue.control(db_session, QueueControl(action="stop", expected_revision=config["revision"]))
+    profile = await db_session.get(OwnerPreference, profiles.PROFILE + str(context["profile_binding_id"]))
+    selection = await profiles.selection(db_session)
+    binding = {"profile_binding_id": profile.value["id"], "profile_version": profile.value["version"],
+               "selection_version": selection["version"], "browser_session_id": str(context["browser_session_id"]),
+               "window_id": context["window_id"], "tab_id": None}
+    seconds = -1 if change == "expired" else 180 if change == "too_far" else 60
+    request = {"kind": "open_extension_manager", "request_id": str(uuid4()), "binding": binding,
+               "expires_at": (datetime.now(timezone.utc) + timedelta(seconds=seconds)).isoformat()}
+    if change == "binding":
+        request["binding"] = {**binding, "window_id": 999}
+    elif change == "nonce":
+        request["request_id"] = 123
+    await queue.put(db_session, MAINTENANCE, request)
+    await db_session.commit()
+    result = await call(db_session, context, "poll_naukri_work")
+    assert result.ok, result.error_code
+    assert bool(result.data.get("maintenance")) is (change is None)
+    assert result.data["work"] is None and result.data["submitted"] is False
+
+
 @pytest.mark.parametrize("changes,stage,reason", [
     ({"applicants_min": 10000, "applicants_max": None}, "SKIPPED", "applicant_limit_reached"),
     ({"applicants_min": None, "applicants_max": None}, "NEEDS_INPUT", "applicant_count_requires_review"),

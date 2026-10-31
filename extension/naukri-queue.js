@@ -157,6 +157,65 @@ export class NaukriQueue {
       this.ticking = false;
     }
   }
+  async ownerUsingNaukri() {
+    const tabs = (await this.api.tabs.query({ active: true })).filter((t) =>
+      /^https:\/\/(?:www\.)?naukri\.com\//.test(t.url || ""),
+    );
+    if (!tabs.length) return false;
+    const windows = await this.api.windows.getAll({ windowTypes: ["normal"] });
+    // A selected tab in an unfocused window is not the owner's current work.
+    // Missing/ambiguous window evidence still yields instead of guessing.
+    return tabs.some((tab) => {
+      const matches = windows.filter((window) => window.id === tab.windowId);
+      return matches.length !== 1 || matches[0].focused !== false;
+    });
+  }
+  async maintenance(request, context) {
+    const remaining = Date.parse(request?.expires_at) - Date.now();
+    if (
+      request?.kind !== "open_extension_manager" ||
+      !/^[a-f0-9-]{36}$/.test(request.request_id || "") ||
+      !Number.isFinite(remaining) ||
+      remaining <= 0 ||
+      remaining > 120000
+    )
+      return;
+    const key = "naukriMaintenanceTabV1";
+    const previous = (await this.api.storage.session.get(key))[key];
+    if (previous?.request_id === request.request_id) return;
+    // Persist the intent first. A lost create response cannot create duplicate
+    // setup tabs on the next alarm. This path never selects or focuses a tab.
+    await this.api.storage.session.set({
+      [key]: { request_id: request.request_id, status: "creating" },
+    });
+    let tab;
+    if (Number.isInteger(previous?.tab_id)) {
+      try {
+        const saved = await this.api.tabs.get(previous.tab_id);
+        if (
+          !saved.active &&
+          saved.windowId === context.window_id &&
+          saved.url === "chrome://extensions/"
+        )
+          tab = saved;
+      } catch {
+        /* A closed or adopted setup tab is never recreated in place. */
+      }
+    }
+    tab ||= await this.api.tabs.create({
+      url: "chrome://extensions/",
+      active: false,
+      windowId: context.window_id,
+    });
+    await this.api.storage.session.set({
+      [key]: {
+        request_id: request.request_id,
+        status: "opened",
+        tab_id: tab.id,
+        window_id: context.window_id,
+      },
+    });
+  }
   async run() {
     let work = (await this.api.storage.session.get(key))[key];
     try {
@@ -185,16 +244,12 @@ export class NaukriQueue {
       const context = await profileContext(this.api);
       // Existing owner activity on Naukri takes priority; don't add a second
       // concurrent authenticated journey while that platform is being used.
-      const ownerTabs = await this.api.tabs.query({
-        active: true,
-      });
-      if (
-        ownerTabs.some((t) =>
-          /^https:\/\/(?:www\.)?naukri\.com\//.test(t.url || ""),
-        )
-      )
-        return;
+      if (await this.ownerUsingNaukri()) return;
       const polled = await this.send(this.api, "poll_naukri_work", context);
+      if (polled.maintenance) {
+        await this.maintenance(polled.maintenance, context);
+        return;
+      }
       work = polled.work;
       if (!work) return;
       if (
@@ -414,13 +469,7 @@ export class NaukriQueue {
       tab.windowId !== context.window_id
     )
       throw Error("owner_tab_active");
-    const ownerTabs = await this.api.tabs.query({ active: true });
-    if (
-      ownerTabs.some((t) =>
-        /^https:\/\/(?:www\.)?naukri\.com\//.test(t.url || ""),
-      )
-    )
-      throw Error("owner_platform_active");
+    if (await this.ownerUsingNaukri()) throw Error("owner_platform_active");
     return tab;
   }
   async closeOwned(work) {
