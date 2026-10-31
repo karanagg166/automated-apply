@@ -339,6 +339,41 @@ try {
     );
     if (downloadMode === "modern_download") {
       assert.equal(captured.sha256, hash(pdf));
+      const resumeCompare = await run(
+        tabId,
+        work("inspect_profile_sync", {
+          verify_saved_resume: true,
+        }),
+      );
+      assert.equal(
+        resumeCompare.reason,
+        "profile_resume_download_capture_required",
+      );
+      const comparedPDF = await run(
+        tabId,
+        work("inspect_profile_sync", {
+          verify_saved_resume: true,
+          provider_pdf_observation: captured,
+        }),
+      );
+      assert.equal(comparedPDF.execution?.state, "PROFILE_OBSERVED");
+      assert.equal(comparedPDF.execution.resume_sha256, hash(pdf));
+      assert.equal(comparedPDF.execution.resume_bytes, pdf.length);
+      const wrongCompare = await run(
+        tabId,
+        work("inspect_profile_sync", {
+          verify_saved_resume: true,
+          provider_pdf_observation: captured,
+          expected_resume_sha256: "0".repeat(64),
+        }),
+      );
+      assert.equal(
+        wrongCompare.reason,
+        "provider_saved_resume_differs_from_canonical_pdf",
+      );
+      record(
+        "read_only_profile_comparison_verifies_downloaded_pdf_without_job_or_apply",
+      );
       result = await run(
         tabId,
         work("inspect_profile", { provider_pdf_observation: captured }),

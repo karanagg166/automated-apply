@@ -326,7 +326,7 @@ export class NaukriQueue {
       let report = injected.length === 1 && injected[0].result;
       if (!report) throw Error("provider_execution_unconfirmed");
       if (
-        work.operation === "inspect_profile" &&
+        ["inspect_profile", "inspect_profile_sync"].includes(work.operation) &&
         report.reason === "profile_resume_download_capture_required"
       ) {
         await this.assertInactive(work, context);

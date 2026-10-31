@@ -41,6 +41,7 @@ def transport(value):
         result.update(target_url=submission.browser_url(value), execution=submission.descriptor(value))
         if value["operation"] in profile_sync.OPERATIONS:
             result["execution"].update(approved_summary=value.get("approved_summary"),
+                                       verify_saved_resume=value.get("verify_saved_resume", False),
                                        previous_summary_reference=value.get("previous_summary_reference"))
     return result
 
@@ -214,7 +215,7 @@ async def dispatch(session, settings, actor, command):
                 busy |= bool(sync and sync.value.get("lease_until") and datetime.fromisoformat(sync.value["lease_until"]) > now)
                 if not busy:
                     await submission.recover_unknown(session)
-                    value = await profile_sync.work(session, config, binding)
+                    value = await profile_sync.work(session, config, binding, settings)
                     if value is None:
                         value = await search_work(session, config, policy, binding)
                     if value is None:
@@ -259,7 +260,7 @@ async def dispatch(session, settings, actor, command):
                 if command.command == "finish_naukri_work" and value["status"] != "executing":
                     raise ToolDenied("queue_action_not_admitted")
                 if value["operation"] in profile_sync.OPERATIONS:
-                    continuing = await profile_sync.receive(session, value, report)
+                    continuing = await profile_sync.receive(session, value, report, settings)
                     value.update(revision=value["revision"] + 1)
                     if not continuing:
                         value.update(lease_token=None, lease_until=None)

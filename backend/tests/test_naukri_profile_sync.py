@@ -95,6 +95,50 @@ async def test_compare_only_profile_scope_never_grants_save(db_session, upload_c
     assert (await sync.status(db_session))["latest"]["outcome"] == "COMPARED"
 
 
+@pytest.mark.parametrize("change", [None, "checksum", "byte_count", "missing", "canonical_changed"])
+async def test_read_only_saved_resume_requires_actual_pdf_bytes_and_current_canonical(db_session, upload_case, change):
+    import hashlib
+
+    from cryptography.fernet import Fernet
+
+    case = upload_case
+    context, profile = await enable(db_session, case, auto=False)
+    config = await sync.configuration(db_session)
+    await sync.configure(db_session, sync.SyncPolicyUpdate(expected_revision=config["revision"],
+        policy=sync.SyncPolicy(enabled=True, profile_version=profile.version, verify_saved_resume=True)))
+    await db_session.commit()
+    work = await admit(db_session, case, context, await claim(db_session, case, context))
+    assert work["operation"] == "inspect_profile_sync"
+    assert work["execution"]["verify_saved_resume"] is True
+    assert work["execution"]["expected_resume_sha256"] == case.private.sha256
+    fields = {"resume_sha256": case.private.sha256, "resume_bytes": len(case.raw)}
+    if change == "checksum":
+        fields["resume_sha256"] = "0" * 64
+    elif change == "byte_count":
+        fields["resume_bytes"] += 1
+    elif change == "missing":
+        fields = {}
+    elif change == "canonical_changed":
+        raw = b"%PDF-1.4\nChanged fictional canonical\n%%EOF"
+        case.private.ciphertext = Fernet(case.key).encrypt(raw)
+        case.private.sha256 = hashlib.sha256(raw).hexdigest()
+        await db_session.commit()
+    result = await call(db_session, case, context, "finish_naukri_work", work,
+                        work_report=report(work, "PROFILE_OBSERVED", **fields))
+    if change:
+        expected = "profile_sync_canonical_resume_changed" if change == "canonical_changed" else "provider_saved_resume_differs_from_canonical_pdf"
+        assert not result.ok and result.error_code == expected
+        assert (await sync.status(db_session))["latest"] is None
+    else:
+        assert result.ok and not result.data["continue"]
+        latest = (await sync.status(db_session))["latest"]
+        assert latest["outcome"] == "COMPARED"
+        assert latest["resume_verification"]["state"] == "MATCHED_PDF_BYTES"
+        assert latest["resume_verification"]["byte_count"] == len(case.raw)
+        assert next(v for v in latest["decisions"] if v["field"] == "resume")["state"] == "MATCHED"
+        assert case.private.sha256 not in str(latest) and "ciphertext" not in str(latest)
+
+
 async def test_stop_revokes_profile_save_and_retains_uncertain_attempt(db_session, upload_case):
     case = upload_case
     context, _ = await enable(db_session, case)

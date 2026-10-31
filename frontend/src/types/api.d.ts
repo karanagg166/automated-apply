@@ -9378,6 +9378,11 @@ export interface components {
        * @default false
        */
       auto_profile_sync: boolean;
+      /**
+       * Verify Saved Resume
+       * @default false
+       */
+      verify_saved_resume: boolean;
       /** Profile Version */
       profile_version?: number | null;
       /** Approved Fields */

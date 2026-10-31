@@ -96,11 +96,15 @@ async def project_stamp(session):
 @timed("resume_read")
 async def pdf_bytes(session, packet, settings):
     """Only the confirmed canonical private PDF, never arbitrary URLs or file paths."""
+    return await private_pdf_bytes(session, packet.snapshot.resume.selected, settings)
+
+
+async def private_pdf_bytes(session, selected, settings):
+    """Read a confirmed resource chosen by the caller's current profile context."""
     from cryptography.fernet import Fernet, InvalidToken
 
     from backend.app.models.application_answer import CandidateResource
 
-    selected = packet.snapshot.resume.selected
     if not selected or not selected.confirmed:
         return None
     resource = await session.get(

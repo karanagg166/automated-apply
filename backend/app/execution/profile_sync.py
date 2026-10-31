@@ -31,6 +31,7 @@ OPERATIONS = {"inspect_profile_sync", "sync_profile"}
 class SyncPolicy(Contract):
     enabled: bool = False
     auto_profile_sync: bool = False
+    verify_saved_resume: bool = False
     profile_version: int | None = Field(None, ge=1)
     approved_fields: list[FieldName] = Field(default_factory=list, max_length=18)
     interval_seconds: int = Field(3600, ge=300, le=86400)
@@ -113,9 +114,20 @@ async def configure(session, data):
     return result
 
 
-async def work(session, config, binding):
-    settings = await configuration(session)
-    policy = SyncPolicy.model_validate(settings["policy"])
+async def resume_preflight(session, resume, settings):
+    from backend.app.browser.service import private_pdf_bytes
+    from backend.app.execution.naukri_upload import MAX_PDF_BYTES
+
+    raw = await private_pdf_bytes(session, resume, settings)
+    if not raw or len(raw) > MAX_PDF_BYTES:
+        raise ToolDenied("canonical_private_pdf_unavailable_or_invalid")
+    return {"sha256": hashlib.sha256(raw).hexdigest(), "byte_count": len(raw),
+            "resource_id": str(resume.resource_id), "resource_version": resume.resource_version}
+
+
+async def work(session, config, binding, settings=None):
+    sync_settings = await configuration(session)
+    policy = SyncPolicy.model_validate(sync_settings["policy"])
     if not policy.enabled:
         return None
     profile, confirmed, resume = await context(session)
@@ -135,7 +147,7 @@ async def work(session, config, binding):
     except ToolDenied:
         return None
     value = {"id": str(uuid5(NAMESPACE_URL, WORK)), "revision": old.get("revision", 0) + 1,
-             "policy_revision": config["revision"], "sync_policy_revision": settings["revision"],
+             "policy_revision": config["revision"], "sync_policy_revision": sync_settings["revision"],
              "profile_version": profile.version, "binding": binding, "status": "leased",
              "operation": "inspect_profile_sync", "url": "https://www.naukri.com/mnjuser/profile",
              "requisition": None, "lease_token": str(uuid4()), "lease_until": (now + timedelta(seconds=180)).isoformat(),
@@ -143,6 +155,13 @@ async def work(session, config, binding):
              "account_sha256": account["account_sha256"],
              "next_at": (now + timedelta(seconds=policy.interval_seconds)).isoformat(),
              "sync_attempt": old.get("sync_attempt"), "last_record": old.get("last_record")}
+    if policy.verify_saved_resume:
+        if settings is None:
+            from backend.app.core.config import get_settings
+
+            settings = get_settings()
+        value["upload_preflight"] = await resume_preflight(session, resume, settings)
+        value["verify_saved_resume"] = True
     await queue.put(session, WORK, value)
     return value
 
@@ -184,7 +203,7 @@ async def admit(session, value):
     return value
 
 
-async def receive(session, value, report):
+async def receive(session, value, report, settings=None):
     profile, resume, policy = await validate(session, value)
     if report.kind in {"needs_input", "failed"}:
         value.update(status="idle", last_error=report.reason or "profile_sync_observation_failed")
@@ -212,13 +231,32 @@ async def receive(session, value, report):
         return True
     if observation.state != "PROFILE_OBSERVED":
         raise ToolDenied("profile_sync_observation_required")
-    decisions = compare(canonical(profile, resume), observation.profile_fields, policy.approved_fields)
+    observed = dict(observation.profile_fields)
+    resume_verification = None
+    if policy.verify_saved_resume:
+        if settings is None:
+            from backend.app.core.config import get_settings
+
+            settings = get_settings()
+        checked = await resume_preflight(session, resume, settings)
+        if checked != value.get("upload_preflight"):
+            raise ToolDenied("profile_sync_canonical_resume_changed")
+        if observation.resume_sha256 != checked["sha256"] or observation.resume_bytes != checked["byte_count"]:
+            raise ToolDenied("provider_saved_resume_differs_from_canonical_pdf")
+        # A resource version represents the observed resume only after the
+        # provider PDF bytes match it. No filename or DOM label establishes this.
+        observed["resume"] = resume.resource_version
+        resume_verification = {"state": "MATCHED_PDF_BYTES", "byte_count": checked["byte_count"],
+                               "resource_version": resume.resource_version}
+    decisions = compare(canonical(profile, resume), observed, policy.approved_fields)
     now = await instant(session)
     identity = str(uuid4())
     record = {"id": identity, "profile_version": profile.version, "sync_policy_revision": value["sync_policy_revision"],
               "observed_at": now.isoformat(), "decisions": decisions,
               "evidence_sha256": observation.evidence_sha256,
               "outcome": "COMPARED", "attempt": value.get("sync_attempt")}
+    if resume_verification:
+        record["resume_verification"] = resume_verification
     summary = next(d for d in decisions if d["field"] == "summary")
     if value.get("sync_attempt"):
         if value["sync_attempt"].get("document_id") == observation.document_id:

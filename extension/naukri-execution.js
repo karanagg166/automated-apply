@@ -229,7 +229,27 @@ export async function executeNaukri(work) {
         ),
       ].filter(visible);
       if (names.length === 1) fields.full_name = clean(names[0]);
-      return await result("PROFILE_OBSERVED", { profile_fields: fields });
+      const extra = { profile_fields: fields };
+      if (
+        work.operation === "inspect_profile_sync" &&
+        request.verify_saved_resume
+      ) {
+        if (!/^[a-f0-9]{64}$/.test(request.expected_resume_sha256 || ""))
+          throw Error("canonical_private_pdf_unavailable_or_invalid");
+        const pdf = request.provider_pdf_observation;
+        if (!pdf) return failure("profile_resume_download_capture_required");
+        if (
+          pdf.kind !== "provider_pdf_digest" ||
+          pdf.sha256 !== request.expected_resume_sha256 ||
+          !Number.isInteger(pdf.byte_count) ||
+          pdf.byte_count < 5 ||
+          pdf.byte_count > 2000000
+        )
+          throw Error("provider_saved_resume_differs_from_canonical_pdf");
+        extra.resume_sha256 = pdf.sha256;
+        extra.resume_bytes = pdf.byte_count;
+      }
+      return await result("PROFILE_OBSERVED", extra);
     }
     if (work.operation === "sync_profile") {
       const section = summarySection();
