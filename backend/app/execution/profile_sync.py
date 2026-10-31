@@ -109,7 +109,12 @@ async def configure(session, data):
             raise ToolDenied("profile_sync_in_progress_reconcile_before_change")
         work.value = {**value, "status": "idle", "lease_until": None, "lease_token": None,
                       "revision": value["revision"] + 1, "next_at": None}
-    result = {"revision": current["revision"] + 1, "policy": data.policy.model_dump(mode="json")}
+    serialized = data.policy.model_dump(mode="json")
+    if not data.policy.verify_saved_resume:
+        # A disabled opt-in must remain readable by the previous release during
+        # rollback. Restore/disable an active probe before reverting the API.
+        serialized.pop("verify_saved_resume")
+    result = {"revision": current["revision"] + 1, "policy": serialized}
     await queue.put(session, POLICY, result)
     return result
 

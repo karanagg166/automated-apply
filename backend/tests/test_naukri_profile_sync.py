@@ -88,6 +88,7 @@ async def test_profile_save_requires_scope_then_independent_reload_to_verify(db_
 async def test_compare_only_profile_scope_never_grants_save(db_session, upload_case):
     case = upload_case
     context, profile = await enable(db_session, case, auto=False)
+    assert "verify_saved_resume" not in (await sync.configuration(db_session))["policy"]
     work = await admit(db_session, case, context, await claim(db_session, case, context))
     result = await call(db_session, case, context, "finish_naukri_work", work,
                         work_report=report(work, "PROFILE_OBSERVED", profile_fields={"summary": "old"}))
