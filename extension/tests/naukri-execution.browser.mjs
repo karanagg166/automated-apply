@@ -136,17 +136,17 @@ try {
     else
       body = `<header>${mode === "wrong_account" ? '<span class="email">other@example.com</span>' : email}</header><div class="styles_jd-header"><h1>Backend Developer</h1><span class="styles_comp-name">Fictional Labs</span><button onclick="window.fixtureClicks=(window.fixtureClicks||0)+1">Apply</button></div>${mode === "challenge" ? "<p>Verify you are human</p>" : ""}`;
     if (
-      ["modern_download", "bad_download"].includes(mode) &&
+      ["modern_download", "bad_download", "dispatch_download"].includes(mode) &&
       u.pathname === "/mnjuser/profile"
     )
       body = `<div class="chip-summary"><span class="email-verify">alex@example.com</span></div><div class="section resume"><div class="action-container"><div class="border-box download">Download</div></div><input type="file"><button>Update resume</button></div><script>
-        window.originalCreateURL=URL.createObjectURL;window.originalAnchorClick=HTMLAnchorElement.prototype.click;
+        window.originalCreateURL=URL.createObjectURL;window.originalAnchorClick=HTMLAnchorElement.prototype.click;window.originalClickOwn=Object.hasOwn(HTMLAnchorElement.prototype,'click');window.originalAnchorDispatch=HTMLAnchorElement.prototype.dispatchEvent;window.originalDispatchOwn=Object.hasOwn(HTMLAnchorElement.prototype,'dispatchEvent');
         document.querySelector('.download').onclick=async()=>{
           window.downloadClicks=(window.downloadClicks||0)+1;
           const response=await fetch('/download-fictional-resume.pdf');
           const bytes=${mode === "bad_download" ? "'fictional invalid PDF'" : "await response.arrayBuffer()"};
-          const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
-          const a=document.createElement('a');a.href=url;a.download='fictional.pdf';a.click();URL.revokeObjectURL(url);
+          const url=URL.createObjectURL(new Blob([bytes],{type:'${mode === "dispatch_download" ? "application/octet-stream" : "application/pdf"}'}));
+          const a=document.createElement('a');a.href=url;a.download='fictional.pdf';${mode === "dispatch_download" ? "a.dispatchEvent(new MouseEvent('click'))" : "a.click()"};URL.revokeObjectURL(url);
         };</script>`;
     if (mode === "modern")
       body =
@@ -328,7 +328,11 @@ try {
   await close(tabId);
   mode = "normal";
 
-  for (const downloadMode of ["modern_download", "bad_download"]) {
+  for (const downloadMode of [
+    "modern_download",
+    "bad_download",
+    "dispatch_download",
+  ]) {
     mode = downloadMode;
     tabId = await create(profileUrl);
     result = await run(tabId, work("inspect_profile"));
@@ -337,8 +341,14 @@ try {
       ({ tabId, w }) => globalThis.download(tabId, w),
       { tabId, w: work("inspect_profile") },
     );
-    if (downloadMode === "modern_download") {
+    if (downloadMode !== "bad_download") {
       assert.equal(captured.sha256, hash(pdf));
+      assert.equal(
+        captured.download_event,
+        downloadMode === "dispatch_download"
+          ? "anchor_dispatch"
+          : "anchor_click",
+      );
       const resumeCompare = await run(
         tabId,
         work("inspect_profile_sync", {
@@ -404,18 +414,32 @@ try {
               url: URL.createObjectURL === window.originalCreateURL,
               click:
                 HTMLAnchorElement.prototype.click ===
-                window.originalAnchorClick,
+                  window.originalAnchorClick &&
+                Object.hasOwn(HTMLAnchorElement.prototype, "click") ===
+                  window.originalClickOwn,
+              dispatch:
+                HTMLAnchorElement.prototype.dispatchEvent ===
+                  window.originalAnchorDispatch &&
+                Object.hasOwn(HTMLAnchorElement.prototype, "dispatchEvent") ===
+                  window.originalDispatchOwn,
               count: window.downloadClicks,
             }),
           })
         )[0].result,
       tabId,
     );
-    assert.deepEqual(restored, { url: true, click: true, count: 1 });
+    assert.deepEqual(restored, {
+      url: true,
+      click: true,
+      dispatch: true,
+      count: 1,
+    });
     record(
-      downloadMode === "modern_download"
-        ? "genuine_layout_download_blob_digest_hooks_restored"
-        : "invalid_download_pdf_refused_hooks_restored",
+      downloadMode === "bad_download"
+        ? "invalid_download_pdf_refused_hooks_restored"
+        : downloadMode === "dispatch_download"
+          ? "dispatch_octet_stream_pdf_digest_exact_hooks_restored"
+          : "genuine_layout_download_blob_digest_hooks_restored",
     );
     await close(tabId);
   }

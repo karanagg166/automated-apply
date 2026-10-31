@@ -25,33 +25,65 @@ export async function captureNaukriResumeDownload(work) {
   const control = controls[0];
   const originalURL = URL.createObjectURL;
   const originalClick = HTMLAnchorElement.prototype.click;
+  const clickDescriptor = Object.getOwnPropertyDescriptor(
+    HTMLAnchorElement.prototype,
+    "click",
+  );
+  const originalDispatch = HTMLAnchorElement.prototype.dispatchEvent;
+  const dispatchDescriptor = Object.getOwnPropertyDescriptor(
+    HTMLAnchorElement.prototype,
+    "dispatchEvent",
+  );
   const captured = new Map();
+  const consumed = new Set();
+  let downloadEvent;
   let resolvePDF;
   const downloaded = new Promise((resolve) => {
     resolvePDF = resolve;
   });
   const createURL = function (blob) {
     const url = originalURL.call(this, blob);
-    if (blob instanceof Blob && blob.type.split(";")[0] === "application/pdf") {
+    // Providers may label a genuine PDF as octet-stream or omit the MIME type.
+    // Its bytes are checked after the exact UI-created download anchor is seen.
+    if (blob instanceof Blob) {
       captured.set(url, blob);
     }
     return url;
   };
   const click = function (...args) {
     const blob = captured.get(this.href);
-    if (blob && this.hasAttribute("download")) {
+    if (safe() && blob && this.hasAttribute("download")) {
+      consumed.add(this.href);
+      downloadEvent = "anchor_click";
       resolvePDF(blob);
       return; // Consume this exact UI-created PDF instead of saving a private copy.
     }
     return originalClick.apply(this, args);
   };
+  const dispatch = function (event) {
+    const blob = captured.get(this.href);
+    if (
+      safe() &&
+      blob &&
+      this.hasAttribute("download") &&
+      event?.type === "click"
+    ) {
+      consumed.add(this.href);
+      downloadEvent = "anchor_dispatch";
+      resolvePDF(blob);
+      return true;
+    }
+    return originalDispatch.call(this, event);
+  };
   let timer;
   try {
     URL.createObjectURL = createURL;
     HTMLAnchorElement.prototype.click = click;
+    HTMLAnchorElement.prototype.dispatchEvent = dispatch;
     if (
       URL.createObjectURL !== createURL ||
-      HTMLAnchorElement.prototype.click !== click
+      HTMLAnchorElement.prototype.click !== click ||
+      HTMLAnchorElement.prototype.dispatchEvent !== dispatch
     )
       return fail("profile_resume_download_capture_unavailable");
     if (!safe() || !control.isConnected)
@@ -79,15 +111,32 @@ export async function captureNaukriResumeDownload(work) {
       kind: "provider_pdf_digest",
       sha256: sha,
       byte_count: bytes.length,
+      download_event: downloadEvent,
     };
   } catch {
     return fail("profile_resume_download_capture_failed");
   } finally {
     clearTimeout(timer);
     if (URL.createObjectURL === createURL) URL.createObjectURL = originalURL;
-    if (HTMLAnchorElement.prototype.click === click)
-      HTMLAnchorElement.prototype.click = originalClick;
-    for (const url of captured.keys()) URL.revokeObjectURL(url);
+    if (HTMLAnchorElement.prototype.click === click) {
+      if (clickDescriptor)
+        Object.defineProperty(
+          HTMLAnchorElement.prototype,
+          "click",
+          clickDescriptor,
+        );
+      else delete HTMLAnchorElement.prototype.click;
+    }
+    if (HTMLAnchorElement.prototype.dispatchEvent === dispatch) {
+      if (dispatchDescriptor)
+        Object.defineProperty(
+          HTMLAnchorElement.prototype,
+          "dispatchEvent",
+          dispatchDescriptor,
+        );
+      else delete HTMLAnchorElement.prototype.dispatchEvent;
+    }
+    for (const url of consumed) URL.revokeObjectURL(url);
     captured.clear();
   }
 }
