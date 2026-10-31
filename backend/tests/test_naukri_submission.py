@@ -269,10 +269,11 @@ async def test_authenticated_popup_can_stop_queue_but_cannot_change_policy(db_se
     assert not repeat.ok and repeat.error_code == "queue_policy_revision_conflict"
 
 
-async def test_telegram_job_url_uses_same_queue_and_pause_fence(db_session):
+@pytest.mark.parametrize("minimum_match_score", [50, 80])
+async def test_telegram_job_url_uses_same_queue_and_pause_fence(db_session, minimum_match_score):
     from backend.app.execution.telegram_commands import command
 
-    await running(db_session)
+    await running(db_session, minimum_match_score=minimum_match_score)
     response = await command(db_session, "/naukri add " + URL)
     assert "DISCOVERED" in response
     assert "PAUSED" in await command(db_session, "/naukri queue pause")

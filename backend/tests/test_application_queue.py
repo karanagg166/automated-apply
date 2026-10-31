@@ -26,8 +26,8 @@ URL = "https://www.naukri.com/job-listings-fictional-291026123456"
 BINDING = {"profile_binding_id": "fixture", "browser_session_id": "fixture-session", "window_id": 1, "tab_id": 2}
 
 
-async def running(session, *, cap=80, mode="AUTOMATIC", authorized=True):
-    policy = QueuePolicy(global_limits=QueueLimits(daily_cap=cap), platforms={"naukri": PlatformQueuePolicy(
+async def running(session, *, cap=80, mode="AUTOMATIC", authorized=True, minimum_match_score=80):
+    policy = QueuePolicy(global_limits=QueueLimits(daily_cap=cap, minimum_match_score=minimum_match_score), platforms={"naukri": PlatformQueuePolicy(
         enabled=True, mode=mode, owner_submission_authorized=authorized,
     )})
     value = await queue.configure(session, QueuePolicyUpdate(expected_revision=0, policy=policy))

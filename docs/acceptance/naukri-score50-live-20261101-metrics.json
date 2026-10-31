@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "implementation_sha": "f90cfe7ea3dfc7ca20efe1a1995b3da26707a028",
+  "branch": "fix/live-prepare-discovery-20261030",
+  "pr": "https://github.com/karanagg166/automated-apply/pull/48",
+  "status": "OPEN_NO_NEW_APPLICATION_RECEIPT",
+  "installed": {
+    "api": "f90cfe7ea3dfc7ca20efe1a1995b3da26707a028",
+    "execution": "f90cfe7ea3dfc7ca20efe1a1995b3da26707a028",
+    "frontend": "f90cfe7ea3dfc7ca20efe1a1995b3da26707a028",
+    "telegram": "f90cfe7ea3dfc7ca20efe1a1995b3da26707a028",
+    "native": "fc91a219d5b824f934bb733eaf20166661e1f08b",
+    "extension": "33a132edce50252693b17dd2e6cf176a53f24710",
+    "extension_version": "1.3.11",
+    "same_extension_id": true,
+    "extension_files_verified": 22
+  },
+  "live_policy": {
+    "minimum_match_score": 50,
+    "other_policy_fields_changed": false,
+    "queue_state": "RUNNING",
+    "queue_revision": 28,
+    "mode": "SUPERVISED",
+    "new_application_cap": 1,
+    "hourly_cap": 1,
+    "recurring_automatic_activated": false,
+    "discovery_interval_seconds": 300
+  },
+  "actual_database_diagnostic": {
+    "observed_at": "2026-10-31T22:21:48.616555+00:00",
+    "actual_listing_fact_records": 282,
+    "fully_eligible_count": 0,
+    "scores_at_least_50": 12,
+    "all_at_least_50_outside_posting_age": true,
+    "overlapping_blockers": {
+      "posting_outside_age_limit": 217,
+      "uncertain_job_requirements_require_review": 282,
+      "current_profile_preferences_or_required_skills_exclude_job": 281,
+      "minimum_match_score_required": 270,
+      "posting_age_requires_review": 43,
+      "applicant_count_requires_review": 13
+    }
+  },
+  "actual_final_progress": {
+    "at": "2026-10-31T22:34:28.620191+00:00",
+    "screen": "UNKNOWN",
+    "query_seconds": 4.425,
+    "queue_state": "RUNNING",
+    "queue_revision": 28,
+    "minimum_match_score": 50,
+    "consumer": {
+      "last_poll_at": "2026-10-31T22:34:19.770309+00:00",
+      "busy": false,
+      "capability": "ordinary_ui_direct_apply_candidate"
+    },
+    "cohort_statuses": {
+      "waiting": 2,
+      "complete": 7
+    },
+    "cohort_operations": {
+      "inspect_job": 2,
+      "prepare": 7
+    },
+    "cohort_count": 9,
+    "cohort_stages": {
+      "NEEDS_INPUT": 2,
+      "SKIPPED": 7
+    },
+    "cohort_reasons": {
+      "applicant_count_requires_review": 2,
+      "current_profile_preferences_or_required_skills_exclude_job": 7
+    },
+    "cohort_remaining": 0,
+    "queue_total": 297,
+    "all_stages": {
+      "SUBMITTED_RECORDED": 1,
+      "SKIPPED": 224,
+      "NEEDS_INPUT": 72
+    },
+    "admitted_action_count": 0,
+    "new_receipt_count": 0,
+    "historical_receipt_count": 1,
+    "heartbeat": "2026-10-31T22:34:19.642636+00:00",
+    "search": {
+      "status": "idle",
+      "last_started_at": "2026-10-31T22:33:23.842999+00:00",
+      "last_finished_at": "2026-10-31T22:33:45.197872+00:00",
+      "last_cycle_count": 0,
+      "last_error": null,
+      "candidates_found": 284,
+      "next_at": "2026-10-31T22:38:23.842999+00:00"
+    },
+    "telegram": {
+      "last_poll_at": "2026-10-31 22:34:22.581815+00:00",
+      "last_error": null,
+      "evidence_type": "live_poll",
+      "identity_bound": true
+    }
+  },
+  "actual_readiness": {
+    "at": "2026-10-31T22:34:57.816202+00:00",
+    "backend_database": {
+      "http": 200,
+      "seconds": 2.373
+    },
+    "frontend_login_http": 200,
+    "native_selected_profile": {
+      "status": "CONNECTED",
+      "commands_enabled": true,
+      "last_heartbeat": "2026-10-31T22:34:44.866552+00:00"
+    },
+    "queue": {
+      "state": "RUNNING",
+      "revision": 28,
+      "minimum_match_score": 50,
+      "records": 297
+    }
+  },
+  "actual_served_frontend": {
+    "at": "2026-10-31T22:33:46.774111+00:00",
+    "source_sha": "f90cfe7ea3dfc7ca20efe1a1995b3da26707a028",
+    "served_queue_chunk_http": 200,
+    "matches_pinned_candidate_bytes": true,
+    "score50_input_in_served_build": true
+  },
+  "actual_direct_telegram_handler": {
+    "at": "2026-10-31T22:33:56.710646+00:00",
+    "source_sha": "f90cfe7ea3dfc7ca20efe1a1995b3da26707a028",
+    "saved_minimum_match_score": 50,
+    "direct_queue_handler_live_database": "PASS",
+    "state": "RUNNING",
+    "telegram_transport_roundtrip_tested": false,
+    "messages_sent": 0
+  },
+  "fixture_tests": {
+    "backend_queue": {
+      "passed": 18,
+      "seconds": 1.75
+    },
+    "same_cases_pinned_repeat": {
+      "passed": 18,
+      "seconds": 1.96,
+      "overlapping": true
+    },
+    "telegram_queue_threshold_and_controls": {
+      "passed": 2,
+      "seconds": 0.32
+    },
+    "frontend_queue": {
+      "passed": 7
+    },
+    "unique_backend_cases": 20,
+    "unique_frontend_cases": 7
+  },
+  "actual_submission_acceptance": {
+    "admitted_actions": 0,
+    "new_receipts": 0,
+    "historical_receipts_preserved": 1,
+    "questionnaire_resumption": "BLOCKED_NOT_FINISHED",
+    "verified_locked_browser_sample": false,
+    "rollback_exercised": false
+  },
+  "hosted_actions_run": false
+}
