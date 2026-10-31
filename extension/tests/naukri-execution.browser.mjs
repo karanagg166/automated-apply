@@ -42,9 +42,11 @@ import { captureNaukriResumeDownload } from './naukri-resume-download.js';
 globalThis.download = async (tabId, work) => (await chrome.scripting.executeScript({
  target:{tabId,frameIds:[0]},world:'MAIN',func:captureNaukriResumeDownload,args:[work]
 }))[0].result;
+globalThis.fixtureBinding = async (tabId) => ({profile_binding_id:'fixture-profile',profile_version:1,selection_version:1,browser_session_id:'fixture-browser-session',window_id:(await chrome.tabs.get(tabId)).windowId,tab_id:tabId});
 globalThis.run = async (tabId, work) => (await chrome.scripting.executeScript({
- target:{tabId,frameIds:[0]},world:'ISOLATED',func:executeNaukri,args:[work]
+ target:{tabId,frameIds:[0]},world:'ISOLATED',func:executeNaukri,args:[{...work,binding:await globalThis.fixtureBinding(tabId)}]
 }))[0].result;
+globalThis.navigate = async (tabId,url) => {await chrome.tabs.update(tabId,{url,active:false});await new Promise(r=>setTimeout(r,100));for(let i=0;i<100;i++){if((await chrome.tabs.get(tabId)).status==='complete')return;await new Promise(r=>setTimeout(r,50));}throw Error('fixture_navigation_timeout');};
 globalThis.create = async (url) => {
  const [owner] = await chrome.tabs.query({active:true});
  const tab = await chrome.tabs.create({url:"about:blank",active:false,windowId:owner.windowId});
@@ -160,6 +162,10 @@ try {
           )
           .replace("</button></div>", "</button></section>") +
         '<div class="styles_jd-header-sticky-background" style="display:none"><h1 class="styles_jd-header-title">Backend Developer</h1></div>';
+    if (mode === "no_account_label" && u.pathname !== "/mnjuser/profile")
+      body =
+        body.replace(email, "") +
+        '<input type="email" value="contact-alias@example.org">';
     return route.fulfill({ contentType: "text/html", body });
   });
   context.on("page", (p) => p.on("filechooser", () => chooserEvents++));
@@ -189,6 +195,7 @@ try {
       "inspect_profile",
       "inspect_profile_sync",
       "sync_profile",
+      "verify_account",
     ].includes(operation)
       ? profileUrl
       : operation === "reconcile_application"
@@ -229,6 +236,97 @@ try {
   );
   record("wrong_saved_resume_refused");
   await close(tabId);
+
+  mode = "no_account_label";
+  tabId = await create(profileUrl);
+  const accountRead = await run(tabId, work("verify_account"));
+  assert.equal(accountRead.execution?.state, "PROFILE_OBSERVED");
+  assert.equal(accountRead.execution.account_sha256, accountHash);
+  const binding = await worker.evaluate(
+    (id) => globalThis.fixtureBinding(id),
+    tabId,
+  );
+  const proof = {
+    source: "profile_ui",
+    work_id: "fictional",
+    account_sha256: accountRead.execution.account_sha256,
+    profile_document_id: accountRead.execution.document_id,
+    observed_at: new Date().toISOString(),
+    binding,
+  };
+  const navigate = (url) =>
+    worker.evaluate(({ id, url }) => globalThis.navigate(id, url), {
+      id: tabId,
+      url,
+    });
+  await navigate(jobUrl);
+  const absent = await run(tabId, work("inspect_application"));
+  assert.equal(absent.reason, "provider_account_identity_unverified");
+  const bound = await run(
+    tabId,
+    work("inspect_application", { account_observation: proof }),
+  );
+  assert.equal(bound.execution?.state, "NOT_APPLIED", JSON.stringify(bound));
+  assert.equal(bound.execution.account_sha256, accountHash);
+  record(
+    "real_layout_without_email_uses_bound_profile_observation_not_contact_input",
+  );
+  for (const [name, changed] of [
+    [
+      "expired_profile_account",
+      { ...proof, observed_at: new Date(Date.now() - 180000).toISOString() },
+    ],
+    [
+      "future_profile_account",
+      { ...proof, observed_at: new Date(Date.now() + 60000).toISOString() },
+    ],
+    ["different_work_account", { ...proof, work_id: "different" }],
+    ["invalid_profile_document", { ...proof, profile_document_id: "bad" }],
+    [
+      "different_profile_account",
+      { ...proof, binding: { ...binding, profile_binding_id: "different" } },
+    ],
+    [
+      "different_tab_account",
+      { ...proof, binding: { ...binding, tab_id: binding.tab_id + 1 } },
+    ],
+  ]) {
+    const denied = await run(
+      tabId,
+      work("inspect_application", { account_observation: changed }),
+    );
+    assert.equal(denied.reason, "provider_account_identity_unverified", name);
+    record(name);
+  }
+  const applied = await run(
+    tabId,
+    work("apply", {
+      account_observation: proof,
+      document_id: bound.execution.document_id,
+      control_sha256: bound.execution.control_sha256,
+      permit_expires_at: new Date(Date.now() + 1500).toISOString(),
+    }),
+  );
+  assert.equal(applied.execution?.state, "CLICKED", JSON.stringify(applied));
+  await navigate(historyUrl);
+  const history = await run(
+    tabId,
+    work("reconcile_application", { account_observation: proof }),
+  );
+  assert.equal(history.execution?.state, "APPLICATION_SENT");
+  record(
+    "bound_profile_account_preserves_direct_apply_and_independent_history_checks",
+  );
+  mode = "wrong_account";
+  await navigate(jobUrl);
+  const mismatch = await run(
+    tabId,
+    work("inspect_application", { account_observation: proof }),
+  );
+  assert.equal(mismatch.reason, "provider_account_identity_unverified");
+  record("visible_wrong_account_is_not_overridden_by_profile_observation");
+  await close(tabId);
+  mode = "normal";
 
   for (const downloadMode of ["modern_download", "bad_download"]) {
     mode = downloadMode;

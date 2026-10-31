@@ -89,6 +89,16 @@ async def apply_ready(session, case):
     return context, item, work
 
 
+async def history_ready(session, case, context):
+    work = await admit(session, case, context, await claim(session, case, context))
+    assert work["operation"] == "verify_account"
+    assert work["target_url"] == submission.PROFILE_URL
+    work = await finish(session, case, context, work, observation(work, "PROFILE_OBSERVED"))
+    assert work["operation"] == "reconcile_application"
+    assert work["execution"]["account_observation"]["source"] == "profile_ui"
+    return await admit(session, case, context, work)
+
+
 async def test_complete_native_worker_direct_apply_and_two_independent_receipts(db_session, upload_case):
     case = upload_case
     context, item, work = await apply_ready(db_session, case)
@@ -101,11 +111,11 @@ async def test_complete_native_worker_direct_apply_and_two_independent_receipts(
     await finish(db_session, case, context, work, report)
     assert (await queue.load(db_session, item["id"])).value["stage"] == "VERIFYING"
     assert not await prevents_replay(db_session, item["requisition"])  # No false receipt on click.
-    first = await admit(db_session, case, context, await claim(db_session, case, context))
+    first = await history_ready(db_session, case, context)
     report = observation(first, "APPLICATION_SENT", title="Backend Developer", company="Fictional Labs")
     await finish(db_session, case, context, first, report)
     assert (await queue.load(db_session, item["id"])).value["stage"] == "VERIFYING"
-    second = await admit(db_session, case, context, await claim(db_session, case, context))
+    second = await history_ready(db_session, case, context)
     report = observation(second, "APPLICATION_SENT", title="Backend Developer", company="Fictional Labs")
     await finish(db_session, case, context, second, report)
     saved = (await queue.load(db_session, item["id"])).value
@@ -148,7 +158,7 @@ async def test_lost_apply_result_reconciles_only_and_never_replays(db_session, u
     row.value = {**row.value, "available_at": (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()}
     await db_session.commit()
     retry = await claim(db_session, case, context)
-    assert retry["operation"] == "reconcile_application"
+    assert retry["operation"] == "verify_account"
     assert len((await queue.load(db_session, item["id"])).value["admitted_actions"]) == 1
 
 
@@ -163,16 +173,78 @@ async def test_stop_after_snapshot_fences_apply_without_reservation(db_session, 
     assert not (await queue.load(db_session, item["id"])).value["admitted_actions"]
 
 
+@pytest.mark.parametrize("change", ["expired", "future", "binding", "work", "source", "document"])
+async def test_apply_requires_fresh_account_observation_from_same_profile_document_context(db_session, upload_case, change):
+    case = upload_case
+    context, item, work = await apply_ready(db_session, case)
+    row = await queue.load(db_session, item["id"])
+    proof = dict(row.value["account_observation"])
+    if change == "expired":
+        proof["observed_at"] = (datetime.now(timezone.utc) - timedelta(minutes=3)).isoformat()
+    elif change == "future":
+        proof["observed_at"] = (datetime.now(timezone.utc) + timedelta(minutes=1)).isoformat()
+    elif change == "binding":
+        proof["binding"] = {**proof["binding"], "tab_id": 999}
+    elif change == "work":
+        proof["work_id"] = str(uuid4())
+    elif change == "document":
+        proof["profile_document_id"] = "bad"
+    else:
+        proof["source"] = "candidate_contact_email"
+    row.value = {**row.value, "account_observation": proof}
+    await db_session.commit()
+    result = await call(db_session, case, context, "admit_naukri_work", work)
+    assert not result.ok and result.error_code == "fresh_provider_account_observation_required"
+    assert not (await queue.load(db_session, item["id"])).value["admitted_actions"]
+
+
+async def test_history_account_refresh_cannot_be_replaced_with_a_receipt_or_wrong_account(db_session, upload_case):
+    case = upload_case
+    context, item, work = await apply_ready(db_session, case)
+    work = await admit(db_session, case, context, work)
+    await finish(db_session, case, context, work, observation(work, "CLICKED", document_id=work["execution"]["document_id"]))
+    check = await admit(db_session, case, context, await claim(db_session, case, context))
+    assert check["operation"] == "verify_account"
+    result = await call(db_session, case, context, "finish_naukri_work", check,
+                        work_report=observation(check, "APPLICATION_SENT", title="Backend Developer", company="Fictional Labs"))
+    assert not result.ok and result.error_code == "provider_account_profile_observation_required"
+    result = await call(db_session, case, context, "finish_naukri_work", check,
+                        work_report=observation(check, "PROFILE_OBSERVED", account_sha256="0" * 64))
+    assert not result.ok and result.error_code == "provider_account_identity_changed"
+    assert len((await queue.load(db_session, item["id"])).value["admitted_actions"]) == 1
+    assert not await prevents_replay(db_session, item["requisition"])  # No receipt manufactured.
+
+
+async def test_repeated_history_account_failures_are_bounded_without_replaying_apply(db_session, upload_case):
+    case = upload_case
+    context, item, work = await apply_ready(db_session, case)
+    work = await admit(db_session, case, context, work)
+    await finish(db_session, case, context, work, {"kind": "failed", "reason": "browser_result_lost"})
+    for attempt in range(3):
+        assert await claim(db_session, case, context) is None  # Persisted history cooldown.
+        row = await queue.load(db_session, item["id"])
+        row.value = {**row.value, "available_at": (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()}
+        await db_session.commit()
+        check = await admit(db_session, case, context, await claim(db_session, case, context))
+        assert check["operation"] == "verify_account"
+        await finish(db_session, case, context, check, {"kind": "needs_input", "reason": "provider_account_identity_unverified"})
+        saved = (await queue.load(db_session, item["id"])).value
+        assert saved["account_recheck_attempts"] == attempt + 1
+        assert saved["status"] == "unknown" and len(saved["admitted_actions"]) == 1
+    assert await claim(db_session, case, context) is None
+    assert (await queue.load(db_session, item["id"])).value["status"] == "unknown"
+
+
 async def test_hourly_reservation_limit_is_independent_of_daily_cap(db_session, upload_case):
     case = upload_case
     await running(db_session, cap=80)
+    binding = {"worker": "fictional"}
     for i in range(5):
-        item = await prepared_message(db_session, case, str(291026110000 + i))
+        item = await prepared_message(db_session, case, str(291026110000 + i), binding=binding)
         row = await queue.load(db_session, item["id"])
         row.value = {**row.value, "status": "waiting", "stage": "SUBMISSION_UNKNOWN", "admitted_actions": [
             {"id": str(uuid4()), "fingerprint": "apply:initial", "at": datetime.now(timezone.utc).isoformat()}]}
-    await prepared_message(db_session, case, "291026119999")
-    binding = {"worker": "fictional"}
+    await prepared_message(db_session, case, "291026119999", binding=binding)
     work = await queue.claim(db_session, "naukri", binding)
     with pytest.raises(ToolDenied, match="hourly_application_cap_reached"):
         await queue.admit(db_session, work["id"], work["revision"], work["lease_token"], binding, case.settings)

@@ -61,6 +61,12 @@ for (const [label, expected] of [
   ["10,000+ Applicants", [10000, null]],
   ["100–200 Applicants", [100, 200]],
   ["No applicant count provided", [null, null]],
+  ["Applicants: Less than 10", [0, 9]],
+  ["Fewer than 10 Applicants", [0, 9]],
+  ["Applicants: Less than 10,000", [0, 9999]],
+  ["Applicants: Less than 0", [null, null]],
+  ["Applicants: Less than 10+", [null, null]],
+  ["Applicants: Less than 10–20", [null, null]],
 ]) {
   test(`applicant label ${label} preserves its uncertainty`, async () => {
     const report = await observe(html({ count: label }));
@@ -70,6 +76,15 @@ for (const [label, expected] of [
     );
   });
 }
+test("conflicting applicant labels remain unknown rather than choosing the lowest", async () => {
+  const report = await observe(
+    html({ count: "Applicants: Less than 10</span><span>120 Applicants" }),
+  );
+  assert.deepEqual(
+    [report.job.applicants_min, report.job.applicants_max],
+    [null, null],
+  );
+});
 for (const [name, body, options, reason] of [
   ["active owner tab", html(), { visible: true }, "owner_tab_active"],
   [

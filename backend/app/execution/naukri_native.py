@@ -219,6 +219,9 @@ async def dispatch(session, settings, actor, command):
                         value = await search_work(session, config, policy, binding)
                     if value is None:
                         value = await queue.claim(session, "naukri", binding, operations={"inspect_job"} | submission.READS)
+                        if value and value["operation"] == "reconcile_application" and not submission.account_current(value, now):
+                            value = {**value, "operation": "verify_account", "revision": value["revision"] + 1}
+                            (await queue.load(session, value["id"])).value = value
                 await queue.put(session, "apply_consumer:naukri", {
                     "last_poll_at": now.isoformat(), "profile_binding_id": profile.value["id"],
                     "busy": bool(busy), "capability": "ordinary_ui_direct_apply_candidate",
@@ -236,7 +239,7 @@ async def dispatch(session, settings, actor, command):
             if command.command == "admit_naukri_work":
                 if value["status"] != "leased" or command.tab_id is None:
                     raise ToolDenied("queue_action_already_admitted")
-                if value["operation"] in {"inspect_profile", "inspect_application", "apply"}:
+                if value["operation"] in {"inspect_profile", "inspect_application", "apply", "verify_account", "reconcile_application"}:
                     from backend.app.execution.naukri_identity import check_work
 
                     await check_work(session, value)
@@ -268,6 +271,8 @@ async def dispatch(session, settings, actor, command):
                         report = report.model_copy(update={"kind": "failed", "execution": None})
                     if value["operation"] == "reconcile_application":
                         value["reconciliation_attempts"] = value.get("reconciliation_attempts", 0) + 1
+                    if value["operation"] == "verify_account":
+                        value["account_recheck_attempts"] = value.get("account_recheck_attempts", 0) + 1
                     continuing = await submission.receive(session, value, report, settings)
                     value.update(updated_at=(await instant(session)).isoformat(), revision=value["revision"] + 1)
                     if not continuing:

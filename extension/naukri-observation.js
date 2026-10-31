@@ -158,17 +158,29 @@ export async function observeNaukri(expectedUrl, operation) {
     .map(clean)
     .filter(
       (v) =>
-        /^(?:applicants?\s*:?\s*)?[\d,]+\+?(?:\s*(?:-|–|to)\s*[\d,]+)?(?:\s*applicants?)?$/i.test(
+        (/^(?:applicants?\s*:?\s*)?[\d,]+\+?(?:\s*(?:-|–|to)\s*[\d,]+)?(?:\s*applicants?)?$/i.test(
           v,
-        ) && /applicants?/i.test(v),
+        ) ||
+          /^(?:applicants?\s*:?\s*)?(?:less than|fewer than)\s+[\d,]+(?:\s*applicants?)?$/i.test(
+            v,
+          )) &&
+        /applicants?/i.test(v),
     );
   if (countLabels.length === 1) {
     const numbers = countLabels[0]
       .match(/[\d,]+/g)
       ?.map((v) => Number(v.replaceAll(",", "")));
     if (numbers?.length) {
-      lower = numbers[0];
-      upper = countLabels[0].includes("+") ? null : (numbers[1] ?? lower);
+      if (/(?:less than|fewer than)\s+[\d,]+/i.test(countLabels[0])) {
+        // This is a provider upper bound, never an invented exact count.
+        if (numbers.length === 1 && numbers[0] > 0) {
+          lower = 0;
+          upper = numbers[0] - 1;
+        }
+      } else {
+        lower = numbers[0];
+        upper = countLabels[0].includes("+") ? null : (numbers[1] ?? lower);
+      }
     }
   }
   const job = {

@@ -94,6 +94,7 @@ export class NaukriQueue {
           "inspect_application",
           "reconcile_application",
           "inspect_profile_sync",
+          "verify_account",
         ].includes(work.operation)
       )
         throw Error("background_operation_not_supported");

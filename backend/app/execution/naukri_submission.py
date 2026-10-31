@@ -6,6 +6,7 @@ durably admitted action, never a receipt. Unknown actions can only be reconciled
 
 import hashlib
 import json
+import re
 from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
@@ -15,7 +16,7 @@ from backend.app.dashboard.models import Notification, OwnerPreference
 from backend.app.execution import application_queue as queue
 from backend.app.execution.queue_contracts import QueuePolicy
 
-READS = {"inspect_profile", "inspect_application", "reconcile_application"}
+READS = {"inspect_profile", "inspect_application", "reconcile_application", "verify_account"}
 OPERATIONS = READS | {"apply"}
 PROFILE_URL = "https://www.naukri.com/mnjuser/profile"
 HISTORY_URL = "https://www.naukri.com/myapply/historypage"
@@ -23,13 +24,45 @@ RECEIPT_PREFIX = "naukri_worker_receipt:"
 
 
 def browser_url(value):
-    return {"inspect_profile": PROFILE_URL, "reconcile_application": HISTORY_URL}.get(value["operation"], value["url"])
+    return {"inspect_profile": PROFILE_URL, "verify_account": PROFILE_URL,
+            "reconcile_application": HISTORY_URL}.get(value["operation"], value["url"])
+
+
+def account_observation(value):
+    proof = value.get("account_observation") or {}
+    if (not value.get("binding") or proof.get("account_sha256") != value.get("account_sha256")
+            or proof.get("binding") != value.get("binding")
+            or proof.get("work_id") != value.get("id")
+            or proof.get("source") != "profile_ui"):
+        return None
+    return proof
+
+
+def account_current(value, now):
+    proof = account_observation(value)
+    try:
+        at = datetime.fromisoformat(proof["observed_at"]) if proof else None
+        return bool(at and at.tzinfo is not None
+                    and re.fullmatch(r"[A-Za-z0-9_-]{16,100}", str(proof.get("profile_document_id", "")))
+                    and timedelta(0) <= now - at <= timedelta(minutes=2))
+    except (TypeError, ValueError, KeyError):
+        return False
+
+
+def retain_account_observation(value, observation, now):
+    value["account_observation"] = {
+        "source": "profile_ui", "work_id": value["id"],
+        "account_sha256": observation.account_sha256,
+        "profile_document_id": observation.document_id,
+        "observed_at": now.isoformat(), "binding": dict(value["binding"]),
+    }
 
 
 def descriptor(value):
     return {
         "expected_account_sha256": value.get("account_sha256"),
         "expected_resume_sha256": value.get("upload_preflight", {}).get("sha256"),
+        "account_observation": account_observation(value),
         "expected_title": value.get("title"), "expected_company": value.get("company"),
         "document_id": value.get("document_id"),
         "control_sha256": value.get("control_sha256"),
@@ -46,7 +79,8 @@ async def recover_unknown(session):
     now = await instant(session)
     for row in await queue.items(session, active_only=True):
         v = dict(row.value)
-        if v["status"] != "unknown" or v.get("reconciliation_attempts", 0) >= 3:
+        if (v["status"] != "unknown" or v.get("reconciliation_attempts", 0) >= 3
+                or v.get("account_recheck_attempts", 0) >= 3):
             continue
         if not v.get("account_sha256"):
             continue
@@ -76,6 +110,13 @@ async def receive(session, value, report, settings):
         raise ToolDenied("queue_requisition_changed")
     if observation.account_sha256 != value.get("account_sha256"):
         raise ToolDenied("provider_account_identity_changed")
+    if op == "verify_account":
+        if observation.state != "PROFILE_OBSERVED":
+            raise ToolDenied("provider_account_profile_observation_required")
+        retain_account_observation(value, observation, now)
+        # A history-account read can only continue reconciliation, never Apply.
+        value.update(operation="reconcile_application", status="leased")
+        return True
     if op == "inspect_profile":
         if observation.state != "PROFILE_VERIFIED":
             raise ToolDenied("provider_resume_observation_required")
@@ -90,9 +131,12 @@ async def receive(session, value, report, settings):
             raise ToolDenied("provider_saved_resume_differs_from_canonical_pdf")
         value["facts"] = {**value["facts"], "provider_resume_source": "profile_download_ui",
                           "provider_resume_checked_at": now.isoformat(), "provider_resume_sha256": checked["sha256"]}
+        retain_account_observation(value, observation, now)
         value.update(operation="inspect_application", status="leased", stage="READY_TO_APPLY")
         return True
     if op == "inspect_application":
+        if not account_current(value, now):
+            raise ToolDenied("fresh_provider_account_observation_required")
         if observation.title != value["title"] or observation.company != value["company"]:
             raise ToolDenied("provider_job_or_company_changed")
         if observation.state == "APPLIED":
@@ -136,6 +180,8 @@ async def receive(session, value, report, settings):
         return False
     if op != "reconcile_application" or observation.state != "APPLICATION_SENT":
         raise ToolDenied("persistent_provider_application_status_required")
+    if not account_current(value, now):
+        raise ToolDenied("fresh_provider_account_observation_required")
     if observation.title != value["title"] or observation.company != value["company"]:
         raise ToolDenied("provider_receipt_identity_changed")
     first = value.get("confirmation_observation")
@@ -168,6 +214,7 @@ async def confirm(session, value, observation, now, settings):
         raise ToolDenied("existing_worker_receipt_requires_review")
     receipt = {"requisition": value["requisition"], "queue_id": value["id"],
                "account_sha256": value["account_sha256"], "status": "Application Sent",
+               "account_observation": account_observation(value),
                "confirmation_source": "naukri_application_status_ui", "operation_mode": "recurring_worker_ui",
                "observed_at": now.isoformat(), "persistent_after_reload": True,
                "first_observation": value["confirmation_observation"],

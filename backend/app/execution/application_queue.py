@@ -525,12 +525,17 @@ async def write_context(session, value, policy, settings):
     checked_pdf = await preflight(session, packet, settings)
     if checked_pdf["state"] != "PDF_VERIFIED_LOCAL":
         raise ToolDenied(checked_pdf["reason"])
+    from backend.app.execution.naukri_submission import account_current
+
+    now = await instant(session)
+    if not account_current(value, now):
+        raise ToolDenied("fresh_provider_account_observation_required")
     # Direct Apply may submit the resume already saved on Naukri immediately.
     # A locally verified file alone is not proof of that provider-side file.
     try:
         checked_at = datetime.fromisoformat(value["facts"]["provider_resume_checked_at"])
         if (checked_at.tzinfo is None
-                or not timedelta(0) <= (await instant(session)) - checked_at <= timedelta(minutes=2)
+                or not timedelta(0) <= now - checked_at <= timedelta(minutes=2)
                 or value["facts"].get("provider_resume_sha256") != checked_pdf["sha256"]
                 or value["facts"].get("provider_resume_source") != "profile_download_ui"):
             raise ValueError

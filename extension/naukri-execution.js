@@ -37,7 +37,7 @@ export async function executeNaukri(work) {
       ...new Set(
         [
           ...document.querySelectorAll(
-            'header [class*="email"], .chip-summary .email-verify, [class*="user-details"] [class*="email"], [class*="profile-details"] [class*="email"], [class*="personal-details"] [class*="email"], input[type=email]',
+            'header [class*="email"], .chip-summary .email-verify, [class*="user-details"] [class*="email"], [class*="profile-details"] [class*="email"], [class*="personal-details"] [class*="email"]',
           ),
         ]
           .filter(visible)
@@ -45,6 +45,43 @@ export async function executeNaukri(work) {
           .filter((x) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x)),
       ),
     ];
+    if (
+      emails.length === 0 &&
+      ["inspect_application", "apply", "reconcile_application"].includes(
+        work.operation,
+      )
+    ) {
+      const proof = request?.account_observation;
+      const binding = work.binding;
+      const age = Date.now() - Date.parse(proof?.observed_at);
+      const keys = [
+        "profile_binding_id",
+        "profile_version",
+        "selection_version",
+        "browser_session_id",
+        "window_id",
+        "tab_id",
+      ];
+      if (
+        proof?.source === "profile_ui" &&
+        proof.work_id === work.id &&
+        proof.account_sha256 === request.expected_account_sha256 &&
+        /^[A-Za-z0-9_-]{16,100}$/.test(proof.profile_document_id || "") &&
+        proof.profile_document_id !== state.documentId &&
+        binding &&
+        typeof binding.profile_binding_id === "string" &&
+        typeof binding.browser_session_id === "string" &&
+        Number.isInteger(binding.tab_id) &&
+        Number.isInteger(binding.window_id) &&
+        binding.profile_version >= 1 &&
+        binding.selection_version >= 1 &&
+        keys.every((key) => proof.binding?.[key] === binding[key]) &&
+        Number.isFinite(age) &&
+        age >= 0 &&
+        age <= 120000
+      )
+        return proof.account_sha256;
+    }
     if (
       emails.length !== 1 ||
       (await hash(emails[0])) !== request?.expected_account_sha256
@@ -178,7 +215,10 @@ export async function executeNaukri(work) {
   };
   try {
     safe();
-    if (work.operation === "inspect_profile_sync") {
+    if (
+      work.operation === "inspect_profile_sync" ||
+      work.operation === "verify_account"
+    ) {
       await account();
       const fields = {};
       const summary = summaryValue();

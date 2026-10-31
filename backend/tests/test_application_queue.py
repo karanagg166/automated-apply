@@ -34,7 +34,7 @@ async def running(session, *, cap=80, mode="AUTOMATIC", authorized=True):
     return await queue.control(session, QueueControl(expected_revision=value["revision"], action="start"))
 
 
-async def prepared_message(session, case, requisition):
+async def prepared_message(session, case, requisition, *, binding=None):
     from backend.app.execution import naukri_identity as identity
     from backend.tests.test_chrome_profiles import choose, connect
 
@@ -51,9 +51,13 @@ async def prepared_message(session, case, requisition):
     value = await queue.enqueue(session, "naukri", "https://www.naukri.com/job-listings-fictional-" + requisition, "naukri_ui_search")
     row = await queue.load(session, value["id"])
     now = datetime.now(timezone.utc).isoformat()
+    proof_binding = binding or {**BINDING, "profile_binding_id": account["profile_binding_id"]}
     row.value = {**row.value, "job_id": str(job_id), "packet_id": str(packet.id),
                  "candidate_profile_id": str(packet.candidate_profile_id), "account_sha256": account["account_sha256"],
                  "account_binding_revision": account["revision"],
+                 "account_observation": {"source": "profile_ui", "work_id": value["id"],
+                     "account_sha256": account["account_sha256"], "profile_document_id": "fictional-profile-document",
+                     "observed_at": now, "binding": proof_binding},
                  "packet_revision": packet.revision, "profile_version": packet.candidate_profile_version,
                  "operation": "apply", "stage": "READY_TO_APPLY", "match_score": 90,
                  "facts": {"posted_at": now, "applicants_min": 4, "applicants_max": 4,
