@@ -59,6 +59,12 @@ are discovered URLs, not 53 eligible jobs. Earlier installed discovery had taken
 about 76 seconds; the new roughly 16-second cycle is a single differently loaded
 observation, not a controlled benchmark.
 
+A later committed cycle started **14:45:10 UTC**, finished **14:45:24 UTC**, and
+added **20** URLs, bringing the cumulative count to **73**. The corresponding
+snapshot held **47 DISCOVERED**, **26 NEEDS_INPUT**, the same one historical
+receipt and still zero READY_TO_APPLY. This is another actual recurring discovery
+cycle, not application acceptance.
+
 At that snapshot: **38 DISCOVERED**, **15 NEEDS_INPUT** with
 `job_required_facts_unrecognized`, **1 SUBMITTED_RECORDED** historical receipt,
 **0 READY_TO_APPLY**. Nine of the parser failures were newly observed after the
@@ -87,6 +93,11 @@ bounds **100 / unknown**. Their actual structured posting dates were
 saved privately; they were not injected into the production queue, used to bypass
 the installed adapter or called submission receipts.
 
+The actual observed facts were also evaluated locally by the existing eligibility
+function against the current persisted policy revision **7** (age **2 days**,
+minimum score **80**). Both returned **`posting_outside_age_limit`**; zero eligible
+applications were manufactured from these pages.
+
 ## Acceptance matrix
 
 | Check | Result | Evidence / remaining limit |
@@ -94,7 +105,7 @@ the installed adapter or called submission receipts.
 | Approved platform identity on genuine profile | PASS one observation | Installed worker accepted actual account-bound profile report; no contact change |
 | Canonical versus provider-saved resume | PASS supervised bytes | Genuine Download UI, Naukri blob source, 100,198-byte downloaded PDF, exact SHA-256 match |
 | Resume replacement | NOT NEEDED for observed file | Saved PDF matches; no upload/replacement performed |
-| Repeated genuine discovery | PASS bounded observations | Durable 53 unique URLs, recurring 300-second schedule, latest cycle +13 |
+| Repeated genuine discovery | PASS bounded observations | Durable 53 then 73 unique URLs, recurring 300-second schedule, successive cycles +13 / +20 |
 | Installed listing extraction | FAIL | Empty location icon selected; no eligible work prepared |
 | Corrected read-only extraction on real pages | PASS 2 observations | Location/experience/skills/dates/applicant uncertainty extracted; pages correctly ineligible by age |
 | Grounded matching / first eligible queue item | BLOCKED | Production extension correction not installed; current ready count zero |
