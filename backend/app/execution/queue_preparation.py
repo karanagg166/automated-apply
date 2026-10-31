@@ -75,6 +75,40 @@ async def prepare_one(session, settings):
     config = await queue.configuration(session)
     policy = QueuePolicy.model_validate(config["policy"])
     platform = policy.platforms["naukri"]
+    if config["state"] != "RUNNING" or not platform.enabled:
+        return False
+    # A browser-inspection backlog is not preparation work. Previously every
+    # idle worker tick took the shared owner lock and rescanned that backlog,
+    # contending with the native requests that could actually advance it.
+    # This is only a scheduling hint: claim still rechecks policy and leases
+    # under the original lock. A racing enqueue waits for the next tick.
+    candidates = (await session.scalars(select(OwnerPreference.value).where(
+        OwnerPreference.key.startswith(queue.PREFIX),
+        OwnerPreference.value["platform"].as_string() == "naukri",
+        OwnerPreference.value["stage"].as_string().not_in(queue.TERMINAL),
+        or_(
+            and_(OwnerPreference.value["operation"].as_string() == "prepare",
+                 OwnerPreference.value["status"].as_string() == "queued"),
+            and_(OwnerPreference.value["stage"].as_string() == "READY_TO_APPLY",
+                 OwnerPreference.value["status"].as_string() == "waiting"),
+            OwnerPreference.value["status"].as_string().in_(["leased", "executing"]),
+        ),
+    ))).all()
+    pending = any(
+        (v["operation"] == "prepare" and v["status"] == "queued")
+        or (v["stage"] == "READY_TO_APPLY" and v["status"] == "waiting"
+            and platform.mode in {"AUTOMATIC", "SUPERVISED"}
+            and platform.owner_submission_authorized and not v.get("admitted_actions"))
+        for v in candidates
+    )
+    leases = [v for v in candidates if v["status"] in {"leased", "executing"} and v.get("lease_until")]
+    if not pending and leases:
+        now = await instant(session)
+        # Keep claim's recovery of ALL expired leases, especially a possible
+        # Apply. Never leave that action resumable or turn it into preparation.
+        pending = any(datetime.fromisoformat(v["lease_until"]) <= now for v in leases)
+    if not pending:
+        return False
     if config["state"] == "RUNNING" and platform.enabled and platform.mode in {"AUTOMATIC", "SUPERVISED"} and platform.owner_submission_authorized:
         await store.memory_row(session, lock=True)
         for waiting in await queue.items(session, active_only=True):

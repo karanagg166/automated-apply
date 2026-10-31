@@ -3,6 +3,117 @@ import { observeNaukri } from "./naukri-observation.js";
 import { executeNaukri } from "./naukri-execution.js";
 import { captureNaukriResumeDownload } from "./naukri-resume-download.js";
 
+// Injected only into this consumer's inactive search tab, after read admission.
+// Use the observed ordinary Sort menu; never guess a provider query parameter.
+export async function sortNaukriSearchDate(expectedUrl) {
+  const failure = (reason) => ({ kind: "needs_input", reason });
+  let adopted = false;
+  const visibilityChanged = () => {
+    if (document.visibilityState !== "hidden") adopted = true;
+  };
+  const safe = () => {
+    const actual = new URL(location.href),
+      expected = new URL(expectedUrl);
+    if (adopted || document.visibilityState !== "hidden")
+      return "owner_tab_active";
+    if (
+      actual.origin !== "https://www.naukri.com" ||
+      actual.origin !== expected.origin ||
+      actual.pathname !== expected.pathname
+    )
+      return "provider_context_changed";
+    if (
+      /captcha|verify (?:that )?you are human|unusual traffic|access denied|too many requests/i.test(
+        document.body?.innerText || "",
+      ) ||
+      [...document.querySelectorAll('iframe[src*="captcha"]')].some(
+        (e) => e.getClientRects().length,
+      )
+    )
+      return "provider_challenge_requires_owner";
+    return null;
+  };
+  const visible = (e) =>
+    e?.isConnected &&
+    e.getClientRects().length > 0 &&
+    getComputedStyle(e).visibility !== "hidden";
+  let opened = false,
+    selected = false,
+    settled = 0;
+  document.addEventListener("visibilitychange", visibilityChanged);
+  try {
+    for (let attempt = 0; attempt < 40; attempt++) {
+      const refused = safe();
+      if (refused) return failure(refused);
+      const controls = [...document.querySelectorAll("#filter-sort")].filter(
+        visible,
+      );
+      if (controls.length > 1) return failure("search_sort_control_ambiguous");
+      const control = controls[0];
+      if (
+        control &&
+        (control.tagName !== "BUTTON" ||
+          control.type !== "button" ||
+          control.getAttribute("aria-controls") !== "filter-sort-menu")
+      )
+        return failure("search_sort_control_unrecognized");
+      if (
+        control?.disabled ||
+        control?.getAttribute("aria-disabled") === "true"
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        continue;
+      }
+      if (control?.textContent.trim() === "Date") {
+        // Let the SPA replace its cards before observing them. Eligibility still
+        // uses the actual job page's dates, never a search-card age label.
+        if (++settled >= 5) return { kind: "date_sort", state: "selected" };
+      } else if (control) {
+        if (selected) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          continue;
+        }
+        const options = [
+          ...document.querySelectorAll('#filter-sort-menu [role="option"]'),
+        ].filter((e) => e.title === "Date" && visible(e));
+        if (options.length > 1) return failure("search_date_option_ambiguous");
+        if (options.length === 1) {
+          const links = [...options[0].querySelectorAll("a")].filter(visible);
+          if (links.length !== 1)
+            return failure("search_date_option_unsupported");
+          // This observed SPA control uses an anchor with no navigation target.
+          // Refuse new destinations, script URLs and new windows.
+          const href = links[0].getAttribute("href");
+          if (
+            (href && href !== "#") ||
+            ![null, "", "_self"].includes(links[0].getAttribute("target"))
+          )
+            return failure("search_date_option_unsupported");
+          const refused = safe();
+          if (refused) return failure(refused);
+          selected = true;
+          links[0].click();
+        } else if (!opened) {
+          opened = true;
+          control.click();
+        }
+      } else if (
+        /no jobs found|no results found/i.test(document.body?.innerText || "")
+      ) {
+        return { kind: "date_sort", state: "no_results" };
+      }
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+    return failure(
+      opened
+        ? "search_date_sort_not_confirmed"
+        : "search_sort_control_unrecognized",
+    );
+  } finally {
+    document.removeEventListener("visibilitychange", visibilityChanged);
+  }
+}
+
 const key = "naukriReadInFlightV1";
 // Only this trusted service-worker module creates these inactive tabs. It never
 // adopts an existing owner tab, activates a window or opens a native chooser.
@@ -143,6 +254,19 @@ export class NaukriQueue {
       const admitted = await this.command("admit_naukri_work", work);
       work = { ...admitted.work, ownedTabId: tab.id };
       await this.api.storage.session.set({ [key]: work });
+      if (work.operation === "search_jobs") {
+        await this.assertInactive(work, context);
+        const sorted = await this.api.scripting.executeScript({
+          target: { tabId: work.ownedTabId, frameIds: [0] },
+          world: "ISOLATED",
+          func: sortNaukriSearchDate,
+          args: [work.url],
+        });
+        await this.assertInactive(work, context);
+        const report = sorted.length === 1 && sorted[0].result;
+        if (report?.kind !== "date_sort")
+          throw Error(report?.reason || "search_date_sort_not_confirmed");
+      }
       const report = await this.observeReady(work, context);
       if (!report || (await this.api.tabs.get(tab.id)).active)
         throw Error("owner_tab_active");

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { NaukriQueue } from "../naukri-queue.js";
+import { NaukriQueue, sortNaukriSearchDate } from "../naukri-queue.js";
 
 const url = "https://www.naukri.com/job-listings-fictional-291026123456";
 function fixture(options = {}) {
@@ -77,6 +77,15 @@ function fixture(options = {}) {
     scripting: {
       executeScript: async (input) => {
         calls.push(["inspect", input]);
+        if (input.func === sortNaukriSearchDate)
+          return [
+            {
+              result: options.sortReport || {
+                kind: "date_sort",
+                state: "selected",
+              },
+            },
+          ];
         if (options.adopt) {
           activation({ tabId: 44 });
           tabs.get(44).active = true;
@@ -121,6 +130,51 @@ function fixture(options = {}) {
     queue: new NaukriQueue(api, send, async () => {}),
   };
 }
+
+test("search observes candidates only after Date sorting succeeds", async () => {
+  const f = fixture({
+    operation: "search_jobs",
+    work: {
+      operation: "search_jobs",
+      url: "https://www.naukri.com/backend-developer-jobs",
+    },
+    reports: [{ kind: "source_candidates", candidates: [url] }],
+  });
+  await f.queue.tick();
+  const inspections = f.calls
+    .filter(([name]) => name === "inspect")
+    .map(([, input]) => input);
+  assert.equal(inspections[0].func, sortNaukriSearchDate);
+  assert.equal(inspections.length, 2);
+  assert.equal(
+    f.calls.find(([name]) => name === "finish_naukri_work")[1].work_report.kind,
+    "source_candidates",
+  );
+});
+test("unconfirmed search sorting reports failure without observing or admitting candidates", async () => {
+  const f = fixture({
+    operation: "search_jobs",
+    work: {
+      operation: "search_jobs",
+      url: "https://www.naukri.com/backend-developer-jobs",
+    },
+    sortReport: {
+      kind: "needs_input",
+      reason: "search_date_sort_not_confirmed",
+    },
+  });
+  await f.queue.tick();
+  assert.equal(f.calls.filter(([name]) => name === "inspect").length, 1);
+  assert.equal(
+    f.calls.some(([name]) => name === "finish_naukri_work"),
+    false,
+  );
+  assert.equal(
+    f.calls.find(([name]) => name === "abandon_naukri_work")[1].work_report
+      .reason,
+    "search_date_sort_not_confirmed",
+  );
+});
 
 test("saved resume Download uses one owned-tab capture and isolated account recheck", async () => {
   const report = {

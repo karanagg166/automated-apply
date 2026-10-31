@@ -265,3 +265,46 @@ async def test_calendar_date_native_ingestion_preserves_unknown_exact_timestamp(
     job = await db_session.get(Job, UUID(saved["job_id"]))
     assert job.date_posted is None
     assert job.discovery_metadata["data_provenance"]["observed_posted_date"] == today
+
+
+@pytest.mark.parametrize('status,stage,operation', [
+    ('queued', 'DISCOVERED', 'inspect_job'),
+    ('leased', 'DISCOVERED', 'inspect_job'),
+    ('executing', 'DISCOVERED', 'inspect_job'),
+    ('waiting', 'NEEDS_INPUT', 'inspect_job'),
+    ('unknown', 'SUBMISSION_UNKNOWN', 'apply'),
+])
+async def test_idle_preparation_does_not_lock_owner_for_browser_work(db_session, monkeypatch, status, stage, operation):
+    from datetime import timedelta
+
+    from backend.app.execution import store
+
+    await running(db_session)
+    item = await queue.enqueue(db_session, 'naukri', URL, 'saved_verified_job')
+    row = await queue.load(db_session, item['id'])
+    row.value = {**row.value, 'status': status, 'stage': stage, 'operation': operation,
+                 'lease_until': (datetime.now(timezone.utc) + timedelta(minutes=2)).isoformat()
+                 if status in {'leased', 'executing'} else None}
+    await db_session.commit()
+
+    async def forbidden(*args, **kwargs):
+        pytest.fail('Idle preparation must not compete for the owner lock')
+
+    monkeypatch.setattr(store, 'memory_row', forbidden)
+    assert await prepare_one(db_session, None) is False
+    assert (await queue.load(db_session, item['id'])).value['status'] == status
+
+
+async def test_preparation_fast_path_still_fences_expired_possible_apply(db_session):
+    from datetime import timedelta
+
+    await running(db_session)
+    item = await queue.enqueue(db_session, 'naukri', URL, 'saved_verified_job')
+    row = await queue.load(db_session, item['id'])
+    row.value = {**row.value, 'status': 'executing', 'stage': 'APPLYING', 'operation': 'apply',
+                 'lease_until': (datetime.now(timezone.utc) - timedelta(seconds=1)).isoformat()}
+    await db_session.commit()
+    assert await prepare_one(db_session, None) is False
+    saved = (await queue.load(db_session, item['id'])).value
+    assert saved['stage'] == 'SUBMISSION_UNKNOWN' and saved['status'] == 'unknown'
+    assert saved['operation'] == 'apply' and saved['lease_token'] is None

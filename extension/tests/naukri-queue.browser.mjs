@@ -102,7 +102,8 @@ const req = "291026123456";
 const jobUrl = `https://www.naukri.com/job-listings-fictional-${req}`;
 const searchUrl = "https://www.naukri.com/backend-developer-jobs";
 const evidence = [];
-let modern = false;
+let modern = false,
+  scenario = "";
 try {
   await context.route("**/*", async (route) => {
     const url = new URL(route.request().url());
@@ -112,8 +113,15 @@ try {
     }
     fixtureRequests++;
     let body = url.pathname.endsWith("-jobs")
-      ? `<a href="${jobUrl}">Fictional job</a>`
+      ? `<button id="filter-sort" type="button" aria-controls="filter-sort-menu" onclick="document.querySelector('#filter-sort-menu').style.visibility='visible'">Recommended</button><ul id="filter-sort-menu" style="visibility:hidden"><li role="option" title="Date"><a onclick="document.querySelector('#filter-sort').textContent='Date';document.querySelector('#old-result').href='${jobUrl}'">Date</a></li></ul><a id="old-result" href="https://www.naukri.com/job-listings-older-291026123457">Fictional job</a>`
       : `<div class="styles_jd-header"><h1>Backend Developer</h1><span class="styles_comp-name">Fictional Labs</span><span class="styles_loc-wrap">India</span><span class="styles_exp-wrap">0 - 3 Yrs</span><span>120 Applicants</span><button onclick="window.accidentalClicks=(window.accidentalClicks||0)+1">Apply</button></div><div class="styles_job-desc">Build Python services</div><div class="styles_key-skill"><span class="chip">Python</span></div><script type="application/ld+json">${JSON.stringify({ "@type": "JobPosting", title: "Backend Developer", datePosted: new Date().toISOString(), identifier: { value: req } })}</script>`;
+    if (scenario === "unconfirmed_search_sort")
+      body = body.replace(
+        "document.querySelector('#filter-sort').textContent='Date';",
+        "",
+      );
+    if (scenario === "search_access_restriction")
+      body = "<p>Access denied</p>" + body;
     if (modern)
       body = body
         .replace(
@@ -160,15 +168,31 @@ try {
     ["background_job_facts", "inspect_job", jobUrl, false],
     ["current_header_layout", "inspect_job", jobUrl, false],
     ["background_search_links", "search_jobs", searchUrl, false],
+    ["unconfirmed_search_sort", "search_jobs", searchUrl, false],
+    ["search_access_restriction", "search_jobs", searchUrl, false],
+    ["stop_before_search_sort", "search_jobs", searchUrl, true],
     ["stop_before_dom", "inspect_job", jobUrl, true],
   ]) {
     modern = name === "current_header_layout";
+    scenario = name;
     const result = await worker.evaluate(
       ({ operation, url, stop }) => globalThis.prepare(operation, url, stop),
       { operation, url, stop },
     );
     const finished = result.calls.find((c) => c.name === "finish_naukri_work");
-    if (stop) {
+    if (
+      name === "unconfirmed_search_sort" ||
+      name === "search_access_restriction"
+    ) {
+      assert.equal(finished, undefined);
+      assert.equal(
+        result.calls.find((c) => c.name === "abandon_naukri_work")?.input
+          .work_report.reason,
+        name === "unconfirmed_search_sort"
+          ? "search_date_sort_not_confirmed"
+          : "provider_challenge_requires_owner",
+      );
+    } else if (stop) {
       assert.equal(finished, undefined);
       assert.ok(result.calls.some((c) => c.name === "abandon_naukri_work"));
     } else {

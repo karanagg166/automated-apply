@@ -120,8 +120,37 @@ async def verify(url):
             assert sum(v["stage"] == "PAUSED" for v in rows) == 20
             assert sum(v["stage"] == "SUBMISSION_UNKNOWN" for v in rows) == 1
         results.append("bulk_stop_persists_all_read_fences_and_keeps_unknown_submission")
+        from sqlalchemy.exc import DBAPIError
+
+        from backend.app.execution import store
+        from backend.app.execution.queue_preparation import prepare_one
+
+        async with factory() as session, session.begin():
+            config = await queue.configuration(session)
+            await queue.control(session, QueueControl(action="start", expected_revision=config["revision"]))
+        async with factory() as holder, holder.begin():
+            await store.memory_row(holder, lock=True)
+            # A native transaction owns the real PostgreSQL row lock. An idle
+            # preparation tick must still finish; only browser reads are queued.
+            async with factory() as idle, idle.begin():
+                await idle.execute(text("SET LOCAL lock_timeout = '100ms'"))
+                began = perf_counter()
+                assert await prepare_one(idle, settings) is False
+                idle_seconds = round(perf_counter() - began, 6)
+            try:
+                async with factory() as legacy, legacy.begin():
+                    await legacy.execute(text("SET LOCAL lock_timeout = '100ms'"))
+                    # Reproduce the former idle path, without changing its
+                    # policy, lock scope or the held native transaction.
+                    await queue.claim(legacy, "naukri", {"worker": "legacy_idle"}, operations={"prepare"})
+            except DBAPIError as exc:
+                assert exc.orig.sqlstate == "55P03"
+            else:
+                raise AssertionError("legacy_idle_path_did_not_contend")
+        results.append("idle_preparation_bypasses_held_owner_lock_legacy_path_55P03")
         print(json.dumps({"fixture_only": True, "database_version": version, "cases_passed": len(results),
                           "duration_seconds": round(perf_counter() - started, 3), "pool_limit": 2,
+                          "idle_preparation_under_held_lock_seconds": idle_seconds,
                           "provider_requests": 0, "applications": 0, "results": results}))
     finally:
         await engine.dispose()
