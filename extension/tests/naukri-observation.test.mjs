@@ -11,8 +11,11 @@ function html({
   title = "Backend Developer",
   status = "Apply",
   description = "Build Python services",
+  experience = "0 - 3 Yrs",
+  location = "India",
+  posting = {},
 } = {}) {
-  return `<div class="styles_jd-header"><h1>Backend Developer</h1><a class="styles_comp-name">Fictional Labs</a><span class="styles_loc-wrap">India</span><span class="styles_exp-wrap">0 - 3 Yrs</span><span>${count}</span><button>${status}</button></div><div class="styles_job-desc">${description}</div><div class="styles_key-skill"><span class="chip">Python</span></div><script type="application/ld+json">${JSON.stringify({ "@type": "JobPosting", title, datePosted: date, identifier: { value: "291026123456" } })}</script>`;
+  return `<div class="styles_jd-header"><h1>Backend Developer</h1><a class="styles_comp-name">Fictional Labs</a><span class="styles_loc-wrap">${location}</span><span class="styles_exp-wrap">${experience}</span><span>${count}</span><button>${status}</button></div><div class="styles_job-desc">${description}</div><div class="styles_key-skill"><span class="chip">Python</span></div><script type="application/ld+json">${JSON.stringify({ "@type": "JobPosting", title, datePosted: date, identifier: { value: "291026123456" }, ...posting })}</script>`;
 }
 async function observe(
   body,
@@ -57,6 +60,91 @@ test("fictional exact listing yields factual bounds and source digest without cl
   assert.equal(report.job.experience_max, 3);
   assert.match(report.job.evidence_sha256, /^[a-f0-9]{64}$/);
 });
+for (const [label, years] of [
+  ["0 years", 0],
+  ["1 yr", 1],
+  ["1.5 years", 1.5],
+]) {
+  test(`single experience label ${label} preserves its explicit value`, async () => {
+    const report = await observe(html({ experience: label }));
+    assert.deepEqual(
+      [report.job.experience_min, report.job.experience_max],
+      [years, years],
+    );
+  });
+}
+for (const label of ["0+ years", "Fresher", "Not disclosed"]) {
+  test(`experience label ${label} is not turned into invented bounds`, async () => {
+    assert.equal(
+      (await observe(html({ experience: label }))).reason,
+      "job_required_facts_unrecognized",
+    );
+  });
+}
+test("a zero-year UI label cannot override a structured one-month minimum", async () => {
+  const report = await observe(
+    html({
+      experience: "0 years",
+      posting: {
+        experienceRequirements: {
+          "@type": "OccupationalExperienceRequirements",
+          monthsOfExperience: "1",
+        },
+      },
+    }),
+  );
+  assert.equal(report.reason, "experience_requirement_evidence_conflict");
+});
+test("a one-month minimum fits inside an explicitly displayed zero-to-three-year range", async () => {
+  const report = await observe(
+    html({ posting: { experienceRequirements: { monthsOfExperience: "1" } } }),
+  );
+  assert.equal(report.kind, "job_facts");
+});
+test("malformed structured experience is retained for review", async () => {
+  const report = await observe(
+    html({
+      posting: {
+        experienceRequirements: { monthsOfExperience: "Not disclosed" },
+      },
+    }),
+  );
+  assert.equal(report.reason, "structured_experience_requires_review");
+});
+for (const [label, expected] of [
+  ["Full Time, Permanent", "full_time"],
+  ["Part time", "part_time"],
+  ["Contractual", "contract"],
+  ["Internship", "internship"],
+  [["full_time", "contract"], null],
+  ["Permanent", null],
+]) {
+  test(`employment type ${JSON.stringify(label)} preserves explicit or unknown evidence`, async () => {
+    assert.equal(
+      (await observe(html({ posting: { employmentType: label } }))).job
+        .employment_type,
+      expected,
+    );
+  });
+}
+for (const [location, expected] of [
+  ["Hybrid - Bengaluru", "hybrid"],
+  ["Remote - India", "remote"],
+  ["On-site - India", "onsite"],
+  ["India", "unknown"],
+  ["Remote - Hybrid", "unknown"],
+]) {
+  test(`work mode in location ${location} requires explicit unambiguous evidence`, async () => {
+    assert.equal(
+      (
+        await observe(
+          html({ location, description: "Remote hybrid onsite jobs" }),
+        )
+      ).job.remote_type,
+      expected,
+    );
+  });
+}
 for (const [label, expected] of [
   ["10,000+ Applicants", [10000, null]],
   ["100–200 Applicants", [100, 200]],

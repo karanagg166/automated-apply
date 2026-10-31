@@ -143,6 +143,14 @@ try {
           "<label>Applicants: </label><span>120</span>",
         )
         .replace("</button></div>", "</button></section>");
+    if (scenario === "single_years_employment")
+      body = body
+        .replace("0 - 3 Yrs", "0 years")
+        .replace(">India<", ">Hybrid - Bengaluru<")
+        .replace(
+          '"datePosted":',
+          '"employmentType":"Full Time, Permanent","datePosted":',
+        );
     return route.fulfill({ contentType: "text/html", body });
   });
   context.on("page", (page) =>
@@ -167,13 +175,16 @@ try {
   for (const [name, operation, url, stop] of [
     ["background_job_facts", "inspect_job", jobUrl, false],
     ["current_header_layout", "inspect_job", jobUrl, false],
+    ["single_years_employment", "inspect_job", jobUrl, false],
     ["background_search_links", "search_jobs", searchUrl, false],
     ["unconfirmed_search_sort", "search_jobs", searchUrl, false],
     ["search_access_restriction", "search_jobs", searchUrl, false],
     ["stop_before_search_sort", "search_jobs", searchUrl, true],
     ["stop_before_dom", "inspect_job", jobUrl, true],
   ]) {
-    modern = name === "current_header_layout";
+    modern = ["current_header_layout", "single_years_employment"].includes(
+      name,
+    );
     scenario = name;
     const result = await worker.evaluate(
       ({ operation, url, stop }) => globalThis.prepare(operation, url, stop),
@@ -205,6 +216,15 @@ try {
       if (operation === "inspect_job")
         assert.equal(finished.input.work_report.job.applicants_min, 120);
       else assert.deepEqual(finished.input.work_report.candidates, [jobUrl]);
+      if (name === "single_years_employment") {
+        assert.equal(finished.input.work_report.job.experience_min, 0);
+        assert.equal(finished.input.work_report.job.experience_max, 0);
+        assert.equal(
+          finished.input.work_report.job.employment_type,
+          "full_time",
+        );
+        assert.equal(finished.input.work_report.job.remote_type, "hybrid");
+      }
     }
     assert.equal(result.tabs.length, 1);
     assert.equal(result.tabs[0].id, result.ownerId);

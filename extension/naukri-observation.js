@@ -86,9 +86,13 @@ export async function observeNaukri(expectedUrl, operation) {
       '[class*="jhc__exp__"], [class*="exp-wrap"], [class*="experience"]',
     ),
   );
-  const band = experience?.match(
+  const range = experience?.match(
     /^(\d+(?:\.\d+)?)\s*(?:-|–|to)\s*(\d+(?:\.\d+)?)\s*(?:yrs?|years?)$/i,
   );
+  const single = experience?.match(/^(\d+(?:\.\d+)?)\s*(?:yrs?|years?)$/i);
+  // Genuine fresher headers display "0 years" rather than a range. Preserve
+  // that explicit value; "Fresher", "0+" and unspecified ranges stay unknown.
+  const band = range || (single && [single[0], single[1], single[1]]);
   const description = clean(
     document.querySelector(
       '[class*="job-desc"], [class*="jobDesc"], [itemprop="description"]',
@@ -152,6 +156,50 @@ export async function observeNaukri(expectedUrl, operation) {
     String(posting.identifier.value) !== requisition
   )
     return failure("structured_job_identity_ambiguous");
+  const minimumMonths = posting.experienceRequirements?.monthsOfExperience;
+  if (minimumMonths !== undefined && minimumMonths !== null) {
+    const numeric =
+      typeof minimumMonths === "number" ||
+      (typeof minimumMonths === "string" &&
+        /^\d+(?:\.\d+)?$/.test(minimumMonths.trim()));
+    const months = numeric ? Number(minimumMonths) : NaN;
+    if (!Number.isFinite(months) || months < 0 || months > 720)
+      return failure("structured_experience_requires_review");
+    // monthsOfExperience is a minimum. The genuine "0 years" headers can
+    // contradict a one-month minimum; never choose the easier requirement.
+    if (months > Number(band[2]) * 12)
+      return failure("experience_requirement_evidence_conflict");
+  }
+  const employmentLabels = [posting.employmentType].flat();
+  const employmentTypes = employmentLabels.map((value) =>
+    typeof value === "string"
+      ? {
+          "full time": "full_time",
+          "full time, permanent": "full_time",
+          full_time: "full_time",
+          "part time": "part_time",
+          part_time: "part_time",
+          contract: "contract",
+          contractual: "contract",
+          internship: "internship",
+        }[value.replace(/\s+/g, " ").trim().toLowerCase()]
+      : undefined,
+  );
+  const employmentType =
+    employmentTypes.length &&
+    employmentTypes.every(Boolean) &&
+    new Set(employmentTypes).size === 1
+      ? employmentTypes[0]
+      : null;
+  // Only an explicit mode in the observed location label establishes this
+  // fact. Title/description keywords and missing labels never imply remote.
+  const mode = locationText.match(
+    /^(remote|hybrid|onsite|on-site)\s*(?:[-–:]\s*|$)(.*)$/i,
+  );
+  const remoteType =
+    mode && !/^(remote|hybrid|onsite|on-site)\b/i.test(mode[2])
+      ? mode[1].toLowerCase().replace("on-site", "onsite")
+      : "unknown";
   let lower = null,
     upper = null;
   const countLabels = [...header.querySelectorAll("span, p")]
@@ -192,6 +240,8 @@ export async function observeNaukri(expectedUrl, operation) {
     skills: skills.slice(0, 50),
     experience_min: Number(band[1]),
     experience_max: Number(band[2]),
+    employment_type: employmentType,
+    remote_type: remoteType,
     posted_at: exact ? new Date(posted).toISOString() : null,
     posted_date: dateOnly ? posted : null,
     applicants_min: lower,
