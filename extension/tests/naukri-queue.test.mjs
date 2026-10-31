@@ -246,6 +246,9 @@ for (const operation of ["inspect_profile", "inspect_profile_sync"]) {
       ["ISOLATED", "MAIN", "ISOLATED"],
     );
     assert.ok(injections.every((x) => x.target.tabId === 44));
+    assert.deepEqual(injections[1].args, [
+      { target_url: "https://www.naukri.com/mnjuser/profile" },
+    ]);
     assert.equal(
       injections[2].args[0].execution.provider_pdf_observation.kind,
       "provider_pdf_digest",

@@ -100,6 +100,7 @@ test("a one-month minimum fits inside an explicitly displayed zero-to-three-year
     html({ posting: { experienceRequirements: { monthsOfExperience: "1" } } }),
   );
   assert.equal(report.kind, "job_facts");
+  assert.equal(report.job.experience_min, 1 / 12);
 });
 test("malformed structured experience is retained for review", async () => {
   const report = await observe(

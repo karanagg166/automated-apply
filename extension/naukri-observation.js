@@ -157,6 +157,7 @@ export async function observeNaukri(expectedUrl, operation) {
   )
     return failure("structured_job_identity_ambiguous");
   const minimumMonths = posting.experienceRequirements?.monthsOfExperience;
+  let minimumYears = Number(band[1]);
   if (minimumMonths !== undefined && minimumMonths !== null) {
     const numeric =
       typeof minimumMonths === "number" ||
@@ -169,6 +170,9 @@ export async function observeNaukri(expectedUrl, operation) {
     // contradict a one-month minimum; never choose the easier requirement.
     if (months > Number(band[2]) * 12)
       return failure("experience_requirement_evidence_conflict");
+    // A compatible structured minimum still constrains the advertised range.
+    // Zero verified years cannot satisfy an explicit one-month minimum.
+    minimumYears = Math.max(minimumYears, months / 12);
   }
   const employmentLabels = [posting.employmentType].flat();
   const employmentTypes = employmentLabels.map((value) =>
@@ -238,7 +242,7 @@ export async function observeNaukri(expectedUrl, operation) {
     location: locationText,
     description: description.slice(0, 20000),
     skills: skills.slice(0, 50),
-    experience_min: Number(band[1]),
+    experience_min: minimumYears,
     experience_max: Number(band[2]),
     employment_type: employmentType,
     remote_type: remoteType,

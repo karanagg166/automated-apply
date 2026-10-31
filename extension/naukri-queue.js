@@ -389,7 +389,8 @@ export class NaukriQueue {
           target: { tabId, frameIds: [0] },
           world: "MAIN",
           func: captureNaukriResumeDownload,
-          args: [work],
+          // MAIN needs only the exact profile URL, never a work lease/binding.
+          args: [{ target_url: work.target_url }],
         });
         const pdf = capture.length === 1 && capture[0].result;
         if (pdf?.kind !== "provider_pdf_digest")
