@@ -191,6 +191,50 @@ async def test_normal_ui_search_has_durable_poll_interval_and_same_queue_dedup(d
     assert search.value["next_at"] > search.value["last_started_at"]
 
 
+@pytest.mark.parametrize("previous_page, count, error, expected_page, expected_role", [
+    (1, 0, None, 2, 0),
+    (2, 0, None, 3, 0),
+    (3, 0, None, 1, 1),
+    (1, 4, None, 1, 1),
+    (2, 0, "global_stop", 1, 1),
+])
+async def test_exhausted_search_pages_are_bounded_and_keep_interval_and_role_rotation(
+    db_session, upload_case, previous_page, count, error, expected_page, expected_role,
+):
+    from datetime import timedelta
+
+    from backend.app.automation.store import instant
+    from backend.app.execution.naukri_native import SEARCH, search_work
+
+    await setup(db_session, browser_search=True)
+    roles = ["Backend Developer", "Frontend Developer"]
+    config = await queue.configuration(db_session)
+    policy = QueuePolicy.model_validate(config["policy"])
+    policy.platforms["naukri"].preferences_mode = "custom"
+    policy.platforms["naukri"].preferences.roles = roles
+    now = await instant(db_session)
+    old_url = "https://www.naukri.com/backend-developer-jobs"
+    if previous_page > 1:
+        old_url += "-" + str(previous_page)
+    await queue.put(db_session, SEARCH, {
+        "revision": 4, "status": "idle", "role_index": 1, "search_page": previous_page,
+        "url": old_url, "last_cycle_count": count, "last_error": error,
+        "last_finished_at": now.isoformat(), "next_at": (now - timedelta(seconds=1)).isoformat(),
+        "candidates_found": 20,
+    })
+    binding = {"profile_binding_id": "fixture", "tab_id": None}
+    work = await search_work(db_session, config, policy, binding)
+    slug = roles[expected_role].lower().replace(" ", "-")
+    expected_url = "https://www.naukri.com/" + slug + "-jobs"
+    if expected_page > 1:
+        expected_url += "-" + str(expected_page)
+    assert work["url"] == expected_url and work["search_page"] == expected_page
+    assert work["role_index"] == expected_role + 1
+    assert work["candidates_found"] == 20 and work["binding"] == binding
+    assert datetime.fromisoformat(work["next_at"]) - datetime.fromisoformat(work["last_started_at"]) == timedelta(seconds=300)
+    assert await search_work(db_session, config, policy, binding) is None
+
+
 async def test_saved_source_cursors_do_not_read_mail_or_enable_deferred_mailboxes(db_session):
     await running(db_session)
     for i, mailbox in enumerate(("local:1", "deferred:2")):

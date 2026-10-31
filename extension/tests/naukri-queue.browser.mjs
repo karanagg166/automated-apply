@@ -112,7 +112,7 @@ try {
       return route.abort();
     }
     fixtureRequests++;
-    let body = url.pathname.endsWith("-jobs")
+    let body = /-jobs(?:-[2-3])?$/.test(url.pathname)
       ? `<button id="filter-sort" type="button" aria-controls="filter-sort-menu" onclick="document.querySelector('#filter-sort-menu').style.visibility='visible'">Recommended</button><ul id="filter-sort-menu" style="visibility:hidden"><li role="option" title="Date"><a onclick="document.querySelector('#filter-sort').textContent='Date';document.querySelector('#old-result').href='${jobUrl}'">Date</a></li></ul><a id="old-result" href="https://www.naukri.com/job-listings-older-291026123457">Fictional job</a>`
       : `<div class="styles_jd-header"><h1>Backend Developer</h1><span class="styles_comp-name">Fictional Labs</span><span class="styles_loc-wrap">India</span><span class="styles_exp-wrap">0 - 3 Yrs</span><span>120 Applicants</span><button onclick="window.accidentalClicks=(window.accidentalClicks||0)+1">Apply</button></div><div class="styles_job-desc">Build Python services</div><div class="styles_key-skill"><span class="chip">Python</span></div><script type="application/ld+json">${JSON.stringify({ "@type": "JobPosting", title: "Backend Developer", datePosted: new Date().toISOString(), identifier: { value: req } })}</script>`;
     if (scenario === "unconfirmed_search_sort")
@@ -177,6 +177,7 @@ try {
     ["current_header_layout", "inspect_job", jobUrl, false],
     ["single_years_employment", "inspect_job", jobUrl, false],
     ["background_search_links", "search_jobs", searchUrl, false],
+    ["background_paginated_search_links", "search_jobs", searchUrl + "-2", false],
     ["unconfirmed_search_sort", "search_jobs", searchUrl, false],
     ["search_access_restriction", "search_jobs", searchUrl, false],
     ["stop_before_search_sort", "search_jobs", searchUrl, true],
