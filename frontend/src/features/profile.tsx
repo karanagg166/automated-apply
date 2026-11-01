@@ -72,7 +72,6 @@ const formSchema = z.object({
   company_stages: z.string().max(2000),
   startup_priority: z.enum(["", "true", "false"]),
   locations: z.string().max(2000),
-  current_location: z.string().max(200),
   remote: z.enum(["", "any", "remote", "hybrid", "onsite"]),
   startup_size: z.enum(["", "2-10", "11-50", "51-200", "201-500", "any"]),
   salary: z.string(),
@@ -112,7 +111,6 @@ const initial: Values = {
   company_stages: "",
   startup_priority: "",
   locations: "",
-  current_location: "",
   remote: "",
   startup_size: "",
   salary: "",
@@ -208,7 +206,6 @@ export function ProfileWizard() {
             ? ""
             : (String(p.preferences.prioritize_startups) as "true" | "false"),
         locations: p.preferences?.preferred_locations?.join(", ") || "",
-        current_location: p.preferences?.current_location || "",
         remote: p.preferences?.remote_preference || "",
         salary: p.preferences?.minimum_salary?.toString() || "",
         currency: p.preferences?.salary_currency || "",
@@ -290,7 +287,6 @@ export function ProfileWizard() {
               ? null
               : values.startup_priority === "true",
           preferred_locations: list(values.locations),
-          current_location: values.current_location.trim() || null,
           remote_preference: values.remote || null,
           minimum_salary: values.salary ? Number(values.salary) : null,
           salary_currency: values.currency || null,
@@ -855,12 +851,6 @@ export function ProfileWizard() {
                   <Field label="Preferred locations" hint="Comma-separated">
                     <Input {...register("locations")} />
                   </Field>
-                  <Field
-                    label="Current location"
-                    hint="Your current city or location, separate from where you want to work."
-                  >
-                    <Input {...register("current_location")} maxLength={200} />
-                  </Field>
                   <Field label="Work preference">
                     <Select {...register("remote")}>
                       <option value="">Not specified</option>
@@ -931,10 +921,6 @@ export function ProfileWizard() {
                       getValues("linkedin_url") || "Not specified",
                     ],
                     ["Locations", getValues("locations") || "Not specified"],
-                    [
-                      "Current location",
-                      getValues("current_location") || "Not specified",
-                    ],
                     [
                       "Allowed company stages",
                       getValues("company_stages") ||

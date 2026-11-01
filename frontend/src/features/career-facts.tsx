@@ -1,7 +1,7 @@
 "use client";
 import { useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { api, type Schema } from "@/lib/api";
+import { api, post, type Schema } from "@/lib/api";
 import {
   Button,
   ErrorState,
@@ -98,8 +98,21 @@ export function CareerFacts({ profile }: { profile: Profile }) {
         headers: { "If-Match": `"${profile.version}"` },
         body: JSON.stringify({ preferences }),
       }),
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ["profile"] });
+    onSuccess: async (savedProfile) => {
+      try {
+        await post("local-agent/profile-confirmation", {
+          expected_version: savedProfile.version,
+          owner_confirmed: true,
+        });
+      } catch {
+        setLocalError(
+          new Error(
+            "Your facts were saved, but confirming the new profile version failed. Review and confirm the saved version before automation continues.",
+          ),
+        );
+      } finally {
+        await client.invalidateQueries({ queryKey: ["profile"] });
+      }
     },
   });
   function submit(event: FormEvent<HTMLFormElement>) {
