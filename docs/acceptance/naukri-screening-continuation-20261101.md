@@ -152,6 +152,42 @@ questionnaire answer, resume upload, submission receipt or submission notificati
 is claimed from this live window. A live profile download or source URL is not an
 application receipt.
 
+At **09:55:37**, all 344 existing records had finished their pending inspections:
+**258 SKIPPED + 85 NEEDS_INPUT + 1 retained historical receipt**, zero new writes
+or receipts. A third genuine source cycle was in progress on ordinary page 3.
+
+That third cycle completed **09:55:33 → 09:55:57**, ordinary page **3**, **three
+new unique real jobs** durably admitted, no source error. Total records increased
+**344 → 347**, source admission count **331 → 334**. At **09:57:10**, inspection
+had excluded one new job and the other two were pending; global totals were
+259 SKIPPED, 85 NEEDS_INPUT, two DISCOVERED, one retained historical receipt.
+Admitted writes and new receipts remained **zero**. This is genuine new-release
+discovery and processing, not a fixture-enqueued cohort.
+
+At **09:58:44**, all three new jobs had finished inspection: one exclusion and
+two metadata holds. The full **347-record** ledger comprised **259 SKIPPED +
+87 NEEDS_INPUT + 1 retained historical receipt**, with no undispatched
+DISCOVERED records, **zero admitted writes and zero new receipts**. At
+**09:58:33**, final integrity checks again passed backend/database readiness,
+native connection, approved binding revision 1, exact same-ID 23-file extension,
+exact new component references, protected credential/configuration digests,
+RUNNING revision 34/score 50, restored disabled comparison policy and Gmail
+READ + CREATE DRAFT ONLY with sending OFF. Historical releases and rollback
+files remain intact.
+
+An additional genuine search-layout inspection used only the newly owned inactive
+setup tab, then restored its setup URL. The actual experience slider displayed
+**0 / Any**; that is not evidence of a selected Fresher filter. A Startup company
+type checkbox was observed, but this does not prove an employer's early funding
+stage. No search filter or application policy was changed based on those guesses.
+The page had 20 real listing links and no observed challenge. Both navigations
+refused an active/adopted setup tab. During this later interval the lock state
+changed to UNLOCKED and the all-window selected-tab comparison differed; a later
+check showed the same front window and Profile 8 selected tab, with the setup tab
+still inactive. The difference's cause is unestablished; continuous preservation
+of every selected-tab ID is not claimed. No activation, keyboard or clipboard
+operation was issued.
+
 ## Targeted validation, separated from live evidence
 
 | Check | Result | Scope |
@@ -191,10 +227,10 @@ pnpm -C extension build
 | Approved Profile 8 identity and canonical provider-saved resume | PASS | Existing approved binding; fresh genuine Download and PDF byte digest match |
 | Backend/database/frontend/native/Telegram after service restart | PASS | Ready/login 200, native fresh reconnect, actual Telegram live poll |
 | Locked readiness and focus preservation during cutover | PASS | Paired locked ready 200 and matching front/selected-tab IDs |
-| Genuine recurring discovery after restart | PASS, bounded | Two completed new-release cycles, ordinary pages 1 and 2; no source error |
+| Genuine recurring discovery after restart | PASS, bounded | Three completed new-release cycles, pages 1–3; third admitted three new real jobs; no source error |
 | New supported questionnaire controls/Telegram resumption | NOT TESTED LIVE | Isolated backend/DOM/Chromium cases pass; no eligible live application reached this adapter |
 | Grounded Cohere narrative answer | NOT TESTED LIVE | Scoped configuration and unchanged conservative budget; no generation claimed |
-| New eligible real application and independent provider receipt | BLOCKED | No new admission; 321 stored-fact checks yield no eligible job; three fresh inspections still pending at 09:50:50 |
+| New eligible real application and independent provider receipt | BLOCKED | No new admission; all 347 current records inspected/excluded/held or historical; no new qualifying supported application |
 | Additional chatbot-required resume upload/replacement | BLOCKED | No chooser-free supported upload accepted; saved canonical resume already matches |
 | Bounded recurring AUTOMATIC activation | BLOCKED | Requires first new receipt and critical checks; not activated |
 | Restart during a real application / real locked form filling/submission | NOT TESTED | No qualifying real attempt; heartbeat alone is insufficient |
