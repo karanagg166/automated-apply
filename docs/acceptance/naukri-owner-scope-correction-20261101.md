@@ -321,3 +321,52 @@ receipt, locked-screen acceptance, or a claim that these 19 jobs are eligible.
 The observer then exited normally. The selected Profile 8 connection was separately
 CONNECTED, commands enabled, fresh heartbeat at **13:41:17**, no reported error.
 New listings proceed to the unchanged individual inspection/matching gates.
+
+## Nineteen-job inspection outcome and equivalent role spelling
+
+An observer followed the **exact 19 new page-two records**, rather than the older
+historical fixture/acceptance cohort. At **13:53:50**, all 19 had completed their
+initial inspection: **17 SKIPPED / posting outside the 14-day limit**, **two
+NEEDS_INPUT / posting-age precision review**, zero outstanding initial inspections,
+**zero admitted actions and zero new receipts**. The observer exited normally. A
+new search-card appearance was not substituted for the detailed posting's date.
+These 19 genuine discoveries were not eligible applications.
+
+Another retained genuine listing exposed a false title mismatch: **Fullstack
+Developer Trainee** did not match the saved **Full Stack Developer** target solely
+because of spacing. Implementation
+[`1b2316300bb2f9f55ae77ee7b0859442dfab4c95`](https://github.com/karanagg166/automated-apply/commit/1b2316300bb2f9f55ae77ee7b0859442dfab4c95)
+normalizes spacing/hyphen variants of **full stack**, **frontend** and **backend**
+for title comparison. It does not equate developer/engineer/designer/sales roles,
+alter saved titles or target preferences, or infer new career skills. Required
+skills and verified experience checks remain unchanged.
+
+**45 targeted matching/discovery cases passed in 2.89 s**, including eight new
+positive/negative role cases that retain a missing Rust requirement. The exact
+candidate's own Python environment passed **20 overlapping focused matching cases
+in 1.09 s**, five deselected. Ruff E9/F/I, diff and pip check passed. No frontend,
+extension or unrelated large suite was rerun for this backend-only change.
+
+The retained real browser facts were read from the durable queue into a private
+snapshot with source evidence and the unchanged confirmed **profile v5**. The
+exact previous and candidate runtimes independently rescored the same input hash:
+**80→95**, false title-negative removed, missing-skill results unchanged. This is
+**a re-score of retained genuine facts, not a fresh provider observation, new
+canonical-job import, eligibility grant or submission**. The earlier applicant
+guard had prevented that listing's canonical ingestion; no synthetic job was
+inserted to manufacture an API acceptance result.
+
+Actual Stop took **6.889 s**, queue STOPPED **48**. API and execution worker exact
+**1b2316300bb2f9f55ae77ee7b0859442dfab4c95** installed at **14:07:14**, ready **200**,
+worker heartbeat online, **464 records**, approved binding **1**, profile **v5 / 75
+skills**, exact queue policy unchanged. Previous API **e5d0eb6** and worker
+**f13c956** plists/runtimes are preserved in an exact two-service rollback plan.
+Native host **f13c956**, frontend **c94f1fb**, Telegram **a093eab**, extension
+**0cef522 / 1.3.16**, credentials and protected files remained unchanged.
+
+Queue resumed **RUNNING 49** at **14:08:55**, preserving 14 days, threshold 1,000,
+score 50, all-company scope and SUPERVISED one/hour-one. This is component restart
+and data-preservation evidence; it is not a locked-Mac or in-flight application
+restart acceptance claim. The applicant upper-bound decision remains unanswered;
+no unknown count was converted into a verified number. First new application,
+independent receipt and recurring AUTOMATIC remain unaccepted.
