@@ -97,7 +97,8 @@ async def test_actual_native_fact_ingestion_and_worker_preparation_survive_fresh
 
 
 @pytest.mark.parametrize("change", [None, "running", "expired", "too_far", "binding", "nonce"])
-async def test_extension_maintenance_requires_stopped_queue_current_binding_and_bounded_request(db_session, change):
+@pytest.mark.parametrize("kind", ["open_extension_manager", "open_naukri_profile_setup"])
+async def test_extension_maintenance_requires_stopped_queue_current_binding_and_bounded_request(db_session, change, kind, upload_case):
     from datetime import timedelta
 
     from backend.app.browser import chrome_profiles as profiles
@@ -113,8 +114,13 @@ async def test_extension_maintenance_requires_stopped_queue_current_binding_and_
                "selection_version": selection["version"], "browser_session_id": str(context["browser_session_id"]),
                "window_id": context["window_id"], "tab_id": None}
     seconds = -1 if change == "expired" else 180 if change == "too_far" else 60
-    request = {"kind": "open_extension_manager", "request_id": str(uuid4()), "binding": binding,
+    request = {"kind": kind, "request_id": str(uuid4()), "binding": binding,
                "expires_at": (datetime.now(timezone.utc) + timedelta(seconds=seconds)).isoformat()}
+    if kind == "open_naukri_profile_setup":
+        from backend.app.execution.naukri_identity import require
+
+        account = await require(db_session)
+        request.update(account_binding_revision=account["revision"], candidate_profile_id=account["candidate_profile_id"])
     if change == "binding":
         request["binding"] = {**binding, "window_id": 999}
     elif change == "nonce":

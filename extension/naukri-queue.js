@@ -210,6 +210,7 @@ export function sortNaukriSearchDate(expectedUrl, state = null) {
 
 const key = "naukriReadInFlightV1";
 const parkedKey = "naukriParkedQuestionnairesV1";
+const profileSetupKey = "naukriProfileSetupTabV1";
 const formOperations = new Set([
   "inspect_questionnaire",
   "refresh_questionnaire_profile",
@@ -256,6 +257,25 @@ export class NaukriQueue {
         }
         if (changed) await this.api.storage.session.set({ [parkedKey]: forms });
       });
+      void this.api.storage.session.get(profileSetupKey).then(async (saved) => {
+        const setup = saved[profileSetupKey];
+        if (setup?.tab_id !== tabId) return;
+        await this.api.storage.session.set({
+          [profileSetupKey]: { ...setup, ownerAdopted: true },
+        });
+        if (Date.parse(setup.expires_at) <= Date.now()) return;
+        try {
+          const context = await profileContext(this.api);
+          if (
+            setup.profile_binding_id === context.profile_binding_id &&
+            setup.browser_session_id === context.browser_session_id &&
+            setup.window_id === context.window_id
+          )
+            await this.recordProfileSetup(setup, context, { id: tabId }, true);
+        } catch {
+          // Local adoption remains authoritative even if its bounded ACK fails.
+        }
+      });
     });
   }
   async command(name, work, extra = {}) {
@@ -292,30 +312,62 @@ export class NaukriQueue {
   }
   async maintenance(request, context) {
     const remaining = Date.parse(request?.expires_at) - Date.now();
+    const profileSetup = request?.kind === "open_naukri_profile_setup";
     if (
-      request?.kind !== "open_extension_manager" ||
+      (!profileSetup && request?.kind !== "open_extension_manager") ||
       !/^[a-f0-9-]{36}$/.test(request.request_id || "") ||
       !Number.isFinite(remaining) ||
       remaining <= 0 ||
       remaining > 120000
     )
       return;
-    const key = "naukriMaintenanceTabV1";
+    const url = profileSetup
+      ? "https://www.naukri.com/mnjuser/profile"
+      : "chrome://extensions/";
+    const key = profileSetup ? profileSetupKey : "naukriMaintenanceTabV1";
     const previous = (await this.api.storage.session.get(key))[key];
-    if (previous?.request_id === request.request_id) return;
+    if (previous?.request_id === request.request_id) {
+      // An uncertain ACK can be repeated; an uncertain tab creation cannot.
+      if (profileSetup && previous.status === "opened") {
+        if (
+          previous.profile_binding_id !== context.profile_binding_id ||
+          previous.browser_session_id !== context.browser_session_id
+        )
+          return;
+        try {
+          const tab = await this.api.tabs.get(previous.tab_id);
+          const adopted =
+            previous.ownerAdopted ||
+            this.adopted.has(tab.id) ||
+            tab.active ||
+            tab.windowId !== context.window_id;
+          await this.recordProfileSetup(request, context, tab, adopted);
+        } catch {
+          // A missing/adopted tab is never recreated for the same intent.
+        }
+      }
+      return;
+    }
     // Persist the intent first. A lost create response cannot create duplicate
     // setup tabs on the next alarm. This path never selects or focuses a tab.
     await this.api.storage.session.set({
       [key]: { request_id: request.request_id, status: "creating" },
     });
     let tab;
-    if (Number.isInteger(previous?.tab_id)) {
+    if (
+      Number.isInteger(previous?.tab_id) &&
+      (!profileSetup ||
+        (!previous.ownerAdopted &&
+          !this.adopted.has(previous.tab_id) &&
+          previous.profile_binding_id === context.profile_binding_id &&
+          previous.browser_session_id === context.browser_session_id))
+    ) {
       try {
         const saved = await this.api.tabs.get(previous.tab_id);
         if (
           !saved.active &&
           saved.windowId === context.window_id &&
-          saved.url === "chrome://extensions/"
+          saved.url === url
         )
           tab = saved;
       } catch {
@@ -323,7 +375,7 @@ export class NaukriQueue {
       }
     }
     tab ||= await this.api.tabs.create({
-      url: "chrome://extensions/",
+      url,
       active: false,
       windowId: context.window_id,
     });
@@ -333,7 +385,40 @@ export class NaukriQueue {
         status: "opened",
         tab_id: tab.id,
         window_id: context.window_id,
+        ...(profileSetup
+          ? {
+              expires_at: request.expires_at,
+              profile_binding_id: context.profile_binding_id,
+              browser_session_id: context.browser_session_id,
+              ownerAdopted: this.adopted.has(tab.id) || Boolean(tab.active),
+            }
+          : {}),
       },
+    });
+    if (profileSetup) {
+      const current = await this.api.tabs.get(tab.id);
+      const adopted =
+        this.adopted.has(tab.id) ||
+        current.active ||
+        current.windowId !== context.window_id;
+      if (adopted)
+        await this.api.storage.session.set({
+          [key]: {
+            ...(await this.api.storage.session.get(key))[key],
+            ownerAdopted: true,
+          },
+        });
+      await this.recordProfileSetup(request, context, current, adopted);
+    }
+  }
+  async recordProfileSetup(request, context, tab, adopted) {
+    await this.send(this.api, "poll_naukri_work", {
+      ...context,
+      tab_id: tab.id,
+      work_id: request.request_id,
+      ...(adopted
+        ? { work_report: { kind: "needs_input", reason: "owner_tab_active" } }
+        : {}),
     });
   }
   async run() {

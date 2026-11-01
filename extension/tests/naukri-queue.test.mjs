@@ -267,6 +267,117 @@ test("trusted maintenance opens only one own inactive setup tab and admits no jo
   );
 });
 
+function profileSetupRequest() {
+  return {
+    kind: "open_naukri_profile_setup",
+    request_id: "11111111-1111-4111-8111-111111111111",
+    expires_at: new Date(Date.now() + 60000).toISOString(),
+    url: "https://example.com/untrusted-override",
+  };
+}
+
+test("profile setup opens only the fixed inactive profile URL, acknowledges ownership and does no DOM work", async () => {
+  const maintenance = profileSetupRequest();
+  const f = fixture({ maintenance });
+  await f.queue.tick();
+  await f.queue.tick();
+  maintenance.request_id = "22222222-2222-4222-8222-222222222222";
+  await f.queue.tick();
+  assert.equal(f.calls.filter(([name]) => name === "create").length, 1);
+  assert.deepEqual(f.calls.find(([name]) => name === "create")[1], {
+    url: "https://www.naukri.com/mnjuser/profile",
+    active: false,
+    windowId: 10,
+  });
+  const acknowledgements = f.calls.filter(
+    ([name, input]) => name === "poll_naukri_work" && input.tab_id === 44,
+  );
+  assert.equal(acknowledgements.length, 3);
+  assert.equal(acknowledgements.at(-1)[1].work_id, maintenance.request_id);
+  assert.ok(
+    !f.calls.some(([name]) =>
+      [
+        "navigate",
+        "close",
+        "inspect",
+        "bind_naukri_work",
+        "admit_naukri_work",
+      ].includes(name),
+    ),
+  );
+});
+
+test("a lost profile setup creation response is not replayed across alarms or worker reconstruction", async () => {
+  const f = fixture({ maintenance: profileSetupRequest() });
+  const create = f.api.tabs.create;
+  f.api.tabs.create = async (input) => {
+    await create(input);
+    throw Error("fictional_lost_create");
+  };
+  await f.queue.tick();
+  f.queue = new NaukriQueue(f.api, f.send, async () => {});
+  await f.queue.tick();
+  assert.equal(f.calls.filter(([name]) => name === "create").length, 1);
+  assert.equal(f.session.naukriProfileSetupTabV1.status, "creating");
+  assert.ok(
+    !f.calls.some(
+      ([name, input]) => name === "poll_naukri_work" && input.tab_id,
+    ),
+  );
+});
+
+test("only the profile setup ACK is retried after its response is lost", async () => {
+  let acks = 0;
+  const f = fixture({
+    maintenance: profileSetupRequest(),
+    respond: async (name, input) => {
+      if (name === "poll_naukri_work" && input.tab_id && ++acks === 1)
+        throw Error("backend_timeout");
+    },
+  });
+  await f.queue.tick();
+  await f.queue.tick();
+  assert.equal(f.calls.filter(([name]) => name === "create").length, 1);
+  assert.equal(acks, 2);
+  assert.equal(f.session.naukriProfileSetupTabV1.status, "opened");
+});
+
+test("adopted setup ownership survives reconstruction and the owner tab is never reused or changed", async () => {
+  const maintenance = profileSetupRequest();
+  const f = fixture({ maintenance });
+  await f.queue.tick();
+  f.tabs.get(44).active = true;
+  f.activate(44);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(f.session.naukriProfileSetupTabV1.ownerAdopted, true);
+  f.tabs.get(44).active = false;
+  maintenance.request_id = "22222222-2222-4222-8222-222222222222";
+  f.queue = new NaukriQueue(f.api, f.send, async () => {});
+  await f.queue.tick();
+  assert.equal(f.calls.filter(([name]) => name === "create").length, 2);
+  assert.ok(f.tabs.has(44));
+  assert.ok(
+    !f.calls.some(([name]) => ["navigate", "close", "inspect"].includes(name)),
+  );
+});
+
+for (const invalid of ["expired", "unknown_kind"]) {
+  test(`invalid profile setup intent ${invalid} creates no tab or ACK`, async () => {
+    const maintenance = profileSetupRequest();
+    if (invalid === "expired")
+      maintenance.expires_at = new Date(Date.now() - 1).toISOString();
+    else maintenance.kind = "arbitrary_url";
+    const f = fixture({ maintenance });
+    await f.queue.tick();
+    assert.ok(!f.calls.some(([name]) => name === "create"));
+    assert.ok(
+      !f.calls.some(
+        ([name, input]) => name === "poll_naukri_work" && input.tab_id,
+      ),
+    );
+  });
+}
+
 test("search observes candidates only after Date sorting succeeds", async () => {
   const f = fixture({
     operation: "search_jobs",

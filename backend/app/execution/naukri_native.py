@@ -242,8 +242,6 @@ async def dispatch(session, settings, actor, command):
         setting = policy.platforms.get("naukri")
         value = None
         if command.command == "poll_naukri_work":
-            if command.tab_id is not None:
-                raise ToolDenied("queue_poll_without_tab_required")
             if config["state"] == "STOPPED":
                 request = await session.get(OwnerPreference, MAINTENANCE, populate_existing=True)
                 value = request.value if request else {}
@@ -253,12 +251,43 @@ async def dispatch(session, settings, actor, command):
                     valid = valid and isinstance(value["request_id"], str) and str(UUID(value["request_id"])) == value["request_id"]
                 except (KeyError, TypeError, ValueError):
                     valid = False
-                if (valid and value.get("kind") == "open_extension_manager"
-                        and value.get("binding") == binding and setting and setting.enabled):
+                maintenance_binding = {**binding, "tab_id": None}
+                if (valid and value.get("kind") in {"open_extension_manager", "open_naukri_profile_setup"}
+                        and value.get("binding") == maintenance_binding and setting and setting.enabled):
+                    if value["kind"] == "open_naukri_profile_setup":
+                        from backend.app.execution.naukri_identity import require
+
+                        account = await require(session, profile_binding_id=binding["profile_binding_id"])
+                        if (value.get("account_binding_revision") != account["revision"]
+                                or value.get("candidate_profile_id") != account["candidate_profile_id"]):
+                            raise ToolDenied("profile_setup_account_context_changed")
+                        if command.tab_id is not None:
+                            if (command.tab_id <= 0 or str(command.work_id) != value["request_id"]
+                                    or value.get("opened_tab_id") not in {None, command.tab_id}):
+                                raise ToolDenied("profile_setup_ack_context_changed")
+                            adopted = False
+                            if command.work_report is not None:
+                                if (command.work_report.kind != "needs_input"
+                                        or command.work_report.reason != "owner_tab_active"):
+                                    raise ToolDenied("profile_setup_ack_report_invalid")
+                                adopted = True
+                            value = {**value, "opened_tab_id": command.tab_id,
+                                     "owner_adopted": bool(value.get("owner_adopted") or adopted),
+                                     "opened_at": value.get("opened_at") or (await instant(session)).isoformat()}
+                            await queue.put(session, MAINTENANCE, value)
+                            return Result(request_id=command.request_id, ok=True, capability="naukri_profile_setup",
+                                          data={"work": None, "maintenance_recorded": True, "submitted": False})
+                        if value.get("opened_tab_id") is not None:
+                            return Result(request_id=command.request_id, ok=True, capability="naukri_profile_setup",
+                                          data={"work": None, "maintenance_recorded": True, "submitted": False})
+                    elif command.tab_id is not None:
+                        raise ToolDenied("queue_poll_without_tab_required")
                     return Result(request_id=command.request_id, ok=True, capability="naukri_extension_maintenance",
                                   data={"work": None, "maintenance": {k: value[k] for k in ("kind", "request_id", "expires_at")},
                                         "submitted": False})
                 value = None
+            if command.tab_id is not None:
+                raise ToolDenied("queue_poll_without_tab_required")
             if config["state"] == "RUNNING" and setting and setting.enabled:
                 # Never overlap an owner's legacy command or a background read.
                 from backend.app.browser import extension_tasks
