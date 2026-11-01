@@ -2,6 +2,7 @@ import { profileContext, profileNative } from "./chrome-profile.js";
 import { observeNaukri } from "./naukri-observation.js";
 import { executeNaukri } from "./naukri-execution.js";
 import { captureNaukriResumeDownload } from "./naukri-resume-download.js";
+import { naukriChatbot } from "./naukri-chatbot.js";
 
 // Injected only into this consumer's inactive search tab, after read admission.
 // Use the observed ordinary Sort menu; never guess a provider query parameter.
@@ -199,6 +200,16 @@ export async function sortNaukriSearchDate(expectedUrl) {
 }
 
 const key = "naukriReadInFlightV1";
+const parkedKey = "naukriParkedQuestionnairesV1";
+const formOperations = new Set([
+  "inspect_questionnaire",
+  "refresh_questionnaire_profile",
+  "refresh_questionnaire_job",
+  "answer_questionnaire",
+]);
+const isFormWork = (work) =>
+  formOperations.has(work?.operation) ||
+  work?.operation === "prepare_questionnaire";
 // Only this trusted service-worker module creates these inactive tabs. It never
 // adopts an existing owner tab, activates a window or opens a native chooser.
 export class NaukriQueue {
@@ -212,13 +223,29 @@ export class NaukriQueue {
     this.delay = delay;
     this.adopted = new Set();
     this.api.tabs.onActivated?.addListener(({ tabId }) => {
-      if (this.ownedTabId !== tabId) return;
+      // Also remember a parked tab adopted before a reconstructed worker has
+      // loaded its ownership map. Record synchronously before storage awaits.
       this.adopted.add(tabId);
       void this.api.storage.session.get(key).then(async (saved) => {
         if (saved[key]?.ownedTabId === tabId)
           await this.api.storage.session.set({
             [key]: { ...saved[key], ownerAdopted: true },
           });
+        if (saved[key]?.auxiliaryTabId === tabId)
+          await this.api.storage.session.set({
+            [key]: { ...saved[key], auxiliaryAdopted: true },
+          });
+      });
+      void this.api.storage.session.get(parkedKey).then(async (saved) => {
+        const forms = { ...(saved[parkedKey] || {}) };
+        let changed = false;
+        for (const [id, form] of Object.entries(forms)) {
+          if (form.ownedTabId === tabId) {
+            forms[id] = { ...form, ownerAdopted: true };
+            changed = true;
+          }
+        }
+        if (changed) await this.api.storage.session.set({ [parkedKey]: forms });
       });
     });
   }
@@ -304,6 +331,31 @@ export class NaukriQueue {
     let work = (await this.api.storage.session.get(key))[key];
     try {
       if (work) {
+        if (work.form_pending && isFormWork(work)) {
+          if (work.auxiliaryTabId)
+            await this.closeOwned({
+              ...work,
+              ownedTabId: work.auxiliaryTabId,
+              ownerAdopted: work.auxiliaryAdopted,
+            });
+          if (["leased", "executing"].includes(work.status)) {
+            try {
+              await this.command("abandon_naukri_work", work, {
+                work_report: {
+                  kind: "needs_input",
+                  reason: "questionnaire_worker_restarted_reconcile_only",
+                },
+              });
+            } catch {
+              /* Fenced lease is authoritative. */
+            }
+          }
+          await this.park(work);
+          await this.api.storage.session.remove(key);
+          work = null;
+        }
+      }
+      if (work) {
         // Recovery reconciles local observation only. No submitting operation
         // exists in this consumer and no old browser action is repeated here.
         try {
@@ -345,14 +397,40 @@ export class NaukriQueue {
           "reconcile_application",
           "inspect_profile_sync",
           "verify_account",
+          ...formOperations,
         ].includes(work.operation)
       )
         throw Error("background_operation_not_supported");
-      const tab = await this.api.tabs.create({
-        url: "about:blank",
-        active: false,
-        windowId: context.window_id,
-      });
+      const parked = ((await this.api.storage.session.get(parkedKey))[
+        parkedKey
+      ] || {})[work.id];
+      let tab;
+      if (formOperations.has(work.operation)) {
+        if (
+          !parked ||
+          parked.ownerAdopted ||
+          this.adopted.has(parked.ownedTabId)
+        )
+          throw Error("questionnaire_original_tab_unavailable");
+        if (
+          ["profile_binding_id", "browser_session_id", "window_id"].some(
+            (k) => parked.binding[k] !== context[k],
+          )
+        )
+          throw Error("questionnaire_original_browser_context_required");
+        tab = await this.api.tabs.get(parked.ownedTabId);
+        if (
+          tab.active ||
+          tab.windowId !== context.window_id ||
+          tab.url !== work.url
+        )
+          throw Error("questionnaire_original_tab_unavailable");
+      } else
+        tab = await this.api.tabs.create({
+          url: "about:blank",
+          active: false,
+          windowId: context.window_id,
+        });
       // Save the created tab before any native round-trip so recovery can close
       // only this owned inactive tab even if bind's response is lost.
       this.ownedTabId = tab.id;
@@ -364,8 +442,20 @@ export class NaukriQueue {
       work = { ...bound.work, ownedTabId: tab.id };
       await this.api.storage.session.set({ [key]: work });
       if (work.execution) {
-        work = await this.execute(work, context);
-        await this.closeOwned(work);
+        work = formOperations.has(work.operation)
+          ? await this.executeQuestionnaire(work, context)
+          : await this.execute(work, context);
+        if (work.form_pending && isFormWork(work)) await this.park(work);
+        else await this.closeOwned(work);
+        if (work.stage === "SUBMITTED_CONFIRMED" && parked) {
+          await this.closeOwned(parked);
+          const forms = {
+            ...((await this.api.storage.session.get(parkedKey))[parkedKey] ||
+              {}),
+          };
+          delete forms[work.id];
+          await this.api.storage.session.set({ [parkedKey]: forms });
+        }
         await this.api.storage.session.remove(key);
         return;
       }
@@ -427,10 +517,173 @@ export class NaukriQueue {
         } catch {
           /* Expiration/Stop is authoritative; do not retry actions. */
         }
-        await this.closeOwned(work);
+        if (
+          (work.form_pending && isFormWork(work)) ||
+          ["apply", "answer_questionnaire"].includes(work.operation)
+        )
+          await this.park(work);
+        else await this.closeOwned(work);
       }
       await this.api.storage.session.remove(key);
     }
+  }
+  async park(work) {
+    const forms = {
+      ...((await this.api.storage.session.get(parkedKey))[parkedKey] || {}),
+    };
+    forms[work.id] = {
+      ...work,
+      form_pending: true,
+      ownerAdopted: !!(
+        work.ownerAdopted ||
+        forms[work.id]?.ownerAdopted ||
+        this.adopted.has(work.ownedTabId)
+      ),
+    };
+    await this.api.storage.session.set({ [parkedKey]: forms });
+  }
+  async auxiliaryObservation(work, context) {
+    await this.assertInactive(work, context);
+    const tab = await this.api.tabs.create({
+      url: "about:blank",
+      active: false,
+      windowId: context.window_id,
+    });
+    this.ownedAuxId = tab.id;
+    await this.api.storage.session.set({
+      [key]: { ...work, auxiliaryTabId: tab.id },
+    });
+    const aux = { ...work, ownedTabId: tab.id };
+    try {
+      await this.api.tabs.update(tab.id, {
+        url: work.target_url,
+        active: false,
+      });
+      for (let i = 0; i < 50; i++) {
+        const current = await this.assertInactive(aux, context);
+        if (current.status === "complete") break;
+        if (i === 49) throw Error("background_page_timeout");
+        await this.delay(200);
+      }
+      if ((await this.assertInactive(aux, context)).url !== work.target_url)
+        throw Error("provider_context_changed");
+      if (work.operation === "refresh_questionnaire_job")
+        return await this.observeReady(
+          { ...aux, operation: "inspect_job" },
+          context,
+        );
+      const profileWork = { ...work, operation: "inspect_profile" };
+      let r = await this.api.scripting.executeScript({
+        target: { tabId: tab.id, frameIds: [0] },
+        world: "ISOLATED",
+        func: executeNaukri,
+        args: [profileWork],
+      });
+      let report = r.length === 1 && r[0].result;
+      if (report?.reason === "profile_resume_download_capture_required") {
+        await this.assertInactive(aux, context);
+        r = await this.api.scripting.executeScript({
+          target: { tabId: tab.id, frameIds: [0] },
+          world: "MAIN",
+          func: captureNaukriResumeDownload,
+          args: [{ target_url: work.target_url }],
+        });
+        const pdf = r.length === 1 && r[0].result;
+        if (pdf?.kind !== "provider_pdf_digest")
+          throw Error(pdf?.reason || "profile_resume_download_capture_failed");
+        await this.assertInactive(aux, context);
+        r = await this.api.scripting.executeScript({
+          target: { tabId: tab.id, frameIds: [0] },
+          world: "ISOLATED",
+          func: executeNaukri,
+          args: [
+            {
+              ...profileWork,
+              execution: {
+                ...profileWork.execution,
+                provider_pdf_observation: pdf,
+              },
+            },
+          ],
+        });
+        report = r.length === 1 && r[0].result;
+      }
+      return report;
+    } finally {
+      await this.closeOwned(aux);
+      this.ownedAuxId = null;
+    }
+  }
+  async executeQuestionnaire(initial, context) {
+    let work = initial;
+    for (let step = 0; step < 4; step++) {
+      await this.assertInactive(work, context);
+      if ((await this.api.tabs.get(work.ownedTabId)).url !== work.url)
+        throw Error("questionnaire_original_tab_unavailable");
+      const admitted = await this.command("admit_naukri_work", work);
+      work = { ...admitted.work, ownedTabId: work.ownedTabId };
+      await this.api.storage.session.set({ [key]: work });
+      let report;
+      if (work.operation.startsWith("refresh_questionnaire_"))
+        report = await this.auxiliaryObservation(work, context);
+      else {
+        let observed;
+        for (let attempt = 0; attempt < 8; attempt++) {
+          const r = await this.api.scripting.executeScript({
+            target: { tabId: work.ownedTabId, frameIds: [0] },
+            world: "ISOLATED",
+            func: naukriChatbot,
+            args: [
+              {
+                operation:
+                  work.operation === "answer_questionnaire"
+                    ? "answer"
+                    : "inspect",
+                url: work.url,
+                requisition: work.requisition,
+                ...work.execution?.questionnaire,
+              },
+            ],
+          });
+          observed = r.length === 1 && r[0].result;
+          if (
+            work.operation !== "inspect_questionnaire" ||
+            ![
+              "questionnaire_drawer_unrecognized",
+              "questionnaire_question_unrecognized",
+              "questionnaire_controls_unrecognized",
+            ].includes(observed?.reason) ||
+            attempt === 7
+          )
+            break;
+          await this.assertInactive(work, context);
+          await this.delay(250);
+        }
+        if (observed?.kind === "questionnaire") {
+          const { kind, ...questionnaire } = observed;
+          report = {
+            kind,
+            questionnaire,
+            observed_url: work.url,
+            requisition: work.requisition,
+          };
+        } else
+          report = observed && {
+            ...observed,
+            observed_url: work.url,
+            requisition: work.requisition,
+          };
+      }
+      if (!report) throw Error("questionnaire_observation_failed");
+      await this.assertInactive(work, context);
+      const finished = await this.command("finish_naukri_work", work, {
+        work_report: report,
+      });
+      work = { ...finished.work, ownedTabId: work.ownedTabId };
+      await this.api.storage.session.set({ [key]: work });
+      if (!finished.continue) return work;
+    }
+    throw Error("questionnaire_step_limit_reached");
   }
   async execute(initial, context) {
     let work = initial;
@@ -548,8 +801,16 @@ export class NaukriQueue {
   }
   async assertInactive(work, context) {
     const tab = await this.api.tabs.get(work.ownedTabId);
+    const saved = (await this.api.storage.session.get(key))[key];
+    const parked = ((await this.api.storage.session.get(parkedKey))[
+      parkedKey
+    ] || {})[work.id];
     if (
       tab.active ||
+      work.ownerAdopted ||
+      (parked?.ownedTabId === tab.id && parked.ownerAdopted) ||
+      (saved?.ownedTabId === tab.id && saved.ownerAdopted) ||
+      (saved?.auxiliaryTabId === tab.id && saved.auxiliaryAdopted) ||
       this.adopted.has(tab.id) ||
       tab.windowId !== context.window_id
     )
@@ -558,9 +819,16 @@ export class NaukriQueue {
     return tab;
   }
   async closeOwned(work) {
+    const saved = (await this.api.storage.session.get(key))[key];
+    const parked = ((await this.api.storage.session.get(parkedKey))[
+      parkedKey
+    ] || {})[work?.id];
     if (
       !Number.isInteger(work?.ownedTabId) ||
       work.ownerAdopted ||
+      (parked?.ownedTabId === work.ownedTabId && parked.ownerAdopted) ||
+      (saved?.ownedTabId === work.ownedTabId && saved.ownerAdopted) ||
+      (saved?.auxiliaryTabId === work.ownedTabId && saved.auxiliaryAdopted) ||
       this.adopted.has(work.ownedTabId)
     )
       return;

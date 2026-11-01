@@ -35,6 +35,7 @@ function fixture(options = {}) {
     binding: { tab_id: null, window_id: 10 },
     ...options.work,
   };
+  let nextTabId = 44;
   const api = {
     storage: { local: store(local), session: store(session) },
     permissions: { contains: async () => options.permission !== false },
@@ -56,8 +57,8 @@ function fixture(options = {}) {
       ],
       create: async (input) => {
         calls.push(["create", input]);
-        const tab = { ...input, id: 44, status: "complete" };
-        tabs.set(44, tab);
+        const tab = { ...input, id: nextTabId++, status: "complete" };
+        tabs.set(tab.id, tab);
         return tab;
       },
       get: async (id) => {
@@ -109,6 +110,13 @@ function fixture(options = {}) {
   };
   const send = async (_, name, input) => {
     calls.push([name, input]);
+    if (options.respond) {
+      const response = await options.respond(name, input, work);
+      if (response) {
+        if (response.work) work = response.work;
+        return response;
+      }
+    }
     if (name === "poll_naukri_work")
       return {
         maintenance: options.maintenance,
@@ -132,6 +140,8 @@ function fixture(options = {}) {
     calls,
     session,
     tabs,
+    send,
+    activate: (tabId) => activation({ tabId }),
     queue: new NaukriQueue(api, send, async () => {}),
   };
 }
@@ -140,6 +150,99 @@ test("a Naukri tab selected in an unfocused window does not block background wor
   await f.queue.tick();
   assert.ok(f.calls.some(([name]) => name === "poll_naukri_work"));
   assert.equal(f.calls.find(([name]) => name === "create")[1].active, false);
+});
+
+function questionnaireFixture() {
+  const binding = {
+    profile_binding_id: "fixture-profile",
+    browser_session_id: "fixture-session",
+    window_id: 10,
+    tab_id: null,
+  };
+  let finishes = 0;
+  const options = {
+    work: {
+      operation: "inspect_profile",
+      target_url: "https://www.naukri.com/mnjuser/profile",
+      binding,
+      execution: {},
+    },
+    reports: [
+      {
+        kind: "execution_observation",
+        execution: { state: "PROFILE_VERIFIED" },
+      },
+      { kind: "execution_observation", execution: { state: "NOT_APPLIED" } },
+      { kind: "job_facts", job: {} },
+      { kind: "execution_observation", execution: { state: "QUESTIONNAIRE" } },
+      {
+        kind: "questionnaire",
+        document_id: "11111111-1111-4111-8111-111111111111",
+        step_sha256: "a".repeat(64),
+        question: "What is your notice period?",
+        answer_kind: "choice",
+        options: ["Immediate"],
+        max_characters: 4000,
+      },
+    ],
+    respond: async (name, input, work) => {
+      if (name !== "finish_naukri_work") return;
+      finishes++;
+      const operation = [
+        "inspect_application",
+        "apply",
+        "inspect_questionnaire",
+        "prepare_questionnaire",
+      ][finishes - 1];
+      return {
+        work: {
+          ...work,
+          revision: work.revision + 1,
+          operation,
+          target_url: url,
+          form_pending: finishes >= 3,
+          stage: finishes >= 3 ? "QUESTIONS" : "READY_TO_APPLY",
+          status: finishes >= 3 ? "queued" : "leased",
+          execution: finishes < 4 ? {} : undefined,
+        },
+        continue: finishes < 3,
+      };
+    },
+  };
+  return fixture(options);
+}
+test("the original Apply tab is retained for questionnaire inspection across alarms", async () => {
+  const f = questionnaireFixture();
+  await f.queue.tick();
+  assert.equal(f.calls.filter(([name]) => name === "create").length, 1);
+  assert.equal(f.calls.filter(([name]) => name === "close").length, 0);
+  assert.equal(f.session.naukriParkedQuestionnairesV1.fixture.ownedTabId, 44);
+  assert.equal(f.session.naukriReadInFlightV1, undefined);
+  await f.queue.tick();
+  assert.equal(f.calls.filter(([name]) => name === "create").length, 1);
+  assert.equal(f.calls.filter(([name]) => name === "close").length, 0);
+  assert.equal(
+    f.session.naukriParkedQuestionnairesV1.fixture.operation,
+    "prepare_questionnaire",
+  );
+  const scripts = f.calls.filter(([name]) => name === "inspect");
+  assert.equal(scripts.at(-1)[1].func.name, "naukriChatbot");
+  assert.equal(scripts.at(-1)[1].target.tabId, 44);
+});
+test("owner adoption of a parked form is durable after service-worker reconstruction", async () => {
+  const f = questionnaireFixture();
+  await f.queue.tick();
+  f.queue = new NaukriQueue(f.api, f.send, async () => {});
+  f.activate(44);
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(
+    f.session.naukriParkedQuestionnairesV1.fixture.ownerAdopted,
+    true,
+  );
+  const before = f.calls.filter(([name]) => name === "inspect").length;
+  await f.queue.tick();
+  assert.equal(f.calls.filter(([name]) => name === "inspect").length, before);
+  assert.equal(f.calls.filter(([name]) => name === "close").length, 0);
 });
 test("trusted maintenance opens only one own inactive setup tab and admits no job", async () => {
   const maintenance = {

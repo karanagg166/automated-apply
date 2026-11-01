@@ -298,6 +298,12 @@ class ExecutionWorker:
         from backend.app.execution.alert_email import poll
 
         await recurring.heartbeat(self.factory)
+        from backend.app.core.config import get_settings
+        from backend.app.execution.naukri_questionnaires import (
+            prepare_one as prepare_questionnaire,
+        )
+
+        await prepare_questionnaire(self.factory, get_settings())
         from backend.app.execution.application_queue import index_retained_receipts
 
         async with self.factory() as session, session.begin():

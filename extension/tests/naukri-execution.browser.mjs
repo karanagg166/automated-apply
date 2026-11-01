@@ -17,6 +17,7 @@ import { chromium } from "../../frontend/node_modules/@playwright/test/index.mjs
 const root = mkdtempSync(join(tmpdir(), "automated-apply-background-fixture-"));
 for (const name of [
   "naukri-queue.js",
+  "naukri-chatbot.js",
   "naukri-execution.js",
   "naukri-resume-download.js",
   "naukri-observation.js",
@@ -38,7 +39,11 @@ writeFileSync(
   join(root, "fixture.js"),
   `
 import { executeNaukri } from './naukri-execution.js';
+import { naukriChatbot } from './naukri-chatbot.js';
 import { captureNaukriResumeDownload } from './naukri-resume-download.js';
+globalThis.chat = async (tabId, request) => (await chrome.scripting.executeScript({
+ target:{tabId,frameIds:[0]},world:'ISOLATED',func:naukriChatbot,args:[request]
+}))[0].result;
 globalThis.download = async (tabId, work) => (await chrome.scripting.executeScript({
  target:{tabId,frameIds:[0]},world:'MAIN',func:captureNaukriResumeDownload,args:[work]
 }))[0].result;
@@ -135,6 +140,11 @@ try {
       body = `<header>${email}</header><article><a href="${jobUrl}">Backend Developer</a><span class="company">Fictional Labs</span><span>${mode === "missing_receipt" ? "Viewed" : "Application Sent"}</span></article>`;
     else
       body = `<header>${mode === "wrong_account" ? '<span class="email">other@example.com</span>' : email}</header><div class="styles_jd-header"><h1>Backend Developer</h1><span class="styles_comp-name">Fictional Labs</span><button onclick="window.fixtureClicks=(window.fixtureClicks||0)+1">Apply</button></div>${mode === "challenge" ? "<p>Verify you are human</p>" : ""}`;
+    if (mode === "questionnaire")
+      body = body.replace(
+        "window.fixtureClicks=(window.fixtureClicks||0)+1",
+        "window.fixtureClicks=(window.fixtureClicks||0)+1;setTimeout(()=>{const d=document.createElement('div');d.className='chatbot_DrawerContentWrapper';d.innerHTML='<div class=chatbot_MessageContainer><div class=botItem><div class=botMsg>Which office can you start from?</div></div></div><div class=chipsContainer><div class=chatbot_Chip>Pune</div><div class=chatbot_Chip>Delhi</div></div>';d.querySelectorAll('.chatbot_Chip').forEach(c=>c.onclick=()=>{window.choiceSaves=(window.choiceSaves||0)+1;d.innerHTML='<div class=chatbot_MessageContainer><div class=botItem><div class=botMsg>What is your full name?</div></div></div><div class=textArea contenteditable=true></div><div class=send><span class=sendMsg>Save</span></div>';d.querySelector('.send').onclick=()=>{window.textSaves=(window.textSaves||0)+1;window.savedText=d.querySelector('.textArea').textContent;d.remove()}});document.body.append(d)},200)",
+      );
     if (
       ["modern_download", "bad_download", "dispatch_download"].includes(mode) &&
       u.pathname === "/mnjuser/profile"
@@ -325,6 +335,97 @@ try {
   );
   assert.equal(mismatch.reason, "provider_account_identity_unverified");
   record("visible_wrong_account_is_not_overridden_by_profile_observation");
+  mode = "questionnaire";
+  await navigate(jobUrl);
+  const beforeQuestionnaire = await run(
+    tabId,
+    work("inspect_application", { account_observation: proof }),
+  );
+  const questionnaireApply = work("apply", {
+    account_observation: proof,
+    document_id: beforeQuestionnaire.execution.document_id,
+    control_sha256: beforeQuestionnaire.execution.control_sha256,
+    permit_expires_at: new Date(Date.now() + 1500).toISOString(),
+  });
+  const questionnaire = await run(tabId, questionnaireApply);
+  assert.equal(
+    questionnaire.execution?.state,
+    "QUESTIONNAIRE",
+    JSON.stringify(questionnaire),
+  );
+  assert.equal(
+    (await run(tabId, questionnaireApply)).reason,
+    "single_use_document_admission_required",
+  );
+  record(
+    "asynchronous_real_structure_questionnaire_is_handed_off_without_a_second_apply",
+  );
+  const chat = (request) =>
+    worker.evaluate(({ tabId, request }) => globalThis.chat(tabId, request), {
+      tabId,
+      request,
+    });
+  const chatRequest = { operation: "inspect", url: jobUrl, requisition: req };
+  const choice = await chat(chatRequest);
+  assert.deepEqual(choice.options, ["Pune", "Delhi"]);
+  const answerRequest = {
+    ...chatRequest,
+    operation: "answer",
+    document_id: choice.document_id,
+    step_sha256: choice.step_sha256,
+    answer: "Pune",
+    permit_expires_at: new Date(Date.now() + 2000).toISOString(),
+  };
+  assert.equal(
+    (await chat(answerRequest)).kind,
+    "questionnaire_answer_attempted",
+  );
+  assert.equal(
+    (await chat(answerRequest)).reason,
+    "questionnaire_step_changed_or_consumed",
+  );
+  record("genuine_div_choices_are_clicked_once_in_an_inactive_renderer");
+  const text = await chat(chatRequest);
+  assert.equal(text.answer_kind, "text");
+  assert.equal(
+    (
+      await chat({
+        ...answerRequest,
+        document_id: text.document_id,
+        step_sha256: text.step_sha256,
+        answer: "Alex Fixture",
+        permit_expires_at: new Date(Date.now() + 2000).toISOString(),
+      })
+    ).kind,
+    "questionnaire_answer_attempted",
+  );
+  const counts = await worker.evaluate(
+    async (tabId) =>
+      (
+        await chrome.scripting.executeScript({
+          target: { tabId },
+          world: "MAIN",
+          func: () => ({
+            apply: window.fixtureClicks,
+            choice: window.choiceSaves,
+            text: window.textSaves,
+            value: window.savedText,
+            hidden: document.visibilityState,
+          }),
+        })
+      )[0].result,
+    tabId,
+  );
+  assert.deepEqual(counts, {
+    apply: 1,
+    choice: 1,
+    text: 1,
+    value: "Alex Fixture",
+    hidden: "hidden",
+  });
+  record(
+    "contenteditable_input_and_save_complete_without_keyboard_focus_or_a_second_apply",
+  );
   await close(tabId);
   mode = "normal";
 

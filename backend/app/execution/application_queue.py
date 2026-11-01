@@ -22,7 +22,7 @@ POLICY_KEY = "application_queue_policy"
 PREFIX = "apply_work:"
 EVENT = "apply_event:"
 TERMINAL = {"SUBMITTED_RECORDED", "SUBMITTED_CONFIRMED", "FAILED_FINAL", "SKIPPED"}
-WRITES = {"apply", "answer", "upload_resume"}
+WRITES = {"apply", "answer", "upload_resume", "answer_questionnaire"}
 
 
 async def configuration(session):
@@ -148,7 +148,9 @@ async def control(session, data):
                          status="waiting" if waiting else "queued",
                          operation=previous.get("operation", "inspect_job"),
                          reason=previous.get("reason"), revision=v["revision"] + 1)
-                if not waiting and v["operation"] in WRITES:
+                if not waiting and v.get("form_pending"):
+                    v.update(operation="refresh_questionnaire_profile", stage="QUESTIONS")
+                elif not waiting and v["operation"] in WRITES:
                     v.update(operation="inspect_profile" if v.get("account_sha256") and not v.get("admitted_actions") else "inspect_application", stage="VERIFYING")
                 row.value = v
                 changed.append(v)
@@ -579,7 +581,21 @@ async def admit(session, identity, revision, token, binding, settings=None):
             from backend.app.core.config import get_settings
 
             settings = get_settings()
-        await write_context(session, v, policy, settings)
+        if v["operation"] == "answer_questionnaire":
+            from backend.app.execution.naukri_questionnaires import context
+
+            await context(session, v, settings, writing=True)
+            if v.get("step_fingerprint") != v["questionnaire"]["step_sha256"] or not v.get("questionnaire_answer"):
+                raise ToolDenied("questionnaire_reviewed_step_required")
+        else:
+            await write_context(session, v, policy, settings)
+        if setting.mode == "SUPERVISED" and v["operation"] == "apply":
+            # The initial one-application authorization does not renew at
+            # midnight. Uncertain attempts consume it until explicitly reviewed.
+            trials = [r.value for r in await items(session) if r.value["platform"] == v["platform"]]
+            attempted = sum(any(a["fingerprint"].startswith("apply:") for a in x.get("admitted_actions", [])) for x in trials)
+            if attempted >= setting.supervised_submission_cap:
+                raise ToolDenied("supervised_application_allowance_exhausted")
         # Budget admission is persistent and conservative: uncertain submissions
         # consume a reservation and are never refunded automatically.
         day = (await instant(session)).astimezone(ZoneInfo(policy.day_timezone)).date().isoformat()
@@ -608,6 +624,12 @@ async def admit(session, identity, revision, token, binding, settings=None):
             "id": str(uuid4()), "fingerprint": fingerprint,
             "at": (await instant(session)).isoformat(),
         }]
+        if v["operation"] == "answer_questionnaire":
+            v["questionnaire_answers"] = [*v.get("questionnaire_answers", []), {
+                "step": dict(v["questionnaire"]), "answer": dict(v["questionnaire_answer"]),
+                "packet_revision": v["packet_revision"], "profile_version": v["profile_version"],
+                "admitted_at": (await instant(session)).isoformat(), "state": "admitted_not_a_receipt",
+            }]
         if v["operation"] == "apply":
             from backend.app.models.application_packet import (
                 ApplicationEvent,

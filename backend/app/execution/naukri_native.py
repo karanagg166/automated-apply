@@ -1,7 +1,7 @@
 """Authenticated, profile-bound ordinary UI work with durable write admission.
 
-Every click requires fresh eligibility/CV proof; separate history documents
-establish receipts. Unsupported questionnaires and downloads remain blocked.
+Every write requires fresh eligibility/CV proof; separate history documents
+establish receipts. Only recognized, bound questionnaire controls may continue.
 """
 
 import re
@@ -13,6 +13,7 @@ from backend.app.automation.store import instant
 from backend.app.browser import chrome_profiles as profiles
 from backend.app.dashboard.models import OwnerPreference
 from backend.app.execution import application_queue as queue
+from backend.app.execution import naukri_questionnaires as questionnaires
 from backend.app.execution import naukri_submission as submission
 from backend.app.execution import profile_sync, store
 from backend.app.execution.queue_contracts import QueuePolicy
@@ -34,10 +35,15 @@ async def workrow(session, identity):
 
 
 def transport(value):
-    # No packet answers, browser secrets, source-message references or PDF bytes.
+    # Only the admitted current step's answer is exposed to its bound tab.
+    # No browser secrets, source-message references or PDF bytes.
     result = {k: value.get(k) for k in (
-        "id", "revision", "lease_token", "lease_until", "operation", "url", "requisition", "binding",
+        "id", "revision", "lease_token", "lease_until", "operation", "url", "requisition", "binding", "stage", "status",
     )}
+    result["form_pending"] = value.get("form_pending", False)
+    if value["operation"] in questionnaires.OPERATIONS:
+        result.update(target_url=submission.PROFILE_URL if value["operation"] == "refresh_questionnaire_profile" else value["url"],
+                      execution=questionnaires.descriptor(value))
     if value["operation"] in submission.OPERATIONS | profile_sync.OPERATIONS:
         result.update(target_url=submission.browser_url(value), execution=submission.descriptor(value))
         if value["operation"] in profile_sync.OPERATIONS:
@@ -114,7 +120,7 @@ async def checked(session, command, binding):
             or value["binding"] != binding or value["status"] not in {"leased", "executing"}
             or not value["lease_until"] or datetime.fromisoformat(value["lease_until"]) <= now):
         raise ToolDenied("queue_lease_lost")
-    if value["operation"] not in READS | submission.OPERATIONS | profile_sync.OPERATIONS:
+    if value["operation"] not in READS | submission.OPERATIONS | profile_sync.OPERATIONS | questionnaires.OPERATIONS:
         raise ToolDenied("background_submission_executor_pending")
     return row
 
@@ -248,7 +254,9 @@ async def dispatch(session, settings, actor, command):
                 busy |= bool(sync and sync.value.get("lease_until") and datetime.fromisoformat(sync.value["lease_until"]) > now)
                 if not busy:
                     await submission.recover_unknown(session)
-                    value = await profile_sync.work(session, config, binding, settings)
+                    value = await queue.claim(session, "naukri", binding, operations=questionnaires.OPERATIONS)
+                    if value is None:
+                        value = await profile_sync.work(session, config, binding, settings)
                     if value is None:
                         value = await search_work(session, config, policy, binding)
                     if value is None:
@@ -281,10 +289,12 @@ async def dispatch(session, settings, actor, command):
                     if value["operation"] == "sync_profile" and local_policy["platforms"].get("naukri", local_policy["default"]) in {"manual_only", "draft_only"}:
                         raise ToolDenied("platform_policy_requires_manual_review")
                     value = await profile_sync.admit(session, value)
-                elif value["operation"] == "apply":
+                elif value["operation"] in {"apply", "answer_questionnaire"}:
                     value = await queue.admit(session, value["id"], value["revision"], value["lease_token"], binding, settings)
                     value = {**value, "permit_expires_at": ((await instant(session)) + timedelta(seconds=2)).isoformat()}
                 else:
+                    if value["operation"] in questionnaires.OPERATIONS:
+                        await questionnaires.context(session, value, settings)
                     value.update(status="executing", revision=value["revision"] + 1)
             elif command.command in {"finish_naukri_work", "abandon_naukri_work"}:
                 report = command.work_report
@@ -299,6 +309,18 @@ async def dispatch(session, settings, actor, command):
                         value.update(lease_token=None, lease_until=None)
                     row.value = value
                     return Result(request_id=command.request_id, ok=True, capability="naukri_profile_sync",
+                                  data={"work": transport(value), "continue": continuing, "submitted": False})
+                if value["operation"] in questionnaires.OPERATIONS:
+                    if command.command == "abandon_naukri_work":
+                        report = report.model_copy(update={"kind": "failed"})
+                    await questionnaires.receive(session, value, report, settings)
+                    continuing = value["status"] == "leased" and value["operation"] in questionnaires.OPERATIONS
+                    value.update(updated_at=(await instant(session)).isoformat(), revision=value["revision"] + 1)
+                    if not continuing:
+                        value.update(lease_token=None, lease_until=None)
+                    row.value = value
+                    await queue.event(session, value, "questionnaire_browser_observed")
+                    return Result(request_id=command.request_id, ok=True, capability="naukri_ui_execution",
                                   data={"work": transport(value), "continue": continuing, "submitted": False})
                 if value["operation"] in submission.OPERATIONS:
                     if command.command == "abandon_naukri_work":

@@ -461,6 +461,31 @@ export async function executeNaukri(work) {
       safe();
       state.used = true; // Consume BEFORE any handler, including throw/navigation.
       fresh.button.click();
+      // A click can asynchronously reveal a questionnaire. It must stay in its
+      // original owned tab; do not close it and mistake the click for a receipt.
+      for (let attempt = 0; attempt < 24; attempt++) {
+        safe();
+        if (
+          [...document.querySelectorAll(".chatbot_DrawerContentWrapper")].some(
+            visible,
+          )
+        )
+          return await result("QUESTIONNAIRE", {
+            title: fresh.title,
+            company: fresh.company,
+          });
+        if (
+          [
+            ...document.querySelectorAll(
+              '#job_header button,[class*="jd-header"] button',
+            ),
+          ].some(
+            (e) => visible(e) && /^(applied|already applied)$/i.test(clean(e)),
+          )
+        )
+          break;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
       // Click is reported as an attempt only. Persistent provider history is
       // checked in new documents and transactions; no generic success text.
       return await result("CLICKED", {

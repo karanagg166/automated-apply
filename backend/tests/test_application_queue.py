@@ -1,6 +1,7 @@
 """Durable PostgreSQL-compatible queue logic over isolated fictional SQLite data."""
 
 from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 
 import pytest
 from pydantic import ValidationError
@@ -230,3 +231,19 @@ async def test_dashboard_queue_api_owner_policy_and_filters(async_client, phase2
     denied = await async_client.put("/api/v1/execution/queue/policy", headers={**phase2_auth, "X-Agent-Client": "fixture-extension"},
         json={"expected_revision": 0, "policy": policy.model_dump(mode="json")})
     assert denied.status_code == 403
+
+
+async def test_supervised_one_application_allowance_does_not_renew_at_midnight(db_session, upload_case):
+    case = upload_case
+    await running(db_session, mode="SUPERVISED")
+    old = await prepared_message(db_session, case, "291026111111")
+    row = await queue.load(db_session, old["id"])
+    row.value = {**row.value, "stage": "SUBMISSION_UNKNOWN", "status": "waiting",
+                 "admitted_actions": [{"id": str(uuid4()), "fingerprint": "apply:initial",
+                 "at": (datetime.now(timezone.utc)-timedelta(days=1)).isoformat()}]}
+    await prepared_message(db_session, case, "291026222222")
+    from backend.app.execution.naukri_identity import require
+    binding = {**BINDING, "profile_binding_id": (await require(db_session))["profile_binding_id"]}
+    claimed = await queue.claim(db_session, "naukri", binding)
+    with pytest.raises(ToolDenied, match="supervised_application_allowance_exhausted"):
+        await queue.admit(db_session, claimed["id"], claimed["revision"], claimed["lease_token"], binding, case.settings)

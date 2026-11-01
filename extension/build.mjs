@@ -40,6 +40,7 @@ for (const file of [
   "naukri.js",
   "naukri-observation.js",
   "naukri-queue.js",
+  "naukri-chatbot.js",
   "naukri-execution.js",
   "naukri-resume-download.js",
   "form-bridge.js",

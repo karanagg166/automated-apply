@@ -171,10 +171,11 @@ async def receive(session, value, report, settings):
             raise ToolDenied("queue_document_identity_changed")
         if observation.state not in {"CLICKED", "QUESTIONNAIRE"}:
             raise ToolDenied("apply_action_observation_required")
-        # A questionnaire requires its own implemented adapter. It is neither
-        # successful submission nor authority to click Apply again.
+        # Retain this exact attempt for its scoped questionnaire adapter.
+        # This is neither a receipt nor authority to click Apply again.
         if observation.state == "QUESTIONNAIRE":
-            value.update(stage="NEEDS_INPUT", status="waiting", reason="questionnaire_adapter_requires_review")
+            value.update(stage="QUESTIONS", status="queued", operation="inspect_questionnaire", reason=None,
+                         form_pending=True, form_binding=dict(value["binding"]))
         else:
             value.update(stage="VERIFYING", status="queued", operation="reconcile_application", reason="provider_confirmation_pending")
         return False
@@ -199,6 +200,7 @@ async def receive(session, value, report, settings):
 
 async def confirm(session, value, observation, now, settings):
     """One transaction: genuine evidence, canonical status, audit and notification."""
+    value["form_pending"] = False
     from sqlalchemy import select
 
     from backend.app.models.application_packet import (

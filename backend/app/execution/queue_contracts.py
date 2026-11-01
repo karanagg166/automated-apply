@@ -187,12 +187,33 @@ class NaukriExecutionObservation(Contract):
         return values
 
 
+class NaukriQuestionnaire(Contract):
+    document_id: str = Field(pattern=r"^[a-f0-9-]{36}$")
+    step_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    question: str = Field(min_length=1, max_length=2000)
+    answer_kind: Literal["choice", "text", "file"]
+    options: list[str] = Field(default_factory=list, max_length=50)
+    max_characters: int = Field(default=4000, ge=1, le=4000)
+
+    @model_validator(mode="after")
+    def actual_options(self):
+        if any(not s.strip() or len(s) > 160 for s in self.options) or len(set(self.options)) != len(self.options):
+            raise ValueError("unambiguous_questionnaire_options_required")
+        if self.answer_kind == "choice" and not self.options:
+            raise ValueError("questionnaire_options_required")
+        return self
+
+
 class NaukriWorkReport(Contract):
-    kind: Literal["job_facts", "application_view", "source_candidates", "needs_input", "failed", "execution_observation"]
+    kind: Literal["job_facts", "application_view", "source_candidates", "needs_input", "failed", "execution_observation", "questionnaire", "questionnaire_answer_attempted"]
     observed_url: PublicHTTPSURL | None = None
     requisition: str | None = Field(None, pattern=r"^[0-9]{10,20}$")
     stage: Literal["ALREADY_APPLIED"] | None = None
     job: ObservedNaukriJob | None = None
     execution: NaukriExecutionObservation | None = None
     candidates: list[PublicHTTPSURL] = Field(default_factory=list, max_length=20)
+    questionnaire: NaukriQuestionnaire | None = None
+    document_id: str | None = Field(None, pattern=r"^[a-f0-9-]{36}$")
+    step_sha256: str | None = Field(None, pattern=r"^[a-f0-9]{64}$")
+    submitted: Literal[False] = False
     reason: str | None = Field(None, max_length=64, pattern=r"^[a-zA-Z][a-zA-Z0-9_]+$")

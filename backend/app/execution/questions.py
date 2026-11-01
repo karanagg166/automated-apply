@@ -197,6 +197,10 @@ def message_text(q):
             "exact option + ' | ' + date/time/time zone, or No. Options: "
             + " / ".join(q["options"])
         )
+    if q.get("queue_work_id"):
+        return (f"{q['employer']} — {q['role']}\nQuestion: {q['question']}\n{q['job_url']}\nExpected: {hint}\n"
+                "Reply to THIS message with your verified factual answer. It applies only to this application; reuse is OFF. "
+                "The worker will refresh the account, resume, listing and original form before continuing. It will not repeat Apply.")
     return (
         f"{q['employer']} — {q['role']}\nQuestion: {q['question']}\n"
         f"Application: {q['execution_id']}\nPacket: {q['packet_id']}\n{q['job_url']}\nExpected: {hint}\n"
@@ -215,7 +219,7 @@ async def receive(session, settings, message, update_id):
     await store.memory_row(session, lock=True)
     candidates = (
         await session.scalars(
-            select(OwnerPreference).where(OwnerPreference.key.startswith(PREFIX))
+            select(OwnerPreference).where(OwnerPreference.key.startswith(PREFIX)).execution_options(populate_existing=True)
         )
     ).all()
     row = next((r for r in candidates if reply_id in r.value["message_ids"]), None)
@@ -226,6 +230,12 @@ async def receive(session, settings, message, update_id):
     q, now = dict(row.value), await instant(session)
     if q["state"] == "answered":
         return "This question was already answered. Review the saved application before changing it."
+    if q.get("queue_work_id"):
+        if q["expires_at"] <= now.isoformat():
+            raise ToolDenied("question_expired_or_application_cancelled")
+        from backend.app.execution.naukri_questionnaires import answer_question
+
+        return await answer_question(session, row, (message.get("text") or "").strip(), now, settings)
     if q.get("extension_task_id"):
         task = await session.get(OwnerPreference, "ext_task:" + q["extension_task_id"])
         if not task or task.value["state"] in {"PAUSED", "FAILED_FINAL", "SUBMISSION_UNKNOWN", "SUBMITTED_CONFIRMED"}:
@@ -320,6 +330,13 @@ async def answer_dashboard(session, question_id, answer, expected_revision):
         raise ToolDenied("question_already_answered")
     if expected_revision != q["packet_revision"]:
         raise ToolDenied("question_revision_conflict")
+    if q.get("queue_work_id"):
+        from backend.app.core.config import get_settings
+        from backend.app.execution.naukri_questionnaires import answer_question
+
+        if q["expires_at"] <= now.isoformat():
+            raise ToolDenied("question_expired_or_application_cancelled")
+        return await answer_question(session, row, answer.strip(), now, get_settings())
     execution = await store.load(session, q["execution_id"])
     if (
         q["expires_at"] <= now.isoformat()
@@ -410,6 +427,12 @@ async def approve_reuse(session, question_id):
         or row.value["answer_expires_at"] <= now.isoformat()
     ):
         raise ToolDenied("current_answer_required")
+    if row.value.get("queue_work_id"):
+        from backend.app.execution.naukri_questionnaires import (
+            approve_reuse as approve_queue_reuse,
+        )
+
+        return await approve_queue_reuse(session, row)
     packet = await ApplicationPacketService(session).read(UUID(row.value["packet_id"]))
     if (
         packet.readiness.stale
@@ -455,6 +478,13 @@ async def deliver_one(factory, settings, bot):
                 or v["expires_at"] <= now.isoformat()
                 or (v["delivery_lease"] and v["delivery_lease"] > now.isoformat())
             ):
+                continue
+            if v.get("queue_work_id"):
+                from backend.app.execution.naukri_questionnaires import question_current
+
+                if await question_current(session, v):
+                    row = candidate
+                    break
                 continue
             if v.get("extension_task_id"):
                 task = await session.get(OwnerPreference, "ext_task:" + v["extension_task_id"])

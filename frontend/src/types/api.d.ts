@@ -6771,6 +6771,27 @@ export interface components {
           | null;
       };
     };
+    /** NaukriQuestionnaire */
+    NaukriQuestionnaire: {
+      /** Document Id */
+      document_id: string;
+      /** Step Sha256 */
+      step_sha256: string;
+      /** Question */
+      question: string;
+      /**
+       * Answer Kind
+       * @enum {string}
+       */
+      answer_kind: "choice" | "text" | "file";
+      /** Options */
+      options?: string[];
+      /**
+       * Max Characters
+       * @default 4000
+       */
+      max_characters: number;
+    };
     /** NaukriWorkReport */
     NaukriWorkReport: {
       /**
@@ -6783,7 +6804,9 @@ export interface components {
         | "source_candidates"
         | "needs_input"
         | "failed"
-        | "execution_observation";
+        | "execution_observation"
+        | "questionnaire"
+        | "questionnaire_answer_attempted";
       /** Observed Url */
       observed_url?: string | null;
       /** Requisition */
@@ -6794,6 +6817,17 @@ export interface components {
       execution?: components["schemas"]["NaukriExecutionObservation"] | null;
       /** Candidates */
       candidates?: string[];
+      questionnaire?: components["schemas"]["NaukriQuestionnaire"] | null;
+      /** Document Id */
+      document_id?: string | null;
+      /** Step Sha256 */
+      step_sha256?: string | null;
+      /**
+       * Submitted
+       * @default false
+       * @constant
+       */
+      submitted: false;
       /** Reason */
       reason?: string | null;
     };
