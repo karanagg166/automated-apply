@@ -39,6 +39,10 @@ Gmail drafts. Respect actual account access and credits. Gmail sending remains
 disabled. No paid plan purchase is authorized. Current runtime has neither
 provider API key and both providers are disabled; live enrichment cannot be
 represented as verified until account access is supplied and checked.
+The owner subsequently requested agent-led free account setup using verified email,
+without asking for API keys again. Investigate supported free registration and
+actual entitlement; request only an unavoidable owner authentication action.
+Do not fabricate a work email or assume free web credits include API access.
 
 ## Ordered work and acceptance
 
