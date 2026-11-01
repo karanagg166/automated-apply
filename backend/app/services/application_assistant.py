@@ -26,6 +26,18 @@ def skill_key(value: str) -> str:
     }.get(value, value)
 
 
+def title_key(value: str) -> str:
+    """Normalize published role spelling, without equating different roles."""
+    value = " ".join(value.casefold().split())
+    for family, normalized in [
+        ("full[-\u2010-\u2015\\s]*stack", "full stack"),
+        ("front[-\u2010-\u2015\\s]*end", "frontend"),
+        ("back[-\u2010-\u2015\\s]*end", "backend"),
+    ]:
+        value = re.sub(r"\b" + family + r"\b", normalized, value)
+    return value
+
+
 class CandidateProfile(BaseModel):
     """Verified user credentials, experience, and job search preferences."""
 
@@ -81,18 +93,19 @@ class ApplicationAssistant:
     def calculate_match(self, job: Job, profile: CandidateProfile) -> JobMatchResult:
         """Calculate an explainable, multi-factor match score (0-100) based strictly on verified candidate data."""
         job_title_lower = job.title.lower()
+        job_title_match_key = title_key(job.title)
         job_desc_lower = html.unescape(re.sub(r"<[^>]*>", " ", job.description or "")).lower()
 
         # 1. Title match (up to 30 points)
         title_points = 0.0
         title_match = False
         for target in profile.target_titles:
-            t_low = target.lower()
-            if t_low in job_title_lower:
+            t_low = title_key(target)
+            if t_low in job_title_match_key:
                 title_points = 30.0
                 title_match = True
                 break
-            elif any(w in job_title_lower for w in t_low.split() if len(w) > 3):
+            elif any(w in job_title_match_key for w in t_low.split() if len(w) > 3):
                 title_points = max(title_points, 15.0)
 
         # 2. Skill match (up to 40 points)

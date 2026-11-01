@@ -150,3 +150,23 @@ def test_duplicate_aliases_do_not_inflate_matching_weight(sample_profile):
     duplicate = assistant.calculate_match(Job(**common, skills_required=["React", "ReactJS", "React.js", "Docker"]), profile)
     assert once.match_score == duplicate.match_score
     assert len(duplicate.matched_skills)==1 and duplicate.missing_skills==["Docker"]
+
+
+@pytest.mark.parametrize("advertised,target,expected", [
+    ("Fullstack Developer Trainee", "Full Stack Developer", True),
+    ("Remote React / Full-Stack Developer", "Full Stack Developer", True),
+    ("Front End Developer", "Frontend Developer", True),
+    ("Back-End Engineer", "Backend Engineer", True),
+    ("Full Stack Sales Manager", "Full Stack Developer", False),
+    ("Full Stack Overflow Developer", "Full Stack Developer", False),
+    ("Frontend Designer", "Frontend Developer", False),
+    ("Backend Sales Engineer", "Backend Engineer", False),
+])
+def test_role_spacing_preserves_distinct_roles_and_required_skills(advertised, target, expected, sample_profile):
+    profile = sample_profile.model_copy(update={"target_titles": [target], "verified_skills": ["Python"]})
+    job = Job(title=advertised, job_url="https://example.org/jobs/title", source_platform="naukri", skills_required=["Python", "Rust"], is_remote=True)
+    before = job.title
+    result = ApplicationAssistant(None).calculate_match(job, profile)
+    assert result.title_match is expected
+    assert result.missing_skills == ["Rust"]
+    assert job.title == before
