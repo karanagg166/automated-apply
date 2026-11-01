@@ -38,7 +38,7 @@ export async function executeNaukri(work) {
       ...new Set(
         [
           ...document.querySelectorAll(
-            'header [class*="email"], .chip-summary .email-verify, [class*="user-details"] [class*="email"], [class*="profile-details"] [class*="email"], [class*="personal-details"] [class*="email"]',
+            'header [class*="email"], .chip-summary .email-verify, .detail-list .with-cta span.txt[name="Email"], [class*="user-details"] [class*="email"], [class*="profile-details"] [class*="email"], [class*="personal-details"] [class*="email"]',
           ),
         ]
           .filter(visible)
@@ -112,12 +112,29 @@ export async function executeNaukri(work) {
       (e) => visible(e) && clean(e)?.toLowerCase() === "profile summary",
     );
     if (headings.length !== 1) return null;
+    if (headings[0].matches(".widgetTitle"))
+      return headings[0].closest(".card");
     return headings[0].closest(
       '.profileSummary.section,section,[class*="widget"],[class*="card"]',
     );
   };
   const summaryValue = () => {
     const section = summarySection();
+    if (section?.querySelector(".widgetHead > .widgetTitle")) {
+      const values = [
+        ...section.querySelectorAll(".widgetCont > .prefill"),
+      ].filter(visible);
+      if (
+        values.length !== 1 ||
+        values[0].querySelector(
+          'a.morelink[aria-label="Read more of profile summary"]',
+        )
+      )
+        return undefined;
+      const clone = values[0].cloneNode(true);
+      for (const link of clone.querySelectorAll("a.morelink")) link.remove();
+      return clean(clone);
+    }
     if (section?.matches(".profileSummary.section")) {
       const cards = [...section.querySelectorAll(".card-container")].filter(
         visible,
@@ -253,6 +270,46 @@ export async function executeNaukri(work) {
     ) {
       await account();
       const fields = {};
+      const section = summarySection();
+      const more =
+        section &&
+        [
+          ...section.querySelectorAll(
+            '.widgetCont .prefill a.morelink[aria-label="Read more of profile summary"]',
+          ),
+        ].filter(visible);
+      if (more?.length === 1) {
+        safe();
+        more[0].click();
+        await new Promise((resolve) => {
+          const observer = new MutationObserver(() => {
+            if (
+              !section.contains(more[0]) ||
+              more[0].getAttribute("aria-label") !==
+                "Read more of profile summary"
+            )
+              done();
+          });
+          const timer = setTimeout(done, 1000);
+          function done() {
+            clearTimeout(timer);
+            observer.disconnect();
+            resolve();
+          }
+          observer.observe(section, {
+            subtree: true,
+            childList: true,
+            attributes: true,
+          });
+          if (
+            !section.contains(more[0]) ||
+            more[0].getAttribute("aria-label") !==
+              "Read more of profile summary"
+          )
+            done();
+        });
+        safe();
+      }
       const summary = summaryValue();
       if (summary !== undefined) fields.summary = summary;
       const names = [
@@ -301,7 +358,7 @@ export async function executeNaukri(work) {
         throw Error("profile_sync_preimage_changed");
       const edits = [
         ...section.querySelectorAll(
-          "button,a,h1.section-heading .new-pencil,.heading-container.cursor .add-more",
+          "button,a,h1.section-heading .new-pencil,.heading-container.cursor .add-more,[role=button][aria-label='Edit profile summary']",
         ),
       ].filter(
         (e) =>
@@ -433,7 +490,7 @@ export async function executeNaukri(work) {
       }
       const buttons = [
         ...document.querySelectorAll(
-          ".section.resume .action-container .download",
+          '.section.resume .action-container .download, #lazyAttachCV.card .attachCV .cvPreview [role="button"][aria-label="Download resume"][data-title="download-resume"]',
         ),
       ].filter(visible);
       if (buttons.length === 1)

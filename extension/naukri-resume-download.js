@@ -14,12 +14,26 @@ export async function captureNaukriResumeDownload(work) {
   const sections = [...document.querySelectorAll(".section.resume")].filter(
     visible,
   );
-  const controls =
+  let controls =
     sections.length === 1
       ? [...sections[0].querySelectorAll(".action-container .download")].filter(
           visible,
         )
       : [];
+  if (!sections.length) {
+    const cards = [...document.querySelectorAll("#lazyAttachCV.card")].filter(
+      visible,
+    );
+    if (
+      cards.length === 1 &&
+      cards[0].querySelector('[role="heading"][aria-label="Resume"]')
+    )
+      controls = [
+        ...cards[0].querySelectorAll(
+          '.cvPreview [role="button"][aria-label="Download resume"][data-title="download-resume"]',
+        ),
+      ].filter(visible);
+  }
   if (controls.length !== 1)
     return fail("profile_resume_download_control_unsupported");
   const control = controls[0];

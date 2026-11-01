@@ -147,6 +147,8 @@ try {
       );
     if (mode === "modern_profile_summary" && u.pathname === "/mnjuser/profile")
       body = `<section class="profile-details">${email}<a href="/download-fictional-resume.pdf">Download Resume</a></section><div class="award-details section profileSummary"><div class="heading-container ${savedSummary ? "" : "cursor"}"><div class="text-container"><h1 class="section-heading">Profile Summary ${savedSummary ? '<span class="new-pencil" style="display:inline-block;width:14px;height:14px" aria-label="Edit profile summary"></span>' : ""}</h1>${savedSummary ? "" : '<h2 class="section-sub-heading">Write a meaningful summary of more than 50 characters.</h2>'}</div>${savedSummary ? "" : '<div class="add-more">Add</div>'}</div>${savedSummary ? `<div class="card-container"><div class="card-details"><p class="card-sub-heading">${savedSummary}</p></div></div>` : ""}</div><script>document.querySelector('.profileSummary .new-pencil,.profileSummary .add-more').onclick=()=>{setTimeout(()=>{const editor=document.createElement('div');editor.setAttribute('role','dialog');editor.innerHTML='<h1>Profile summary</h1><form name="skillDetailsForm"><textarea id="summary" name="summary" minlength="50" maxlength="1000"></textarea><button id="submit-btn" type="button" disabled>Save</button></form>';document.body.append(editor);editor.querySelector('textarea').oninput=()=>queueMicrotask(()=>editor.querySelector('button').disabled=false);editor.querySelector('button').onclick=()=>fetch('/fixture-save-summary',{method:'POST',body:editor.querySelector('textarea').value});},75);};</script>`;
+    if (mode === "professional_profile" && u.pathname === "/mnjuser/profile")
+      body = `<div class="detail-list"><div class="with-cta"><em name="Email">mailOneTheme</em><span class="txt" name="Email">alex@example.com</span></div></div><input type="email" value="different-contact@example.org"><div id="lazyAttachCV" class="card"><div class="attachCV"><div role="heading" aria-label="Resume">Resume</div><div class="cvPreview"><span role="button" aria-label="Download resume" data-title="download-resume">downloadOneTheme</span><span role="button" aria-label="Delete resume">deleteOneTheme</span></div></div></div><div class="card"><div class="widgetHead"><span class="widgetTitle">Profile summary</span><span role="button" aria-label="Edit profile summary">editOneTheme</span></div><div class="widgetCont"><div class="prefill">${savedSummary.slice(0, 12)}...<a class="morelink" aria-label="Read more of profile summary">Read More</a></div></div></div><script>window.professionalDownloadClicks=0;document.querySelector('[aria-label="Download resume"]').onclick=()=>{window.professionalDownloadClicks++;fetch('/download-fictional-resume.pdf').then(r=>r.blob()).then(blob=>{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.target='_blank';a.download='fictional.pdf';a.href=url;a.click();setTimeout(()=>URL.revokeObjectURL(url),100);});};document.querySelector('[aria-label="Read more of profile summary"]').onclick=e=>{e.target.closest('.prefill').textContent=${JSON.stringify(savedSummary)}};</script>`;
     if (
       ["modern_download", "bad_download", "dispatch_download"].includes(mode) &&
       u.pathname === "/mnjuser/profile"
@@ -643,6 +645,72 @@ try {
     JSON.stringify(modernEdited),
   );
   record("genuine_pencil_control_uses_same_preimage_and_single_use_guards");
+  await close(tabId);
+
+  mode = "professional_profile";
+  tabId = await create(profileUrl);
+  const professional = await run(tabId, work("inspect_profile_sync"));
+  assert.equal(
+    professional.execution?.profile_fields.summary,
+    savedSummary,
+    JSON.stringify(professional),
+  );
+  assert.equal(professional.execution.account_sha256, accountHash);
+  record(
+    "professional_profile_account_and_expanded_summary_use_actual_widgets",
+  );
+  assert.equal(
+    (await run(tabId, work("inspect_profile"))).reason,
+    "profile_resume_download_capture_required",
+  );
+  const professionalPdf = await worker.evaluate(
+    ({ tabId, url }) => globalThis.download(tabId, { target_url: url }),
+    { tabId, url: profileUrl },
+  );
+  assert.equal(
+    professionalPdf.kind,
+    "provider_pdf_digest",
+    JSON.stringify(professionalPdf),
+  );
+  assert.equal(professionalPdf.sha256, hash(pdf));
+  assert.equal(
+    (
+      await run(
+        tabId,
+        work("inspect_profile", { provider_pdf_observation: professionalPdf }),
+      )
+    ).execution?.state,
+    "PROFILE_VERIFIED",
+  );
+  record(
+    "professional_download_span_is_captured_in_MAIN_and_rechecked_in_ISOLATED",
+  );
+  const professionalCounts = await worker.evaluate(
+    async (tabId) =>
+      (
+        await chrome.scripting.executeScript({
+          target: { tabId },
+          world: "MAIN",
+          func: () => ({
+            downloads: window.professionalDownloadClicks,
+            hidden: document.visibilityState === "hidden",
+          }),
+        })
+      )[0].result,
+    tabId,
+  );
+  assert.deepEqual(professionalCounts, { downloads: 1, hidden: true });
+  record("professional_pdf_capture_does_not_open_a_new_tab_or_click_delete");
+  assert.equal(
+    (
+      await run(
+        tabId,
+        work("verify_account", { expected_account_sha256: "0".repeat(64) }),
+      )
+    ).reason,
+    "provider_account_identity_unverified",
+  );
+  record("professional_wrong_account_never_uses_different_contact_input");
   await close(tabId);
 
   if (!process.env.NAUKRI_PROFILE_ONLY) {
