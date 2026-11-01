@@ -170,6 +170,9 @@ async def configure(session, data):
     current = await configuration(session)
     if current["revision"] != data.expected_revision:
         raise ToolDenied("queue_policy_revision_conflict")
+    from backend.app.execution.naukri_automatic import require_policy
+
+    await require_policy(session, data.policy)
     from backend.app.execution.queue_reconsideration import (
         filters,
         request,
@@ -199,6 +202,9 @@ async def control(session, data):
         policy = QueuePolicy.model_validate(current["policy"])
         if not any(p.enabled for p in policy.platforms.values()):
             raise ToolDenied("enabled_platform_required")
+        from backend.app.execution.naukri_automatic import require_policy
+
+        await require_policy(session, policy)
         state = "RUNNING"
         changed = []
         paused_rows = select(OwnerPreference).where(
@@ -670,6 +676,10 @@ async def admit(session, identity, revision, token, binding, settings=None):
             raise ToolDenied("platform_policy_requires_manual_review")
         if not setting.owner_submission_authorized or setting.mode == "PREPARE_ONLY":
             raise ToolDenied("standing_submission_scope_required")
+        if setting.mode == "AUTOMATIC":
+            from backend.app.execution.naukri_automatic import require_first_receipt
+
+            await require_first_receipt(session)
         from backend.app.execution.naukri_receipts import prevents_replay
 
         if await prevents_replay(session, v["requisition"]):

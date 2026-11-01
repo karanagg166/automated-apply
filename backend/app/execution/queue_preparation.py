@@ -150,8 +150,8 @@ async def prepare_one(session, settings):
             raise ToolDenied(checked["reason"])
         if packet.readiness.state in {"needs_input", "needs_resume", "needs_profile"}:
             raise ToolDenied("packet_factual_input_required")
-        # The background consumer in this release is read-only. An AUTOMATIC
-        # preference is never mistaken for a delivered submission capability.
+        # The first supported application uses bounded supervised authority.
+        # Recurring AUTO admission additionally requires its confirmed receipt.
         automatic = policy.platforms["naukri"].mode in {"AUTOMATIC", "SUPERVISED"} and policy.platforms["naukri"].owner_submission_authorized
         from backend.app.execution.naukri_identity import require
 

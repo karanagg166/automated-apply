@@ -237,9 +237,9 @@ async def test_repeated_history_account_failures_are_bounded_without_replaying_a
 
 async def test_hourly_reservation_limit_is_independent_of_daily_cap(db_session, upload_case):
     case = upload_case
-    await running(db_session, cap=80)
+    await running(db_session, cap=80, hourly_cap=2)
     binding = {"worker": "fictional"}
-    for i in range(5):
+    for i in range(2):
         item = await prepared_message(db_session, case, str(291026110000 + i), binding=binding)
         row = await queue.load(db_session, item["id"])
         row.value = {**row.value, "status": "waiting", "stage": "SUBMISSION_UNKNOWN", "admitted_actions": [

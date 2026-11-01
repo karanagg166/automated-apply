@@ -27,15 +27,16 @@ URL = "https://www.naukri.com/job-listings-fictional-291026123456"
 BINDING = {"profile_binding_id": "fixture", "browser_session_id": "fixture-session", "window_id": 1, "tab_id": 2}
 
 
-async def running(session, *, cap=80, mode="AUTOMATIC", authorized=True, minimum_match_score=80):
+async def running(session, *, cap=80, mode="SUPERVISED", authorized=True, minimum_match_score=80, supervised_cap=5, hourly_cap=5):
     policy = QueuePolicy(global_limits=QueueLimits(daily_cap=cap, minimum_match_score=minimum_match_score), platforms={"naukri": PlatformQueuePolicy(
-        enabled=True, mode=mode, owner_submission_authorized=authorized,
+        enabled=True, mode=mode, owner_submission_authorized=authorized, supervised_submission_cap=supervised_cap,
+        hourly_submission_cap=hourly_cap,
     )})
     value = await queue.configure(session, QueuePolicyUpdate(expected_revision=0, policy=policy))
     return await queue.control(session, QueueControl(expected_revision=value["revision"], action="start"))
 
 
-async def prepared_message(session, case, requisition, *, binding=None):
+async def prepared_message(session, case, requisition, *, binding=None, source="naukri_ui_search"):
     from backend.app.execution import naukri_identity as identity
     from backend.tests.test_chrome_profiles import choose, connect
 
@@ -49,7 +50,7 @@ async def prepared_message(session, case, requisition, *, binding=None):
     job_id = await imported(session, requisition=requisition)
     await session.commit()
     packet = await ApplicationPacketService(session).create(job_id, CreatePacket(idempotency_key="queue-fixture-" + requisition))
-    value = await queue.enqueue(session, "naukri", "https://www.naukri.com/job-listings-fictional-" + requisition, "naukri_ui_search")
+    value = await queue.enqueue(session, "naukri", "https://www.naukri.com/job-listings-fictional-" + requisition, source)
     row = await queue.load(session, value["id"])
     now = datetime.now(timezone.utc).isoformat()
     proof_binding = binding or {**BINDING, "profile_binding_id": account["profile_binding_id"]}
@@ -235,7 +236,7 @@ async def test_dashboard_queue_api_owner_policy_and_filters(async_client, phase2
 
 async def test_supervised_one_application_allowance_does_not_renew_at_midnight(db_session, upload_case):
     case = upload_case
-    await running(db_session, mode="SUPERVISED")
+    await running(db_session, mode="SUPERVISED", supervised_cap=1)
     old = await prepared_message(db_session, case, "291026111111")
     row = await queue.load(db_session, old["id"])
     row.value = {**row.value, "stage": "SUBMISSION_UNKNOWN", "status": "waiting",
