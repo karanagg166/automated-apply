@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import and_, func, or_, select
 
 from backend.app.agent.tools import ToolDenied
 from backend.app.automation.store import instant
@@ -23,6 +23,43 @@ PREFIX = "apply_work:"
 EVENT = "apply_event:"
 TERMINAL = {"SUBMITTED_RECORDED", "SUBMITTED_CONFIRMED", "FAILED_FINAL", "SKIPPED"}
 WRITES = {"apply", "answer", "upload_resume", "answer_questionnaire"}
+
+FILTER_HOLD_REASONS = frozenset({
+    "posting_outside_age_limit", "posting_age_requires_review", "posting_timestamp_unknown",
+    "applicant_limit_reached", "applicant_count_unknown_skip", "applicant_count_requires_review",
+    "required_experience_outside_verified_band", "verified_experience_requirements_required",
+    "current_profile_preferences_or_required_skills_exclude_job", "minimum_match_score_required",
+    "advertised_experience_outside_platform_preferences", "advertised_salary_outside_platform_preferences",
+    "salary_comparison_requires_review", "uncertain_job_requirements_require_review",
+    "verified_profile_context_changed",
+})
+
+
+def uses_capacity(value):
+    """Filter-only observation holds are history, not active application work."""
+    if value["stage"] in TERMINAL:
+        return False
+    inert_filter_hold = (
+        value["stage"] == "NEEDS_INPUT" and value["status"] == "waiting"
+        and value.get("reason") in FILTER_HOLD_REASONS
+        and value.get("admitted_actions") == []
+        and not any(value.get(name) for name in ("packet_id", "form_pending", "lease_until"))
+    )
+    return not inert_filter_hold
+
+
+def capacity_condition():
+    """SQL equivalent of uses_capacity; malformed or unknown work stays bounded."""
+    value = OwnerPreference.value
+    return and_(value["stage"].as_string().not_in(TERMINAL), or_(
+        func.coalesce(value["stage"].as_string(), "unknown") != "NEEDS_INPUT",
+        func.coalesce(value["status"].as_string(), "unknown") != "waiting",
+        func.coalesce(value["reason"].as_string(), "unknown").not_in(FILTER_HOLD_REASONS),
+        value["packet_id"].as_string().is_not(None),
+        value["lease_until"].as_string().is_not(None),
+        value["form_pending"].as_boolean().is_(True),
+        func.coalesce(value["admitted_actions"].as_string(), "unknown") != "[]",
+    ))
 
 
 async def configuration(session):
@@ -288,8 +325,7 @@ async def enqueue(session, platform, url, source, reference=None):
     if source not in policy.platforms.get(platform, QueuePolicy().platforms["naukri"]).sources:
         raise ToolDenied("queue_source_disabled")
     pending = await session.scalar(select(func.count()).select_from(OwnerPreference).where(
-        OwnerPreference.key.startswith(PREFIX),
-        OwnerPreference.value["stage"].as_string().not_in(TERMINAL),
+        OwnerPreference.key.startswith(PREFIX), capacity_condition(),
     ))
     if pending >= policy.max_pending:
         raise ToolDenied("queue_backpressure")
@@ -368,7 +404,7 @@ async def enqueue_batch(session, urls, source):
             # Do not need a valid old slug/host to protect a matching suffix.
             excluded.update(req for req in normalized if job.job_url.rstrip("/").endswith("-" + req))
     pending = await session.scalar(select(func.count()).select_from(OwnerPreference).where(
-        OwnerPreference.key.startswith(PREFIX), OwnerPreference.value["stage"].as_string().not_in(TERMINAL),
+        OwnerPreference.key.startswith(PREFIX), capacity_condition(),
     ))
     available = max(0, policy.max_pending - pending)
     now = await instant(session)

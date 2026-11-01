@@ -255,3 +255,21 @@ async def test_busy_owner_fence_defers_recheck_without_changing_work_or_cursor(d
     assert not await rechecks.tick(db_session)
     assert (await queue.load(db_session, before["id"])).value == before
     assert (await db_session.get(OwnerPreference, rechecks.KEY, populate_existing=True)).value == marker
+
+
+async def test_reviving_filter_hold_reserves_capacity_and_does_not_skip_blocked_cursor(db_session, upload_case):
+    await setup(db_session)
+    await held(db_session)
+    await held(db_session, URL.rsplit("-", 1)[0] + "-291026987654")
+    await allow_lower_bounds(db_session)
+    current = await queue.configuration(db_session)
+    policy = QueuePolicy.model_validate(current["policy"])
+    policy.max_pending = 1
+    changed = await queue.configure(db_session, QueuePolicyUpdate(expected_revision=current["revision"], policy=policy))
+    await queue.control(db_session, QueueControl(action="start", expected_revision=changed["revision"]))
+    assert await rechecks.tick(db_session)
+    values = [row.value for row in await queue.items(db_session)]
+    assert sum(queue.uses_capacity(value) for value in values) == 1
+    assert sum(value["stage"] == "DISCOVERED" for value in values) == 1
+    marker = await db_session.get(OwnerPreference, rechecks.KEY, populate_existing=True)
+    assert marker.value["fresh_reads"] == 1 and marker.value["retry_after"]

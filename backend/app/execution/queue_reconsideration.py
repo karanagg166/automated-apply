@@ -28,15 +28,7 @@ from backend.app.services.discovery_budget import insert_for
 
 KEY = "apply_filter_recheck"
 BATCH = 10
-REASONS = frozenset({
-    "posting_outside_age_limit", "posting_age_requires_review", "posting_timestamp_unknown",
-    "applicant_limit_reached", "applicant_count_unknown_skip", "applicant_count_requires_review",
-    "required_experience_outside_verified_band", "verified_experience_requirements_required",
-    "current_profile_preferences_or_required_skills_exclude_job", "minimum_match_score_required",
-    "advertised_experience_outside_platform_preferences", "advertised_salary_outside_platform_preferences",
-    "salary_comparison_requires_review", "uncertain_job_requirements_require_review",
-    "verified_profile_context_changed",
-})
+REASONS = queue.FILTER_HOLD_REASONS
 
 
 def filters(policy):
@@ -181,7 +173,7 @@ async def tick(session):
     scope = (await session.execute(select(
         OwnerPreference, CandidateProfile.version, select(func.count()).select_from(OwnerPreference).where(
             OwnerPreference.key.startswith(queue.PREFIX),
-            OwnerPreference.value["stage"].as_string().not_in(queue.TERMINAL),
+            queue.capacity_condition(),
         ).scalar_subquery(),
     ).join(CandidateProfile, CandidateProfile.singleton_key == "primary").where(
         OwnerPreference.key.in_([queue.POLICY_KEY, KEY, "phase1_profile_confirmation", *[row.key for row in rows]]),
@@ -233,7 +225,7 @@ async def tick(session):
             state["cursor"] = snapshot_row.key
             continue
         before, value, reason = decision
-        if not reason and before["stage"] in queue.TERMINAL and pending >= policy.max_pending:
+        if not reason and not queue.uses_capacity(before) and pending >= policy.max_pending:
             state["retry_after"] = (now + timedelta(seconds=60)).isoformat()
             break
         state["cursor"] = row.key
@@ -244,7 +236,7 @@ async def tick(session):
                          binding=None, lease_token=None, lease_until=None, available_at=now.isoformat())
             value.pop("paused_context", None)
             state["fresh_reads"] += 1
-        pending += int(value["stage"] not in queue.TERMINAL) - int(before["stage"] not in queue.TERMINAL)
+        pending += int(queue.uses_capacity(value)) - int(queue.uses_capacity(before))
         value.update(revision=before["revision"] + 1, policy_revision=config["revision"], updated_at=now.isoformat(),
                      last_filter_recheck={"request_id": state["id"], "profile_version": profile_version,
                                           "policy_revision": config["revision"], "retained_facts_only": True})
