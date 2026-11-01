@@ -310,3 +310,14 @@ Current components: API **e5d0eb6**, frontend **c94f1fb**, execution/native
 **f13c956**, Telegram **a093eab**, extension **0cef522 / 1.3.16**. No new Apply,
 submission receipt, questionnaire/upload acceptance or locked-Mac submission is
 claimed. Unknown applicant-count policy remains awaiting the once-asked decision.
+
+**Genuine page-two acceptance subsequently PASS:** the read-only observer followed
+the same durable source identity into its next scheduled lease at **13:40:26**,
+actual URL `https://www.naukri.com/swe-jobs-2`. It independently observed completion
+at **13:40:45**, **18.976 s**, source idle, lease cleared, **19 new unique jobs** and
+no source error. The Mac was **UNLOCKED** during these samples. This proves actual
+paged discovery with the installed 1.3.16 scheduler; it is not a fabricated fixture
+receipt, locked-screen acceptance, or a claim that these 19 jobs are eligible.
+The observer then exited normally. The selected Profile 8 connection was separately
+CONNECTED, commands enabled, fresh heartbeat at **13:41:17**, no reported error.
+New listings proceed to the unchanged individual inspection/matching gates.
