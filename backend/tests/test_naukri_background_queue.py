@@ -265,6 +265,50 @@ async def test_owner_active_or_restart_blocks_only_one_job_and_never_queues_appl
     assert next_work["id"] == second["id"] and next_work["operation"] == "inspect_job"
 
 
+@pytest.mark.parametrize("held", [None, "packet", "form", "admitted_action", "captcha"])
+async def test_owner_platform_read_race_defers_without_replaying_writes(db_session, held):
+    from datetime import timedelta
+
+    from backend.app.automation.store import instant
+
+    context = await setup(db_session)
+    item = await queue.enqueue(db_session, "naukri", URL, "saved_verified_job")
+    work = await observe(db_session, context, item)
+    row = await queue.load(db_session, item["id"])
+    value = dict(row.value)
+    if held == "packet":
+        value["packet_id"] = str(uuid4())
+    elif held == "form":
+        value["form_pending"] = True
+    elif held == "admitted_action":
+        value["admitted_actions"] = [{"fingerprint": "apply:initial"}]
+    row.value = value
+    reason = "provider_challenge_requires_owner" if held == "captcha" else "owner_platform_active"
+    result = await call(db_session, context, "abandon_naukri_work", work,
+                        work_report={"kind": "needs_input", "reason": reason})
+    assert result.ok, result.error_code
+    saved = dict((await queue.load(db_session, item["id"])).value)
+    assert saved["operation"] == "inspect_job" and saved["lease_token"] is None
+    assert saved["admitted_actions"] == value["admitted_actions"]
+    if held:
+        assert saved["stage"] == "NEEDS_INPUT" and saved["status"] == "waiting"
+        assert (await call(db_session, context, "poll_naukri_work")).data["work"] is None
+        return
+    assert saved["stage"] == "FAILED_RETRYABLE" and saved["status"] == "queued"
+    assert datetime.fromisoformat(saved["available_at"]) > await instant(db_session) + timedelta(seconds=50)
+    assert (await call(db_session, context, "poll_naukri_work")).data["work"] is None
+    row = await queue.load(db_session, item["id"])
+    row.value = {**row.value, "available_at": ((await instant(db_session)) - timedelta(seconds=1)).isoformat()}
+    await db_session.commit()
+    # A fresh process/session claims only another observation, never Apply.
+    factory = async_sessionmaker(db_session.bind, expire_on_commit=False, autoflush=False)
+    async with factory() as restarted, restarted.begin():
+        polled = await call(restarted, context, "poll_naukri_work")
+        fresh = polled.data["work"]
+        assert fresh["id"] == item["id"] and fresh["operation"] == "inspect_job"
+        assert fresh["revision"] > work["revision"] and fresh["lease_token"] != work["lease_token"]
+
+
 async def test_platform_policy_revocation_fences_a_pending_native_observation(db_session):
     from backend.app.local_agent.contracts import PolicyUpdate
     from backend.app.local_agent.policies import get_policy, update_policy

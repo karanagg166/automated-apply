@@ -349,7 +349,19 @@ async def dispatch(session, settings, actor, command):
                         value["last_error"] = report.reason or "source_observation_unavailable"
                     value.update(status="idle", last_finished_at=(await instant(session)).isoformat())
                 elif report.kind in {"needs_input", "failed"}:
-                    value.update(stage="NEEDS_INPUT", status="waiting", reason=report.reason or "unsupported_provider_layout")
+                    if (report.reason == "owner_platform_active" and value["operation"] == "inspect_job"
+                            and not value.get("admitted_actions") and not value.get("packet_id")
+                            and not value.get("form_pending")):
+                        # Owner activity can begin after poll but before DOM
+                        # observation. Yield now; a new inactive tab may only
+                        # inspect again after the existing activity gate clears.
+                        # Never turn a form, packet or uncertain write into a
+                        # retry, or require an owner answer for this read race.
+                        now = await instant(session)
+                        value.update(stage="FAILED_RETRYABLE", status="queued", reason=report.reason,
+                                     available_at=(now + timedelta(seconds=60)).isoformat())
+                    else:
+                        value.update(stage="NEEDS_INPUT", status="waiting", reason=report.reason or "unsupported_provider_layout")
                 else:
                     await receive_job(session, value, report)
                 value.update(lease_token=None, lease_until=None, updated_at=(await instant(session)).isoformat(), revision=value["revision"] + 1)
