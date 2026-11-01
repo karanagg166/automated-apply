@@ -139,10 +139,35 @@ reservations, current owner count-review rule and all write guards are unchanged
 | Repeated installed discovery | PASS, bounded | Genuine f1f cycle18:31:40–18:31:58UTC navigated page2,0new identities, no error. Genuine76ba3 cycle18:39:08–18:39:26UTC completed with2new durable identities, no error. Both samples unlocked. These are actual browser results, not heartbeat inferences. New identities are discovery work, not eligible applications or submissions. |
 | First new submission / recurring AUTO | BLOCKED / NOT TESTED | Still zero verified new receipts. The existing owner count question remains pending; no filter exception, unsupported personal fact or Apply receipt was invented. |
 
-Current installed scope is API/execution/Telegram76ba3, frontendcd342, native9cf6,
+At the capacity milestone, installed scope was API/execution/Telegram76ba3, frontendcd342, native9cf6,
 extensionee7/1.3.17. The many distinct SHA entries in this report are an exact
 installation timeline, not a claim that the newest source/documentation commit is
 installed everywhere. The application and expanded project remain OPEN.
+
+## Durable dashboard acknowledgements and latest installed state
+
+[2cea68b6aff3e79231259948f1e4c57e79d9c5d1](https://github.com/karanagg166/automated-apply/commit/2cea68b6aff3e79231259948f1e4c57e79d9c5d1)
+makes the queue policy and Stop/Start mutation dependencies function-scoped, as
+native admission already was. Their database commit must finish before HTTP
+success starts. A failed commit now returns the storage error rather than sending
+success and then failing during response cleanup. No contract/schema changed.
+
+| Final boundary / runtime check | Result | Evidence / limit |
+| --- | --- | --- |
+| Reproduced acknowledgement defect | FAIL before fix |4/4new isolated tests failed: response started before commit; failed commit raised `Caught handled exception, but response already started`. No live commit failure was injected. |
+| Boundary correction | PASS |5/5source0.59s; exact2cea candidate5/5,0.67s, including existing authenticated owner/extension-policy-denial API regression. One initial command named a nonexistent test and ran0tests; corrected invocation and exact candidate are the counts reported here. |
+| API-only installation | PASS |18:45:06UTC exact2cea API installed under STOP72,539records,ready200/frontend200/profile5/binding1/policy/protected worker/Telegram/frontend/native/extension preserved. PriorAPI76ba3 and exact rollback inventory retained. STOP72 took12.844s under the earlier acknowledgement behavior; latency remains variable. |
+| Actual committed controls | PASS, bounded |RUN73,STOP74,RUN75. Actual STOP6.156s;185unattempted holds unchanged,539identities retained,0admitted actions, sameSUP1/hour1 policy. Final Start2.256s. Independent database readback verified state/history. |
+| Actual response timing | PASS, bounded |Start/Stop/Start commits0.150/0.152/0.147s; response-start4.018/6.150/2.250s; only0.002/0.002/0.001s remained after headers. Installed code and before-response tests establish transaction ordering; these samples are not simulated database failures or proof of instant controls. |
+| Further genuine discovery | PASS, bounded |18:46:09–18:46:28UTC real search finished without error and added1new identity. Snapshot18:46:32UTC:540total,347skipped/185held/7discovery-pending/1historical;0admitted actions and0newverifiedreceipts. RUN75, Telegram live poll18:46:15UTC/noerror. |
+| Recurring actual saved-resume verification | PASS, bounded |Actual18:38:53UTC comparison again matched100,198savedPDFbytes. Previous18:08:43UTC check establishes a real approximately30-minute repetition. Same name/summary matches, national-phone/education/employment detail limitations, skills/projects/location gaps; no Save inferred. |
+
+**Latest installed components:** API2cea68b; execution/Telegram76ba3b7;
+frontendcd342bf; native9cf6cb6; extensionee7d045/1.3.17. QueueRUN75 retains the
+owner's14-day/1,000/score50/review rule and first-applicationSUP1/hour1. All earlier
+releases, rollback files, candidate facts, approved account binding and history
+remain preserved. No new submission, locked-screen form acceptance, provider
+profile completion, recurring AUTO or project completion is claimed.
 
 ## Reproduction and remaining work
 
