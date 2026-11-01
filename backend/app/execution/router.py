@@ -103,7 +103,7 @@ async def application_queue_status(
 
 @router.put("/queue/policy")
 async def application_queue_policy(
-    data: QueuePolicyUpdate, request: Request, session: AsyncSession = Depends(get_db_session),
+    data: QueuePolicyUpdate, request: Request, session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
     owner_ui(request)
     from backend.app.execution.application_queue import configure
@@ -116,7 +116,7 @@ async def application_queue_policy(
 
 @router.post("/queue/control")
 async def application_queue_control(
-    data: QueueControl, request: Request, session: AsyncSession = Depends(get_db_session),
+    data: QueueControl, request: Request, session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
     owner_ui(request)
     from backend.app.execution.application_queue import control
