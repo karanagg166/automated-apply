@@ -242,3 +242,13 @@ provider observation. The new race-handling branch is **fixture-verified and
 installed; a repeated live occurrence followed by successful resumption is NOT YET
 VERIFIED**. First new submission/receipt, recurring AUTOMATIC and locked submission
 acceptance remain OPEN. The unknown applicant-count decision is still pending.
+
+At **13:18:11**, an independent authenticated queue read verified that the
+recovered job had completed fresh native inspection at **13:16:23** and reached
+**NEEDS_INPUT / `applicant_count_requires_review`**, with no remaining lease. Thus
+the journaled delayed read actually resumed and reached the current listing filter;
+it was not left stuck on owner activity. Naukri's lower-bound-only applicant count
+still does not prove compliance with 1,000. This is **PASS for this recovered
+read's resumption**, not a new Apply, receipt, repeated occurrence of the newly
+fixed race, or full unattended-application acceptance. Queue remained **RUNNING
+45**. The pending applicant-count question was not repeated or answered by timeout.
