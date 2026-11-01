@@ -16,7 +16,7 @@ export type QueueLimits = {
   daily_cap: number;
   max_job_age_days: number;
   applicant_limit: number | null;
-  unknown_applicants: "needs_review" | "skip" | "allow";
+  unknown_applicants: "needs_review" | "skip" | "allow_lower_bound" | "allow";
   minimum_match_score: number;
 };
 type Preferences = {
@@ -483,7 +483,10 @@ export function QueuePolicyForm({
               }
             />
           </Field>
-          <Field label="When applicant count is unknown">
+          <Field
+            label="When applicant count is unknown"
+            hint="A label such as 100+ can exceed your threshold. Allowing lower-bound labels explicitly accepts that uncertainty; completely missing counts still require review with that option."
+          >
             <Select
               value={policy.global_limits.unknown_applicants}
               onChange={(e) =>
@@ -495,6 +498,10 @@ export function QueuePolicyForm({
             >
               <option value="needs_review">Request review</option>
               <option value="skip">Skip</option>
+              <option value="allow_lower_bound">
+                Allow lower-bound labels below the threshold; review missing
+                counts
+              </option>
               <option value="allow">
                 Allow if other eligibility checks pass
               </option>
@@ -685,7 +692,10 @@ export function QueuePolicyForm({
                   }
                 />
               </Field>
-              <Field label="Naukri unknown applicant count">
+              <Field
+                label="Naukri unknown applicant count"
+                hint="Lower-bound labels can exceed your threshold. That option accepts the risk while keeping completely missing counts for review."
+              >
                 <Select
                   value={naukri.limits.unknown_applicants}
                   onChange={(e) =>
@@ -697,6 +707,10 @@ export function QueuePolicyForm({
                 >
                   <option value="needs_review">Request review</option>
                   <option value="skip">Skip</option>
+                  <option value="allow_lower_bound">
+                    Allow lower-bound labels below the threshold; review missing
+                    counts
+                  </option>
                   <option value="allow">Allow if other checks pass</option>
                 </Select>
               </Field>

@@ -303,6 +303,24 @@ it("retains dirty edits and prevents overwriting a newer server policy", async (
   expect(screen.getByText(/Settings changed in another session/)).toBeVisible();
 });
 
+it("saves an explicitly selected lower-bound exception without allowing all missing counts", async () => {
+  render(<QueuePolicyForm configuration={configuration} saved={saved} />);
+  const select = screen.getByLabelText("When applicant count is unknown");
+  expect(select).toHaveValue("needs_review");
+  const user = userEvent.setup();
+  await user.selectOptions(select, "allow_lower_bound");
+  await user.click(screen.getByRole("button", { name: "Save queue policy" }));
+  await waitFor(() => expect(api).toHaveBeenCalled());
+  const [, options] = vi.mocked(api).mock.calls[0];
+  const payload = JSON.parse(String(options?.body));
+  expect(payload.expected_revision).toBe(configuration.revision);
+  expect(payload.policy.global_limits).toEqual({
+    ...configuration.policy.global_limits,
+    unknown_applicants: "allow_lower_bound",
+  });
+  expect(payload.policy.platforms).toEqual(configuration.policy.platforms);
+});
+
 it("issues revision-fenced pause and stop through only the intended gateway routes", async () => {
   render(<QueuePolicyForm configuration={configuration} saved={saved} />);
   await userEvent.click(screen.getByRole("button", { name: "PAUSE QUEUE" }));

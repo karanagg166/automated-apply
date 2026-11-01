@@ -7905,7 +7905,8 @@ export interface components {
        * @default needs_review
        * @enum {string}
        */
-      unknown_applicants: "needs_review" | "skip" | "allow";
+      unknown_applicants:
+        "needs_review" | "skip" | "allow_lower_bound" | "allow";
       /**
        * Minimum Match Score
        * @default 80

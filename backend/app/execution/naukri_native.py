@@ -143,6 +143,12 @@ async def receive_job(session, value, report):
     if reason:
         skipped = reason in {"posting_outside_age_limit", "applicant_limit_reached", "applicant_count_unknown_skip"}
         value.update(stage="SKIPPED" if skipped else "NEEDS_INPUT", status="complete" if skipped else "waiting", reason=reason)
+        if reason == "applicant_count_requires_review":
+            from backend.app.execution.queue_reconsideration import (
+                notify_applicant_review,
+            )
+
+            await notify_applicant_review(session, policy)
         return
     from backend.app.models.job import Job
     from backend.app.schemas.normalized_job import NormalizedJob

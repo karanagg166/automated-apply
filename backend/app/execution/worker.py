@@ -308,6 +308,12 @@ class ExecutionWorker:
 
         async with self.factory() as session, session.begin():
             await index_retained_receipts(session)
+        from backend.app.execution.queue_reconsideration import (
+            tick as reconsider_filters,
+        )
+
+        async with self.factory() as session, session.begin():
+            await reconsider_filters(session)
         from backend.app.core.config import get_settings
         from backend.app.execution.queue_preparation import (
             prepare_one,

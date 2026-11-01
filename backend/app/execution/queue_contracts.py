@@ -23,7 +23,7 @@ class QueueLimits(Contract):
     max_job_age_days: int = Field(2, ge=1, le=30)
     # At/above this threshold is excluded, including the owner's 10,000 example.
     applicant_limit: int | None = Field(10_000, ge=1, le=10_000_000)
-    unknown_applicants: Literal["needs_review", "skip", "allow"] = "needs_review"
+    unknown_applicants: Literal["needs_review", "skip", "allow_lower_bound", "allow"] = "needs_review"
     minimum_match_score: int = Field(80, ge=50, le=100)
 
 

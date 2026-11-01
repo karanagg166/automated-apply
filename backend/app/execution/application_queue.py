@@ -118,11 +118,21 @@ async def configure(session, data):
     current = await configuration(session)
     if current["revision"] != data.expected_revision:
         raise ToolDenied("queue_policy_revision_conflict")
+    from backend.app.execution.queue_reconsideration import (
+        filters,
+        request,
+        resolve_applicant_review,
+    )
+
+    filters_changed = filters(QueuePolicy.model_validate(current["policy"])) != filters(data.policy)
     await fence(session, "queue_policy_changed")
     value = {**current, "revision": current["revision"] + 1,
              "state": "PAUSED" if current["state"] == "RUNNING" else current["state"],
              "policy": data.policy.model_dump(mode="json")}
     await put(session, POLICY_KEY, value)
+    await resolve_applicant_review(session, QueuePolicy.model_validate(current["policy"]), data.policy)
+    if filters_changed:
+        await request(session, "owner_policy_filters_changed")
     return value
 
 
@@ -224,6 +234,10 @@ def listing_exclusion(facts, effective, now):
         return "applicant_limit_reached"
     if type(upper) is int and 0 <= upper < threshold:
         return None
+    if effective["unknown_applicants"] == "allow_lower_bound":
+        # Explicit owner acceptance of labels such as 100+. No upper bound is
+        # invented; completely missing and threshold-crossing ranges still hold.
+        return None if type(lower) is int and upper is None else "applicant_count_requires_review"
     return {"skip": "applicant_count_unknown_skip", "needs_review": "applicant_count_requires_review", "allow": None}[effective["unknown_applicants"]]
 
 
@@ -449,15 +463,26 @@ async def eligible_context(session, value, policy, job):
     profile, confirmed, _ = await context(session)
     if not confirmed or (value.get("profile_version") is not None and profile.version != value["profile_version"]):
         raise ToolDenied("verified_profile_context_changed")
-    from backend.app.execution.naukri import reviewed_job_context
     from backend.app.models.company import Company
+
+    company = await session.get(Company, job.company_id) if job.company_id else None
+    check_eligibility(value, policy, job, company, profile, await instant(session))
+    return profile
+
+
+def check_eligibility(value, policy, job, company, profile, now):
+    """Same eligibility decisions for fresh preparation and retained-fact review.
+
+    Retained facts may reject or schedule a fresh read; they never authorize a
+    browser action or turn a stale observation into an application grant.
+    """
+    from backend.app.execution.naukri import reviewed_job_context
     from backend.app.schemas.candidate_profile import CandidateProfileRead
     from backend.app.services.applications.platforms.naukri import posting_unavailable
     from backend.app.services.job_discovery_matcher import JobDiscoveryMatcher
 
     if posting_unavailable(job):
         raise ToolDenied("vacancy_closed_expired_or_invalid")
-    company = await session.get(Company, job.company_id) if job.company_id else None
     job_view, company = reviewed_job_context(job, company)
     candidate = CandidateProfileRead.model_validate(profile)
     custom = policy.platforms[value["platform"]]
@@ -487,9 +512,9 @@ async def eligible_context(session, value, policy, job):
         raise ToolDenied("verified_experience_requirements_required")
     if not lower <= years <= upper:
         raise ToolDenied("required_experience_outside_verified_band")
-    match = JobDiscoveryMatcher(session).match(job_view, candidate, company)
+    match = JobDiscoveryMatcher(None).match(job_view, candidate, company)
     effective = limits(policy, value["platform"])
-    reason = listing_exclusion(value["facts"], effective, await instant(session))
+    reason = listing_exclusion(value["facts"], effective, now)
     if reason:
         raise ToolDenied(reason)
     value["match_score"] = match.match_score
