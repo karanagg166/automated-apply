@@ -6,9 +6,9 @@ implementation branch `fix/live-prepare-discovery-20261030`.
 
 ## Exact implementation and installed components
 
-- [cd342bf4698c0d182a2f2cbc445760fa5ee693a7](https://github.com/karanagg166/automated-apply/commit/cd342bf4698c0d182a2f2cbc445760fa5ee693a7): explicit lower-bound applicant option, persistent dashboard policy question and bounded reconsideration of unattempted records after filter/new confirmed-profile changes. Installed API, frontend and Telegram remain this SHA.
+- [cd342bf4698c0d182a2f2cbc445760fa5ee693a7](https://github.com/karanagg166/automated-apply/commit/cd342bf4698c0d182a2f2cbc445760fa5ee693a7): explicit lower-bound applicant option, persistent dashboard policy question and bounded reconsideration of unattempted records after filter/new confirmed-profile changes. Frontend remains this SHA; API and Telegram were subsequently updated as recorded below.
 - [9cf6cb6f3bda0973daca2a62d0b4ae63ef1fd401](https://github.com/karanagg166/automated-apply/commit/9cf6cb6f3bda0973daca2a62d0b4ae63ef1fd401): move retained-fact analysis outside the owner lock; revalidate authority, work revisions and receipt/uncertain-packet fences inside it. Native transport retries queue commands only after an explicit `X-Automated-Apply-Transaction: rolled-back` response. Installed native wrapper points to this exact immutable release.
-- [713a8f31e25d3a03dc2a60d2cb80da585e3b490d](https://github.com/karanagg166/automated-apply/commit/713a8f31e25d3a03dc2a60d2cb80da585e3b490d): lower-priority rechecks use `FOR UPDATE SKIP LOCKED` and defer when owner work is busy. Other lock callers retain blocking behavior and transaction/savepoint cache rules. Installed execution worker is this SHA.
+- [713a8f31e25d3a03dc2a60d2cb80da585e3b490d](https://github.com/karanagg166/automated-apply/commit/713a8f31e25d3a03dc2a60d2cb80da585e3b490d): lower-priority rechecks use `FOR UPDATE SKIP LOCKED` and defer when owner work is busy. Other lock callers retain blocking behavior and transaction/savepoint cache rules. Execution was subsequently updated as recorded below.
 - Extension remains 1.3.17 / `ee7d045d3460994de1cb0831b937a7dd411e0b39`, all 23 files unchanged, stable ID unchanged. No Chrome reload, tab/window activation, keyboard or clipboard operation was used for these installations or frontend checks.
 
 Previous exact releases, four-service and worker/native rollback inventories,
@@ -83,6 +83,36 @@ a new server-side first-receipt gate. That remains critical before AUTO activati
   when SKIP LOCKED returned no row. Corrected run explicitly records acquisition
   false; the earlier private artifact is retained and not used as lock-duration
   proof.
+
+## Subsequent Stop/native query improvements and actual acceptance
+
+- [009b0051fcc8781847e5c17128b8b9bd8239ea95](https://github.com/karanagg166/automated-apply/commit/009b0051fcc8781847e5c17128b8b9bd8239ea95): Stop/Pause preserve unattempted input holds without rewriting their descriptions/outbox. The global state/revision still revokes all claims. Packet/form/action/lease-bearing and malformed records remain explicitly fenced. Start loads paused records only. API and Telegram installed this SHA at18:19:27UTC; Telegram remains009b.
+- [f1f157c6ec8760f20c3e4e3e58994dd9d716ad1c](https://github.com/karanagg166/automated-apply/commit/f1f157c6ec8760f20c3e4e3e58994dd9d716ad1c): native busy checks read lease timestamps, claims read queued/leased/executing work, reconciliation reads unknown outcomes. Waiting descriptions are no longer loaded repeatedly. Every leased/executing operation remains included for expiry/uncertain-write recovery. **Current API and execution are f1f157c**, installed18:25:19UTC. Frontendcd342, native9cf6, Telegram009b and extensionee7/1.3.17 remain unchanged.
+
+| Subsequent check | Result | Exact evidence / limit |
+| --- | --- | --- |
+| Stop history tests | PASS |52/52 source,5.85s across control-history, queue and reconsideration. Fictional facts. |
+| Final native/queue regressions | PASS | Exact f1f candidate93/93,13.48s across control-history, queue, native background and direct-submission files. Includes expired Apply and uncertain receipt recovery, native full-flow fixtures and a30-held-record test proving poll does not load held ORM descriptions. No live employer submission from these tests. |
+| Query payload, online PostgreSQL | PASS | Old active-control set210rows/773,774JSONbytes versus26actual authority candidates/23,581bytes. Read-only aggregate query timings0.486s/0.316s. No records modified by measurement. |
+| Actual Stop/Start | PASS, bounded |18:20:22UTC STOP66 in5.188s, all184unattempted holds byte-for-value unchanged,537identities retained,0Apply actions; RUN67 in2.255s, sameSUP1/hour1 policy. The preceding pre-update STOP64 was10.606s. |
+| Variable control latency | FAIL / unresolved | A later STOP68 still took11.672s under native/database load before the f1f replacement. The5.188s sample does not establish stable instant controls or removal of all contention. |
+| Final installation | PASS | STOP68 with537records; API200/frontend200/freshworker/profile5/binding1/full policy equality/protected files passed. RUN69 unchangedSUP1/hour1, framed native health8.843s. All rollback inventories and prior runtimes retained. |
+| Natural native poll observations | PASS, bounded | API009b:6polls200, median7.434s/range2.177–16.242s; APIf1f: first4polls200, median2.245s/range2.020–6.504s. These are variable workloads: old read counts8,8,31,34,34,34 versus new8,8,8,31. They are not a controlled like-for-like speedup; round-trip count remains material. |
+| Recheck completion | PASS, bounded | Actual marker completed18:13:32UTC:470retained records reconsidered,3fresh reads scheduled, no identity duplication or Apply. This is not470live portal visits. |
+| Eligibility after further discovery | BLOCKED |18:24:47UTC diagnostic:487retained genuine listing fact records/537identities,0fully eligible. Pending discovery records were not counted as inspected. Unknown-count review policy remains unchanged; no applicant exception silently selected. |
+
+During native regression development, an omitted SQL import caused38failures and
+one missing fixture caused a setup error. After the import/fixture correction,
+92passed and the new case failed because its helper used a deliberately disabled
+source. Correcting the fixture to the enabled saved-job source passed that case;
+the independent final exact candidate passed all93. No failing development build
+was installed. Earlier exact release acceptance remains distinct from these
+fixture results.
+
+The first direct lock measurement of a successful maintenance batch is still not
+established: corrected subsequent samples either deferred on a busy fence or found
+the request already complete. Do not report a successful batch lock duration from
+those samples. The owner-fence and query-count limitations above remain open.
 
 ## Reproduction and remaining work
 
