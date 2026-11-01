@@ -77,6 +77,15 @@ type Status = {
 };
 
 export function Naukri() {
+  return (
+    <section className="stack" aria-label="Naukri workspace">
+      <ApplicationQueue />
+      <NaukriPreparation />
+    </section>
+  );
+}
+
+function NaukriPreparation() {
   const client = useQueryClient();
   const [url, setUrl] = useState(""),
     [title, setTitle] = useState(""),
@@ -181,7 +190,6 @@ export function Naukri() {
         </p>
         {error ? <ErrorState error={error} /> : null}
       </div>
-      <ApplicationQueue />
       {status.data.automation && (
         <NaukriAutomation
           data={status.data.automation}
