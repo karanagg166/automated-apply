@@ -148,7 +148,7 @@ try {
     if (mode === "modern_profile_summary" && u.pathname === "/mnjuser/profile")
       body = `<section class="profile-details">${email}<a href="/download-fictional-resume.pdf">Download Resume</a></section><div class="award-details section profileSummary"><div class="heading-container ${savedSummary ? "" : "cursor"}"><div class="text-container"><h1 class="section-heading">Profile Summary ${savedSummary ? '<span class="new-pencil" style="display:inline-block;width:14px;height:14px" aria-label="Edit profile summary"></span>' : ""}</h1>${savedSummary ? "" : '<h2 class="section-sub-heading">Write a meaningful summary of more than 50 characters.</h2>'}</div>${savedSummary ? "" : '<div class="add-more">Add</div>'}</div>${savedSummary ? `<div class="card-container"><div class="card-details"><p class="card-sub-heading">${savedSummary}</p></div></div>` : ""}</div><script>document.querySelector('.profileSummary .new-pencil,.profileSummary .add-more').onclick=()=>{setTimeout(()=>{const editor=document.createElement('div');editor.setAttribute('role','dialog');editor.innerHTML='<h1>Profile summary</h1><form name="skillDetailsForm"><textarea id="summary" name="summary" minlength="50" maxlength="1000"></textarea><button id="submit-btn" type="button" disabled>Save</button></form>';document.body.append(editor);editor.querySelector('textarea').oninput=()=>queueMicrotask(()=>editor.querySelector('button').disabled=false);editor.querySelector('button').onclick=()=>fetch('/fixture-save-summary',{method:'POST',body:editor.querySelector('textarea').value});},75);};</script>`;
     if (mode === "professional_profile" && u.pathname === "/mnjuser/profile")
-      body = `<div class="detail-list"><div class="with-cta"><em name="Email">mailOneTheme</em><span class="txt" name="Email">alex@example.com</span></div></div><input type="email" value="different-contact@example.org"><div id="lazyAttachCV" class="card"><div class="attachCV"><div role="heading" aria-label="Resume">Resume</div><div class="cvPreview"><span role="button" aria-label="Download resume" data-title="download-resume">downloadOneTheme</span><span role="button" aria-label="Delete resume">deleteOneTheme</span></div></div></div><div class="card"><div class="widgetHead"><span class="widgetTitle">Profile summary</span><span role="button" aria-label="Edit profile summary">editOneTheme</span></div><div class="widgetCont"><div class="prefill">${savedSummary.slice(0, 12)}...<a class="morelink" aria-label="Read more of profile summary">Read More</a></div></div></div><script>window.professionalDownloadClicks=0;document.querySelector('[aria-label="Download resume"]').onclick=()=>{window.professionalDownloadClicks++;fetch('/download-fictional-resume.pdf').then(r=>r.blob()).then(blob=>{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.target='_blank';a.download='fictional.pdf';a.href=url;a.click();setTimeout(()=>URL.revokeObjectURL(url),100);});};document.querySelector('[aria-label="Read more of profile summary"]').onclick=e=>{e.target.closest('.prefill').textContent=${JSON.stringify(savedSummary)}};</script>`;
+      body = `<div class="detail-list"><div class="with-cta"><em name="Email">mailOneTheme</em><span class="txt" name="Email">alex@example.com</span></div></div><input type="email" value="different-contact@example.org"><div class="dashboard-component"><div class="hdn"><span class="fullname">Alex Example</span></div><div class="detail-list"><span class="txt" name="Mobile">+91 (123) 456-7890</span><span class="txt" name="Location">Pune, India</span></div></div><div class="card"><div class="widgetHead"><span class="widgetTitle">Key skills</span></div><div class="widgetCont"><div class="prefill"><span class="chip">Python</span><span class="chip">SQL</span></div></div></div><div class="card"><div class="widgetHead"><span class="widgetTitle">Employment</span></div><div class="widgetCont"><div class="emp-list">Fictional role</div></div></div><div class="card"><div class="widgetHead"><span class="widgetTitle">Education</span></div><div class="widgetCont"><div class="edu-list">Fictional education</div></div></div><div class="card"><div class="widgetHead"><span class="widgetTitle">Projects</span></div><div class="widgetCont"><span class="empty">Add projects</span></div></div><div id="lazyAttachCV" class="card"><div class="attachCV"><div role="heading" aria-label="Resume">Resume</div><div class="cvPreview"><span role="button" aria-label="Download resume" data-title="download-resume">downloadOneTheme</span><span role="button" aria-label="Delete resume">deleteOneTheme</span></div></div></div><div class="card"><div class="widgetHead"><span class="widgetTitle">Profile summary</span><span role="button" aria-label="Edit profile summary">editOneTheme</span></div><div class="widgetCont"><div class="prefill">${savedSummary.slice(0, 12)}...<a class="morelink" aria-label="Read more of profile summary">Read More</a></div></div></div><script>window.professionalDownloadClicks=0;document.querySelector('[aria-label="Download resume"]').onclick=()=>{window.professionalDownloadClicks++;fetch('/download-fictional-resume.pdf').then(r=>r.blob()).then(blob=>{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.target='_blank';a.download='fictional.pdf';a.href=url;a.click();setTimeout(()=>URL.revokeObjectURL(url),100);});};document.querySelector('[aria-label="Read more of profile summary"]').onclick=e=>{e.target.closest('.prefill').textContent=${JSON.stringify(savedSummary)}};</script>`;
     if (
       ["modern_download", "bad_download", "dispatch_download"].includes(mode) &&
       u.pathname === "/mnjuser/profile"
@@ -658,6 +658,48 @@ try {
   assert.equal(professional.execution.account_sha256, accountHash);
   record(
     "professional_profile_account_and_expanded_summary_use_actual_widgets",
+  );
+  assert.deepEqual(professional.execution.profile_fields.skills, [
+    "Python",
+    "SQL",
+  ]);
+  assert.equal(professional.execution.profile_fields.full_name, "Alex Example");
+  assert.equal(
+    professional.execution.profile_fields.phone,
+    "+91 (123) 456-7890",
+  );
+  assert.equal(professional.execution.profile_fields.location, "Pune, India");
+  assert.deepEqual(professional.execution.profile_fields.projects, []);
+  assert.deepEqual(professional.execution.profile_fields.experience, {
+    presence_only: true,
+  });
+  assert.deepEqual(professional.execution.profile_fields.education, {
+    presence_only: true,
+  });
+  record(
+    "observed_profile_widgets_expose_skills_and_explicit_empty_projects_without_inventing_career_details",
+  );
+  await worker.evaluate(
+    async (id) =>
+      chrome.scripting.executeScript({
+        target: { tabId: id },
+        func: () => {
+          document.querySelector('[name="Mobile"]').textContent =
+            "+91 12*****890";
+          const original = [...document.querySelectorAll(".widgetTitle")]
+            .find((e) => e.textContent === "Key skills")
+            .closest(".card");
+          document.body.append(original.cloneNode(true));
+        },
+      }),
+    tabId,
+  );
+  const ambiguousFields = await run(tabId, work("inspect_profile_sync"));
+  assert.equal(ambiguousFields.execution.profile_fields.phone, undefined);
+  assert.equal(ambiguousFields.execution.profile_fields.skills, undefined);
+  assert.equal(ambiguousFields.execution.profile_fields.preferences, undefined);
+  record(
+    "duplicate_skill_widgets_masked_phone_and_unrecognized_preferences_remain_unknown",
   );
   assert.equal(
     (await run(tabId, work("inspect_profile"))).reason,

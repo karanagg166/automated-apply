@@ -314,10 +314,69 @@ export async function executeNaukri(work) {
       if (summary !== undefined) fields.summary = summary;
       const names = [
         ...document.querySelectorAll(
-          '[class*="profile-details"] [class*="fullname"]',
+          '[class*="profile-details"] [class*="fullname"],.dashboard-component .hdn > .fullname',
         ),
       ].filter(visible);
       if (names.length === 1) fields.full_name = clean(names[0]);
+      if (work.operation === "inspect_profile_sync") {
+        const detail = (name) => {
+          const values = [
+            ...document.querySelectorAll(
+              `.dashboard-component .detail-list span.txt[name="${name}"]`,
+            ),
+          ].filter(visible);
+          return values.length === 1 ? clean(values[0]) : undefined;
+        };
+        const phone = detail("Mobile");
+        // A masked phone is unknown, not a conflicting personal fact.
+        if (phone && /^\+?[\d\s()-]{7,24}$/.test(phone)) fields.phone = phone;
+        const location = detail("Location");
+        if (location) fields.location = location;
+        const widget = (label) => {
+          const titles = [
+            ...document.querySelectorAll(".widgetHead > .widgetTitle"),
+          ].filter((e) => visible(e) && clean(e)?.toLowerCase() === label);
+          return titles.length === 1 ? titles[0].closest(".card") : null;
+        };
+        const skillsWidget = widget("key skills");
+        if (skillsWidget) {
+          const chips = [
+            ...skillsWidget.querySelectorAll(
+              ".widgetCont > .prefill > span.chip",
+            ),
+          ]
+            .filter(visible)
+            .map(clean);
+          if (
+            chips.length &&
+            chips.length <= 100 &&
+            chips.every((v) => v && v.length <= 200)
+          )
+            fields.skills = [...new Set(chips)];
+          else if (
+            !chips.length &&
+            [...skillsWidget.querySelectorAll(".widgetCont > .empty")].filter(
+              visible,
+            ).length === 1
+          )
+            fields.skills = [];
+        }
+        for (const [field, title, row] of [
+          ["experience", "employment", ".widgetCont .emp-list"],
+          ["education", "education", ".widgetCont .edu-list"],
+          ["projects", "projects", null],
+        ]) {
+          const card = widget(title);
+          if (!card) continue;
+          if (row && [...card.querySelectorAll(row)].some(visible))
+            fields[field] = { presence_only: true };
+          else if (
+            [...card.querySelectorAll(".widgetCont > .empty")].filter(visible)
+              .length === 1
+          )
+            fields[field] = [];
+        }
+      }
       const extra = { profile_fields: fields };
       if (
         work.operation === "inspect_profile_sync" &&

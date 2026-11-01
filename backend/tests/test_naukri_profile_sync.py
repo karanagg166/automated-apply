@@ -36,6 +36,21 @@ def test_unsupported_fields_and_salary_preferences_cannot_be_written():
     assert skills["state"] == "UNSUPPORTED" and not skills["may_update"]
 
 
+def test_profile_comparison_does_not_equate_presence_with_verified_career_details():
+    desired = {"skills": ["Python", "SQL"], "phone": "+91 (123) 456-7890",
+               "experience": [{"company": "Fictional Labs", "role": "Developer"}],
+               "education": [{"institution": "Fictional University"}], "projects": [{"name": "Fictional Project"}]}
+    observed = {"skills": ["sql", "PYTHON", "Python"], "phone": "+911234567890",
+                "experience": {"presence_only": True}, "education": {"presence_only": True}, "projects": []}
+    decisions = {d["field"]: d for d in sync.compare(desired, observed)}
+    assert decisions["skills"]["state"] == decisions["phone"]["state"] == "MATCHED"
+    assert decisions["experience"]["state"] == decisions["education"]["state"] == "PRESENT_DETAILS_UNVERIFIED"
+    assert decisions["projects"]["state"] == "MISSING_FROM_PLATFORM"
+    assert not any(d["may_update"] for d in decisions.values())
+    observed["skills"] = ["Python", "SQL", "Rust"]
+    assert next(d for d in sync.compare(desired, observed) if d["field"] == "skills")["state"] == "CONFLICT"
+
+
 async def test_unconfirmed_or_changed_profile_cannot_enable_sync(db_session, phase2_profile):
     with pytest.raises(ToolDenied, match="current_confirmed_profile_version_required"):
         await sync.configure(db_session, sync.SyncPolicyUpdate(expected_revision=0,

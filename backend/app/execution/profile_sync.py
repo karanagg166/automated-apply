@@ -48,12 +48,24 @@ def reference(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
 
 
+def comparison_value(field, value):
+    if field == "skills" and isinstance(value, list) and all(isinstance(item, str) for item in value):
+        return sorted({" ".join(item.split()).casefold() for item in value})
+    if field == "phone" and isinstance(value, str):
+        return "".join(c for c in value if c.isdecimal())
+    return value
+
+
 def compare(canonical, observed, approved_fields=()):
     result = []
     for name in FIELDS:
-        desired, actual = reference(canonical.get(name)), reference(observed.get(name))
+        expected = comparison_value(name, canonical.get(name))
+        reported = comparison_value(name, observed.get(name))
+        desired, actual = reference(expected), reference(reported)
         if name not in observed:
             state = "UNSUPPORTED"
+        elif name in {"education", "experience", "projects"} and reported == {"presence_only": True}:
+            state = "PRESENT_DETAILS_UNVERIFIED" if desired else "MISSING_FROM_DATABASE"
         elif not desired and not actual and name in {"full_name", "phone", "summary", "skills", "experience", "education"}:
             state = "MISSING_INFORMATION"
         elif not desired and actual:
