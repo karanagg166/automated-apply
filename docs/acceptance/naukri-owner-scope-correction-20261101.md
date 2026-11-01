@@ -370,3 +370,52 @@ and data-preservation evidence; it is not a locked-Mac or in-flight application
 restart acceptance claim. The applicant upper-bound decision remains unanswered;
 no unknown count was converted into a verified number. First new application,
 independent receipt and recurring AUTOMATIC remain unaccepted.
+
+## Final eligibility audit and naturally locked discovery
+
+At **14:28:17**, the live API independently returned RUNNING **49**, age **14**,
+applicant threshold **1,000**, minimum score **50**, unknown applicants
+`needs_review`, SUPERVISED allowance/hourly cap **one**, profile **v5 / 75 skills**,
+empty company-stage restrictions and startup preference false. API, execution and
+Telegram services were loaded. No other platform was enabled.
+
+At **14:36:48**, a diagnostic against **445 retained genuine listing observations**
+and **471 durable queue records** found **zero eligible by the available facts**.
+This applies current matching rules to saved observations; it does not represent
+445 fresh provider visits. Four retained matches score **95**, with no missing
+required skills or negative matching factors, but show applicant lower bound
+**100** and no upper bound. Their applicant review holds remain; other current
+facts still require fresh validation before any application. The once-asked
+unknown-count decision remains unanswered. No company-stage restriction remains
+and no verified experience, count or skill fact was invented to admit a job.
+
+The Mac naturally entered a locked state. Samples at **14:34:27**, **14:35:12**,
+**14:35:38**, **14:35:58** and **14:36:19** returned **LOCKED**. Authenticated
+readiness returned **HTTP 200 in 2.453 s at 14:35:15**. A new actual source cycle
+started **14:35:26.416** and finished **14:35:44.833**, **18.417 s**, no source
+error. Its source was observed executing in the intermediate locked sample and
+idle in the later locked samples. It added **one new durable job**, created
+**14:35:44.069**. That job acquired real listing facts and reached MATCHED / queued
+for preparation at **14:36:12**; the later diagnostic found that its required
+experience/skills or preferences and score prevent eligibility. MATCHED alone is
+not admission to submit. No owner lock, unlock, focus, keyboard or clipboard action
+was performed for this observation.
+
+| Final live check | Result | Scope |
+| --- | --- | --- |
+| Corrected policy and project skills persisted | **PASS** | Live API read, profile v5 and installed frontend evidence above |
+| Readiness during a naturally locked sample | **PASS, one sample** | HTTP 200; does not establish browser operation by itself |
+| Genuine discovery between locked samples | **PASS, bounded sample** | Executing source observed, actual completion and one durable job |
+| First new eligible submission and independent receipt | **BLOCKED** | Zero new Apply admissions/receipts; no currently eligible saved facts |
+| Recurring AUTOMATIC and locked form/upload/submission | **NOT TESTED / NOT ACCEPTED** | First receipt and the respective real operation evidence still required |
+
+The same eligibility/evidence impasse was revalidated over three consecutive goal
+turns after the owner's resume. Independently demonstrated repairs are installed;
+the remaining decision cannot be inferred from a higher numeric applicant limit.
+The engineering goal is blocked pending that answer or new qualifying provider
+evidence. **Discovery remains RUNNING every five minutes**; this status does not
+stop the software, authorize unknown counts, or enable recurring AUTOMATIC.
+There were **zero additional fixture tests or installations in this final audit**.
+The exact component SHAs and rollback inventory above remain unchanged. PR #48
+remains open, and no new receipt, QTrino replay or completed Naukri milestone is
+claimed.
