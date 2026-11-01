@@ -375,7 +375,7 @@ def test_calendar_posting_date_enforces_worst_case_age_without_invented_time(day
     assert queue.listing_exclusion(facts, {"max_job_age_days": 2, "applicant_limit": 1000}, datetime.fromisoformat(now)) == reason
 
 
-async def test_calendar_date_native_ingestion_preserves_unknown_exact_timestamp(db_session):
+async def test_calendar_date_native_ingestion_preserves_unknown_exact_timestamp(db_session, upload_case):
     context = await setup(db_session)
     item = await queue.enqueue(db_session, "naukri", URL, "saved_verified_job")
     work = await observe(db_session, context, item)
@@ -384,10 +384,34 @@ async def test_calendar_date_native_ingestion_preserves_unknown_exact_timestamp(
                         work_report=job_report(posted_at=None, posted_date=today))
     assert result.ok, result.error_code
     saved = (await queue.load(db_session, item["id"])).value
-    assert saved["stage"] == "MATCHED", saved
+    assert saved["stage"] == "ELIGIBLE", saved
     job = await db_session.get(Job, UUID(saved["job_id"]))
     assert job.date_posted is None
     assert job.discovery_metadata["data_provenance"]["observed_posted_date"] == today
+
+
+@pytest.mark.parametrize("changes,reason", [
+    ({"experience_min": 5, "experience_max": 8}, "required_experience_outside_verified_band"),
+    ({"skills": ["Rust"]}, "current_profile_preferences_or_required_skills_exclude_job"),
+])
+async def test_discovery_filters_before_scheduling_application_preparation(db_session, upload_case, changes, reason):
+    from sqlalchemy import func, select
+
+    from backend.app.models.application_packet import ApplicationPacket
+
+    before = await db_session.scalar(select(func.count()).select_from(ApplicationPacket))
+    context = await setup(db_session)
+    item = await queue.enqueue(db_session, "naukri", URL, "saved_verified_job")
+    work = await observe(db_session, context, item)
+    finished = await call(db_session, context, "finish_naukri_work", work,
+                          work_report=job_report(**changes))
+    assert finished.ok, finished.error_code
+    saved = (await queue.load(db_session, item["id"])).value
+    assert saved["stage"] == "SKIPPED" and saved["reason"] == reason
+    assert saved["operation"] == "inspect_job" and not saved["admitted_actions"]
+    assert saved["facts"] and not saved.get("packet_id")
+    assert not await prepare_one(db_session, upload_case.settings)
+    assert await db_session.scalar(select(func.count()).select_from(ApplicationPacket)) == before
 
 
 @pytest.mark.parametrize('status,stage,operation', [

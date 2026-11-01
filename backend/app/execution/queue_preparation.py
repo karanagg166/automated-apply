@@ -161,15 +161,7 @@ async def prepare_one(session, settings):
                      candidate_profile_id=str(profile.id), account_binding_revision=account["revision"],
                      account_sha256=account["account_sha256"])
     except ToolDenied as exc:
-        reason = str(exc)
-        excluded = reason in {
-            "posting_outside_age_limit", "applicant_limit_reached", "applicant_count_unknown_skip",
-            "prior_application_or_unknown_submission_no_replay", "required_experience_outside_verified_band",
-            "current_profile_preferences_or_required_skills_exclude_job", "minimum_match_score_required",
-            "advertised_experience_outside_platform_preferences", "advertised_salary_outside_platform_preferences",
-            "vacancy_closed_expired_or_invalid",
-        }
-        value.update(stage="SKIPPED" if excluded else "NEEDS_INPUT", status="complete" if excluded else "waiting", reason=reason)
+        queue.eligibility_hold(value, str(exc))
     value.update(lease_token=None, lease_until=None, updated_at=(await instant(session)).isoformat(), revision=value["revision"] + 1)
     row.value = value
     await queue.event(session, value, "preparation_finished")

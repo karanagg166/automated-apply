@@ -167,7 +167,11 @@ export function ProfileReconciliation() {
   const automaticCurrent =
     policy.auto_profile_sync &&
     policy.profile_version === view.current_profile_version;
-  async function save(enabled: boolean, automatic: boolean) {
+  async function save(
+    enabled: boolean,
+    automatic: boolean,
+    intervalSeconds = policy.interval_seconds,
+  ) {
     setBusy(true);
     setError(null);
     try {
@@ -181,6 +185,7 @@ export function ProfileReconciliation() {
             auto_profile_sync: automatic,
             profile_version: view.current_profile_version,
             approved_fields: automatic ? ["summary"] : [],
+            interval_seconds: intervalSeconds,
           },
         }),
       });
@@ -198,8 +203,29 @@ export function ProfileReconciliation() {
         Compare supported portal fields with your confirmed profile. Unknown
         facts never replace portal information. Automatic updates currently
         support Profile summary; other fields retain explicit unsupported or
-        conflict states.
+        conflict states. Missing information appears in dashboard notifications;
+        supply or correct it in your profile.
       </p>
+      <Field label="Profile check interval">
+        <Select
+          value={String(policy.interval_seconds)}
+          disabled={busy}
+          onChange={(e) =>
+            void save(policy.enabled, automaticCurrent, Number(e.target.value))
+          }
+        >
+          {![300, 900, 1800, 3600, 86400].includes(policy.interval_seconds) && (
+            <option value={policy.interval_seconds}>
+              {policy.interval_seconds / 60} minutes
+            </option>
+          )}
+          <option value="300">5 minutes</option>
+          <option value="900">15 minutes</option>
+          <option value="1800">30 minutes</option>
+          <option value="3600">1 hour</option>
+          <option value="86400">1 day</option>
+        </Select>
+      </Field>
       <label>
         <input
           type="checkbox"
@@ -230,8 +256,7 @@ export function ProfileReconciliation() {
       <p>
         {view.latest
           ? `${readable(view.latest.outcome)} · ${new Date(view.latest.observed_at).toLocaleString()}`
-          : "No portal comparison recorded."}{" "}
-        Installed live acceptance pending.
+          : "No portal comparison recorded."}
       </p>
       {view.latest && (
         <table>
@@ -886,6 +911,8 @@ export function ApplicationQueue() {
   });
   if (queue.isPending) return <p>Loading background job queue…</p>;
   if (queue.isError) return <ErrorState error={queue.error} />;
+  const count = (states: string[]) =>
+    states.reduce((sum, state) => sum + (queue.data.counts[state] ?? 0), 0);
   return (
     <section
       className="panel panel-body stack"
@@ -898,6 +925,33 @@ export function ApplicationQueue() {
         }
       />
       <ProfileReconciliation />
+      <section aria-label="Discovery and application progress">
+        <h3>Discovery worker</h3>
+        <p>
+          {count(["DISCOVERED"])} jobs awaiting listing checks. Discovery checks
+          your filters and skips duplicate jobs before eligible work advances.
+        </p>
+        <h3>Application worker</h3>
+        <p>
+          {count(["ELIGIBLE"])} eligible jobs awaiting preparation ·{" "}
+          {count([
+            "PREPARING",
+            "READY_TO_APPLY",
+            "APPLYING",
+            "QUESTIONS",
+            "RESUME_ATTACHMENT",
+            "VERIFYING",
+          ])}{" "}
+          application jobs in progress · {count(["SUBMITTED_CONFIRMED"])} new
+          submissions confirmed · {count(["SUBMITTED_RECORDED"])} previously
+          recorded applications.
+        </p>
+        <p>
+          Discovered, skipped and held jobs remain in history. They are not
+          submitted applications. Submission is counted only after receipt
+          verification.
+        </p>
+      </section>
       <h3>Queue and application history</h3>
       {queue.data.quota && (
         <p>

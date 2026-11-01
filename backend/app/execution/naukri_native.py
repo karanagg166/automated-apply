@@ -175,7 +175,18 @@ async def receive_job(session, value, report):
     # This exact provider observation is the latest listing view; canonical
     # title/company/history stay unchanged. Disagreements fail ingestion above.
     job.discovery_metadata = item.model_dump(mode="json")
-    value.update(job_id=str(job.id), stage="MATCHED", operation="prepare", status="queued", reason=None)
+    value["job_id"] = str(job.id)
+    try:
+        profile = await queue.eligible_context(session, value, policy, job)
+    except ToolDenied as exc:
+        queue.eligibility_hold(value, str(exc))
+        return
+    # Discovery owns filtering. Only a fully checked observation enters the
+    # preparation lane; the independent worker still rechecks before any packet
+    # or write, since the profile, policy or provider facts may have changed.
+    value.update(stage="ELIGIBLE", operation="prepare", status="queued", reason=None,
+                 profile_version=profile.version)
+    await queue.event(session, value, "discovery_eligibility_verified")
 
 
 async def dispatch(session, settings, actor, command):

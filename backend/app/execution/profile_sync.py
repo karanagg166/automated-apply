@@ -34,7 +34,7 @@ class SyncPolicy(Contract):
     verify_saved_resume: bool = False
     profile_version: int | None = Field(None, ge=1)
     approved_fields: list[FieldName] = Field(default_factory=list, max_length=18)
-    interval_seconds: int = Field(3600, ge=300, le=86400)
+    interval_seconds: int = Field(1800, ge=300, le=86400)
 
 
 class SyncPolicyUpdate(Contract):
@@ -54,6 +54,8 @@ def compare(canonical, observed, approved_fields=()):
         desired, actual = reference(canonical.get(name)), reference(observed.get(name))
         if name not in observed:
             state = "UNSUPPORTED"
+        elif not desired and not actual and name in {"full_name", "phone", "summary", "skills", "experience", "education"}:
+            state = "MISSING_INFORMATION"
         elif not desired and actual:
             state = "MISSING_FROM_DATABASE"
         elif desired == actual:
@@ -68,6 +70,37 @@ def compare(canonical, observed, approved_fields=()):
                        "may_update": bool(desired and name in approved_fields and name in SUPPORTED_WRITES
                                           and state in {"OUTDATED", "MISSING_FROM_PLATFORM"})})
     return result
+
+
+async def notify_missing_facts(session, decisions):
+    """One private dashboard notice per changed fact, never per polling cycle."""
+    from backend.app.dashboard.models import Notification, NotificationDelivery
+    from backend.app.services.discovery_budget import insert_for
+
+    for decision in decisions:
+        # The verified platform login may legitimately differ from the contact
+        # email. The account binding, not profile comparison, governs identity.
+        if decision["field"] == "email" or decision["state"] not in {
+            "MISSING_FROM_DATABASE", "MISSING_FROM_PLATFORM", "MISSING_INFORMATION", "CONFLICT", "OUTDATED",
+        }:
+            continue
+        fingerprint = reference({key: decision[key] for key in (
+            "field", "state", "previous_reference", "new_reference",
+        )})
+        field = decision["field"].replace("_", " ")
+        target = "saved profile" if decision["state"] == "MISSING_FROM_DATABASE" else "Naukri profile"
+        message = (f"Review {field} in your {target}. Supply or confirm the correct "
+                   "information in your profile before a supported portal update. "
+                   "Unverified facts will not be invented.")
+        inserted = await session.execute(insert_for(session)(Notification).values(
+            dedup_key="naukri_profile:" + fingerprint, kind="profile_information_required",
+            title="Naukri profile information needs attention", body=message, href="/profile",
+        ).on_conflict_do_nothing(index_elements=[Notification.dedup_key]).returning(Notification.id))
+        notification_id = inserted.scalar_one_or_none()
+        if notification_id:
+            await session.execute(insert_for(session)(NotificationDelivery).values(
+                notification_id=notification_id, channel="in_app", status="available_in_app", attempt_count=1,
+            ).on_conflict_do_nothing(index_elements=["notification_id", "channel"]))
 
 
 def canonical(profile, resume):
@@ -136,7 +169,7 @@ async def work(session, config, binding, settings=None):
     if not policy.enabled:
         return None
     profile, confirmed, resume = await context(session)
-    if not confirmed or policy.profile_version != profile.version:
+    if not confirmed or (policy.auto_profile_sync and policy.profile_version != profile.version):
         return None
     row = await session.get(OwnerPreference, WORK, populate_existing=True)
     old = dict(row.value) if row else {}
@@ -179,7 +212,8 @@ async def validate(session, value):
     policy = SyncPolicy.model_validate(settings["policy"])
     profile, confirmed, resume = await context(session)
     if (not policy.enabled or not confirmed or profile.version != value["profile_version"]
-            or policy.profile_version != profile.version or value["sync_policy_revision"] != settings["revision"]):
+            or (policy.auto_profile_sync and policy.profile_version != profile.version)
+            or value["sync_policy_revision"] != settings["revision"]):
         raise ToolDenied("profile_sync_context_changed")
     return profile, resume, policy
 
@@ -272,6 +306,7 @@ async def receive(session, value, report, settings=None):
         # Reconciliation can complete a failed/lost save, but never replay it.
     value.update(last_record=identity, last_error=None, status="idle")
     await queue.put(session, RECORD + identity, record)
+    await notify_missing_facts(session, decisions)
     if policy.auto_profile_sync and summary["may_update"] and not value.get("sync_attempt"):
         value.update(operation="sync_profile", status="leased", document_id=observation.document_id,
                      previous_summary_reference=summary["previous_reference"], new_summary_reference=summary["new_reference"])

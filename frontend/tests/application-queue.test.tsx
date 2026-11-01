@@ -137,6 +137,55 @@ it("requires explicit version-bound summary approval and exposes unsupported fie
   client.clear();
 });
 
+it("saves a 30-minute profile check without granting portal writes", async () => {
+  const view = {
+    configuration: {
+      revision: 3,
+      policy: {
+        enabled: true,
+        auto_profile_sync: false,
+        profile_version: 4,
+        approved_fields: [],
+        interval_seconds: 3600,
+      },
+    },
+    current_profile_version: 4,
+    profile_confirmed: true,
+    latest: null,
+    last_error: null,
+  };
+  const writes: unknown[] = [];
+  vi.mocked(api).mockImplementation(async (_path, options) => {
+    if (options?.method === "PUT")
+      writes.push(JSON.parse(String(options.body)));
+    return view;
+  });
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={client}>
+      <ProfileReconciliation />
+    </QueryClientProvider>,
+  );
+  await userEvent.selectOptions(
+    await screen.findByLabelText("Profile check interval"),
+    "1800",
+  );
+  await waitFor(() => expect(writes).toHaveLength(1));
+  expect(writes[0]).toMatchObject({
+    expected_revision: 3,
+    policy: {
+      enabled: true,
+      auto_profile_sync: false,
+      interval_seconds: 1800,
+      approved_fields: [],
+      profile_version: 4,
+    },
+  });
+  client.clear();
+});
+
 it("starts with 80/day, two-day postings and explicit unknown-applicant handling", () => {
   render(<QueuePolicyForm configuration={configuration} saved={saved} />);
   expect(
@@ -276,7 +325,12 @@ it("filters the ledger without inventing unknown applicant counts", async () => 
   vi.mocked(api).mockResolvedValue({
     configuration,
     total: 1,
-    counts: { NEEDS_INPUT: 1 },
+    counts: {
+      NEEDS_INPUT: 1,
+      DISCOVERED: 17,
+      SKIPPED: 350,
+      SUBMITTED_RECORDED: 1,
+    },
     items: [
       {
         id: "fictional",
@@ -305,6 +359,13 @@ it("filters the ledger without inventing unknown applicant counts", async () => 
       <ApplicationQueue />
     </QueryClientProvider>,
   );
+  const progress = await screen.findByRole("region", {
+    name: "Discovery and application progress",
+  });
+  expect(progress).toHaveTextContent("17 jobs awaiting listing checks");
+  expect(progress).toHaveTextContent("0 eligible jobs awaiting preparation");
+  expect(progress).toHaveTextContent("0 new submissions confirmed");
+  expect(progress).toHaveTextContent("1 previously recorded applications");
   expect(await screen.findByText("Fictional Developer")).toBeVisible();
   expect(screen.getByText("2026-10-31 (time unknown)")).toBeVisible();
   await userEvent.selectOptions(

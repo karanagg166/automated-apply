@@ -19,7 +19,7 @@ from backend.tests.test_naukri_upload_preflight import upload_case as upload_cas
     ("verified", "old", ["summary"], "OUTDATED", True),
     ("verified", "", ["summary"], "MISSING_FROM_PLATFORM", True),
     (None, "genuine portal information", ["summary"], "MISSING_FROM_DATABASE", False),
-    (None, None, ["summary"], "MATCHED", False),
+    (None, None, ["summary"], "MISSING_INFORMATION", False),
 ])
 def test_scoped_sync_never_invents_or_clears_facts(canonical, observed, approved, state, update):
     summary = sync.compare({"summary": canonical}, {"summary": observed}, approved)[3]
@@ -159,3 +159,48 @@ def test_report_rejects_arbitrary_profile_payloads():
         NaukriWorkReport.model_validate({"kind": "execution_observation", "execution": {
             "state": "PROFILE_OBSERVED", "document_id": str(uuid4()), "evidence_sha256": "a" * 64,
             "account_sha256": "b" * 64, "profile_fields": {"password": "do not retain"}}})
+
+
+async def test_profile_gap_notices_deduplicate_and_keep_email_binding_separate(db_session):
+    from sqlalchemy import select
+
+    from backend.app.dashboard.models import Notification, NotificationDelivery
+
+    desired = {"summary": "Verified fictional summary", "skills": ["Python"],
+               "email": "contact@example.test", "education": [], "phone": None}
+    observed = {"summary": "", "skills": ["Python"], "email": "platform@example.test",
+                "education": [], "phone": "fictional private phone"}
+    decisions = sync.compare(desired, observed)
+    await sync.notify_missing_facts(db_session, decisions)
+    await sync.notify_missing_facts(db_session, decisions)
+    notices = list((await db_session.scalars(select(Notification))).all())
+    assert len(notices) == 3
+    assert all(n.href == "/profile" and n.kind == "profile_information_required" for n in notices)
+    text = str([(n.dedup_key, n.body) for n in notices])
+    assert all(raw not in text for raw in [desired["summary"], desired["email"], observed["email"], observed["phone"]])
+    assert "Review email" not in text and "Review skills" not in text
+    assert len((await db_session.scalars(select(NotificationDelivery))).all()) == 3
+    observed["summary"] = "Different fictional portal summary"
+    await sync.notify_missing_facts(db_session, sync.compare(desired, observed))
+    assert len((await db_session.scalars(select(Notification))).all()) == 4
+
+
+@pytest.mark.parametrize("automatic", [False, True])
+async def test_read_only_poll_follows_confirmed_version_but_write_scope_stays_pinned(db_session, upload_case, automatic):
+    context, profile = await enable(db_session, upload_case, auto=automatic)
+    from backend.app.local_agent.profile_confirmation import confirm_profile
+
+    profile.version += 1
+    await db_session.flush()
+    await confirm_profile(db_session, profile, profile.version)
+    config = await queue.configuration(db_session)
+    work = await sync.work(db_session, config, {"profile_binding_id": str(context["profile_binding_id"])})
+    if automatic:
+        assert work is None
+    else:
+        assert work["profile_version"] == profile.version
+        assert work["operation"] == "inspect_profile_sync"
+        assert "approved_summary" not in work
+        policy = sync.SyncPolicy.model_validate((await sync.configuration(db_session))["policy"])
+        assert policy.interval_seconds == 1800
+        assert policy.profile_version != profile.version

@@ -430,6 +430,19 @@ async def leased(session, identity, revision, token, binding):
     return row
 
 
+def eligibility_hold(value, reason):
+    """Keep rejected discovery/preparation out of the application worker lane."""
+    excluded = reason in {
+        "posting_outside_age_limit", "applicant_limit_reached", "applicant_count_unknown_skip",
+        "prior_application_or_unknown_submission_no_replay", "required_experience_outside_verified_band",
+        "current_profile_preferences_or_required_skills_exclude_job", "minimum_match_score_required",
+        "advertised_experience_outside_platform_preferences", "advertised_salary_outside_platform_preferences",
+        "vacancy_closed_expired_or_invalid",
+    }
+    value.update(stage="SKIPPED" if excluded else "NEEDS_INPUT",
+                 status="complete" if excluded else "waiting", reason=reason)
+
+
 async def eligible_context(session, value, policy, job):
     from backend.app.execution.recurring import context
 

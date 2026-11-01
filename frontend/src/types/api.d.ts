@@ -9442,7 +9442,7 @@ export interface components {
       )[];
       /**
        * Interval Seconds
-       * @default 3600
+       * @default 1800
        */
       interval_seconds: number;
     };
