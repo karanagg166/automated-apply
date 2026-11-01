@@ -195,3 +195,50 @@ Continue fresh genuine matching under the corrected scope, honor the exact answe
 on unknown applicant counts if one arrives, and complete one supported eligible
 application with independently persistent provider receipt before bounded recurring
 AUTOMATIC. Actual recurring real applications remain the completion criterion.
+
+## Live continuation: owner-activity race and read-only resumption
+
+At **13:09:43**, five of the six reconsidered jobs remained queued for inspection.
+The sixth had a genuine extension result **`owner_platform_active`**, observed at
+**13:08:51**: Naukri became active between polling and observation, and the consumer
+yielded. No keyboard, clipboard, tab selection or focus action was attempted, and
+this job had zero admitted actions. The server previously left that read waiting
+for owner input indefinitely. This was a real autonomous-resumption defect, not
+missing candidate information.
+
+Implementation
+[`e5d0eb6fc875e9526d34ea2abb386729eb1c9b1f`](https://github.com/karanagg166/automated-apply/commit/e5d0eb6fc875e9526d34ea2abb386729eb1c9b1f)
+defers **only `inspect_job` / `owner_platform_active`**, with no packet, form or
+admitted action, as durable queued `FAILED_RETRYABLE` work available **60 seconds**
+later. The extension's existing owner-activity gate still applies. A later attempt
+creates a fresh owned inactive inspection tab; it does not act on the adopted tab.
+CAPTCHA, other unsupported observations, packet/form work and any admitted action
+continue to wait/reconcile through their existing paths. No Apply or questionnaire
+retry was added.
+
+**Seven targeted backend cases passed in 1.03 s** (38 deselected), including five
+new cases: safe read resumption after a fresh database session, packet refusal,
+form refusal, admitted-action refusal and CAPTCHA refusal. The complete relevant
+background queue file passed **45 cases in 5.55 s**. The immutable candidate's own
+Python environment passed the same seven focused cases in **1.14 s**, overlapping
+the preceding results; pip check, Ruff E9/F/I and diff check passed. No unrelated
+frontend or extension suite was repeated.
+
+The actual Stop took **7.938 s**, queue STOPPED **44**. API-only replacement passed
+at **13:13:42**, ready **200**, **442 records**, profile **v5**, binding **1**, with
+all protected frontend/worker/Telegram/native/extension/configuration files
+unchanged. Startup connection refusals were observed before ready 200 within the
+existing acceptance probe budget; no timeout or connection limit was increased.
+Saved review returned **57 jobs in 3.440 s**. Exact previous c94 API plist/runtime
+and every historical release remain retained in the new rollback inventory.
+
+**Current API is e5d0eb6**; frontend remains c94f1fb, worker/native f13c956, Telegram
+a093eab and extension 1.3.15/08aab53, same stable ID. Queue resumed **RUNNING 45** at
+**13:14:13**, preserving the entire corrected policy and first-application allowance.
+At **13:14:45**, a journaled one-time upgrade recovery placed the existing held
+read-only job into delayed inspection after checking packet, form, receipt and
+admitted-action exclusions. This is not a second Apply and not a claimed new
+provider observation. The new race-handling branch is **fixture-verified and
+installed; a repeated live occurrence followed by successful resumption is NOT YET
+VERIFIED**. First new submission/receipt, recurring AUTOMATIC and locked submission
+acceptance remain OPEN. The unknown applicant-count decision is still pending.
