@@ -48,16 +48,16 @@ Do not fabricate a work email or assume free web credits include API access.
 
 | ID | Concrete work | Acceptance required | Current state |
 | --- | --- | --- | --- |
-| A1 | Run complete eligibility checks in discovery before scheduling preparation | Real rejected observations remain history; no preparation packet/action for them; dedup/replay protections retained | In progress |
-| A2 | Enable 1,800-second profile comparisons and deduplicated missing-fact notices | Actual bound portal comparison, notification, owner answer/version save and supported provider persistence | Existing comparison adapter; notifications/interval work pending |
+| A1 | Run complete eligibility checks in discovery before scheduling preparation | Real rejected observations remain history; no preparation packet/action for them; dedup/replay protections retained | Implemented and installed; real exclusions verified, positive eligible handoff pending |
+| A2 | Enable 1,800-second profile comparisons and deduplicated missing-fact notices | Actual bound portal comparison, notification, owner answer/version save and supported provider persistence | Installed30-minute actual comparisons/PDF checks and deduplicated notices; owner facts and supported provider writes pending |
 | A3 | Finish first new supported Naukri application | Real fresh identity/PDF/job/history checks; actual fill/submit; independent persistent receipt; dashboard/Telegram outcome | No new verified submission |
 | A4 | Bounded Naukri recurring AUTOMATIC | First receipt plus critical checks; repeated real submissions within quotas, no duplicates; restart and locked-operation evidence | Not enabled |
-| A5 | Separate discovery/application visibility and controls | Dashboard distinguishes observed/held jobs from eligible application work and verified submissions; workers make progress independently | Existing durable stages, presentation incomplete |
+| A5 | Separate discovery/application visibility and controls | Dashboard distinguishes observed/held jobs from eligible application work and verified submissions; workers make progress independently | Installed separate observed/held/eligible/in-progress/new receipt/historical counts; live dashboard verified |
 | B1 | Instahyre adapter and account setup | Actual discovery/form/receipt/recurring acceptance under its own policy | Not accepted |
 | B2 | Wellfound adapter and account setup | Actual discovery/form/receipt/recurring acceptance under its own policy | Not accepted |
 | B3 | Y Combinator Work at a Startup adapter/account setup | Actual discovery/form/receipt/recurring acceptance under its own policy | Not accepted |
 | B4 | Internshala adapter and account setup | Actual discovery/form/receipt/recurring acceptance under its own policy | Not accepted |
-| C1 | Connect Apollo and SignalHire to existing contact/draft workflow | Actual authentication, bounded lookup evidence, verified recipient provenance, real Gmail draft; no send | API credentials missing |
+| C1 | Connect Apollo and SignalHire to existing contact/draft workflow | Actual authentication, bounded lookup evidence, verified recipient provenance, real Gmail draft; no send | Existing SignalHire account evidenced; free login/API entitlement unverified; no lookup/draft |
 | D1 | Integrated frontend/API/schema/worker checks and release | Relevant regressions and local integrated checks, live provider acceptance, rollback and restart evidence; sanitized report pushed | Pending |
 | D2 | Review and merge the completed work | Owner's requested completion condition met, reviewed exact head, no unresolved critical acceptance failures; no hosted workflow dispatch | Pending |
 
@@ -91,3 +91,5 @@ and local skill paths; no matching installed integration was found. The search
 returned unrelated integrations. Continue this executable repository plan without
 claiming that plugin is installed; additional plugins may exist in the
 [plugin directory](https://chatgpt.com/plugins).
+
+Latest implementation and installed evidence: [policy rechecks and restart report](../acceptance/naukri-policy-rechecks-20261101.md). The live unknown-count rule remains review; an explicit narrow lower-bound option is now available without selecting it for the owner.
