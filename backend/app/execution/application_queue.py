@@ -407,7 +407,16 @@ async def claim(session, platform, binding, *, operations=None):
     if current["state"] != "RUNNING" or not settings or not settings.enabled or (await store.configuration(session)).mode == "OFF":
         return None
     now = await instant(session)
-    rows = await items(session, active_only=True)
+    # Waiting input/history rows cannot be claimed or have leases recovered.
+    # Do not transfer their complete descriptions on every native poll. Keep
+    # all leased/executing operations, including expired writes, in this read.
+    rows = list((await session.scalars(select(OwnerPreference).where(
+        OwnerPreference.key.startswith(PREFIX),
+        OwnerPreference.value["stage"].as_string().not_in(TERMINAL),
+        OwnerPreference.value["platform"].as_string() == platform,
+        OwnerPreference.value["status"].as_string().in_(["queued", "leased", "executing"]),
+    ).order_by(OwnerPreference.created_at, OwnerPreference.key)
+        .execution_options(populate_existing=True))).all())
     for row in rows:
         v = dict(row.value)
         if v["platform"] != platform or v["status"] not in {"leased", "executing"}:

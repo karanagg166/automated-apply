@@ -8,6 +8,8 @@ import re
 from datetime import datetime, timedelta
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
+from sqlalchemy import select
+
 from backend.app.agent.tools import ToolDenied
 from backend.app.automation.store import instant
 from backend.app.browser import chrome_profiles as profiles
@@ -264,7 +266,12 @@ async def dispatch(session, settings, actor, command):
                 now = await instant(session)
                 busy = any(r.value["state"] not in profiles.TERMINAL for r in await profiles.records(session, profiles.COMMAND))
                 busy |= any(r.value["state"] in {"FORM_INSPECTED", "ANSWERS_REVIEWED", "FILL_AUTHORIZED", "FILLING"} for r in await extension_tasks.rows(session))
-                busy |= any(r.value["status"] in {"leased", "executing"} and r.value.get("lease_until") and datetime.fromisoformat(r.value["lease_until"]) > now for r in await queue.items(session, active_only=True))
+                leases = (await session.scalars(select(OwnerPreference.value["lease_until"].as_string()).where(
+                    OwnerPreference.key.startswith(queue.PREFIX),
+                    OwnerPreference.value["stage"].as_string().not_in(queue.TERMINAL),
+                    OwnerPreference.value["status"].as_string().in_(["leased", "executing"]),
+                ))).all()
+                busy |= any(lease and datetime.fromisoformat(lease) > now for lease in leases)
                 search = await session.get(OwnerPreference, SEARCH, populate_existing=True)
                 busy |= bool(search and search.value.get("lease_until") and datetime.fromisoformat(search.value["lease_until"]) > now)
                 sync = await session.get(OwnerPreference, profile_sync.WORK, populate_existing=True)

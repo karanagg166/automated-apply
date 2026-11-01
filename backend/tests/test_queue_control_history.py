@@ -9,10 +9,11 @@ from backend.app.dashboard.models import OwnerPreference
 from backend.app.execution import application_queue as queue
 from backend.app.execution.queue_contracts import QueueControl
 from backend.tests.test_application_queue import BINDING, URL, running
+from backend.tests.test_naukri_upload_preflight import upload_case as upload_case
 
 
-async def held(session, requisition):
-    item = await queue.enqueue(session, "naukri", URL.rsplit("-", 1)[0] + "-" + requisition, "naukri_ui_search")
+async def held(session, requisition, source="naukri_ui_search"):
+    item = await queue.enqueue(session, "naukri", URL.rsplit("-", 1)[0] + "-" + requisition, source)
     row = await queue.load(session, item["id"])
     row.value = {**row.value, "stage": "NEEDS_INPUT", "status": "waiting",
                  "reason": "applicant_count_requires_review"}
@@ -58,3 +59,28 @@ async def test_input_holds_with_authority_or_malformed_history_are_still_fenced(
     await db_session.flush()
     await queue.control(db_session, QueueControl(action="stop", expected_revision=configuration["revision"]))
     assert (await queue.load(db_session, value["id"])).value["stage"] == "PAUSED"
+
+
+async def test_native_poll_does_not_load_held_description_history(db_session, upload_case):
+    from sqlalchemy import event
+
+    from backend.tests.test_naukri_background_queue import call, setup
+
+    context = await setup(db_session)
+    rows = [await held(db_session, str(291026230000 + index), "saved_verified_job") for index in range(30)]
+    held_keys = {row.key for row in rows}
+    await db_session.commit()
+    db_session.expunge_all()
+    loaded = []
+
+    def record(session, instance):
+        if isinstance(instance, OwnerPreference):
+            loaded.append(instance.key)
+
+    event.listen(db_session.sync_session, "loaded_as_persistent", record)
+    try:
+        result = await call(db_session, context, "poll_naukri_work")
+        assert result.ok and result.data["work"] is None
+        assert not held_keys.intersection(loaded)
+    finally:
+        event.remove(db_session.sync_session, "loaded_as_persistent", record)

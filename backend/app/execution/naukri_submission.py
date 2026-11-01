@@ -10,6 +10,8 @@ import re
 from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
+from sqlalchemy import select
+
 from backend.app.agent.tools import ToolDenied
 from backend.app.automation.store import instant
 from backend.app.dashboard.models import Notification, OwnerPreference
@@ -77,7 +79,12 @@ async def recover_unknown(session):
         return
     await queue.store.memory_row(session, lock=True)
     now = await instant(session)
-    for row in await queue.items(session, active_only=True):
+    candidates = select(OwnerPreference).where(
+        OwnerPreference.key.startswith(queue.PREFIX),
+        OwnerPreference.value["stage"].as_string().not_in(queue.TERMINAL),
+        OwnerPreference.value["status"].as_string() == "unknown",
+    ).execution_options(populate_existing=True)
+    for row in (await session.scalars(candidates)).all():
         v = dict(row.value)
         if (v["status"] != "unknown" or v.get("reconciliation_attempts", 0) >= 3
                 or v.get("account_recheck_attempts", 0) >= 3):
