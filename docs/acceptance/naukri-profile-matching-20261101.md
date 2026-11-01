@@ -228,6 +228,71 @@ were still **zero new Apply admissions and zero new receipts** at this snapshot.
 
 ## Targeted checks and limits
 
+### Further live eligibility investigation, 11:17–11:35 UTC
+
+No implementation or installed component changed during this continuation. The
+exact source remained `604d58a9f3641f223d1a63c8d5380f10e6b02d32`; installed service
+and extension SHAs remain those recorded above. No large fixture suite was rerun
+and no additional passing test count is claimed.
+
+At **11:35:40**, the genuine queue was **RUNNING revision 40**, score **50**,
+**416 records**: 280 SKIPPED, 107 NEEDS_INPUT, 28 DISCOVERED and the one retained
+historical receipt. This is **20 additional durable jobs** after the 396-record
+snapshot. The **11:29:04→11:29:28** cycle admitted 16 unique jobs; the
+**11:34:32→11:34:54** cycle admitted one. Both reported no source error. Worker
+heartbeat and Telegram polling were fresh; no Telegram error was reported.
+**New Apply admissions: 0. New receipts: 0.** The historical application was not
+replayed, and recurring AUTOMATIC was not enabled.
+
+A read-only, single-connection diagnostic at **11:34:58** evaluated **363 saved
+listing observations** against the current confirmed profile and unchanged policy.
+It found **zero fully eligible records**. Overlapping blockers included 260 outside
+the age limit, 79 needing posting-age precision review, 30 outside the verified
+experience band, 10 needing applicant-count review, 104 below score 50 and 362
+with a role/preference or required-skill mismatch. All 363 lacked established
+company-stage/startup evidence. These are saved-observation diagnostics, **not fresh
+provider revalidation of every job**, and the counts overlap. Older saved employment
+metadata can remain unknown even where the newer parser now supports the genuine
+label; this diagnostic did not silently replace those stored observations.
+
+Ordinary searches were inspected in the owned inactive Profile 8 setup tab:
+
+- The current Date-sorted software-engineer page had **20 recent cards** and zero
+  clearly old cards that an early age prefilter would exclude. No such speculative
+  optimization was implemented; card-relative dates do not replace detailed posting
+  evidence or relax its precision guard.
+- The full early-stage/software-engineer phrase returned zero results. Full-stack
+  search plus the provider's actual **Startup** checkbox returned two cards labeled
+  **2 days ago**, with the remaining first-page cards older. Generic Startup
+  classification was never treated as proof of the configured **early** stage.
+- The shorter early-stage search plus the actual Engineering department checkbox
+  returned **eight** results. Its one recent engineering result was independently
+  inspected: the genuine header offered **Apply on company site**, and its required
+  skills and company stage did not establish eligibility. No Apply was clicked.
+- A previously observed trainee listing was independently revisited to investigate
+  an employment-type gap. Its actual labeled DOM and structured data both said
+  **Full Time, Permanent**, already recognized by the current implementation. Its
+  genuine three-day age, applicant lower bound and unverified company stage still
+  prevented submission. No unnecessary parser patch or application retry followed.
+
+The owned setup tab was restored to `chrome://extensions/`. Selected-tab IDs in
+both windows were unchanged during that restore, but the **front-window ID changed
+between the two snapshots**. No activate/select/focus command was issued; the cause
+of the concurrent front-window change is not established. Therefore this pair is
+**not a passing focus-preservation measurement**, and the earlier verified cutover
+measurement is not reused as proof for these searches. No corrective window
+activation was attempted. All DOM work refused a selected/visible owned tab; no
+personal tab, owner keyboard or clipboard was used.
+
+At **11:35:15**, actual `/ready` returned **200 in 2.260 seconds**, database connected.
+The initial operator request to the nonexistent `/health/ready` returned 404; the
+correct existing route was then used. Screen state was **UNLOCKED**; no new locked
+submission or restart acceptance is claimed. Project client/start/status facts and
+the earlier company-stage policy clarification remain unanswered; neither was
+invented or repeatedly requested. Real discovery remains active under the bounded
+first-application authorization. **First new receipt and recurring real applications
+remain BLOCKED / NOT ACCEPTED**, respectively.
+
 | Check | Result | Evidence class |
 | --- | --- | --- |
 | Matching/live-discovery/background queue/queue regression set | **96 PASS, 9.24 s** | Isolated fictional database; includes 13 added skill cases and one location case |
