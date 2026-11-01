@@ -92,7 +92,22 @@ async def fence(session, reason):
         search.value = {**search.value, "status": "idle", "lease_token": None, "lease_until": None,
                         "next_at": None, "revision": search.value["revision"] + 1, "last_error": reason}
     changed = []
-    for row in await items(session, active_only=True):
+    # Unattempted input holds have no outstanding authority to revoke. The
+    # global state/revision fences every later claim; rewriting their full
+    # retained descriptions and outbox records makes Stop grow with history.
+    # Keep packet/form/action/lease-bearing or malformed records in the fence.
+    value = OwnerPreference.value
+    candidates = select(OwnerPreference).where(
+        OwnerPreference.key.startswith(PREFIX),
+        value["stage"].as_string().not_in(TERMINAL),
+        or_(value["stage"].as_string() != "NEEDS_INPUT",
+            value["status"].as_string() != "waiting",
+            value["packet_id"].as_string().is_not(None),
+            value["lease_until"].as_string().is_not(None),
+            value["form_pending"].as_boolean().is_(True),
+            func.coalesce(value["admitted_actions"].as_string(), "unknown") != "[]"),
+    ).execution_options(populate_existing=True)
+    for row in (await session.scalars(candidates)).all():
         value = dict(row.value)
         if value["stage"] in TERMINAL:
             continue
@@ -149,7 +164,11 @@ async def control(session, data):
             raise ToolDenied("enabled_platform_required")
         state = "RUNNING"
         changed = []
-        for row in await items(session, active_only=True):
+        paused_rows = select(OwnerPreference).where(
+            OwnerPreference.key.startswith(PREFIX),
+            OwnerPreference.value["stage"].as_string() == "PAUSED",
+        ).execution_options(populate_existing=True)
+        for row in (await session.scalars(paused_rows)).all():
             v = dict(row.value)
             if v["stage"] == "PAUSED" and v["reason"] in {"owner_pause", "global_stop", "queue_policy_changed"}:
                 previous = v.get("paused_context", {})
