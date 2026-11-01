@@ -12,6 +12,20 @@ from backend.app.models.job import Job
 from backend.app.repositories.job import JobRepository
 
 
+def skill_key(value: str) -> str:
+    """Equivalent published spellings, never inferred related competencies."""
+    value = " ".join(value.casefold().split())
+    return {
+        "react.js": "react", "reactjs": "react", "react js": "react",
+        "node.js": "nodejs", "node js": "nodejs",
+        "next.js": "nextjs", "next js": "nextjs",
+        "express.js": "expressjs", "express js": "expressjs",
+        "java script": "javascript", "type script": "typescript",
+        "postgres": "postgresql", "mongo db": "mongodb",
+        "socket.io": "socketio", "socket io": "socketio", "fast api": "fastapi",
+    }.get(value, value)
+
+
 class CandidateProfile(BaseModel):
     """Verified user credentials, experience, and job search preferences."""
 
@@ -90,12 +104,14 @@ class ApplicationAssistant:
         profile_skills_lower = {s.lower(): s for s in profile.verified_skills}
 
         if skills_to_check:
-            for skill in skills_to_check:
-                if skill.lower() in profile_skills_lower:
-                    matched_skills.append(profile_skills_lower[skill.lower()])
+            verified = {skill_key(s): s for s in profile.verified_skills}
+            required = {skill_key(s): s for s in skills_to_check}
+            for key, skill in required.items():
+                if key in verified:
+                    matched_skills.append(verified[key])
                 else:
                     missing_skills.append(skill)
-            skill_ratio = len(matched_skills) / max(len(skills_to_check), 1)
+            skill_ratio = len(matched_skills) / len(required)
             skill_points = skill_ratio * 40.0
         else:
             # Detect from description

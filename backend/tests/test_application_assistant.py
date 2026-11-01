@@ -2,8 +2,8 @@
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.app.models.job import Job
-from backend.app.models.company import Company
 from backend.app.services.application_assistant import (
     ApplicationAssistant,
     CandidateProfile,
@@ -120,3 +120,33 @@ async def test_update_application_status_lifecycle(db_session: AsyncSession):
     )
     assert updated.status == "applied"
     assert "Applied manually" in (updated.match_explanation or "")
+
+
+@pytest.mark.parametrize("advertised,verified", [
+    ("ReactJS", "React"), ("React.js", "React"), ("NodeJS", "Node.js"),
+    ("NextJS", "Next.js"), ("ExpressJS", "Express.js"),
+    ("Postgres", "PostgreSQL"), ("Mongo DB", "MongoDB"),
+])
+def test_verified_skill_spelling_aliases_do_not_become_missing_requirements(advertised, verified, sample_profile):
+    profile = sample_profile.model_copy(update={"verified_skills": [verified]})
+    job = Job(title="Backend Engineer", job_url="https://example.org/jobs/alias", source_platform="naukri", skills_required=[advertised], is_remote=True)
+    result = ApplicationAssistant(None).calculate_match(job, profile)
+    assert result.matched_skills == [verified] and result.missing_skills == []
+
+
+@pytest.mark.parametrize("advertised,verified", [("C", "C++"), ("C#", "C++"), ("Java", "JavaScript"), ("MySQL", "SQL"), ("Node", "Node.js")])
+def test_related_or_ambiguous_skills_are_never_inferred(advertised, verified, sample_profile):
+    profile = sample_profile.model_copy(update={"verified_skills": [verified]})
+    job = Job(title="Backend Engineer", job_url="https://example.org/jobs/distinct", source_platform="naukri", skills_required=[advertised], is_remote=True)
+    result = ApplicationAssistant(None).calculate_match(job, profile)
+    assert result.matched_skills == [] and result.missing_skills == [advertised]
+
+
+def test_duplicate_aliases_do_not_inflate_matching_weight(sample_profile):
+    profile = sample_profile.model_copy(update={"verified_skills": ["React"]})
+    common = dict(title="Backend Engineer", job_url="https://example.org/jobs/dedupe", source_platform="naukri", is_remote=True)
+    assistant = ApplicationAssistant(None)
+    once = assistant.calculate_match(Job(**common, skills_required=["React", "Docker"]), profile)
+    duplicate = assistant.calculate_match(Job(**common, skills_required=["React", "ReactJS", "React.js", "Docker"]), profile)
+    assert once.match_score == duplicate.match_score
+    assert len(duplicate.matched_skills)==1 and duplicate.missing_skills==["Docker"]

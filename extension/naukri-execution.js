@@ -14,7 +14,8 @@ export async function executeNaukri(work) {
   const request = work.execution;
   const expectedUrl = work.target_url || work.url;
   const safe = () => {
-    if (document.visibilityState !== "hidden") throw Error("owner_tab_active");
+    if (state.adopted || document.visibilityState !== "hidden")
+      throw Error("owner_tab_active");
     if (
       location.href !== expectedUrl ||
       location.origin !== "https://www.naukri.com"
@@ -90,22 +91,53 @@ export async function executeNaukri(work) {
     return hash(emails[0]);
   };
   const key = "__automatedApplyNaukriExecutionV1";
-  if (!globalThis[key])
+  if (!globalThis[key]) {
     globalThis[key] = {
       documentId: crypto.randomUUID(),
       used: false,
       seal: null,
+      adopted: false,
     };
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState !== "hidden") globalThis[key].adopted = true;
+    });
+  }
   const state = globalThis[key];
   const summarySection = () => {
     const headings = [
-      ...document.querySelectorAll('h2,h3,h4,[class*="widgetTitle"]'),
-    ].filter((e) => visible(e) && clean(e) === "Profile summary");
+      ...document.querySelectorAll(
+        'h1.section-heading,h2,h3,h4,[class*="widgetTitle"]',
+      ),
+    ].filter(
+      (e) => visible(e) && clean(e)?.toLowerCase() === "profile summary",
+    );
     if (headings.length !== 1) return null;
-    return headings[0].closest('section,[class*="widget"],[class*="card"]');
+    return headings[0].closest(
+      '.profileSummary.section,section,[class*="widget"],[class*="card"]',
+    );
   };
   const summaryValue = () => {
     const section = summarySection();
+    if (section?.matches(".profileSummary.section")) {
+      const cards = [...section.querySelectorAll(".card-container")].filter(
+        visible,
+      );
+      const values = [
+        ...section.querySelectorAll(
+          ".card-container .card-details > p.card-sub-heading",
+        ),
+      ].filter(visible);
+      if (cards.length === 1 && values.length === 1) return clean(values[0]);
+      if (
+        !cards.length &&
+        [
+          ...section.querySelectorAll(".heading-container.cursor .add-more"),
+        ].filter((e) => visible(e) && clean(e) === "Add").length === 1 &&
+        section.querySelector(".section-sub-heading")
+      )
+        return "";
+      return undefined;
+    }
     const paragraphs =
       section && [...section.querySelectorAll("p")].filter(visible);
     if (!paragraphs || paragraphs.length !== 1) return undefined;
@@ -263,16 +295,23 @@ export async function executeNaukri(work) {
         throw Error("profile_summary_control_unsupported");
       if (
         (summary ? await hash(JSON.stringify(summary)) : null) !==
-          request.previous_summary_reference ||
+          (request.previous_summary_reference ?? null) ||
         !request.approved_summary
       )
         throw Error("profile_sync_preimage_changed");
-      const edits = [...section.querySelectorAll("button,a")].filter(
+      const edits = [
+        ...section.querySelectorAll(
+          "button,a,h1.section-heading .new-pencil,.heading-container.cursor .add-more",
+        ),
+      ].filter(
         (e) =>
           visible(e) &&
-          /^(Edit|Edit profile summary)$/.test(
+          (/^(Edit|Edit profile summary)$/.test(
             e.getAttribute("aria-label") || clean(e),
-          ),
+          ) ||
+            (section.matches(".profileSummary.section") &&
+              (e.matches("h1.section-heading .new-pencil") ||
+                (e.matches(".add-more") && clean(e) === "Add")))),
       );
       if (edits.length !== 1)
         throw Error("profile_summary_control_unsupported");
@@ -290,12 +329,36 @@ export async function executeNaukri(work) {
       checkPermit();
       state.used = true;
       edits[0].click();
-      for (
-        let i = 0;
-        i < 20 && ![...document.querySelectorAll("textarea")].some(visible);
-        i++
-      )
-        await new Promise((r) => setTimeout(r, 50));
+      // React mutations wake this immediately in an inactive/locked tab. Fixed
+      // timer polls can consume the entire permit under Chrome timer throttling.
+      const until = async (check) => {
+        if (check()) return;
+        await new Promise((resolve) => {
+          const observer = new MutationObserver(() => {
+            if (check()) done();
+          });
+          const timer = setTimeout(
+            done,
+            Math.max(0, Date.parse(request.permit_expires_at) - Date.now()),
+          );
+          function done() {
+            clearTimeout(timer);
+            observer.disconnect();
+            resolve();
+          }
+          observer.observe(document.body, {
+            subtree: true,
+            childList: true,
+            attributes: true,
+          });
+          if (check()) done();
+        });
+        safe();
+        checkPermit();
+      };
+      await until(() =>
+        [...document.querySelectorAll("textarea")].some(visible),
+      );
       const textareas = [...document.querySelectorAll("textarea")].filter(
         visible,
       );
@@ -307,7 +370,15 @@ export async function executeNaukri(work) {
         [...(textarea.labels || [])].map(clean).join(" ");
       const scope = textarea.closest("form,[role=dialog],section");
       if (
-        label !== "Profile summary" ||
+        (label !== "Profile summary" &&
+          !(
+            section.matches(".profileSummary.section") &&
+            textarea.id === "summary" &&
+            textarea.name === "summary" &&
+            clean(
+              textarea.closest("[role=dialog]")?.querySelector("h1"),
+            )?.toLowerCase() === "profile summary"
+          )) ||
         !scope ||
         [...scope.querySelectorAll("input,select,textarea")].filter(visible)
           .length !== 1
@@ -324,7 +395,11 @@ export async function executeNaukri(work) {
       ).set.call(textarea, request.approved_summary);
       for (const event of ["input", "change", "blur"])
         textarea.dispatchEvent(new Event(event, { bubbles: true }));
-      await new Promise((r) => setTimeout(r, 50));
+      await until(() =>
+        [...scope.querySelectorAll("button")].some(
+          (e) => visible(e) && clean(e) === "Save" && !e.disabled,
+        ),
+      );
       if (!textarea.isConnected || textarea.value !== request.approved_summary)
         throw Error("profile_summary_value_not_retained");
       const saves = [...scope.querySelectorAll("button")].filter(

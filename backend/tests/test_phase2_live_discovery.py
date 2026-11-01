@@ -231,3 +231,18 @@ async def test_expired_run_replay_requires_recovery_and_never_calls_provider(
     # Rendering is read-only; retain the durable interrupted state for audit.
     assert run.status == "running" and run.finished_at is None
     assert run_output(run)["status"] == "recovery_required"
+
+
+@pytest.mark.asyncio
+async def test_unrestricted_location_and_any_remote_policy_do_not_penalize_known_onsite_jobs(phase2_profile):
+    profile = CandidateProfileRead.model_validate(phase2_profile)
+    profile = profile.model_copy(update={"preferences": profile.preferences.model_copy(update={"remote_preference": "any", "preferred_locations": []})})
+    common = dict(id=uuid4(), title="Software Engineer", job_url="https://example.org/location", source_platform="naukri", skills_required=["Python"], remote_type="onsite", is_remote=False)
+    known = JobDiscoveryMatcher(None).match(Job(**common, location="Bengaluru"), profile)
+    unknown = JobDiscoveryMatcher(None).match(Job(**common), profile)
+    restricted = profile.model_copy(update={"preferences": profile.preferences.model_copy(update={"preferred_locations": ["Delhi"]})})
+    mismatch = JobDiscoveryMatcher(None).match(Job(**common, location="Bengaluru"), restricted)
+    assert known.match_score == unknown.match_score+20 == mismatch.match_score+20
+    assert "Location and remote policy fit preferences" in known.positive_factors
+    assert "location" in unknown.unknown_fields
+    assert "Location and remote policy fit preferences" not in mismatch.positive_factors

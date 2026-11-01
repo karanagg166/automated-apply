@@ -105,7 +105,11 @@ class JobDiscoveryMatcher:
                 and remote == "onsite"
                 and (location_match or not prefs.preferred_locations)
             )
-            or (policy in (None, "any") and (location_match or remote == "remote"))
+            or (
+                policy in (None, "any")
+                and (location_match or remote == "remote"
+                     or (not prefs.preferred_locations and bool(job.location)))
+            )
         )
         if compatible:
             score += 20

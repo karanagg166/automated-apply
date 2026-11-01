@@ -145,6 +145,8 @@ try {
         "window.fixtureClicks=(window.fixtureClicks||0)+1",
         "window.fixtureClicks=(window.fixtureClicks||0)+1;setTimeout(()=>{const d=document.createElement('div');d.className='chatbot_DrawerContentWrapper';d.innerHTML='<div class=chatbot_MessageContainer><div class=botItem><div class=botMsg>Which office can you start from?</div></div></div><div class=chipsContainer><div class=chatbot_Chip>Pune</div><div class=chatbot_Chip>Delhi</div></div>';d.querySelectorAll('.chatbot_Chip').forEach(c=>c.onclick=()=>{window.choiceSaves=(window.choiceSaves||0)+1;d.innerHTML='<div class=chatbot_MessageContainer><div class=botItem><div class=botMsg>What is your full name?</div></div></div><div class=textArea contenteditable=true></div><div class=send><span class=sendMsg>Save</span></div>';d.querySelector('.send').onclick=()=>{window.textSaves=(window.textSaves||0)+1;window.savedText=d.querySelector('.textArea').textContent;d.remove()}});document.body.append(d)},200)",
       );
+    if (mode === "modern_profile_summary" && u.pathname === "/mnjuser/profile")
+      body = `<section class="profile-details">${email}<a href="/download-fictional-resume.pdf">Download Resume</a></section><div class="award-details section profileSummary"><div class="heading-container ${savedSummary ? "" : "cursor"}"><div class="text-container"><h1 class="section-heading">Profile Summary ${savedSummary ? '<span class="new-pencil" style="display:inline-block;width:14px;height:14px" aria-label="Edit profile summary"></span>' : ""}</h1>${savedSummary ? "" : '<h2 class="section-sub-heading">Write a meaningful summary of more than 50 characters.</h2>'}</div>${savedSummary ? "" : '<div class="add-more">Add</div>'}</div>${savedSummary ? `<div class="card-container"><div class="card-details"><p class="card-sub-heading">${savedSummary}</p></div></div>` : ""}</div><script>document.querySelector('.profileSummary .new-pencil,.profileSummary .add-more').onclick=()=>{setTimeout(()=>{const editor=document.createElement('div');editor.setAttribute('role','dialog');editor.innerHTML='<h1>Profile summary</h1><form name="skillDetailsForm"><textarea id="summary" name="summary" minlength="50" maxlength="1000"></textarea><button id="submit-btn" type="button" disabled>Save</button></form>';document.body.append(editor);editor.querySelector('textarea').oninput=()=>queueMicrotask(()=>editor.querySelector('button').disabled=false);editor.querySelector('button').onclick=()=>fetch('/fixture-save-summary',{method:'POST',body:editor.querySelector('textarea').value});},75);};</script>`;
     if (
       ["modern_download", "bad_download", "dispatch_download"].includes(mode) &&
       u.pathname === "/mnjuser/profile"
@@ -226,458 +228,520 @@ try {
       fictional_page: true,
       actual_inactive_chromium_tab: true,
     });
-  let tabId = await create(profileUrl);
-  let result = await run(tabId, work("inspect_profile"));
-  assert.equal(
-    result.execution?.state,
-    "PROFILE_VERIFIED",
-    JSON.stringify(result),
-  );
-  assert.equal(result.execution.resume_sha256, hash(pdf));
-  assert.equal(result.execution.resume_bytes, pdf.length);
-  record("canonical_provider_pdf_bytes");
-  result = await run(
-    tabId,
-    work("inspect_profile", { expected_resume_sha256: "0".repeat(64) }),
-  );
-  assert.equal(
-    result.reason,
-    "provider_saved_resume_differs_from_canonical_pdf",
-  );
-  record("wrong_saved_resume_refused");
-  await close(tabId);
-
-  mode = "no_account_label";
-  tabId = await create(profileUrl);
-  const accountRead = await run(tabId, work("verify_account"));
-  assert.equal(accountRead.execution?.state, "PROFILE_OBSERVED");
-  assert.equal(accountRead.execution.account_sha256, accountHash);
-  const binding = await worker.evaluate(
-    (id) => globalThis.fixtureBinding(id),
-    tabId,
-  );
-  const proof = {
-    source: "profile_ui",
-    work_id: "fictional",
-    account_sha256: accountRead.execution.account_sha256,
-    profile_document_id: accountRead.execution.document_id,
-    observed_at: new Date().toISOString(),
-    binding,
-  };
-  const navigate = (url) =>
-    worker.evaluate(({ id, url }) => globalThis.navigate(id, url), {
-      id: tabId,
-      url,
-    });
-  await navigate(jobUrl);
-  const absent = await run(tabId, work("inspect_application"));
-  assert.equal(absent.reason, "provider_account_identity_unverified");
-  const bound = await run(
-    tabId,
-    work("inspect_application", { account_observation: proof }),
-  );
-  assert.equal(bound.execution?.state, "NOT_APPLIED", JSON.stringify(bound));
-  assert.equal(bound.execution.account_sha256, accountHash);
-  record(
-    "real_layout_without_email_uses_bound_profile_observation_not_contact_input",
-  );
-  for (const [name, changed] of [
-    [
-      "expired_profile_account",
-      { ...proof, observed_at: new Date(Date.now() - 180000).toISOString() },
-    ],
-    [
-      "future_profile_account",
-      { ...proof, observed_at: new Date(Date.now() + 60000).toISOString() },
-    ],
-    ["different_work_account", { ...proof, work_id: "different" }],
-    ["invalid_profile_document", { ...proof, profile_document_id: "bad" }],
-    [
-      "different_profile_account",
-      { ...proof, binding: { ...binding, profile_binding_id: "different" } },
-    ],
-    [
-      "different_tab_account",
-      { ...proof, binding: { ...binding, tab_id: binding.tab_id + 1 } },
-    ],
-  ]) {
-    const denied = await run(
-      tabId,
-      work("inspect_application", { account_observation: changed }),
-    );
-    assert.equal(denied.reason, "provider_account_identity_unverified", name);
-    record(name);
-  }
-  const applied = await run(
-    tabId,
-    work("apply", {
-      account_observation: proof,
-      document_id: bound.execution.document_id,
-      control_sha256: bound.execution.control_sha256,
-      permit_expires_at: new Date(Date.now() + 1500).toISOString(),
-    }),
-  );
-  assert.equal(applied.execution?.state, "CLICKED", JSON.stringify(applied));
-  await navigate(historyUrl);
-  const history = await run(
-    tabId,
-    work("reconcile_application", { account_observation: proof }),
-  );
-  assert.equal(history.execution?.state, "APPLICATION_SENT");
-  record(
-    "bound_profile_account_preserves_direct_apply_and_independent_history_checks",
-  );
-  mode = "wrong_account";
-  await navigate(jobUrl);
-  const mismatch = await run(
-    tabId,
-    work("inspect_application", { account_observation: proof }),
-  );
-  assert.equal(mismatch.reason, "provider_account_identity_unverified");
-  record("visible_wrong_account_is_not_overridden_by_profile_observation");
-  mode = "questionnaire";
-  await navigate(jobUrl);
-  const beforeQuestionnaire = await run(
-    tabId,
-    work("inspect_application", { account_observation: proof }),
-  );
-  const questionnaireApply = work("apply", {
-    account_observation: proof,
-    document_id: beforeQuestionnaire.execution.document_id,
-    control_sha256: beforeQuestionnaire.execution.control_sha256,
-    permit_expires_at: new Date(Date.now() + 1500).toISOString(),
-  });
-  const questionnaire = await run(tabId, questionnaireApply);
-  assert.equal(
-    questionnaire.execution?.state,
-    "QUESTIONNAIRE",
-    JSON.stringify(questionnaire),
-  );
-  assert.equal(
-    (await run(tabId, questionnaireApply)).reason,
-    "single_use_document_admission_required",
-  );
-  record(
-    "asynchronous_real_structure_questionnaire_is_handed_off_without_a_second_apply",
-  );
-  const chat = (request) =>
-    worker.evaluate(({ tabId, request }) => globalThis.chat(tabId, request), {
-      tabId,
-      request,
-    });
-  const chatRequest = { operation: "inspect", url: jobUrl, requisition: req };
-  const choice = await chat(chatRequest);
-  assert.deepEqual(choice.options, ["Pune", "Delhi"]);
-  const answerRequest = {
-    ...chatRequest,
-    operation: "answer",
-    document_id: choice.document_id,
-    step_sha256: choice.step_sha256,
-    answer: "Pune",
-    permit_expires_at: new Date(Date.now() + 2000).toISOString(),
-  };
-  assert.equal(
-    (await chat(answerRequest)).kind,
-    "questionnaire_answer_attempted",
-  );
-  assert.equal(
-    (await chat(answerRequest)).reason,
-    "questionnaire_step_changed_or_consumed",
-  );
-  record("genuine_div_choices_are_clicked_once_in_an_inactive_renderer");
-  const text = await chat(chatRequest);
-  assert.equal(text.answer_kind, "text");
-  assert.equal(
-    (
-      await chat({
-        ...answerRequest,
-        document_id: text.document_id,
-        step_sha256: text.step_sha256,
-        answer: "Alex Fixture",
-        permit_expires_at: new Date(Date.now() + 2000).toISOString(),
-      })
-    ).kind,
-    "questionnaire_answer_attempted",
-  );
-  const counts = await worker.evaluate(
-    async (tabId) =>
-      (
-        await chrome.scripting.executeScript({
-          target: { tabId },
-          world: "MAIN",
-          func: () => ({
-            apply: window.fixtureClicks,
-            choice: window.choiceSaves,
-            text: window.textSaves,
-            value: window.savedText,
-            hidden: document.visibilityState,
-          }),
-        })
-      )[0].result,
-    tabId,
-  );
-  assert.deepEqual(counts, {
-    apply: 1,
-    choice: 1,
-    text: 1,
-    value: "Alex Fixture",
-    hidden: "hidden",
-  });
-  record(
-    "contenteditable_input_and_save_complete_without_keyboard_focus_or_a_second_apply",
-  );
-  await close(tabId);
-  mode = "normal";
-
-  for (const downloadMode of [
-    "modern_download",
-    "bad_download",
-    "dispatch_download",
-  ]) {
-    mode = downloadMode;
+  let tabId;
+  if (!process.env.NAUKRI_PROFILE_ONLY) {
     tabId = await create(profileUrl);
-    result = await run(tabId, work("inspect_profile"));
-    assert.equal(result.reason, "profile_resume_download_capture_required");
-    const captured = await worker.evaluate(
-      ({ tabId, w }) => globalThis.download(tabId, w),
-      { tabId, w: work("inspect_profile") },
+    let result = await run(tabId, work("inspect_profile"));
+    assert.equal(
+      result.execution?.state,
+      "PROFILE_VERIFIED",
+      JSON.stringify(result),
     );
-    if (downloadMode !== "bad_download") {
-      assert.equal(captured.sha256, hash(pdf));
-      assert.equal(
-        captured.download_event,
-        downloadMode === "dispatch_download"
-          ? "anchor_dispatch"
-          : "anchor_click",
-      );
-      const resumeCompare = await run(
+    assert.equal(result.execution.resume_sha256, hash(pdf));
+    assert.equal(result.execution.resume_bytes, pdf.length);
+    record("canonical_provider_pdf_bytes");
+    result = await run(
+      tabId,
+      work("inspect_profile", { expected_resume_sha256: "0".repeat(64) }),
+    );
+    assert.equal(
+      result.reason,
+      "provider_saved_resume_differs_from_canonical_pdf",
+    );
+    record("wrong_saved_resume_refused");
+    await close(tabId);
+
+    mode = "no_account_label";
+    tabId = await create(profileUrl);
+    const accountRead = await run(tabId, work("verify_account"));
+    assert.equal(accountRead.execution?.state, "PROFILE_OBSERVED");
+    assert.equal(accountRead.execution.account_sha256, accountHash);
+    const binding = await worker.evaluate(
+      (id) => globalThis.fixtureBinding(id),
+      tabId,
+    );
+    const proof = {
+      source: "profile_ui",
+      work_id: "fictional",
+      account_sha256: accountRead.execution.account_sha256,
+      profile_document_id: accountRead.execution.document_id,
+      observed_at: new Date().toISOString(),
+      binding,
+    };
+    const navigate = (url) =>
+      worker.evaluate(({ id, url }) => globalThis.navigate(id, url), {
+        id: tabId,
+        url,
+      });
+    await navigate(jobUrl);
+    const absent = await run(tabId, work("inspect_application"));
+    assert.equal(absent.reason, "provider_account_identity_unverified");
+    const bound = await run(
+      tabId,
+      work("inspect_application", { account_observation: proof }),
+    );
+    assert.equal(bound.execution?.state, "NOT_APPLIED", JSON.stringify(bound));
+    assert.equal(bound.execution.account_sha256, accountHash);
+    record(
+      "real_layout_without_email_uses_bound_profile_observation_not_contact_input",
+    );
+    for (const [name, changed] of [
+      [
+        "expired_profile_account",
+        { ...proof, observed_at: new Date(Date.now() - 180000).toISOString() },
+      ],
+      [
+        "future_profile_account",
+        { ...proof, observed_at: new Date(Date.now() + 60000).toISOString() },
+      ],
+      ["different_work_account", { ...proof, work_id: "different" }],
+      ["invalid_profile_document", { ...proof, profile_document_id: "bad" }],
+      [
+        "different_profile_account",
+        { ...proof, binding: { ...binding, profile_binding_id: "different" } },
+      ],
+      [
+        "different_tab_account",
+        { ...proof, binding: { ...binding, tab_id: binding.tab_id + 1 } },
+      ],
+    ]) {
+      const denied = await run(
         tabId,
-        work("inspect_profile_sync", {
-          verify_saved_resume: true,
-        }),
+        work("inspect_application", { account_observation: changed }),
       );
-      assert.equal(
-        resumeCompare.reason,
-        "profile_resume_download_capture_required",
-      );
-      const comparedPDF = await run(
-        tabId,
-        work("inspect_profile_sync", {
-          verify_saved_resume: true,
-          provider_pdf_observation: captured,
-        }),
-      );
-      assert.equal(comparedPDF.execution?.state, "PROFILE_OBSERVED");
-      assert.equal(comparedPDF.execution.resume_sha256, hash(pdf));
-      assert.equal(comparedPDF.execution.resume_bytes, pdf.length);
-      const wrongCompare = await run(
-        tabId,
-        work("inspect_profile_sync", {
-          verify_saved_resume: true,
-          provider_pdf_observation: captured,
-          expected_resume_sha256: "0".repeat(64),
-        }),
-      );
-      assert.equal(
-        wrongCompare.reason,
-        "provider_saved_resume_differs_from_canonical_pdf",
-      );
-      record(
-        "read_only_profile_comparison_verifies_downloaded_pdf_without_job_or_apply",
-      );
-      result = await run(
-        tabId,
-        work("inspect_profile", { provider_pdf_observation: captured }),
-      );
-      assert.equal(result.execution?.state, "PROFILE_VERIFIED");
-      assert.equal(result.execution.resume_bytes, pdf.length);
-      const wrong = await run(
-        tabId,
-        work("inspect_profile", {
-          provider_pdf_observation: captured,
-          expected_resume_sha256: "0".repeat(64),
-        }),
-      );
-      assert.equal(
-        wrong.reason,
-        "provider_saved_resume_differs_from_canonical_pdf",
-      );
-    } else {
-      assert.equal(captured.reason, "provider_saved_resume_not_pdf");
+      assert.equal(denied.reason, "provider_account_identity_unverified", name);
+      record(name);
     }
-    const restored = await worker.evaluate(
+    const applied = await run(
+      tabId,
+      work("apply", {
+        account_observation: proof,
+        document_id: bound.execution.document_id,
+        control_sha256: bound.execution.control_sha256,
+        permit_expires_at: new Date(Date.now() + 1500).toISOString(),
+      }),
+    );
+    assert.equal(applied.execution?.state, "CLICKED", JSON.stringify(applied));
+    await navigate(historyUrl);
+    const history = await run(
+      tabId,
+      work("reconcile_application", { account_observation: proof }),
+    );
+    assert.equal(history.execution?.state, "APPLICATION_SENT");
+    record(
+      "bound_profile_account_preserves_direct_apply_and_independent_history_checks",
+    );
+    mode = "wrong_account";
+    await navigate(jobUrl);
+    const mismatch = await run(
+      tabId,
+      work("inspect_application", { account_observation: proof }),
+    );
+    assert.equal(mismatch.reason, "provider_account_identity_unverified");
+    record("visible_wrong_account_is_not_overridden_by_profile_observation");
+    mode = "questionnaire";
+    await navigate(jobUrl);
+    const beforeQuestionnaire = await run(
+      tabId,
+      work("inspect_application", { account_observation: proof }),
+    );
+    const questionnaireApply = work("apply", {
+      account_observation: proof,
+      document_id: beforeQuestionnaire.execution.document_id,
+      control_sha256: beforeQuestionnaire.execution.control_sha256,
+      permit_expires_at: new Date(Date.now() + 1500).toISOString(),
+    });
+    const questionnaire = await run(tabId, questionnaireApply);
+    assert.equal(
+      questionnaire.execution?.state,
+      "QUESTIONNAIRE",
+      JSON.stringify(questionnaire),
+    );
+    assert.equal(
+      (await run(tabId, questionnaireApply)).reason,
+      "single_use_document_admission_required",
+    );
+    record(
+      "asynchronous_real_structure_questionnaire_is_handed_off_without_a_second_apply",
+    );
+    const chat = (request) =>
+      worker.evaluate(({ tabId, request }) => globalThis.chat(tabId, request), {
+        tabId,
+        request,
+      });
+    const chatRequest = { operation: "inspect", url: jobUrl, requisition: req };
+    const choice = await chat(chatRequest);
+    assert.deepEqual(choice.options, ["Pune", "Delhi"]);
+    const answerRequest = {
+      ...chatRequest,
+      operation: "answer",
+      document_id: choice.document_id,
+      step_sha256: choice.step_sha256,
+      answer: "Pune",
+      permit_expires_at: new Date(Date.now() + 2000).toISOString(),
+    };
+    assert.equal(
+      (await chat(answerRequest)).kind,
+      "questionnaire_answer_attempted",
+    );
+    assert.equal(
+      (await chat(answerRequest)).reason,
+      "questionnaire_step_changed_or_consumed",
+    );
+    record("genuine_div_choices_are_clicked_once_in_an_inactive_renderer");
+    const text = await chat(chatRequest);
+    assert.equal(text.answer_kind, "text");
+    assert.equal(
+      (
+        await chat({
+          ...answerRequest,
+          document_id: text.document_id,
+          step_sha256: text.step_sha256,
+          answer: "Alex Fixture",
+          permit_expires_at: new Date(Date.now() + 2000).toISOString(),
+        })
+      ).kind,
+      "questionnaire_answer_attempted",
+    );
+    const counts = await worker.evaluate(
       async (tabId) =>
         (
           await chrome.scripting.executeScript({
             target: { tabId },
             world: "MAIN",
             func: () => ({
-              url: URL.createObjectURL === window.originalCreateURL,
-              click:
-                HTMLAnchorElement.prototype.click ===
-                  window.originalAnchorClick &&
-                Object.hasOwn(HTMLAnchorElement.prototype, "click") ===
-                  window.originalClickOwn,
-              dispatch:
-                HTMLAnchorElement.prototype.dispatchEvent ===
-                  window.originalAnchorDispatch &&
-                Object.hasOwn(HTMLAnchorElement.prototype, "dispatchEvent") ===
-                  window.originalDispatchOwn,
-              count: window.downloadClicks,
+              apply: window.fixtureClicks,
+              choice: window.choiceSaves,
+              text: window.textSaves,
+              value: window.savedText,
+              hidden: document.visibilityState,
             }),
           })
         )[0].result,
       tabId,
     );
-    assert.deepEqual(restored, {
-      url: true,
-      click: true,
-      dispatch: true,
-      count: 1,
+    assert.deepEqual(counts, {
+      apply: 1,
+      choice: 1,
+      text: 1,
+      value: "Alex Fixture",
+      hidden: "hidden",
     });
     record(
-      downloadMode === "bad_download"
-        ? "invalid_download_pdf_refused_hooks_restored"
-        : downloadMode === "dispatch_download"
-          ? "dispatch_octet_stream_pdf_digest_exact_hooks_restored"
-          : "genuine_layout_download_blob_digest_hooks_restored",
+      "contenteditable_input_and_save_complete_without_keyboard_focus_or_a_second_apply",
     );
     await close(tabId);
-  }
-  mode = "normal";
+    mode = "normal";
 
-  tabId = await create(profileUrl);
-  const compared = await run(tabId, work("inspect_profile_sync"));
-  assert.equal(
-    compared.execution?.profile_fields.summary,
-    savedSummary,
-    JSON.stringify(compared),
-  );
-  const canonicalSummary = "Verified fictional summary";
-  const written = await run(
-    tabId,
-    work("sync_profile", {
-      document_id: compared.execution.document_id,
-      previous_summary_reference: hash(JSON.stringify(savedSummary)),
-      approved_summary: canonicalSummary,
-      permit_expires_at: new Date(Date.now() + 2000).toISOString(),
-    }),
-  );
-  assert.equal(
-    written.execution?.state,
-    "PROFILE_SAVE_ATTEMPTED",
-    JSON.stringify(written),
-  );
-  for (let i = 0; savedSummary !== canonicalSummary; i++) {
-    if (i >= 50) throw Error("fixture_save_timeout");
-    await new Promise((r) => setTimeout(r, 20));
-  }
-  await close(tabId);
-  tabId = await create(profileUrl);
-  const verified = await run(tabId, work("inspect_profile_sync"));
-  assert.equal(verified.execution.profile_fields.summary, canonicalSummary);
-  assert.notEqual(
-    verified.execution.document_id,
-    compared.execution.document_id,
-  );
-  record("profile_summary_save_and_independent_reload");
-  await close(tabId);
-
-  for (const variant of [
-    "normal",
-    "modern",
-    "expired",
-    "changed",
-    "double",
-    "wrong_account",
-    "challenge",
-  ]) {
-    mode = ["wrong_account", "challenge", "modern"].includes(variant)
-      ? variant
-      : "normal";
-    tabId = await create(jobUrl);
-    const observed = await run(tabId, work("inspect_application"));
-    if (["wrong_account", "challenge"].includes(variant)) {
-      assert.equal(observed.kind, "needs_input");
-      assert.match(
-        observed.reason,
-        /account_identity_unverified|challenge_requires_owner/,
+    for (const downloadMode of [
+      "modern_download",
+      "bad_download",
+      "dispatch_download",
+    ]) {
+      mode = downloadMode;
+      tabId = await create(profileUrl);
+      result = await run(tabId, work("inspect_profile"));
+      assert.equal(result.reason, "profile_resume_download_capture_required");
+      const captured = await worker.evaluate(
+        ({ tabId, w }) => globalThis.download(tabId, w),
+        { tabId, w: work("inspect_profile") },
       );
-    } else {
-      assert.equal(
-        observed.execution?.state,
-        "NOT_APPLIED",
-        JSON.stringify(observed),
-      );
-      if (variant === "changed")
-        await worker.evaluate(
-          (tabId) =>
-            chrome.scripting.executeScript({
-              target: { tabId },
-              func: () =>
-                (document.querySelector("button").textContent = "Apply Now"),
-            }),
+      if (downloadMode !== "bad_download") {
+        assert.equal(captured.sha256, hash(pdf));
+        assert.equal(
+          captured.download_event,
+          downloadMode === "dispatch_download"
+            ? "anchor_dispatch"
+            : "anchor_click",
+        );
+        const resumeCompare = await run(
           tabId,
+          work("inspect_profile_sync", {
+            verify_saved_resume: true,
+          }),
         );
-      const apply = work("apply", {
-        document_id: observed.execution.document_id,
-        control_sha256: observed.execution.control_sha256,
-        permit_expires_at: new Date(
-          Date.now() + (variant === "expired" ? -100 : 2000),
-        ).toISOString(),
-      });
-      const clicked = await run(tabId, apply);
-      if (["expired", "changed"].includes(variant))
-        assert.equal(clicked.kind, "needs_input");
-      else
         assert.equal(
-          clicked.execution?.state,
-          "CLICKED",
-          JSON.stringify(clicked),
+          resumeCompare.reason,
+          "profile_resume_download_capture_required",
         );
-      if (variant === "double")
+        const comparedPDF = await run(
+          tabId,
+          work("inspect_profile_sync", {
+            verify_saved_resume: true,
+            provider_pdf_observation: captured,
+          }),
+        );
+        assert.equal(comparedPDF.execution?.state, "PROFILE_OBSERVED");
+        assert.equal(comparedPDF.execution.resume_sha256, hash(pdf));
+        assert.equal(comparedPDF.execution.resume_bytes, pdf.length);
+        const wrongCompare = await run(
+          tabId,
+          work("inspect_profile_sync", {
+            verify_saved_resume: true,
+            provider_pdf_observation: captured,
+            expected_resume_sha256: "0".repeat(64),
+          }),
+        );
         assert.equal(
-          (await run(tabId, apply)).reason,
-          "single_use_document_admission_required",
+          wrongCompare.reason,
+          "provider_saved_resume_differs_from_canonical_pdf",
         );
-      const count = await worker.evaluate(
+        record(
+          "read_only_profile_comparison_verifies_downloaded_pdf_without_job_or_apply",
+        );
+        result = await run(
+          tabId,
+          work("inspect_profile", { provider_pdf_observation: captured }),
+        );
+        assert.equal(result.execution?.state, "PROFILE_VERIFIED");
+        assert.equal(result.execution.resume_bytes, pdf.length);
+        const wrong = await run(
+          tabId,
+          work("inspect_profile", {
+            provider_pdf_observation: captured,
+            expected_resume_sha256: "0".repeat(64),
+          }),
+        );
+        assert.equal(
+          wrong.reason,
+          "provider_saved_resume_differs_from_canonical_pdf",
+        );
+      } else {
+        assert.equal(captured.reason, "provider_saved_resume_not_pdf");
+      }
+      const restored = await worker.evaluate(
         async (tabId) =>
           (
             await chrome.scripting.executeScript({
               target: { tabId },
               world: "MAIN",
-              func: () => window.fixtureClicks || 0,
+              func: () => ({
+                url: URL.createObjectURL === window.originalCreateURL,
+                click:
+                  HTMLAnchorElement.prototype.click ===
+                    window.originalAnchorClick &&
+                  Object.hasOwn(HTMLAnchorElement.prototype, "click") ===
+                    window.originalClickOwn,
+                dispatch:
+                  HTMLAnchorElement.prototype.dispatchEvent ===
+                    window.originalAnchorDispatch &&
+                  Object.hasOwn(
+                    HTMLAnchorElement.prototype,
+                    "dispatchEvent",
+                  ) === window.originalDispatchOwn,
+                count: window.downloadClicks,
+              }),
             })
           )[0].result,
         tabId,
       );
-      assert.equal(count, ["expired", "changed"].includes(variant) ? 0 : 1);
+      assert.deepEqual(restored, {
+        url: true,
+        click: true,
+        dispatch: true,
+        count: 1,
+      });
+      record(
+        downloadMode === "bad_download"
+          ? "invalid_download_pdf_refused_hooks_restored"
+          : downloadMode === "dispatch_download"
+            ? "dispatch_octet_stream_pdf_digest_exact_hooks_restored"
+            : "genuine_layout_download_blob_digest_hooks_restored",
+      );
+      await close(tabId);
     }
-    record(variant);
+    mode = "normal";
+
+    tabId = await create(profileUrl);
+    const compared = await run(tabId, work("inspect_profile_sync"));
+    assert.equal(
+      compared.execution?.profile_fields.summary,
+      savedSummary,
+      JSON.stringify(compared),
+    );
+    const canonicalSummary = "Verified fictional summary";
+    const written = await run(
+      tabId,
+      work("sync_profile", {
+        document_id: compared.execution.document_id,
+        previous_summary_reference: hash(JSON.stringify(savedSummary)),
+        approved_summary: canonicalSummary,
+        permit_expires_at: new Date(Date.now() + 2000).toISOString(),
+      }),
+    );
+    assert.equal(
+      written.execution?.state,
+      "PROFILE_SAVE_ATTEMPTED",
+      JSON.stringify(written),
+    );
+    for (let i = 0; savedSummary !== canonicalSummary; i++) {
+      if (i >= 50) throw Error("fixture_save_timeout");
+      await new Promise((r) => setTimeout(r, 20));
+    }
+    await close(tabId);
+    tabId = await create(profileUrl);
+    const verified = await run(tabId, work("inspect_profile_sync"));
+    assert.equal(verified.execution.profile_fields.summary, canonicalSummary);
+    assert.notEqual(
+      verified.execution.document_id,
+      compared.execution.document_id,
+    );
+    record("profile_summary_save_and_independent_reload");
     await close(tabId);
   }
-  mode = "normal";
-  tabId = await create(historyUrl);
-  const first = await run(tabId, work("reconcile_application"));
-  assert.equal(
-    first.execution?.state,
-    "APPLICATION_SENT",
-    JSON.stringify(first),
+
+  mode = "modern_profile_summary";
+  savedSummary = "";
+  tabId = await create(profileUrl);
+  const missingModern = await run(tabId, work("inspect_profile_sync"));
+  assert.equal(missingModern.execution?.profile_fields.summary, "");
+  record("genuine_H1_profile_summary_placeholder_is_empty_not_saved_text");
+  const modernSummary =
+    "Verified fictional backend and full stack experience for the profile acceptance fixture.";
+  const modernSaved = await run(
+    tabId,
+    work("sync_profile", {
+      document_id: missingModern.execution.document_id,
+      previous_summary_reference: null,
+      approved_summary: modernSummary,
+      permit_expires_at: new Date(Date.now() + 2000).toISOString(),
+    }),
   );
-  await close(tabId);
-  tabId = await create(historyUrl);
-  const second = await run(tabId, work("reconcile_application"));
-  assert.notEqual(first.execution.document_id, second.execution.document_id);
-  record("independent_persistent_history_documents");
-  await close(tabId);
-  mode = "missing_receipt";
-  tabId = await create(historyUrl);
   assert.equal(
-    (await run(tabId, work("reconcile_application"))).reason,
-    "provider_application_sent_receipt_missing",
+    modernSaved.execution?.state,
+    "PROFILE_SAVE_ATTEMPTED",
+    JSON.stringify(modernSaved),
   );
-  record("generic_status_is_not_receipt");
+  for (let i = 0; savedSummary !== modernSummary; i++) {
+    if (i >= 50) throw Error("modern_summary_save_timeout");
+    await new Promise((r) => setTimeout(r, 20));
+  }
   await close(tabId);
+  tabId = await create(profileUrl);
+  const modernRead = await run(tabId, work("inspect_profile_sync"));
+  assert.equal(modernRead.execution?.profile_fields.summary, modernSummary);
+  assert.notEqual(
+    modernRead.execution.document_id,
+    missingModern.execution.document_id,
+  );
+  record(
+    "genuine_unlabelled_summary_modal_saves_inside_unchanged_permit_and_persists_after_reload",
+  );
+  const revisedSummary = modernSummary + " Additional verified fixture facts.";
+  const modernEdited = await run(
+    tabId,
+    work("sync_profile", {
+      document_id: modernRead.execution.document_id,
+      previous_summary_reference: hash(JSON.stringify(modernSummary)),
+      approved_summary: revisedSummary,
+      permit_expires_at: new Date(Date.now() + 2000).toISOString(),
+    }),
+  );
+  assert.equal(
+    modernEdited.execution?.state,
+    "PROFILE_SAVE_ATTEMPTED",
+    JSON.stringify(modernEdited),
+  );
+  record("genuine_pencil_control_uses_same_preimage_and_single_use_guards");
+  await close(tabId);
+
+  if (!process.env.NAUKRI_PROFILE_ONLY) {
+    for (const variant of [
+      "normal",
+      "modern",
+      "expired",
+      "changed",
+      "double",
+      "wrong_account",
+      "challenge",
+    ]) {
+      mode = ["wrong_account", "challenge", "modern"].includes(variant)
+        ? variant
+        : "normal";
+      tabId = await create(jobUrl);
+      const observed = await run(tabId, work("inspect_application"));
+      if (["wrong_account", "challenge"].includes(variant)) {
+        assert.equal(observed.kind, "needs_input");
+        assert.match(
+          observed.reason,
+          /account_identity_unverified|challenge_requires_owner/,
+        );
+      } else {
+        assert.equal(
+          observed.execution?.state,
+          "NOT_APPLIED",
+          JSON.stringify(observed),
+        );
+        if (variant === "changed")
+          await worker.evaluate(
+            (tabId) =>
+              chrome.scripting.executeScript({
+                target: { tabId },
+                func: () =>
+                  (document.querySelector("button").textContent = "Apply Now"),
+              }),
+            tabId,
+          );
+        const apply = work("apply", {
+          document_id: observed.execution.document_id,
+          control_sha256: observed.execution.control_sha256,
+          permit_expires_at: new Date(
+            Date.now() + (variant === "expired" ? -100 : 2000),
+          ).toISOString(),
+        });
+        const clicked = await run(tabId, apply);
+        if (["expired", "changed"].includes(variant))
+          assert.equal(clicked.kind, "needs_input");
+        else
+          assert.equal(
+            clicked.execution?.state,
+            "CLICKED",
+            JSON.stringify(clicked),
+          );
+        if (variant === "double")
+          assert.equal(
+            (await run(tabId, apply)).reason,
+            "single_use_document_admission_required",
+          );
+        const count = await worker.evaluate(
+          async (tabId) =>
+            (
+              await chrome.scripting.executeScript({
+                target: { tabId },
+                world: "MAIN",
+                func: () => window.fixtureClicks || 0,
+              })
+            )[0].result,
+          tabId,
+        );
+        assert.equal(count, ["expired", "changed"].includes(variant) ? 0 : 1);
+      }
+      record(variant);
+      await close(tabId);
+    }
+    mode = "normal";
+    tabId = await create(historyUrl);
+    const first = await run(tabId, work("reconcile_application"));
+    assert.equal(
+      first.execution?.state,
+      "APPLICATION_SENT",
+      JSON.stringify(first),
+    );
+    await close(tabId);
+    tabId = await create(historyUrl);
+    const second = await run(tabId, work("reconcile_application"));
+    assert.notEqual(first.execution.document_id, second.execution.document_id);
+    record("independent_persistent_history_documents");
+    await close(tabId);
+    mode = "missing_receipt";
+    tabId = await create(historyUrl);
+    assert.equal(
+      (await run(tabId, work("reconcile_application"))).reason,
+      "provider_application_sent_receipt_missing",
+    );
+    record("generic_status_is_not_receipt");
+    await close(tabId);
+  }
   const tabs = await worker.evaluate(() => chrome.tabs.query({}));
   assert.equal(tabs.length, 1);
   assert.equal(tabs[0].active, true);
