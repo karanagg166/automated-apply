@@ -117,6 +117,7 @@ const profileUrl = "https://www.naukri.com/mnjuser/profile";
 const historyUrl = "https://www.naukri.com/myapply/historypage";
 let capacity = 13,
   ignoreBlur = false,
+  roleDelay = 0,
   persisted = ["Python", "Existing skill"],
   saves = 0;
 const evidence = [];
@@ -145,7 +146,7 @@ document.querySelector('[aria-label="Edit key skills"]').onclick=()=>{
  history.pushState(null,'','?action=modalOpen');
  const modal=document.createElement('div');modal.className='keySkillsEdit lightbox model_open';
  modal.innerHTML='<form name="keySkillsForm"><div class="keySkillSuggCont"><div class="chipsContainer"></div><input id="keySkillSugg" type="text" role="combobox" aria-label="Add skills"></div><input id="chipsVal" type="hidden"><span id="chipsVal_err"></span><button type="button" id="saveKeySkills">Save</button></form>';
- document.body.append(modal);const form=modal.querySelector('form'),input=form.querySelector('#keySkillSugg'),hidden=form.querySelector('#chipsVal');input.maxLength=window.remaining;
+ document.body.append(modal);const form=modal.querySelector('form'),input=form.querySelector('#keySkillSugg'),hidden=form.querySelector('#chipsVal');input.maxLength=window.remaining;if(${roleDelay}){input.removeAttribute('role');setTimeout(()=>input.setAttribute('role','combobox'),${roleDelay});}
  const chip=value=>{const div=document.createElement('div');div.className='chip';const label=document.createElement('span');label.className='tagTxt';label.textContent=value;div.append(label);form.querySelector('.chipsContainer').append(div);};window.before.forEach(chip);hidden.value=window.before.join(',');
  input.onfocus=()=>window.inputFocusEvents++;
  input.onblur=()=>{const value=input.value;if(!value||${ignoreBlur})return;input.value='';setTimeout(()=>{chip(value);window.remaining-=value.length+1;input.maxLength=Math.max(0,window.remaining);hidden.value+=" ,"+value;},300);};
@@ -322,6 +323,19 @@ document.querySelector('[aria-label="Edit key skills"]').onclick=()=>{
   );
   await close(id);
   evidence.push("wrong_account_never_opens_or_saves");
+  roleDelay = 900;
+  ({ id, work } = await ready());
+  assert.equal(
+    (await prepare(id, work)).execution?.state,
+    "PROFILE_SKILLS_PREPARED",
+  );
+  assert.equal(saves, 1);
+  assert.deepEqual(await dom(id), { keys: 0, focus: 0 });
+  await close(id);
+  evidence.push(
+    "recognized_empty_input_waits_for_combobox_initialization_without_save",
+  );
+  roleDelay = 0;
   ignoreBlur = true;
   ({ id, work } = await ready());
   assert.equal(

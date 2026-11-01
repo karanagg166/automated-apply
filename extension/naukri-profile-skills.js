@@ -132,6 +132,7 @@ export async function executeNaukriSkills(work) {
         added: [],
         pending: null,
         opened: true,
+        openedAt: Date.now(),
         prepared: false,
         saved: false,
       };
@@ -150,20 +151,37 @@ export async function executeNaukriSkills(work) {
         '.keySkillsEdit.model_open form[name="keySkillsForm"]',
       ),
     ].filter(visible);
+    if (
+      !forms.length &&
+      request.sync_phase === "prepare" &&
+      Date.now() - state.openedAt <= 3000
+    )
+      return pending();
     if (forms.length !== 1) throw Error("profile_skills_editor_unsupported");
     const form = forms[0];
     const inputs = [...form.querySelectorAll("input,select,textarea")].filter(
       visible,
     );
     const input = form.querySelector("#keySkillSugg");
+    if (inputs.length !== 1 || inputs[0] !== input)
+      throw Error("profile_skills_input_count_or_identity_changed");
     if (
-      inputs.length !== 1 ||
-      inputs[0] !== input ||
       input.type !== "text" ||
-      input.getAttribute("role") !== "combobox" ||
       input.getAttribute("aria-label") !== "Add skills"
     )
-      throw Error("profile_skills_input_unsupported");
+      throw Error("profile_skills_input_type_or_label_changed");
+    // React can mount the input before the suggestor assigns its combobox role.
+    // Only this recognized, empty control may wait; it cannot fill or Save yet.
+    if (input.getAttribute("role") !== "combobox") {
+      if (
+        input.getAttribute("role") === null &&
+        !input.value &&
+        request.sync_phase === "prepare" &&
+        Date.now() - state.openedAt <= 3000
+      )
+        return pending();
+      throw Error("profile_skills_combobox_not_initialized");
+    }
     const chips = () =>
       [
         ...form.querySelectorAll(
