@@ -135,6 +135,36 @@ total (347→358)** by **10:55:29**, no source error. Inspection continues under
 unchanged filters. No new Apply admission, answer/upload, submission receipt or
 submission notification has been claimed. QTrino remains historical and unreplayed.
 
+### Further genuine profile/discovery continuation
+
+An empty professional **Resume headline** was completed from the confirmed role,
+four-month experience and verified technical skills, without claiming current
+employment. The observed form permits 250 characters; the 128-character factual
+headline was saved **once at 11:12:00**, then independently verified after reload
+at **11:13:15** on the same approved account. Exact text/source/save intent remains
+private. The queue was STOPPED **39** for Save and resumed **RUNNING 40** with
+unchanged SUPERVISED-1/hour-1, score-50 policy after verification. Opening this genuine
+modal adds the observed `?action=modalOpen` query; an initial strict URL guard refused
+input until that exact owned control transition was recognized. No endpoint was
+guessed. A hidden retained editor node was not treated as a failed save: the actual
+saved widget and independent reload established persistence.
+
+The actual professional project form requires **client label and start month**,
+plus project status and an end date for finished projects. The resume's isolated
+project month labels do not establish these facts. The untouched form was cancelled
+unsaved, the own inactive setup tab restored, and the owner was asked once for the
+specific missing project facts. This does not block independent job discovery;
+no personal-project client or duration was invented.
+
+At **11:14:31**, genuine discovery had increased the queue to **396 records**:
+261 SKIPPED, 102 NEEDS_INPUT, 31 DISCOVERED, one MATCHED pending eligibility and one
+retained historical receipt. Source **11:13:31→11:13:50** admitted **18 new unique
+jobs**, no source error. The previous **11:05:34→11:05:56** cycle admitted **20**.
+The MATCHED state means listing ingestion, not successful eligibility/preparation:
+the subsequent query found no remaining MATCHED work, and no new Apply or receipt
+is claimed. Worker and Telegram live polling continued. First-receipt/recurring
+AUTOMATIC and locked real submission acceptance remain OPEN.
+
 ## Code corrections
 
 - Exact skill spelling equivalents now match: React/React.js/ReactJS,
