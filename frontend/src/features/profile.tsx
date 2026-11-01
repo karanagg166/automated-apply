@@ -69,6 +69,8 @@ const formSchema = z.object({
   field_of_study: z.string().max(200),
   projects: z.string().max(16000),
   target_titles: z.string().max(2000),
+  company_stages: z.string().max(2000),
+  startup_priority: z.enum(["", "true", "false"]),
   locations: z.string().max(2000),
   remote: z.enum(["", "any", "remote", "hybrid", "onsite"]),
   startup_size: z.enum(["", "2-10", "11-50", "51-200", "201-500", "any"]),
@@ -106,6 +108,8 @@ const initial: Values = {
   field_of_study: "",
   projects: "[]",
   target_titles: "",
+  company_stages: "",
+  startup_priority: "",
   locations: "",
   remote: "",
   startup_size: "",
@@ -196,6 +200,11 @@ export function ProfileWizard() {
         field_of_study: p.education?.[0]?.field_of_study || "",
         projects: JSON.stringify(p.projects || [], null, 2),
         target_titles: p.preferences?.target_titles?.join(", ") || "",
+        company_stages: p.preferences?.company_stages?.join(", ") || "",
+        startup_priority:
+          p.preferences?.prioritize_startups == null
+            ? ""
+            : (String(p.preferences.prioritize_startups) as "true" | "false"),
         locations: p.preferences?.preferred_locations?.join(", ") || "",
         remote: p.preferences?.remote_preference || "",
         salary: p.preferences?.minimum_salary?.toString() || "",
@@ -272,6 +281,11 @@ export function ProfileWizard() {
         preferences: {
           ...existing?.preferences,
           target_titles: list(values.target_titles),
+          company_stages: list(values.company_stages),
+          prioritize_startups:
+            values.startup_priority === ""
+              ? null
+              : values.startup_priority === "true",
           preferred_locations: list(values.locations),
           remote_preference: values.remote || null,
           minimum_salary: values.salary ? Number(values.salary) : null,
@@ -815,6 +829,25 @@ export function ProfileWizard() {
                   <Field label="Target job titles" hint="Comma-separated">
                     <Input {...register("target_titles")} />
                   </Field>
+                  <Field
+                    label="Allowed company stages"
+                    hint="Leave blank to allow any stage, including unknown. Listed stages require evidence before applying."
+                  >
+                    <Input
+                      {...register("company_stages")}
+                      placeholder="Any stage"
+                    />
+                  </Field>
+                  <Field
+                    label="Startup preference"
+                    hint="Prioritizing startups requires startup evidence before automatic applications."
+                  >
+                    <Select {...register("startup_priority")}>
+                      <option value="">Not specified</option>
+                      <option value="false">All company types</option>
+                      <option value="true">Prioritize verified startups</option>
+                    </Select>
+                  </Field>
                   <Field label="Preferred locations" hint="Comma-separated">
                     <Input {...register("locations")} />
                   </Field>
@@ -888,6 +921,17 @@ export function ProfileWizard() {
                       getValues("linkedin_url") || "Not specified",
                     ],
                     ["Locations", getValues("locations") || "Not specified"],
+                    [
+                      "Allowed company stages",
+                      getValues("company_stages") ||
+                        "Any stage, including unknown",
+                    ],
+                    [
+                      "Startup preference",
+                      getValues("startup_priority") === "true"
+                        ? "Prioritize verified startups"
+                        : "All company types",
+                    ],
                     [
                       "Target titles",
                       getValues("target_titles") || "Not specified",

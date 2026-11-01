@@ -50,9 +50,11 @@ export function SearchPreferencesEditor() {
       </div>
       <div className="panel-body stack">
         <p>
-          Save preferences for your local agent. Saving does not run discovery.
-          Filters require evidence; missing job properties remain unknown.
-          Existing saved-data search controls remain available.
+          These filters control discovery searches. For applications, edit
+          company preferences in your profile and posting age, applicant counts
+          and match score in the application queue. Saving here does not change
+          application rules or start discovery. Missing job properties remain
+          unknown.
         </p>
         {query.isError && <ErrorState error={query.error} />}
         {value && (
