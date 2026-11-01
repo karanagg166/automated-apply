@@ -293,6 +293,20 @@ invented or repeatedly requested. Real discovery remains active under the bounde
 first-application authorization. **First new receipt and recurring real applications
 remain BLOCKED / NOT ACCEPTED**, respectively.
 
+At **11:42:03**, a further live read confirmed unchanged profile **v4**, company
+stages **[early]**, startup prioritization, queue **RUNNING 40**, score **50**,
+SUPERVISED **1/hour 1**, and no other platform enabled. **372 saved observations**
+still yielded **zero eligible records**; every one lacked verified stage/startup
+evidence, with additional overlapping age/skills/experience/applicant blockers.
+The scheduled **11:39:38→11:40:00** discovery run completed normally, admitted zero
+new jobs after deduplication, and reported no source error. Actual queue processing
+continued: the **11:41:41** snapshot had 288 SKIPPED, 107 NEEDS_INPUT, 20 DISCOVERED
+and the retained historical receipt, with **zero new admissions/receipts**. No
+process was restarted on an observation timeout. The engineering goal is blocked
+on an eligible supported job with sufficient evidence or an explicit owner policy
+decision; discovery remains running. The pending company-stage clarification is
+not permission to waive other filters, and missing project facts were not invented.
+
 | Check | Result | Evidence class |
 | --- | --- | --- |
 | Matching/live-discovery/background queue/queue regression set | **96 PASS, 9.24 s** | Isolated fictional database; includes 13 added skill cases and one location case |
