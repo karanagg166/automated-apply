@@ -37,10 +37,10 @@ TRANSITIONS = {
 
 
 @timed("owner_lock")
-async def memory_row(session, *, lock=False):
+async def memory_row(session, *, lock=False, skip_locked=False):
     # Factories disable autoflush; refresh must not discard pending transitions.
     await session.flush()
-    return await owner_lock(session, lock=lock)
+    return await owner_lock(session, lock=lock, skip_locked=skip_locked)
 
 
 async def configuration(session):

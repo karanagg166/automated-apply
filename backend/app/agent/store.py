@@ -41,7 +41,7 @@ def transition(campaign, state, now, reason=None):
     campaign.state, campaign.updated_at = state, now.isoformat()
 
 
-async def memory_row(session, *, lock=False):
+async def memory_row(session, *, lock=False, skip_locked=False):
     # A PostgreSQL row lock lasts for its transaction. Nested service guards
     # need the same lock, not another remote INSERT/SELECT on every check.
     # Scope the cache to the innermost transaction: rolling back a savepoint
@@ -60,8 +60,8 @@ async def memory_row(session, *, lock=False):
         await session.execute(insert_for(session)(OwnerPreference).values(key=MEMORY_KEY, value={}).on_conflict_do_nothing())
     query = select(OwnerPreference).where(OwnerPreference.key == MEMORY_KEY).execution_options(populate_existing=True)
     with span("owner_row_lock_wait"):
-        row = await session.scalar(query.with_for_update() if lock else query)
-    if lock:
+        row = await session.scalar(query.with_for_update(skip_locked=skip_locked) if lock else query)
+    if lock and row is not None:
         transaction = session.sync_session.get_nested_transaction() or session.sync_session.get_transaction()
         session.info["agent_owner_lock"] = (transaction, row)
     return row

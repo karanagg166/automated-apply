@@ -176,7 +176,8 @@ async def tick(session):
 
     # Revalidate all mutable authority and work revisions in one round trip.
     # Stop, profile edits and new recheck requests cannot authorize stale work.
-    await store.memory_row(session, lock=True)
+    if await store.memory_row(session, lock=True, skip_locked=True) is None:
+        return False  # Discovery, Stop and in-flight application work take priority.
     scope = (await session.execute(select(
         OwnerPreference, CandidateProfile.version, select(func.count()).select_from(OwnerPreference).where(
             OwnerPreference.key.startswith(queue.PREFIX),

@@ -236,3 +236,22 @@ async def test_preloaded_decisions_are_revalidated_inside_owner_fence(db_session
     monkeypatch.setattr(store, "memory_row", change_before_fence)
     assert not await rechecks.tick(db_session)
     assert (await queue.load(db_session, row.value["id"])).value["stage"] == "NEEDS_INPUT"
+
+
+async def test_busy_owner_fence_defers_recheck_without_changing_work_or_cursor(db_session, upload_case, monkeypatch):
+    from backend.app.execution import store
+
+    await setup(db_session)
+    row = await held(db_session)
+    await allow_lower_bounds(db_session)
+    before = dict(row.value)
+    marker = dict((await db_session.get(OwnerPreference, rechecks.KEY, populate_existing=True)).value)
+
+    async def busy_owner(*args, **kwargs):
+        assert kwargs == {"lock": True, "skip_locked": True}
+        return None
+
+    monkeypatch.setattr(store, "memory_row", busy_owner)
+    assert not await rechecks.tick(db_session)
+    assert (await queue.load(db_session, before["id"])).value == before
+    assert (await db_session.get(OwnerPreference, rechecks.KEY, populate_existing=True)).value == marker
