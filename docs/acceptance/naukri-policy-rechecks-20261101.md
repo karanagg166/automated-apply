@@ -87,7 +87,7 @@ a new server-side first-receipt gate. That remains critical before AUTO activati
 ## Subsequent Stop/native query improvements and actual acceptance
 
 - [009b0051fcc8781847e5c17128b8b9bd8239ea95](https://github.com/karanagg166/automated-apply/commit/009b0051fcc8781847e5c17128b8b9bd8239ea95): Stop/Pause preserve unattempted input holds without rewriting their descriptions/outbox. The global state/revision still revokes all claims. Packet/form/action/lease-bearing and malformed records remain explicitly fenced. Start loads paused records only. API and Telegram installed this SHA at18:19:27UTC; Telegram remains009b.
-- [f1f157c6ec8760f20c3e4e3e58994dd9d716ad1c](https://github.com/karanagg166/automated-apply/commit/f1f157c6ec8760f20c3e4e3e58994dd9d716ad1c): native busy checks read lease timestamps, claims read queued/leased/executing work, reconciliation reads unknown outcomes. Waiting descriptions are no longer loaded repeatedly. Every leased/executing operation remains included for expiry/uncertain-write recovery. **Current API and execution are f1f157c**, installed18:25:19UTC. Frontendcd342, native9cf6, Telegram009b and extensionee7/1.3.17 remain unchanged.
+- [f1f157c6ec8760f20c3e4e3e58994dd9d716ad1c](https://github.com/karanagg166/automated-apply/commit/f1f157c6ec8760f20c3e4e3e58994dd9d716ad1c): native busy checks read lease timestamps, claims read queued/leased/executing work, reconciliation reads unknown outcomes. Waiting descriptions are no longer loaded repeatedly. Every leased/executing operation remains included for expiry/uncertain-write recovery. API and execution were f1f157c at18:25:19UTC; the later capacity update below supersedes them. Frontendcd342, native9cf6, Telegram009b and extensionee7/1.3.17 remain unchanged.
 
 | Subsequent check | Result | Exact evidence / limit |
 | --- | --- | --- |
@@ -114,10 +114,40 @@ established: corrected subsequent samples either deferred on a busy fence or fou
 the request already complete. Do not report a successful batch lock duration from
 those samples. The owner-fence and query-count limitations above remain open.
 
+## Discovery capacity correction and next genuine cycles
+
+[76ba3b7f472379511225801d59de092e468cfe37](https://github.com/karanagg166/automated-apply/commit/76ba3b7f472379511225801d59de092e468cfe37)
+separates filter-only observation history from active application capacity. The
+old count was approaching the200-record limit even though no applications were
+in progress. Unattempted `NEEDS_INPUT`/waiting observations with a known factual
+filter reason, explicitly empty action history and no packet/form/lease remain
+durable/deduplicated but do not occupy active slots. Personal questions, packet
+and form work, leases, actions, unknown outcomes and malformed records still count.
+
+Single/batch URL admission and rechecks use shared capacity rules. A formerly
+held observation must reserve a fresh active slot before scheduling a new read;
+its cursor does not skip a capacity-blocked record. Thresholds, daily/hourly
+reservations, current owner count-review rule and all write guards are unchanged.
+
+| Capacity / cycle check | Result | Evidence / limit |
+| --- | --- | --- |
+| Source targeted tests | PASS |62/62,9.41s across capacity, rechecks, queue and control-history. Includes one-slot capacity with12retained holds and protection of personal/packet/form/lease/action/unknown cases. |
+| Exact capacity candidate | PASS |67/67,8.53s including existing batch-admission regressions; independent virtual environment and pip check. No fixture record represents an actual job application. |
+| Real database risk confirmed | PASS |18:34:44UTC read-only aggregate:537identities,198old nonterminal slots versus40active slots,158filter-only holds retained;3.861s including connection. Configured maximum200unchanged. |
+| Capacity release | PASS | Current API/execution/Telegram exact76ba3 installed18:37:52UTC under STOP70,537records,ready200/frontend200/profile5/binding1/full policy and protected-file equality. Frontendcd342/native9cf6/extensionee7 remain unchanged. All previous releases and exact rollback inventories retained. |
+| Resume | PASS | RUN71 unchangedSUPERVISED1/hour1; fresh worker heartbeat18:38:04UTC and framed native health10.416s. STOP70 had taken9.602s, so variable Stop latency remains open. |
+| Repeated installed discovery | PASS, bounded | Genuine f1f cycle18:31:40–18:31:58UTC navigated page2,0new identities, no error. Genuine76ba3 cycle18:39:08–18:39:26UTC completed with2new durable identities, no error. Both samples unlocked. These are actual browser results, not heartbeat inferences. New identities are discovery work, not eligible applications or submissions. |
+| First new submission / recurring AUTO | BLOCKED / NOT TESTED | Still zero verified new receipts. The existing owner count question remains pending; no filter exception, unsupported personal fact or Apply receipt was invented. |
+
+Current installed scope is API/execution/Telegram76ba3, frontendcd342, native9cf6,
+extensionee7/1.3.17. The many distinct SHA entries in this report are an exact
+installation timeline, not a claim that the newest source/documentation commit is
+installed everywhere. The application and expanded project remain OPEN.
+
 ## Reproduction and remaining work
 
 ```sh
-.venv/bin/python -m pytest backend/tests/test_queue_reconsideration.py backend/tests/test_native_queue_rollback.py -q
+.venv/bin/python -m pytest backend/tests/test_queue_capacity.py backend/tests/test_queue_reconsideration.py backend/tests/test_native_queue_rollback.py -q
 .venv/bin/python -m pytest backend/tests/test_request_timing.py backend/tests/test_agent_execution.py::test_owner_lock_reuse_ends_at_commit_or_savepoint_rollback -q
 pnpm -C frontend exec vitest run tests/application-queue.test.tsx tests/profile.test.tsx tests/naukri-automation.test.tsx
 pnpm -C frontend typecheck
