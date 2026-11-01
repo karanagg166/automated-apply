@@ -20,7 +20,7 @@ MAX_MESSAGE_BYTES = 262144
 HOST_NAME = "com.automated_apply.agent"
 # These operations execute only local database transactions. Never infer a
 # rollback from an HTTP status, timeout or disconnected native pipe.
-ROLLBACK_RETRY_OPERATIONS = PROFILE_OPERATIONS | {
+ROLLBACK_RETRY_OPERATIONS = PROFILE_OPERATIONS | NAUKRI_QUEUE_OPERATIONS | {
     "get_application_task", "open_application_task", "update_application_task",
     "inspect_form", "prepare_form_answers",
 }

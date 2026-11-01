@@ -7,7 +7,7 @@ facts nor a policy edit grants preparation, a packet, or a browser write.
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import and_, func, or_, select, update
 
 from backend.app.agent.tools import ToolDenied
 from backend.app.automation.store import instant
@@ -19,7 +19,9 @@ from backend.app.dashboard.models import (
 from backend.app.execution import application_queue as queue
 from backend.app.execution import store
 from backend.app.execution.queue_contracts import QueuePolicy
+from backend.app.local_agent.profile_confirmation import confirmation_matches
 from backend.app.models.application_packet import ApplicationPacket
+from backend.app.models.candidate_profile import CandidateProfile
 from backend.app.models.company import Company
 from backend.app.models.job import Job
 from backend.app.services.discovery_budget import insert_for
@@ -100,39 +102,32 @@ async def tick(session):
     policy = QueuePolicy.model_validate(config["policy"])
     if config["state"] != "RUNNING" or not policy.platforms["naukri"].enabled:
         return False
-    await store.memory_row(session, lock=True)
-    config = await queue.configuration(session)
-    policy = QueuePolicy.model_validate(config["policy"])
-    marker = await session.get(OwnerPreference, KEY, populate_existing=True, with_for_update=True)
-    if (config["state"] != "RUNNING" or not policy.platforms["naukri"].enabled
-            or not marker or marker.value.get("status") != "pending"):
-        return False
+    # Compute retained-fact decisions before taking the shared owner fence.
+    # These decisions can only request a fresh read, never preparation or Apply.
+    snapshot = dict(hint.value)
     from backend.app.execution.recurring import context
 
     profile, confirmed, _ = await context(session)
     if not confirmed:
         return False
+    profile_version = profile.version
     query = select(OwnerPreference).where(
         OwnerPreference.key.startswith(queue.PREFIX),
         OwnerPreference.value["platform"].as_string() == "naukri",
         OwnerPreference.value["stage"].as_string().in_(["SKIPPED", "NEEDS_INPUT"]),
         OwnerPreference.value["reason"].as_string().in_(REASONS),
     )
-    state = dict(marker.value)
+    state = dict(snapshot)
     if state.get("cursor"):
         query = query.where(OwnerPreference.key > state["cursor"])
     rows = (await session.scalars(query.order_by(OwnerPreference.key).limit(BATCH))).all()
-    if not rows:
-        marker.value = {**state, "status": "complete", "completed_at": (await instant(session)).isoformat()}
-        await session.flush()
-        return False
     requisitions = {r.value["requisition"] for r in rows}
     receipts = set((await session.scalars(select(OwnerPreference.key).where(OwnerPreference.key.in_(
         [prefix + req for req in requisitions for prefix in ("naukri_receipt:", "naukri_worker_receipt:")]
     )))).all())
     jobs = (await session.scalars(select(Job).where(Job.source_platform == "naukri", or_(
         *(Job.job_url.like("%-" + req + suffix) for req in requisitions for suffix in ("", "/"))
-    )))).all()
+    )))).all() if rows else []
     terminal_jobs = set((await session.scalars(select(ApplicationPacket.job_id).where(
         ApplicationPacket.job_id.in_([job.id for job in jobs]),
         ApplicationPacket.lifecycle_state.in_([
@@ -151,10 +146,8 @@ async def tick(session):
     companies = {company.id: company for company in (await session.scalars(select(Company).where(
         Company.id.in_({job.company_id for job in jobs if job.company_id}),
     ))).all()} if jobs else {}
-    pending = await session.scalar(select(func.count()).select_from(OwnerPreference).where(
-        OwnerPreference.key.startswith(queue.PREFIX), OwnerPreference.value["stage"].as_string().not_in(queue.TERMINAL),
-    ))
     now, changed = await instant(session), []
+    candidates = []
     for row in rows:
         before = dict(row.value)
         if (before.get("admitted_actions") or before.get("packet_id") or before.get("form_pending")
@@ -179,19 +172,80 @@ async def tick(session):
                     reason = "verified_experience_requirements_required"
                 elif not lower <= years <= upper:
                     reason = "required_experience_outside_verified_band"
+        candidates.append((row.key, before, value, reason))
+
+    # Revalidate all mutable authority and work revisions in one round trip.
+    # Stop, profile edits and new recheck requests cannot authorize stale work.
+    await store.memory_row(session, lock=True)
+    scope = (await session.execute(select(
+        OwnerPreference, CandidateProfile.version, select(func.count()).select_from(OwnerPreference).where(
+            OwnerPreference.key.startswith(queue.PREFIX),
+            OwnerPreference.value["stage"].as_string().not_in(queue.TERMINAL),
+        ).scalar_subquery(),
+    ).join(CandidateProfile, CandidateProfile.singleton_key == "primary").where(
+        OwnerPreference.key.in_([queue.POLICY_KEY, KEY, "phase1_profile_confirmation", *[row.key for row in rows]]),
+    ).execution_options(populate_existing=True))).all()
+    current = {row.key: row for row, _, _ in scope}
+    marker = current.get(KEY)
+    if (not scope or scope[0][1] != profile_version or not marker
+            or current.get(queue.POLICY_KEY) is None or current[queue.POLICY_KEY].value != config
+            or marker.value.get("status") != "pending" or marker.value.get("id") != snapshot["id"]
+            or marker.value.get("cursor") != snapshot.get("cursor")
+            or not confirmation_matches(profile, current.get("phase1_profile_confirmation").value
+                                        if current.get("phase1_profile_confirmation") else {})):
+        return False
+    if not rows:
+        marker.value = {**snapshot, "status": "complete", "completed_at": now.isoformat()}
+        await session.flush()
+        return False
+    # A receipt or uncertain packet may have arrived while facts were reviewed.
+    # Recheck that fence under the owner lock, across canonical URL aliases.
+    newly_protected = (await session.scalars(select(OwnerPreference.key).where(
+        OwnerPreference.key.in_([prefix + req for req in requisitions
+                                for prefix in ("naukri_receipt:", "naukri_worker_receipt:")]),
+    ).union_all(select(Job.job_url).outerjoin(ApplicationPacket, and_(
+        ApplicationPacket.job_id == Job.id,
+        ApplicationPacket.lifecycle_state.in_([
+            "user_reported_submitted", "provider_confirmed_submitted", "submitting", "submission_unknown",
+        ]),
+    )).where(Job.source_platform == "naukri", or_(
+        *(Job.job_url.like("%-" + req + suffix) for req in requisitions for suffix in ("", "/")),
+    ), or_(Job.status.in_(["applied", "submitted"]), ApplicationPacket.id.is_not(None),
+           Job.discovery_metadata["data_provenance"]["posting_status"].as_string() == "already_applied"))))).all()
+    excluded.update(req for req in requisitions if any(
+        key in {"naukri_receipt:" + req, "naukri_worker_receipt:" + req}
+        or key.rstrip("/").endswith("-" + req) for key in newly_protected
+    ))
+    pending = scope[0][2]
+    # Rebuild the cursor from the authoritative marker; pre-read skips must not
+    # move it past an eligible slot that is waiting for queue capacity.
+    state = dict(snapshot)
+    decisions = {key: (before, value, reason) for key, before, value, reason in candidates}
+    for snapshot_row in rows:
+        row = current.get(snapshot_row.key)
+        decision = decisions.get(snapshot_row.key)
+        if (not row or not decision or row.value["revision"] != decision[0]["revision"]
+                or row.value.get("admitted_actions") or row.value.get("packet_id")
+                or row.value.get("form_pending") or row.value.get("lease_until")
+                or row.value.get("status") not in {"waiting", "complete"}
+                or row.value["requisition"] in excluded):
+            state["cursor"] = snapshot_row.key
+            continue
+        before, value, reason = decision
         if not reason and before["stage"] in queue.TERMINAL and pending >= policy.max_pending:
             state["retry_after"] = (now + timedelta(seconds=60)).isoformat()
-            break  # Do not move the cursor beyond an eligible blocked slot.
+            break
         state["cursor"] = row.key
         if reason:
             queue.eligibility_hold(value, reason)
         else:
             value.update(stage="DISCOVERED", status="queued", operation="inspect_job", reason=None,
                          binding=None, lease_token=None, lease_until=None, available_at=now.isoformat())
+            value.pop("paused_context", None)
             state["fresh_reads"] += 1
         pending += int(value["stage"] not in queue.TERMINAL) - int(before["stage"] not in queue.TERMINAL)
         value.update(revision=before["revision"] + 1, policy_revision=config["revision"], updated_at=now.isoformat(),
-                     last_filter_recheck={"request_id": state["id"], "profile_version": profile.version,
+                     last_filter_recheck={"request_id": state["id"], "profile_version": profile_version,
                                           "policy_revision": config["revision"], "retained_facts_only": True})
         row.value = value
         state["checked"] += 1

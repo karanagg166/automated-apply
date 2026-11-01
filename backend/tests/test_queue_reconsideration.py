@@ -203,3 +203,36 @@ async def test_backpressure_preserves_cursor_and_idle_backoff_avoids_owner_lock(
     await db_session.flush()
     assert await rechecks.tick(db_session)
     assert (await queue.load(db_session, target.value["id"])).value["stage"] == "DISCOVERED"
+
+
+@pytest.mark.parametrize("changed", ["stop", "profile", "request", "action", "receipt"])
+async def test_preloaded_decisions_are_revalidated_inside_owner_fence(db_session, upload_case, monkeypatch, changed):
+    from backend.app.execution import store
+    from backend.app.execution.recurring import context
+
+    await setup(db_session)
+    row = await held(db_session)
+    await allow_lower_bounds(db_session)
+    original_lock = store.memory_row
+
+    async def change_before_fence(*args, **kwargs):
+        owner = await original_lock(*args, **kwargs)
+        if changed == "stop":
+            current = await queue.configuration(db_session)
+            await queue.put(db_session, queue.POLICY_KEY, {**current, "state": "STOPPED", "revision": current["revision"] + 1})
+        elif changed == "profile":
+            profile, _, _ = await context(db_session)
+            profile.version += 1
+        elif changed == "request":
+            await rechecks.request(db_session, "newer_owner_request")
+        elif changed == "action":
+            row.value = {**row.value, "revision": row.value["revision"] + 1,
+                         "admitted_actions": [{"fingerprint": "fictional-uncertain-action"}]}
+        else:
+            db_session.add(OwnerPreference(key="naukri_receipt:" + row.value["requisition"], value={"uncertain": True}))
+        await db_session.flush()
+        return owner
+
+    monkeypatch.setattr(store, "memory_row", change_before_fence)
+    assert not await rechecks.tick(db_session)
+    assert (await queue.load(db_session, row.value["id"])).value["stage"] == "NEEDS_INPUT"
