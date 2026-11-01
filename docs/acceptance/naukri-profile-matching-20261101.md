@@ -8,6 +8,12 @@ Previous [screening release acceptance](naukri-screening-continuation-20261101.m
 remains applicable. All times below are UTC; private profile/resume/DOM evidence
 and exact save intents remain outside Git.
 
+**Later live continuation:** employment was saved once and independently verified;
+the provider switched this account to its professional profile layout. Extension
+**1.3.15 / 08aab53f3ae0eeb018dedcbdeed30544bae4504f** now supports that genuine
+layout, and the installed extension again verified the real canonical PDF there.
+Details below supersede the earlier unsaved-employment status without deleting it.
+
 ## Real changes and verification
 
 The genuine approved Profile 8 page had five skills and empty summary, employment
@@ -56,6 +62,78 @@ The form was cancelled unsaved; the disabled control was never altered or bypass
 Employment/projects, birthday, languages, compensation and other missing personal
 facts are not claimed complete. No fabricated dates, salary, authorization or
 certification was entered.
+
+### Actual employment completion and professional-layout transition
+
+The first disabled employment form was cancelled unsaved. A second ordinary form
+attempt retained the verified role/company, June–September 2026 month evidence,
+four-month total, noncurrent-employment state and a grounded description. After
+separate settled field/blur events, the provider's genuine Save button became
+enabled with no displayed validation errors. The initially reported disabled state
+was retained; a later cancellation guard refused to cancel once that state changed.
+No disabled attribute, provider validation or private component state was altered.
+
+Queue was STOPPED as revision **37** before the one Save at **10:57:57**. Its private
+durable intent contains exact preimage, account/profile binding, fields and outcome.
+At **10:59:01**, independent page reload verified exactly one saved role/company,
+**Jun 2026 to Sep 2026 (4 months)**. No current-employment or salary claim was added.
+There was no repeated Save and no application action. The public provider bundle
+was read to understand ordinary field callbacks; no private API, cookie, framework
+state or provider function was invoked directly.
+
+Saving employment caused the genuine provider to switch from its fresher layout
+to the professional profile page at the same URL. The earlier adapter could not
+assume that account and resume widgets were unchanged. The queue remained stopped
+while this compatibility was corrected:
+
+- Verified account identity appears in the scoped `.detail-list .with-cta`
+  `span.txt[name="Email"]`; it still matches the approved login binding independently
+  of canonical contact email. No email was overwritten.
+- Professional summary uses a widget/card and a collapsed **Read More** control.
+  The adapter expands only that observed summary control before hashing/comparing
+  its complete text; truncated text is not accepted as the saved summary.
+- Resume Download is the observed `#lazyAttachCV.card` preview's labeled role-button
+  span. The same bounded MAIN-world blob interception captures the PDF generated
+  by that ordinary UI, then the isolated world checks approved identity and digest.
+
+A direct AppleScript-world capture experiment returned
+`profile_resume_download_pdf_not_observed`, while actual resource timing showed a
+successful 100,198-byte download response. It was not claimed as checksum success.
+The production extension's MAIN-world capture was subsequently tested separately
+and passed on the genuine page. No provider endpoint, authorization header or
+cookie was extracted or replayed by the adapter.
+
+The exact extension-only candidate
+[`08aab53f3ae0eeb018dedcbdeed30544bae4504f`](https://github.com/karanagg166/automated-apply/commit/08aab53f3ae0eeb018dedcbdeed30544bae4504f)
+was built in an owned immutable linked worktree. **Seven focused actual isolated
+Chromium cases passed in 4.453 seconds** (three preceding modern-profile cases
+overlap); **32 focused Node cases passed in 0.976 seconds**. Provider/unexpected/
+chooser requests were **0 / 0 / 0**. Professional-layout cases verify the actual
+account/widget shapes, full expanded summary, MAIN PDF capture/isolated identity
+recheck, one Download/no new tab/no Delete, and wrong-account refusal.
+
+At **11:04:40**, extension **1.3.15**, **23/23 exact files**, same stable ID, ordinary
+Reload and fresh native reconnect passed. Queue STOPPED **37**, **358** records,
+profile version **4**, approved binding **1**, all service/native references and
+protected credentials/configuration were preserved. Backend/database ready returned
+**200 in 2.130 seconds**. Front-window and all selected-tab ID snapshots matched
+before/after cutover. A verified exact **23-file 1.3.14** rollback inventory and all
+previous releases/plans remain. API/execution/native stay f13c956, Telegram a093eab,
+frontend f90cfe7; only the extension changed.
+
+At **11:04:55**, queue resumed **RUNNING revision 38**, unchanged score **50**,
+SUPERVISED allowance **1**, hourly cap **1**, other filters unchanged. A temporary
+read-only comparison had no approved profile write fields. At **11:05:20**, the
+installed extension genuinely downloaded the professional-layout saved resume:
+**100,198 PDF bytes/checksum match canonical**, outcome **COMPARED**. Its approved
+account/profile checks passed. Original disabled comparison policy was restored
+as revision **19** at **11:05:37**. This verifies the real changed layout; it is
+not an application receipt or locked-screen submission acceptance.
+
+Two further genuine new-release discovery cycles had admitted **11 new jobs in
+total (347→358)** by **10:55:29**, no source error. Inspection continues under the
+unchanged filters. No new Apply admission, answer/upload, submission receipt or
+submission notification has been claimed. QTrino remains historical and unreplayed.
 
 ## Code corrections
 
@@ -131,7 +209,8 @@ were still **zero new Apply admissions and zero new receipts** at this snapshot.
 | Real provider summary save and independent reload | **PASS** | Genuine Profile 8, one save, exact value persisted |
 | Real provider skills save and independent reload | **PASS** | 28 supported labels, originals preserved |
 | Local verified-profile completion | **PASS** | Atomic version 3→4, 19 additions backed by canonical PDF |
-| Real employment save | **FAIL / HELD** | Save stayed disabled; cancelled unsaved without bypass |
+| Real employment save | **PASS after retained initial failure** | Initial disabled form cancelled; second Save enabled normally, clicked once, role/months independently verified after reload |
+| Professional-layout account and saved PDF | **PASS** | Same approved identity; genuine installed 1.3.15 Download and PDF byte/checksum match |
 | Required-upload and real questionnaire resumption | **NOT TESTED LIVE** | Previous fixture guards remain; no new eligible application reached them |
 | First new real application/independent receipt | **BLOCKED** | Discovery/inspection underway; no admitted qualifying submission |
 | Recurring AUTOMATIC / 24/7 submission | **NOT ACCEPTED** | First new receipt and critical acceptance remain required |
