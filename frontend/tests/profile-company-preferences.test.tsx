@@ -51,6 +51,7 @@ it.each([
         company_stages: ["early"],
         prioritize_startups: true,
         excluded_companies: ["Excluded Example"],
+        current_location: "Fictional City",
       },
     };
     vi.mocked(api).mockImplementation(async (path, options) => {
@@ -81,6 +82,14 @@ it.each([
       "early",
     );
     expect(screen.getByLabelText("Startup preference")).toHaveValue("true");
+    expect(screen.getByLabelText("Current location")).toHaveValue(
+      "Fictional City",
+    );
+    await user.clear(screen.getByLabelText("Current location"));
+    await user.type(
+      screen.getByLabelText("Current location"),
+      "Updated Fictional City",
+    );
     await user.clear(screen.getByLabelText("Allowed company stages"));
     if (stages)
       await user.type(screen.getByLabelText("Allowed company stages"), stages);
@@ -112,6 +121,7 @@ it.each([
       company_stages: expectedStages,
       prioritize_startups: expectedPriority,
       excluded_companies: ["Excluded Example"],
+      current_location: "Updated Fictional City",
     });
     expect(body.verified_skills).toEqual(["Python"]);
     expect(body.verified_experience_years).toBe(0.333333);

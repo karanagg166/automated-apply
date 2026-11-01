@@ -51,6 +51,18 @@ def test_profile_comparison_does_not_equate_presence_with_verified_career_detail
     assert next(d for d in sync.compare(desired, observed) if d["field"] == "skills")["state"] == "CONFLICT"
 
 
+def test_observed_name_capitalization_and_national_phone_do_not_create_false_conflicts():
+    observed = {"full_name": "ALEX EXAMPLE", "phone": "1234567890"}
+    desired = {"full_name": "Alex Example", "phone": "+911234567890"}
+    decisions = {d["field"]: d for d in sync.compare(desired, observed)}
+    assert decisions["full_name"]["state"] == "MATCHED"
+    assert decisions["phone"]["state"] == "PRESENT_DETAILS_UNVERIFIED"
+    observed["phone"] = "2234567890"
+    assert next(d for d in sync.compare(desired, observed) if d["field"] == "phone")["state"] == "CONFLICT"
+    observed["phone"] = "+441234567890"
+    assert next(d for d in sync.compare(desired, observed) if d["field"] == "phone")["state"] == "CONFLICT"
+
+
 async def test_unconfirmed_or_changed_profile_cannot_enable_sync(db_session, phase2_profile):
     with pytest.raises(ToolDenied, match="current_confirmed_profile_version_required"):
         await sync.configure(db_session, sync.SyncPolicyUpdate(expected_revision=0,
@@ -198,6 +210,24 @@ async def test_profile_gap_notices_deduplicate_and_keep_email_binding_separate(d
     observed["summary"] = "Different fictional portal summary"
     await sync.notify_missing_facts(db_session, sync.compare(desired, observed))
     assert len((await db_session.scalars(select(Notification))).all()) == 4
+
+
+async def test_profile_notifications_supersede_resolved_gaps_without_marking_owner_read(db_session):
+    from sqlalchemy import select
+
+    from backend.app.dashboard.models import Notification
+
+    desired = {"full_name": "Alex Example"}
+    await sync.notify_missing_facts(db_session, sync.compare(desired, {"full_name": "Different Example"}))
+    notice = (await db_session.scalars(select(Notification))).one()
+    await sync.notify_missing_facts(db_session, sync.compare(desired, {"full_name": "ALEX EXAMPLE"}))
+    await db_session.flush()
+    assert notice.kind == "profile_information_resolved" and notice.read_at is None
+    assert "superseded" in notice.body and "no fact was overwritten" in notice.body
+    await sync.notify_missing_facts(db_session, sync.compare(desired, {"full_name": "Different Example"}))
+    await db_session.refresh(notice)
+    assert notice.kind == "profile_information_required" and notice.read_at is None
+    assert len((await db_session.scalars(select(Notification))).all()) == 1
 
 
 @pytest.mark.parametrize("automatic", [False, True])

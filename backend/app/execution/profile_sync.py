@@ -49,6 +49,8 @@ def reference(value):
 
 
 def comparison_value(field, value):
+    if field == "full_name" and isinstance(value, str):
+        return " ".join(value.split()).casefold()
     if field == "skills" and isinstance(value, list) and all(isinstance(item, str) for item in value):
         return sorted({" ".join(item.split()).casefold() for item in value})
     if field == "phone" and isinstance(value, str):
@@ -64,6 +66,13 @@ def compare(canonical, observed, approved_fields=()):
         desired, actual = reference(expected), reference(reported)
         if name not in observed:
             state = "UNSUPPORTED"
+        elif (name == "phone" and isinstance(expected, str) and isinstance(reported, str)
+              and 7 <= len(reported) < len(expected) <= len(reported) + 3
+              and expected.endswith(reported) and str(canonical.get(name) or "").startswith("+")
+              and not str(observed.get(name) or "").startswith("+")):
+            # A national display cannot verify an international country code.
+            # It also does not establish that the contact number conflicts.
+            state = "PRESENT_DETAILS_UNVERIFIED"
         elif name in {"education", "experience", "projects"} and reported == {"presence_only": True}:
             state = "PRESENT_DETAILS_UNVERIFIED" if desired else "MISSING_FROM_DATABASE"
         elif not desired and not actual and name in {"full_name", "phone", "summary", "skills", "experience", "education"}:
@@ -86,28 +95,47 @@ def compare(canonical, observed, approved_fields=()):
 
 async def notify_missing_facts(session, decisions):
     """One private dashboard notice per changed fact, never per polling cycle."""
+    from sqlalchemy import select
+
     from backend.app.dashboard.models import Notification, NotificationDelivery
     from backend.app.services.discovery_budget import insert_for
 
+    active = (await session.scalars(select(Notification).where(
+        Notification.kind == "profile_information_required",
+        Notification.dedup_key.startswith("naukri_profile:"),
+    ))).all()
     for decision in decisions:
         # The verified platform login may legitimately differ from the contact
         # email. The account binding, not profile comparison, governs identity.
-        if decision["field"] == "email" or decision["state"] not in {
-            "MISSING_FROM_DATABASE", "MISSING_FROM_PLATFORM", "MISSING_INFORMATION", "CONFLICT", "OUTDATED",
-        }:
+        if decision["field"] == "email" or decision["state"] == "UNSUPPORTED":
             continue
         fingerprint = reference({key: decision[key] for key in (
             "field", "state", "previous_reference", "new_reference",
         )})
         field = decision["field"].replace("_", " ")
+        key = "naukri_profile:" + fingerprint
+        needs_answer = decision["state"] in {
+            "MISSING_FROM_DATABASE", "MISSING_FROM_PLATFORM", "MISSING_INFORMATION", "CONFLICT", "OUTDATED",
+        }
+        for notice in active:
+            if notice.body.startswith(f"Review {field} in your ") and (not needs_answer or notice.dedup_key != key):
+                notice.kind = "profile_information_resolved"
+                notice.title = "Earlier Naukri profile notice superseded"
+                notice.body = (f"The earlier {field} notice has been superseded by a newer portal comparison. "
+                               "Check profile reconciliation for the current state; no fact was overwritten.")
+        if not needs_answer:
+            continue
         target = "saved profile" if decision["state"] == "MISSING_FROM_DATABASE" else "Naukri profile"
         message = (f"Review {field} in your {target}. Supply or confirm the correct "
                    "information in your profile before a supported portal update. "
                    "Unverified facts will not be invented.")
-        inserted = await session.execute(insert_for(session)(Notification).values(
-            dedup_key="naukri_profile:" + fingerprint, kind="profile_information_required",
-            title="Naukri profile information needs attention", body=message, href="/profile",
-        ).on_conflict_do_nothing(index_elements=[Notification.dedup_key]).returning(Notification.id))
+        values = {"dedup_key": key, "kind": "profile_information_required",
+                  "title": "Naukri profile information needs attention", "body": message, "href": "/profile"}
+        inserted = await session.execute(insert_for(session)(Notification).values(**values).on_conflict_do_update(
+            index_elements=[Notification.dedup_key],
+            set_={**values, "read_at": None},
+            where=Notification.kind == "profile_information_resolved",
+        ).returning(Notification.id))
         notification_id = inserted.scalar_one_or_none()
         if notification_id:
             await session.execute(insert_for(session)(NotificationDelivery).values(
