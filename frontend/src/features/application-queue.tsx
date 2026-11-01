@@ -169,7 +169,7 @@ export function ProfileReconciliation() {
     policy.profile_version === view.current_profile_version;
   async function save(
     enabled: boolean,
-    automatic: boolean,
+    fields: string[],
     intervalSeconds = policy.interval_seconds,
   ) {
     setBusy(true);
@@ -182,9 +182,9 @@ export function ProfileReconciliation() {
           policy: {
             ...policy,
             enabled,
-            auto_profile_sync: automatic,
+            auto_profile_sync: fields.length > 0,
             profile_version: view.current_profile_version,
-            approved_fields: automatic ? ["summary"] : [],
+            approved_fields: fields,
             interval_seconds: intervalSeconds,
           },
         }),
@@ -201,17 +201,22 @@ export function ProfileReconciliation() {
       <h2>Profile reconciliation</h2>
       <p>
         Compare supported portal fields with your confirmed profile. Unknown
-        facts never replace portal information. Automatic updates currently
-        support Profile summary; other fields retain explicit unsupported or
-        conflict states. Missing information appears in dashboard notifications;
-        supply or correct it in your profile.
+        facts never replace portal information. Automatic updates support
+        Profile summary and verified Key skills additions within the portal's
+        available capacity. Existing skills are preserved. Other fields retain
+        explicit unsupported or conflict states. Missing information appears in
+        dashboard notifications; supply or correct it in your profile.
       </p>
       <Field label="Profile check interval">
         <Select
           value={String(policy.interval_seconds)}
           disabled={busy}
           onChange={(e) =>
-            void save(policy.enabled, automaticCurrent, Number(e.target.value))
+            void save(
+              policy.enabled,
+              automaticCurrent ? policy.approved_fields : [],
+              Number(e.target.value),
+            )
           }
         >
           {![300, 900, 1800, 3600, 86400].includes(policy.interval_seconds) && (
@@ -231,19 +236,62 @@ export function ProfileReconciliation() {
           type="checkbox"
           checked={policy.enabled}
           disabled={busy || !view.profile_confirmed}
-          onChange={(e) => void save(e.target.checked, automaticCurrent)}
+          onChange={(e) =>
+            void save(
+              e.target.checked,
+              automaticCurrent ? policy.approved_fields : [],
+            )
+          }
         />{" "}
         Compare profile periodically
       </label>
       <label>
         <input
           type="checkbox"
-          checked={automaticCurrent}
+          checked={
+            automaticCurrent && policy.approved_fields.includes("summary")
+          }
           disabled={busy || !view.profile_confirmed || !policy.enabled}
-          onChange={(e) => void save(policy.enabled, e.target.checked)}
+          onChange={(e) =>
+            void save(
+              policy.enabled,
+              e.target.checked
+                ? [
+                    ...new Set([
+                      ...(automaticCurrent ? policy.approved_fields : []),
+                      "summary",
+                    ]),
+                  ]
+                : policy.approved_fields.filter((field) => field !== "summary"),
+            )
+          }
         />{" "}
         Approve automatic Profile summary updates from confirmed profile version{" "}
         {view.current_profile_version ?? "unknown"}
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={
+            automaticCurrent && policy.approved_fields.includes("skills")
+          }
+          disabled={busy || !view.profile_confirmed || !policy.enabled}
+          onChange={(e) =>
+            void save(
+              policy.enabled,
+              e.target.checked
+                ? [
+                    ...new Set([
+                      ...(automaticCurrent ? policy.approved_fields : []),
+                      "skills",
+                    ]),
+                  ]
+                : policy.approved_fields.filter((field) => field !== "skills"),
+            )
+          }
+        />{" "}
+        Approve automatic verified Key skills additions from confirmed profile
+        version {view.current_profile_version ?? "unknown"}
       </label>
       {!view.profile_confirmed && (
         <Notice>

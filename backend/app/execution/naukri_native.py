@@ -52,6 +52,11 @@ def transport(value):
             result["execution"].update(approved_summary=value.get("approved_summary"),
                                        verify_saved_resume=value.get("verify_saved_resume", False),
                                        previous_summary_reference=value.get("previous_summary_reference"))
+            if value.get("sync_field") == "skills":
+                result["execution"].update({k: value.get(k) for k in (
+                    "sync_field", "sync_phase", "skills_before", "skills_additions", "prepared_skills",
+                    "previous_skills_reference", "new_skills_reference",
+                )})
     return result
 
 

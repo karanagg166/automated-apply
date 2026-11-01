@@ -21,7 +21,7 @@ from backend.app.execution.recurring import context
 
 FieldName = Literal["full_name", "email", "phone", "summary", "skills", "experience", "education", "projects", "location", "preferences", "notice_period", "expected_compensation", "resume", "github", "portfolio", "linkedin", "headline", "professional_title"]
 FIELDS = ("full_name", "email", "phone", "summary", "skills", "experience", "education", "projects", "location", "preferences", "notice_period", "expected_compensation", "resume", "github", "portfolio", "linkedin", "headline", "professional_title")
-SUPPORTED_WRITES = {"summary"}
+SUPPORTED_WRITES = {"summary", "skills"}
 POLICY = "naukri_profile_sync_policy"
 WORK = "apply_profile_sync:naukri"
 RECORD = "nau_sync:"
@@ -85,10 +85,15 @@ def compare(canonical, observed, approved_fields=()):
             state = "MISSING_FROM_PLATFORM"
         else:
             state = "OUTDATED" if name in approved_fields else "CONFLICT"
+        addable = True
+        if name == "skills" and desired and isinstance(reported, list):
+            from backend.app.execution.profile_skills import additions
+
+            addable = bool(additions(canonical[name], observed[name]))
         result.append({"field": name, "state": state, "previous_reference": actual,
                        "new_reference": desired,
                        "update_supported": name in SUPPORTED_WRITES,
-                       "may_update": bool(desired and name in approved_fields and name in SUPPORTED_WRITES
+                       "may_update": bool(desired and addable and name in approved_fields and name in SUPPORTED_WRITES
                                           and state in {"OUTDATED", "MISSING_FROM_PLATFORM"})})
     return result
 
@@ -261,7 +266,12 @@ async def validate(session, value):
 async def admit(session, value):
     profile, resume, policy = await validate(session, value)
     if value["operation"] == "sync_profile":
-        if not policy.auto_profile_sync or "summary" not in policy.approved_fields or value.get("sync_attempt"):
+        field = value.get("sync_field", "summary")
+        if not policy.auto_profile_sync or field not in policy.approved_fields or value.get("sync_attempt"):
+            raise ToolDenied("profile_sync_write_scope_or_reconciliation_required")
+        if field == "skills":
+            return await admit_skills(session, value, profile)
+        if field != "summary":
             raise ToolDenied("profile_sync_write_scope_or_reconciliation_required")
         if reference(profile.summary) != value.get("new_summary_reference") or not profile.summary:
             raise ToolDenied("profile_sync_canonical_value_changed")
@@ -279,6 +289,38 @@ async def admit(session, value):
         })
         value["last_record"] = identity
     value.update(status="executing", revision=value["revision"] + 1)
+    return value
+
+
+async def admit_skills(session, value, profile):
+    from backend.app.execution.profile_skills import prepared
+
+    if reference(profile.verified_skills) != value.get("canonical_skills_reference"):
+        raise ToolDenied("profile_sync_canonical_value_changed")
+    if value.get("sync_phase") == "prepare":
+        # Opening/filling an editor grants no Save permit. The exact resulting
+        # chip list must return to the server before its Save intent is durable.
+        value.update(status="executing", revision=value["revision"] + 1)
+        return value
+    if value.get("sync_phase") != "save":
+        raise ToolDenied("profile_skills_preparation_required")
+    final = prepared(value["skills_before"], value["skills_additions"], value["prepared_skills"])
+    desired = reference(comparison_value("skills", final))
+    if desired != value.get("new_skills_reference"):
+        raise ToolDenied("profile_skills_prepared_value_changed")
+    now = await instant(session)
+    value["sync_attempt"] = {"id": str(uuid4()), "at": now.isoformat(), "field": "skills",
+                             "document_id": value["document_id"],
+                             "previous_reference": value["previous_skills_reference"],
+                             "new_reference": desired, "outcome": "UNKNOWN"}
+    value["permit_expires_at"] = (now + timedelta(seconds=2)).isoformat()
+    identity = str(uuid4())
+    await queue.put(session, RECORD + identity, {
+        "id": identity, "profile_version": profile.version, "sync_policy_revision": value["sync_policy_revision"],
+        "observed_at": now.isoformat(), "decisions": [],
+        "outcome": "SYNC_ADMITTED_OUTCOME_UNKNOWN", "attempt": value["sync_attempt"],
+    })
+    value.update(last_record=identity, status="executing", revision=value["revision"] + 1)
     return value
 
 
@@ -303,6 +345,16 @@ async def receive(session, value, report, settings=None):
             or str(report.observed_url) != value["url"]):
         raise ToolDenied("profile_sync_account_or_document_changed")
     if value["operation"] == "sync_profile":
+        if value.get("sync_field") == "skills" and value.get("sync_phase") == "prepare":
+            from backend.app.execution.profile_skills import prepared
+
+            if (observation.state != "PROFILE_SKILLS_PREPARED" or observation.document_id != value["document_id"]
+                    or set(observation.profile_fields) != {"skills"}):
+                raise ToolDenied("profile_skills_prepared_observation_required")
+            final = prepared(value["skills_before"], value["skills_additions"], observation.profile_fields["skills"])
+            value.update(prepared_skills=final, new_skills_reference=reference(comparison_value("skills", final)),
+                         sync_phase="save", status="leased")
+            return True
         if observation.state != "PROFILE_SAVE_ATTEMPTED":
             raise ToolDenied("profile_sync_save_observation_required")
         value.pop("approved_summary", None)
@@ -340,7 +392,11 @@ async def receive(session, value, report, settings=None):
     if value.get("sync_attempt"):
         if value["sync_attempt"].get("document_id") == observation.document_id:
             raise ToolDenied("independent_profile_reload_required")
-        matched = summary["state"] == "MATCHED" and summary["new_reference"] == value["sync_attempt"]["new_reference"]
+        if value["sync_attempt"].get("field") == "skills":
+            actual = reference(comparison_value("skills", observed.get("skills")))
+            matched = actual == value["sync_attempt"]["new_reference"]
+        else:
+            matched = summary["state"] == "MATCHED" and summary["new_reference"] == value["sync_attempt"]["new_reference"]
         record["outcome"] = "SYNC_VERIFIED" if matched else "SYNC_UNCONFIRMED_NO_RETRY"
         value["sync_attempt"] = {**value["sync_attempt"], "outcome": record["outcome"]}
         # Reconciliation can complete a failed/lost save, but never replay it.
@@ -350,6 +406,17 @@ async def receive(session, value, report, settings=None):
     if policy.auto_profile_sync and summary["may_update"] and not value.get("sync_attempt"):
         value.update(operation="sync_profile", status="leased", document_id=observation.document_id,
                      previous_summary_reference=summary["previous_reference"], new_summary_reference=summary["new_reference"])
+        return True
+    skill_decision = next(d for d in decisions if d["field"] == "skills")
+    if policy.auto_profile_sync and skill_decision["may_update"] and not value.get("sync_attempt"):
+        from backend.app.execution.profile_skills import additions, skills
+
+        before = skills(observed["skills"], empty=True)
+        value.update(operation="sync_profile", sync_field="skills", sync_phase="prepare", status="leased",
+                     document_id=observation.document_id, skills_before=before,
+                     skills_additions=additions(profile.verified_skills, before),
+                     canonical_skills_reference=reference(profile.verified_skills),
+                     previous_skills_reference=reference(comparison_value("skills", before)))
         return True
     return False
 

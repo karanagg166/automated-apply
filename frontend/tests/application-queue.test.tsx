@@ -72,7 +72,7 @@ const configuration: QueueConfiguration = {
 };
 const saved = async () => {};
 
-it("requires explicit version-bound summary approval and exposes unsupported fields", async () => {
+it("keeps version-bound summary and skill approvals independent across policy edits", async () => {
   let sync = {
     configuration: {
       revision: 0,
@@ -134,6 +134,34 @@ it("requires explicit version-bound summary approval and exposes unsupported fie
       profile_version: 4,
     },
   });
+  const skills = screen.getByLabelText(/Approve automatic verified Key skills/);
+  expect(skills).not.toBeChecked();
+  await userEvent.click(skills);
+  await waitFor(() => expect(writes).toHaveLength(3));
+  expect(writes[2]).toMatchObject({
+    policy: { approved_fields: ["summary", "skills"], auto_profile_sync: true },
+  });
+  await waitFor(() => expect(approval).toBeEnabled());
+  await userEvent.click(approval);
+  await waitFor(() => expect(writes).toHaveLength(4));
+  expect(writes[3]).toMatchObject({
+    policy: { approved_fields: ["skills"], auto_profile_sync: true },
+  });
+  await waitFor(() => expect(skills).toBeEnabled());
+  await userEvent.selectOptions(
+    screen.getByLabelText("Profile check interval"),
+    "1800",
+  );
+  await waitFor(() => expect(writes).toHaveLength(5));
+  expect(writes[4]).toMatchObject({
+    policy: {
+      approved_fields: ["skills"],
+      auto_profile_sync: true,
+      interval_seconds: 1800,
+    },
+  });
+  expect(approval).not.toBeChecked();
+  expect(skills).toBeChecked();
   client.clear();
 });
 

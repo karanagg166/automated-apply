@@ -1,6 +1,7 @@
 import { profileContext, profileNative } from "./chrome-profile.js";
 import { observeNaukri } from "./naukri-observation.js";
 import { executeNaukri } from "./naukri-execution.js";
+import { executeNaukriSkills } from "./naukri-profile-skills.js";
 import { captureNaukriResumeDownload } from "./naukri-resume-download.js";
 import { naukriChatbot } from "./naukri-chatbot.js";
 
@@ -802,7 +803,12 @@ export class NaukriQueue {
   }
   async execute(initial, context) {
     let work = initial;
-    for (let step = 0; step < 3; step++) {
+    const steps = ["inspect_profile_sync", "sync_profile"].includes(
+      initial.operation,
+    )
+      ? 4
+      : 3;
+    for (let step = 0; step < steps; step++) {
       const tabId = work.ownedTabId;
       if (!["apply", "sync_profile"].includes(work.operation)) {
         await this.assertInactive(work, context);
@@ -818,7 +824,14 @@ export class NaukriQueue {
         }
       }
       await this.assertInactive(work, context);
-      if ((await this.api.tabs.get(tabId)).url !== work.target_url)
+      const skills =
+        work.operation === "sync_profile" &&
+        work.execution?.sync_field === "skills";
+      const currentUrl = (await this.api.tabs.get(tabId)).url;
+      if (
+        currentUrl !== work.target_url &&
+        !(skills && currentUrl === work.target_url + "?action=modalOpen")
+      )
         throw Error("provider_context_changed");
       const admitted = await this.command("admit_naukri_work", work);
       work = { ...admitted.work, ownedTabId: tabId };
@@ -827,11 +840,34 @@ export class NaukriQueue {
       const injected = await this.api.scripting.executeScript({
         target: { tabId, frameIds: [0] },
         world: "ISOLATED",
-        func: executeNaukri,
+        func: skills ? executeNaukriSkills : executeNaukri,
         args: [work],
       });
       let report = injected.length === 1 && injected[0].result;
       if (!report) throw Error("provider_execution_unconfirmed");
+      if (skills && work.execution.sync_phase === "prepare") {
+        const started = Date.now();
+        for (
+          let tick = 0;
+          report.kind === "profile_skills_prepare_pending" &&
+          tick < 40 &&
+          Date.now() - started < 10000;
+          tick++
+        ) {
+          await this.delay(200);
+          await this.assertInactive(work, context);
+          const next = await this.api.scripting.executeScript({
+            target: { tabId, frameIds: [0] },
+            world: "ISOLATED",
+            func: executeNaukriSkills,
+            args: [work],
+          });
+          report = next.length === 1 && next[0].result;
+          if (!report) throw Error("profile_skills_preparation_unconfirmed");
+        }
+        if (report.kind === "profile_skills_prepare_pending")
+          throw Error("profile_skills_preparation_unconfirmed");
+      }
       if (
         ["inspect_profile", "inspect_profile_sync"].includes(work.operation) &&
         report.reason === "profile_resume_download_capture_required"

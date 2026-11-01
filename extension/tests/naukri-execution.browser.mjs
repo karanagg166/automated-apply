@@ -19,6 +19,7 @@ for (const name of [
   "naukri-queue.js",
   "naukri-chatbot.js",
   "naukri-execution.js",
+  "naukri-profile-skills.js",
   "naukri-resume-download.js",
   "naukri-observation.js",
   "chrome-profile.js",
@@ -188,7 +189,9 @@ try {
   await owner.bringToFront();
   const worker =
     context.serviceWorkers().find((w) => w.url().endsWith("/fixture.js")) ||
-    (await context.waitForEvent("serviceworker"));
+    (await context.waitForEvent("serviceworker", {
+      predicate: (w) => w.url().endsWith("/fixture.js"),
+    }));
   await worker.evaluate(async () => {
     for (let i = 0; !globalThis.run; i++) {
       if (i === 100) throw Error("module_timeout");

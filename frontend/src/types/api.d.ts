@@ -6742,7 +6742,8 @@ export interface components {
         | "APPLICATION_SENT"
         | "QUESTIONNAIRE"
         | "PROFILE_OBSERVED"
-        | "PROFILE_SAVE_ATTEMPTED";
+        | "PROFILE_SAVE_ATTEMPTED"
+        | "PROFILE_SKILLS_PREPARED";
       /** Document Id */
       document_id: string;
       /** Evidence Sha256 */

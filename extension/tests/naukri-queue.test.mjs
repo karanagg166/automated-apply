@@ -739,3 +739,106 @@ test("hydration retries are bounded and never retry a provider challenge", async
     1,
   );
 });
+
+for (const fault of [null, "lost_preparation", "stop_before_save"]) {
+  test(`skills preparation, Save and independent reload remain separate ${fault || "success"}`, async () => {
+    const profile = "https://www.naukri.com/mnjuser/profile";
+    let finishes = 0,
+      admissions = 0;
+    const options = {
+      work: {
+        operation: "inspect_profile_sync",
+        url: profile,
+        target_url: profile,
+        execution: {},
+      },
+      reports: [
+        {
+          kind: "execution_observation",
+          execution: { state: "PROFILE_OBSERVED" },
+        },
+        { kind: "profile_skills_prepare_pending" },
+        {
+          kind: "execution_observation",
+          execution: {
+            state: "PROFILE_SKILLS_PREPARED",
+            profile_fields: { skills: ["Python", "FastAPI"] },
+          },
+        },
+        {
+          kind: "execution_observation",
+          execution: { state: "PROFILE_SAVE_ATTEMPTED" },
+        },
+        {
+          kind: "execution_observation",
+          execution: { state: "PROFILE_OBSERVED" },
+        },
+      ],
+      respond: async (name, input, work) => {
+        if (name === "admit_naukri_work") {
+          admissions++;
+          if (fault === "stop_before_save" && admissions === 3)
+            throw Error("queue_lease_lost");
+        }
+        if (name !== "finish_naukri_work") return;
+        finishes++;
+        if (fault === "lost_preparation" && finishes === 2)
+          throw Error("backend_timeout");
+        const operation =
+          finishes < 3 ? "sync_profile" : "inspect_profile_sync";
+        const execution =
+          finishes < 3
+            ? {
+                sync_field: "skills",
+                sync_phase: finishes === 1 ? "prepare" : "save",
+              }
+            : {};
+        return {
+          work: { ...work, revision: work.revision + 1, operation, execution },
+          continue: finishes < 4,
+        };
+      },
+    };
+    const f = fixture(options);
+    const original = f.api.scripting.executeScript;
+    f.api.scripting.executeScript = async (input) => {
+      if (
+        input.func.name === "executeNaukriSkills" &&
+        input.args[0].execution.sync_phase === "prepare"
+      )
+        f.tabs.get(44).url = profile + "?action=modalOpen";
+      return original(input);
+    };
+    await f.queue.tick();
+    const injected = f.calls
+      .filter(([name]) => name === "inspect")
+      .map(([, input]) => input);
+    assert.equal(
+      injected.filter(
+        (x) =>
+          x.func.name === "executeNaukriSkills" &&
+          x.args[0].execution.sync_phase === "save",
+      ).length,
+      fault ? 0 : 1,
+    );
+    assert.equal(
+      admissions,
+      fault === "lost_preparation" ? 2 : fault === "stop_before_save" ? 3 : 4,
+    );
+    assert.equal(
+      f.calls.filter(([name]) => name === "abandon_naukri_work").length,
+      fault ? 1 : 0,
+    );
+    assert.equal(
+      f.calls.filter(([name]) => name === "navigate").length,
+      fault ? 1 : 2,
+    );
+    assert.equal(
+      f.calls
+        .filter(([name]) => name === "navigate")
+        .every(([, v]) => v.url === profile && v.active === false),
+      true,
+    );
+    assert.equal(f.calls.filter(([name]) => name === "close").length, 1);
+  });
+}

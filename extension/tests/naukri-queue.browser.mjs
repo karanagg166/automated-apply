@@ -18,6 +18,7 @@ for (const name of [
   "naukri-queue.js",
   "naukri-chatbot.js",
   "naukri-execution.js",
+  "naukri-profile-skills.js",
   "naukri-resume-download.js",
   "naukri-observation.js",
   "chrome-profile.js",

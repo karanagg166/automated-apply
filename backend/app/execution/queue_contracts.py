@@ -164,7 +164,7 @@ class ObservedNaukriJob(Contract):
 
 
 class NaukriExecutionObservation(Contract):
-    state: Literal["PROFILE_VERIFIED", "NOT_APPLIED", "APPLIED", "CLICKED", "APPLICATION_SENT", "QUESTIONNAIRE", "PROFILE_OBSERVED", "PROFILE_SAVE_ATTEMPTED"]
+    state: Literal["PROFILE_VERIFIED", "NOT_APPLIED", "APPLIED", "CLICKED", "APPLICATION_SENT", "QUESTIONNAIRE", "PROFILE_OBSERVED", "PROFILE_SAVE_ATTEMPTED", "PROFILE_SKILLS_PREPARED"]
     document_id: str = Field(min_length=16, max_length=100, pattern=r"^[A-Za-z0-9_-]+$")
     evidence_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     account_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
