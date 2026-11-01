@@ -39,7 +39,7 @@ writeFileSync(
   `
 import { NaukriQueue } from './naukri-queue.js';
 globalThis.calls = [];
-globalThis.prepare = async (operation, url, stop=false) => {
+globalThis.prepare = async (operation, url, stop=false, freezeTimers=false) => {
   const [owner] = await chrome.tabs.query({active:true});
   await chrome.storage.local.set({connectedChromeProfileV1:{id:'fictional', secret:'f'.repeat(64),connected:true,windowId:owner.windowId}});
   await chrome.storage.session.set({applicationBrowserSessionV1:'fictional-session'});
@@ -53,7 +53,13 @@ globalThis.prepare = async (operation, url, stop=false) => {
     work={...work,revision:work.revision+1,binding:{...work.binding,tab_id:input.tab_id}};
     return {work};
   };
-  globalThis.queue = new NaukriQueue(chrome,send);
+  const originalScript=chrome.scripting.executeScript.bind(chrome.scripting);
+  const api={...chrome,scripting:{...chrome.scripting,executeScript:async(input)=>{
+    if(freezeTimers && input.func.name==='sortNaukriSearchDate')
+      await originalScript({target:input.target,world:'ISOLATED',func:()=>{globalThis.setTimeout=()=>{throw Error('fixture_provider_page_timer_forbidden')};}});
+    return originalScript(input);
+  }}};
+  globalThis.queue = new NaukriQueue(api,send);
   await queue.tick();
   return {calls, tabs:await chrome.tabs.query({}), ownerId:owner.id};
 };`,
@@ -116,7 +122,12 @@ try {
     let body = /-jobs(?:-[2-3])?$/.test(url.pathname)
       ? `<button id="filter-sort" type="button" aria-controls="filter-sort-menu" onclick="document.querySelector('#filter-sort-menu').style.visibility='visible'">Recommended</button><ul id="filter-sort-menu" style="visibility:hidden"><li role="option" title="Date"><a onclick="document.querySelector('#filter-sort').textContent='Date';document.querySelector('#old-result').href='${jobUrl}'">Date</a></li></ul><a id="old-result" href="https://www.naukri.com/job-listings-older-291026123457">Fictional job</a>`
       : `<div class="styles_jd-header"><h1>Backend Developer</h1><span class="styles_comp-name">Fictional Labs</span><span class="styles_loc-wrap">India</span><span class="styles_exp-wrap">0 - 3 Yrs</span><span>120 Applicants</span><button onclick="window.accidentalClicks=(window.accidentalClicks||0)+1">Apply</button></div><div class="styles_job-desc">Build Python services</div><div class="styles_key-skill"><span class="chip">Python</span></div><script type="application/ld+json">${JSON.stringify({ "@type": "JobPosting", title: "Backend Developer", datePosted: new Date().toISOString(), identifier: { value: req } })}</script>`;
-    if (scenario === "background_paginated_search_links") {
+    if (
+      [
+        "background_paginated_search_links",
+        "paginated_sort_without_page_timers",
+      ].includes(scenario)
+    ) {
       body = `<button id="filter-sort" type="button" aria-controls="filter-sort-menu">Recommended</button><ul id="filter-sort-menu" style="visibility:hidden"><li role="option" title="Date"><a>Date</a></li></ul><nav aria-label="Pagination"></nav><a id="old-result" href="https://www.naukri.com/job-listings-older-291026123457">Fictional job</a><script>
 const base=${JSON.stringify(searchUrl)}, job=${JSON.stringify(jobUrl)};
 const nav=document.querySelector('nav'), control=document.querySelector('#filter-sort'), menu=document.querySelector('#filter-sort-menu');
@@ -193,6 +204,12 @@ page(2);control.onclick=()=>menu.style.visibility='visible';menu.querySelector('
       false,
     ],
     ["unconfirmed_search_sort", "search_jobs", searchUrl, false],
+    [
+      "paginated_sort_without_page_timers",
+      "search_jobs",
+      searchUrl + "-2",
+      false,
+    ],
     ["search_access_restriction", "search_jobs", searchUrl, false],
     ["stop_before_search_sort", "search_jobs", searchUrl, true],
     ["stop_before_dom", "inspect_job", jobUrl, true],
@@ -202,8 +219,14 @@ page(2);control.onclick=()=>menu.style.visibility='visible';menu.querySelector('
     );
     scenario = name;
     const result = await worker.evaluate(
-      ({ operation, url, stop }) => globalThis.prepare(operation, url, stop),
-      { operation, url, stop },
+      ({ operation, url, stop, freezeTimers }) =>
+        globalThis.prepare(operation, url, stop, freezeTimers),
+      {
+        operation,
+        url,
+        stop,
+        freezeTimers: name === "paginated_sort_without_page_timers",
+      },
     );
     const finished = result.calls.find((c) => c.name === "finish_naukri_work");
     if (

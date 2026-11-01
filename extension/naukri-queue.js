@@ -6,14 +6,20 @@ import { naukriChatbot } from "./naukri-chatbot.js";
 
 // Injected only into this consumer's inactive search tab, after read admission.
 // Use the observed ordinary Sort menu; never guess a provider query parameter.
-export async function sortNaukriSearchDate(expectedUrl) {
+export function sortNaukriSearchDate(expectedUrl, state = null) {
   const failure = (reason) => ({ kind: "needs_input", reason });
   const expected = new URL(expectedUrl);
+  if (
+    state &&
+    (state.expectedUrl !== expectedUrl ||
+      state.document !== performance.timeOrigin)
+  )
+    return failure("provider_context_changed");
   const pagePath = expected.pathname.match(/^(\/[a-z0-9-]+-jobs)(?:-([23]))?$/);
   const targetPage = Number(pagePath?.[2] || 1);
-  let allowedPaths = new Set([expected.pathname]);
-  let pendingPage = null;
-  let previousLinks = null;
+  let allowedPaths = new Set(state?.allowedPaths || [expected.pathname]);
+  let pendingPage = state?.pendingPage ?? null;
+  let previousLinks = state?.previousLinks ?? null;
   const listingLinks = () =>
     [...document.querySelectorAll('a[href*="/job-listings-"]')]
       .map((e) => e.href)
@@ -47,153 +53,156 @@ export async function sortNaukriSearchDate(expectedUrl) {
     e?.isConnected &&
     e.getClientRects().length > 0 &&
     getComputedStyle(e).visibility !== "hidden";
-  let opened = false,
-    selected = false,
-    settled = 0;
+  let opened = state?.opened || false,
+    selected = state?.selected || false,
+    settled = state?.settled || 0;
+  // One synchronous DOM step per injection. Waiting belongs to the extension
+  // worker: Chrome may throttle chained timers in an inactive provider page.
+  const pending = () => ({
+    kind: "date_sort_pending",
+    state: {
+      expectedUrl,
+      document: performance.timeOrigin,
+      allowedPaths: [...allowedPaths],
+      pendingPage,
+      previousLinks,
+      opened,
+      selected,
+      settled,
+    },
+  });
   document.addEventListener("visibilitychange", visibilityChanged);
   try {
-    for (let attempt = 0; attempt < 40; attempt++) {
-      const refused = safe();
-      if (refused) return failure(refused);
-      const controls = [...document.querySelectorAll("#filter-sort")].filter(
-        visible,
-      );
-      if (controls.length > 1) return failure("search_sort_control_ambiguous");
-      const control = controls[0];
-      if (
-        control &&
-        (control.tagName !== "BUTTON" ||
-          control.type !== "button" ||
-          control.getAttribute("aria-controls") !== "filter-sort-menu")
-      )
-        return failure("search_sort_control_unrecognized");
-      if (
-        control?.disabled ||
-        control?.getAttribute("aria-disabled") === "true"
-      ) {
-        await new Promise((resolve) => setTimeout(resolve, 200));
-        continue;
-      }
-      if (control?.textContent.trim() === "Date") {
-        if (targetPage > 1) {
-          if (!pagePath) return failure("search_page_path_unrecognized");
-          const pagers = [
-            ...document.querySelectorAll('nav[aria-label="Pagination"]'),
-          ].filter(visible);
-          const current =
-            pagers.length === 1
-              ? [
-                  ...pagers[0].querySelectorAll('a[aria-current="page"]'),
-                ].filter(visible)
-              : [];
-          const number =
-            current.length === 1 &&
-            /^([1-3])$/.exec(current[0].textContent.trim());
-          if (!number) return failure("search_page_control_unrecognized");
-          const page = Number(number[1]);
-          const path = pagePath[1] + (page > 1 ? "-" + page : "");
-          if (
-            new URL(location.href).pathname !== path ||
-            (pendingPage && page !== pendingPage)
-          ) {
-            await new Promise((resolve) => setTimeout(resolve, 200));
-            continue;
-          }
-          if (pendingPage && listingLinks() === previousLinks) {
-            await new Promise((resolve) => setTimeout(resolve, 200));
-            continue;
-          }
-          pendingPage = null;
-          if (page < targetPage) {
-            const next = [...pagers[0].querySelectorAll("a")].filter(
-              (e) => visible(e) && e.textContent.trim() === "Next",
-            );
-            const nextPath = pagePath[1] + "-" + (page + 1);
-            let destination;
-            try {
-              destination = next.length === 1 && new URL(next[0].href);
-            } catch {
-              /* Refuse malformed navigation. */
-            }
-            if (
-              !destination ||
-              destination.origin !== expected.origin ||
-              destination.pathname !== nextPath ||
-              destination.search ||
-              destination.hash ||
-              destination.username ||
-              destination.password ||
-              destination.port ||
-              next[0].hasAttribute("disabled") ||
-              next[0].getAttribute("aria-disabled") === "true" ||
-              ![null, "", "_self"].includes(next[0].getAttribute("target"))
-            )
-              return failure("search_next_page_control_unsupported");
-            const refused = safe();
-            if (refused) return failure(refused);
-            previousLinks = listingLinks();
-            pendingPage = page + 1;
-            allowedPaths = new Set([path, nextPath]);
-            settled = 0;
-            next[0].click();
-            await new Promise((resolve) => setTimeout(resolve, 200));
-            continue;
-          }
-          if (
-            page !== targetPage ||
-            new URL(location.href).pathname !== expected.pathname
-          )
-            return failure("search_page_identity_changed");
+    const refused = safe();
+    if (refused) return failure(refused);
+    const controls = [...document.querySelectorAll("#filter-sort")].filter(
+      visible,
+    );
+    if (controls.length > 1) return failure("search_sort_control_ambiguous");
+    const control = controls[0];
+    if (
+      control &&
+      (control.tagName !== "BUTTON" ||
+        control.type !== "button" ||
+        control.getAttribute("aria-controls") !== "filter-sort-menu")
+    )
+      return failure("search_sort_control_unrecognized");
+    if (
+      control?.disabled ||
+      control?.getAttribute("aria-disabled") === "true"
+    ) {
+      return pending();
+    }
+    if (control?.textContent.trim() === "Date") {
+      if (targetPage > 1) {
+        if (!pagePath) return failure("search_page_path_unrecognized");
+        const pagers = [
+          ...document.querySelectorAll('nav[aria-label="Pagination"]'),
+        ].filter(visible);
+        const current =
+          pagers.length === 1
+            ? [...pagers[0].querySelectorAll('a[aria-current="page"]')].filter(
+                visible,
+              )
+            : [];
+        const number =
+          current.length === 1 &&
+          /^([1-3])$/.exec(current[0].textContent.trim());
+        if (!number) return failure("search_page_control_unrecognized");
+        const page = Number(number[1]);
+        const path = pagePath[1] + (page > 1 ? "-" + page : "");
+        if (
+          new URL(location.href).pathname !== path ||
+          (pendingPage && page !== pendingPage)
+        ) {
+          return pending();
         }
-        // Let the SPA replace its cards before observing them. Eligibility still
-        // uses the actual job page's dates, never a search-card age label.
-        if (++settled >= 5) return { kind: "date_sort", state: "selected" };
-      } else if (control) {
-        if (selected) {
-          await new Promise((resolve) => setTimeout(resolve, 200));
-          continue;
+        if (pendingPage && listingLinks() === previousLinks) {
+          return pending();
         }
-        const options = [
-          ...document.querySelectorAll('#filter-sort-menu [role="option"]'),
-        ].filter((e) => e.title === "Date" && visible(e));
-        if (options.length > 1) return failure("search_date_option_ambiguous");
-        if (options.length === 1) {
-          const links = [...options[0].querySelectorAll("a")].filter(visible);
-          if (links.length !== 1)
-            return failure("search_date_option_unsupported");
-          // This observed SPA control uses an anchor with no navigation target.
-          // Refuse new destinations, script URLs and new windows.
-          const href = links[0].getAttribute("href");
+        pendingPage = null;
+        if (page < targetPage) {
+          const next = [...pagers[0].querySelectorAll("a")].filter(
+            (e) => visible(e) && e.textContent.trim() === "Next",
+          );
+          const nextPath = pagePath[1] + "-" + (page + 1);
+          let destination;
+          try {
+            destination = next.length === 1 && new URL(next[0].href);
+          } catch {
+            /* Refuse malformed navigation. */
+          }
           if (
-            (href && href !== "#") ||
-            ![null, "", "_self"].includes(links[0].getAttribute("target"))
+            !destination ||
+            destination.origin !== expected.origin ||
+            destination.pathname !== nextPath ||
+            destination.search ||
+            destination.hash ||
+            destination.username ||
+            destination.password ||
+            destination.port ||
+            next[0].hasAttribute("disabled") ||
+            next[0].getAttribute("aria-disabled") === "true" ||
+            ![null, "", "_self"].includes(next[0].getAttribute("target"))
           )
-            return failure("search_date_option_unsupported");
+            return failure("search_next_page_control_unsupported");
           const refused = safe();
           if (refused) return failure(refused);
-          selected = true;
-          // The genuine Date control resets a paginated search to page one.
-          // Permit only that explicit same-role transition, then advance via
-          // its ordinary Next links while preserving Date in the SPA.
-          if (targetPage > 1 && pagePath)
-            allowedPaths = new Set([expected.pathname, pagePath[1]]);
-          links[0].click();
-        } else if (!opened) {
-          opened = true;
-          control.click();
+          previousLinks = listingLinks();
+          pendingPage = page + 1;
+          allowedPaths = new Set([path, nextPath]);
+          settled = 0;
+          next[0].click();
+          return pending();
         }
-      } else if (
-        /no jobs found|no results found/i.test(document.body?.innerText || "")
-      ) {
-        return { kind: "date_sort", state: "no_results" };
+        if (
+          page !== targetPage ||
+          new URL(location.href).pathname !== expected.pathname
+        )
+          return failure("search_page_identity_changed");
       }
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      // Let the SPA replace its cards before observing them. Eligibility still
+      // uses the actual job page's dates, never a search-card age label.
+      if (++settled >= 5) return { kind: "date_sort", state: "selected" };
+    } else if (control) {
+      if (selected) {
+        return pending();
+      }
+      const options = [
+        ...document.querySelectorAll('#filter-sort-menu [role="option"]'),
+      ].filter((e) => e.title === "Date" && visible(e));
+      if (options.length > 1) return failure("search_date_option_ambiguous");
+      if (options.length === 1) {
+        const links = [...options[0].querySelectorAll("a")].filter(visible);
+        if (links.length !== 1)
+          return failure("search_date_option_unsupported");
+        // This observed SPA control uses an anchor with no navigation target.
+        // Refuse new destinations, script URLs and new windows.
+        const href = links[0].getAttribute("href");
+        if (
+          (href && href !== "#") ||
+          ![null, "", "_self"].includes(links[0].getAttribute("target"))
+        )
+          return failure("search_date_option_unsupported");
+        const refused = safe();
+        if (refused) return failure(refused);
+        selected = true;
+        // The genuine Date control resets a paginated search to page one.
+        // Permit only that explicit same-role transition, then advance via
+        // its ordinary Next links while preserving Date in the SPA.
+        if (targetPage > 1 && pagePath)
+          allowedPaths = new Set([expected.pathname, pagePath[1]]);
+        links[0].click();
+      } else if (!opened) {
+        opened = true;
+        control.click();
+      }
+    } else if (
+      /no jobs found|no results found/i.test(document.body?.innerText || "")
+    ) {
+      return { kind: "date_sort", state: "no_results" };
     }
-    return failure(
-      opened
-        ? "search_date_sort_not_confirmed"
-        : "search_sort_control_unrecognized",
-    );
+    return pending();
   } finally {
     document.removeEventListener("visibilitychange", visibilityChanged);
   }
@@ -484,15 +493,36 @@ export class NaukriQueue {
       work = { ...admitted.work, ownedTabId: tab.id };
       await this.api.storage.session.set({ [key]: work });
       if (work.operation === "search_jobs") {
-        await this.assertInactive(work, context);
-        const sorted = await this.api.scripting.executeScript({
-          target: { tabId: work.ownedTabId, frameIds: [0] },
-          world: "ISOLATED",
-          func: sortNaukriSearchDate,
-          args: [work.url],
-        });
-        await this.assertInactive(work, context);
-        const report = sorted.length === 1 && sorted[0].result;
+        let report,
+          state = null;
+        const started = Date.now();
+        for (let step = 0; step < 40 && Date.now() - started < 10000; step++) {
+          await this.assertInactive(work, context);
+          let timer, sorted;
+          try {
+            sorted = await Promise.race([
+              this.api.scripting.executeScript({
+                target: { tabId: work.ownedTabId, frameIds: [0] },
+                world: "ISOLATED",
+                func: sortNaukriSearchDate,
+                args: [work.url, state],
+              }),
+              new Promise((_, reject) => {
+                timer = setTimeout(
+                  () => reject(Error("search_date_sort_not_confirmed")),
+                  Math.max(1, 10000 - (Date.now() - started)),
+                );
+              }),
+            ]);
+          } finally {
+            clearTimeout(timer);
+          }
+          await this.assertInactive(work, context);
+          report = sorted.length === 1 && sorted[0].result;
+          if (report?.kind !== "date_sort_pending") break;
+          state = report.state;
+          await this.delay(200);
+        }
         if (report?.kind !== "date_sort")
           throw Error(report?.reason || "search_date_sort_not_confirmed");
       }

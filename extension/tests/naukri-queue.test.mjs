@@ -85,10 +85,11 @@ function fixture(options = {}) {
         if (input.func === sortNaukriSearchDate)
           return [
             {
-              result: options.sortReport || {
-                kind: "date_sort",
-                state: "selected",
-              },
+              result: options.sortReports?.shift() ||
+                options.sortReport || {
+                  kind: "date_sort",
+                  state: "selected",
+                },
             },
           ];
         if (options.adopt) {
@@ -300,6 +301,79 @@ test("unconfirmed search sorting reports failure without observing or admitting 
   });
   await f.queue.tick();
   assert.equal(f.calls.filter(([name]) => name === "inspect").length, 1);
+  assert.equal(
+    f.calls.some(([name]) => name === "finish_naukri_work"),
+    false,
+  );
+  assert.equal(
+    f.calls.find(([name]) => name === "abandon_naukri_work")[1].work_report
+      .reason,
+    "search_date_sort_not_confirmed",
+  );
+});
+
+test("search carries synchronous sort progress between worker-scheduled steps", async () => {
+  const search = "https://www.naukri.com/backend-developer-jobs";
+  const state = { expectedUrl: search, document: 123, opened: true };
+  const f = fixture({
+    work: { operation: "search_jobs", url: search },
+    sortReports: [
+      { kind: "date_sort_pending", state },
+      { kind: "date_sort", state: "selected" },
+    ],
+    reports: [{ kind: "source_candidates", candidates: [url] }],
+  });
+  await f.queue.tick();
+  const sortCalls = f.calls.filter(
+    ([name, input]) =>
+      name === "inspect" && input.func === sortNaukriSearchDate,
+  );
+  assert.equal(sortCalls.length, 2);
+  assert.deepEqual(sortCalls[0][1].args, [search, null]);
+  assert.deepEqual(sortCalls[1][1].args, [search, state]);
+  assert.ok(f.calls.some(([name]) => name === "finish_naukri_work"));
+});
+
+test("unsettled sort stops at forty worker steps without admitting candidates", async () => {
+  const search = "https://www.naukri.com/backend-developer-jobs";
+  const f = fixture({
+    work: { operation: "search_jobs", url: search },
+    sortReport: {
+      kind: "date_sort_pending",
+      state: { expectedUrl: search, document: 123, opened: true },
+    },
+  });
+  await f.queue.tick();
+  assert.equal(f.calls.filter(([name]) => name === "inspect").length, 40);
+  assert.equal(
+    f.calls.some(([name]) => name === "finish_naukri_work"),
+    false,
+  );
+  assert.equal(
+    f.calls.find(([name]) => name === "abandon_naukri_work")[1].work_report
+      .reason,
+    "search_date_sort_not_confirmed",
+  );
+});
+
+test("a stalled renderer sort call is bounded by the worker clock", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+  const f = fixture({
+    work: {
+      operation: "search_jobs",
+      url: "https://www.naukri.com/backend-developer-jobs",
+    },
+  });
+  f.api.scripting.executeScript = async (input) => {
+    f.calls.push(["inspect", input]);
+    return new Promise(() => {});
+  };
+  const run = f.queue.tick();
+  for (let i = 0; i < 100 && !f.calls.some(([name]) => name === "inspect"); i++)
+    await Promise.resolve();
+  assert.ok(f.calls.some(([name]) => name === "inspect"));
+  t.mock.timers.tick(10000);
+  await run;
   assert.equal(
     f.calls.some(([name]) => name === "finish_naukri_work"),
     false,
