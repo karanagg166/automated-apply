@@ -252,3 +252,61 @@ still does not prove compliance with 1,000. This is **PASS for this recovered
 read's resumption**, not a new Apply, receipt, repeated occurrence of the newly
 fixed race, or full unattended-application acceptance. Queue remained **RUNNING
 45**. The pending applicant-count question was not repeated or answered by timeout.
+
+## Live continuation: bound sorting outside inactive-page timers
+
+The actual paged source `sde-jobs-2`, identity
+`940a98b9-ea72-5ab0-abcc-7b7fda9c4068`, began **13:20:02** and was still recorded as
+executing at **13:22:16**, with its lease ending **13:23:02**. An independent
+connection sample showed four role connections, no blocking PIDs, and short/idle
+transactions. This did **not** establish successful completion or prove a unique
+cause. Source inspection found a relevant defect: sorting/pagination chained
+200-ms timers **inside the inactive provider page**, including five settling waits.
+Chrome can throttle those waits, so a loop count was not a reliable time bound.
+The timer diagnosis is an inference from code and the observed wait, not a captured
+browser scheduling trace. The task was not restarted merely because observation
+timed out; its identity/lease were inspected and Stop subsequently fenced it.
+
+Implementation
+[`0cef5222a8be5c51a8f24b8a4303640648f20c38`](https://github.com/karanagg166/automated-apply/commit/0cef5222a8be5c51a8f24b8a4303640648f20c38),
+extension **1.3.16**, makes each injected sorting operation one synchronous DOM
+step. The extension worker schedules subsequent steps, retains the exact document
+and permitted same-role path state, rechecks ownership before/after each injection,
+and bounds progress to **40 steps / 10-second worker budget**. A pending renderer
+call is raced against that same worker budget. Date selection and actual Next
+controls retain their existing validation; no provider query/filter parameter was
+guessed, no active tab was used and no application path changed. Document changes,
+CAPTCHA, owner adoption and unconfirmed sorting still refuse candidate admission.
+No database/native timeout, connection cap or discovery interval increased.
+
+**24 focused Node cases passed in 0.150 s**, including three new cases for state
+continuity, a forty-step nonsettling result and a stalled renderer bounded by the
+worker clock. The immutable candidate passed the same **24 overlapping cases in
+0.153 s**. **12 isolated actual Chromium cases passed in 23.694 s**, including a new
+page-two case with isolated provider-page timers explicitly disabled. It verified
+ordinary Date/Next navigation and owner-tab preservation without those timers.
+Live provider / unexpected / chooser requests were **0 / 0 / 0**. The preceding
+12-case run before the final renderer-budget addition passed in 23.851 s; counts
+overlap and are not summed. Build, selected formatting and diff checks passed.
+
+Actual Stop took **7.724 s**, queue STOPPED **46**. At **13:34:03**, exact extension
+**1.3.16 / 23 files** installed with the same stable ID and unchanged manifest
+permissions/key. Native messaging reconnected with a fresh heartbeat; ready **200
+in 2.309 s**. Profile **v5**, account binding **1**, **442 records**, all service and
+native references/configurations were preserved. Before/after front-window and all
+selected-tab ID snapshots matched. The exact **23-file 1.3.15** backup and previous
+releases remain inventoried; rollback restores those files under a STOPPED queue
+and never restores a database snapshot.
+
+Queue resumed **RUNNING 47** at **13:34:53**, same 14-day/1,000/score-50 policy and
+SUPERVISED one/hour-one allowance. The first genuine new-extension source read
+completed **13:35:00→13:35:16**, **15.293 s**, zero newly admitted jobs after
+deduplication, no source error. It was page one, so it is **not** represented as a
+same-page performance comparison against the earlier page-two wait. A private
+read-only observer was attached to the actual next scheduled source to verify
+page-two completion separately; a running observer or heartbeat is not that proof.
+
+Current components: API **e5d0eb6**, frontend **c94f1fb**, execution/native
+**f13c956**, Telegram **a093eab**, extension **0cef522 / 1.3.16**. No new Apply,
+submission receipt, questionnaire/upload acceptance or locked-Mac submission is
+claimed. Unknown applicant-count policy remains awaiting the once-asked decision.
