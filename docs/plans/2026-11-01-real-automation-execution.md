@@ -95,3 +95,9 @@ claiming that plugin is installed; additional plugins may exist in the
 Latest implementation and installed evidence: [policy rechecks and restart report](../acceptance/naukri-policy-rechecks-20261101.md). The live unknown-count rule remains review; an explicit narrow lower-bound option is now available without selecting it for the owner.
 
 First-receipt server prerequisite: [exact implementation and installed negative proof](../acceptance/naukri-first-receipt-gate-20261102.md). This does not replace first real submission or critical live/locked acceptance.
+
+Actual inactive profile setup and genuine skills editor inspection:
+[installed1.3.18 evidence](../acceptance/naukri-profile-editor-inspection-20261102.md).
+The provider editor was inspected, not saved. Existing28 skills must be preserved;
+its observed remaining input capacity constrains additions. First new application
+and recurring acceptance remain OPEN.
