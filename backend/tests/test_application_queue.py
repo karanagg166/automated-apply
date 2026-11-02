@@ -208,6 +208,36 @@ async def test_application_priority_cannot_cross_a_live_discovery_lease(db_sessi
     assert row.value["admitted_actions"] == [] and row.value["status"] == "queued"
 
 
+@pytest.mark.parametrize("years, age_minutes, newer_band, expected_newer", [
+    (1 / 3, 10, "0-to-2-years", True),
+    (5, 10, "4-to-6-years", True),
+    (None, 10, "0-to-2-years", False),
+    (1 / 3, 10, "2-to-0-years", False),
+    (1 / 3, 10, "0-plus-years", False),
+    (1 / 3, 121, "0-to-2-years", False),
+])
+async def test_inspection_hints_after_restart_preserve_aging_and_unknowns(
+    db_session, years, age_minutes, newer_band, expected_newer,
+):
+    from backend.app.models.candidate_profile import CandidateProfile
+
+    db_session.add(CandidateProfile(full_name="Fictional Candidate", email="fixture@example.test",
+                                    verified_experience_years=years))
+    await running(db_session)
+    older = await queue.enqueue(db_session, "naukri", URL.replace("fictional", "fictional-8-to-10-years"), "naukri_ui_search")
+    row = await queue.load(db_session, older["id"])
+    row.created_at = datetime.now(timezone.utc) - timedelta(minutes=age_minutes)
+    newer = await queue.enqueue(db_session, "naukri", URL.replace("fictional", "fictional-" + newer_band)
+                                .replace("291026123456", "291026654321"), "naukri_ui_search")
+    await db_session.commit()
+    async with async_sessionmaker(db_session.bind, expire_on_commit=False)() as restarted, restarted.begin():
+        claimed = await queue.claim(restarted, "naukri", BINDING, operations={"inspect_job"})
+        assert claimed["id"] == (newer if expected_newer else older)["id"]
+        assert claimed["operation"] == "inspect_job" and claimed["stage"] == "DISCOVERED"
+        assert claimed["admitted_actions"] == [] and not claimed.get("facts")
+        assert await queue.claim(restarted, "naukri", BINDING, operations={"inspect_job"}) is None
+
+
 async def test_daily_cap_is_reserved_transactionally_and_waiting_jobs_are_independent(db_session, upload_case):
     case = upload_case
     await running(db_session, cap=2)

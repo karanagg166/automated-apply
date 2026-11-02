@@ -75,6 +75,16 @@ bound. Continue useful independent work rather than repeating the question.
 
 ## Execution and evidence rules
 
+Current live inspection bottleneck (November 2, 12:15 UTC): 167 pending reads,
+31 URLs advertising a zero-year minimum, and the recovered cohort at positions
+99–116. Prioritize ordinary listing reads whose URL experience hint contains the
+saved verified experience, after every lease check and application/receipt work.
+URL hints must never populate job facts or authorize submission. Preserve FIFO
+within priority lanes, and return inspections waiting two hours to the front of
+the read lane to prevent starvation. Unknown hints/profile experience keep FIFO.
+Validate restart ordering, aging, active-lease protection and unchanged real
+eligibility; install only the exact tested API with queue STOPPED and rollback.
+
 Keep source and immutable installed releases distinct. STOP during replacements,
 preserve exact prior releases, stable extension ID, credentials, approved bindings,
 application history and rollback files. No owner tab/window activation or use of

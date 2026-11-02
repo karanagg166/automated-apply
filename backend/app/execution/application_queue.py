@@ -5,7 +5,9 @@ new pool, DDL, portal transport or implicit submission grant is introduced.
 """
 
 import hashlib
+import re
 from datetime import datetime, timedelta
+from urllib.parse import urlsplit
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 from zoneinfo import ZoneInfo
 
@@ -441,6 +443,29 @@ async def load(session, identity):
     return row
 
 
+def inspection_order(row, years, now):
+    """Rank read hints only; URL text never establishes job eligibility.
+
+    Application work always leads. Inspections waiting two hours return to
+    FIFO ahead of hints, so incoming likely matches cannot starve old work.
+    """
+    value = row.value
+    if value["operation"] != "inspect_job":
+        return 0
+    created = row.created_at
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=now.tzinfo)
+    if created <= now - timedelta(hours=2):
+        return 1
+    if years is None:
+        return 3
+    path = urlsplit(value.get("url", "")).path
+    band = re.search(r"-(\d+)-to-(\d+)-years?-\d{12}$", path)
+    if band and int(band[1]) <= years <= int(band[2]):
+        return 2
+    return 3
+
+
 async def claim(session, platform, binding, *, operations=None):
     await store.memory_row(session, lock=True)
     current = await configuration(session)
@@ -479,7 +504,16 @@ async def claim(session, platform, binding, *, operations=None):
     # Finish existing application/receipt work before opening another listing.
     # Recover every lease first; priority must never bypass an active browser
     # lease or redeliver an expired write. Stable sorting retains FIFO per lane.
-    rows.sort(key=lambda row: row.value["operation"] == "inspect_job")
+    years = None
+    if platform == "naukri" and (operations is None or "inspect_job" in operations) and any(
+        row.value["operation"] == "inspect_job" and row.value["status"] == "queued" for row in rows
+    ):
+        from backend.app.models.candidate_profile import CandidateProfile
+
+        years = await session.scalar(select(CandidateProfile.verified_experience_years).where(
+            CandidateProfile.singleton_key == "primary",
+        ))
+    rows.sort(key=lambda row: inspection_order(row, years, now))
     for row in rows:
         v = dict(row.value)
         if v["platform"] != platform or v["status"] != "queued" or v["stage"] in TERMINAL:
