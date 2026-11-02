@@ -107,3 +107,21 @@ async def test_skills_context_or_uncertain_save_never_becomes_another_save(db_se
         observed["execution"]["document_id"] = doc
         result = await call(db_session, case, context, "finish_naukri_work", work, work_report=observed)
         assert not result.ok and result.error_code == "independent_profile_reload_required"
+
+
+def test_native_framed_prepared_skills_report_preserves_the_new_state():
+    import io
+    import json
+    import struct
+
+    from backend.app.local_agent.native_host import read_message
+
+    value = {"version": 1, "request_id": str(uuid4()), "command": "finish_naukri_work",
+             "work_report": {"kind": "execution_observation", "observed_url": "https://www.naukri.com/mnjuser/profile",
+                             "execution": {"state": "PROFILE_SKILLS_PREPARED", "document_id": "fictional-document-123456",
+                                           "account_sha256": "a" * 64, "evidence_sha256": "b" * 64,
+                                           "profile_fields": {"skills": ["Python", "FastAPI"]}}}}
+    payload = json.dumps(value).encode()
+    command = read_message(io.BytesIO(struct.pack("<I", len(payload)) + payload))
+    assert command.work_report.execution.state == "PROFILE_SKILLS_PREPARED"
+    assert command.work_report.execution.profile_fields == {"skills": ["Python", "FastAPI"]}
