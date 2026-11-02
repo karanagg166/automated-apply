@@ -476,6 +476,10 @@ async def claim(session, platform, binding, *, operations=None):
             await event(session, v, "lease_expired")
         elif v["lease_until"]:
             return None  # One worker per existing profile, no concurrent writes.
+    # Finish existing application/receipt work before opening another listing.
+    # Recover every lease first; priority must never bypass an active browser
+    # lease or redeliver an expired write. Stable sorting retains FIFO per lane.
+    rows.sort(key=lambda row: row.value["operation"] == "inspect_job")
     for row in rows:
         v = dict(row.value)
         if v["platform"] != platform or v["status"] != "queued" or v["stage"] in TERMINAL:

@@ -160,3 +160,9 @@ Recommended cycle added17/17 identities from its captured set. Suitable yield
 and the first application remain unaccepted. Next address the inspection backlog
 and ensure application progress/reconciliation is not delayed behind discovery;
 full eligibility, history and admission guards remain required.
+
+Current scheduling task: recover/check all active leases before prioritizing
+existing application and reconciliation operations over `inspect_job`, retaining
+FIFO within each lane. No extra database queries, concurrency, write admission or
+quota changes. Verify restart ordering and active-lease exclusion, build/install
+the exact API candidate under STOP, then retain genuine live submission status.

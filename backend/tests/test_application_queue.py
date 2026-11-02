@@ -181,6 +181,33 @@ async def test_expired_write_is_unknown_and_not_redelivered(db_session):
     assert (await queue.load(db_session, item["id"])).value["stage"] == "SUBMISSION_UNKNOWN"
 
 
+@pytest.mark.parametrize("operation", ["inspect_profile", "verify_account", "reconcile_application"])
+async def test_application_progress_precedes_older_discovery_after_restart(db_session, operation):
+    await running(db_session)
+    older = await queue.enqueue(db_session, "naukri", URL, "naukri_ui_search")
+    row = await queue.load(db_session, older["id"])
+    row.created_at = datetime.now(timezone.utc) - timedelta(minutes=10)
+    progress = await queue.enqueue(db_session, "naukri", URL.replace("291026123456", "291026654321"), "naukri_ui_search")
+    row = await queue.load(db_session, progress["id"])
+    row.value = {**row.value, "operation": operation, "stage": "READY_TO_APPLY"}
+    await db_session.commit()
+    async with async_sessionmaker(db_session.bind, expire_on_commit=False)() as restarted, restarted.begin():
+        claimed = await queue.claim(restarted, "naukri", BINDING, operations={"inspect_job", operation})
+        assert claimed["id"] == progress["id"] and claimed["admitted_actions"] == []
+        assert (await queue.load(restarted, older["id"])).value["status"] == "queued"
+
+
+async def test_application_priority_cannot_cross_a_live_discovery_lease(db_session):
+    await running(db_session)
+    older = await queue.enqueue(db_session, "naukri", URL, "naukri_ui_search")
+    assert (await queue.claim(db_session, "naukri", BINDING))["id"] == older["id"]
+    progress = await queue.enqueue(db_session, "naukri", URL.replace("291026123456", "291026654321"), "naukri_ui_search")
+    row = await queue.load(db_session, progress["id"])
+    row.value = {**row.value, "operation": "reconcile_application", "stage": "SUBMISSION_UNKNOWN"}
+    assert await queue.claim(db_session, "naukri", BINDING) is None
+    assert row.value["admitted_actions"] == [] and row.value["status"] == "queued"
+
+
 async def test_daily_cap_is_reserved_transactionally_and_waiting_jobs_are_independent(db_session, upload_case):
     case = upload_case
     await running(db_session, cap=2)
