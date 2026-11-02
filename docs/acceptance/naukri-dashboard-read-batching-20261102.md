@@ -76,3 +76,16 @@ Next: continue fresh eligible discovery and the first supported genuine applicat
 independently verify its receipt, then bounded recurrence and actual restart/locked
 checks. Preserve the once-asked applicant-bound decision and missing facts;
 no exception or personal information is invented to manufacture acceptance.
+
+## Subsequent genuine background cycle
+
+With the isolated dashboard browser closed, the installed consumer continued
+reading retained jobs: DISCOVERED fell69→63, with the corresponding jobs retained
+as filter/input decisions. The next actual search ran09:51:26–09:51:44UTC,
+completed without error and added12 new provider identities. The total became702;
+75 remained awaiting listing inspection,209 needed evidence/input,417 were skipped
+and1 was historical. These12 are discovery observations, not claimed eligible
+applications. No new `SUBMITTED_CONFIRMED` stage was present. Queue stayed
+RUNNING97 with unchanged policy; next search scheduled09:56:26. This verifies
+another real cycle and concurrent durable processing, not locked-screen operation
+or recurring application acceptance.
