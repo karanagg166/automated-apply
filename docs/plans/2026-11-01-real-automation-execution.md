@@ -43,6 +43,13 @@ The owner subsequently requested agent-led free account setup using verified ema
 without asking for API keys again. Investigate supported free registration and
 actual entitlement; request only an unavoidable owner authentication action.
 Do not fabricate a work email or assume free web credits include API access.
+Public entitlement check on November2: [Apollo's developer documentation](https://docs.apollo.io/reference/apollo-api)
+requires a work-email registration for certain free search/enrichment endpoints.
+[SignalHire's pricing page](https://www.signalhire.com/pricing) advertises five
+trial contacts and additional extension credits; that alone does not verify this
+account's API entitlement. No account authentication, API lookup, credits or
+draft has been accepted from those public pages. Free-only setup remains pending
+after the Naukri first-submission priority; do not ask for keys again.
 
 ## Ordered work and acceptance
 
@@ -135,3 +142,13 @@ or history. Preserve original searches because the keyword is only a discovery
 hint. Validate durable query rotation/restart/dedup with targeted regressions,
 build and install the exact API candidate under STOP with rollback, then inspect
 actual resulting searches and full-listing eligibility before claiming benefit.
+
+Actual November2 evidence changes the next task: the11:13 fresher document before
+sorting contains junior/sub-year listings, but the completed Date-sorted search
+adds three senior identities with zero overlap with that initial set. Preserve
+the genuine Recommended ordering for fresher keyword searches, validate its
+recognized control/page/document and retain full listing age/eligibility checks.
+Keep existing Date behavior for complementary original searches. Verify isolated
+sort-change regressions and exact extension cutover, then compare genuine
+admitted candidate identities with the initial keyword result set. Do not claim
+the backend keyword change alone improved final discovery.

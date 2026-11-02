@@ -6,7 +6,9 @@ import { captureNaukriResumeDownload } from "./naukri-resume-download.js";
 import { naukriChatbot } from "./naukri-chatbot.js";
 
 // Injected only into this consumer's inactive search tab, after read admission.
-// Use the observed ordinary Sort menu; never guess a provider query parameter.
+// Preserve keyword relevance for fresher searches; the actual Date transition
+// replaced their junior results with unrelated senior listings. Original role
+// searches retain Date. Full listing dates/eligibility remain authoritative.
 export function sortNaukriSearchDate(expectedUrl, state = null) {
   const failure = (reason) => ({ kind: "needs_input", reason });
   const expected = new URL(expectedUrl);
@@ -18,6 +20,7 @@ export function sortNaukriSearchDate(expectedUrl, state = null) {
     return failure("provider_context_changed");
   const pagePath = expected.pathname.match(/^(\/[a-z0-9-]+-jobs)(?:-([23]))?$/);
   const targetPage = Number(pagePath?.[2] || 1);
+  const keywordOrder = /-fresher-jobs(?:-[23])?$/.test(expected.pathname);
   let allowedPaths = new Set(state?.allowedPaths || [expected.pathname]);
   let pendingPage = state?.pendingPage ?? null;
   let previousLinks = state?.previousLinks ?? null;
@@ -94,7 +97,11 @@ export function sortNaukriSearchDate(expectedUrl, state = null) {
     ) {
       return pending();
     }
-    if (control?.textContent.trim() === "Date") {
+    if (keywordOrder && control && control.textContent.trim() !== "Recommended")
+      return failure("search_keyword_order_unrecognized");
+    if (
+      control?.textContent.trim() === (keywordOrder ? "Recommended" : "Date")
+    ) {
       if (targetPage > 1) {
         if (!pagePath) return failure("search_page_path_unrecognized");
         const pagers = [
@@ -164,7 +171,11 @@ export function sortNaukriSearchDate(expectedUrl, state = null) {
       }
       // Let the SPA replace its cards before observing them. Eligibility still
       // uses the actual job page's dates, never a search-card age label.
-      if (++settled >= 5) return { kind: "date_sort", state: "selected" };
+      if (++settled >= 5)
+        return {
+          kind: keywordOrder ? "search_ready" : "date_sort",
+          state: keywordOrder ? "keyword_relevance" : "selected",
+        };
     } else if (control) {
       if (selected) {
         return pending();
@@ -620,7 +631,7 @@ export class NaukriQueue {
           state = report.state;
           await this.delay(200);
         }
-        if (report?.kind !== "date_sort")
+        if (!["date_sort", "search_ready"].includes(report?.kind))
           throw Error(report?.reason || "search_date_sort_not_confirmed");
       }
       const report = await this.observeReady(work, context);

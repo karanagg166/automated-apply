@@ -402,6 +402,46 @@ test("search observes candidates only after Date sorting succeeds", async () => 
     "source_candidates",
   );
 });
+test("a confirmed keyword relevance search proceeds through the same observation and finish", async () => {
+  const search = "https://www.naukri.com/backend-developer-fresher-jobs";
+  const f = fixture({
+    work: { operation: "search_jobs", url: search },
+    sortReport: { kind: "search_ready", state: "keyword_relevance" },
+    reports: [{ kind: "source_candidates", candidates: [url] }],
+  });
+  await f.queue.tick();
+  assert.equal(f.calls.find(([name]) => name === "inspect")[1].args[0], search);
+  assert.deepEqual(
+    f.calls.find(([name]) => name === "finish_naukri_work")[1].work_report
+      .candidates,
+    [url],
+  );
+});
+
+test("unknown keyword search order yields without observing or admitting candidates", async () => {
+  const f = fixture({
+    work: {
+      operation: "search_jobs",
+      url: "https://www.naukri.com/backend-developer-fresher-jobs",
+    },
+    sortReport: {
+      kind: "needs_input",
+      reason: "search_keyword_order_unrecognized",
+    },
+  });
+  await f.queue.tick();
+  assert.equal(f.calls.filter(([name]) => name === "inspect").length, 1);
+  assert.equal(
+    f.calls.some(([name]) => name === "finish_naukri_work"),
+    false,
+  );
+  assert.equal(
+    f.calls.find(([name]) => name === "abandon_naukri_work")[1].work_report
+      .reason,
+    "search_keyword_order_unrecognized",
+  );
+});
+
 test("unconfirmed search sorting reports failure without observing or admitting candidates", async () => {
   const f = fixture({
     operation: "search_jobs",

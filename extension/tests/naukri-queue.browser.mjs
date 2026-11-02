@@ -132,6 +132,21 @@ try {
       : `<div class="styles_jd-header"><h1>Backend Developer</h1><span class="styles_comp-name">Fictional Labs</span><span class="styles_loc-wrap">India</span><span class="styles_exp-wrap">0 - 3 Yrs</span><span>120 Applicants</span><button onclick="window.accidentalClicks=(window.accidentalClicks||0)+1">Apply</button></div><div class="styles_job-desc">Build Python services</div><div class="styles_key-skill"><span class="chip">Python</span></div><script type="application/ld+json">${JSON.stringify({ "@type": "JobPosting", title: "Backend Developer", datePosted: new Date().toISOString(), identifier: { value: fixtureRequisition } })}</script>`;
     if (scenario === "read_drain_challenge" && fixtureRequisition !== req)
       body = "<p>Access denied</p>" + body;
+    if (scenario.startsWith("fresher_keyword_")) {
+      // Genuine behavior: initial relevant cards differ from the Date result
+      // set. A Date click must not leak that unrelated set into discovery.
+      body = `<button id="filter-sort" type="button" aria-controls="filter-sort-menu">Recommended</button><ul id="filter-sort-menu" style="visibility:hidden"><li role="option" title="Date"><a>Date</a></li></ul><a id="old-result" href="${jobUrl}">Fictional junior job</a><script>
+const control=document.querySelector('#filter-sort'), menu=document.querySelector('#filter-sort-menu');
+control.onclick=()=>menu.style.visibility='visible';menu.querySelector('a').onclick=()=>{control.textContent='Date';document.querySelector('#old-result').href='https://www.naukri.com/job-listings-unrelated-senior-291026654321';};
+</script>`;
+      if (scenario === "fresher_keyword_page_two")
+        body += `<nav aria-label="Pagination"><a aria-current="page" href="${url.href}">2</a></nav>`;
+      if (scenario === "fresher_keyword_wrong_order")
+        body = body.replace(
+          'aria-controls="filter-sort-menu">Recommended</button>',
+          'aria-controls="filter-sort-menu">Date</button>',
+        );
+    }
     if (
       [
         "background_paginated_search_links",
@@ -227,6 +242,24 @@ page(2);control.onclick=()=>menu.style.visibility='visible';menu.querySelector('
     ["current_details_ambiguous", "inspect_job", jobUrl, false],
     ["background_search_links", "search_jobs", searchUrl, false],
     [
+      "fresher_keyword_relevance",
+      "search_jobs",
+      searchUrl.replace("-jobs", "-fresher-jobs"),
+      false,
+    ],
+    [
+      "fresher_keyword_page_two",
+      "search_jobs",
+      searchUrl.replace("-jobs", "-fresher-jobs-2"),
+      false,
+    ],
+    [
+      "fresher_keyword_wrong_order",
+      "search_jobs",
+      searchUrl.replace("-jobs", "-fresher-jobs"),
+      false,
+    ],
+    [
       "background_paginated_search_links",
       "search_jobs",
       searchUrl + "-2",
@@ -260,7 +293,8 @@ page(2);control.onclick=()=>menu.style.visibility='visible';menu.querySelector('
     const finished = result.calls.find((c) => c.name === "finish_naukri_work");
     if (
       name === "unconfirmed_search_sort" ||
-      name === "search_access_restriction"
+      name === "search_access_restriction" ||
+      name === "fresher_keyword_wrong_order"
     ) {
       assert.equal(finished, undefined);
       assert.equal(
@@ -268,7 +302,9 @@ page(2);control.onclick=()=>menu.style.visibility='visible';menu.querySelector('
           .work_report.reason,
         name === "unconfirmed_search_sort"
           ? "search_date_sort_not_confirmed"
-          : "provider_challenge_requires_owner",
+          : name === "fresher_keyword_wrong_order"
+            ? "search_keyword_order_unrecognized"
+            : "provider_challenge_requires_owner",
       );
     } else if (name === "current_details_ambiguous") {
       assert.equal(
