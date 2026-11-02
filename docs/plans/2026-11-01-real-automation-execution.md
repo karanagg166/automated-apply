@@ -101,3 +101,10 @@ Actual inactive profile setup and genuine skills editor inspection:
 The provider editor was inspected, not saved. Existing28 skills must be preserved;
 its observed remaining input capacity constrains additions. First new application
 and recurring acceptance remain OPEN.
+
+Genuine provider profile-write acceptance: [verified add-only skills Save](../acceptance/naukri-verified-skills-save-20261102.md).
+The installed system saved31 skills while preserving all28 originals and verified
+them on an independent provider document with actual PDF-byte checks. Native
+contract and actual frontend launcher deployment mismatches were corrected and
+recorded. Remaining profile facts, first new application, recurring AUTO,
+performance and locked/restart acceptance remain unfinished.
