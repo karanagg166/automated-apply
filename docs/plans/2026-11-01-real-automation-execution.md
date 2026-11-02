@@ -108,3 +108,8 @@ them on an independent provider document with actual PDF-byte checks. Native
 contract and actual frontend launcher deployment mismatches were corrected and
 recorded. Remaining profile facts, first new application, recurring AUTO,
 performance and locked/restart acceptance remain unfinished.
+
+[Installed dashboard read batching](../acceptance/naukri-dashboard-read-batching-20261102.md)
+reduces actual profile/queue status SQL counts from6/8 to2/5 under the unchanged
+connection budget. APIb3abc9e installed; real skills `SYNC_VERIFIED` retained.
+Performance, first application and recurring/locked acceptance remain OPEN.
