@@ -36,6 +36,7 @@ function fixture(options = {}) {
     ...options.work,
   };
   let nextTabId = 44;
+  let readFinished = false;
   const api = {
     storage: { local: store(local), session: store(session) },
     permissions: { contains: async () => options.permission !== false },
@@ -121,14 +122,17 @@ function fixture(options = {}) {
     if (name === "poll_naukri_work")
       return {
         maintenance: options.maintenance,
-        work: options.operation
-          ? { ...work, operation: options.operation }
-          : work,
+        work: readFinished
+          ? null
+          : options.operation
+            ? { ...work, operation: options.operation }
+            : work,
       };
     if (options.stop && name === "admit_naukri_work")
       throw Error("queue_lease_lost");
     if (options.lostFinish && name === "finish_naukri_work")
       throw Error("backend_timeout");
+    if (name === "finish_naukri_work") readFinished = true;
     work = {
       ...work,
       revision: work.revision + 1,
@@ -842,3 +846,106 @@ for (const fault of [null, "lost_preparation", "stop_before_save"]) {
     assert.equal(f.calls.filter(([name]) => name === "close").length, 1);
   });
 }
+
+function drainFixture({
+  beforePoll,
+  afterFinish,
+  lostFinish = false,
+  reportKind = "job_facts",
+} = {}) {
+  let polls = 0,
+    completed = 0;
+  const f = fixture({
+    reports: Array.from({ length: 9 }, () => ({
+      kind: reportKind,
+      reason:
+        reportKind === "needs_input"
+          ? "provider_challenge_requires_owner"
+          : undefined,
+    })),
+    respond: async (name, input, current) => {
+      if (name === "poll_naukri_work") {
+        polls++;
+        beforePoll?.(polls);
+        return {
+          work: {
+            id: `read-${completed}`,
+            revision: 1,
+            lease_token: `lease-${completed}`,
+            operation: "inspect_job",
+            url,
+            binding: { tab_id: null, window_id: 10 },
+          },
+        };
+      }
+      if (name === "finish_naukri_work") {
+        if (lostFinish) throw Error("backend_timeout");
+        completed++;
+        afterFinish?.(completed, f);
+        return { work: current };
+      }
+    },
+  });
+  return { ...f, completed: () => completed, polls: () => polls };
+}
+
+test("one wake drains at most three completed reads, releasing each owned tab before the next lease", async () => {
+  const f = drainFixture();
+  await f.queue.tick();
+  assert.equal(f.completed(), 3);
+  assert.equal(f.polls(), 3);
+  assert.equal(f.calls.filter(([n]) => n === "create").length, 3);
+  assert.equal(f.calls.filter(([n]) => n === "close").length, 3);
+  const names = f.calls.map(([n]) => n);
+  assert.ok(
+    names.indexOf("close") <
+      names.indexOf("poll_naukri_work", names.indexOf("poll_naukri_work") + 1),
+  );
+  assert.equal(f.tabs.size, 0);
+  await f.queue.tick();
+  assert.equal(f.completed(), 6);
+});
+
+test("the drain starts no additional read after its bounded scheduling window", async (t) => {
+  t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+  const f = drainFixture({ afterFinish: () => t.mock.timers.tick(30001) });
+  await f.queue.tick();
+  assert.equal(f.completed(), 1);
+  assert.equal(f.polls(), 1);
+});
+
+for (const failure of ["lost_finish", "challenge", "stop_before_next_poll"]) {
+  test(`the drain yields after ${failure} without another observation or action`, async () => {
+    const f = drainFixture({
+      lostFinish: failure === "lost_finish",
+      reportKind: failure === "challenge" ? "needs_input" : "job_facts",
+      beforePoll: (count) => {
+        if (failure === "stop_before_next_poll" && count === 2)
+          throw Error("queue_lease_lost");
+      },
+    });
+    await f.queue.tick();
+    assert.equal(f.calls.filter(([n]) => n === "create").length, 1);
+    assert.equal(f.calls.filter(([n]) => n === "inspect").length, 1);
+    assert.equal(f.polls(), failure === "stop_before_next_poll" ? 2 : 1);
+    assert.equal(f.calls.filter(([n]) => n === "close").length, 1);
+  });
+}
+
+test("owner activity is checked again before a drain can poll for another read", async () => {
+  const f = drainFixture({
+    afterFinish: (_, f) => {
+      f.api.tabs.query = async () => [
+        {
+          id: 7,
+          active: true,
+          windowId: 10,
+          url: "https://www.naukri.com/mnjuser/profile",
+        },
+      ];
+    },
+  });
+  await f.queue.tick();
+  assert.equal(f.completed(), 1);
+  assert.equal(f.polls(), 1);
+});

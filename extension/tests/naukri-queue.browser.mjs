@@ -40,17 +40,23 @@ writeFileSync(
   `
 import { NaukriQueue } from './naukri-queue.js';
 globalThis.calls = [];
-globalThis.prepare = async (operation, url, stop=false, freezeTimers=false) => {
+globalThis.prepare = async (operation, url, stop=false, freezeTimers=false, drainCount=1) => {
   const [owner] = await chrome.tabs.query({active:true});
   await chrome.storage.local.set({connectedChromeProfileV1:{id:'fictional', secret:'f'.repeat(64),connected:true,windowId:owner.windowId}});
   await chrome.storage.session.set({applicationBrowserSessionV1:'fictional-session'});
   globalThis.calls=[];
   let work={id:'fictional',revision:1,lease_token:'fictional-token',operation,url,binding:{tab_id:null,window_id:owner.windowId}};
+  let completed=0;
   const send=async (_, name, input) => {
     calls.push({name,input});
-    if(name==='poll_naukri_work') return {work};
+    if(name==='poll_naukri_work') {
+      if(completed>=drainCount)return {work:null};
+      if(completed>0)work={...work,id:'fictional-'+completed,url:url.replace(/([0-9]+)$/,v=>String(Number(v)+completed)),revision:1,binding:{tab_id:null,window_id:owner.windowId}};
+      return {work};
+    }
     if(name==='bind_naukri_work') await new Promise((r)=>setTimeout(r,200));
     if(name==='admit_naukri_work' && stop) throw Error('queue_lease_lost');
+    if(name==='finish_naukri_work') completed++;
     work={...work,revision:work.revision+1,binding:{...work.binding,tab_id:input.tab_id}};
     return {work};
   };
@@ -120,9 +126,12 @@ try {
       return route.abort();
     }
     fixtureRequests++;
+    const fixtureRequisition = url.pathname.match(/([0-9]+)$/)?.[1] || req;
     let body = /-jobs(?:-[2-3])?$/.test(url.pathname)
       ? `<button id="filter-sort" type="button" aria-controls="filter-sort-menu" onclick="document.querySelector('#filter-sort-menu').style.visibility='visible'">Recommended</button><ul id="filter-sort-menu" style="visibility:hidden"><li role="option" title="Date"><a onclick="document.querySelector('#filter-sort').textContent='Date';document.querySelector('#old-result').href='${jobUrl}'">Date</a></li></ul><a id="old-result" href="https://www.naukri.com/job-listings-older-291026123457">Fictional job</a>`
-      : `<div class="styles_jd-header"><h1>Backend Developer</h1><span class="styles_comp-name">Fictional Labs</span><span class="styles_loc-wrap">India</span><span class="styles_exp-wrap">0 - 3 Yrs</span><span>120 Applicants</span><button onclick="window.accidentalClicks=(window.accidentalClicks||0)+1">Apply</button></div><div class="styles_job-desc">Build Python services</div><div class="styles_key-skill"><span class="chip">Python</span></div><script type="application/ld+json">${JSON.stringify({ "@type": "JobPosting", title: "Backend Developer", datePosted: new Date().toISOString(), identifier: { value: req } })}</script>`;
+      : `<div class="styles_jd-header"><h1>Backend Developer</h1><span class="styles_comp-name">Fictional Labs</span><span class="styles_loc-wrap">India</span><span class="styles_exp-wrap">0 - 3 Yrs</span><span>120 Applicants</span><button onclick="window.accidentalClicks=(window.accidentalClicks||0)+1">Apply</button></div><div class="styles_job-desc">Build Python services</div><div class="styles_key-skill"><span class="chip">Python</span></div><script type="application/ld+json">${JSON.stringify({ "@type": "JobPosting", title: "Backend Developer", datePosted: new Date().toISOString(), identifier: { value: fixtureRequisition } })}</script>`;
+    if (scenario === "read_drain_challenge" && fixtureRequisition !== req)
+      body = "<p>Access denied</p>" + body;
     if (
       [
         "background_paginated_search_links",
@@ -306,6 +315,54 @@ page(2);control.onclick=()=>menu.style.visibility='visible';menu.querySelector('
     assert.equal(owner.url(), "about:blank");
     evidence.push({
       name,
+      result: "PASS",
+      actual_inactive_chromium_tab: true,
+      owner_tab_preserved: true,
+      provider_requests_routed_to_fixture: true,
+    });
+  }
+  for (const challenge of [false, true]) {
+    modern = false;
+    scenario = challenge ? "read_drain_challenge" : "read_drain_success";
+    const result = await worker.evaluate(
+      (url) => globalThis.prepare("inspect_job", url, false, false, 4),
+      jobUrl,
+    );
+    assert.equal(
+      result.calls.filter((c) => c.name === "finish_naukri_work").length,
+      challenge ? 2 : 3,
+    );
+    assert.equal(result.calls.filter((c) => c.name === "create").length, 0); // Native call log excludes tab API operations.
+    assert.equal(result.tabs.length, 1);
+    assert.equal(result.tabs[0].id, result.ownerId);
+    assert.equal(result.tabs[0].active, true);
+    if (challenge) {
+      assert.equal(
+        result.calls.filter((c) => c.name === "finish_naukri_work").at(-1).input
+          .work_report.reason,
+        "provider_challenge_requires_owner",
+      );
+    } else {
+      assert.equal(
+        new Set(
+          result.calls
+            .filter((c) => c.name === "finish_naukri_work")
+            .map((c) => c.input.work_id),
+        ).size,
+        3,
+      );
+      const resumed = await worker.evaluate(async () => {
+        await queue.tick();
+        return { calls, tabs: await chrome.tabs.query({}) };
+      });
+      assert.equal(
+        resumed.calls.filter((c) => c.name === "finish_naukri_work").length,
+        4,
+      );
+      assert.equal(resumed.tabs.length, 1);
+    }
+    evidence.push({
+      name: scenario,
       result: "PASS",
       actual_inactive_chromium_tab: true,
       owner_tab_preserved: true,

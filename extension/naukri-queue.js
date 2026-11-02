@@ -293,7 +293,18 @@ export class NaukriQueue {
     if (this.ticking) return;
     this.ticking = true;
     try {
-      await this.run();
+      const started = Date.now();
+      // Completed ordinary reads can release the lane immediately instead of
+      // waiting for another 30-second alarm. Never drain after uncertain work,
+      // a challenge, a parked form or an execution flow. Each next poll repeats
+      // the current owner/profile/policy checks and leases one work item only.
+      for (
+        let completed = 0;
+        completed < 3 && Date.now() - started < 30000;
+        completed++
+      ) {
+        if (!(await this.run())) break;
+      }
     } finally {
       this.ticking = false;
     }
@@ -618,6 +629,7 @@ export class NaukriQueue {
       await this.command("finish_naukri_work", work, { work_report: report });
       await this.closeOwned(work);
       await this.api.storage.session.remove(key);
+      return ["job_facts", "source_candidates"].includes(report.kind);
     } catch (error) {
       work = (await this.api.storage.session.get(key))[key] || work;
       if (work) {
