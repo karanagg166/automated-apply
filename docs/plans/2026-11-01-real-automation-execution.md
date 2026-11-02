@@ -119,3 +119,10 @@ four genuine locked readiness200 samples plus actual discovery/profile-PDF/listi
 operations; extension44bbc4c/1.3.21 installed. This is bounded read acceptance,
 not locked filling/submission, sleep recovery or full recurring acceptance.
 First new application remains OPEN.
+
+[Installed bounded ordinary-read continuation](../acceptance/naukri-bounded-read-continuation-20261102.md):
+extensionec1a5b7/1.3.22 installed under STOP100 then RUN101, unchanged SUP1.
+Real discovery and rejected-listing processing continue while the Mac reports
+LOCKED; zero new submissions. A live throughput improvement is not yet proven.
+Next investigate ordinary search controls to find more suitable fresh jobs,
+without relaxing unknown counts or required experience.
