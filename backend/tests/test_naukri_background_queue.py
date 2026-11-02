@@ -245,6 +245,83 @@ async def test_exhausted_search_pages_are_bounded_and_keep_interval_and_role_rot
         assert await search_work(restarted, config, policy, binding) is None
 
 
+@pytest.mark.parametrize("years, targeted", [(0, True), (0.3333, True), (1, False), (4, False), (None, False)])
+async def test_confirmed_experience_targets_discovery_without_changing_eligibility_or_saved_roles(
+    db_session, upload_case, years, targeted,
+):
+    from datetime import timedelta
+
+    from sqlalchemy import select
+
+    from backend.app.automation.store import instant
+    from backend.app.execution.naukri_native import SEARCH, search_work
+    from backend.app.local_agent.profile_confirmation import confirm_profile
+    from backend.app.models.candidate_profile import CandidateProfile
+
+    await setup(db_session, browser_search=True)
+    profile = await db_session.scalar(select(CandidateProfile).where(CandidateProfile.singleton_key == "primary"))
+    profile.verified_experience_years = years
+    await db_session.flush()
+    await confirm_profile(db_session, profile, profile.version)
+    config = await queue.configuration(db_session)
+    policy = QueuePolicy.model_validate(config["policy"])
+    saved_preferences = dict(profile.preferences)
+    saved_policy = policy.model_dump(mode="json")
+    binding = {"profile_binding_id": "fixture", "tab_id": None}
+    await db_session.commit()
+    factory = async_sessionmaker(db_session.bind, expire_on_commit=False, autoflush=False)
+    urls = []
+    for _ in range(2):
+        async with factory() as restarted, restarted.begin():
+            work = await search_work(restarted, config, policy, binding)
+            urls.append(work["url"])
+            now = await instant(restarted)
+            # A confirmed search with new results rotates queries. Full facts
+            # still enter the same ingestion/eligibility path, not this hint.
+            await queue.put(restarted, SEARCH, {**work, "status": "idle", "lease_until": None,
+                "last_finished_at": now.isoformat(), "last_error": None, "last_cycle_count": 1,
+                "next_at": (now - timedelta(seconds=1)).isoformat()})
+            assert work["binding"] == binding and work["search_page"] == 1
+            assert datetime.fromisoformat(work["next_at"]) - datetime.fromisoformat(work["last_started_at"]) == timedelta(seconds=300)
+    assert urls == (["https://www.naukri.com/backend-developer-fresher-jobs",
+                     "https://www.naukri.com/backend-developer-jobs"] if targeted else
+                    ["https://www.naukri.com/backend-developer-jobs"] * 2)
+    assert profile.preferences == saved_preferences and policy.model_dump(mode="json") == saved_policy
+    assert await queue.items(db_session) == []
+
+
+async def test_custom_fresher_queries_preserve_originals_and_bounded_pagination(db_session, upload_case):
+    from datetime import timedelta
+
+    from sqlalchemy import select
+
+    from backend.app.automation.store import instant
+    from backend.app.execution.naukri_native import SEARCH, search_work
+    from backend.app.local_agent.profile_confirmation import confirm_profile
+    from backend.app.models.candidate_profile import CandidateProfile
+
+    await setup(db_session, browser_search=True)
+    profile = await db_session.scalar(select(CandidateProfile).where(CandidateProfile.singleton_key == "primary"))
+    profile.verified_experience_years = 0.3333
+    await db_session.flush()
+    await confirm_profile(db_session, profile, profile.version)
+    config = await queue.configuration(db_session)
+    policy = QueuePolicy.model_validate(config["policy"])
+    setting = policy.platforms["naukri"]
+    setting.preferences_mode = "custom"
+    setting.preferences.roles = ["Backend Developer fresher", "Frontend Developer"]
+    binding = {"profile_binding_id": "fixture", "tab_id": None}
+    first = await search_work(db_session, config, policy, binding)
+    now = await instant(db_session)
+    await queue.put(db_session, SEARCH, {**first, "status": "idle", "lease_until": None,
+        "last_finished_at": now.isoformat(), "last_error": None, "last_cycle_count": 0,
+        "next_at": (now - timedelta(seconds=1)).isoformat()})
+    second = await search_work(db_session, config, policy, binding)
+    assert first["url"] == "https://www.naukri.com/backend-developer-fresher-jobs"
+    assert second["url"] == first["url"] + "-2" and second["search_page"] == 2
+    assert setting.preferences.roles == ["Backend Developer fresher", "Frontend Developer"]
+
+
 async def test_saved_source_cursors_do_not_read_mail_or_enable_deferred_mailboxes(db_session):
     await running(db_session)
     for i, mailbox in enumerate(("local:1", "deferred:2")):

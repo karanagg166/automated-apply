@@ -126,3 +126,12 @@ Real discovery and rejected-listing processing continue while the Mac reports
 LOCKED; zero new submissions. A live throughput improvement is not yet proven.
 Next investigate ordinary search controls to find more suitable fresh jobs,
 without relaxing unknown counts or required experience.
+
+Current task: when the confirmed profile has less than one year of verified
+experience, interleave an ordinary `<target role> fresher` search with each
+original target-role search. Do not change saved target titles, personal facts,
+matching, filters, discovery interval, pagination bound, submission authorization
+or history. Preserve original searches because the keyword is only a discovery
+hint. Validate durable query rotation/restart/dedup with targeted regressions,
+build and install the exact API candidate under STOP with rollback, then inspect
+actual resulting searches and full-listing eligibility before claiming benefit.

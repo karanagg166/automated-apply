@@ -79,6 +79,14 @@ async def search_work(session, config, policy, binding):
     roles = setting.preferences.roles if setting.preferences_mode == "custom" else (profile.preferences or {}).get("target_titles", [])
     if not roles:
         return None
+    # A general Date-sorted search on the genuine portal includes many senior
+    # roles. Add an ordinary keyword search for sub-year candidates, preserving
+    # every original query and all full-listing eligibility checks. "Fresher"
+    # is a discovery hint, never an experience fact or an application exemption.
+    if profile.verified_experience_years is not None and 0 <= profile.verified_experience_years < 1:
+        roles = list(dict.fromkeys(query for role in roles for query in (
+            role if re.search(r"\bfresher\b", role, re.I) else role + " fresher", role,
+        )))
     index = value.get("role_index", 0) % len(roles)
     page = 1
     # Actual ordinary search pagination exposes /<role>-jobs-2, ...-3. When
