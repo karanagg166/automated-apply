@@ -93,11 +93,30 @@ export async function observeNaukri(expectedUrl, operation) {
   // Genuine fresher headers display "0 years" rather than a range. Preserve
   // that explicit value; "Fresher", "0+" and unspecified ranges stay unknown.
   const band = range || (single && [single[0], single[1], single[1]]);
-  const description = clean(
+  // The current outer job-desc-container also contains highlights, platform
+  // match scores, skills, education and sharing controls. Keep the employer's
+  // actual description separate from that surrounding UI when present.
+  const descriptionBodies = [
+    ...document.querySelectorAll('[class*="JDC__dang-inner-html__"]'),
+  ];
+  if (descriptionBodies.length > 1) return failure("job_description_ambiguous");
+  const descriptionElement =
+    descriptionBodies[0] ||
     document.querySelector(
       '[class*="job-desc"], [class*="jobDesc"], [itemprop="description"]',
-    ),
-  );
+    );
+  const prose = (node) => {
+    if (!node) return "";
+    if (node.nodeType === 3) return node.textContent;
+    if (/^(SCRIPT|STYLE|TEMPLATE)$/.test(node.nodeName)) return "";
+    const value = [...node.childNodes].map(prose).join("");
+    return /^(P|DIV|BR|LI|H[1-6]|UL|OL|TABLE|TR|TD|SECTION)$/.test(
+      node.nodeName,
+    )
+      ? " " + value + " "
+      : value;
+  };
+  const description = prose(descriptionElement).replace(/\s+/g, " ").trim();
   const skills = [
     ...new Set(
       [
@@ -174,8 +193,7 @@ export async function observeNaukri(expectedUrl, operation) {
     // Zero verified years cannot satisfy an explicit one-month minimum.
     minimumYears = Math.max(minimumYears, months / 12);
   }
-  const employmentLabels = [posting.employmentType].flat();
-  const employmentTypes = employmentLabels.map((value) =>
+  const employment = (value) =>
     typeof value === "string"
       ? {
           "full time": "full_time",
@@ -187,14 +205,43 @@ export async function observeNaukri(expectedUrl, operation) {
           contractual: "contract",
           internship: "internship",
         }[value.replace(/\s+/g, " ").trim().toLowerCase()]
-      : undefined,
-  );
-  const employmentType =
+      : undefined;
+  const employmentLabels = [posting.employmentType].flat();
+  const employmentTypes = employmentLabels.map(employment);
+  const structuredEmployment =
     employmentTypes.length &&
     employmentTypes.every(Boolean) &&
     new Set(employmentTypes).size === 1
       ? employmentTypes[0]
       : null;
+  const details = descriptionElement?.closest('[class*="job-desc-container"]');
+  const uiEmploymentLabels = details
+    ? [
+        ...details.querySelectorAll(
+          '[class*="other-details"] [class*="details"]',
+        ),
+      ]
+        .filter(
+          (row) =>
+            clean(row.querySelector("label"))
+              ?.replace(/\s*:\s*$/, "")
+              .toLowerCase() === "employment type",
+        )
+        .map((row) => clean(row.querySelector(":scope > span")))
+    : [];
+  const uiEmploymentTypes = uiEmploymentLabels.map(employment);
+  const uiEmployment =
+    uiEmploymentTypes.length &&
+    uiEmploymentTypes.every(Boolean) &&
+    new Set(uiEmploymentTypes).size === 1
+      ? uiEmploymentTypes[0]
+      : null;
+  // A real details label can supply missing structured metadata, but cannot
+  // erase contradictory evidence. Ambiguity stays unknown for review.
+  const conflict =
+    new Set([...employmentTypes, ...uiEmploymentTypes].filter(Boolean)).size >
+    1;
+  const employmentType = conflict ? null : structuredEmployment || uiEmployment;
   // Only an explicit mode in the observed location label establishes this
   // fact. Title/description keywords and missing labels never imply remote.
   const mode = locationText.match(

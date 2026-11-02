@@ -260,3 +260,55 @@ test("an empty location icon alone never establishes a job location", async () =
   );
   assert.equal((await observe(body)).reason, "job_required_facts_unrecognized");
 });
+
+function genuineDetailsShape({
+  ui = "Full Time, Permanent",
+  structured,
+  duplicateDescription = false,
+} = {}) {
+  const body = `<section class="styles_job-desc-container__txpYf"><div class="styles_JDC__match-score__VnjLL">Early Applicant Work Experience Keyskills</div><div class="styles_JDC__dang-inner-html__h0K4t"><p>Build Python services.</p><p>SQL is useful.</p></div>${duplicateDescription ? '<div class="styles_JDC__dang-inner-html__duplicate">Different description</div>' : ""}<div class="styles_other-details__oEN4O"><div class="styles_details__Y424J"><label>Employment Type: </label><span><span>${ui}</span></span></div><div class="styles_details__Y424J"><label>Department: </label><span>Engineering</span></div></div><div class="styles_key-skill__GIPn_"><div class="styles_legend__DVbef">Skills highlighted are preferred keyskills</div><a class="styles_chip__7YCfG"><span>Python</span></a></div><div class="styles_JDC__footer__ZJnPe">Share this job Report this job</div></section>`;
+  return html({
+    posting: structured === undefined ? {} : { employmentType: structured },
+  }).replace('<div class="styles_job-desc">Build Python services</div>', body);
+}
+
+test("observed current description body excludes platform scores, skills legend and share controls", async () => {
+  const report = await observe(genuineDetailsShape());
+  assert.equal(report.kind, "job_facts");
+  assert.equal(report.job.description, "Build Python services. SQL is useful.");
+  assert.equal(report.job.employment_type, "full_time");
+  assert.equal(report.job.description.includes("Early Applicant"), false);
+  assert.equal(report.job.description.includes("Share this job"), false);
+});
+for (const [ui, expected] of [
+  ["Full Time, Permanent", "full_time"],
+  ["Internship", "internship"],
+  ["Contractual", "contract"],
+  ["Not disclosed", null],
+]) {
+  test(`actual Employment Type detail ${ui} supplies only known evidence`, async () => {
+    const report = await observe(genuineDetailsShape({ ui }));
+    assert.equal(report.job.employment_type, expected);
+  });
+}
+test("structured and visible employment disagreement stays unknown", async () => {
+  assert.equal(
+    (await observe(genuineDetailsShape({ structured: "internship" }))).job
+      .employment_type,
+    null,
+  );
+  assert.equal(
+    (
+      await observe(
+        genuineDetailsShape({ structured: ["full_time", "contract"] }),
+      )
+    ).job.employment_type,
+    null,
+  );
+});
+test("duplicate modern description bodies are not resolved by choosing the first", async () => {
+  assert.equal(
+    (await observe(genuineDetailsShape({ duplicateDescription: true }))).reason,
+    "job_description_ambiguous",
+  );
+});

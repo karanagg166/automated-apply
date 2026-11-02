@@ -172,6 +172,22 @@ page(2);control.onclick=()=>menu.style.visibility='visible';menu.querySelector('
           '"datePosted":',
           '"employmentType":"Full Time, Permanent","datePosted":',
         );
+    if (scenario.startsWith("current_details_")) {
+      body = body.replace(
+        '<div class="styles_job-desc">Build Python services</div>',
+        '<section class="styles_job-desc-container__txpYf"><div class="styles_JDC__match-score__VnjLL">Platform match score</div><div class="styles_JDC__dang-inner-html__h0K4t"><p>Build Python services.</p><ul><li>Maintain SQL data.</li></ul></div><div class="styles_other-details__oEN4O"><div class="styles_details__Y424J"><label>Employment Type: </label><span><span>Full Time, Permanent</span></span></div></div><div>Share this job</div></section>',
+      );
+      if (scenario === "current_details_conflict")
+        body = body.replace(
+          '"datePosted":',
+          '"employmentType":"internship","datePosted":',
+        );
+      if (scenario === "current_details_ambiguous")
+        body = body.replace(
+          "<div>Share this job</div>",
+          '<div class="styles_JDC__dang-inner-html__different">A different description</div>',
+        );
+    }
     return route.fulfill({ contentType: "text/html", body });
   });
   context.on("page", (page) =>
@@ -197,6 +213,9 @@ page(2);control.onclick=()=>menu.style.visibility='visible';menu.querySelector('
     ["background_job_facts", "inspect_job", jobUrl, false],
     ["current_header_layout", "inspect_job", jobUrl, false],
     ["single_years_employment", "inspect_job", jobUrl, false],
+    ["current_details_visible", "inspect_job", jobUrl, false],
+    ["current_details_conflict", "inspect_job", jobUrl, false],
+    ["current_details_ambiguous", "inspect_job", jobUrl, false],
     ["background_search_links", "search_jobs", searchUrl, false],
     [
       "background_paginated_search_links",
@@ -242,6 +261,12 @@ page(2);control.onclick=()=>menu.style.visibility='visible';menu.querySelector('
           ? "search_date_sort_not_confirmed"
           : "provider_challenge_requires_owner",
       );
+    } else if (name === "current_details_ambiguous") {
+      assert.equal(
+        finished.input.work_report.reason,
+        "job_description_ambiguous",
+      );
+      assert.equal(finished.input.work_report.job, undefined);
     } else if (stop) {
       assert.equal(finished, undefined);
       assert.ok(result.calls.some((c) => c.name === "abandon_naukri_work"));
@@ -263,6 +288,16 @@ page(2);control.onclick=()=>menu.style.visibility='visible';menu.querySelector('
           "full_time",
         );
         assert.equal(finished.input.work_report.job.remote_type, "hybrid");
+      }
+      if (name.startsWith("current_details_")) {
+        assert.equal(
+          finished.input.work_report.job.description,
+          "Build Python services. Maintain SQL data.",
+        );
+        assert.equal(
+          finished.input.work_report.job.employment_type,
+          name === "current_details_conflict" ? null : "full_time",
+        );
       }
     }
     assert.equal(result.tabs.length, 1);
