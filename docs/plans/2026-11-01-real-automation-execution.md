@@ -113,3 +113,9 @@ performance and locked/restart acceptance remain unfinished.
 reduces actual profile/queue status SQL counts from6/8 to2/5 under the unchanged
 connection budget. APIb3abc9e installed; real skills `SYNC_VERIFIED` retained.
 Performance, first application and recurring/locked acceptance remain OPEN.
+
+[Locked provider reads and installed real listing details](../acceptance/naukri-locked-reads-and-real-details-20261102.md):
+four genuine locked readiness200 samples plus actual discovery/profile-PDF/listing
+operations; extension44bbc4c/1.3.21 installed. This is bounded read acceptance,
+not locked filling/submission, sleep recovery or full recurring acceptance.
+First new application remains OPEN.
