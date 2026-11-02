@@ -152,3 +152,11 @@ Keep existing Date behavior for complementary original searches. Verify isolated
 sort-change regressions and exact extension cutover, then compare genuine
 admitted candidate identities with the initial keyword result set. Do not claim
 the backend keyword change alone improved final discovery.
+
+[Focused fresher discovery and actual search-order correction](../acceptance/naukri-focused-fresher-discovery-20261102.md):
+API8473bdc and extension0c8b1d7/1.3.23 installed, RUN105 unchangedSUP1. Real
+Date-sorted output contradicted the initial junior results; the corrected actual
+Recommended cycle added17/17 identities from its captured set. Suitable yield
+and the first application remain unaccepted. Next address the inspection backlog
+and ensure application progress/reconciliation is not delayed behind discovery;
+full eligibility, history and admission guards remain required.
