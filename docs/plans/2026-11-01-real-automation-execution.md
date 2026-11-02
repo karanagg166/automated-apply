@@ -75,7 +75,7 @@ bound. Continue useful independent work rather than repeating the question.
 
 ## Execution and evidence rules
 
-Current live inspection bottleneck (November 2, 12:15 UTC): 167 pending reads,
+Current live inspection bottleneck (November 2 continuation): 167 pending reads,
 31 URLs advertising a zero-year minimum, and the recovered cohort at positions
 99–116. Prioritize ordinary listing reads whose URL experience hint contains the
 saved verified experience, after every lease check and application/receipt work.
@@ -176,3 +176,10 @@ existing application and reconciliation operations over `inspect_job`, retaining
 FIFO within each lane. No extra database queries, concurrency, write admission or
 quota changes. Verify restart ordering and active-lease exclusion, build/install
 the exact API candidate under STOP, then retain genuine live submission status.
+
+[Installed experience-guided inspection](../acceptance/naukri-live-inspection-order-20261102.md):
+API0e75386 under STOP108/RUN109, same SUP1 policy. Five genuine native
+claims prioritized zero-minimum experience hints, including three recovered
+candidates; all five rejected/held and no Apply admitted. Page/context holds
+need diagnosis; URL hints do not establish eligibility. First receipt and
+recurring/restart/locked application acceptance remain OPEN.
