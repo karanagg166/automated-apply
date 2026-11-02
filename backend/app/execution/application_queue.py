@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 
 from backend.app.agent.tools import ToolDenied
 from backend.app.automation.store import instant
@@ -792,21 +792,26 @@ async def listing(session, *, platform=None, stage=None, search=None, location=N
         query = query.where(OwnerPreference.value["location"].as_string().ilike("%" + location + "%"))
     if minimum_score is not None:
         query = query.where(OwnerPreference.value["match_score"].as_float() >= minimum_score)
-    total = await session.scalar(select(func.count()).select_from(query.subquery()))
     rows = (await session.scalars(query.order_by(
         OwnerPreference.created_at.desc(), OwnerPreference.key
     ).offset(offset).limit(limit))).all()
     stage_expression = OwnerPreference.value["stage"].as_string().label("queue_stage")
     counts = (await session.execute(select(
-        stage_expression, func.count()
+        stage_expression, func.count(), func.sum(case((query.whereclause, 1), else_=0))
     ).where(OwnerPreference.key.startswith(PREFIX)).group_by(
         "queue_stage"
     ))).all()
-    discovery = await session.get(OwnerPreference, "apply_search:naukri", populate_existing=True)
-    consumer = {k: discovery.value.get(k) for k in ("last_started_at", "last_finished_at", "next_at", "last_cycle_count", "last_error")} if discovery else None
-    heartbeat = await session.get(OwnerPreference, "apply_consumer:naukri", populate_existing=True)
-    worker = {k: heartbeat.value.get(k) for k in ("last_poll_at", "busy", "capability")} if heartbeat else None
-    config = await configuration(session)
+    total = sum(count[2] for count in counts)
+    preferences = dict((await session.execute(select(OwnerPreference.key, OwnerPreference.value).where(
+        OwnerPreference.key.in_([POLICY_KEY, "apply_search:naukri", "apply_consumer:naukri"])
+    ))).all())
+    discovery = preferences.get("apply_search:naukri")
+    consumer = {k: discovery.get(k) for k in ("last_started_at", "last_finished_at", "next_at", "last_cycle_count", "last_error")} if discovery else None
+    heartbeat = preferences.get("apply_consumer:naukri")
+    worker = {k: heartbeat.get(k) for k in ("last_poll_at", "busy", "capability")} if heartbeat else None
+    config = preferences.get(POLICY_KEY, {
+        "revision": 0, "state": "STOPPED", "policy": QueuePolicy().model_dump(mode="json")
+    })
     policy = QueuePolicy.model_validate(config["policy"])
     day = (await instant(session)).astimezone(ZoneInfo(policy.day_timezone)).date().isoformat()
     budget = await session.get(OwnerPreference, "apply_budget:naukri:" + day, populate_existing=True)
@@ -815,7 +820,7 @@ async def listing(session, *, platform=None, stage=None, search=None, location=N
     if policy.platforms["naukri"].mode == "SUPERVISED":
         cap = min(cap, policy.platforms["naukri"].supervised_submission_cap)
     return {"items": [public(r.value) for r in rows], "total": total,
-            "counts": dict(counts), "limit": limit, "offset": offset,
+            "counts": {stage: count for stage, count, _ in counts}, "limit": limit, "offset": offset,
             "configuration": config, "discovery": consumer, "consumer": worker,
             "quota": {"reserved_today": used, "daily_cap": cap, "remaining": max(0, cap - used),
                       "hourly_cap": policy.platforms["naukri"].hourly_submission_cap},

@@ -422,10 +422,28 @@ async def receive(session, value, report, settings=None):
 
 
 async def status(session):
-    profile, confirmed, _ = await context(session)
-    work_row = await session.get(OwnerPreference, WORK, populate_existing=True)
-    record = await session.get(OwnerPreference, RECORD + work_row.value["last_record"]) if work_row and work_row.value.get("last_record") else None
-    return {"configuration": await configuration(session), "latest": record.value if record else None,
+    from sqlalchemy import or_, select
+
+    from backend.app.local_agent.profile_confirmation import confirmation_matches
+    from backend.app.models.candidate_profile import CandidateProfile
+
+    profile = await session.scalar(select(CandidateProfile).where(
+        CandidateProfile.singleton_key == "primary"
+    ).execution_options(populate_existing=True))
+    # Status needs confirmation and references, not resume-resource selection.
+    # Resolve the latest record inside the same read instead of serial GETs.
+    last = select(OwnerPreference.value["last_record"].as_string()).where(
+        OwnerPreference.key == WORK
+    ).correlate(None).scalar_subquery()
+    values = dict((await session.execute(select(OwnerPreference.key, OwnerPreference.value).where(or_(
+        OwnerPreference.key.in_([POLICY, WORK, "phase1_profile_confirmation"]),
+        OwnerPreference.key == RECORD + last,
+    )))).all())
+    work_value = values.get(WORK, {})
+    record = values.get(RECORD + str(work_value.get("last_record")))
+    config = values.get(POLICY, {"revision": 0, "policy": SyncPolicy().model_dump(mode="json")})
+    confirmed = confirmation_matches(profile, values.get("phase1_profile_confirmation", {}))
+    return {"configuration": config, "latest": record,
             "current_profile_version": profile.version if profile else None, "profile_confirmed": confirmed,
-            "last_error": work_row.value.get("last_error") if work_row else None,
+            "last_error": work_value.get("last_error"),
             "supported_updates": sorted(SUPPORTED_WRITES), "live_accepted": False}
