@@ -15,6 +15,7 @@ assert.deepEqual(
     "scripting",
     "declarativeNetRequest",
     "alarms",
+    "background",
   ]),
 );
 assert.equal(manifest.host_permissions, undefined);
