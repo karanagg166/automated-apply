@@ -197,3 +197,12 @@ claims prioritized zero-minimum experience hints, including three recovered
 candidates; all five rejected/held and no Apply admitted. Page/context holds
 need diagnosis; URL hints do not establish eligibility. First receipt and
 recurring/restart/locked application acceptance remain OPEN.
+
+[Installed actual browser recovery](../acceptance/naukri-live-window-recovery-20261104.md):
+API/extension2c9d481, extension1.3.24 same ID. STOP110 prevented reopening despite
+two fresh windowless native heartbeats; RUN111 recovered a new inactive window
+with the same approved binding/session and unchanged working Chrome selections.
+Two real discovery cycles completed; fresh provider PDF bytes100198 and previous
+skills Save independently reverified18:46:12UTC.1,614 retained identities and
+0 admitted Apply/new receipts. First application and recurring/restart/locked
+application acceptance remain OPEN; unknown-count decision remains pending.
