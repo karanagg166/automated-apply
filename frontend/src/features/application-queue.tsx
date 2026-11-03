@@ -344,6 +344,7 @@ export function QueuePolicyForm({
 }) {
   const [policy, setPolicy] = useState<QueuePolicy>(configuration.policy);
   const [revision, setRevision] = useState(configuration.revision);
+  const [persisted, setPersisted] = useState(configuration);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -358,23 +359,23 @@ export function QueuePolicyForm({
       ", ",
     ),
   );
+  const current =
+    configuration.revision > persisted.revision ? configuration : persisted;
   useEffect(() => {
-    if (!dirty) {
-      setPolicy(configuration.policy);
-      setRevision(configuration.revision);
-      setRoleText(
-        configuration.policy.platforms.naukri.preferences.roles.join(", "),
-      );
+    if (!dirty && current.revision >= revision) {
+      setPolicy(current.policy);
+      setRevision(current.revision);
+      setRoleText(current.policy.platforms.naukri.preferences.roles.join(", "));
       setLocationText(
-        configuration.policy.platforms.naukri.preferences.locations.join(", "),
+        current.policy.platforms.naukri.preferences.locations.join(", "),
       );
       setExcludedText(
-        configuration.policy.platforms.naukri.preferences.excluded_companies.join(
+        current.policy.platforms.naukri.preferences.excluded_companies.join(
           ", ",
         ),
       );
     }
-  }, [configuration, dirty]);
+  }, [current, dirty, revision]);
   const naukri = policy.platforms.naukri;
   function update(change: Partial<PlatformPolicy>) {
     setDirty(true);
@@ -418,9 +419,9 @@ export function QueuePolicyForm({
         review. Installed live and locked-screen acceptance is still pending.
       </Notice>
       <p>
-        Persisted state: <strong>{configuration.state}</strong>. Background tabs
-        only. One application worker; other eligible jobs continue when one
-        needs input.
+        Persisted state: <strong>{current.state}</strong>. Background tabs only.
+        One application worker; other eligible jobs continue when one needs
+        input.
       </p>
       <p>
         Saving settings pauses current claims. Use Start after reviewing the
@@ -432,16 +433,16 @@ export function QueuePolicyForm({
             key={name}
             disabled={
               busy ||
-              (name === "start" &&
-                !configuration.policy.platforms.naukri.enabled)
+              (name === "start" && !current.policy.platforms.naukri.enabled)
             }
             onClick={() =>
-              action(() =>
-                post("execution/queue/control", {
-                  action: name,
-                  expected_revision: configuration.revision,
-                }),
-              )
+              action(async () => {
+                const updated = await post<QueueConfiguration>(
+                  "execution/queue/control",
+                  { action: name, expected_revision: current.revision },
+                );
+                setPersisted(updated);
+              })
             }
           >
             {name.toUpperCase()} QUEUE
@@ -454,27 +455,33 @@ export function QueuePolicyForm({
         onSubmit={(e) => {
           e.preventDefault();
           void action(async () => {
-            await api("execution/queue/policy", {
-              method: "PUT",
-              body: JSON.stringify({
-                expected_revision: revision,
-                policy: {
-                  ...policy,
-                  platforms: {
-                    ...policy.platforms,
-                    naukri: {
-                      ...naukri,
-                      preferences: {
-                        ...naukri.preferences,
-                        roles: words(roleText),
-                        locations: words(locationText),
-                        excluded_companies: words(excludedText),
+            const updated = await api<QueueConfiguration>(
+              "execution/queue/policy",
+              {
+                method: "PUT",
+                body: JSON.stringify({
+                  expected_revision: revision,
+                  policy: {
+                    ...policy,
+                    platforms: {
+                      ...policy.platforms,
+                      naukri: {
+                        ...naukri,
+                        preferences: {
+                          ...naukri.preferences,
+                          roles: words(roleText),
+                          locations: words(locationText),
+                          excluded_companies: words(excludedText),
+                        },
                       },
                     },
                   },
-                },
-              }),
-            });
+                }),
+              },
+            );
+            setPersisted(updated);
+            setPolicy(updated.policy);
+            setRevision(updated.revision);
             setDirty(false);
           });
         }}
@@ -940,14 +947,14 @@ export function QueuePolicyForm({
             />
           </Field>
         </fieldset>
-        {dirty && revision !== configuration.revision && (
+        {dirty && revision < current.revision && (
           <Notice>
             Settings changed in another session. Reload them before saving.
           </Notice>
         )}
         <Button
           type="submit"
-          disabled={busy || (dirty && revision !== configuration.revision)}
+          disabled={busy || (dirty && revision < current.revision)}
         >
           Save queue policy
         </Button>

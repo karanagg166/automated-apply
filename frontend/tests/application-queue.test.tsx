@@ -18,8 +18,17 @@ vi.mock("@/lib/api", async (original) => ({
 }));
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.mocked(api).mockResolvedValue({});
-  vi.mocked(post).mockResolvedValue({});
+  vi.mocked(api).mockImplementation(async (_path, options) => ({
+    ...configuration,
+    revision: configuration.revision + 1,
+    policy: options?.body
+      ? JSON.parse(String(options.body)).policy
+      : configuration.policy,
+  }));
+  vi.mocked(post).mockImplementation(async (_path, body) => ({
+    ...configuration,
+    revision: (body as { expected_revision: number }).expected_revision + 1,
+  }));
 });
 const configuration: QueueConfiguration = {
   state: "STOPPED",
@@ -359,7 +368,7 @@ it("issues revision-fenced pause and stop through only the intended gateway rout
   });
   expect(post).toHaveBeenCalledWith("execution/queue/control", {
     action: "stop",
-    expected_revision: 7,
+    expected_revision: 8,
   });
   expect(permittedRoute("execution/queue", "GET")).toBe(true);
   expect(permittedRoute("execution/queue/policy", "PUT")).toBe(true);
@@ -455,4 +464,63 @@ it("saves the any-skill rule without changing limits or submission authority", a
   expect(payload.policy.global_limits).toEqual(
     configuration.policy.global_limits,
   );
+});
+
+it("retains the saved response through a stale refetch and starts with its revision", async () => {
+  const initial = {
+    ...configuration,
+    policy: {
+      ...configuration.policy,
+      platforms: {
+        naukri: { ...configuration.policy.platforms.naukri, enabled: true },
+      },
+    },
+  };
+  let server = initial;
+  vi.mocked(api).mockImplementation(async (_path, options) => {
+    server = {
+      ...initial,
+      revision: 8,
+      policy: JSON.parse(String(options?.body)).policy,
+    };
+    return server;
+  });
+  const { rerender } = render(
+    <QueuePolicyForm configuration={initial} saved={saved} />,
+  );
+  await userEvent.selectOptions(
+    screen.getByLabelText("Required skill matches"),
+    "any",
+  );
+  await userEvent.click(
+    screen.getByRole("button", { name: "Save queue policy" }),
+  );
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "Save queue policy" }),
+    ).toBeEnabled(),
+  );
+  rerender(<QueuePolicyForm configuration={{ ...initial }} saved={saved} />);
+  expect(screen.getByLabelText("Required skill matches")).toHaveValue("any");
+  await userEvent.click(screen.getByRole("button", { name: "START QUEUE" }));
+  expect(post).toHaveBeenCalledWith("execution/queue/control", {
+    action: "start",
+    expected_revision: 8,
+  });
+  await waitFor(() =>
+    expect(
+      screen.getByRole("button", { name: "Save queue policy" }),
+    ).toBeEnabled(),
+  );
+  rerender(<QueuePolicyForm configuration={server} saved={saved} />);
+  await userEvent.clear(
+    screen.getByLabelText("Global maximum applications per day"),
+  );
+  await userEvent.type(
+    screen.getByLabelText("Global maximum applications per day"),
+    "90",
+  );
+  expect(
+    screen.queryByText(/Settings changed in another session/),
+  ).not.toBeInTheDocument();
 });
