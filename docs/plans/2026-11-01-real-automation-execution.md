@@ -75,6 +75,15 @@ bound. Continue useful independent work rather than repeating the question.
 
 ## Execution and evidence rules
 
+Owner decision (November4, current chat): **Keep requiring every listed skill**.
+The owner explicitly chose that rule for a genuine86.11-score internship held on
+unverified AWS. Preserve the strict skill gate independently from minimum score50;
+do not add AWS without actual verified evidence or silently allow skill gaps.
+Fix the Express/Express.js spelling equivalence without inferring a new skill.
+The prepared optional skill-gap control was not installed or enabled; its draft
+was preserved privately and removed from the current change. Record the owner's
+decision durably, never ask it again, and pursue only fully qualified real jobs.
+
 November3 recovery task: the selected binding has no fresh extension heartbeat
 and its old normal window is absent. Prepare policy-checked recovery from a
 windowless loaded profile: authenticate its ordinary heartbeat without granting

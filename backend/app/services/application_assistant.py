@@ -19,7 +19,7 @@ def skill_key(value: str) -> str:
         "react.js": "react", "reactjs": "react", "react js": "react",
         "node.js": "nodejs", "node js": "nodejs",
         "next.js": "nextjs", "next js": "nextjs",
-        "express.js": "expressjs", "express js": "expressjs",
+        "express": "expressjs", "express.js": "expressjs", "express js": "expressjs",
         "java script": "javascript", "type script": "typescript",
         "postgres": "postgresql", "mongo db": "mongodb",
         "socket.io": "socketio", "socket io": "socketio", "fast api": "fastapi",

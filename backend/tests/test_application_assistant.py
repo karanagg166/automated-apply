@@ -124,7 +124,7 @@ async def test_update_application_status_lifecycle(db_session: AsyncSession):
 
 @pytest.mark.parametrize("advertised,verified", [
     ("ReactJS", "React"), ("React.js", "React"), ("NodeJS", "Node.js"),
-    ("NextJS", "Next.js"), ("ExpressJS", "Express.js"),
+    ("NextJS", "Next.js"), ("ExpressJS", "Express.js"), ("Express", "Express.js"),
     ("Postgres", "PostgreSQL"), ("Mongo DB", "MongoDB"),
 ])
 def test_verified_skill_spelling_aliases_do_not_become_missing_requirements(advertised, verified, sample_profile):
