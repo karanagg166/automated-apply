@@ -47,6 +47,7 @@ type PlatformPolicy = {
   supervised_submission_cap: number;
   hourly_submission_cap?: number;
   notify_telegram?: boolean;
+  skill_match_mode?: "all" | "any";
 };
 export type QueuePolicy = {
   global_limits: QueueLimits;
@@ -563,6 +564,21 @@ export function QueuePolicyForm({
         </fieldset>
         <fieldset className="stack">
           <legend>Naukri</legend>
+          <Field label="Required skill matches">
+            <Select
+              value={naukri.skill_match_mode ?? "all"}
+              onChange={(e) =>
+                update({ skill_match_mode: e.target.value as "all" | "any" })
+              }
+            >
+              <option value="all">Every listed skill</option>
+              <option value="any">At least one verified listed skill</option>
+            </Select>
+          </Field>
+          <p>
+            Applications still use verified facts and approved answers. Missing
+            skills are never added to your profile by this setting.
+          </p>
           <label>
             <input
               type="checkbox"

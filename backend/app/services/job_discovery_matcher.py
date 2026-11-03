@@ -7,6 +7,8 @@ from backend.app.services.application_assistant import (
     CandidateProfile,
 )
 
+SKILL_GAP_FACTOR = "Some required skills are not in the saved profile"
+
 
 class DiscoveryMatch(BaseModel):
     match_score: float
@@ -62,7 +64,7 @@ class JobDiscoveryMatcher:
         if base.matched_skills:
             positive.append("Verified skills align with listing evidence")
         if base.missing_skills:
-            negative.append("Some required skills are not in the saved profile")
+            negative.append(SKILL_GAP_FACTOR)
         if not job.skills_required:
             unknown.append("required_skills")
         if profile.verified_experience_years is None or not job.experience_level:

@@ -436,3 +436,23 @@ it("filters the ledger without inventing unknown applicant counts", async () => 
   );
   expect(screen.getByText("applicant count requires review")).toBeVisible();
 });
+
+it("saves the any-skill rule without changing limits or submission authority", async () => {
+  render(<QueuePolicyForm configuration={configuration} saved={saved} />);
+  const user = userEvent.setup();
+  const consent = screen.getByLabelText("Required skill matches");
+  expect(consent).toHaveValue("all");
+  await user.selectOptions(consent, "any");
+  await user.click(screen.getByRole("button", { name: "Save queue policy" }));
+  await waitFor(() => expect(api).toHaveBeenCalled());
+  const [, options] = vi.mocked(api).mock.calls[0];
+  const payload = JSON.parse(String(options?.body));
+  expect(payload.expected_revision).toBe(configuration.revision);
+  expect(payload.policy.platforms.naukri).toEqual({
+    ...configuration.policy.platforms.naukri,
+    skill_match_mode: "any",
+  });
+  expect(payload.policy.global_limits).toEqual(
+    configuration.policy.global_limits,
+  );
+});

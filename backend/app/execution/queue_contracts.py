@@ -72,6 +72,7 @@ class PlatformQueuePolicy(Contract):
     supervised_submission_cap: int = Field(1, ge=1, le=5)
     hourly_submission_cap: int = Field(5, ge=1, le=20)
     notify_telegram: bool = False
+    skill_match_mode: Literal["all", "any"] = "all"
 
 
 class QueuePolicy(Contract):

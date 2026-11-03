@@ -75,6 +75,16 @@ bound. Continue useful independent work rather than repeating the question.
 
 ## Execution and evidence rules
 
+Latest owner correction (November4, current chat): require **at least one verified
+listed skill**. This supersedes the earlier every-listed-skill choice below.
+Keep minimum score50 and the remaining age/applicant/experience/location/history/
+identity/resume/quota gates. Preserve unverified skills as unknown; do not add
+claims to profile/resume or invent screening answers. Expose all/any skill mode
+in the existing per-platform dashboard policy, defaulting old data to all until
+the owner's explicit correction is applied. Deploy all policy consumers together
+under STOP, persist this correction with its prior decision, then recheck held
+jobs and pursue the first supported real application/independent receipt.
+
 Owner decision (November4, current chat): **Keep requiring every listed skill**.
 The owner explicitly chose that rule for a genuine86.11-score internship held on
 unverified AWS. Preserve the strict skill gate independently from minimum score50;

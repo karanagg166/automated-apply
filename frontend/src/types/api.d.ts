@@ -7518,6 +7518,12 @@ export interface components {
        * @default false
        */
       notify_telegram: boolean;
+      /**
+       * Skill Match Mode
+       * @default all
+       * @enum {string}
+       */
+      skill_match_mode: "all" | "any";
     };
     /** PolicyUpdate */
     PolicyUpdate: {

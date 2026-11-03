@@ -587,7 +587,10 @@ def check_eligibility(value, policy, job, company, profile, now):
     from backend.app.execution.naukri import reviewed_job_context
     from backend.app.schemas.candidate_profile import CandidateProfileRead
     from backend.app.services.applications.platforms.naukri import posting_unavailable
-    from backend.app.services.job_discovery_matcher import JobDiscoveryMatcher
+    from backend.app.services.job_discovery_matcher import (
+        SKILL_GAP_FACTOR,
+        JobDiscoveryMatcher,
+    )
 
     if posting_unavailable(job):
         raise ToolDenied("vacancy_closed_expired_or_invalid")
@@ -626,7 +629,9 @@ def check_eligibility(value, policy, job, company, profile, now):
     if reason:
         raise ToolDenied(reason)
     value["match_score"] = match.match_score
-    if match.exclusion_reasons or match.negative_factors or match.missing_skills:
+    blocking_factors = [factor for factor in match.negative_factors
+                        if not (custom.skill_match_mode == "any" and factor == SKILL_GAP_FACTOR)]
+    if match.exclusion_reasons or blocking_factors or not match.matched_skills or (match.missing_skills and custom.skill_match_mode == "all"):
         raise ToolDenied("current_profile_preferences_or_required_skills_exclude_job")
     if match.match_score < effective["minimum_match_score"]:
         raise ToolDenied("minimum_match_score_required")

@@ -36,6 +36,7 @@ def filters(policy):
     effective = queue.limits(policy, "naukri")
     effective.pop("daily_cap")
     return {"limits": effective, "enabled": platform.enabled, "sources": platform.sources,
+            "skill_match_mode": platform.skill_match_mode,
             "preferences_mode": platform.preferences_mode,
             "preferences": platform.preferences.model_dump(mode="json")}
 
