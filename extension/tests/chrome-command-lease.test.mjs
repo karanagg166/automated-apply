@@ -57,7 +57,11 @@ test("remote execution passes the original shorter lease and fencing identity", 
   Object.assign(connection, {
     api,
     value: { commandsEnabled: true },
-    heartbeat: async () => ({ selected: true, commands_enabled: true }),
+    heartbeat: async () => ({
+      status: "CONNECTED",
+      selected: true,
+      commands_enabled: true,
+    }),
   });
   let observed;
   await connection.tick(async (message) => {

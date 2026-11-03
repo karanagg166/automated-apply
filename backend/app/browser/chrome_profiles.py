@@ -102,6 +102,8 @@ async def selection(session):
 def online(value):
     return bool(
         value["connected"]
+        and isinstance(value.get("window_id"), int)
+        and value["window_id"] >= 0
         and (now() - datetime.fromisoformat(value["last_heartbeat"])).total_seconds()
         < LIVE_SECONDS
     )
@@ -590,6 +592,23 @@ async def native(session, settings, actor, command):
                     row.value, (await selection(session))["profile_binding_id"]
                 )
             }
+            if command.window_id is None:
+                # A windowless heartbeat authenticates the extension, not an
+                # available browser. Only current owner policy may permit an
+                # inactive neutral window; employer work still needs a second
+                # heartbeat with its actual window and normal queue admission.
+                from backend.app.browser.profile_launcher import automation_active
+                from backend.app.execution.naukri_identity import require
+
+                allowed = False
+                if (enabled and data["profile"]["selected"]
+                        and await automation_active(session)):
+                    try:
+                        await require(session, profile_binding_id=row.value["id"])
+                        allowed = True
+                    except ToolDenied:
+                        pass
+                data["background_window_allowed"] = allowed
         elif command.command == "disconnect_chrome_profile":
             row = await require_profile(session, command, selected=False, receipt=True)
             data = await disconnect(

@@ -89,9 +89,14 @@ export class ChromeProfileConnection {
         /* Closed windows are never reopened as a browser process. */
       }
     }
-    const window = await this.api.windows.getLastFocused({
-      windowTypes: ["normal"],
-    });
+    let window;
+    try {
+      window = await this.api.windows.getLastFocused({
+        windowTypes: ["normal"],
+      });
+    } catch {
+      throw Error("PROFILE_OFFLINE");
+    }
     if (
       !Number.isInteger(window?.id) ||
       window.type !== "normal" ||
@@ -152,18 +157,53 @@ export class ChromeProfileConnection {
     this.heartbeatQueue = run.catch(() => {});
     return run;
   }
-  async sendHeartbeat() {
+  async sendHeartbeat(allowRecovery = true) {
     await this.ready;
     if (!this.value?.connected) throw Error("PROFILE_OFFLINE");
-    await this.window();
+    try {
+      await this.window();
+    } catch (error) {
+      if (error.message !== "PROFILE_OFFLINE") throw error;
+      this.value.windowId = null;
+      await this.save();
+    }
     const data = await profileNative(this.api, "heartbeat_chrome_profile", {
       ...(await profileContext(this.api)),
       profile_commands_enabled: this.value.commandsEnabled === true,
     });
-    this.value.profile = data.profile;
+    this.value.profile =
+      this.value.windowId === null
+        ? { ...data.profile, status: "PROFILE_OFFLINE" }
+        : data.profile;
     if (!data.profile.connected) this.value.connected = false;
     await this.save();
-    return data.profile;
+    if (
+      allowRecovery &&
+      this.value.windowId === null &&
+      this.value.connected &&
+      this.value.commandsEnabled &&
+      data.background_window_allowed === true &&
+      data.profile.id === this.value.id &&
+      data.profile.selected === true &&
+      data.profile.commands_enabled === true
+    ) {
+      const window = await this.api.windows.create({
+        type: "normal",
+        focused: false,
+        url: "about:blank",
+      });
+      if (
+        !Number.isInteger(window?.id) ||
+        window.type !== "normal" ||
+        window.incognito === true ||
+        window.focused !== false
+      )
+        throw Error("PROFILE_OFFLINE");
+      this.value.windowId = window.id;
+      await this.save();
+      return this.sendHeartbeat(false);
+    }
+    return this.value.profile;
   }
   async verify() {
     const profile = await this.heartbeat();
@@ -208,6 +248,7 @@ export class ChromeProfileConnection {
     try {
       const profile = await this.heartbeat();
       if (
+        profile.status !== "CONNECTED" ||
         !profile.selected ||
         !profile.commands_enabled ||
         !this.value.commandsEnabled

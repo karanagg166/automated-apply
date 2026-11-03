@@ -75,6 +75,20 @@ bound. Continue useful independent work rather than repeating the question.
 
 ## Execution and evidence rules
 
+November3 recovery task: the selected binding has no fresh extension heartbeat
+and its old normal window is absent. Prepare policy-checked recovery from a
+windowless loaded profile: authenticate its ordinary heartbeat without granting
+browser work, keep its public status offline until a real window is bound, and
+allow one inactive blank window only for the selected, approved binding while
+Naukri automation is running and command consent remains enabled. Use Chrome's
+documented background permission and `windows.create({focused:false})`; never
+activate an existing window, navigate an owner tab, or launch a different profile.
+Reject recovery under Stop/OFF, missing approval or bad credentials. Validate
+backend and extension guards plus actual isolated Chromium focus behavior. The
+current offline installation may still need the once-requested owner reopen to
+receive the update; do not claim installed Mac recovery or real application
+acceptance from a prepared candidate or fixture.
+
 Current live inspection bottleneck (November 2 continuation): 167 pending reads,
 31 URLs advertising a zero-year minimum, and the recovered cohort at positions
 99–116. Prioritize ordinary listing reads whose URL experience hint contains the
