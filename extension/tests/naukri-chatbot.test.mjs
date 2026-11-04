@@ -114,6 +114,78 @@ test("background text input and Save use no focus, keyboard or clipboard", async
     f.close();
   }
 });
+test("the observed text editor plus optional Skip chip accepts text without clicking Skip", async () => {
+  const f = await fixture({ text: true, question: "Explain your training" });
+  try {
+    const chips = f.w.document.querySelector(".chipsContainer");
+    const skip = f.w.document.createElement("div");
+    skip.className = "chatbot_Chip chipInRow chipItem";
+    skip.textContent = "Skip this question";
+    let skipped = 0;
+    skip.onclick = () => skipped++;
+    chips.append(skip);
+    const s = await f.run();
+    assert.equal(s.answer_kind, "text");
+    assert.deepEqual(s.options, []);
+    const a = permit(s, "Fictional owner-confirmed training answer");
+    assert.equal((await f.run(a)).kind, "questionnaire_answer_attempted");
+    assert.deepEqual(f.counts(), { clicks: 1, inputEvents: 1 });
+    assert.equal(skipped, 0);
+    assert.equal((await f.run(a)).reason, "questionnaire_step_changed_or_consumed");
+  } finally {
+    f.close();
+  }
+});
+test("a Skip chip without a visible editor retains exact-choice handling", async () => {
+  const f = await fixture();
+  try {
+    const chips = f.w.document.querySelector(".chipsContainer");
+    chips.replaceChildren(chips.firstElementChild);
+    chips.firstElementChild.textContent = "Skip this question";
+    const s = await f.run();
+    assert.equal(s.answer_kind, "choice");
+    assert.deepEqual(s.options, ["Skip this question"]);
+    assert.equal(
+      (await f.run(permit(s, "Invented free text"))).reason,
+      "questionnaire_exact_choice_required",
+    );
+    assert.deepEqual(f.counts(), { clicks: 0, inputEvents: 0 });
+  } finally {
+    f.close();
+  }
+});
+test("visible editors do not turn genuine choices into unrestricted text", async () => {
+  const f = await fixture();
+  try {
+    f.w.document.querySelector(".textArea").removeAttribute("hidden");
+    const s = await f.run();
+    assert.equal(s.answer_kind, "choice");
+    assert.equal(
+      (await f.run(permit(s, "Unknown choice"))).reason,
+      "questionnaire_exact_choice_required",
+    );
+    assert.deepEqual(f.counts(), { clicks: 0, inputEvents: 0 });
+  } finally {
+    f.close();
+  }
+});
+test("a real choice appearing beside the text editor invalidates the old text permit", async () => {
+  const f = await fixture({ text: true });
+  try {
+    const s = await f.run();
+    const chip = f.w.document.createElement("div");
+    chip.className = "chatbot_Chip";
+    chip.textContent = "Immediate";
+    f.w.document.querySelector(".chipsContainer").append(chip);
+    assert.equal(
+      (await f.run(permit(s, "Fictional text"))).reason,
+      "questionnaire_step_changed_or_consumed",
+    );
+    assert.deepEqual(f.counts(), { clicks: 0, inputEvents: 0 });
+  } finally {
+    f.close();
+  }
+});
 for (const [name, options, mutate, answer, reason] of [
   [
     "unknown choice",

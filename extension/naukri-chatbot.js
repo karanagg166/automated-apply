@@ -68,13 +68,22 @@ export async function naukriChatbot(request) {
     const question = clean(messages.at(-1));
     if (!question || question.length > 2000)
       throw Error("questionnaire_question_unrecognized");
-    const chips = [
+    const visibleChips = [
       ...drawer.querySelectorAll(".chipsContainer .chatbot_Chip"),
     ].filter(visible);
-    const options = chips.map(clean);
     const editors = [
       ...drawer.querySelectorAll('.textArea[contenteditable="true"]'),
     ].filter(visible);
+    // The real text form has a separate optional Skip chip beside its editor.
+    // That navigation control is not the set of permitted factual answers.
+    // Only this exact observed combination is supported; real choice chips keep
+    // their existing exact-choice handling and step seal.
+    const textWithSkip =
+      editors.length === 1 &&
+      visibleChips.length === 1 &&
+      /^skip this question$/i.test(clean(visibleChips[0]));
+    const chips = textWithSkip ? [] : visibleChips;
+    const options = chips.map(clean);
     const upload = [
       ...drawer.querySelectorAll('input.chatbot_Uploader[type="file"]'),
     ];

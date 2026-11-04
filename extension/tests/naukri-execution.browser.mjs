@@ -160,7 +160,7 @@ try {
     if (mode === "questionnaire")
       body = body.replace(
         "window.fixtureClicks=(window.fixtureClicks||0)+1",
-        "window.fixtureClicks=(window.fixtureClicks||0)+1;setTimeout(()=>{const d=document.createElement('div');d.className='chatbot_DrawerContentWrapper';d.innerHTML='<div class=chatbot_MessageContainer><div class=botItem><div class=botMsg>Which office can you start from?</div></div></div><div class=chipsContainer><div class=chatbot_Chip>Pune</div><div class=chatbot_Chip>Delhi</div></div>';d.querySelectorAll('.chatbot_Chip').forEach(c=>c.onclick=()=>{window.choiceSaves=(window.choiceSaves||0)+1;d.innerHTML='<div class=chatbot_MessageContainer><div class=botItem><div class=botMsg>What is your full name?</div></div></div><div class=textArea contenteditable=true></div><div class=send><span class=sendMsg>Save</span></div>';d.querySelector('.send').onclick=()=>{window.textSaves=(window.textSaves||0)+1;window.savedText=d.querySelector('.textArea').textContent;d.remove()}});document.body.append(d)},200)",
+        "window.fixtureClicks=(window.fixtureClicks||0)+1;setTimeout(()=>{const d=document.createElement('div');d.className='chatbot_DrawerContentWrapper';d.innerHTML='<div class=chatbot_MessageContainer><div class=botItem><div class=botMsg>Which office can you start from?</div></div></div><div class=chipsContainer><div class=chatbot_Chip>Pune</div><div class=chatbot_Chip>Delhi</div></div>';d.querySelectorAll('.chatbot_Chip').forEach(c=>c.onclick=()=>{window.choiceSaves=(window.choiceSaves||0)+1;d.innerHTML='<div class=chatbot_MessageContainer><div class=botItem><div class=botMsg>What is your full name?</div></div></div><div class=textArea contenteditable=true></div><div class=chipsContainer><div class=chatbot_Chip>Skip this question</div></div><div class=send><span class=sendMsg>Save</span></div>';d.querySelector('.send').onclick=()=>{window.textSaves=(window.textSaves||0)+1;window.savedText=d.querySelector('.textArea').textContent;d.remove()}});document.body.append(d)},200)",
       );
     if (mode === "modern_profile_summary" && u.pathname === "/mnjuser/profile")
       body = `<section class="profile-details">${email}<a href="/download-fictional-resume.pdf">Download Resume</a></section><div class="award-details section profileSummary"><div class="heading-container ${savedSummary ? "" : "cursor"}"><div class="text-container"><h1 class="section-heading">Profile Summary ${savedSummary ? '<span class="new-pencil" style="display:inline-block;width:14px;height:14px" aria-label="Edit profile summary"></span>' : ""}</h1>${savedSummary ? "" : '<h2 class="section-sub-heading">Write a meaningful summary of more than 50 characters.</h2>'}</div>${savedSummary ? "" : '<div class="add-more">Add</div>'}</div>${savedSummary ? `<div class="card-container"><div class="card-details"><p class="card-sub-heading">${savedSummary}</p></div></div>` : ""}</div><script>document.querySelector('.profileSummary .new-pencil,.profileSummary .add-more').onclick=()=>{setTimeout(()=>{const editor=document.createElement('div');editor.setAttribute('role','dialog');editor.innerHTML='<h1>Profile summary</h1><form name="skillDetailsForm"><textarea id="summary" name="summary" minlength="50" maxlength="1000"></textarea><button id="submit-btn" type="button" disabled>Save</button></form>';document.body.append(editor);editor.querySelector('textarea').oninput=()=>queueMicrotask(()=>editor.querySelector('button').disabled=false);editor.querySelector('button').onclick=()=>fetch('/fixture-save-summary',{method:'POST',body:editor.querySelector('textarea').value});},75);};</script>`;
@@ -412,6 +412,7 @@ try {
     record("genuine_div_choices_are_clicked_once_in_an_inactive_renderer");
     const text = await chat(chatRequest);
     assert.equal(text.answer_kind, "text");
+    assert.deepEqual(text.options, []);
     assert.equal(
       (
         await chat({
@@ -449,7 +450,7 @@ try {
       hidden: "hidden",
     });
     record(
-      "contenteditable_input_and_save_complete_without_keyboard_focus_or_a_second_apply",
+      "contenteditable_with_optional_skip_saves_text_without_keyboard_focus_or_a_second_apply",
     );
     await close(tabId);
     mode = "normal";
