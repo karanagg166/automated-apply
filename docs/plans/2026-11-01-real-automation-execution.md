@@ -101,6 +101,13 @@ submissions remain incomplete. Existing earlier bounded locked **read** evidence
 is retained and does not establish locked filling/submission. No other platform
 activation, hosted Actions, merge or cleanup until its applicable prerequisites.
 
+Latest continuation: [accurate uncertainty notices and guarded API update](../acceptance/naukri-uncertain-outcome-notices-20261104.md).
+API498dfe7 is installed, the actual frontend resumed RUN134, and one truthful
+uncertainty notice reached Telegram with durable dashboard/outbox dedup. The second
+eligible supervised attempt remains available under lifetime2/hour1. A real2,063-row
+ledger sample had zero duplicate requisitions and no second admission or new
+receipt. The first-receipt and recurring/locked acceptance requirements remain.
+
 ## Execution and evidence rules
 
 November4 live continuation: any-skill policy was installed and saved through the

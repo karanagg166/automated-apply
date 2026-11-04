@@ -38,9 +38,10 @@ into Naukri, authorize a database migration or enable application submission.
 
 Configured servers are loaded by Codex clients when they initialize their MCP
 connections. The native tools became available and a real `list_pages` call worked;
-it exposed the system-browser identity conflict above. The corrected executable
-requires a refreshed MCP server connection; direct protocol verification below works without
-restarting the owner's Chrome or running a model turn.
+it exposed the system-browser identity conflict above. The corrected connection subsequently passed a direct native `list_pages` call
+on November4, showing the separate owned `about:blank` browser. The earlier stale
+transport is resolved. Direct protocol verification below also works without
+restarting the owner's Chrome.
 
 Run the actual registered server and browser check from this repository:
 
