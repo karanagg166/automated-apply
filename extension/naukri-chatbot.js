@@ -247,6 +247,8 @@ export async function naukriChatbot(request) {
           );
           if (sends.length === 1) {
             safe();
+            if (Date.now() >= expires)
+              return fail("questionnaire_action_permit_expired");
             sends[0].click();
             break;
           }
@@ -307,6 +309,8 @@ export async function naukriChatbot(request) {
         );
         if (sends.length === 1) {
           safe();
+          if (Date.now() >= expires)
+            return fail("questionnaire_action_permit_expired");
           sends[0].click();
           return {
             kind: "questionnaire_answer_attempted",

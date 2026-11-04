@@ -77,7 +77,7 @@ try {
     }
     const body = `<button id="outside-save" onclick="window.outsideSaves++">Save</button><div class="chatbot_DrawerContentWrapper"><div class="chatbot_MessageContainer"><div class="botItem"><div class="botMsg">Are you willing to attend in-person interview?</div></div><div class="singleselect-radiobutton"><div class="singleselect-radiobutton-container">${["Yes", "No"].map((v, i) => `<div class="ssrc__radio-btn-container"><input type="radio" id="${v}" name="radio-button" value="${v}" class="ssrc__radio" data-val="pb" data-index="${i}" ${mode === "selected" && i === 0 ? "checked" : ""}><label for="${v}" class="ssrc__label">${v}</label></div>`).join("")}</div></div></div><div class="send disabled"><span class="sendMsg">Save</span></div></div><script>
  window.radioChanges=0;window.saves=0;window.outsideSaves=0;const drawer=document.querySelector('.chatbot_DrawerContentWrapper'),send=drawer.querySelector('.send');
- drawer.querySelectorAll('input').forEach(e=>e.onchange=()=>{window.radioChanges++;const mode=${JSON.stringify(mode)};if(mode==='advance')drawer.querySelector('.botMsg').textContent='Next question?';else if(mode==='remove')drawer.remove();else if(mode==='save')send.classList.remove('disabled');});send.onclick=()=>{window.saves++;drawer.remove()};
+ drawer.querySelectorAll('input').forEach(e=>e.onchange=()=>{window.radioChanges++;const mode=${JSON.stringify(mode)};if(mode==='advance')drawer.querySelector('.botMsg').textContent='Next question?';else if(mode==='remove')drawer.remove();else if(mode==='save')send.classList.remove('disabled');else if(mode==='slow-save'){const until=performance.now()+2700;while(performance.now()<until){};send.classList.remove('disabled');}});send.onclick=()=>{window.saves++;drawer.remove()};
  ${mode === "duplicate" ? "drawer.querySelector('.chatbot_MessageContainer').append(drawer.querySelector('.singleselect-radiobutton').cloneNode(true));" : ""}
  </script>`;
     return route.fulfill({ contentType: "text/html", body });
@@ -104,6 +104,7 @@ try {
     "selected",
     "duplicate",
     "no-save",
+    "slow-save",
     "active",
   ]) {
     const url =
@@ -169,6 +170,8 @@ try {
         });
         if (mode === "selected")
           assert.equal(result.reason, "questionnaire_existing_value_preserved");
+        else if (mode === "slow-save")
+          assert.equal(result.reason, "questionnaire_action_permit_expired");
         else if (mode === "no-save")
           assert.equal(
             result.reason,

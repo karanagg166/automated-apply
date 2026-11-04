@@ -383,3 +383,29 @@ for (const [mode, reason] of [
       f.close();
     }
   });
+
+for (const mode of ["radio", "text"])
+  test(`${mode} never clicks Save after its permit expires during the input handler`, async () => {
+    const f =
+      mode === "radio" ? await radioFixture() : await fixture({ text: true });
+    try {
+      const target =
+        mode === "radio"
+          ? f.panel.querySelector('input[value="No"]')
+          : f.w.document.querySelector(".textArea");
+      target.addEventListener(mode === "radio" ? "change" : "input", () => {
+        f.w.Date.now = () => Date.now() + 4000;
+      });
+      const s = await f.run();
+      const a = permit(s, mode === "radio" ? "No" : "Fictional answer");
+      assert.equal(
+        (await f.run(a)).reason,
+        "questionnaire_action_permit_expired",
+      );
+      assert.equal(f.counts().clicks, 0);
+      assert.notEqual((await f.run(a)).kind, "questionnaire_answer_attempted");
+      assert.equal(f.counts().clicks, 0);
+    } finally {
+      f.close();
+    }
+  });
