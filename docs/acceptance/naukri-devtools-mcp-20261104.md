@@ -3,6 +3,7 @@
 Branch `fix/live-prepare-discovery-20261030`, [PR #48](https://github.com/karanagg166/automated-apply/pull/48).
 The owner asked whether the goal was complete and requested DevTools MCP.
 This report covers that setup; it is not an application-submission milestone.
+Exact MCP verifier/setup implementation: [`0fa13dc1189ea34a68c4c353588cbbbbd8726e08`](https://github.com/karanagg166/automated-apply/commit/0fa13dc1189ea34a68c4c353588cbbbbd8726e08).
 
 ## Actual goal and installation state
 
