@@ -73,40 +73,40 @@ The earlier once-asked decision about `100+` lower-bound-only counts remains
 pending. A numeric threshold change alone does not authorize inventing its upper
 bound. Continue useful independent work rather than repeating the question.
 
-## Current priority — November4, after first genuine Apply
+## Current priority — November5 IST, after first genuine Apply
 
-[First genuine questionnaire and recovery evidence](../acceptance/naukri-first-questionnaire-recovery-20261104.md)
-is authoritative over older snapshots below. API581ec79 and same-ID extension1.3.30
-are installed; execution/Telegram/native remainb6b0690 and frontendae66975. Actual
-readiness,2,041-record preservation, profile5 and account-binding1 passed. The
-actual frontend resumed RUN130 with score50/age14/applicants1,000/any-skill and the
-unchanged lifetime-one/hour-one supervised policy.
+[Verified Fresher search and actual installation](../acceptance/naukri-verified-fresher-search-20261105.md)
+is the latest release snapshot. Exact API/extensionb8b380c, extension1.3.31 with
+the same ID, installed under STOP137 with2,096 preserved records; readiness,
+profile5, approved account-binding1, native reconnect and focus snapshots passed.
+The actual frontend resumed RUN138. Execution/Telegram/native remainb6b0690,
+frontendae66975, other platforms OFF. Policy remains score50/age14days/applicants
+1,000/unknown-count review/any-skill, lifetime2/hour1 SUPERVISED.
 
-One new eligible worker Apply reached a real recruiter questionnaire. The text
-editor plus optional Skip control is now supported. The owner answered the missing
-training fact, but the original browser session changed and its exact tab is no
-longer available. No answer was admitted; no Apply may be replayed. Complete the
-bounded independent account/history reconciliation, retain the uncertain packet
-and admission permanently, and never promote an absent history row into evidence
-that retrying is safe. The original lifetime-one allowance was consumed. The owner subsequently
-approved one additional distinct eligible attempt: only the lifetime cap changed
-to2, hourly1 and all other controls stayed unchanged, and the actual frontend
-resumed RUN132. The original uncertain admission remains consumed. Keep
-AUTO gated on a strict persistent first receipt. Current receipt count is zero
-new, with historical QTrino kept separately.
+The real portal's zero slider can mean Any. The ordinary GNB Fresher choice and
+its actual query were independently verified across reload and Date selection.
+Sixteen new genuine observations entered durable discovery, still requiring full
+listing eligibility. Scheduled explicit-filter searches and the remaining distinct
+eligible attempt are the next live priority. Do not infer eligibility from URL,
+search control, card age, keyword or discovery count.
 
-The owner-lock fast path and Stop/Start history fix are installed. Targeted fixtures
-passed, but performance/focus/real-form restart acceptance and recurring locked-Mac
-submissions remain incomplete. Existing earlier bounded locked **read** evidence
-is retained and does not establish locked filling/submission. No other platform
-activation, hosted Actions, merge or cleanup until its applicable prerequisites.
+One genuine worker Apply reached a recruiter questionnaire. The supported text
+editor plus optional Skip control is fixed, and the owner supplied the missing
+training fact, but the original browser session/tab became unavailable before an
+answer was admitted. That job remains quarantined SUBMISSION_UNKNOWN after three
+bounded history checks, with one accurate dashboard/Telegram uncertainty notice.
+Never repeat Apply or refund its consumed admission. The owner explicitly approved
+one additional different eligible attempt, lifetime2 total/hour1. There are zero
+new verified receipts. AUTO requires a strict persistent first receipt; a third
+supervised attempt is not authorized by the current allowance.
 
-Latest continuation: [accurate uncertainty notices and guarded API update](../acceptance/naukri-uncertain-outcome-notices-20261104.md).
-API498dfe7 is installed, the actual frontend resumed RUN134, and one truthful
-uncertainty notice reached Telegram with durable dashboard/outbox dedup. The second
-eligible supervised attempt remains available under lifetime2/hour1. A real2,063-row
-ledger sample had zero duplicate requisitions and no second admission or new
-receipt. The first-receipt and recurring/locked acceptance requirements remain.
+[Earlier questionnaire evidence](../acceptance/naukri-first-questionnaire-recovery-20261104.md)
+and [actual uncertainty notice](../acceptance/naukri-uncertain-outcome-notices-20261104.md)
+retain the underlying history. Complete the new supported application, verify
+independent persistent provider history and notification, then bounded recurring
+AUTO and real restart/locked acceptance. Existing locked read/heartbeat evidence
+is not locked filling/submission acceptance. Other adapters and draft integrations
+follow the Naukri first-receipt priority. No hosted Actions, merge or cleanup.
 
 ## Execution and evidence rules
 
