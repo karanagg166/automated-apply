@@ -1,5 +1,8 @@
 # Owner-confirmed strict skills and Express spelling fix — Naukri OPEN
 
+Historical report: the owner later changed the rule to at least one verified skill.
+See [the superseding live report](naukri-any-skill-public-schema-20261104.md).
+
 [PR #48](https://github.com/karanagg166/automated-apply/pull/48), branch
 `fix/live-prepare-discovery-20261030`. Exact installed API/execution implementation:
 [`9f79e90d88c964c70e2d8a5d6c09fb20cdc40e3d`](https://github.com/karanagg166/automated-apply/commit/9f79e90d88c964c70e2d8a5d6c09fb20cdc40e3d).

@@ -75,6 +75,21 @@ bound. Continue useful independent work rather than repeating the question.
 
 ## Execution and evidence rules
 
+November4 live continuation: any-skill policy was installed and saved through the
+actual frontend, RUN116. A genuine internship scored90.56 and passed fresh listing,
+account/PDF and prior-status checks. Its admission request failed503;0 admitted
+Apply/new receipts. Read-only reconciliation found no exact history row; keep
+that identity quarantined without another Apply. Online public constraints and
+trigger guards still implement the old manual-only lifecycle. Sourceae66975 adds
+a pinned eight-constraint/three-function followup, ordered packet/audit writes
+and small quota projections. Source108 regressions and exact candidate108 pass;
+actual PostgreSQL17 public-SQL journey and rollback guards pass9 groups. Online
+DDL remains UNAPPLIED and requires the separately reviewed cloud-migration scope
+in docs/online-postgresql.md. QueueSTOP117/1884 preserves policy and untouched jobs;
+prepare/verify the compatible runtime and encrypted backup, publish exact SQL and
+request only the unavoidable owner database-administrator action. Resume only
+after catalog verification, using a different never-attempted eligible job.
+
 Latest owner correction (November4, current chat): require **at least one verified
 listed skill**. This supersedes the earlier every-listed-skill choice below.
 Keep minimum score50 and the remaining age/applicant/experience/location/history/

@@ -124,6 +124,11 @@ async def verify(url, pin_catalog=False):
                 verified = await verify_public_database(admin, config)
                 assert verified['verified_followups'] == [f['file'] for f in manifest['followups']]
             results.append('only_eight_constraints_three_functions_change_catalog_and_security_verified')
+            await admin.execute((BUNDLE / 'followups/003_naukri_worker.rollback.sql').read_text())
+            assert await catalog(admin, 'public') == before
+            await admin.execute((BUNDLE / 'followups/003_naukri_worker.sql').read_text())
+            assert await catalog(admin, 'public') == after
+            results.append('empty_worker_history_allows_exact_catalog_rollback_and_reapply')
             work = await admit(session, case, context, work)
             packet = await session.get(ApplicationPacket, __import__('uuid').UUID(packet_id), populate_existing=True)
             assert packet.lifecycle_state == 'submitting'
@@ -156,6 +161,13 @@ async def verify(url, pin_catalog=False):
                 else:
                     raise AssertionError('verified_history_mutation_accepted')
             results.append('verified_history_and_content_cannot_be_reopened_or_erased')
+        try:
+            await admin.execute((BUNDLE / 'followups/003_naukri_worker.rollback.sql').read_text())
+        except asyncpg.RaiseError:
+            await admin.execute('ROLLBACK')
+            results.append('worker_history_blocks_rollback_without_erasing_evidence')
+        else:
+            raise AssertionError('rollback_erased_worker_history')
         try:
             await admin.execute((BUNDLE / 'followups/003_naukri_worker.sql').read_text())
         except asyncpg.RaiseError:
