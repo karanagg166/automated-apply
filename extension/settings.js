@@ -207,6 +207,7 @@ document
         undefined,
         undefined,
         identity,
+        document.querySelector("#retained-discovery")?.checked === true,
       );
       status.textContent =
         "Existing application checked. See the dashboard for its outcome or next question.";

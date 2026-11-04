@@ -11,6 +11,7 @@ import { naukriChatbot } from "./naukri-chatbot.js";
 
 let busy = false;
 let heldHeartbeat = null;
+let cachedContinuation = null;
 
 // A fresh trusted settings module can continue an existing form while the
 // cached worker uses an older parser. Keep that worker's queue alarm suspended;
@@ -216,6 +217,7 @@ export async function continueRetainedQuestionnaire(
   send = profileNative,
   Queue = NaukriQueue,
   identity = null,
+  allowDiscoveryReads = false,
 ) {
   if (busy) throw Error("retained_continuation_busy");
   busy = true;
@@ -248,33 +250,78 @@ export async function continueRetainedQuestionnaire(
     const pending = (await api.storage.session.get("naukriReadInFlightV1"))
       .naukriReadInFlightV1;
     if (pending) throw Error("background_operation_in_flight");
-    const queue = new Queue(api, async (client, command, extra) => {
-      if (command !== "poll_naukri_work" && extra.work_id !== original.id)
-        throw Error("retained_work_context_changed");
-      const result = await send(client, command, extra);
-      if (
-        command === "poll_naukri_work" &&
-        result.work &&
-        (result.work.id !== original.id ||
-          !permitted.has(result.work.operation))
-      ) {
-        const work = result.work;
-        // Poll leases a read; release it without navigating or admitting it.
-        await send(client, "abandon_naukri_work", {
-          ...context,
-          work_id: work.id,
-          expected_work_revision: work.revision,
-          work_lease_token: work.lease_token,
-          tab_id: work.binding.tab_id,
-          work_report: {
-            kind: "needs_input",
-            reason: "retained_continuation_only",
-          },
+    const reuse =
+      cachedContinuation &&
+      cachedContinuation.api === api &&
+      cachedContinuation.send === send &&
+      cachedContinuation.Queue === Queue &&
+      cachedContinuation.identity === original.id &&
+      cachedContinuation.allowDiscoveryReads === allowDiscoveryReads;
+    const leasedReads = reuse ? cachedContinuation.leasedReads : new Set();
+    const isDiscoveryRead = (work) =>
+      !work.execution &&
+      ["inspect_job", "search_jobs"].includes(work.operation);
+    const queue = reuse
+      ? cachedContinuation.queue
+      : new Queue(api, async (client, command, extra) => {
+          if (
+            command !== "poll_naukri_work" &&
+            extra.work_id !== original.id &&
+            !leasedReads.has(extra.work_id)
+          )
+            throw Error("retained_work_context_changed");
+          const result = await send(client, command, extra);
+          if (
+            command === "poll_naukri_work" &&
+            result.work &&
+            (result.work.id !== original.id ||
+              !permitted.has(result.work.operation))
+          ) {
+            const work = result.work;
+            if (
+              allowDiscoveryReads &&
+              work.id !== original.id &&
+              isDiscoveryRead(work)
+            ) {
+              leasedReads.add(work.id);
+              return result;
+            }
+            // Poll leases a read; release it without navigating or admitting it.
+            await send(client, "abandon_naukri_work", {
+              ...context,
+              work_id: work.id,
+              expected_work_revision: work.revision,
+              work_lease_token: work.lease_token,
+              tab_id: work.binding.tab_id,
+              work_report: {
+                kind: "needs_input",
+                reason: "retained_continuation_only",
+              },
+            });
+            return { ...result, work: null };
+          }
+          if (leasedReads.has(extra.work_id)) {
+            if (["finish_naukri_work", "abandon_naukri_work"].includes(command))
+              leasedReads.delete(extra.work_id);
+            else if (
+              !result.work ||
+              result.work.id !== extra.work_id ||
+              !isDiscoveryRead(result.work)
+            )
+              throw Error("retained_read_scope_changed");
+          }
+          return result;
         });
-        return { ...result, work: null };
-      }
-      return result;
-    });
+    if (!reuse)
+      cachedContinuation = {
+        api,
+        send,
+        Queue,
+        identity: original.id,
+        allowDiscoveryReads,
+        leasedReads,
+        queue,
+      };
     if (await queue.ownerUsingNaukri()) throw Error("owner_using_naukri");
     alarm = await api.alarms.get(profileAlarm);
     await api.alarms.clear(profileAlarm);

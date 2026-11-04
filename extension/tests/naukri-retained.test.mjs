@@ -10,6 +10,7 @@ import {
 
 function fixture(change = {}) {
   const calls = [];
+  let creations = 0;
   const binding = {
     profile_binding_id: "profile",
     browser_session_id: "session",
@@ -59,6 +60,7 @@ function fixture(change = {}) {
   };
   class Queue {
     constructor(client, send) {
+      creations++;
       this.send = send;
     }
     async ownerUsingNaukri() {
@@ -67,7 +69,12 @@ function fixture(change = {}) {
     async tick() {
       calls.push("tick");
       if (change.error) throw Error("fictional_failure");
-      await this.send(api, "poll_naukri_work", binding);
+      const result = await this.send(api, "poll_naukri_work", binding);
+      if (change.follow && result.work)
+        await this.send(api, change.follow, {
+          ...binding,
+          work_id: result.work.id,
+        });
       if (change.wait) await change.wait;
     }
   }
@@ -75,11 +82,21 @@ function fixture(change = {}) {
     calls.push({ command, args });
     return command === "poll_naukri_work"
       ? { work: change.polled || null }
-      : {};
+      : change.follow
+        ? { work: change.followWork || change.polled }
+        : {};
   };
   return {
     calls,
-    run: () => continueRetainedQuestionnaire(api, send, Queue, change.identity),
+    run: () =>
+      continueRetainedQuestionnaire(
+        api,
+        send,
+        Queue,
+        change.identity,
+        change.discovery,
+      ),
+    creations: () => creations,
   };
 }
 
@@ -475,3 +492,73 @@ for (const change of [
       await configureRetainedHeartbeat(api);
     }
   });
+
+test("repeated retained ticks reuse one queue and its adoption listeners", async () => {
+  const f = fixture();
+  await f.run();
+  await f.run();
+  assert.equal(f.creations(), 1);
+  assert.equal(f.calls.filter((v) => v === "tick").length, 2);
+});
+for (const operation of ["inspect_job", "search_jobs"])
+  test(`optional discovery permits only leased ${operation} reads alongside the original form`, async () => {
+    const f = fixture({
+      discovery: true,
+      polled: { id: "other", operation, binding: { tab_id: 8 } },
+      follow: "admit_naukri_work",
+    });
+    await f.run();
+    assert.ok(f.calls.some((c) => c.command === "admit_naukri_work"));
+    assert.equal(
+      f.calls.filter((c) => c.command === "abandon_naukri_work").length,
+      0,
+    );
+  });
+for (const operation of [
+  "apply",
+  "answer_questionnaire",
+  "sync_profile",
+  "inspect_profile",
+])
+  test(`discovery continuation never permits foreign ${operation}`, async () => {
+    const f = fixture({
+      discovery: true,
+      polled: { id: "other", operation, binding: { tab_id: 8 } },
+      follow: "admit_naukri_work",
+    });
+    await f.run();
+    assert.equal(
+      f.calls.filter((c) => c.command === "admit_naukri_work").length,
+      0,
+    );
+    assert.equal(
+      f.calls.filter((c) => c.command === "abandon_naukri_work").length,
+      1,
+    );
+  });
+test("a read lease cannot transition to foreign execution before browser work", async () => {
+  const f = fixture({
+    discovery: true,
+    polled: { id: "other", operation: "inspect_job", binding: { tab_id: 8 } },
+    follow: "admit_naukri_work",
+    followWork: { id: "other", operation: "apply", execution: {} },
+  });
+  await assert.rejects(f.run, /retained_read_scope_changed/);
+});
+test("a read-shaped foreign execution descriptor is refused before admission", async () => {
+  const f = fixture({
+    discovery: true,
+    polled: {
+      id: "other",
+      operation: "inspect_job",
+      binding: { tab_id: 8 },
+      execution: {},
+    },
+    follow: "admit_naukri_work",
+  });
+  await f.run();
+  assert.equal(
+    f.calls.filter((c) => c.command === "admit_naukri_work").length,
+    0,
+  );
+});
