@@ -167,6 +167,7 @@ document
         error: ERROR_CODE_PATTERN.test(error.message)
           ? error.message
           : "retained_recovery_unavailable",
+      detail: String(error.message || error.name).slice(0, 240),
       });
     }
   });
