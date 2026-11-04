@@ -157,10 +157,17 @@ def test_duplicate_aliases_do_not_inflate_matching_weight(sample_profile):
     ("Remote React / Full-Stack Developer", "Full Stack Developer", True),
     ("Front End Developer", "Frontend Developer", True),
     ("Back-End Engineer", "Backend Engineer", True),
+    ("Backend Web Developer", "Backend Developer", True),
+    ("Back-End Web Engineer", "Backend Engineer", True),
+    ("Frontend Web Developer", "Frontend Developer", True),
+    ("Fullstack Web Engineer", "Full Stack Engineer", True),
     ("Full Stack Sales Manager", "Full Stack Developer", False),
     ("Full Stack Overflow Developer", "Full Stack Developer", False),
     ("Frontend Designer", "Frontend Developer", False),
     ("Backend Sales Engineer", "Backend Engineer", False),
+    ("Backend Web Sales Developer", "Backend Developer", False),
+    ("Backend Web Designer", "Backend Developer", False),
+    ("Web Developer", "Backend Developer", False),
 ])
 def test_role_spacing_preserves_distinct_roles_and_required_skills(advertised, target, expected, sample_profile):
     profile = sample_profile.model_copy(update={"target_titles": [target], "verified_skills": ["Python"]})

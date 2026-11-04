@@ -551,6 +551,29 @@ async def test_discovery_filters_before_scheduling_application_preparation(db_se
     assert await db_session.scalar(select(func.count()).select_from(ApplicationPacket)) == before
 
 
+@pytest.mark.parametrize("skill_mode,stage", [("any", "ELIGIBLE"), ("all", "SKIPPED")])
+async def test_web_role_alias_obeys_skill_policy_before_preparation(db_session, upload_case, skill_mode, stage):
+    context = await setup(db_session)
+    config = await queue.configuration(db_session)
+    policy = QueuePolicy.model_validate(config["policy"])
+    policy.global_limits.minimum_match_score = 50
+    policy.platforms["naukri"].skill_match_mode = skill_mode
+    config = await queue.configure(db_session, QueuePolicyUpdate(expected_revision=config["revision"], policy=policy))
+    await queue.control(db_session, QueueControl(action="start", expected_revision=config["revision"]))
+    item = await queue.enqueue(db_session, "naukri", URL, "saved_verified_job")
+    work = await observe(db_session, context, item)
+    finished = await call(db_session, context, "finish_naukri_work", work, work_report=job_report(
+        title="Backend Web Developer", skills=["Python", "Rust", "Scala"],
+    ))
+    assert finished.ok, finished.error_code
+    saved = (await queue.load(db_session, item["id"])).value
+    assert saved["stage"] == stage and saved["match_score"] >= 50
+    assert saved["facts"]["skills"] == ["Python", "Rust", "Scala"]
+    assert not saved["admitted_actions"] and not saved.get("packet_id")
+    assert saved["operation"] == ("prepare" if stage == "ELIGIBLE" else "inspect_job")
+    assert saved["reason"] == (None if stage == "ELIGIBLE" else "current_profile_preferences_or_required_skills_exclude_job")
+
+
 @pytest.mark.parametrize("minimum,ceiling,expected", [
     (0.08333333333333333, None, "ELIGIBLE"),
     (5, None, "SKIPPED"),

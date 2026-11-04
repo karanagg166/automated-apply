@@ -35,6 +35,11 @@ def title_key(value: str) -> str:
         ("back[-\u2010-\u2015\\s]*end", "backend"),
     ]:
         value = re.sub(r"\b" + family + r"\b", normalized, value)
+    # The genuine portal lists "Backend Web Developer" for the same role as
+    # the saved "Backend Developer" preference. Only remove this exact web
+    # qualifier between a recognized software family and developer/engineer;
+    # do not equate sales, design or other intervening roles.
+    value = re.sub(r"\b(backend|frontend|full stack) web (developer|engineer)\b", r"\1 \2", value)
     return value
 
 
