@@ -1,3 +1,5 @@
+import { continueRetainedQuestionnaire } from "./naukri-retained.js";
+
 const ERROR_CODE_PATTERN = /^[a-z][a-z0-9_]{1,63}$/;
 const ENDPOINT_PATTERN = /^http:\/\/127\.0\.0\.1:\d+$/;
 document.querySelector("#identity").textContent =
@@ -128,3 +130,22 @@ document
     profileAction("commands", { enabled: event.target.checked }),
   );
 void profileAction("status");
+
+document
+  .querySelector("#continue-retained")
+  ?.addEventListener("click", async () => {
+    const button = document.querySelector("#continue-retained");
+    const status = document.querySelector("#retained-status");
+    if (button.disabled) return;
+    button.disabled = true;
+    status.textContent = "Checking the existing application…";
+    try {
+      await continueRetainedQuestionnaire();
+      status.textContent =
+        "Existing application checked. See the dashboard for its outcome or next question.";
+    } catch (error) {
+      status.textContent = `Waiting: ${ERROR_CODE_PATTERN.test(error.message) ? error.message : "retained_application_unavailable"}`;
+    } finally {
+      button.disabled = false;
+    }
+  });
