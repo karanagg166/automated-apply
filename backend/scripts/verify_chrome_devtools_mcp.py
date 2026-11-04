@@ -6,6 +6,7 @@ mutation is used. Only a new owned about:blank page receives fixture markup.
 import asyncio
 import json
 import os
+import plistlib
 import re
 import subprocess
 import tomllib
@@ -54,6 +55,16 @@ async def verify():
             or any(a.startswith(("--autoConnect", "--auto-connect", "--browserUrl", "--browser-url",
                                  "--wsEndpoint", "--ws-endpoint")) for a in args)):
         raise ValueError("separate_headless_browser_configuration_required")
+    executables = [a.removeprefix("--executablePath=") for a in args
+                   if a.startswith("--executablePath=")]
+    if len(executables) != 1 or not Path(executables[0]).is_file():
+        raise ValueError("explicit_testing_browser_required")
+    app = next((p for p in Path(executables[0]).parents if p.suffix == ".app"), None)
+    if (app is None or plistlib.loads((app / "Contents/Info.plist").read_bytes())
+            .get("CFBundleIdentifier") != "com.google.chrome.for.testing"):
+        # A second headless com.google.Chrome process can hijack AppleScript's
+        # application-name lookup even with a separate user-data directory.
+        raise ValueError("distinct_macos_testing_browser_identity_required")
     before = browser_state()
     params = StdioServerParameters(command=config["command"], args=args,
                                    env={**os.environ, **config.get("env", {})})
@@ -98,6 +109,7 @@ async def verify():
             "personal_chrome_metadata_observed": before is not None and after is not None,
             "personal_chrome_focus_and_active_tabs_equal": before == after if before and after else None,
             "personal_chrome_profile_used": False, "provider_navigations": 0,
+            "distinct_macos_browser_identity": True,
             "queue_mutations": 0, "application_acceptance_claimed": False}
 
 

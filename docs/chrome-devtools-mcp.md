@@ -11,6 +11,7 @@ codex mcp add chrome-devtools \
   --env CHROME_DEVTOOLS_MCP_NO_USAGE_STATISTICS=1 -- \
   /opt/homebrew/bin/pnpm --silent dlx chrome-devtools-mcp@1.12.0 \
   --headless \
+  --executablePath="<installed Playwright Google Chrome for Testing executable>" \
   --userDataDir="$HOME/Library/Application Support/Automated Apply/developer-tools/chrome-devtools-mcp/browser-profile" \
   --no-usage-statistics --no-performance-crux
 codex mcp get chrome-devtools --json
@@ -21,16 +22,24 @@ access-restricted backup retained before editing. Existing Codex settings and th
 Supabase MCP configuration were compared and preserved. Do not commit that file,
 authentication stores, browser profiles or the private backup.
 
-The separate headless profile preserves the owner's focus and signed-in Chrome
-profiles. No `autoConnect`, `browserUrl`, `wsEndpoint` or Profile8 user-data path is
+Use the existing Playwright testing executable with bundle ID
+`com.google.chrome.for.testing`, as well as the private user-data directory.
+Launching another headless system Google Chrome can take over macOS AppleScript's
+`Google Chrome` application-name lookup, even with a separate profile. The verifier
+now rejects that configuration before it launches a browser. The exact cached
+testing executable path is registered privately; it is not a portable literal.
+
+The separate browser identity and headless profile preserve the owner's focus and
+signed-in Chrome profiles. No `autoConnect`, `browserUrl`, `wsEndpoint` or Profile8 user-data path is
 configured. Usage statistics and performance CrUX lookups are disabled. Connecting
 to an authenticated existing browser would be a separate setup operation subject
 to existing account, permission and focus requirements. This setup does not log
 into Naukri, authorize a database migration or enable application submission.
 
 Configured servers are loaded by Codex clients when they initialize their MCP
-connections. The current conversation's native tool catalog has not been shown
-to refresh automatically. Direct protocol verification below works without
+connections. The native tools became available and a real `list_pages` call worked;
+it exposed the system-browser identity conflict above. The corrected executable
+requires a refreshed MCP server connection; direct protocol verification below works without
 restarting the owner's Chrome or running a model turn.
 
 Run the actual registered server and browser check from this repository:
