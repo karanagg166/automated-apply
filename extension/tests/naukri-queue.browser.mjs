@@ -146,6 +146,15 @@ control.onclick=()=>menu.style.visibility='visible';menu.querySelector('a').oncl
           'aria-controls="filter-sort-menu">Recommended</button>',
           'aria-controls="filter-sort-menu">Date</button>',
         );
+      if (scenario.startsWith("fresher_keyword_freshness")) {
+        body = body.replace(
+          `id="old-result" href="${jobUrl}"`,
+          'id="old-result" href="https://www.naukri.com/job-listings-older-291026123457"',
+        );
+        body += `<button id="filter-freshness" type="button" aria-haspopup="listbox" aria-controls="filter-freshness-menu">Select</button><ul id="filter-freshness-menu" style="visibility:hidden"><li role="option" title="Last 1 day"><a data-id="filter-freshness-1" ${scenario.endsWith("external") ? 'href="https://example.org/elsewhere"' : ""}>Last 1 day</a></li></ul><script>
+const fresh=document.querySelector('#filter-freshness'), options=document.querySelector('#filter-freshness-menu');fresh.onclick=()=>options.style.visibility='visible';options.querySelector('a').onclick=e=>{e.preventDefault();fresh.textContent='Last 1 day';options.style.visibility='hidden';document.querySelector('#old-result').href='${jobUrl}';window.freshnessSelections=(window.freshnessSelections||0)+1;};
+</script>`;
+      }
     }
     if (
       [
@@ -260,6 +269,18 @@ page(2);control.onclick=()=>menu.style.visibility='visible';menu.querySelector('
       false,
     ],
     [
+      "fresher_keyword_freshness",
+      "search_jobs",
+      searchUrl.replace("-jobs", "-fresher-jobs"),
+      false,
+    ],
+    [
+      "fresher_keyword_freshness_external",
+      "search_jobs",
+      searchUrl.replace("-jobs", "-fresher-jobs"),
+      false,
+    ],
+    [
       "background_paginated_search_links",
       "search_jobs",
       searchUrl + "-2",
@@ -294,7 +315,8 @@ page(2);control.onclick=()=>menu.style.visibility='visible';menu.querySelector('
     if (
       name === "unconfirmed_search_sort" ||
       name === "search_access_restriction" ||
-      name === "fresher_keyword_wrong_order"
+      name === "fresher_keyword_wrong_order" ||
+      name === "fresher_keyword_freshness_external"
     ) {
       assert.equal(finished, undefined);
       assert.equal(
@@ -302,9 +324,11 @@ page(2);control.onclick=()=>menu.style.visibility='visible';menu.querySelector('
           .work_report.reason,
         name === "unconfirmed_search_sort"
           ? "search_date_sort_not_confirmed"
-          : name === "fresher_keyword_wrong_order"
-            ? "search_keyword_order_unrecognized"
-            : "provider_challenge_requires_owner",
+          : name === "fresher_keyword_freshness_external"
+            ? "search_freshness_option_unsupported"
+            : name === "fresher_keyword_wrong_order"
+              ? "search_keyword_order_unrecognized"
+              : "provider_challenge_requires_owner",
       );
     } else if (name === "current_details_ambiguous") {
       assert.equal(

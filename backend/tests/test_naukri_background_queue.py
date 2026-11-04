@@ -392,6 +392,55 @@ async def test_owner_platform_read_race_defers_without_replaying_writes(db_sessi
         assert fresh["revision"] > work["revision"] and fresh["lease_token"] != work["lease_token"]
 
 
+@pytest.mark.parametrize("reason,protected", [
+    ("backend_not_ready", None), ("backend_timeout", None),
+    ("backend_transaction_rolled_back", None),
+    ("backend_not_ready", "packet_id"), ("backend_timeout", "form_pending"),
+    ("backend_transaction_rolled_back", "admitted_actions"),
+    ("provider_challenge_requires_owner", None), ("provider_context_changed", None),
+    ("backend_not_ready", "exhausted"),
+])
+async def test_transient_discovery_recovery_is_bounded_and_never_replays_protected_work(
+    db_session, reason, protected,
+):
+    from datetime import timedelta
+
+    from backend.app.automation.store import instant
+
+    context = await setup(db_session)
+    item = await queue.enqueue(db_session, "naukri", URL, "saved_verified_job")
+    work = await observe(db_session, context, item)
+    row = await queue.load(db_session, item["id"])
+    value = dict(row.value)
+    if protected == "packet_id": value[protected] = str(uuid4())
+    if protected == "form_pending": value[protected] = True
+    if protected == "admitted_actions": value[protected] = [{"fingerprint": "apply:initial"}]
+    if protected == "exhausted": value["transport_retry_count"] = 3
+    row.value = value
+    result = await call(db_session, context, "abandon_naukri_work", work,
+                        work_report={"kind": "needs_input", "reason": reason})
+    assert result.ok, result.error_code
+    saved = dict((await queue.load(db_session, item["id"])).value)
+    assert saved["lease_token"] is None and saved["operation"] == "inspect_job"
+    assert saved["admitted_actions"] == value["admitted_actions"]
+    if protected or reason.startswith("provider_"):
+        assert saved["stage"] == "NEEDS_INPUT" and saved["status"] == "waiting"
+        assert saved.get("transport_retry_count", 0) == value.get("transport_retry_count", 0)
+        return
+    assert saved["stage"] == "FAILED_RETRYABLE" and saved["transport_retry_count"] == 1
+    assert datetime.fromisoformat(saved["available_at"]) > await instant(db_session) + timedelta(seconds=50)
+    assert (await call(db_session, context, "poll_naukri_work")).data["work"] is None
+    row = await queue.load(db_session, item["id"])
+    row.value = {**saved, "available_at": (await instant(db_session) - timedelta(seconds=1)).isoformat()}
+    await db_session.commit()
+    factory = async_sessionmaker(db_session.bind, expire_on_commit=False, autoflush=False)
+    async with factory() as restarted, restarted.begin():
+        fresh = (await call(restarted, context, "poll_naukri_work")).data["work"]
+        assert fresh["id"] == item["id"] and fresh["operation"] == "inspect_job"
+        retained = (await queue.load(restarted, item["id"])).value
+        assert retained["transport_retry_count"] == 1 and not retained["admitted_actions"]
+
+
 async def test_platform_policy_revocation_fences_a_pending_native_observation(db_session):
     from backend.app.local_agent.contracts import PolicyUpdate
     from backend.app.local_agent.policies import get_policy, update_policy

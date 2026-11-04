@@ -24,6 +24,27 @@ from backend.app.local_agent.contracts import Result
 SEARCH = "apply_search:naukri"
 MAINTENANCE = "naukri_extension_maintenance"
 READS = {"inspect_job", "search_jobs"}
+TRANSIENT_DISCOVERY_ERRORS = frozenset({
+    "backend_not_ready", "backend_timeout", "backend_transaction_rolled_back",
+})
+
+
+def defer_transient_discovery(value, reason, now):
+    """Only retry an unattempted listing read, never a provider write or form.
+
+    The original browser tab is closed normally. A new lease/document must pass
+    the current account, policy, focus and provider controls on every retry.
+    Persist a small backoff/count so restarts cannot create an infinite loop.
+    """
+    count = value.get("transport_retry_count", 0)
+    if (reason not in TRANSIENT_DISCOVERY_ERRORS or value.get("operation") != "inspect_job"
+            or value.get("admitted_actions") or value.get("packet_id") or value.get("form_pending")
+            or type(count) is not int or not 0 <= count < 3):
+        return False
+    value.update(stage="FAILED_RETRYABLE", status="queued", reason=reason,
+                 transport_retry_count=count + 1,
+                 available_at=(now + timedelta(seconds=60 * 2 ** count)).isoformat())
+    return True
 
 
 async def workrow(session, identity):
@@ -415,7 +436,10 @@ async def dispatch(session, settings, actor, command):
                         value["last_error"] = report.reason or "source_observation_unavailable"
                     value.update(status="idle", last_finished_at=(await instant(session)).isoformat())
                 elif report.kind in {"needs_input", "failed"}:
-                    if (report.reason == "owner_platform_active" and value["operation"] == "inspect_job"
+                    if (report.reason in TRANSIENT_DISCOVERY_ERRORS
+                            and defer_transient_discovery(value, report.reason, await instant(session))):
+                        pass
+                    elif (report.reason == "owner_platform_active" and value["operation"] == "inspect_job"
                             and not value.get("admitted_actions") and not value.get("packet_id")
                             and not value.get("form_pending")):
                         # Owner activity can begin after poll but before DOM

@@ -8,7 +8,9 @@ import { naukriChatbot } from "./naukri-chatbot.js";
 // Injected only into this consumer's inactive search tab, after read admission.
 // Preserve keyword relevance for fresher searches; the actual Date transition
 // replaced their junior results with unrelated senior listings. Original role
-// searches retain Date. Full listing dates/eligibility remain authoritative.
+// searches retain Date. Where the genuine Freshness control exists, prioritize
+// today's keyword results; the original role sweeps still cover older jobs.
+// Full listing dates/eligibility remain authoritative.
 export function sortNaukriSearchDate(expectedUrl, state = null) {
   const failure = (reason) => ({ kind: "needs_input", reason });
   const expected = new URL(expectedUrl);
@@ -59,6 +61,8 @@ export function sortNaukriSearchDate(expectedUrl, state = null) {
     getComputedStyle(e).visibility !== "hidden";
   let opened = state?.opened || false,
     selected = state?.selected || false,
+    freshnessOpened = state?.freshnessOpened || false,
+    freshnessSelected = state?.freshnessSelected || false,
     settled = state?.settled || 0;
   // One synchronous DOM step per injection. Waiting belongs to the extension
   // worker: Chrome may throttle chained timers in an inactive provider page.
@@ -72,6 +76,8 @@ export function sortNaukriSearchDate(expectedUrl, state = null) {
       previousLinks,
       opened,
       selected,
+      freshnessOpened,
+      freshnessSelected,
       settled,
     },
   });
@@ -99,6 +105,59 @@ export function sortNaukriSearchDate(expectedUrl, state = null) {
     }
     if (keywordOrder && control && control.textContent.trim() !== "Recommended")
       return failure("search_keyword_order_unrecognized");
+    if (keywordOrder) {
+      const freshnessControls = [
+        ...document.querySelectorAll("#filter-freshness"),
+      ].filter(visible);
+      if (freshnessControls.length > 1)
+        return failure("search_freshness_control_ambiguous");
+      const freshness = freshnessControls[0];
+      if (freshness) {
+        if (
+          freshness.tagName !== "BUTTON" ||
+          freshness.type !== "button" ||
+          freshness.getAttribute("aria-haspopup") !== "listbox" ||
+          freshness.getAttribute("aria-controls") !== "filter-freshness-menu"
+        )
+          return failure("search_freshness_control_unrecognized");
+        if (
+          freshness.disabled ||
+          freshness.getAttribute("aria-disabled") === "true"
+        )
+          return pending();
+        if (freshness.textContent.trim() !== "Last 1 day") {
+          if (freshnessSelected) return pending();
+          const choices = [
+            ...document.querySelectorAll(
+              '#filter-freshness-menu [role="option"]',
+            ),
+          ].filter((e) => visible(e) && e.title === "Last 1 day");
+          if (choices.length > 1)
+            return failure("search_freshness_option_ambiguous");
+          if (choices.length === 1) {
+            const links = [...choices[0].querySelectorAll("a")].filter(visible);
+            if (
+              links.length !== 1 ||
+              links[0].getAttribute("data-id") !== "filter-freshness-1" ||
+              ![null, "", "#"].includes(links[0].getAttribute("href")) ||
+              ![null, "", "_self"].includes(links[0].getAttribute("target"))
+            )
+              return failure("search_freshness_option_unsupported");
+            const refused = safe();
+            if (refused) return failure(refused);
+            freshnessSelected = true;
+            if (targetPage > 1 && pagePath)
+              allowedPaths = new Set([expected.pathname, pagePath[1]]);
+            settled = 0;
+            links[0].click();
+          } else if (!freshnessOpened) {
+            freshnessOpened = true;
+            freshness.click();
+          }
+          return pending();
+        }
+      }
+    }
     if (
       control?.textContent.trim() === (keywordOrder ? "Recommended" : "Date")
     ) {
