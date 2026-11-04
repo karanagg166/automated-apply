@@ -22,6 +22,7 @@ export async function continueRetainedQuestionnaire(
   api = chrome,
   send = profileNative,
   Queue = NaukriQueue,
+  identity = null,
 ) {
   if (busy) throw Error("retained_continuation_busy");
   busy = true;
@@ -31,7 +32,8 @@ export async function continueRetainedQuestionnaire(
       (await api.storage.session.get("naukriParkedQuestionnairesV1"))
         .naukriParkedQuestionnairesV1 || {};
     const candidates = Object.values(forms).filter(
-      (f) => f.form_pending && !f.ownerAdopted,
+      (f) =>
+        f.form_pending && !f.ownerAdopted && (!identity || f.id === identity),
     );
     if (candidates.length !== 1)
       throw Error("one_retained_questionnaire_required");

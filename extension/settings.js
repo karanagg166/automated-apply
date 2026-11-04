@@ -131,6 +131,23 @@ document
   );
 void profileAction("status");
 
+async function retainedChoices() {
+  const select = document.querySelector("#retained-work");
+  if (!select) return;
+  const forms =
+    (await chrome.storage.session.get("naukriParkedQuestionnairesV1"))
+      .naukriParkedQuestionnairesV1 || {};
+  select.replaceChildren();
+  for (const form of Object.values(forms)) {
+    if (!form.form_pending || form.ownerAdopted) continue;
+    const option = document.createElement("option");
+    option.value = form.id;
+    option.textContent = `${form.title || "Existing application"} · ${form.id}`;
+    select.append(option);
+  }
+}
+void retainedChoices();
+
 document
   .querySelector("#continue-retained")
   ?.addEventListener("click", async () => {
@@ -140,7 +157,14 @@ document
     button.disabled = true;
     status.textContent = "Checking the existing application…";
     try {
-      await continueRetainedQuestionnaire();
+      const identity = document.querySelector("#retained-work")?.value;
+      if (!identity) throw Error("retained_application_required");
+      await continueRetainedQuestionnaire(
+        chrome,
+        undefined,
+        undefined,
+        identity,
+      );
       status.textContent =
         "Existing application checked. See the dashboard for its outcome or next question.";
     } catch (error) {

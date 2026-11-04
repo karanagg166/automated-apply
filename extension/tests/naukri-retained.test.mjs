@@ -71,7 +71,10 @@ function fixture(change = {}) {
       ? { work: change.polled || null }
       : {};
   };
-  return { calls, run: () => continueRetainedQuestionnaire(api, send, Queue) };
+  return {
+    calls,
+    run: () => continueRetainedQuestionnaire(api, send, Queue, change.identity),
+  };
 }
 
 test("same-session original retained tab uses the normal queue and restores heartbeat", async () => {
@@ -148,3 +151,30 @@ for (const operation of ["apply", "inspect_job", "search_jobs"])
     const commands = f.calls.filter((x) => x.command).map((x) => x.command);
     assert.deepEqual(commands, ["poll_naukri_work", "abandon_naukri_work"]);
   });
+
+test("an explicit retained identity selects only that form and leaves other uncertain forms alone", async () => {
+  const forms = {
+    retained: {
+      id: "retained",
+      form_pending: true,
+      ownedTabId: 11,
+      binding: {
+        profile_binding_id: "profile",
+        browser_session_id: "session",
+        window_id: 7,
+      },
+      url: "https://www.naukri.com/job-listings-fictional-123456789012",
+    },
+    uncertain: { id: "uncertain", form_pending: true, ownedTabId: 12 },
+  };
+  const f = fixture({ forms, identity: "retained" });
+  await f.run();
+  assert.equal(
+    f.calls.filter((x) => x.command === "poll_naukri_work").length,
+    1,
+  );
+  assert.equal(forms.uncertain.ownedTabId, 12);
+  const bad = fixture({ forms, identity: "absent" });
+  await assert.rejects(bad.run, /one_retained_questionnaire_required/);
+  assert.deepEqual(bad.calls, []);
+});
