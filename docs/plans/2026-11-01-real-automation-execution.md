@@ -88,8 +88,10 @@ training fact, but the original browser session changed and its exact tab is no
 longer available. No answer was admitted; no Apply may be replayed. Complete the
 bounded independent account/history reconciliation, retain the uncertain packet
 and admission permanently, and never promote an absent history row into evidence
-that retrying is safe. The lifetime-one allowance is consumed; an additional
-distinct supervised test attempt needs the owner's pending authorization. Keep
+that retrying is safe. The original lifetime-one allowance was consumed. The owner subsequently
+approved one additional distinct eligible attempt: only the lifetime cap changed
+to2, hourly1 and all other controls stayed unchanged, and the actual frontend
+resumed RUN132. The original uncertain admission remains consumed. Keep
 AUTO gated on a strict persistent first receipt. Current receipt count is zero
 new, with historical QTrino kept separately.
 

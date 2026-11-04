@@ -38,6 +38,32 @@ with an admitted action, regardless of creation date, stage or waiting status.
 Full-ledger evidence is authoritative. Earlier statements of zero *receipts*
 remain true; zero-*admission* observations must not be used as the current total.
 
+## Current continuation: owner-approved second distinct attempt
+
+After the report's installation snapshot, the owner explicitly approved **one
+additional different eligible attempt**. The normal policy API changed only
+`platforms.naukri.supervised_submission_cap` from1 to2, saved PAUSED revision131,
+and preserved hourly1 plus every other field. The actual installed frontend
+started RUNNING revision132. The first uncertain admission/reservation remains;
+it was not refunded or reset. The original job stays quarantined and AUTO remains
+disabled. This approval is recorded in AGENTS.md and does not authorize a third
+supervised attempt.
+
+The first attempt completed three bounded independent history reads and three
+account refreshes without an exact sent receipt. It remains `SUBMISSION_UNKNOWN`,
+not “not applied” or successfully submitted. A real installed-frontend read-only
+journey verified that the exact requisition is visible as SUBMISSION UNKNOWN,
+linked to its original packet, with the correct score/count and unchanged policy.
+No mutation/provider request was made by this dashboard check. Its initial
+harness assertion expected title case; correcting it to accept the actual uppercase
+status passed. No frontend product change was required.
+
+Discovery and full-listing inspection continue under the additional bounded
+allowance. Recent held labels are actual50+/100+ lower bounds, not missing parser
+values. The once-asked unknown-count policy decision remains pending; the new
+allowance approval does not relax it. One new admission, zero new receipts and no
+recurring/locked submission acceptance remain the current outcome.
+
 ## Implementation and installed state
 
 - Text/Skip fix: [f5dd610](https://github.com/karanagg166/automated-apply/commit/f5dd61095c8f3e2ce6138637a953dcb9a134af90).
@@ -81,7 +107,7 @@ readiness passed. The actual frontend then started RUNNING revision130 with
 score50, age14 days, applicant threshold1,000, any-skill matching, unknown counts
 held, SUPERVISED lifetime1/hour1, all other platforms disabled. The lifetime Apply
 allowance is consumed and was not reset; one additional distinct test attempt
-requires the owner's pending authorization. First-receipt prerequisites remain.
+subsequently received the authorization recorded above. First-receipt prerequisites remain.
 
 An exact rollback inventory retains API48fafb7's catalog003-compatible plist,
 24 extension1.3.29 bytes, all hashes and protected references. It preserves the
@@ -145,9 +171,8 @@ pnpm -C extension exec node tests/naukri-execution.browser.mjs
 | Recurring AUTOMATIC / genuine locked-Mac applications | BLOCKED / NOT TESTED | First receipt absent; bounded test allowance used; no heartbeat-based acceptance |
 
 Next: finish bounded independent history reconciliation, retain every uncertain
-attempt without replay, obtain the explicitly requested additional supervised
-allowance before another distinct Apply, and use the fixed adapter on a fresh
-eligible job. Enable bounded AUTO only after a strict persistent first worker
+attempt without replay, use the explicitly approved additional supervised
+allowance only for a different fresh eligible job with the fixed adapter. Enable bounded AUTO only after a strict persistent first worker
 receipt. Restart/locked-Mac and recurring real applications remain required.
 Gmail sending, other-platform activation, hosted Actions, merge and cleanup remain
 unused. Raw DOM, owner answers, profile/email/PDF bytes, credentials and logs stay
