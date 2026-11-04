@@ -351,7 +351,7 @@ page(2);control.onclick=()=>menu.style.visibility='visible';menu.querySelector('
       else assert.deepEqual(finished.input.work_report.candidates, [jobUrl]);
       if (name === "single_years_employment") {
         assert.equal(finished.input.work_report.job.experience_min, 0);
-        assert.equal(finished.input.work_report.job.experience_max, 0);
+        assert.equal(finished.input.work_report.job.experience_max, null);
         assert.equal(
           finished.input.work_report.job.employment_type,
           "full_time",

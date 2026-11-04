@@ -69,7 +69,7 @@ for (const [label, years] of [
     const report = await observe(html({ experience: label }));
     assert.deepEqual(
       [report.job.experience_min, report.job.experience_max],
-      [years, years],
+      [years, null],
     );
   });
 }
@@ -81,7 +81,7 @@ for (const label of ["0+ years", "Fresher", "Not disclosed"]) {
     );
   });
 }
-test("a zero-year UI label cannot override a structured one-month minimum", async () => {
+test("a single zero-year UI label does not invent an upper bound over the structured minimum", async () => {
   const report = await observe(
     html({
       experience: "0 years",
@@ -93,7 +93,27 @@ test("a zero-year UI label cannot override a structured one-month minimum", asyn
       },
     }),
   );
+  assert.equal(report.job.experience_min, 1 / 12);
+  assert.equal(report.job.experience_max, null);
+});
+test("an explicit zero-to-zero range cannot override a structured one-month minimum", async () => {
+  const report = await observe(
+    html({
+      experience: "0 - 0 years",
+      posting: { experienceRequirements: { monthsOfExperience: "1" } },
+    }),
+  );
   assert.equal(report.reason, "experience_requirement_evidence_conflict");
+});
+test("a single one-year label never weakens a higher structured minimum", async () => {
+  const report = await observe(
+    html({
+      experience: "1 year",
+      posting: { experienceRequirements: { monthsOfExperience: "36" } },
+    }),
+  );
+  assert.equal(report.job.experience_min, 3);
+  assert.equal(report.job.experience_max, null);
 });
 test("a one-month minimum fits inside an explicitly displayed zero-to-three-year range", async () => {
   const report = await observe(

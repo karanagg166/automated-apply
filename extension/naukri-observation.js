@@ -90,9 +90,11 @@ export async function observeNaukri(expectedUrl, operation) {
     /^(\d+(?:\.\d+)?)\s*(?:-|–|to)\s*(\d+(?:\.\d+)?)\s*(?:yrs?|years?)$/i,
   );
   const single = experience?.match(/^(\d+(?:\.\d+)?)\s*(?:yrs?|years?)$/i);
-  // Genuine fresher headers display "0 years" rather than a range. Preserve
-  // that explicit value; "Fresher", "0+" and unspecified ranges stay unknown.
+  // A single "0 years" label does not state an upper bound. Preserve its
+  // minimum and require any structured minimum too; only an explicit range
+  // establishes a maximum. "Fresher", "0+" and unspecified labels stay unknown.
   const band = range || (single && [single[0], single[1], single[1]]);
+  const maximumYears = range ? Number(range[2]) : null;
   // Actual internship headers put a placement duration in the same slot as
   // regular jobs' work experience. Duration cannot supply experience bounds.
   const internshipDuration =
@@ -194,9 +196,9 @@ export async function observeNaukri(expectedUrl, operation) {
     const months = numeric ? Number(minimumMonths) : NaN;
     if (!Number.isFinite(months) || months < 0 || months > 720)
       return failure("structured_experience_requires_review");
-    // monthsOfExperience is a minimum. The genuine "0 years" headers can
-    // contradict a one-month minimum; never choose the easier requirement.
-    if (band && months > Number(band[2]) * 12)
+    // monthsOfExperience is a minimum, not an upper bound. An explicit source
+    // range can contradict it; a single years label supplies no maximum.
+    if (maximumYears !== null && months > maximumYears * 12)
       return failure("experience_requirement_evidence_conflict");
     // A compatible structured minimum still constrains the advertised range.
     // Zero verified years cannot satisfy an explicit one-month minimum.
@@ -316,7 +318,7 @@ export async function observeNaukri(expectedUrl, operation) {
     description: description.slice(0, 20000),
     skills: skills.slice(0, 50),
     experience_min: minimumYears,
-    experience_max: band ? Number(band[2]) : null,
+    experience_max: maximumYears,
     employment_type: employmentType,
     remote_type: remoteType,
     posted_at: exact ? new Date(posted).toISOString() : null,
