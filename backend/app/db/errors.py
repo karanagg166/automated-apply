@@ -14,6 +14,8 @@ def database_failure_code(error):
         "40001": "serialization_failure",
         "53300": "connection_limit",
         "57014": "statement_timeout",
+        "23514": "schema_constraint_violation",
+        "P0001": "schema_guard_rejected",
         "08003": "connection_failure",
         "08006": "connection_failure",
         "57P01": "database_shutdown",

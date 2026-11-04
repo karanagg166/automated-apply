@@ -252,6 +252,7 @@ async def confirm(session, value, observation, now, settings):
         packet.revision += 1
         packet.approved_revision = None
         packet.lifecycle_state, packet.tracking_state, packet.readiness_state = "provider_confirmed_submitted", "applied_verified", "completed_verified"
+        await session.flush()
         session.add(ApplicationEvent(packet_id=packet.id, packet_revision=packet.revision,
                                      event_type="naukri_persistent_ui_confirmed", previous_state=prior,
                                      next_state=packet.lifecycle_state, evidence_id=evidence.id,

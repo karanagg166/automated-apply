@@ -744,11 +744,19 @@ async def admit(session, identity, revision, token, binding, settings=None):
                 raise ToolDenied("questionnaire_reviewed_step_required")
         else:
             await write_context(session, v, policy, settings)
+        now = await instant(session)
+        # Quotas need only admission history, never every retained listing,
+        # description, packet snapshot and profile observation in the ledger.
+        histories = (await session.scalars(select(
+            OwnerPreference.value["admitted_actions"],
+        ).where(
+            OwnerPreference.key.startswith(PREFIX),
+            OwnerPreference.value["platform"].as_string() == v["platform"],
+        ))).all()
         if setting.mode == "SUPERVISED" and v["operation"] == "apply":
             # The initial one-application authorization does not renew at
             # midnight. Uncertain attempts consume it until explicitly reviewed.
-            trials = [r.value for r in await items(session) if r.value["platform"] == v["platform"]]
-            attempted = sum(any(a["fingerprint"].startswith("apply:") for a in x.get("admitted_actions", [])) for x in trials)
+            attempted = sum(any(a["fingerprint"].startswith("apply:") for a in (actions or [])) for actions in histories)
             if attempted >= setting.supervised_submission_cap:
                 raise ToolDenied("supervised_application_allowance_exhausted")
         # Budget admission is persistent and conservative: uncertain submissions
@@ -763,14 +771,12 @@ async def admit(session, identity, revision, token, binding, settings=None):
         if v["id"] not in used["reservations"]:
             if len(used["reservations"]) >= cap:
                 raise ToolDenied("daily_application_cap_reached")
-            now = await instant(session)
             # Admission timestamps survive midnight and process restarts. Every
             # uncertain application keeps its reservation; no automatic refund.
-            recent = [r.value for r in await items(session) if r.value["platform"] == v["platform"]]
             hourly = sum(any(
                 now - timedelta(hours=1) <= datetime.fromisoformat(a["at"]) <= now
-                for a in x.get("admitted_actions", [])
-            ) for x in recent)
+                for a in (actions or [])
+            ) for actions in histories)
             if hourly >= setting.hourly_submission_cap:
                 raise ToolDenied("hourly_application_cap_reached")
             used["reservations"] = [*used["reservations"], v["id"]]
@@ -793,16 +799,25 @@ async def admit(session, identity, revision, token, binding, settings=None):
 
             packet = await session.get(ApplicationPacket, UUID(v["packet_id"]), populate_existing=True)
             previous_state = packet.lifecycle_state
+            v["packet_revision"] = packet.revision + 1
+            v.update(status="executing", revision=v["revision"] + 1)
+            row.value = v
+            # Publish the durable admission within this SAME transaction before
+            # its packet transition. The public-schema guard validates the
+            # exact packet/profile/revision and original Apply admission.
+            # No native response or browser action precedes the final commit.
+            await session.flush()
             packet.lifecycle_state = "submitting"
             packet.revision += 1
             packet.approved_revision = None
-            v["packet_revision"] = packet.revision
+            await session.flush()
             session.add(ApplicationEvent(packet_id=packet.id, packet_revision=packet.revision,
                                          event_type="naukri_apply_admitted", previous_state=previous_state,
                                          next_state="submitting", origin="local_worker"))
             # The same canonical packet fences every legacy/manual channel
             # before the external click, including a lost admission response.
-    v.update(status="executing", revision=v["revision"] + 1)
+    if v["status"] != "executing":
+        v.update(status="executing", revision=v["revision"] + 1)
     row.value = v
     await event(session, v, "admitted")
     return v

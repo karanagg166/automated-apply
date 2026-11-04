@@ -33,10 +33,15 @@ def verified_catalog_version(actual, expected, followups):
         return []
     applied = []
     for followup in followups:
-        key = followup["constraint"]
-        if candidate["constraints"].get(key) != followup["before"]:
-            raise RuntimeError("public_followup_precondition_mismatch")
-        candidate["constraints"][key] = followup["after"]
+        changes = followup.get("changes") or [{
+            "section": "constraints", "key": followup["constraint"],
+            "before": followup["before"], "after": followup["after"],
+        }]
+        for change in changes:
+            section, key = change["section"], change["key"]
+            if candidate[section].get(key) != change["before"]:
+                raise RuntimeError("public_followup_precondition_mismatch")
+            candidate[section][key] = change["after"]
         applied.append(followup["file"])
         if actual == candidate:
             return applied

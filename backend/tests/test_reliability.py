@@ -205,6 +205,8 @@ async def test_worker_lease_rejects_symlink(tmp_path):
     (DBAPIError("private SQL", {}, SimpleNamespace(sqlstate="53300")), "connection_limit"),
     (DBAPIError("private SQL", {}, SimpleNamespace(sqlstate="55P03")), "lock_timeout"),
     (DBAPIError("private SQL", {}, SimpleNamespace(sqlstate="08006")), "connection_failure"),
+    (DBAPIError("private SQL", {}, SimpleNamespace(sqlstate="23514")), "schema_constraint_violation"),
+    (DBAPIError("private SQL", {}, SimpleNamespace(sqlstate="P0001")), "schema_guard_rejected"),
     (RuntimeError("private password"), "storage_unavailable"),
 ])
 def test_database_diagnostics_use_fixed_codes(error, expected):
