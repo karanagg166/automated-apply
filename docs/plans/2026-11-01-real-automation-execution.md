@@ -57,7 +57,7 @@ after the Naukri first-submission priority; do not ask for keys again.
 | --- | --- | --- | --- |
 | A1 | Run complete eligibility checks in discovery before scheduling preparation | Real rejected observations remain history; no preparation packet/action for them; dedup/replay protections retained | Implemented and installed; real exclusions and positive eligible handoff through one genuine Apply verified; receipt remains absent |
 | A2 | Enable 1,800-second profile comparisons and deduplicated missing-fact notices | Actual bound portal comparison, notification, owner answer/version save and supported provider persistence | Installed30-minute comparisons/PDF checks and deduplicated notices;31 provider skills independently saved/verified; remaining facts and broader supported updates pending |
-| A3 | Finish first new supported Naukri application | Real fresh identity/PDF/job/history checks; actual fill/submit; independent persistent receipt; dashboard/Telegram outcome | One genuine Apply/questionnaire; original tab lost, history-only quarantine; zero new verified receipts |
+| A3 | Finish first new supported Naukri application | Real fresh identity/PDF/job/history checks; actual fill/submit; independent persistent receipt; dashboard/Telegram outcome | Two genuine Apply attempts: original lost-tab quarantine, second active employer questionnaire; zero new verified receipts |
 | A4 | Bounded Naukri recurring AUTOMATIC | First receipt plus critical checks; repeated real submissions within quotas, no duplicates; restart and locked-operation evidence | First-receipt server guard installed; recurring AUTO still not enabled or accepted |
 | A5 | Separate discovery/application visibility and controls | Dashboard distinguishes observed/held jobs from eligible application work and verified submissions; workers make progress independently | Installed separate observed/held/eligible/in-progress/new receipt/historical counts; live dashboard verified |
 | B1 | Instahyre adapter and account setup | Actual discovery/form/receipt/recurring acceptance under its own policy | Not accepted |
@@ -73,40 +73,44 @@ The earlier once-asked decision about `100+` lower-bound-only counts remains
 pending. A numeric threshold change alone does not authorize inventing its upper
 bound. Continue useful independent work rather than repeating the question.
 
-## Current priority — November5 IST, after first genuine Apply
+## Current priority — November5 IST, second genuine employer questionnaire
 
-[Verified Fresher search and actual installation](../acceptance/naukri-verified-fresher-search-20261105.md)
-is the latest release snapshot. Exact API/extensionb8b380c, extension1.3.31 with
-the same ID, installed under STOP137 with2,096 preserved records; readiness,
-profile5, approved account-binding1, native reconnect and focus snapshots passed.
-The actual frontend resumed RUN138. Execution/Telegram/native remainb6b0690,
-frontendae66975, other platforms OFF. Policy remains score50/age14days/applicants
-1,000/unknown-count review/any-skill, lifetime2/hour1 SUPERVISED.
+[Real Web-role correction and second attempt](../acceptance/naukri-web-role-live-20261105.md)
+is the latest snapshot. Exact API/execution0c87562 installed under STOP139 with
+2,133 preserved records, profile5, approved binding1 and fresh worker heartbeat;
+readiness/front200 and protected files passed while the Mac was locked. Actual
+frontend RUN140. Extension remainsb8b380c/1.3.31, stable ID; Telegram/nativeb6b0690,
+frontendae66975. No Chrome reload/browser action during that cutover.
 
-The real portal's zero slider can mean Any. The ordinary GNB Fresher choice and
-its actual query were independently verified across reload and Date selection.
-Sixteen new genuine observations entered durable discovery, still requiring full
-listing eligibility. Scheduled explicit-filter searches and the remaining distinct
-eligible attempt are the next live priority. Do not infer eligibility from URL,
-search control, card age, keyword or discovery count.
+The fresh Backend Web Developer listing passed eligibility68.33 under the narrow
+role spelling correction and existing any-skill rule. The independent worker
+prepared its packet and verified fresh account/PDF/prior history. A second
+owner-authorized Apply occurred22:30:35UTC while surrounding OS samples were
+LOCKED; an independent inactive DOM read observed its real employer questionnaire.
+The employer's interview-availability question requires a personal preference;
+the owner was asked once. Retain this current form and continue after the answer.
+Do not repeat Apply, reload the extension, replace services or request a third
+attempt while this form is active. There are zero new verified worker receipts.
 
-One genuine worker Apply reached a recruiter questionnaire. The supported text
-editor plus optional Skip control is fixed, and the owner supplied the missing
-training fact, but the original browser session/tab became unavailable before an
-answer was admitted. That job remains quarantined SUBMISSION_UNKNOWN after three
+The original Java questionnaire's lost tab remains SUBMISSION_UNKNOWN after three
 bounded history checks, with one accurate dashboard/Telegram uncertainty notice.
-Never repeat Apply or refund its consumed admission. The owner explicitly approved
-one additional different eligible attempt, lifetime2 total/hour1. There are zero
-new verified receipts. AUTO requires a strict persistent first receipt; a third
-supervised attempt is not authorized by the current allowance.
+Its admission remains consumed. Current SUPERVISED lifetime2/hour1 is now consumed
+across the original and active second application. Score50/age14days/applicants
+1,000/unknown-count review/any-skill remain unchanged; other platforms OFF.
 
-[Earlier questionnaire evidence](../acceptance/naukri-first-questionnaire-recovery-20261104.md)
-and [actual uncertainty notice](../acceptance/naukri-uncertain-outcome-notices-20261104.md)
-retain the underlying history. Complete the new supported application, verify
-independent persistent provider history and notification, then bounded recurring
-AUTO and real restart/locked acceptance. Existing locked read/heartbeat evidence
-is not locked filling/submission acceptance. Other adapters and draft integrations
-follow the Naukri first-receipt priority. No hosted Actions, merge or cleanup.
+[Verified Fresher search](../acceptance/naukri-verified-fresher-search-20261105.md)
+retains actual UI/query/reload evidence and exact extension cutover. The actual
+zero slider can mean Any; rendered Fresher controls and query must agree. Real
+background search added37 identities between2,096 and2,133 records; a repeated
+20-link observation added zero duplicate identities. All observations still need
+full-listing checks. Preserve native source intervals and owner focus.
+
+Complete the current supported questionnaire, independently verify persistent
+provider receipt/history and accurate notification, then bounded recurring AUTO
+and restart/locked acceptance. Locked DOM/readiness and Apply-to-questionnaire
+are real bounded samples, not final locked submission or24/7 acceptance. Other
+adapters and draft integrations follow the first-receipt priority; no hosted
+Actions, merge or cleanup.
 
 ## Execution and evidence rules
 
