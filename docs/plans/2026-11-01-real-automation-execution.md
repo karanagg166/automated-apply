@@ -55,9 +55,9 @@ after the Naukri first-submission priority; do not ask for keys again.
 
 | ID | Concrete work | Acceptance required | Current state |
 | --- | --- | --- | --- |
-| A1 | Run complete eligibility checks in discovery before scheduling preparation | Real rejected observations remain history; no preparation packet/action for them; dedup/replay protections retained | Implemented and installed; real exclusions verified, positive eligible handoff pending |
-| A2 | Enable 1,800-second profile comparisons and deduplicated missing-fact notices | Actual bound portal comparison, notification, owner answer/version save and supported provider persistence | Installed30-minute actual comparisons/PDF checks and deduplicated notices; owner facts and supported provider writes pending |
-| A3 | Finish first new supported Naukri application | Real fresh identity/PDF/job/history checks; actual fill/submit; independent persistent receipt; dashboard/Telegram outcome | No new verified submission |
+| A1 | Run complete eligibility checks in discovery before scheduling preparation | Real rejected observations remain history; no preparation packet/action for them; dedup/replay protections retained | Implemented and installed; real exclusions and positive eligible handoff through one genuine Apply verified; receipt remains absent |
+| A2 | Enable 1,800-second profile comparisons and deduplicated missing-fact notices | Actual bound portal comparison, notification, owner answer/version save and supported provider persistence | Installed30-minute comparisons/PDF checks and deduplicated notices;31 provider skills independently saved/verified; remaining facts and broader supported updates pending |
+| A3 | Finish first new supported Naukri application | Real fresh identity/PDF/job/history checks; actual fill/submit; independent persistent receipt; dashboard/Telegram outcome | One genuine Apply/questionnaire; original tab lost, history-only quarantine; zero new verified receipts |
 | A4 | Bounded Naukri recurring AUTOMATIC | First receipt plus critical checks; repeated real submissions within quotas, no duplicates; restart and locked-operation evidence | First-receipt server guard installed; recurring AUTO still not enabled or accepted |
 | A5 | Separate discovery/application visibility and controls | Dashboard distinguishes observed/held jobs from eligible application work and verified submissions; workers make progress independently | Installed separate observed/held/eligible/in-progress/new receipt/historical counts; live dashboard verified |
 | B1 | Instahyre adapter and account setup | Actual discovery/form/receipt/recurring acceptance under its own policy | Not accepted |
@@ -72,6 +72,32 @@ The applicant threshold remains 1,000, age 14 days, score 50, all company stages
 The earlier once-asked decision about `100+` lower-bound-only counts remains
 pending. A numeric threshold change alone does not authorize inventing its upper
 bound. Continue useful independent work rather than repeating the question.
+
+## Current priority — November4, after first genuine Apply
+
+[First genuine questionnaire and recovery evidence](../acceptance/naukri-first-questionnaire-recovery-20261104.md)
+is authoritative over older snapshots below. API581ec79 and same-ID extension1.3.30
+are installed; execution/Telegram/native remainb6b0690 and frontendae66975. Actual
+readiness,2,041-record preservation, profile5 and account-binding1 passed. The
+actual frontend resumed RUN130 with score50/age14/applicants1,000/any-skill and the
+unchanged lifetime-one/hour-one supervised policy.
+
+One new eligible worker Apply reached a real recruiter questionnaire. The text
+editor plus optional Skip control is now supported. The owner answered the missing
+training fact, but the original browser session changed and its exact tab is no
+longer available. No answer was admitted; no Apply may be replayed. Complete the
+bounded independent account/history reconciliation, retain the uncertain packet
+and admission permanently, and never promote an absent history row into evidence
+that retrying is safe. The lifetime-one allowance is consumed; an additional
+distinct supervised test attempt needs the owner's pending authorization. Keep
+AUTO gated on a strict persistent first receipt. Current receipt count is zero
+new, with historical QTrino kept separately.
+
+The owner-lock fast path and Stop/Start history fix are installed. Targeted fixtures
+passed, but performance/focus/real-form restart acceptance and recurring locked-Mac
+submissions remain incomplete. Existing earlier bounded locked **read** evidence
+is retained and does not establish locked filling/submission. No other platform
+activation, hosted Actions, merge or cleanup until its applicable prerequisites.
 
 ## Execution and evidence rules
 
