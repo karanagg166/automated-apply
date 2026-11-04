@@ -283,14 +283,14 @@ async def test_confirmed_experience_targets_discovery_without_changing_eligibili
                 "next_at": (now - timedelta(seconds=1)).isoformat()})
             assert work["binding"] == binding and work["search_page"] == 1
             assert datetime.fromisoformat(work["next_at"]) - datetime.fromisoformat(work["last_started_at"]) == timedelta(seconds=300)
-    assert urls == (["https://www.naukri.com/backend-developer-fresher-jobs",
+    assert urls == (["https://www.naukri.com/backend-developer-jobs?k=backend%20developer&experience=0&nignbevent_src=jobsearchDeskGNB",
                      "https://www.naukri.com/backend-developer-jobs"] if targeted else
                     ["https://www.naukri.com/backend-developer-jobs"] * 2)
     assert profile.preferences == saved_preferences and policy.model_dump(mode="json") == saved_policy
     assert await queue.items(db_session) == []
 
 
-async def test_custom_fresher_queries_preserve_originals_and_bounded_pagination(db_session, upload_case):
+async def test_filtered_fresher_queries_keep_originals_and_do_not_guess_filtered_pagination(db_session, upload_case):
     from datetime import timedelta
 
     from sqlalchemy import select
@@ -317,8 +317,13 @@ async def test_custom_fresher_queries_preserve_originals_and_bounded_pagination(
         "last_finished_at": now.isoformat(), "last_error": None, "last_cycle_count": 0,
         "next_at": (now - timedelta(seconds=1)).isoformat()})
     second = await search_work(db_session, config, policy, binding)
-    assert first["url"] == "https://www.naukri.com/backend-developer-fresher-jobs"
-    assert second["url"] == first["url"] + "-2" and second["search_page"] == 2
+    assert first["url"] == "https://www.naukri.com/backend-developer-fresher-jobs?k=backend%20developer%20fresher&experience=0&nignbevent_src=jobsearchDeskGNB"
+    assert second["url"] == "https://www.naukri.com/backend-developer-fresher-jobs" and second["search_page"] == 1
+    await queue.put(db_session, SEARCH, {**second, "status": "idle", "lease_until": None,
+        "last_finished_at": now.isoformat(), "last_error": None, "last_cycle_count": 0,
+        "next_at": (now - timedelta(seconds=1)).isoformat()})
+    third = await search_work(db_session, config, policy, binding)
+    assert third["url"] == second["url"] + "-2" and third["search_page"] == 2
     assert setting.preferences.roles == ["Backend Developer fresher", "Frontend Developer"]
 
 

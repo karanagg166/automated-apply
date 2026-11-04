@@ -6,7 +6,8 @@ import { captureNaukriResumeDownload } from "./naukri-resume-download.js";
 import { naukriChatbot } from "./naukri-chatbot.js";
 
 // Injected only into this consumer's inactive search tab, after read admission.
-// Preserve keyword relevance for fresher searches; the actual Date transition
+// Verify the observed explicit Fresher filter before using its results.
+// Preserve keyword relevance for legacy fresher searches; the actual Date transition
 // replaced their junior results with unrelated senior listings. Original role
 // searches retain Date. Where the genuine Freshness control exists, prioritize
 // today's keyword results; the original role sweeps still cover older jobs.
@@ -14,6 +15,7 @@ import { naukriChatbot } from "./naukri-chatbot.js";
 export function sortNaukriSearchDate(expectedUrl, state = null) {
   const failure = (reason) => ({ kind: "needs_input", reason });
   const expected = new URL(expectedUrl);
+  const filteredFresher = expected.searchParams.get("experience") === "0";
   if (
     state &&
     (state.expectedUrl !== expectedUrl ||
@@ -30,7 +32,7 @@ export function sortNaukriSearchDate(expectedUrl, state = null) {
     [...document.querySelectorAll('a[href*="/job-listings-"]')]
       .map((e) => e.href)
       .join("\n");
-  let adopted = false;
+  let adopted = !!state?.adopted;
   const visibilityChanged = () => {
     if (document.visibilityState !== "hidden") adopted = true;
   };
@@ -44,6 +46,14 @@ export function sortNaukriSearchDate(expectedUrl, state = null) {
       !allowedPaths.has(actual.pathname)
     )
       return "provider_context_changed";
+    if (
+      filteredFresher &&
+      (actual.searchParams.getAll("experience").length !== 1 ||
+        actual.searchParams.get("experience") !== "0" ||
+        actual.searchParams.getAll("k").length !== 1 ||
+        actual.searchParams.get("k") !== expected.searchParams.get("k"))
+    )
+      return "search_experience_filter_changed";
     if (
       /captcha|verify (?:that )?you are human|unusual traffic|access denied|too many requests/i.test(
         document.body?.innerText || "",
@@ -70,6 +80,7 @@ export function sortNaukriSearchDate(expectedUrl, state = null) {
     kind: "date_sort_pending",
     state: {
       expectedUrl,
+      adopted,
       document: performance.timeOrigin,
       allowedPaths: [...allowedPaths],
       pendingPage,
@@ -85,6 +96,28 @@ export function sortNaukriSearchDate(expectedUrl, state = null) {
   try {
     const refused = safe();
     if (refused) return failure(refused);
+    if (filteredFresher) {
+      const inputs = [...document.querySelectorAll("#experienceDD")];
+      const sliders = [
+        ...document.querySelectorAll(
+          '.experiencecontainer [role="slider"][aria-label="Experience"]',
+        ),
+      ].filter(visible);
+      if (inputs.length > 1 || sliders.length > 1)
+        return failure("search_experience_filter_ambiguous");
+      // Hydration can temporarily leave the saved control unavailable. Wait
+      // within the consumer's existing bound; never treat Any/unknown as zero.
+      if (
+        inputs.length !== 1 ||
+        inputs[0].tagName !== "INPUT" ||
+        inputs[0].value !== "Fresher" ||
+        sliders.length !== 1 ||
+        sliders[0].getAttribute("aria-valuenow") !== "0" ||
+        sliders[0].textContent.trim() !== "0" ||
+        sliders[0].closest(".rc-slider.not-selected")
+      )
+        return pending();
+    }
     const controls = [...document.querySelectorAll("#filter-sort")].filter(
       visible,
     );

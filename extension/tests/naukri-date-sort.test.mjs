@@ -4,7 +4,8 @@ import { JSDOM } from "../../frontend/node_modules/jsdom/lib/api.js";
 import { sortNaukriSearchDate } from "../naukri-queue.js";
 const url = "https://www.naukri.com/backend-developer-jobs";
 async function sort(options = {}) {
-  const expectedUrl = options.page ? url + "-" + options.page : url;
+  const expectedUrl =
+    options.expectedUrl || (options.page ? url + "-" + options.page : url);
   const dom = new JSDOM(
     `<button id="filter-sort" type="button" aria-controls="filter-sort-menu">${options.sorted ? "Date" : "Recommended"}</button><ul id="filter-sort-menu" style="visibility:hidden"><li role="option" title="Date"><a${options.href ? ` href="${options.href}"` : ""}>Date</a></li></ul><a href="/job-listings-fictional-311026123456">Fictional job</a>`,
     { url: options.actual || expectedUrl, runScripts: "outside-only" },
@@ -53,6 +54,18 @@ async function sort(options = {}) {
     };
   };
   if (options.page) showPage(options.page);
+  if (options.filtered) {
+    const input = w.document.createElement("input");
+    input.id = "experienceDD";
+    input.value = options.any ? "" : "Fresher";
+    w.document.body.append(input);
+    const experience = w.document.createElement("section");
+    experience.className = "experiencecontainer";
+    experience.innerHTML = `<div class="rc-slider${options.any ? " not-selected" : ""}"><div role="slider" aria-label="Experience" aria-valuenow="${options.nonzero ? 1 : 0}">${options.any ? "Any" : options.nonzero ? "1" : "0"}</div></div>`;
+    w.document.body.append(experience);
+    if (options.duplicateExperience)
+      w.document.body.append(experience.cloneNode(true));
+  }
   const control = w.document.querySelector("#filter-sort");
   const menu = w.document.querySelector("#filter-sort-menu");
   control.onclick = () => {
@@ -81,14 +94,21 @@ async function sort(options = {}) {
   if (options.formButton) control.type = "submit";
   if (options.noResults) w.document.body.textContent = "No jobs found";
   try {
-    return {
-      report: JSON.parse(
+    let report,
+      state = null;
+    for (let i = 0; i < 40; i++) {
+      report = JSON.parse(
         JSON.stringify(
           await w.eval(
-            `(${sortNaukriSearchDate.toString()})(${JSON.stringify(expectedUrl)})`,
+            `(${sortNaukriSearchDate.toString()})(${JSON.stringify(expectedUrl)},${JSON.stringify(state)})`,
           ),
         ),
-      ),
+      );
+      if (report.kind !== "date_sort_pending") break;
+      state = report.state;
+    }
+    return {
+      report,
       opened,
       selected,
       ...(options.page ? { advanced } : {}),
@@ -137,7 +157,7 @@ for (const options of [
 }
 test("unchanged cards cannot confirm a new page", async () => {
   const r = await sort({ page: 2, staleCards: true });
-  assert.equal(r.report.kind, "needs_input");
+  assert.equal(r.report.kind, "date_sort_pending");
   assert.equal(r.advanced, 1);
 });
 test("owner adoption during Next remains fenced after hiding the tab again", async () => {
@@ -183,25 +203,65 @@ for (const [name, options, reason] of [
     { href: "javascript:alert(1)" },
     "search_date_option_unsupported",
   ],
-  [
-    "missing sort layout",
-    { missing: true },
-    "search_sort_control_unrecognized",
-  ],
 ])
   test(name + " refuses without selecting Date", async () => {
     const r = await sort(options);
     assert.equal(r.report.reason, reason);
     assert.equal(r.selected, 0);
   });
-test("unconfirmed sorting is bounded and never repeats a click", async () => {
+test("unconfirmed sorting stays pending for the consumer bound without repeating a click", async () => {
   const r = await sort({ unconfirmed: true });
-  assert.equal(r.report.reason, "search_date_sort_not_confirmed");
+  assert.equal(r.report.kind, "date_sort_pending");
   assert.equal(r.opened, 1);
   assert.equal(r.selected, 1);
+});
+test("missing sort layout waits for hydration without clicking", async () => {
+  const r = await sort({ missing: true });
+  assert.equal(r.report.kind, "date_sort_pending");
+  assert.equal(r.opened + r.selected, 0);
 });
 test("genuine no-results text needs no sort control", async () => {
   const r = await sort({ noResults: true });
   assert.equal(r.report.state, "no_results");
   assert.equal(r.opened + r.selected, 0);
 });
+
+const filteredUrl =
+  url + "?k=backend%20developer&experience=0&nignbevent_src=jobsearchDeskGNB";
+test("observed Fresher controls and query permit the ordinary Date transition", async () => {
+  const r = await sort({ expectedUrl: filteredUrl, filtered: true });
+  assert.equal(r.report.kind, "date_sort");
+  assert.equal(r.report.state, "selected");
+  assert.equal(r.selected, 1);
+});
+for (const [name, options, reason] of [
+  ["Any is not zero experience", { any: true }, null],
+  ["nonzero slider", { nonzero: true }, null],
+  ["unavailable controls", { filtered: false }, null],
+  [
+    "duplicate controls",
+    { duplicateExperience: true },
+    "search_experience_filter_ambiguous",
+  ],
+  ["removed filter", { actual: url }, "search_experience_filter_changed"],
+  [
+    "duplicate keyword",
+    { actual: filteredUrl + "&k=another" },
+    "search_experience_filter_changed",
+  ],
+  [
+    "changed keyword",
+    { actual: url + "?k=another&experience=0" },
+    "search_experience_filter_changed",
+  ],
+])
+  test(`${name} never clicks Date or confirms filtered candidates`, async () => {
+    const r = await sort({
+      expectedUrl: filteredUrl,
+      filtered: true,
+      ...options,
+    });
+    assert.equal(r.report.kind, reason ? "needs_input" : "date_sort_pending");
+    if (reason) assert.equal(r.report.reason, reason);
+    assert.equal(r.opened + r.selected, 0);
+  });

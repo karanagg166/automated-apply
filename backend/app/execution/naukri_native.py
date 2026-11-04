@@ -6,6 +6,7 @@ establish receipts. Only recognized, bound questionnaire controls may continue.
 
 import re
 from datetime import datetime, timedelta
+from urllib.parse import quote, urlencode
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from sqlalchemy import select
@@ -100,39 +101,51 @@ async def search_work(session, config, policy, binding):
     roles = setting.preferences.roles if setting.preferences_mode == "custom" else (profile.preferences or {}).get("target_titles", [])
     if not roles:
         return None
-    # A general Date-sorted search on the genuine portal includes many senior
-    # roles. Add an ordinary keyword search for sub-year candidates, preserving
-    # every original query and all full-listing eligibility checks. "Fresher"
-    # is a discovery hint, never an experience fact or an application exemption.
+    # The genuine GNB's Fresher (less than1 year) choice emits experience=0.
+    # Interleave that observed ordinary search with every original query.
+    # This is a discovery criterion, never a candidate fact or eligibility pass.
+    queries = [(role, False) for role in roles]
     if profile.verified_experience_years is not None and 0 <= profile.verified_experience_years < 1:
-        roles = list(dict.fromkeys(query for role in roles for query in (
-            role if re.search(r"\bfresher\b", role, re.I) else role + " fresher", role,
+        queries = list(dict.fromkeys(query for role in roles for query in (
+            (role, True), (role, False),
         )))
-    index = value.get("role_index", 0) % len(roles)
+
+    def search_url(index, page):
+        role, filtered = queries[index]
+        slug = re.sub(r"[^a-z0-9]+", "-", role.lower()).strip("-")
+        if not slug:
+            return None
+        url = "https://www.naukri.com/" + slug + "-jobs" + ("-" + str(page) if page > 1 else "")
+        if filtered:
+            url += "?" + urlencode({"k": role.strip().lower(), "experience": "0",
+                                   "nignbevent_src": "jobsearchDeskGNB"}, quote_via=quote)
+        return url
+
+    index = value.get("role_index", 0) % len(queries)
     page = 1
     # Actual ordinary search pagination exposes /<role>-jobs-2, ...-3. When
     # page one was exhausted, don't keep revisiting only its same 20 links.
     # Follow at most three pages, one per existing interval, then rotate roles.
     # Reconstruct only the observed same-role path shape, never a provider API
     # or guessed filter/query parameter. Failed/stopped reads reset the sweep.
-    previous_index = (index - 1) % len(roles)
-    previous_slug = re.sub(r"[^a-z0-9]+", "-", roles[previous_index].lower()).strip("-")
+    previous_index = (index - 1) % len(queries)
     previous_page = value.get("search_page", 1)
-    previous_path = "https://www.naukri.com/" + previous_slug + "-jobs"
-    if type(previous_page) is int and previous_page in {2, 3}:
-        previous_path += "-" + str(previous_page)
+    previous_path = search_url(previous_index, previous_page) if type(previous_page) is int else None
+    # The observed filtered page's Next href drops its query. Do not invent
+    # filtered pagination; keep the existing bounded unfiltered sweeps instead.
     if (type(previous_page) is int and 1 <= previous_page < 3
+            and not queries[previous_index][1]
             and value.get("status") == "idle" and value.get("last_finished_at")
             and value.get("last_error") is None and value.get("last_cycle_count") == 0
             and value.get("url") == previous_path):
         index, page = previous_index, previous_page + 1
-    slug = re.sub(r"[^a-z0-9]+", "-", roles[index].lower()).strip("-")
-    if not slug:
+    url = search_url(index, page)
+    if not url:
         return None
     value = {
         "id": str(uuid5(NAMESPACE_URL, SEARCH)), "revision": value.get("revision", 0) + 1,
         "lease_token": str(uuid4()), "lease_until": (now + timedelta(seconds=180)).isoformat(),
-        "operation": "search_jobs", "url": "https://www.naukri.com/" + slug + "-jobs" + ("-" + str(page) if page > 1 else ""),
+        "operation": "search_jobs", "url": url,
         "status": "leased", "binding": binding, "policy_revision": config["revision"],
         "role_index": index + 1, "search_page": page, "last_started_at": now.isoformat(),
         "next_at": (now + timedelta(seconds=setting.discovery_interval_seconds)).isoformat(),

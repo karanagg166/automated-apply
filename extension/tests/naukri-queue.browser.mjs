@@ -115,6 +115,9 @@ let unexpectedRequests = 0,
 const req = "291026123456";
 const jobUrl = `https://www.naukri.com/job-listings-fictional-${req}`;
 const searchUrl = "https://www.naukri.com/backend-developer-jobs";
+const filteredUrl =
+  searchUrl +
+  "?k=backend%20developer&experience=0&nignbevent_src=jobsearchDeskGNB";
 const evidence = [];
 let modern = false,
   scenario = "";
@@ -176,6 +179,22 @@ page(2);control.onclick=()=>menu.style.visibility='visible';menu.querySelector('
       );
     if (scenario === "search_access_restriction")
       body = "<p>Access denied</p>" + body;
+    if (scenario.startsWith("filtered_fresher_")) {
+      const any = scenario === "filtered_fresher_any";
+      body =
+        `<input id="experienceDD" value="${any ? "" : "Fresher"}"><section class="experiencecontainer"><div class="rc-slider${any ? " not-selected" : ""}"><div role="slider" aria-label="Experience" aria-valuenow="0">${any ? "Any" : "0"}</div></div></section>` +
+        body;
+      if (scenario === "filtered_fresher_duplicate")
+        body += '<input id="experienceDD" value="Fresher">';
+      if (scenario === "filtered_fresher_lost_query")
+        body +=
+          '<script>history.replaceState(null,"",location.pathname)</script>';
+      if (scenario === "filtered_fresher_lost_after_date")
+        body = body.replace(
+          "document.querySelector('#filter-sort').textContent='Date';",
+          "document.querySelector('#filter-sort').textContent='Date';history.replaceState(null,'',location.pathname);",
+        );
+    }
     if (modern)
       body = body
         .replace(
@@ -250,6 +269,14 @@ page(2);control.onclick=()=>menu.style.visibility='visible';menu.querySelector('
     ["current_details_conflict", "inspect_job", jobUrl, false],
     ["current_details_ambiguous", "inspect_job", jobUrl, false],
     ["background_search_links", "search_jobs", searchUrl, false],
+    ...["success", "any", "duplicate", "lost_query", "lost_after_date"].map(
+      (suffix) => [
+        "filtered_fresher_" + suffix,
+        "search_jobs",
+        filteredUrl,
+        false,
+      ],
+    ),
     [
       "fresher_keyword_relevance",
       "search_jobs",
@@ -313,6 +340,20 @@ page(2);control.onclick=()=>menu.style.visibility='visible';menu.querySelector('
     );
     const finished = result.calls.find((c) => c.name === "finish_naukri_work");
     if (
+      name.startsWith("filtered_fresher_") &&
+      name !== "filtered_fresher_success"
+    ) {
+      assert.equal(finished, undefined);
+      assert.equal(
+        result.calls.find((c) => c.name === "abandon_naukri_work")?.input
+          .work_report.reason,
+        name === "filtered_fresher_any"
+          ? "search_date_sort_not_confirmed"
+          : name === "filtered_fresher_duplicate"
+            ? "search_experience_filter_ambiguous"
+            : "search_experience_filter_changed",
+      );
+    } else if (
       name === "unconfirmed_search_sort" ||
       name === "search_access_restriction" ||
       name === "fresher_keyword_wrong_order" ||
