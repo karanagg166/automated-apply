@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { continueRetainedQuestionnaire } from "../naukri-retained.js";
+import {
+  continueRetainedQuestionnaire,
+  inspectUnansweredRetainedForm,
+} from "../naukri-retained.js";
 
 function fixture(change = {}) {
   const calls = [];
@@ -178,3 +181,89 @@ test("an explicit retained identity selects only that form and leaves other unce
   await assert.rejects(bad.run, /one_retained_questionnaire_required/);
   assert.deepEqual(bad.calls, []);
 });
+
+for (const change of [null, "active", "session-window", "question", "nonempty"])
+  test(`read-only first-form recovery ${change || "preserves exact original ownership"}`, async () => {
+    const calls = [];
+    const form = {
+      id: "11111111-1111-4111-8111-111111111111",
+      url: "https://www.naukri.com/job-listings-fictional-123456789012",
+      requisition: "123456789012",
+      question: "Any training?",
+      original_binding: {
+        profile_binding_id: "profile",
+        browser_session_id: "old",
+        window_id: 7,
+        tab_id: 11,
+      },
+    };
+    if (change === "session-window") form.original_binding.window_id = 8;
+    let result;
+    const api = {
+      storage: {
+        local: {
+          get: async (k) => ({
+            [k]: {
+              id: "profile",
+              secret: "never-expose",
+              connected: true,
+              windowId: 7,
+            },
+          }),
+        },
+        session: {
+          get: async (k) => ({
+            [k]: k === "applicationBrowserSessionV1" ? "new" : {},
+          }),
+          set: async (v) => {
+            result = v;
+          },
+        },
+      },
+      tabs: {
+        get: async () => ({
+          id: 11,
+          active: change === "active",
+          url: form.url,
+          windowId: 7,
+        }),
+      },
+      scripting: {
+        executeScript: async (args) => {
+          calls.push(args);
+          return [
+            {
+              result:
+                calls.length === 1
+                  ? {
+                      kind: "questionnaire",
+                      question:
+                        change === "question"
+                          ? "Different question"
+                          : form.question,
+                      answer_kind: "text",
+                      options: [],
+                      document_id: "new-document",
+                      step_sha256: "a".repeat(64),
+                    }
+                  : change !== "nonempty",
+            },
+          ];
+        },
+      },
+    };
+    if (change) {
+      await assert.rejects(() => inspectUnansweredRetainedForm(form, api));
+      assert.equal(result, undefined);
+    } else {
+      const proof = await inspectUnansweredRetainedForm(form, api);
+      assert.equal(proof.binding.browser_session_id, "new");
+      assert.equal(proof.binding.tab_id, 11);
+      assert.equal(proof.empty_first_question, true);
+      assert.equal(JSON.stringify(result).includes("never-expose"), false);
+      assert.equal(
+        calls.every((x) => x.world === "ISOLATED" && x.target.tabId === 11),
+        true,
+      );
+    }
+  });

@@ -1,4 +1,7 @@
-import { continueRetainedQuestionnaire } from "./naukri-retained.js";
+import {
+  continueRetainedQuestionnaire,
+  inspectUnansweredRetainedForm,
+} from "./naukri-retained.js";
 
 const ERROR_CODE_PATTERN = /^[a-z][a-z0-9_]{1,63}$/;
 const ENDPOINT_PATTERN = /^http:\/\/127\.0\.0\.1:\d+$/;
@@ -147,6 +150,26 @@ async function retainedChoices() {
   }
 }
 void retainedChoices();
+
+document
+  .querySelector("#inspect-retained-recovery")
+  ?.addEventListener("click", async () => {
+    const status = document.querySelector("#retained-recovery-status");
+    try {
+      const envelope = JSON.parse(
+        document.querySelector("#retained-recovery-envelope").value,
+      );
+      const proof = await inspectUnansweredRetainedForm(envelope);
+      status.textContent = JSON.stringify(proof);
+      await retainedChoices();
+    } catch (error) {
+      status.textContent = JSON.stringify({
+        error: ERROR_CODE_PATTERN.test(error.message)
+          ? error.message
+          : "retained_recovery_unavailable",
+      });
+    }
+  });
 
 document
   .querySelector("#continue-retained")

@@ -66,6 +66,24 @@
     ></label>
     <button id="continue-retained">Continue pending questionnaire</button>
     <p id="retained-status" role="status">No continuation requested.</p>
+    <details>
+      <summary>
+        Recover the first unanswered form after a connection restart
+      </summary>
+      <p>
+        Use the original application context from the local agent. This only
+        inspects the existing inactive tab. The backend must verify recovery
+        before it can continue.
+      </p>
+      <label
+        >Original application context
+        <textarea id="retained-recovery-envelope"></textarea>
+      </label>
+      <button id="inspect-retained-recovery">
+        Inspect original unanswered form
+      </button>
+      <pre id="retained-recovery-status" role="status"></pre>
+    </details>
     <script src="settings.js" type="module"></script>
   </body>
 </html>

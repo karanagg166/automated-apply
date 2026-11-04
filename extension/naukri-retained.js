@@ -7,6 +7,7 @@ import {
   profileNative,
 } from "./chrome-profile.js";
 import { NaukriQueue } from "./naukri-queue.js";
+import { naukriChatbot } from "./naukri-chatbot.js";
 
 let busy = false;
 const permitted = new Set([
@@ -17,6 +18,111 @@ const permitted = new Set([
   "reconcile_application",
   "verify_account",
 ]);
+
+// Read-only recovery of the exact first unanswered form. The backend must
+// separately accept this observation against its durable original-tab ledger.
+// This grants no browser write and never creates/navigates a provider tab.
+export async function inspectUnansweredRetainedForm(envelope, api = chrome) {
+  const context = await profileContext(api);
+  if (
+    !/^[a-f0-9-]{36}$/.test(envelope.id || "") ||
+    !/^[0-9]{10,20}$/.test(envelope.requisition || "") ||
+    new URL(envelope.url).origin !== "https://www.naukri.com" ||
+    !new URL(envelope.url).pathname.endsWith("-" + envelope.requisition) ||
+    ["profile_binding_id", "window_id"].some(
+      (k) => envelope.original_binding?.[k] !== context[k],
+    )
+  )
+    throw Error("retained_recovery_context_changed");
+  const id = envelope.original_binding.tab_id;
+  const tab = await api.tabs.get(id);
+  if (
+    tab.active ||
+    tab.windowId !== context.window_id ||
+    tab.url !== envelope.url
+  )
+    throw Error("questionnaire_original_tab_unavailable");
+  const observed = (
+    await api.scripting.executeScript({
+      target: { tabId: id, frameIds: [0] },
+      world: "ISOLATED",
+      func: naukriChatbot,
+      args: [
+        {
+          operation: "inspect",
+          url: envelope.url,
+          requisition: envelope.requisition,
+        },
+      ],
+    })
+  )[0]?.result;
+  if (
+    observed?.kind !== "questionnaire" ||
+    observed.question !== envelope.question
+  )
+    throw Error("retained_original_question_changed");
+  const empty = (
+    await api.scripting.executeScript({
+      target: { tabId: id, frameIds: [0] },
+      world: "ISOLATED",
+      func: () => {
+        const visible = (e) =>
+          e.getClientRects().length &&
+          getComputedStyle(e).visibility !== "hidden";
+        const drawers = [
+          ...document.querySelectorAll(".chatbot_DrawerContentWrapper"),
+        ].filter(visible);
+        if (document.visibilityState !== "hidden" || drawers.length !== 1)
+          return false;
+        const drawer = drawers[0];
+        const editors = [
+          ...drawer.querySelectorAll('.textArea[contenteditable="true"]'),
+        ].filter(visible);
+        return (
+          editors.length === 1 &&
+          !editors[0].textContent.trim() &&
+          [...drawer.querySelectorAll(".botItem .botMsg")].filter(visible)
+            .length === 2 &&
+          ![...drawer.querySelectorAll(".userItem,.userMsg")].some(visible)
+        );
+      },
+    })
+  )[0]?.result;
+  if (!empty) throw Error("retained_form_has_answer_or_unknown_progress");
+  const binding = { ...context, tab_id: id };
+  delete binding.profile_secret;
+  const proof = {
+    work_id: envelope.id,
+    url: envelope.url,
+    requisition: envelope.requisition,
+    binding,
+    questionnaire: observed,
+    empty_first_question: true,
+    observed_at: new Date().toISOString(),
+  };
+  // Keep ownership in the same volatile browser session; the backend still
+  // rejects writes until its original-form/session fence is safely recovered.
+  const saved =
+    (await api.storage.session.get("naukriParkedQuestionnairesV1"))
+      .naukriParkedQuestionnairesV1 || {};
+  await api.storage.session.set({
+    naukriParkedQuestionnairesV1: {
+      ...saved,
+      [envelope.id]: {
+        id: envelope.id,
+        url: envelope.url,
+        requisition: envelope.requisition,
+        form_pending: true,
+        ownerAdopted: false,
+        ownedTabId: id,
+        binding,
+        operation: "inspect_questionnaire",
+        recovery_proof: proof,
+      },
+    },
+  });
+  return proof;
+}
 
 export async function continueRetainedQuestionnaire(
   api = chrome,
