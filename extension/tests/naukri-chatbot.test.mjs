@@ -131,7 +131,10 @@ test("the observed text editor plus optional Skip chip accepts text without clic
     assert.equal((await f.run(a)).kind, "questionnaire_answer_attempted");
     assert.deepEqual(f.counts(), { clicks: 1, inputEvents: 1 });
     assert.equal(skipped, 0);
-    assert.equal((await f.run(a)).reason, "questionnaire_step_changed_or_consumed");
+    assert.equal(
+      (await f.run(a)).reason,
+      "questionnaire_step_changed_or_consumed",
+    );
   } finally {
     f.close();
   }
@@ -269,3 +272,114 @@ test("ambiguous provider drawers cannot be used", async () => {
     f.close();
   }
 });
+
+async function radioFixture(mode = "save") {
+  const f = await fixture({
+    question: "Are you willing to attend in-person interview?",
+  });
+  const d = f.w.document.querySelector(".chatbot_DrawerContentWrapper");
+  d.querySelector(".chipsContainer").replaceChildren();
+  const panel = f.w.document.createElement("div");
+  panel.className = "singleselect-radiobutton";
+  panel.innerHTML = `<div class="singleselect-radiobutton-container">${["Yes", "No"].map((v, i) => `<div class="ssrc__radio-btn-container"><input type="radio" id="${v}" name="radio-button" value="${v}" class="ssrc__radio" data-val="pb" data-index="${i}"><label for="${v}" class="ssrc__label">${v}</label></div>`).join("")}</div>`;
+  d.querySelector(".chatbot_MessageContainer").append(panel);
+  const send = d.querySelector(".send");
+  send.classList.add("disabled");
+  let changes = 0;
+  for (const input of panel.querySelectorAll("input"))
+    input.onchange = () => {
+      changes++;
+      if (mode === "advance")
+        d.querySelector(".botMsg").textContent = "Next question?";
+      else if (mode === "remove") d.remove();
+      else if (mode === "save") send.classList.remove("disabled");
+      else if (mode === "adopt") f.adopt();
+    };
+  return { ...f, panel, radioChanges: () => changes };
+}
+for (const mode of ["save", "advance", "remove"])
+  test(`real-shaped radio ${mode} consumes one choice without a later-question Save`, async () => {
+    const f = await radioFixture(mode);
+    try {
+      const step = await f.run();
+      assert.equal(step.answer_kind, "choice");
+      assert.deepEqual(step.options, ["Yes", "No"]);
+      assert.equal(f.radioChanges(), 0);
+      const request = permit(step, "No");
+      const r = await f.run(request);
+      assert.equal(r.kind, "questionnaire_answer_attempted");
+      assert.equal(r.submitted, false);
+      assert.equal(f.radioChanges(), 1);
+      assert.equal(f.counts().clicks, mode === "save" ? 1 : 0);
+      assert.notEqual(
+        (await f.run(request)).kind,
+        "questionnaire_answer_attempted",
+      );
+      assert.equal(f.radioChanges(), 1);
+    } finally {
+      f.close();
+    }
+  });
+for (const [name, change, reason] of [
+  [
+    "selected",
+    (f) => (f.panel.querySelector("input").checked = true),
+    "questionnaire_existing_value_preserved",
+  ],
+  [
+    "disabled",
+    (f) => (f.panel.querySelector('input[value="No"]').disabled = true),
+    "questionnaire_control_disabled",
+  ],
+  [
+    "wrong label",
+    (f) => (f.panel.querySelector("label").textContent = "Maybe"),
+    "questionnaire_radio_controls_unrecognized",
+  ],
+  [
+    "duplicate group",
+    (f) => f.panel.parentElement.append(f.panel.cloneNode(true)),
+    "questionnaire_radio_controls_unrecognized",
+  ],
+  [
+    "mixed chips",
+    (f) => {
+      const c = f.w.document.createElement("div");
+      c.className = "chatbot_Chip";
+      c.textContent = "Other";
+      f.w.document.querySelector(".chipsContainer").append(c);
+    },
+    "questionnaire_radio_controls_unrecognized",
+  ],
+])
+  test(`radio ${name} refuses without a click`, async () => {
+    const f = await radioFixture();
+    try {
+      const s = await f.run();
+      change(f);
+      const r = await f.run(permit(s, "No"));
+      assert.equal(r.reason, reason);
+      assert.equal(f.radioChanges(), 0);
+      assert.equal(f.counts().clicks, 0);
+    } finally {
+      f.close();
+    }
+  });
+for (const [mode, reason] of [
+  ["no-save", "questionnaire_send_control_not_confirmed"],
+  ["adopt", "owner_tab_active"],
+])
+  test(`radio ${mode} never repeats selection or guesses a Save`, async () => {
+    const f = await radioFixture(mode);
+    try {
+      const s = await f.run();
+      const a = permit(s, "Yes");
+      assert.equal((await f.run(a)).reason, reason);
+      assert.equal(f.radioChanges(), 1);
+      assert.equal(f.counts().clicks, 0);
+      assert.notEqual((await f.run(a)).kind, "questionnaire_answer_attempted");
+      assert.equal(f.radioChanges(), 1);
+    } finally {
+      f.close();
+    }
+  });

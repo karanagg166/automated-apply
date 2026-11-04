@@ -83,21 +83,65 @@ export async function naukriChatbot(request) {
       visibleChips.length === 1 &&
       /^skip this question$/i.test(clean(visibleChips[0]));
     const chips = textWithSkip ? [] : visibleChips;
-    const options = chips.map(clean);
+    // Genuine single-select radio groups are siblings after the current bot
+    // message. Older groups before that message are not current controls.
+    const lastMessage = messages.at(-1);
+    const panels = [
+      ...drawer.querySelectorAll(".singleselect-radiobutton"),
+    ].filter(
+      (e) =>
+        visible(e) &&
+        e.parentElement === lastMessage?.closest(".chatbot_MessageContainer") &&
+        lastMessage.compareDocumentPosition(e) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    const radios =
+      panels.length === 1
+        ? [...panels[0].querySelectorAll('input.ssrc__radio[type="radio"]')]
+        : [];
+    const radioLabels = radios.map((e) =>
+      [...(e.labels || [])].filter(
+        (label) =>
+          panels[0].contains(label) &&
+          label.classList.contains("ssrc__label") &&
+          visible(label),
+      ),
+    );
+    if (
+      panels.length > 1 ||
+      (panels.length &&
+        (!radios.length ||
+          chips.length ||
+          editors.length ||
+          radios.some(
+            (e, i) =>
+              e.name !== "radio-button" ||
+              e.getAttribute("data-val") !== "pb" ||
+              e.getAttribute("data-index") !== String(i) ||
+              !e.id ||
+              radioLabels[i].length !== 1 ||
+              radioLabels[i][0].control !== e ||
+              clean(radioLabels[i][0]) !== e.value,
+          )))
+    )
+      throw Error("questionnaire_radio_controls_unrecognized");
+    const options = radios.length
+      ? radios.map((e) => e.value)
+      : chips.map(clean);
     const upload = [
       ...drawer.querySelectorAll('input.chatbot_Uploader[type="file"]'),
     ];
     const kind =
       upload.length && options.some((s) => /^upload (?:resume|cv)$/i.test(s))
         ? "file"
-        : chips.length
+        : chips.length || radios.length
           ? "choice"
           : editors.length === 1
             ? "text"
             : null;
     if (
       !kind ||
-      chips.length > 50 ||
+      options.length > 50 ||
       options.some((s) => !s || s.length > 160) ||
       new Set(options).size !== options.length
     )
@@ -109,6 +153,8 @@ export async function naukriChatbot(request) {
       drawer,
       question,
       chips,
+      radios,
+      radioLabels: radioLabels.map((labels) => labels[0]),
       options,
       editor: editors[0],
       kind,
@@ -160,6 +206,62 @@ export async function naukriChatbot(request) {
     if (current.kind === "choice") {
       if (!current.options.includes(request.answer))
         return fail("questionnaire_exact_choice_required");
+      if (current.radios.length) {
+        const index = current.options.indexOf(request.answer);
+        const radio = current.radios[index];
+        if (current.radios.some((e) => e.checked))
+          return fail("questionnaire_existing_value_preserved");
+        if (radio.disabled || radio.getAttribute("aria-disabled") === "true")
+          return fail("questionnaire_control_disabled");
+        safe();
+        state.used.add(current.signature); // Radio handlers may submit immediately.
+        current.radioLabels[index].click();
+        for (let i = 0; i < 8; i++) {
+          safe();
+          // A radio can advance immediately, or require the current scoped Save.
+          // Never click a Save belonging to a later question or the job header.
+          if (
+            !current.drawer.isConnected ||
+            clean(
+              [...current.drawer.querySelectorAll(".botItem .botMsg")]
+                .filter(visible)
+                .at(-1),
+            ) !== current.question
+          )
+            break;
+          const fresh = await snapshot();
+          if (fresh.signature !== current.signature) break;
+          if (
+            fresh.radios[index] !== radio ||
+            !radio.checked ||
+            current.radios.filter((e) => e.checked).length !== 1
+          )
+            return fail("questionnaire_radio_selection_not_confirmed");
+          const sends = [...fresh.drawer.querySelectorAll(".send")].filter(
+            (e) =>
+              visible(e) &&
+              !e.classList.contains("disabled") &&
+              !e.hasAttribute("disabled") &&
+              e.getAttribute("aria-disabled") !== "true" &&
+              /^(save|send|next|continue)$/i.test(clean(e)),
+          );
+          if (sends.length === 1) {
+            safe();
+            sends[0].click();
+            break;
+          }
+          if (sends.length > 1)
+            return fail("questionnaire_send_control_not_confirmed");
+          if (i === 7) return fail("questionnaire_send_control_not_confirmed");
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        return {
+          kind: "questionnaire_answer_attempted",
+          document_id: state.documentId,
+          step_sha256: current.signature,
+          submitted: false,
+        };
+      }
       const chip = current.chips[current.options.indexOf(request.answer)];
       if (
         chip.hasAttribute("disabled") ||

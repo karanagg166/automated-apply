@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { webcrypto } from "node:crypto";
+import { JSDOM } from "../../frontend/node_modules/jsdom/lib/api.js";
 import {
   continueRetainedQuestionnaire,
   inspectUnansweredRetainedForm,
@@ -265,5 +267,124 @@ for (const change of [null, "active", "session-window", "question", "nonempty"])
         calls.every((x) => x.world === "ISOLATED" && x.target.tabId === 11),
         true,
       );
+    }
+  });
+
+for (const change of [
+  null,
+  "selected",
+  "apply-document",
+  "user-message",
+  "disabled",
+  "extra-message",
+])
+  test(`unparsed radio recovery ${change || "proves the original untouched isolated document"}`, async () => {
+    const url = "https://www.naukri.com/job-listings-fictional-123456789012";
+    const dom = new JSDOM(
+      '<div class="chatbot_DrawerContentWrapper"><div class="chatbot_MessageContainer"><div class="botItem"><div class="botMsg">Hello fictional candidate</div></div><div class="botItem"><div class="botMsg">Are you willing to attend in-person interview?</div></div><div class="singleselect-radiobutton"><input type="radio" class="ssrc__radio" id="Yes" value="Yes" name="radio-button" data-val="pb" data-index="0"><label class="ssrc__label" for="Yes">Yes</label><input type="radio" class="ssrc__radio" id="No" value="No" name="radio-button" data-val="pb" data-index="1"><label class="ssrc__label" for="No">No</label></div></div></div>',
+      { url, runScripts: "outside-only" },
+    );
+    const w = dom.window;
+    Object.defineProperty(w, "crypto", { value: webcrypto });
+    Object.defineProperty(w.document, "visibilityState", { value: "hidden" });
+    Object.defineProperty(w.document.body, "innerText", {
+      get() {
+        return this.textContent;
+      },
+    });
+    w.Element.prototype.getClientRects = function () {
+      return [1];
+    };
+    w.__automatedApplyNaukriExecutionV1 = {
+      documentId: change === "apply-document" ? "different" : "original-apply",
+      used: true,
+      adopted: false,
+    };
+    if (change === "selected") w.document.querySelector("input").checked = true;
+    if (change === "disabled")
+      w.document.querySelector("input").disabled = true;
+    if (change === "user-message") {
+      const e = w.document.createElement("div");
+      e.className = "userMsg";
+      e.textContent = "previous answer";
+      w.document.body.firstElementChild.append(e);
+    }
+    if (change === "extra-message") {
+      const e = w.document.createElement("div");
+      e.className = "botItem";
+      e.innerHTML = '<div class="botMsg">Another question?</div>';
+      w.document.querySelector(".chatbot_MessageContainer").append(e);
+    }
+    let saved;
+    const api = {
+      storage: {
+        local: {
+          get: async (k) => ({
+            [k]: {
+              id: "profile",
+              secret: "private-secret",
+              connected: true,
+              windowId: 7,
+            },
+          }),
+        },
+        session: {
+          get: async (k) => ({
+            [k]: k === "applicationBrowserSessionV1" ? "same" : {},
+          }),
+          set: async (value) => {
+            saved = value;
+          },
+        },
+      },
+      tabs: { get: async () => ({ active: false, windowId: 7, url }) },
+      scripting: {
+        executeScript: async (args) => [
+          {
+            result: JSON.parse(
+              JSON.stringify(
+                await w.eval(
+                  `(${args.func.toString()})(...${JSON.stringify(args.args || [])})`,
+                ),
+              ),
+            ),
+          },
+        ],
+      },
+    };
+    const envelope = {
+      id: "11111111-1111-4111-8111-111111111111",
+      requisition: "123456789012",
+      url,
+      question: "Are you willing to attend in-person interview?",
+      original_binding: {
+        profile_binding_id: "profile",
+        window_id: 7,
+        tab_id: 11,
+      },
+      apply_document_id: "original-apply",
+    };
+    try {
+      if (change) {
+        await assert.rejects(() =>
+          inspectUnansweredRetainedForm(envelope, api),
+        );
+        assert.equal(saved, undefined);
+      } else {
+        const proof = await inspectUnansweredRetainedForm(envelope, api);
+        assert.equal(proof.empty_first_question, true);
+        assert.equal(proof.apply_document_id, "original-apply");
+        assert.equal(proof.control_kind, "naukri_single_select_radio");
+        assert.equal(proof.questionnaire.answer_kind, "choice");
+        assert.deepEqual(proof.questionnaire.options, ["Yes", "No"]);
+        assert.equal(JSON.stringify(proof).includes("private-secret"), false);
+        assert.ok(saved);
+      }
+      assert.equal(
+        w.document.querySelectorAll("input:checked").length,
+        change === "selected" ? 1 : 0,
+      );
+    } finally {
+      w.close();
     }
   });

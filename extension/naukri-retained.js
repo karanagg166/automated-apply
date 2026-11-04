@@ -78,9 +78,23 @@ export async function inspectUnansweredRetainedForm(envelope, api = chrome) {
         const editors = [
           ...drawer.querySelectorAll('.textArea[contenteditable="true"]'),
         ].filter(visible);
+        const panels = [
+          ...drawer.querySelectorAll(".singleselect-radiobutton"),
+        ].filter(visible);
+        const radios =
+          panels.length === 1
+            ? [...panels[0].querySelectorAll('input.ssrc__radio[type="radio"]')]
+            : [];
+        const emptyControl =
+          (editors.length === 1 &&
+            !editors[0].textContent.trim() &&
+            !panels.length) ||
+          (editors.length === 0 &&
+            panels.length === 1 &&
+            radios.length > 0 &&
+            radios.every((e) => !e.checked && !e.disabled));
         return (
-          editors.length === 1 &&
-          !editors[0].textContent.trim() &&
+          emptyControl &&
           [...drawer.querySelectorAll(".botItem .botMsg")].filter(visible)
             .length === 2 &&
           ![...drawer.querySelectorAll(".userItem,.userMsg")].some(visible)
@@ -89,6 +103,28 @@ export async function inspectUnansweredRetainedForm(envelope, api = chrome) {
     })
   )[0]?.result;
   if (!empty) throw Error("retained_form_has_answer_or_unknown_progress");
+  let applyDocument;
+  if (envelope.apply_document_id) {
+    applyDocument = (
+      await api.scripting.executeScript({
+        target: { tabId: id, frameIds: [0] },
+        world: "ISOLATED",
+        func: () => {
+          const s = globalThis.__automatedApplyNaukriExecutionV1;
+          return document.visibilityState === "hidden" &&
+            s?.used === true &&
+            !s.adopted
+            ? s.documentId
+            : null;
+        },
+      })
+    )[0]?.result;
+    if (
+      applyDocument !== envelope.apply_document_id ||
+      observed.answer_kind !== "choice"
+    )
+      throw Error("retained_original_apply_document_required");
+  }
   const binding = { ...context, tab_id: id };
   delete binding.profile_secret;
   const proof = {
@@ -99,6 +135,12 @@ export async function inspectUnansweredRetainedForm(envelope, api = chrome) {
     questionnaire: observed,
     empty_first_question: true,
     observed_at: new Date().toISOString(),
+    ...(applyDocument
+      ? {
+          apply_document_id: applyDocument,
+          control_kind: "naukri_single_select_radio",
+        }
+      : {}),
   };
   // Keep ownership in the same volatile browser session; the backend still
   // rejects writes until its original-form/session fence is safely recovered.

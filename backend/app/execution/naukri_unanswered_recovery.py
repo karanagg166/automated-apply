@@ -25,6 +25,10 @@ async def recover(session, identity, expected_revision, proof):
     config = await queue.configuration(session)
     row = await queue.load(session, identity)
     value = dict(row.value)
+    paused = value.get("paused_context", {})
+    unparsed_radio = (not value.get("questionnaire") and paused.get("stage") == "SUBMISSION_UNKNOWN"
+                      and paused.get("operation") == "reconcile_application"
+                      and paused.get("reason") in {"questionnaire_controls_unrecognized", "exact_application_history_row_required"})
     if (
         config["state"] != "STOPPED"
         or value["revision"] != expected_revision
@@ -38,8 +42,7 @@ async def recover(session, identity, expected_revision, proof):
             if a["fingerprint"] == "apply:initial"
         ]
         or len(value.get("admitted_actions", [])) != 1
-        or value.get("paused_context", {}).get("reason")
-        != "questionnaire_verified_answer_required"
+        or (paused.get("reason") != "questionnaire_verified_answer_required" and not unparsed_radio)
         or await prevents_replay(session, value["requisition"])
     ):
         raise ToolDenied("untouched_first_question_under_stop_required")
@@ -52,6 +55,11 @@ async def recover(session, identity, expected_revision, proof):
     profile = (await session.get(OwnerPreference, chrome_profiles.PROFILE + selected["profile_binding_id"])).value
     binding = proof["binding"]
     original = value["form_binding"]
+    if unparsed_radio and (binding.get("browser_session_id") != original.get("browser_session_id")
+                           or proof.get("apply_document_id") != value.get("document_id")
+                           or not value.get("document_id")
+                           or proof.get("control_kind") != "naukri_single_select_radio"):
+        raise ToolDenied("retained_original_apply_document_required")
     if (not chrome_profiles.online(profile) or not profile["commands_enabled"]
             or account["revision"] != value["account_binding_revision"]
             or account["account_sha256"] != value["account_sha256"]
@@ -67,8 +75,9 @@ async def recover(session, identity, expected_revision, proof):
             or proof["work_id"] != value["id"] or proof["url"] != value["url"]
             or proof["requisition"] != value["requisition"]
             or proof.get("empty_first_question") is not True
-            or step.answer_kind != "text" or step.options
-            or step.question != value["questionnaire"]["question"]):
+            or (unparsed_radio and (step.answer_kind != "choice" or not step.options))
+            or (not unparsed_radio and (step.answer_kind != "text" or step.options
+                                       or step.question != value["questionnaire"]["question"]))):
         raise ToolDenied("untouched_original_question_observation_required")
     signature = hashlib.sha256(json.dumps([value["url"], step.question, step.answer_kind, step.options],
                                         ensure_ascii=False, separators=(",", ":")).encode()).hexdigest()
@@ -77,7 +86,7 @@ async def recover(session, identity, expected_revision, proof):
     recovered = {**binding, "profile_version": profile["version"], "selection_version": selected["version"]}
     value["unanswered_session_recoveries"] = [*value.get("unanswered_session_recoveries", []), {
         "at": now.isoformat(), "old_form_binding": original,
-        "old_questionnaire": value["questionnaire"], "new_form_binding": recovered,
+        "old_questionnaire": value.get("questionnaire"), "new_form_binding": recovered,
         "new_questionnaire": step.model_dump(mode="json"),
         "source": "trusted_extension_exact_original_empty_first_question",
         "proof_sha256": hashlib.sha256(json.dumps(proof, sort_keys=True).encode()).hexdigest(),
@@ -86,6 +95,11 @@ async def recover(session, identity, expected_revision, proof):
                  questionnaire=step.model_dump(mode="json"), revision=value["revision"] + 1,
                  updated_at=now.isoformat())
     value.pop("questionnaire_answer", None)
+    if unparsed_radio:
+        # Only prepare an answer after Start. Retained facts grant no browser
+        # write; normal account/PDF/job/answer checks still precede admission.
+        value["paused_context"] = {"stage": "QUESTIONS", "status": "queued",
+                                   "operation": "prepare_questionnaire", "reason": None}
     row.value = value
     await queue.event(session, value, "untouched_first_question_session_recovered_no_apply")
     return value
