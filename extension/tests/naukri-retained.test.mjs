@@ -5,6 +5,7 @@ import { JSDOM } from "../../frontend/node_modules/jsdom/lib/api.js";
 import {
   continueRetainedQuestionnaire,
   inspectUnansweredRetainedForm,
+  configureRetainedHeartbeat,
 } from "../naukri-retained.js";
 
 function fixture(change = {}) {
@@ -386,5 +387,91 @@ for (const change of [
       );
     } finally {
       w.close();
+    }
+  });
+
+for (const change of [
+  null,
+  "active",
+  "adopted",
+  "session",
+  "window",
+  "url",
+  "missing",
+])
+  test(`exclusive retained heartbeat ${change || "preserves and restores the existing alarm"}`, async () => {
+    const id = "11111111-1111-4111-8111-111111111111";
+    const calls = [];
+    const form = {
+      form_pending: true,
+      ownerAdopted: change === "adopted",
+      ownedTabId: 11,
+      url: "https://www.naukri.com/job-listings-fictional-123456789012",
+      binding: {
+        profile_binding_id: "profile",
+        browser_session_id: change === "session" ? "different" : "session",
+        window_id: 7,
+      },
+    };
+    const api = {
+      storage: {
+        local: {
+          get: async (k) => ({
+            [k]: {
+              connected: true,
+              id: "profile",
+              secret: "private",
+              windowId: 7,
+            },
+          }),
+        },
+        session: {
+          get: async (k) => ({
+            [k]:
+              k === "applicationBrowserSessionV1"
+                ? "session"
+                : change === "missing"
+                  ? {}
+                  : { [id]: form },
+          }),
+        },
+      },
+      tabs: {
+        get: async () => ({
+          active: change === "active",
+          windowId: change === "window" ? 8 : 7,
+          url: change === "url" ? "https://example.org/" : form.url,
+        }),
+      },
+      alarms: {
+        get: async () => ({ periodInMinutes: 0.75 }),
+        clear: async (name) => calls.push(["clear", name]),
+        create: async (name, value) => calls.push(["create", name, value]),
+      },
+    };
+    try {
+      if (change) {
+        await assert.rejects(() => configureRetainedHeartbeat(api, id));
+        assert.deepEqual(calls, []);
+      } else {
+        assert.deepEqual(await configureRetainedHeartbeat(api, id), {
+          held: true,
+        });
+        assert.equal(calls.length, 1);
+        await configureRetainedHeartbeat(api, id);
+        assert.equal(calls.length, 2);
+        assert.deepEqual(await configureRetainedHeartbeat(api), {
+          held: false,
+        });
+        assert.deepEqual(calls.at(-1), [
+          "create",
+          "connected-chrome-heartbeat",
+          { periodInMinutes: 0.75 },
+        ]);
+        await configureRetainedHeartbeat(api);
+        assert.equal(calls.length, 3);
+      }
+    } finally {
+      await configureRetainedHeartbeat(api);
     }
   });

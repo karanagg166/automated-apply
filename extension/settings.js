@@ -1,6 +1,7 @@
 import {
   continueRetainedQuestionnaire,
   inspectUnansweredRetainedForm,
+  configureRetainedHeartbeat,
 } from "./naukri-retained.js";
 
 const ERROR_CODE_PATTERN = /^[a-z][a-z0-9_]{1,63}$/;
@@ -103,6 +104,12 @@ document.querySelector("#check").addEventListener("click", async () => {
 async function profileAction(action, extra = {}) {
   const target = document.querySelector("#profile-status");
   try {
+    await configureRetainedHeartbeat(
+      chrome,
+      action === "status"
+        ? document.documentElement.dataset.retainedExclusive || null
+        : null,
+    );
     const result = await chrome.runtime.sendMessage({
       command: "chrome_profile",
       action,
@@ -133,6 +140,12 @@ document
     profileAction("commands", { enabled: event.target.checked }),
   );
 void profileAction("status");
+document
+  .querySelector("#profile-refresh")
+  ?.addEventListener("click", () => profileAction("status"));
+window.addEventListener("pagehide", () => {
+  void configureRetainedHeartbeat(chrome, null).catch(() => {});
+});
 
 async function retainedChoices() {
   const select = document.querySelector("#retained-work");
@@ -167,7 +180,7 @@ document
         error: ERROR_CODE_PATTERN.test(error.message)
           ? error.message
           : "retained_recovery_unavailable",
-      detail: String(error.message || error.name).slice(0, 240),
+        detail: String(error.message || error.name).slice(0, 240),
       });
     }
   });
@@ -183,6 +196,12 @@ document
     try {
       const identity = document.querySelector("#retained-work")?.value;
       if (!identity) throw Error("retained_application_required");
+      const exclusive = document.documentElement.dataset.retainedExclusive;
+      if (exclusive) {
+        if (exclusive !== identity)
+          throw Error("retained_work_context_changed");
+        await configureRetainedHeartbeat(chrome, identity);
+      }
       await continueRetainedQuestionnaire(
         chrome,
         undefined,

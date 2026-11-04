@@ -10,6 +10,51 @@ import { NaukriQueue } from "./naukri-queue.js";
 import { naukriChatbot } from "./naukri-chatbot.js";
 
 let busy = false;
+let heldHeartbeat = null;
+
+// A fresh trusted settings module can continue an existing form while the
+// cached worker uses an older parser. Keep that worker's queue alarm suspended;
+// ordinary connection-status requests still provide authenticated heartbeats.
+export async function configureRetainedHeartbeat(
+  api = chrome,
+  identity = null,
+) {
+  if (!identity) {
+    if (heldHeartbeat) {
+      await api.alarms.create(profileAlarm, {
+        periodInMinutes: heldHeartbeat.periodInMinutes,
+      });
+      heldHeartbeat = null;
+    }
+    return { held: false };
+  }
+  const context = await profileContext(api);
+  const forms =
+    (await api.storage.session.get("naukriParkedQuestionnairesV1"))
+      .naukriParkedQuestionnairesV1 || {};
+  const form = forms[identity];
+  if (
+    !form?.form_pending ||
+    form.ownerAdopted ||
+    (heldHeartbeat && heldHeartbeat.identity !== identity) ||
+    ["profile_binding_id", "browser_session_id", "window_id"].some(
+      (k) => form.binding?.[k] !== context[k],
+    )
+  )
+    throw Error("retained_work_context_changed");
+  const tab = await api.tabs.get(form.ownedTabId);
+  if (tab.active || tab.windowId !== context.window_id || tab.url !== form.url)
+    throw Error("questionnaire_original_tab_unavailable");
+  if (!heldHeartbeat) {
+    const alarm = await api.alarms.get(profileAlarm);
+    heldHeartbeat = {
+      identity,
+      periodInMinutes: alarm?.periodInMinutes || 0.5,
+    };
+  }
+  await api.alarms.clear(profileAlarm);
+  return { held: true };
+}
 const permitted = new Set([
   "inspect_questionnaire",
   "refresh_questionnaire_profile",
