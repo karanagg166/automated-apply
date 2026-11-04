@@ -68,8 +68,9 @@ SUPERVISED and zero unexpected frontend requests. No allowance was reset.
 
 The first20 fresh internship-layout reads completed. Actual installed observations
 now retain minimum1/12 year and maximumnull; seven were outside the age limit,
-one held unknown applicant count, and12 still used the newly identified no-fixed-
-duration layout. The latter fix was subsequently included in1.3.29. A genuinely
+one held unknown applicant count, and12 remained unrecognized. Captured examples
+of those failures use the newly identified no-fixed-duration layout; that fix
+was subsequently included in1.3.29. A genuinely
 inspected direct internship had42 applicants and a recent date, but also restrictive
 residence wording and ambiguous employment evidence; this is not a claim that it
 passes the owner's current policy or can be submitted.
