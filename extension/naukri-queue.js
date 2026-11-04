@@ -804,13 +804,11 @@ export class NaukriQueue {
           context,
         );
       const profileWork = { ...work, operation: "inspect_profile" };
-      let r = await this.api.scripting.executeScript({
-        target: { tabId: tab.id, frameIds: [0] },
-        world: "ISOLATED",
-        func: executeNaukri,
-        args: [profileWork],
-      });
-      let report = r.length === 1 && r[0].result;
+      let report = await this.observeProfileReady(
+        { ...profileWork, ownedTabId: tab.id },
+        context,
+      );
+      let r;
       if (report?.reason === "profile_resume_download_capture_required") {
         await this.assertInactive(aux, context);
         r = await this.api.scripting.executeScript({
@@ -952,13 +950,22 @@ export class NaukriQueue {
       work = { ...admitted.work, ownedTabId: tabId };
       await this.api.storage.session.set({ [key]: work });
       await this.assertInactive(work, context);
-      const injected = await this.api.scripting.executeScript({
-        target: { tabId, frameIds: [0] },
-        world: "ISOLATED",
-        func: skills ? executeNaukriSkills : executeNaukri,
-        args: [work],
-      });
-      let report = injected.length === 1 && injected[0].result;
+      const profileRead = [
+        "inspect_profile",
+        "inspect_profile_sync",
+        "verify_account",
+      ].includes(work.operation);
+      const injected = profileRead
+        ? null
+        : await this.api.scripting.executeScript({
+            target: { tabId, frameIds: [0] },
+            world: "ISOLATED",
+            func: skills ? executeNaukriSkills : executeNaukri,
+            args: [work],
+          });
+      let report = profileRead
+        ? await this.observeProfileReady(work, context)
+        : injected.length === 1 && injected[0].result;
       if (!report) throw Error("provider_execution_unconfirmed");
       if (skills && work.execution.sync_phase === "prepare") {
         const started = Date.now();
@@ -1034,6 +1041,37 @@ export class NaukriQueue {
       if (!finished.continue) return work;
     }
     throw Error("background_step_limit_reached");
+  }
+  async observeProfileReady(work, context) {
+    // A genuine complete profile document showed no email for >2.5 seconds.
+    // Wait only for absent read evidence, using the existing 10-second UI-read
+    // bound. Visible wrong/ambiguous accounts, challenges and all writes fail
+    // immediately; no Apply or Download is repeated by this readiness loop.
+    if (
+      !["inspect_profile", "inspect_profile_sync", "verify_account"].includes(
+        work.operation,
+      )
+    )
+      throw Error("profile_read_operation_required");
+    const deadline = Date.now() + 10000;
+    for (let step = 0; step < 40; step++) {
+      await this.assertInactive(work, context);
+      const r = await this.api.scripting.executeScript({
+        target: { tabId: work.ownedTabId, frameIds: [0] },
+        world: "ISOLATED",
+        func: executeNaukri,
+        args: [work],
+      });
+      const report = r.length === 1 && r[0].result;
+      await this.assertInactive(work, context);
+      if (
+        report?.reason !== "profile_identity_hydrating" ||
+        Date.now() >= deadline ||
+        step === 39
+      )
+        return report;
+      await this.delay(250);
+    }
   }
   async observeReady(work, context) {
     // Navigation complete can precede React hydration. Only read-only layout

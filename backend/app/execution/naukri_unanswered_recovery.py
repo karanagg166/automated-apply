@@ -25,14 +25,15 @@ async def recover(session, identity, expected_revision, proof):
     config = await queue.configuration(session)
     row = await queue.load(session, identity)
     value = dict(row.value)
-    paused = value.get("paused_context", {})
-    unparsed_radio = (not value.get("questionnaire") and paused.get("stage") == "SUBMISSION_UNKNOWN"
+    paused = value.get("paused_context", {}) if value["stage"] == "PAUSED" else value
+    known_step = value.get("questionnaire")
+    retained_radio = ((not known_step or known_step.get("answer_kind") == "choice") and paused.get("stage") == "SUBMISSION_UNKNOWN"
                       and paused.get("operation") == "reconcile_application"
-                      and paused.get("reason") in {"questionnaire_controls_unrecognized", "exact_application_history_row_required"})
+                      and paused.get("reason") in {"questionnaire_controls_unrecognized", "provider_account_identity_unverified", "profile_identity_hydrating", "exact_application_history_row_required"})
     if (
         config["state"] != "STOPPED"
         or value["revision"] != expected_revision
-        or value["stage"] != "PAUSED"
+        or (value["stage"] != "PAUSED" and not (retained_radio and value["status"] == "unknown"))
         or not value.get("form_pending")
         or value.get("lease_token")
         or value.get("questionnaire_answers")
@@ -42,7 +43,7 @@ async def recover(session, identity, expected_revision, proof):
             if a["fingerprint"] == "apply:initial"
         ]
         or len(value.get("admitted_actions", [])) != 1
-        or (paused.get("reason") != "questionnaire_verified_answer_required" and not unparsed_radio)
+        or (paused.get("reason") != "questionnaire_verified_answer_required" and not retained_radio)
         or await prevents_replay(session, value["requisition"])
     ):
         raise ToolDenied("untouched_first_question_under_stop_required")
@@ -55,7 +56,7 @@ async def recover(session, identity, expected_revision, proof):
     profile = (await session.get(OwnerPreference, chrome_profiles.PROFILE + selected["profile_binding_id"])).value
     binding = proof["binding"]
     original = value["form_binding"]
-    if unparsed_radio and (binding.get("browser_session_id") != original.get("browser_session_id")
+    if retained_radio and (binding.get("browser_session_id") != original.get("browser_session_id")
                            or proof.get("apply_document_id") != value.get("document_id")
                            or not value.get("document_id")
                            or proof.get("control_kind") != "naukri_single_select_radio"):
@@ -75,8 +76,10 @@ async def recover(session, identity, expected_revision, proof):
             or proof["work_id"] != value["id"] or proof["url"] != value["url"]
             or proof["requisition"] != value["requisition"]
             or proof.get("empty_first_question") is not True
-            or (unparsed_radio and (step.answer_kind != "choice" or not step.options))
-            or (not unparsed_radio and (step.answer_kind != "text" or step.options
+            or (retained_radio and (step.answer_kind != "choice" or not step.options
+                                   or (known_step and any(step.model_dump(mode="json")[k] != known_step[k]
+                                                         for k in ("document_id", "step_sha256", "question", "answer_kind", "options")))))
+            or (not retained_radio and (step.answer_kind != "text" or step.options
                                        or step.question != value["questionnaire"]["question"]))):
         raise ToolDenied("untouched_original_question_observation_required")
     signature = hashlib.sha256(json.dumps([value["url"], step.question, step.answer_kind, step.options],
@@ -95,11 +98,12 @@ async def recover(session, identity, expected_revision, proof):
                  questionnaire=step.model_dump(mode="json"), revision=value["revision"] + 1,
                  updated_at=now.isoformat())
     value.pop("questionnaire_answer", None)
-    if unparsed_radio:
+    if retained_radio:
         # Only prepare an answer after Start. Retained facts grant no browser
         # write; normal account/PDF/job/answer checks still precede admission.
         value["paused_context"] = {"stage": "QUESTIONS", "status": "queued",
                                    "operation": "prepare_questionnaire", "reason": None}
+        value.update(stage="PAUSED", status="waiting", reason="global_stop")
     row.value = value
     await queue.event(session, value, "untouched_first_question_session_recovered_no_apply")
     return value

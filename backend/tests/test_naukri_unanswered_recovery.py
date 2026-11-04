@@ -59,15 +59,17 @@ async def test_only_untouched_first_question_can_recover_without_new_apply(db_se
         assert (await queue.configuration(db_session))["state"] == "STOPPED"
 
 
+@pytest.mark.parametrize("cached,exhausted", [(False, False), (True, False), (True, True)])
 @pytest.mark.parametrize("change", [None, "apply_document", "browser_session", "selected", "kind", "fingerprint", "answer", "packet", "reason"])
-async def test_unparsed_radio_requires_exact_untouched_apply_document_and_never_repeats_apply(db_session, upload_case, change):
+async def test_unparsed_radio_requires_exact_untouched_apply_document_and_never_repeats_apply(db_session, upload_case, change, cached, exhausted):
     from uuid import UUID
 
     from backend.app.models.application_packet import ApplicationPacket
 
     _, item = await entered(db_session, upload_case)
     row = await queue.load(db_session, item["id"])
-    row.value = {**row.value, "stage": "SUBMISSION_UNKNOWN", "status": "queued", "operation": "reconcile_application",
+    cached_step = step("Are you willing to attend in-person interview?", kind="choice", options=["Yes", "No"])
+    row.value = {**row.value, **({"questionnaire": cached_step} if cached else {}), "stage": "SUBMISSION_UNKNOWN", "status": "unknown" if exhausted else "queued", "operation": "reconcile_application",
                  "reason": "exact_application_history_row_required"}
     config = await queue.configuration(db_session)
     await queue.control(db_session, QueueControl(action="stop", expected_revision=config["revision"]))
@@ -78,14 +80,16 @@ async def test_unparsed_radio_requires_exact_untouched_apply_document_and_never_
              "work_id": value["id"], "url": value["url"], "requisition": value["requisition"],
              "observed_at": datetime.now(timezone.utc).isoformat(), "empty_first_question": True,
              "apply_document_id": value["document_id"], "control_kind": "naukri_single_select_radio",
-             "questionnaire": {"kind": "questionnaire", **step("Are you willing to attend in-person interview?", kind="choice", options=["Yes", "No"])}}
+             "questionnaire": {"kind": "questionnaire", **cached_step}}
     if change == "apply_document": proof["apply_document_id"] = str(uuid4())
     if change == "browser_session": proof["binding"]["browser_session_id"] = str(uuid4())
     if change == "selected": proof["empty_first_question"] = False
     if change == "kind": proof["control_kind"] = "unknown"
     if change == "fingerprint": proof["questionnaire"]["step_sha256"] = "f" * 64
     if change == "answer": value["admitted_actions"] = [*value["admitted_actions"], {"fingerprint": "answer_questionnaire:old"}]
-    if change == "reason": value["paused_context"] = {**value["paused_context"], "reason": "unknown_final_submission"}
+    if change == "reason":
+        if exhausted: value["reason"] = "unknown_final_submission"
+        else: value["paused_context"] = {**value["paused_context"], "reason": "unknown_final_submission"}
     if change == "packet":
         packet = await db_session.get(ApplicationPacket, UUID(value["packet_id"]))
         packet.lifecycle_state = "submission_unknown"

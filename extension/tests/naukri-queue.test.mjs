@@ -989,3 +989,76 @@ test("owner activity is checked again before a drain can poll for another read",
   assert.equal(f.completed(), 1);
   assert.equal(f.polls(), 1);
 });
+
+for (const [name, reports, expected, attempts] of [
+  [
+    "hydrating then observed",
+    [
+      { kind: "needs_input", reason: "profile_identity_hydrating" },
+      { kind: "needs_input", reason: "profile_identity_hydrating" },
+      {
+        kind: "execution_observation",
+        execution: { state: "PROFILE_OBSERVED" },
+      },
+    ],
+    "PROFILE_OBSERVED",
+    3,
+  ],
+  [
+    "mismatched account",
+    [
+      { kind: "needs_input", reason: "provider_account_identity_unverified" },
+      {
+        kind: "execution_observation",
+        execution: { state: "PROFILE_OBSERVED" },
+      },
+    ],
+    "provider_account_identity_unverified",
+    1,
+  ],
+  [
+    "challenge",
+    [{ kind: "needs_input", reason: "provider_challenge_requires_owner" }],
+    "provider_challenge_requires_owner",
+    1,
+  ],
+  [
+    "absent account",
+    Array.from({ length: 40 }, () => ({
+      kind: "needs_input",
+      reason: "profile_identity_hydrating",
+    })),
+    "profile_identity_hydrating",
+    40,
+  ],
+])
+  test(`profile readiness ${name} remains a bounded read with no repeated admission`, async () => {
+    const f = fixture({ reports });
+    const tab = await f.api.tabs.create({
+      url: "https://www.naukri.com/mnjuser/profile",
+      active: false,
+      windowId: 10,
+    });
+    const result = await f.queue.observeProfileReady(
+      {
+        id: "fixture",
+        operation: "inspect_profile",
+        ownedTabId: tab.id,
+        target_url: tab.url,
+        execution: {},
+      },
+      { window_id: 10 },
+    );
+    assert.equal(result.reason || result.execution.state, expected);
+    assert.equal(f.calls.filter(([n]) => n === "inspect").length, attempts);
+    assert.equal(f.calls.filter(([n]) => n === "admit_naukri_work").length, 0);
+  });
+
+test("profile hydration helper cannot retry an Apply or other write", async () => {
+  const f = fixture();
+  await assert.rejects(
+    () => f.queue.observeProfileReady({ operation: "apply" }, {}),
+    /profile_read_operation_required/,
+  );
+  assert.equal(f.calls.length, 0);
+});

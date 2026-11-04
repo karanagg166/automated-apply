@@ -84,6 +84,14 @@ export async function executeNaukri(work) {
         return proof.account_sha256;
     }
     if (
+      emails.length === 0 &&
+      location.pathname === "/mnjuser/profile" &&
+      ["inspect_profile", "inspect_profile_sync", "verify_account"].includes(
+        work.operation,
+      )
+    )
+      throw Error("profile_identity_hydrating");
+    if (
       emails.length !== 1 ||
       (await hash(emails[0])) !== request?.expected_account_sha256
     )
