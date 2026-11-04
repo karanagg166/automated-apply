@@ -121,7 +121,7 @@ class ObservedNaukriJob(Contract):
     description: str = Field(min_length=1, max_length=20000)
     skills: list[str] = Field(min_length=1, max_length=50)
     experience_min: float = Field(ge=0, le=60, allow_inf_nan=False)
-    experience_max: float = Field(ge=0, le=60, allow_inf_nan=False)
+    experience_max: float | None = Field(None, ge=0, le=60, allow_inf_nan=False)
     posted_at: datetime | None = None
     posted_date: date | None = None
     applicants_min: int | None = Field(None, ge=0, le=10_000_000)

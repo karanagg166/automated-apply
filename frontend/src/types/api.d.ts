@@ -6940,7 +6940,7 @@ export interface components {
       /** Experience Min */
       experience_min: number;
       /** Experience Max */
-      experience_max: number;
+      experience_max?: number | null;
       /** Posted At */
       posted_at?: string | null;
       /** Posted Date */

@@ -112,6 +112,56 @@ test("malformed structured experience is retained for review", async () => {
   );
   assert.equal(report.reason, "structured_experience_requires_review");
 });
+function internship({
+  months = "1",
+  badge = true,
+  remote = "Remote",
+  location = "Hyderabad",
+} = {}) {
+  return html({
+    experience: "3 months duration",
+    location,
+    posting: {
+      experienceRequirements: { monthsOfExperience: months },
+      employmentType: "Full Time, Permanent",
+    },
+  }).replace(
+    "</button></div>",
+    `</button>${badge ? '<p class="styles_internship-label__fixture">Internship</p>' : ""}<div class="styles_jhc__wfhmode__fixture">${remote}</div></div>`,
+  );
+}
+test("actual internship duration layout retains only its structured experience minimum", async () => {
+  const report = await observe(internship());
+  assert.equal(report.kind, "job_facts");
+  assert.equal(report.job.experience_min, 1 / 12);
+  assert.equal(report.job.experience_max, null);
+  assert.equal(report.job.remote_type, "remote");
+  assert.equal(report.job.employment_type, null);
+});
+test("placement duration never bounds required work experience", async () => {
+  const report = await observe(internship({ months: "12" }));
+  assert.equal(report.job.experience_min, 1);
+  assert.equal(report.job.experience_max, null);
+});
+for (const [variant, reason] of [
+  [{ badge: false }, "job_required_facts_unrecognized"],
+  [{ months: undefined }, "verified_experience_requirements_required"],
+  [{ months: "Not disclosed" }, "structured_experience_requires_review"],
+]) {
+  test(`internship missing evidence remains held: ${reason}`, async () => {
+    let body = internship(variant);
+    if (Object.hasOwn(variant, "months") && variant.months === undefined)
+      body = body.replace(
+        '"monthsOfExperience":"1"',
+        '"monthsOfExperience":null',
+      );
+    assert.equal((await observe(body)).reason, reason);
+  });
+}
+test("separate remote widget cannot erase contradictory location evidence", async () => {
+  const report = await observe(internship({ location: "Hybrid - Hyderabad" }));
+  assert.equal(report.job.remote_type, "unknown");
+});
 for (const [label, expected] of [
   ["Full Time, Permanent", "full_time"],
   ["Part time", "part_time"],

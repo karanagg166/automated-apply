@@ -497,6 +497,42 @@ async def test_discovery_filters_before_scheduling_application_preparation(db_se
     assert await db_session.scalar(select(func.count()).select_from(ApplicationPacket)) == before
 
 
+@pytest.mark.parametrize("minimum,ceiling,expected", [
+    (0.08333333333333333, None, "ELIGIBLE"),
+    (5, None, "SKIPPED"),
+    (0.08333333333333333, 2, "SKIPPED"),
+])
+async def test_explicit_minimum_only_experience_preserves_unknown_upper_and_custom_ceiling(
+    db_session, upload_case, minimum, ceiling, expected,
+):
+    context = await setup(db_session)
+    if ceiling is not None:
+        config = await queue.configuration(db_session)
+        policy = QueuePolicy.model_validate(config["policy"])
+        platform = policy.platforms["naukri"]
+        platform.preferences_mode = "custom"
+        platform.preferences.roles = ["Backend Developer"]
+        platform.preferences.experience_max = ceiling
+        changed = await queue.configure(db_session, QueuePolicyUpdate(expected_revision=config["revision"], policy=policy))
+        await queue.control(db_session, QueueControl(expected_revision=changed["revision"], action="start"))
+    item = await queue.enqueue(db_session, "naukri", URL, "saved_verified_job")
+    work = await observe(db_session, context, item)
+    result = await call(db_session, context, "finish_naukri_work", work,
+                        work_report=job_report(experience_min=minimum, experience_max=None))
+    assert result.ok, result.error_code
+    saved = (await queue.load(db_session, item["id"])).value
+    assert saved["stage"] == expected, saved
+    assert saved["facts"]["experience_max"] is None
+    assert not saved["admitted_actions"] and not saved.get("packet_id")
+    job = await db_session.get(Job, UUID(saved["job_id"]))
+    assert job.discovery_metadata["experience_min_years"] == minimum
+    assert job.discovery_metadata["experience_max_years"] is None
+    if ceiling is not None:
+        assert saved["reason"] == "advertised_experience_outside_platform_preferences"
+    elif expected == "SKIPPED":
+        assert saved["reason"] == "required_experience_outside_verified_band"
+
+
 @pytest.mark.parametrize('status,stage,operation', [
     ('queued', 'DISCOVERED', 'inspect_job'),
     ('leased', 'DISCOVERED', 'inspect_job'),

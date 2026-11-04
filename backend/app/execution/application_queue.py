@@ -619,9 +619,13 @@ def check_eligibility(value, policy, job, company, profile, now):
     metadata = job.discovery_metadata or {}
     lower, upper = metadata.get("experience_min_years"), metadata.get("experience_max_years")
     years = profile.verified_experience_years
-    if lower is None or upper is None or years is None:
+    if lower is None or years is None:
         raise ToolDenied("verified_experience_requirements_required")
-    if not lower <= years <= upper:
+    # A source's explicit minimum is still enforceable when it states no upper
+    # bound (the real internship header displays duration instead). Never infer
+    # an upper bound from that duration or the listing URL. Custom advertised
+    # experience ceilings above still require a known maximum.
+    if years < lower or (upper is not None and years > upper):
         raise ToolDenied("required_experience_outside_verified_band")
     match = JobDiscoveryMatcher(None).match(job_view, candidate, company)
     effective = limits(policy, value["platform"])

@@ -93,6 +93,13 @@ export async function observeNaukri(expectedUrl, operation) {
   // Genuine fresher headers display "0 years" rather than a range. Preserve
   // that explicit value; "Fresher", "0+" and unspecified ranges stay unknown.
   const band = range || (single && [single[0], single[1], single[1]]);
+  // Actual internship headers put a placement duration in the same slot as
+  // regular jobs' work experience. Duration cannot supply experience bounds.
+  const internshipDuration =
+    /^\d+(?:\.\d+)? months? duration$/i.test(experience || "") &&
+    [...header.querySelectorAll('[class*="internship-label"]')].some(
+      (e) => clean(e) === "Internship",
+    );
   // The current outer job-desc-container also contains highlights, platform
   // match scores, skills, education and sharing controls. Keep the employer's
   // actual description separate from that surrounding UI when present.
@@ -132,7 +139,7 @@ export async function observeNaukri(expectedUrl, operation) {
     !title ||
     !company ||
     !locationText ||
-    !band ||
+    (!band && !internshipDuration) ||
     !description ||
     !skills.length
   )
@@ -176,7 +183,7 @@ export async function observeNaukri(expectedUrl, operation) {
   )
     return failure("structured_job_identity_ambiguous");
   const minimumMonths = posting.experienceRequirements?.monthsOfExperience;
-  let minimumYears = Number(band[1]);
+  let minimumYears = band ? Number(band[1]) : null;
   if (minimumMonths !== undefined && minimumMonths !== null) {
     const numeric =
       typeof minimumMonths === "number" ||
@@ -187,12 +194,14 @@ export async function observeNaukri(expectedUrl, operation) {
       return failure("structured_experience_requires_review");
     // monthsOfExperience is a minimum. The genuine "0 years" headers can
     // contradict a one-month minimum; never choose the easier requirement.
-    if (months > Number(band[2]) * 12)
+    if (band && months > Number(band[2]) * 12)
       return failure("experience_requirement_evidence_conflict");
     // A compatible structured minimum still constrains the advertised range.
     // Zero verified years cannot satisfy an explicit one-month minimum.
-    minimumYears = Math.max(minimumYears, months / 12);
+    minimumYears = Math.max(minimumYears ?? 0, months / 12);
   }
+  if (minimumYears === null)
+    return failure("verified_experience_requirements_required");
   const employment = (value) =>
     typeof value === "string"
       ? {
@@ -241,16 +250,31 @@ export async function observeNaukri(expectedUrl, operation) {
   const conflict =
     new Set([...employmentTypes, ...uiEmploymentTypes].filter(Boolean)).size >
     1;
-  const employmentType = conflict ? null : structuredEmployment || uiEmployment;
+  const employmentType =
+    conflict ||
+    (internshipDuration &&
+      structuredEmployment &&
+      structuredEmployment !== "internship")
+      ? null
+      : structuredEmployment || uiEmployment;
   // Only an explicit mode in the observed location label establishes this
   // fact. Title/description keywords and missing labels never imply remote.
   const mode = locationText.match(
     /^(remote|hybrid|onsite|on-site)\s*(?:[-–:]\s*|$)(.*)$/i,
   );
-  const remoteType =
-    mode && !/^(remote|hybrid|onsite|on-site)\b/i.test(mode[2])
+  const workModes = [
+    ...header.querySelectorAll('[class*="jhc__wfhmode__"]'),
+  ].map(clean);
+  const explicitRemote = workModes.length === 1 && workModes[0] === "Remote";
+  const remoteConflict =
+    explicitRemote && mode && mode[1].toLowerCase() !== "remote";
+  const remoteType = remoteConflict
+    ? "unknown"
+    : mode && !/^(remote|hybrid|onsite|on-site)\b/i.test(mode[2])
       ? mode[1].toLowerCase().replace("on-site", "onsite")
-      : "unknown";
+      : explicitRemote
+        ? "remote"
+        : "unknown";
   let lower = null,
     upper = null;
   const countLabels = [...header.querySelectorAll("span, p")]
@@ -290,7 +314,7 @@ export async function observeNaukri(expectedUrl, operation) {
     description: description.slice(0, 20000),
     skills: skills.slice(0, 50),
     experience_min: minimumYears,
-    experience_max: Number(band[2]),
+    experience_max: band ? Number(band[2]) : null,
     employment_type: employmentType,
     remote_type: remoteType,
     posted_at: exact ? new Date(posted).toISOString() : null,
