@@ -1,12 +1,44 @@
 """Separate manifest and full catalog comparison for fresh public installations."""
 import hashlib
 import json
+import re
 from copy import deepcopy
 
 from backend.app.operations.migrations import ROOT, catalog
 from backend.app.operations.runtime_security import verify_restricted_runtime
 
 BUNDLE = ROOT / "supabase/fresh_public"
+
+
+def canonical_catalog(value):
+    """Compare two known PostgreSQL deparses without accepting predicate drift.
+
+    pg_dump/restore can move a literal varchar[]->text[] cast to each literal,
+    and flatten the pure email-length AND group. Keep all labels, operators,
+    validation flags, clauses, function bodies, ownership and ACLs unchanged.
+    """
+    result = deepcopy(value)
+
+    def literal_array(match):
+        literals = match[1].split(", ")
+        if not all(re.fullmatch(r"'(?:[^']|'')*'::character varying", item)
+                   for item in literals):
+            return match[0]
+        return "(ARRAY[" + ", ".join("(" + item + ")::text" for item in literals) + "])"
+
+    for section in ("constraints", "indexes"):
+        for key, definition in result.get(section, {}).items():
+            if not isinstance(definition, str):
+                continue
+            definition = re.sub(r"\(\(ARRAY\[(.*?)\]\)::text\[\]\)", literal_array, definition)
+            if section == "constraints" and key == "candidate_profiles.ck_candidate_email":
+                definition = definition.replace(
+                    "CHECK ((((length((email)::text) >= 3) AND (length((email)::text) <= 254)) AND ",
+                    "CHECK (((length((email)::text) >= 3) AND (length((email)::text) <= 254) AND ",
+                    1,
+                )
+            result[section][key] = definition
+    return result
 
 
 def verify_bundle():
@@ -29,7 +61,8 @@ def verify_bundle():
 def verified_catalog_version(actual, expected, followups):
     """Accept only complete pinned states, never arbitrary constraint widening."""
     candidate = deepcopy(expected)
-    if actual == candidate:
+    observed = canonical_catalog(actual)
+    if observed == canonical_catalog(candidate):
         return []
     applied = []
     for followup in followups:
@@ -43,7 +76,7 @@ def verified_catalog_version(actual, expected, followups):
                 raise RuntimeError("public_followup_precondition_mismatch")
             candidate[section][key] = change["after"]
         applied.append(followup["file"])
-        if actual == candidate:
+        if observed == canonical_catalog(candidate):
             return applied
     raise RuntimeError("public_catalog_drift_or_unsafe_grants")
 
