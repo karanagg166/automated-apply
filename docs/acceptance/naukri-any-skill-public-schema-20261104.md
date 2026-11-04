@@ -3,6 +3,11 @@
 [PR #48](https://github.com/karanagg166/automated-apply/pull/48), branch
 `fix/live-prepare-discovery-20261030`. Naukri remains **OPEN**.
 
+**Later November4 update:** the exact online repair and full real-archive restore
+have now passed. See the [superseding live report](naukri-online-worker-repair-20261104.md).
+The pending-migration and untested-restore statements below describe the earlier
+checkpoint; zero new verified submissions remains the current acceptance limit.
+
 The owner's latest correction requires **at least one verified listed skill**.
 This supersedes the previous strict-skill choice. Score50, age14 days,
 applicants1000, unknown-count review, experience/location/history/account/PDF checks

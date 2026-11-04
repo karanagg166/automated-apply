@@ -84,11 +84,17 @@ trigger guards still implement the old manual-only lifecycle. Sourceae66975 adds
 a pinned eight-constraint/three-function followup, ordered packet/audit writes
 and small quota projections. Source108 regressions and exact candidate108 pass;
 actual PostgreSQL17 public-SQL journey and rollback guards pass9 groups. Online
-DDL remains UNAPPLIED and requires the separately reviewed cloud-migration scope
-in docs/online-postgresql.md. QueueSTOP117/1884 preserves policy and untouched jobs;
-prepare/verify the compatible runtime and encrypted backup, publish exact SQL and
-request only the unavoidable owner database-administrator action. Resume only
-after catalog verification, using a different never-attempted eligible job.
+DDL003 was subsequently applied once on November4 through the existing authorized
+Supabase CLI administrator session. Full online catalog/security and preserved
+STOP117/1884/profile5/binding1 checks passed; the actual frontend resumed RUN118
+under lifetime-one/hour-one SUPERVISED. Full private restoration of the encrypted
+owner archive also passed47 table counts/20,937 rows, two PDF checksums and two
+OAuth envelope decryptions without refresh or provider calls. The earlier MCP
+OAuth refresh failure does not require an owner action for this completed repair.
+One fresh candidate redirected; another exposes Apply on company site and remains
+unsupported. Zero new admissions/receipts: continue genuine direct candidates and
+required-fact parser diagnosis before AUTO. See the
+[current live report](../acceptance/naukri-online-worker-repair-20261104.md).
 
 Latest owner correction (November4, current chat): require **at least one verified
 listed skill**. This supersedes the earlier every-listed-skill choice below.
