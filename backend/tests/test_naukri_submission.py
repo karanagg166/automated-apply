@@ -297,3 +297,38 @@ async def test_unadmitted_apply_recovers_with_fresh_profile_proof(db_session, re
     work = await queue.claim(db_session, "naukri", {"worker": "restarted"})
     assert work["operation"] == "inspect_profile"
     assert not work["admitted_actions"]
+
+
+@pytest.mark.parametrize("attempts,enabled", [(2, True), (3, True), (3, False)])
+async def test_exhausted_unknown_attempt_notifies_once_without_counting_a_submission(db_session, upload_case, attempts, enabled):
+    from pydantic import SecretStr
+
+    from backend.app.local_agent.models import TelegramDelivery
+
+    case = upload_case
+    context, item, work = await apply_ready(db_session, case)
+    work = await admit(db_session, case, context, work)
+    await finish(db_session, case, context, work, {"kind": "failed", "reason": "fictional_lost_response"})
+    row = await queue.load(db_session, item["id"])
+    row.value = {**row.value, "reconciliation_attempts": attempts}
+    config = await queue.configuration(db_session)
+    policy = config["policy"]
+    policy["platforms"]["naukri"]["notify_telegram"] = enabled
+    policy["notify_submitted"] = enabled
+    await queue.put(db_session, queue.POLICY_KEY, {**config, "policy": policy})
+    settings = case.settings.model_copy(update={"TELEGRAM_BOT_TOKEN": SecretStr("fictional-only"), "TELEGRAM_OWNER_CHAT_ID": 123, "TELEGRAM_OWNER_USER_ID": 456})
+    saved = dict(row.value)
+    assert await submission.notify_unknown(db_session, saved, settings) is (attempts == 3 and enabled)
+    assert not await submission.notify_unknown(db_session, saved, settings)
+    await db_session.commit()
+    notices = (await db_session.scalars(select(Notification).where(Notification.kind == "application_submission_unknown"))).all()
+    deliveries = (await db_session.scalars(select(TelegramDelivery))).all()
+    assert len(notices) == len(deliveries) == int(attempts == 3 and enabled)
+    if notices:
+        assert "unconfirmed" in notices[0].title
+        assert "will not be repeated" in notices[0].body
+        assert deliveries[0].state == "pending"
+    value = (await queue.load(db_session, item["id"])).value
+    assert value["stage"] == "SUBMISSION_UNKNOWN" and value["admitted_actions"] == saved["admitted_actions"]
+    assert len(value["admitted_actions"]) == 1
+    assert not await prevents_replay(db_session, item["requisition"])  # No fabricated receipt.

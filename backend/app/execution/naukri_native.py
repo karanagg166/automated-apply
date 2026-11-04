@@ -340,7 +340,7 @@ async def dispatch(session, settings, actor, command):
                 sync = await session.get(OwnerPreference, profile_sync.WORK, populate_existing=True)
                 busy |= bool(sync and sync.value.get("lease_until") and datetime.fromisoformat(sync.value["lease_until"]) > now)
                 if not busy:
-                    await submission.recover_unknown(session)
+                    await submission.recover_unknown(session, settings)
                     value = await queue.claim(session, "naukri", binding, operations=questionnaires.OPERATIONS)
                     if value is None:
                         value = await profile_sync.work(session, config, binding, settings)

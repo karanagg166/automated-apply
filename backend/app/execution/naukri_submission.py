@@ -72,7 +72,49 @@ def descriptor(value):
     }
 
 
-async def recover_unknown(session):
+async def notify_unknown(session, value, settings):
+    """One honest outcome notice after bounded reconciliation, never a receipt."""
+    if (value.get("uncertain_outcome_notice") or value.get("status") != "unknown"
+            or value.get("stage") != "SUBMISSION_UNKNOWN" or not value.get("admitted_actions")
+            or max(value.get("reconciliation_attempts", 0), value.get("account_recheck_attempts", 0)) < 3):
+        return False
+    policy = QueuePolicy.model_validate((await queue.configuration(session))["policy"])
+    if not policy.notify_submitted:
+        return False
+    from backend.app.dashboard.notifications import preferences
+    from backend.app.local_agent.models import TelegramDelivery
+    from backend.app.services.discovery_budget import insert_for
+
+    prefs = await preferences(session)
+    title = "Naukri submission remains unconfirmed"
+    body = (f"{value['title']} at {value['company']}: bounded account/history checks "
+            "did not verify a sent receipt. This attempt is quarantined and Apply will not be repeated.")
+    key = "naukri-unknown:" + value["id"]
+    channels = []
+    if not prefs.paused and prefs.in_app:
+        await session.execute(insert_for(session)(Notification).values(
+            dedup_key=key, kind="application_submission_unknown", title=title,
+            body=body, href="/applications/" + value["packet_id"],
+        ).on_conflict_do_nothing(index_elements=[Notification.dedup_key]))
+        channels.append("in_app")
+    if (policy.platforms["naukri"].notify_telegram and settings.TELEGRAM_BOT_TOKEN
+            and settings.TELEGRAM_OWNER_CHAT_ID and settings.TELEGRAM_OWNER_USER_ID):
+        delivery_id = -int(hashlib.sha256(key.encode()).hexdigest()[:15], 16) - (1 << 61)
+        await session.execute(insert_for(session)(TelegramDelivery).values(
+            update_id=delivery_id, state="pending", reply=title + ": " + body,
+        ).on_conflict_do_nothing(index_elements=[TelegramDelivery.update_id]))
+        channels.append("telegram_outbox")
+    if not channels:
+        return False
+    value["uncertain_outcome_notice"] = {
+        "at": (await instant(session)).isoformat(), "channels": channels,
+        "dedup_key": key, "verified_submission": False,
+    }
+    (await queue.load(session, value["id"])).value = dict(value)
+    return True
+
+
+async def recover_unknown(session, settings=None):
     """Schedule only history reads. Reconciliation is bounded across restarts."""
     config = await queue.configuration(session)
     if config["state"] != "RUNNING":
@@ -88,6 +130,12 @@ async def recover_unknown(session):
         v = dict(row.value)
         if (v["status"] != "unknown" or v.get("reconciliation_attempts", 0) >= 3
                 or v.get("account_recheck_attempts", 0) >= 3):
+            if v["status"] == "unknown" and v.get("admitted_actions"):
+                if settings is None:
+                    from backend.app.core.config import get_settings
+
+                    settings = get_settings()
+                await notify_unknown(session, v, settings)
             continue
         if not v.get("account_sha256"):
             continue
