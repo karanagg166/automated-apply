@@ -56,11 +56,23 @@ async def memory_row(session, *, lock=False, skip_locked=False):
     if (lock and transaction and cached and cached[0] in ancestors
             and cached[1] in session and not inspect(cached[1]).expired_attributes):
         return cached[1]
-    with span("owner_row_insert_wait"):
-        await session.execute(insert_for(session)(OwnerPreference).values(key=MEMORY_KEY, value={}).on_conflict_do_nothing())
     query = select(OwnerPreference).where(OwnerPreference.key == MEMORY_KEY).execution_options(populate_existing=True)
     with span("owner_row_lock_wait"):
         row = await session.scalar(query.with_for_update(skip_locked=skip_locked) if lock else query)
+    if row is None:
+        if lock and skip_locked:
+            # A skipped existing lock is not an absent singleton. An MVCC key
+            # read distinguishes it without waiting or issuing a conflicting
+            # INSERT. Preserve bootstrap only for a genuinely missing row.
+            existing = await session.scalar(select(OwnerPreference.key).where(
+                OwnerPreference.key == MEMORY_KEY,
+            ))
+            if existing is not None:
+                return None
+        with span("owner_row_insert_wait"):
+            await session.execute(insert_for(session)(OwnerPreference).values(key=MEMORY_KEY, value={}).on_conflict_do_nothing())
+        with span("owner_row_lock_wait"):
+            row = await session.scalar(query.with_for_update(skip_locked=skip_locked) if lock else query)
     if lock and row is not None:
         transaction = session.sync_session.get_nested_transaction() or session.sync_session.get_transaction()
         session.info["agent_owner_lock"] = (transaction, row)

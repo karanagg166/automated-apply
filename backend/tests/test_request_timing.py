@@ -17,9 +17,11 @@ from backend.app.core.timing import (
 @pytest.mark.asyncio
 async def test_parent_owner_lock_is_reused_but_rolled_back_child_lock_is_not(db_session):
     await memory_row(db_session, lock=True)
+    await db_session.commit()
+    await memory_row(db_session, lock=True)
     queries = []
-    def observe(*args):
-        queries.append(1)
+    def observe(connection, cursor, statement, parameters, context, executemany):
+        queries.append(statement)
     engine = db_session.bind.sync_engine
     event.listen(engine, "before_cursor_execute", observe)
     try:
@@ -33,7 +35,30 @@ async def test_parent_owner_lock_is_reused_but_rolled_back_child_lock_is_not(db_
             await child.rollback()
         queries.clear()
         await memory_row(db_session, lock=True)
-        assert len(queries) >= 2
+        assert len(queries) == 1 and queries[0].startswith("SELECT")
+    finally:
+        event.remove(engine, "before_cursor_execute", observe)
+
+
+@pytest.mark.asyncio
+async def test_existing_owner_memory_never_requires_an_initialization_write(db_session):
+    from backend.app.agent.store import MEMORY_KEY
+    from backend.app.dashboard.models import OwnerPreference
+
+    row = OwnerPreference(key=MEMORY_KEY, value={"preserved": "fictional"})
+    db_session.add(row)
+    await db_session.commit()
+    queries = []
+    def observe(connection, cursor, statement, parameters, context, executemany):
+        queries.append(statement)
+    engine = db_session.bind.sync_engine
+    event.listen(engine, "before_cursor_execute", observe)
+    try:
+        found = await memory_row(db_session, lock=True)
+        assert found.value == {"preserved": "fictional"}
+        assert len(queries) == 1 and queries[0].startswith("SELECT")
+        await memory_row(db_session, lock=True)
+        assert len(queries) == 1
     finally:
         event.remove(engine, "before_cursor_execute", observe)
 
