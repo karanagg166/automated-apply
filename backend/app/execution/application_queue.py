@@ -222,7 +222,11 @@ async def control(session, data):
                          status="waiting" if waiting else "queued",
                          operation=previous.get("operation", "inspect_job"),
                          reason=previous.get("reason"), revision=v["revision"] + 1)
-                if not waiting and v.get("form_pending"):
+                if (not waiting and v.get("form_pending") and v["operation"] in {
+                        "prepare_questionnaire", "inspect_questionnaire",
+                        "refresh_questionnaire_profile", "refresh_questionnaire_job",
+                        "answer_questionnaire",
+                }):
                     v.update(operation="refresh_questionnaire_profile", stage="QUESTIONS")
                 elif not waiting and v["operation"] in WRITES:
                     v.update(operation="inspect_profile" if v.get("account_sha256") and not v.get("admitted_actions") else "inspect_application", stage="VERIFYING")

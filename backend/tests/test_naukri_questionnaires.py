@@ -573,3 +573,20 @@ async def test_grounded_project_context_change_invalidates_a_prepared_answer(
     monkeypatch.setattr(service, "project_stamp", changed)
     with pytest.raises(ToolDenied, match="questionnaire_grounded_context_changed"):
         await forms.context(db_session, row.value, upload_case.settings, writing=True)
+
+
+@pytest.mark.parametrize("operation", ["verify_account", "reconcile_application"])
+async def test_stop_start_keeps_lost_form_on_history_reads_only(db_session, upload_case, operation):
+    case = upload_case
+    _, item = await entered(db_session, case)
+    row = await queue.load(db_session, item["id"])
+    original_actions = list(row.value["admitted_actions"])
+    row.value = {**row.value, "operation": operation, "stage": "SUBMISSION_UNKNOWN", "status": "queued", "reason": "original_form_lost_reconcile_only"}
+    config = await queue.configuration(db_session)
+    stopped = await queue.control(db_session, QueueControl(action="stop", expected_revision=config["revision"]))
+    await queue.control(db_session, QueueControl(action="start", expected_revision=stopped["revision"]))
+    v = (await queue.load(db_session, item["id"])).value
+    assert v["operation"] == operation and v["stage"] == "SUBMISSION_UNKNOWN"
+    assert v["status"] == "queued" and v["form_pending"]
+    assert v["admitted_actions"] == original_actions
+    assert v["reason"] == "original_form_lost_reconcile_only"
