@@ -96,7 +96,9 @@ export async function observeNaukri(expectedUrl, operation) {
   // Actual internship headers put a placement duration in the same slot as
   // regular jobs' work experience. Duration cannot supply experience bounds.
   const internshipDuration =
-    /^\d+(?:\.\d+)? months? duration$/i.test(experience || "") &&
+    /^(?:\d+(?:\.\d+)? months? duration|No fixed duration)$/i.test(
+      experience || "",
+    ) &&
     [...header.querySelectorAll('[class*="internship-label"]')].some(
       (e) => clean(e) === "Internship",
     );

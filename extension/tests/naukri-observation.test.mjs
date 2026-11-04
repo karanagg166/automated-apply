@@ -143,6 +143,23 @@ test("placement duration never bounds required work experience", async () => {
   assert.equal(report.job.experience_min, 1);
   assert.equal(report.job.experience_max, null);
 });
+test("genuine no-fixed-duration internships retain only the independent experience minimum", async () => {
+  const report = await observe(
+    internship().replace("3 months duration", "No fixed duration"),
+  );
+  assert.equal(report.kind, "job_facts");
+  assert.equal(report.job.experience_min, 1 / 12);
+  assert.equal(report.job.experience_max, null);
+});
+test("no-fixed-duration without its structured experience evidence remains held", async () => {
+  const body = internship()
+    .replace("3 months duration", "No fixed duration")
+    .replace('"monthsOfExperience":"1"', '"monthsOfExperience":null');
+  assert.equal(
+    (await observe(body)).reason,
+    "verified_experience_requirements_required",
+  );
+});
 for (const [variant, reason] of [
   [{ badge: false }, "job_required_facts_unrecognized"],
   [{ months: undefined }, "verified_experience_requirements_required"],
