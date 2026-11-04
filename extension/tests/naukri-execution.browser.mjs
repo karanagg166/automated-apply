@@ -141,6 +141,22 @@ try {
       body = `<header>${email}</header><article><a href="${jobUrl}">Backend Developer</a><span class="company">Fictional Labs</span><span>${mode === "missing_receipt" ? "Viewed" : "Application Sent"}</span></article>`;
     else
       body = `<header>${mode === "wrong_account" ? '<span class="email">other@example.com</span>' : email}</header><div class="styles_jd-header"><h1>Backend Developer</h1><span class="styles_comp-name">Fictional Labs</span><button onclick="window.fixtureClicks=(window.fixtureClicks||0)+1">Apply</button></div>${mode === "challenge" ? "<p>Verify you are human</p>" : ""}`;
+    if (mode.startsWith("follow_") && u.pathname.startsWith("/job-listings-")) {
+      const label =
+        mode === "follow_unknown"
+          ? "Subscribe to other messages"
+          : "Follow Fictional Labs as you apply to stay updated";
+      body = body
+        .replace(
+          "</button></div>",
+          `</button><div class="styles_fb_ckb_container__fixture"><i role="checkbox" tabindex="0" aria-checked="${mode === "follow_unchecked" ? "false" : "true"}" aria-label="${label}" style="display:inline-block;width:14px;height:14px"></i><label>${label}</label></div></div>`,
+        )
+        .replace(
+          "window.fixtureClicks=(window.fixtureClicks||0)+1",
+          "window.followAtApply=document.querySelector('[role=checkbox]').getAttribute('aria-checked');window.fixtureClicks=(window.fixtureClicks||0)+1;this.textContent='Applied'",
+        );
+      body += `<script>document.querySelector('[role=checkbox]').onclick=e=>{window.followClicks=(window.followClicks||0)+1;${mode === "follow_stuck" ? "" : "e.target.setAttribute('aria-checked','false');"}${mode === "follow_injected_choice" ? "const c=document.createElement('input');c.type='checkbox';c.checked=true;document.body.append(c);" : ""}};</script>`;
+    }
     if (mode === "questionnaire")
       body = body.replace(
         "window.fixtureClicks=(window.fixtureClicks||0)+1",
@@ -829,6 +845,99 @@ try {
         );
         assert.equal(count, ["expired", "changed"].includes(variant) ? 0 : 1);
       }
+      record(variant);
+      await close(tabId);
+    }
+    for (const variant of [
+      "follow_checked",
+      "follow_unchecked",
+      "follow_unknown",
+      "follow_stuck",
+      "follow_changed",
+      "follow_injected_choice",
+    ]) {
+      mode = variant;
+      tabId = await create(jobUrl);
+      const inspected = await run(tabId, work("inspect_application"));
+      if (variant === "follow_unknown") {
+        assert.equal(
+          inspected.reason,
+          "direct_apply_has_additional_side_effects_or_form",
+        );
+      } else {
+        assert.equal(
+          inspected.execution?.state,
+          "NOT_APPLIED",
+          JSON.stringify(inspected),
+        );
+        if (variant === "follow_changed")
+          await worker.evaluate(
+            async (id) =>
+              chrome.scripting.executeScript({
+                target: { tabId: id },
+                func: () =>
+                  document
+                    .querySelector("[role=checkbox]")
+                    .setAttribute("aria-checked", "false"),
+              }),
+            tabId,
+          );
+        const attempt = work("apply", {
+          document_id: inspected.execution.document_id,
+          control_sha256: inspected.execution.control_sha256,
+          permit_expires_at: new Date(Date.now() + 1500).toISOString(),
+        });
+        const result = await run(tabId, attempt);
+        if (variant === "follow_changed")
+          assert.equal(result.reason, "provider_apply_control_changed");
+        else if (variant === "follow_stuck")
+          assert.equal(result.reason, "company_follow_opt_out_unconfirmed");
+        else if (variant === "follow_injected_choice")
+          assert.equal(
+            result.reason,
+            "direct_apply_has_additional_side_effects_or_form",
+          );
+        else
+          assert.equal(
+            result.execution?.state,
+            "CLICKED",
+            JSON.stringify(result),
+          );
+        if (variant !== "follow_changed")
+          assert.equal(
+            (await run(tabId, attempt)).reason,
+            "single_use_document_admission_required",
+          );
+      }
+      const counts = await worker.evaluate(
+        async (id) =>
+          (
+            await chrome.scripting.executeScript({
+              target: { tabId: id },
+              world: "MAIN",
+              func: () => ({
+                apply: window.fixtureClicks || 0,
+                follow: window.followClicks || 0,
+                followAtApply: window.followAtApply,
+              }),
+            })
+          )[0].result,
+        tabId,
+      );
+      const successful = ["follow_checked", "follow_unchecked"].includes(
+        variant,
+      );
+      assert.equal(counts.apply, successful ? 1 : 0, variant);
+      assert.equal(
+        counts.follow,
+        ["follow_checked", "follow_stuck", "follow_injected_choice"].includes(
+          variant,
+        )
+          ? 1
+          : 0,
+        variant,
+      );
+      if (successful) assert.equal(counts.followAtApply, "false", variant);
       record(variant);
       await close(tabId);
     }

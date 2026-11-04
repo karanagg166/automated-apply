@@ -207,14 +207,33 @@ export async function executeNaukri(work) {
       .filter(visible)
       .some((e) => /^(already applied|applied)$/i.test(clean(e)));
     if (applied) return { applied, title, company };
+    // The genuine current header uses an <i role=checkbox>, rather than an
+    // input, for the optional company-follow choice. Bind only that exact
+    // labelled control; all other checked/ambiguous choices still block Apply.
+    const followLabel = `Follow ${company} as you apply to stay updated`;
+    const follows = [
+      ...header.querySelectorAll('[class*="fb_ckb_container"] [role=checkbox]'),
+    ].filter(visible);
+    const follow = follows.length === 1 && follows[0];
+    const followRecognized =
+      follow &&
+      follow.tagName === "I" &&
+      follow.getAttribute("aria-label") === followLabel &&
+      ["true", "false"].includes(follow.getAttribute("aria-checked")) &&
+      clean(follow.parentElement.querySelector("label")) === followLabel;
     if (
       [
         ...document.querySelectorAll(
-          "form, [role=dialog], input[type=checkbox]",
+          "form, [role=dialog], input[type=checkbox], [role=checkbox]",
         ),
       ]
         .filter(visible)
-        .some((e) => e.tagName !== "INPUT" || e.checked)
+        .some((e) => {
+          if (e.tagName === "INPUT") return e.checked;
+          if (e.getAttribute("role") !== "checkbox") return true;
+          if (e === follow && followRecognized) return false;
+          return e.getAttribute("aria-checked") !== "false";
+        })
     )
       throw Error("direct_apply_has_additional_side_effects_or_form");
     const controls = [...header.querySelectorAll("button")].filter(
@@ -233,31 +252,41 @@ export async function executeNaukri(work) {
       button.getAttribute("onclick")?.match(/window\.open|location/)
     )
       throw Error("external_application_requires_review");
+    const contentControl = await hash(
+      JSON.stringify([
+        state.documentId,
+        location.href,
+        title,
+        company,
+        clean(header),
+        clean(
+          document.querySelector(
+            '[class*="job-desc"], [class*="jobDesc"], [itemprop="description"]',
+          ),
+        ),
+        [
+          ...document.querySelectorAll(
+            '[class*="key-skill"], [class*="keySkill"]',
+          ),
+        ].map(clean),
+        [
+          ...document.querySelectorAll('script[type="application/ld+json"]'),
+        ].map((e) => e.textContent),
+        button.outerHTML,
+      ]),
+    );
     return {
       title,
       company,
       button,
+      follow: followRecognized ? follow : null,
+      followChecked:
+        followRecognized && follow.getAttribute("aria-checked") === "true",
+      contentControl,
       control: await hash(
         JSON.stringify([
-          state.documentId,
-          location.href,
-          title,
-          company,
-          clean(header),
-          clean(
-            document.querySelector(
-              '[class*="job-desc"], [class*="jobDesc"], [itemprop="description"]',
-            ),
-          ),
-          [
-            ...document.querySelectorAll(
-              '[class*="key-skill"], [class*="keySkill"]',
-            ),
-          ].map(clean),
-          [
-            ...document.querySelectorAll('script[type="application/ld+json"]'),
-          ].map((e) => e.textContent),
-          button.outerHTML,
+          contentControl,
+          followRecognized ? follow.outerHTML : null,
         ]),
       ),
     };
@@ -651,6 +680,22 @@ export async function executeNaukri(work) {
         throw Error("unexpected_browser_user_activation");
       safe();
       state.used = true; // Consume BEFORE any handler, including throw/navigation.
+      if (fresh.followChecked) {
+        // Opt out of the explicitly labelled optional follow choice as part of
+        // this single admitted application. Never accept an unrelated consent
+        // or click Apply if the opt-out did not persist in the same document.
+        fresh.follow.click();
+        const after = await snapshot();
+        if (
+          after.follow !== fresh.follow ||
+          after.followChecked ||
+          after.button !== fresh.button ||
+          after.contentControl !== fresh.contentControl
+        )
+          throw Error("company_follow_opt_out_unconfirmed");
+        safe();
+        if (expires <= Date.now()) throw Error("browser_action_permit_expired");
+      }
       fresh.button.click();
       // A click can asynchronously reveal a questionnaire. It must stay in its
       // original owned tab; do not close it and mistake the click for a receipt.
