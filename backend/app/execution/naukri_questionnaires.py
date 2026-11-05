@@ -5,6 +5,7 @@ Questions/answers belong to its immutable revision and the retained browser step
 Model work runs outside the owner transaction and grants no browser action.
 """
 
+import base64
 import hashlib
 import json
 import re
@@ -27,6 +28,11 @@ READS = {
 }
 WRITES = {"answer_questionnaire"}
 OPERATIONS = READS | WRITES
+
+
+def answer_bank_key(digest):
+    # Preserve all 256 bits while fitting owner_preferences.key VARCHAR(50).
+    return "aa_ans:" + base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
 
 
 def reuse_key(value, step):
@@ -63,11 +69,10 @@ def reuse_key(value, step):
                 )
             }
         )
-    return (
-        "apply_answer_bank:"
-        + hashlib.sha256(
+    return answer_bank_key(
+        hashlib.sha256(
             json.dumps(scope, sort_keys=True, ensure_ascii=False).encode()
-        ).hexdigest()
+        ).digest()
     )
 
 
@@ -668,10 +673,18 @@ async def approve_reuse(session, row):
         or packet.candidate_profile_version != q["profile_version"]
     ):
         raise ToolDenied("answer_context_stale")
-    row.value = {**q, "reuse_approved": True}
+    key = q["reuse_key"]
+    legacy = re.fullmatch(r"apply_answer_bank:([0-9a-f]{64})", key)
+    if legacy:
+        # Questions may already contain the old oversized key in their JSON.
+        # PostgreSQL could never persist a bank row under that VARCHAR(50) key.
+        key = answer_bank_key(bytes.fromhex(legacy.group(1)))
+    elif not re.fullmatch(r"aa_ans:[A-Za-z0-9_-]{43}", key):
+        raise ToolDenied("answer_context_stale")
+    row.value = {**q, "reuse_key": key, "reuse_approved": True}
     await queue.put(
         session,
-        q["reuse_key"],
+        key,
         {
             "answer": q["answer"],
             "question_id": q["id"],

@@ -1,5 +1,6 @@
 """Isolated continuation/Telegram/packet fences; no provider or real application."""
 
+import base64
 import hashlib
 import json
 from datetime import datetime, timedelta, timezone
@@ -414,8 +415,9 @@ async def test_expired_account_proof_cannot_authorize_a_questionnaire_write(
     )
 
 
+@pytest.mark.parametrize("legacy_question_key", [False, True])
 async def test_reuse_is_explicit_and_scoped_to_question_profile_and_job_facts(
-    db_session, upload_case
+    db_session, upload_case, legacy_question_key
 ):
     from sqlalchemy import select
 
@@ -436,9 +438,17 @@ async def test_reuse_is_explicit_and_scoped_to_question_profile_and_job_facts(
     )
     now = datetime.now(timezone.utc)
     await forms.answer_question(db_session, q, "Pune", now, case.settings)
+    compact_key = q.value["reuse_key"]
+    assert len(compact_key) == OwnerPreference.__table__.c.key.type.length == 50
+    digest = base64.urlsafe_b64decode(compact_key.removeprefix("aa_ans:") + "=")
+    assert len(digest) == 32
+    if legacy_question_key:
+        q.value = {**q.value, "reuse_key": "apply_answer_bank:" + digest.hex()}
+        await db_session.flush()
     assert await db_session.get(OwnerPreference, q.value["reuse_key"]) is None
     await forms.approve_reuse(db_session, q)
     await db_session.commit()
+    assert q.value["reuse_key"] == compact_key
     value = dict((await queue.load(db_session, item["id"])).value)
     assert await db_session.get(OwnerPreference, q.value["reuse_key"])
     # Reuse is a separate opt-in; the original immutable packet is untouched.
