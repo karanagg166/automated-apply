@@ -108,6 +108,14 @@ guarantees are unchanged. STOP147 took8.881s; comparison with the previous26s
 observation is uncontrolled and is not claimed as a performance improvement.
 No timeout or connection-limit increase was made.
 
+At14:55–14:56UTC a later audit counted2,454 requisitions with complete key coverage,
+zero duplicates, the same two admissions and zero new receipts. The14:54 cycle
+added three identities in19.442s with no source error. Queue GET took9.403s,
+readiness200 took2.389s and frontend200 took0.218s. Thus slow queue responses
+remain an unresolved performance issue despite readiness; the faster earlier
+sample does not establish a fix. The four-session snapshot then had zero lock
+waiters. Policy remained RUN152/lifetime2/hour1 with both notices sent.
+
 Private rollback inventories are retained under Application Support:
 `installation-plans/form-context-010f6799329e5fe458662c3c249fe9e6e7a62ab9` and
 `installation-plans/history-cards-b7c0e0203ba60807e48f7325b50645f98529e98d`.
