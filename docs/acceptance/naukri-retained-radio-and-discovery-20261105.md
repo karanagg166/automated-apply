@@ -177,3 +177,20 @@ observation justifies a new submission or admission refund.
 
 No Gmail send, paid purchase, other-platform activation, CAPTCHA/rate bypass,
 third Apply attempt, hosted workflow dispatch, merge, cleanup or release deletion.
+
+## Final morning handoff
+
+A third genuine cycle finished09:30:45UTC with6 new identities and no source
+error. The final ledger contains2167 identities, zero duplicate requisitions,
+two Apply admissions and zero new worker receipts. The three observed awake
+cycles added7/20/6 identities; the retained application still waits for the same
+unanswered personal fact. These observations do not supersede the sleep failure.
+
+The temporary acceptance observer was stopped and its read-only connection closed.
+The bounded settings controller then exited normally, requested normal heartbeat
+restoration, and an independent09:32:44 inactive settings read confirmed its
+exclusive hold was removed and connection/heartbeat status was healthy. The normal
+queue remains RUN146. Before recording an owner reply, resume the guarded trusted
+settings continuation so the cached older parser cannot race the updated adapter.
+Do not reload the original form or repeat Apply. No ongoing acceptance observer
+or temporary controller is represented as a permanent24/7 service.

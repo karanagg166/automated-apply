@@ -106,10 +106,15 @@ Current continuation permits only leased job/search reads beside this form and
 reuses its queue/listeners; foreign execution remains blocked. One actual LOCKED
 filtered search completed23:46:59UTC with21 observed links and zero new identities.
 The actual morning wake recovered discovery:7 new identities at09:20:25UTC and
-20 at09:25:29UTC. An09:22 ledger audit found2141 durable identities, zero duplicate
-requisitions and zero new worker receipts. The Mac actually slept overnight and
+20 at09:25:29UTC and6 at09:30:45UTC. The final audit found2167 durable identities,
+zero duplicate requisitions and zero new worker receipts. The Mac actually slept overnight and
 the audit observer lost its connection; continuous overnight operation is not
 accepted. No new application is inferred from discovery or heartbeat evidence.
+
+Before recording the owner answer, restart the guarded trusted settings
+continuation to avoid the cached parser racing the current adapter. The bounded
+acceptance controller ended normally with the exclusive hold removed and healthy
+connection/heartbeat status; normal queue RUN146 remains.
 
 After the owner answer, continue this exact form under fresh checks, obtain
 independent persistent provider receipt/history and accurate notification. Only
