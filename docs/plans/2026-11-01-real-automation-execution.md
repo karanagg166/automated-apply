@@ -57,7 +57,7 @@ after the Naukri first-submission priority; do not ask for keys again.
 | --- | --- | --- | --- |
 | A1 | Run complete eligibility checks in discovery before scheduling preparation | Real rejected observations remain history; no preparation packet/action for them; dedup/replay protections retained | Implemented and installed; real exclusions and positive eligible handoff through one genuine Apply verified; receipt remains absent |
 | A2 | Enable 1,800-second profile comparisons and deduplicated missing-fact notices | Actual bound portal comparison, notification, owner answer/version save and supported provider persistence | Installed30-minute comparisons/PDF checks and deduplicated notices;31 provider skills independently saved/verified; remaining facts and broader supported updates pending |
-| A3 | Finish first new supported Naukri application | Real fresh identity/PDF/job/history checks; actual fill/submit; independent persistent receipt; dashboard/Telegram outcome | Two genuine Apply attempts: original lost-tab quarantine, second active employer questionnaire; zero new verified receipts |
+| A3 | Finish first new supported Naukri application | Real fresh identity/PDF/job/history checks; actual fill/submit; independent persistent receipt; dashboard/Telegram outcome | Two genuine Apply attempts; both original forms lost and quarantined, prompts closed; zero new verified receipts |
 | A4 | Bounded Naukri recurring AUTOMATIC | First receipt plus critical checks; repeated real submissions within quotas, no duplicates; restart and locked-operation evidence | First-receipt server guard installed; recurring AUTO still not enabled or accepted |
 | A5 | Separate discovery/application visibility and controls | Dashboard distinguishes observed/held jobs from eligible application work and verified submissions; workers make progress independently | Installed separate observed/held/eligible/in-progress/new receipt/historical counts; live dashboard verified |
 | B1 | Instahyre adapter and account setup | Actual discovery/form/receipt/recurring acceptance under its own policy | Not accepted |
@@ -73,55 +73,51 @@ The earlier once-asked decision about `100+` lower-bound-only counts remains
 pending. A numeric threshold change alone does not authorize inventing its upper
 bound. Continue useful independent work rather than repeating the question.
 
-## Current priority — November5 IST, retained employer question
+## Current priority — November5 UTC, originals lost and exact runtime installed
 
-[Retained radio form, profile hydration and concurrent discovery](../acceptance/naukri-retained-radio-and-discovery-20261105.md)
-is the latest snapshot. API/execution remain exact0c87562, Telegram/nativeb6b0690
-and frontendae66975. Extension disk is exactcdd231b/1.3.36, same stable ID and25
-files; its settings modules are current, while the service worker remains cached
-b8b380c/1.3.31. This is an intentionally mixed temporary runtime to preserve the
-original admitted provider document. Do not represent disk version as a complete
-worker reload or final deployment acceptance.
+[Form-loss protection, genuine history and installed acceptance](../acceptance/naukri-form-loss-and-history-20261105.md)
+is the current snapshot. Installed API is exact010f679, frontend7efdb64 and full
+extension disk/runtimeb7c0e02/1.3.39,25 files and the same stable ID. Execution
+remains0c87562 and Telegram/nativeb6b0690. The temporary cached1.3.31 mixed runtime
+has ended. Full reload occurred only after both original forms were proven absent.
 
-The Backend Web Developer listing passed68.33 and one second authorized Apply at
-22:30:35UTC reached a genuine radio questionnaire while OS samples were LOCKED.
-The adapter now recognizes that actual radio structure and independently proved
-the same original untouched first form. No extra Apply, answer, admission refund
-or packet reset occurred. A real profile reload showed that the verified account
-field appeared only after3.233seconds despite document.readyState=complete;
-bounded read-only hydration handling now passes actual account/PDF/listing/form
-refresh. Actual saved PDF100198 bytes matched at23:30:36UTC.
+Both authorized Apply admissions remain consumed and SUBMISSION_UNKNOWN. Neither
+received an answer or questionnaire Save. Both reconciliation counters remain3,
+submitting packets remain fenced and the two unanswered prompts are closed. Do
+not ask the old interview preference again or repeat either Apply/QTrino. Both
+honest uncertainty Telegram notices are now sent; zero new worker receipts.
 
-The form is NEEDS_INPUT for the interview preference already asked once in chat.
-No owner answer exists. Dashboard question persistence is verified; Telegram
-state is delivery_unknown with no message IDs, so successful delivery cannot be
-claimed or repeated. Preserve this original tab and await the truthful answer.
-Two Apply admissions are consumed, zero new worker receipts. Original lost Java
-form remains quarantined; QTrino and every uncertain/history fence remain intact.
+The genuine history page contains one historical application. Its current cards
+lack listing anchors; actual same-origin helper-link IDs now support strict
+history parsing. The exact candidate recognizes that old receipt and neither
+current target, with no click, database receipt insertion or admission refund.
 
-STOP145 preserved the waiting form, policy, binding1/profile5 and protected files;
-only the owned inactive settings document reloaded. Actual frontend resumed146
-with lifetime2/hour1 SUPERVISED, any-skill/score50/14days/1000/review-unknown.
-Current continuation permits only leased job/search reads beside this form and
-reuses its queue/listeners; foreign execution remains blocked. One actual LOCKED
-filtered search completed23:46:59UTC with21 observed links and zero new identities.
-The actual morning wake recovered discovery:7 new identities at09:20:25UTC and
-20 at09:25:29UTC and6 at09:30:45UTC. The final audit found2167 durable identities,
-zero duplicate requisitions and zero new worker receipts. The Mac actually slept overnight and
-the audit observer lost its connection; continuous overnight operation is not
-accepted. No new application is inferred from discovery or heartbeat evidence.
+STOP147/151 preserved data, account binding1/profile5, limits, native files and
+all rollback releases. Actual frontend RUN152 restores five-minute discovery,
+SUPERVISED lifetime2/hour1, any skill/score50/14days/1000/review-unknown. The actual
+saved PDF100198bytes matched through native Download at13:41:50UTC. The14:47 audit
+counted2,451 unique requisitions, two admissions and zero new worker receipts;
+the14:44 cycle added seven identities. All service readiness checks pass.
 
-Before recording the owner answer, restart the guarded trusted settings
-continuation to avoid the cached parser racing the current adapter. The bounded
-acceptance controller ended normally with the exclusive hold removed and healthy
-connection/heartbeat status; normal queue RUN146 remains.
+The last extension replacement FAILED focus acceptance: Chrome's front-window
+ordering changed although selected tabs did not. Cause/OS foreground were not
+captured. Suspend unattended Chrome WebUI maintenance; do not activate a window
+to restore snapshots. Build and independently validate a focus-safe updater.
+Ordinary inactive-tab application processing remains available in1.3.39.
 
-After the owner answer, continue this exact form under fresh checks, obtain
-independent persistent provider receipt/history and accurate notification. Only
-then finish the complete worker reload and bounded recurring AUTO/restart/locked
-acceptance. Other adapters and draft integrations follow the first receipt.
-Do not whole-extension reload, replace services or request a third attempt while
-this form remains active. No hosted Actions, merge or cleanup.
+The next concrete proposal changes only lifetime2→3 for one different eligible
+supervised attempt. It is validated and prepared privately, NOT applied. Obtain
+owner authorization because existing limits remain mandatory, then pursue actual
+form completion and independently persistent receipt; no per-job prompt beyond
+that new quota authorization. Recurring AUTO stays off until the first strict
+worker receipt and critical checks. Continue independent discovery and repair
+while approval is pending. Approved answer reuse has a known preference-key
+length defect to fix before claiming that requirement accepted.
+
+Repeat/overnight/restart acceptance remains open: the Mac previously slept, and
+heartbeat or discovery is insufficient proof. Other adapters, free contact
+entitlement/drafts and final reviewed completion/merge follow Naukri receipt
+acceptance. No other platform activation, hosted Actions, merge or cleanup.
 
 ## Execution and evidence rules
 

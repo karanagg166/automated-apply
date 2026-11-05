@@ -1,5 +1,7 @@
 # Genuine retained radio form and discovery recovery
 
+> Superseded on November5 UTC by [lost-form and installed history acceptance](naukri-form-loss-and-history-20261105.md). Both original forms are now lost/quarantined, their unanswered prompts closed, and full extension1.3.39 is installed. The pending-form and mixed-runtime statements below are historical.
+
 [PR #48](https://github.com/karanagg166/automated-apply/pull/48), branch
 `fix/live-prepare-discovery-20261030`. **Naukri remains OPEN: two consumed Apply
 admissions, zero new verified worker submissions.** Times use UTC explicitly;
