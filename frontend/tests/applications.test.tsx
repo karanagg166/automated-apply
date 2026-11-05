@@ -826,55 +826,58 @@ describe("Applications Pipeline & Detail Views", () => {
   });
 });
 
-it("saves only the displayed packet question revision and requires review without an implicit resume", async () => {
-  const current = { ...mockPacket, revision: 7 };
-  const question = {
-    id: "q-1",
-    packet_id: current.id,
-    packet_revision: 7,
-    execution_id: "execution-1",
-    question: "Willing to relocate?",
-    state: "sent",
-    answer: null,
-    employer: "Acme",
-    role: "Engineer",
-    answer_type: "choice",
-    options: ["Yes", "No"],
-    expires_at: "2099-01-01T00:00:00Z",
-  };
-  let answered = false;
-  vi.mocked(api).mockImplementation(async (path) => {
-    if (path === `application-packets/${current.id}`) return current;
-    if (path.endsWith("/events")) return [];
-    if (path === "execution/questions") return answered ? [] : [question];
-    if (path === "browser-applications/policy")
-      return { origins: [], digest: "test" };
-    throw Error(path);
-  });
-  vi.mocked(post).mockImplementation(async () => {
-    answered = true;
-    return {};
-  });
-  renderWithClient(<ApplicationDetail id={current.id} />);
-  await screen.findByText("Willing to relocate?");
-  await userEvent.selectOptions(
-    screen.getByLabelText("Your verified answer"),
-    "Yes",
-  );
-  await userEvent.click(
-    screen.getByRole("button", { name: "Submit Answer from Dashboard" }),
-  );
-  expect(
-    await screen.findByText(
-      "Answer saved. Review and approve the updated packet before filling.",
-    ),
-  ).toBeVisible();
-  expect(post).toHaveBeenCalledWith("execution/questions/q-1/answer", {
-    answer: "Yes",
-    expected_revision: 7,
-  });
-  expect(
-    vi.mocked(post).mock.calls.some(([path]) => path.endsWith("/control")),
-  ).toBe(false);
-  expect(patch).not.toHaveBeenCalled();
-});
+it.each(["pending", "sent", "delivery_unknown"])(
+  "saves the displayed %s packet question revision without an implicit resume",
+  async (state) => {
+    const current = { ...mockPacket, revision: 7 };
+    const question = {
+      id: "q-1",
+      packet_id: current.id,
+      packet_revision: 7,
+      execution_id: "execution-1",
+      question: "Willing to relocate?",
+      state,
+      answer: null,
+      employer: "Acme",
+      role: "Engineer",
+      answer_type: "choice",
+      options: ["Yes", "No"],
+      expires_at: "2099-01-01T00:00:00Z",
+    };
+    let answered = false;
+    vi.mocked(api).mockImplementation(async (path) => {
+      if (path === `application-packets/${current.id}`) return current;
+      if (path.endsWith("/events")) return [];
+      if (path === "execution/questions") return answered ? [] : [question];
+      if (path === "browser-applications/policy")
+        return { origins: [], digest: "test" };
+      throw Error(path);
+    });
+    vi.mocked(post).mockImplementation(async () => {
+      answered = true;
+      return {};
+    });
+    renderWithClient(<ApplicationDetail id={current.id} />);
+    await screen.findByText("Willing to relocate?");
+    await userEvent.selectOptions(
+      screen.getByLabelText("Your verified answer"),
+      "Yes",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Submit Answer from Dashboard" }),
+    );
+    expect(
+      await screen.findByText(
+        "Answer saved. Review and approve the updated packet before filling.",
+      ),
+    ).toBeVisible();
+    expect(post).toHaveBeenCalledWith("execution/questions/q-1/answer", {
+      answer: "Yes",
+      expected_revision: 7,
+    });
+    expect(
+      vi.mocked(post).mock.calls.some(([path]) => path.endsWith("/control")),
+    ).toBe(false);
+    expect(patch).not.toHaveBeenCalled();
+  },
+);

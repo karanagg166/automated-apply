@@ -13,6 +13,126 @@ let busy = false;
 let heldHeartbeat = null;
 let cachedContinuation = null;
 
+export const retainedAlarm = "naukri-retained-form-continuation";
+export const retainedControllerKey = "naukriRetainedControllerV1";
+
+// The original provider document must survive the temporary adapter update.
+// Bind automatic continuation to this inactive settings tab, never another
+// settings page or a newly created provider form. Native admissions remain the
+// only route to provider work, and the loop never permits another Apply.
+export function retainedAlarmController(
+  api,
+  heartbeat,
+  onStatus = () => {},
+  run = continueRetainedQuestionnaire,
+  now = Date.now,
+) {
+  let busy = false;
+  let generation = 0;
+  const lifetime = 2 * 86400000;
+  const current = () => api.tabs.getCurrent();
+  const saved = async () =>
+    (await api.storage.session.get(retainedControllerKey))[
+      retainedControllerKey
+    ];
+  const valid = (v) =>
+    /^[a-f0-9-]{36}$/.test(v?.work_id || "") &&
+    Number.isFinite(v?.expires_at) &&
+    v.expires_at > now() &&
+    v.expires_at <= now() + lifetime;
+  async function stop() {
+    generation++;
+    const tab = await current();
+    const v = await saved();
+    if (v?.settings_tab_id !== tab?.id) return;
+    await api.storage.session.remove(retainedControllerKey);
+    await api.alarms.clear(retainedAlarm);
+    await configureRetainedHeartbeat(api, null);
+    onStatus({ state: "stopped" });
+  }
+  async function tick() {
+    if (busy) return;
+    busy = true;
+    const token = generation;
+    try {
+      const tab = await current();
+      const v = await saved();
+      if (!v || v.settings_tab_id !== tab?.id) return;
+      if (!valid(v)) return await stop();
+      if (tab.url !== api.runtime.getURL("settings.html"))
+        throw Error("retained_settings_context_changed");
+      if (tab.active) {
+        onStatus({ state: "waiting", reason: "owner_tab_active" });
+        return;
+      }
+      const forms =
+        (await api.storage.session.get("naukriParkedQuestionnairesV1"))
+          .naukriParkedQuestionnairesV1 || {};
+      if (!forms[v.work_id]?.form_pending || forms[v.work_id]?.ownerAdopted)
+        return await stop();
+      await configureRetainedHeartbeat(api, v.work_id);
+      const connection = await heartbeat(v.work_id);
+      if (!connection?.ok || !connection.connected)
+        throw Error("profile_unavailable");
+      if (token !== generation) return;
+      await run(api, undefined, undefined, v.work_id, v.allow_discovery_reads);
+      onStatus({ state: "running", checked_at: new Date(now()).toISOString() });
+    } catch (error) {
+      onStatus({ state: "waiting", reason: error.message });
+    } finally {
+      busy = false;
+    }
+  }
+  async function start(workId, allowDiscoveryReads) {
+    const tab = await current();
+    if (!tab || tab.active || tab.url !== api.runtime.getURL("settings.html"))
+      throw Error("inactive_retained_settings_required");
+    const previous = await saved();
+    if (previous && previous.settings_tab_id !== tab.id)
+      throw Error("another_retained_controller_exists");
+    try {
+      await configureRetainedHeartbeat(api, workId);
+      await api.storage.session.set({
+        [retainedControllerKey]: {
+          settings_tab_id: tab.id,
+          work_id: workId,
+          allow_discovery_reads: allowDiscoveryReads === true,
+          expires_at: now() + lifetime,
+        },
+      });
+      await api.alarms.create(retainedAlarm, { periodInMinutes: 0.5 });
+      await tick();
+    } catch (error) {
+      await stop();
+      await configureRetainedHeartbeat(api, null);
+      throw error;
+    }
+  }
+  async function resume() {
+    const tab = await current();
+    const v = await saved();
+    if (!v || v.settings_tab_id !== tab?.id) return false;
+    if (!valid(v)) {
+      await stop();
+      return false;
+    }
+    await api.alarms.create(retainedAlarm, { periodInMinutes: 0.5 });
+    await tick();
+    return (await saved())?.settings_tab_id === tab.id;
+  }
+  const onAlarm = (alarm) => {
+    if (alarm.name === retainedAlarm) void tick();
+  };
+  api.alarms.onAlarm.addListener(onAlarm);
+  return {
+    start,
+    stop,
+    resume,
+    tick,
+    dispose: () => api.alarms.onAlarm.removeListener(onAlarm),
+  };
+}
+
 // A fresh trusted settings module can continue an existing form while the
 // cached worker uses an older parser. Keep that worker's queue alarm suspended;
 // ordinary connection-status requests still provide authenticated heartbeats.

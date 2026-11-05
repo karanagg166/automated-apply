@@ -27,7 +27,8 @@
     <p>
       Grants access only to www.naukri.com for the dashboard's selected profile.
       Discovery uses inactive worker tabs. Start/Pause/Stop and source scope are
-      controlled in the dashboard. This release does not submit applications.
+      controlled in the dashboard. Applications follow your saved policy and the
+      server's submission checks.
     </p>
     <h2>Chrome profile</h2>
     <p>
@@ -70,6 +71,13 @@
       ><input type="checkbox" id="retained-discovery" /> Keep finding jobs while
       this application is waiting</label
     >
+    <label
+      ><input type="checkbox" id="retained-auto" /> Continue this existing
+      application in the background</label
+    >
+    <p id="retained-auto-status" role="status">
+      Background continuation stopped.
+    </p>
     <p id="retained-status" role="status">No continuation requested.</p>
     <details>
       <summary>

@@ -224,7 +224,7 @@ it("explains skill matches and unknown experience while refusing closed jobs", a
   expect(post).not.toHaveBeenCalled();
 });
 
-it("does not present uncertain Telegram delivery as success or resend it", async () => {
+it("allows an explicit dashboard answer after uncertain Telegram delivery without resending", async () => {
   const original = vi.mocked(api).getMockImplementation()!;
   vi.mocked(api).mockImplementation(async (path, options) =>
     path === "execution/questions"
@@ -234,9 +234,11 @@ it("does not present uncertain Telegram delivery as success or resend it", async
             execution_id: "exec-unknown",
             employer: "Fictional",
             role: "Backend Engineer",
-            question: "What is your notice period?",
+            question: "Are you willing to attend an in-person interview?",
             state: "delivery_unknown",
-            answer_type: "text",
+            answer_type: "choice",
+            options: ["Yes", "No"],
+            queue_work_id: "existing-work",
             packet_revision: 2,
             expires_at: "2099-01-01T00:00:00Z",
             reuse_approved: false,
@@ -248,8 +250,19 @@ it("does not present uncertain Telegram delivery as success or resend it", async
   expect(
     await screen.findByText(/this prompt will not be automatically resent/),
   ).toBeVisible();
-  expect(
-    screen.queryByRole("button", { name: "Submit Answer from Dashboard" }),
-  ).not.toBeInTheDocument();
+  const submit = screen.getByRole("button", {
+    name: "Submit Answer from Dashboard",
+  });
+  expect(submit).toBeDisabled();
+  expect(screen.getByLabelText("Your verified answer")).toHaveValue("");
   expect(post).not.toHaveBeenCalled();
+  await userEvent.selectOptions(
+    screen.getByLabelText("Your verified answer"),
+    "No",
+  );
+  await userEvent.click(submit);
+  expect(post).toHaveBeenCalledExactlyOnceWith(
+    "execution/questions/q-unknown/answer",
+    { expected_revision: 2, answer: "No" },
+  );
 });

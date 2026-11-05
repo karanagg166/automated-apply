@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ExecutionQuestionAnswer,
+  isPendingExecutionQuestion,
   type ExecutionQuestion,
 } from "@/features/execution-question-answer";
 import { api, post, readable } from "@/lib/api";
@@ -540,11 +541,11 @@ function NaukriPreparation() {
         <p>
           Reply to the exact bot question message or answer directly below.
           Dates need a time and time zone (for example Asia/Kolkata). Answers
-          expire and require review before filling.
+          expire. Applications follow the saved review or automatic policy.
         </p>
         {questions.isError ? <ErrorState error={questions.error} /> : null}
         {questions.data?.map((q) => {
-          const isPending = q.state === "pending" || q.state === "sent";
+          const isPending = isPendingExecutionQuestion(q);
           return (
             <article className="stack" key={q.id}>
               <div className="split">
@@ -562,8 +563,9 @@ function NaukriPreparation() {
               <p>Application: {q.execution_id}</p>
               {q.state === "delivery_unknown" && (
                 <Notice>
-                  Telegram delivery outcome is unknown. Check your private chat;
-                  this prompt will not be automatically resent.
+                  Telegram delivery outcome is unknown. You can answer the
+                  existing question here; this prompt will not be automatically
+                  resent.
                 </Notice>
               )}
               {q.answer && <p>Saved answer: {q.factual_context || q.answer}</p>}

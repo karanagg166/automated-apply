@@ -9,6 +9,7 @@ export type ExecutionQuestion = {
   packet_id: string;
   packet_revision: number;
   execution_id: string;
+  queue_work_id?: string;
   question: string;
   state: string;
   answer: string | null;
@@ -19,6 +20,10 @@ export type ExecutionQuestion = {
   expires_at: string;
   answer_expires_at?: string | null;
 };
+
+export function isPendingExecutionQuestion(question: ExecutionQuestion) {
+  return ["pending", "sent", "delivery_unknown"].includes(question.state);
+}
 
 export function ExecutionQuestionAnswer({
   question: q,
@@ -103,8 +108,9 @@ export function ExecutionQuestionAnswer({
         </Field>
       )}
       <p className="muted">
-        Saving requires a fresh packet review and approval before filling.
-        Answer reuse stays off.
+        {q.queue_work_id
+          ? "Saving resumes this application after fresh account, resume, job and original-form checks. Answer reuse stays off."
+          : "Saving requires a fresh packet review and approval before filling. Answer reuse stays off."}
       </p>
       {expired && (
         <p>This question expired. Ask a current question before answering.</p>

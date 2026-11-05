@@ -2,6 +2,7 @@ import {
   continueRetainedQuestionnaire,
   inspectUnansweredRetainedForm,
   configureRetainedHeartbeat,
+  retainedAlarmController,
 } from "./naukri-retained.js";
 
 const ERROR_CODE_PATTERN = /^[a-z][a-z0-9_]{1,63}$/;
@@ -101,13 +102,17 @@ document.querySelector("#check").addEventListener("click", async () => {
   }
 });
 
-async function profileAction(action, extra = {}) {
+async function profileAction(action, extra = {}, retainedIdentity = null) {
   const target = document.querySelector("#profile-status");
   try {
     await configureRetainedHeartbeat(
       chrome,
       action === "status"
-        ? document.documentElement.dataset.retainedExclusive || null
+        ? retainedIdentity ||
+            document.documentElement.dataset.retainedExclusive ||
+            (document.querySelector("#retained-auto")?.checked
+              ? document.querySelector("#retained-work")?.value
+              : null)
         : null,
     );
     const result = await chrome.runtime.sendMessage({
@@ -121,9 +126,11 @@ async function profileAction(action, extra = {}) {
       : "Disconnected";
     document.querySelector("#profile-commands").checked =
       result.commandsEnabled === true;
+    return result;
   } catch (error) {
     target.textContent = `Connection pending: ${/^[A-Za-z][A-Za-z0-9_]{1,63}$/.test(error.message) ? error.message : "profile_unavailable"}`;
     document.querySelector("#profile-commands").checked = false;
+    return null;
   }
 }
 document.querySelector("#profile-connect").addEventListener("click", () =>
@@ -144,6 +151,7 @@ document
   .querySelector("#profile-refresh")
   ?.addEventListener("click", () => profileAction("status"));
 window.addEventListener("pagehide", () => {
+  retainedAuto.dispose();
   void configureRetainedHeartbeat(chrome, null).catch(() => {});
 });
 
@@ -162,7 +170,59 @@ async function retainedChoices() {
     select.append(option);
   }
 }
-void retainedChoices();
+const retainedAuto = retainedAlarmController(
+  chrome,
+  (identity) => profileAction("status", {}, identity),
+  (result) => {
+    const checkbox = document.querySelector("#retained-auto");
+    if (result.state === "stopped") checkbox.checked = false;
+    const status = document.querySelector("#retained-auto-status");
+    status.textContent =
+      result.state === "running"
+        ? `Background checks active. Last checked ${result.checked_at}. See the dashboard for an answer request or verified outcome.`
+        : result.state === "waiting"
+          ? `Waiting: ${ERROR_CODE_PATTERN.test(result.reason) ? result.reason : "connection_unavailable"}`
+          : "Background continuation stopped.";
+  },
+);
+void retainedChoices()
+  .then(async () => {
+    document.querySelector("#retained-auto").checked =
+      await retainedAuto.resume();
+  })
+  .catch(() => {
+    document.querySelector("#retained-auto-status").textContent =
+      "Waiting: retained_continuation_unavailable";
+  });
+async function configureAutomaticRetained() {
+  const checkbox = document.querySelector("#retained-auto");
+  checkbox.disabled = true;
+  try {
+    if (checkbox.checked)
+      await retainedAuto.start(
+        document.querySelector("#retained-work").value,
+        document.querySelector("#retained-discovery").checked,
+      );
+    else await retainedAuto.stop();
+  } catch {
+    checkbox.checked = false;
+    document.querySelector("#retained-auto-status").textContent =
+      "Waiting: retained_continuation_unavailable";
+  } finally {
+    checkbox.disabled = false;
+  }
+}
+document
+  .querySelector("#retained-auto")
+  .addEventListener("change", configureAutomaticRetained);
+document.querySelector("#retained-discovery").addEventListener("change", () => {
+  if (document.querySelector("#retained-auto").checked)
+    void configureAutomaticRetained();
+});
+document.querySelector("#retained-work").addEventListener("change", () => {
+  document.querySelector("#retained-auto").checked = false;
+  void retainedAuto.stop();
+});
 
 document
   .querySelector("#inspect-retained-recovery")

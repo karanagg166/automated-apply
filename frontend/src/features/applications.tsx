@@ -1,6 +1,7 @@
 "use client";
 import {
   ExecutionQuestionAnswer,
+  isPendingExecutionQuestion,
   type ExecutionQuestion,
 } from "@/features/execution-question-answer";
 import Link from "next/link";
@@ -1077,7 +1078,7 @@ export function ApplicationDetail({ id }: { id: string }) {
         (q) =>
           q.packet_id === id &&
           q.packet_revision === p.revision &&
-          (q.state === "pending" || q.state === "sent"),
+          isPendingExecutionQuestion(q),
       )
     : undefined;
 
@@ -1335,15 +1336,17 @@ export function ApplicationDetail({ id }: { id: string }) {
           </div>
           <h3>{pendingExecQuestion.question}</h3>
           <p className="text-xs muted">
-            Answer this question here or via Telegram bot. Once submitted, your
-            verified answer updates the packet and allows you to resume.
+            Answer the existing question here. The application follows its saved
+            review or automatic policy.
           </p>
           <ExecutionQuestionAnswer
             key={`${pendingExecQuestion.id}:${pendingExecQuestion.packet_revision}`}
             question={pendingExecQuestion}
             onSaved={() => {
               setAnswerSuccess(
-                "Answer saved. Review and approve the updated packet before filling.",
+                pendingExecQuestion.queue_work_id
+                  ? "Answer saved. The worker will refresh the account, resume, job and original form before continuing this application."
+                  : "Answer saved. Review and approve the updated packet before filling.",
               );
               changed();
             }}
