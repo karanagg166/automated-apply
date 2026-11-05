@@ -41,7 +41,7 @@ writeFileSync(
 );
 writeFileSync(
   join(root, "fixture-page.js"),
-  `import {retainedAlarmController,configureRetainedHeartbeat} from './naukri-retained.js';const id='11111111-1111-4111-8111-111111111111';globalThis.controller=retainedAlarmController(chrome,async()=>({ok:true,connected:true}),s=>globalThis.lastStatus=s,async(api,a,b,work,reads)=>{if(work!==id||reads!==true)throw Error('fictional_scope_changed');const count=(await api.storage.session.get('fixtureRunTotal')).fixtureRunTotal||0;await api.storage.session.set({fixtureRunTotal:count+1});});window.addEventListener('pagehide',()=>{controller.dispose();void configureRetainedHeartbeat(chrome,null);});if(!await controller.resume())await controller.start(id,true);globalThis.fixturePageReady=true;`,
+  `import {NaukriQueue} from './naukri-queue.js';import {retainedAlarmController,configureRetainedHeartbeat} from './naukri-retained.js';const id='11111111-1111-4111-8111-111111111111';globalThis.controller=retainedAlarmController(chrome,async()=>({ok:true,connected:true}),s=>globalThis.lastStatus=s,async(api,a,b,work,reads)=>{if(work!==id||reads!==true)throw Error('fictional_scope_changed');const count=(await api.storage.session.get('fixtureRunTotal')).fixtureRunTotal||0;await api.storage.session.set({fixtureRunTotal:count+1});});window.addEventListener('pagehide',()=>{controller.dispose();void configureRetainedHeartbeat(chrome,null);});if(!await controller.resume())await controller.start(id,true);globalThis.fixturePageReady=true;globalThis.verifyCleanup=async()=>{let native=0;const q=new NaukriQueue(chrome,async()=>{native++;throw Error('fixture_native_forbidden')});const forms=(await chrome.storage.session.get('naukriParkedQuestionnairesV1')).naukriParkedQuestionnairesV1;const form=forms[id];await q.closeOwned(form);const kept=!!await chrome.tabs.get(form.ownedTabId);forms[id]={...form,form_pending:false};await chrome.storage.session.set({naukriParkedQuestionnairesV1:forms});await q.closeOwned(form,{id,stage:'SUBMITTED_CONFIRMED'});let closed=false;try{await chrome.tabs.get(form.ownedTabId)}catch{closed=true}return {kept,closed,native};};`,
 );
 const profile = join(root, "profile");
 const child = spawn(
@@ -218,12 +218,23 @@ try {
     };
   });
   assert.deepEqual(stopped, { normal: true, automatic: false });
+  assert.deepEqual(await page.evaluate(() => globalThis.verifyCleanup()), {
+    kept: true,
+    closed: true,
+    native: 0,
+  });
   assert.equal(unexpected, 0);
   assert.equal(chooser, 0);
   const report = {
     fixture_only: true,
     journeys: 1,
-    checks: ["hidden_alarm", "same_tab_reload", "stop_restores_heartbeat"],
+    checks: [
+      "hidden_alarm",
+      "same_tab_reload",
+      "stop_restores_heartbeat",
+      "pending_cleanup_refused",
+      "confirmed_fixture_cleanup",
+    ],
     duration_ms: Math.round(performance.now() - started),
     live_naukri_requests: 0,
     unexpected_requests: unexpected,

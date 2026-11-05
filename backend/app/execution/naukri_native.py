@@ -289,6 +289,17 @@ async def dispatch(session, settings, actor, command):
         setting = policy.platforms.get("naukri")
         value = None
         if command.command == "poll_naukri_work":
+            if (command.work_report is not None
+                    and command.work_report.kind == "needs_input"
+                    and command.work_report.reason == "original_questionnaire_tab_unavailable"):
+                from backend.app.execution.naukri_form_loss import report
+
+                if command.work_id is None or command.tab_id is None:
+                    raise ToolDenied("original_form_loss_binding_required")
+                changed = await report(session, str(command.work_id), binding, settings)
+                return Result(request_id=command.request_id, ok=True, capability="naukri_background_read",
+                              data={"work": None, "form_loss_recorded": True,
+                                    "state_changed": changed, "submitted": False})
             if config["state"] == "STOPPED":
                 request = await session.get(OwnerPreference, MAINTENANCE, populate_existing=True)
                 value = request.value if request else {}

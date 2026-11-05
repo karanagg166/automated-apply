@@ -512,6 +512,11 @@ async def native(session, settings, actor, command):
                     key=PROFILE + str(command.profile_binding_id), value={"version": 0}
                 )
                 session.add(row)
+            if (row.value.get("browser_session_id")
+                    and row.value["browser_session_id"] != str(command.browser_session_id)):
+                from backend.app.execution.naukri_form_loss import session_replaced
+
+                await session_replaced(session, str(command.profile_binding_id), row.value["browser_session_id"], settings)
             await invalidate(
                 session, str(command.profile_binding_id), "profile_reconnected"
             )
@@ -552,7 +557,9 @@ async def native(session, settings, actor, command):
                 )
             if changed:
                 from backend.app.browser import extension_tasks as tasks
+                from backend.app.execution.naukri_form_loss import session_replaced
 
+                await session_replaced(session, row.value["id"], row.value["browser_session_id"], settings)
                 for task in await tasks.rows(session):
                     if (
                         task.value.get("profile_binding_id") == row.value["id"]

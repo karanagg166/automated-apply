@@ -336,6 +336,9 @@ export class NaukriQueue {
     this.send = send;
     this.delay = delay;
     this.adopted = new Set();
+    this.api.tabs.onRemoved?.addListener((tabId) => {
+      void this.reportLostForms(tabId).catch(() => {});
+    });
     this.api.tabs.onActivated?.addListener(({ tabId }) => {
       // Also remember a parked tab adopted before a reconstructed worker has
       // loaded its ownership map. Record synchronously before storage awaits.
@@ -539,6 +542,7 @@ export class NaukriQueue {
   async run() {
     let work = (await this.api.storage.session.get(key))[key];
     try {
+      await this.reportLostForms();
       if (work) {
         if (work.form_pending && isFormWork(work)) {
           if (work.auxiliaryTabId)
@@ -657,11 +661,13 @@ export class NaukriQueue {
         if (work.form_pending && isFormWork(work)) await this.park(work);
         else await this.closeOwned(work);
         if (work.stage === "SUBMITTED_CONFIRMED" && parked) {
-          await this.closeOwned(parked);
           const forms = {
             ...((await this.api.storage.session.get(parkedKey))[parkedKey] ||
               {}),
           };
+          forms[work.id] = { ...parked, form_pending: false };
+          await this.api.storage.session.set({ [parkedKey]: forms });
+          await this.closeOwned(parked, work);
           delete forms[work.id];
           await this.api.storage.session.set({ [parkedKey]: forms });
         }
@@ -772,6 +778,56 @@ export class NaukriQueue {
       ),
     };
     await this.api.storage.session.set({ [parkedKey]: forms });
+  }
+  async reportLostForms(removedTabId = null) {
+    const forms =
+      (await this.api.storage.session.get(parkedKey))[parkedKey] || {};
+    for (const form of Object.values(forms)) {
+      if (
+        !form.form_pending ||
+        form.loss_reported ||
+        (removedTabId !== null && form.ownedTabId !== removedTabId)
+      )
+        continue;
+      if (removedTabId === null) {
+        try {
+          await this.api.tabs.get(form.ownedTabId);
+          continue;
+        } catch {
+          /* Only absence is reported; no provider document is opened. */
+        }
+      }
+      try {
+        const context = await profileContext(this.api);
+        if (
+          ["profile_binding_id", "browser_session_id", "window_id"].some(
+            (k) => context[k] !== form.binding?.[k],
+          )
+        )
+          continue;
+        const result = await this.send(this.api, "poll_naukri_work", {
+          ...context,
+          work_id: form.id,
+          tab_id: form.ownedTabId,
+          work_report: {
+            kind: "needs_input",
+            reason: "original_questionnaire_tab_unavailable",
+          },
+        });
+        if (result.form_loss_recorded) {
+          const latest = {
+            ...((await this.api.storage.session.get(parkedKey))[parkedKey] ||
+              {}),
+          };
+          if (latest[form.id]?.ownedTabId === form.ownedTabId) {
+            latest[form.id] = { ...latest[form.id], loss_reported: true };
+            await this.api.storage.session.set({ [parkedKey]: latest });
+          }
+        }
+      } catch {
+        /* Retry only this idempotent local report after a connection recovery. */
+      }
+    }
   }
   async auxiliaryObservation(work, context) {
     await this.assertInactive(work, context);
@@ -1122,11 +1178,21 @@ export class NaukriQueue {
     if (await this.ownerUsingNaukri()) throw Error("owner_platform_active");
     return tab;
   }
-  async closeOwned(work) {
+  async closeOwned(work, confirmedWork = null) {
     const saved = (await this.api.storage.session.get(key))[key];
-    const parked = ((await this.api.storage.session.get(parkedKey))[
-      parkedKey
-    ] || {})[work?.id];
+    const forms =
+      (await this.api.storage.session.get(parkedKey))[parkedKey] || {};
+    const parked = forms[work?.id];
+    const retained = Object.values(forms).filter(
+      (form) => form.form_pending && form.ownedTabId === work?.ownedTabId,
+    );
+    if (
+      retained.length &&
+      (confirmedWork?.stage !== "SUBMITTED_CONFIRMED" ||
+        confirmedWork.id !== work?.id ||
+        retained.some((form) => form.id !== confirmedWork.id))
+    )
+      return;
     if (
       !Number.isInteger(work?.ownedTabId) ||
       work.ownerAdopted ||

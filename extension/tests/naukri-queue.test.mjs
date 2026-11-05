@@ -1062,3 +1062,161 @@ test("profile hydration helper cannot retry an Apply or other write", async () =
   );
   assert.equal(f.calls.length, 0);
 });
+
+for (const operation of [
+  "inspect_job",
+  "reconcile_application",
+  "prepare_questionnaire",
+]) {
+  test(`generic ${operation} cleanup cannot close a retained application tab`, async () => {
+    const original = {
+      id: "original",
+      ownedTabId: 44,
+      form_pending: true,
+      binding: { window_id: 10 },
+    };
+    const f = fixture({
+      session: { naukriParkedQuestionnairesV1: { original } },
+    });
+    f.tabs.set(44, { id: 44, active: false, windowId: 10, url });
+    await f.queue.closeOwned({
+      ...original,
+      id: operation === "inspect_job" ? "different-read" : "original",
+      operation,
+    });
+    assert.ok(f.tabs.has(44));
+    assert.ok(!f.calls.some(([name]) => name === "close"));
+  });
+}
+test("only the matching server-confirmed result permits retained form cleanup", async () => {
+  const original = {
+    id: "original",
+    ownedTabId: 44,
+    form_pending: true,
+    binding: { window_id: 10 },
+  };
+  const f = fixture({
+    session: { naukriParkedQuestionnairesV1: { original } },
+  });
+  f.tabs.set(44, { id: 44, active: false, windowId: 10, url });
+  await f.queue.closeOwned(original, {
+    id: "different",
+    stage: "SUBMITTED_CONFIRMED",
+  });
+  await f.queue.closeOwned(original, {
+    id: "original",
+    stage: "SUBMISSION_UNKNOWN",
+  });
+  assert.ok(f.tabs.has(44));
+  await f.queue.closeOwned(original, {
+    id: "original",
+    stage: "SUBMITTED_CONFIRMED",
+  });
+  assert.ok(!f.tabs.has(44));
+});
+test("even a confirmed result cannot close an owner-adopted retained form", async () => {
+  const original = {
+    id: "original",
+    ownedTabId: 44,
+    form_pending: true,
+    ownerAdopted: true,
+    binding: { window_id: 10 },
+  };
+  const f = fixture({
+    session: { naukriParkedQuestionnairesV1: { original } },
+  });
+  f.tabs.set(44, { id: 44, active: false, windowId: 10, url });
+  await f.queue.closeOwned(original, {
+    id: "original",
+    stage: "SUBMITTED_CONFIRMED",
+  });
+  assert.ok(f.tabs.has(44));
+});
+
+function lostFormFixture(options = {}) {
+  const original = {
+    id: "original",
+    ownedTabId: 44,
+    form_pending: true,
+    binding: {
+      profile_binding_id: "fixture-profile",
+      browser_session_id: "fixture-session",
+      window_id: 10,
+    },
+  };
+  const f = fixture({
+    session: { naukriParkedQuestionnairesV1: { original } },
+    respond: (name, input) =>
+      input.work_report?.reason === "original_questionnaire_tab_unavailable"
+        ? { form_loss_recorded: true }
+        : null,
+    ...options,
+  });
+  return { ...f, original };
+}
+test("missing original form is reported once with no provider or tab action", async () => {
+  const f = lostFormFixture();
+  await f.queue.reportLostForms();
+  await f.queue.reportLostForms();
+  assert.equal(f.calls.length, 1);
+  const [name, input] = f.calls[0];
+  assert.equal(name, "poll_naukri_work");
+  assert.equal(input.work_id, "original");
+  assert.equal(input.tab_id, 44);
+  assert.deepEqual(input.work_report, {
+    kind: "needs_input",
+    reason: "original_questionnaire_tab_unavailable",
+  });
+  assert.equal(
+    f.session.naukriParkedQuestionnairesV1.original.loss_reported,
+    true,
+  );
+});
+test("an existing original document and unrelated removal are not reported as lost", async () => {
+  const f = lostFormFixture();
+  f.tabs.set(44, { id: 44, active: false, windowId: 10, url });
+  await f.queue.reportLostForms();
+  await f.queue.reportLostForms(99);
+  assert.equal(f.calls.length, 0);
+});
+for (const field of ["profile_binding_id", "browser_session_id", "window_id"])
+  test(`lost-form reporting refuses a different ${field}`, async () => {
+    const f = lostFormFixture();
+    f.original.binding[field] = field === "window_id" ? 99 : "different";
+    await f.queue.reportLostForms();
+    assert.equal(f.calls.length, 0);
+  });
+test("an interrupted loss-report ACK can retry without opening the application", async () => {
+  let attempts = 0;
+  const f = lostFormFixture({
+    respond: (name, input) => {
+      if (
+        input.work_report?.reason !== "original_questionnaire_tab_unavailable"
+      )
+        return null;
+      if (++attempts === 1) throw Error("backend_unavailable");
+      return { form_loss_recorded: true };
+    },
+  });
+  await f.queue.reportLostForms();
+  assert.equal(f.original.loss_reported, undefined);
+  await f.queue.reportLostForms();
+  assert.equal(
+    f.session.naukriParkedQuestionnairesV1.original.loss_reported,
+    true,
+  );
+  assert.equal(attempts, 2);
+  assert.ok(
+    !f.calls.some(([name]) =>
+      ["create", "navigate", "inspect", "close", "admit_naukri_work"].includes(
+        name,
+      ),
+    ),
+  );
+});
+test("confirmed-form cleanup is not reported as a lost pending form", async () => {
+  const f = lostFormFixture();
+  f.original.form_pending = false;
+  await f.queue.reportLostForms(44);
+  assert.equal(f.calls.length, 0);
+});
