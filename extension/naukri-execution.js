@@ -168,7 +168,94 @@ export async function executeNaukri(work) {
     if (!paragraphs || paragraphs.length !== 1) return undefined;
     return clean(paragraphs[0]);
   };
-  const result = async (name, extra = {}) => ({
+  function historyRow(requisition, expectedTitle, expectedCompany) {
+    // Self-contained ordinary DOM reader: both current identity links belong
+    // to the same application card. Never navigate to interview helper pages.
+    const visible = (e) =>
+      e?.getClientRects().length > 0 &&
+      getComputedStyle(e).visibility !== "hidden";
+    const text = (e) => e?.textContent?.replace(/\s+/g, " ").trim();
+    const modern = [
+      ...document.querySelectorAll(".jdTuplesContainer .jdTupleContainer"),
+    ].filter(visible);
+    const matches = [];
+    for (const card of modern) {
+      const references = [
+        ...card.querySelectorAll(".mock-interview-prep a[href]"),
+      ]
+        .filter(visible)
+        .flatMap((e) => {
+          try {
+            const url = new URL(e.href);
+            if (
+              url.origin !== location.origin ||
+              url.username ||
+              url.password ||
+              url.hash
+            )
+              return [];
+            const kind =
+              url.pathname === "/ai-interview-questions/question-bank"
+                ? "jobId"
+                : url.pathname === "/mock-interview-questions/test"
+                  ? "flowId"
+                  : null;
+            if (
+              !kind ||
+              url.searchParams.getAll(kind).length !== 1 ||
+              (kind === "flowId" &&
+                (url.searchParams.getAll("flowType").length !== 1 ||
+                  url.searchParams.get("flowType") !== "JD"))
+            )
+              return [];
+            const id = url.searchParams.get(kind);
+            return /^\d{12}$/.test(id || "") ? [{ kind, id }] : [];
+          } catch {
+            return [];
+          }
+        });
+      if (!references.some((r) => r.id === requisition)) continue;
+      if (
+        new Set(references.map((r) => r.id)).size !== 1 ||
+        new Set(references.map((r) => r.kind)).size !== 2
+      )
+        throw Error("application_history_card_identity_ambiguous");
+      const titles = [...card.querySelectorAll(".jdTitle")].filter(visible);
+      const companies = [
+        ...card.querySelectorAll(".subheading .company"),
+      ].filter(visible);
+      const statuses = [
+        ...card.querySelectorAll("section.apply-status.green-text .title"),
+      ].filter(visible);
+      if (
+        titles.length !== 1 ||
+        companies.length !== 1 ||
+        statuses.length !== 1 ||
+        text(titles[0]) !== expectedTitle ||
+        text(companies[0]) !== expectedCompany
+      )
+        throw Error("provider_receipt_identity_changed");
+      const status = text(statuses[0]);
+      if (
+        !/^Application sent(?: (?:just now|today|yesterday|(?:a|an|one|\d+) (?:second|minute|hour|day|week|month|year)s? ago))?$/i.test(
+          status,
+        )
+      )
+        throw Error("provider_application_sent_receipt_missing");
+      matches.push({
+        layout: "naukri_application_status_cards",
+        requisition,
+        title: expectedTitle,
+        company: expectedCompany,
+        status,
+        identity_sources: [...new Set(references.map((r) => r.kind))].sort(),
+      });
+    }
+    if (matches.length > 1)
+      throw Error("exact_application_history_row_required");
+    return matches[0] || null;
+  }
+  const result = async (name, extra = {}, evidence = extra) => ({
     kind: "execution_observation",
     observed_url: expectedUrl,
     requisition: work.requisition,
@@ -177,7 +264,7 @@ export async function executeNaukri(work) {
       document_id: state.documentId,
       account_sha256: await account(),
       evidence_sha256: await hash(
-        JSON.stringify([work.requisition, name, extra]),
+        JSON.stringify([work.requisition, name, evidence]),
       ),
       ...extra,
     },
@@ -739,6 +826,19 @@ export async function executeNaukri(work) {
     }
     if (work.operation === "reconcile_application") {
       await account();
+      const current = historyRow(
+        work.requisition,
+        request.expected_title,
+        request.expected_company,
+      );
+      if (current) {
+        safe();
+        return await result(
+          "APPLICATION_SENT",
+          { title: current.title, company: current.company },
+          current,
+        );
+      }
       const links = [
         ...document.querySelectorAll('a[href*="/job-listings-"]'),
       ].filter((e) => {
