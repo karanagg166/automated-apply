@@ -73,54 +73,63 @@ The earlier once-asked decision about `100+` lower-bound-only counts remains
 pending. A numeric threshold change alone does not authorize inventing its upper
 bound. Continue useful independent work rather than repeating the question.
 
-## Current priority — November5 UTC, originals lost and exact runtime installed
+## Current priority — November5 UTC, approved third attempt and actual1.3.40
 
-[Form-loss protection, genuine history and installed acceptance](../acceptance/naukri-form-loss-and-history-20261105.md)
-is the current snapshot. Installed API is exact010f679, frontend7efdb64 and full
-extension disk/runtimeb7c0e02/1.3.39,25 files and the same stable ID. Execution
-remains0c87562 and Telegram/nativeb6b0690. The temporary cached1.3.31 mixed runtime
-has ended. Full reload occurred only after both original forms were proven absent.
+[Current search controls and installed runtime](../acceptance/naukri-current-search-and-runtime-20261105.md)
+is the current snapshot. The owner approved the pending lifetime2→3 proposal;
+only that allowance changed, hourly1 and all filters unchanged. Actual frontend
+RUN160 is active. Two older admissions remain consumed/SUBMISSION_UNKNOWN, with
+zero new strict worker receipts. Both original forms are gone, their unanswered
+prompts closed and uncertainty notices sent. Never repeat either Apply, QTrino
+or any uncertain historical job. The third slot has not been consumed.
 
-Both authorized Apply admissions remain consumed and SUBMISSION_UNKNOWN. Neither
-received an answer or questionnaire Save. Both reconciliation counters remain3,
-submitting packets remain fenced and the two unanswered prompts are closed. Do
-not ask the old interview preference again or repeat either Apply/QTrino. Both
-honest uncertainty Telegram notices are now sent; zero new worker receipts.
+API and execution are exact1f14f1c; frontend7efdb64, Telegram/nativeb6b0690 and
+extension disk AND full runtime968cdae/1.3.40,26files/same ID. The installed API
+and execution now share schema-compatible full-hash answer-reuse keys.89 exact
+backend tests and3 local PostgreSQL groups pass; live reuse remains untested.
 
-The genuine history page contains one historical application. Its current cards
-lack listing anchors; actual same-origin helper-link IDs now support strict
-history parsing. The exact candidate recognizes that old receipt and neither
-current target, with no click, database receipt insertion or admission refund.
+Real discovery exposed the removed experience slider and hidden current GNB
+Fresher state. That actual DOM is supported now. A genuine Recommended/Last1day
+Fresher search produced18 links,12new/6deduplicated, all independently inspected:
+9 preference/skill exclusions,8 unknown applicant upper bounds and1 unknown
+employment type. The saved profile currently permits full-time work, so discovery
+of internships does not authorize applying to them. A separate genuine20-link
+Fresher observation added1 and deduplicated19. No metadata or eligibility was
+invented. The normal installed worker's filtered Backend Developer cycle passed
+17:02:49–17:03:06UTC with0new identities/source errors; five-minute discovery
+and inspection continue under any-skill/score50/14days/1000/review-unknown.
 
-STOP147/151 preserved data, account binding1/profile5, limits, native files and
-all rollback releases. Actual frontend RUN152 restores five-minute discovery,
-SUPERVISED lifetime2/hour1, any skill/score50/14days/1000/review-unknown. The actual
-saved PDF100198bytes matched through native Download at13:41:50UTC. The14:47 audit
-counted2,451 unique requisitions, two admissions and zero new worker receipts;
-the14:44 cycle added seven identities. All service readiness checks pass.
+STOP155 preserved2,462records for the API/worker cutover; STOP159 preserved2,497
+for the actual1.3.40 update. Account binding1/profile5, credentials, services and
+rollback inventory remain intact. A failed direct Apple Events API attempt
+restored139disk and was reconciled as unchanged139runtime/session. The working
+DOM bridge delegates privileged actions to the trusted extension page; its
+STOP/binding/ownership/expiry/pending-context/consumed-intent guards passed real
+reload acceptance. The actual new browser session and independent DOM version
+witness confirm40, beyond a disk-only audit.
 
-The last extension replacement FAILED focus acceptance: Chrome's front-window
-ordering changed although selected tabs did not. Cause/OS foreground were not
-captured. Suspend unattended Chrome WebUI maintenance; do not activate a window
-to restore snapshots. Build and independently validate a focus-safe updater.
-Ordinary inactive-tab application processing remains available in1.3.39.
+The complete updater FAILED focus acceptance. Runtime reload snapshots matched,
+but subsequent Apple Events navigation for version verification changed Chrome
+front-window ordering to Profile8. Selected tabs and OS app stayed unchanged.
+Suspend automatic navigation to extension settings and Chrome WebUI. Do not
+activate a window to restore snapshots. Prepare a native-created inactive settings
+path and validate the whole path; request only an unavoidable owner action after
+that exact candidate and rollback are ready. Standing SHA/update approval remains.
 
-The next concrete proposal changes only lifetime2→3 for one different eligible
-supervised attempt. It is validated and prepared privately, NOT applied. Obtain
-owner authorization because existing limits remain mandatory, then pursue actual
-form completion and independently persistent receipt; no per-job prompt beyond
-that new quota authorization. Recurring AUTO stays off until the first strict
-worker receipt and critical checks. Continue independent discovery and repair
-while approval is pending. Source55c7b4b fixes the approved-answer preference-key
-length defect:16 targeted tests and3 fresh local PostgreSQL groups pass. It is
-not installed; API and execution must update together under STOP before live
-answer-reuse acceptance. Application-only answers and installed releases remain
-unchanged.
+68 final Node cases,32 isolated search/queue browser cases with identical relevant
+inputs, and1 exact DOM-bridge reload journey pass. No fixture is a new application.
+Real native requests still make31–32 serial SQL reads (~5.2–5.6s); latency remains
+open with no timeout/pool/role-limit increase. Prior overnight Mac sleep prevents
+a24/7 claim. No first receipt, recurring AUTO, full restart/locked acceptance or
+other-platform completion is claimed.
 
-Repeat/overnight/restart acceptance remains open: the Mac previously slept, and
-heartbeat or discovery is insufficient proof. Other adapters, free contact
-entitlement/drafts and final reviewed completion/merge follow Naukri receipt
-acceptance. No other platform activation, hosted Actions, merge or cleanup.
+Next complete the additional eligible real supported application, verify two
+independent provider receipt observations and accurate notification, then bounded
+AUTO and repeated processing/restart/locked acceptance. Missing truthful facts go
+to the existing dashboard/Telegram question channel. Unknown-count review remains
+unchanged; do not repeat its earlier question. Other adapters, free contact/draft
+entitlement and reviewed completion/merge follow real Naukri acceptance. No
+hosted Actions, other-platform activation, Gmail sending, merge or cleanup.
 
 ## Execution and evidence rules
 

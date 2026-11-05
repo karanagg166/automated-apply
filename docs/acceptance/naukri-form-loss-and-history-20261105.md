@@ -1,5 +1,7 @@
 # Lost-form protection, genuine history parsing and installed acceptance
 
+> Superseded by [approved third attempt and actual1.3.40 runtime](naukri-current-search-and-runtime-20261105.md). The owner approved lifetime3; API/execution1f14f1c and extension968cdae/1.3.40 are installed. Earlier pending-quota and source-only reuse statements below are historical. Full maintenance focus still fails.
+
 [PR #48](https://github.com/karanagg166/automated-apply/pull/48), branch
 `fix/live-prepare-discovery-20261030`. **OPEN: zero new verified worker receipts;
 two authorized Apply admissions consumed.** This November5 UTC snapshot supersedes
