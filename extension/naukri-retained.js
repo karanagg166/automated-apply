@@ -70,6 +70,15 @@ export function retainedAlarmController(
           .naukriParkedQuestionnairesV1 || {};
       if (!forms[v.work_id]?.form_pending || forms[v.work_id]?.ownerAdopted)
         return await stop();
+      if (
+        (await api.storage.session.get("naukriReadInFlightV1"))
+          .naukriReadInFlightV1
+      ) {
+        // Let the cached worker finish/recover its already-owned read before
+        // taking the lane. Holding its alarm here would strand that read.
+        await configureRetainedHeartbeat(api, null);
+        throw Error("background_operation_in_flight");
+      }
       await configureRetainedHeartbeat(api, v.work_id);
       const connection = await heartbeat(v.work_id);
       if (!connection?.ok || !connection.connected)

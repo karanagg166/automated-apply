@@ -240,3 +240,17 @@ test("an active settings tab yields and a later inactive alarm resumes", async (
   await f.controller.tick();
   assert.equal(f.calls.filter((c) => c.run).length, 2);
 });
+
+test("an existing in-flight read retains its recovery alarm before continuation resumes", async (t) => {
+  const f = fixture(t);
+  await f.controller.start(id, true);
+  f.data.naukriReadInFlightV1 = { id: "other-read" };
+  await f.controller.tick();
+  assert.equal(f.calls.filter((c) => c.run).length, 1);
+  assert.equal(f.statuses.at(-1).reason, "background_operation_in_flight");
+  assert.equal(f.alarms.has("connected-chrome-heartbeat"), true);
+  delete f.data.naukriReadInFlightV1;
+  await f.controller.tick();
+  assert.equal(f.calls.filter((c) => c.run).length, 2);
+  assert.equal(f.alarms.has("connected-chrome-heartbeat"), false);
+});
