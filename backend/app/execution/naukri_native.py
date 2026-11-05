@@ -106,9 +106,15 @@ async def search_work(session, config, policy, binding):
     # This is a discovery criterion, never a candidate fact or eligibility pass.
     queries = [(role, False) for role in roles]
     if profile.verified_experience_years is not None and 0 <= profile.verified_experience_years < 1:
-        queries = list(dict.fromkeys(query for role in roles for query in (
-            (role, True), (role, False),
-        )))
+        queries = []
+        for role in roles:
+            queries.extend(((role, True), (role, False)))
+            # Ordinary junior searches otherwise keep rediscovering senior
+            # listings. Include the same target role's internship keyword;
+            # this is only discovery, never a change to fit or profile facts.
+            if not re.search(r"\b(intern|internship|trainee)\b", role, re.I):
+                queries.append((role + " Intern", True))
+        queries = list(dict.fromkeys(queries))
 
     def search_url(index, page):
         role, filtered = queries[index]

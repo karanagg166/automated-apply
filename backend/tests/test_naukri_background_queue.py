@@ -271,7 +271,7 @@ async def test_confirmed_experience_targets_discovery_without_changing_eligibili
     await db_session.commit()
     factory = async_sessionmaker(db_session.bind, expire_on_commit=False, autoflush=False)
     urls = []
-    for _ in range(2):
+    for _ in range(3):
         async with factory() as restarted, restarted.begin():
             work = await search_work(restarted, config, policy, binding)
             urls.append(work["url"])
@@ -284,8 +284,9 @@ async def test_confirmed_experience_targets_discovery_without_changing_eligibili
             assert work["binding"] == binding and work["search_page"] == 1
             assert datetime.fromisoformat(work["next_at"]) - datetime.fromisoformat(work["last_started_at"]) == timedelta(seconds=300)
     assert urls == (["https://www.naukri.com/backend-developer-jobs?k=backend%20developer&experience=0&nignbevent_src=jobsearchDeskGNB",
-                     "https://www.naukri.com/backend-developer-jobs"] if targeted else
-                    ["https://www.naukri.com/backend-developer-jobs"] * 2)
+                     "https://www.naukri.com/backend-developer-jobs",
+                     "https://www.naukri.com/backend-developer-intern-jobs?k=backend%20developer%20intern&experience=0&nignbevent_src=jobsearchDeskGNB"] if targeted else
+                    ["https://www.naukri.com/backend-developer-jobs"] * 3)
     assert profile.preferences == saved_preferences and policy.model_dump(mode="json") == saved_policy
     assert await queue.items(db_session) == []
 
