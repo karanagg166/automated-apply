@@ -111,8 +111,11 @@ owner authorization because existing limits remain mandatory, then pursue actual
 form completion and independently persistent receipt; no per-job prompt beyond
 that new quota authorization. Recurring AUTO stays off until the first strict
 worker receipt and critical checks. Continue independent discovery and repair
-while approval is pending. Approved answer reuse has a known preference-key
-length defect to fix before claiming that requirement accepted.
+while approval is pending. Source55c7b4b fixes the approved-answer preference-key
+length defect:16 targeted tests and3 fresh local PostgreSQL groups pass. It is
+not installed; API and execution must update together under STOP before live
+answer-reuse acceptance. Application-only answers and installed releases remain
+unchanged.
 
 Repeat/overnight/restart acceptance remains open: the Mac previously slept, and
 heartbeat or discovery is insufficient proof. Other adapters, free contact

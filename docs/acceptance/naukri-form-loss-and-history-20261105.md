@@ -192,9 +192,37 @@ verified factual answers, final submission, two independent receipt observations
 and accurate notification. Only after that receipt and critical checks enable
 bounded AUTO and test repeated processing/restart/locked behavior.
 
-The approved-answer reuse key currently exceeds the50-character preference-key
-schema and remains an identified source defect; application-only answers are
-unaffected. Fix it with a schema-bound regression before claiming answer-reuse
-completion. Focus-safe maintenance, overnight availability and additional
-platforms remain separate unfinished requirements. Gmail sending is disabled;
-no hosted Actions, provider bypass, cleanup, release deletion or merge occurred.
+### Subsequent source repair: approved-answer reuse, not installed
+
+[55c7b4b8119fb121d7219d2918bd5094a256fdf9](https://github.com/karanagg166/automated-apply/commit/55c7b4b8119fb121d7219d2918bd5094a256fdf9)
+fixes the oversized approved-answer bank key. The old prefix plus64hex characters
+exceeded the existing50-character preference field. URL-safe base64 now preserves
+the full256-bit scope digest in exactly50characters, including its prefix. Saved
+question JSON containing the older key converts only when reuse is explicitly
+approved. Profile/job/question/options scope, expiry and revocation remain intact;
+application-only answers do not become reusable automatically.
+
+The affected questionnaire file passes **16 tests in7.35s**, including new/legacy
+key paths through explicit approval, scoped lookup and revocation. A collection
+failure from a parametrized test's default argument was corrected before this
+successful run. Ruff E9/F/I and diff checks pass. A fresh loopback-only PostgreSQL
+17.11 instance passed **3 groups in0.078s**: actual old-key SQLSTATE22001 rejection,
+new-key commit under the unchanged VARCHAR(50), and retrieval after a new session
+with profile-scope isolation. It used fictional data, zero owner DB/provider
+access, pool1 and a fresh schema. Its local server was stopped and data retained.
+The real owner database, runtime components and policy were untouched.
+
+Reproduce with an already-created fresh disposable local database only:
+
+```sh
+.venv/bin/python -m pytest backend/tests/test_naukri_questionnaires.py -q
+.venv/bin/python -m backend.scripts.verify_naukri_answer_reuse_postgres --database-url postgresql://postgres@127.0.0.1:55485/candidate_profile_test_answer_reuse_fresh
+```
+
+This repair is **source-only**. API and execution worker both compute reuse keys
+and must receive compatible code together under STOP before live answer reuse
+can be accepted. The installed SHAs in the component table remain unchanged.
+The additional-attempt quota proposal remains unapplied and owner approval is
+pending. Focus-safe maintenance, overnight availability and additional platforms
+remain unfinished. Gmail sending is disabled; no hosted Actions, provider bypass,
+cleanup, release deletion or merge occurred.
