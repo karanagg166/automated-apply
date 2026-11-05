@@ -11,7 +11,17 @@ function fixture(change = {}) {
       windowId: 10,
     },
   };
-  const session = { applicationBrowserSessionV1: "fixture-session" };
+  const session = {
+    applicationBrowserSessionV1: "fixture-session",
+    naukriProfileSetupTabV1: {
+      status: "opened",
+      tab_id: 22,
+      window_id: 10,
+      ownerAdopted: false,
+      profile_binding_id: "fixture-profile",
+      browser_session_id: "fixture-session",
+    },
+  };
   let active = false;
   let reloads = 0;
   const area = (value) => ({
@@ -72,6 +82,8 @@ for (const fault of [
   "inflight",
   "binding",
   "expired",
+  "adopted_setup",
+  "missing_setup",
 ]) {
   test(`reload refuses ${fault} with no reload or consumed intent`, async () => {
     const f = fixture({
@@ -88,6 +100,9 @@ for (const fault of [
     if (fault === "binding") f.request.profileBindingId = "different-profile";
     if (fault === "expired")
       f.request.expiresAt = new Date(Date.now() - 1).toISOString();
+    if (fault === "adopted_setup")
+      f.session.naukriProfileSetupTabV1.ownerAdopted = true;
+    if (fault === "missing_setup") delete f.session.naukriProfileSetupTabV1;
     await assert.rejects(guardedNaukriReload(f.request, f.api), /maintenance_/);
     assert.equal(f.reloads(), 0);
     assert.equal(f.local.naukriMaintenanceReloadV1, undefined);

@@ -46,7 +46,7 @@ chrome.runtime.onInstalled.addListener(()=>{});
 chrome.runtime.onMessage.addListener((_message,_sender,reply)=>{reply({fixtureReady:true});});
 globalThis.ready=(async()=>{await chrome.storage.session.set({applicationBrowserSessionV1:'fixture-session'});})();
 globalThis.snapshot=async()=>({windows:(await chrome.windows.getAll({windowTypes:['normal']})).map(w=>({id:w.id,focused:w.focused})).sort((a,b)=>a.id-b.id),tabs:(await chrome.tabs.query({})).map(t=>({id:t.id,windowId:t.windowId,url:t.url,active:t.active})).sort((a,b)=>a.id-b.id)});
-globalThis.prepare=async()=>{await ready;const second=await chrome.windows.create({url:'about:blank',focused:false});await chrome.storage.local.set({connectedChromeProfileV1:{connected:true,id:'fixture-profile',secret:'fictional-only',windowId:second.id}});const setup=await chrome.tabs.create({url:chrome.runtime.getURL('settings.html'),windowId:second.id,active:false});return {setupId:setup.id,url:setup.url,before:await snapshot()};};
+globalThis.prepare=async()=>{await ready;const second=await chrome.windows.create({url:'about:blank',focused:false});await chrome.storage.local.set({connectedChromeProfileV1:{connected:true,id:'fixture-profile',secret:'fictional-only',windowId:second.id}});const setup=await chrome.tabs.create({url:chrome.runtime.getURL('settings.html'),windowId:second.id,active:false});await chrome.storage.session.set({naukriProfileSetupTabV1:{status:'opened',tab_id:setup.id,window_id:second.id,ownerAdopted:false,profile_binding_id:'fixture-profile',browser_session_id:'fixture-session'}});return {setupId:setup.id,url:setup.url,before:await snapshot()};};
 `,
 );
 // Ordinary developer mode is required for unpacked-extension reloads. Configure

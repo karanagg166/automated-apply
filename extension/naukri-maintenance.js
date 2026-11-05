@@ -25,6 +25,8 @@ export async function guardedNaukriReload(request, api = chrome) {
     valid();
     const now = await profileContext(api);
     const owned = await api.tabs.getCurrent();
+    const setup = (await api.storage.session.get("naukriProfileSetupTabV1"))
+      .naukriProfileSetupTabV1;
     if (
       original.profile_binding_id !== request.profileBindingId ||
       now.profile_binding_id !== original.profile_binding_id ||
@@ -33,7 +35,13 @@ export async function guardedNaukriReload(request, api = chrome) {
       !Number.isInteger(tab?.id) ||
       owned?.id !== tab.id ||
       owned.active ||
-      owned.windowId !== original.window_id
+      owned.windowId !== original.window_id ||
+      setup?.status !== "opened" ||
+      setup.tab_id !== tab.id ||
+      setup.ownerAdopted !== false ||
+      setup.profile_binding_id !== original.profile_binding_id ||
+      setup.browser_session_id !== original.browser_session_id ||
+      setup.window_id !== original.window_id
     )
       throw Error("maintenance_owner_or_binding_changed");
   };
