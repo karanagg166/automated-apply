@@ -34,9 +34,10 @@ writeFileSync(
 writeFileSync(
   join(root, "settings.js"),
   `
-import {guardedNaukriReload} from './naukri-maintenance.js';
+import {bindNaukriMaintenanceDocument} from './naukri-maintenance.js';
 void chrome.runtime.sendMessage({fixtureWake:true}).catch(()=>{});
-window.beginReload=()=>guardedNaukriReload({requestId:'11111111-1111-4111-8111-111111111111',targetSha:'a'.repeat(40),profileBindingId:'fixture-profile',expectedRevision:157,expiresAt:new Date(Date.now()+60000).toISOString()}, {...chrome,runtime:{...chrome.runtime,sendNativeMessage:async(_,input)=>({version:1,request_id:input.request_id,ok:true,data:{submitted:false,queue:{state:'STOPPED',revision:157}}}),reload:()=>chrome.runtime.reload()}}).catch(error=>{window.reloadError=error.message;});
+bindNaukriMaintenanceDocument({...chrome,runtime:{...chrome.runtime,sendNativeMessage:async(_,input)=>({version:1,request_id:input.request_id,ok:true,data:{submitted:false,queue:{state:'STOPPED',revision:157}}}),reload:()=>chrome.runtime.reload()}});
+window.beginReload=()=>new Promise((resolve,reject)=>{const node=document.createElement('meta');node.id='naukri-maintenance-request';node.dataset.request=JSON.stringify({requestId:'11111111-1111-4111-8111-111111111111',targetSha:'a'.repeat(40),profileBindingId:'fixture-profile',expectedRevision:157,expiresAt:new Date(Date.now()+60000).toISOString()});document.head.append(node);new MutationObserver(()=>{if(node.dataset.state==='reload_requested')resolve(true);if(node.dataset.state==='refused')reject(Error(node.dataset.code));}).observe(node,{attributes:true});document.dispatchEvent(new Event('automated-apply:maintenance-reload'));});
 `,
 );
 writeFileSync(

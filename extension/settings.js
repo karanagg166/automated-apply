@@ -4,6 +4,9 @@ import {
   configureRetainedHeartbeat,
   retainedAlarmController,
 } from "./naukri-retained.js";
+import { bindNaukriMaintenanceDocument } from "./naukri-maintenance.js";
+
+bindNaukriMaintenanceDocument();
 
 const ERROR_CODE_PATTERN = /^[a-z][a-z0-9_]{1,63}$/;
 const ENDPOINT_PATTERN = /^http:\/\/127\.0\.0\.1:\d+$/;

@@ -2,6 +2,42 @@ import { profileContext, profileNative } from "./chrome-profile.js";
 
 const intentKey = "naukriMaintenanceReloadV1";
 
+// Apple Events can inspect the DOM without receiving privileged extension APIs.
+// Keep those APIs in this trusted module and validate every request below.
+export function bindNaukriMaintenanceDocument(api = chrome) {
+  const ready = document.createElement("meta");
+  ready.id = "naukri-maintenance-ready";
+  ready.dataset.runtimeVersion = api.runtime.getManifest().version;
+  document.head.append(ready);
+  document.addEventListener("automated-apply:maintenance-reload", () => {
+    const node = document.getElementById("naukri-maintenance-request");
+    if (!node || node.dataset.state) return;
+    node.dataset.state = "checking";
+    let request;
+    try {
+      const input = node.dataset.request;
+      if (!input || input.length > 2000)
+        throw Error("maintenance_context_invalid");
+      request = JSON.parse(input);
+    } catch {
+      node.dataset.state = "refused";
+      node.dataset.code = "maintenance_context_invalid";
+      return;
+    }
+    void guardedNaukriReload(request, api).then(
+      () => {
+        node.dataset.state = "reload_requested";
+      },
+      (error) => {
+        node.dataset.state = "refused";
+        node.dataset.code = /^maintenance_[a-z_]+$/.test(error.message)
+          ? error.message
+          : "maintenance_context_invalid";
+      },
+    );
+  });
+}
+
 // Operator maintenance in an existing owned inactive settings document only.
 // No tabs/windows are opened, selected or navigated by this function.
 export async function guardedNaukriReload(request, api = chrome) {
