@@ -7,7 +7,7 @@ import { naukriChatbot } from "./naukri-chatbot.js";
 
 // Injected only into this consumer's inactive search tab, after read admission.
 // Verify the observed explicit Fresher filter before using its results.
-// Preserve keyword relevance for legacy fresher searches; the actual Date transition
+// Preserve keyword relevance for fresher/intern searches; the actual Date transition
 // replaced their junior results with unrelated senior listings. Original role
 // searches retain Date. Where the genuine Freshness control exists, prioritize
 // today's keyword results; the original role sweeps still cover older jobs.
@@ -24,7 +24,9 @@ export function sortNaukriSearchDate(expectedUrl, state = null) {
     return failure("provider_context_changed");
   const pagePath = expected.pathname.match(/^(\/[a-z0-9-]+-jobs)(?:-([23]))?$/);
   const targetPage = Number(pagePath?.[2] || 1);
-  const keywordOrder = /-fresher-jobs(?:-[23])?$/.test(expected.pathname);
+  const keywordOrder = /-(?:fresher|intern)-jobs(?:-[23])?$/.test(
+    expected.pathname,
+  );
   let allowedPaths = new Set(state?.allowedPaths || [expected.pathname]);
   let pendingPage = state?.pendingPage ?? null;
   let previousLinks = state?.previousLinks ?? null;
@@ -103,6 +105,18 @@ export function sortNaukriSearchDate(expectedUrl, state = null) {
           '.experiencecontainer [role="slider"][aria-label="Experience"]',
         ),
       ].filter(visible);
+      const modernHeader =
+        inputs.length === 1 &&
+        document.querySelectorAll(".experiencecontainer").length === 0 &&
+        document.querySelectorAll('[role="slider"][aria-label="Experience"]')
+          .length === 0 &&
+        inputs[0].matches(
+          '.nI-gNb-dd .dropdownMainContainer > input[name="experienceDD"][type="text"][aria-label="Select experience"]',
+        ) &&
+        // The genuine GNB keeps this search-state input collapsed/hidden.
+        // It is read-only evidence with the exact URL, never a fill target.
+        inputs[0].getAttribute("title") === "Fresher" &&
+        inputs[0].getAttribute("value") === "Fresher";
       if (inputs.length > 1 || sliders.length > 1)
         return failure("search_experience_filter_ambiguous");
       // Hydration can temporarily leave the saved control unavailable. Wait
@@ -111,10 +125,11 @@ export function sortNaukriSearchDate(expectedUrl, state = null) {
         inputs.length !== 1 ||
         inputs[0].tagName !== "INPUT" ||
         inputs[0].value !== "Fresher" ||
-        sliders.length !== 1 ||
-        sliders[0].getAttribute("aria-valuenow") !== "0" ||
-        sliders[0].textContent.trim() !== "0" ||
-        sliders[0].closest(".rc-slider.not-selected")
+        (!modernHeader &&
+          (sliders.length !== 1 ||
+            sliders[0].getAttribute("aria-valuenow") !== "0" ||
+            sliders[0].textContent.trim() !== "0" ||
+            sliders[0].closest(".rc-slider.not-selected")))
       )
         return pending();
     }

@@ -135,21 +135,29 @@ try {
       : `<div class="styles_jd-header"><h1>Backend Developer</h1><span class="styles_comp-name">Fictional Labs</span><span class="styles_loc-wrap">India</span><span class="styles_exp-wrap">0 - 3 Yrs</span><span>120 Applicants</span><button onclick="window.accidentalClicks=(window.accidentalClicks||0)+1">Apply</button></div><div class="styles_job-desc">Build Python services</div><div class="styles_key-skill"><span class="chip">Python</span></div><script type="application/ld+json">${JSON.stringify({ "@type": "JobPosting", title: "Backend Developer", datePosted: new Date().toISOString(), identifier: { value: fixtureRequisition } })}</script>`;
     if (scenario === "read_drain_challenge" && fixtureRequisition !== req)
       body = "<p>Access denied</p>" + body;
-    if (scenario.startsWith("fresher_keyword_")) {
+    if (/^(fresher|intern)_keyword_/.test(scenario)) {
       // Genuine behavior: initial relevant cards differ from the Date result
       // set. A Date click must not leak that unrelated set into discovery.
       body = `<button id="filter-sort" type="button" aria-controls="filter-sort-menu">Recommended</button><ul id="filter-sort-menu" style="visibility:hidden"><li role="option" title="Date"><a>Date</a></li></ul><a id="old-result" href="${jobUrl}">Fictional junior job</a><script>
 const control=document.querySelector('#filter-sort'), menu=document.querySelector('#filter-sort-menu');
 control.onclick=()=>menu.style.visibility='visible';menu.querySelector('a').onclick=()=>{control.textContent='Date';document.querySelector('#old-result').href='https://www.naukri.com/job-listings-unrelated-senior-291026654321';};
 </script>`;
-      if (scenario === "fresher_keyword_page_two")
+      if (scenario.startsWith("intern_keyword_"))
+        body += `<input id="experienceDD" value="Fresher"><div class="experiencecontainer"><div role="slider" aria-label="Experience" aria-valuenow="0">0</div></div>`;
+      if (scenario.startsWith("intern_keyword_modern_")) {
+        body = body.replace(
+          '<input id="experienceDD" value="Fresher"><div class="experiencecontainer"><div role="slider" aria-label="Experience" aria-valuenow="0">0</div></div>',
+          `<div class="nI-gNb-dd" style="visibility:hidden"><div class="dropdownMainContainer"><input id="experienceDD" name="experienceDD" type="text" aria-label="Select experience" value="Fresher" title="${scenario.endsWith("conflict") ? "Any experience" : "Fresher"}"></div></div>`,
+        );
+      }
+      if (scenario.endsWith("_keyword_page_two"))
         body += `<nav aria-label="Pagination"><a aria-current="page" href="${url.href}">2</a></nav>`;
-      if (scenario === "fresher_keyword_wrong_order")
+      if (scenario.endsWith("_keyword_wrong_order"))
         body = body.replace(
           'aria-controls="filter-sort-menu">Recommended</button>',
           'aria-controls="filter-sort-menu">Date</button>',
         );
-      if (scenario.startsWith("fresher_keyword_freshness")) {
+      if (/^(fresher|intern)_keyword_(?:modern_)?freshness/.test(scenario)) {
         body = body.replace(
           `id="old-result" href="${jobUrl}"`,
           'id="old-result" href="https://www.naukri.com/job-listings-older-291026123457"',
@@ -308,6 +316,34 @@ page(2);control.onclick=()=>menu.style.visibility='visible';menu.querySelector('
       false,
     ],
     [
+      "intern_keyword_freshness",
+      "search_jobs",
+      searchUrl.replace("-jobs", "-intern-jobs") +
+        "?k=backend%20developer%20intern&experience=0",
+      false,
+    ],
+    [
+      "intern_keyword_wrong_order",
+      "search_jobs",
+      searchUrl.replace("-jobs", "-intern-jobs") +
+        "?k=backend%20developer%20intern&experience=0",
+      false,
+    ],
+    [
+      "intern_keyword_freshness_external",
+      "search_jobs",
+      searchUrl.replace("-jobs", "-intern-jobs") +
+        "?k=backend%20developer%20intern&experience=0",
+      false,
+    ],
+    ...["success", "conflict"].map((suffix) => [
+      "intern_keyword_modern_freshness_" + suffix,
+      "search_jobs",
+      searchUrl.replace("-jobs", "-intern-jobs") +
+        "?k=backend%20developer%20intern&experience=0",
+      false,
+    ]),
+    [
       "background_paginated_search_links",
       "search_jobs",
       searchUrl + "-2",
@@ -355,19 +391,21 @@ page(2);control.onclick=()=>menu.style.visibility='visible';menu.querySelector('
       );
     } else if (
       name === "unconfirmed_search_sort" ||
+      name === "intern_keyword_modern_freshness_conflict" ||
       name === "search_access_restriction" ||
-      name === "fresher_keyword_wrong_order" ||
-      name === "fresher_keyword_freshness_external"
+      name.endsWith("_keyword_wrong_order") ||
+      name.endsWith("_keyword_freshness_external")
     ) {
       assert.equal(finished, undefined);
       assert.equal(
         result.calls.find((c) => c.name === "abandon_naukri_work")?.input
           .work_report.reason,
-        name === "unconfirmed_search_sort"
+        name === "unconfirmed_search_sort" ||
+          name === "intern_keyword_modern_freshness_conflict"
           ? "search_date_sort_not_confirmed"
-          : name === "fresher_keyword_freshness_external"
+          : name.endsWith("_keyword_freshness_external")
             ? "search_freshness_option_unsupported"
-            : name === "fresher_keyword_wrong_order"
+            : name.endsWith("_keyword_wrong_order")
               ? "search_keyword_order_unrecognized"
               : "provider_challenge_requires_owner",
       );
