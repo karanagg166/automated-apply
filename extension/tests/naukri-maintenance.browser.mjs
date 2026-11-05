@@ -100,11 +100,20 @@ try {
   });
   const fixtureManager = await context.newPage();
   await fixtureManager.goto("chrome://extensions/");
-  await fixtureManager.waitForFunction(() => !!document.querySelector('extensions-manager')?.shadowRoot?.querySelector('extensions-toolbar')?.shadowRoot?.querySelector('#devMode'));
+  await fixtureManager.waitForFunction(
+    () =>
+      !!document
+        .querySelector("extensions-manager")
+        ?.shadowRoot?.querySelector("extensions-toolbar")
+        ?.shadowRoot?.querySelector("#devMode"),
+  );
   await fixtureManager.evaluate(() => {
-    const toggle=document.querySelector('extensions-manager').shadowRoot.querySelector('extensions-toolbar').shadowRoot.querySelector('#devMode');
-    if(toggle.disabled)throw Error('fixture_developer_mode_unavailable');
-    if(!toggle.checked)toggle.click();
+    const toggle = document
+      .querySelector("extensions-manager")
+      .shadowRoot.querySelector("extensions-toolbar")
+      .shadowRoot.querySelector("#devMode");
+    if (toggle.disabled) throw Error("fixture_developer_mode_unavailable");
+    if (!toggle.checked) toggle.click();
   });
   await fixtureManager.close();
   const worker =
