@@ -513,10 +513,13 @@ async def native(session, settings, actor, command):
                 )
                 session.add(row)
             if (row.value.get("browser_session_id")
-                    and row.value["browser_session_id"] != str(command.browser_session_id)):
+                    and (row.value["browser_session_id"] != str(command.browser_session_id)
+                         or row.value.get("window_id") != command.window_id)):
                 from backend.app.execution.naukri_form_loss import session_replaced
 
-                await session_replaced(session, str(command.profile_binding_id), row.value["browser_session_id"], settings)
+                await session_replaced(session, str(command.profile_binding_id), row.value["browser_session_id"], settings,
+                                       previous_window_id=row.value.get("window_id"),
+                                       window_only=row.value["browser_session_id"] == str(command.browser_session_id))
             await invalidate(
                 session, str(command.profile_binding_id), "profile_reconnected"
             )
@@ -543,6 +546,7 @@ async def native(session, settings, actor, command):
             if not row.value["connected"]:
                 raise ToolDenied("PROFILE_OFFLINE")
             changed = row.value["browser_session_id"] != str(command.browser_session_id)
+            window_changed = row.value.get("window_id") != command.window_id
             if not command.browser_session_id:
                 raise ToolDenied("PROFILE_SESSION_CHANGED")
             enabled = (
@@ -555,11 +559,14 @@ async def native(session, settings, actor, command):
                     row.value["id"],
                     "browser_restart" if changed else "profile_commands_disabled",
                 )
-            if changed:
-                from backend.app.browser import extension_tasks as tasks
+            if changed or window_changed:
                 from backend.app.execution.naukri_form_loss import session_replaced
 
-                await session_replaced(session, row.value["id"], row.value["browser_session_id"], settings)
+                await session_replaced(session, row.value["id"], row.value["browser_session_id"], settings,
+                                       previous_window_id=row.value.get("window_id"), window_only=not changed)
+            if changed:
+                from backend.app.browser import extension_tasks as tasks
+
                 for task in await tasks.rows(session):
                     if (
                         task.value.get("profile_binding_id") == row.value["id"]
@@ -592,7 +599,7 @@ async def native(session, settings, actor, command):
                 "last_heartbeat": now().isoformat(),
                 "commands_enabled": enabled,
                 "version": row.value["version"]
-                + int(changed or enabled != row.value["commands_enabled"]),
+                + int(changed or window_changed or enabled != row.value["commands_enabled"]),
             }
             data = {
                 "profile": public(

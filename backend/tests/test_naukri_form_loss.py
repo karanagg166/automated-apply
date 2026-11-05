@@ -85,3 +85,16 @@ async def test_authenticated_new_session_fences_old_form_and_does_not_reopen_app
     assert value["form_loss_observation"]["source"] == "authenticated_browser_session_replaced"
     assert value["admitted_actions"] == original["admitted_actions"]
     assert value["form_binding"] == original["form_binding"]
+
+
+@pytest.mark.parametrize("window_id", [None, 99])
+async def test_authenticated_window_loss_fences_the_original_form_and_versions_the_binding(db_session, upload_case, window_id):
+    ctx, item, row = await waiting(db_session, upload_case)
+    before = dict(row.value)
+    result = await call(db_session, upload_case, {**ctx, "window_id": window_id}, "heartbeat_chrome_profile", profile_commands_enabled=True)
+    assert result.ok
+    value = (await queue.load(db_session, item["id"])).value
+    assert value["stage"] == "SUBMISSION_UNKNOWN" and value["status"] == "unknown"
+    assert value["form_loss_observation"]["source"] == "authenticated_browser_window_replaced"
+    assert value["admitted_actions"] == before["admitted_actions"]
+    assert value["form_binding"] == before["form_binding"]
