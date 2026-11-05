@@ -73,44 +73,50 @@ The earlier once-asked decision about `100+` lower-bound-only counts remains
 pending. A numeric threshold change alone does not authorize inventing its upper
 bound. Continue useful independent work rather than repeating the question.
 
-## Current priority — November5 IST, second genuine employer questionnaire
+## Current priority — November5 IST, retained employer question
 
-[Real Web-role correction and second attempt](../acceptance/naukri-web-role-live-20261105.md)
-is the latest snapshot. Exact API/execution0c87562 installed under STOP139 with
-2,133 preserved records, profile5, approved binding1 and fresh worker heartbeat;
-readiness/front200 and protected files passed while the Mac was locked. Actual
-frontend RUN140. Extension remainsb8b380c/1.3.31, stable ID; Telegram/nativeb6b0690,
-frontendae66975. No Chrome reload/browser action during that cutover.
+[Retained radio form, profile hydration and concurrent discovery](../acceptance/naukri-retained-radio-and-discovery-20261105.md)
+is the latest snapshot. API/execution remain exact0c87562, Telegram/nativeb6b0690
+and frontendae66975. Extension disk is exactcdd231b/1.3.36, same stable ID and25
+files; its settings modules are current, while the service worker remains cached
+b8b380c/1.3.31. This is an intentionally mixed temporary runtime to preserve the
+original admitted provider document. Do not represent disk version as a complete
+worker reload or final deployment acceptance.
 
-The fresh Backend Web Developer listing passed eligibility68.33 under the narrow
-role spelling correction and existing any-skill rule. The independent worker
-prepared its packet and verified fresh account/PDF/prior history. A second
-owner-authorized Apply occurred22:30:35UTC while surrounding OS samples were
-LOCKED; an independent inactive DOM read observed its real employer questionnaire.
-The employer's interview-availability question requires a personal preference;
-the owner was asked once. Retain this current form and continue after the answer.
-Do not repeat Apply, reload the extension, replace services or request a third
-attempt while this form is active. There are zero new verified worker receipts.
+The Backend Web Developer listing passed68.33 and one second authorized Apply at
+22:30:35UTC reached a genuine radio questionnaire while OS samples were LOCKED.
+The adapter now recognizes that actual radio structure and independently proved
+the same original untouched first form. No extra Apply, answer, admission refund
+or packet reset occurred. A real profile reload showed that the verified account
+field appeared only after3.233seconds despite document.readyState=complete;
+bounded read-only hydration handling now passes actual account/PDF/listing/form
+refresh. Actual saved PDF100198 bytes matched at23:30:36UTC.
 
-The original Java questionnaire's lost tab remains SUBMISSION_UNKNOWN after three
-bounded history checks, with one accurate dashboard/Telegram uncertainty notice.
-Its admission remains consumed. Current SUPERVISED lifetime2/hour1 is now consumed
-across the original and active second application. Score50/age14days/applicants
-1,000/unknown-count review/any-skill remain unchanged; other platforms OFF.
+The form is NEEDS_INPUT for the interview preference already asked once in chat.
+No owner answer exists. Dashboard question persistence is verified; Telegram
+state is delivery_unknown with no message IDs, so successful delivery cannot be
+claimed or repeated. Preserve this original tab and await the truthful answer.
+Two Apply admissions are consumed, zero new worker receipts. Original lost Java
+form remains quarantined; QTrino and every uncertain/history fence remain intact.
 
-[Verified Fresher search](../acceptance/naukri-verified-fresher-search-20261105.md)
-retains actual UI/query/reload evidence and exact extension cutover. The actual
-zero slider can mean Any; rendered Fresher controls and query must agree. Real
-background search added37 identities between2,096 and2,133 records; a repeated
-20-link observation added zero duplicate identities. All observations still need
-full-listing checks. Preserve native source intervals and owner focus.
+STOP145 preserved the waiting form, policy, binding1/profile5 and protected files;
+only the owned inactive settings document reloaded. Actual frontend resumed146
+with lifetime2/hour1 SUPERVISED, any-skill/score50/14days/1000/review-unknown.
+Current continuation permits only leased job/search reads beside this form and
+reuses its queue/listeners; foreign execution remains blocked. One actual LOCKED
+filtered search completed23:46:59UTC with21 observed links and zero new identities.
+The actual morning wake recovered discovery:7 new identities at09:20:25UTC and
+20 at09:25:29UTC. An09:22 ledger audit found2141 durable identities, zero duplicate
+requisitions and zero new worker receipts. The Mac actually slept overnight and
+the audit observer lost its connection; continuous overnight operation is not
+accepted. No new application is inferred from discovery or heartbeat evidence.
 
-Complete the current supported questionnaire, independently verify persistent
-provider receipt/history and accurate notification, then bounded recurring AUTO
-and restart/locked acceptance. Locked DOM/readiness and Apply-to-questionnaire
-are real bounded samples, not final locked submission or24/7 acceptance. Other
-adapters and draft integrations follow the first-receipt priority; no hosted
-Actions, merge or cleanup.
+After the owner answer, continue this exact form under fresh checks, obtain
+independent persistent provider receipt/history and accurate notification. Only
+then finish the complete worker reload and bounded recurring AUTO/restart/locked
+acceptance. Other adapters and draft integrations follow the first receipt.
+Do not whole-extension reload, replace services or request a third attempt while
+this form remains active. No hosted Actions, merge or cleanup.
 
 ## Execution and evidence rules
 
