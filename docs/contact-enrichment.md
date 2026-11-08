@@ -129,7 +129,7 @@ python backend/scripts/prune_contact_enrichment.py
 This command changes the configured database; run it only in an authorized environment. It removes expired evidence, clears old pattern research from runs, and replaces stale, uncorrected provider contacts with suppressed tombstones while preserving legacy audit/outreach references. Human-corrected records are user-maintained and retained until review/removal. Durable lookup hashes and cost audit are retained without raw provider responses to prevent duplicate spending. No scheduler or production job is created by Phase 3.
 
 ```bash
-python -m pip install -r backend/requirements.txt
+uv pip install -r backend/requirements.txt
 # Existing local empty test database is only an administrator connection; scripts
 # create unique disposable databases and drop them after verification.
 export PROFILE_TEST_DATABASE_URL=postgresql://localhost/candidate_profile_test

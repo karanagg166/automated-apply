@@ -7,12 +7,12 @@
 - `supabase/` holds SQL migrations; `candidate_context/templates/` holds profile templates; `docs/` holds setup guidance.
 
 ## Build, Test, and Development Commands
-- Use Python 3.11+, Node.js 22+, and pip. Use pnpm exclusively for JavaScript dependencies and scripts; do not use npm, npx, or yarn. Run from repository root:
+- Use Python 3.11+, Node.js 22+, and uv. Use pnpm exclusively for JavaScript dependencies and scripts; do not use npm, npx, or yarn. Run from repository root:
 
 ```sh
-python3.11 -m venv backend/venv
+uv venv --python 3.11 backend/venv
 source backend/venv/bin/activate
-pip install -r backend/requirements.txt
+uv pip install -r backend/requirements.txt
 uvicorn backend.app.main:app --reload --port 8000
 pnpm -C frontend install
 pnpm -C frontend dev

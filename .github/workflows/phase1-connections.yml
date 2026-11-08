@@ -35,12 +35,17 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.7"
+          enable-cache: false
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
       - name: Enable pinned pnpm
         run: corepack enable && corepack prepare pnpm@12.15.0 --activate
-      - run: python -m pip install -r backend/requirements.txt ruff bandit
+      - run: uv pip install --system -r backend/requirements.txt ruff bandit
       - name: Offline contracts and security
         run: python -m pytest backend/tests/test_phase1_local_agent.py backend/tests/test_telegram_pairing.py backend/tests/test_phase1_installation.py backend/tests/test_phase1_conversation.py backend/tests/test_phase1_conversational_agent.py backend/tests/test_phase1_agy_diagnostics.py backend/tests/test_phase1_account_setup.py backend/tests/test_phase1_connection_acceptance.py -q
       - name: Extension build and event tests

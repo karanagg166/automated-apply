@@ -261,7 +261,7 @@ them directly with Supabase anon/client credentials. Production migration and de
 part of this change.
 
 ```bash
-python -m pip install -r backend/requirements.txt
+uv pip install -r backend/requirements.txt
 python -m compileall -q backend/app
 pytest backend/tests -v
 git diff --check

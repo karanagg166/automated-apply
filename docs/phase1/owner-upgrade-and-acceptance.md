@@ -24,8 +24,8 @@ chmod 700 "$backup" "$support/releases"
 git diff --exit-code
 git diff --cached --exit-code
 git worktree add --detach "$release" "$reviewed_sha"
-python3.11 -m venv "$release/.venv"
-"$release/.venv/bin/python" -m pip install -c "$release/backend/requirements.lock" -r "$release/backend/requirements.txt"
+uv venv --python 3.11 "$release/.venv"
+uv pip install --python "$release/.venv/bin/python" -c "$release/backend/requirements.lock" -r "$release/backend/requirements.txt"
 pnpm --version
 pnpm -C "$release/frontend" install --frozen-lockfile
 pnpm -C "$release/frontend" build
@@ -36,7 +36,7 @@ pnpm -C "$release/extension" build
 Require pnpm **12.15.0** before installing. Do not change system npm, replace the
 lockfile, copy another worktree's dependencies or regenerate credentials. A release
 venv stays at its original absolute path. Existing requirements are constrained by
-the reviewed Python lockfile. Save `pip freeze` and tool versions privately for the
+the reviewed Python lockfile. Save `uv pip freeze --python "$release/.venv/bin/python"` and tool versions privately for the
 release inventory; the unversioned pytest tooling is for acceptance, not runtime.
 
 Keep the complete old `phase1-runtime` directory **in place**, including dirty and

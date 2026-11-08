@@ -9,8 +9,8 @@ retain them locally, restrict access, and remove them according to your retentio
 ## Commands from repository root
 
 ```sh
-python3.11 -m venv backend/venv
-backend/venv/bin/python -m pip install -r backend/requirements.txt
+uv venv --python 3.11 backend/venv
+uv pip install --python backend/venv/bin/python -r backend/requirements.txt
 backend/venv/bin/python backend/scripts/check_environment.py
 backend/venv/bin/python backend/scripts/migration_preflight.py
 backend/venv/bin/python backend/scripts/smoke_test.py --mode local-offline

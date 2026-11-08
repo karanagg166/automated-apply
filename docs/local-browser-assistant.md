@@ -36,7 +36,7 @@ The feature does not change the existing database safety checks or configure a
 production database. Develop and test using disposable PostgreSQL 17 as below.
 
 ```sh
-backend/venv/bin/pip install -r backend/requirements-browser.txt
+uv pip install --python backend/venv/bin/python -r backend/requirements-browser.txt
 pnpm --dir frontend install --frozen-lockfile
 ```
 

@@ -7,8 +7,8 @@ Use this branch's worktree. Do not copy another project's .env, encryption keys,
 Python 3.11+ and Node 22+; use only pnpm@12.15.0 and the committed pnpm lockfile.
 
 ```sh
-python3.11 -m venv .venv
-.venv/bin/python -m pip install -r backend/requirements.txt
+uv venv --python 3.11 .venv
+uv pip install --python .venv/bin/python -r backend/requirements.txt
 pnpm -C frontend install --frozen-lockfile
 cp backend/.env.phase1.example ./phase1.private.env
 chmod 600 phase1.private.env

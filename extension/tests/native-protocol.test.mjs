@@ -38,7 +38,7 @@ function findPython() {
     if (probe.status === 0) return candidate;
   }
   throw new Error(
-    "Missing Python environment with backend dependencies in this worktree. Run 'python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt'.",
+    "Missing Python environment with backend dependencies in this worktree. Run 'uv venv --python 3.11 .venv && uv pip install --python .venv/bin/python -r backend/requirements.txt'.",
   );
 }
 

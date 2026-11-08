@@ -1,5 +1,7 @@
 # Automated Apply
 
+Use [uv](https://docs.astral.sh/uv/getting-started/installation/) for Python environments and dependencies. Activate a project virtual environment before `uv pip install`; the committed requirements and constraints remain authoritative. Use `--system` only inside disposable containers or CI runners. JavaScript tooling uses pnpm.
+
 The opt-in [local browser assistant](docs/local-browser-assistant.md) supports dedicated Chrome analysis, reviewed filling and manual handoff using existing application packets. It can capture employer-page evidence for reviewed company-specific answers. My Profile includes private career facts and approved reusable answers, with optional local AI fallback. [Delivery status](docs/browser-assistant-delivery.md) records verified mock submission and unfinished employer/adapter phases. Automated real employer submission remains disabled.
 
 ## Persistent database requirement
@@ -99,13 +101,13 @@ JOB DISCOVERY   ENRICHMENT       GMAIL AGENT
 
 ```bash
 # Create virtual environment
-python3.11 -m venv backend/venv
+uv venv --python 3.11 backend/venv
 
 # Activate virtual environment
 source backend/venv/bin/activate
 
 # Install dependencies
-pip install -r backend/requirements.txt
+uv pip install -r backend/requirements.txt
 ```
 
 ### 2. Configuration

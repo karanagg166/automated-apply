@@ -76,8 +76,8 @@ During deep inspection and real Chrome for Testing execution, **7 extension bugs
 ### 3.1 Standalone Worktree Prerequisites
 In a clean standalone worktree (`feat/phase1-agy-extension`), install the documented local dependencies inside the worktree itself (the test suite never reaches into another worktree's `node_modules` or `.venv`):
 ```sh
-python3 -m venv .venv
-.venv/bin/pip install -r backend/requirements.txt
+uv venv --python 3.11 .venv
+uv pip install --python .venv/bin/python -r backend/requirements.txt
 pnpm -C frontend install --frozen-lockfile
 pnpm -C frontend exec playwright install chromium
 ```

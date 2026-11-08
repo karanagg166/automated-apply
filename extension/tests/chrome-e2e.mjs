@@ -60,7 +60,7 @@ function findPython() {
     if (probe.status === 0) return candidate;
   }
   throw new Error(
-    "Unable to resolve Python with backend dependencies in this standalone worktree. Run 'python3 -m venv .venv && .venv/bin/pip install -r backend/requirements.txt'.",
+    "Unable to resolve Python with backend dependencies in this standalone worktree. Run 'uv venv --python 3.11 .venv && uv pip install --python .venv/bin/python -r backend/requirements.txt'.",
   );
 }
 
