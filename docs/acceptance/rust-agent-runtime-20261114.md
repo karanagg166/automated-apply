@@ -220,3 +220,100 @@ adapters and remaining providers; implement worker/dashboard/owner-question/STOP
 complete all Python API/service ports; then perform actual installed acceptance and resource
 validation. No submission allowance, quarantined-job replay, recurring AUTOMATIC or merge
 is enabled by this milestone.
+
+## Milestone 4: factual matching and PostgreSQL-backed agent tools
+
+Implementation: [`6c6f43f`](https://github.com/karanagg166/automated-apply/commit/6c6f43f)
+plus the confirmation-type correction
+[`99b19fc`](https://github.com/karanagg166/automated-apply/commit/99b19fc), on
+`feat/rust-agent-runtime`, [PR #50](https://github.com/karanagg166/automated-apply/pull/50).
+
+The new Rust domain library ports both existing matching layers, including ordered skill
+aliases, role spelling, verified experience, location/remote preferences, employment,
+company exclusions, startup/stage preferences, salary comparison, unknown fields and
+explanations. Frozen public HTML5/Unicode reference data preserve Python 3.11 decoding
+and case behavior. Their reference version and scoped notices are retained under
+`rust/domain/data/`. No candidate data is in those tables. Rust uses no Python at runtime.
+
+Actual SQL-backed agent tools now read confirmed profile context, saved Naukri ranking
+and bounded application history. Confirmation is bound to the current profile ID/version
+and a nonempty string timestamp; malformed false/zero/collection confirmations are rejected.
+Name, email, phone and current compensation are omitted from the returned matching context.
+The ranking snapshot combines profile, saved jobs and history fences in one SQL statement.
+It scans at most 100 saved Naukri jobs and returns at most 10. Retained receipts fence replay
+by existence even when their contents need review. Unknown/submitting packets, admitted
+queue work, duplicate requisitions and previously applied companies are excluded.
+
+Only backend-observed job IDs can enter a job-specific proposal. A new ranking can revoke
+old bindings, and membership is checked again at dispatch. Bindings and tool outputs are
+persisted through the coordinator before later work. The real SQL tools are exercised
+through the coordinator with scripted decisions; application preparation stops with
+`tool_adapter_not_migrated`, without writing a packet or requesting owner approval for
+missing implementation. This is a tested integration boundary, not completed application
+or live five-agent acceptance.
+
+| Check | Status | Exact evidence |
+| --- | --- | --- |
+| Matching/domain regressions | PASS | 8 tests, 0 failed |
+| Agent state, authority and observed-job binding | PASS | 18 tests, 0 failed |
+| Provider transport/consent regressions | PASS | 4 tests, 0 failed |
+| Native transport regressions | PASS | 14 tests, 0 failed; latest standard run 0.69s |
+| Dedicated native PostgreSQL 17 fixtures | PASS | 20 tests, 0 failed/ignored; final run 0.47s |
+| Python/Rust scoring compatibility corpus | PASS | 1,300 fictional cases; both layers, complete lists/factors/unknowns/explanations |
+| Public text-table drift / Rust format / Clippy / Python Ruff / diff | PASS | Checked locally; no hosted execution |
+| Locked workspace release build | PASS | Local build; final confirmation correction build 3.71s |
+| Actual owner database/schema/ACL acceptance | NOT TESTED | Only new disposable fictional PostgreSQL clusters used |
+| Live posting age/applicant/quota/application admission | NOT TESTED | Ranking preview only; existing live policy unchanged |
+| Rich project/resume context and all-platform canonical history | NOT TESTED | Remaining ports/review required before action adapters |
+| Worker/dashboard lifecycle, browser, Telegram and application actions | NOT TESTED | Uninstalled; full service ports still pending |
+| Whole-project CPU/GPU and real receipt acceptance | NOT TESTED | Component measurements only; no new live submission |
+
+Current total: **64 distinct Rust tests passed** (44 standard + 20 dedicated PostgreSQL).
+The standard run deliberately ignores those 20 database cases; the dedicated harness runs
+all 20. The 1,300 matching cases and earlier 25 native-contract examples are separate.
+No production connection, real AI request, mailbox read, profile save, Chrome action,
+application, service restart, installation, hosted Action, cleanup or merge was performed.
+
+The first differential run found 18 mismatches in retained equivalent Unicode skill labels;
+normalizing source lists like the existing profile schema fixes them. Compilation/Clippy
+also caught an iterator bound, late initialization and an unnecessary struct update; the
+final checks pass. No unresolved failures in these scoped checks.
+
+### Actual Mac warm computation measurement
+
+Five measured samples per runtime, each calculating both matching layers and output
+projections for the same 1,300 prevalidated fictional cases. Both runtimes warm their
+regex/data caches first. Process startup, input normalization/validation and JSON input
+parsing are outside this measurement. No database, AI or browser is involved.
+
+| Median per 1,300-case batch | Python | Rust |
+| --- | ---: | ---: |
+| Wall time | 61.627ms | 12.729ms |
+| Process CPU time | 61.622ms | 12.726ms |
+
+This is about 4.8x faster computation and 79.3% lower CPU time for this warm workload.
+[Sanitized individual samples](rust-matching-benchmark-20261114.json).
+GPU was not measured; no inference was invoked.
+
+The separate one-shot parity driver observed 191.495ms Python versus 470.777ms Rust, but
+uses different boundaries: Python includes profile validation while imports are already
+loaded; Rust includes process startup, JSON parsing/output and cold regex/data caches.
+Those figures are not an equivalent-boundary speedup comparison. The warm result does
+not erase cold costs or establish deployed service/whole-Mac resource acceptance.
+
+Additional reproduction:
+
+```sh
+cargo test --locked --workspace
+uv run --no-project --python .venv/bin/python python -m rust.scripts.run_postgres_tests
+cargo build --locked --release -p automated-apply-domain --example match_contract
+uv run --no-project --python .venv/bin/python python -m rust.scripts.matching_parity
+uv run --no-project --python .venv/bin/python python -m rust.scripts.export_html_contract --check
+uv run --no-project --python .venv/bin/python python -m rust.scripts.benchmark_matching
+uv tool run --from ruff ruff check --isolated --select E9,F,I rust/scripts/export_html_contract.py rust/scripts/matching_parity.py rust/scripts/benchmark_matching.py
+```
+
+Next: finish efficient specialist routing and the durable worker/owner-control lifecycle;
+port rich verified context, preparation, browser/Telegram/application execution and remaining
+API/provider/services; validate real installation and resources under existing STOP,
+focus, account/resume/history/quota/rollback safeguards. Both owner objectives remain open.

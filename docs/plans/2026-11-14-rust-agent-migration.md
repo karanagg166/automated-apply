@@ -52,9 +52,10 @@ this is a staged behavioral migration, not a claim that scaffolding replaces the
 | Rust native transport | Implemented;14tests +25parity examples +Mac fixture benchmark; uninstalled |
 | Agent coordinator and specialist roles | Core library implemented;15state tests and scripted five-role workflow; live providers/adapters pending |
 | Durable PostgreSQL runtime and restart recovery | 9actual Mac PostgreSQL fixture tests passed; production migration/ACL/install pending |
+| Verified profile / saved matching / history read tools | Implemented with actual PostgreSQL fixtures; 1,300 matching comparisons pass; uninstalled |
 | Rust browser / Telegram / application adapters | Pending |
 | Full Python removal and API parity | Pending |
-| CPU / RSS / GPU resource acceptance | Pending; no savings claimed |
+| CPU / RSS / GPU resource acceptance | Native and warm matching component gains measured; whole-project/GPU acceptance pending |
 | Immutable install / rollback / real submission acceptance | Not performed |
 
 The session cannot self-resume after a platform usage-limit reset unless the hosting
@@ -68,3 +69,8 @@ Provider milestone: `a7610ec` adds fixture-tested Cohere V2 and the shared legac
 ledger.46Rust tests now pass (33standard+13native PostgreSQL), plus25parity examples.
 No provider key, real cloud call, runtime installation or owner DB change. Worker routing,
 actual tools, other providers and full backend/API migration remain open.
+
+Matching/knowledge milestone: `6c6f43f` + `99b19fc`; 64 Rust tests pass (44 standard +
+20 dedicated PostgreSQL), plus 1,300 scoring comparisons. Warm 1,300-case computation
+uses 61.622ms Python versus 12.726ms Rust CPU in the published paired fixture benchmark.
+Actual action adapters, worker lifecycle, full backend replacement and installed acceptance remain open.

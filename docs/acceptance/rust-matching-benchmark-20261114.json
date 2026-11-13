@@ -1,0 +1,64 @@
+{
+  "scope": "Actual Mac warm base+discovery calculation and output projection on fictional data; input normalization/validation and process startup excluded; no DB, model or browser",
+  "platform": "Darwin",
+  "architecture": "arm64",
+  "cases_per_sample": 1300,
+  "samples_per_runtime": 5,
+  "samples": {
+    "python": [
+      {
+        "wall_ms": 60.0712500163354,
+        "cpu_ms": 60.070999999999984
+      },
+      {
+        "wall_ms": 61.71133305178955,
+        "cpu_ms": 61.715999999999994
+      },
+      {
+        "wall_ms": 61.01916602347046,
+        "cpu_ms": 61.02299999999994
+      },
+      {
+        "wall_ms": 64.37866599299014,
+        "cpu_ms": 62.55100000000002
+      },
+      {
+        "wall_ms": 61.627082992345095,
+        "cpu_ms": 61.62199999999996
+      }
+    ],
+    "rust": [
+      {
+        "cpu_ms": 12.754000000000005,
+        "wall_ms": 12.756917
+      },
+      {
+        "cpu_ms": 12.595999999999997,
+        "wall_ms": 12.596209
+      },
+      {
+        "cpu_ms": 12.725999999999999,
+        "wall_ms": 12.728708
+      },
+      {
+        "cpu_ms": 12.51400000000001,
+        "wall_ms": 12.513458
+      },
+      {
+        "cpu_ms": 12.834999999999994,
+        "wall_ms": 12.834625
+      }
+    ]
+  },
+  "median": {
+    "python": {
+      "wall_ms": 61.627,
+      "cpu_ms": 61.622
+    },
+    "rust": {
+      "wall_ms": 12.729,
+      "cpu_ms": 12.726
+    }
+  },
+  "gpu": "NOT MEASURED; no inference invoked"
+}

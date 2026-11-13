@@ -20,7 +20,7 @@ uv run --no-project --python .venv/bin/python python -m rust.scripts.export_html
 uv run --no-project --python .venv/bin/python python -m rust.scripts.benchmark_matching
 ```
 
-The differential corpus has1,300fictional cases and checks both scoring layers, all skill
+The differential corpus has 1,300 fictional cases and checks both scoring layers, all skill
 lists/factors/unknowns/exclusions and explanation strings. It is not exhaustive over every
 possible source input or Unicode context. The benchmark separates warm calculation from
 one-shot parsing/validation/startup, which have different costs. No live accounts, providers,
