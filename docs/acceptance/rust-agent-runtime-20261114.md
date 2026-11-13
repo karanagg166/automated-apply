@@ -166,3 +166,57 @@ Next: port provider consent/shared monthly usage/cooldowns and actual verified t
 adapters, then expose coordinator lifecycle/owner questions through the existing dashboard
 and paired Telegram interface. Complete remaining Python API/worker/service ports and
 actual installed/receipt/resource acceptance before calling either owner objective done.
+
+
+## Milestone3: Rust Cohere transport and shared provider budgets
+
+Implementation: [`a7610ec`](https://github.com/karanagg166/automated-apply/commit/a7610ec),
+branch `feat/rust-agent-runtime`, [PR#50](https://github.com/karanagg166/automated-apply/pull/50).
+[Official Cohere V2 contract](https://docs.cohere.com/reference/chat) checked during this work.
+
+The coordinator can now use a Rust Cohere model adapter. It requires enabled/evaluation-key,
+owner-text and candidate-data consent; reads only explicitly supplied backend configuration;
+pins the official URL; sends bounded structured JSON; disables HTTP retries, redirects and
+proxies; validates completion/message/usage/typed decisions; and never starts a local model.
+Credentials are neither prompt fields nor debug output. The native host now also explicitly
+disables the HTTP library's internal retries; its existing rollback-only retry loop remains.
+
+Provider reservations use the **existing** `llm_monthly_usage` table and conservative token
+allowances, not a fresh migration ledger. Existing requests/cooldowns survive; concurrent
+reservations cannot bypass caps; cooldowns remain effective across month boundaries;
+unknown results retain consumed requests; reported usage is recorded. The same borrowed
+connection handles accounting, with no new live pool. The Rust SQL migration does not
+create or reset the existing provider table. Tests create a fictional copy only inside the
+disposable cluster. No actual private configuration/provider key was loaded or cloud request made.
+
+| Check | Result | Exact evidence |
+| --- | --- | --- |
+| Cohere consent/schema/HTTP tests | PASS | 4tests; actual fictional local HTTP includes6response/status cases |
+| Agent state tests | PASS | 15tests, 0failed |
+| Native regressions | PASS | 14tests, 0failed, 0.70s |
+| Native PostgreSQL17 fixtures | PASS | 13tests, 0failed/0ignored, 0.22s |
+| Shared old-count/cooldown/concurrency/restart accounting | PASS | 4new actual PostgreSQL fixture tests |
+| Python public-contract parity | PASS | 25cases against rebuilt release |
+| Format/Clippy/schema drift/diff/locked release build | PASS | Build37.11s; no hosted execution |
+| Live Cohere consent/key/account/billing acceptance | NOT TESTED | 0cloud calls/spend; no real credentials read |
+| Default run limits for a live five-LLM-call workflow | NOT TESTED | Conservative input bound can reject before transport; integration/routing still required |
+| Other providers, actual browser/Telegram tools and full Python replacement | NOT TESTED | Pending, production unchanged |
+
+Current totals: **46distinct Rust tests pass** (33standard +13dedicated PostgreSQL).
+The standard suite deliberately ignores those13DB tests; the dedicated harness runs all13.
+The25parity cases remain separate. No unresolved failures in these final local checks.
+
+TLS support added for cloud transport can affect feature unification in a workspace build,
+so the Mac bridge comparison was repeated on this rebuilt release with20measured successful
+requests/runtime +2warmups. Median Python/Rust: wall506.275/6.277ms, CPU498.521/4.293ms,
+peak RSS82,432/7,616KiB. This is ~81xfaster wall time and ~90.8%lower RSS for the
+startup-plus-local-fixture workload. [New sanitized samples](rust-native-cloud-build-benchmark-20261114.json).
+The original milestone1 samples are retained. Neither run establishes whole-project/GPU
+savings or production readiness. GPU remains unmeasured.
+
+Remaining work: integrate efficient deterministic routing/context selection with the
+specialists and approved provider budgets; port actual verified browser/Telegram/application
+adapters and remaining providers; implement worker/dashboard/owner-question/STOP lifecycle;
+complete all Python API/service ports; then perform actual installed acceptance and resource
+validation. No submission allowance, quarantined-job replay, recurring AUTOMATIC or merge
+is enabled by this milestone.

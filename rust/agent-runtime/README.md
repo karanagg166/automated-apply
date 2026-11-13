@@ -34,11 +34,22 @@ nonfixture database URLs, and never reads the project's env files. Default works
 tests deliberately skip these integration cases; the dedicated harness runs them all.
 
 The current end-to-end test uses scripted model proposals and simulated tool adapters.
-Live provider consent, shared monthly usage/cooldowns, verified-context retrieval,
-Telegram pairing, browser execution, queue admission, dashboard integration and real
-receipt acceptance remain to be ported. Nothing in this library grants new submissions,
+The Cohere V2 transport, explicit consent and shared monthly usage/cooldowns are now
+implemented and fixture-tested. No live provider call has been performed. Verified-context retrieval,
+Telegram pairing, browser execution, queue admission, other provider adapters, dashboard
+integration and real receipt acceptance remain to be ported. Nothing in this library grants new submissions,
 turns on recurring AUTOMATIC or starts Ollama/GPU inference.
 
 Library references: [Tokio](https://docs.rs/tokio/latest/tokio/),
 [SQLx PostgreSQL](https://docs.rs/sqlx/latest/sqlx/),
 [Cargo profiles](https://doc.rust-lang.org/cargo/reference/profiles.html).
+
+Cohere uses the existing `llm_monthly_usage` table; it never creates a separate allowance.
+Its provider URL is fixed, HTTP retries/proxies/redirects are disabled, the full request
+is byte bounded and responses are streamed into a128KiBlimit. Consent and monthly limits
+are checked before transport; unknown responses consume their reservation. HTTP429 adds
+a durable cooldown. [Official V2 contract](https://docs.cohere.com/reference/chat).
+
+The small default per-run input budget can reject a cloud request before transmission.
+Worker integration must allocate/route requests within the existing approved budgets;
+this library is not a claim that default settings support a live five-LLM-call workflow.

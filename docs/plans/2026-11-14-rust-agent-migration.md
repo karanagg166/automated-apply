@@ -63,3 +63,8 @@ resume record; do not implement a loop that attempts to bypass platform usage li
 
 Milestone implementations: `fcb2722` native host and `52fdfa6` durable coordinator;
 [PR#50](https://github.com/karanagg166/automated-apply/pull/50).
+
+Provider milestone: `a7610ec` adds fixture-tested Cohere V2 and the shared legacy monthly
+ledger.46Rust tests now pass (33standard+13native PostgreSQL), plus25parity examples.
+No provider key, real cloud call, runtime installation or owner DB change. Worker routing,
+actual tools, other providers and full backend/API migration remain open.
