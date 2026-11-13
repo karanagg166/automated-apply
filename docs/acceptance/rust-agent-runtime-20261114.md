@@ -1,10 +1,11 @@
-# Rust migration: native transport milestone, 2026-11-14
+# Rust migration: native transport and coordinator milestones, 2026-11-14
 
 Overall request: **IN PROGRESS**. Full Python replacement and multi-agent AI delivery
 are not complete. Installed application services/extension/native wrapper were not changed.
 
 Implementation branch: `feat/rust-agent-runtime`.
 Implementation SHA: [`fcb2722`](https://github.com/karanagg166/automated-apply/commit/fcb2722).
+Migration PR: [#50](https://github.com/karanagg166/automated-apply/pull/50), draft and unmerged.
 Base: `chore/uv-python-tooling`, PR [#49](https://github.com/karanagg166/automated-apply/pull/49).
 This stacks on existing Naukri implementation rather than reverting to older `main`.
 [Execution plan](../plans/2026-11-14-rust-agent-migration.md).
@@ -20,8 +21,8 @@ requests. Existing backend cross-field/account/identity/resume/policy/quota chec
 mandatory and are not replaced by this milestone.
 
 Cargo dependencies are locked, compiler concurrency is two, release uses thin LTO. Rust CI
-is manual-only and was **not dispatched**. pnpm and uv conventions are preserved. The
-agent-runtime crate is a declared workspace scaffold only; no coordinator exists yet.
+is manual-only and was **not dispatched**. pnpm and uv conventions are preserved. At this first milestone, the
+agent-runtime crate was a declared workspace scaffold only; milestone2 below implements its core.
 
 ## Actual Mac resource evidence, fictional traffic
 
@@ -92,3 +93,76 @@ Next: implement bounded specialist-agent coordination and durable PostgreSQL han
 port provider/tool/worker/API services, prove contract parity and restart recovery, then
 prepare immutable installation with existing STOP/rollback/focus/account/policy checks.
 No recurring AUTOMATIC authorization, quota reset or uncertain-application replay is inferred.
+
+
+## Milestone2: durable specialist-agent core
+
+Implementation: [`52fdfa6`](https://github.com/karanagg166/automated-apply/commit/52fdfa6),
+branch `feat/rust-agent-runtime`, [PR#50](https://github.com/karanagg166/automated-apply/pull/50).
+
+Discovery, matching, answers, review and execution have distinct prompts and tool scopes.
+A strictly typed proposal cannot contain a URL, recipient, approval grant, policy update
+or shell command. Only tool-observed evidence IDs can be cited or passed between roles.
+Ordered handoffs prevent skipping review. Backend-derived tool authority is a separate
+non-deserializable type. Submission returns `submission_adapter_not_migrated` until the
+existing identity/resume/account/quota/admission/receipt safeguards are ported.
+
+A single borrowed PostgreSQL connection persists bounded private context, input/output
+budget reservations, stable external-effect IDs and sanitized audit events. Lease tokens,
+CAS revisions, an advisory lock and a global one-active-lease constraint prevent duplicate
+work and cap active coordination across processes. Every provider/tool dispatch follows a
+successful durable save. Expired model work retains its consumed allowance. Interrupted
+external writes become `outcome_unknown`; no refund or replay is inferred. Read-only retries
+consume the original call budget. Maximum external wait20s, lease90s, default model/tool
+call caps16each and token reservation cap4000. No local model or GPU process starts.
+
+The explicit SQL migration enables RLS and revokes public/Supabase-client table access.
+It was applied **only to a newly created fictional PostgreSQL17 cluster on this Mac**.
+No live DB connection, schema/ACL/policy/queue change or installed update was performed.
+Application-role grants and target identity still need production deployment review.
+Rust minimum version is1.94 because SQLx0.9 requires it; the Mac has1.99.1. Cargo packages
+are private (`publish=false`); no new repository licensing grant is introduced.
+
+| Check | Status | Exact evidence |
+| --- | --- | --- |
+| Agent state/authority/budget/context regressions | PASS | 15tests, 0failed, 0ignored |
+| Native transport regressions | PASS | 14tests, 0failed, 0ignored, final run0.66s |
+| Dedicated native PostgreSQL17 fixtures | PASS | 9tests, 0failed, 0ignored, 0.16s |
+| Five-role durable workflow | PASS | Scripted model, 10decisions/5simulated tools; no real provider/browser |
+| Concurrent workers/global capacity/expired lease fence | PASS | Actual PostgreSQL fixture; two independent connections |
+| Lost external response/restart/no replay | PASS | Actual DB persistence + connection close/reopen; simulated external intent |
+| Atomic audit/reservation failure | PASS | Injected audit constraint rejects write; 0model/tool dispatches |
+| Client role/RLS privacy | PASS | Fixture client with SELECT grant sees0rows; owner sees1 |
+| Format/Clippy warnings denied/locked release build | PASS | Local; release build1m20s, not a comparative benchmark |
+| Python command-schema drift | PASS | `native_schema_current` after core integration |
+| Real LLM and monthly provider budgets | NOT TESTED | Provider adapter still pending; no cloud calls/spend |
+| Live Telegram/browser/application adapters | NOT TESTED | Traits and simulated adapters only |
+| Agent worker/dashboard/STOP/owner-question integration | NOT TESTED | Core library only; no new daemon/API installed |
+| Whole-project CPU/GPU savings / full Python removal | NOT TESTED | Legacy backend remains; original bridge benchmark is scoped above |
+
+Totals: **38distinct Rust tests passed** across the standard suite (29passed, 9deliberately
+ignored PostgreSQL cases) and the dedicated PostgreSQL harness (all9passed). The25earlier
+public-contract parity cases are separate and are not included in38. Fixtures are not
+production acceptance. The dedicated cluster used a random loopback port,16MiBshared
+buffers and maximum8connections; it was shut down after tests. No existing services or
+owner browser windows were changed.
+
+An intermediate native fixture run failed2of14cases because accepted sockets inherited
+nonblocking mode on macOS. Explicit blocking mode on each fixture connection fixes the
+harness; the final14pass. Initial integration compilation caught temporary borrowed store
+values; named store bindings fix it. Clippy caught a single-pattern match; final check
+passes with warnings denied. No remaining failures in the final scoped validation.
+
+Additional reproduction:
+
+```sh
+# Uses only a disposable fictional native PostgreSQL17 cluster.
+uv run --no-project --python .venv/bin/python python -m rust.scripts.run_postgres_tests
+# Override PostgreSQL tools location explicitly on a different development machine:
+RUST_TEST_POSTGRES_BIN=/path/to/postgresql17/bin uv run --no-project --python .venv/bin/python python -m rust.scripts.run_postgres_tests
+```
+
+Next: port provider consent/shared monthly usage/cooldowns and actual verified tool
+adapters, then expose coordinator lifecycle/owner questions through the existing dashboard
+and paired Telegram interface. Complete remaining Python API/worker/service ports and
+actual installed/receipt/resource acceptance before calling either owner objective done.

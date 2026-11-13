@@ -49,9 +49,9 @@ this is a staged behavioral migration, not a claim that scaffolding replaces the
 
 | Deliverable | State |
 | --- | --- |
-| Rust native transport | In development; fixture execution only |
-| Agent coordinator and specialist roles | Pending |
-| Durable PostgreSQL runtime and restart recovery | Pending |
+| Rust native transport | Implemented;14tests +25parity examples +Mac fixture benchmark; uninstalled |
+| Agent coordinator and specialist roles | Core library implemented;15state tests and scripted five-role workflow; live providers/adapters pending |
+| Durable PostgreSQL runtime and restart recovery | 9actual Mac PostgreSQL fixture tests passed; production migration/ACL/install pending |
 | Rust browser / Telegram / application adapters | Pending |
 | Full Python removal and API parity | Pending |
 | CPU / RSS / GPU resource acceptance | Pending; no savings claimed |
@@ -60,3 +60,6 @@ this is a staged behavioral migration, not a claim that scaffolding replaces the
 The session cannot self-resume after a platform usage-limit reset unless the hosting
 application supplies scheduling. Keep this plan, commits and acceptance reports as the
 resume record; do not implement a loop that attempts to bypass platform usage limits.
+
+Milestone implementations: `fcb2722` native host and `52fdfa6` durable coordinator;
+[PR#50](https://github.com/karanagg166/automated-apply/pull/50).
