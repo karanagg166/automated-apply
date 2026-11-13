@@ -92,3 +92,6 @@ yarn.lock
 
 # Browser-assistance test artifacts
 frontend/test-results-browser/
+
+# Rust build output (Cargo.lock is committed for application reproducibility).
+/target/

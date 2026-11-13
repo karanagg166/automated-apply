@@ -1,0 +1,18 @@
+[package]
+name = "automated-apply-native"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+dotenvy = "0.15"
+jsonschema = { version = "0.61.2", default-features = false }
+libc = "0.2"
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json"] }
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
