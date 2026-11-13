@@ -30,6 +30,7 @@ pub fn accept(run: &mut Run, proposal: Proposal) -> Result<()> {
             Proposal::Tool { call } => {
                 call.validate(run.role)?;
                 add_evidence(run, call.evidence.clone())?;
+                check_source_binding(run, &call)?;
                 if run.usage.tool_calls >= run.limits.tool_calls {
                     return Err(Failure("agent_budget_exhausted"));
                 }
@@ -84,6 +85,30 @@ fn add_evidence(run: &mut Run, evidence: Vec<Uuid>) -> Result<()> {
     Ok(())
 }
 
+fn check_source_binding(run: &Run, call: &ToolCall) -> Result<()> {
+    if matches!(
+        call.name,
+        ToolName::PrepareApplication
+            | ToolName::InspectApplication
+            | ToolName::OpenBrowser
+            | ToolName::FillApplication
+            | ToolName::SubmitApplication
+    ) && call.job_id.is_some_and(|id| !run.known_jobs.contains(&id))
+    {
+        return Err(Failure("job_outside_saved_results"));
+    }
+    Ok(())
+}
+fn invalid_observation(run: &mut Run, code: &'static str) -> Failure {
+    run.state = if run.pending.as_ref().unwrap().call.name.repeatable() {
+        State::Failed
+    } else {
+        State::OutcomeUnknown
+    };
+    run.diagnostic = Some(code.into());
+    Failure(code)
+}
+
 pub fn begin_tool(run: &mut Run, authority: &Authority) -> Result<Effect> {
     if run.state != State::ToolPending {
         return Err(Failure("invalid_agent_transition"));
@@ -93,6 +118,7 @@ pub fn begin_tool(run: &mut Run, authority: &Authority) -> Result<Effect> {
         .clone()
         .ok_or(Failure("pending_tool_required"))?;
     effect.call.validate(run.role)?;
+    check_source_binding(run, &effect.call)?;
     if let Err(e) = authority.check(&effect.call) {
         run.state = State::WaitingOwner;
         run.diagnostic = Some(e.0.into());
@@ -125,6 +151,22 @@ pub fn finish_tool(run: &mut Run, id: Uuid, result: Result<Observation>) -> Resu
                 run.diagnostic = Some("agent_evidence_limit".into());
                 return Err(Failure("agent_evidence_limit"));
             }
+            if observation.jobs.len() > 10
+                || observation
+                    .jobs
+                    .iter()
+                    .any(|id| !observation.evidence.contains(id))
+            {
+                return Err(invalid_observation(run, "invalid_observed_job_binding"));
+            }
+            let update_jobs = matches!(
+                run.pending.as_ref().unwrap().call.name,
+                ToolName::SearchJobs | ToolName::RankJobs
+            );
+            if !update_jobs && !observation.jobs.is_empty() {
+                return Err(invalid_observation(run, "unexpected_observed_job_binding"));
+            }
+            let observed_jobs = observation.jobs;
             let context = Context {
                 effect_id: id,
                 tool: run.pending.as_ref().unwrap().call.name,
@@ -145,6 +187,9 @@ pub fn finish_tool(run: &mut Run, id: Uuid, result: Result<Observation>) -> Resu
                 };
                 run.diagnostic = Some("tool_observation_size".into());
                 return Err(Failure("tool_observation_size"));
+            }
+            if update_jobs {
+                run.known_jobs = observed_jobs;
             }
             run.context.push(context);
             for id in observation.evidence {

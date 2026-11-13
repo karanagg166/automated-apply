@@ -111,13 +111,14 @@ async fn committed_external_intent_survives_connection_loss_and_is_not_replayed(
     let mut c = setup().await;
     let mut r = run();
     r.role = Role::Execution;
+    r.known_jobs = vec![Uuid::from_u128(1)];
     engine::begin_model(&mut r).unwrap();
     engine::accept(
         &mut r,
         Proposal::Tool {
             call: ToolCall {
                 name: ToolName::OpenBrowser,
-                job_id: Some(Uuid::new_v4()),
+                job_id: Some(Uuid::from_u128(1)),
                 evidence: vec![],
             },
         },
@@ -221,7 +222,7 @@ struct FictionalTools {
     calls: Vec<ToolName>,
 }
 impl Tools for FictionalTools {
-    async fn authority(&mut self, _: &ToolCall) -> Result<Authority> {
+    async fn authority(&mut self, _: &ToolCall, _: &mut Store<'_>) -> Result<Authority> {
         Ok(Authority {
             prepare: true,
             inactive_owned_browser: true,
@@ -229,10 +230,18 @@ impl Tools for FictionalTools {
             telegram_paired: false,
         })
     }
-    async fn execute(&mut self, effect: &Effect) -> Result<Observation> {
+    async fn execute(&mut self, effect: &Effect, _: &mut Store<'_>) -> Result<Observation> {
         self.calls.push(effect.call.name);
+        let jobs = if matches!(effect.call.name, ToolName::SearchJobs | ToolName::RankJobs) {
+            vec![Uuid::from_u128(1)]
+        } else {
+            vec![]
+        };
+        let mut evidence = vec![Uuid::new_v4()];
+        evidence.extend(jobs.iter().copied());
         Ok(Observation {
-            evidence: vec![Uuid::new_v4()],
+            jobs,
+            evidence,
             data: json!({"fixture":true}),
         })
     }
@@ -486,4 +495,304 @@ async fn unknown_provider_result_retains_request_after_connection_restart() {
     monthly::cooldown(&mut c, &month, 120).await.unwrap();
     let seconds:f64=sqlx::query_scalar("SELECT EXTRACT(EPOCH FROM cooldown_until-clock_timestamp())::double precision FROM llm_monthly_usage").fetch_one(&mut c).await.unwrap();
     assert!(seconds > 115.0);
+}
+
+use automated_apply_agents::knowledge::{self, ProfilePin};
+async fn knowledge_fixture() -> PgConnection {
+    let mut c = setup().await;
+    sqlx::raw_sql(include_str!("fixtures/knowledge.sql"))
+        .execute(&mut c)
+        .await
+        .unwrap();
+    let _: Value = sqlx::query_scalar(include_str!("../sql/saved_naukri.sql"))
+        .fetch_one(&mut c)
+        .await
+        .expect("fictional source SQL contract");
+    c
+}
+fn profile_pin() -> ProfilePin {
+    ProfilePin {
+        id: Uuid::from_u128(2),
+        version: 4,
+    }
+}
+async fn saved_job(c: &mut PgConnection, index: u128) -> Uuid {
+    let id = Uuid::from_u128(1000 + index);
+    sqlx::query("INSERT INTO jobs(id,title,job_url)VALUES($1,'Rust Developer',$2)")
+        .bind(id)
+        .bind(format!(
+            "https://www.naukri.com/job-listings-fictional-role-{:012}",
+            index
+        ))
+        .execute(c)
+        .await
+        .unwrap();
+    id
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn knowledge_profile_confirmation_is_version_bound_and_omits_identity() {
+    let mut c = knowledge_fixture().await;
+    let profile = knowledge::reviewed_profile(&mut c).await.unwrap().unwrap();
+    assert_eq!(profile.pin.version, 4);
+    assert_eq!(profile.facts.verified_skills, vec!["Rust"]);
+    let encoded = serde_json::to_string(&profile.facts).unwrap();
+    for private in [
+        "Private Fictional Name",
+        "private-fictional@example.com",
+        "fictional-phone-value",
+        "current_compensation",
+    ] {
+        assert!(!encoded.contains(private));
+    }
+    sqlx::raw_sql("UPDATE candidate_profiles SET version=5")
+        .execute(&mut c)
+        .await
+        .unwrap();
+    assert!(knowledge::reviewed_profile(&mut c).await.unwrap().is_none());
+    assert_eq!(
+        knowledge::rank_saved_naukri(&mut c, &profile_pin(), 10)
+            .await
+            .err(),
+        Some(Failure("profile_review_required"))
+    );
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn knowledge_ranking_uses_actual_saved_facts_and_rejects_a_stale_pin() {
+    let mut c = knowledge_fixture().await;
+    let id = saved_job(&mut c, 1).await;
+    let result = knowledge::rank_saved_naukri(&mut c, &profile_pin(), 10)
+        .await
+        .unwrap();
+    assert_eq!(result.scanned, 1);
+    assert_eq!(result.jobs.len(), 1);
+    assert_eq!(result.jobs[0].job_id, id);
+    assert_eq!(result.jobs[0].ranking.match_score, 100.0);
+    assert!(
+        result.jobs[0]
+            .ranking
+            .unknown_fields
+            .contains(&"company_size".into())
+    );
+    assert!(result.scope.contains("not_application_admission"));
+    assert_eq!(
+        knowledge::rank_saved_naukri(
+            &mut c,
+            &ProfilePin {
+                id: Uuid::from_u128(2),
+                version: 3
+            },
+            10
+        )
+        .await
+        .err(),
+        Some(Failure("verified_profile_context_changed"))
+    );
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn knowledge_replay_fences_cover_unknown_packets_damaged_receipts_and_admissions() {
+    let mut c = knowledge_fixture().await;
+    for i in 1..=8 {
+        saved_job(&mut c, i).await;
+    }
+    sqlx::query("UPDATE jobs SET status='applied' WHERE id=$1")
+        .bind(Uuid::from_u128(1001))
+        .execute(&mut c)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO application_packets(id,job_id,candidate_profile_id,lifecycle_state)VALUES($1,$2,$3,'submission_unknown')").bind(Uuid::from_u128(2002)).bind(Uuid::from_u128(1002)).bind(Uuid::from_u128(2)).execute(&mut c).await.unwrap();
+    sqlx::raw_sql("INSERT INTO owner_preferences VALUES('naukri_receipt:000000000003','{}'),('naukri_worker_receipt:000000000004','{}'),('apply_work:fictional','{\"job_id\":\"00000000-0000-0000-0000-0000000003ed\",\"stage\":\"SUBMISSION_UNKNOWN\",\"admitted_actions\":[\"apply\"]}')").execute(&mut c).await.unwrap();
+    sqlx::query("UPDATE jobs SET discovery_metadata='{\"data_provenance\":{\"posting_status\":\"already_applied\"}}' WHERE id=$1").bind(Uuid::from_u128(1006)).execute(&mut c).await.unwrap();
+    sqlx::raw_sql("INSERT INTO owner_preferences VALUES('gmail_application:fictional','{\"confirmed_application\":true,\"job_url\":\"https://www.naukri.com/job-listings-fictional-role-000000000007?tracking=fixture\",\"expires_at\":\"2030-01-01T00:00:00+00:00\"}')").execute(&mut c).await.unwrap();
+    let result = knowledge::rank_saved_naukri(&mut c, &profile_pin(), 10)
+        .await
+        .unwrap();
+    assert_eq!(result.scanned, 8);
+    assert_eq!(result.excluded_prior_or_unknown, 7);
+    assert_eq!(result.jobs.len(), 1);
+    assert_eq!(result.jobs[0].job_id, Uuid::from_u128(1008));
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn knowledge_same_requisition_and_company_history_fence_distinct_saved_ids() {
+    let mut c = knowledge_fixture().await;
+    let first = saved_job(&mut c, 1).await;
+    let second = saved_job(&mut c, 2).await;
+    let third = saved_job(&mut c, 3).await;
+    sqlx::query("UPDATE jobs SET job_url='https://www.naukri.com/job-listings-alias-role-000000000001?tracking=fixture' WHERE id=$1").bind(second).execute(&mut c).await.unwrap();
+    sqlx::query("INSERT INTO application_packets(id,job_id,candidate_profile_id,lifecycle_state)VALUES($1,$2,$3,'submitting')").bind(Uuid::from_u128(2001)).bind(first).bind(Uuid::from_u128(2)).execute(&mut c).await.unwrap();
+    sqlx::raw_sql("INSERT INTO companies(id,name)VALUES('00000000-0000-0000-0000-000000000005','Fictional Company')").execute(&mut c).await.unwrap();
+    sqlx::query("UPDATE jobs SET company_id=$1 WHERE id=$2")
+        .bind(Uuid::from_u128(5))
+        .bind(third)
+        .execute(&mut c)
+        .await
+        .unwrap();
+    let prior = saved_job(&mut c, 4).await;
+    sqlx::query("UPDATE jobs SET company_id=$1,status='applied' WHERE id=$2")
+        .bind(Uuid::from_u128(5))
+        .bind(prior)
+        .execute(&mut c)
+        .await
+        .unwrap();
+    let result = knowledge::rank_saved_naukri(&mut c, &profile_pin(), 10)
+        .await
+        .unwrap();
+    assert_eq!(result.jobs.len(), 0);
+    assert_eq!(result.excluded_prior_or_unknown, 4);
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn knowledge_scan_and_history_are_bounded_without_other_profile_data() {
+    let mut c = knowledge_fixture().await;
+    for i in 1..=105 {
+        saved_job(&mut c, i).await;
+    }
+    let result = knowledge::rank_saved_naukri(&mut c, &profile_pin(), 10)
+        .await
+        .unwrap();
+    assert_eq!(result.scanned, 100);
+    assert_eq!(result.jobs.len(), 10);
+    assert_eq!(result.jobs[0].job_id, Uuid::from_u128(1001));
+    sqlx::raw_sql("INSERT INTO application_packets SELECT (lpad(to_hex(i),32,'0'))::uuid,'00000000-0000-0000-0000-0000000003e9','00000000-0000-0000-0000-000000000002','created','needs_input',clock_timestamp() FROM generate_series(3001,3015) i").execute(&mut c).await.unwrap();
+    sqlx::raw_sql("INSERT INTO application_packets VALUES('00000000-0000-0000-0000-000000009999','00000000-0000-0000-0000-0000000003e9','00000000-0000-0000-0000-000000000099','created','private_other_profile',clock_timestamp())").execute(&mut c).await.unwrap();
+    let history = knowledge::application_history(&mut c, &profile_pin())
+        .await
+        .unwrap();
+    assert_eq!(history["applications"].as_array().unwrap().len(), 10);
+    assert!(!history.to_string().contains("private_other_profile"));
+    assert_eq!(
+        knowledge::rank_saved_naukri(&mut c, &profile_pin(), 11)
+            .await
+            .err(),
+        Some(Failure("invalid_saved_result_limit"))
+    );
+}
+
+use automated_apply_agents::knowledge_tools::KnowledgeTools;
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn actual_knowledge_tools_bind_database_jobs_and_refuse_unmigrated_actions() {
+    let mut c = knowledge_fixture().await;
+    let job = saved_job(&mut c, 1).await;
+    let mut store = Store { connection: &mut c };
+    let mut tools = KnowledgeTools {
+        profile: profile_pin(),
+    };
+    let effect = Effect {
+        id: Uuid::new_v4(),
+        call: ToolCall {
+            name: ToolName::SearchJobs,
+            job_id: None,
+            evidence: vec![],
+        },
+    };
+    assert!(tools.authority(&effect.call, &mut store).await.is_ok());
+    let result = tools.execute(&effect, &mut store).await.unwrap();
+    assert_eq!(result.jobs, vec![job]);
+    assert!(result.evidence.contains(&job));
+    assert_eq!(result.data["jobs"][0]["job_id"], job.to_string());
+    let call = ToolCall {
+        name: ToolName::PrepareApplication,
+        job_id: Some(job),
+        evidence: vec![job],
+    };
+    assert_eq!(
+        tools.authority(&call, &mut store).await.err(),
+        Some(Failure("tool_adapter_not_migrated"))
+    );
+    sqlx::raw_sql("UPDATE candidate_profiles SET version=5")
+        .execute(&mut *store.connection)
+        .await
+        .unwrap();
+    assert_eq!(
+        tools.authority(&effect.call, &mut store).await.err(),
+        Some(Failure("profile_review_required"))
+    );
+}
+
+struct KnowledgePlan;
+impl Model for KnowledgePlan {
+    async fn propose(
+        &mut self,
+        role: Role,
+        context: &[Context],
+        _: ModelBudget,
+        _: &mut Store<'_>,
+    ) -> Result<Proposal> {
+        let tool = match role {
+            Role::Discovery => ToolName::SearchJobs,
+            Role::Matching => ToolName::RankJobs,
+            Role::Answers => ToolName::VerifiedContext,
+            _ => return Err(Failure("fixture_unexpected_role")),
+        };
+        if !context.iter().any(|c| c.tool == tool) {
+            return Ok(Proposal::Tool {
+                call: ToolCall {
+                    name: tool,
+                    job_id: None,
+                    evidence: vec![],
+                },
+            });
+        }
+        if role == Role::Answers {
+            let saved = context
+                .iter()
+                .find(|c| c.tool == ToolName::RankJobs)
+                .unwrap();
+            let id: Uuid =
+                serde_json::from_value(saved.untrusted_data["jobs"][0]["job_id"].clone()).unwrap();
+            return Ok(Proposal::Tool {
+                call: ToolCall {
+                    name: ToolName::PrepareApplication,
+                    job_id: Some(id),
+                    evidence: vec![id],
+                },
+            });
+        }
+        Ok(Proposal::Handoff {
+            next: role.next().unwrap(),
+            evidence: vec![],
+        })
+    }
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn durable_coordinator_consumes_real_postgres_tool_outputs_before_any_application_work() {
+    let mut c = knowledge_fixture().await;
+    let job = saved_job(&mut c, 1).await;
+    let mut store = Store { connection: &mut c };
+    let mut run = run();
+    run.profile = Some(profile_pin());
+    let id = store.create(&run).await.unwrap();
+    let mut model = KnowledgePlan;
+    let mut tools = KnowledgeTools {
+        profile: profile_pin(),
+    };
+    for _ in 0..20 {
+        let Some(mut lease) = store.claim().await.unwrap() else {
+            break;
+        };
+        tick(&mut store, &mut lease, &mut model, &mut tools)
+            .await
+            .unwrap();
+    }
+    let saved: Value = sqlx::query_scalar("SELECT run FROM rust_agent_runs WHERE id=$1")
+        .bind(id)
+        .fetch_one(&mut *store.connection)
+        .await
+        .unwrap();
+    let run: Run = serde_json::from_value(saved).unwrap();
+    assert_eq!(run.known_jobs, vec![job]);
+    assert_eq!(run.usage.tool_calls, 3);
+    assert_eq!(run.context.len(), 3);
+    assert_eq!(run.state, State::Failed);
+    assert_eq!(run.diagnostic.as_deref(), Some("tool_adapter_not_migrated"));
+    let packets: i64 = sqlx::query_scalar("SELECT count(*) FROM application_packets")
+        .fetch_one(&mut *store.connection)
+        .await
+        .unwrap();
+    assert_eq!(packets, 0);
 }

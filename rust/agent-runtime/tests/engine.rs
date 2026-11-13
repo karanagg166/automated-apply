@@ -2,7 +2,9 @@ use automated_apply_agents::{Failure, contracts::*, engine::*};
 use serde_json::json;
 use uuid::Uuid;
 fn run() -> Run {
-    Run::new(Uuid::new_v4(), Limits::default()).unwrap()
+    let mut r = Run::new(Uuid::new_v4(), Limits::default()).unwrap();
+    r.known_jobs = vec![Uuid::from_u128(1)];
+    r
 }
 fn propose(run: &mut Run, proposal: Proposal) {
     begin_model(run).unwrap();
@@ -11,7 +13,7 @@ fn propose(run: &mut Run, proposal: Proposal) {
 fn call(name: ToolName) -> ToolCall {
     ToolCall {
         name,
-        job_id: Some(Uuid::new_v4()),
+        job_id: Some(Uuid::from_u128(1)),
         evidence: vec![],
     }
 }
@@ -190,6 +192,7 @@ fn tool_id_mismatch_cannot_complete_an_effect() {
             &mut r,
             Uuid::new_v4(),
             Ok(Observation {
+                jobs: vec![],
                 evidence: vec![],
                 data: json!({})
             })
@@ -228,6 +231,7 @@ fn observed_tool_data_is_bounded_durable_context() {
         &mut r,
         e.id,
         Ok(Observation {
+            jobs: vec![],
             evidence: vec![evidence],
             data: json!({"fixture":true}),
         }),
@@ -311,6 +315,7 @@ fn oversized_observations_cannot_expand_memory_unbounded() {
             &mut r,
             e.id,
             Ok(Observation {
+                jobs: vec![],
                 evidence: vec![],
                 data: json!("x".repeat(16385))
             })
@@ -329,5 +334,101 @@ fn tool_proposal_cannot_claim_invented_evidence() {
     assert_eq!(
         accept(&mut r, Proposal::Tool { call: c }),
         Err(Failure("unverified_agent_evidence"))
+    );
+}
+
+#[test]
+fn model_job_ids_must_come_from_backend_observations() {
+    let mut r = run();
+    r.known_jobs.clear();
+    r.role = Role::Answers;
+    begin_model(&mut r).unwrap();
+    assert_eq!(
+        accept(
+            &mut r,
+            Proposal::Tool {
+                call: call(ToolName::PrepareApplication)
+            }
+        ),
+        Err(Failure("job_outside_saved_results"))
+    );
+    assert!(r.pending.is_none());
+}
+#[test]
+fn ranking_can_revoke_previous_job_bindings_before_a_later_tool() {
+    let mut r = run();
+    r.role = Role::Matching;
+    propose(
+        &mut r,
+        Proposal::Tool {
+            call: call(ToolName::RankJobs),
+        },
+    );
+    let e = begin_tool(&mut r, &Authority::default()).unwrap();
+    let id = Uuid::from_u128(2);
+    finish_tool(
+        &mut r,
+        e.id,
+        Ok(Observation {
+            jobs: vec![id],
+            evidence: vec![id],
+            data: json!({"fixture":true}),
+        }),
+    )
+    .unwrap();
+    assert_eq!(r.known_jobs, vec![id]);
+    r.role = Role::Answers;
+    begin_model(&mut r).unwrap();
+    assert_eq!(
+        accept(
+            &mut r,
+            Proposal::Tool {
+                call: call(ToolName::PrepareApplication)
+            }
+        ),
+        Err(Failure("job_outside_saved_results"))
+    );
+}
+#[test]
+fn binding_metadata_requires_observed_evidence_and_is_checked_again_at_dispatch() {
+    let mut r = run();
+    propose(
+        &mut r,
+        Proposal::Tool {
+            call: call(ToolName::SearchJobs),
+        },
+    );
+    let e = begin_tool(&mut r, &Authority::default()).unwrap();
+    assert_eq!(
+        finish_tool(
+            &mut r,
+            e.id,
+            Ok(Observation {
+                jobs: vec![Uuid::new_v4()],
+                evidence: vec![],
+                data: json!({})
+            })
+        ),
+        Err(Failure("invalid_observed_job_binding"))
+    );
+    let mut r = run();
+    r.role = Role::Answers;
+    propose(
+        &mut r,
+        Proposal::Tool {
+            call: call(ToolName::PrepareApplication),
+        },
+    );
+    r.known_jobs.clear();
+    assert_eq!(
+        begin_tool(
+            &mut r,
+            &Authority {
+                prepare: true,
+                ..Authority::default()
+            }
+        )
+        .err(),
+        Some(Failure("job_outside_saved_results"))
     );
 }

@@ -20,9 +20,9 @@ pub trait Model {
 #[allow(async_fn_in_trait)]
 pub trait Tools {
     /// Must read current backend policy/account/tab state rather than trusting model data.
-    async fn authority(&mut self, call: &ToolCall) -> Result<Authority>;
+    async fn authority(&mut self, call: &ToolCall, store: &mut Store<'_>) -> Result<Authority>;
     /// All external writes use this stable effect ID and existing backend admission checks.
-    async fn execute(&mut self, effect: &Effect) -> Result<Observation>;
+    async fn execute(&mut self, effect: &Effect, store: &mut Store<'_>) -> Result<Observation>;
 }
 
 /// A bounded single tick; persistence precedes every model/tool call.
@@ -73,24 +73,31 @@ pub async fn tick(
                 .ok_or(Failure("pending_tool_required"))?
                 .call
                 .clone();
-            let authority = tokio::time::timeout(Duration::from_secs(20), tools.authority(&call))
-                .await
-                .map_err(|_| Failure("agent_authority_timeout"))
-                .and_then(|x| x);
+            let authority =
+                tokio::time::timeout(Duration::from_secs(20), tools.authority(&call, store))
+                    .await
+                    .map_err(|_| Failure("agent_authority_timeout"))
+                    .and_then(|x| x);
             match authority {
                 Ok(authority) => {
                     if let Ok(effect) = engine::begin_tool(&mut lease.run, &authority) {
                         store.save(lease).await?; // Fence checked immediately before external dispatch.
-                        let result =
-                            tokio::time::timeout(Duration::from_secs(20), tools.execute(&effect))
-                                .await
-                                .map_err(|_| Failure("agent_tool_timeout"))
-                                .and_then(|x| x);
+                        let result = tokio::time::timeout(
+                            Duration::from_secs(20),
+                            tools.execute(&effect, store),
+                        )
+                        .await
+                        .map_err(|_| Failure("agent_tool_timeout"))
+                        .and_then(|x| x);
                         let _ = engine::finish_tool(&mut lease.run, effect.id, result);
                     }
                 }
                 Err(error) => {
-                    lease.run.state = State::WaitingOwner;
+                    lease.run.state = if error.0.ends_with("not_migrated") {
+                        State::Failed
+                    } else {
+                        State::WaitingOwner
+                    };
                     lease.run.diagnostic = Some(error.0.into());
                 }
             }

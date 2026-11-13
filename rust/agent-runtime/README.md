@@ -53,3 +53,16 @@ a durable cooldown. [Official V2 contract](https://docs.cohere.com/reference/cha
 The small default per-run input budget can reject a cloud request before transmission.
 Worker integration must allocate/route requests within the existing approved budgets;
 this library is not a claim that default settings support a live five-LLM-call workflow.
+
+Actual PostgreSQL-backed read tools now implement saved Naukri search/ranking, confirmed
+profile context and bounded application history. Profile confirmation is bound to the
+current ID/version. A ranking snapshot combines profile, jobs and replay fences in one SQL
+statement; it excludes known/unknown admissions, submitted packets, retained receipts and
+prior applied companies. This is ranking preview, not live posting-age/applicant/quota
+admission. Exact remaining platform/history normalization and action adapters must still be
+completed before production cutover.
+
+Only backend-observed job IDs may be proposed for job-specific tools. Binding changes from
+ranking revoke old IDs, and binding membership is checked again at dispatch. Read-tool
+outputs are persisted through the same coordinator before any later action. Unsupported
+adapters produce a migration diagnostic; they do not ask the owner to approve missing code.

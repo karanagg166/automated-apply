@@ -211,6 +211,10 @@ pub struct Run {
     pub pending: Option<Effect>,
     pub evidence: Vec<Uuid>,
     pub context: Vec<Context>,
+    #[serde(default)]
+    pub known_jobs: Vec<Uuid>,
+    #[serde(default)]
+    pub profile: Option<crate::knowledge::ProfilePin>,
     pub diagnostic: Option<String>,
 }
 impl Run {
@@ -226,6 +230,8 @@ impl Run {
             pending: None,
             evidence: vec![],
             context: vec![],
+            known_jobs: vec![],
+            profile: None,
             diagnostic: None,
         })
     }
@@ -265,6 +271,7 @@ impl Authority {
 
 #[derive(Clone)]
 pub struct Observation {
+    pub jobs: Vec<Uuid>,
     pub evidence: Vec<Uuid>,
     pub data: Value,
 }
