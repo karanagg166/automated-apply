@@ -1,0 +1,94 @@
+# Rust migration: native transport milestone, 2026-11-14
+
+Overall request: **IN PROGRESS**. Full Python replacement and multi-agent AI delivery
+are not complete. Installed application services/extension/native wrapper were not changed.
+
+Implementation branch: `feat/rust-agent-runtime`.
+Implementation SHA: [`fcb2722`](https://github.com/karanagg166/automated-apply/commit/fcb2722).
+Base: `chore/uv-python-tooling`, PR [#49](https://github.com/karanagg166/automated-apply/pull/49).
+This stacks on existing Naukri implementation rather than reverting to older `main`.
+[Execution plan](../plans/2026-11-14-rust-agent-migration.md).
+
+## Changes
+
+Rust native-host executable implements Chrome length-prefixed messaging, bounded unbuffered
+pipe reads, private owner-only configuration, stable extension-origin verification, numeric
+IPv4 loopback-only authenticated HTTP, fixed sanitized errors, response size/schema/request
+checks, and retries only after explicit backend database rollback. Redirects/proxies/network
+schema resolution are disabled. A generated public JSON schema catches malformed nested
+requests. Existing backend cross-field/account/identity/resume/policy/quota checks remain
+mandatory and are not replaced by this milestone.
+
+Cargo dependencies are locked, compiler concurrency is two, release uses thin LTO. Rust CI
+is manual-only and was **not dispatched**. pnpm and uv conventions are preserved. The
+agent-runtime crate is a declared workspace scaffold only; no coordinator exists yet.
+
+## Actual Mac resource evidence, fictional traffic
+
+Apple Silicon Mac (`Darwin`, `arm64`), installed Rust1.99.1/Cargo1.99.1, Python3.11.18.
+Isolated local Python environment installed with uv; 90 runtime packages compatible.
+Release build completed in 2m20s under concurrent unrelated owner workloads; this is a
+build observation, not a stable build-performance comparison.
+
+20 measured successful health exchanges **per runtime**, plus one successful warmup per
+runtime (42 HTTP fixture requests). Alternating Python/Rust order, same fictional localhost
+HTTP server, explicit private fictional env, same typed request. No live database, browser,
+Telegram, candidate files, AI providers or application endpoint contacted.
+
+| Median process startup + one fixture exchange | Python | Rust |
+| --- | ---: | ---: |
+| Wall time | 610.979ms | 6.945ms |
+| Process CPU time | 599.771ms | 4.775ms |
+| Peak resident memory | 82,456KiB | 7,248KiB |
+
+[Sanitized individual samples](rust-native-benchmark-20261114.json).
+Measured wall time ~88x faster; CPU ~99.2% lower and peak RSS ~91.2% lower **for this
+process workload only**. This does not establish whole-project idle/loaded savings.
+GPU usage was not measured. The bridge does not invoke GPU inference.
+
+## Verification and acceptance matrix
+
+| Check | Result | Exact evidence |
+| --- | --- | --- |
+| Rust transport regressions | PASS | 14 tests; 0failed/0ignored; final run0.74s |
+| Typed public-contract examples vs Python | PASS | 25fictional cases; not exhaustive business/cross-field parity |
+| Actual Mac executable resource comparison | PASS | 20successful measured requests/runtime +2warmups |
+| Public-schema drift check | PASS | `native_schema_current` |
+| Cargo format / Clippy warnings denied / diff check | PASS | Local checks; 0Clippy warnings |
+| Python dependency consistency | PASS | 90packages checked via `uv pip check` |
+| Installed native host / extension focus acceptance | NOT TESTED | No deployment/browser/window changes |
+| Real submission/account/history acceptance | NOT TESTED | No new applications/receipts or provider calls |
+| Full Python runtime replacement | NOT TESTED | 355legacy application modules remain |
+| Multi-agent coordinator/tools | NOT TESTED | Workspace scaffold only |
+| Whole-project CPU/GPU/idle acceptance | NOT TESTED | Bridge-only benchmark; no GPU measurement |
+| Hosted Actions / merge | NOT TESTED | Deliberately not dispatched/merged |
+
+Sanitized failure codes exercised include `native_message_size`, `native_invalid_message`,
+`native_private_configuration_required`, `native_origin_denied`, `native_capability_denied`,
+`native_read_timeout`, `native_truncated_message`, `native_response_size`,
+`native_request_id_mismatch`, `backend_invalid_response`, `backend_not_ready`,
+`backend_authentication_failed`, `backend_transaction_rolled_back`, `backend_offline`.
+An earlier intermediate test failed because the IPv6 endpoint restriction was edited
+while a previous build was running; final rebuilt artifact rejects it and passes14/14.
+An initial Clippy failure identified a complex fixture tuple; named alias resolves it.
+No remaining failures in this milestone's final local checks.
+
+## Reproduction
+
+```sh
+cargo test --locked --workspace
+cargo fmt --all --check
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo build --locked --release --workspace
+uv venv --python 3.11 .venv
+uv pip install --python .venv/bin/python -r backend/requirements-runtime.txt
+uv pip check --python .venv/bin/python
+uv run --no-project --python .venv/bin/python python -m rust.scripts.export_native_schema --check
+uv run --no-project --python .venv/bin/python python -m rust.scripts.native_contract_parity
+uv run --no-project --python .venv/bin/python python -m rust.scripts.benchmark_native --iterations 20
+```
+
+Next: implement bounded specialist-agent coordination and durable PostgreSQL handoffs,
+port provider/tool/worker/API services, prove contract parity and restart recovery, then
+prepare immutable installation with existing STOP/rollback/focus/account/policy checks.
+No recurring AUTOMATIC authorization, quota reset or uncertain-application replay is inferred.
