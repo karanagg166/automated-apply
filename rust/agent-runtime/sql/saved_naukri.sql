@@ -4,7 +4,7 @@ WITH verified AS (
     FROM candidate_profiles p JOIN owner_preferences c ON c.key='phase1_profile_confirmation'
     WHERE p.singleton_key='primary' AND c.value->>'profile_id'=p.id::text
         AND c.value->'profile_version'=to_jsonb(p.version)
-        AND NULLIF(c.value->>'confirmed_at','') IS NOT NULL LIMIT 1
+        AND jsonb_typeof(c.value->'confirmed_at')='string' AND NULLIF(c.value->>'confirmed_at','') IS NOT NULL LIMIT 1
 ), saved AS (
     SELECT j.*, substring(regexp_replace(j.job_url,'[?#].*$','','') from '-([0-9]{10,20})/?$') AS requisition
     FROM jobs j WHERE source_platform='naukri' AND status<>'archived'

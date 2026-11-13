@@ -85,7 +85,7 @@ fn decode_profile(value: Value) -> Result<ReviewedProfile> {
 }
 
 pub async fn reviewed_profile(connection: &mut PgConnection) -> Result<Option<ReviewedProfile>> {
-    let value:Option<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',p.id,'version',p.version,'verified_skills',p.verified_skills,'verified_experience_years',p.verified_experience_years,'preferences',p.preferences) FROM candidate_profiles p JOIN owner_preferences c ON c.key='phase1_profile_confirmation' WHERE p.singleton_key='primary' AND c.value->>'profile_id'=p.id::text AND c.value->'profile_version'=to_jsonb(p.version) AND NULLIF(c.value->>'confirmed_at','') IS NOT NULL LIMIT 1")
+    let value:Option<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',p.id,'version',p.version,'verified_skills',p.verified_skills,'verified_experience_years',p.verified_experience_years,'preferences',p.preferences) FROM candidate_profiles p JOIN owner_preferences c ON c.key='phase1_profile_confirmation' WHERE p.singleton_key='primary' AND c.value->>'profile_id'=p.id::text AND c.value->'profile_version'=to_jsonb(p.version) AND jsonb_typeof(c.value->'confirmed_at')='string' AND NULLIF(c.value->>'confirmed_at','') IS NOT NULL LIMIT 1")
         .fetch_optional(connection).await.map_err(|_|Failure("verified_context_database_error"))?;
     value.map(decode_profile).transpose()
 }
@@ -166,7 +166,7 @@ pub async fn application_history(
     expected: &ProfilePin,
 ) -> Result<Value> {
     // One statement binds history to the current independently confirmed profile.
-    let value:Value=sqlx::query_scalar("WITH reviewed AS (SELECT p.id,p.version FROM candidate_profiles p JOIN owner_preferences c ON c.key='phase1_profile_confirmation' WHERE p.singleton_key='primary' AND c.value->>'profile_id'=p.id::text AND c.value->'profile_version'=to_jsonb(p.version) AND NULLIF(c.value->>'confirmed_at','') IS NOT NULL) SELECT jsonb_build_object('current',EXISTS(SELECT 1 FROM reviewed WHERE id=$1 AND version=$2),'applications',COALESCE((SELECT jsonb_agg(to_jsonb(a)) FROM (SELECT job_id,lifecycle_state AS state,readiness_state AS readiness,id AS packet_id FROM application_packets WHERE candidate_profile_id=$1 AND EXISTS(SELECT 1 FROM reviewed WHERE id=$1 AND version=$2) ORDER BY created_at DESC,id LIMIT 10) a),'[]'::jsonb))")
+    let value:Value=sqlx::query_scalar("WITH reviewed AS (SELECT p.id,p.version FROM candidate_profiles p JOIN owner_preferences c ON c.key='phase1_profile_confirmation' WHERE p.singleton_key='primary' AND c.value->>'profile_id'=p.id::text AND c.value->'profile_version'=to_jsonb(p.version) AND jsonb_typeof(c.value->'confirmed_at')='string' AND NULLIF(c.value->>'confirmed_at','') IS NOT NULL) SELECT jsonb_build_object('current',EXISTS(SELECT 1 FROM reviewed WHERE id=$1 AND version=$2),'applications',COALESCE((SELECT jsonb_agg(to_jsonb(a)) FROM (SELECT job_id,lifecycle_state AS state,readiness_state AS readiness,id AS packet_id FROM application_packets WHERE candidate_profile_id=$1 AND EXISTS(SELECT 1 FROM reviewed WHERE id=$1 AND version=$2) ORDER BY created_at DESC,id LIMIT 10) a),'[]'::jsonb))")
         .bind(expected.id).bind(expected.version).fetch_one(connection).await.map_err(|_|Failure("application_history_database_error"))?;
     if value.get("current").and_then(Value::as_bool) != Some(true) {
         return Err(Failure("verified_profile_context_changed"));

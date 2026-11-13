@@ -545,6 +545,11 @@ async fn knowledge_profile_confirmation_is_version_bound_and_omits_identity() {
     ] {
         assert!(!encoded.contains(private));
     }
+    for malformed in [json!(false), json!(0), json!([]), json!({}), json!("")] {
+        sqlx::query("UPDATE owner_preferences SET value=jsonb_set(value,'{confirmed_at}',$1) WHERE key='phase1_profile_confirmation'").bind(malformed).execute(&mut c).await.unwrap();
+        assert!(knowledge::reviewed_profile(&mut c).await.unwrap().is_none());
+    }
+    sqlx::raw_sql("UPDATE owner_preferences SET value=jsonb_set(value,'{confirmed_at}','\"2026-11-14T00:00:00Z\"') WHERE key='phase1_profile_confirmation'").execute(&mut c).await.unwrap();
     sqlx::raw_sql("UPDATE candidate_profiles SET version=5")
         .execute(&mut c)
         .await
