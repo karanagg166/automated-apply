@@ -26,7 +26,7 @@ async fn connection() -> PgConnection {
 }
 async fn setup() -> PgConnection {
     let mut c = connection().await;
-    sqlx::raw_sql("DROP TABLE IF EXISTS rust_agent_events; DROP TABLE IF EXISTS rust_agent_runs;")
+    sqlx::raw_sql("DROP TABLE IF EXISTS rust_agent_events; DROP TABLE IF EXISTS rust_agent_runs; DROP TABLE IF EXISTS llm_monthly_usage;")
         .execute(&mut c)
         .await
         .unwrap();
@@ -34,6 +34,7 @@ async fn setup() -> PgConnection {
         .execute(&mut c)
         .await
         .unwrap();
+    sqlx::raw_sql("CREATE TABLE llm_monthly_usage (provider varchar(30) NOT NULL,month varchar(7) NOT NULL,requests integer NOT NULL DEFAULT 0,input_tokens integer NOT NULL DEFAULT 0,output_tokens integer NOT NULL DEFAULT 0,cooldown_until timestamptz,created_at timestamptz NOT NULL DEFAULT clock_timestamp(),updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),PRIMARY KEY(provider,month))").execute(&mut c).await.unwrap();
     c
 }
 fn run() -> Run {
@@ -184,6 +185,7 @@ impl Model for FictionalModel {
         role: Role,
         context: &[Context],
         _: ModelBudget,
+        _: &mut Store<'_>,
     ) -> Result<Proposal> {
         self.roles.push(role);
         let name = match role {
@@ -384,4 +386,104 @@ async fn audit_failure_blocks_provider_dispatch_without_partial_budget_write() {
     assert_eq!(saved.usage.model_calls, 0);
     assert_eq!(saved.usage.reserved_tokens, 0);
     assert_eq!(saved.state, State::Ready);
+}
+
+use automated_apply_agents::monthly::{self, MonthlyPolicy};
+fn monthly_policy() -> MonthlyPolicy {
+    MonthlyPolicy {
+        requests: 3,
+        cohere_requests: 3,
+        cohere_tokens: 1000000,
+        reserved_input_bytes: 1000,
+        reserved_output_tokens: 64,
+    }
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn shared_provider_ledger_preserves_existing_count_and_never_refunds() {
+    let mut c = setup().await;
+    sqlx::raw_sql("INSERT INTO llm_monthly_usage(provider,month,requests)VALUES('cohere',to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM'),2)").execute(&mut c).await.unwrap();
+    let month = monthly::reserve(&mut c, monthly_policy()).await.unwrap();
+    monthly::tokens(&mut c, &month, Some(5), Some(7))
+        .await
+        .unwrap();
+    assert_eq!(
+        monthly::reserve(&mut c, monthly_policy()).await.err(),
+        Some(Failure("rate_limited"))
+    );
+    sqlx::raw_sql(
+        "UPDATE llm_monthly_usage SET cooldown_until=clock_timestamp()-interval '1 second'",
+    )
+    .execute(&mut c)
+    .await
+    .unwrap();
+    assert_eq!(
+        monthly::reserve(&mut c, monthly_policy()).await.err(),
+        Some(Failure("monthly_request_limit"))
+    );
+    let row = sqlx::query("SELECT requests,input_tokens,output_tokens FROM llm_monthly_usage")
+        .fetch_one(&mut c)
+        .await
+        .unwrap();
+    assert_eq!(row.get::<i32, _>("requests"), 3);
+    assert_eq!(row.get::<i32, _>("input_tokens"), 5);
+    assert_eq!(row.get::<i32, _>("output_tokens"), 7);
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn provider_cooldown_survives_month_boundary() {
+    let mut c = setup().await;
+    sqlx::raw_sql("INSERT INTO llm_monthly_usage(provider,month,requests,cooldown_until)VALUES('cohere','1999-12',1,clock_timestamp()+interval '60 seconds')").execute(&mut c).await.unwrap();
+    assert_eq!(
+        monthly::reserve(&mut c, monthly_policy()).await.err(),
+        Some(Failure("rate_limited"))
+    );
+    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM llm_monthly_usage")
+        .fetch_one(&mut c)
+        .await
+        .unwrap();
+    assert_eq!(count, 1);
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn concurrent_provider_reservations_share_one_cooldown_and_cap() {
+    let mut c1 = setup().await;
+    let mut c2 = connection().await;
+    let (a, b) = tokio::join!(
+        monthly::reserve(&mut c1, monthly_policy()),
+        monthly::reserve(&mut c2, monthly_policy())
+    );
+    assert_ne!(a.is_ok(), b.is_ok());
+    let count: i32 = sqlx::query_scalar("SELECT requests FROM llm_monthly_usage")
+        .fetch_one(&mut c1)
+        .await
+        .unwrap();
+    assert_eq!(count, 1);
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn unknown_provider_result_retains_request_after_connection_restart() {
+    let mut c = setup().await;
+    monthly::reserve(&mut c, monthly_policy()).await.unwrap();
+    drop(c);
+    let mut c = connection().await;
+    let count: i32 = sqlx::query_scalar("SELECT requests FROM llm_monthly_usage")
+        .fetch_one(&mut c)
+        .await
+        .unwrap();
+    assert_eq!(count, 1);
+    assert_eq!(
+        monthly::reserve(&mut c, monthly_policy()).await.err(),
+        Some(Failure("rate_limited"))
+    );
+    sqlx::raw_sql(
+        "UPDATE llm_monthly_usage SET cooldown_until=clock_timestamp()-interval '1 second'",
+    )
+    .execute(&mut c)
+    .await
+    .unwrap();
+    let month = monthly::reserve(&mut c, monthly_policy()).await.unwrap();
+    monthly::cooldown(&mut c, &month, 120).await.unwrap();
+    let seconds:f64=sqlx::query_scalar("SELECT EXTRACT(EPOCH FROM cooldown_until-clock_timestamp())::double precision FROM llm_monthly_usage").fetch_one(&mut c).await.unwrap();
+    assert!(seconds > 115.0);
 }

@@ -286,6 +286,7 @@ fn version_one() -> u8 {
 pub fn forward(command: &Command, config: &Configuration) -> Result<Value> {
     let client = reqwest::blocking::Client::builder()
         .no_proxy()
+        .retry(reqwest::retry::never())
         .redirect(reqwest::redirect::Policy::none())
         .build()
         .map_err(|_| Failure("native_configuration_error"))?;

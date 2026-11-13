@@ -14,6 +14,7 @@ pub trait Model {
         role: Role,
         context: &[Context],
         budget: ModelBudget,
+        store: &mut Store<'_>,
     ) -> Result<Proposal>;
 }
 #[allow(async_fn_in_trait)]
@@ -47,6 +48,7 @@ pub async fn tick(
                             maximum_input_tokens: lease.run.limits.max_input_tokens,
                             maximum_output_tokens: lease.run.limits.max_output_tokens,
                         },
+                        store,
                     ),
                 )
                 .await
