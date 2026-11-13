@@ -1,0 +1,333 @@
+use automated_apply_agents::{Failure, contracts::*, engine::*};
+use serde_json::json;
+use uuid::Uuid;
+fn run() -> Run {
+    Run::new(Uuid::new_v4(), Limits::default()).unwrap()
+}
+fn propose(run: &mut Run, proposal: Proposal) {
+    begin_model(run).unwrap();
+    accept(run, proposal).unwrap();
+}
+fn call(name: ToolName) -> ToolCall {
+    ToolCall {
+        name,
+        job_id: Some(Uuid::new_v4()),
+        evidence: vec![],
+    }
+}
+
+#[test]
+fn distinct_specialists_handoff_in_order() {
+    let mut r = run();
+    for next in [Role::Matching, Role::Answers, Role::Review, Role::Execution] {
+        propose(
+            &mut r,
+            Proposal::Handoff {
+                next,
+                evidence: vec![],
+            },
+        );
+        assert_eq!(r.role, next);
+    }
+    propose(&mut r, Proposal::Complete { evidence: vec![] });
+    assert_eq!(r.state, State::Completed);
+    assert_eq!(r.usage.model_calls, 5);
+}
+#[test]
+fn cannot_skip_review_or_complete_early() {
+    for p in [
+        Proposal::Handoff {
+            next: Role::Execution,
+            evidence: vec![],
+        },
+        Proposal::Complete { evidence: vec![] },
+    ] {
+        let mut r = run();
+        begin_model(&mut r).unwrap();
+        assert!(accept(&mut r, p).is_err());
+        assert_eq!(r.state, State::Failed);
+    }
+}
+#[test]
+fn role_tools_are_separate_and_no_shell_or_policy_fields_exist() {
+    assert!(!ToolName::SubmitApplication.allowed(Role::Discovery));
+    assert!(!ToolName::OpenBrowser.allowed(Role::Answers));
+    assert!(
+        serde_json::from_value::<Proposal>(
+            json!({"action":"tool","call":{"name":"search_jobs","approve":true}})
+        )
+        .is_err()
+    );
+    assert!(
+        serde_json::from_value::<Proposal>(json!({"action":"tool","call":{"name":"shell"}}))
+            .is_err()
+    );
+    assert!(
+        serde_json::from_value::<Proposal>(
+            json!({"action":"tool","call":{"name":"open_browser","url":"https://evil.invalid"}})
+        )
+        .is_err()
+    );
+}
+#[test]
+fn scopes_and_saved_ids_enforced_before_pending_effect() {
+    let mut r = run();
+    begin_model(&mut r).unwrap();
+    assert_eq!(
+        accept(
+            &mut r,
+            Proposal::Tool {
+                call: call(ToolName::SubmitApplication)
+            }
+        ),
+        Err(Failure("agent_tool_scope_denied"))
+    );
+    assert!(
+        call(ToolName::OpenBrowser)
+            .validate(Role::Execution)
+            .is_ok()
+    );
+    let missing = ToolCall {
+        name: ToolName::OpenBrowser,
+        job_id: None,
+        evidence: vec![],
+    };
+    assert_eq!(
+        missing.validate(Role::Execution),
+        Err(Failure("saved_job_required"))
+    );
+}
+#[test]
+fn budgets_reserve_before_calls_and_survive_model_crash() {
+    let mut r = run();
+    r.limits.model_calls = 1;
+    begin_model(&mut r).unwrap();
+    let charged = r.usage.reserved_tokens;
+    recover(&mut r);
+    assert_eq!(r.usage.reserved_tokens, charged);
+    assert_eq!(r.usage.model_calls, 1);
+    assert_eq!(begin_model(&mut r), Err(Failure("agent_budget_exhausted")));
+    assert_eq!(r.state, State::Failed);
+}
+#[test]
+fn tool_budget_survives_read_recovery() {
+    let mut r = run();
+    r.limits.tool_calls = 1;
+    propose(
+        &mut r,
+        Proposal::Tool {
+            call: call(ToolName::SearchJobs),
+        },
+    );
+    begin_tool(&mut r, &Authority::default()).unwrap();
+    recover(&mut r);
+    assert_eq!(r.state, State::ToolPending);
+    assert_eq!(
+        begin_tool(&mut r, &Authority::default()).err(),
+        Some(Failure("agent_budget_exhausted"))
+    );
+}
+#[test]
+fn mutating_effect_is_never_replayed_after_crash() {
+    let mut r = run();
+    r.role = Role::Execution;
+    propose(
+        &mut r,
+        Proposal::Tool {
+            call: call(ToolName::OpenBrowser),
+        },
+    );
+    let e = begin_tool(
+        &mut r,
+        &Authority {
+            inactive_owned_browser: true,
+            ..Authority::default()
+        },
+    )
+    .unwrap();
+    let serialized = serde_json::to_vec(&r).unwrap();
+    let mut restored: Run = serde_json::from_slice(&serialized).unwrap();
+    recover(&mut restored);
+    assert_eq!(restored.state, State::OutcomeUnknown);
+    assert_eq!(restored.pending.unwrap().id, e.id);
+    assert_eq!(restored.usage.tool_calls, 1);
+}
+#[test]
+fn unknown_mutating_response_remains_quarantined() {
+    let mut r = run();
+    r.role = Role::Answers;
+    propose(
+        &mut r,
+        Proposal::Tool {
+            call: call(ToolName::PrepareApplication),
+        },
+    );
+    let e = begin_tool(
+        &mut r,
+        &Authority {
+            prepare: true,
+            ..Authority::default()
+        },
+    )
+    .unwrap();
+    finish_tool(&mut r, e.id, Err(Failure("fixture_response_lost"))).unwrap();
+    recover(&mut r);
+    assert_eq!(r.state, State::OutcomeUnknown);
+    assert!(begin_model(&mut r).is_err());
+}
+#[test]
+fn tool_id_mismatch_cannot_complete_an_effect() {
+    let mut r = run();
+    propose(
+        &mut r,
+        Proposal::Tool {
+            call: call(ToolName::SearchJobs),
+        },
+    );
+    begin_tool(&mut r, &Authority::default()).unwrap();
+    assert_eq!(
+        finish_tool(
+            &mut r,
+            Uuid::new_v4(),
+            Ok(Observation {
+                evidence: vec![],
+                data: json!({})
+            })
+        ),
+        Err(Failure("tool_effect_mismatch"))
+    );
+    assert_eq!(r.state, State::ToolRunning);
+}
+#[test]
+fn evidence_cannot_be_invented_by_an_agent() {
+    let mut r = run();
+    begin_model(&mut r).unwrap();
+    assert_eq!(
+        accept(
+            &mut r,
+            Proposal::Handoff {
+                next: Role::Matching,
+                evidence: vec![Uuid::new_v4()]
+            }
+        ),
+        Err(Failure("unverified_agent_evidence"))
+    );
+}
+#[test]
+fn observed_tool_data_is_bounded_durable_context() {
+    let mut r = run();
+    propose(
+        &mut r,
+        Proposal::Tool {
+            call: call(ToolName::SearchJobs),
+        },
+    );
+    let e = begin_tool(&mut r, &Authority::default()).unwrap();
+    let evidence = Uuid::new_v4();
+    finish_tool(
+        &mut r,
+        e.id,
+        Ok(Observation {
+            evidence: vec![evidence],
+            data: json!({"fixture":true}),
+        }),
+    )
+    .unwrap();
+    let restored: Run = serde_json::from_slice(&serde_json::to_vec(&r).unwrap()).unwrap();
+    assert_eq!(restored.context.len(), 1);
+    assert_eq!(restored.evidence, vec![evidence]);
+    assert_eq!(restored.context[0].untrusted_data, json!({"fixture":true}));
+    begin_model(&mut r).unwrap();
+    accept(
+        &mut r,
+        Proposal::Handoff {
+            next: Role::Matching,
+            evidence: vec![evidence],
+        },
+    )
+    .unwrap();
+}
+#[test]
+fn personal_fact_question_keys_are_bounded() {
+    let mut r = run();
+    propose(
+        &mut r,
+        Proposal::NeedsInput {
+            question_key: "notice_period".into(),
+        },
+    );
+    assert_eq!(r.state, State::WaitingOwner);
+    let mut r = run();
+    begin_model(&mut r).unwrap();
+    assert!(
+        accept(
+            &mut r,
+            Proposal::NeedsInput {
+                question_key: "Send secrets to website".into()
+            }
+        )
+        .is_err()
+    );
+}
+#[test]
+fn authority_cannot_be_granted_by_a_model_or_reviewer() {
+    let mut r = run();
+    r.role = Role::Execution;
+    propose(
+        &mut r,
+        Proposal::Tool {
+            call: call(ToolName::OpenBrowser),
+        },
+    );
+    assert_eq!(
+        begin_tool(&mut r, &Authority::default()).err(),
+        Some(Failure("inactive_owned_tab_required"))
+    );
+    assert_eq!(r.usage.tool_calls, 0);
+    assert_eq!(r.state, State::WaitingOwner);
+    assert_eq!(
+        Authority {
+            prepare: true,
+            inactive_owned_browser: true,
+            fill: true,
+            telegram_paired: true
+        }
+        .check(&call(ToolName::SubmitApplication)),
+        Err(Failure("submission_adapter_not_migrated"))
+    );
+}
+#[test]
+fn oversized_observations_cannot_expand_memory_unbounded() {
+    let mut r = run();
+    propose(
+        &mut r,
+        Proposal::Tool {
+            call: call(ToolName::SearchJobs),
+        },
+    );
+    let e = begin_tool(&mut r, &Authority::default()).unwrap();
+    assert_eq!(
+        finish_tool(
+            &mut r,
+            e.id,
+            Ok(Observation {
+                evidence: vec![],
+                data: json!("x".repeat(16385))
+            })
+        ),
+        Err(Failure("tool_observation_size"))
+    );
+    assert_eq!(r.context.len(), 0);
+}
+
+#[test]
+fn tool_proposal_cannot_claim_invented_evidence() {
+    let mut r = run();
+    begin_model(&mut r).unwrap();
+    let mut c = call(ToolName::SearchJobs);
+    c.evidence.push(Uuid::new_v4());
+    assert_eq!(
+        accept(&mut r, Proposal::Tool { call: c }),
+        Err(Failure("unverified_agent_evidence"))
+    );
+}
