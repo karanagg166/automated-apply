@@ -2347,3 +2347,31 @@ async fn actual_cli_routes_telegram_owner_commands_through_five_agents_and_bound
     stop.cancel();
     api.await.unwrap();
 }
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn confirmed_compensation_decimal_forms_reconcile_without_reasking_for_known_facts() {
+    let mut c = knowledge_fixture().await;
+    for amount in ["100.000", "1E+2", "-0.000", "1000000000000.000", "100.0100"] {
+        let value = json!({"expected_compensation":{"amount":amount,"currency":"INR","period":"year","kind":"ctc"}});
+        sqlx::query("UPDATE candidate_profiles SET preferences=preferences||$1")
+            .bind(value)
+            .execute(&mut c)
+            .await
+            .unwrap();
+        let waiting = waiting_fact(&mut c, "expected_compensation").await;
+        assert!(
+            lifecycle::pending_questions(&mut c)
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            lifecycle::reconcile_known_questions(&mut c).await.unwrap(),
+            1
+        );
+        let stored = lifecycle::load(&mut c, waiting.id).await.unwrap();
+        assert_eq!(stored.run.state, State::Ready);
+        assert_eq!(stored.run.usage.model_calls, 1);
+    }
+}

@@ -73,6 +73,74 @@ impl Question {
     }
 }
 
+fn valid_compensation_amount(value: &Value) -> bool {
+    let text = match value {
+        Value::String(s) => s.clone(),
+        Value::Number(n) => n.to_string(),
+        _ => return false,
+    };
+    if text.len() > 65536 {
+        return false;
+    }
+    let text = text.trim();
+    let negative = text.starts_with('-');
+    let text = text.strip_prefix(['+', '-']).unwrap_or(text);
+    let mut parts = text.split(['e', 'E']);
+    let mantissa = parts.next().unwrap_or("");
+    let exponent = match parts.next() {
+        Some(s) => match s.parse::<i64>() {
+            Ok(n) => n,
+            Err(_) => return false,
+        },
+        None => 0,
+    };
+    if parts.next().is_some() {
+        return false;
+    }
+    let mut digits = String::with_capacity(mantissa.len());
+    let mut fraction = 0i64;
+    let mut dot = false;
+    for c in mantissa.chars() {
+        if c == '.' && !dot {
+            dot = true;
+            continue;
+        }
+        if !c.is_ascii_digit() {
+            return false;
+        }
+        digits.push(c);
+        if dot {
+            fraction += 1;
+        }
+    }
+    if digits.is_empty() {
+        return false;
+    }
+    let trimmed = digits.trim_start_matches('0');
+    if trimmed.is_empty() {
+        return true;
+    }
+    if negative {
+        return false;
+    }
+    let coefficient = trimmed.trim_end_matches('0');
+    let trailing = (trimmed.len() - coefficient.len()) as i64;
+    let Some(shift) = exponent
+        .checked_sub(fraction)
+        .and_then(|n| n.checked_add(trailing))
+        .and_then(|n| n.checked_add(2))
+    else {
+        return false;
+    };
+    if !(0..=14).contains(&shift) || coefficient.len() > 15 {
+        return false;
+    }
+    coefficient
+        .parse::<u64>()
+        .ok()
+        .and_then(|n| n.checked_mul(10u64.pow(shift as u32)))
+        .is_some_and(|cents| cents <= 100_000_000_000_000)
+}
 fn valid_fact(key: FactKey, value: &Value) -> bool {
     match key {
         FactKey::ProfileReviewRequired => true,
@@ -87,34 +155,7 @@ fn valid_fact(key: FactKey, value: &Value) -> bool {
             let Some(amount) = value.get("amount") else {
                 return false;
             };
-            let amount = amount
-                .as_str()
-                .map(str::to_owned)
-                .unwrap_or_else(|| amount.to_string());
-            let parts = amount.split('.').collect::<Vec<_>>();
-            if parts.is_empty()
-                || parts.len() > 2
-                || parts[0].is_empty()
-                || parts[0].len() > 13
-                || !parts.iter().all(|s| s.bytes().all(|b| b.is_ascii_digit()))
-            {
-                return false;
-            }
-            let Some(whole) = parts[0].parse::<u64>().ok() else {
-                return false;
-            };
-            let fraction = parts.get(1).copied().unwrap_or("");
-            if fraction.len() > 2 {
-                return false;
-            }
-            let cents = if fraction.is_empty() {
-                0
-            } else {
-                fraction.parse::<u64>().unwrap_or(u64::MAX)
-                    * if fraction.len() == 1 { 10 } else { 1 }
-            };
-            whole <= 1_000_000_000_000
-                && whole * 100 + cents <= 100_000_000_000_000
+            valid_compensation_amount(amount)
                 && value
                     .get("currency")
                     .and_then(Value::as_str)
@@ -165,6 +206,12 @@ mod tests {
     use super::*;
     #[test]
     fn compensation_requires_units_and_does_not_guess_from_salary_preferences() {
+        for value in ["100.000", "1E+2", "-0.000", "100.0100", "1000000000000.000"] {
+            assert!(valid_compensation_amount(&json!(value)));
+        }
+        for value in ["100.0010", "1E+100000", "-1.00", "NaN", "1E-3"] {
+            assert!(!valid_compensation_amount(&json!(value)));
+        }
         assert!(!valid_fact(FactKey::ExpectedCompensation, &json!(100)));
         assert!(!valid_fact(
             FactKey::ExpectedCompensation,
