@@ -17,6 +17,7 @@ pub type Result<T> = std::result::Result<T, Failure>;
 pub mod job_context;
 pub mod knowledge;
 pub mod missing_contract;
+pub mod missing_store;
 pub mod model_policy;
 pub mod monthly;
 pub mod owner_proof;

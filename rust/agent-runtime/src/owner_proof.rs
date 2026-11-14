@@ -14,6 +14,7 @@ pub struct SigningKey {
 pub struct Proof {
     nonce: String,
     operation: String,
+    timestamp: u64,
 }
 impl SigningKey {
     pub fn from_values(values: &BTreeMap<String, String>) -> Result<Option<Self>> {
@@ -80,10 +81,28 @@ impl SigningKey {
         Ok(Proof {
             nonce: parts[2].into(),
             operation: path.into(),
+            timestamp,
         })
     }
 }
 impl Proof {
+    pub async fn claim_for(
+        self,
+        transaction: &mut Transaction<'_, Postgres>,
+        operation: &str,
+    ) -> Result<()> {
+        if self.operation != operation {
+            return Err(Failure("owner_approval_operation_mismatch"));
+        }
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| Failure("owner_approval_required"))?
+            .as_secs_f64();
+        if (now - self.timestamp as f64).abs() > 30.0 {
+            return Err(Failure("owner_approval_required"));
+        }
+        self.claim(transaction).await
+    }
     /// A failed effect rolls back this claim with the caller's transaction. Committed claims
     /// survive restarts and reject replay of the same exact dashboard proof.
     pub async fn claim(self, transaction: &mut Transaction<'_, Postgres>) -> Result<()> {

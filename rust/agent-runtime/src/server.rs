@@ -127,6 +127,24 @@ fn profile_route(path: &str) -> bool {
         || resource_inspection(path)
         || candidate_resource_route(path)
         || draft_route(path)
+        || missing_route(path)
+}
+fn missing_item(path: &str) -> Option<(&str, &str)> {
+    let tail = path.strip_prefix("/api/v1/application-answers/missing/")?;
+    let (id, action) = tail.split_once('/').unwrap_or((tail, ""));
+    (!id.is_empty() && matches!(action, "" | "approve" | "history")).then_some((id, action))
+}
+fn missing_route(path: &str) -> bool {
+    path == "/api/v1/application-answers/missing" || missing_item(path).is_some()
+}
+fn paginated(path: &str) -> bool {
+    matches!(
+        path,
+        "/api/v1/candidate/resources"
+            | "/api/v1/candidate/evidence"
+            | "/api/v1/application-answers/drafts"
+            | "/api/v1/application-answers/missing"
+    ) || missing_item(path).is_some_and(|(_, action)| action == "history")
 }
 fn draft_id(path: &str) -> Option<&str> {
     path.strip_prefix("/api/v1/application-answers/drafts/")
@@ -152,14 +170,7 @@ fn resource_page(path: &str, method: &str, query: Option<&str>) -> Result<(i64, 
     let Some(query) = query else {
         return Ok(page);
     };
-    if !matches!(
-        path,
-        "/api/v1/candidate/resources"
-            | "/api/v1/candidate/evidence"
-            | "/api/v1/application-answers/drafts"
-    ) || method != "GET"
-        || query.len() > 256
-    {
+    if !paginated(path) || method != "GET" || query.len() > 256 {
         return Err(Failure("query_parameters_not_supported"));
     }
     let mut seen = std::collections::HashSet::new();
@@ -194,13 +205,7 @@ fn selected_resource(path: &str, method: &str, query: Option<&str>) -> Result<Op
     let Some(query) = query else {
         return Ok(None);
     };
-    if matches!(
-        path,
-        "/api/v1/candidate/resources"
-            | "/api/v1/candidate/evidence"
-            | "/api/v1/application-answers/drafts"
-    ) && method == "GET"
-    {
+    if paginated(path) && method == "GET" {
         return Ok(None);
     }
     if path != "/api/v1/rust-agent/resume-selection" || method != "GET" {
@@ -298,12 +303,7 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
         Ok(selected) => selected,
         Err(error) => return fail(error),
     };
-    let page = if matches!(
-        path.as_str(),
-        "/api/v1/candidate/resources"
-            | "/api/v1/candidate/evidence"
-            | "/api/v1/application-answers/drafts"
-    ) {
+    let page = if paginated(&path) {
         match resource_page(&path, &method, request.uri().query()) {
             Ok(page) => page,
             Err(error) => return fail(error),
@@ -320,6 +320,7 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
     } else {
         None
     };
+    let signature = single(request.headers(), "x-browser-owner-approval").map(str::to_owned);
     let body = match tokio::time::timeout(
         Duration::from_secs(20),
         to_bytes(request.into_body(), 65536),
@@ -343,6 +344,26 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
                 json!({"error":"owner_request_timeout"}),
             );
         }
+    };
+    let proof = if method == "POST"
+        && missing_item(&path).is_some_and(|(_, action)| action == "approve")
+    {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs_f64())
+            .unwrap_or(f64::NAN);
+        match api
+            .config
+            .owner_signing
+            .as_ref()
+            .ok_or(Failure("owner_approval_unavailable"))
+            .and_then(|key| key.verify_at(&path, &body, signature.as_deref().unwrap_or(""), now))
+        {
+            Ok(proof) => Some(proof),
+            Err(error) => return fail(error),
+        }
+    } else {
+        None
     };
     let mut state = api.connection.lock().await;
     if state.value.is_none() {
@@ -395,6 +416,9 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
         }
         Some(connection) if candidate_resource_route(&path) => {
             candidate_resource_dispatch(connection, &method, &path, &body, page, &api.config).await
+        }
+        Some(connection) if missing_route(&path) => {
+            missing_dispatch(connection, &method, &path, &body, page, proof).await
         }
         Some(connection) if draft_route(&path) => {
             let data = if path == "/api/v1/application-answers/drafts" {
@@ -489,6 +513,25 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
 fn profile_failure(error: Failure) -> Response {
     let status = failure(error).status();
     let detail = match error.0 {
+        "missing_input_not_found" => "Missing-answer request not found",
+        "missing_input_version_conflict"
+        | "missing_input_packet_context_mismatch"
+        | "missing_input_draft_context_mismatch"
+        | "missing_input_identity_collision"
+        | "factual_answer_and_evidence_note_required"
+        | "missing_input_context_changed_edit_before_approval"
+        | "sensitive_answer_not_retained" => error.0,
+        "owner_approval_required" => {
+            "Submission authorization requires current dashboard owner approval"
+        }
+        "owner_approval_unavailable" => {
+            "Configure a separate dashboard owner approval key before authorizing consent or submission"
+        }
+        "owner_approval_operation_mismatch" => "Owner approval does not match this exact operation",
+        "owner_approval_already_used" => {
+            "Owner approval was already used; review again in the dashboard"
+        }
+        "invalid_missing_input_request" | "invalid_missing_input_record" => error.0,
         "profile_changed_review_current_version" => "profile_changed_review_current_version",
         "invalid_profile_confirmation" => {
             "Review the current profile version and explicitly confirm it"
@@ -535,6 +578,7 @@ fn profile_failure(error: Failure) -> Response {
         | "resource_list_method_not_allowed"
         | "evidence_patch_method_not_allowed"
         | "resource_read_method_not_allowed" => "Method Not Allowed",
+        "missing_item_method_not_allowed" => "Method Not Allowed",
         "profile_database_error" | "agent_database_reconnecting" | "agent_database_unavailable" => {
             "Profile database unavailable; retrieve the current profile before retrying"
         }
@@ -566,12 +610,63 @@ fn profile_failure(error: Failure) -> Response {
             .headers_mut()
             .insert("allow", "PATCH".parse().unwrap());
     }
+    if error.0 == "missing_item_method_not_allowed" {
+        response
+            .headers_mut()
+            .insert("allow", "GET, PATCH".parse().unwrap());
+    }
     response
 }
 struct OwnerReply {
     data: Value,
     status: StatusCode,
     etag: Option<String>,
+}
+async fn missing_dispatch(
+    connection: &mut PgConnection,
+    method: &str,
+    path: &str,
+    body: &[u8],
+    page: (i64, i64),
+    proof: Option<crate::owner_proof::Proof>,
+) -> Result<OwnerReply> {
+    use crate::{missing_contract as contract, missing_store as store};
+    let input =
+        || serde_json::from_slice(body).map_err(|_| Failure("invalid_missing_input_request"));
+    let data = if let Some((id, action)) = missing_item(path) {
+        match (method, action) {
+            ("GET", "") => store::read(connection, id).await,
+            ("PATCH", "") => store::edit(connection, id, contract::normalize_edit(input()?)?).await,
+            ("POST", "approve") => {
+                store::approve(
+                    connection,
+                    id,
+                    contract::normalize_approve(input()?)?,
+                    proof.ok_or(Failure("owner_approval_required"))?,
+                )
+                .await
+            }
+            ("GET", "history") => store::history(connection, id, page.0, page.1).await,
+            (_, "approve") => Err(Failure("match_method_not_allowed")),
+            (_, "history") => Err(Failure("resource_read_method_not_allowed")),
+            _ => Err(Failure("missing_item_method_not_allowed")),
+        }
+    } else {
+        match method {
+            "GET" => store::list(connection, page.0, page.1).await,
+            "POST" => store::create(connection, contract::normalize_create(input()?)?).await,
+            _ => Err(Failure("resource_list_method_not_allowed")),
+        }
+    }?;
+    Ok(OwnerReply {
+        data,
+        status: if method == "POST" && missing_item(path).is_none() {
+            StatusCode::CREATED
+        } else {
+            StatusCode::OK
+        },
+        etag: None,
+    })
 }
 async fn candidate_resource_dispatch(
     connection: &mut PgConnection,
@@ -862,6 +957,10 @@ fn failure(error: Failure) -> Response {
         | "owner_host_denied"
         | "owner_origin_denied"
         | "owner_client_required" => StatusCode::FORBIDDEN,
+        "owner_approval_required"
+        | "owner_approval_operation_mismatch"
+        | "owner_approval_already_used" => StatusCode::FORBIDDEN,
+        "owner_approval_unavailable" => StatusCode::SERVICE_UNAVAILABLE,
         "owner_api_tls_required" => StatusCode::UPGRADE_REQUIRED,
         "job_not_found"
         | "profile_not_found"
@@ -869,10 +968,11 @@ fn failure(error: Failure) -> Response {
         | "owner_route_not_found"
         | "resource_not_found"
         | "evidence_not_found" => StatusCode::NOT_FOUND,
-        "answer_draft_not_found" => StatusCode::NOT_FOUND,
+        "answer_draft_not_found" | "missing_input_not_found" => StatusCode::NOT_FOUND,
         "profile_method_not_allowed"
         | "match_method_not_allowed"
         | "resource_read_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
+        "missing_item_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
         "resource_list_method_not_allowed" | "evidence_patch_method_not_allowed" => {
             StatusCode::METHOD_NOT_ALLOWED
         }
@@ -883,6 +983,13 @@ fn failure(error: Failure) -> Response {
         | "resource_conflict"
         | "resource_insert_conflict" => StatusCode::CONFLICT,
         "answer_draft_stale" => StatusCode::CONFLICT,
+        "missing_input_version_conflict"
+        | "missing_input_packet_context_mismatch"
+        | "missing_input_draft_context_mismatch"
+        | "missing_input_identity_collision"
+        | "factual_answer_and_evidence_note_required"
+        | "sensitive_answer_not_retained"
+        | "missing_input_context_changed_edit_before_approval" => StatusCode::CONFLICT,
         "profile_version_conflict" | "profile_changed_review_current_version" => {
             StatusCode::CONFLICT
         }
@@ -893,6 +1000,8 @@ fn failure(error: Failure) -> Response {
         | "invalid_resource_page"
         | "invalid_answer_draft_record"
         | "invalid_answer_draft_review"
+        | "invalid_missing_input_request"
+        | "invalid_missing_input_record"
         | "resource_inventory_limit"
         | "invalid_job_id"
         | "invalid_saved_job_record"

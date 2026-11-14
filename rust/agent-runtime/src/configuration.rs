@@ -33,6 +33,7 @@ pub struct Configuration {
     pub(crate) models: Option<crate::model_policy::Models>,
     pub(crate) profile_live: bool,
     pub(crate) resource_defaults: BTreeMap<String, String>,
+    pub(crate) owner_signing: Option<crate::owner_proof::SigningKey>,
 }
 impl Configuration {
     pub fn listen(&self) -> SocketAddr {
@@ -238,6 +239,7 @@ impl Configuration {
             models: crate::model_policy::Models::from_values(values, fixture)?,
             profile_live: matches!(environment.as_str(), "production" | "staging"),
             resource_defaults: crate::resources::link_defaults(values)?,
+            owner_signing: crate::owner_proof::SigningKey::from_values(values)?,
         })
     }
     /// Only two host-owned connections (control/execution), no pool or overflow.

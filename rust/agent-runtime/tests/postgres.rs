@@ -1495,7 +1495,12 @@ fn host_values() -> BTreeMap<String, String> {
     ])
 }
 async fn http_fixture() -> (String, CancellationToken, tokio::task::JoinHandle<()>) {
-    let config = Arc::new(Configuration::from_values(&host_values()).unwrap());
+    http_fixture_values(host_values()).await
+}
+async fn http_fixture_values(
+    values: BTreeMap<String, String>,
+) -> (String, CancellationToken, tokio::task::JoinHandle<()>) {
+    let config = Arc::new(Configuration::from_values(&values).unwrap());
     let mut c = config.connect(false).await.unwrap();
     server::readiness(&mut c, &config).await.unwrap();
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -3005,6 +3010,7 @@ include!("support/owner_proof_pg.rs");
 include!("support/project_context_pg.rs");
 include!("support/job_context_pg.rs");
 include!("support/answer_context_pg.rs");
+include!("support/missing_store_pg.rs");
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
 async fn owner_resume_inspection_scopes_saved_references_and_never_admits_or_fetches() {

@@ -58,11 +58,13 @@ impl Stamp {
             .and_then(|s| s.parse::<Uuid>().ok())
             .ok_or(Failure("invalid_profile_record"))?;
         let job = if let Some(job_id) = request.job_id {
-            let job = Reviewed::load_in(tx, job_id)
+            // Fingerprints also serve historical missing-input reads. A deleted or
+            // corrected job must make that approval stale, without hiding the request.
+            // Generation validates the incoming description/company separately.
+            Reviewed::load_in(tx, job_id)
                 .await?
-                .ok_or(Failure("job_not_found"))?;
-            job.bind_request(request)?;
-            Some(job.digest()?)
+                .map(|job| job.digest())
+                .transpose()?
         } else {
             None
         };
