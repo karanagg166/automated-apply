@@ -124,6 +124,28 @@ fn profile_route(path: &str) -> bool {
     path == "/api/v1/profile"
         || saved_match_route(path).is_some()
         || path == "/api/v1/local-agent/profile-confirmation"
+        || resource_inspection(path)
+}
+fn resource_inspection(path: &str) -> bool {
+    matches!(
+        path,
+        "/api/v1/rust-agent/profile-readiness" | "/api/v1/rust-agent/resume-selection"
+    )
+}
+fn selected_resource(path: &str, method: &str, query: Option<&str>) -> Result<Option<Uuid>> {
+    let Some(query) = query else {
+        return Ok(None);
+    };
+    if path != "/api/v1/rust-agent/resume-selection" || method != "GET" {
+        return Err(Failure("query_parameters_not_supported"));
+    }
+    let raw = query
+        .strip_prefix("selected_id=")
+        .filter(|s| !s.contains('&') && s.len() <= 100)
+        .ok_or(Failure("invalid_resource_selection"))?;
+    raw.parse()
+        .map(Some)
+        .map_err(|_| Failure("invalid_resource_selection"))
 }
 fn authorize(request: &Request, config: &Configuration) -> Result<()> {
     let peer = request
@@ -205,9 +227,10 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
             json!({"alive":true,"scope":"saved_job_review_no_application_dispatch"}),
         );
     }
-    if request.uri().query().is_some() {
-        return fail(Failure("query_parameters_not_supported"));
-    }
+    let selected = match selected_resource(&path, &method, request.uri().query()) {
+        Ok(selected) => selected,
+        Err(error) => return fail(error),
+    };
     let if_match = if request.headers().contains_key("if-match") {
         Some(
             single(request.headers(), "if-match")
@@ -271,6 +294,24 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
                 api.config.profile_live,
             )
             .await
+        }
+        Some(connection) if resource_inspection(&path) => {
+            if method != "GET" {
+                Err(Failure("resource_read_method_not_allowed"))
+            } else {
+                crate::resource_store::inspect(
+                    connection,
+                    selected,
+                    path.ends_with("profile-readiness"),
+                    api.config.profile_live,
+                )
+                .await
+                .map(|data| OwnerReply {
+                    data,
+                    status: StatusCode::OK,
+                    etag: None,
+                })
+            }
         }
         Some(connection) if path == "/api/v1/local-agent/profile-confirmation" => {
             if method != "POST" {
@@ -345,6 +386,9 @@ fn profile_failure(error: Failure) -> Response {
         "invalid_profile_confirmation" => {
             "Review the current profile version and explicitly confirm it"
         }
+        "invalid_resource_selection" => "Select a saved resource by its UUID",
+        "invalid_resource_record" => "Saved resource is invalid",
+        "resource_inventory_limit" => "Resource inventory exceeds the inspection limit",
         "owner_client_required" => "owner_ui_required",
         "job_not_found" => "Job not found",
         "invalid_job_id" => "Invalid job ID",
@@ -358,7 +402,9 @@ fn profile_failure(error: Failure) -> Response {
             "Resulting profile is invalid or exceeds 64 KiB"
         }
         "fictional_or_placeholder_profile_rejected" => "fictional_or_placeholder_profile_rejected",
-        "profile_method_not_allowed" | "match_method_not_allowed" => "Method Not Allowed",
+        "profile_method_not_allowed"
+        | "match_method_not_allowed"
+        | "resource_read_method_not_allowed" => "Method Not Allowed",
         "profile_database_error" | "agent_database_reconnecting" | "agent_database_unavailable" => {
             "Profile database unavailable; retrieve the current profile before retrying"
         }
@@ -369,6 +415,11 @@ fn profile_failure(error: Failure) -> Response {
         response
             .headers_mut()
             .insert("allow", "POST".parse().unwrap());
+    }
+    if error.0 == "resource_read_method_not_allowed" {
+        response
+            .headers_mut()
+            .insert("allow", "GET".parse().unwrap());
     }
     if status == StatusCode::UNAUTHORIZED {
         response
@@ -615,12 +666,17 @@ fn failure(error: Failure) -> Response {
         "job_not_found" | "profile_not_found" | "agent_run_not_found" | "owner_route_not_found" => {
             StatusCode::NOT_FOUND
         }
-        "profile_method_not_allowed" | "match_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
+        "profile_method_not_allowed"
+        | "match_method_not_allowed"
+        | "resource_read_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
         "profile_version_required" => StatusCode::PRECONDITION_REQUIRED,
         "profile_version_conflict" | "profile_changed_review_current_version" => {
             StatusCode::CONFLICT
         }
         "invalid_profile_confirmation"
+        | "invalid_resource_selection"
+        | "invalid_resource_record"
+        | "resource_inventory_limit"
         | "invalid_job_id"
         | "invalid_saved_job_record"
         | "invalid_match_result"

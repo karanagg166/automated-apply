@@ -2991,6 +2991,212 @@ async fn profile_fixture() -> PgConnection {
     sqlx::raw_sql("ALTER TABLE candidate_profiles ADD COLUMN linkedin_url text,ADD COLUMN github_url text,ADD COLUMN portfolio_url text,ADD COLUMN personal_website text,ADD COLUMN verified_roles jsonb NOT NULL DEFAULT '[]',ADD COLUMN education jsonb NOT NULL DEFAULT '[]',ADD COLUMN projects jsonb NOT NULL DEFAULT '[]',ADD COLUMN certifications jsonb NOT NULL DEFAULT '[]',ADD COLUMN summary text,ADD COLUMN created_at timestamptz NOT NULL DEFAULT '2026-11-14T00:00:00Z',ADD COLUMN updated_at timestamptz NOT NULL DEFAULT '2026-11-14T00:00:00Z',ADD COLUMN active_resume_version_id uuid").execute(&mut c).await.unwrap();
     c
 }
+async fn resource_fixture() -> PgConnection {
+    let mut c = profile_fixture().await;
+    sqlx::raw_sql(include_str!("fixtures/resources.sql"))
+        .execute(&mut c)
+        .await
+        .unwrap();
+    c
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn owner_resume_inspection_scopes_saved_references_and_never_admits_or_fetches() {
+    let mut c = resource_fixture().await;
+    let before: Value = sqlx::query_scalar("SELECT jsonb_build_object('profile',(SELECT to_jsonb(p) FROM candidate_profiles p),'resources',(SELECT jsonb_agg(to_jsonb(r) ORDER BY id) FROM candidate_resources r),'confirmation',(SELECT value FROM owner_preferences WHERE key='phase1_profile_confirmation'))").fetch_one(&mut c).await.unwrap();
+    let (url, stop, server) = http_fixture().await;
+    let target = format!("{url}/api/v1/rust-agent/resume-selection");
+    let http = client();
+    assert_eq!(http.get(&target).send().await.unwrap().status(), 401);
+    assert_eq!(
+        http.get(&target)
+            .bearer_auth(HOST_TOKEN)
+            .header("x-agent-client", "extension")
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        403
+    );
+    let response = http
+        .get(&target)
+        .header("authorization", format!("bearer {HOST_TOKEN}"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let selection: Value = response.json().await.unwrap();
+    assert_eq!(selection["alternatives"].as_array().unwrap().len(), 1);
+    assert_eq!(selection["selected"]["label"], "Fictional résumé 🚀");
+    assert_eq!(
+        selection["selected"]["url"],
+        "private-resume:20000000-0000-0000-0000-000000000001"
+    );
+    assert_eq!(
+        selection["selected"]["download_path"],
+        "/api/backend/dashboard/resumes/20000000-0000-0000-0000-000000000001"
+    );
+    assert_eq!(selection["upload_status"], "manual_resume_upload_required");
+    let foreign: Value = http
+        .get(format!(
+            "{target}?selected_id=10000000-0000-0000-0000-000000000002"
+        ))
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert!(foreign["selected"].is_null());
+    for query in [
+        "selected_id=bad",
+        "selected_id=10000000-0000-0000-0000-000000000001&selected_id=10000000-0000-0000-0000-000000000002",
+        "submit=true",
+    ] {
+        assert_eq!(
+            http.get(format!("{target}?{query}"))
+                .bearer_auth(HOST_TOKEN)
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            422
+        );
+    }
+    let method = http
+        .post(&target)
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(method.status(), 405);
+    assert_eq!(method.headers()["allow"], "GET");
+    assert_eq!(
+        http.get(format!(
+            "{url}/api/v1/profile?selected_id=00000000-0000-0000-0000-000000000002"
+        ))
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap()
+        .status(),
+        400
+    );
+    let after: Value = sqlx::query_scalar("SELECT jsonb_build_object('profile',(SELECT to_jsonb(p) FROM candidate_profiles p),'resources',(SELECT jsonb_agg(to_jsonb(r) ORDER BY id) FROM candidate_resources r),'confirmation',(SELECT value FROM owner_preferences WHERE key='phase1_profile_confirmation'))").fetch_one(&mut c).await.unwrap();
+    assert_eq!(before, after);
+    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM application_packets")
+        .fetch_one(&mut c)
+        .await
+        .unwrap();
+    assert_eq!(count, 0);
+    stop.cancel();
+    server.await.unwrap();
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn profile_readiness_checks_unknown_facts_without_claiming_identity_or_pdf_acceptance() {
+    let mut c = resource_fixture().await;
+    let (url, stop, server) = http_fixture().await;
+    let target = format!("{url}/api/v1/rust-agent/profile-readiness");
+    let http = client();
+    let blocked: Value = http
+        .get(&target)
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(
+        blocked["missing"],
+        json!([
+            "projects",
+            "github_url",
+            "linkedin_url",
+            "portfolio_or_personal_website"
+        ])
+    );
+    assert_eq!(blocked["resume_selected"], true);
+    let patch = json!({"projects":[{"name":"Fictional implementation","description":"Confirmed work","contribution":"Built coordinator","technologies":["Rust"]}],"github_url":"https://github.com/fictional","linkedin_url":"https://linkedin.com/in/fictional","portfolio_url":"https://example.com"});
+    profile_store::save(&mut c, patch, Some(4), true, false)
+        .await
+        .unwrap();
+    let ready: Value = http
+        .get(&target)
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(ready["status"], "owner_confirmation_required");
+    assert_eq!(ready["profile_version"], 5);
+    assert_eq!(ready["missing"], json!([]));
+    assert_eq!(ready["identity_independently_verified"], false);
+    assert_eq!(ready["warnings"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        automated_apply_agents::resource_store::inspect(&mut c, None, true, true)
+            .await
+            .err(),
+        Some(Failure("fictional_or_placeholder_profile_rejected"))
+    );
+    sqlx::query("DELETE FROM candidate_profiles")
+        .execute(&mut c)
+        .await
+        .unwrap();
+    let missing: Value = http
+        .get(&target)
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(missing["missing"], json!(["candidate_profile"]));
+    assert_eq!(missing["resume_selected"], false);
+    assert_eq!(
+        http.get(format!("{url}/api/v1/rust-agent/resume-selection"))
+            .bearer_auth(HOST_TOKEN)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        404
+    );
+    stop.cancel();
+    server.await.unwrap();
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn resume_inspection_fails_closed_on_truncation_and_bad_records_then_releases_snapshot() {
+    let mut c = resource_fixture().await;
+    sqlx::query(
+        "UPDATE candidate_resources SET updated_at='infinity' WHERE candidate_profile_id=$1",
+    )
+    .bind(profile_pin().id)
+    .execute(&mut c)
+    .await
+    .unwrap();
+    assert_eq!(
+        automated_apply_agents::resource_store::inspect(&mut c, None, false, false)
+            .await
+            .err(),
+        Some(Failure("invalid_resource_record"))
+    );
+    sqlx::query("UPDATE candidate_resources SET updated_at='2026-11-14T00:00:00Z' WHERE candidate_profile_id=$1").bind(profile_pin().id).execute(&mut c).await.unwrap();
+    sqlx::query("INSERT INTO candidate_resources(id,candidate_profile_id,resource_type,label,url,user_confirmed,is_primary,source_type) SELECT gen_random_uuid(),$1,'other','Fictional resource','https://example.com/'||n::text,false,false,'user' FROM generate_series(1,10000) n").bind(profile_pin().id).execute(&mut c).await.unwrap();
+    assert_eq!(
+        automated_apply_agents::resource_store::inspect(&mut c, None, false, false)
+            .await
+            .err(),
+        Some(Failure("resource_inventory_limit"))
+    );
+    assert_eq!(profile_store::get(&mut c).await.unwrap().version, 4);
+}
 use automated_apply_agents::{profile_contract, profile_store};
 fn profile_body() -> Value {
     json!({"full_name":"Fictional Person","email":"fictional@example.com","verified_skills":["Rust","RUST"],"preferences":{"notice_period_days":30,"target_titles":["Engineer"]}})
