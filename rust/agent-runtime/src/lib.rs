@@ -13,6 +13,7 @@ pub mod runner;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Failure(pub &'static str);
 pub type Result<T> = std::result::Result<T, Failure>;
+pub mod job_context;
 pub mod knowledge;
 pub mod missing_contract;
 pub mod model_policy;
