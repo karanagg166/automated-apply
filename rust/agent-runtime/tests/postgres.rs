@@ -1465,3 +1465,385 @@ async fn missing_older_facts_do_not_starve_a_later_known_question() {
     assert_eq!(saved.run.state, State::Ready);
     assert_eq!(saved.run.usage.model_calls, 1);
 }
+
+use automated_apply_agents::{
+    configuration::Configuration,
+    server::{self, Api},
+};
+use std::{collections::BTreeMap, os::unix::fs::PermissionsExt, sync::Arc};
+const HOST_TOKEN: &str = "0123456789abcdefghijklmnopqrstuvwxyzABCDEF";
+fn host_values() -> BTreeMap<String, String> {
+    BTreeMap::from([
+        ("ENVIRONMENT".into(), "testing".into()),
+        ("RUST_RUNTIME_FIXTURE".into(), "true".into()),
+        (
+            "DATABASE_URL".into(),
+            std::env::var("RUST_AGENT_TEST_DATABASE_URL").unwrap(),
+        ),
+        ("JOB_AGENT_API_TOKEN".into(), HOST_TOKEN.into()),
+        ("API_REQUIRE_TLS".into(), "false".into()),
+        ("RUST_AGENT_LISTEN".into(), "127.0.0.1:0".into()),
+    ])
+}
+async fn http_fixture() -> (String, CancellationToken, tokio::task::JoinHandle<()>) {
+    let config = Arc::new(Configuration::from_values(&host_values()).unwrap());
+    let mut c = config.connect(false).await.unwrap();
+    server::readiness(&mut c, &config).await.unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    let stop = CancellationToken::new();
+    let api = Api::new(config, c, Wake::default());
+    let shutdown = stop.clone();
+    let service = tokio::spawn(async move {
+        axum::serve(
+            listener,
+            server::router(api).into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .with_graceful_shutdown(shutdown.cancelled_owned())
+        .await
+        .unwrap();
+    });
+    (format!("http://{address}"), stop, service)
+}
+fn client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .no_proxy()
+        .redirect(reqwest::redirect::Policy::none())
+        .timeout(Duration::from_secs(2))
+        .build()
+        .unwrap()
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn actual_owner_http_api_checks_auth_origin_body_and_private_response_boundary() {
+    let _source = knowledge_fixture().await;
+    let (url, stop, service) = http_fixture().await;
+    let http = client();
+    let public = http.get(format!("{url}/health")).send().await.unwrap();
+    assert_eq!(public.status(), 200);
+    let denied = http.get(format!("{url}/ready")).send().await.unwrap();
+    assert_eq!(denied.status(), 401);
+    assert_eq!(denied.headers()["cache-control"], "private, no-store");
+    let ready = http
+        .get(format!("{url}/ready"))
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(ready.status(), 200);
+    let duplicate = http
+        .get(format!("{url}/ready"))
+        .bearer_auth(HOST_TOKEN)
+        .header("authorization", "Bearer other")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(duplicate.status(), 401);
+    let origin = http
+        .get(format!("{url}/ready"))
+        .bearer_auth(HOST_TOKEN)
+        .header("origin", "https://untrusted.example.net")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(origin.status(), 403);
+    let extension = http
+        .get(format!("{url}/ready"))
+        .bearer_auth(HOST_TOKEN)
+        .header("x-agent-client", "extension")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(extension.status(), 403);
+    let injected = http
+        .post(format!("{url}/api/v1/rust-agent/runs"))
+        .bearer_auth(HOST_TOKEN)
+        .json(&json!({"request_id":Uuid::new_v4(),"submit":true,"private_marker":"do-not-echo"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(injected.status(), 400);
+    assert!(!injected.text().await.unwrap().contains("do-not-echo"));
+    let large = http
+        .post(format!("{url}/api/v1/rust-agent/runs"))
+        .bearer_auth(HOST_TOKEN)
+        .body(vec![b'x'; 65537])
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(large.status(), 413);
+    let listing = http
+        .get(format!("{url}/api/v1/rust-agent/runs"))
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
+    assert!(!listing.contains("Private Fictional"));
+    assert!(!listing.contains(HOST_TOKEN));
+    stop.cancel();
+    service.await.unwrap();
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn actual_http_controls_enforce_cas_and_accept_only_confirmed_fact_references() {
+    let mut source = knowledge_fixture().await;
+    let (url, stop, service) = http_fixture().await;
+    let http = client();
+    let created: Value = http
+        .post(format!("{url}/api/v1/rust-agent/runs"))
+        .bearer_auth(HOST_TOKEN)
+        .json(&json!({"request_id":Uuid::new_v4()}))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let id = created["id"].as_str().unwrap();
+    let paused = http
+        .post(format!("{url}/api/v1/rust-agent/runs/{id}/control"))
+        .bearer_auth(HOST_TOKEN)
+        .json(&json!({"expected_revision":1,"action":"pause"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(paused.status(), 200);
+    assert_eq!(paused.json::<Value>().await.unwrap()["state"], "paused");
+    let stale = http
+        .post(format!("{url}/api/v1/rust-agent/runs/{id}/control"))
+        .bearer_auth(HOST_TOKEN)
+        .json(&json!({"expected_revision":1,"action":"resume"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(stale.status(), 409);
+    let mode = http
+        .put(format!("{url}/api/v1/rust-agent/control"))
+        .bearer_auth(HOST_TOKEN)
+        .json(&json!({"expected_revision":1,"mode":"STOPPED"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(mode.status(), 200);
+    let events: Value = http
+        .get(format!("{url}/api/v1/rust-agent/runs/{id}/events"))
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(events["events"].as_array().unwrap().len(), 1);
+    assert!(!events.to_string().contains("untrusted_data"));
+    let waiting = waiting_fact(&mut source, "notice_period_days").await;
+    let q = waiting.question.as_ref().unwrap().id;
+    let address = format!(
+        "{url}/api/v1/rust-agent/runs/{}/questions/{q}/resolve",
+        waiting.id
+    );
+    let invented=http.post(&address).bearer_auth(HOST_TOKEN).json(&json!({"expected_revision":1,"profile":{"id":profile_pin().id,"version":4},"answer":30})).send().await.unwrap();
+    assert_eq!(invented.status(), 400);
+    let unresolved = http
+        .post(&address)
+        .bearer_auth(HOST_TOKEN)
+        .json(&json!({"expected_revision":1,"profile":{"id":profile_pin().id,"version":4}}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(unresolved.status(), 409);
+    sqlx::raw_sql(
+        "UPDATE candidate_profiles SET preferences=preferences||'{\"notice_period_days\":0}'",
+    )
+    .execute(&mut source)
+    .await
+    .unwrap();
+    let resolved = http
+        .post(&address)
+        .bearer_auth(HOST_TOKEN)
+        .json(&json!({"expected_revision":1,"profile":{"id":profile_pin().id,"version":4}}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resolved.status(), 200);
+    assert_eq!(resolved.json::<Value>().await.unwrap()["state"], "ready");
+    stop.cancel();
+    service.await.unwrap();
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn actual_cli_runs_the_durable_worker_refuses_duplicate_executor_and_quiesces_on_sigterm() {
+    use tokio::io::AsyncBufReadExt;
+    let mut source = knowledge_fixture().await;
+    saved_job(&mut source, 1).await;
+    lifecycle::set_control(&mut source, 1, Mode::Stopped)
+        .await
+        .unwrap();
+    let directory = tempfile::tempdir().unwrap();
+    std::fs::set_permissions(directory.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+    let path = directory.path().join("runtime.env");
+    std::fs::write(
+        &path,
+        host_values()
+            .iter()
+            .map(|(k, v)| format!("{k}='{v}'\n"))
+            .collect::<String>(),
+    )
+    .unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    let binary = env!("CARGO_BIN_EXE_automated-apply-agents");
+    let mut child = tokio::process::Command::new(binary)
+        .args(["serve", "--config"])
+        .arg(&path)
+        .arg("--fixture-lock-directory")
+        .arg(directory.path())
+        .env_clear()
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .kill_on_drop(true)
+        .spawn()
+        .unwrap();
+    let mut stdout = tokio::io::BufReader::new(child.stdout.take().unwrap());
+    let mut line = String::new();
+    tokio::time::timeout(Duration::from_secs(10), stdout.read_line(&mut line))
+        .await
+        .unwrap()
+        .unwrap();
+    let ready: Value = serde_json::from_str(&line).expect("sanitized CLI readiness event");
+    assert_eq!(ready["event"], "rust_agent_ready");
+    assert!(!line.contains(HOST_TOKEN));
+    let url = format!("http://{}", ready["address"].as_str().unwrap());
+    let http = client();
+    let mode: Value = http
+        .get(format!("{url}/api/v1/rust-agent/control"))
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(mode["mode"], "STOPPED");
+    let created: Value = http
+        .post(format!("{url}/api/v1/rust-agent/runs"))
+        .bearer_auth(HOST_TOKEN)
+        .json(&json!({"request_id":Uuid::new_v4()}))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let id = created["id"].as_str().unwrap();
+    let start = http
+        .put(format!("{url}/api/v1/rust-agent/control"))
+        .bearer_auth(HOST_TOKEN)
+        .json(&json!({"expected_revision":2,"mode":"RUNNING"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(start.status(), 200);
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let saved: Value = http
+                .get(format!("{url}/api/v1/rust-agent/runs/{id}"))
+                .bearer_auth(HOST_TOKEN)
+                .send()
+                .await
+                .unwrap()
+                .json()
+                .await
+                .unwrap();
+            if saved["state"] == "completed" {
+                assert_eq!(saved["usage"]["model_calls"], 0);
+                assert_eq!(saved["usage"]["tool_calls"], 4);
+                break;
+            }
+            assert_ne!(saved["state"], "failed");
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+    })
+    .await
+    .unwrap();
+    let duplicate = tokio::process::Command::new(binary)
+        .args(["serve", "--config"])
+        .arg(&path)
+        .arg("--fixture-lock-directory")
+        .arg(directory.path())
+        .env_clear()
+        .output()
+        .await
+        .unwrap();
+    assert!(!duplicate.status.success());
+    assert_eq!(
+        String::from_utf8(duplicate.stderr).unwrap().trim(),
+        "execution_worker_already_running"
+    );
+    assert!(duplicate.stdout.is_empty());
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let legacy_script = r#"
+import asyncio, sys
+from pathlib import Path
+from types import SimpleNamespace
+from backend.app.local_agent.process_lock import process_lock, WorkerAlreadyRunning
+async def check():
+    settings=SimpleNamespace(DATABASE_URL=sys.argv[1].replace('postgresql://','postgresql+asyncpg://',1),DATABASE_SCHEMA='public')
+    try:
+        async with process_lock(settings,'execution',directory=Path(sys.argv[2])):
+            raise SystemExit(0)
+    except WorkerAlreadyRunning:
+        raise SystemExit(75)
+asyncio.run(check())
+"#;
+    let legacy = tokio::process::Command::new("uv")
+        .args(["run", "--no-project", "--python"])
+        .arg(root.join(".venv/bin/python"))
+        .args(["python", "-c", legacy_script])
+        .arg(std::env::var("RUST_AGENT_TEST_DATABASE_URL").unwrap())
+        .arg(directory.path())
+        .current_dir(&root)
+        .output()
+        .await
+        .unwrap();
+    assert_eq!(
+        legacy.status.code(),
+        Some(75),
+        "legacy fixture lease must detect the Rust-held inode"
+    );
+    assert!(legacy.stdout.is_empty());
+    let active:i64=sqlx::query_scalar("SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND application_name IN ('automated-apply:api','automated-apply:execution')").fetch_one(&mut source).await.unwrap();
+    assert_eq!(active, 2);
+    let ambient = tokio::process::Command::new(binary)
+        .args(["serve", "--config"])
+        .arg(&path)
+        .arg("--fixture-lock-directory")
+        .arg(directory.path())
+        .env_clear()
+        .env("PGHOST", "ambient.invalid")
+        .output()
+        .await
+        .unwrap();
+    assert!(!ambient.status.success());
+    assert_eq!(
+        String::from_utf8(ambient.stderr).unwrap().trim(),
+        "ambient_postgresql_options_forbidden"
+    );
+    // SAFETY: this PID belongs to the exact fixture child retained above, which has not exited.
+    assert_eq!(
+        unsafe { libc::kill(child.id().unwrap() as i32, libc::SIGTERM) },
+        0
+    );
+    assert!(
+        tokio::time::timeout(Duration::from_secs(5), child.wait())
+            .await
+            .unwrap()
+            .unwrap()
+            .success()
+    );
+    let control = lifecycle::control(&mut source).await.unwrap();
+    assert_eq!(control.mode, Mode::Paused);
+    assert!(!control.worker_online);
+}

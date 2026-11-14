@@ -81,3 +81,10 @@ reconciliation. Deterministic saved review uses nine decisions/four actual SQL t
 model calls. A host executable, private config/shared process lock, authenticated HTTP controls,
 dashboard integration and reconnect supervision remain next; browser/Telegram/application
 adapters, full Python removal and installed resource/receipt acceptance remain open.
+
+Standalone host milestone: private literal configuration, guarded PostgreSQL TLS/target,
+shared legacy execution lock, current-thread Tokio/Axum owner API and actual CLI/HTTP fixture
+acceptance. Two persistent DB connections; no pool/overflow or process per role. Python-held
+configuration/history is unchanged. Next: supervised reconnect, dashboard controls, rich
+verified context, actual browser/Telegram/application tools and remaining API/service/provider
+ports; then Python removal and installed resource/receipt acceptance. No live cutover yet.

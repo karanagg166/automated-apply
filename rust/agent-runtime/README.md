@@ -90,7 +90,54 @@ existing profile schema's fact types. Already known facts reconcile automaticall
 profile versions restarts read-only review without resetting usage. Changed identities and
 uncertain external effects require reconciliation. No profile/provider save occurs here.
 
-These are library controls, not an authenticated HTTP service yet. A standalone private-config
-host, shared legacy process lock, HTTP authentication, dashboard wiring, reconnect supervision
-and real installation/resource acceptance are the next integration boundary. Never run this
-worker alongside the installed Python executor against the owner's data.
+The standalone `automated-apply-agents` binary now hosts these controls on numeric IPv4
+loopback (default port 8011), using a current-thread Tokio executor and Axum. It requires
+`serve --config /absolute/private/runtime.env`; it never auto-loads an ambient env file or
+applies migrations. The file must be owner-owned, regular, at most 1MiB and inaccessible
+to group/other users. Values are literal: duplicate keys and dollar interpolation are
+rejected. PostgreSQL environment overrides are also rejected; SQLx never reads `.pgpass`.
+Secrets and DSNs are absent from its fixed errors and readiness event.
+
+The production target preserves verified remote PostgreSQL TLS, the pinned public-schema
+Supabase project and unprivileged runtime role. URL parameters, fragments, transaction
+pooler port 6543 and nonpublic resolved addresses are refused. The owner API requires TLS
+in production; this HTTP listener accepts HTTPS termination only with explicitly configured
+loopback proxy trust and one `X-Forwarded-Proto: https`. An HTTPS request-target string
+does not establish TLS. Actual production DNS/certificate/proxy acceptance is still pending.
+
+The host obtains the same password-independent `execution-<target_identity>.lock` kernel
+lease as the Python worker before opening its two persistent connections (control/execution).
+It never unlinks lock files. Fixture tests prove that the actual Python `process_lock`
+implementation detects the Rust-held lease, and a duplicate Rust process is refused.
+SIGINT/SIGTERM cancel the worker, persist a global pause when running, clear its heartbeat
+and close connections. A database failure currently ends the host; reconnect supervision
+and deployment restart behavior remain to be implemented and accepted.
+
+| Method | Owner route | Purpose |
+| --- | --- | --- |
+| GET | `/health` | Public bounded liveness and review scope |
+| GET | `/ready` | Authenticated database target/schema readiness |
+| GET / PUT | `/api/v1/rust-agent/control` | Read mode / revision-checked mode change |
+| GET / POST | `/api/v1/rust-agent/runs` | Bounded list / idempotent saved-review intake |
+| GET | `/api/v1/rust-agent/runs/{id}` | Sanitized state and usage summary |
+| POST | `/api/v1/rust-agent/runs/{id}/control` | Revision-checked pause/resume/stop |
+| GET | `/api/v1/rust-agent/runs/{id}/events` | Bounded sanitized audit history |
+| GET | `/api/v1/rust-agent/questions` | Missing confirmed facts |
+| POST | `/api/v1/rust-agent/runs/{id}/questions/{question}/resolve` | Reference a confirmed profile version |
+
+Every owner route requires the configured bearer token and explicit Host/Origin trust.
+Extension-client headers and duplicate credentials/origins are rejected. Requests are
+limited to 64KiB and eight concurrent handlers; body reads time out after 20 seconds.
+Request structs reject extra authority/answer fields. Responses omit raw tool contexts,
+personal facts and secrets, and carry no-store/nosniff/no-referrer headers. Per-run controls
+only cancel that run's in-flight wait; other saved-review work keeps its reservation.
+
+Fixture mode requires both `ENVIRONMENT=testing` and `RUST_RUNTIME_FIXTURE=true`, the exact
+disposable harness database URL and an explicit private `--fixture-lock-directory`. It
+cannot select another database, production lock directory or network listener. The dedicated
+PostgreSQL harness exercises the actual CLI, HTTP server, worker, duplicate locks and SIGTERM
+against fictional data. It does not install a service or use an owner environment.
+
+Dashboard wiring, reconnect supervision, remaining API/action ports and real installation/
+resource acceptance remain open. Never run this worker alongside the installed Python
+executor against the owner's data. It currently reviews saved jobs only.

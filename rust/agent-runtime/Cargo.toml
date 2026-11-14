@@ -7,11 +7,20 @@ publish = false
 
 [dependencies]
 automated-apply-domain = { version = "0.1.0", path = "../domain" }
+axum = { version = "0.8", default-features = false, features = ["json", "http1", "tokio"] }
 chrono = { version = "0.4.45", default-features = false, features = ["std"] }
+dotenvy = "0.15.7"
+libc = "0.2.191"
+percent-encoding = "2"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 serde.workspace = true
 serde_json.workspace = true
+sha2 = "0.10"
 sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "postgres", "uuid", "json", "tls-rustls-ring"] }
-tokio = { version = "1.54.1", features = ["rt", "macros", "time", "sync", "signal"] }
+subtle = "2.6.1"
+tokio = { version = "1.54.1", features = ["rt", "macros", "time", "sync", "signal", "net", "process", "io-util"] }
 tokio-util = { version = "0.7.20", features = ["rt"] }
 uuid.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
