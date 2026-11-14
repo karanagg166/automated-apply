@@ -505,3 +505,104 @@ controls, rich verified resume/project context, guarded browser/Telegram/applica
 remaining API/provider/services and Python removal, followed by immutable installation,
 rollback/focus/account/history/quota/receipt and measured whole-project Mac acceptance.
 Both owner objectives remain active and incomplete.
+
+## Milestone 7: supervised recovery and owner-bound Telegram agent tools
+
+Implementation: [`90403e7ae9515f26dd676fc7af04a8ef6c1e0b19`](https://github.com/karanagg166/automated-apply/commit/90403e7ae9515f26dd676fc7af04a8ef6c1e0b19),
+branch `feat/rust-agent-runtime`, [draft PR #50](https://github.com/karanagg166/automated-apply/pull/50),
+base `chore/uv-python-tooling`. Full Python removal, browser/application execution, complete
+legacy Telegram commands, installed resource/receipt acceptance and owner review remain open.
+
+The Rust host now replaces lost API/execution connections with bounded backoff, closing the
+old connection before opening its replacement. API operations are never replayed automatically.
+The native PostgreSQL test terminates the API session, observes 503 and a durable unchanged
+control revision, then reconnects on a later explicit request. A separate actual-CLI fixture
+terminates the execution session: the same host process reconnects, completes another review
+and returns to exactly two connections without resetting history, budgets or application state.
+Shutdown reconciles global pause after all HTTP handlers drain. If it cannot confirm pause,
+the host returns a fixed failure code rather than claiming a clean stop.
+
+The optional Telegram relay runs inside this Rust process. It takes the legacy Telegram
+kernel lock and uses one connection for the existing Telegram role: three persistent host
+connections when enabled, two otherwise. No pool or process per agent is added. Production
+transport uses the fixed [official Bot API](https://core.telegram.org/bots/api), four allowed
+methods, no proxy/redirect/transport retry, and streamed responses capped at 1MiB. The fixture
+mode requires its own numeric-loopback endpoint, so fictional tests cannot reach Telegram.
+Bot identity/webhook checks precede processing; no webhook is modified or deleted.
+
+Private owner/chat integer IDs, private-chat type, non-bot sender, forwarding and bot-mention
+checks precede command dispatch. Supported commands include status/help/ping, saved run
+listing, `/agents review`, and revision-fenced Rust-agent start/pause/stop. Unsupported
+legacy/browser/application commands return a migration-unavailable reply and execute no
+application action. This is a working new command path, not complete Telegram command parity.
+
+Migration 003 preserves existing Telegram bot pins, offsets and delivery states, adding
+private binding/cooldown/outbox metadata. Authorized command intake, offset advancement,
+legacy reply and bound outbox insert commit atomically. Duplicate updates do not enqueue
+another review. Unbound historical pending replies remain untouched. A send is marked
+`sending` before network I/O; ambiguous sends remain quarantined in both outboxes and are
+never replayed. Only a validated sent-message receipt marks it sent. Explicitly rejected
+HTTP 429 requests can return to pending with a durable provider cooldown. The tested
+600-second delay remains above 590 seconds after persistence; it is not capped down.
+
+The execution-role notification tool accepts no model-supplied text, recipient or URL. It
+records a stable owner-bound outbox intent and reports `pending`, not sent. With Telegram
+configured, saved review performs ten decisions, four actual PostgreSQL read tools and one
+notification tool, with zero inference calls/token reservations. The actual CLI fixture
+receives two authenticated commands, runs all five roles, and confirms three messages to
+its localhost fake Bot API (two command replies and one agent notice), with exactly three
+host database connections. No real bot token or Telegram message was used.
+
+| Check | Status | Exact evidence |
+| --- | --- | --- |
+| Agent/provider/fact/auth/cancellation and Telegram units | PASS | 18 tests: retained 12 plus 6 Telegram transport/owner/rate/webhook/size/receipt cases |
+| Coordinator and private host/kernel-lock regressions | PASS | 20 coordinator + 9 host tests |
+| Domain matching and native messaging regressions | PASS | 8 domain + 14 native tests; final native suite 1.55s |
+| Dedicated native PostgreSQL fixtures | PASS | 43 tests, 0 failed/ignored; final run 6.87s |
+| Actual host session recovery and no automatic HTTP replay | PASS | Included above; terminated fixture connections, same process survives, retained state and exactly two connections |
+| Telegram cursor/idempotency/atomic rollback/quarantine | PASS | Included above; restart preserves sending/offset, historical pending stays untouched, outbox failure rolls back run creation and cursor |
+| Durable 600-second cooldown and bot/owner pin changes | PASS | Included above; early dispatch denied and changed identities rejected |
+| Actual CLI owner commands → five roles → bound notice | PASS | Included above; local fake Bot API only, ten decisions/five tools/zero model calls, three connections, SIGTERM pause |
+| Format / Clippy with warnings denied / diff | PASS | Local checks; no hosted Actions |
+| Locked optimized workspace build | PASS | Local build 1m09s; CLI functional tests use debug build |
+| Real Telegram pairing/delivery/webhook/account acceptance | NOT TESTED | No real credentials or official Bot API call |
+| Complete legacy Telegram/browser/application commands | NOT TESTED | Remaining ports; unavailable commands do not execute actions |
+| Production DB outage/TLS/proxy/ACL and rollback deployment | NOT TESTED | Native fictional PostgreSQL and localhost HTTP fixtures only |
+| Full Python removal and dashboard/API parity | NOT TESTED | Existing Python services and frontend still in place |
+| Whole-project Mac CPU/RSS/GPU and actual application receipt | NOT TESTED | No new equivalent-boundary resource measurement or live submission |
+
+Current total: **112 distinct Rust tests passed**: 69 standard plus 43 dedicated PostgreSQL.
+The standard run deliberately ignores those 43; the dedicated harness executes every one.
+This adds 12 tests to the previous total of 100. Earlier separate 1,300 matching comparisons
+and 25 native contract examples are retained historical evidence, not rerun here.
+
+Actual Mac evidence here covers kernel locks, process signals, terminated/replaced database
+sessions, HTTP transport and complete fixture workflow. All profiles/jobs/owner IDs/messages
+are fictional. This is not installed or live portal acceptance. No owner environment,
+provider key, production database, cloud inference, Chrome action, Telegram message, Gmail
+read/draft/send, real profile save, application, installed-file change, service restart,
+hosted Action, cleanup or merge occurred.
+
+Sanitized development failures: Clippy caught a collapsible shutdown condition and an unused
+fixture import; compilation caught a moved shared wake handle, now cloned. All final scoped
+checks pass. No unresolved scoped test failure remains. Operational limits still pending:
+startup transport failure ends initialization; sequential Telegram polling can delay a notice
+up to 25 seconds; live rollback must honor the persisted cooldown before starting an older
+worker that does not read this new metadata. None of these are claimed as live acceptance.
+
+Reproduction:
+
+```sh
+cargo test --locked --workspace
+uv run --no-project --python .venv/bin/python python -m rust.scripts.run_postgres_tests
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all --check
+cargo build --locked --release --workspace
+git diff --check
+```
+
+Next: profile/resource/REST contract ports and rich verified resume/project context;
+guarded browser/application admission/execution and full legacy Telegram commands; remaining
+Gmail/provider/service ports and Python removal; then immutable installation, rollback,
+focus/account/history/quota/receipt and equivalent-boundary Mac resource acceptance.
+Both requested outcomes remain incomplete.
