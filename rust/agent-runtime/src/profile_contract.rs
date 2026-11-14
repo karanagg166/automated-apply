@@ -181,7 +181,7 @@ fn walk(root: &Value, schema: &Value, input: Value, key: &str, in_list: bool) ->
             }
             let raw = input.as_str().ok_or_else(invalid)?;
             let mut text = if in_list {
-                raw.trim_matches(whitespace).to_owned()
+                raw.trim().to_owned()
             } else {
                 collapse(raw)
             };
@@ -368,6 +368,9 @@ pub(crate) fn project(input: Value) -> Result<Value> {
 }
 pub(crate) fn legacy_word(c: char) -> bool {
     contains(&unicode().word_ranges, c)
+}
+pub(crate) fn legacy_decimal(c: char) -> bool {
+    c.is_ascii_digit() || unicode().decimal_digits.contains_key(&c)
 }
 fn calendar(text: &str) -> Result<String> {
     if text.len() != 10

@@ -242,10 +242,7 @@ pub fn select_resume(resources: &[Resource], selected_id: Option<Uuid>) -> Resul
             let private = private_resume_id(r);
             Ok(ResumeOption {
                 resource_id: r.id,
-                label: r
-                    .label
-                    .trim_matches(|c: char| c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c))
-                    .to_owned(),
+                label: r.label.trim().to_owned(),
                 url: if private.is_some() {
                     Some(r.url.clone())
                 } else {

@@ -10,6 +10,7 @@ automated-apply-domain = { version = "0.1.0", path = "../domain" }
 axum = { version = "0.8", default-features = false, features = ["json", "http1", "tokio"] }
 chrono = { version = "0.4.45", default-features = false, features = ["std"] }
 dotenvy = "0.15.7"
+fancy-regex = "=0.20.2"
 idna = "1.1.0"
 jsonschema = { version = "0.61.2", default-features = false }
 libc = "0.2.191"

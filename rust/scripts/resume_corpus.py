@@ -53,7 +53,7 @@ def main():
     urls.extend("https://" + value for value in ["224.0.0.1", "8.8.8.8", "192.0.0.9", "192.0.0.10", "1.1.1.1"])
     url_cases = [{"input": value, "output": safe_url(value)} for value in urls]
     base = {"id": "10000000-0000-0000-0000-000000000001", "resource_type": "resume", "label": " Fictional résumé 🚀\n\"x\" ", "url": "https://example.com/resume.pdf", "user_confirmed": True, "is_primary": True, "source_type": "user", "updated_at": "2026-11-14T00:01:02.000007+00:00"}
-    alternatives = [[], [base]]
+    alternatives = [[], [base], [{**base, "label": "\u001cFictional résumé\u001f"}]]
     for key, values in {"label": ["éßİ\b\t\u001f\u007f", "😀"], "url": urls + ["private-resume:20000000-0000-0000-0000-000000000001", "private-resume:20000000000000000000000000000001", "private-resume:20000000-0000-0000-0000-00000000000A"], "source_type": ["private_upload", "environment_import"], "is_primary": [False], "user_confirmed": [False], "resource_type": ["other"], "updated_at": ["2026-11-14T00:01:02+00:00", "2026-11-14T05:31:02.123456+05:30"]}.items():
         for value in values:
             if key == "url" and value is None:

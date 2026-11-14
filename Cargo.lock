@@ -60,6 +60,7 @@ dependencies = [
  "axum",
  "chrono",
  "dotenvy",
+ "fancy-regex",
  "idna",
  "jsonschema",
  "libc",

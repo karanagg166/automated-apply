@@ -4993,6 +4993,476 @@
         "created_at": "2026-11-14T00:00:00Z",
         "updated_at": "2026-11-14T00:00:00Z"
       }
+    },
+    {
+      "row": {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "candidate_profile_id": "20000000-0000-0000-0000-000000000001",
+        "job_id": null,
+        "question": "\u001cX\u001f",
+        "answer": " I built   workers.\n I added checks. ",
+        "question_category": "project_explanation",
+        "writing_style": "professional",
+        "provider": null,
+        "model": null,
+        "evidence_references": [
+          {
+            "source_type": "verified_project",
+            "source_id": " project:0 "
+          }
+        ],
+        "candidate_profile_version": 4,
+        "review_status": "draft",
+        "created_at": "2026-11-14T00:00:00+00:00",
+        "updated_at": "2026-11-14T00:00:00.000007+00:00"
+      },
+      "profile_version": 4,
+      "accepted": true,
+      "output": {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "candidate_profile_id": "20000000-0000-0000-0000-000000000001",
+        "job_id": null,
+        "question": "\u001cX\u001f",
+        "answer": "I built   workers.\n I added checks.",
+        "question_category": "project_explanation",
+        "writing_style": "professional",
+        "provider": null,
+        "model": null,
+        "evidence_references": [
+          {
+            "source_type": "verified_project",
+            "source_id": "project:0"
+          }
+        ],
+        "candidate_profile_version": 4,
+        "review_status": "draft",
+        "stale": false,
+        "created_at": "2026-11-14T00:00:00Z",
+        "updated_at": "2026-11-14T00:00:00.000007Z"
+      }
+    },
+    {
+      "row": {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "candidate_profile_id": "20000000-0000-0000-0000-000000000001",
+        "job_id": null,
+        "question": "\u001cX\u001f",
+        "answer": " I built   workers.\n I added checks. ",
+        "question_category": "project_explanation",
+        "writing_style": "professional",
+        "provider": null,
+        "model": null,
+        "evidence_references": [
+          {
+            "source_type": "verified_project",
+            "source_id": " project:0 "
+          }
+        ],
+        "candidate_profile_version": 4,
+        "review_status": "draft",
+        "created_at": "2026-11-14T00:00:00+00:00",
+        "updated_at": "2026-11-14T00:00:00.000007+00:00"
+      },
+      "profile_version": 5,
+      "accepted": true,
+      "output": {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "candidate_profile_id": "20000000-0000-0000-0000-000000000001",
+        "job_id": null,
+        "question": "\u001cX\u001f",
+        "answer": "I built   workers.\n I added checks.",
+        "question_category": "project_explanation",
+        "writing_style": "professional",
+        "provider": null,
+        "model": null,
+        "evidence_references": [
+          {
+            "source_type": "verified_project",
+            "source_id": "project:0"
+          }
+        ],
+        "candidate_profile_version": 4,
+        "review_status": "draft",
+        "stale": true,
+        "created_at": "2026-11-14T00:00:00Z",
+        "updated_at": "2026-11-14T00:00:00.000007Z"
+      }
+    },
+    {
+      "row": {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "candidate_profile_id": "20000000-0000-0000-0000-000000000001",
+        "job_id": null,
+        "question": " Describe   work ",
+        "answer": "\u001cX\u001f",
+        "question_category": "project_explanation",
+        "writing_style": "professional",
+        "provider": null,
+        "model": null,
+        "evidence_references": [
+          {
+            "source_type": "verified_project",
+            "source_id": " project:0 "
+          }
+        ],
+        "candidate_profile_version": 4,
+        "review_status": "draft",
+        "created_at": "2026-11-14T00:00:00+00:00",
+        "updated_at": "2026-11-14T00:00:00.000007+00:00"
+      },
+      "profile_version": 4,
+      "accepted": true,
+      "output": {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "candidate_profile_id": "20000000-0000-0000-0000-000000000001",
+        "job_id": null,
+        "question": "Describe   work",
+        "answer": "\u001cX\u001f",
+        "question_category": "project_explanation",
+        "writing_style": "professional",
+        "provider": null,
+        "model": null,
+        "evidence_references": [
+          {
+            "source_type": "verified_project",
+            "source_id": "project:0"
+          }
+        ],
+        "candidate_profile_version": 4,
+        "review_status": "draft",
+        "stale": false,
+        "created_at": "2026-11-14T00:00:00Z",
+        "updated_at": "2026-11-14T00:00:00.000007Z"
+      }
+    },
+    {
+      "row": {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "candidate_profile_id": "20000000-0000-0000-0000-000000000001",
+        "job_id": null,
+        "question": " Describe   work ",
+        "answer": "\u001cX\u001f",
+        "question_category": "project_explanation",
+        "writing_style": "professional",
+        "provider": null,
+        "model": null,
+        "evidence_references": [
+          {
+            "source_type": "verified_project",
+            "source_id": " project:0 "
+          }
+        ],
+        "candidate_profile_version": 4,
+        "review_status": "draft",
+        "created_at": "2026-11-14T00:00:00+00:00",
+        "updated_at": "2026-11-14T00:00:00.000007+00:00"
+      },
+      "profile_version": 5,
+      "accepted": true,
+      "output": {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "candidate_profile_id": "20000000-0000-0000-0000-000000000001",
+        "job_id": null,
+        "question": "Describe   work",
+        "answer": "\u001cX\u001f",
+        "question_category": "project_explanation",
+        "writing_style": "professional",
+        "provider": null,
+        "model": null,
+        "evidence_references": [
+          {
+            "source_type": "verified_project",
+            "source_id": "project:0"
+          }
+        ],
+        "candidate_profile_version": 4,
+        "review_status": "draft",
+        "stale": true,
+        "created_at": "2026-11-14T00:00:00Z",
+        "updated_at": "2026-11-14T00:00:00.000007Z"
+      }
+    },
+    {
+      "row": {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "candidate_profile_id": "20000000-0000-0000-0000-000000000001",
+        "job_id": null,
+        "question": " Describe   work ",
+        "answer": " I built   workers.\n I added checks. ",
+        "question_category": "project_explanation",
+        "writing_style": "professional",
+        "provider": "\u001cX\u001f",
+        "model": null,
+        "evidence_references": [
+          {
+            "source_type": "verified_project",
+            "source_id": " project:0 "
+          }
+        ],
+        "candidate_profile_version": 4,
+        "review_status": "draft",
+        "created_at": "2026-11-14T00:00:00+00:00",
+        "updated_at": "2026-11-14T00:00:00.000007+00:00"
+      },
+      "profile_version": 4,
+      "accepted": true,
+      "output": {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "candidate_profile_id": "20000000-0000-0000-0000-000000000001",
+        "job_id": null,
+        "question": "Describe   work",
+        "answer": "I built   workers.\n I added checks.",
+        "question_category": "project_explanation",
+        "writing_style": "professional",
+        "provider": "\u001cX\u001f",
+        "model": null,
+        "evidence_references": [
+          {
+            "source_type": "verified_project",
+            "source_id": "project:0"
+          }
+        ],
+        "candidate_profile_version": 4,
+        "review_status": "draft",
+        "stale": false,
+        "created_at": "2026-11-14T00:00:00Z",
+        "updated_at": "2026-11-14T00:00:00.000007Z"
+      }
+    },
+    {
+      "row": {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "candidate_profile_id": "20000000-0000-0000-0000-000000000001",
+        "job_id": null,
+        "question": " Describe   work ",
+        "answer": " I built   workers.\n I added checks. ",
+        "question_category": "project_explanation",
+        "writing_style": "professional",
+        "provider": "\u001cX\u001f",
+        "model": null,
+        "evidence_references": [
+          {
+            "source_type": "verified_project",
+            "source_id": " project:0 "
+          }
+        ],
+        "candidate_profile_version": 4,
+        "review_status": "draft",
+        "created_at": "2026-11-14T00:00:00+00:00",
+        "updated_at": "2026-11-14T00:00:00.000007+00:00"
+      },
+      "profile_version": 5,
+      "accepted": true,
+      "output": {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "candidate_profile_id": "20000000-0000-0000-0000-000000000001",
+        "job_id": null,
+        "question": "Describe   work",
+        "answer": "I built   workers.\n I added checks.",
+        "question_category": "project_explanation",
+        "writing_style": "professional",
+        "provider": "\u001cX\u001f",
+        "model": null,
+        "evidence_references": [
+          {
+            "source_type": "verified_project",
+            "source_id": "project:0"
+          }
+        ],
+        "candidate_profile_version": 4,
+        "review_status": "draft",
+        "stale": true,
+        "created_at": "2026-11-14T00:00:00Z",
+        "updated_at": "2026-11-14T00:00:00.000007Z"
+      }
+    },
+    {
+      "row": {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "candidate_profile_id": "20000000-0000-0000-0000-000000000001",
+        "job_id": null,
+        "question": " Describe   work ",
+        "answer": " I built   workers.\n I added checks. ",
+        "question_category": "project_explanation",
+        "writing_style": "professional",
+        "provider": null,
+        "model": "\u001cX\u001f",
+        "evidence_references": [
+          {
+            "source_type": "verified_project",
+            "source_id": " project:0 "
+          }
+        ],
+        "candidate_profile_version": 4,
+        "review_status": "draft",
+        "created_at": "2026-11-14T00:00:00+00:00",
+        "updated_at": "2026-11-14T00:00:00.000007+00:00"
+      },
+      "profile_version": 4,
+      "accepted": true,
+      "output": {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "candidate_profile_id": "20000000-0000-0000-0000-000000000001",
+        "job_id": null,
+        "question": "Describe   work",
+        "answer": "I built   workers.\n I added checks.",
+        "question_category": "project_explanation",
+        "writing_style": "professional",
+        "provider": null,
+        "model": "\u001cX\u001f",
+        "evidence_references": [
+          {
+            "source_type": "verified_project",
+            "source_id": "project:0"
+          }
+        ],
+        "candidate_profile_version": 4,
+        "review_status": "draft",
+        "stale": false,
+        "created_at": "2026-11-14T00:00:00Z",
+        "updated_at": "2026-11-14T00:00:00.000007Z"
+      }
+    },
+    {
+      "row": {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "candidate_profile_id": "20000000-0000-0000-0000-000000000001",
+        "job_id": null,
+        "question": " Describe   work ",
+        "answer": " I built   workers.\n I added checks. ",
+        "question_category": "project_explanation",
+        "writing_style": "professional",
+        "provider": null,
+        "model": "\u001cX\u001f",
+        "evidence_references": [
+          {
+            "source_type": "verified_project",
+            "source_id": " project:0 "
+          }
+        ],
+        "candidate_profile_version": 4,
+        "review_status": "draft",
+        "created_at": "2026-11-14T00:00:00+00:00",
+        "updated_at": "2026-11-14T00:00:00.000007+00:00"
+      },
+      "profile_version": 5,
+      "accepted": true,
+      "output": {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "candidate_profile_id": "20000000-0000-0000-0000-000000000001",
+        "job_id": null,
+        "question": "Describe   work",
+        "answer": "I built   workers.\n I added checks.",
+        "question_category": "project_explanation",
+        "writing_style": "professional",
+        "provider": null,
+        "model": "\u001cX\u001f",
+        "evidence_references": [
+          {
+            "source_type": "verified_project",
+            "source_id": "project:0"
+          }
+        ],
+        "candidate_profile_version": 4,
+        "review_status": "draft",
+        "stale": true,
+        "created_at": "2026-11-14T00:00:00Z",
+        "updated_at": "2026-11-14T00:00:00.000007Z"
+      }
+    },
+    {
+      "row": {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "candidate_profile_id": "20000000-0000-0000-0000-000000000001",
+        "job_id": null,
+        "question": " Describe   work ",
+        "answer": " I built   workers.\n I added checks. ",
+        "question_category": "project_explanation",
+        "writing_style": "professional",
+        "provider": null,
+        "model": null,
+        "evidence_references": [
+          {
+            "source_type": "verified_project",
+            "source_id": "\u001cX\u001f"
+          }
+        ],
+        "candidate_profile_version": 4,
+        "review_status": "draft",
+        "created_at": "2026-11-14T00:00:00+00:00",
+        "updated_at": "2026-11-14T00:00:00.000007+00:00"
+      },
+      "profile_version": 4,
+      "accepted": true,
+      "output": {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "candidate_profile_id": "20000000-0000-0000-0000-000000000001",
+        "job_id": null,
+        "question": "Describe   work",
+        "answer": "I built   workers.\n I added checks.",
+        "question_category": "project_explanation",
+        "writing_style": "professional",
+        "provider": null,
+        "model": null,
+        "evidence_references": [
+          {
+            "source_type": "verified_project",
+            "source_id": "\u001cX\u001f"
+          }
+        ],
+        "candidate_profile_version": 4,
+        "review_status": "draft",
+        "stale": false,
+        "created_at": "2026-11-14T00:00:00Z",
+        "updated_at": "2026-11-14T00:00:00.000007Z"
+      }
+    },
+    {
+      "row": {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "candidate_profile_id": "20000000-0000-0000-0000-000000000001",
+        "job_id": null,
+        "question": " Describe   work ",
+        "answer": " I built   workers.\n I added checks. ",
+        "question_category": "project_explanation",
+        "writing_style": "professional",
+        "provider": null,
+        "model": null,
+        "evidence_references": [
+          {
+            "source_type": "verified_project",
+            "source_id": "\u001cX\u001f"
+          }
+        ],
+        "candidate_profile_version": 4,
+        "review_status": "draft",
+        "created_at": "2026-11-14T00:00:00+00:00",
+        "updated_at": "2026-11-14T00:00:00.000007+00:00"
+      },
+      "profile_version": 5,
+      "accepted": true,
+      "output": {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "candidate_profile_id": "20000000-0000-0000-0000-000000000001",
+        "job_id": null,
+        "question": "Describe   work",
+        "answer": "I built   workers.\n I added checks.",
+        "question_category": "project_explanation",
+        "writing_style": "professional",
+        "provider": null,
+        "model": null,
+        "evidence_references": [
+          {
+            "source_type": "verified_project",
+            "source_id": "\u001cX\u001f"
+          }
+        ],
+        "candidate_profile_version": 4,
+        "review_status": "draft",
+        "stale": true,
+        "created_at": "2026-11-14T00:00:00Z",
+        "updated_at": "2026-11-14T00:00:00.000007Z"
+      }
     }
   ],
   "reviews": [

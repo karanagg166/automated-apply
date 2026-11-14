@@ -26,7 +26,7 @@ def main():
             inputs.extend({**base[operation], key: value} for value in values)
         for key in ["label", "title", "content", "source_description"]:
             if key in model.model_fields:
-                inputs.extend({**base[operation], key: value} for value in [" x\u001cy ", "a" * 200, "a" * 201, "é" * 4000, "a" * 4001])
+                inputs.extend({**base[operation], key: value} for value in [" x\u001cy ", "\u001cX\u001f", "a" * 200, "a" * 200 + "\u001c", "a" * 201, "é" * 4000, "a" * 4001])
         if "project" in model.model_fields:
             inputs.extend({**base[operation], "project": project} for project in [{"name": " A   B ", "technologies": ["Rust", "RUST"]}, {"name": "P", "url": "http://example.com"}, {"name": "P", "url": "https://127.0.0.1"}, {"name": "P", "url": "https://example.com"}, {"name": "P", "achievements": [" x   y "]}, {"name": "P", "injected": True}])
         if operation == "evidence":

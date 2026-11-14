@@ -10,6 +10,9 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():
+    incremental = os.environ.get("CARGO_INCREMENTAL")
+    if incremental is not None and incremental not in {"0", "1"}:
+        raise SystemExit("invalid_fixture_incremental_setting")
     binary = Path(os.environ.get("RUST_TEST_POSTGRES_BIN", "/opt/homebrew/opt/postgresql@17/bin"))
     for name in ("initdb", "pg_ctl", "createdb"):
         if not (binary / name).is_file():
@@ -19,6 +22,8 @@ def main():
     base = Path(tempfile.mkdtemp(prefix="rust-agent-fictional-pg-"))
     data = base / "data"
     environment = {"PATH": os.environ.get("PATH", ""), "HOME": str(Path.home()), "LANG": "C", "LC_ALL": "C"}
+    if incremental is not None:
+        environment["CARGO_INCREMENTAL"] = incremental
     start_attempted = False
     stopped = True
     try:

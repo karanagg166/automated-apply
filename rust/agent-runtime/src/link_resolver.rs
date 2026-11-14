@@ -20,7 +20,7 @@ const ALIASES: &[(&str, &[&str])] = &[
     ("hackerrank", &["hackerrank", "hacker rank"]),
     ("kaggle", &["kaggle"]),
 ];
-fn normalize(text: &str) -> String {
+pub(crate) fn normalize(text: &str) -> String {
     folded(text)
         .chars()
         .map(|c| {
@@ -38,6 +38,25 @@ fn normalize(text: &str) -> String {
 fn phrase_in(phrase: &str, text: &str) -> bool {
     format!(" {} ", normalize(text)).contains(&format!(" {} ", normalize(phrase)))
 }
+pub(crate) fn resource_types(question: &str) -> HashSet<&'static str> {
+    ALIASES
+        .iter()
+        .filter(|(_, aliases)| aliases.iter().any(|alias| phrase_in(alias, question)))
+        .map(|(kind, _)| *kind)
+        .collect()
+}
+pub(crate) fn file_upload(question: &str) -> bool {
+    [
+        "upload",
+        "attach",
+        "attachment",
+        "browse file",
+        "choose file",
+        "select file",
+    ]
+    .iter()
+    .any(|word| phrase_in(word, question))
+}
 pub fn question(input: Value) -> Result<String> {
     let body = input.as_object().ok_or(Failure("invalid_resource_input"))?;
     if body.len() != 1 {
@@ -47,7 +66,7 @@ pub fn question(input: Value) -> Result<String> {
         .get("question")
         .and_then(Value::as_str)
         .ok_or(Failure("invalid_resource_input"))?
-        .trim_matches(|c: char| c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c));
+        .trim();
     if question.is_empty() || question.chars().count() > 2000 {
         return Err(Failure("invalid_resource_input"));
     }
@@ -71,23 +90,9 @@ pub fn resolve(
     defaults: &BTreeMap<String, String>,
     question: &str,
 ) -> Value {
-    let kinds: HashSet<_> = ALIASES
-        .iter()
-        .filter(|(_, aliases)| aliases.iter().any(|alias| phrase_in(alias, question)))
-        .map(|(kind, _)| *kind)
-        .collect();
+    let kinds = resource_types(question);
     let mut result = json!({"question_type":"profile_link","status":"needs_input","answer":null,"writing_style":"professional","used_llm":false,"requires_review":true,"evidence_references":[],"missing_information":[],"source":null,"confidence":0.0,"provider":null,"model":null,"usage":null,"error_code":null,"retry_after_seconds":null,"warnings":[],"resources":[],"draft_id":null,"reused_draft_id":null,"missing_input_id":null,"missing_input_url":null});
-    if [
-        "upload",
-        "attach",
-        "attachment",
-        "browse file",
-        "choose file",
-        "select file",
-    ]
-    .iter()
-    .any(|word| phrase_in(word, question))
-    {
+    if file_upload(question) {
         result["question_type"] = json!("file_upload");
         result["status"] = json!("file_upload_required");
         let mut items:Vec<_>=resources.iter().filter(|r|r.resource_type=="resume").take(100).map(|r|json!({"id":r.id,"label":r.label,"url":r.url,"user_confirmed":r.user_confirmed,"accessibility":"not_checked"})).collect();

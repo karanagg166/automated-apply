@@ -41,12 +41,7 @@ fn read_record(mut row: Value, evidence: bool) -> Result<Value> {
             if key == "resource_type" && !resources::LINK_KINDS.contains(&raw) && raw != "other" {
                 return Err(Failure("invalid_resource_record"));
             }
-            result.insert(
-                key.into(),
-                json!(raw.trim_matches(
-                    |c: char| c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c)
-                )),
-            );
+            result.insert(key.into(), json!(raw.trim()));
         }
         for key in ["is_primary", "user_confirmed"] {
             result.insert(

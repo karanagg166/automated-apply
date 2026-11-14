@@ -526,6 +526,115 @@
         {
           "id": "10000000-0000-0000-0000-000000000001",
           "resource_type": "resume",
+          "label": "\u001cFictional résumé\u001f",
+          "url": "https://example.com/resume.pdf",
+          "user_confirmed": true,
+          "is_primary": true,
+          "source_type": "user",
+          "updated_at": "2026-11-14T00:01:02.000007+00:00"
+        }
+      ],
+      "selected_id": null,
+      "output": {
+        "selected": {
+          "resource_id": "10000000-0000-0000-0000-000000000001",
+          "label": "\u001cFictional résumé\u001f",
+          "url": "https://example.com/resume.pdf",
+          "confirmed": true,
+          "primary": true,
+          "resource_version": "2dba07b5f46b62206d9aa0dd15280091bc826752945e5318341fb0e94c4f6156",
+          "download_path": null
+        },
+        "alternatives": [
+          {
+            "resource_id": "10000000-0000-0000-0000-000000000001",
+            "label": "\u001cFictional résumé\u001f",
+            "url": "https://example.com/resume.pdf",
+            "confirmed": true,
+            "primary": true,
+            "resource_version": "2dba07b5f46b62206d9aa0dd15280091bc826752945e5318341fb0e94c4f6156",
+            "download_path": null
+          }
+        ],
+        "reason": "Unique confirmed primary resume",
+        "upload_status": "manual_resume_upload_required"
+      }
+    },
+    {
+      "resources": [
+        {
+          "id": "10000000-0000-0000-0000-000000000001",
+          "resource_type": "resume",
+          "label": "\u001cFictional résumé\u001f",
+          "url": "https://example.com/resume.pdf",
+          "user_confirmed": true,
+          "is_primary": true,
+          "source_type": "user",
+          "updated_at": "2026-11-14T00:01:02.000007+00:00"
+        }
+      ],
+      "selected_id": "10000000-0000-0000-0000-000000000001",
+      "output": {
+        "selected": {
+          "resource_id": "10000000-0000-0000-0000-000000000001",
+          "label": "\u001cFictional résumé\u001f",
+          "url": "https://example.com/resume.pdf",
+          "confirmed": true,
+          "primary": true,
+          "resource_version": "2dba07b5f46b62206d9aa0dd15280091bc826752945e5318341fb0e94c4f6156",
+          "download_path": null
+        },
+        "alternatives": [
+          {
+            "resource_id": "10000000-0000-0000-0000-000000000001",
+            "label": "\u001cFictional résumé\u001f",
+            "url": "https://example.com/resume.pdf",
+            "confirmed": true,
+            "primary": true,
+            "resource_version": "2dba07b5f46b62206d9aa0dd15280091bc826752945e5318341fb0e94c4f6156",
+            "download_path": null
+          }
+        ],
+        "reason": "Explicit owner selection of a confirmed saved resume",
+        "upload_status": "manual_resume_upload_required"
+      }
+    },
+    {
+      "resources": [
+        {
+          "id": "10000000-0000-0000-0000-000000000001",
+          "resource_type": "resume",
+          "label": "\u001cFictional résumé\u001f",
+          "url": "https://example.com/resume.pdf",
+          "user_confirmed": true,
+          "is_primary": true,
+          "source_type": "user",
+          "updated_at": "2026-11-14T00:01:02.000007+00:00"
+        }
+      ],
+      "selected_id": "10000000-0000-0000-0000-000000000099",
+      "output": {
+        "selected": null,
+        "alternatives": [
+          {
+            "resource_id": "10000000-0000-0000-0000-000000000001",
+            "label": "\u001cFictional résumé\u001f",
+            "url": "https://example.com/resume.pdf",
+            "confirmed": true,
+            "primary": true,
+            "resource_version": "2dba07b5f46b62206d9aa0dd15280091bc826752945e5318341fb0e94c4f6156",
+            "download_path": null
+          }
+        ],
+        "reason": "Selected resume is missing, unconfirmed, invalid, or belongs to another profile",
+        "upload_status": "manual_resume_upload_required"
+      }
+    },
+    {
+      "resources": [
+        {
+          "id": "10000000-0000-0000-0000-000000000001",
+          "resource_type": "resume",
           "label": "éßİ\b\t\u001f",
           "url": "https://example.com/resume.pdf",
           "user_confirmed": true,

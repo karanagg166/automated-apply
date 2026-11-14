@@ -1635,6 +1635,25 @@
     "operation": "resource",
     "input": {
       "resource_type": "resume",
+      "label": "\u001cX\u001f",
+      "url": "https://example.com"
+    },
+    "accepted": true,
+    "value": {
+      "id": null,
+      "resource_type": "resume",
+      "label": "\u001cX\u001f",
+      "url": "https://example.com/",
+      "is_primary": false,
+      "source_type": "user",
+      "user_confirmed": false,
+      "expected_profile_version": null
+    }
+  },
+  {
+    "operation": "resource",
+    "input": {
+      "resource_type": "resume",
       "label": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "url": "https://example.com"
     },
@@ -1649,6 +1668,15 @@
       "user_confirmed": false,
       "expected_profile_version": null
     }
+  },
+  {
+    "operation": "resource",
+    "input": {
+      "resource_type": "resume",
+      "label": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u001c",
+      "url": "https://example.com"
+    },
+    "accepted": false
   },
   {
     "operation": "resource",
@@ -3506,6 +3534,24 @@
     "operation": "evidence",
     "input": {
       "evidence_type": "project",
+      "title": "\u001cX\u001f",
+      "content": " One   two\nthree "
+    },
+    "accepted": true,
+    "value": {
+      "evidence_type": "project",
+      "title": "\u001cX\u001f",
+      "content": "One   two\nthree",
+      "source_url": null,
+      "source_description": null,
+      "user_confirmed": false,
+      "project": null
+    }
+  },
+  {
+    "operation": "evidence",
+    "input": {
+      "evidence_type": "project",
       "title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
       "content": " One   two\nthree "
     },
@@ -3519,6 +3565,15 @@
       "user_confirmed": false,
       "project": null
     }
+  },
+  {
+    "operation": "evidence",
+    "input": {
+      "evidence_type": "project",
+      "title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u001c",
+      "content": " One   two\nthree "
+    },
+    "accepted": false
   },
   {
     "operation": "evidence",
@@ -3570,6 +3625,24 @@
     "input": {
       "evidence_type": "project",
       "title": " Fictional   project ",
+      "content": "\u001cX\u001f"
+    },
+    "accepted": true,
+    "value": {
+      "evidence_type": "project",
+      "title": "Fictional   project",
+      "content": "\u001cX\u001f",
+      "source_url": null,
+      "source_description": null,
+      "user_confirmed": false,
+      "project": null
+    }
+  },
+  {
+    "operation": "evidence",
+    "input": {
+      "evidence_type": "project",
+      "title": " Fictional   project ",
       "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     },
     "accepted": true,
@@ -3577,6 +3650,24 @@
       "evidence_type": "project",
       "title": "Fictional   project",
       "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "source_url": null,
+      "source_description": null,
+      "user_confirmed": false,
+      "project": null
+    }
+  },
+  {
+    "operation": "evidence",
+    "input": {
+      "evidence_type": "project",
+      "title": " Fictional   project ",
+      "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u001c"
+    },
+    "accepted": true,
+    "value": {
+      "evidence_type": "project",
+      "title": "Fictional   project",
+      "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u001c",
       "source_url": null,
       "source_description": null,
       "user_confirmed": false,
@@ -3653,6 +3744,25 @@
       "evidence_type": "project",
       "title": " Fictional   project ",
       "content": " One   two\nthree ",
+      "source_description": "\u001cX\u001f"
+    },
+    "accepted": true,
+    "value": {
+      "evidence_type": "project",
+      "title": "Fictional   project",
+      "content": "One   two\nthree",
+      "source_url": null,
+      "source_description": "\u001cX\u001f",
+      "user_confirmed": false,
+      "project": null
+    }
+  },
+  {
+    "operation": "evidence",
+    "input": {
+      "evidence_type": "project",
+      "title": " Fictional   project ",
+      "content": " One   two\nthree ",
       "source_description": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     },
     "accepted": true,
@@ -3665,6 +3775,16 @@
       "user_confirmed": false,
       "project": null
     }
+  },
+  {
+    "operation": "evidence",
+    "input": {
+      "evidence_type": "project",
+      "title": " Fictional   project ",
+      "content": " One   two\nthree ",
+      "source_description": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u001c"
+    },
+    "accepted": false
   },
   {
     "operation": "evidence",
@@ -4943,12 +5063,29 @@
   {
     "operation": "patch",
     "input": {
+      "title": "\u001cX\u001f"
+    },
+    "accepted": true,
+    "value": {
+      "title": "\u001cX\u001f"
+    }
+  },
+  {
+    "operation": "patch",
+    "input": {
       "title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     },
     "accepted": true,
     "value": {
       "title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     }
+  },
+  {
+    "operation": "patch",
+    "input": {
+      "title": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u001c"
+    },
+    "accepted": false
   },
   {
     "operation": "patch",
@@ -4987,12 +5124,36 @@
     "operation": "patch",
     "input": {
       "title": " Correction ",
+      "content": "\u001cX\u001f"
+    },
+    "accepted": true,
+    "value": {
+      "title": "Correction",
+      "content": "\u001cX\u001f"
+    }
+  },
+  {
+    "operation": "patch",
+    "input": {
+      "title": " Correction ",
       "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     },
     "accepted": true,
     "value": {
       "title": "Correction",
       "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+  },
+  {
+    "operation": "patch",
+    "input": {
+      "title": " Correction ",
+      "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u001c"
+    },
+    "accepted": true,
+    "value": {
+      "title": "Correction",
+      "content": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u001c"
     }
   },
   {
@@ -5043,6 +5204,18 @@
     "operation": "patch",
     "input": {
       "title": " Correction ",
+      "source_description": "\u001cX\u001f"
+    },
+    "accepted": true,
+    "value": {
+      "title": "Correction",
+      "source_description": "\u001cX\u001f"
+    }
+  },
+  {
+    "operation": "patch",
+    "input": {
+      "title": " Correction ",
       "source_description": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     },
     "accepted": true,
@@ -5050,6 +5223,14 @@
       "title": "Correction",
       "source_description": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     }
+  },
+  {
+    "operation": "patch",
+    "input": {
+      "title": " Correction ",
+      "source_description": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\u001c"
+    },
+    "accepted": false
   },
   {
     "operation": "patch",

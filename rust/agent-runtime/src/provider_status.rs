@@ -10,6 +10,7 @@ pub struct Status {
     model: String,
     key_authenticated: bool,
     model_available: bool,
+    model_deprecated: Option<bool>,
     generation_flags_enabled: bool,
     candidate_data_authorized: bool,
     generation_performed: bool,
@@ -94,15 +95,17 @@ async fn metadata(settings: Settings, endpoint: &str) -> Result<Status> {
     if value.get("name").and_then(Value::as_str) != Some(settings.model.as_str()) {
         return Err(Failure("invalid_provider_metadata"));
     }
+    let model_deprecated = value.get("is_deprecated").and_then(Value::as_bool);
     let available = value["endpoints"]
         .as_array()
         .is_some_and(|v| v.iter().any(|v| v == "chat"))
-        && value["is_deprecated"] == false;
+        && model_deprecated != Some(true);
     Ok(Status {
         provider: "cohere",
         model: settings.model,
         key_authenticated: true,
         model_available: available,
+        model_deprecated,
         generation_flags_enabled: settings.generation_flags_enabled,
         candidate_data_authorized: settings.candidate_data_authorized,
         generation_performed: false,
@@ -212,6 +215,23 @@ mod tests {
         assert!(!value.contains("secret-canary") && !value.contains("do-not-output-canary"));
         assert_eq!(count.load(Ordering::SeqCst), 1);
         server.abort();
+    }
+    #[tokio::test(flavor = "current_thread")]
+    async fn optional_deprecation_metadata_is_reported_without_inventing_a_deprecation() {
+        for deprecated in [None, Some(false), Some(true)] {
+            let mut body =
+                serde_json::json!({"name":"command-a-plus-05-2026","endpoints":["chat"]});
+            if let Some(value) = deprecated {
+                body["is_deprecated"] = serde_json::json!(value);
+            }
+            let (url, server, _) = fixture(StatusCode::OK, body.to_string()).await;
+            let status = metadata(Settings::parse(&values()).unwrap(), &url)
+                .await
+                .unwrap();
+            assert_eq!(status.model_deprecated, deprecated);
+            assert_eq!(status.model_available, deprecated != Some(true));
+            server.abort();
+        }
     }
     #[tokio::test(flavor = "current_thread")]
     async fn failures_redirects_oversized_and_mismatched_responses_never_retry_or_expose_bodies() {

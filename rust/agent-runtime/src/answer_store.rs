@@ -33,11 +33,7 @@ fn db(_: sqlx::Error) -> Failure {
     Failure("profile_database_error")
 }
 fn text(value: &Value) -> Result<String> {
-    Ok(value
-        .as_str()
-        .ok_or_else(invalid)?
-        .trim_matches(|c: char| c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c))
-        .into())
+    Ok(value.as_str().ok_or_else(invalid)?.trim().into())
 }
 pub fn record(row: Value, version: i32) -> Result<Value> {
     if [

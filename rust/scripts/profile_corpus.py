@@ -62,6 +62,13 @@ def cases():
     for field,values in {"full_name":[" Fictional   Person "," A\u001cB ","A "*101],"summary":[" One   two\nthree ","x"*4001],"phone":[" 1  2\t3 "],"portfolio_url":["https://example.com/a\nb"," https://example.com "],"verified_skills":[[" Rust ","RUST","A   B"]]}.items():
         for value in values:
             yield "record",{**BASE,field:value}
+    for field, size in [("full_name", 199), ("summary", 3999), ("phone", 49)]:
+        value = "\u001c" + "x" * size + "\u001f"
+        yield "create", {**BASE, field: value}
+        yield "record", {**BASE, field: value}
+    for value in [["\u001cRust\u001f"], ["x" * 200 + "\u001c"]]:
+        yield "create", {**BASE, "verified_skills": value}
+        yield "update", {"verified_skills": value}
     yield "update", {}
     yield "update", {"preferences": {}}
     yield "create", {**BASE, "unexpected": "no"}

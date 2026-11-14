@@ -1,5 +1,5 @@
 //! Bounded selection of already verified professional facts; skills alone prove no work.
-use crate::{Failure, Result, profile_contract::legacy_word, resources::ascii_string};
+use crate::{Failure, Result, profile_contract::legacy_word};
 use automated_apply_domain::text::folded;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -55,25 +55,10 @@ fn truth(value: &Value) -> bool {
     }
 }
 /// ASCII serialization is needed for legacy skill gates, not for prompts or output.
-fn ascii_json(value: &Value) -> String {
-    match value {
-        Value::String(s) => ascii_string(s),
-        Value::Array(values) => format!(
-            "[{}]",
-            values.iter().map(ascii_json).collect::<Vec<_>>().join(", ")
-        ),
-        Value::Object(values) => format!(
-            "{{{}}}",
-            values
-                .iter()
-                .map(|(key, value)| format!("{}: {}", ascii_string(key), ascii_json(value)))
-                .collect::<Vec<_>>()
-                .join(", ")
-        ),
-        _ => value.to_string(),
-    }
+pub(crate) fn ascii_json(value: &Value) -> String {
+    crate::python_json::serialize(value, false, true)
 }
-fn insensitive(text: &str) -> (String, Vec<usize>) {
+pub(crate) fn insensitive(text: &str) -> (String, Vec<usize>) {
     let mut out = String::new();
     let mut offsets = Vec::new();
     for (index, c) in text.char_indices() {
@@ -89,7 +74,7 @@ fn insensitive(text: &str) -> (String, Vec<usize>) {
     offsets.push(text.len());
     (out, offsets)
 }
-fn bounded(text: &str, start: usize, end: usize) -> bool {
+pub(crate) fn bounded(text: &str, start: usize, end: usize) -> bool {
     !text[..start].chars().next_back().is_some_and(legacy_word)
         && !text[end..].chars().next().is_some_and(legacy_word)
 }

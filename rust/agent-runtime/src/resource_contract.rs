@@ -12,7 +12,7 @@ fn invalid() -> Failure {
     Failure("invalid_resource_input")
 }
 fn strip(value: &str) -> &str {
-    value.trim_matches(|c: char| c.is_whitespace() || ('\u{1c}'..='\u{1f}').contains(&c))
+    value.trim()
 }
 fn text(value: &Value, max: usize) -> Result<Value> {
     let text = strip(value.as_str().ok_or_else(invalid)?);
@@ -21,7 +21,7 @@ fn text(value: &Value, max: usize) -> Result<Value> {
     }
     Ok(json!(text))
 }
-fn boolean(value: &Value) -> Result<Value> {
+pub(crate) fn boolean(value: &Value) -> Result<Value> {
     match value {
         Value::Bool(_) => Ok(value.clone()),
         Value::Number(n) if n.as_f64() == Some(0.0) => Ok(json!(false)),
