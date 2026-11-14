@@ -1,6 +1,6 @@
 # Rust migration: native transport and coordinator milestones, 2026-11-14
 
-Latest: [Milestone 10 — primary profile normalization and CAS CRUD](#milestone-10-rust-primary-profile-normalization-and-cas-crud).
+Latest: [Milestone 11 — planner/reviewer agents and pinned policies](#milestone-11-separately-instructed-planner-and-reviewer-with-pinned-policies).
 
 Overall request: **IN PROGRESS**. Full Python replacement and multi-agent AI delivery
 are not complete. Installed application services/extension/native wrapper were not changed.
@@ -846,3 +846,92 @@ remaining Gmail/providers and Python removal. The graph currently uses determini
 specialists with optional model review; expanding multiple model-backed role planning must
 retain the same consent and total budget limits. Full project/live/rollback/focus/history/
 quota/receipt/resource acceptance has not been achieved.
+
+## Milestone 11: separately instructed planner and reviewer with pinned policies
+
+Implementation: [`414e913691fa4829a793f72f551a97e603910c01`](https://github.com/karanagg166/automated-apply/commit/414e913691fa4829a793f72f551a97e603910c01),
+branch `feat/rust-agent-runtime`, [draft PR #50](https://github.com/karanagg166/automated-apply/pull/50),
+base `chore/uv-python-tooling` / [PR #49](https://github.com/karanagg166/automated-apply/pull/49).
+Overall Python migration, full action tools and installed/live acceptance remain **IN PROGRESS**.
+
+The graph supports two distinct model-backed roles: discovery planning after an actual saved
+job read, and review after four factual tool results. Each request has its own role instruction
+and schema; discovery selects a matching handoff or a bounded fact question, while review can
+hand off, ask a bounded question or request a bounded replan. Runtime filtering also enforces
+these allowed decisions, independently of the provider schema. Neither role can dispatch tools,
+complete early, grant authority, change quotas or select arbitrary browser/application actions.
+Matching/answer preparation and actual tool execution remain deterministic specialists.
+
+`RUST_AGENT_REVIEW_MODEL=cohere` plus `RUST_AGENT_MODEL_ROLES=discovery,review` opts into both
+roles, retaining all existing provider/candidate-data consents and shared monthly caps. Without
+the role setting, Cohere remains review-only; the overall default is deterministic with zero
+inference. These roles share the existing async client/worker/connection architecture; no
+process, local GPU inference or database pool is created per agent.
+
+New owner API runs pin provider, exact model ID and inference roles. Policy participates in
+request-key idempotency and exact human approval binding. A pinned deterministic run cannot
+acquire AI from a configuration change, and a pinned AI run cannot silently lose/switch its
+model or roles. Missing/incompatible configuration manually pauses it without new spend;
+restore configuration and explicitly resume, or stop it. Legacy unpinned records retain the
+old review-only selection and never gain the planner. Existing approval hashing remains
+compatible when no policy was stored. New Telegram reviews explicitly pin deterministic mode.
+
+Recommended two-role limits allow one replan and four calls, reserving at most 15,712 input/
+output tokens within the existing 16,000 cap. Explicit owner limits are never expanded. Default
+owner API intake under configured inference uses bounded model budgets with the legacy read-
+review human flag off; the dashboard explicitly creates human-review runs. Omitted limits
+are distinct from null, and a client cannot supply its own model policy. The dashboard shows
+available model roles and the selected run's pinned policy alongside its usage/audit state.
+
+| Check | Status | Exact evidence |
+| --- | --- | --- |
+| Standard Rust suites | PASS | 87 tests: 23 library, 20 coordinator, 8 graph, 9 host, 5 profile, 8 domain, 14 native; 0 failed; 56 PG cases deliberately ignored here |
+| Dedicated native PostgreSQL fixtures | PASS | All 56 executed, 0 failed/ignored; final run 23.08s; 2 additional integration cases |
+| Actual CLI with two model roles and human gate | PASS | Included above: fictional localhost model, distinct discovery/review/re-review prompts, 3 requests, 7 SQL reads, one replan, 11,784 retained reserved tokens and owner approval before completion |
+| Durable cooldown / shared provider budgets / bounded context | PASS | Included above: no recharge across repeated provider waits, monthly requests exactly 3, bodies <=3,800 bytes, output reservation 128 each, no contact/resume/key canaries |
+| Pinned model configuration and idempotency | PASS | Included above plus library tests: changed policy conflicts rather than replacing a run; unavailable models pause with zero model/tool/token spend; role/model changes are rejected, deterministic/legacy runs gain no planner |
+| Policy-bound approval / restricted model decisions | PASS | Graph/library regressions: changing pinned roles invalidates approval; tool dispatch/early completion/wrong handoff denied despite a model response |
+| Profile DTO compatibility | PASS | Retained 779 comparisons rerun within the counted profile test; no profile port change here |
+| Frontend component/proxy regressions | PASS | 10 tests across 2 files, 984ms; exact approval/review reset/auth/CSRF/boundary/no-retry cases |
+| Frontend typecheck and production build | PASS | Final build compile 681ms, TypeScript 1.946s; workflow and protected proxy routes present |
+| Isolated Chromium approval journey | PASS | 1 journey, 2 explicit mutations, 0 automatic retries; fresh deterministic policy shown; sanitized screenshot updated |
+| Rust format / Clippy warnings denied / diff | PASS | Final local checks passed |
+| Locked optimized workspace build | PASS | 1m07s final local build; CLI fixtures use debug executable |
+| Actual cloud model behavior, entitlement and live paid budgets | NOT TESTED | No owner key or official provider call; generated decisions are fixture responses |
+| Installed/live action tools and full Python replacement | NOT TESTED | Browser/application tools and remaining APIs/services are still pending; legacy live runtime unchanged |
+| Deployment/rollback/focus/history/quota/receipt acceptance | NOT TESTED | No installed release, service or owner browser changed; no real application or message |
+| Whole-project CPU/RSS/GPU comparison | NOT TESTED | No new paired benchmark; no whole-system resource claim |
+| Hosted Actions / merge / workspace cleanup | NOT TESTED | Not dispatched, merged or performed |
+
+Current total: **143 distinct Rust tests passed** (87 standard + 56 dedicated PostgreSQL),
+plus **10 frontend tests and 1 isolated browser journey**. The 779 profile comparisons are
+within one counted Rust test; repeated runs and historical matching/native corpora are not
+added again. [Sanitized fictional dashboard](../../rust/ui/workflow-fictional.png).
+All new model, profile, job, owner, database and message data are fictional. Actual Mac
+process/HTTP/PostgreSQL/headless-browser evidence is separate from live account acceptance.
+No real credentials, owner environment/data, Chrome windows/tabs, keyboard/clipboard,
+Telegram/Gmail message, application, installed service, hosted Action or cleanup was used.
+
+Sanitized development finding: Serde's internally tagged unit variant accepted an unexpected
+field despite the enum's unknown-field setting. The policy now uses an empty struct variant,
+and its regression explicitly rejects an `authority` field. Final scoped checks have no
+remaining failures. Relevant fixed failures include `invalid_model_roles`,
+`model_roles_require_provider`, `review_model_role_required`, `invalid_model_policy`,
+`pinned_model_policy_unavailable`, `agent_model_action_denied` and
+`agent_request_key_conflict`. Raw private logs are not published.
+
+Reproduction uses the milestone10 Rust/PostgreSQL commands plus:
+
+```sh
+pnpm -C frontend exec vitest run --config ../rust/ui/vitest.config.mjs
+pnpm -C frontend typecheck
+FRONTEND_LOCAL_HTTP=true FRONTEND_ORIGIN=http://localhost:3000 FRONTEND_SESSION_SECRET=fictional-build-session-secret-minimum-thirty-two NEXT_TELEMETRY_DISABLED=1 pnpm -C frontend build
+node rust/ui/browser-fixture.mjs
+```
+
+Next: complete remaining profile match/readiness/confirmation/resource/rich-context and other
+REST/service ports; implement guarded browser/application execution and full legacy Telegram/
+Gmail/provider functionality; remove runtime Python dependencies; then immutable installation,
+rollback and actual focus/account/history/quota/receipt/whole-project resource acceptance.
+This milestone implements multiple model-backed roles, but does not finish either requested
+whole-project outcome or activate live automation.
