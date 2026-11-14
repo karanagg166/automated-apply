@@ -48,10 +48,12 @@ this is a staged behavioral migration, not a claim that scaffolding replaces the
 ## Completion ledger
 
 Current profile ports include CRUD/CAS, saved-job matching, atomic owner confirmation,
-saved-resume selection and read-only onboarding readiness. Milestone14 `f872319` passes
-154 Rust tests (90 standard +64 dedicated PostgreSQL), with 95 URL/345 resume/80 readiness
-comparisons inside one test. Resource/evidence writes, link resolution and rich private
-context remain next. Installation and full Python removal have not happened.
+saved-resume selection, onboarding readiness, resource/evidence persistence and list-link
+provenance. Milestone15 `6220b72` passes 161 Rust tests (92 standard +69 dedicated PostgreSQL),
+including 445 DTO and 56×9 link comparisons in two tests, plus the retained profile/resume
+corpora. Optimized workspace build passes (1m17s). Resource-question resolution, rich context,
+private PDF/storage and other services remain next. Installation and full Python removal
+have not happened.
 
 | Deliverable | State |
 | --- | --- |

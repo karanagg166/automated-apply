@@ -1091,3 +1091,73 @@ Next: resource/evidence writes and deterministic link resolution, rich private c
 remaining REST/services/browser/application/Gmail/providers/Telegram ports; then runtime
 Python removal and installed/live/rollback/focus/history/quota/receipt/resource acceptance.
 This milestone completes these inspection components, not the whole requested migration.
+
+## Milestone 15: owner resource and evidence persistence
+
+Implementation: [`6220b72c511a58f04575e9d5ef035bc05f7e01e0`](https://github.com/karanagg166/automated-apply/commit/6220b72c511a58f04575e9d5ef035bc05f7e01e0),
+branch `feat/rust-agent-runtime`, [draft PR #50](https://github.com/karanagg166/automated-apply/pull/50),
+base `chore/uv-python-tooling` / [PR #49](https://github.com/karanagg166/automated-apply/pull/49).
+Whole-project migration and live acceptance remain **IN PROGRESS**.
+
+The standalone Rust owner API implements `GET/POST /api/v1/candidate/resources`,
+`GET/POST /api/v1/candidate/evidence` and `PATCH /api/v1/candidate/evidence/<UUID>`.
+Resource writes retain profile ownership, duplicate URL/primary conflicts, default flags,
+full replacement of the specified additional resource and unchanged timestamps for no-ops.
+GitHub/LinkedIn/portfolio links require explicit owner confirmation and an expected profile
+version, use existing atomic profile CAS, and are stored exclusively on the profile.
+No public write can manufacture `private_upload` authority or a private resume reference.
+
+Evidence changes clear confirmation unless a new explicit owner confirmation accompanies
+them. Null/omitted fields, partial nested-project replacement, canonical facts and public
+source URLs retain their DTO/repository behavior. Saved results are validated inside the
+transaction and committed before acknowledgment; result/commit failures roll back. No
+write is automatically replayed. Facts are not inferred and no application is admitted.
+
+Lists use read-only consistent snapshots and bounded pagination (`offset`0..100000,
+`limit`1..100). The hardened Rust query boundary rejects duplicate/unknown pagination keys.
+Resolved links use the separate legacy per-type bounded inventory, so a primary beyond the
+displayed page remains visible. Private references are not converted into public URLs.
+Saved ambiguous/unconfirmed resources and cleared profile links suppress defaults; validated
+private-config defaults remain explicitly unconfirmed and are never fetched.
+
+| Check | Status | Exact evidence |
+| --- | --- | --- |
+| Standard Rust suites | PASS | 92 tests, 0 failed; 69 PG cases intentionally ignored in this command |
+| Dedicated native PostgreSQL fixtures | PASS | All 69 executed, 0 failed/ignored; 26.35s; 5 new persistence/HTTP integrations |
+| Resource/evidence DTO compatibility | PASS | 445 new comparisons within one Rust test; public DTO oracle only, no settings/ORM imports |
+| Saved-link provenance/default compatibility | PASS | 56 fictional inventories ×9 types =504 comparisons within one Rust test; pure class/constants AST extraction, no settings/ORM initialization |
+| Resource persistence / list resolution | PASS | Included above: independent connection sees created row after200, duplicate/conflicting primary409, no-op unchanged, confirmed primary resolved beyond list page |
+| Standard links / profile CAS | PASS | Included above: missing version428, missing confirmation409, stale version409, stored profile version4→5, stale old confirmation retained, no additional github resource, no-op version5 unchanged |
+| Evidence confirmation / replacement | PASS | Included above: create201; correction clears confirmation; explicit review restores it; replacing project retains no old technologies/contribution; invalid/null edits422 |
+| Auth / pagination / ownership | PASS | Included above: owner401/extension403, foreign IDs404, invalid private writes422, bounded/duplicate pagination422, wrong method405; foreign resource unchanged |
+| Returned-record / deferred commit rollback | PASS | Included above: injected infinity timestamp rejects and rolls resource insert back; deferred evidence trigger rejects at commit and leaves zero rows |
+| Rust format / Clippy warnings denied / Ruff / oracle drift / diff | PASS | Final local checks passed |
+| Optimized workspace build | PASS | Final `cargo build --locked --release --workspace`, 1m17s; build duration is not a runtime performance comparison |
+| Frontend/browser rerun | NOT TESTED | No frontend change; retained milestone11 results are 10 tests, one isolated Chromium journey and Next build/typecheck |
+| Live owner data/PDF, installed services, receipt and whole-project CPU/RSS/GPU | NOT TESTED | Actual Mac process/HTTP/native PostgreSQL evidence uses fictional data only; no owner env/DB/browser/messages/actions or runtime installation touched |
+| Hosted Actions / merge / cleanup | NOT TESTED | Not dispatched, merged or performed |
+
+Current total: **161 distinct Rust tests passed** (92 standard +69 dedicated PostgreSQL).
+The 445 and 504 new comparisons are contained in two tests, not added to that total.
+Earlier 520 resume/URL/readiness and 779 profile comparisons remain in the current suites;
+historical native/matching benchmarks are not new whole-project evidence. Initial nested
+project PATCH differences exposed `exclude_unset` behavior; it was corrected and the final
+445-case corpus passed. No scoped failure remains. Sanitized failure codes include
+`invalid_resource_input`, `invalid_resource_page`, `resource_not_found`, `evidence_not_found`,
+`resource_conflict`, `standard_link_version_required` and `profile_database_error`.
+Raw private logs and candidate data are not published.
+
+Reproduce with the milestone14 workspace/PG/format/Clippy commands plus:
+
+```sh
+uv run --no-project --python .venv/bin/python python -m rust.scripts.resource_contract_corpus --check
+uv run --no-project --python .venv/bin/python python -m rust.scripts.link_corpus --check
+uv tool run --from ruff ruff check --isolated --select E9,F,I rust/scripts/resource_contract_corpus.py rust/scripts/link_corpus.py
+cargo build --locked --release --workspace
+```
+
+Next: deterministic resource-question resolution, rich context, private PDF/storage/download
+and remaining answer/REST/services/browser/application/Gmail/providers/full Telegram ports,
+then runtime Python removal and installed/live/rollback/focus/history/quota/receipt/resource
+acceptance. The installed application still uses Python; no full migration or live success
+is claimed.
