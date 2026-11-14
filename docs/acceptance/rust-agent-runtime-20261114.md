@@ -317,3 +317,92 @@ Next: finish efficient specialist routing and the durable worker/owner-control l
 port rich verified context, preparation, browser/Telegram/application execution and remaining
 API/provider/services; validate real installation and resources under existing STOP,
 focus, account/resume/history/quota/rollback safeguards. Both owner objectives remain open.
+
+## Milestone 5: deterministic saved-review worker and durable owner controls
+
+Implementation: [`020a379121c3f7d2c68d96fe6acaa96f0a01d46d`](https://github.com/karanagg166/automated-apply/commit/020a379121c3f7d2c68d96fe6acaa96f0a01d46d),
+branch `feat/rust-agent-runtime`, [draft PR #50](https://github.com/karanagg166/automated-apply/pull/50),
+stacked on `chore/uv-python-tooling`. This milestone is a tested library/worker integration;
+the authenticated HTTP host and dashboard wiring are the next boundary. It is not an
+installed service, completed Python migration, or real application acceptance.
+
+Five specialist roles now run a deterministic saved-job review through actual PostgreSQL
+knowledge tools. The fixture completes in nine bounded decisions and four read tools, with
+zero model calls, token reservations or provider requests. Separate decision limits bound
+routing even when no inference is used. Existing records retain their previous model
+consumption when the new decision counter is absent. No local model/GPU process starts.
+This is factual review of saved jobs; workflow completion does not represent an application
+submission or receipt. The current worker does not select a cloud inference provider.
+
+The additive 002 migration defaults to STOPPED. Global and per-run controls require current
+revisions; committed Pause/Stop fence the active worker immediately. Resume retains budgets
+and read effect IDs, respects manual pauses, and never restarts quarantined external work.
+A global Stop retains queued jobs without admitting them. Per-run Stop preserves terminal
+completion/failure/unknown history. Control mode changes and a sanitized audit row commit
+atomically; audit failure rolls the complete control transaction back. RLS also protects
+control/audit tables from public clients even if SELECT is mistakenly granted.
+
+Questions reference independently confirmed profile facts. They accept no raw answer or
+new grant. A profile version must match persisted confirmation; notice period, authorization,
+availability and compensation types/units are checked. Existing confirmed facts reconcile
+without another owner action. Changed identities or uncertain external effects cannot be
+reset through question resolution. Read-only review restarts with retained usage. Reconciliation
+checks ten questions per scan, fairly rotating past missing older facts rather than starving
+later known facts. No profile or provider save occurs.
+
+`worker::serve` borrows its host's existing connection, sleeps when idle/stopped, heartbeats
+every five seconds, and supports cancellation and committed-control wakeups. It creates no
+pool or worker thread. A blocked-model test uses a separate owner connection and requires
+the Stop transaction to finish within one second, without waiting for the 20-second model
+timeout. It passes; the in-flight reservation remains consumed and stale saves are rejected.
+This measures a test bound, not production stop latency.
+
+| Check | Status | Exact evidence |
+| --- | --- | --- |
+| Provider, fact validation and terminal-history units | PASS | 7 tests: 4 retained provider + 2 fact schema + 1 terminal Stop |
+| Coordinator, binding and budget regressions | PASS | 20 tests, including 2 new deterministic/legacy-budget checks |
+| Matching/domain and native transport regressions | PASS | 8 domain + 14 native tests; final native run 0.77s |
+| Dedicated native PostgreSQL 17 fixtures | PASS | 35 tests, 0 failed/ignored; final run 0.99s, fictional data only |
+| Actual worker over PostgreSQL read tools | PASS | Included above: nine decisions, four reads, zero inference/token reservations/provider rows |
+| Pause/Stop/resume/revision/audit failure and quarantine | PASS | Included above; no budgets refunded, stale workers fenced, external effects not replayed |
+| Owner facts/version/identity and fair question scheduling | PASS | Included above; known facts reconcile, older missing facts do not starve the next batch |
+| Rust format / Clippy with warnings denied / diff | PASS | Local checks; no hosted execution |
+| Locked optimized workspace build | PASS | Local final incremental build 4.85s; earlier dependency rebuild 45.28s |
+| Authenticated HTTP host / private config / compatible legacy process lock | NOT TESTED | Not implemented in this milestone; required before owner-data execution |
+| Dashboard integration / reconnect supervision / immutable service installation | NOT TESTED | Host integration and actual Mac acceptance remain pending |
+| Owner PostgreSQL migrations/ACLs and current account/policy integrity | NOT TESTED | No owner database connection or mutation |
+| Browser / Telegram / application action adapters and real receipt | NOT TESTED | Existing installed services unchanged; migration ports remain pending |
+| Worker/full-project idle CPU, RSS, GPU and production Stop latency | NOT TESTED | No new equivalent-boundary resource benchmark or installed measurement |
+
+Current total: **84 distinct Rust tests passed**: 49 standard tests plus 35 dedicated
+PostgreSQL tests. The standard command deliberately ignores those 35; the fixture harness
+runs every one. This adds 20 tests to the previous total of 64. The earlier 1,300 matching
+comparisons and 25 native contract examples are separate historical checks, not rerun here.
+Their component benchmark results remain attributable to the implementations documented
+above; they do not establish worker/full-project savings.
+
+Sanitized development failures: the initial stricter fact-key test rejected the legacy
+`notice_period` key with `unsupported_owner_question`; an explicit alias now preserves it.
+Compilation caught a test comparison requiring private `ProfilePin` debug output and a
+dynamic test SQL string (`E0277`); tests now use safe comparisons and literal queries.
+Clippy caught nested conditions; final checks pass. No unresolved failure in this scope.
+
+Reproduction from this branch, using only a disposable fictional cluster:
+
+```sh
+cargo test --locked --workspace
+uv run --no-project --python .venv/bin/python python -m rust.scripts.run_postgres_tests
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all --check
+cargo build --locked --release --workspace
+git diff --check
+```
+
+No owner environment/provider key, production database, cloud inference, Chrome action,
+Telegram message, Gmail read/draft/send, real profile save, application, installed-file
+change, service restart, hosted Action, cleanup or merge occurred. Remaining work: standalone
+private-config host and legacy lock, authenticated HTTP/dashboard controls and supervised
+connection recovery; actual browser/Telegram/application adapters and rich verified context;
+remaining API/service/provider ports and Python removal; then immutable installation,
+rollback/focus/account/quota/history/receipt and measured full-project Mac acceptance.
+Both requested outcomes remain open.
