@@ -28,6 +28,7 @@ pub struct Api {
     connection: Mutex<ControlConnection>,
     wake: Wake,
     requests: Semaphore,
+    generation: Semaphore,
 }
 struct ControlConnection {
     value: Option<PgConnection>,
@@ -43,6 +44,7 @@ impl Api {
             }),
             wake,
             requests: Semaphore::new(8),
+            generation: Semaphore::new(1),
         })
     }
 }
@@ -128,6 +130,8 @@ fn profile_route(path: &str) -> bool {
         || candidate_resource_route(path)
         || draft_route(path)
         || missing_route(path)
+        || path == "/api/v1/application-answers/generate"
+        || path == "/api/v1/application-answers/reuse-approvals"
 }
 fn missing_item(path: &str) -> Option<(&str, &str)> {
     let tail = path.strip_prefix("/api/v1/application-answers/missing/")?;
@@ -151,7 +155,19 @@ fn draft_id(path: &str) -> Option<&str> {
         .filter(|s| !s.is_empty() && !s.contains('/'))
 }
 fn draft_route(path: &str) -> bool {
-    path == "/api/v1/application-answers/drafts" || draft_id(path).is_some()
+    path == "/api/v1/application-answers/drafts"
+        || draft_id(path).is_some()
+        || draft_action(path).is_some()
+}
+fn draft_action(path: &str) -> Option<(&str, &str)> {
+    let tail = path.strip_prefix("/api/v1/application-answers/drafts/")?;
+    let (id, action) = tail.split_once('/')?;
+    (!id.is_empty()
+        && matches!(
+            action,
+            "approve-reuse" | "revoke-reuse" | "opportunity-evidence"
+        ))
+    .then_some((id, action))
 }
 fn candidate_resource_route(path: &str) -> bool {
     matches!(
@@ -346,7 +362,8 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
         }
     };
     let proof = if method == "POST"
-        && missing_item(&path).is_some_and(|(_, action)| action == "approve")
+        && (missing_item(&path).is_some_and(|(_, action)| action == "approve")
+            || draft_action(&path).is_some_and(|(_, action)| action == "approve-reuse"))
     {
         let now = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -365,6 +382,12 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
     } else {
         None
     };
+    if path == "/api/v1/application-answers/generate" {
+        if method != "POST" {
+            return fail(Failure("match_method_not_allowed"));
+        }
+        return generation_dispatch(&api, &body).await;
+    }
     let mut state = api.connection.lock().await;
     if state.value.is_none() {
         if !state.backoff.remaining().is_zero() {
@@ -421,7 +444,45 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
             missing_dispatch(connection, &method, &path, &body, page, proof).await
         }
         Some(connection) if draft_route(&path) => {
-            let data = if path == "/api/v1/application-answers/drafts" {
+            let data = if let Some((id, action)) = draft_action(&path) {
+                match id.parse::<Uuid>() {
+                    Err(_) => Err(Failure("invalid_answer_draft_review")),
+                    Ok(id) => match (method.as_str(), action) {
+                        ("POST", "approve-reuse") => {
+                            match serde_json::from_slice(&body)
+                                .map_err(|_| Failure("invalid_answer_reuse_approval"))
+                                .and_then(crate::answer_reuse::approval_input)
+                            {
+                                Ok(input) => match proof {
+                                    Some(proof) => {
+                                        crate::answer_reuse::approve(
+                                            connection,
+                                            id,
+                                            input,
+                                            proof,
+                                            api.config.answers.reuse,
+                                            api.config.answers.opportunity,
+                                        )
+                                        .await
+                                    }
+                                    None => Err(Failure("owner_approval_required")),
+                                },
+                                Err(error) => Err(error),
+                            }
+                        }
+                        ("POST", "revoke-reuse") => {
+                            crate::answer_reuse::revoke(connection, id).await
+                        }
+                        ("GET", "opportunity-evidence") => {
+                            crate::answer_reuse::opportunity_evidence(connection, id).await
+                        }
+                        (_, "opportunity-evidence") => {
+                            Err(Failure("resource_read_method_not_allowed"))
+                        }
+                        _ => Err(Failure("match_method_not_allowed")),
+                    },
+                }
+            } else if path == "/api/v1/application-answers/drafts" {
                 if method != "GET" {
                     Err(Failure("resource_read_method_not_allowed"))
                 } else {
@@ -443,6 +504,23 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
                 status: StatusCode::OK,
                 etag: None,
             })
+        }
+        Some(connection) if path == "/api/v1/application-answers/reuse-approvals" => {
+            if method != "GET" {
+                Err(Failure("resource_read_method_not_allowed"))
+            } else {
+                crate::answer_reuse::approvals(
+                    connection,
+                    api.config.answers.reuse,
+                    api.config.owner_signing.is_some(),
+                )
+                .await
+                .map(|data| OwnerReply {
+                    data,
+                    status: StatusCode::OK,
+                    etag: None,
+                })
+            }
         }
         Some(connection) if path == "/api/v1/local-agent/profile-confirmation" => {
             if method != "POST" {
@@ -513,6 +591,30 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
 fn profile_failure(error: Failure) -> Response {
     let status = failure(error).status();
     let detail = match error.0 {
+        "invalid_answer_request" => "Answer request is invalid",
+        "generation_outcome_unknown" => {
+            "Generation outcome is uncertain; inspect saved drafts and requests before retrying"
+        }
+        "generation_context_changed" => {
+            "Approved facts changed during generation; reload and review before generating again"
+        }
+        "answer_reuse_disabled" => "Approved answer reuse is disabled",
+        "answer_reuse_current_review_required" => {
+            "Review the current answer and candidate facts before approving reuse"
+        }
+        "answer_reuse_unsupported_intent" => {
+            "This question requires individual review; no supported reuse intent is established"
+        }
+        "answer_reuse_job_required" => "Same-job reuse requires a saved job context",
+        "answer_reuse_exact_job_required" => {
+            "Company or employer evidence can only be reused for the exact saved job"
+        }
+        "answer_reuse_context_changed" => {
+            "Evidence changed or expired; generate and review a fresh answer"
+        }
+        "invalid_answer_reuse_approval"
+        | "invalid_answer_reuse_record"
+        | "answer_draft_context_mismatch" => error.0,
         "missing_input_not_found" => "Missing-answer request not found",
         "missing_input_version_conflict"
         | "missing_input_packet_context_mismatch"
@@ -621,6 +723,35 @@ struct OwnerReply {
     data: Value,
     status: StatusCode,
     etag: Option<String>,
+}
+/// A single bounded request-scoped API-role connection keeps control/Stop responsive.
+/// It is closed after the response computation; there is no additional pool or retry.
+async fn generation_dispatch(api: &Api, body: &[u8]) -> Response {
+    let Ok(_permit) = api.generation.try_acquire() else {
+        return reply(
+            StatusCode::TOO_MANY_REQUESTS,
+            json!({"detail":"An answer generation is already running"}),
+        );
+    };
+    let input = match serde_json::from_slice::<Value>(body) {
+        Ok(input) if crate::answer_contract::normalize(input.clone()).is_ok() => input,
+        _ => return profile_failure(Failure("invalid_answer_request")),
+    };
+    let mut connection = match api.config.connect(false).await {
+        Ok(connection) => connection,
+        Err(error) => return profile_failure(error),
+    };
+    let result = tokio::time::timeout(Duration::from_secs(40), async {
+        readiness(&mut connection, &api.config).await?;
+        crate::answer_service::generate(&mut connection, input, &api.config.answers).await
+    })
+    .await
+    .unwrap_or(Err(Failure("generation_outcome_unknown")));
+    recovery::close(connection).await;
+    match result {
+        Ok(data) => reply(StatusCode::OK, data),
+        Err(error) => profile_failure(error),
+    }
 }
 async fn missing_dispatch(
     connection: &mut PgConnection,
@@ -961,6 +1092,7 @@ fn failure(error: Failure) -> Response {
         | "owner_approval_operation_mismatch"
         | "owner_approval_already_used" => StatusCode::FORBIDDEN,
         "owner_approval_unavailable" => StatusCode::SERVICE_UNAVAILABLE,
+        "answer_reuse_disabled" | "generation_outcome_unknown" => StatusCode::SERVICE_UNAVAILABLE,
         "owner_api_tls_required" => StatusCode::UPGRADE_REQUIRED,
         "job_not_found"
         | "profile_not_found"
@@ -983,6 +1115,9 @@ fn failure(error: Failure) -> Response {
         | "resource_conflict"
         | "resource_insert_conflict" => StatusCode::CONFLICT,
         "answer_draft_stale" => StatusCode::CONFLICT,
+        "generation_context_changed"
+        | "answer_reuse_context_changed"
+        | "answer_reuse_current_review_required" => StatusCode::CONFLICT,
         "missing_input_version_conflict"
         | "missing_input_packet_context_mismatch"
         | "missing_input_draft_context_mismatch"
@@ -1002,6 +1137,13 @@ fn failure(error: Failure) -> Response {
         | "invalid_answer_draft_review"
         | "invalid_missing_input_request"
         | "invalid_missing_input_record"
+        | "invalid_answer_request"
+        | "invalid_answer_reuse_approval"
+        | "invalid_answer_reuse_record"
+        | "answer_reuse_unsupported_intent"
+        | "answer_reuse_job_required"
+        | "answer_reuse_exact_job_required"
+        | "answer_draft_context_mismatch"
         | "resource_inventory_limit"
         | "invalid_job_id"
         | "invalid_saved_job_record"

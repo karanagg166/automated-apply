@@ -91,7 +91,7 @@ pub fn resolve(
     question: &str,
 ) -> Value {
     let kinds = resource_types(question);
-    let mut result = json!({"question_type":"profile_link","status":"needs_input","answer":null,"writing_style":"professional","used_llm":false,"requires_review":true,"evidence_references":[],"missing_information":[],"source":null,"confidence":0.0,"provider":null,"model":null,"usage":null,"error_code":null,"retry_after_seconds":null,"warnings":[],"resources":[],"draft_id":null,"reused_draft_id":null,"missing_input_id":null,"missing_input_url":null});
+    let mut result = crate::answer_contract::result("profile_link", "professional");
     if file_upload(question) {
         result["question_type"] = json!("file_upload");
         result["status"] = json!("file_upload_required");

@@ -372,6 +372,14 @@ pub(crate) fn legacy_word(c: char) -> bool {
 pub(crate) fn legacy_decimal(c: char) -> bool {
     c.is_ascii_digit() || unicode().decimal_digits.contains_key(&c)
 }
+pub(crate) fn decimal_digit(c: char) -> Option<u32> {
+    c.to_digit(10).or_else(|| {
+        unicode()
+            .decimal_digits
+            .get(&c)
+            .and_then(|c| c.to_digit(10))
+    })
+}
 fn calendar(text: &str) -> Result<String> {
     if text.len() != 10
         || text.as_bytes()[4] != b'-'

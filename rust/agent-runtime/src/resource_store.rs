@@ -205,17 +205,23 @@ pub async fn resolve_question(
         .map_err(db)?;
     let profile = profile_store::get(&mut transaction).await?.value;
     let id = profile["id"].as_str().unwrap().parse::<Uuid>().unwrap();
-    let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(r) FROM (SELECT id,resource_type,label,url,is_primary,source_type,user_confirmed,updated_at,row_number() OVER (PARTITION BY resource_type ORDER BY is_primary DESC,user_confirmed DESC,created_at,id) AS position FROM candidate_resources WHERE candidate_profile_id=$1) r WHERE position<=101").bind(id).fetch_all(&mut *transaction).await.map_err(db)?;
-    let resources = rows
-        .into_iter()
+    let resources = resolution_resources(&mut transaction, id).await?;
+    let result = crate::link_resolver::resolve(&profile, &resources, defaults, &question);
+    transaction.commit().await.map_err(db)?;
+    Ok(result)
+}
+/// Reuse the saved inventory inside a caller-owned consistent snapshot; no fetch or new connection.
+pub(crate) async fn resolution_resources(
+    connection: &mut PgConnection,
+    id: Uuid,
+) -> Result<Vec<resources::Resource>> {
+    let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(r) FROM (SELECT id,resource_type,label,url,is_primary,source_type,user_confirmed,updated_at,row_number() OVER (PARTITION BY resource_type ORDER BY is_primary DESC,user_confirmed DESC,created_at,id) AS position FROM candidate_resources WHERE candidate_profile_id=$1) r WHERE position<=101").bind(id).fetch_all(connection).await.map_err(db)?;
+    rows.into_iter()
         .map(|row| {
             serde_json::from_value::<resources::Resource>(row)
                 .map_err(|_| Failure("invalid_resource_record"))
         })
-        .collect::<Result<Vec<_>>>()?;
-    let result = crate::link_resolver::resolve(&profile, &resources, defaults, &question);
-    transaction.commit().await.map_err(db)?;
-    Ok(result)
+        .collect()
 }
 pub async fn save_evidence(
     connection: &mut PgConnection,

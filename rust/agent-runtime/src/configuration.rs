@@ -34,6 +34,7 @@ pub struct Configuration {
     pub(crate) profile_live: bool,
     pub(crate) resource_defaults: BTreeMap<String, String>,
     pub(crate) owner_signing: Option<crate::owner_proof::SigningKey>,
+    pub(crate) answers: crate::answer_service::Settings,
 }
 impl Configuration {
     pub fn listen(&self) -> SocketAddr {
@@ -222,6 +223,20 @@ impl Configuration {
         if !fixture && !require_tls {
             return Err(Failure("owner_api_tls_required"));
         }
+        let defaults = crate::resources::link_defaults(values)?;
+        let concurrency = get("LLM_MAX_CONCURRENCY", "2")
+            .parse::<usize>()
+            .ok()
+            .filter(|n| (1..=8).contains(n))
+            .ok_or(Failure("invalid_provider_configuration"))?;
+        let gate = std::sync::Arc::new(tokio::sync::Semaphore::new(concurrency.min(2)));
+        let mut models = crate::model_policy::Models::from_values(values, fixture)?;
+        if let Some(models) = &mut models {
+            models.client.share_gate(gate.clone());
+        }
+        let mut answers =
+            crate::answer_service::Settings::from_values(values, fixture, defaults.clone())?;
+        answers.share_gate(gate);
         Ok(Self {
             options,
             token,
@@ -236,13 +251,15 @@ impl Configuration {
             schema,
             role,
             telegram: crate::telegram::Settings::from_values(values, fixture)?,
-            models: crate::model_policy::Models::from_values(values, fixture)?,
+            models,
             profile_live: matches!(environment.as_str(), "production" | "staging"),
-            resource_defaults: crate::resources::link_defaults(values)?,
+            resource_defaults: defaults,
             owner_signing: crate::owner_proof::SigningKey::from_values(values)?,
+            answers,
         })
     }
-    /// Only two host-owned connections (control/execution), no pool or overflow.
+    /// Control/execution persist; generation may hold one additional bounded API connection.
+    /// Telegram has its own optional connection. No pool or overflow.
     pub async fn connect(&self, execution: bool) -> Result<PgConnection> {
         self.connect_named(if execution {
             "automated-apply:execution"
@@ -294,7 +311,7 @@ impl Configuration {
         .map_err(|_| Failure("agent_database_unavailable"))
     }
 }
-fn boolean(values: &BTreeMap<String, String>, key: &str, default: bool) -> Result<bool> {
+pub(crate) fn boolean(values: &BTreeMap<String, String>, key: &str, default: bool) -> Result<bool> {
     match values.get(key).map(|s| s.to_ascii_lowercase()).as_deref() {
         None => Ok(default),
         Some("true" | "1" | "yes" | "on") => Ok(true),

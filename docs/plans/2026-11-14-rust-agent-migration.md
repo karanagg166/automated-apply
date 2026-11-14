@@ -34,7 +34,10 @@ this is a staged behavioral migration, not a claim that scaffolding replaces the
 - No local model/GPU process starts merely because multiple agents exist. Prefer deterministic
   routing and reuse verified results; one browser executor and bounded model concurrency.
 - PostgreSQL remains the durable queue; no Kafka, Redis or new live connection pool introduced
-  during development. Fixture-only data may use in-memory test doubles.
+  during development. The host holds control/execution connections, an optional Telegram
+  connection, and at most one request-scoped generation connection so model waits do not
+  block Stop. This peak must pass live role/resource acceptance before installation.
+  Fixture-only data may use in-memory test doubles.
 - Model output, Telegram text, websites and job descriptions cannot grant privileges.
 - Preserve current saved policy (age14, applicants1000, score50, any verified skill), history,
   hourly1, lifetime supervised cap3 and actual consumed admissions. Read current state at
@@ -43,18 +46,38 @@ this is a staged behavioral migration, not a claim that scaffolding replaces the
   owner keyboard/clipboard, active-tab edits or browser foreground changes.
 - No Chrome WebUI/settings automatic navigation; native inactive setup path still needs
   complete real focus acceptance before unattended extension replacement.
-- No hosted Actions, cleanup, deletion or merge before completed/reviewed/validated delivery.
+- No hosted Actions or merge before completed/reviewed/validated delivery. Owner-authorized
+  storage cleanup and canonical-directory consolidation were completed separately; see the
+  [storage evidence](../acceptance/storage-cleanup-20261115.md). Source/builds/data belong
+  inside this repository; the former Library path is a compatibility symlink only.
+
+## Runtime and adapter decisions
+
+The owner delegates framework selection and permits browser, CLI and custom MCP adapters;
+LangGraph and Chrome are optional. Retain the typed Rust/Tokio/Axum/SQLx runtime and its
+tested durable PostgreSQL graph. Official LangGraph runtimes would introduce Python or
+TypeScript orchestration, while this migration requires Rust backend services. Rig is
+evaluated, not installed: adding an unused SDK does not improve the existing bounded
+transport, monthly ledger, approval or recovery contracts. Reconsider a narrow SDK when a
+ported provider or tool needs it, with measured compatibility/resource evidence.
+
+Choose an adapter per platform according to supported access, reliability and inactive
+operation. Custom MCP tools must pass the same broker, owner/policy grants, identity,
+deduplication and uncertain-result fences; tool availability is not action authorization.
+Completion means every agreed acceptance check passes, with explicit recovery for external
+failures. No software can guarantee an external employer or provider always succeeds.
 
 ## Completion ledger
 
 Current profile ports include CRUD/CAS, saved-job matching, atomic owner confirmation,
-saved-resume selection, onboarding readiness, resource/evidence persistence and list-link
-provenance and deterministic resource-question answers. Milestone16 `3ece911` passes
-164 Rust tests (93 standard +71 dedicated PostgreSQL), including 2,296 question comparisons
-within one test and retained resource/link/profile/resume corpora. Optimized workspace build
-passes at milestone15 (1m17s); the later resolver delta is debug-tested. Rich context/grounded
-answers/drafts, private PDF/storage and other services remain next. Installation and full
-Python removal have not happened.
+saved-resume selection, onboarding readiness, resource/evidence persistence and link
+provenance. Rich contexts, grounding, drafts, exact missing-answer approvals and reusable
+answers now run in Rust. Current validation passes 225 distinct tests (116 standard +109
+dedicated PostgreSQL), including 2,442 new direct-answer comparisons and 899 reuse intent,
+digest and DTO comparisons within two tests. Existing matching/profile/context corpora remain.
+Cohere generation is opt-in; deterministic extraction and direct answers need no model.
+Other provider ports, private PDF/storage and remaining services are next. Installation and
+full Python removal have not happened; whole-project acceptance remains IN PROGRESS.
 
 | Deliverable | State |
 | --- | --- |

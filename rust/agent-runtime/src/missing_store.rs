@@ -430,8 +430,7 @@ pub async fn approved_in(
     tx: &mut Transaction<'_, Postgres>,
     request: &Generate,
 ) -> Result<Option<Value>> {
-    let stamp = Stamp::load_in(tx, request).await?;
-    let profile = stamp.profile_id();
+    let profile = primary(tx, false).await?;
     let key = missing_contract::key_for(profile, request, None);
     let id = key.trim_start_matches("needs_input:");
     let raw: Option<Value> = sqlx::query_scalar(
@@ -448,8 +447,6 @@ pub async fn approved_in(
     let stored = validate(raw, id, profile)?;
     if stored.data.status != "approved"
         || !missing_contract::matches_context(&stored.raw, profile, request, None)
-        || stored.data.context_digest != stamp.missing()
-        || stored.data.profile_version != stamp.profile_version()
         || stored.data.draft_id.is_none()
         || stored
             .data
@@ -457,6 +454,12 @@ pub async fn approved_in(
             .as_ref()
             .is_none_or(|s| s.trim().is_empty())
         || stored.data.evidence_note.trim().is_empty()
+    {
+        return Ok(None);
+    }
+    let stamp = Stamp::load_in(tx, request).await?;
+    if stored.data.context_digest != stamp.missing()
+        || stored.data.profile_version != stamp.profile_version()
     {
         return Ok(None);
     }

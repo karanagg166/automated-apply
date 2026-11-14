@@ -16,6 +16,10 @@ pub struct Generate {
     pub save_draft: bool,
     pub rewrite: bool,
 }
+/// Existing response defaults shared by direct facts, saved links and narrative generation.
+pub fn result(category: &str, style: &str) -> Value {
+    json!({"question_type":category,"status":"needs_input","answer":null,"writing_style":style,"used_llm":false,"requires_review":true,"evidence_references":[],"missing_information":[],"source":null,"confidence":0.0,"provider":null,"model":null,"usage":null,"error_code":null,"retry_after_seconds":null,"warnings":[],"resources":[],"draft_id":null,"reused_draft_id":null,"missing_input_id":null,"missing_input_url":null})
+}
 fn invalid() -> Failure {
     Failure("invalid_answer_request")
 }

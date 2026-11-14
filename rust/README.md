@@ -3,8 +3,13 @@
 This workspace replaces Python components incrementally. It is not yet the production
 backend. See [the migration plan](../docs/plans/2026-11-14-rust-agent-migration.md).
 
+Develop and build from the canonical repository only. Local runtime data and preserved
+private evidence live under ignored `.local/`; the old Library path is a compatibility
+symlink. See [storage evidence](../docs/acceptance/storage-cleanup-20261115.md).
+
 ```sh
 cargo test --locked --workspace
+uv run --no-project python rust/scripts/run_postgres_tests.py
 cargo clippy --locked --workspace --all-targets -- -D warnings
 cargo build --locked --release --workspace
 ```
@@ -29,3 +34,11 @@ than Python coercion; valid typed extension requests are the compatibility targe
 Cross-field Python validators remain authoritative until their Rust ports are complete.
 Never swap the installed native wrapper without STOP, immutable release/rollback
 inventory and account/policy/history/readiness acceptance.
+
+The agent host includes direct factual answers, deterministic grounded extraction,
+reviewable saved drafts, signed exact-context owner answers and scoped reusable answers.
+Optional Cohere generation shares the existing monthly usage ledger and bounded model
+concurrency with the graph agents. It makes one request per reservation, releases read
+locks before inference, rechecks evidence before saving, and cannot submit applications.
+One transient generation connection keeps owner controls responsive; no database pool is
+added. Other provider and application service ports remain in progress.

@@ -2,6 +2,9 @@
 //! Transports and model providers are separate from model-controlled contracts.
 pub mod answer_context;
 pub mod answer_contract;
+pub mod answer_direct;
+pub mod answer_reuse;
+pub mod answer_service;
 pub mod answer_store;
 pub mod context_contract;
 pub mod contracts;

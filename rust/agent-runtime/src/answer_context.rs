@@ -16,6 +16,8 @@ pub struct Stamp {
     profile_version: i32,
     generation: String,
     missing: String,
+    evidence: String,
+    job: Option<String>,
 }
 fn db(_: sqlx::Error) -> Failure {
     Failure("profile_database_error")
@@ -32,6 +34,12 @@ impl Stamp {
     }
     pub fn missing(&self) -> &str {
         &self.missing
+    }
+    pub(crate) fn evidence(&self) -> &str {
+        &self.evidence
+    }
+    pub(crate) fn job(&self) -> Option<&str> {
+        self.job.as_deref()
     }
     pub async fn load(connection: &mut PgConnection, request: &Generate) -> Result<Self> {
         let mut tx = connection.begin().await.map_err(db)?;
@@ -111,6 +119,8 @@ impl Stamp {
             profile_version: profile.version,
             generation,
             missing,
+            evidence,
+            job,
         })
     }
 }
