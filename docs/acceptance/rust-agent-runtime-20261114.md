@@ -1029,3 +1029,65 @@ removal and installed/live/rollback/focus/history/quota/receipt/resource accepta
 continuation controller still reports `usageLimited`; this environment has no tool to schedule
 or resume it after a platform usage reset. Work is committed and resumable; no automatic wake
 or completed whole-project migration is claimed.
+
+## Milestone 14: saved resume selection and profile readiness
+
+Implementation: [`f872319626f5b5be032a69931d83d8757b0ce7b7`](https://github.com/karanagg166/automated-apply/commit/f872319626f5b5be032a69931d83d8757b0ce7b7),
+branch `feat/rust-agent-runtime`, [draft PR #50](https://github.com/karanagg166/automated-apply/pull/50),
+base `chore/uv-python-tooling` / [PR #49](https://github.com/karanagg166/automated-apply/pull/49).
+Overall migration and live action acceptance remain **IN PROGRESS**.
+
+Rust now implements the legacy pure public-HTTPS validation, exact saved-resume selection
+and onboarding completeness checks. Resume version hashes preserve Python's ASCII Unicode
+escapes, surrogate pairs, raw saved labels/references, boolean spelling and datetime precision.
+Only canonical `private-resume:<UUID>` references with `source_type=private_upload` expose an
+owner download path. Explicit selections must belong to this profile and be confirmed/valid;
+otherwise a unique confirmed primary is required. Links are never treated as uploaded bytes.
+
+Two additional owner-only inspection routes are available on the standalone Rust host:
+`GET /api/v1/rust-agent/resume-selection[?selected_id=<UUID>]` and
+`GET /api/v1/rust-agent/profile-readiness`. They read profile/resources in a repeatable-read,
+read-only PostgreSQL transaction. More than 10,000 resources fails closed rather than choosing
+from a truncated inventory. Missing facts remain missing; even complete profiles return
+`owner_confirmation_required`, with independent identity verification false. Production
+placeholder checks apply to facts and every scoped resource. No DNS, file/PDF read, URL fetch,
+confirmation write, model run, application admission, quota change or DDL occurs.
+
+| Check | Status | Exact evidence |
+| --- | --- | --- |
+| Standard Rust suites | PASS | 90 tests, 0 failed; 64 PG cases intentionally ignored here |
+| Dedicated native PostgreSQL fixtures | PASS | All 64 executed, 0 failed/ignored; 23.54s; 3 new owner HTTP/snapshot integrations |
+| Legacy differential corpus | PASS | 95 URL + 345 resume-selection/hash + 80 readiness comparisons inside one new Rust test; Python 3.11.18/Pydantic 2.14.1 oracle |
+| Oracle privacy boundary | PASS | Public DTO imports and AST extraction of specified pure functions/classes only; no ORM/settings/database/owner environment imports |
+| Owner auth, method/query boundary and resource scoping | PASS | Included above: auth401, extension403, invalid/duplicate selection422, wrong method405/Allow GET, foreign-profile selection rejected |
+| Read-only integrity / unknown facts | PASS | Included above: identical raw profile/resource/confirmation snapshots; no application records; complete fixture remains owner-review-required and identity false |
+| Malformed timestamps / inventory truncation | PASS | Included above: infinity timestamp rejected; 10,001 scoped rows fail closed; transaction released and next profile read succeeds |
+| Rust format / Clippy warnings denied / Ruff / corpus drift / diff | PASS | Final local checks passed |
+| Optimized build / frontend/browser rerun | NOT TESTED | Debug library/CLI compiled; no UI change. Prior optimized/UI/browser evidence remains pinned to milestone11 |
+| Installed/live owner PDF, identity, application and resource acceptance | NOT TESTED | Actual Mac processes, loopback HTTP and native PostgreSQL use fictional fixtures only; no owner services or browser focus touched |
+| Whole-project CPU/RSS/GPU / hosted Actions / merge / cleanup | NOT TESTED | No new comparison, hosted job, merge or cleanup |
+
+Current total: **154 distinct Rust tests passed** (90 standard + 64 dedicated PostgreSQL).
+The new 520 comparisons and existing 779 profile comparisons are counted within their Rust
+test functions, not added to totals. Initial comparison failures identified trimmed output
+labels, DEL escaping, URL length after normalization and Python's two public IPv4 exceptions;
+these were corrected and the final corpus passed. No scoped failure remains. Sanitized error
+codes include `invalid_resource_selection`, `invalid_resource_record` and
+`resource_inventory_limit`. Raw private logs are not published.
+
+Reproduce from this worktree:
+
+```sh
+cargo test --locked --workspace
+uv run --no-project --python .venv/bin/python python -m rust.scripts.run_postgres_tests
+uv run --no-project --python .venv/bin/python python -m rust.scripts.resume_corpus --check
+uv tool run --from ruff ruff check --isolated --select E9,F,I rust/scripts/resume_corpus.py
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all --check
+git diff --check
+```
+
+Next: resource/evidence writes and deterministic link resolution, rich private context and
+remaining REST/services/browser/application/Gmail/providers/Telegram ports; then runtime
+Python removal and installed/live/rollback/focus/history/quota/receipt/resource acceptance.
+This milestone completes these inspection components, not the whole requested migration.
