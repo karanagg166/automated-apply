@@ -260,7 +260,7 @@ See [contract source and fixtures](schemas/README.md).
 
 This port is uninstalled. The existing frontend/backend proxy still uses the legacy service.
 Validation failures expose sanitized `detail` messages rather than copying FastAPI's full
-per-input error arrays. Saved-job matching, profile readiness/confirmation, resource/context
+per-input error arrays. Profile readiness/confirmation, resource/context
 and remaining APIs/services still need Rust ports before removing Python or cutting over.
 
 ## Multiple model-backed agents
@@ -302,3 +302,10 @@ recheck → review, three requests, seven SQL reads, 11,784 retained reserved to
 cooldowns and human approval before completion. Both prompts and shared monthly counts are
 checked; no real cloud inference is claimed. Browser/application adapters, full Python
 removal and installed/live/resource acceptance remain pending.
+
+`POST /api/v1/jobs/<UUID>/match` now computes relevance from the saved job and current saved
+profile using the existing pure Rust base scorer. Caller-supplied profile fields are ignored,
+as in the legacy saved-profile route. Results retain scores, skill labels, explanation and
+unknown-experience behavior. This owner-only endpoint neither persists candidate-derived
+job scores nor creates agent/model/application work. Relevance is not application admission.
+Unknown jobs are reported before missing profiles; the normal owner/auth/body boundary applies.

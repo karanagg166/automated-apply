@@ -126,3 +126,9 @@ budgets fit four calls/one replan within the existing16,000 total cap; actual CL
 model fixture verifies discovery+review+re-review, monthly3 requests,7SQLreads and human
 gate. Remaining tool adapters, feature/API ports and installed resource/live acceptance
 remain open; multiple actual cloud role calls have not been exercised.
+
+Saved-profile match endpoint: protected POST/api/v1/jobs/<UUID>/match reuses the pure Rust
+base scorer, reads the saved job/profile, preserves missing-record order and unknown
+experience, and ignores caller profile overrides. Native PG/HTTP fixtures verify exact
+results with no score/profile/history writes, AI usage or application creation. Uninstalled;
+remaining profile readiness/confirmation/resources/context and other services still pending.

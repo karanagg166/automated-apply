@@ -34,5 +34,5 @@ no-op behavior, atomic CAS and commit before acknowledgment. Resume associations
 confirmation/history and unrelated columns stay outside profile writes. Production/staging
 placeholder checks remain mandatory. No existing owner service/proxy was redirected and no
 real profile was saved. Validation errors use sanitized `detail` strings; they do not copy
-FastAPI's complete per-input validation-error array. Saved-job matching, profile readiness/
+FastAPI's complete per-input validation-error array. Saved-job matching is also implemented as an owner-only read computation. Profile readiness/
 confirmation, resources and rich context endpoints still need ports and live acceptance.

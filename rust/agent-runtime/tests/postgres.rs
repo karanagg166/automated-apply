@@ -3427,3 +3427,138 @@ async fn pinned_model_policy_blocks_retargeted_intake_and_missing_models_pause_w
     let (result, ()) = tokio::join!(worker, control);
     result.unwrap();
 }
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn saved_profile_match_http_uses_verified_facts_and_never_persists_candidate_scores() {
+    let mut c = profile_fixture().await;
+    let job = saved_job(&mut c, 1).await;
+    sqlx::raw_sql("ALTER TABLE jobs ADD COLUMN match_score double precision,ADD COLUMN match_explanation text").execute(&mut c).await.unwrap();
+    sqlx::query(
+        "UPDATE candidate_profiles SET verified_skills='[\" Rust \",\"RUST\",\"FastAPI\"]'",
+    )
+    .execute(&mut c)
+    .await
+    .unwrap();
+    sqlx::query("UPDATE jobs SET skills_required=ARRAY['Rust','Python','Fast API'] WHERE id=$1")
+        .bind(job)
+        .execute(&mut c)
+        .await
+        .unwrap();
+    let before:Value=sqlx::query_scalar("SELECT jsonb_build_object('job',(SELECT to_jsonb(j) FROM jobs j),'profile',(SELECT to_jsonb(p) FROM candidate_profiles p),'confirmation',(SELECT value FROM owner_preferences WHERE key='phase1_profile_confirmation'))").fetch_one(&mut c).await.unwrap();
+    let (url, stop, server) = http_fixture().await;
+    let http = client();
+    let target = format!("{url}/api/v1/jobs/{job}/match");
+    assert_eq!(
+        http.post(&target)
+            .json(&json!({}))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        401
+    );
+    let response = http
+        .post(&target)
+        .header("authorization", format!("bearer {HOST_TOKEN}"))
+        .json(&json!({"verified_skills":["Python"],"verified_experience_years":50}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    assert!(response.headers().get("etag").is_none());
+    let result: Value = response.json().await.unwrap();
+    assert_eq!(
+        result,
+        json!({"job_id":job,"match_score":86.67,"matched_skills":["Rust","FastAPI"],"missing_skills":["Python"],"location_match":true,"title_match":true,"explanation":"Title relevance: 30.0/30. Skills matched (2): Rust, FastAPI. Location/Remote match: Yes (20.0/20). Seniority alignment: 10.0/10."})
+    );
+    let after:Value=sqlx::query_scalar("SELECT jsonb_build_object('job',(SELECT to_jsonb(j) FROM jobs j),'profile',(SELECT to_jsonb(p) FROM candidate_profiles p),'confirmation',(SELECT value FROM owner_preferences WHERE key='phase1_profile_confirmation'))").fetch_one(&mut c).await.unwrap();
+    assert_eq!(before, after);
+    for query in [
+        "SELECT count(*) FROM rust_agent_runs",
+        "SELECT count(*) FROM llm_monthly_usage",
+        "SELECT count(*) FROM application_packets",
+    ] {
+        let count: i64 = sqlx::query_scalar(query).fetch_one(&mut c).await.unwrap();
+        assert_eq!(count, 0);
+    }
+    stop.cancel();
+    server.await.unwrap();
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn saved_profile_match_keeps_unknown_experience_and_preserves_lookup_error_order() {
+    let mut c = profile_fixture().await;
+    let job = saved_job(&mut c, 1).await;
+    sqlx::query("UPDATE candidate_profiles SET verified_experience_years=NULL,verified_skills='[]',preferences='{}'").execute(&mut c).await.unwrap();
+    sqlx::query("UPDATE jobs SET skills_required=ARRAY[]::text[] WHERE id=$1")
+        .bind(job)
+        .execute(&mut c)
+        .await
+        .unwrap();
+    let (url, stop, server) = http_fixture().await;
+    let http = client();
+    let target = format!("{url}/api/v1/jobs/{job}/match");
+    let result: Value = http
+        .post(&target)
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(result["match_score"], 0.0);
+    assert_eq!(result["matched_skills"], json!([]));
+    assert!(
+        result["explanation"]
+            .as_str()
+            .unwrap()
+            .contains("Experience is unknown; no seniority points awarded.")
+    );
+    let wrong_method = http
+        .get(&target)
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(wrong_method.status(), 405);
+    assert_eq!(wrong_method.headers()["allow"], "POST");
+    assert_eq!(
+        http.post(format!("{url}/api/v1/jobs/not-a-uuid/match"))
+            .bearer_auth(HOST_TOKEN)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        422
+    );
+    sqlx::query("DELETE FROM candidate_profiles")
+        .execute(&mut c)
+        .await
+        .unwrap();
+    let no_job = http
+        .post(format!("{url}/api/v1/jobs/{}/match", Uuid::new_v4()))
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(no_job.status(), 404);
+    assert_eq!(
+        no_job.json::<Value>().await.unwrap()["detail"],
+        "Job not found"
+    );
+    let no_profile = http
+        .post(&target)
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(no_profile.status(), 404);
+    assert_eq!(
+        no_profile.json::<Value>().await.unwrap()["detail"],
+        "No candidate profile saved"
+    );
+    stop.cancel();
+    server.await.unwrap();
+}

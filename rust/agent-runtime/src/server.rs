@@ -115,6 +115,14 @@ fn single<'a>(headers: &'a HeaderMap, key: &str) -> Option<&'a str> {
         Some(value)
     }
 }
+fn saved_match_route(path: &str) -> Option<&str> {
+    path.strip_prefix("/api/v1/jobs/")
+        .and_then(|tail| tail.strip_suffix("/match"))
+        .filter(|id| !id.is_empty() && !id.contains('/'))
+}
+fn profile_route(path: &str) -> bool {
+    path == "/api/v1/profile" || saved_match_route(path).is_some()
+}
 fn authorize(request: &Request, config: &Configuration) -> Result<()> {
     let peer = request
         .extensions()
@@ -155,7 +163,7 @@ fn authorize(request: &Request, config: &Configuration) -> Result<()> {
     }
     let token = single(headers, "authorization")
         .and_then(|s| {
-            if request.uri().path() == "/api/v1/profile" {
+            if profile_route(request.uri().path()) {
                 s.split_once(' ')
                     .filter(|(scheme, _)| scheme.eq_ignore_ascii_case("bearer"))
                     .map(|(_, token)| token)
@@ -170,7 +178,7 @@ fn authorize(request: &Request, config: &Configuration) -> Result<()> {
     Ok(())
 }
 async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
-    let is_profile = request.uri().path() == "/api/v1/profile";
+    let is_profile = profile_route(request.uri().path());
     let fail = |error| {
         if is_profile {
             profile_failure(error)
@@ -262,6 +270,21 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
             )
             .await
         }
+        Some(connection) if saved_match_route(&path).is_some() => {
+            if method != "POST" {
+                Err(Failure("match_method_not_allowed"))
+            } else if let Ok(id) = saved_match_route(&path).unwrap().parse::<Uuid>() {
+                crate::saved_match::calculate(connection, id)
+                    .await
+                    .map(|data| OwnerReply {
+                        data,
+                        status: StatusCode::OK,
+                        etag: None,
+                    })
+            } else {
+                Err(Failure("invalid_job_id"))
+            }
+        }
         Some(connection) => dispatch(&api, connection, &method, &path, &body)
             .await
             .map(|data| OwnerReply {
@@ -297,6 +320,8 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
 fn profile_failure(error: Failure) -> Response {
     let status = failure(error).status();
     let detail = match error.0 {
+        "job_not_found" => "Job not found",
+        "invalid_job_id" => "Invalid job ID",
         "profile_not_found" => "No candidate profile saved",
         "profile_version_required" => "Supply If-Match with the current profile version",
         "profile_version_conflict" => "Profile version changed; retrieve it before retrying",
@@ -307,13 +332,18 @@ fn profile_failure(error: Failure) -> Response {
             "Resulting profile is invalid or exceeds 64 KiB"
         }
         "fictional_or_placeholder_profile_rejected" => "fictional_or_placeholder_profile_rejected",
-        "profile_method_not_allowed" => "Method Not Allowed",
+        "profile_method_not_allowed" | "match_method_not_allowed" => "Method Not Allowed",
         "profile_database_error" | "agent_database_reconnecting" | "agent_database_unavailable" => {
             "Profile database unavailable; retrieve the current profile before retrying"
         }
         _ => "Profile request rejected",
     };
     let mut response = reply(status, json!({"detail":detail}));
+    if error.0 == "match_method_not_allowed" {
+        response
+            .headers_mut()
+            .insert("allow", "POST".parse().unwrap());
+    }
     if status == StatusCode::UNAUTHORIZED {
         response
             .headers_mut()
@@ -556,13 +586,16 @@ fn failure(error: Failure) -> Response {
         | "owner_origin_denied"
         | "owner_client_required" => StatusCode::FORBIDDEN,
         "owner_api_tls_required" => StatusCode::UPGRADE_REQUIRED,
-        "profile_not_found" | "agent_run_not_found" | "owner_route_not_found" => {
+        "job_not_found" | "profile_not_found" | "agent_run_not_found" | "owner_route_not_found" => {
             StatusCode::NOT_FOUND
         }
-        "profile_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
+        "profile_method_not_allowed" | "match_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
         "profile_version_required" => StatusCode::PRECONDITION_REQUIRED,
         "profile_version_conflict" => StatusCode::CONFLICT,
-        "profile_version_syntax"
+        "invalid_job_id"
+        | "invalid_saved_job_record"
+        | "invalid_match_result"
+        | "profile_version_syntax"
         | "invalid_profile_input"
         | "profile_payload_limit"
         | "invalid_profile_record"

@@ -14,6 +14,7 @@ pub mod monthly;
 pub mod profile_contract;
 pub mod profile_store;
 pub mod provider;
+pub mod saved_match;
 
 pub mod knowledge_tools;
 
