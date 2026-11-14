@@ -37,8 +37,10 @@ inventory and account/policy/history/readiness acceptance.
 
 The agent host includes direct factual answers, deterministic grounded extraction,
 reviewable saved drafts, signed exact-context owner answers and scoped reusable answers.
-Optional Cohere generation shares the existing monthly usage ledger and bounded model
+Optional Cohere/Gemini generation shares the existing monthly usage ledger and bounded model
 concurrency with the graph agents. It makes one request per reservation, releases read
 locks before inference, rechecks evidence before saving, and cannot submit applications.
 One transient generation connection keeps owner controls responsive; no database pool is
-added. Other provider and application service ports remain in progress.
+added. Gemini also requires its separate approved monthly request count and candidate-data
+grant; it accepts one complete text-only structured result and never follows generated tools.
+Local/CLI provider and application service ports remain in progress.

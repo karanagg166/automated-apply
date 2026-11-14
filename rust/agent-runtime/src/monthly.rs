@@ -1,6 +1,6 @@
 //! Shares the legacy monthly ledger: Rust never resets or duplicates approved budgets.
 use crate::{Failure, Result};
-use sqlx::{Connection, PgConnection, Row};
+use sqlx::{Connection, PgConnection, Postgres, Transaction};
 
 #[derive(Clone, Copy)]
 pub struct MonthlyPolicy {
@@ -33,35 +33,105 @@ impl MonthlyPolicy {
     }
 }
 // Kept opaque: only a successfully committed reservation produces a Month.
-pub struct Month(String);
+pub struct Month(String, Provider);
+#[derive(Clone, Copy)]
+enum Provider {
+    Cohere,
+    Gemini,
+}
+impl Provider {
+    fn name(self) -> &'static str {
+        match self {
+            Self::Cohere => "cohere",
+            Self::Gemini => "gemini",
+        }
+    }
+}
 pub async fn reserve(connection: &mut PgConnection, policy: MonthlyPolicy) -> Result<Month> {
-    let maximum = policy.maximum()?;
+    reserve_capped(connection, Provider::Cohere, policy.maximum()?, 3.1).await
+}
+/// Preserve both the shared configured request cap and the separate owner Gemini grant.
+pub async fn reserve_gemini(
+    connection: &mut PgConnection,
+    configured: u32,
+    approved: u32,
+) -> Result<Month> {
+    if configured > 10000 || approved > 10000 {
+        return Err(Failure("invalid_provider_budget"));
+    }
+    let maximum = configured.min(approved);
+    if maximum == 0 {
+        return Err(Failure("monthly_request_limit"));
+    }
+    reserve_capped(connection, Provider::Gemini, maximum as i32, 0.0).await
+}
+pub(crate) async fn gemini_retry_after(connection: &mut PgConnection) -> Result<Option<u32>> {
+    let seconds: Option<i64> = sqlx::query_scalar("SELECT CEIL(EXTRACT(EPOCH FROM (MAX(cooldown_until)-clock_timestamp())))::bigint FROM llm_monthly_usage WHERE provider='gemini' AND cooldown_until>clock_timestamp()")
+        .fetch_one(connection).await.map_err(|_|Failure("provider_ledger_unavailable"))?;
+    Ok(seconds.map(|s| s.clamp(0, 31536000) as u32))
+}
+async fn reserve_capped(
+    connection: &mut PgConnection,
+    provider: Provider,
+    maximum: i32,
+    pause: f64,
+) -> Result<Month> {
     let mut transaction = connection
         .begin()
         .await
         .map_err(|_| Failure("provider_ledger_unavailable"))?;
+    let result = reservation(&mut transaction, provider, maximum, pause).await;
+    let month = match result {
+        Ok(month) => {
+            transaction
+                .commit()
+                .await
+                .map_err(|_| Failure("provider_ledger_unavailable"))?;
+            month
+        }
+        Err(error) => {
+            // SQLx Drop queues ROLLBACK until the next use. Flush it now so a quiet
+            // rejected caller cannot retain the ledger advisory lock indefinitely.
+            transaction
+                .rollback()
+                .await
+                .map_err(|_| Failure("provider_ledger_unavailable"))?;
+            return Err(error);
+        }
+    };
+    Ok(Month(month, provider))
+}
+async fn reservation(
+    transaction: &mut Transaction<'_, Postgres>,
+    provider: Provider,
+    maximum: i32,
+    pause: f64,
+) -> Result<String> {
     sqlx::query("SELECT pg_advisory_xact_lock(166001,51)")
-        .execute(&mut *transaction)
+        .execute(&mut **transaction)
         .await
         .map_err(|_| Failure("provider_ledger_unavailable"))?;
-    let paused:bool=sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM llm_monthly_usage WHERE provider='cohere' AND cooldown_until>clock_timestamp())").fetch_one(&mut *transaction).await.map_err(|_|Failure("provider_ledger_unavailable"))?;
+    let paused:bool=sqlx::query_scalar("SELECT EXISTS (SELECT 1 FROM llm_monthly_usage WHERE provider=$1 AND cooldown_until>clock_timestamp())")
+        .bind(provider.name()).fetch_one(&mut **transaction).await.map_err(|_|Failure("provider_ledger_unavailable"))?;
     if paused {
         return Err(Failure("rate_limited"));
     }
-    let row=sqlx::query("INSERT INTO llm_monthly_usage (provider,month,requests,input_tokens,output_tokens,cooldown_until,created_at,updated_at) VALUES ('cohere',to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM'),1,0,0,clock_timestamp()+interval '3.1 seconds',clock_timestamp(),clock_timestamp()) ON CONFLICT (provider,month) DO UPDATE SET requests=llm_monthly_usage.requests+1,updated_at=clock_timestamp(),cooldown_until=clock_timestamp()+interval '3.1 seconds' WHERE llm_monthly_usage.requests<$1 AND (llm_monthly_usage.cooldown_until IS NULL OR llm_monthly_usage.cooldown_until<=clock_timestamp()) RETURNING month")
-        .bind(maximum).fetch_optional(&mut *transaction).await.map_err(|_|Failure("provider_ledger_unavailable"))?;
-    let month = row
-        .map(|row| {
-            row.try_get("month")
-                .map_err(|_| Failure("provider_ledger_unavailable"))
-        })
-        .transpose()?
-        .ok_or(Failure("monthly_request_limit"))?;
-    transaction
-        .commit()
-        .await
-        .map_err(|_| Failure("provider_ledger_unavailable"))?;
-    Ok(Month(month))
+    sqlx::query_scalar(r#"
+        INSERT INTO llm_monthly_usage
+            (provider,month,requests,input_tokens,output_tokens,cooldown_until,created_at,updated_at)
+        VALUES ($2,to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM'),1,0,0,
+                clock_timestamp()+$3*interval '1 second',clock_timestamp(),clock_timestamp())
+        ON CONFLICT (provider,month) DO UPDATE
+        SET requests=llm_monthly_usage.requests+1,updated_at=clock_timestamp(),
+            cooldown_until=clock_timestamp()+$3*interval '1 second'
+        WHERE llm_monthly_usage.requests<$1
+          AND (llm_monthly_usage.cooldown_until IS NULL
+               OR llm_monthly_usage.cooldown_until<=clock_timestamp())
+        RETURNING month
+    "#).bind(maximum).bind(provider.name()).bind(pause)
+        .fetch_optional(&mut **transaction).await
+        .map_err(|_|Failure("provider_ledger_unavailable"))?
+        .ok_or(Failure("monthly_request_limit"))
 }
 
 pub async fn tokens(
@@ -70,12 +140,17 @@ pub async fn tokens(
     input: Option<u32>,
     output: Option<u32>,
 ) -> Result<()> {
-    sqlx::query("UPDATE llm_monthly_usage SET input_tokens=input_tokens+$1,output_tokens=output_tokens+$2,updated_at=clock_timestamp() WHERE provider='cohere' AND month=$3")
-        .bind(i64::from(input.unwrap_or(0))).bind(i64::from(output.unwrap_or(0))).bind(&month.0).execute(connection).await.map_err(|_|Failure("provider_ledger_unavailable"))?;
+    sqlx::query("UPDATE llm_monthly_usage SET input_tokens=input_tokens+$1,output_tokens=output_tokens+$2,updated_at=clock_timestamp() WHERE provider=$4 AND month=$3")
+        .bind(i64::from(input.unwrap_or(0))).bind(i64::from(output.unwrap_or(0))).bind(&month.0).bind(month.1.name()).execute(connection).await.map_err(|_|Failure("provider_ledger_unavailable"))?;
     Ok(())
 }
 pub async fn cooldown(connection: &mut PgConnection, month: &Month, seconds: u32) -> Result<()> {
-    sqlx::query("UPDATE llm_monthly_usage SET cooldown_until=GREATEST(COALESCE(cooldown_until,clock_timestamp()),clock_timestamp()+$1*interval '1 second'),updated_at=clock_timestamp() WHERE provider='cohere' AND month=$2")
-        .bind(f64::from(seconds.clamp(60,31536000))).bind(&month.0).execute(connection).await.map_err(|_|Failure("provider_ledger_unavailable"))?;
+    let minimum = if matches!(month.1, Provider::Cohere) {
+        60
+    } else {
+        0
+    };
+    sqlx::query("UPDATE llm_monthly_usage SET cooldown_until=GREATEST(COALESCE(cooldown_until,clock_timestamp()),clock_timestamp()+$1*interval '1 second'),updated_at=clock_timestamp() WHERE provider=$3 AND month=$2")
+        .bind(f64::from(seconds.clamp(minimum,31536000))).bind(&month.0).bind(month.1.name()).execute(connection).await.map_err(|_|Failure("provider_ledger_unavailable"))?;
     Ok(())
 }

@@ -37,6 +37,7 @@ pub mod knowledge_tools;
 mod legacy_regex;
 
 pub mod configuration;
+mod gemini;
 pub mod graph;
 pub mod grounding;
 pub mod lifecycle;

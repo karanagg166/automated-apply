@@ -178,37 +178,64 @@ impl CohereModel {
             error: None,
             input: None,
             output: None,
+            retry_after: None,
         };
-        let result=async {
-            let payload=json!({"question":question,"candidate_facts":context,"reviewed_opportunity_evidence":instructions["opportunity_evidence"],"untrusted_job_context":instructions["job_context"],"writing_style":instructions["style_instruction"],"max_characters":instructions["max_characters"],"max_words":instructions["max_words"]});
-            let body=self.structured_body(
-                &format!("{}\nGenerate one JSON object matching the supplied schema.",include_str!("../schemas/answer-system.txt")),
-                serde_json::to_string(&payload).map_err(|_|Failure("invalid_answer_request"))?,
-                answer_schema(),self.policy.reserved_output_tokens,
+        let result = async {
+            let payload = writing_payload(question, context, instructions);
+            let body = self.structured_body(
+                &format!(
+                    "{}\nGenerate one JSON object matching the supplied schema.",
+                    include_str!("../schemas/answer-system.txt")
+                ),
+                serde_json::to_string(&payload).map_err(|_| Failure("invalid_answer_request"))?,
+                answer_schema(),
+                self.policy.reserved_output_tokens,
             )?;
-            let _permit=self.gate.clone().try_acquire_owned().map_err(|_|Failure("provider_busy"))?;
-            let month=monthly::reserve(connection,self.policy).await?;
-            attempt.attempted=true;
-            let response=self.send(body).await;
-            if matches!(response,Err(Failure("rate_limited"))) {monthly::cooldown(connection,&month,60).await?;}
-            let response=response?;
-            attempt.input=response.input;attempt.output=response.output;
-            monthly::tokens(connection,&month,response.input,response.output).await?;
-            if response.input.is_some_and(|n|n>self.policy.reserved_input_bytes)
-                || response.output.is_some_and(|n|n>self.policy.reserved_output_tokens) {
+            let _permit = self
+                .gate
+                .clone()
+                .try_acquire_owned()
+                .map_err(|_| Failure("provider_busy"))?;
+            let month = monthly::reserve(connection, self.policy).await?;
+            attempt.attempted = true;
+            let response = self.send(body).await;
+            if matches!(response, Err(Failure("rate_limited"))) {
+                monthly::cooldown(connection, &month, 60).await?;
+            }
+            let response = response?;
+            attempt.input = response.input;
+            attempt.output = response.output;
+            monthly::tokens(connection, &month, response.input, response.output).await?;
+            if response
+                .input
+                .is_some_and(|n| n > self.policy.reserved_input_bytes)
+                || response
+                    .output
+                    .is_some_and(|n| n > self.policy.reserved_output_tokens)
+            {
                 return Err(Failure("provider_usage_exceeds_reservation"));
             }
-            let value=serde_json::from_str(structured_text(&response.value)?).map_err(|_|Failure("invalid_structured_response"))?;
-            crate::grounding::ModelAnswer::parse(value).map_err(|_|Failure("invalid_structured_response"))
-        }.await;
+            let value = serde_json::from_str(structured_text(&response.value)?)
+                .map_err(|_| Failure("invalid_structured_response"))?;
+            crate::grounding::ModelAnswer::parse(value)
+                .map_err(|_| Failure("invalid_structured_response"))
+        }
+        .await;
         match result {
             Ok(content) => attempt.content = Some(content),
-            Err(error) => attempt.error = Some(error),
+            Err(error) => {
+                attempt.retry_after = match error.0 {
+                    "rate_limited" => Some(60),
+                    "provider_busy" => Some(1),
+                    _ => None,
+                };
+                attempt.error = Some(error);
+            }
         }
         attempt
     }
     async fn send(&self, encoded: Vec<u8>) -> Result<CloudResponse> {
-        let mut response = self
+        let response = self
             .client
             .post(&self.endpoint)
             .bearer_auth(&self.key)
@@ -227,41 +254,45 @@ impl CohereModel {
                 _ => "provider_error",
             }));
         }
-        if response.content_length().is_some_and(|n| n > 131072) {
-            return Err(Failure("provider_response_size"));
-        }
-        let mut bytes = Vec::new();
-        while let Some(chunk) = response
-            .chunk()
-            .await
-            .map_err(|_| Failure("cohere_transport_error"))?
-        {
-            if bytes.len() + chunk.len() > 131072 {
-                return Err(Failure("provider_response_size"));
-            }
-            bytes.extend_from_slice(&chunk);
-        }
-        let value: Value =
-            serde_json::from_slice(&bytes).map_err(|_| Failure("invalid_structured_response"))?;
+        let value = bounded_json(response, "cohere_transport_error").await?;
         let usage = value.get("usage").and_then(|v| v.get("tokens"));
-        let token = |name: &str| -> Result<Option<u32>> {
-            match usage.and_then(|v| v.get(name)).filter(|v| !v.is_null()) {
-                Some(v) => v
-                    .as_u64()
-                    .and_then(|n| u32::try_from(n).ok())
-                    .map(Some)
-                    .ok_or(Failure("invalid_structured_response")),
-                None => Ok(None),
-            }
-        };
-        let input = token("input_tokens")?;
-        let output = token("output_tokens")?;
+        let input = usage_counter(usage, "input_tokens")?;
+        let output = usage_counter(usage, "output_tokens")?;
         Ok(CloudResponse {
             value,
             input,
             output,
         })
     }
+}
+pub(crate) async fn bounded_json(
+    mut response: reqwest::Response,
+    transport: &'static str,
+) -> Result<Value> {
+    if response.content_length().is_some_and(|n| n > 131072) {
+        return Err(Failure("provider_response_size"));
+    }
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|_| Failure(transport))? {
+        if bytes.len() + chunk.len() > 131072 {
+            return Err(Failure("provider_response_size"));
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    serde_json::from_slice(&bytes).map_err(|_| Failure("invalid_structured_response"))
+}
+pub(crate) fn usage_counter(usage: Option<&Value>, name: &str) -> Result<Option<u32>> {
+    match usage.and_then(|v| v.get(name)).filter(|v| !v.is_null()) {
+        Some(v) => v
+            .as_u64()
+            .and_then(|n| u32::try_from(n).ok())
+            .map(Some)
+            .ok_or(Failure("invalid_structured_response")),
+        None => Ok(None),
+    }
+}
+pub(crate) fn writing_payload(question: &str, context: &Value, instructions: &Value) -> Value {
+    json!({"question":question,"candidate_facts":context,"reviewed_opportunity_evidence":instructions["opportunity_evidence"],"untrusted_job_context":instructions["job_context"],"writing_style":instructions["style_instruction"],"max_characters":instructions["max_characters"],"max_words":instructions["max_words"]})
 }
 struct CloudResponse {
     value: Value,
@@ -275,8 +306,9 @@ pub struct WritingAttempt {
     pub error: Option<Failure>,
     pub input: Option<u32>,
     pub output: Option<u32>,
+    pub retry_after: Option<u32>,
 }
-fn answer_schema() -> Value {
+pub(crate) fn answer_schema() -> Value {
     let reference = json!({"type":"object","properties":{"source_type":{"type":"string","enum":["owner_answer","verified_project","verified_role","candidate_evidence","candidate_profile","candidate_preferences","project_context","opportunity_job","opportunity_company"]},"source_id":{"type":"string"}},"required":["source_type","source_id"],"additionalProperties":false});
     let claim = json!({"type":"object","properties":{"text":{"type":"string"},"source":reference,"quote":{"type":"string"}},"required":["text","source","quote"],"additionalProperties":false});
     json!({"type":"object","properties":{"answer":{"type":"string"},"evidence_references":{"type":"array","items":reference},"claims":{"type":"array","items":claim},"opportunity_claims":{"type":"array","items":claim}},"required":["answer","evidence_references","claims"],"additionalProperties":false})

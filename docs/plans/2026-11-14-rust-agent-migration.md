@@ -72,11 +72,14 @@ failures. No software can guarantee an external employer or provider always succ
 Current profile ports include CRUD/CAS, saved-job matching, atomic owner confirmation,
 saved-resume selection, onboarding readiness, resource/evidence persistence and link
 provenance. Rich contexts, grounding, drafts, exact missing-answer approvals and reusable
-answers now run in Rust. Current validation passes 225 distinct tests (116 standard +109
+answers now run in Rust. Current validation passes 233 distinct tests (119 standard +114
 dedicated PostgreSQL), including 2,442 new direct-answer comparisons and 899 reuse intent,
 digest and DTO comparisons within two tests. Existing matching/profile/context corpora remain.
-Cohere generation is opt-in; deterministic extraction and direct answers need no model.
-Other provider ports, private PDF/storage and remaining services are next. Installation and
+Cohere and Gemini generation are opt-in; deterministic extraction and direct answers need
+no model. Gemini preserves its separate owner request grant and existing monthly ledger;
+both transports refuse redirects and hidden retries. Concurrent grant rejection explicitly
+finishes rollback before returning so a quiet rejected caller cannot retain a ledger lock.
+Local/CLI provider ports, private PDF/storage and remaining services are next. Installation and
 full Python removal have not happened; whole-project acceptance remains IN PROGRESS.
 
 | Deliverable | State |

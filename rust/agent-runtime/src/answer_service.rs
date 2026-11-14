@@ -22,15 +22,22 @@ pub struct Settings {
     pub(crate) defaults: BTreeMap<String, String>,
     pub(crate) opportunity: bool,
     pub(crate) reuse: bool,
-    writing: Option<CohereModel>,
+    writing: Option<Writer>,
     provider: &'static str,
     model: Option<String>,
     unavailable: Failure,
 }
+enum Writer {
+    Cohere(CohereModel),
+    Gemini(crate::gemini::GeminiModel),
+}
 impl Settings {
     pub(crate) fn share_gate(&mut self, gate: std::sync::Arc<tokio::sync::Semaphore>) {
         if let Some(model) = &mut self.writing {
-            model.share_gate(gate);
+            match model {
+                Writer::Cohere(model) => model.share_gate(gate),
+                Writer::Gemini(model) => model.gate = gate,
+            }
         }
     }
     pub fn from_values(
@@ -72,18 +79,17 @@ impl Settings {
                 let mut selected = values.clone();
                 selected.insert("RUST_AGENT_REVIEW_MODEL".into(), "cohere".into());
                 match CohereModel::runtime(&selected, fixture) {
-                    Ok(model) => out.writing = model,
+                    Ok(model) => out.writing = model.map(Writer::Cohere),
                     Err(error) => out.unavailable = error,
                 }
             }
         } else if matches!(provider, "agy" | "ollama") {
             out.unavailable = Failure("provider_execution_not_authorized");
-        } else if out.model.is_some()
-            && values
-                .get("GEMINI_API_KEY")
-                .is_some_and(|s| !s.trim().is_empty())
-        {
-            out.unavailable = Failure("answer_provider_not_migrated");
+        } else if provider == "gemini" {
+            match crate::gemini::GeminiModel::from_values(values, fixture) {
+                Ok(model) => out.writing = Some(Writer::Gemini(model)),
+                Err(error) => out.unavailable = error,
+            }
         }
         Ok(out)
     }
@@ -451,16 +457,30 @@ pub async fn generate(
         }
         return Ok(result);
     };
-    let call = provider
-        .write_answer(
-            connection,
-            &writing.request.question,
-            &writing.context,
-            &writing.instructions,
-        )
-        .await;
+    let call = match provider {
+        Writer::Cohere(provider) => {
+            provider
+                .write_answer(
+                    connection,
+                    &writing.request.question,
+                    &writing.context,
+                    &writing.instructions,
+                )
+                .await
+        }
+        Writer::Gemini(provider) => {
+            provider
+                .write_answer(
+                    connection,
+                    &writing.request.question,
+                    &writing.context,
+                    &writing.instructions,
+                )
+                .await
+        }
+    };
     result["used_llm"] = json!(call.attempted);
-    if call.input.is_some() || call.output.is_some() {
+    if call.input.is_some() || call.output.is_some() || call.content.is_some() {
         result["usage"] = json!({"input_tokens":call.input,"output_tokens":call.output});
     }
     if let Some(error) = call.error {
@@ -470,11 +490,8 @@ pub async fn generate(
             "provider_unavailable"
         });
         result["error_code"] = json!(error.0);
-        if error.0 == "rate_limited" {
-            result["retry_after_seconds"] = json!(60.0);
-        }
-        if error.0 == "provider_busy" {
-            result["retry_after_seconds"] = json!(1.0);
+        if let Some(seconds) = call.retry_after {
+            result["retry_after_seconds"] = json!(seconds as f64);
         }
         return Ok(result);
     }
