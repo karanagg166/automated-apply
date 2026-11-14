@@ -1,6 +1,6 @@
 # Rust migration: native transport and coordinator milestones, 2026-11-14
 
-Latest: [Milestone 9 — graph, optional model review and human approvals](#milestone-9-durable-graph-model-review-and-human-approval-dashboard).
+Latest: [Milestone 10 — primary profile normalization and CAS CRUD](#milestone-10-rust-primary-profile-normalization-and-cas-crud).
 
 Overall request: **IN PROGRESS**. Full Python replacement and multi-agent AI delivery
 are not complete. Installed application services/extension/native wrapper were not changed.
@@ -755,3 +755,94 @@ REST/services and rich verified context, then actual guarded browser/application
 Telegram commands, Gmail/provider ports and Python removal. Perform immutable installation,
 rollback, live account/focus/history/quota/receipt and whole-project Mac resource acceptance
 only after those ports are complete. The graph milestone is not full project completion.
+
+## Milestone 10: Rust primary profile normalization and CAS CRUD
+
+Implementation: [`a4976d78a44447be256f62efc5ea0a6e97f851b3`](https://github.com/karanagg166/automated-apply/commit/a4976d78a44447be256f62efc5ea0a6e97f851b3),
+branch `feat/rust-agent-runtime`, [draft PR #50](https://github.com/karanagg166/automated-apply/pull/50),
+base `chore/uv-python-tooling` / [PR #49](https://github.com/karanagg166/automated-apply/pull/49).
+Full migration and installed acceptance remain **IN PROGRESS**.
+
+The standalone Rust host now implements owner-authenticated `GET/PUT/PATCH /api/v1/profile`
+using its existing API connection. Authentication precedes bounded body reads; DTO validation
+precedes If-Match preconditions. Create returns 201, read/update 200 and strong quoted ETags.
+Changed PUT and every PATCH require the current version; stale and ambiguous preconditions
+are rejected. A no-op PUT may omit If-Match, while a supplied version is atomically checked
+even for a no-op. Source version increments and commit occur before acknowledgment. A failed
+result validation or deferred commit constraint rolls the write back. Existing resume
+associations, confirmation/history and unrelated fields are excluded from writes. No real
+profile was read or saved, and no existing service/proxy was redirected.
+
+The Rust contract preserves normalized dict input versus root ORM read behavior, partial
+omission versus explicit null, Unicode skills/deduplication, email/URL normalization,
+numeric/date coercion, exact Decimal serialization/cent bounds, chronological dates, complete
+profile authorization uniqueness and the 64KiB serialized bound including defaults. Partial
+preferences merge one level and revalidate the full resulting profile. Historical raw data
+that differs from canonical input still requires a version before any rewrite. GET does not
+normalize data in storage. UTC timestamp output retains microsecond precision. The existing
+production/staging placeholder fence retains Python's Unicode case and word-boundary rules.
+
+Compiled schema validators disable external/file retrieval and are cached. Public Python3.11
+Unicode14 property tables, IDNA PVALID data and a fictional corpus are checked in; they contain
+no candidate data. Exporters import public DTOs only, without settings or DB initialization.
+The conformance source environment is Pydantic2.14.1/core2.50.1, email-validator2.3.0,
+idna3.20 (IDNA data18.0.0). Rust dependencies reuse versions already present in the lockfile;
+no runtime interpreter or cloud model is called by profile normalization/persistence.
+
+| Check | Status | Exact evidence |
+| --- | --- | --- |
+| Standard Rust suites | PASS | 83 tests: 20 library, 20 coordinator, 7 graph, 9 host, 5 profile, 8 domain, 14 native; 0 failed; 54 PG cases deliberately ignored in this command |
+| Dedicated native PostgreSQL fixtures | PASS | All 54 executed, 0 failed/ignored; final run 13.58s; 5 added profile integration tests |
+| Fictional DTO conformance | PASS | 779 comparisons inside one profile test; accept/reject and canonical JSON match the public Python DTOs, including root ORM reads |
+| Actual profile HTTP/CAS/commit visibility | PASS | Included above: owner auth before oversized body, 413/404/405/422/428/409/201/200, strong ETag, duplicate/stale headers, lowercase bearer, independent connection sees commit before HTTP ACK |
+| Concurrent saves / unchanged values / history and resume integrity | PASS | Included above: one of two version4 writers succeeds, version5 retained; old confirmation untouched and becomes stale; resume association preserved; no-op timestamp/version unchanged |
+| Result-validation and deferred-commit rollback | PASS | Included above: fictional DB triggers force invalid response and commit refusal; original row/version retained, no acknowledgment of success |
+| Legacy raw normalization / merged payload / live fence | PASS | Included above: no silent rewrite without version, complete merged oversize rejected without a save, production placeholder input rejected |
+| Public schema / Unicode / corpus drift checks | PASS | Local exporters with `--check`; no settings, owner data or network loaded |
+| Rust format / Clippy warnings denied / exporter Ruff / diff | PASS | Final local checks passed |
+| Locked optimized workspace build | PASS | Final build 1m06s; functional native/HTTP fixtures use debug executable |
+| Graph UI, proxy and isolated browser evidence | PASS | Retained milestone9 evidence: 10 UI tests, 1 isolated Chromium journey and frontend production build; unchanged frontend not rerun for this profile port |
+| Installed/live profile migration and complete profile feature surface | NOT TESTED | No service cutover; saved-job match, readiness/confirmation, resources and rich context endpoints remain open |
+| Exact FastAPI validation-error arrays and all routing aliases | NOT TESTED | Rust uses sanitized `detail` strings; full per-input error arrays and routing parity are not claimed |
+| Real account/browser/Telegram/Gmail/application or cloud inference | NOT TESTED | No real owner credentials/data, messages, profile save or application used |
+| Whole-project CPU/RSS/GPU comparison | NOT TESTED | No new paired runtime benchmark; earlier native/matching component measurements retain their original scope/SHAs |
+| Hosted Actions / merge / installation / cleanup | NOT TESTED | Not dispatched, merged, installed or performed |
+
+Current total: **137 distinct Rust tests passed** (83 standard + 54 dedicated PostgreSQL).
+The **779 DTO comparisons** are separate case coverage within one counted test. Retained
+milestone9 frontend/browser results and earlier parity corpora are not counted as new Rust
+passes. Actual Mac evidence uses the real Rust HTTP server and native disposable PostgreSQL;
+all candidate/job/email/resume-link IDs and text are fictional. Production schema, roles,
+identity, data, installed releases, Chrome focus and runtime resource acceptance remain open.
+
+Sanitized development findings: comparison fixtures caught omitted nested defaults, complete
+versus partial authorization rules, IDNA eligibility, float/integer underscore differences,
+exact date parsing and root ORM whitespace behavior. SQLx rejected runtime-generated query
+strings (`E0277`); final CRUD uses fixed audited SQL literals with bound data, without an
+unsafe SQL assertion. Export import ordering was corrected (`I001`). All final scoped checks
+pass; no raw private logs are published. Important tested failures include
+`invalid_profile_input`, `profile_payload_limit`, `profile_version_required`,
+`profile_version_syntax`, `profile_version_conflict`,
+`fictional_or_placeholder_profile_rejected` and `profile_database_error`.
+
+Reproduction:
+
+```sh
+cargo test --locked --workspace
+uv run --no-project --python .venv/bin/python python -m rust.scripts.run_postgres_tests
+uv run --no-project --python .venv/bin/python python -m rust.scripts.export_profile_schema --check
+uv run --no-project --python .venv/bin/python python -m rust.scripts.export_profile_unicode --check
+uv run --no-project --python .venv/bin/python python -m rust.scripts.profile_corpus --check
+uv tool run --from ruff ruff check --isolated --select E9,F,I rust/scripts/profile_corpus.py rust/scripts/export_profile_unicode.py
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all -- --check
+cargo build --locked --release --workspace
+git diff --check
+```
+
+Next remains the rest of the profile/resource/context/matching feature surface and other
+REST/services, actual guarded browser/application execution, full legacy Telegram commands,
+remaining Gmail/providers and Python removal. The graph currently uses deterministic
+specialists with optional model review; expanding multiple model-backed role planning must
+retain the same consent and total budget limits. Full project/live/rollback/focus/history/
+quota/receipt/resource acceptance has not been achieved.
