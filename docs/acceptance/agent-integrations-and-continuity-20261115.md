@@ -45,6 +45,7 @@ No transcript, title, credential, private PDF or raw private log is published he
 | PDF/legacy compatibility | PASS | 24 fictional PDFs evaluated in two modes inside one test; ten suggestion and two Fernet examples inside two other tests; corpus regeneration matches |
 | Continuity regression suite | PASS | Ten tests, zero failures; source disappearance/index changes, exact recovery, dedup, partial records, permissions, corruption, absent store, symlinks, traversal and auth exclusion |
 | Actual local backup | PASS | 101 project thread records; three available project transcripts preserved;98 indexed transcript paths missing; zero unsafe/unreadable entries at final snapshot |
+| Actual older-transcript export | PASS | Two retained older project transcripts reconstructed privately:29,334,516 and8,604,472 bytes; Codex DB unchanged. These are local exports, not restored sidebar entries |
 | Scheduled backup | PASS | `com.automated-apply.codex-history` registered,300-second interval, actual last exit0; does not start application services |
 | Restore missing chats to Codex sidebar | BLOCKED | Account-filtered app lists two active threads and zero archived; local DB has133 records overall. Missing98 project transcripts were not recovered and the deletion cause is unproven. Account ownership is not rewritten |
 | Apify MCP registration | PASS | Codex and VS Code point to the official hosted endpoint restricted to four discovery/docs tools; actual initialize and tools/list HTTP200, exact four-tool catalog, zero actor runs or candidate data sent |

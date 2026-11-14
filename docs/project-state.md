@@ -36,6 +36,8 @@ transcript files remain at their indexed paths. The account-filtered app listed 
 active threads and no archived threads. The cause of missing files is unproven. Do not
 rewrite account ownership or claim missing transcripts recovered. App-owned history
 visibility cannot be repaired by changing this project's application.
+Two available older transcripts were reconstructed privately under
+`.local/codex-history/recovered/`; those exports do not restore Codex sidebar entries.
 
 Implemented in this continuation: private scheduled backups/recovery, the official
 four-tool public Apify MCP registration, a native Rust MCP tool bridge and fixed
