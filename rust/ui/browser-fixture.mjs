@@ -38,6 +38,7 @@ const run = () => ({
   state: "waiting_approval",
   role: "execution",
   diagnostic: null,
+  model_policy: { provider: "deterministic" },
   usage: {
     model_calls: 0,
     tool_calls: 4,

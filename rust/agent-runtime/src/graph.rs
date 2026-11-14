@@ -107,7 +107,14 @@ fn digest(run: &Run, scope: ApprovalScope) -> Result<String> {
     } else {
         None
     };
-    let bytes=serde_json::to_vec(&json!({"profile":run.profile,"results":contexts,"jobs":run.known_jobs,"pending":pending,"scope":scope,"revision":run.graph.revision,"limits":run.limits})).map_err(|_|Failure("invalid_agent_context"))?;
+    let mut bound = json!({"profile":run.profile,"results":contexts,"jobs":run.known_jobs,"pending":pending,"scope":scope,"revision":run.graph.revision,"limits":run.limits});
+    if let Some(policy) = &run.model_policy {
+        bound.as_object_mut().unwrap().insert(
+            "model_policy".into(),
+            serde_json::to_value(policy).map_err(|_| Failure("invalid_agent_context"))?,
+        );
+    }
+    let bytes = serde_json::to_vec(&bound).map_err(|_| Failure("invalid_agent_context"))?;
     Ok(format!("{:x}", Sha256::digest(bytes)))
 }
 fn valid(run: &Run, approval: &Approval, scope: ApprovalScope, now: i64) -> bool {

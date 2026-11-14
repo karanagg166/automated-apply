@@ -34,6 +34,9 @@ fn number(values: &BTreeMap<String, String>, key: &str, default: u32) -> Result<
         .unwrap_or(Ok(default))
 }
 impl CohereModel {
+    pub fn name(&self) -> &str {
+        &self.model
+    }
     pub(crate) fn runtime(
         values: &BTreeMap<String, String>,
         fixture: bool,
@@ -326,6 +329,12 @@ fn decision_schema(role: Role) -> Value {
         .map(|t| serde_json::to_value(t).unwrap())
         .collect::<Vec<_>>();
     let mut schema = json!({"type":"object","required":["action"],"additionalProperties":false,"properties":{"action":{"type":"string","enum":["tool","handoff","needs_input","complete"]},"call":{"type":["object","null"],"required":["name"],"additionalProperties":false,"properties":{"name":{"type":"string","enum":tools},"job_id":{"type":["string","null"]},"evidence":{"type":"array","items":{"type":"string"}}}},"next":{"type":["string","null"],"enum":["discovery","matching","answers","review","execution",null]},"evidence":{"type":"array","items":{"type":"string"}},"question_key":{"type":["string","null"]}}});
+    if role == Role::Discovery {
+        // The planner runs only after an actual saved-job read; it cannot dispatch tools.
+        schema["properties"]["action"]["enum"] = json!(["handoff", "needs_input"]);
+        schema["properties"].as_object_mut().unwrap().remove("call");
+        schema["properties"]["next"]["enum"] = json!(["matching", null]);
+    }
     if role == Role::Review {
         // This reviewer runs only after all four factual read tools completed.
         // It cannot propose an unmigrated browser/application tool.

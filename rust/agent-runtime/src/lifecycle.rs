@@ -238,7 +238,19 @@ pub async fn intake(
     request_key: Uuid,
     limits: Limits,
 ) -> Result<Stored> {
+    intake_policy(connection, request_key, limits, None).await
+}
+pub async fn intake_policy(
+    connection: &mut PgConnection,
+    request_key: Uuid,
+    limits: Limits,
+    policy: Option<crate::model_policy::Policy>,
+) -> Result<Stored> {
+    if let Some(policy) = &policy {
+        policy.validate()?;
+    }
     let mut run = Run::new(request_key, limits)?;
+    run.model_policy = policy;
     if let Some(profile) = knowledge::reviewed_profile(connection).await? {
         run.profile = Some(profile.pin);
     } else {
@@ -250,7 +262,7 @@ pub async fn intake(
     load(connection, id).await
 }
 pub fn summary(stored: &Stored) -> Value {
-    json!({"id":stored.run.id,"revision":stored.revision,"state":stored.run.state,"role":stored.run.role,"usage":stored.run.usage,"limits":stored.run.limits,"profile":stored.run.profile,"diagnostic":stored.run.diagnostic,"known_jobs":stored.run.known_jobs,"question":questions::public_question(&stored.run,stored.revision),"graph":crate::graph::summary(&stored.run),"scope":"saved_job_review_no_application_dispatch"})
+    json!({"id":stored.run.id,"revision":stored.revision,"state":stored.run.state,"role":stored.run.role,"usage":stored.run.usage,"limits":stored.run.limits,"profile":stored.run.profile,"diagnostic":stored.run.diagnostic,"known_jobs":stored.run.known_jobs,"question":questions::public_question(&stored.run,stored.revision),"graph":crate::graph::summary(&stored.run),"model_policy":stored.run.model_policy,"scope":"saved_job_review_no_application_dispatch"})
 }
 pub async fn listing(connection: &mut PgConnection) -> Result<Vec<Value>> {
     let rows=sqlx::query("SELECT run,revision FROM rust_agent_runs WHERE owner='primary' ORDER BY created_at DESC,id LIMIT 50").fetch_all(connection).await.map_err(db)?;

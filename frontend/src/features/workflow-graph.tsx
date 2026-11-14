@@ -45,7 +45,7 @@ const stages = [
   [
     "reasoning",
     "Decide",
-    "Specialists propose a typed action. Optional model review uses a bounded factual summary.",
+    "Specialists propose typed decisions. Optional model-backed planning and review use bounded factual summaries.",
   ],
   [
     "validation",
@@ -461,6 +461,16 @@ export function WorkflowGraph() {
       {run && (
         <section style={box}>
           <h2>Budget and audit</h2>
+          <p>
+            Run model policy:{" "}
+            {run.model_policy?.provider === "cohere"
+              ? `${run.model_policy.model} · ${run.model_policy.roles.join(", ")}`
+              : run.model_policy?.provider === "deterministic"
+                ? "Deterministic specialists"
+                : "Legacy review policy"}
+            . Available AI roles:{" "}
+            {capabilities?.model_roles?.join(", ") || "none"}.
+          </p>
           <p>{run.graph.decision_summary}</p>
           <pre style={{ whiteSpace: "pre-wrap" }}>
             {JSON.stringify(run.usage, null, 2)}

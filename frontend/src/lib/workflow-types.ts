@@ -20,6 +20,10 @@ export interface WorkflowRun {
   state: string;
   role: string;
   diagnostic: string | null;
+  model_policy?:
+    | { provider: "deterministic" }
+    | { provider: "cohere"; model: string; roles: string[] }
+    | null;
   question?: { id: string; prompt: string } | null;
   usage: Record<string, number>;
   graph: Graph;
@@ -44,6 +48,7 @@ export interface WorkflowControl {
 }
 export interface WorkflowCapabilities {
   review_model: string;
+  model_roles?: string[];
   recommended_limits: Record<string, number | boolean>;
   application_dispatch: boolean;
   tools?: Array<{

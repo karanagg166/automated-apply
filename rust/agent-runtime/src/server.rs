@@ -369,12 +369,17 @@ async fn profile_dispatch(
         etag: Some(format!("\"{}\"", saved.version)),
     })
 }
+fn supplied_limits<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Option<Limits>, D::Error> {
+    Limits::deserialize(deserializer).map(Some)
+}
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Intake {
     request_id: Uuid,
-    #[serde(default)]
-    limits: Limits,
+    #[serde(default, deserialize_with = "supplied_limits")]
+    limits: Option<Limits>,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -431,17 +436,8 @@ async fn dispatch(
                 .map_err(|_| Failure("invalid_control_response"))?)
         }
         ("GET", ["api", "v1", "rust-agent", "capabilities"]) => {
-            let mut limits = Limits {
-                human_review: true,
-                decision_calls: 32,
-                ..Limits::default()
-            };
-            if api.config.review_model() == "cohere" {
-                limits.model_calls = 3;
-                limits.decision_calls = 32;
-                limits.tokens = 16000;
-                limits.max_input_tokens = 5000;
-            }
+            let policy = api.config.model_policy();
+            let limits = policy.recommended_limits();
             let tools = ToolName::ALL.into_iter().map(|name| {
                 let status = match name {
                     ToolName::SearchJobs|ToolName::RankJobs|ToolName::VerifiedContext|ToolName::ApplicationHistory => "available",
@@ -453,7 +449,7 @@ async fn dispatch(
                 json!({"name":name,"description":name.description(),"roles":roles,"repeatable":name.repeatable(),"status":status})
             }).collect::<Vec<_>>();
             Ok(
-                json!({"tools":tools,"review_model":api.config.review_model(),"recommended_limits":limits,"application_dispatch":false,"graph":crate::graph::MERMAID,"human_decisions":["approve","reject","request_changes"]}),
+                json!({"model_roles":policy.roles(),"model_policy":policy,"tools":tools,"review_model":api.config.review_model(),"recommended_limits":limits,"application_dispatch":false,"graph":crate::graph::MERMAID,"human_decisions":["approve","reject","request_changes"]}),
             )
         }
         ("PUT", ["api", "v1", "rust-agent", "control"]) => {
@@ -468,7 +464,19 @@ async fn dispatch(
         }
         ("POST", ["api", "v1", "rust-agent", "runs"]) => {
             let input: Intake = decode(body)?;
-            let stored = lifecycle::intake(connection, input.request_id, input.limits).await?;
+            let policy = api.config.model_policy();
+            let limits = input.limits.unwrap_or_else(|| {
+                if api.config.models.is_some() {
+                    let mut limits = policy.recommended_limits();
+                    limits.human_review = false;
+                    limits
+                } else {
+                    Limits::default()
+                }
+            });
+            let stored =
+                lifecycle::intake_policy(connection, input.request_id, limits, Some(policy))
+                    .await?;
             api.wake.work_available();
             Ok(lifecycle::summary(&stored))
         }
@@ -710,6 +718,7 @@ mod tests {
             )
             .is_err()
         );
+        for body in [br#"{"request_id":"00000000-0000-0000-0000-000000000001","limits":null}"#.as_slice(),br#"{"request_id":"00000000-0000-0000-0000-000000000001","model_policy":{"provider":"cohere","roles":["execution"]}}"#.as_slice()] {assert!(decode::<Intake>(body).is_err());}
         assert!(decode::<Resolution>(br#"{"expected_revision":1,"profile":{"id":"00000000-0000-0000-0000-000000000002","version":4},"answer":30}"#).is_err());
         assert!(
             decode::<ControlRequest>(

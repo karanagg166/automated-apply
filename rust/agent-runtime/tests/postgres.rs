@@ -2725,8 +2725,23 @@ async fn graph_model_fixture(
     axum::Json(body): axum::Json<Value>,
 ) -> axum::Json<Value> {
     let mut observed = calls.lock().unwrap();
+    let planner = body["messages"][0]["content"]
+        .as_str()
+        .unwrap()
+        .starts_with(Role::Discovery.instruction());
     observed.push(body);
-    let decision = if observed.len() == 1 {
+    let reviews = observed
+        .iter()
+        .filter(|body| {
+            body["messages"][0]["content"]
+                .as_str()
+                .unwrap()
+                .starts_with(Role::Review.instruction())
+        })
+        .count();
+    let decision = if planner {
+        json!({"action":"handoff","next":"matching","evidence":[]})
+    } else if reviews == 1 {
         json!({"action":"replan","target":"matching","reason":"recheck_eligibility","evidence":[]})
     } else {
         json!({"action":"handoff","next":"execution","evidence":[]})
@@ -2738,6 +2753,14 @@ async fn graph_model_fixture(
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
 async fn actual_cli_model_reviewer_replans_waits_without_recharging_and_requires_human_decision() {
+    exercise_model_roles(false).await;
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn actual_cli_two_model_agents_plan_review_replan_and_wait_for_human_approval() {
+    exercise_model_roles(true).await;
+}
+async fn exercise_model_roles(dual: bool) {
     use tokio::io::AsyncBufReadExt;
     let mut c = knowledge_fixture().await;
     saved_job(&mut c, 1).await;
@@ -2757,6 +2780,9 @@ async fn actual_cli_model_reviewer_replans_waits_without_recharging_and_requires
             .unwrap();
     });
     let mut values = host_values();
+    if dual {
+        values.insert("RUST_AGENT_MODEL_ROLES".into(), "discovery,review".into());
+    }
     for (key, value) in [
         ("RUST_AGENT_REVIEW_MODEL", "cohere"),
         ("COHERE_ENABLED", "true"),
@@ -2815,6 +2841,17 @@ async fn actual_cli_model_reviewer_replans_waits_without_recharging_and_requires
         .await
         .unwrap();
     assert_eq!(capabilities["review_model"], "cohere");
+    assert_eq!(
+        capabilities["model_roles"],
+        if dual {
+            json!(["discovery", "review"])
+        } else {
+            json!(["review"])
+        }
+    );
+    let final_calls = if dual { 3 } else { 2 };
+    let per_call = if dual { 3928 } else { 5128 };
+    let mut waits = BTreeMap::new();
     let created: Value = http
         .post(format!("{url}/runs"))
         .bearer_auth(HOST_TOKEN)
@@ -2826,7 +2863,7 @@ async fn actual_cli_model_reviewer_replans_waits_without_recharging_and_requires
         .await
         .unwrap();
     let id = created["id"].as_str().unwrap();
-    let waiting: Value = tokio::time::timeout(Duration::from_secs(15), async {
+    let waiting: Value = tokio::time::timeout(Duration::from_secs(25), async {
         let mut saw_wait = false;
         loop {
             let saved: Value = http
@@ -2841,8 +2878,13 @@ async fn actual_cli_model_reviewer_replans_waits_without_recharging_and_requires
             assert_ne!(saved["state"], "failed", "{saved}");
             if saved["graph"]["node"] == "provider_wait" {
                 saw_wait = true;
-                assert_eq!(saved["usage"]["model_calls"], 1);
-                assert_eq!(saved["usage"]["reserved_tokens"], 5128);
+                let calls = saved["usage"]["model_calls"].as_u64().unwrap();
+                assert!((1..final_calls).contains(&calls));
+                assert_eq!(saved["usage"]["reserved_tokens"], calls * per_call);
+                let key = format!("{}:{}", saved["role"], saved["graph"]["iteration"]);
+                if let Some(prior) = waits.insert(key, saved["usage"].clone()) {
+                    assert_eq!(prior, saved["usage"]);
+                }
             }
             if saved["state"] == "waiting_approval" {
                 assert!(saw_wait);
@@ -2854,9 +2896,9 @@ async fn actual_cli_model_reviewer_replans_waits_without_recharging_and_requires
     .await
     .unwrap();
     assert_eq!(waiting["graph"]["iteration"], 1);
-    assert_eq!(waiting["usage"]["model_calls"], 2);
+    assert_eq!(waiting["usage"]["model_calls"], final_calls);
     assert_eq!(waiting["usage"]["tool_calls"], 7);
-    assert_eq!(waiting["usage"]["reserved_tokens"], 10256);
+    assert_eq!(waiting["usage"]["reserved_tokens"], final_calls * per_call);
     let approval = waiting["graph"]["approvals"][0]["id"].as_str().unwrap();
     let approved = http
         .post(format!("{url}/runs/{id}/approvals/{approval}"))
@@ -2878,7 +2920,7 @@ async fn actual_cli_model_reviewer_replans_waits_without_recharging_and_requires
                 .await
                 .unwrap();
             if saved["state"] == "completed" {
-                assert_eq!(saved["usage"]["model_calls"], 2);
+                assert_eq!(saved["usage"]["model_calls"], final_calls);
                 break;
             }
             assert_ne!(saved["state"], "failed", "{saved}");
@@ -2893,13 +2935,35 @@ async fn actual_cli_model_reviewer_replans_waits_without_recharging_and_requires
     .fetch_one(&mut c)
     .await
     .unwrap();
-    assert_eq!(ledger, 2);
+    assert_eq!(ledger as u64, final_calls);
     {
         let sent = calls.lock().unwrap();
-        assert_eq!(sent.len(), 2);
+        assert_eq!(sent.len() as u64, final_calls);
+        let roles = sent
+            .iter()
+            .map(|body| {
+                if body["messages"][0]["content"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with(Role::Discovery.instruction())
+                {
+                    Role::Discovery
+                } else {
+                    Role::Review
+                }
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            roles,
+            if dual {
+                vec![Role::Discovery, Role::Review, Role::Review]
+            } else {
+                vec![Role::Review, Role::Review]
+            }
+        );
         for body in sent.iter() {
             let encoded = serde_json::to_string(body).unwrap();
-            assert!(encoded.len() <= 5000);
+            assert!(encoded.len() <= if dual { 3800 } else { 5000 });
             assert!(!encoded.contains("privacy-canary"));
             assert!(!encoded.contains("private-resume-canary"));
             assert!(!encoded.contains("fictional-fixture-key"));
@@ -3305,4 +3369,61 @@ async fn profile_live_input_and_complete_merged_bound_are_checked_without_saves(
     let retained = profile_store::get(&mut c).await.unwrap();
     assert_eq!(retained.version, 5);
     assert_eq!(retained.value["projects"], json!([]));
+}
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn pinned_model_policy_blocks_retargeted_intake_and_missing_models_pause_without_spend() {
+    use automated_apply_agents::model_policy::Policy;
+    let mut c = knowledge_fixture().await;
+    let mut observer = connection().await;
+    let key = Uuid::new_v4();
+    let policy = Policy::Cohere {
+        model: "command-a-plus-05-2026".into(),
+        roles: vec![Role::Discovery, Role::Review],
+    };
+    let limits = policy.recommended_limits();
+    let saved = lifecycle::intake_policy(&mut c, key, limits.clone(), Some(policy.clone()))
+        .await
+        .unwrap();
+    assert!(matches!(
+        lifecycle::intake_policy(&mut c, key, limits.clone(), Some(Policy::Deterministic {})).await,
+        Err(Failure("agent_request_key_conflict"))
+    ));
+    assert_eq!(
+        lifecycle::intake_policy(&mut c, key, limits, Some(policy))
+            .await
+            .unwrap()
+            .run
+            .id,
+        saved.run.id
+    );
+    let stop = CancellationToken::new();
+    let shutdown = stop.clone();
+    let worker = automated_apply_agents::worker::serve(&mut c, Wake::default(), shutdown);
+    let control = async {
+        tokio::time::timeout(Duration::from_secs(3), async {
+            loop {
+                let current = lifecycle::load(&mut observer, saved.run.id).await.unwrap();
+                if current.run.state == State::Paused {
+                    assert_eq!(
+                        current.run.diagnostic.as_deref(),
+                        Some("pinned_model_policy_unavailable")
+                    );
+                    assert_eq!(current.run.resume_state, Some(State::Ready));
+                    assert!(!current.run.paused_by_global);
+                    assert_eq!(current.run.usage.model_calls, 0);
+                    assert_eq!(current.run.usage.tool_calls, 0);
+                    assert_eq!(current.run.usage.reserved_tokens, 0);
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .unwrap();
+        stop.cancel();
+    };
+    let (result, ()) = tokio::join!(worker, control);
+    result.unwrap();
 }

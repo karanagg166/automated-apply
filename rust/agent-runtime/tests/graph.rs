@@ -200,3 +200,22 @@ fn graph_checkpoint_survives_serialization_and_terminal_nodes_are_honest() {
     r.state = State::Failed;
     assert_eq!(graph::node(&r), Node::Finished);
 }
+
+#[test]
+fn approval_cannot_authorize_a_different_pinned_agent_model_policy() {
+    use automated_apply_agents::model_policy::Policy;
+    let mut r = review();
+    r.model_policy = Some(Policy::Cohere {
+        model: "command-a-plus-05-2026".into(),
+        roles: vec![Role::Review],
+    });
+    graph::request(&mut r, ApprovalScope::Review, 100).unwrap();
+    let id = r.graph.approvals[0].id;
+    graph::decide(&mut r, id, Decision::Approve, Actor::OwnerApi, 101).unwrap();
+    assert!(graph::approved(&r, ApprovalScope::Review, 102));
+    r.model_policy = Some(Policy::Cohere {
+        model: "command-a-plus-05-2026".into(),
+        roles: vec![Role::Discovery, Role::Review],
+    });
+    assert!(!graph::approved(&r, ApprovalScope::Review, 102));
+}

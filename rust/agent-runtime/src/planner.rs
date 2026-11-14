@@ -5,21 +5,56 @@ pub struct SavedReviewPlanner {
     pub notify: bool,
 }
 pub struct HybridPlanner {
-    pub saved: SavedReviewPlanner,
-    pub reviewer: Option<crate::provider::CohereModel>,
+    saved: SavedReviewPlanner,
+    reviewer: Option<crate::provider::CohereModel>,
+    pub(crate) roles: Vec<Role>,
 }
 impl HybridPlanner {
-    fn review(&self, role: Role, context: &[Context]) -> bool {
-        self.reviewer.is_some()
-            && role == Role::Review
-            && [
+    pub fn for_run(
+        policy: Option<&crate::model_policy::Policy>,
+        configured: Option<&crate::model_policy::Models>,
+        notify: bool,
+    ) -> Result<Self> {
+        use crate::model_policy::Policy;
+        if let Some(policy) = policy {
+            policy.validate()?;
+        }
+        let roles = match policy {
+            Some(Policy::Deterministic {}) => vec![],
+            Some(policy @ Policy::Cohere { roles, .. }) => {
+                if configured.is_none_or(|models| !models.matches(policy)) {
+                    return Err(Failure("pinned_model_policy_unavailable"));
+                }
+                roles.clone()
+            }
+            // Legacy runtime records only supported model review; a new planner setting
+            // must never add a new inference role to them after restart.
+            None if configured.is_some() => vec![Role::Review],
+            None => vec![],
+        };
+        Ok(Self {
+            saved: SavedReviewPlanner { notify },
+            reviewer: configured.map(|models| models.client.clone()),
+            roles,
+        })
+    }
+    fn inference_ready(&self, role: Role, context: &[Context]) -> bool {
+        if self.reviewer.is_none() || !self.roles.contains(&role) {
+            return false;
+        }
+        let required: &[ToolName] = match role {
+            Role::Discovery => &[ToolName::SearchJobs],
+            Role::Review => &[
                 ToolName::SearchJobs,
                 ToolName::RankJobs,
                 ToolName::VerifiedContext,
                 ToolName::ApplicationHistory,
-            ]
-            .into_iter()
-            .all(|tool| context.iter().any(|c| c.tool == tool))
+            ],
+            _ => return false,
+        };
+        required
+            .iter()
+            .all(|tool| context.iter().any(|c| c.tool == *tool))
     }
 }
 impl Model for HybridPlanner {
@@ -29,18 +64,18 @@ impl Model for HybridPlanner {
         context: &[Context],
         store: &mut Store<'_>,
     ) -> Result<Option<i64>> {
-        if self.review(role, context) {
+        if self.inference_ready(role, context) {
             return self
                 .reviewer
                 .as_mut()
-                .ok_or(Failure("review_model_unavailable"))?
+                .ok_or(Failure("agent_model_unavailable"))?
                 .ready_at(role, context, store)
                 .await;
         }
         Ok(None)
     }
     fn inference_required(&self, role: Role, context: &[Context]) -> bool {
-        self.review(role, context)
+        self.inference_ready(role, context)
     }
     async fn propose(
         &mut self,
@@ -49,21 +84,46 @@ impl Model for HybridPlanner {
         budget: ModelBudget,
         store: &mut Store<'_>,
     ) -> Result<Proposal> {
-        if self.review(role, context) {
-            let compact = review_context(context)?;
-            return self
+        if self.inference_ready(role, context) {
+            let compact = decision_context(context)?;
+            let proposal = self
                 .reviewer
                 .as_mut()
-                .ok_or(Failure("review_model_unavailable"))?
+                .ok_or(Failure("agent_model_unavailable"))?
                 .propose(role, &compact, budget, store)
-                .await;
+                .await?;
+            return model_decision(role, proposal);
         }
         self.saved.propose(role, context, budget, store).await
     }
 }
+fn model_decision(role: Role, proposal: Proposal) -> Result<Proposal> {
+    let allowed = matches!(
+        (role, &proposal),
+        (
+            Role::Discovery,
+            Proposal::Handoff {
+                next: Role::Matching,
+                ..
+            }
+        ) | (
+            Role::Review,
+            Proposal::Handoff {
+                next: Role::Execution,
+                ..
+            }
+        ) | (Role::Discovery | Role::Review, Proposal::NeedsInput { .. })
+            | (Role::Review, Proposal::Replan { .. })
+    );
+    if allowed {
+        Ok(proposal)
+    } else {
+        Err(Failure("agent_model_action_denied"))
+    }
+}
 /// Mechanical, explicit projection. Full observations remain available to the owner;
 /// cloud context includes only bounded source references and never contact/resume data.
-fn review_context(context: &[Context]) -> Result<Vec<Context>> {
+fn decision_context(context: &[Context]) -> Result<Vec<Context>> {
     let mut result = Vec::new();
     for source in context {
         let data = &source.untrusted_data;
@@ -159,7 +219,7 @@ mod tests {
                 untrusted_data: json!({"email":"private-email-canary","resume_text":"private-resume-canary","facts":{"verified_skills":["Rust"],"verified_experience_years":0}}),
             },
         ];
-        let compact = review_context(&sources).unwrap();
+        let compact = decision_context(&sources).unwrap();
         assert_eq!(
             compact[0].untrusted_data["jobs"].as_array().unwrap().len(),
             3
@@ -168,5 +228,53 @@ mod tests {
         let encoded = serde_json::to_string(&compact).unwrap();
         assert!(!encoded.contains("canary"));
         assert!(!encoded.contains("Rust"));
+    }
+    #[test]
+    fn model_decisions_cannot_dispatch_tools_or_skip_the_required_handoffs() {
+        assert!(
+            model_decision(
+                Role::Discovery,
+                Proposal::Tool {
+                    call: ToolCall {
+                        name: ToolName::SearchJobs,
+                        job_id: None,
+                        evidence: vec![]
+                    }
+                }
+            )
+            .is_err()
+        );
+        assert!(model_decision(Role::Review, Proposal::Complete { evidence: vec![] }).is_err());
+        assert!(
+            model_decision(
+                Role::Discovery,
+                Proposal::Handoff {
+                    next: Role::Review,
+                    evidence: vec![]
+                }
+            )
+            .is_err()
+        );
+        assert!(
+            model_decision(
+                Role::Discovery,
+                Proposal::Handoff {
+                    next: Role::Matching,
+                    evidence: vec![]
+                }
+            )
+            .is_ok()
+        );
+        assert!(
+            model_decision(
+                Role::Review,
+                Proposal::Replan {
+                    target: Role::Matching,
+                    reason: crate::graph::ReplanReason::RecheckEligibility,
+                    evidence: vec![]
+                }
+            )
+            .is_ok()
+        );
     }
 }

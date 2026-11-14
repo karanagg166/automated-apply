@@ -4,7 +4,7 @@ use crate::{
     contracts::State,
     knowledge_tools::KnowledgeTools,
     lifecycle::{self, Mode},
-    planner::{HybridPlanner, SavedReviewPlanner},
+    planner::HybridPlanner,
     postgres::Store,
     runner,
 };
@@ -63,7 +63,7 @@ pub async fn serve_with_model(
     wake: Wake,
     shutdown: CancellationToken,
     telegram: Option<crate::telegram::Settings>,
-    reviewer: Option<crate::provider::CohereModel>,
+    models: Option<crate::model_policy::Models>,
 ) -> Result<()> {
     let mut changes = wake.changed.subscribe();
     let mut last_heartbeat = None;
@@ -101,11 +101,23 @@ pub async fn serve_with_model(
                         telegram: telegram.clone(),
                         run_id: lease.run.id,
                     };
-                    let mut model = HybridPlanner {
-                        saved: SavedReviewPlanner {
-                            notify: telegram.is_some(),
-                        },
-                        reviewer: reviewer.clone(),
+                    let mut model = match HybridPlanner::for_run(
+                        lease.run.model_policy.as_ref(),
+                        models.as_ref(),
+                        telegram.is_some(),
+                    ) {
+                        Ok(model) => model,
+                        Err(error) => {
+                            // Restore configuration, then explicitly resume. Never silently
+                            // downgrade a pinned model role or replay an uncertain effect.
+                            lifecycle::pause(&mut lease.run, false)?;
+                            if lease.run.state == State::Paused {
+                                lease.run.diagnostic = Some(error.0.into());
+                            }
+                            store.save(&mut lease).await?;
+                            store.release(&lease).await?;
+                            continue;
+                        }
                     };
                     let id = lease.run.id;
                     let tick = runner::tick(&mut store, &mut lease, &mut model, &mut tools);

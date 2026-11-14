@@ -96,7 +96,7 @@ pub async fn supervise(
             wake.clone(),
             shutdown.clone(),
             config.telegram.clone(),
-            config.reviewer.clone(),
+            config.models.clone(),
         )
         .await;
         close(current).await;

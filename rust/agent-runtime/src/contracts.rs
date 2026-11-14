@@ -266,6 +266,8 @@ pub struct Effect {
 #[serde(deny_unknown_fields)]
 pub struct Run {
     #[serde(default)]
+    pub model_policy: Option<crate::model_policy::Policy>,
+    #[serde(default)]
     pub graph: crate::graph::Checkpoint,
     pub id: Uuid,
     pub request_key: Uuid,
@@ -293,6 +295,7 @@ impl Run {
         limits.validate()?;
         Ok(Self {
             graph: crate::graph::Checkpoint::default(),
+            model_policy: None,
             id: Uuid::new_v4(),
             request_key,
             role: Role::Discovery,

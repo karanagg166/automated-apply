@@ -262,3 +262,43 @@ This port is uninstalled. The existing frontend/backend proxy still uses the leg
 Validation failures expose sanitized `detail` messages rather than copying FastAPI's full
 per-input error arrays. Saved-job matching, profile readiness/confirmation, resource/context
 and remaining APIs/services still need Rust ports before removing Python or cutting over.
+
+## Multiple model-backed agents
+
+To opt into both planning and review, set `RUST_AGENT_REVIEW_MODEL=cohere` and
+`RUST_AGENT_MODEL_ROLES=discovery,review` in the host's explicit private configuration.
+Existing provider/candidate-data consents and monthly budgets are still required. With no
+role setting, opt-in Cohere preserves review-only behavior; deterministic mode remains the
+default. Unsupported/duplicate roles and a planner without the reviewer are rejected.
+These roles share one async client, worker and existing execution connection; no model/GPU
+process, pool or worker process is started per agent.
+
+Discovery first observes the real saved-job read, then its model selects the matching
+handoff or a bounded missing-fact question. Review first observes all four factual read
+results, then its separately instructed model selects execution handoff, a bounded question
+or a replan. Both schemas and runtime checks restrict these decisions: these model roles
+cannot dispatch tools, complete early, grant authority or add application permissions.
+Deterministic matching/answer/tool execution preserves independently verified facts.
+
+New owner-API runs pin provider, exact model identifier and model roles. The policy is part
+of request-key idempotency and approval binding. Changing runtime configuration cannot add
+inference to a pinned deterministic run or change an existing run's roles/model. Missing or
+incompatible model configuration manually pauses the run without spending; restore the
+configuration and explicitly resume, or stop it. Legacy unpinned records retain their
+bounded review-only behavior and never gain the new planner. New Telegram-created saved
+reviews are explicitly deterministic; they do not silently acquire paid inference.
+
+Recommended dual-agent limits permit one replan, four model calls and at most 15,712 reserved
+input/output tokens (3,800 input bytes/tokens plus 128 output per call), within the existing
+16,000 cap. Monthly reservations remain shared with the legacy ledger; cooldown waits do
+not reserve another call. Explicit owner limits are never expanded automatically. When
+limits are omitted from an owner API intake, configured inference gets its bounded default
+budgets with the legacy read-review human flag off; the dashboard supplies explicit limits
+with human approval on. Null or forged policy/limit fields are rejected. Capabilities and
+the dashboard show available roles and the selected run's pinned policy.
+
+Acceptance uses a localhost fake model through the actual Rust CLI: discovery → review →
+recheck → review, three requests, seven SQL reads, 11,784 retained reserved tokens, durable
+cooldowns and human approval before completion. Both prompts and shared monthly counts are
+checked; no real cloud inference is claimed. Browser/application adapters, full Python
+removal and installed/live/resource acceptance remain pending.

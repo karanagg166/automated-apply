@@ -30,7 +30,7 @@ pub struct Configuration {
     pub(crate) schema: String,
     pub(crate) role: String,
     pub(crate) telegram: Option<crate::telegram::Settings>,
-    pub(crate) reviewer: Option<crate::provider::CohereModel>,
+    pub(crate) models: Option<crate::model_policy::Models>,
     pub(crate) profile_live: bool,
 }
 impl Configuration {
@@ -272,7 +272,7 @@ impl Configuration {
             schema,
             role,
             telegram: crate::telegram::Settings::from_values(values, fixture)?,
-            reviewer: crate::provider::CohereModel::runtime(values, fixture)?,
+            models: crate::model_policy::Models::from_values(values, fixture)?,
             profile_live: matches!(environment.as_str(), "production" | "staging"),
         })
     }
@@ -291,8 +291,14 @@ impl Configuration {
     pub fn telegram_enabled(&self) -> bool {
         self.telegram.is_some()
     }
+    pub fn model_policy(&self) -> crate::model_policy::Policy {
+        self.models
+            .as_ref()
+            .map(crate::model_policy::Models::policy)
+            .unwrap_or(crate::model_policy::Policy::Deterministic {})
+    }
     pub fn review_model(&self) -> &'static str {
-        if self.reviewer.is_some() {
+        if self.models.is_some() {
             "cohere"
         } else {
             "deterministic"

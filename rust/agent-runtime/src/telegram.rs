@@ -500,7 +500,13 @@ pub async fn receive(
                     &Uuid::NAMESPACE_URL,
                     format!("telegram:{}:{id}", settings.chat).as_bytes(),
                 );
-                let run = lifecycle::intake(&mut tx, key, Limits::default()).await?;
+                let run = lifecycle::intake_policy(
+                    &mut tx,
+                    key,
+                    Limits::default(),
+                    Some(crate::model_policy::Policy::Deterministic {}),
+                )
+                .await?;
                 intake = true;
                 Notice::Run {
                     id: run.run.id,

@@ -116,3 +116,13 @@ confirmation. Native PG fixtures cover concurrent changes and forced response/co
 rollback. Uninstalled; legacy proxy untouched. Sanitized validation detail strings replace
 the full FastAPI input-error array. Profile saved-job match, readiness/confirmation,
 resources/context and all remaining services still need ports and live acceptance.
+
+Multiple-model role milestone: opt-in discovery planner plus reviewer, each with separate
+model instructions and constrained runtime decisions after real source reads. New owner API
+runs pin provider/model/roles in idempotency and approval bindings. Configuration changes
+cannot silently upgrade/downgrade a pinned run; missing models pause without new spend.
+Deterministic defaults and Telegram reviews remain zero inference. Dual-role recommended
+budgets fit four calls/one replan within the existing16,000 total cap; actual CLI localhost
+model fixture verifies discovery+review+re-review, monthly3 requests,7SQLreads and human
+gate. Remaining tool adapters, feature/API ports and installed resource/live acceptance
+remain open; multiple actual cloud role calls have not been exercised.
