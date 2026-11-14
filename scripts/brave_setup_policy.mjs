@@ -2,28 +2,30 @@ import assert from "node:assert/strict";
 import { request } from "node:http";
 import { lstatSync, readFileSync } from "node:fs";
 
-export function assertReloadSafe(queue, browser, extensionId) {
+export function assertSetupProfile(queue, entry, path) {
   assert(
     queue?.state === "STOPPED" &&
       Number.isInteger(queue.revision) &&
       queue.revision > 0,
-    "brave_reload_stopped_queue_required",
+    "brave_setup_stopped_queue_required",
   );
+  assert(entry?.path === path, "owner_brave_extension_install_required");
+  const reasons = entry.disable_reasons;
   assert(
-    browser?.commandsEnabled === false &&
-      browser.pendingQuestionnaires === 0 &&
-      browser.readInFlight === false,
-    "brave_reload_original_context_pending",
+    reasons === undefined || (Array.isArray(reasons) && reasons.length === 0),
+    "owner_brave_extension_enable_required",
   );
+}
+export function assertSetupTabs(pages, extensionId) {
   assert(
-    Array.isArray(browser.tabs) &&
-      browser.tabs.length > 0 &&
-      browser.tabs.every(
+    Array.isArray(pages) &&
+      pages.length > 0 &&
+      pages.every(
         (tab) =>
           tab.url === "about:blank" ||
           tab.url?.startsWith(`chrome-extension://${extensionId}/`),
       ),
-    "brave_reload_setup_tabs_required",
+    "brave_setup_original_tabs_preserved",
   );
 }
 

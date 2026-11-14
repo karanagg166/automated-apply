@@ -1,42 +1,42 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assertReloadSafe } from "../scripts/brave_setup_policy.mjs";
+import {
+  assertSetupProfile,
+  assertSetupTabs,
+} from "../scripts/brave_setup_policy.mjs";
 const id = "gdjbmkffcpicbpiikcohlmokkmcpipgp";
+const path = "/owned/brave-extension/pinned";
+const entry = { path, disable_reasons: [] };
 const queue = { state: "STOPPED", revision: 162 };
-const browser = {
-  commandsEnabled: false,
-  pendingQuestionnaires: 0,
-  readInFlight: false,
-  tabs: [
-    { url: "about:blank" },
-    { url: `chrome-extension://${id}/popup.html` },
-  ],
-};
-test("owned Brave setup reload requires stopped queue, inactive execution and no original form", () => {
-  assert.doesNotThrow(() => assertReloadSafe(queue, browser, id));
+test("setup requires a stopped queue and never clears browser disable decisions", () => {
+  assert.doesNotThrow(() => assertSetupProfile(queue, entry, path));
   for (const state of ["RUNNING", "PAUSED", null])
     assert.throws(
-      () => assertReloadSafe({ ...queue, state }, browser, id),
+      () => assertSetupProfile({ ...queue, state }, entry, path),
       /stopped_queue/,
     );
   for (const revision of [0, -1, 1.5, null])
     assert.throws(
-      () => assertReloadSafe({ ...queue, revision }, browser, id),
+      () => assertSetupProfile({ ...queue, revision }, entry, path),
       /stopped_queue/,
     );
-  for (const change of [
-    { commandsEnabled: true },
-    { commandsEnabled: null },
-    { pendingQuestionnaires: 1 },
-    { pendingQuestionnaires: null },
-    { readInFlight: true },
-  ])
+  for (const disable_reasons of [[1], [2], [4], [4, 16], [256], null])
     assert.throws(
-      () => assertReloadSafe(queue, { ...browser, ...change }, id),
-      /original_context/,
+      () => assertSetupProfile(queue, { ...entry, disable_reasons }, path),
+      /owner_brave_extension_enable/,
     );
+  assert.throws(
+    () => assertSetupProfile(queue, { ...entry, path: "/foreign" }, path),
+    /install_required/,
+  );
 });
-test("reload never discards a portal or foreign extension tab", () => {
+test("setup preserves portal and foreign extension tabs", () => {
+  assert.doesNotThrow(() =>
+    assertSetupTabs(
+      [{ url: "about:blank" }, { url: `chrome-extension://${id}/popup.html` }],
+      id,
+    ),
+  );
   for (const tabs of [
     [],
     [{ url: "https://www.naukri.com/job/fictional" }],
@@ -48,8 +48,5 @@ test("reload never discards a portal or foreign extension tab", () => {
     ],
     [{}],
   ])
-    assert.throws(
-      () => assertReloadSafe(queue, { ...browser, tabs }, id),
-      /setup_tabs/,
-    );
+    assert.throws(() => assertSetupTabs(tabs, id), /original_tabs_preserved/);
 });

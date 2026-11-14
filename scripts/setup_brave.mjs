@@ -1,7 +1,7 @@
 // Register the extension in a fresh owned Brave profile, using inactive setup
 // tabs only. Never opens a portal, imports cookies or enables queue commands.
 import assert from "node:assert/strict";
-import { spawn, execFileSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
   closeSync,
@@ -14,15 +14,12 @@ import {
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "../frontend/node_modules/@playwright/test/index.mjs";
-import { assertReloadSafe, stoppedQueue } from "./brave_setup_policy.mjs";
-
-const arguments_ = process.argv.slice(2);
-assert(
-  arguments_.length === 0 ||
-    (arguments_.length === 1 && arguments_[0] === "--reload-owned-runtime"),
-  "explicit_owned_reload_flag_required",
-);
-const reload = arguments_.length === 1;
+import {
+  assertSetupProfile,
+  assertSetupTabs,
+  stoppedQueue,
+} from "./brave_setup_policy.mjs";
+assert.equal(process.argv.length, 2, "setup_takes_no_runtime_reload_flags");
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const profile = join(root, ".local/browser-profiles/brave-automation");
@@ -36,6 +33,19 @@ assert(
   extension.startsWith(join(root, ".local/runtime-support/brave-extension/")),
   "owned_brave_extension_required",
 );
+for (const file of release.files) {
+  assert(
+    file.name === file.name.split("/").pop() && !file.name.includes("\\"),
+    "invalid_owned_release_file",
+  );
+  assert.equal(
+    createHash("sha256")
+      .update(readFileSync(join(extension, file.name)))
+      .digest("hex"),
+    file.sha256,
+    "owned_release_bytes_changed",
+  );
+}
 const executable =
   "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser";
 const id = "gdjbmkffcpicbpiikcohlmokkmcpipgp";
@@ -50,6 +60,21 @@ assert.equal(
   [...digest].map((c) => String.fromCharCode(97 + parseInt(c, 16))).join(""),
   id,
 );
+assert(
+  /^[a-f0-9]{40}$/.test(release.native_source_sha),
+  "native_release_required",
+);
+const configPath = join(
+  root,
+  ".local/runtime-support/rust-native",
+  release.native_source_sha,
+  "automated-apply-native.private.env",
+);
+const queue = await stoppedQueue(configPath);
+const entry = JSON.parse(
+  readFileSync(join(profile, "Default/Secure Preferences")),
+).extensions?.settings?.[id];
+assertSetupProfile(queue, entry, extension);
 const endpointFile = join(profile, "DevToolsActivePort");
 let browser, child;
 let portalRequests = 0;
@@ -119,14 +144,58 @@ async function launchOwned() {
     route.abort(),
   );
   context.setDefaultTimeout(30000);
-  const worker =
-    context
-      .serviceWorkers()
-      .find((w) => w.url() === `chrome-extension://${id}/background.js`) ||
-    (await context.waitForEvent("serviceworker", {
+  const inventory = await browser.newBrowserCDPSession();
+  const { targetInfos } = await inventory.send("Target.getTargets");
+  await inventory.detach();
+  assertSetupTabs(
+    targetInfos.filter((target) => target.type === "page"),
+    id,
+  );
+  let worker = context
+    .serviceWorkers()
+    .find((w) => w.url() === `chrome-extension://${id}/background.js`);
+  if (!worker) {
+    // An MV3 registration can be dormant after a process restart. A verified
+    // inactive extension document triggers its normal message listener.
+    const ready = context.waitForEvent("serviceworker", {
       predicate: (w) => w.url() === `chrome-extension://${id}/background.js`,
       timeout: 30000,
-    }));
+    });
+    ready.catch(() => {});
+    const inspector = await browser.newBrowserCDPSession();
+    const pageEvent = context.waitForEvent("page", { timeout: 5000 });
+    pageEvent.catch(() => {});
+    let target;
+    try {
+      target = (
+        await inspector.send("Target.createTarget", {
+          url: "about:blank",
+          background: true,
+        })
+      ).targetId;
+      const wake = await pageEvent;
+      for (let attempt = 0; attempt < 10; attempt++) {
+        await wake
+          .goto(`chrome-extension://${id}/popup.html`, {
+            waitUntil: "domcontentloaded",
+            timeout: 1000,
+          })
+          .catch(() => {});
+        const seen = await Promise.race([
+          ready.then(() => true),
+          new Promise((resolve) => setTimeout(() => resolve(false), 200)),
+        ]);
+        if (seen) break;
+      }
+      worker = await ready;
+    } finally {
+      if (target)
+        await inspector
+          .send("Target.closeTarget", { targetId: target })
+          .catch(() => {});
+      await inspector.detach().catch(() => {});
+    }
+  }
   return { context, worker };
 }
 async function stopOwned() {
@@ -171,111 +240,6 @@ try {
     }, release.files);
   const checked = await verify(worker);
   assert.equal(checked, release.files.length);
-  if (reload) {
-    assert(
-      /^[a-f0-9]{40}$/.test(release.native_source_sha),
-      "native_release_required",
-    );
-    const configPath = join(
-      root,
-      ".local/runtime-support/rust-native",
-      release.native_source_sha,
-      "automated-apply-native.private.env",
-    );
-    const queue = await stoppedQueue(configPath);
-    const saved = await worker.evaluate(async () => {
-      const local = await chrome.storage.local.get("connectedChromeProfileV1");
-      const session = await chrome.storage.session.get([
-        "naukriParkedQuestionnairesV1",
-        "naukriReadInFlightV1",
-      ]);
-      return {
-        commandsEnabled:
-          local.connectedChromeProfileV1?.commandsEnabled === true,
-        pendingQuestionnaires: Object.keys(
-          session.naukriParkedQuestionnairesV1 || {},
-        ).length,
-        readInFlight: !!session.naukriReadInFlightV1,
-        tabs: (await chrome.tabs.query({})).map(({ url }) => ({ url })),
-      };
-    });
-    // The extension deliberately lacks broad tabs permission. CDP is attached
-    // only to this owned setup profile and can inventory its actual page URLs.
-    const inspector = await browser.newBrowserCDPSession();
-    const { targetInfos } = await inspector.send("Target.getTargets");
-    await inspector.detach();
-    const pages = targetInfos.filter((target) => target.type === "page");
-    console.log(
-      JSON.stringify({
-        setup_tab_inventory: {
-          extension_tabs: saved.tabs.length,
-          protocol_pages: pages.length,
-          contexts: browser.contexts().length,
-          protocols: pages.map((page) => {
-            try {
-              return new URL(page.url).protocol;
-            } catch {
-              return "unavailable";
-            }
-          }),
-        },
-      }),
-    );
-    assert.equal(
-      pages.length,
-      saved.tabs.length,
-      "brave_setup_tab_inventory_incomplete",
-    );
-    saved.tabs = pages.map((page) => ({ url: page.url }));
-    assertReloadSafe(queue, saved, id);
-    const intentPath = join(
-      root,
-      `.local/operational-20261115/brave-runtime-reload-${execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim()}.intent.private.json`,
-    );
-    const intent = {
-      status: "dispatching",
-      source_sha: release.source_sha,
-      native_source_sha: release.native_source_sha,
-      queue_revision: queue.revision,
-      created_at: new Date().toISOString(),
-    };
-    const current = await stoppedQueue(configPath);
-    assert.deepEqual(current, queue, "queue_changed_before_brave_reload");
-    writeFileSync(intentPath, JSON.stringify(intent, null, 2) + "\n", {
-      flag: "wx",
-      mode: 0o600,
-    });
-    await worker
-      .evaluate(() => chrome.runtime.reload())
-      .catch((error) => {
-        if (!/closed|destroyed|Target/.test(error.message))
-          throw Error("owned_runtime_reload_failed");
-      });
-    // Restart only this guarded, owned headless setup process. MV3 can remain
-    // dormant after reload; a fresh process is verified without replaying reload.
-    await stopOwned();
-    ({ context, worker } = await launchOwned());
-    assert.equal(
-      await verify(worker),
-      checked,
-      "reloaded_extension_bytes_mismatch",
-    );
-    const after = await stoppedQueue(configPath);
-    assert.deepEqual(after, queue, "queue_changed_during_brave_reload");
-    writeFileSync(
-      intentPath,
-      JSON.stringify(
-        {
-          ...intent,
-          status: "reloaded",
-          completed_at: new Date().toISOString(),
-        },
-        null,
-        2,
-      ) + "\n",
-      { mode: 0o600 },
-    );
-  }
   await worker.evaluate(() => {
     const send = chrome.runtime.sendNativeMessage.bind(chrome.runtime);
     chrome.runtime.sendNativeMessage = (host, ...arguments_) => {
@@ -362,7 +326,6 @@ try {
     version: browser.version(),
     native_health: "PASS",
     installed_files_verified: checked,
-    owned_runtime_reloaded: reload,
     connected: true,
     queue_commands_enabled: false,
     owned_active_tab_preserved: true,
@@ -374,12 +337,9 @@ try {
   };
   const target = resolve(
     root,
-    reload
-      ? ".local/operational-20261115/brave-setup-reload.private.json"
-      : ".local/operational-20261115/brave-setup.private.json",
+    ".local/operational-20261115/brave-setup.latest.private.json",
   );
   writeFileSync(target, JSON.stringify(result, null, 2) + "\n", {
-    flag: "wx",
     mode: 0o600,
   });
   console.log(JSON.stringify(result));
