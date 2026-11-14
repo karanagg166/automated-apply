@@ -1,6 +1,6 @@
 # Rust migration: native transport and coordinator milestones, 2026-11-14
 
-Latest: [Milestone 11 — planner/reviewer agents and pinned policies](#milestone-11-separately-instructed-planner-and-reviewer-with-pinned-policies).
+Latest: [Milestone 12 — saved-profile job relevance](#milestone-12-saved-profile-job-relevance-endpoint).
 
 Overall request: **IN PROGRESS**. Full Python replacement and multi-agent AI delivery
 are not complete. Installed application services/extension/native wrapper were not changed.
@@ -935,3 +935,45 @@ Gmail/provider functionality; remove runtime Python dependencies; then immutable
 rollback and actual focus/account/history/quota/receipt/whole-project resource acceptance.
 This milestone implements multiple model-backed roles, but does not finish either requested
 whole-project outcome or activate live automation.
+
+## Milestone 12: saved-profile job relevance endpoint
+
+Implementation: [`fe2c65970c99455fd07f58a597fe916731bdc667`](https://github.com/karanagg166/automated-apply/commit/fe2c65970c99455fd07f58a597fe916731bdc667),
+branch `feat/rust-agent-runtime`, [draft PR #50](https://github.com/karanagg166/automated-apply/pull/50),
+base `chore/uv-python-tooling` / [PR #49](https://github.com/karanagg166/automated-apply/pull/49).
+Overall migration and live action acceptance remain **IN PROGRESS**.
+
+The standalone owner API implements `POST /api/v1/jobs/<UUID>/match` using the previously
+ported pure Rust base scorer. It independently loads the saved job and validated current
+profile, preserving skill aliases/labels, score weights, explanations, remote preference and
+unknown-experience behavior. Caller-supplied profile fields are ignored as in the original
+saved-profile route. Unknown jobs are reported before missing profiles. The existing owner
+host/origin/TLS/auth-before-body boundary applies, including case-insensitive bearer schemes,
+64KiB bodies and sanitized detail errors. Scores are relevance, not application admission.
+
+| Check | Status | Exact evidence |
+| --- | --- | --- |
+| Standard Rust suites | PASS | 87 tests, 0 failed; 58 dedicated PG cases deliberately ignored in this command |
+| Dedicated native PostgreSQL fixtures | PASS | All 58 executed, 0 failed/ignored; final run 23.45s; 2 added saved-profile HTTP cases |
+| Saved facts, exact response and no caller override | PASS | Included above: exact 86.67 result/skill labels/explanation from stored Rust/FastAPI facts despite a caller Python/experience override |
+| No score/profile/history/model/application persistence | PASS | Included above: complete before/after raw job/profile/confirmation snapshots identical; agent runs, monthly usage and application packets remain empty |
+| Unknown experience / missing job/profile / method and UUID handling | PASS | Included above: no invented seniority points, job lookup precedes profile error, owner auth 401, method405 with Allow POST, invalid UUID422 and missing records404 |
+| Rust format / Clippy warnings denied / diff | PASS | Final local checks passed |
+| Profile conformance / model graph regressions | PASS | Included in current suites: 779 DTO comparisons and retained actual CLI localhost dual-role/human-approval fixtures |
+| Optimized build / frontend/browser rerun for this delta | NOT TESTED | Debug executable/library built by tests; no frontend changes. Prior optimized/frontend/browser acceptance remains pinned to milestone11 |
+| Real saved owner data, installation, applications and resource comparison | NOT TESTED | Native PostgreSQL/HTTP data are fictional; no owner DB/profile/browser/provider or installed service touched |
+| Hosted Actions / merge / workspace cleanup | NOT TESTED | Not dispatched, merged or performed |
+
+Current total: **145 distinct Rust tests passed** (87 standard + 58 dedicated PostgreSQL).
+Retained milestone11 UI/browser evidence is 10 frontend tests and one isolated Chromium
+journey. The 779 profile cases are within one Rust test and are not added again to test totals;
+no new 1,300-case matching oracle run or new CPU/RSS/GPU comparison is claimed.
+No scoped test failure remains. New failure cases include `job_not_found`, `invalid_job_id`
+and `match_method_not_allowed`; raw private logs are not published. There is no automatic
+DDL, score save, agent/model run, application creation or policy/limit change in this endpoint.
+
+Reproduce with the existing workspace tests, dedicated PostgreSQL harness, Rust format,
+Clippy and diff commands. The existing frontend proxy/live services are unchanged. Remaining
+profile readiness/confirmation/resources/rich context and other REST/services still need
+Rust ports, followed by actual guarded action tools, Python removal and installed/live/
+rollback/focus/history/quota/receipt/resource acceptance.
