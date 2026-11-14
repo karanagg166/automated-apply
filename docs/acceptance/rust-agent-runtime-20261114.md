@@ -1161,3 +1161,54 @@ and remaining answer/REST/services/browser/application/Gmail/providers/full Tele
 then runtime Python removal and installed/live/rollback/focus/history/quota/receipt/resource
 acceptance. The installed application still uses Python; no full migration or live success
 is claimed.
+
+## Milestone 16: deterministic resource-question answers
+
+Implementation: [`3ece9113571c5927b119aa458840bdefd07392a1`](https://github.com/karanagg166/automated-apply/commit/3ece9113571c5927b119aa458840bdefd07392a1),
+branch `feat/rust-agent-runtime`, [draft PR #50](https://github.com/karanagg166/automated-apply/pull/50),
+base `chore/uv-python-tooling` / [PR #49](https://github.com/karanagg166/automated-apply/pull/49).
+Whole-project migration and installed/live acceptance remain **IN PROGRESS**.
+
+`POST /api/v1/candidate/resources/resolve` now accepts the existing bounded question contract
+and returns deterministic link answers from a read-only, repeatable-read profile/resource
+snapshot. It preserves confirmed/default provenance, review flags, alias matching and exact
+custom-label handling. Unicode case/word semantics are frozen to the existing Python corpus.
+Compound, narrative and additional-fact questions request input. File-upload questions return
+up to100 saved resume references with accessibility `not_checked`, a manual-upload status
+and no answer. Questions cannot grant owner confirmation, tool/model policy or submission
+authority. This route does not fetch URLs/files or call a provider.
+
+| Check | Status | Exact evidence |
+| --- | --- | --- |
+| Standard Rust suites | PASS | 93 tests, 0 failed; 71 PG cases intentionally ignored here |
+| Dedicated native PostgreSQL fixtures | PASS | All 71 executed, 0 failed/ignored; 25.68s; 2 new HTTP integrations |
+| Legacy resource-question differential corpus | PASS | 2,296 new question comparisons inside one new Rust test; retained 56×9 link, 445 resource DTO, 520 resume/readiness and 779 profile comparisons |
+| Unicode word/file/narrative rules | PASS | Included above: aliases, compound questions, custom labels, superscript numbers, underscores, combining marks and Unicode-version boundary cases |
+| File-upload bound | PASS | Included above: 101 fictional references return100, answer null, no uploaded-byte claim |
+| Owner HTTP / provenance / read-only integrity | PASS | Included above: saved GitHub source `candidate_profile`, confirmed custom label source `candidate_resource`; private resume remains a reference; full before/after profile/resources/confirmation snapshots identical |
+| No agent/application side effects | PASS | Included above: zero agent runs and zero application packets; no model/provider transport dependency in resolver |
+| Auth/body/method/profile handling | PASS | Included above: auth401 before malformed body, extension403, invalid/extra/oversize-question422, method405/Allow POST, query rejection400, missing profile404 |
+| Rust format / Clippy warnings denied / Ruff / oracle drift / diff | PASS | Final local checks passed |
+| Optimized build for this delta | NOT TESTED | Debug library/CLI compiled by current tests; prior optimized workspace build passes at milestone15 (1m17s) |
+| Frontend/browser rerun / installed real owner acceptance | NOT TESTED | No UI change; retained milestone11 evidence only; actual Mac process/HTTP/native PostgreSQL fixtures are fictional; installed app still Python |
+| Whole-project CPU/RSS/GPU / hosted Actions / merge / cleanup | NOT TESTED | No new comparison, hosted job, merge or cleanup |
+
+Current total: **164 distinct Rust tests passed** (93 standard +71 dedicated PostgreSQL).
+The 2,296 question comparisons are within one test and are not added to this total. No
+scoped failure remains. Error codes reuse `invalid_resource_input`, `profile_not_found`,
+`match_method_not_allowed` and `query_parameters_not_supported`; raw logs remain private.
+No owner environment, database, credentials, browser focus, Telegram/Gmail messages,
+application attempts, installed releases, LaunchAgents or services were changed.
+
+Reproduce using the workspace/PG/Clippy/format commands above and:
+
+```sh
+uv run --no-project --python .venv/bin/python python -m rust.scripts.link_corpus --check
+uv tool run --from ruff ruff check --isolated --select E9,F,I rust/scripts/link_corpus.py
+```
+
+Next: rich verified context and grounded answers/drafts, private PDF/storage/download,
+remaining REST/services/browser/application/Gmail/providers/full Telegram ports; then full
+runtime Python removal and installed/live/rollback/focus/history/quota/receipt/resource
+acceptance. The goal controller still reports `usageLimited`; no tool can schedule or
+resume it after a platform reset. No automatic wake or whole-project completion is claimed.

@@ -49,11 +49,12 @@ this is a staged behavioral migration, not a claim that scaffolding replaces the
 
 Current profile ports include CRUD/CAS, saved-job matching, atomic owner confirmation,
 saved-resume selection, onboarding readiness, resource/evidence persistence and list-link
-provenance. Milestone15 `6220b72` passes 161 Rust tests (92 standard +69 dedicated PostgreSQL),
-including 445 DTO and 56×9 link comparisons in two tests, plus the retained profile/resume
-corpora. Optimized workspace build passes (1m17s). Resource-question resolution, rich context,
-private PDF/storage and other services remain next. Installation and full Python removal
-have not happened.
+provenance and deterministic resource-question answers. Milestone16 `3ece911` passes
+164 Rust tests (93 standard +71 dedicated PostgreSQL), including 2,296 question comparisons
+within one test and retained resource/link/profile/resume corpora. Optimized workspace build
+passes at milestone15 (1m17s); the later resolver delta is debug-tested. Rich context/grounded
+answers/drafts, private PDF/storage and other services remain next. Installation and full
+Python removal have not happened.
 
 | Deliverable | State |
 | --- | --- |
