@@ -14,6 +14,7 @@ pub mod runner;
 pub struct Failure(pub &'static str);
 pub type Result<T> = std::result::Result<T, Failure>;
 pub mod knowledge;
+pub mod missing_contract;
 pub mod model_policy;
 pub mod monthly;
 pub mod owner_proof;
