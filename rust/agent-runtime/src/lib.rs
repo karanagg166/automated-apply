@@ -10,6 +10,8 @@ pub struct Failure(pub &'static str);
 pub type Result<T> = std::result::Result<T, Failure>;
 pub mod knowledge;
 pub mod monthly;
+pub mod profile_contract;
+pub mod profile_store;
 pub mod provider;
 
 pub mod knowledge_tools;

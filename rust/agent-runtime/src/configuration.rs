@@ -31,6 +31,7 @@ pub struct Configuration {
     pub(crate) role: String,
     pub(crate) telegram: Option<crate::telegram::Settings>,
     pub(crate) reviewer: Option<crate::provider::CohereModel>,
+    pub(crate) profile_live: bool,
 }
 impl Configuration {
     pub fn listen(&self) -> SocketAddr {
@@ -272,6 +273,7 @@ impl Configuration {
             role,
             telegram: crate::telegram::Settings::from_values(values, fixture)?,
             reviewer: crate::provider::CohereModel::runtime(values, fixture)?,
+            profile_live: matches!(environment.as_str(), "production" | "staging"),
         })
     }
     /// Only two host-owned connections (control/execution), no pool or overflow.

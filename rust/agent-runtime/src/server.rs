@@ -154,7 +154,15 @@ fn authorize(request: &Request, config: &Configuration) -> Result<()> {
         return Err(Failure("owner_api_tls_required"));
     }
     let token = single(headers, "authorization")
-        .and_then(|s| s.strip_prefix("Bearer "))
+        .and_then(|s| {
+            if request.uri().path() == "/api/v1/profile" {
+                s.split_once(' ')
+                    .filter(|(scheme, _)| scheme.eq_ignore_ascii_case("bearer"))
+                    .map(|(_, token)| token)
+            } else {
+                s.strip_prefix("Bearer ")
+            }
+        })
         .ok_or(Failure("owner_authentication_required"))?;
     if !bool::from(token.as_bytes().ct_eq(config.token.as_bytes())) {
         return Err(Failure("owner_authentication_required"));
@@ -162,6 +170,14 @@ fn authorize(request: &Request, config: &Configuration) -> Result<()> {
     Ok(())
 }
 async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
+    let is_profile = request.uri().path() == "/api/v1/profile";
+    let fail = |error| {
+        if is_profile {
+            profile_failure(error)
+        } else {
+            failure(error)
+        }
+    };
     let Ok(_permit) = api.requests.try_acquire() else {
         return reply(
             StatusCode::TOO_MANY_REQUESTS,
@@ -169,7 +185,7 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
         );
     };
     if let Err(error) = authorize(&request, &api.config) {
-        return failure(error);
+        return fail(error);
     }
     let method = request.method().as_str().to_owned();
     let path = request.uri().path().to_owned();
@@ -180,8 +196,17 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
         );
     }
     if request.uri().query().is_some() {
-        return failure(Failure("query_parameters_not_supported"));
+        return fail(Failure("query_parameters_not_supported"));
     }
+    let if_match = if request.headers().contains_key("if-match") {
+        Some(
+            single(request.headers(), "if-match")
+                .unwrap_or("")
+                .to_owned(),
+        )
+    } else {
+        None
+    };
     let body = match tokio::time::timeout(
         Duration::from_secs(20),
         to_bytes(request.into_body(), 65536),
@@ -192,7 +217,11 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
         Ok(Err(_)) => {
             return reply(
                 StatusCode::PAYLOAD_TOO_LARGE,
-                json!({"error":"owner_request_too_large"}),
+                if is_profile {
+                    json!({"detail":"Profile request exceeds 64 KiB"})
+                } else {
+                    json!({"error":"owner_request_too_large"})
+                },
             );
         }
         Err(_) => {
@@ -205,25 +234,41 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
     let mut state = api.connection.lock().await;
     if state.value.is_none() {
         if !state.backoff.remaining().is_zero() {
-            return failure(Failure("agent_database_reconnecting"));
+            return fail(Failure("agent_database_reconnecting"));
         }
         match api.config.connect(false).await {
             Ok(mut connection) => {
                 if let Err(error) = readiness(&mut connection, &api.config).await {
                     recovery::close(connection).await;
                     state.backoff.failed();
-                    return failure(error);
+                    return fail(error);
                 }
                 state.value = Some(connection);
             }
             Err(error) => {
                 state.backoff.failed();
-                return failure(error);
+                return fail(error);
             }
         }
     }
     let result = match state.value.as_mut() {
-        Some(connection) => dispatch(&api, connection, &method, &path, &body).await,
+        Some(connection) if path == "/api/v1/profile" => {
+            profile_dispatch(
+                connection,
+                &method,
+                &body,
+                if_match.as_deref(),
+                api.config.profile_live,
+            )
+            .await
+        }
+        Some(connection) => dispatch(&api, connection, &method, &path, &body)
+            .await
+            .map(|data| OwnerReply {
+                data,
+                status: StatusCode::OK,
+                etag: None,
+            }),
         None => Err(Failure("agent_database_unavailable")),
     };
     if result
@@ -239,9 +284,90 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
         state.backoff.reset();
     }
     match result {
-        Ok(data) => reply(StatusCode::OK, data),
-        Err(error) => failure(error),
+        Ok(result) => {
+            let mut response = reply(result.status, result.data);
+            if let Some(etag) = result.etag {
+                response.headers_mut().insert("etag", etag.parse().unwrap());
+            }
+            response
+        }
+        Err(error) => fail(error),
     }
+}
+fn profile_failure(error: Failure) -> Response {
+    let status = failure(error).status();
+    let detail = match error.0 {
+        "profile_not_found" => "No candidate profile saved",
+        "profile_version_required" => "Supply If-Match with the current profile version",
+        "profile_version_conflict" => "Profile version changed; retrieve it before retrying",
+        "invalid_profile_version" => "Invalid profile version",
+        "profile_version_syntax" => "If-Match must be a quoted positive integer, e.g. \"1\"",
+        "owner_authentication_required" => "Invalid or missing bearer token",
+        "invalid_profile_input" | "profile_payload_limit" | "invalid_profile_record" => {
+            "Resulting profile is invalid or exceeds 64 KiB"
+        }
+        "fictional_or_placeholder_profile_rejected" => "fictional_or_placeholder_profile_rejected",
+        "profile_method_not_allowed" => "Method Not Allowed",
+        "profile_database_error" | "agent_database_reconnecting" | "agent_database_unavailable" => {
+            "Profile database unavailable; retrieve the current profile before retrying"
+        }
+        _ => "Profile request rejected",
+    };
+    let mut response = reply(status, json!({"detail":detail}));
+    if status == StatusCode::UNAUTHORIZED {
+        response
+            .headers_mut()
+            .insert("www-authenticate", "Bearer".parse().unwrap());
+    }
+    response
+}
+struct OwnerReply {
+    data: Value,
+    status: StatusCode,
+    etag: Option<String>,
+}
+async fn profile_dispatch(
+    connection: &mut PgConnection,
+    method: &str,
+    body: &[u8],
+    if_match: Option<&str>,
+    live: bool,
+) -> Result<OwnerReply> {
+    let saved = match method {
+        "GET" => crate::profile_store::get(connection).await?,
+        "PUT" | "PATCH" => {
+            let input =
+                serde_json::from_slice(body).map_err(|_| Failure("invalid_profile_input"))?;
+            // The legacy HTTP contract validates the DTO before precondition headers.
+            let supplied = crate::profile_contract::normalize(
+                if method == "PATCH" {
+                    crate::profile_contract::Operation::Update
+                } else {
+                    crate::profile_contract::Operation::Create
+                },
+                input,
+            )?;
+            let expected = crate::profile_contract::parse_version(if_match, method == "PATCH")?;
+            crate::profile_store::save_normalized(
+                connection,
+                supplied,
+                expected,
+                method == "PATCH",
+                live,
+            )
+            .await?
+        }
+        _ => return Err(Failure("profile_method_not_allowed")),
+    };
+    Ok(OwnerReply {
+        data: saved.value,
+        status: if saved.created {
+            StatusCode::CREATED
+        } else {
+            StatusCode::OK
+        },
+        etag: Some(format!("\"{}\"", saved.version)),
+    })
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -422,7 +548,18 @@ fn failure(error: Failure) -> Response {
         | "owner_origin_denied"
         | "owner_client_required" => StatusCode::FORBIDDEN,
         "owner_api_tls_required" => StatusCode::UPGRADE_REQUIRED,
-        "agent_run_not_found" | "owner_route_not_found" => StatusCode::NOT_FOUND,
+        "profile_not_found" | "agent_run_not_found" | "owner_route_not_found" => {
+            StatusCode::NOT_FOUND
+        }
+        "profile_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
+        "profile_version_required" => StatusCode::PRECONDITION_REQUIRED,
+        "profile_version_conflict" => StatusCode::CONFLICT,
+        "profile_version_syntax"
+        | "invalid_profile_input"
+        | "profile_payload_limit"
+        | "invalid_profile_record"
+        | "invalid_profile_version"
+        | "fictional_or_placeholder_profile_rejected" => StatusCode::UNPROCESSABLE_ENTITY,
         "agent_approval_not_pending"
         | "agent_approval_expired"
         | "agent_approval_context_changed"
@@ -437,7 +574,8 @@ fn failure(error: Failure) -> Response {
         | "verified_profile_identity_changed"
         | "agent_reconciliation_required"
         | "invalid_agent_control" => StatusCode::CONFLICT,
-        "agent_database_reconnecting"
+        "profile_database_error"
+        | "agent_database_reconnecting"
         | "agent_database_unavailable"
         | "database_host_unavailable"
         | "verified_context_database_error"

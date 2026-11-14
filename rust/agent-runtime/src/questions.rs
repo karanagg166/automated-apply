@@ -73,7 +73,7 @@ impl Question {
     }
 }
 
-fn valid_compensation_amount(value: &Value) -> bool {
+pub(crate) fn valid_compensation_amount(value: &Value) -> bool {
     let text = match value {
         Value::String(s) => s.clone(),
         Value::Number(n) => n.to_string(),

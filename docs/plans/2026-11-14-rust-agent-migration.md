@@ -107,3 +107,12 @@ recharging, two inference reservations and human approval before completion. Det
 specialists remain the default. Tool availability is explicit; unmigrated application and
 browser adapters cannot be activated by owner review. Continue with profile semantic/CRUD
 ports and remaining REST/services before full Python removal and live resource acceptance.
+
+Primary profile milestone: pure Rust create/update/ORM-read normalization, 779 fictional
+Python DTO comparisons, Unicode/IDNA snapshots and strong ETag parsing. Standalone owner
+GET/PUT/PATCH now uses existing PG API connection with complete merged validation, CAS,
+commit-before-ACK, no-op/raw normalization distinction and preserved resume/history/
+confirmation. Native PG fixtures cover concurrent changes and forced response/commit
+rollback. Uninstalled; legacy proxy untouched. Sanitized validation detail strings replace
+the full FastAPI input-error array. Profile saved-job match, readiness/confirmation,
+resources/context and all remaining services still need ports and live acceptance.

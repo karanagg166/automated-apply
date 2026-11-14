@@ -239,3 +239,26 @@ The graph currently executes saved-job review and optional bound Telegram notice
 Browser/application tool signatures are explicitly `not_migrated`; they remain unavailable
 through the worker and approval UI. Full Python removal, profile/service/API ports,
 production installation, live actions and whole-system CPU/GPU acceptance remain open.
+
+## Primary profile API port
+
+The same authenticated host additionally handles `GET`, `PUT` and `PATCH /api/v1/profile`.
+It uses the existing API connection and existing candidate table, with no pool, new role or
+automatic DDL. Authenticate before reading a bounded 64KiB body. DTO validation precedes
+If-Match precondition checks. Create returns 201, read/update 200, with a strong quoted ETag;
+PATCH requires If-Match, and changed PUT requires it. No-op PUT can omit the header; a supplied
+version is checked atomically even for a no-op. Unknown/stale versions are never retried.
+
+Normalization preserves the original partial-field, root ORM read, nested JSON and Decimal
+semantics. A raw historical row that differs from canonical input still requires a version
+before being rewritten. Partial preferences preserve omitted facts, and the complete merged
+profile must fit its existing bound. Explicit column writes preserve active resume links and
+all history/confirmation records; a real changed version makes an old confirmation stale.
+Response validation and commit complete before acknowledgment; failure rolls back. GET never
+rewrites facts. Timestamps retain UTC/microsecond output. Production/staging reject placeholders.
+See [contract source and fixtures](schemas/README.md).
+
+This port is uninstalled. The existing frontend/backend proxy still uses the legacy service.
+Validation failures expose sanitized `detail` messages rather than copying FastAPI's full
+per-input error arrays. Saved-job matching, profile readiness/confirmation, resource/context
+and remaining APIs/services still need Rust ports before removing Python or cutting over.

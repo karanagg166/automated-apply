@@ -2921,3 +2921,388 @@ async fn actual_cli_model_reviewer_replans_waits_without_recharging_and_requires
     stop.cancel();
     fake.await.unwrap();
 }
+
+async fn profile_fixture() -> PgConnection {
+    let mut c = knowledge_fixture().await;
+    sqlx::raw_sql("ALTER TABLE candidate_profiles ADD COLUMN linkedin_url text,ADD COLUMN github_url text,ADD COLUMN portfolio_url text,ADD COLUMN personal_website text,ADD COLUMN verified_roles jsonb NOT NULL DEFAULT '[]',ADD COLUMN education jsonb NOT NULL DEFAULT '[]',ADD COLUMN projects jsonb NOT NULL DEFAULT '[]',ADD COLUMN certifications jsonb NOT NULL DEFAULT '[]',ADD COLUMN summary text,ADD COLUMN created_at timestamptz NOT NULL DEFAULT '2026-11-14T00:00:00Z',ADD COLUMN updated_at timestamptz NOT NULL DEFAULT '2026-11-14T00:00:00Z',ADD COLUMN active_resume_version_id uuid").execute(&mut c).await.unwrap();
+    c
+}
+use automated_apply_agents::{profile_contract, profile_store};
+fn profile_body() -> Value {
+    json!({"full_name":"Fictional Person","email":"fictional@example.com","verified_skills":["Rust","RUST"],"preferences":{"notice_period_days":30,"target_titles":["Engineer"]}})
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn profile_http_commits_before_ack_preserves_resume_and_uses_strong_cas_etags() {
+    let mut c = profile_fixture().await;
+    sqlx::query("DELETE FROM candidate_profiles")
+        .execute(&mut c)
+        .await
+        .unwrap();
+    let (url, stop, server) = http_fixture().await;
+    let target = format!("{url}/api/v1/profile");
+    let http = client();
+    assert_eq!(
+        http.put(&target)
+            .body("x".repeat(65537))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        401
+    );
+    assert_eq!(
+        http.put(&target)
+            .bearer_auth(HOST_TOKEN)
+            .body("x".repeat(65537))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        413
+    );
+    assert_eq!(
+        http.get(&target)
+            .bearer_auth(HOST_TOKEN)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        404
+    );
+    assert_eq!(
+        http.put(&target)
+            .bearer_auth(HOST_TOKEN)
+            .header("if-match", "\"1\"")
+            .json(&profile_body())
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        409
+    );
+    let created = http
+        .put(&target)
+        .bearer_auth(HOST_TOKEN)
+        .json(&profile_body())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(created.status(), 201);
+    assert_eq!(created.headers()["etag"], "\"1\"");
+    assert!(
+        created.headers()["cache-control"]
+            .to_str()
+            .unwrap()
+            .contains("no-store")
+    );
+    let body: Value = created.json().await.unwrap();
+    let id = body["id"].as_str().unwrap().parse::<Uuid>().unwrap();
+    assert_eq!(body["verified_skills"], json!(["Rust"]));
+    assert_eq!(body["version"], 1);
+    assert_eq!(
+        http.get(&target)
+            .header("authorization", format!("bearer {HOST_TOKEN}"))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        200
+    );
+    // An independent connection must see the committed row as soon as HTTP acknowledges.
+    let mut observer = connection().await;
+    let version: i32 = sqlx::query_scalar("SELECT version FROM candidate_profiles WHERE id=$1")
+        .bind(id)
+        .fetch_one(&mut observer)
+        .await
+        .unwrap();
+    assert_eq!(version, 1);
+    let resume = Uuid::from_u128(12345);
+    sqlx::query("UPDATE candidate_profiles SET active_resume_version_id=$1 WHERE id=$2")
+        .bind(resume)
+        .bind(id)
+        .execute(&mut c)
+        .await
+        .unwrap();
+    let no_op = http
+        .put(&target)
+        .bearer_auth(HOST_TOKEN)
+        .json(&profile_body())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(no_op.status(), 200);
+    assert_eq!(no_op.headers()["etag"], "\"1\"");
+    assert_eq!(
+        no_op.json::<Value>().await.unwrap()["updated_at"],
+        body["updated_at"]
+    );
+    let changed = json!({"preferences":{"notice_period_days":0}});
+    assert_eq!(
+        http.patch(&target)
+            .bearer_auth(HOST_TOKEN)
+            .json(&json!({}))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        422
+    );
+    assert_eq!(
+        http.patch(&target)
+            .bearer_auth(HOST_TOKEN)
+            .json(&json!({"full_name":null}))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        422
+    );
+    assert_eq!(
+        http.patch(&target)
+            .bearer_auth(HOST_TOKEN)
+            .json(&changed)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        428
+    );
+    assert_eq!(
+        http.patch(&target)
+            .bearer_auth(HOST_TOKEN)
+            .header("if-match", "W/\"1\"")
+            .json(&changed)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        422
+    );
+    assert_eq!(
+        http.patch(&target)
+            .bearer_auth(HOST_TOKEN)
+            .header("if-match", "\"1\"")
+            .header("if-match", "\"1\"")
+            .json(&changed)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        422
+    );
+    let saved = http
+        .patch(&target)
+        .bearer_auth(HOST_TOKEN)
+        .header("if-match", "\"1\"")
+        .json(&changed)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(saved.status(), 200);
+    assert_eq!(saved.headers()["etag"], "\"2\"");
+    let saved: Value = saved.json().await.unwrap();
+    assert_eq!(saved["preferences"]["notice_period_days"], 0);
+    assert_eq!(saved["preferences"]["target_titles"], json!(["Engineer"]));
+    assert_eq!(saved["verified_skills"], json!(["Rust"]));
+    assert_eq!(saved["created_at"], body["created_at"]);
+    assert!(saved.get("active_resume_version_id").is_none());
+    assert_eq!(
+        http.patch(&target)
+            .bearer_auth(HOST_TOKEN)
+            .header("if-match", "\"1\"")
+            .json(&changed)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        409
+    );
+    assert_eq!(
+        http.patch(&target)
+            .bearer_auth(HOST_TOKEN)
+            .header("if-match", "\"2\"")
+            .json(&json!({"active_resume_version_id":Uuid::new_v4()}))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        422
+    );
+    assert_eq!(
+        http.post(&target)
+            .bearer_auth(HOST_TOKEN)
+            .json(&profile_body())
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        405
+    );
+    let unchanged = http
+        .patch(&target)
+        .bearer_auth(HOST_TOKEN)
+        .header("if-match", "\"2\"")
+        .json(&changed)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(unchanged.status(), 200);
+    assert_eq!(unchanged.headers()["etag"], "\"2\"");
+    assert_eq!(
+        unchanged.json::<Value>().await.unwrap()["updated_at"],
+        saved["updated_at"]
+    );
+    let retained: Uuid =
+        sqlx::query_scalar("SELECT active_resume_version_id FROM candidate_profiles WHERE id=$1")
+            .bind(id)
+            .fetch_one(&mut c)
+            .await
+            .unwrap();
+    assert_eq!(retained, resume);
+    stop.cancel();
+    server.await.unwrap();
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn profile_concurrent_cas_allows_one_save_and_preserves_confirmation_history() {
+    let mut c = profile_fixture().await;
+    let mut other = connection().await;
+    let before: Value = sqlx::query_scalar(
+        "SELECT value FROM owner_preferences WHERE key='phase1_profile_confirmation'",
+    )
+    .fetch_one(&mut c)
+    .await
+    .unwrap();
+    let (a, b) = tokio::join!(
+        profile_store::save(
+            &mut c,
+            json!({"preferences":{"notice_period_days":10}}),
+            Some(4),
+            true,
+            false
+        ),
+        profile_store::save(
+            &mut other,
+            json!({"preferences":{"notice_period_days":20}}),
+            Some(4),
+            true,
+            false
+        )
+    );
+    assert_ne!(a.is_ok(), b.is_ok());
+    assert_eq!(
+        a.err().or(b.err()),
+        Some(Failure("profile_version_conflict"))
+    );
+    let saved = profile_store::get(&mut c).await.unwrap();
+    assert_eq!(saved.version, 5);
+    assert_eq!(saved.value["verified_skills"], json!(["Rust"]));
+    let after: Value = sqlx::query_scalar(
+        "SELECT value FROM owner_preferences WHERE key='phase1_profile_confirmation'",
+    )
+    .fetch_one(&mut c)
+    .await
+    .unwrap();
+    assert_eq!(after, before);
+    assert!(knowledge::reviewed_profile(&mut c).await.unwrap().is_none());
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn profile_validation_and_commit_failures_roll_back_before_ack() {
+    let mut c = profile_fixture().await;
+    sqlx::raw_sql("CREATE OR REPLACE FUNCTION fixture_invalid_profile() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN NEW.email='invalid-email'; RETURN NEW; END $$; CREATE TRIGGER fixture_invalid_profile BEFORE UPDATE ON candidate_profiles FOR EACH ROW EXECUTE FUNCTION fixture_invalid_profile()").execute(&mut c).await.unwrap();
+    let result = profile_store::save(
+        &mut c,
+        json!({"summary":"Verified implementation"}),
+        Some(4),
+        true,
+        false,
+    )
+    .await;
+    assert_eq!(result.err(), Some(Failure("invalid_profile_input")));
+    let saved = profile_store::get(&mut c).await.unwrap();
+    assert_eq!(saved.version, 4);
+    assert!(saved.value["summary"].is_null());
+    sqlx::raw_sql("DROP TRIGGER fixture_invalid_profile ON candidate_profiles; CREATE OR REPLACE FUNCTION fixture_profile_commit_refusal() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'fixture_commit_refused'; END $$; CREATE CONSTRAINT TRIGGER fixture_profile_commit_refusal AFTER UPDATE ON candidate_profiles DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION fixture_profile_commit_refusal()").execute(&mut c).await.unwrap();
+    let result = profile_store::save(
+        &mut c,
+        json!({"summary":"Verified implementation"}),
+        Some(4),
+        true,
+        false,
+    )
+    .await;
+    assert_eq!(result.err(), Some(Failure("profile_database_error")));
+    let saved = profile_store::get(&mut c).await.unwrap();
+    assert_eq!(saved.version, 4);
+    assert!(saved.value["summary"].is_null());
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn profile_legacy_normalization_requires_version_and_does_not_silently_rewrite_facts() {
+    let mut c = profile_fixture().await;
+    sqlx::query("UPDATE candidate_profiles SET full_name='  Fictional   Person  ',updated_at='2026-11-14T03:04:05.123000Z'").execute(&mut c).await.unwrap();
+    let original = profile_store::get(&mut c).await.unwrap();
+    assert_eq!(original.value["full_name"], "Fictional   Person");
+    assert_eq!(original.value["updated_at"], "2026-11-14T03:04:05.123000Z");
+    let mut body = original.value.clone();
+    for key in ["id", "singleton_key", "version", "created_at", "updated_at"] {
+        body.as_object_mut().unwrap().remove(key);
+    }
+    assert_eq!(
+        original.value["preferences"]["current_compensation"]["amount"],
+        "999"
+    );
+    let result = profile_store::save(&mut c, body.clone(), None, false, false).await;
+    assert_eq!(result.err(), Some(Failure("profile_version_required")));
+    let numeric:bool=sqlx::query_scalar("SELECT jsonb_typeof(preferences->'current_compensation'->'amount')='number' FROM candidate_profiles").fetch_one(&mut c).await.unwrap();
+    assert!(numeric);
+    let updated = profile_store::save(&mut c, body.clone(), Some(4), false, false)
+        .await
+        .unwrap();
+    assert_eq!(updated.version, 5);
+    let unchanged = profile_store::save(&mut c, body, None, false, false)
+        .await
+        .unwrap();
+    assert_eq!(unchanged.version, 5);
+    assert_eq!(unchanged.value["updated_at"], updated.value["updated_at"]);
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn profile_live_input_and_complete_merged_bound_are_checked_without_saves() {
+    let mut c = profile_fixture().await;
+    let blocked = profile_store::save(&mut c, json!({"summary":"TODO"}), Some(4), true, true).await;
+    assert_eq!(
+        blocked.err(),
+        Some(Failure("fictional_or_placeholder_profile_rejected"))
+    );
+    let accepted = profile_store::save(
+        &mut c,
+        json!({"summary":"Verified implementation"}),
+        Some(4),
+        true,
+        true,
+    )
+    .await
+    .unwrap();
+    assert_eq!(accepted.version, 5);
+    sqlx::query("UPDATE candidate_profiles SET summary=$1")
+        .bind("z".repeat(4000))
+        .execute(&mut c)
+        .await
+        .unwrap();
+    let patch = json!({"projects":(0..15).map(|i|json!({"name":format!("Fictional project {i}"),"description":"x".repeat(4000)})).collect::<Vec<_>>()});
+    assert!(
+        profile_contract::normalize(profile_contract::Operation::Update, patch.clone()).is_ok()
+    );
+    assert_eq!(
+        profile_store::save(&mut c, patch, Some(5), true, false)
+            .await
+            .err(),
+        Some(Failure("profile_payload_limit"))
+    );
+    let retained = profile_store::get(&mut c).await.unwrap();
+    assert_eq!(retained.version, 5);
+    assert_eq!(retained.value["projects"], json!([]));
+}
