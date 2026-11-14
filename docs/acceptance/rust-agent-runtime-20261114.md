@@ -606,3 +606,51 @@ guarded browser/application admission/execution and full legacy Telegram command
 Gmail/provider/service ports and Python removal; then immutable installation, rollback,
 focus/account/history/quota/receipt and equivalent-boundary Mac resource acceptance.
 Both requested outcomes remain incomplete.
+
+## Milestone 8: confirmed Decimal facts and profile contract preparation
+
+Implementation: [`61f212f3ca33c439d17656d63c6f792305bc8e13`](https://github.com/karanagg166/automated-apply/commit/61f212f3ca33c439d17656d63c6f792305bc8e13),
+branch `feat/rust-agent-runtime`, [PR #50](https://github.com/karanagg166/automated-apply/pull/50).
+
+Profile compatibility inspection found that valid saved Decimal values such as trailing-zero,
+exponent and signed-zero representations were incorrectly treated as missing expected
+compensation. The Rust question resolver now checks their exact cent value with bounded,
+checked integer arithmetic, retaining currency/period/kind and confirmed-profile requirements.
+It changes no stored amount or profile fact. A PostgreSQL regression verifies five serialized
+forms resume factual review without asking the owner again, preserving prior model usage.
+Negative nonzero values, finer nonzero fractional precision and values above the existing
+bound remain rejected. No salary preference is inferred as a personal fact.
+
+Public create/update/read JSON Schema snapshots and a drift-check exporter now record the
+existing DTO structure. They contain definitions, not candidate data, and load no settings.
+They do not replace the profile API: semantic normalization/coercion, email/URL handling,
+date order, authorization uniqueness, total payload bounds and repository/HTTP version/ETag
+behavior still need their Rust ports and differential verification. No unused runtime
+schema dependency was retained. See `rust/agent-runtime/schemas/README.md` for exact limits.
+
+| Check | Status | Evidence |
+| --- | --- | --- |
+| Standard Rust regression suites | PASS | 69 tests: 18 library, 20 coordinator, 9 host, 8 domain, 14 native; latest native suite 0.80s |
+| Dedicated native PostgreSQL fixtures | PASS | 44 tests, 0 failed/ignored; final run 6.82s; one new Decimal/fact regression |
+| Public schema drift / exporter Ruff / Rust format / Clippy / diff | PASS | Local checks; snapshots regenerated from public source only |
+| Locked optimized workspace build | PASS | Final local build 38.89s |
+| Complete Rust profile API/custom validation/REST parity | NOT TESTED | Structural snapshots are preparation; route/repository implementation remains pending |
+| Live profile facts, owner DB, installation, full-project resources | NOT TESTED | No owner data or installed service touched |
+
+Total: **113 distinct Rust tests passed** (69 standard + 44 dedicated PostgreSQL).
+Schema drift checks and earlier matching/native parity corpora are separate checks.
+No unresolved scoped test failures. No new cloud, browser, Telegram, Gmail, profile-save,
+application, installed-service, hosted Action, cleanup or merge operation occurred.
+No new runtime CPU/RSS/GPU comparison is claimed; prior component measurements retain their
+original scope and implementation SHAs. Both requested outcomes remain incomplete.
+
+Additional reproduction:
+
+```sh
+uv run --no-project --python .venv/bin/python python -m rust.scripts.export_profile_schema --check
+uv tool run --from ruff ruff check --isolated --select E9,F,I rust/scripts/export_profile_schema.py
+```
+
+Next remains complete profile/resource/REST compatibility and rich verified context, followed
+by actual browser/application tools, remaining provider/Gmail/service ports and Python
+runtime removal, then immutable live/rollback/focus/history/quota/receipt/resource acceptance.
