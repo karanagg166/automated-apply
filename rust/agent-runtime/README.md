@@ -33,11 +33,13 @@ It compiles before startup, uses at most8connections and16MiBshared buffers, rej
 nonfixture database URLs, and never reads the project's env files. Default workspace
 tests deliberately skip these integration cases; the dedicated harness runs them all.
 
-The current end-to-end test uses scripted model proposals and simulated tool adapters.
-The Cohere V2 transport, explicit consent and shared monthly usage/cooldowns are now
-implemented and fixture-tested. No live provider call has been performed. Verified-context retrieval,
-Telegram pairing, browser execution, queue admission, other provider adapters, dashboard
-integration and real receipt acceptance remain to be ported. Nothing in this library grants new submissions,
+The worker now runs five deterministic saved-review roles over actual PostgreSQL read
+tools. Its integration tests use fictional profiles/jobs in a disposable database; earlier
+coordinator tests also retain scripted model proposals and simulated write adapters.
+The Cohere V2 transport, explicit consent and shared monthly usage/cooldowns are
+implemented and fixture-tested. No live provider call has been performed. Rich resume/project
+context, Telegram pairing, browser execution, queue admission, other provider adapters,
+dashboard integration and real receipt acceptance remain to be ported. Nothing in this library grants new submissions,
 turns on recurring AUTOMATIC or starts Ollama/GPU inference.
 
 Library references: [Tokio](https://docs.rs/tokio/latest/tokio/),
@@ -66,3 +68,29 @@ Only backend-observed job IDs may be proposed for job-specific tools. Binding ch
 ranking revoke old IDs, and binding membership is checked again at dispatch. Read-tool
 outputs are persisted through the same coordinator before any later action. Unsupported
 adapters produce a migration diagnostic; they do not ask the owner to approve missing code.
+
+The additive `sql/002_control.sql` migration starts globally STOPPED. It is explicit,
+like migration 001; development only applies it to disposable fixtures. Owner commands
+require a current revision. Pause/Stop fence active leases and record mode changes in a
+separate sanitized audit table, atomically. Start resumes globally paused work, preserving
+budgets and pending read effect IDs; it preserves manual pauses and quarantined external
+actions. Per-run Stop preserves completed/failed/unknown history. Global Stop retains queued
+work without admitting it. No authority, application quota or provider usage is refunded.
+
+`worker::serve` borrows its host's connection and supports cancellation and committed-control
+wakeups. It sleeps when idle/stopped, heartbeats every five seconds, and bounds reconciliation
+to ten questions per scan with fair scheduling. It does not create a pool or extra worker
+threads. A normal saved-job review takes nine bounded decisions and four database tools,
+with zero model calls/token reservations. Independent decision limits prevent an unbounded
+deterministic loop. Interrupted model reservations remain consumed.
+
+Owner questions accept references to existing confirmed profile versions, not raw answers
+or grants. Notice period, work authorization, compensation units and availability use the
+existing profile schema's fact types. Already known facts reconcile automatically; changing
+profile versions restarts read-only review without resetting usage. Changed identities and
+uncertain external effects require reconciliation. No profile/provider save occurs here.
+
+These are library controls, not an authenticated HTTP service yet. A standalone private-config
+host, shared legacy process lock, HTTP authentication, dashboard wiring, reconnect supervision
+and real installation/resource acceptance are the next integration boundary. Never run this
+worker alongside the installed Python executor against the owner's data.

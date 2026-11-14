@@ -26,11 +26,19 @@ async fn connection() -> PgConnection {
 }
 async fn setup() -> PgConnection {
     let mut c = connection().await;
-    sqlx::raw_sql("DROP TABLE IF EXISTS rust_agent_events; DROP TABLE IF EXISTS rust_agent_runs; DROP TABLE IF EXISTS llm_monthly_usage;")
+    sqlx::raw_sql("DROP TABLE IF EXISTS rust_agent_control_events; DROP TABLE IF EXISTS rust_agent_control; DROP TABLE IF EXISTS rust_agent_events; DROP TABLE IF EXISTS rust_agent_runs; DROP TABLE IF EXISTS llm_monthly_usage;")
         .execute(&mut c)
         .await
         .unwrap();
     sqlx::raw_sql(include_str!("../sql/001_runtime.sql"))
+        .execute(&mut c)
+        .await
+        .unwrap();
+    sqlx::raw_sql(include_str!("../sql/002_control.sql"))
+        .execute(&mut c)
+        .await
+        .unwrap();
+    sqlx::raw_sql("UPDATE rust_agent_control SET mode='RUNNING'")
         .execute(&mut c)
         .await
         .unwrap();
@@ -800,4 +808,660 @@ async fn durable_coordinator_consumes_real_postgres_tool_outputs_before_any_appl
         .await
         .unwrap();
     assert_eq!(packets, 0);
+}
+
+use automated_apply_agents::{
+    lifecycle::{self, Action, Mode},
+    worker::{self, Wake},
+};
+use std::time::Duration;
+use tokio_util::sync::CancellationToken;
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn additive_control_migration_defaults_to_stopped_and_requires_revision() {
+    let mut c = setup().await;
+    sqlx::raw_sql("UPDATE rust_agent_control SET mode='STOPPED'")
+        .execute(&mut c)
+        .await
+        .unwrap();
+    Store { connection: &mut c }.create(&run()).await.unwrap();
+    assert!(
+        Store { connection: &mut c }
+            .claim()
+            .await
+            .unwrap()
+            .is_none()
+    );
+    let state = lifecycle::control(&mut c).await.unwrap();
+    assert_eq!(state.mode, Mode::Stopped);
+    assert!(!state.worker_online);
+    assert_eq!(
+        lifecycle::set_control(&mut c, 2, Mode::Running).await.err(),
+        Some(Failure("agent_control_revision_conflict"))
+    );
+    let audit: i64 = sqlx::query_scalar("SELECT count(*) FROM rust_agent_control_events")
+        .fetch_one(&mut c)
+        .await
+        .unwrap();
+    assert_eq!(audit, 1);
+    let state = lifecycle::set_control(&mut c, 1, Mode::Running)
+        .await
+        .unwrap();
+    assert_eq!(state.revision, 2);
+    assert!(
+        Store { connection: &mut c }
+            .claim()
+            .await
+            .unwrap()
+            .is_some()
+    );
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn global_pause_fences_inference_and_retains_budget_across_resume() {
+    let mut c = setup().await;
+    let initial = run();
+    Store { connection: &mut c }.create(&initial).await.unwrap();
+    let mut lease = Store { connection: &mut c }.claim().await.unwrap().unwrap();
+    engine::begin_model(&mut lease.run).unwrap();
+    Store { connection: &mut c }.save(&mut lease).await.unwrap();
+    let reserved = lease.run.usage.reserved_tokens;
+    let paused = lifecycle::set_control(&mut c, 1, Mode::Paused)
+        .await
+        .unwrap();
+    let saved = lifecycle::load(&mut c, initial.id).await.unwrap();
+    assert_eq!(saved.run.state, State::Paused);
+    assert_eq!(saved.run.resume_state, Some(State::Ready));
+    assert_eq!(saved.run.usage.reserved_tokens, reserved);
+    assert_eq!(
+        Store { connection: &mut c }.save(&mut lease).await,
+        Err(Failure("agent_lease_or_revision_lost"))
+    );
+    assert!(
+        Store { connection: &mut c }
+            .claim()
+            .await
+            .unwrap()
+            .is_none()
+    );
+    lifecycle::set_control(&mut c, paused.revision, Mode::Running)
+        .await
+        .unwrap();
+    assert_eq!(
+        Store { connection: &mut c }.save(&mut lease).await,
+        Err(Failure("agent_lease_or_revision_lost"))
+    );
+    let next = Store { connection: &mut c }.claim().await.unwrap().unwrap();
+    assert_eq!(next.run.usage.model_calls, 1);
+    assert_eq!(next.run.usage.decision_calls, 1);
+    assert_eq!(next.run.usage.reserved_tokens, reserved);
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn manual_pause_is_not_resumed_by_global_start_and_stale_control_is_rejected() {
+    let mut c = setup().await;
+    let r = run();
+    Store { connection: &mut c }.create(&r).await.unwrap();
+    let paused = lifecycle::control_run(&mut c, r.id, 1, Action::Pause)
+        .await
+        .unwrap();
+    assert_eq!(
+        lifecycle::control_run(&mut c, r.id, 1, Action::Resume)
+            .await
+            .err(),
+        Some(Failure("agent_revision_conflict"))
+    );
+    lifecycle::set_control(&mut c, 1, Mode::Stopped)
+        .await
+        .unwrap();
+    lifecycle::set_control(&mut c, 2, Mode::Running)
+        .await
+        .unwrap();
+    assert!(
+        Store { connection: &mut c }
+            .claim()
+            .await
+            .unwrap()
+            .is_none()
+    );
+    let same = lifecycle::load(&mut c, r.id).await.unwrap();
+    assert_eq!(same.revision, paused.revision);
+    assert!(!same.run.paused_by_global);
+    lifecycle::control_run(&mut c, r.id, same.revision, Action::Resume)
+        .await
+        .unwrap();
+    assert!(
+        Store { connection: &mut c }
+            .claim()
+            .await
+            .unwrap()
+            .is_some()
+    );
+}
+fn running_browser() -> Run {
+    let mut r = run();
+    r.role = Role::Execution;
+    r.known_jobs = vec![Uuid::from_u128(1)];
+    engine::begin_model(&mut r).unwrap();
+    engine::accept(
+        &mut r,
+        Proposal::Tool {
+            call: ToolCall {
+                name: ToolName::OpenBrowser,
+                job_id: Some(Uuid::from_u128(1)),
+                evidence: vec![],
+            },
+        },
+    )
+    .unwrap();
+    engine::begin_tool(
+        &mut r,
+        &Authority {
+            inactive_owned_browser: true,
+            ..Authority::default()
+        },
+    )
+    .unwrap();
+    r
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn stop_quarantines_dispatched_actions_and_never_refunds_or_replays_them() {
+    let mut c = setup().await;
+    let original = running_browser();
+    let effect = original.pending.as_ref().unwrap().id;
+    Store { connection: &mut c }
+        .create(&original)
+        .await
+        .unwrap();
+    let lease = Store { connection: &mut c }.claim().await.unwrap().unwrap();
+    lifecycle::set_control(&mut c, 1, Mode::Stopped)
+        .await
+        .unwrap();
+    let saved = lifecycle::load(&mut c, original.id).await.unwrap();
+    assert_eq!(saved.run.state, State::OutcomeUnknown);
+    assert_eq!(saved.run.pending.as_ref().unwrap().id, effect);
+    assert_eq!(saved.run.usage.tool_calls, 1);
+    assert_eq!(
+        saved.run.usage.reserved_tokens,
+        original.usage.reserved_tokens
+    );
+    let stopped = lifecycle::control_run(&mut c, original.id, saved.revision, Action::Stop)
+        .await
+        .unwrap();
+    assert_eq!(stopped.run.state, State::OutcomeUnknown);
+    assert_eq!(
+        Store { connection: &mut c }.release(&lease).await,
+        Err(Failure("agent_lease_or_revision_lost"))
+    );
+    lifecycle::set_control(&mut c, 2, Mode::Running)
+        .await
+        .unwrap();
+    assert!(
+        Store { connection: &mut c }
+            .claim()
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(
+        lifecycle::control_run(&mut c, original.id, stopped.revision, Action::Resume)
+            .await
+            .err(),
+        Some(Failure("invalid_agent_control"))
+    );
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn interrupted_read_retains_effect_and_counts_each_real_dispatch() {
+    let mut c = setup().await;
+    let mut r = run();
+    engine::begin_model(&mut r).unwrap();
+    engine::accept(
+        &mut r,
+        Proposal::Tool {
+            call: ToolCall {
+                name: ToolName::SearchJobs,
+                job_id: None,
+                evidence: vec![],
+            },
+        },
+    )
+    .unwrap();
+    let effect = engine::begin_tool(&mut r, &Authority::default())
+        .unwrap()
+        .id;
+    Store { connection: &mut c }.create(&r).await.unwrap();
+    Store { connection: &mut c }.claim().await.unwrap().unwrap();
+    lifecycle::set_control(&mut c, 1, Mode::Paused)
+        .await
+        .unwrap();
+    lifecycle::set_control(&mut c, 2, Mode::Running)
+        .await
+        .unwrap();
+    let mut next = Store { connection: &mut c }.claim().await.unwrap().unwrap();
+    assert_eq!(next.run.state, State::ToolPending);
+    assert_eq!(
+        engine::begin_tool(&mut next.run, &Authority::default())
+            .unwrap()
+            .id,
+        effect
+    );
+    assert_eq!(next.run.usage.tool_calls, 2);
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn control_audit_failure_rolls_back_mode_and_run_fence_together() {
+    let mut c = setup().await;
+    let r = run();
+    Store { connection: &mut c }.create(&r).await.unwrap();
+    let mut lease = Store { connection: &mut c }.claim().await.unwrap().unwrap();
+    sqlx::raw_sql(
+        "ALTER TABLE rust_agent_control_events ADD CONSTRAINT fixture_failure CHECK(revision<2)",
+    )
+    .execute(&mut c)
+    .await
+    .unwrap();
+    assert_eq!(
+        lifecycle::set_control(&mut c, 1, Mode::Stopped).await.err(),
+        Some(Failure("agent_database_error"))
+    );
+    assert_eq!(
+        lifecycle::control(&mut c).await.unwrap().mode,
+        Mode::Running
+    );
+    Store { connection: &mut c }.save(&mut lease).await.unwrap();
+}
+async fn waiting_fact(c: &mut PgConnection, key: &str) -> Run {
+    let mut r = run();
+    r.profile = Some(profile_pin());
+    engine::begin_model(&mut r).unwrap();
+    engine::accept(
+        &mut r,
+        Proposal::NeedsInput {
+            question_key: key.into(),
+        },
+    )
+    .unwrap();
+    Store { connection: c }.create(&r).await.unwrap();
+    r
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn owner_question_uses_confirmed_saved_fact_and_retains_prior_spend() {
+    let mut c = knowledge_fixture().await;
+    let r = waiting_fact(&mut c, "notice_period_days").await;
+    let question = r.question.as_ref().unwrap().id;
+    assert_eq!(lifecycle::pending_questions(&mut c).await.unwrap().len(), 1);
+    assert_eq!(
+        lifecycle::resolve_question(&mut c, r.id, 1, question, &profile_pin())
+            .await
+            .err(),
+        Some(Failure("owner_fact_not_confirmed"))
+    );
+    sqlx::raw_sql("UPDATE candidate_profiles SET version=5,preferences=preferences||'{\"notice_period_days\":0}'").execute(&mut c).await.unwrap();
+    assert_eq!(
+        lifecycle::resolve_question(&mut c, r.id, 1, question, &profile_pin())
+            .await
+            .err(),
+        Some(Failure("owner_fact_not_confirmed"))
+    );
+    sqlx::raw_sql("UPDATE owner_preferences SET value=jsonb_set(value,'{profile_version}','5')")
+        .execute(&mut c)
+        .await
+        .unwrap();
+    assert_eq!(
+        lifecycle::resolve_question(&mut c, r.id, 1, question, &profile_pin())
+            .await
+            .err(),
+        Some(Failure("verified_profile_context_changed"))
+    );
+    let pin = ProfilePin {
+        version: 5,
+        ..profile_pin()
+    };
+    let saved = lifecycle::resolve_question(&mut c, r.id, 1, question, &pin)
+        .await
+        .unwrap();
+    assert_eq!(saved.run.state, State::Ready);
+    assert!(saved.run.question.is_none());
+    assert_eq!(saved.run.usage.model_calls, 1);
+    assert_eq!(saved.run.usage.reserved_tokens, r.usage.reserved_tokens);
+    assert_eq!(saved.run.profile.as_ref().unwrap().version, 5);
+    assert_eq!(
+        lifecycle::resolve_question(&mut c, r.id, saved.revision, question, &pin)
+            .await
+            .err(),
+        Some(Failure("agent_question_not_pending"))
+    );
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn known_facts_are_not_asked_again_and_reconcile_without_an_owner_action() {
+    let mut c = knowledge_fixture().await;
+    let r = waiting_fact(&mut c, "notice_period_days").await;
+    sqlx::raw_sql(
+        "UPDATE candidate_profiles SET preferences=preferences||'{\"notice_period_days\":false}'",
+    )
+    .execute(&mut c)
+    .await
+    .unwrap();
+    assert_eq!(
+        lifecycle::reconcile_known_questions(&mut c).await.unwrap(),
+        0
+    );
+    sqlx::raw_sql(
+        "UPDATE candidate_profiles SET preferences=preferences||'{\"notice_period_days\":30}'",
+    )
+    .execute(&mut c)
+    .await
+    .unwrap();
+    assert!(
+        lifecycle::pending_questions(&mut c)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    lifecycle::set_control(&mut c, 1, Mode::Stopped)
+        .await
+        .unwrap();
+    assert_eq!(
+        lifecycle::reconcile_known_questions(&mut c).await.unwrap(),
+        0
+    );
+    lifecycle::set_control(&mut c, 2, Mode::Running)
+        .await
+        .unwrap();
+    assert_eq!(
+        lifecycle::reconcile_known_questions(&mut c).await.unwrap(),
+        1
+    );
+    assert_eq!(
+        lifecycle::load(&mut c, r.id).await.unwrap().run.state,
+        State::Ready
+    );
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn fact_resolution_rejects_unknown_question_identity_switch_and_uncertain_actions() {
+    let mut c = knowledge_fixture().await;
+    let mut r = waiting_fact(&mut c, "profile_review_required").await;
+    let q = r.question.as_ref().unwrap().id;
+    assert_eq!(
+        lifecycle::resolve_question(&mut c, r.id, 1, Uuid::new_v4(), &profile_pin())
+            .await
+            .err(),
+        Some(Failure("agent_question_not_pending"))
+    );
+    r.profile = Some(ProfilePin {
+        id: Uuid::from_u128(3),
+        version: 4,
+    });
+    sqlx::query("UPDATE rust_agent_runs SET run=$1 WHERE id=$2")
+        .bind(serde_json::to_value(&r).unwrap())
+        .bind(r.id)
+        .execute(&mut c)
+        .await
+        .unwrap();
+    assert_eq!(
+        lifecycle::resolve_question(&mut c, r.id, 1, q, &profile_pin())
+            .await
+            .err(),
+        Some(Failure("verified_profile_identity_changed"))
+    );
+    r.profile = Some(profile_pin());
+    r.pending = running_browser().pending;
+    sqlx::query("UPDATE rust_agent_runs SET run=$1 WHERE id=$2")
+        .bind(serde_json::to_value(&r).unwrap())
+        .bind(r.id)
+        .execute(&mut c)
+        .await
+        .unwrap();
+    assert_eq!(
+        lifecycle::resolve_question(&mut c, r.id, 1, q, &profile_pin())
+            .await
+            .err(),
+        Some(Failure("agent_reconciliation_required"))
+    );
+    assert_eq!(
+        lifecycle::reconcile_known_questions(&mut c).await.unwrap(),
+        0
+    );
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn intake_waits_for_profile_and_request_replay_cannot_change_profile_identity() {
+    let mut c = knowledge_fixture().await;
+    sqlx::raw_sql("UPDATE owner_preferences SET value=value-'confirmed_at'")
+        .execute(&mut c)
+        .await
+        .unwrap();
+    let key = Uuid::new_v4();
+    let first = lifecycle::intake(&mut c, key, Limits::default())
+        .await
+        .unwrap();
+    assert_eq!(first.run.state, State::WaitingOwner);
+    let same = lifecycle::intake(&mut c, key, Limits::default())
+        .await
+        .unwrap();
+    assert_eq!(same.run.id, first.run.id);
+    sqlx::raw_sql(
+        "UPDATE owner_preferences SET value=value||'{\"confirmed_at\":\"2026-11-14T00:00:00Z\"}'",
+    )
+    .execute(&mut c)
+    .await
+    .unwrap();
+    assert_eq!(
+        lifecycle::intake(&mut c, key, Limits::default())
+            .await
+            .err(),
+        Some(Failure("agent_request_key_conflict"))
+    );
+    assert_eq!(
+        lifecycle::reconcile_known_questions(&mut c).await.unwrap(),
+        1
+    );
+    assert!(
+        lifecycle::load(&mut c, first.run.id)
+            .await
+            .unwrap()
+            .run
+            .profile
+            == Some(profile_pin())
+    );
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn actual_worker_completes_saved_review_with_four_reads_and_no_inference() {
+    let mut c = knowledge_fixture().await;
+    saved_job(&mut c, 1).await;
+    let first = lifecycle::intake(&mut c, Uuid::new_v4(), Limits::default())
+        .await
+        .unwrap();
+    let mut worker_connection = connection().await;
+    let wake = Wake::default();
+    let stop = CancellationToken::new();
+    let monitor = async {
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                let saved = lifecycle::load(&mut c, first.run.id).await.unwrap();
+                if saved.run.state == State::Completed {
+                    assert_eq!(saved.run.usage.decision_calls, 9);
+                    assert_eq!(saved.run.usage.tool_calls, 4);
+                    assert_eq!(saved.run.usage.model_calls, 0);
+                    assert_eq!(saved.run.usage.reserved_tokens, 0);
+                    assert_eq!(saved.run.context.len(), 4);
+                    assert!(lifecycle::control(&mut c).await.unwrap().worker_online);
+                    let public = lifecycle::summary(&saved).to_string();
+                    assert!(public.contains("saved_job_review_no_application_dispatch"));
+                    assert!(!public.contains("Private Fictional"));
+                    break;
+                }
+                assert_ne!(saved.run.state, State::Failed, "{:?}", saved.run.diagnostic);
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .unwrap();
+        stop.cancel();
+    };
+    let (result, _) = tokio::join!(
+        worker::serve(&mut worker_connection, wake, stop.clone()),
+        monitor
+    );
+    result.unwrap();
+    assert_eq!(lifecycle::control(&mut c).await.unwrap().mode, Mode::Paused);
+    let provider_requests: i64 = sqlx::query_scalar("SELECT count(*) FROM llm_monthly_usage")
+        .fetch_one(&mut c)
+        .await
+        .unwrap();
+    assert_eq!(provider_requests, 0);
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn stopped_worker_sleeps_and_wakes_on_committed_owner_start() {
+    let mut c = knowledge_fixture().await;
+    lifecycle::set_control(&mut c, 1, Mode::Stopped)
+        .await
+        .unwrap();
+    let first = lifecycle::intake(&mut c, Uuid::new_v4(), Limits::default())
+        .await
+        .unwrap();
+    let mut wc = connection().await;
+    let wake = Wake::default();
+    let stop = CancellationToken::new();
+    let owner = async {
+        tokio::time::sleep(Duration::from_millis(25)).await;
+        let saved = lifecycle::load(&mut c, first.run.id).await.unwrap();
+        assert_eq!(saved.run.state, State::Ready);
+        assert_eq!(saved.run.usage.decision_calls, 0);
+        lifecycle::set_control(&mut c, 2, Mode::Running)
+            .await
+            .unwrap();
+        wake.controls_changed();
+        tokio::time::timeout(Duration::from_secs(2), async {
+            loop {
+                if lifecycle::load(&mut c, first.run.id)
+                    .await
+                    .unwrap()
+                    .run
+                    .state
+                    == State::Completed
+                {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .unwrap();
+        stop.cancel();
+    };
+    let (result, _) = tokio::join!(worker::serve(&mut wc, wake.clone(), stop.clone()), owner);
+    result.unwrap();
+}
+
+struct BlockedModel {
+    started: std::sync::Arc<tokio::sync::Notify>,
+}
+impl Model for BlockedModel {
+    async fn propose(
+        &mut self,
+        _: Role,
+        _: &[Context],
+        _: ModelBudget,
+        _: &mut Store<'_>,
+    ) -> Result<Proposal> {
+        self.started.notify_one();
+        std::future::pending().await
+    }
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn committed_stop_remains_responsive_during_a_blocked_model_call() {
+    let mut owner = setup().await;
+    let r = run();
+    Store {
+        connection: &mut owner,
+    }
+    .create(&r)
+    .await
+    .unwrap();
+    let mut wc = connection().await;
+    let started = std::sync::Arc::new(tokio::sync::Notify::new());
+    let cancelled = CancellationToken::new();
+    let mut model = BlockedModel {
+        started: started.clone(),
+    };
+    let worker = async {
+        let mut store = Store {
+            connection: &mut wc,
+        };
+        let mut lease = store.claim().await.unwrap().unwrap();
+        let mut tools = FictionalTools { calls: vec![] };
+        tokio::select! {
+            biased;
+            _=cancelled.cancelled()=>{},
+            result=tick(&mut store,&mut lease,&mut model,&mut tools)=>panic!("blocked call unexpectedly finished: {result:?}"),
+        }
+        assert_eq!(
+            store.save(&mut lease).await,
+            Err(Failure("agent_lease_or_revision_lost"))
+        );
+    };
+    let control = async {
+        tokio::time::timeout(Duration::from_secs(2), started.notified())
+            .await
+            .unwrap();
+        // Stop has a separate borrowed owner connection and never waits for the model.
+        tokio::time::timeout(
+            Duration::from_secs(1),
+            lifecycle::set_control(&mut owner, 1, Mode::Stopped),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let saved = lifecycle::load(&mut owner, r.id).await.unwrap();
+        assert_eq!(saved.run.state, State::Paused);
+        assert_eq!(saved.run.usage.model_calls, 1);
+        assert!(saved.run.usage.reserved_tokens > 0);
+        cancelled.cancel();
+    };
+    tokio::join!(worker, control);
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn control_and_audit_tables_reject_a_public_client_even_with_select_granted() {
+    let mut c = setup().await;
+    sqlx::raw_sql("DO $body$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='rust_fixture_client')THEN CREATE ROLE rust_fixture_client; END IF; END $body$; GRANT SELECT ON rust_agent_control,rust_agent_control_events TO rust_fixture_client; SET ROLE rust_fixture_client;").execute(&mut c).await.unwrap();
+    for query in [
+        "SELECT count(*) FROM rust_agent_control",
+        "SELECT count(*) FROM rust_agent_control_events",
+    ] {
+        let count: i64 = sqlx::query_scalar(query).fetch_one(&mut c).await.unwrap();
+        assert_eq!(count, 0);
+    }
+    sqlx::raw_sql("RESET ROLE").execute(&mut c).await.unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn missing_older_facts_do_not_starve_a_later_known_question() {
+    let mut c = knowledge_fixture().await;
+    for _ in 0..10 {
+        waiting_fact(&mut c, "notice_period_days").await;
+    }
+    let known = waiting_fact(&mut c, "profile_review_required").await;
+    assert_eq!(
+        lifecycle::reconcile_known_questions(&mut c).await.unwrap(),
+        0
+    );
+    assert_eq!(
+        lifecycle::reconcile_known_questions(&mut c).await.unwrap(),
+        1
+    );
+    let saved = lifecycle::load(&mut c, known.id).await.unwrap();
+    assert_eq!(saved.run.state, State::Ready);
+    assert_eq!(saved.run.usage.model_calls, 1);
 }

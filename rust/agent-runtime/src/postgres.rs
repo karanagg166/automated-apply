@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 pub struct Lease {
     pub run: Run,
-    revision: i64,
+    pub(crate) revision: i64,
     token: Uuid,
 }
 /// Borrow a single existing connection. No extra live pool, background thread or migration.
@@ -14,7 +14,7 @@ pub struct Store<'a> {
 impl Store<'_> {
     pub async fn create(&mut self, run: &Run) -> Result<Uuid> {
         let value = serde_json::to_value(run).map_err(|_| Failure("invalid_agent_record"))?;
-        let row=sqlx::query("INSERT INTO rust_agent_runs (id,request_key,run) VALUES ($1,$2,$3) ON CONFLICT (request_key) DO UPDATE SET request_key=EXCLUDED.request_key WHERE rust_agent_runs.run->'limits'=EXCLUDED.run->'limits' RETURNING id")
+        let row=sqlx::query("INSERT INTO rust_agent_runs (id,request_key,run) VALUES ($1,$2,$3) ON CONFLICT (request_key) DO UPDATE SET request_key=EXCLUDED.request_key WHERE rust_agent_runs.run->'limits'=EXCLUDED.run->'limits' AND COALESCE(rust_agent_runs.run->'profile','null'::jsonb)=COALESCE(EXCLUDED.run->'profile','null'::jsonb) RETURNING id")
             .bind(run.id).bind(run.request_key).bind(value).fetch_optional(&mut *self.connection).await.map_err(db_failure)?.ok_or(Failure("agent_request_key_conflict"))?;
         row.try_get("id").map_err(db_failure)
     }
@@ -27,7 +27,7 @@ impl Store<'_> {
             .await
             .map_err(db_failure)?;
         sqlx::query("UPDATE rust_agent_runs SET lease_token=NULL,lease_until=NULL WHERE lease_until<clock_timestamp() AND run->>'state' NOT IN ('ready','model_running','tool_pending','tool_running')").execute(&mut *transaction).await.map_err(db_failure)?;
-        let row=sqlx::query("UPDATE rust_agent_runs SET lease_token=$1,lease_until=clock_timestamp()+interval '90 seconds',revision=revision+1 WHERE id=(SELECT id FROM rust_agent_runs WHERE run->>'state' IN ('ready','model_running','tool_pending','tool_running') AND (lease_until IS NULL OR lease_until<clock_timestamp()) AND NOT EXISTS (SELECT 1 FROM rust_agent_runs WHERE lease_until>clock_timestamp()) ORDER BY (lease_token IS NULL),created_at FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING run,revision")
+        let row=sqlx::query("UPDATE rust_agent_runs SET lease_token=$1,lease_until=clock_timestamp()+interval '90 seconds',revision=revision+1 WHERE id=(SELECT id FROM rust_agent_runs WHERE run->>'state' IN ('ready','model_running','tool_pending','tool_running') AND (lease_until IS NULL OR lease_until<clock_timestamp()) AND EXISTS(SELECT 1 FROM rust_agent_control WHERE key='primary' AND mode='RUNNING') AND NOT EXISTS (SELECT 1 FROM rust_agent_runs WHERE lease_until>clock_timestamp()) ORDER BY (lease_token IS NULL),created_at FOR UPDATE SKIP LOCKED LIMIT 1) RETURNING run,revision")
             .bind(token).fetch_optional(&mut *transaction).await.map_err(db_failure)?;
         transaction.commit().await.map_err(db_failure)?;
         row.map(|row| {
@@ -54,9 +54,9 @@ impl Store<'_> {
             .unwrap()
             .to_owned();
         // State/budget/effect intent and sanitized audit event share the same transaction.
-        let row=sqlx::query("WITH updated AS (UPDATE rust_agent_runs SET run=$1,revision=revision+1,updated_at=clock_timestamp() WHERE id=$2 AND revision=$3 AND lease_token=$4 AND lease_until>clock_timestamp() RETURNING id,revision) INSERT INTO rust_agent_events (run_id,revision,role,state,model_calls,tool_calls,reserved_tokens) SELECT id,revision,$5,$6,$7,$8,$9 FROM updated RETURNING revision")
+        let row=sqlx::query("WITH updated AS (UPDATE rust_agent_runs SET run=$1,revision=revision+1,updated_at=clock_timestamp() WHERE id=$2 AND revision=$3 AND lease_token=$4 AND lease_until>clock_timestamp() AND EXISTS(SELECT 1 FROM rust_agent_control WHERE key='primary' AND mode='RUNNING') RETURNING id,revision) INSERT INTO rust_agent_events (run_id,revision,role,state,model_calls,tool_calls,reserved_tokens,decision_calls) SELECT id,revision,$5,$6,$7,$8,$9,$10 FROM updated RETURNING revision")
             .bind(value).bind(lease.run.id).bind(lease.revision).bind(lease.token).bind(role).bind(state)
-            .bind(i32::from(lease.run.usage.model_calls)).bind(i32::from(lease.run.usage.tool_calls)).bind(i64::from(lease.run.usage.reserved_tokens) as i32)
+            .bind(i32::from(lease.run.usage.model_calls)).bind(i32::from(lease.run.usage.tool_calls)).bind(lease.run.usage.reserved_tokens as i32).bind(i32::from(lease.run.usage.decision_calls))
             .fetch_optional(&mut *self.connection).await.map_err(db_failure)?.ok_or(Failure("agent_lease_or_revision_lost"))?;
         lease.revision = row.try_get("revision").map_err(db_failure)?;
         Ok(())

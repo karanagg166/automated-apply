@@ -1,21 +1,33 @@
 use crate::{Failure, Result, contracts::*};
 
 pub fn begin_model(run: &mut Run) -> Result<u32> {
+    begin_decision(run, true)
+}
+pub fn begin_decision(run: &mut Run, inference: bool) -> Result<u32> {
     if run.state != State::Ready {
         return Err(Failure("invalid_agent_transition"));
     }
-    let reserve = run
-        .limits
-        .max_input_tokens
-        .saturating_add(run.limits.max_output_tokens);
-    if run.usage.model_calls >= run.limits.model_calls
+    // Old records counted every decision as a model call. Never reset that allowance.
+    run.usage.decision_calls = run.usage.decision_calls.max(run.usage.model_calls);
+    let reserve = if inference {
+        run.limits
+            .max_input_tokens
+            .saturating_add(run.limits.max_output_tokens)
+    } else {
+        0
+    };
+    if run.usage.decision_calls >= run.limits.decision_calls
+        || (inference && run.usage.model_calls >= run.limits.model_calls)
         || run.usage.reserved_tokens.saturating_add(reserve) > run.limits.tokens
     {
         run.state = State::Failed;
         run.diagnostic = Some("agent_budget_exhausted".into());
         return Err(Failure("agent_budget_exhausted"));
     }
-    run.usage.model_calls += 1;
+    run.usage.decision_calls += 1;
+    if inference {
+        run.usage.model_calls += 1;
+    }
     run.usage.reserved_tokens += reserve;
     run.state = State::ModelRunning;
     Ok(reserve)
@@ -49,15 +61,9 @@ pub fn accept(run: &mut Run, proposal: Proposal) -> Result<()> {
                 run.state = State::Ready;
             }
             Proposal::NeedsInput { question_key } => {
-                if question_key.is_empty()
-                    || question_key.len() > 64
-                    || !question_key
-                        .bytes()
-                        .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
-                {
-                    return Err(Failure("invalid_question_key"));
-                }
+                let question = crate::questions::Question::new(&question_key)?;
                 run.diagnostic = Some(question_key);
+                run.question = Some(question);
                 run.state = State::WaitingOwner;
             }
             Proposal::Complete { evidence } => {

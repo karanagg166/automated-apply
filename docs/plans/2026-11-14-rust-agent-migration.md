@@ -50,8 +50,8 @@ this is a staged behavioral migration, not a claim that scaffolding replaces the
 | Deliverable | State |
 | --- | --- |
 | Rust native transport | Implemented;14tests +25parity examples +Mac fixture benchmark; uninstalled |
-| Agent coordinator and specialist roles | Core library implemented;15state tests and scripted five-role workflow; live providers/adapters pending |
-| Durable PostgreSQL runtime and restart recovery | 9actual Mac PostgreSQL fixture tests passed; production migration/ACL/install pending |
+| Agent coordinator and specialist roles | Five-role saved-review worker runs actual SQL tools without inference; live action adapters pending |
+| Durable PostgreSQL runtime and restart recovery | CAS controls, retained budgets, fair factual questions and quarantine tested; production migration/ACL/install pending |
 | Verified profile / saved matching / history read tools | Implemented with actual PostgreSQL fixtures; 1,300 matching comparisons pass; uninstalled |
 | Rust browser / Telegram / application adapters | Pending |
 | Full Python removal and API parity | Pending |
@@ -74,3 +74,10 @@ Matching/knowledge milestone: `6c6f43f` + `99b19fc`; 64 Rust tests pass (44 stan
 20 dedicated PostgreSQL), plus 1,300 scoring comparisons. Warm 1,300-case computation
 uses 61.622ms Python versus 12.726ms Rust CPU in the published paired fixture benchmark.
 Actual action adapters, worker lifecycle, full backend replacement and installed acceptance remain open.
+
+Worker lifecycle milestone: explicit STOPPED default, revision-checked global/run controls,
+atomic sanitized control audit, stale-worker fencing, persistent factual questions and fair
+reconciliation. Deterministic saved review uses nine decisions/four actual SQL tools and zero
+model calls. A host executable, private config/shared process lock, authenticated HTTP controls,
+dashboard integration and reconnect supervision remain next; browser/Telegram/application
+adapters, full Python removal and installed resource/receipt acceptance remain open.

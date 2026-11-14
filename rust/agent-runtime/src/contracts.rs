@@ -138,6 +138,8 @@ pub enum Proposal {
 #[serde(deny_unknown_fields)]
 pub struct Limits {
     pub model_calls: u16,
+    #[serde(default = "default_decision_limit")]
+    pub decision_calls: u16,
     pub tool_calls: u16,
     pub tokens: u32,
     pub max_input_tokens: u32,
@@ -147,6 +149,7 @@ impl Default for Limits {
     fn default() -> Self {
         Self {
             model_calls: 16,
+            decision_calls: 16,
             tool_calls: 16,
             tokens: 4000,
             max_input_tokens: 256,
@@ -156,7 +159,8 @@ impl Default for Limits {
 }
 impl Limits {
     pub fn validate(&self) -> Result<()> {
-        if !(1..=32).contains(&self.model_calls)
+        if !(1..=64).contains(&self.decision_calls)
+            || !(1..=32).contains(&self.model_calls)
             || !(1..=32).contains(&self.tool_calls)
             || !(1..=16000).contains(&self.tokens)
             || self.max_input_tokens == 0
@@ -173,6 +177,8 @@ impl Limits {
 #[serde(deny_unknown_fields)]
 pub struct Usage {
     pub model_calls: u16,
+    #[serde(default)]
+    pub decision_calls: u16,
     pub tool_calls: u16,
     pub reserved_tokens: u32,
 }
@@ -185,6 +191,7 @@ pub enum State {
     ToolPending,
     ToolRunning,
     WaitingOwner,
+    Paused,
     Completed,
     Failed,
     OutcomeUnknown,
@@ -215,6 +222,12 @@ pub struct Run {
     pub known_jobs: Vec<Uuid>,
     #[serde(default)]
     pub profile: Option<crate::knowledge::ProfilePin>,
+    #[serde(default)]
+    pub question: Option<crate::questions::Question>,
+    #[serde(default)]
+    pub resume_state: Option<State>,
+    #[serde(default)]
+    pub paused_by_global: bool,
     pub diagnostic: Option<String>,
 }
 impl Run {
@@ -233,6 +246,9 @@ impl Run {
             known_jobs: vec![],
             profile: None,
             diagnostic: None,
+            question: None,
+            resume_state: None,
+            paused_by_global: false,
         })
     }
 }
@@ -289,4 +305,8 @@ pub struct Context {
 pub struct ModelBudget {
     pub maximum_input_tokens: u32,
     pub maximum_output_tokens: u32,
+}
+
+fn default_decision_limit() -> u16 {
+    16
 }

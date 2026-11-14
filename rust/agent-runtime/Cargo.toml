@@ -7,9 +7,11 @@ publish = false
 
 [dependencies]
 automated-apply-domain = { version = "0.1.0", path = "../domain" }
+chrono = { version = "0.4.45", default-features = false, features = ["std"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 serde.workspace = true
 serde_json.workspace = true
 sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "postgres", "uuid", "json", "tls-rustls-ring"] }
 tokio = { version = "1.54.1", features = ["rt", "macros", "time", "sync", "signal"] }
+tokio-util = { version = "0.7.20", features = ["rt"] }
 uuid.workspace = true

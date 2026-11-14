@@ -432,3 +432,43 @@ fn binding_metadata_requires_observed_evidence_and_is_checked_again_at_dispatch(
         Some(Failure("job_outside_saved_results"))
     );
 }
+
+#[test]
+fn deterministic_routing_has_its_own_budget_and_does_not_reserve_paid_inference() {
+    let mut r = run();
+    r.limits.decision_calls = 1;
+    assert_eq!(begin_decision(&mut r, false).unwrap(), 0);
+    assert_eq!(r.usage.model_calls, 0);
+    assert_eq!(r.usage.reserved_tokens, 0);
+    accept(
+        &mut r,
+        Proposal::Handoff {
+            next: Role::Matching,
+            evidence: vec![],
+        },
+    )
+    .unwrap();
+    assert_eq!(
+        begin_decision(&mut r, false),
+        Err(Failure("agent_budget_exhausted"))
+    );
+    assert_eq!(r.state, State::Failed);
+    assert_eq!(r.usage.decision_calls, 1);
+}
+#[test]
+fn records_without_decision_counter_retain_old_model_consumption() {
+    let mut r = run();
+    r.limits.decision_calls = 3;
+    r.usage.model_calls = 3;
+    let mut encoded = serde_json::to_value(&r).unwrap();
+    encoded["usage"]
+        .as_object_mut()
+        .unwrap()
+        .remove("decision_calls");
+    let mut restored: Run = serde_json::from_value(encoded).unwrap();
+    assert_eq!(
+        begin_decision(&mut restored, false),
+        Err(Failure("agent_budget_exhausted"))
+    );
+    assert_eq!(restored.usage.decision_calls, 3);
+}

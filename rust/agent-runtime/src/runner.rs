@@ -9,6 +9,9 @@ use std::time::Duration;
 // Model calls receive role-specific context; no credentials or policy grants.
 #[allow(async_fn_in_trait)]
 pub trait Model {
+    fn inference_required(&self, _: Role, _: &[Context]) -> bool {
+        true
+    }
     async fn propose(
         &mut self,
         role: Role,
@@ -37,7 +40,8 @@ pub async fn tick(
     store.save(lease).await?;
     match lease.run.state {
         State::Ready => {
-            if engine::begin_model(&mut lease.run).is_ok() {
+            let inference = model.inference_required(lease.run.role, &lease.run.context);
+            if engine::begin_decision(&mut lease.run, inference).is_ok() {
                 store.save(lease).await?;
                 let proposal = tokio::time::timeout(
                     Duration::from_secs(20),
@@ -93,12 +97,20 @@ pub async fn tick(
                     }
                 }
                 Err(error) => {
-                    lease.run.state = if error.0.ends_with("not_migrated") {
-                        State::Failed
-                    } else {
+                    let profile_question = matches!(
+                        error.0,
+                        "profile_review_required" | "verified_profile_context_changed"
+                    );
+                    lease.run.state = if profile_question {
                         State::WaitingOwner
+                    } else {
+                        State::Failed
                     };
                     lease.run.diagnostic = Some(error.0.into());
+                    if profile_question {
+                        lease.run.question =
+                            Some(crate::questions::Question::new("profile_review_required")?);
+                    }
                 }
             }
         }
