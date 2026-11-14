@@ -1,10 +1,10 @@
 """Start a disposable native PostgreSQL fixture; never use an existing DB or env file."""
 import os
-from pathlib import Path
 import shutil
 import socket
 import subprocess
 import tempfile
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
