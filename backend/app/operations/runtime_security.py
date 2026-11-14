@@ -9,6 +9,7 @@ APPEND_ONLY = frozenset({
     "application_events", "application_submission_evidence",
     "company_source_observations", "drive_resume_versions",
     "provider_usage_logs", "startup_shortlist_entries", "agent_policy_events", "agent_operations",
+    "rust_agent_events", "rust_agent_control_events",
 })
 
 

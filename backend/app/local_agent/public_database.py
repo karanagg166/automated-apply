@@ -116,6 +116,10 @@ async def verify_public_database(connection, settings):
     from backend.app.integrations.gmail.schema import TABLES, expected_overlay
     installed = await connection.fetchval("SELECT to_regclass('public.gmail_read_accounts') IS NOT NULL OR to_regclass('public.gmail_read_oauth_states') IS NOT NULL")
     tables = set(manifest["tables"]) | (TABLES if installed else set())
+    from backend.app.operations.rust_schema import TABLES as RUST_TABLES
+    from backend.app.operations.rust_schema import installed_tables
+    present = await connection.fetch("SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public' AND c.relkind='r' AND c.relname=ANY($1::text[])", sorted(RUST_TABLES))
+    tables |= installed_tables({row["relname"] for row in present})
     await verify_restricted_runtime(connection, tables, schema="public", preserved_function_oids=preserved)
     unsafe_defaults = await connection.fetchval("""
         SELECT EXISTS(SELECT 1 FROM pg_default_acl d
@@ -132,6 +136,8 @@ async def verify_public_database(connection, settings):
         actual["functions"].pop("rls_auto_enable()", None)
     expected = json.loads((BUNDLE / "catalog.json").read_text())
     expected = expected_overlay(expected, actual, "public")
+    from backend.app.operations.rust_schema import expected_overlay as rust_overlay
+    expected = rust_overlay(expected, actual)
     followups = verified_catalog_version(actual, expected, manifest.get("followups", []))
     if settings.DB_REQUIRE_TLS:
         tls = await connection.fetchval("SELECT ssl FROM pg_stat_ssl WHERE pid=pg_backend_pid()")

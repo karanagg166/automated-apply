@@ -3,7 +3,14 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import {
+  closeSync,
+  existsSync,
+  openSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "../frontend/node_modules/@playwright/test/index.mjs";
@@ -52,6 +59,11 @@ if (existsSync(endpointFile)) {
   assert(!live, "existing_brave_debug_endpoint_preserved");
   renameSync(endpointFile, `${endpointFile}.previous-${Date.now()}`);
 }
+const diagnostics = openSync(
+  join(root, ".local/operational-20261115/brave-process.private.log"),
+  "a",
+  0o600,
+);
 const child = spawn(
   executable,
   [
@@ -61,6 +73,7 @@ const child = spawn(
     "--disable-background-networking",
     "--disable-component-update",
     "--disable-sync",
+    "--enable-logging=stderr",
     "--remote-debugging-address=127.0.0.1",
     "--remote-debugging-port=0",
     `--user-data-dir=${profile}`,
@@ -68,8 +81,9 @@ const child = spawn(
     `--load-extension=${extension}`,
     "about:blank",
   ],
-  { stdio: "ignore" },
+  { stdio: ["ignore", "ignore", diagnostics] },
 );
+closeSync(diagnostics);
 let browser;
 try {
   for (let i = 0; !existsSync(endpointFile); i++) {
