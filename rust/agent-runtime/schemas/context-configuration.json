@@ -1,0 +1,401 @@
+{
+  "$defs": {
+    "CandidateConfiguration": {
+      "additionalProperties": false,
+      "properties": {
+        "links": {
+          "$ref": "#/$defs/ProfileLinks"
+        },
+        "projects": {
+          "items": {
+            "$ref": "#/$defs/ProjectConfiguration"
+          },
+          "maxItems": 30,
+          "title": "Projects",
+          "type": "array"
+        },
+        "resume": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResumeSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "schema_version": {
+          "const": 1,
+          "default": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        }
+      },
+      "title": "CandidateConfiguration",
+      "type": "object"
+    },
+    "ProfileLinks": {
+      "additionalProperties": false,
+      "properties": {
+        "codechef": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Codechef"
+        },
+        "codeforces": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Codeforces"
+        },
+        "gfg": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Gfg"
+        },
+        "github": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Github"
+        },
+        "hackerrank": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Hackerrank"
+        },
+        "instahyre": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Instahyre"
+        },
+        "internshala": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Internshala"
+        },
+        "leetcode": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Leetcode"
+        },
+        "linkedin": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Linkedin"
+        },
+        "naukri": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Naukri"
+        },
+        "other": {
+          "default": [],
+          "items": {
+            "format": "uri",
+            "maxLength": 2048,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Other",
+          "type": "array"
+        },
+        "portfolio": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Portfolio"
+        },
+        "wellfound": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Wellfound"
+        },
+        "yc": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Yc"
+        }
+      },
+      "title": "ProfileLinks",
+      "type": "object"
+    },
+    "ProjectConfiguration": {
+      "additionalProperties": false,
+      "properties": {
+        "context_file": {
+          "default": "",
+          "maxLength": 240,
+          "title": "Context File",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^project-[a-z0-9][a-z0-9-]{0,30}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "live_url": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Live Url"
+        },
+        "name": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Name",
+          "type": "string"
+        },
+        "priority": {
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Priority",
+          "type": "integer"
+        },
+        "repository_url": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repository Url"
+        },
+        "tech_stack": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 40,
+          "title": "Tech Stack",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "priority"
+      ],
+      "title": "ProjectConfiguration",
+      "type": "object"
+    },
+    "ResumeSource": {
+      "additionalProperties": false,
+      "properties": {
+        "account_ref": {
+          "maxLength": 120,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_.:-]+$",
+          "title": "Account Ref",
+          "type": "string"
+        },
+        "auto_sync_enabled": {
+          "default": false,
+          "title": "Auto Sync Enabled",
+          "type": "boolean"
+        },
+        "canonical_url": {
+          "maxLength": 2048,
+          "title": "Canonical Url",
+          "type": "string"
+        },
+        "file_id": {
+          "pattern": "^[A-Za-z0-9_-]{10,200}$",
+          "title": "File Id",
+          "type": "string"
+        },
+        "generation": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Generation",
+          "type": "integer"
+        },
+        "interval_minutes": {
+          "default": 360,
+          "maximum": 10080,
+          "minimum": 60,
+          "title": "Interval Minutes",
+          "type": "integer"
+        },
+        "source_type": {
+          "const": "google_drive_authorized",
+          "default": "google_drive_authorized",
+          "title": "Source Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "canonical_url",
+        "file_id",
+        "account_ref"
+      ],
+      "title": "ResumeSource",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "audits": {
+      "default": [],
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Audits",
+      "type": "array"
+    },
+    "configuration": {
+      "$ref": "#/$defs/CandidateConfiguration"
+    },
+    "revision": {
+      "default": 0,
+      "title": "Revision",
+      "type": "integer"
+    }
+  },
+  "title": "ConfigurationRecord",
+  "type": "object"
+}

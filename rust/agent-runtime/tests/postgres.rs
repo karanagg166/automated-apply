@@ -3002,6 +3002,7 @@ async fn resource_fixture() -> PgConnection {
 include!("support/resources_pg.rs");
 include!("support/drafts_pg.rs");
 include!("support/owner_proof_pg.rs");
+include!("support/project_context_pg.rs");
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
 async fn owner_resume_inspection_scopes_saved_references_and_never_admits_or_fetches() {

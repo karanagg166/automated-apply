@@ -1,0 +1,512 @@
+{
+  "$defs": {
+    "CompactContexts": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "title": "Architecture",
+          "type": "string"
+        },
+        "engineering_challenges": {
+          "title": "Engineering Challenges",
+          "type": "string"
+        },
+        "explanation_100": {
+          "title": "Explanation 100",
+          "type": "string"
+        },
+        "fact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fact Ids",
+          "type": "array"
+        },
+        "generator": {
+          "const": "deterministic_extractive",
+          "default": "deterministic_extractive",
+          "title": "Generator",
+          "type": "string"
+        },
+        "interview_explanation": {
+          "title": "Interview Explanation",
+          "type": "string"
+        },
+        "overview_50": {
+          "title": "Overview 50",
+          "type": "string"
+        },
+        "resume_bullet_candidates": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Resume Bullet Candidates",
+          "type": "array"
+        },
+        "technology_stack": {
+          "title": "Technology Stack",
+          "type": "string"
+        }
+      },
+      "required": [
+        "overview_50",
+        "explanation_100",
+        "architecture",
+        "technology_stack",
+        "engineering_challenges",
+        "interview_explanation",
+        "resume_bullet_candidates",
+        "fact_ids"
+      ],
+      "title": "CompactContexts",
+      "type": "object"
+    },
+    "EvidenceReference": {
+      "additionalProperties": false,
+      "properties": {
+        "commit_sha": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{40}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Commit Sha"
+        },
+        "content_sha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Content Sha256",
+          "type": "string"
+        },
+        "file": {
+          "maxLength": 240,
+          "minLength": 1,
+          "title": "File",
+          "type": "string"
+        },
+        "line_end": {
+          "default": 1,
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Line End",
+          "type": "integer"
+        },
+        "line_start": {
+          "default": 1,
+          "maximum": 100000,
+          "minimum": 1,
+          "title": "Line Start",
+          "type": "integer"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "required": [
+        "file",
+        "content_sha256"
+      ],
+      "title": "EvidenceReference",
+      "type": "object"
+    },
+    "ProjectApproval": {
+      "additionalProperties": false,
+      "properties": {
+        "approved_at": {
+          "title": "Approved At",
+          "type": "string"
+        },
+        "commit_sha": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{40}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Commit Sha"
+        },
+        "contexts": {
+          "$ref": "#/$defs/CompactContexts"
+        },
+        "fact_ids": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "minItems": 1,
+          "title": "Fact Ids",
+          "type": "array"
+        },
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/ProjectFact"
+          },
+          "title": "Facts",
+          "type": "array"
+        },
+        "owner_ref": {
+          "maxLength": 120,
+          "minLength": 1,
+          "title": "Owner Ref",
+          "type": "string"
+        },
+        "project_id": {
+          "title": "Project Id",
+          "type": "string"
+        },
+        "revision": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Revision",
+          "type": "string"
+        },
+        "status": {
+          "const": "approved",
+          "default": "approved",
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "project_id",
+        "revision",
+        "fact_ids",
+        "owner_ref",
+        "approved_at",
+        "facts",
+        "contexts"
+      ],
+      "title": "ProjectApproval",
+      "type": "object"
+    },
+    "ProjectConfiguration": {
+      "additionalProperties": false,
+      "properties": {
+        "context_file": {
+          "default": "",
+          "maxLength": 240,
+          "title": "Context File",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^project-[a-z0-9][a-z0-9-]{0,30}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "live_url": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Live Url"
+        },
+        "name": {
+          "default": "",
+          "maxLength": 200,
+          "title": "Name",
+          "type": "string"
+        },
+        "priority": {
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Priority",
+          "type": "integer"
+        },
+        "repository_url": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Repository Url"
+        },
+        "tech_stack": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 40,
+          "title": "Tech Stack",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "priority"
+      ],
+      "title": "ProjectConfiguration",
+      "type": "object"
+    },
+    "ProjectFact": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/EvidenceReference"
+          },
+          "maxItems": 10,
+          "title": "Evidence",
+          "type": "array"
+        },
+        "id": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "personal_claim": {
+          "default": false,
+          "title": "Personal Claim",
+          "type": "boolean"
+        },
+        "technology": {
+          "anyOf": [
+            {
+              "maxLength": 60,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Technology"
+        },
+        "text": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        },
+        "topic": {
+          "enum": [
+            "overview",
+            "business_use_case",
+            "architecture",
+            "frontend",
+            "backend",
+            "database",
+            "cache",
+            "queue",
+            "authentication_security",
+            "deployment",
+            "api",
+            "challenge",
+            "contribution",
+            "feature",
+            "design_decision",
+            "measured_outcome",
+            "interview",
+            "technology"
+          ],
+          "title": "Topic",
+          "type": "string"
+        },
+        "verification": {
+          "enum": [
+            "direct",
+            "owner_supplied",
+            "inferred"
+          ],
+          "title": "Verification",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "topic",
+        "text",
+        "verification"
+      ],
+      "title": "ProjectFact",
+      "type": "object"
+    },
+    "ProjectSnapshot": {
+      "additionalProperties": false,
+      "properties": {
+        "candidate_contexts": {
+          "$ref": "#/$defs/CompactContexts"
+        },
+        "commit_sha": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{40}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Commit Sha"
+        },
+        "configuration": {
+          "$ref": "#/$defs/ProjectConfiguration"
+        },
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/ProjectFact"
+          },
+          "maxItems": 100,
+          "title": "Facts",
+          "type": "array"
+        },
+        "last_verified_version": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{40}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Last Verified Version"
+        },
+        "revision": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Revision",
+          "type": "string"
+        },
+        "source_hash": {
+          "pattern": "^[a-f0-9]{64}$",
+          "title": "Source Hash",
+          "type": "string"
+        },
+        "status": {
+          "const": "pending_review",
+          "default": "pending_review",
+          "title": "Status",
+          "type": "string"
+        },
+        "unsupported_stack_claims": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Unsupported Stack Claims",
+          "type": "array"
+        }
+      },
+      "required": [
+        "configuration",
+        "source_hash",
+        "revision",
+        "facts",
+        "candidate_contexts"
+      ],
+      "title": "ProjectSnapshot",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "approved": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProjectApproval"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "audits": {
+      "default": [],
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Audits",
+      "type": "array"
+    },
+    "built_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Built At"
+    },
+    "candidate": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProjectSnapshot"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "history": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/ProjectApproval"
+      },
+      "maxItems": 50,
+      "title": "History",
+      "type": "array"
+    },
+    "last_checked_commit": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Last Checked Commit"
+    },
+    "revision": {
+      "default": 0,
+      "title": "Revision",
+      "type": "integer"
+    }
+  },
+  "title": "ProjectKnowledge",
+  "type": "object"
+}

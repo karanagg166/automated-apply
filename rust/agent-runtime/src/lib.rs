@@ -2,6 +2,7 @@
 //! Transports and model providers are separate from model-controlled contracts.
 pub mod answer_contract;
 pub mod answer_store;
+pub mod context_contract;
 pub mod contracts;
 pub mod engine;
 pub mod evidence_retrieval;
@@ -19,6 +20,7 @@ pub mod owner_proof;
 pub mod profile_confirmation;
 pub mod profile_contract;
 pub mod profile_store;
+pub mod project_context;
 pub mod provider;
 pub mod provider_status;
 pub mod python_json;
