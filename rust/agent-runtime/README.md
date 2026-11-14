@@ -1,6 +1,12 @@
 # Durable specialist-agent coordinator
 
 This library is under development and is not installed in the owner's runtime.
+`automated-apply-agents provider-status --config /absolute/private/provider.env` checks the
+official Cohere model metadata using the configured key. It reports authentication, model
+availability and saved generation/data-sharing flags without generation, candidate text,
+database access or changes to settings. It uses the same private-file checks as the host,
+one bounded HTTPS request, no proxy/redirect/retry, and fixed sanitized errors. A successful
+metadata check does not prove monthly budget availability or end-to-end workflow acceptance.
 It has five roles: discovery, matching, answers, review and execution. Each role has a
 fixed tool subset and a fixed next-role transition. Model proposals are strictly typed,
 can reference saved job IDs and observed evidence, and cannot supply a browser URL,
@@ -357,3 +363,17 @@ review. Compound/narrative/additional-fact questions request input rather than r
 unrelated link. File questions return at most100 saved resume references, accessibility
 `not_checked` and `file_upload_required`; they never fetch or upload bytes. Questions cannot
 set confirmation, model/provider policy, browser destinations or application permission.
+
+`GET /api/v1/application-answers/drafts` lists only the primary profile's saved drafts with
+bounded pagination and a current `stale` flag. `PATCH /api/v1/application-answers/drafts/<UUID>`
+accepts exactly one review status (`draft`, `reviewed` or `discarded`). Reviewing a stale
+version is rejected; discarding it remains available. Profile and draft locks fence concurrent
+profile corrections, and returned-record validation plus commit occur before acknowledgment.
+Reviewing saved prose does not authorize reuse, form filling or application submission.
+
+The pure evidence retriever selects at most six personally attributable facts from verified
+projects/roles and confirmed saved evidence. Named projects, documented challenges/solutions
+and skill-specific work restrict selection; a verified skills list alone supplies no work
+history. Preference and summary retrieval omit unrelated contact/compensation fields. Its
+inputs must come from validated profile/evidence records. Generation/grounding, saved-answer
+reuse and approved project-context integration remain separate ports.

@@ -1,7 +1,9 @@
 //! Specialist agents propose; the coordinator accounts, persists and fences execution.
 //! Transports and model providers are separate from model-controlled contracts.
+pub mod answer_store;
 pub mod contracts;
 pub mod engine;
+pub mod evidence_retrieval;
 pub mod postgres;
 pub mod runner;
 
@@ -15,6 +17,7 @@ pub mod profile_confirmation;
 pub mod profile_contract;
 pub mod profile_store;
 pub mod provider;
+pub mod provider_status;
 pub mod saved_match;
 
 pub mod knowledge_tools;

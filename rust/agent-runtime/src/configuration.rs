@@ -45,45 +45,7 @@ impl Configuration {
         &self.target_identity
     }
     pub fn load(path: &Path) -> Result<Self> {
-        if !path.is_absolute() {
-            return Err(Failure("private_configuration_required"));
-        }
-        let file = File::options()
-            .read(true)
-            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC)
-            .open(path)
-            .map_err(|_| Failure("private_configuration_required"))?;
-        let info = file
-            .metadata()
-            .map_err(|_| Failure("private_configuration_required"))?;
-        // SAFETY: geteuid takes no arguments and has no preconditions.
-        if !info.is_file()
-            || info.uid() != unsafe { libc::geteuid() }
-            || info.mode() & 0o077 != 0
-            || info.len() > 1_048_576
-        {
-            return Err(Failure("private_configuration_required"));
-        }
-        let mut content = String::new();
-        file.take(1_048_577)
-            .read_to_string(&mut content)
-            .map_err(|_| Failure("invalid_private_configuration"))?;
-        if content.len() > 1_048_576 {
-            return Err(Failure("private_configuration_required"));
-        }
-        // dotenvy's substitutions consult ambient environment variables. Require literal
-        // values instead; URL passwords containing dollars can use percent encoding.
-        if content.contains('$') {
-            return Err(Failure("configuration_interpolation_forbidden"));
-        }
-        let mut values = BTreeMap::new();
-        for item in dotenvy::from_read_iter(content.as_bytes()) {
-            let (key, value) = item.map_err(|_| Failure("invalid_private_configuration"))?;
-            if values.insert(key, value).is_some() {
-                return Err(Failure("duplicate_configuration_key"));
-            }
-        }
-        Self::from_values(&values)
+        Self::from_values(&private_values(path)?)
     }
     pub fn from_values(values: &BTreeMap<String, String>) -> Result<Self> {
         let get = |key: &str, default: &str| {
@@ -411,4 +373,47 @@ fn public_ip(ip: IpAddr) -> bool {
                 && parts[0] != 0x2002
         }
     }
+}
+
+/// Literal, owner-private configuration only; never consult ambient env or print values.
+pub(crate) fn private_values(path: &Path) -> Result<BTreeMap<String, String>> {
+    if !path.is_absolute() {
+        return Err(Failure("private_configuration_required"));
+    }
+    let file = File::options()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC)
+        .open(path)
+        .map_err(|_| Failure("private_configuration_required"))?;
+    let info = file
+        .metadata()
+        .map_err(|_| Failure("private_configuration_required"))?;
+    // SAFETY: geteuid takes no arguments and has no preconditions.
+    if !info.is_file()
+        || info.uid() != unsafe { libc::geteuid() }
+        || info.mode() & 0o077 != 0
+        || info.len() > 1_048_576
+    {
+        return Err(Failure("private_configuration_required"));
+    }
+    let mut content = String::new();
+    file.take(1_048_577)
+        .read_to_string(&mut content)
+        .map_err(|_| Failure("invalid_private_configuration"))?;
+    if content.len() > 1_048_576 {
+        return Err(Failure("private_configuration_required"));
+    }
+    // dotenvy's substitutions consult ambient environment variables. Require literal
+    // values instead; URL passwords containing dollars can use percent encoding.
+    if content.contains('$') {
+        return Err(Failure("configuration_interpolation_forbidden"));
+    }
+    let mut values = BTreeMap::new();
+    for item in dotenvy::from_read_iter(content.as_bytes()) {
+        let (key, value) = item.map_err(|_| Failure("invalid_private_configuration"))?;
+        if values.insert(key, value).is_some() {
+            return Err(Failure("duplicate_configuration_key"));
+        }
+    }
+    Ok(values)
 }

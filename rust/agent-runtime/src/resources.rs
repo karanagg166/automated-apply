@@ -190,7 +190,7 @@ fn private_resume_id(resource: &Resource) -> Option<&str> {
 }
 /// Python json.dumps(..., ensure_ascii=True) for the fixed string/bool resume tuple.
 /// This deliberately isn't a general JSON hash (float spelling has separate rules).
-fn ascii_string(text: &str) -> String {
+pub(crate) fn ascii_string(text: &str) -> String {
     use std::fmt::Write;
     let mut out = String::from("\"");
     for unit in text.encode_utf16() {

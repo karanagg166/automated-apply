@@ -126,6 +126,14 @@ fn profile_route(path: &str) -> bool {
         || path == "/api/v1/local-agent/profile-confirmation"
         || resource_inspection(path)
         || candidate_resource_route(path)
+        || draft_route(path)
+}
+fn draft_id(path: &str) -> Option<&str> {
+    path.strip_prefix("/api/v1/application-answers/drafts/")
+        .filter(|s| !s.is_empty() && !s.contains('/'))
+}
+fn draft_route(path: &str) -> bool {
+    path == "/api/v1/application-answers/drafts" || draft_id(path).is_some()
 }
 fn candidate_resource_route(path: &str) -> bool {
     matches!(
@@ -146,7 +154,9 @@ fn resource_page(path: &str, method: &str, query: Option<&str>) -> Result<(i64, 
     };
     if !matches!(
         path,
-        "/api/v1/candidate/resources" | "/api/v1/candidate/evidence"
+        "/api/v1/candidate/resources"
+            | "/api/v1/candidate/evidence"
+            | "/api/v1/application-answers/drafts"
     ) || method != "GET"
         || query.len() > 256
     {
@@ -186,7 +196,9 @@ fn selected_resource(path: &str, method: &str, query: Option<&str>) -> Result<Op
     };
     if matches!(
         path,
-        "/api/v1/candidate/resources" | "/api/v1/candidate/evidence"
+        "/api/v1/candidate/resources"
+            | "/api/v1/candidate/evidence"
+            | "/api/v1/application-answers/drafts"
     ) && method == "GET"
     {
         return Ok(None);
@@ -288,7 +300,9 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
     };
     let page = if matches!(
         path.as_str(),
-        "/api/v1/candidate/resources" | "/api/v1/candidate/evidence"
+        "/api/v1/candidate/resources"
+            | "/api/v1/candidate/evidence"
+            | "/api/v1/application-answers/drafts"
     ) {
         match resource_page(&path, &method, request.uri().query()) {
             Ok(page) => page,
@@ -382,6 +396,30 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
         Some(connection) if candidate_resource_route(&path) => {
             candidate_resource_dispatch(connection, &method, &path, &body, page, &api.config).await
         }
+        Some(connection) if draft_route(&path) => {
+            let data = if path == "/api/v1/application-answers/drafts" {
+                if method != "GET" {
+                    Err(Failure("resource_read_method_not_allowed"))
+                } else {
+                    crate::answer_store::list(connection, page.0, page.1).await
+                }
+            } else if method != "PATCH" {
+                Err(Failure("evidence_patch_method_not_allowed"))
+            } else {
+                match (
+                    draft_id(&path).unwrap().parse::<Uuid>(),
+                    serde_json::from_slice::<crate::answer_store::Review>(&body),
+                ) {
+                    (Ok(id), Ok(input)) => crate::answer_store::review(connection, id, input).await,
+                    _ => Err(Failure("invalid_answer_draft_review")),
+                }
+            };
+            data.map(|data| OwnerReply {
+                data,
+                status: StatusCode::OK,
+                etag: None,
+            })
+        }
         Some(connection) if path == "/api/v1/local-agent/profile-confirmation" => {
             if method != "POST" {
                 Err(Failure("match_method_not_allowed"))
@@ -461,6 +499,13 @@ fn profile_failure(error: Failure) -> Response {
         "invalid_resource_page" => "Supply offset 0..100000 and limit 1..100 once each",
         "resource_not_found" => "Resource not found",
         "evidence_not_found" => "Evidence not found",
+        "answer_draft_not_found" => "Draft not found",
+        "answer_draft_stale" => {
+            "Draft is stale; regenerate or correct the profile before reviewing"
+        }
+        "invalid_answer_draft_record" | "invalid_answer_draft_review" => {
+            "Saved answer draft or review is invalid"
+        }
         "resource_conflict" => "Duplicate URL or conflicting primary resource",
         "resource_insert_conflict" => {
             "Duplicate URL or conflicting primary resource; update the existing resource or demote its primary first"
@@ -824,6 +869,7 @@ fn failure(error: Failure) -> Response {
         | "owner_route_not_found"
         | "resource_not_found"
         | "evidence_not_found" => StatusCode::NOT_FOUND,
+        "answer_draft_not_found" => StatusCode::NOT_FOUND,
         "profile_method_not_allowed"
         | "match_method_not_allowed"
         | "resource_read_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
@@ -836,6 +882,7 @@ fn failure(error: Failure) -> Response {
         "standard_link_confirmation_required"
         | "resource_conflict"
         | "resource_insert_conflict" => StatusCode::CONFLICT,
+        "answer_draft_stale" => StatusCode::CONFLICT,
         "profile_version_conflict" | "profile_changed_review_current_version" => {
             StatusCode::CONFLICT
         }
@@ -844,6 +891,8 @@ fn failure(error: Failure) -> Response {
         | "invalid_resource_record"
         | "invalid_resource_input"
         | "invalid_resource_page"
+        | "invalid_answer_draft_record"
+        | "invalid_answer_draft_review"
         | "resource_inventory_limit"
         | "invalid_job_id"
         | "invalid_saved_job_record"

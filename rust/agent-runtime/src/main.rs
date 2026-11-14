@@ -23,6 +23,15 @@ async fn main() -> std::process::ExitCode {
 }
 async fn run() -> Result<()> {
     let arguments = std::env::args_os().skip(1).collect::<Vec<_>>();
+    if arguments.len() == 3 && arguments[0] == "provider-status" && arguments[1] == "--config" {
+        let result =
+            automated_apply_agents::provider_status::check(&PathBuf::from(&arguments[2])).await?;
+        println!(
+            "{}",
+            serde_json::to_string(&result).map_err(|_| Failure("invalid_provider_metadata"))?
+        );
+        return Ok(());
+    }
     if !(arguments.len() == 3 || arguments.len() == 5)
         || arguments[0] != "serve"
         || arguments[1] != "--config"
