@@ -350,6 +350,50 @@ fn executable_handles_open_stdin_without_prefetch_timeout() {
     assert_eq!(result["error_code"], "backend_offline");
 }
 #[test]
+fn direct_native_executable_launch_uses_private_adjacent_configuration_and_origin_fences() {
+    let dir = TempDir::new().unwrap();
+    let binary = dir.path().join("automated-apply-native");
+    // Same-volume hard link: no redundant binary copy or shell launcher.
+    fs::hard_link(env!("CARGO_BIN_EXE_automated-apply-native"), &binary).unwrap();
+    let path = dir.path().join("automated-apply-native.private.env");
+    let text = values("http://127.0.0.1:1")
+        .iter()
+        .map(|(k, v)| format!("{k}={v}\n"))
+        .collect::<String>();
+    fs::write(&path, text).unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+    for (origin, code) in [
+        (ORIGIN, "backend_offline"),
+        (
+            "chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/",
+            "native_origin_denied",
+        ),
+    ] {
+        let mut child = Process::new(&binary)
+            .arg(origin)
+            .env_clear()
+            .env("JOB_AGENT_API_TOKEN", "must-not-use-ambient-credentials")
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        let mut stdin = child.stdin.take().unwrap();
+        write_frame(&mut stdin, &json!({"command":"health"})).unwrap();
+        drop(stdin);
+        let output = child.wait_with_output().unwrap();
+        assert!(output.stderr.is_empty());
+        let size = u32::from_le_bytes(output.stdout[..4].try_into().unwrap()) as usize;
+        assert_eq!(size + 4, output.stdout.len());
+        let value: Value = serde_json::from_slice(&output.stdout[4..]).unwrap();
+        assert_eq!(value["error_code"], code);
+    }
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+    let output = Process::new(&binary).arg(ORIGIN).output().unwrap();
+    let value: Value = serde_json::from_slice(&output.stdout[4..]).unwrap();
+    assert_eq!(value["error_code"], "native_private_configuration_required");
+}
+#[test]
 fn output_is_bounded_and_contains_only_fixed_failure_code() {
     let result = error_frame(Failure("backend_offline"), None);
     let mut out = vec![];

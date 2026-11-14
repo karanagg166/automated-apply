@@ -17,6 +17,12 @@ cargo build --locked --release --workspace
 `automated-apply-native /absolute/private.env chrome-extension://<stable-extension-id>/`
 reads one length-prefixed Chrome frame and returns one frame. It uses the existing
 loopback backend contract. It does not open tabs, start local inference or submit jobs.
+Browser manifests may also point directly to the Rust executable. In that mode the
+browser supplies the extension origin and the executable reads only its adjacent
+`automated-apply-native.private.env` file. This file must be owner-owned, regular,
+private and contain the existing explicit native endpoint/token/extension settings.
+No shell wrapper, ambient environment or current-directory configuration is needed.
+Operating-system file permissions still apply to the executable and private file.
 The public command schema is generated from current Python contracts; check it with:
 
 ```sh
