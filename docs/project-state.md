@@ -45,6 +45,9 @@ checks on fictional provider pages. The four application LaunchAgents remain
 unregistered as recorded during the earlier migration cleanup; port8000 is offline.
 Do not mistake the independent history-backup LaunchAgent for a running application.
 See [MCP and browser setup](agent/mcp-and-browsers.md) for actual tool scope and commands.
+Implementation `7659dfd69e2438a70d649c0cbccdcfab7f98db49`; [published checkpoint](acceptance/agent-integrations-and-continuity-20261115.md)
+records245 Rust tests,20 Python browser checks,ten continuity tests,397 extension unit
+tests and76 Brave fixture cases. Full live acceptance remains incomplete.
 
 ## Remaining acceptance
 
