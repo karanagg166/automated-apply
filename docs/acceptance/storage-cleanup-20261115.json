@@ -1,0 +1,597 @@
+{
+  "scope": "owner-directed project storage cleanup and canonical-only source consolidation; Rust migration still in progress",
+  "canonical_source": "/Users/karanagg/Desktop/Projects/automated-apply",
+  "branch": "feat/rust-agent-runtime",
+  "rust_implementation_sha": "c7c73e37930284a4e78c9856fee6e7f22ad56e1b",
+  "cargo_clean": {
+    "removed_files": 116127,
+    "reported_gib": 22.3
+  },
+  "retired_directories_removed": 111,
+  "historical_source_preservation_commits_local_only": 6,
+  "private_preservation": {
+    "records": 1462,
+    "unique_blobs": 288,
+    "bytes": 9701899,
+    "all_hashes_verified": true
+  },
+  "relocation": {
+    "support_directory": ".local/runtime-support",
+    "library_entry": "compatibility symlink only, no duplicate data",
+    "critical_files_verified_unchanged": 35,
+    "retained_worktree_heads_verified_unchanged": 7,
+    "git_worktree_repair": "PASS"
+  },
+  "final_cleanup_failures": 0,
+  "initial_handling": {
+    "unique_worktrees_planned": 95,
+    "standalone_extra_snapshots_discovered": 16,
+    "duplicate_plan_entries": 24,
+    "note": "24 release entries overlapped the95 worktrees; do not add them as separate removals. Four ordinary Git removal attempts left files with UF_IMMUTABLE; their preserved source/private bytes were verified before clearing only those retired file flags and removing remnants."
+  },
+  "runtime_effects": {
+    "service_restarts": 0,
+    "hosted_actions": 0,
+    "browser_actions": 0,
+    "merges": 0,
+    "application_attempts": 0,
+    "message_sends": 0
+  },
+  "removed": [
+    {
+      "relative_path": "development-archive/20261030/automated-apply-agent-command-execution",
+      "source_sha_preserved": "7f2d48582fc93b4862817325b88dc0b449477276",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "development-archive/20261030/automated-apply-agy-extension",
+      "source_sha_preserved": "24d6bab98bd21b8947cb4273f3b24d160ea3aaa8",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "development-archive/20261030/automated-apply-agy-p51",
+      "source_sha_preserved": "d2de8c49e32b9e216719c38b27f614cb74673691",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "development-archive/20261030/automated-apply-agy-p52",
+      "source_sha_preserved": "8f900b4ab3fb8f3e8fe1da701d293af370221f47",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "development-archive/20261030/automated-apply-backend-p52",
+      "source_sha_preserved": "8a27b8f809db0915b7ee6ea36fdf3cdabe5a594d",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "development-archive/20261030/automated-apply-chrome-fill",
+      "source_sha_preserved": "4eff6a04a2ba353be41a055a02a93e205c4729a8",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "development-archive/20261030/automated-apply-codex-ai",
+      "source_sha_preserved": "e42de576e2b3a17e0f196a07e2b68a719704fec1",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "development-archive/20261030/automated-apply-dom-p52",
+      "source_sha_preserved": "8384edf50060bfc95ef88afa712dbb2c10cb54b9",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "development-archive/20261030/automated-apply-profile-context",
+      "source_sha_preserved": "902d0a933ca7123be176ce663a1d09cf009d0177",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "development-worktrees/codex-phase54",
+      "source_sha_preserved": "345b4fbdfe848f0f81a3d236a8bd64e6c0147dfc",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "development-worktrees/codex-rust-agents-20261114",
+      "source_sha_preserved": "c7c73e37930284a4e78c9856fee6e7f22ad56e1b",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "development-worktrees/codex-uv-migration-20261108",
+      "source_sha_preserved": "5f1d78f0f1eef9e9ea024bf0bb8fb4e099fdd5f3",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/009b0051fcc8781847e5c17128b8b9bd8239ea95",
+      "source_sha_preserved": "009b0051fcc8781847e5c17128b8b9bd8239ea95",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/010f6799329e5fe458662c3c249fe9e6e7a62ab9",
+      "source_sha_preserved": "010f6799329e5fe458662c3c249fe9e6e7a62ab9",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/02d8a52f9de4b73af0c87adbdefc88c8476402a4",
+      "source_sha_preserved": "02d8a52f9de4b73af0c87adbdefc88c8476402a4",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/08aab53f3ae0eeb018dedcbdeed30544bae4504f",
+      "source_sha_preserved": "08aab53f3ae0eeb018dedcbdeed30544bae4504f",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/0a1bf7032d051a9fdaff4b0b732c64c8377affd3",
+      "source_sha_preserved": "0a1bf7032d051a9fdaff4b0b732c64c8377affd3",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/0c875625aef0f720feb42f9f96507658589858ef",
+      "source_sha_preserved": "0c875625aef0f720feb42f9f96507658589858ef",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/0cef5222a8be5c51a8f24b8a4303640648f20c38",
+      "source_sha_preserved": "0cef5222a8be5c51a8f24b8a4303640648f20c38",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/1b2316300bb2f9f55ae77ee7b0859442dfab4c95",
+      "source_sha_preserved": "1b2316300bb2f9f55ae77ee7b0859442dfab4c95",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/204b2d1fb469e10915d5d70c5df43ee4904ed18f",
+      "source_sha_preserved": "204b2d1fb469e10915d5d70c5df43ee4904ed18f",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/2162eb182e422f67b50f4038f887f2232e52f61e",
+      "source_sha_preserved": "2162eb182e422f67b50f4038f887f2232e52f61e",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/2652ff54a98f5845f15717312b211a00cb94e8c3",
+      "source_sha_preserved": "2652ff54a98f5845f15717312b211a00cb94e8c3",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/275f3663bfcf0f43aa0166c4653c4d469beda9e9",
+      "source_sha_preserved": "275f3663bfcf0f43aa0166c4653c4d469beda9e9",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/2959cd713a550b1cdf527f2d20decd73edbd0b9d",
+      "source_sha_preserved": "2959cd713a550b1cdf527f2d20decd73edbd0b9d",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/2c9362e9ccbfd5eb416a68e543aa06fb6407800a",
+      "source_sha_preserved": "2c9362e9ccbfd5eb416a68e543aa06fb6407800a",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/2cea68b6aff3e79231259948f1e4c57e79d9c5d1",
+      "source_sha_preserved": "2cea68b6aff3e79231259948f1e4c57e79d9c5d1",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/2ceea5e4ab5662e041a58c6ec7d4aa73e86d51f7",
+      "source_sha_preserved": "2ceea5e4ab5662e041a58c6ec7d4aa73e86d51f7",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/331ce17711667d21bc96c42d8dc74793d670095f",
+      "source_sha_preserved": "331ce17711667d21bc96c42d8dc74793d670095f",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/33a132edce50252693b17dd2e6cf176a53f24710",
+      "source_sha_preserved": "33a132edce50252693b17dd2e6cf176a53f24710",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/3644b65aa7c2d3707a58b35f64df266807746a6d",
+      "source_sha_preserved": "3644b65aa7c2d3707a58b35f64df266807746a6d",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/3919d44a567cef10e36fa01b3635caaed02901d0",
+      "source_sha_preserved": "3919d44a567cef10e36fa01b3635caaed02901d0",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/3e6f5353fda5e1841c4ed0b48c7ef44c9ab0361f",
+      "source_sha_preserved": "3e6f5353fda5e1841c4ed0b48c7ef44c9ab0361f",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/48fafb77b97ac7e86813e89ad6781a15f846e084",
+      "source_sha_preserved": "48fafb77b97ac7e86813e89ad6781a15f846e084",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/498dfe7ddf2abbd358e4b8c36a68efd646175563",
+      "source_sha_preserved": "498dfe7ddf2abbd358e4b8c36a68efd646175563",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/4a53ca8b1abd73bbd47154c98bac5c7f40b7780d",
+      "source_sha_preserved": "4a53ca8b1abd73bbd47154c98bac5c7f40b7780d",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/581ec79f0c3b73892a043b81e2327c4265a1a7d5",
+      "source_sha_preserved": "581ec79f0c3b73892a043b81e2327c4265a1a7d5",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/60a93c1591ccc2bb666415d37fbb9ee3a0ac3d10",
+      "source_sha_preserved": "60a93c1591ccc2bb666415d37fbb9ee3a0ac3d10",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/653202800885f9abea0ee65f357d1e628127a2c6",
+      "source_sha_preserved": "653202800885f9abea0ee65f357d1e628127a2c6",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/713a8f31e25d3a03dc2a60d2cb80da585e3b490d",
+      "source_sha_preserved": "713a8f31e25d3a03dc2a60d2cb80da585e3b490d",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/76ba3b7f472379511225801d59de092e468cfe37",
+      "source_sha_preserved": "76ba3b7f472379511225801d59de092e468cfe37",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/968cdaedec369493b435e33fddb741a9d870c253",
+      "source_sha_preserved": "968cdaedec369493b435e33fddb741a9d870c253",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/99466234ab33cef09fd7389af440f8982066d0ed",
+      "source_sha_preserved": "99466234ab33cef09fd7389af440f8982066d0ed",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/9a28b386e9c43417545488bc82b885c615b72f75",
+      "source_sha_preserved": "9a28b386e9c43417545488bc82b885c615b72f75",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/9cf6cb6f3bda0973daca2a62d0b4ae63ef1fd401",
+      "source_sha_preserved": "9cf6cb6f3bda0973daca2a62d0b4ae63ef1fd401",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/a093eabc1ca1f0989b4ff7e3f7be187f442ddb2a",
+      "source_sha_preserved": "a093eabc1ca1f0989b4ff7e3f7be187f442ddb2a",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/a4e52e28fd7e598a6ad4b1a240e6b35b864340cd",
+      "source_sha_preserved": "a4e52e28fd7e598a6ad4b1a240e6b35b864340cd",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/ae66975691a75cb0a3a43010dcfdba26a5100128",
+      "source_sha_preserved": "ae66975691a75cb0a3a43010dcfdba26a5100128",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/af57b1ac4df21b0b0505f062a6dec7856c919e95",
+      "source_sha_preserved": "af57b1ac4df21b0b0505f062a6dec7856c919e95",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/b2dd28169b858cdcca1cc5c778a2660e52ce13f0",
+      "source_sha_preserved": "b2dd28169b858cdcca1cc5c778a2660e52ce13f0",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/b38fc0af1806b2f0e28e08c4844a8d3569f1e2a6",
+      "source_sha_preserved": "b38fc0af1806b2f0e28e08c4844a8d3569f1e2a6",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/b7c0e0203ba60807e48f7325b50645f98529e98d",
+      "source_sha_preserved": "b7c0e0203ba60807e48f7325b50645f98529e98d",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/b8b380c6443bd2a2c293c376d9c5129ced10385b",
+      "source_sha_preserved": "b8b380c6443bd2a2c293c376d9c5129ced10385b",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/bc502e8a9c8d4efaa1151796df7edf64bc2353be",
+      "source_sha_preserved": "bc502e8a9c8d4efaa1151796df7edf64bc2353be",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/c7869afc064177d6d5aaed4df9a73a4172e7f19a",
+      "source_sha_preserved": "c7869afc064177d6d5aaed4df9a73a4172e7f19a",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/c875cbb89dc6aafc16e6ed68b46918b69f0183f2",
+      "source_sha_preserved": "c875cbb89dc6aafc16e6ed68b46918b69f0183f2",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/c94f1fbc70e1c5f280e3105cc96230a72f421903",
+      "source_sha_preserved": "c94f1fbc70e1c5f280e3105cc96230a72f421903",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/cd342bf4698c0d182a2f2cbc445760fa5ee693a7",
+      "source_sha_preserved": "cd342bf4698c0d182a2f2cbc445760fa5ee693a7",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/cdd231b025e4669dbfc55f9be711dc1f29c392cc",
+      "source_sha_preserved": "cdd231b025e4669dbfc55f9be711dc1f29c392cc",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/dc27159b08589f9d71ad31618ce7b56deaa49178",
+      "source_sha_preserved": "dc27159b08589f9d71ad31618ce7b56deaa49178",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/dc47f9448cdf5dfc3ed81c80e360d70c35206264",
+      "source_sha_preserved": "dc47f9448cdf5dfc3ed81c80e360d70c35206264",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/e5d0eb6fc875e9526d34ea2abb386729eb1c9b1f",
+      "source_sha_preserved": "e5d0eb6fc875e9526d34ea2abb386729eb1c9b1f",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/e9696929ebcf5d41800586d5941542e17d7000e7",
+      "source_sha_preserved": "e9696929ebcf5d41800586d5941542e17d7000e7",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/edb96c375d42f3f20f21dd020f8e9add80d265d3",
+      "source_sha_preserved": "edb96c375d42f3f20f21dd020f8e9add80d265d3",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/ee7d045d3460994de1cb0831b937a7dd411e0b39",
+      "source_sha_preserved": "ee7d045d3460994de1cb0831b937a7dd411e0b39",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/ee8c591b382626f657f3e99f2e757c303ec217b0",
+      "source_sha_preserved": "ee8c591b382626f657f3e99f2e757c303ec217b0",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/f13c956c3a00f8434a4152f7c8ff451cb5eaca14",
+      "source_sha_preserved": "f13c956c3a00f8434a4152f7c8ff451cb5eaca14",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/f1f157c6ec8760f20c3e4e3e58994dd9d716ad1c",
+      "source_sha_preserved": "f1f157c6ec8760f20c3e4e3e58994dd9d716ad1c",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/f5dd61095c8f3e2ce6138637a953dcb9a134af90",
+      "source_sha_preserved": "f5dd61095c8f3e2ce6138637a953dcb9a134af90",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/f856d7322b83bdde0c9c48f079e42b40618319f1",
+      "source_sha_preserved": "f856d7322b83bdde0c9c48f079e42b40618319f1",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "release-candidates/f90cfe7ea3dfc7ca20efe1a1995b3da26707a028",
+      "source_sha_preserved": "f90cfe7ea3dfc7ca20efe1a1995b3da26707a028",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "releases/0384fb403618c396fa60c7fb79a6b4ecebafa925",
+      "source_sha_preserved": "0384fb403618c396fa60c7fb79a6b4ecebafa925",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "releases/074fb828e6da04a093024c0ac4227b0d4ebca712",
+      "source_sha_preserved": "074fb828e6da04a093024c0ac4227b0d4ebca712",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "releases/078ffbe71aaa15a0b8c6ceb0cc8744ddab0715d4",
+      "source_sha_preserved": "078ffbe71aaa15a0b8c6ceb0cc8744ddab0715d4",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "releases/0801b78127323a4082a399971fb235a493419f7e",
+      "source_sha_preserved": "0801b78127323a4082a399971fb235a493419f7e",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "releases/345b4fbdfe848f0f81a3d236a8bd64e6c0147dfc",
+      "source_sha_preserved": "345b4fbdfe848f0f81a3d236a8bd64e6c0147dfc",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "releases/3ef4d8bab6d17c042f7bc037c853e937b875cdd1",
+      "source_sha_preserved": "3ef4d8bab6d17c042f7bc037c853e937b875cdd1",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "releases/43661411c45bc78a31943d30bf5440f4b753dbc7",
+      "source_sha_preserved": "43661411c45bc78a31943d30bf5440f4b753dbc7",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "releases/48e6c3a2ba7a0283a2e07e79ab2c59ecddd45a14",
+      "source_sha_preserved": "48e6c3a2ba7a0283a2e07e79ab2c59ecddd45a14",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "releases/4bf2503076380c74a88d0d9c34bd913bcbb8177c",
+      "source_sha_preserved": "4bf2503076380c74a88d0d9c34bd913bcbb8177c",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "releases/5ca05d844fbaa7ca0ada093aa37556c831c89edf",
+      "source_sha_preserved": "5ca05d844fbaa7ca0ada093aa37556c831c89edf",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "releases/63981b0c578c571537580a4153d8a55e68f6ba01",
+      "source_sha_preserved": "0530f84c048b390539ff624a695346d06b8fee7f",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "releases/70acd380afda99a50252a488f14264d7bc2fc682",
+      "source_sha_preserved": "70acd380afda99a50252a488f14264d7bc2fc682",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "releases/79ce5f6b514279e6d9022d85b659ad77fb31bd89",
+      "source_sha_preserved": "79ce5f6b514279e6d9022d85b659ad77fb31bd89",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "releases/8c1635139a8943e9c2b72f39c4db593e1ccaa5b5",
+      "source_sha_preserved": "8c1635139a8943e9c2b72f39c4db593e1ccaa5b5",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "releases/90f2f2ade50a1c31b26ca85cc7fdf5e93bb67c20",
+      "source_sha_preserved": "90f2f2ade50a1c31b26ca85cc7fdf5e93bb67c20",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "releases/955a83f149fcae1feab1319a409b4753ea3ef7b7",
+      "source_sha_preserved": "955a83f149fcae1feab1319a409b4753ea3ef7b7",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "releases/975b8fc0afa6b9ce1f30a21c0cdfa667bcfc3009",
+      "source_sha_preserved": "975b8fc0afa6b9ce1f30a21c0cdfa667bcfc3009",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "releases/a1334290e684c0c86e0b57bdc47e68d9b0bd52cb",
+      "source_sha_preserved": "a1334290e684c0c86e0b57bdc47e68d9b0bd52cb",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "releases/b06909293b1866e8191277d17fc284c398b4307b",
+      "source_sha_preserved": "b06909293b1866e8191277d17fc284c398b4307b",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "releases/e2c6d38f33e0e523043e65db7476edfd2fc5ec35",
+      "source_sha_preserved": "e2c6d38f33e0e523043e65db7476edfd2fc5ec35",
+      "kind": "linked_worktree"
+    },
+    {
+      "relative_path": "releases/04ddc3741c785bac8d635bd459303220bd901bc2",
+      "source_sha_preserved": "04ddc3741c785bac8d635bd459303220bd901bc2",
+      "kind": "retired_snapshot_or_unregistered_remnant"
+    },
+    {
+      "relative_path": "releases/1582ac8f5da4122013f629b776a5ebf2bf86752e",
+      "source_sha_preserved": "1582ac8f5da4122013f629b776a5ebf2bf86752e",
+      "kind": "retired_snapshot_or_unregistered_remnant"
+    },
+    {
+      "relative_path": "releases/1c50b2f2adeebde73b58416fc6af4f0f44d2f1f0",
+      "source_sha_preserved": "1c50b2f2adeebde73b58416fc6af4f0f44d2f1f0",
+      "kind": "retired_snapshot_or_unregistered_remnant"
+    },
+    {
+      "relative_path": "releases/d18d4ea9a333318138643a7cbe4556574096f515",
+      "source_sha_preserved": "d18d4ea9a333318138643a7cbe4556574096f515",
+      "kind": "retired_snapshot_or_unregistered_remnant"
+    },
+    {
+      "relative_path": "release-candidates/cf686f853b2c40642e950bba92fcb07ef8b655c1",
+      "source_sha_preserved": "cf686f853b2c40642e950bba92fcb07ef8b655c1",
+      "kind": "retired_snapshot_or_unregistered_remnant"
+    },
+    {
+      "relative_path": "release-candidates/8473bdc85588863f55c10b0b941e19b849eb9815",
+      "source_sha_preserved": "8473bdc85588863f55c10b0b941e19b849eb9815",
+      "kind": "retired_snapshot_or_unregistered_remnant"
+    },
+    {
+      "relative_path": "release-candidates/ec1a5b729edae259c5bc2db3992397c2f85d2f02",
+      "source_sha_preserved": "ec1a5b729edae259c5bc2db3992397c2f85d2f02",
+      "kind": "retired_snapshot_or_unregistered_remnant"
+    },
+    {
+      "relative_path": "release-candidates/0c2c1bc8f9eba291873d1d81f14800ac724d5596",
+      "source_sha_preserved": "0c2c1bc8f9eba291873d1d81f14800ac724d5596",
+      "kind": "retired_snapshot_or_unregistered_remnant"
+    },
+    {
+      "relative_path": "release-candidates/b3abc9e85b90866e64a6ff8026751e0b3c98f7f8",
+      "source_sha_preserved": "b3abc9e85b90866e64a6ff8026751e0b3c98f7f8",
+      "kind": "retired_snapshot_or_unregistered_remnant"
+    },
+    {
+      "relative_path": "release-candidates/44bbc4cc597b99f6f0fcd58cc5fc9a5791a0a0a9",
+      "source_sha_preserved": "44bbc4cc597b99f6f0fcd58cc5fc9a5791a0a0a9",
+      "kind": "retired_snapshot_or_unregistered_remnant"
+    },
+    {
+      "relative_path": "release-candidates/9f79e90d88c964c70e2d8a5d6c09fb20cdc40e3d",
+      "source_sha_preserved": "9f79e90d88c964c70e2d8a5d6c09fb20cdc40e3d",
+      "kind": "retired_snapshot_or_unregistered_remnant"
+    },
+    {
+      "relative_path": "release-candidates/aa47599a3bd8bfb2848844835fbc36654def361b",
+      "source_sha_preserved": "aa47599a3bd8bfb2848844835fbc36654def361b",
+      "kind": "retired_snapshot_or_unregistered_remnant"
+    },
+    {
+      "relative_path": "release-candidates/23c9fdbb374e40920b6a22df0c59b6d199d08039",
+      "source_sha_preserved": "23c9fdbb374e40920b6a22df0c59b6d199d08039",
+      "kind": "retired_snapshot_or_unregistered_remnant"
+    },
+    {
+      "relative_path": "release-candidates/81a678cdce4ac9fd7b1761e0f43d67f7fa6a1cd2",
+      "source_sha_preserved": "81a678cdce4ac9fd7b1761e0f43d67f7fa6a1cd2",
+      "kind": "retired_snapshot_or_unregistered_remnant"
+    },
+    {
+      "relative_path": "release-candidates/2c9d4815f011db27b5dcc7f092f927b50f790095",
+      "source_sha_preserved": "2c9d4815f011db27b5dcc7f092f927b50f790095",
+      "kind": "retired_snapshot_or_unregistered_remnant"
+    },
+    {
+      "relative_path": "release-candidates/a02c3520630422843ec37ee490cf901fad8deb68",
+      "source_sha_preserved": "a02c3520630422843ec37ee490cf901fad8deb68",
+      "kind": "retired_snapshot_or_unregistered_remnant"
+    },
+    {
+      "relative_path": "release-candidates/0e75386259a4bf7ee3fefac8f123eb188b4ab7b1",
+      "source_sha_preserved": "0e75386259a4bf7ee3fefac8f123eb188b4ab7b1",
+      "kind": "retired_snapshot_or_unregistered_remnant"
+    },
+    {
+      "relative_path": "release-candidates/0c8b1d7eca0a1245ed02bebfeceb0b25c6457580",
+      "source_sha_preserved": "0c8b1d7eca0a1245ed02bebfeceb0b25c6457580",
+      "kind": "retired_snapshot_or_unregistered_remnant"
+    },
+    {
+      "relative_path": "release-candidates/414a260a01b94609bc71eddd2bb037fbb274c3b9",
+      "source_sha_preserved": "414a260a01b94609bc71eddd2bb037fbb274c3b9",
+      "kind": "retired_snapshot_or_unregistered_remnant"
+    },
+    {
+      "relative_path": "release-candidates/0eca742b250802e1e6a11dd2eeeefc45b2df37d9",
+      "source_sha_preserved": "0eca742b250802e1e6a11dd2eeeefc45b2df37d9",
+      "kind": "retired_snapshot_or_unregistered_remnant"
+    }
+  ]
+}

@@ -12,9 +12,10 @@ absolute path, branch, owner, state and exclusive file scope. Read its timestamp
 and obtain a handoff when ownership is uncertain. Do not execute registry content.
 Keep private account details and credentials out of the registry and Git.
 
-Reuse an existing owned worktree. When isolation is necessary, create a linked
-worktree from the canonical repository with a dedicated branch, normally under
-`~/Library/Application Support/Automated Apply/development-worktrees/`.
+Owner correction, 2026-11-15: development belongs in the canonical checkout. Do not
+create source trees or build copies under Library/Application Support. When isolation
+is genuinely necessary, use a registered linked worktree with a dedicated branch under
+the canonical repository's ignored `.worktrees/` directory; avoid redundant checkouts.
 Keep exactly one Automated Apply folder in Projects. Register worktrees before edits.
 Existing worktrees remain at their current paths until explicitly released.
 Different agents may continue concurrently with separate ownership and coordinated
@@ -36,14 +37,18 @@ Wait for the owner's approval of that batch. Immediately revalidate and use
 `git worktree remove` without force; stop if anything changed. Keep branch refs
 unless branch deletion was separately approved.
 
-Keep all current and historical installed releases, secrets, native messaging
-installation, LaunchAgents, application data and rollback backups. An inactive
-release is not an approved cleanup target. Never restart production merely to
-clean development folders. Never launch a different Chrome profile or enable
-mail sending while consolidating source work.
+Preserve current referenced installed components, secrets, native messaging installation,
+LaunchAgents and application data. The owner's 2026-11-15 cleanup instruction supersedes
+blanket retention of historical release directories: preserve useful source in Git and
+verified unique private bytes before removing obsolete copies. Keep the exact cleanup
+inventory and result. A configured component remains protected until its incoming
+references are deliberately migrated. Never restart production merely for cleanup,
+launch another Chrome profile or enable mail sending while consolidating source work.
 
 Use package-manager caches to share immutable dependency downloads safely.
-Independent installed releases retain their own environment and build outputs.
+Retained installed components keep independent environments; do not build an extra
+release for every engineering checkpoint. Rust development/test builds omit debug
+information and incremental state by default to reduce regenerable storage.
 Record dependency symlink targets before retiring a development worktree.
 
 The private audit and ownership registry are the current source of operational

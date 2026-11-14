@@ -15,3 +15,12 @@ uuid = { version = "1", features = ["serde", "v4"] }
 lto = "thin"
 codegen-units = 1
 strip = "debuginfo"
+
+# Keep disposable local test builds small; opt into debug info only when needed.
+[profile.dev]
+debug = 0
+incremental = false
+
+[profile.test]
+debug = 0
+incremental = false

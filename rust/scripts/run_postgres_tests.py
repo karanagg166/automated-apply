@@ -18,7 +18,9 @@ def main():
         if not (binary / name).is_file():
             raise SystemExit("native_postgresql17_tools_required")
     # Compile before launching the fixture so compiler contention is not measured as DB time.
-    subprocess.run(["cargo", "test", "--locked", "-p", "automated-apply-agents", "--test", "postgres", "--no-run"], cwd=ROOT, check=True)
+    # Match the workspace feature graph so this reuses ordinary workspace test artifacts.
+    # Selecting only one package otherwise compiles a second dependency-feature variant.
+    subprocess.run(["cargo", "test", "--locked", "--workspace", "--test", "postgres", "--no-run"], cwd=ROOT, check=True)
     base = Path(tempfile.mkdtemp(prefix="rust-agent-fictional-pg-"))
     data = base / "data"
     environment = {"PATH": os.environ.get("PATH", ""), "HOME": str(Path.home()), "LANG": "C", "LC_ALL": "C"}
@@ -38,7 +40,7 @@ def main():
             stopped = False
             subprocess.run([str(binary / "createdb"), "-h", "127.0.0.1", "-p", str(port), "-U", "rust_agent_fixture", "rust_agent_fixture"], env=environment, stdout=log, stderr=log, check=True)
         test_env = {**environment, "RUST_AGENT_TEST_DATABASE_URL": f"postgresql://rust_agent_fixture@127.0.0.1:{port}/rust_agent_fixture"}
-        subprocess.run(["cargo", "test", "--locked", "-p", "automated-apply-agents", "--test", "postgres", "--", "--ignored", "--test-threads=1"], env=test_env, cwd=ROOT, check=True)
+        subprocess.run(["cargo", "test", "--locked", "--workspace", "--test", "postgres", "--", "--ignored", "--test-threads=1"], env=test_env, cwd=ROOT, check=True)
     finally:
         if start_attempted:
             result = subprocess.run([str(binary / "pg_ctl"), "-D", str(data), "-w", "-t", "15", "-m", "fast", "stop"], env=environment, capture_output=True)
