@@ -406,3 +406,102 @@ connection recovery; actual browser/Telegram/application adapters and rich verif
 remaining API/service/provider ports and Python removal; then immutable installation,
 rollback/focus/account/quota/history/receipt and measured full-project Mac acceptance.
 Both requested outcomes remain open.
+
+## Milestone 6: standalone Rust service and authenticated owner API
+
+Implementation: [`96ad7118ac8c7026fa8ad8bb7af594bfc793ab15`](https://github.com/karanagg166/automated-apply/commit/96ad7118ac8c7026fa8ad8bb7af594bfc793ab15),
+branch `feat/rust-agent-runtime`, [draft PR #50](https://github.com/karanagg166/automated-apply/pull/50),
+base `chore/uv-python-tooling`. The standalone host is implemented; it is not installed.
+Full Python removal and the requested real browser/Telegram/application agents remain open.
+
+The `automated-apply-agents serve --config <absolute-private-file>` binary runs the saved-job
+review worker and Axum owner API on a current-thread Tokio executor, with two persistent
+SQLx connections for owner control and execution. It creates no pool/overflow and no process
+per specialist. Startup checks the target database/schema/role and additive runtime tables;
+it performs no DDL. Its printed readiness event contains the local address and review scope,
+not secrets or profile facts. The existing dashboard is not wired to these new routes yet.
+
+Private configuration is bounded to 1MiB, regular, owner-owned and inaccessible to group/other.
+Symlinks, duplicate keys, dollar interpolation and ambient PostgreSQL overrides are refused.
+Source inspection showed that SQLx's default URL parser inherits PG settings and can read
+`.pgpass`; the host instead constructs explicit options with `new_without_pgpass` and fixed
+host/user/database/port/password settings. Passwords are percent-decoded as URL data. Remote
+production mode requires TLS verification, rejects port 6543, parameters/fragments and
+nonpublic DNS results, and preserves the public-schema Supabase project/runtime-role pin.
+Actual remote DNS, TLS certificates and live target ACLs have not been tested.
+
+Every owner route requires a constant-time bearer-token check, loopback peer and explicit
+Host/Origin trust. Duplicate credentials/origins and extension-client headers are denied.
+Production TLS is mandatory: this HTTP host only trusts an explicitly configured loopback
+TLS proxy with one HTTPS forwarding header; a forged HTTPS request-target string is denied.
+Payloads are limited to 64KiB, eight concurrent handlers and a 20-second body timeout.
+Typed intake/control/resolution bodies reject extra authority or raw-answer fields. Responses
+include no-store/nosniff/no-referrer headers and omit raw tool context, personal facts and
+configuration. Bounded run/event/question routes expose existing library lifecycle controls.
+
+Before connecting, the host takes the exact legacy password-independent
+`execution-<target_identity>.lock` kernel lease and retains the inode through shutdown.
+The actual existing Python `process_lock` implementation, invoked through uv against the
+fictional fixture target, detects the Rust-held lease and exits with fixture code 75.
+A second Rust process exits with `execution_worker_already_running` before opening its
+connections. PostgreSQL activity confirms exactly two host connections. A separate startup
+with ambient `PGHOST` is refused with `ambient_postgresql_options_forbidden`.
+
+SIGINT/SIGTERM cancel work, persist a global pause when running and clear the heartbeat.
+Per-run notifications only interrupt the affected run; unrelated work retains its in-flight
+reservation. Committed database state still fences every dispatch independently of wakeups.
+The current host exits on database failure; reconnect supervision and deployment restart
+acceptance remain to be implemented. No automatic schema repair, reset or replay is inferred.
+
+| Check | Status | Exact evidence |
+| --- | --- | --- |
+| Agent/provider/fact/history/auth/cancellation unit tests | PASS | 12 tests, including 3 new API-boundary and 2 cancellation cases |
+| Coordinator/binding/budget and private host/lock tests | PASS | 20 coordinator + 8 new host tests |
+| Domain matching and native transport regressions | PASS | 8 domain + 14 native tests; latest native suite 1.53s |
+| Dedicated native PostgreSQL fixtures | PASS | 38 tests, 0 failed/ignored; final run 2.16s |
+| Real localhost owner HTTP server | PASS | Included above: authentication, duplicate token, origin/client denial, readiness, payload bound, CAS, audit and confirmed-fact resolution |
+| Actual CLI process and worker on this Mac | PASS | Included above: private fixture config, STOPPED intake, authenticated Start, four database reads, zero model calls, duplicate refusal and SIGTERM pause/offline heartbeat |
+| Actual Python/Rust kernel-lock coexistence | PASS | Existing Python implementation rejects the Rust-held fixture inode; two host DB connections retained |
+| Source format / Clippy with warnings denied / diff | PASS | Local checks, no hosted execution |
+| Locked optimized workspace build | PASS | Local release build completed in 1m35s; tests used the debug CLI executable |
+| Production target DNS/TLS/ACL and actual TLS-proxy ingress | NOT TESTED | Production configuration tests parse fictional values without connecting |
+| Supervised reconnect / dashboard integration / full legacy REST parity | NOT TESTED | Remaining implementation/integration boundary |
+| Full Python removal / real browser / Telegram / application adapters | NOT TESTED | Existing runtime services remain unchanged |
+| Installed Mac CPU/RSS/GPU, focus, rollback and actual application receipt | NOT TESTED | No live cutover, new submission or full-project resource measurement |
+
+Current total: **100 distinct Rust tests passed**: 62 standard plus 38 dedicated PostgreSQL.
+The standard run deliberately ignores those 38; the dedicated harness executes all of them.
+This milestone adds 16 tests to the previous total of 84. Earlier separate 1,300 matching
+comparisons and 25 native contract examples are retained historical evidence, not rerun.
+Previous component timing/RSS comparisons remain tied to their earlier source SHAs; the
+new host has no equivalent-boundary Python/full-project resource comparison yet.
+
+Actual Mac evidence here means native kernel locks, HTTP sockets, PostgreSQL and process
+signals against fictional data. It does not mean live portal, owner database or installed
+service acceptance. No owner environment, private provider key, real AI call, Chrome action,
+Telegram message, Gmail read/draft/send, profile save, application, installed-file change,
+service restart, hosted Action, cleanup or merge was performed.
+
+Sanitized failure history: initial lock/CLI fixtures were refused with
+`private_worker_lock_required` because the temporary directory did not satisfy the required
+0700 mode; the fixtures now explicitly create a private lock directory. The CLI initially
+reported EOF before readiness as a consequence. An unused HTTP body import was removed.
+All final scoped checks pass; no unresolved scoped test failure remains.
+
+Reproduction (native PostgreSQL 17, fictional fixture only):
+
+```sh
+cargo test --locked --workspace
+uv run --no-project --python .venv/bin/python python -m rust.scripts.run_postgres_tests
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all --check
+cargo build --locked --release --workspace
+git diff --check
+```
+
+The legacy-lock compatibility case uses uv with this worktree's existing development venv;
+the Rust executable itself invokes no Python. Next: reconnect supervision and dashboard
+controls, rich verified resume/project context, guarded browser/Telegram/application tools,
+remaining API/provider/services and Python removal, followed by immutable installation,
+rollback/focus/account/history/quota/receipt and measured whole-project Mac acceptance.
+Both owner objectives remain active and incomplete.
