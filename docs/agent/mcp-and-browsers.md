@@ -90,3 +90,21 @@ These launch isolated headless profiles, intercept fictional pages and never est
 real Naukri/Instahyre account or submission acceptance. Full platform/browser migration,
 installed services, identity/PDF/history/policy/focus/resource checks and a genuine
 worker receipt remain necessary before recurring automatic execution.
+
+## Owner Naukri setup in Brave
+
+The owned automation profile now passes real Brave native messaging and profile connection
+with commands disabled. Its site grant is still absent. When ready, the owner can run from
+the canonical project directory:
+
+```sh
+pnpm -C frontend exec node ../scripts/open_brave_owner_setup.mjs
+```
+
+This owner-invoked command opens the separate Brave automation profile interactively.
+In that window, open `chrome-extension://gdjbmkffcpicbpiikcohlmokkmcpipgp/settings.html`,
+click **Allow Naukri background page access**, and sign in to Naukri normally. Keep queue
+commands disabled and close that Brave window when finished. The agent does not run this
+interactive launcher or handle the owner's keyboard/clipboard. Credentials and cookies
+stay in the same private profile. Real account binding and application acceptance follow
+only after the owner completes this browser action.
