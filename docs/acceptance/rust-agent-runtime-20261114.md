@@ -1,6 +1,6 @@
 # Rust migration: native transport and coordinator milestones, 2026-11-14
 
-Latest: [Milestone 12 — saved-profile job relevance](#milestone-12-saved-profile-job-relevance-endpoint).
+Latest: [Milestone 13 — owner profile version confirmation](#milestone-13-atomic-owner-profile-version-confirmation).
 
 Overall request: **IN PROGRESS**. Full Python replacement and multi-agent AI delivery
 are not complete. Installed application services/extension/native wrapper were not changed.
@@ -977,3 +977,55 @@ Clippy and diff commands. The existing frontend proxy/live services are unchange
 profile readiness/confirmation/resources/rich context and other REST/services still need
 Rust ports, followed by actual guarded action tools, Python removal and installed/live/
 rollback/focus/history/quota/receipt/resource acceptance.
+
+## Milestone 13: atomic owner profile version confirmation
+
+Implementation: [`0eb5fef449530b80ad78eb848d23773b6d4eec41`](https://github.com/karanagg166/automated-apply/commit/0eb5fef449530b80ad78eb848d23773b6d4eec41),
+branch `feat/rust-agent-runtime`, [draft PR #50](https://github.com/karanagg166/automated-apply/pull/50),
+base `chore/uv-python-tooling` / [PR #49](https://github.com/karanagg166/automated-apply/pull/49).
+Overall migration and live action acceptance remain **IN PROGRESS**.
+
+`POST /api/v1/local-agent/profile-confirmation` accepts explicit owner review of the expected
+saved profile version. It retains positive-version coercion and Literal[True] semantics,
+rejects unknown fields/delegated extension clients, and locks the primary profile before
+comparing versions. Confirmation and the existing safe `apply_filter_recheck` request are
+written in one transaction and committed before acknowledgment/wake. Reconfirming an already
+current version updates its review marker without resetting a recheck ID, cursor or progress.
+The endpoint does not change personal facts, resume links, filters, quotas or automation modes.
+Profile review remains distinct from PDF/identity checks and application authorization.
+
+| Check | Status | Exact evidence |
+| --- | --- | --- |
+| Standard Rust suites | PASS | 89 tests: 25 library, 20 coordinator, 8 graph, 9 host, 5 profile, 8 domain, 14 native; 0 failed; 61 PG cases deliberately ignored here |
+| Dedicated native PostgreSQL fixtures | PASS | All 61 executed, 0 failed/ignored; final run 24.61s; 3 additional confirmation integrations |
+| Explicit owner/version/body boundary and commit visibility | PASS | Included above: auth401, delegated client403, false/string/extra-field422, stale409, independent connection sees confirmed profile binding after200 |
+| Repeated current confirmation / integrity | PASS | Included above: recheck ID/cursor/checked7/fresh_reads3 retained; fictional consumed3/lifetime3/hourly1 canary unchanged; no model/agent/application records created |
+| Concurrent profile change | PASS | Included above: competing transaction holds the profile row and commits version5; expected4 confirmation fails, old binding remains stale and untouched |
+| Confirmation/recheck atomic rollback | PASS | Included above: a fictional recheck persistence constraint fails; neither confirmation nor recheck remains, profile version4 unchanged |
+| Positive version / exact old binding helpers | PASS | Two new library cases; no coerced version can change facts or confirmation without an explicit review marker |
+| Rust format / Clippy warnings denied / diff | PASS | Final local checks passed |
+| Existing profile/matching/model graph behavior | PASS | Current suites include the 779 DTO comparisons, saved matching, separate model-role CLI and human gates |
+| Optimized build / frontend/browser rerun for this delta | NOT TESTED | Debug library/executable compiled by tests; no frontend change; prior optimized/frontend/browser evidence stays pinned to milestone11 |
+| Live owner confirmation, installed queue processing and full readiness | NOT TESTED | Fictional PostgreSQL/HTTP only; no owner binding or installed service changed; resources/PDF/readiness ports remain open |
+| Whole-project CPU/RSS/GPU / hosted Actions / merge / cleanup | NOT TESTED | No new resource comparison, hosted job, merge or cleanup |
+
+Current total: **150 distinct Rust tests passed** (89 standard + 61 dedicated PostgreSQL).
+The 779 profile comparisons are within one counted test; historical matching/native corpora
+and retained milestone11 UI/browser results are not added to the Rust total. Actual Mac
+process/HTTP/native PostgreSQL evidence uses fictional data exclusively. No real owner
+credentials, environment, database, profile, browser/tab/focus, Telegram/Gmail message,
+application, installed release or service restart was used.
+
+No scoped test failure remains. Tested errors include `invalid_profile_confirmation`,
+`profile_changed_review_current_version` and transactional `profile_database_error`. The safe
+recheck intent does not itself grant preparation, browser writes, admission or submission;
+all existing unknown-history, identity/resume, policy, quota and receipt checks remain required.
+Raw private logs are not published. Reproduce using workspace tests, the dedicated PostgreSQL
+harness, Clippy, format and diff commands in previous milestones.
+
+Next: resource/URL resolution and evidence, profile readiness and rich private context, then
+remaining REST/services/browser/application/Gmail/providers/Telegram ports, runtime Python
+removal and installed/live/rollback/focus/history/quota/receipt/resource acceptance. The
+continuation controller still reports `usageLimited`; this environment has no tool to schedule
+or resume it after a platform usage reset. Work is committed and resumable; no automatic wake
+or completed whole-project migration is claimed.
