@@ -1,6 +1,21 @@
-import { readFileSync, cpSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, cpSync, mkdirSync } from "node:fs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+const arguments_ = process.argv.slice(2);
+assert(arguments_.length <= 1, "One explicit browser target is permitted");
+const browser = arguments_[0]?.replace(/^--browser=/, "") || "chrome";
+assert(
+  ["chrome", "brave", "edge"].includes(browser),
+  "Unsupported browser target",
+);
+assert(
+  !arguments_.length || arguments_[0] === `--browser=${browser}`,
+  "Explicit browser flag required",
+);
+const nativeHost =
+  browser === "chrome"
+    ? "com.automated_apply.agent"
+    : `com.automated_apply.${browser}`;
 const manifest = JSON.parse(
   readFileSync(new URL("manifest.json", import.meta.url)),
 );
@@ -67,7 +82,31 @@ for (const file of [
     new URL(file, import.meta.url),
     new URL(`dist/${file}`, import.meta.url),
   );
+  // Brave deliberately searches Chrome's native-host registry on macOS. Use a
+  // browser-specific fixed name so installing Brave never enables the disabled
+  // Chrome host. Only these application-owned literals differ between bundles.
+  if (browser !== "chrome" && /\.(?:js|html)$/.test(file)) {
+    const target = new URL(`dist/${file}`, import.meta.url);
+    const text = readFileSync(target, "utf8");
+    writeFileSync(
+      target,
+      text.replaceAll("com.automated_apply.agent", nativeHost),
+    );
+  }
 }
+writeFileSync(
+  new URL("dist/build-info.json", import.meta.url),
+  JSON.stringify(
+    {
+      browser,
+      native_host: nativeHost,
+      extension_id: id,
+      version: manifest.version,
+    },
+    null,
+    2,
+  ) + "\n",
+);
 console.log(
-  `MV3 extension built; stable ID ${id}; optional per-origin access and guarded application filling.`,
+  `MV3 extension built for ${browser}; stable ID ${id}; host ${nativeHost}; optional per-origin access and guarded application filling.`,
 );

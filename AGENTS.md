@@ -1,5 +1,8 @@
 # Repository Guidelines
 
+## Current additional Naukri allowance
+- Owner fourth supervised validation authorization (2026-11-15): the owner replied “u have full access nah for naukri don't worry” to the explicit lifetime3→4 question. This authorizes exactly one additional eligible attempt, retaining hourly1, current filters, identity/resume checks and all three uncertain jobs quarantined. Do not infer a fifth attempt, refund an old admission or enable recurring AUTOMATIC without its first strict worker receipt.
+
 ## Account-independent continuity
 - Before continuing after a Codex account switch, read [the resume record](docs/project-state.md), the ownership registry and the existing branch diff.
 - Keep the resume record and sanitized acceptance reports current at milestones. Use `uv run --no-project python scripts/project_continuity.py snapshot` to preserve available local project history privately; `verify` checks it and `resume` displays the handoff.
