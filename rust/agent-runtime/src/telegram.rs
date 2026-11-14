@@ -169,6 +169,7 @@ impl Bot {
     pub fn new(settings: Settings) -> Result<Self> {
         let client = reqwest::Client::builder()
             .no_proxy()
+            .retry(reqwest::retry::never())
             .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs(40))
             .connect_timeout(Duration::from_secs(10))

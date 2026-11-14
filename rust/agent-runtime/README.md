@@ -180,3 +180,62 @@ preserve the outbox/cursor and never replay `sending` messages. On rollback, hon
 recorded cooldown before restarting an older worker that does not read this new metadata.
 Actual owner pairing, live delivery, deployment/rollback and complete legacy commands still
 need acceptance. This development did not read a real bot token or send a Telegram message.
+
+## Graph, reviewer and human checkpoints
+
+Migration `004_graph.sql` adds audit projections only. Apply reviewed SQL 001–004 in order
+on an authorized target before starting this development host; the executable never performs
+DDL. Existing serialized runs default to graph revision 1, zero replans and no human-review
+requirement without losing usage. Request-key idempotency normalizes these new defaults.
+
+The durable graph records planning, typed model decision, validation, tool dispatch,
+observation, review, bounded replanning, owner input, owner approval, provider cooldown,
+pause, reconciliation and completion. Five specialist roles share one worker and the
+existing database queue. They have different instructions and typed tool permissions;
+they are not five independent inference processes. At most one lease executes globally.
+Replanning targets discovery/matching/answers, clears invalid downstream results, retains
+spent allowances, and cannot replay a prior external effect. Default loop limit is two;
+three is the hard maximum. Decision summaries and tool observations are exposed; private
+model scratch thoughts are neither required nor stored.
+
+`RUST_AGENT_REVIEW_MODEL=deterministic` is the default and uses zero inference. Optional
+`cohere` calls the existing bounded Cohere adapter only after four real factual read tools.
+It requires the existing explicit provider/candidate-data consents and approved monthly
+budgets. The cloud projection contains source IDs, top-three ranking summaries, verified
+experience and skill count; it excludes contact/resume/free-text contents. Provider cooldowns
+are persisted without charging another run reservation. The reviewer can hand off, ask a
+bounded fact question or request a bounded replan; it cannot invoke application/browser tools.
+Fixture mode additionally requires `RUST_COHERE_FIXTURE_ENDPOINT=http://127.0.0.1:<port>/v2/chat`;
+production rejects that override. No real cloud call was used for acceptance.
+
+New authenticated routes under `/api/v1/rust-agent`:
+
+- `GET /capabilities`: actual tool availability, specialist roles and recommended budgets.
+- `GET /runs/<UUID>/plan`: concrete prepared results and current plan/checkpoint.
+- `POST /runs/<UUID>/approvals/<UUID>` with `expected_revision` and exactly one decision:
+  `approve`, `reject` or `request_changes`. Actor identity is server-owned.
+
+`human_review: true` pauses execution-role work until the exact review is approved. Every
+backend tool can additionally require a separate approval of its stable, undispatched effect.
+Approval binds the plan revision, profile version, results, known job references, configured
+limits and (for tool approval) exact pending action. It expires after one hour. Owner API
+approval independently checks the current confirmed profile and CAS revision. Approval
+never grants application authority, changes quotas, resets budgets or overrides fresh tool
+policy checks. Reject stops the run; request changes recomputes actual source facts within
+the same bounded budget. Stale decisions are rejected; uncertain effects stay quarantined.
+
+The authenticated Next.js `/workflow` page shows interactive stages, run/worker controls,
+prepared results, actual tool availability and approve/reject/request-changes controls.
+Review with human approval is the dashboard default. Its dedicated `/api/workflow` proxy
+requires owner session, exact origin/host and CSRF for mutations. Set server-only
+`RUST_AGENT_URL=http://127.0.0.1:8011` and `JOB_AGENT_API_TOKEN` matching the host. The proxy
+accepts only numeric loopback, fixed paths and bounded JSON; no redirect, proxy or write
+retry is used. For HTTPS frontend ingress, explicitly set `RUST_AGENT_TRUST_LOOPBACK_PROXY=true`
+on the frontend and `RUST_AGENT_TRUST_LOOPBACK_PROXY=true` in the Rust host configuration; the
+frontend derives the forwarded protocol from its validated configuration, never user input.
+Do not place the bearer token in a public/`NEXT_PUBLIC_` variable.
+
+The graph currently executes saved-job review and optional bound Telegram notices.
+Browser/application tool signatures are explicitly `not_migrated`; they remain unavailable
+through the worker and approval UI. Full Python removal, profile/service/API ports,
+production installation, live actions and whole-system CPU/GPU acceptance remain open.

@@ -30,6 +30,7 @@ pub struct Configuration {
     pub(crate) schema: String,
     pub(crate) role: String,
     pub(crate) telegram: Option<crate::telegram::Settings>,
+    pub(crate) reviewer: Option<crate::provider::CohereModel>,
 }
 impl Configuration {
     pub fn listen(&self) -> SocketAddr {
@@ -270,6 +271,7 @@ impl Configuration {
             schema,
             role,
             telegram: crate::telegram::Settings::from_values(values, fixture)?,
+            reviewer: crate::provider::CohereModel::runtime(values, fixture)?,
         })
     }
     /// Only two host-owned connections (control/execution), no pool or overflow.
@@ -286,6 +288,13 @@ impl Configuration {
     }
     pub fn telegram_enabled(&self) -> bool {
         self.telegram.is_some()
+    }
+    pub fn review_model(&self) -> &'static str {
+        if self.reviewer.is_some() {
+            "cohere"
+        } else {
+            "deterministic"
+        }
     }
     async fn connect_named(&self, name: &str) -> Result<PgConnection> {
         if !self.fixture {

@@ -11,6 +11,7 @@ use serde_json::{Value, json};
 use std::{collections::BTreeMap, time::Duration};
 use uuid::Uuid;
 
+#[derive(Clone)]
 pub struct CohereModel {
     key: String,
     model: String,
@@ -33,6 +34,43 @@ fn number(values: &BTreeMap<String, String>, key: &str, default: u32) -> Result<
         .unwrap_or(Ok(default))
 }
 impl CohereModel {
+    pub(crate) fn runtime(
+        values: &BTreeMap<String, String>,
+        fixture: bool,
+    ) -> Result<Option<Self>> {
+        match values
+            .get("RUST_AGENT_REVIEW_MODEL")
+            .map(String::as_str)
+            .unwrap_or("deterministic")
+        {
+            "deterministic" => Ok(None),
+            "cohere" => {
+                let mut model = Self::from_explicit_values(values)?;
+                match values.get("RUST_COHERE_FIXTURE_ENDPOINT") {
+                    Some(endpoint) if fixture => {
+                        let url = reqwest::Url::parse(endpoint)
+                            .map_err(|_| Failure("provider_fixture_endpoint_denied"))?;
+                        if url.scheme() != "http"
+                            || url.host_str() != Some("127.0.0.1")
+                            || url.port().is_none_or(|p| p < 1025)
+                            || !url.username().is_empty()
+                            || url.password().is_some()
+                            || url.path() != "/v2/chat"
+                            || url.query().is_some()
+                            || url.fragment().is_some()
+                        {
+                            return Err(Failure("provider_fixture_endpoint_denied"));
+                        }
+                        model.endpoint = endpoint.clone();
+                    }
+                    None if !fixture => {}
+                    _ => return Err(Failure("provider_fixture_endpoint_denied")),
+                }
+                Ok(Some(model))
+            }
+            _ => Err(Failure("invalid_review_model")),
+        }
+    }
     /// Called only with backend-owned private configuration, never model/website input.
     pub fn from_explicit_values(values: &BTreeMap<String, String>) -> Result<Self> {
         if !enabled(values, "COHERE_ENABLED") || !enabled(values, "COHERE_EVALUATION_KEY_CONFIRMED")
@@ -167,6 +205,15 @@ struct CloudResponse {
     output: Option<u32>,
 }
 impl Model for CohereModel {
+    async fn ready_at(
+        &mut self,
+        _: Role,
+        _: &[Context],
+        store: &mut Store<'_>,
+    ) -> Result<Option<i64>> {
+        sqlx::query_scalar("SELECT CEIL(EXTRACT(EPOCH FROM max(cooldown_until)))::bigint FROM llm_monthly_usage WHERE provider='cohere' AND cooldown_until>clock_timestamp()")
+            .fetch_one(&mut *store.connection).await.map_err(|_|Failure("provider_ledger_unavailable"))
+    }
     async fn propose(
         &mut self,
         role: Role,
@@ -198,6 +245,10 @@ impl Model for CohereModel {
 #[serde(deny_unknown_fields)]
 struct Decision {
     action: String,
+    #[serde(default)]
+    target: Option<Role>,
+    #[serde(default)]
+    reason: Option<crate::graph::ReplanReason>,
     #[serde(default)]
     call: Option<ToolCall>,
     #[serde(default)]
@@ -239,39 +290,53 @@ fn parse_decision(value: &Value) -> Result<Proposal> {
         .ok_or(Failure("invalid_structured_response"))?;
     let d: Decision =
         serde_json::from_str(text).map_err(|_| Failure("invalid_structured_response"))?;
-    match (d.action.as_str(), d.call, d.next, d.question_key) {
-        ("tool", Some(call), None, None) if d.evidence.is_empty() => Ok(Proposal::Tool { call }),
-        ("handoff", None, Some(next), None) => Ok(Proposal::Handoff {
+    match (
+        d.action.as_str(),
+        d.call,
+        d.next,
+        d.question_key,
+        d.target,
+        d.reason,
+    ) {
+        ("replan", None, None, None, Some(target), Some(reason)) => Ok(Proposal::Replan {
+            target,
+            reason,
+            evidence: d.evidence,
+        }),
+        ("tool", Some(call), None, None, None, None) if d.evidence.is_empty() => {
+            Ok(Proposal::Tool { call })
+        }
+        ("handoff", None, Some(next), None, None, None) => Ok(Proposal::Handoff {
             next,
             evidence: d.evidence,
         }),
-        ("needs_input", None, None, Some(question_key)) if d.evidence.is_empty() => {
+        ("needs_input", None, None, Some(question_key), None, None) if d.evidence.is_empty() => {
             Ok(Proposal::NeedsInput { question_key })
         }
-        ("complete", None, None, None) => Ok(Proposal::Complete {
+        ("complete", None, None, None, None, None) => Ok(Proposal::Complete {
             evidence: d.evidence,
         }),
         _ => Err(Failure("invalid_structured_response")),
     }
 }
 fn decision_schema(role: Role) -> Value {
-    let tools = [
-        ToolName::SearchJobs,
-        ToolName::RankJobs,
-        ToolName::VerifiedContext,
-        ToolName::ApplicationHistory,
-        ToolName::PrepareApplication,
-        ToolName::InspectApplication,
-        ToolName::OpenBrowser,
-        ToolName::FillApplication,
-        ToolName::SubmitApplication,
-        ToolName::NotifyTelegram,
-    ]
-    .into_iter()
-    .filter(|t| t.allowed(role))
-    .map(|t| serde_json::to_value(t).unwrap())
-    .collect::<Vec<_>>();
-    json!({"type":"object","required":["action"],"additionalProperties":false,"properties":{"action":{"type":"string","enum":["tool","handoff","needs_input","complete"]},"call":{"type":["object","null"],"required":["name"],"additionalProperties":false,"properties":{"name":{"type":"string","enum":tools},"job_id":{"type":["string","null"]},"evidence":{"type":"array","items":{"type":"string"}}}},"next":{"type":["string","null"],"enum":["discovery","matching","answers","review","execution",null]},"evidence":{"type":"array","items":{"type":"string"}},"question_key":{"type":["string","null"]}}})
+    let tools = ToolName::ALL
+        .into_iter()
+        .filter(|t| t.allowed(role))
+        .map(|t| serde_json::to_value(t).unwrap())
+        .collect::<Vec<_>>();
+    let mut schema = json!({"type":"object","required":["action"],"additionalProperties":false,"properties":{"action":{"type":"string","enum":["tool","handoff","needs_input","complete"]},"call":{"type":["object","null"],"required":["name"],"additionalProperties":false,"properties":{"name":{"type":"string","enum":tools},"job_id":{"type":["string","null"]},"evidence":{"type":"array","items":{"type":"string"}}}},"next":{"type":["string","null"],"enum":["discovery","matching","answers","review","execution",null]},"evidence":{"type":"array","items":{"type":"string"}},"question_key":{"type":["string","null"]}}});
+    if role == Role::Review {
+        // This reviewer runs only after all four factual read tools completed.
+        // It cannot propose an unmigrated browser/application tool.
+        schema["properties"]["action"]["enum"] = json!(["handoff", "needs_input", "replan"]);
+        schema["properties"].as_object_mut().unwrap().remove("call");
+        schema["properties"]["next"]["enum"] = json!(["execution", null]);
+    }
+    schema["properties"]["target"] =
+        json!({"type":["string","null"],"enum":["discovery","matching","answers",null]});
+    schema["properties"]["reason"] = json!({"type":["string","null"],"enum":["refresh_source_facts","recheck_eligibility","missing_evidence",null]});
+    schema
 }
 
 #[cfg(test)]
@@ -369,6 +434,44 @@ mod tests {
             CohereModel::from_explicit_values(&v).err(),
             Some(Failure("monthly_request_limit"))
         );
+    }
+    #[test]
+    fn runtime_reviewer_requires_explicit_consent_and_isolates_fixture_endpoints() {
+        let mut v = values();
+        assert!(CohereModel::runtime(&v, true).unwrap().is_none());
+        v.insert("RUST_AGENT_REVIEW_MODEL".into(), "cohere".into());
+        assert!(CohereModel::runtime(&v, true).is_err());
+        for endpoint in [
+            "https://api.cohere.com/v2/chat",
+            "http://localhost:8000/v2/chat",
+            "http://127.0.0.1:80/v2/chat",
+            "http://127.0.0.1:8000/v2/chat?token=secret",
+            "http://user@127.0.0.1:8000/v2/chat",
+        ] {
+            v.insert("RUST_COHERE_FIXTURE_ENDPOINT".into(), endpoint.into());
+            assert!(CohereModel::runtime(&v, true).is_err());
+        }
+        v.insert(
+            "RUST_COHERE_FIXTURE_ENDPOINT".into(),
+            "http://127.0.0.1:8000/v2/chat".into(),
+        );
+        assert!(CohereModel::runtime(&v, true).unwrap().is_some());
+        assert!(CohereModel::runtime(&v, false).is_err());
+        let schema = decision_schema(Role::Review);
+        assert_eq!(
+            schema["properties"]["action"]["enum"],
+            json!(["handoff", "needs_input", "replan"])
+        );
+        assert!(schema["properties"].get("call").is_none());
+        assert!(matches!(
+            parse_decision(&response(
+                json!({"action":"replan","target":"matching","reason":"recheck_eligibility","evidence":[]})
+            )),
+            Ok(Proposal::Replan {
+                target: Role::Matching,
+                ..
+            })
+        ));
     }
     #[test]
     fn body_is_bounded_and_role_schema_excludes_unavailable_tools() {

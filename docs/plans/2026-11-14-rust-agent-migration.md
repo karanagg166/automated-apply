@@ -98,3 +98,12 @@ connections for the existing API/execution/Telegram roles; disabled mode retains
 The saved-review path uses no inference. Remaining legacy REST/profile/resource/browser/
 application/Gmail/provider/service ports, rich context and complete Telegram command parity
 must be implemented before Python removal and live installation/resource/receipt acceptance.
+
+Graph and approval milestone: durable plan/decision/validate/tool/observe/review stages,
+bounded review loops, exact version/profile/result-bound owner decisions, and a private
+Next.js workflow dashboard. Optional opt-in Cohere review now runs through the real Rust
+host after actual read tools; local provider fixture verifies one replan, cooldown without
+recharging, two inference reservations and human approval before completion. Deterministic
+specialists remain the default. Tool availability is explicit; unmigrated application and
+browser adapters cannot be activated by owner review. Continue with profile semantic/CRUD
+ports and remaining REST/services before full Python removal and live resource acceptance.

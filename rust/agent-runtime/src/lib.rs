@@ -15,6 +15,7 @@ pub mod provider;
 pub mod knowledge_tools;
 
 pub mod configuration;
+pub mod graph;
 pub mod lifecycle;
 pub mod planner;
 pub mod process_lock;

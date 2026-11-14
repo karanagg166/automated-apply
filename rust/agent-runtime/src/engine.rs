@@ -30,15 +30,43 @@ pub fn begin_decision(run: &mut Run, inference: bool) -> Result<u32> {
     }
     run.usage.reserved_tokens += reserve;
     run.state = State::ModelRunning;
+    run.graph.node = if inference {
+        crate::graph::Node::Reasoning
+    } else if run.role == Role::Review {
+        crate::graph::Node::Review
+    } else {
+        crate::graph::Node::Planning
+    };
     Ok(reserve)
 }
 
 pub fn accept(run: &mut Run, proposal: Proposal) -> Result<()> {
+    accept_checked(run, proposal, false)
+}
+pub(crate) fn accept_checked(
+    run: &mut Run,
+    proposal: Proposal,
+    review_verified: bool,
+) -> Result<()> {
     if run.state != State::ModelRunning {
         return Err(Failure("invalid_agent_transition"));
     }
+    if run.limits.human_review && run.role == Role::Execution && !review_verified {
+        return Err(Failure("human_approval_required"));
+    }
     let result = (|| {
         match proposal {
+            Proposal::Replan {
+                target,
+                reason,
+                evidence,
+            } => {
+                if run.role != Role::Review {
+                    return Err(Failure("reviewer_replan_required"));
+                }
+                add_evidence(run, evidence)?;
+                crate::graph::replan(run, target, reason, false)?;
+            }
             Proposal::Tool { call } => {
                 call.validate(run.role)?;
                 add_evidence(run, call.evidence.clone())?;
@@ -51,6 +79,7 @@ pub fn accept(run: &mut Run, proposal: Proposal) -> Result<()> {
                     call,
                 });
                 run.state = State::ToolPending;
+                run.graph.node = crate::graph::Node::Validation;
             }
             Proposal::Handoff { next, evidence } => {
                 if run.role.next() != Some(next) {
@@ -59,6 +88,11 @@ pub fn accept(run: &mut Run, proposal: Proposal) -> Result<()> {
                 add_evidence(run, evidence)?;
                 run.role = next;
                 run.state = State::Ready;
+                run.graph.node = if next == Role::Review {
+                    crate::graph::Node::Review
+                } else {
+                    crate::graph::Node::Planning
+                };
             }
             Proposal::NeedsInput { question_key } => {
                 let question = crate::questions::Question::new(&question_key)?;
@@ -116,6 +150,13 @@ fn invalid_observation(run: &mut Run, code: &'static str) -> Failure {
 }
 
 pub fn begin_tool(run: &mut Run, authority: &Authority) -> Result<Effect> {
+    begin_tool_approved(run, authority, false)
+}
+pub(crate) fn begin_tool_approved(
+    run: &mut Run,
+    authority: &Authority,
+    human_verified: bool,
+) -> Result<Effect> {
     if run.state != State::ToolPending {
         return Err(Failure("invalid_agent_transition"));
     }
@@ -126,9 +167,16 @@ pub fn begin_tool(run: &mut Run, authority: &Authority) -> Result<Effect> {
     effect.call.validate(run.role)?;
     check_source_binding(run, &effect.call)?;
     if let Err(e) = authority.check(&effect.call) {
-        run.state = State::WaitingOwner;
+        run.state = if e.0.ends_with("not_migrated") {
+            State::Failed
+        } else {
+            State::WaitingOwner
+        };
         run.diagnostic = Some(e.0.into());
         return Err(e);
+    }
+    if authority.requires_human_approval && !human_verified {
+        return Err(Failure("human_approval_required"));
     }
     if run.usage.tool_calls >= run.limits.tool_calls {
         run.state = State::Failed;
@@ -137,6 +185,7 @@ pub fn begin_tool(run: &mut Run, authority: &Authority) -> Result<Effect> {
     }
     run.usage.tool_calls += 1;
     run.state = State::ToolRunning;
+    run.graph.node = crate::graph::Node::Acting;
     Ok(effect)
 }
 
@@ -205,6 +254,7 @@ pub fn finish_tool(run: &mut Run, id: Uuid, result: Result<Observation>) -> Resu
             }
             run.pending = None;
             run.state = State::Ready;
+            run.graph.node = crate::graph::Node::Observation;
         }
         Err(error) => {
             run.state = if run.pending.as_ref().unwrap().call.name.repeatable() {
@@ -223,6 +273,11 @@ pub fn recover(run: &mut Run) {
     match run.state {
         State::ModelRunning => {
             run.state = State::Ready;
+            run.graph.node = if run.role == Role::Review {
+                crate::graph::Node::Review
+            } else {
+                crate::graph::Node::Planning
+            };
             run.diagnostic = Some("model_interrupted_budget_retained".into());
         }
         State::ToolRunning => {
@@ -232,6 +287,7 @@ pub fn recover(run: &mut Run) {
                 .is_some_and(|e| e.call.name.repeatable())
             {
                 run.state = State::ToolPending;
+                run.graph.node = crate::graph::Node::Validation;
                 run.diagnostic = Some("read_tool_interrupted".into());
             } else {
                 run.state = State::OutcomeUnknown;

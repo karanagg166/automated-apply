@@ -34,6 +34,7 @@ pub(crate) fn database_failure(error: Failure) -> bool {
     matches!(
         error.0,
         "telegram_database_error"
+            | "provider_ledger_unavailable"
             | "agent_database_error"
             | "owner_fact_database_error"
             | "verified_context_database_error"
@@ -89,11 +90,12 @@ pub async fn supervise(
             .take()
             .ok_or(Failure("agent_database_unavailable"))?;
         let started = Instant::now();
-        let result = worker::serve_with_telegram(
+        let result = worker::serve_with_model(
             &mut current,
             wake.clone(),
             shutdown.clone(),
             config.telegram.clone(),
+            config.reviewer.clone(),
         )
         .await;
         close(current).await;

@@ -294,7 +294,8 @@ fn authority_cannot_be_granted_by_a_model_or_reviewer() {
             prepare: true,
             inactive_owned_browser: true,
             fill: true,
-            telegram_paired: true
+            telegram_paired: true,
+            requires_human_approval: false,
         }
         .check(&call(ToolName::SubmitApplication)),
         Err(Failure("submission_adapter_not_migrated"))

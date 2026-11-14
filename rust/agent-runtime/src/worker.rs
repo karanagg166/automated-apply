@@ -4,7 +4,7 @@ use crate::{
     contracts::State,
     knowledge_tools::KnowledgeTools,
     lifecycle::{self, Mode},
-    planner::SavedReviewPlanner,
+    planner::{HybridPlanner, SavedReviewPlanner},
     postgres::Store,
     runner,
 };
@@ -56,6 +56,15 @@ pub async fn serve_with_telegram(
     shutdown: CancellationToken,
     telegram: Option<crate::telegram::Settings>,
 ) -> Result<()> {
+    serve_with_model(connection, wake, shutdown, telegram, None).await
+}
+pub async fn serve_with_model(
+    connection: &mut PgConnection,
+    wake: Wake,
+    shutdown: CancellationToken,
+    telegram: Option<crate::telegram::Settings>,
+    reviewer: Option<crate::provider::CohereModel>,
+) -> Result<()> {
     let mut changes = wake.changed.subscribe();
     let mut last_heartbeat = None;
     loop {
@@ -92,8 +101,11 @@ pub async fn serve_with_telegram(
                         telegram: telegram.clone(),
                         run_id: lease.run.id,
                     };
-                    let mut model = SavedReviewPlanner {
-                        notify: telegram.is_some(),
+                    let mut model = HybridPlanner {
+                        saved: SavedReviewPlanner {
+                            notify: telegram.is_some(),
+                        },
+                        reviewer: reviewer.clone(),
                     };
                     let id = lease.run.id;
                     let tick = runner::tick(&mut store, &mut lease, &mut model, &mut tools);

@@ -87,9 +87,10 @@ fn decode(row: sqlx::postgres::PgRow) -> Result<Stored> {
 }
 async fn persist(connection: &mut PgConnection, stored: &mut Stored) -> Result<()> {
     let body = serde_json::to_value(&stored.run).map_err(|_| Failure("invalid_agent_record"))?;
-    let row=sqlx::query("WITH updated AS (UPDATE rust_agent_runs SET run=$1,revision=revision+1,lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE id=$2 AND owner='primary' AND revision=$3 RETURNING id,revision) INSERT INTO rust_agent_events(run_id,revision,role,state,model_calls,tool_calls,reserved_tokens,decision_calls) SELECT id,revision,$4,$5,$6,$7,$8,$9 FROM updated RETURNING revision")
+    let row=sqlx::query("WITH updated AS (UPDATE rust_agent_runs SET run=$1,revision=revision+1,lease_token=NULL,lease_until=NULL,updated_at=clock_timestamp() WHERE id=$2 AND owner='primary' AND revision=$3 RETURNING id,revision) INSERT INTO rust_agent_events(run_id,revision,role,state,model_calls,tool_calls,reserved_tokens,decision_calls,graph_node,graph_iteration,approval_required) SELECT id,revision,$4,$5,$6,$7,$8,$9,$10,$11,$12 FROM updated RETURNING revision")
         .bind(body).bind(stored.run.id).bind(stored.revision).bind(enum_text(stored.run.role)).bind(enum_text(stored.run.state))
         .bind(i32::from(stored.run.usage.model_calls)).bind(i32::from(stored.run.usage.tool_calls)).bind(stored.run.usage.reserved_tokens as i32).bind(i32::from(stored.run.usage.decision_calls))
+        .bind(enum_text(crate::graph::node(&stored.run))).bind(i32::from(stored.run.graph.iterations)).bind(stored.run.state==State::WaitingApproval)
         .fetch_optional(connection).await.map_err(db)?.ok_or(Failure("agent_revision_conflict"))?;
     stored.revision = row.try_get("revision").map_err(db)?;
     Ok(())
@@ -137,7 +138,12 @@ pub fn resume(run: &mut Run) -> Result<()> {
     }
     let state = run
         .resume_state
-        .filter(|s| matches!(s, State::Ready | State::ToolPending | State::WaitingOwner))
+        .filter(|s| {
+            matches!(
+                s,
+                State::Ready | State::ToolPending | State::WaitingOwner | State::WaitingApproval
+            )
+        })
         .ok_or(Failure("agent_reconciliation_required"))?;
     run.state = state;
     run.resume_state = None;
@@ -155,6 +161,7 @@ fn stop(run: &mut Run) {
         engine::recover(run);
     }
     if run.state != State::OutcomeUnknown {
+        crate::graph::cancel_pending(run);
         run.state = State::Stopped;
         run.diagnostic = Some("owner_stopped".into());
         run.question = None;
@@ -243,7 +250,7 @@ pub async fn intake(
     load(connection, id).await
 }
 pub fn summary(stored: &Stored) -> Value {
-    json!({"id":stored.run.id,"revision":stored.revision,"state":stored.run.state,"role":stored.run.role,"usage":stored.run.usage,"limits":stored.run.limits,"profile":stored.run.profile,"diagnostic":stored.run.diagnostic,"known_jobs":stored.run.known_jobs,"question":questions::public_question(&stored.run,stored.revision),"scope":"saved_job_review_no_application_dispatch"})
+    json!({"id":stored.run.id,"revision":stored.revision,"state":stored.run.state,"role":stored.run.role,"usage":stored.run.usage,"limits":stored.run.limits,"profile":stored.run.profile,"diagnostic":stored.run.diagnostic,"known_jobs":stored.run.known_jobs,"question":questions::public_question(&stored.run,stored.revision),"graph":crate::graph::summary(&stored.run),"scope":"saved_job_review_no_application_dispatch"})
 }
 pub async fn listing(connection: &mut PgConnection) -> Result<Vec<Value>> {
     let rows=sqlx::query("SELECT run,revision FROM rust_agent_runs WHERE owner='primary' ORDER BY created_at DESC,id LIMIT 50").fetch_all(connection).await.map_err(db)?;
@@ -253,7 +260,7 @@ pub async fn listing(connection: &mut PgConnection) -> Result<Vec<Value>> {
 }
 pub async fn events(connection: &mut PgConnection, id: Uuid) -> Result<Vec<Value>> {
     load(connection, id).await?;
-    sqlx::query_scalar("SELECT to_jsonb(e) FROM (SELECT revision,role,state,model_calls,tool_calls,reserved_tokens,decision_calls,created_at FROM rust_agent_events WHERE run_id=$1 ORDER BY revision DESC LIMIT 100) e")
+    sqlx::query_scalar("SELECT to_jsonb(e) FROM (SELECT revision,role,state,model_calls,tool_calls,reserved_tokens,decision_calls,graph_node,graph_iteration,approval_required,created_at FROM rust_agent_events WHERE run_id=$1 ORDER BY revision DESC LIMIT 100) e")
         .bind(id).fetch_all(connection).await.map_err(db)
 }
 fn reset_after_fact(run: &mut Run, profile: ProfilePin) -> Result<()> {
@@ -269,6 +276,13 @@ fn reset_after_fact(run: &mut Run, profile: ProfilePin) -> Result<()> {
         return Err(Failure("agent_reconciliation_required"));
     }
     run.profile = Some(profile);
+    crate::graph::cancel_pending(run);
+    run.graph.revision = run
+        .graph
+        .revision
+        .checked_add(1)
+        .ok_or(Failure("agent_replan_limit"))?;
+    run.graph.node = crate::graph::Node::Planning;
     run.role = Role::Discovery;
     run.state = State::Ready;
     run.question = None;
@@ -364,6 +378,37 @@ pub async fn reconcile_known_questions(connection: &mut PgConnection) -> Result<
 }
 fn db(_: sqlx::Error) -> Failure {
     Failure("agent_database_error")
+}
+pub async fn approve(
+    connection: &mut PgConnection,
+    id: Uuid,
+    expected: i64,
+    approval_id: Uuid,
+    decision: crate::graph::Decision,
+    actor: crate::graph::Actor,
+) -> Result<Stored> {
+    let mut tx = connection.begin().await.map_err(db)?;
+    lock(&mut tx).await?;
+    let mut stored = load(&mut tx, id).await?;
+    if stored.revision != expected {
+        return Err(Failure("agent_revision_conflict"));
+    }
+    if matches!(decision, crate::graph::Decision::Approve) {
+        let current = knowledge::reviewed_profile(&mut tx)
+            .await?
+            .ok_or(Failure("profile_review_required"))?;
+        if stored.run.profile.as_ref() != Some(&current.pin) {
+            return Err(Failure("agent_approval_context_changed"));
+        }
+    }
+    let now: i64 = sqlx::query_scalar("SELECT EXTRACT(EPOCH FROM clock_timestamp())::bigint")
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(db)?;
+    crate::graph::decide(&mut stored.run, approval_id, decision, actor, now)?;
+    persist(&mut tx, &mut stored).await?;
+    tx.commit().await.map_err(db)?;
+    Ok(stored)
 }
 
 #[cfg(test)]

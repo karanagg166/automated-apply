@@ -2,7 +2,7 @@
 use crate::{
     Failure, Result,
     configuration::Configuration,
-    contracts::Limits,
+    contracts::{Limits, Role, ToolName},
     knowledge::ProfilePin,
     lifecycle::{self, Action, Mode},
     recovery::{self, Backoff},
@@ -98,6 +98,12 @@ pub async fn readiness(connection: &mut PgConnection, config: &Configuration) ->
         .await
         .map_err(|_| Failure("agent_schema_unavailable"))?;
     lifecycle::control(connection).await?;
+    sqlx::query(
+        "SELECT graph_node,graph_iteration,approval_required FROM rust_agent_events LIMIT 0",
+    )
+    .execute(&mut *connection)
+    .await
+    .map_err(|_| Failure("agent_schema_unavailable"))?;
     Ok(())
 }
 fn single<'a>(headers: &'a HeaderMap, key: &str) -> Option<&'a str> {
@@ -262,6 +268,12 @@ struct Resolution {
     expected_revision: i64,
     profile: ProfilePin,
 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ApprovalDecision {
+    expected_revision: i64,
+    decision: crate::graph::Decision,
+}
 fn decode<T: serde::de::DeserializeOwned>(body: &[u8]) -> Result<T> {
     serde_json::from_slice(body).map_err(|_| Failure("invalid_owner_request"))
 }
@@ -292,6 +304,32 @@ async fn dispatch(
             Ok(serde_json::to_value(lifecycle::control(connection).await?)
                 .map_err(|_| Failure("invalid_control_response"))?)
         }
+        ("GET", ["api", "v1", "rust-agent", "capabilities"]) => {
+            let mut limits = Limits {
+                human_review: true,
+                decision_calls: 32,
+                ..Limits::default()
+            };
+            if api.config.review_model() == "cohere" {
+                limits.model_calls = 3;
+                limits.decision_calls = 32;
+                limits.tokens = 16000;
+                limits.max_input_tokens = 5000;
+            }
+            let tools = ToolName::ALL.into_iter().map(|name| {
+                let status = match name {
+                    ToolName::SearchJobs|ToolName::RankJobs|ToolName::VerifiedContext|ToolName::ApplicationHistory => "available",
+                    ToolName::NotifyTelegram if api.config.telegram.is_some() => "available",
+                    ToolName::NotifyTelegram => "disabled",
+                    _ => "not_migrated",
+                };
+                let roles=[Role::Discovery,Role::Matching,Role::Answers,Role::Review,Role::Execution].into_iter().filter(|role| name.allowed(*role)).collect::<Vec<_>>();
+                json!({"name":name,"description":name.description(),"roles":roles,"repeatable":name.repeatable(),"status":status})
+            }).collect::<Vec<_>>();
+            Ok(
+                json!({"tools":tools,"review_model":api.config.review_model(),"recommended_limits":limits,"application_dispatch":false,"graph":crate::graph::MERMAID,"human_decisions":["approve","reject","request_changes"]}),
+            )
+        }
         ("PUT", ["api", "v1", "rust-agent", "control"]) => {
             let input: ControlRequest = decode(body)?;
             let control =
@@ -316,6 +354,25 @@ async fn dispatch(
         )),
         ("GET", ["api", "v1", "rust-agent", "runs", id, "events"]) => {
             Ok(json!({"events":lifecycle::events(connection,uuid(id)?).await?}))
+        }
+        ("GET", ["api", "v1", "rust-agent", "runs", id, "plan"]) => {
+            let stored = lifecycle::load(connection, uuid(id)?).await?;
+            Ok(crate::graph::preview(&stored.run, stored.revision))
+        }
+        ("POST", ["api", "v1", "rust-agent", "runs", id, "approvals", approval]) => {
+            let input: ApprovalDecision = decode(body)?;
+            let saved = lifecycle::approve(
+                connection,
+                uuid(id)?,
+                input.expected_revision,
+                uuid(approval)?,
+                input.decision,
+                crate::graph::Actor::OwnerApi,
+            )
+            .await?;
+            api.wake.run_changed(saved.run.id);
+            api.wake.work_available();
+            Ok(lifecycle::summary(&saved))
         }
         ("POST", ["api", "v1", "rust-agent", "runs", id, "control"]) => {
             let input: RunControl = decode(body)?;
@@ -366,7 +423,12 @@ fn failure(error: Failure) -> Response {
         | "owner_client_required" => StatusCode::FORBIDDEN,
         "owner_api_tls_required" => StatusCode::UPGRADE_REQUIRED,
         "agent_run_not_found" | "owner_route_not_found" => StatusCode::NOT_FOUND,
-        "agent_revision_conflict"
+        "agent_approval_not_pending"
+        | "agent_approval_expired"
+        | "agent_approval_context_changed"
+        | "agent_replan_limit"
+        | "agent_approval_limit"
+        | "agent_revision_conflict"
         | "agent_control_revision_conflict"
         | "agent_request_key_conflict"
         | "agent_question_not_pending"

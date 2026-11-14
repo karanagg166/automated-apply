@@ -58,6 +58,40 @@ pub enum ToolName {
     NotifyTelegram,
 }
 impl ToolName {
+    pub const ALL: [Self; 10] = [
+        Self::SearchJobs,
+        Self::RankJobs,
+        Self::VerifiedContext,
+        Self::ApplicationHistory,
+        Self::PrepareApplication,
+        Self::InspectApplication,
+        Self::OpenBrowser,
+        Self::FillApplication,
+        Self::SubmitApplication,
+        Self::NotifyTelegram,
+    ];
+    pub fn description(self) -> &'static str {
+        match self {
+            Self::SearchJobs => "Read saved jobs; return bounded source references.",
+            Self::RankJobs => {
+                "Rank saved jobs against confirmed facts and exclude prior/uncertain applications."
+            }
+            Self::VerifiedContext => "Read version-bound verified profile facts.",
+            Self::ApplicationHistory => {
+                "Read bounded application history for the confirmed profile."
+            }
+            Self::PrepareApplication => "Prepare a saved job packet using verified facts.",
+            Self::InspectApplication => "Inspect the saved packet and current outcome.",
+            Self::OpenBrowser => "Open a verified saved job using the inactive automation tab.",
+            Self::FillApplication => "Fill the bound application using confirmed answers.",
+            Self::SubmitApplication => {
+                "Request backend admission and submission; unknown outcomes require reconciliation."
+            }
+            Self::NotifyTelegram => {
+                "Enqueue a fixed run notice for the configured private owner chat."
+            }
+        }
+    }
     pub fn repeatable(self) -> bool {
         matches!(
             self,
@@ -128,15 +162,33 @@ impl ToolCall {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Proposal {
-    Tool { call: ToolCall },
-    Handoff { next: Role, evidence: Vec<Uuid> },
-    NeedsInput { question_key: String },
-    Complete { evidence: Vec<Uuid> },
+    Replan {
+        target: Role,
+        reason: crate::graph::ReplanReason,
+        evidence: Vec<Uuid>,
+    },
+    Tool {
+        call: ToolCall,
+    },
+    Handoff {
+        next: Role,
+        evidence: Vec<Uuid>,
+    },
+    NeedsInput {
+        question_key: String,
+    },
+    Complete {
+        evidence: Vec<Uuid>,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Limits {
+    #[serde(default)]
+    pub human_review: bool,
+    #[serde(default = "default_replans")]
+    pub replans: u8,
     pub model_calls: u16,
     #[serde(default = "default_decision_limit")]
     pub decision_calls: u16,
@@ -148,6 +200,8 @@ pub struct Limits {
 impl Default for Limits {
     fn default() -> Self {
         Self {
+            human_review: false,
+            replans: 2,
             model_calls: 16,
             decision_calls: 16,
             tool_calls: 16,
@@ -159,7 +213,8 @@ impl Default for Limits {
 }
 impl Limits {
     pub fn validate(&self) -> Result<()> {
-        if !(1..=64).contains(&self.decision_calls)
+        if self.replans > 3
+            || !(1..=64).contains(&self.decision_calls)
             || !(1..=32).contains(&self.model_calls)
             || !(1..=32).contains(&self.tool_calls)
             || !(1..=16000).contains(&self.tokens)
@@ -191,6 +246,7 @@ pub enum State {
     ToolPending,
     ToolRunning,
     WaitingOwner,
+    WaitingApproval,
     Paused,
     Completed,
     Failed,
@@ -209,6 +265,8 @@ pub struct Effect {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Run {
+    #[serde(default)]
+    pub graph: crate::graph::Checkpoint,
     pub id: Uuid,
     pub request_key: Uuid,
     pub role: Role,
@@ -234,6 +292,7 @@ impl Run {
     pub fn new(request_key: Uuid, limits: Limits) -> Result<Self> {
         limits.validate()?;
         Ok(Self {
+            graph: crate::graph::Checkpoint::default(),
             id: Uuid::new_v4(),
             request_key,
             role: Role::Discovery,
@@ -257,6 +316,7 @@ impl Run {
 // No submission implementation is enabled in this migration milestone.
 #[derive(Default)]
 pub struct Authority {
+    pub requires_human_approval: bool,
     pub prepare: bool,
     pub inactive_owned_browser: bool,
     pub fill: bool,
@@ -309,4 +369,7 @@ pub struct ModelBudget {
 
 fn default_decision_limit() -> u16 {
     16
+}
+fn default_replans() -> u8 {
+    2
 }

@@ -38,6 +38,10 @@ async fn setup() -> PgConnection {
         .execute(&mut c)
         .await
         .unwrap();
+    sqlx::raw_sql(include_str!("../sql/004_graph.sql"))
+        .execute(&mut c)
+        .await
+        .unwrap();
     sqlx::raw_sql("UPDATE rust_agent_control SET mode='RUNNING'")
         .execute(&mut c)
         .await
@@ -57,6 +61,10 @@ async fn request_idempotency_preserves_original_run_and_rejects_conflict() {
     let first = run();
     let id = store.create(&first).await.unwrap();
     let same = Run::new(first.request_key, Limits::default()).unwrap();
+    assert_eq!(store.create(&same).await.unwrap(), id);
+    // Pre-graph records omitted new default fields. Idempotency must not create a
+    // second run or refund the old record's spent allowance during an upgrade.
+    sqlx::query("UPDATE rust_agent_runs SET run=(run-'graph') #- '{limits,human_review}' #- '{limits,replans}' WHERE id=$1").bind(id).execute(&mut *store.connection).await.unwrap();
     assert_eq!(store.create(&same).await.unwrap(), id);
     let mut different = same;
     different.limits.tokens += 1;
@@ -236,6 +244,7 @@ impl Tools for FictionalTools {
             inactive_owned_browser: true,
             fill: false,
             telegram_paired: false,
+            requires_human_approval: false,
         })
     }
     async fn execute(&mut self, effect: &Effect, _: &mut Store<'_>) -> Result<Observation> {
@@ -2374,4 +2383,541 @@ async fn confirmed_compensation_decimal_forms_reconcile_without_reasking_for_kno
         assert_eq!(stored.run.state, State::Ready);
         assert_eq!(stored.run.usage.model_calls, 1);
     }
+}
+
+use automated_apply_agents::{graph, planner::SavedReviewPlanner};
+async fn review_checkpoint(c: &mut PgConnection) -> lifecycle::Stored {
+    let first = lifecycle::intake(
+        c,
+        Uuid::new_v4(),
+        Limits {
+            human_review: true,
+            decision_calls: 32,
+            ..Limits::default()
+        },
+    )
+    .await
+    .unwrap();
+    let mut model = SavedReviewPlanner { notify: false };
+    let mut tools = KnowledgeTools {
+        profile: profile_pin(),
+    };
+    for _ in 0..30 {
+        let mut store = Store { connection: c };
+        let Some(mut lease) = store.claim().await.unwrap() else {
+            break;
+        };
+        tick(&mut store, &mut lease, &mut model, &mut tools)
+            .await
+            .unwrap();
+        if lease.run.state == State::WaitingApproval {
+            break;
+        }
+    }
+    let saved = lifecycle::load(c, first.run.id).await.unwrap();
+    assert_eq!(
+        saved.run.state,
+        State::WaitingApproval,
+        "{:?}",
+        saved.run.diagnostic
+    );
+    saved
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn graph_http_approval_requires_exact_revision_and_review_then_resumes_without_new_authority()
+{
+    let mut c = knowledge_fixture().await;
+    saved_job(&mut c, 1).await;
+    let waiting = review_checkpoint(&mut c).await;
+    let approval = waiting.run.graph.approvals.last().unwrap().id;
+    assert_eq!(waiting.run.usage.decision_calls, 8);
+    assert_eq!(waiting.run.usage.tool_calls, 4);
+    let (url, stop, server) = http_fixture().await;
+    let http = client();
+    let preview: Value = http
+        .get(format!(
+            "{url}/api/v1/rust-agent/runs/{}/plan",
+            waiting.run.id
+        ))
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(preview["prepared_results"].as_array().unwrap().len(), 4);
+    assert_eq!(preview["approval_grants_submission"], false);
+    assert!(
+        preview["diagram"]
+            .as_str()
+            .unwrap()
+            .contains("bounded replan")
+    );
+    let address = format!(
+        "{url}/api/v1/rust-agent/runs/{}/approvals/{approval}",
+        waiting.run.id
+    );
+    let forged=http.post(&address).bearer_auth(HOST_TOKEN).json(&json!({"expected_revision":waiting.revision,"decision":"approve","actor":"owner_api","submit":true})).send().await.unwrap();
+    assert_eq!(forged.status(), 400);
+    let stale = http
+        .post(&address)
+        .bearer_auth(HOST_TOKEN)
+        .json(&json!({"expected_revision":waiting.revision-1,"decision":"approve"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(stale.status(), 409);
+    let response = http
+        .post(&address)
+        .bearer_auth(HOST_TOKEN)
+        .json(&json!({"expected_revision":waiting.revision,"decision":"approve"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let mut store = Store { connection: &mut c };
+    let mut lease = store.claim().await.unwrap().unwrap();
+    let mut model = SavedReviewPlanner { notify: false };
+    let mut tools = KnowledgeTools {
+        profile: profile_pin(),
+    };
+    tick(&mut store, &mut lease, &mut model, &mut tools)
+        .await
+        .unwrap();
+    assert_eq!(lease.run.state, State::Completed);
+    assert_eq!(lease.run.usage.decision_calls, 9);
+    assert_eq!(lease.run.usage.tool_calls, 4);
+    let audit = lifecycle::events(&mut c, waiting.run.id).await.unwrap();
+    assert!(
+        audit
+            .iter()
+            .any(|event| event["graph_node"] == "human_approval"
+                && event["approval_required"] == true)
+    );
+    let repeated = http
+        .post(&address)
+        .bearer_auth(HOST_TOKEN)
+        .json(&json!({"expected_revision":waiting.revision,"decision":"approve"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(repeated.status(), 409);
+    stop.cancel();
+    server.await.unwrap();
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn human_changes_loop_recomputes_actual_saved_facts_and_keeps_spent_usage() {
+    let mut c = knowledge_fixture().await;
+    saved_job(&mut c, 1).await;
+    let waiting = review_checkpoint(&mut c).await;
+    let approval = waiting.run.graph.approvals.last().unwrap().id;
+    let changed = lifecycle::approve(
+        &mut c,
+        waiting.run.id,
+        waiting.revision,
+        approval,
+        graph::Decision::RequestChanges,
+        graph::Actor::OwnerApi,
+    )
+    .await
+    .unwrap();
+    assert_eq!(changed.run.graph.iterations, 1);
+    assert_eq!(changed.run.usage.tool_calls, 4);
+    assert_eq!(changed.run.usage.decision_calls, 8);
+    assert!(changed.run.context.is_empty());
+    let mut model = SavedReviewPlanner { notify: false };
+    let mut tools = KnowledgeTools {
+        profile: profile_pin(),
+    };
+    for _ in 0..30 {
+        let mut store = Store { connection: &mut c };
+        let mut lease = store.claim().await.unwrap().unwrap();
+        tick(&mut store, &mut lease, &mut model, &mut tools)
+            .await
+            .unwrap();
+        if lease.run.state == State::WaitingApproval {
+            break;
+        }
+    }
+    let next = lifecycle::load(&mut c, waiting.run.id).await.unwrap();
+    assert_eq!(next.run.state, State::WaitingApproval);
+    assert_eq!(next.run.usage.decision_calls, 16);
+    assert_eq!(next.run.usage.tool_calls, 8);
+    assert_ne!(next.run.graph.approvals.last().unwrap().id, approval);
+    let rejected = lifecycle::approve(
+        &mut c,
+        next.run.id,
+        next.revision,
+        next.run.graph.approvals.last().unwrap().id,
+        graph::Decision::Reject,
+        graph::Actor::OwnerApi,
+    )
+    .await
+    .unwrap();
+    assert_eq!(rejected.run.state, State::Stopped);
+    assert_eq!(rejected.run.usage.tool_calls, 8);
+    assert!(
+        Store { connection: &mut c }
+            .claim()
+            .await
+            .unwrap()
+            .is_none()
+    );
+}
+struct OneReplan {
+    saved: SavedReviewPlanner,
+    replanned: bool,
+}
+impl Model for OneReplan {
+    fn inference_required(&self, _: Role, _: &[Context]) -> bool {
+        false
+    }
+    async fn propose(
+        &mut self,
+        role: Role,
+        context: &[Context],
+        budget: ModelBudget,
+        store: &mut Store<'_>,
+    ) -> Result<Proposal> {
+        if role == Role::Review
+            && !self.replanned
+            && context
+                .iter()
+                .any(|c| c.tool == ToolName::ApplicationHistory)
+        {
+            self.replanned = true;
+            return Ok(Proposal::Replan {
+                target: Role::Matching,
+                reason: graph::ReplanReason::RecheckEligibility,
+                evidence: vec![],
+            });
+        }
+        self.saved.propose(role, context, budget, store).await
+    }
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn reviewer_graph_replan_runs_actual_tools_again_and_preserves_source_binding() {
+    let mut c = knowledge_fixture().await;
+    let job = saved_job(&mut c, 1).await;
+    let run = lifecycle::intake(&mut c, Uuid::new_v4(), Limits::default())
+        .await
+        .unwrap();
+    let mut model = OneReplan {
+        saved: SavedReviewPlanner { notify: false },
+        replanned: false,
+    };
+    let mut tools = KnowledgeTools {
+        profile: profile_pin(),
+    };
+    for _ in 0..30 {
+        let mut store = Store { connection: &mut c };
+        let Some(mut lease) = store.claim().await.unwrap() else {
+            break;
+        };
+        tick(&mut store, &mut lease, &mut model, &mut tools)
+            .await
+            .unwrap();
+        if lease.run.state == State::Completed {
+            break;
+        }
+    }
+    let saved = lifecycle::load(&mut c, run.run.id).await.unwrap();
+    assert_eq!(saved.run.state, State::Completed);
+    assert_eq!(saved.run.graph.iterations, 1);
+    assert_eq!(saved.run.usage.decision_calls, 15);
+    assert_eq!(saved.run.usage.tool_calls, 7);
+    assert_eq!(saved.run.known_jobs, vec![job]);
+}
+struct GuardedTool {
+    allowed: bool,
+    executed: usize,
+}
+impl Tools for GuardedTool {
+    async fn authority(&mut self, _: &ToolCall, _: &mut Store<'_>) -> Result<Authority> {
+        Ok(Authority {
+            requires_human_approval: true,
+            inactive_owned_browser: self.allowed,
+            ..Authority::default()
+        })
+    }
+    async fn execute(&mut self, _: &Effect, _: &mut Store<'_>) -> Result<Observation> {
+        self.executed += 1;
+        Ok(Observation {
+            jobs: vec![],
+            evidence: vec![],
+            data: json!({"fixture":true}),
+        })
+    }
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn human_tool_approval_never_overrides_changed_backend_authority_or_resets_usage() {
+    let mut c = knowledge_fixture().await;
+    let job = saved_job(&mut c, 1).await;
+    let mut run = run();
+    run.role = Role::Execution;
+    run.profile = Some(profile_pin());
+    run.known_jobs = vec![job];
+    engine::begin_model(&mut run).unwrap();
+    engine::accept(
+        &mut run,
+        Proposal::Tool {
+            call: ToolCall {
+                name: ToolName::OpenBrowser,
+                job_id: Some(job),
+                evidence: vec![],
+            },
+        },
+    )
+    .unwrap();
+    let effect = run.pending.as_ref().unwrap().id;
+    Store { connection: &mut c }.create(&run).await.unwrap();
+    let mut lease = Store { connection: &mut c }.claim().await.unwrap().unwrap();
+    let mut tool = GuardedTool {
+        allowed: true,
+        executed: 0,
+    };
+    let mut model = SavedReviewPlanner { notify: false };
+    tick(
+        &mut Store { connection: &mut c },
+        &mut lease,
+        &mut model,
+        &mut tool,
+    )
+    .await
+    .unwrap();
+    assert_eq!(lease.run.state, State::WaitingApproval);
+    assert_eq!(tool.executed, 0);
+    assert_eq!(lease.run.usage.tool_calls, 0);
+    let saved = lifecycle::load(&mut c, run.id).await.unwrap();
+    let approved = lifecycle::approve(
+        &mut c,
+        run.id,
+        saved.revision,
+        saved.run.graph.approvals[0].id,
+        graph::Decision::Approve,
+        graph::Actor::OwnerApi,
+    )
+    .await
+    .unwrap();
+    assert_eq!(approved.run.pending.as_ref().unwrap().id, effect);
+    tool.allowed = false;
+    let mut lease = Store { connection: &mut c }.claim().await.unwrap().unwrap();
+    tick(
+        &mut Store { connection: &mut c },
+        &mut lease,
+        &mut model,
+        &mut tool,
+    )
+    .await
+    .unwrap();
+    assert_eq!(tool.executed, 0);
+    assert_eq!(lease.run.usage.tool_calls, 0);
+    assert_eq!(lease.run.state, State::WaitingOwner);
+}
+
+async fn graph_model_fixture(
+    axum::extract::State(calls): axum::extract::State<Arc<std::sync::Mutex<Vec<Value>>>>,
+    axum::Json(body): axum::Json<Value>,
+) -> axum::Json<Value> {
+    let mut observed = calls.lock().unwrap();
+    observed.push(body);
+    let decision = if observed.len() == 1 {
+        json!({"action":"replan","target":"matching","reason":"recheck_eligibility","evidence":[]})
+    } else {
+        json!({"action":"handoff","next":"execution","evidence":[]})
+    };
+    axum::Json(
+        json!({"finish_reason":"COMPLETE","message":{"role":"assistant","content":[{"type":"text","text":decision.to_string()}]},"usage":{"tokens":{"input_tokens":800,"output_tokens":30}}}),
+    )
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn actual_cli_model_reviewer_replans_waits_without_recharging_and_requires_human_decision() {
+    use tokio::io::AsyncBufReadExt;
+    let mut c = knowledge_fixture().await;
+    saved_job(&mut c, 1).await;
+    sqlx::query("UPDATE candidate_profiles SET preferences=preferences || '{\"email\":\"privacy-canary@example.invalid\",\"resume_text\":\"private-resume-canary\"}'::jsonb").execute(&mut c).await.unwrap();
+    let calls = Arc::new(std::sync::Mutex::new(Vec::<Value>::new()));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let endpoint = format!("http://{}/v2/chat", listener.local_addr().unwrap());
+    let stop = CancellationToken::new();
+    let shutdown = stop.clone();
+    let app = axum::Router::new()
+        .route("/v2/chat", axum::routing::post(graph_model_fixture))
+        .with_state(calls.clone());
+    let fake = tokio::spawn(async move {
+        axum::serve(listener, app)
+            .with_graceful_shutdown(shutdown.cancelled_owned())
+            .await
+            .unwrap();
+    });
+    let mut values = host_values();
+    for (key, value) in [
+        ("RUST_AGENT_REVIEW_MODEL", "cohere"),
+        ("COHERE_ENABLED", "true"),
+        ("COHERE_EVALUATION_KEY_CONFIRMED", "true"),
+        ("COHERE_OWNER_TEXT_AUTHORIZED", "true"),
+        ("COHERE_CANDIDATE_DATA_AUTHORIZED", "true"),
+        ("COHERE_API_KEY", "fictional-fixture-key"),
+        ("LLM_MAX_INPUT_CHARS", "5000"),
+        ("LLM_MAX_OUTPUT_TOKENS", "128"),
+    ] {
+        values.insert(key.into(), value.into());
+    }
+    values.insert("RUST_COHERE_FIXTURE_ENDPOINT".into(), endpoint);
+    let directory = tempfile::tempdir().unwrap();
+    std::fs::set_permissions(directory.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+    let path = directory.path().join("runtime.env");
+    std::fs::write(
+        &path,
+        values
+            .iter()
+            .map(|(k, v)| format!("{k}='{v}'\n"))
+            .collect::<String>(),
+    )
+    .unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_automated-apply-agents"))
+        .args(["serve", "--config"])
+        .arg(&path)
+        .arg("--fixture-lock-directory")
+        .arg(directory.path())
+        .env_clear()
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .kill_on_drop(true)
+        .spawn()
+        .unwrap();
+    let mut stdout = tokio::io::BufReader::new(child.stdout.take().unwrap());
+    let mut line = String::new();
+    tokio::time::timeout(Duration::from_secs(10), stdout.read_line(&mut line))
+        .await
+        .unwrap()
+        .unwrap();
+    let ready: Value = serde_json::from_str(&line).expect("sanitized fixture readiness");
+    let url = format!(
+        "http://{}/api/v1/rust-agent",
+        ready["address"].as_str().unwrap()
+    );
+    let http = client();
+    let capabilities: Value = http
+        .get(format!("{url}/capabilities"))
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(capabilities["review_model"], "cohere");
+    let created: Value = http
+        .post(format!("{url}/runs"))
+        .bearer_auth(HOST_TOKEN)
+        .json(&json!({"request_id":Uuid::new_v4(),"limits":capabilities["recommended_limits"]}))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let id = created["id"].as_str().unwrap();
+    let waiting: Value = tokio::time::timeout(Duration::from_secs(15), async {
+        let mut saw_wait = false;
+        loop {
+            let saved: Value = http
+                .get(format!("{url}/runs/{id}"))
+                .bearer_auth(HOST_TOKEN)
+                .send()
+                .await
+                .unwrap()
+                .json()
+                .await
+                .unwrap();
+            assert_ne!(saved["state"], "failed", "{saved}");
+            if saved["graph"]["node"] == "provider_wait" {
+                saw_wait = true;
+                assert_eq!(saved["usage"]["model_calls"], 1);
+                assert_eq!(saved["usage"]["reserved_tokens"], 5128);
+            }
+            if saved["state"] == "waiting_approval" {
+                assert!(saw_wait);
+                break saved;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(waiting["graph"]["iteration"], 1);
+    assert_eq!(waiting["usage"]["model_calls"], 2);
+    assert_eq!(waiting["usage"]["tool_calls"], 7);
+    assert_eq!(waiting["usage"]["reserved_tokens"], 10256);
+    let approval = waiting["graph"]["approvals"][0]["id"].as_str().unwrap();
+    let approved = http
+        .post(format!("{url}/runs/{id}/approvals/{approval}"))
+        .bearer_auth(HOST_TOKEN)
+        .json(&json!({"expected_revision":waiting["revision"],"decision":"approve"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(approved.status(), 200);
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let saved: Value = http
+                .get(format!("{url}/runs/{id}"))
+                .bearer_auth(HOST_TOKEN)
+                .send()
+                .await
+                .unwrap()
+                .json()
+                .await
+                .unwrap();
+            if saved["state"] == "completed" {
+                assert_eq!(saved["usage"]["model_calls"], 2);
+                break;
+            }
+            assert_ne!(saved["state"], "failed", "{saved}");
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .unwrap();
+    let ledger: i32 = sqlx::query_scalar(
+        "SELECT sum(requests)::int FROM llm_monthly_usage WHERE provider='cohere'",
+    )
+    .fetch_one(&mut c)
+    .await
+    .unwrap();
+    assert_eq!(ledger, 2);
+    {
+        let sent = calls.lock().unwrap();
+        assert_eq!(sent.len(), 2);
+        for body in sent.iter() {
+            let encoded = serde_json::to_string(body).unwrap();
+            assert!(encoded.len() <= 5000);
+            assert!(!encoded.contains("privacy-canary"));
+            assert!(!encoded.contains("private-resume-canary"));
+            assert!(!encoded.contains("fictional-fixture-key"));
+            assert_eq!(body["max_tokens"], 128);
+        }
+    }
+    // SAFETY: retained PID is the exact isolated fixture child, still running.
+    assert_eq!(
+        unsafe { libc::kill(child.id().unwrap() as i32, libc::SIGTERM) },
+        0
+    );
+    assert!(
+        tokio::time::timeout(Duration::from_secs(5), child.wait())
+            .await
+            .unwrap()
+            .unwrap()
+            .success()
+    );
+    stop.cancel();
+    fake.await.unwrap();
 }
