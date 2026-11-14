@@ -19,5 +19,7 @@ pub mod lifecycle;
 pub mod planner;
 pub mod process_lock;
 pub mod questions;
+pub mod recovery;
 pub mod server;
+pub mod telegram;
 pub mod worker;

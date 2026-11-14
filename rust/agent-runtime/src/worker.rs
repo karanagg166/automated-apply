@@ -48,6 +48,14 @@ pub async fn serve(
     wake: Wake,
     shutdown: CancellationToken,
 ) -> Result<()> {
+    serve_with_telegram(connection, wake, shutdown, None).await
+}
+pub async fn serve_with_telegram(
+    connection: &mut PgConnection,
+    wake: Wake,
+    shutdown: CancellationToken,
+    telegram: Option<crate::telegram::Settings>,
+) -> Result<()> {
     let mut changes = wake.changed.subscribe();
     let mut last_heartbeat = None;
     loop {
@@ -79,8 +87,14 @@ pub async fn serve(
                 // Intake always supplies a confirmed pin. Legacy/malformed unpinned work
                 // is stopped as a factual question before any tool can run.
                 if let Some(profile) = lease.run.profile.clone() {
-                    let mut tools = KnowledgeTools { profile };
-                    let mut model = SavedReviewPlanner;
+                    let mut tools = crate::telegram::RuntimeTools {
+                        knowledge: KnowledgeTools { profile },
+                        telegram: telegram.clone(),
+                        run_id: lease.run.id,
+                    };
+                    let mut model = SavedReviewPlanner {
+                        notify: telegram.is_some(),
+                    };
                     let id = lease.run.id;
                     let tick = runner::tick(&mut store, &mut lease, &mut model, &mut tools);
                     match controlled(tick, id, &mut changes, &shutdown).await {

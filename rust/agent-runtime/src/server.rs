@@ -5,6 +5,7 @@ use crate::{
     contracts::Limits,
     knowledge::ProfilePin,
     lifecycle::{self, Action, Mode},
+    recovery::{self, Backoff},
     worker::Wake,
 };
 use axum::{
@@ -24,15 +25,22 @@ use uuid::Uuid;
 
 pub struct Api {
     config: Arc<Configuration>,
-    connection: Mutex<PgConnection>,
+    connection: Mutex<ControlConnection>,
     wake: Wake,
     requests: Semaphore,
+}
+struct ControlConnection {
+    value: Option<PgConnection>,
+    backoff: Backoff,
 }
 impl Api {
     pub fn new(config: Arc<Configuration>, connection: PgConnection, wake: Wake) -> Arc<Self> {
         Arc::new(Self {
             config,
-            connection: Mutex::new(connection),
+            connection: Mutex::new(ControlConnection {
+                value: Some(connection),
+                backoff: Backoff::default(),
+            }),
             wake,
             requests: Semaphore::new(8),
         })
@@ -40,6 +48,35 @@ impl Api {
 }
 pub fn router(api: Arc<Api>) -> Router {
     Router::new().fallback(handle).with_state(api)
+}
+/// Run after HTTP handlers and execution have drained. Reconcile a failed control
+/// connection once, then persist pause; never report a clean stop without confirmation.
+pub async fn quiesce(api: &Api) -> Result<()> {
+    let mut state = api.connection.lock().await;
+    if let Some(connection) = state.value.as_mut()
+        && pause(connection).await.is_ok()
+    {
+        return Ok(());
+    }
+    if let Some(connection) = state.value.take() {
+        recovery::close(connection).await;
+    }
+    let mut connection = api.config.connect(false).await?;
+    readiness(&mut connection, &api.config).await?;
+    let result = pause(&mut connection).await;
+    state.value = Some(connection);
+    result
+}
+async fn pause(connection: &mut PgConnection) -> Result<()> {
+    let control = lifecycle::control(connection).await?;
+    if control.mode == Mode::Running {
+        lifecycle::set_control(connection, control.revision, Mode::Paused).await?;
+    }
+    sqlx::query("UPDATE rust_agent_control SET heartbeat_at=NULL WHERE key='primary'")
+        .execute(connection)
+        .await
+        .map_err(|_| Failure("agent_database_error"))?;
+    Ok(())
 }
 
 pub async fn readiness(connection: &mut PgConnection, config: &Configuration) -> Result<()> {
@@ -159,8 +196,42 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
             );
         }
     };
-    let mut connection = api.connection.lock().await;
-    let result = dispatch(&api, &mut connection, &method, &path, &body).await;
+    let mut state = api.connection.lock().await;
+    if state.value.is_none() {
+        if !state.backoff.remaining().is_zero() {
+            return failure(Failure("agent_database_reconnecting"));
+        }
+        match api.config.connect(false).await {
+            Ok(mut connection) => {
+                if let Err(error) = readiness(&mut connection, &api.config).await {
+                    recovery::close(connection).await;
+                    state.backoff.failed();
+                    return failure(error);
+                }
+                state.value = Some(connection);
+            }
+            Err(error) => {
+                state.backoff.failed();
+                return failure(error);
+            }
+        }
+    }
+    let result = match state.value.as_mut() {
+        Some(connection) => dispatch(&api, connection, &method, &path, &body).await,
+        None => Err(Failure("agent_database_unavailable")),
+    };
+    if result
+        .as_ref()
+        .err()
+        .is_some_and(|error| recovery::database_failure(*error))
+    {
+        if let Some(connection) = state.value.take() {
+            recovery::close(connection).await;
+        }
+        state.backoff.failed();
+    } else if result.is_ok() {
+        state.backoff.reset();
+    }
     match result {
         Ok(data) => reply(StatusCode::OK, data),
         Err(error) => failure(error),
@@ -304,7 +375,14 @@ fn failure(error: Failure) -> Response {
         | "verified_profile_identity_changed"
         | "agent_reconciliation_required"
         | "invalid_agent_control" => StatusCode::CONFLICT,
-        "agent_database_error"
+        "agent_database_reconnecting"
+        | "agent_database_unavailable"
+        | "database_host_unavailable"
+        | "verified_context_database_error"
+        | "saved_jobs_database_error"
+        | "application_history_database_error"
+        | "owner_fact_database_error"
+        | "agent_database_error"
         | "agent_schema_unavailable"
         | "invalid_worker_control"
         | "agent_database_target_mismatch" => StatusCode::SERVICE_UNAVAILABLE,

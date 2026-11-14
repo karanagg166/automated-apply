@@ -1816,6 +1816,51 @@ asyncio.run(check())
     assert!(legacy.stdout.is_empty());
     let active:i64=sqlx::query_scalar("SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND application_name IN ('automated-apply:api','automated-apply:execution')").fetch_one(&mut source).await.unwrap();
     assert_eq!(active, 2);
+    let old_execution:i32=sqlx::query_scalar("SELECT pid FROM pg_stat_activity WHERE datname=current_database() AND application_name='automated-apply:execution'").fetch_one(&mut source).await.unwrap();
+    let killed: bool = sqlx::query_scalar("SELECT pg_terminate_backend($1)")
+        .bind(old_execution)
+        .fetch_one(&mut source)
+        .await
+        .unwrap();
+    assert!(killed);
+    let next: Value = http
+        .post(format!("{url}/api/v1/rust-agent/runs"))
+        .bearer_auth(HOST_TOKEN)
+        .json(&json!({"request_id":Uuid::new_v4()}))
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let next_id = next["id"].as_str().unwrap();
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let saved: Value = http
+                .get(format!("{url}/api/v1/rust-agent/runs/{next_id}"))
+                .bearer_auth(HOST_TOKEN)
+                .send()
+                .await
+                .unwrap()
+                .json()
+                .await
+                .unwrap();
+            if saved["state"] == "completed" {
+                assert_eq!(saved["usage"]["model_calls"], 0);
+                assert_eq!(saved["usage"]["tool_calls"], 4);
+                break;
+            }
+            assert_ne!(saved["state"], "failed");
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .unwrap();
+    let fresh_execution:i32=sqlx::query_scalar("SELECT pid FROM pg_stat_activity WHERE datname=current_database() AND application_name='automated-apply:execution'").fetch_one(&mut source).await.unwrap();
+    assert_ne!(fresh_execution, old_execution);
+    assert!(child.try_wait().unwrap().is_none());
+    let active:i64=sqlx::query_scalar("SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND application_name IN ('automated-apply:api','automated-apply:execution')").fetch_one(&mut source).await.unwrap();
+    assert_eq!(active, 2);
     let ambient = tokio::process::Command::new(binary)
         .args(["serve", "--config"])
         .arg(&path)
@@ -1846,4 +1891,459 @@ asyncio.run(check())
     let control = lifecycle::control(&mut source).await.unwrap();
     assert_eq!(control.mode, Mode::Paused);
     assert!(!control.worker_online);
+}
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn owner_api_reconnects_without_replaying_the_failed_control_request() {
+    let mut source = knowledge_fixture().await;
+    let (url, stop, service) = http_fixture().await;
+    let http = client();
+    let pid:i32=sqlx::query_scalar("SELECT pid FROM pg_stat_activity WHERE datname=current_database() AND application_name='automated-apply:api' ORDER BY backend_start DESC LIMIT 1").fetch_one(&mut source).await.unwrap();
+    let killed: bool = sqlx::query_scalar("SELECT pg_terminate_backend($1)")
+        .bind(pid)
+        .fetch_one(&mut source)
+        .await
+        .unwrap();
+    assert!(killed);
+    let failed = http
+        .put(format!("{url}/api/v1/rust-agent/control"))
+        .bearer_auth(HOST_TOKEN)
+        .json(&json!({"expected_revision":1,"mode":"STOPPED"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(failed.status(), 503);
+    assert_eq!(
+        lifecycle::control(&mut source).await.unwrap().mode,
+        Mode::Running
+    );
+    let waiting = http
+        .get(format!("{url}/api/v1/rust-agent/control"))
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(waiting.status(), 503);
+    assert_eq!(
+        waiting.json::<Value>().await.unwrap()["error"],
+        "agent_database_reconnecting"
+    );
+    tokio::time::sleep(Duration::from_millis(1100)).await;
+    let recovered = http
+        .get(format!("{url}/api/v1/rust-agent/control"))
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(recovered.status(), 200);
+    let control: Value = recovered.json().await.unwrap();
+    assert_eq!(control["revision"], 1);
+    assert_eq!(control["mode"], "RUNNING");
+    let changed = http
+        .put(format!("{url}/api/v1/rust-agent/control"))
+        .bearer_auth(HOST_TOKEN)
+        .json(&json!({"expected_revision":1,"mode":"STOPPED"}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(changed.status(), 200);
+    stop.cancel();
+    service.await.unwrap();
+}
+
+use automated_apply_agents::telegram::{
+    self, Identity as TelegramIdentity, Settings as TelegramSettings,
+};
+fn telegram_values(endpoint: &str) -> BTreeMap<String, String> {
+    let mut values = host_values();
+    values.extend([
+        ("RUST_TELEGRAM_ENABLED".into(), "true".into()),
+        (
+            "TELEGRAM_BOT_TOKEN".into(),
+            "123:abcdefghijklmnopqrstuvwx".into(),
+        ),
+        ("TELEGRAM_OWNER_USER_ID".into(), "11".into()),
+        ("TELEGRAM_OWNER_CHAT_ID".into(), "22".into()),
+        ("RUST_TELEGRAM_FIXTURE_ENDPOINT".into(), endpoint.into()),
+    ]);
+    values
+}
+async fn telegram_fixture() -> (PgConnection, TelegramSettings, TelegramIdentity) {
+    let mut c = knowledge_fixture().await;
+    sqlx::raw_sql("DROP TABLE IF EXISTS rust_telegram_outbox,rust_telegram_runtime,agent_telegram_deliveries,agent_telegram_state;CREATE TABLE agent_telegram_state(key text PRIMARY KEY,next_update_id bigint NOT NULL DEFAULT 0,bot_id text,last_poll_at timestamptz,last_error text,evidence_type text NOT NULL DEFAULT 'unverified');CREATE TABLE agent_telegram_deliveries(update_id bigint PRIMARY KEY,reply text NOT NULL,state text NOT NULL CHECK(state IN('pending','sending','sent')));").execute(&mut c).await.unwrap();
+    sqlx::raw_sql(include_str!("../sql/003_telegram.sql"))
+        .execute(&mut c)
+        .await
+        .unwrap();
+    let settings = TelegramSettings::from_values(&telegram_values("http://127.0.0.1:54321"), true)
+        .unwrap()
+        .unwrap();
+    let identity = TelegramIdentity {
+        id: 123,
+        username: "fictional_bot".into(),
+    };
+    telegram::initialize(&mut c, &settings, &identity)
+        .await
+        .unwrap();
+    (c, settings, identity)
+}
+fn telegram_update(id: i64, text: &str) -> Value {
+    json!({"update_id":id,"message":{"chat":{"id":22,"type":"private"},"from":{"id":11,"is_bot":false},"text":text}})
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn telegram_commands_cursor_and_bound_outbox_commit_once_and_unknown_send_is_quarantined() {
+    let (mut c, settings, identity) = telegram_fixture().await;
+    let wake = Wake::default();
+    assert!(
+        telegram::receive(
+            &mut c,
+            &settings,
+            &identity,
+            &telegram_update(42, "/agents review"),
+            &wake
+        )
+        .await
+        .unwrap()
+    );
+    assert!(
+        !telegram::receive(
+            &mut c,
+            &settings,
+            &identity,
+            &telegram_update(42, "/agents review"),
+            &wake
+        )
+        .await
+        .unwrap()
+    );
+    let count: i64 = sqlx::query_scalar("SELECT count(*) FROM rust_agent_runs")
+        .fetch_one(&mut c)
+        .await
+        .unwrap();
+    assert_eq!(count, 1);
+    let mut unauthorized = telegram_update(43, "/agents start");
+    unauthorized["message"]["from"]["id"] = json!(12);
+    assert!(
+        !telegram::receive(&mut c, &settings, &identity, &unauthorized, &wake)
+            .await
+            .unwrap()
+    );
+    let offset: i64 = sqlx::query_scalar("SELECT next_update_id FROM agent_telegram_state")
+        .fetch_one(&mut c)
+        .await
+        .unwrap();
+    assert_eq!(offset, 44);
+    let delivery = telegram::claim_delivery(&mut c, &settings)
+        .await
+        .unwrap()
+        .unwrap();
+    let id = delivery.id;
+    assert!(!delivery.text.contains("Private Fictional"));
+    telegram::finish_delivery(
+        &mut c,
+        &settings,
+        &delivery,
+        Err(telegram::Error {
+            code: "telegram_network_or_response_error",
+            retry_after: Duration::ZERO,
+        }),
+    )
+    .await
+    .unwrap();
+    drop(c);
+    let mut c = connection().await;
+    telegram::initialize(&mut c, &settings, &identity)
+        .await
+        .unwrap();
+    assert!(
+        telegram::claim_delivery(&mut c, &settings)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    let state: String = sqlx::query_scalar("SELECT state FROM rust_telegram_outbox WHERE id=$1")
+        .bind(id)
+        .fetch_one(&mut c)
+        .await
+        .unwrap();
+    assert_eq!(state, "sending");
+    let legacy: String =
+        sqlx::query_scalar("SELECT state FROM agent_telegram_deliveries WHERE update_id=42")
+            .fetch_one(&mut c)
+            .await
+            .unwrap();
+    assert_eq!(legacy, "sending");
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn telegram_verified_429_retains_real_cooldown_and_owner_bot_changes_are_rejected() {
+    let (mut c, settings, identity) = telegram_fixture().await;
+    telegram::receive(
+        &mut c,
+        &settings,
+        &identity,
+        &telegram_update(1, "/ping"),
+        &Wake::default(),
+    )
+    .await
+    .unwrap();
+    let delivery = telegram::claim_delivery(&mut c, &settings)
+        .await
+        .unwrap()
+        .unwrap();
+    telegram::finish_delivery(
+        &mut c,
+        &settings,
+        &delivery,
+        Err(telegram::Error {
+            code: "telegram_rate_limited",
+            retry_after: Duration::from_secs(600),
+        }),
+    )
+    .await
+    .unwrap();
+    let seconds:f64=sqlx::query_scalar("SELECT EXTRACT(EPOCH FROM next_request_at-clock_timestamp())::double precision FROM rust_telegram_runtime").fetch_one(&mut c).await.unwrap();
+    assert!(seconds > 590.0);
+    assert!(
+        telegram::claim_delivery(&mut c, &settings)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    let mut changed = telegram_values("http://127.0.0.1:54321");
+    changed.insert("TELEGRAM_OWNER_CHAT_ID".into(), "23".into());
+    let changed = TelegramSettings::from_values(&changed, true)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        telegram::initialize(&mut c, &changed, &identity).await,
+        Err(Failure("telegram_owner_binding_changed"))
+    );
+    assert_eq!(
+        telegram::initialize(
+            &mut c,
+            &settings,
+            &TelegramIdentity {
+                id: 124,
+                username: "another_bot".into()
+            }
+        )
+        .await,
+        Err(Failure("telegram_bot_identity_changed"))
+    );
+    let state: String =
+        sqlx::query_scalar("SELECT state FROM agent_telegram_deliveries WHERE update_id=1")
+            .fetch_one(&mut c)
+            .await
+            .unwrap();
+    assert_eq!(state, "pending");
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn telegram_history_is_not_imported_and_outbox_failure_rolls_back_command_and_offset() {
+    let (mut c, settings, identity) = telegram_fixture().await;
+    sqlx::raw_sql("UPDATE agent_telegram_state SET next_update_id=500;INSERT INTO agent_telegram_deliveries VALUES(499,'private historical reply','pending');").execute(&mut c).await.unwrap();
+    telegram::initialize(&mut c, &settings, &identity)
+        .await
+        .unwrap();
+    assert!(
+        telegram::claim_delivery(&mut c, &settings)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    sqlx::raw_sql(
+        "ALTER TABLE rust_telegram_outbox ADD CONSTRAINT fixture_outbox_refusal CHECK(false)",
+    )
+    .execute(&mut c)
+    .await
+    .unwrap();
+    assert_eq!(
+        telegram::receive(
+            &mut c,
+            &settings,
+            &identity,
+            &telegram_update(501, "/agents review"),
+            &Wake::default()
+        )
+        .await,
+        Err(Failure("telegram_database_error"))
+    );
+    let offset: i64 = sqlx::query_scalar("SELECT next_update_id FROM agent_telegram_state")
+        .fetch_one(&mut c)
+        .await
+        .unwrap();
+    assert_eq!(offset, 500);
+    let runs: i64 = sqlx::query_scalar("SELECT count(*) FROM rust_agent_runs")
+        .fetch_one(&mut c)
+        .await
+        .unwrap();
+    assert_eq!(runs, 0);
+    let replies: i64 = sqlx::query_scalar("SELECT count(*) FROM agent_telegram_deliveries")
+        .fetch_one(&mut c)
+        .await
+        .unwrap();
+    assert_eq!(replies, 1);
+}
+
+struct TelegramFixtureServer {
+    sent: tokio::sync::Mutex<Vec<Value>>,
+}
+async fn telegram_fixture_http(
+    axum::extract::State(state): axum::extract::State<Arc<TelegramFixtureServer>>,
+    request: axum::extract::Request,
+) -> axum::Json<Value> {
+    let path = request.uri().path().to_owned();
+    let bytes = axum::body::to_bytes(request.into_body(), 65536)
+        .await
+        .unwrap();
+    let payload: Value = serde_json::from_slice(&bytes).unwrap();
+    let result = match path.rsplit('/').next().unwrap() {
+        "getMe" => json!({"id":123,"is_bot":true,"username":"fictional_bot"}),
+        "getWebhookInfo" => json!({"url":""}),
+        "getUpdates" => {
+            assert!(payload["offset"].as_i64().unwrap() >= 0);
+            if payload["offset"].as_i64().unwrap() <= 20 {
+                json!([
+                    telegram_update(20, "/agents start"),
+                    telegram_update(21, "/agents review")
+                ])
+            } else {
+                json!([])
+            }
+        }
+        "sendMessage" => {
+            assert_eq!(payload["chat_id"], 22);
+            let mut sent = state.sent.lock().await;
+            sent.push(payload);
+            json!({"message_id":sent.len(),"chat":{"id":22,"type":"private"}})
+        }
+        _ => panic!("unapproved Telegram method"),
+    };
+    axum::Json(json!({"ok":true,"result":result}))
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn actual_cli_routes_telegram_owner_commands_through_five_agents_and_bound_notification_tool()
+{
+    use tokio::io::AsyncBufReadExt;
+    let (mut c, _, _) = telegram_fixture().await;
+    saved_job(&mut c, 1).await;
+    lifecycle::set_control(&mut c, 1, Mode::Stopped)
+        .await
+        .unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let endpoint = format!("http://{}", listener.local_addr().unwrap());
+    let state = Arc::new(TelegramFixtureServer {
+        sent: tokio::sync::Mutex::new(vec![]),
+    });
+    let stop = CancellationToken::new();
+    let shutdown = stop.clone();
+    let router = axum::Router::new()
+        .fallback(telegram_fixture_http)
+        .with_state(state.clone());
+    let api = tokio::spawn(async move {
+        axum::serve(listener, router)
+            .with_graceful_shutdown(shutdown.cancelled_owned())
+            .await
+            .unwrap();
+    });
+    let directory = tempfile::tempdir().unwrap();
+    std::fs::set_permissions(directory.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+    let path = directory.path().join("runtime.env");
+    std::fs::write(
+        &path,
+        telegram_values(&endpoint)
+            .iter()
+            .map(|(k, v)| format!("{k}='{v}'\n"))
+            .collect::<String>(),
+    )
+    .unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_automated-apply-agents"))
+        .args(["serve", "--config"])
+        .arg(&path)
+        .arg("--fixture-lock-directory")
+        .arg(directory.path())
+        .env_clear()
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .kill_on_drop(true)
+        .spawn()
+        .unwrap();
+    let mut stdout = tokio::io::BufReader::new(child.stdout.take().unwrap());
+    let mut line = String::new();
+    tokio::time::timeout(Duration::from_secs(10), stdout.read_line(&mut line))
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(&line).unwrap()["event"],
+        "rust_agent_ready"
+    );
+    tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let completed: Option<Value> = sqlx::query_scalar(
+                "SELECT run FROM rust_agent_runs WHERE run->>'state'='completed'",
+            )
+            .fetch_optional(&mut c)
+            .await
+            .unwrap();
+            if let Some(run) = completed {
+                assert_eq!(run["usage"]["decision_calls"], 10);
+                assert_eq!(run["usage"]["model_calls"], 0);
+                assert_eq!(run["usage"]["tool_calls"], 5);
+                if state.sent.lock().await.len() == 3 {
+                    break;
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(25)).await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(
+        state
+            .sent
+            .lock()
+            .await
+            .iter()
+            .all(|message| !message.to_string().contains("Private Fictional"))
+    );
+    let cursor: i64 = sqlx::query_scalar("SELECT next_update_id FROM agent_telegram_state")
+        .fetch_one(&mut c)
+        .await
+        .unwrap();
+    assert_eq!(cursor, 22);
+    let sent: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM rust_telegram_outbox WHERE state='sent'")
+            .fetch_one(&mut c)
+            .await
+            .unwrap();
+    assert_eq!(sent, 3);
+    let legacy: i64 =
+        sqlx::query_scalar("SELECT count(*) FROM agent_telegram_deliveries WHERE state='sent'")
+            .fetch_one(&mut c)
+            .await
+            .unwrap();
+    assert_eq!(legacy, 2);
+    let active:i64=sqlx::query_scalar("SELECT count(*) FROM pg_stat_activity WHERE datname=current_database() AND application_name IN ('automated-apply:api','automated-apply:execution','automated-apply:telegram')").fetch_one(&mut c).await.unwrap();
+    assert_eq!(active, 3);
+    // SAFETY: the retained PID belongs to this fictional fixture child only.
+    assert_eq!(
+        unsafe { libc::kill(child.id().unwrap() as i32, libc::SIGTERM) },
+        0
+    );
+    assert!(
+        tokio::time::timeout(Duration::from_secs(5), child.wait())
+            .await
+            .unwrap()
+            .unwrap()
+            .success()
+    );
+    assert_eq!(lifecycle::control(&mut c).await.unwrap().mode, Mode::Paused);
+    stop.cancel();
+    api.await.unwrap();
 }

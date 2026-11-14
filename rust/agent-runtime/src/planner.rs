@@ -1,6 +1,8 @@
 //! Deterministic specialists for factual saved-job review. No model process or API call.
 use crate::{Failure, Result, contracts::*, postgres::Store, runner::Model};
-pub struct SavedReviewPlanner;
+pub struct SavedReviewPlanner {
+    pub notify: bool,
+}
 impl Model for SavedReviewPlanner {
     fn inference_required(&self, _: Role, _: &[Context]) -> bool {
         false
@@ -17,6 +19,7 @@ impl Model for SavedReviewPlanner {
             Role::Matching => Some(ToolName::RankJobs),
             Role::Answers => Some(ToolName::VerifiedContext),
             Role::Review => Some(ToolName::ApplicationHistory),
+            Role::Execution if self.notify => Some(ToolName::NotifyTelegram),
             Role::Execution => None,
         };
         if let Some(name) = tool {
@@ -28,6 +31,9 @@ impl Model for SavedReviewPlanner {
                         evidence: vec![],
                     },
                 });
+            }
+            if role == Role::Execution {
+                return Ok(Proposal::Complete { evidence: vec![] });
             }
             return Ok(Proposal::Handoff {
                 next: role.next().ok_or(Failure("invalid_agent_handoff"))?,

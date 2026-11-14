@@ -53,7 +53,8 @@ this is a staged behavioral migration, not a claim that scaffolding replaces the
 | Agent coordinator and specialist roles | Five-role saved-review worker runs actual SQL tools without inference; live action adapters pending |
 | Durable PostgreSQL runtime and restart recovery | CAS controls, retained budgets, fair factual questions and quarantine tested; production migration/ACL/install pending |
 | Verified profile / saved matching / history read tools | Implemented with actual PostgreSQL fixtures; 1,300 matching comparisons pass; uninstalled |
-| Rust browser / Telegram / application adapters | Pending |
+| Rust Telegram | Owner commands, Bot API and bound durable delivery integrated; actual CLI fixture passes; legacy commands/live acceptance pending |
+| Rust browser / application adapters | Pending |
 | Full Python removal and API parity | Pending |
 | CPU / RSS / GPU resource acceptance | Native and warm matching component gains measured; whole-project/GPU acceptance pending |
 | Immutable install / rollback / real submission acceptance | Not performed |
@@ -88,3 +89,12 @@ acceptance. Two persistent DB connections; no pool/overflow or process per role.
 configuration/history is unchanged. Next: supervised reconnect, dashboard controls, rich
 verified context, actual browser/Telegram/application tools and remaining API/service/provider
 ports; then Python removal and installed resource/receipt acceptance. No live cutover yet.
+
+Recovery/Telegram milestone: in-process bounded DB recovery, no HTTP write replay, shutdown
+pause reconciliation, and an optional owner-bound Telegram relay/notification tool. Native
+PostgreSQL/CLI/localhost Bot API fixtures cover real process recovery, cursor idempotency,
+unknown-send quarantine and durable 600-second cooldown. Enabled mode uses three persistent
+connections for the existing API/execution/Telegram roles; disabled mode retains two.
+The saved-review path uses no inference. Remaining legacy REST/profile/resource/browser/
+application/Gmail/provider/service ports, rich context and complete Telegram command parity
+must be implemented before Python removal and live installation/resource/receipt acceptance.

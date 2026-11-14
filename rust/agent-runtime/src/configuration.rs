@@ -29,6 +29,7 @@ pub struct Configuration {
     pub(crate) database: String,
     pub(crate) schema: String,
     pub(crate) role: String,
+    pub(crate) telegram: Option<crate::telegram::Settings>,
 }
 impl Configuration {
     pub fn listen(&self) -> SocketAddr {
@@ -268,10 +269,25 @@ impl Configuration {
             database,
             schema,
             role,
+            telegram: crate::telegram::Settings::from_values(values, fixture)?,
         })
     }
     /// Only two host-owned connections (control/execution), no pool or overflow.
     pub async fn connect(&self, execution: bool) -> Result<PgConnection> {
+        self.connect_named(if execution {
+            "automated-apply:execution"
+        } else {
+            "automated-apply:api"
+        })
+        .await
+    }
+    pub(crate) async fn connect_telegram(&self) -> Result<PgConnection> {
+        self.connect_named("automated-apply:telegram").await
+    }
+    pub fn telegram_enabled(&self) -> bool {
+        self.telegram.is_some()
+    }
+    async fn connect_named(&self, name: &str) -> Result<PgConnection> {
         if !self.fixture {
             let addresses = tokio::time::timeout(
                 Duration::from_secs(10),
@@ -285,11 +301,7 @@ impl Configuration {
                 return Err(Failure("remote_database_dns_resolves_locally"));
             }
         }
-        let options = self.options.clone().application_name(if execution {
-            "automated-apply:execution"
-        } else {
-            "automated-apply:api"
-        });
+        let options = self.options.clone().application_name(name);
         tokio::time::timeout(
             Duration::from_secs(10),
             PgConnection::connect_with(&options),

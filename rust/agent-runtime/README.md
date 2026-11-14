@@ -110,8 +110,12 @@ lease as the Python worker before opening its two persistent connections (contro
 It never unlinks lock files. Fixture tests prove that the actual Python `process_lock`
 implementation detects the Rust-held lease, and a duplicate Rust process is refused.
 SIGINT/SIGTERM cancel the worker, persist a global pause when running, clear its heartbeat
-and close connections. A database failure currently ends the host; reconnect supervision
-and deployment restart behavior remain to be implemented and accepted.
+and close connections. Lost execution/control connections are replaced with bounded
+1/2/4/8/16/30-second backoff. An attempted HTTP operation is never replayed automatically;
+clients inspect current revisions after a failure. Every replacement rechecks the target
+and schema, closes the failed connection first, and preserves leases, budgets and unknown
+effects. Final shutdown reconciles pause after all HTTP handlers drain; an unconfirmed
+pause produces a fixed failure code.
 
 | Method | Owner route | Purpose |
 | --- | --- | --- |
@@ -138,6 +142,41 @@ cannot select another database, production lock directory or network listener. T
 PostgreSQL harness exercises the actual CLI, HTTP server, worker, duplicate locks and SIGTERM
 against fictional data. It does not install a service or use an owner environment.
 
-Dashboard wiring, reconnect supervision, remaining API/action ports and real installation/
+Dashboard wiring, remaining API/action ports and real installation/
 resource acceptance remain open. Never run this worker alongside the installed Python
 executor against the owner's data. It currently reviews saved jobs only.
+
+Optional Telegram runs in the same Rust process, enabled only by explicit private
+`RUST_TELEGRAM_ENABLED=true`, the existing bot token and verified positive owner user/chat
+IDs. It takes the legacy `telegram-<target_identity>.lock` before API calls and borrows one
+additional persistent connection for the existing Telegram role: three connections total
+when enabled, two otherwise. No connection pool or process per agent is added. Production
+uses the fixed official Bot API, with proxies/redirects/retries disabled and a streamed 1MiB
+response limit. Fixtures require an explicit numeric-loopback endpoint; they cannot call
+the official API. See the [official Bot API contract](https://core.telegram.org/bots/api).
+
+The current Telegram port supports `/ping`, `/help`, `/start`, `/status`, `/jobs`, and
+`/agents status|review|runs|run <UUID>|start|pause|stop`. Owner/chat IDs, private-chat type,
+non-bot sender and forwarding checks precede commands. Bot and owner binding changes are
+refused. Telegram cannot supply arbitrary methods, recipients, message bodies, browser
+URLs or submission authority. Unsupported legacy/browser/application commands explicitly
+remain unavailable; this is not complete Telegram command parity.
+
+Migration 003 adds private binding/cooldown/outbox metadata while preserving existing
+`agent_telegram_state` offsets/bot pins and `agent_telegram_deliveries`. Incoming command,
+offset and bound reply commit together. Unbound historical pending replies are left alone.
+Dispatch is recorded as `sending` in both outboxes before network I/O; an interrupted or
+ambiguous send stays quarantined. Only a validated sent-message receipt marks delivery
+sent. A verified HTTP 429 can requeue it with a durable cooldown; a 600-second provider
+delay stays 600 seconds. Oversized/unrecognized delays require reconciliation and cannot
+be capped down to bypass the provider. No webhook is changed or deleted.
+
+With Telegram enabled, saved review adds one execution-role notification tool: ten bounded
+decisions, four actual data reads and one bound notification intent, with zero model calls.
+The tool reports `pending`, not sent; delivery confirmation is separate. The relay uses
+long polling and preserves the legacy sequential poll/delivery pattern, so a notification
+created during an idle poll can wait for that poll (up to 25 seconds). Its reconnects
+preserve the outbox/cursor and never replay `sending` messages. On rollback, honor the
+recorded cooldown before restarting an older worker that does not read this new metadata.
+Actual owner pairing, live delivery, deployment/rollback and complete legacy commands still
+need acceptance. This development did not read a real bot token or send a Telegram message.

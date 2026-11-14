@@ -3,8 +3,10 @@ use automated_apply_agents::{
     Failure, Result,
     configuration::Configuration,
     process_lock::ProcessLock,
+    recovery,
     server::{self, Api},
-    worker::{self, Wake},
+    telegram,
+    worker::Wake,
 };
 use std::{path::PathBuf, sync::Arc};
 use tokio_util::sync::CancellationToken;
@@ -31,9 +33,18 @@ async fn run() -> Result<()> {
     let config = Arc::new(Configuration::load(&PathBuf::from(&arguments[2]))?);
     let fixture_directory = arguments.get(4).map(PathBuf::from);
     let _lease = ProcessLock::acquire(&config, fixture_directory.as_deref())?;
+    let _telegram_lease = if config.telegram_enabled() {
+        Some(ProcessLock::acquire_telegram(
+            &config,
+            fixture_directory.as_deref(),
+        )?)
+    } else {
+        None
+    };
     let mut control = config.connect(false).await?;
     server::readiness(&mut control, &config).await?;
-    let mut execution = config.connect(true).await?;
+    let execution = config.connect(true).await?;
+    let relay = telegram::prepare(&config).await?;
     let listener = tokio::net::TcpListener::bind(config.listen())
         .await
         .map_err(|_| Failure("loopback_listener_unavailable"))?;
@@ -42,7 +53,7 @@ async fn run() -> Result<()> {
         .map_err(|_| Failure("loopback_listener_unavailable"))?;
     let wake = Wake::default();
     let shutdown = CancellationToken::new();
-    let api = Api::new(config, control, wake.clone());
+    let api = Api::new(config.clone(), control, wake.clone());
     let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
         .map_err(|_| Failure("shutdown_signal_unavailable"))?;
     println!(
@@ -52,7 +63,8 @@ async fn run() -> Result<()> {
     let http = async {
         let result = axum::serve(
             listener,
-            server::router(api).into_make_service_with_connect_info::<std::net::SocketAddr>(),
+            server::router(api.clone())
+                .into_make_service_with_connect_info::<std::net::SocketAddr>(),
         )
         .with_graceful_shutdown(shutdown.clone().cancelled_owned())
         .await
@@ -61,7 +73,7 @@ async fn run() -> Result<()> {
         result
     };
     let executor = async {
-        let result = worker::serve(&mut execution, wake, shutdown.clone()).await;
+        let result = recovery::supervise(&config, execution, wake.clone(), shutdown.clone()).await;
         shutdown.cancel();
         result
     };
@@ -69,7 +81,25 @@ async fn run() -> Result<()> {
         tokio::select! {_=tokio::signal::ctrl_c()=>{},_=terminate.recv()=>{},_=shutdown.cancelled()=>{}}
         shutdown.cancel();
     };
-    let (http, executor, ()) = tokio::join!(http, executor, signals);
+    let telegram = async {
+        let result = match relay {
+            Some(relay) => relay.run(&config, wake.clone(), shutdown.clone()).await,
+            None => {
+                shutdown.cancelled().await;
+                Ok(())
+            }
+        };
+        shutdown.cancel();
+        result
+    };
+    let (http, executor, telegram, ()) = tokio::join!(http, executor, telegram, signals);
+    // A handler that was already running when SIGTERM arrived may have changed
+    // control after the worker stopped. Reconcile only after every handler drains.
+    tokio::time::timeout(std::time::Duration::from_secs(5), server::quiesce(&api))
+        .await
+        .map_err(|_| Failure("shutdown_pause_unconfirmed"))?
+        .map_err(|_| Failure("shutdown_pause_unconfirmed"))?;
     http?;
+    telegram?;
     executor
 }

@@ -225,3 +225,18 @@ fn fixture_requires_private_lock_directory_and_production_forbids_overrides() {
         Some("production_lock_override_forbidden")
     );
 }
+
+#[test]
+fn telegram_and_execution_have_distinct_legacy_compatible_kernel_leases() {
+    let directory = tempfile::tempdir().unwrap();
+    fs::set_permissions(directory.path(), fs::Permissions::from_mode(0o700)).unwrap();
+    let config = Configuration::from_values(&fixture()).unwrap();
+    let _execution = ProcessLock::acquire(&config, Some(directory.path())).unwrap();
+    let _telegram = ProcessLock::acquire_telegram(&config, Some(directory.path())).unwrap();
+    assert_eq!(
+        ProcessLock::acquire_telegram(&config, Some(directory.path()))
+            .err()
+            .map(|e| e.0),
+        Some("telegram_worker_already_running")
+    );
+}

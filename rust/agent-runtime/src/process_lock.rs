@@ -15,6 +15,19 @@ pub struct ProcessLock {
 }
 impl ProcessLock {
     pub fn acquire(config: &Configuration, fixture_directory: Option<&Path>) -> Result<Self> {
+        Self::acquire_service(config, fixture_directory, "execution")
+    }
+    pub fn acquire_telegram(
+        config: &Configuration,
+        fixture_directory: Option<&Path>,
+    ) -> Result<Self> {
+        Self::acquire_service(config, fixture_directory, "telegram")
+    }
+    fn acquire_service(
+        config: &Configuration,
+        fixture_directory: Option<&Path>,
+        service: &str,
+    ) -> Result<Self> {
         let directory = if config.fixture {
             fixture_directory
                 .filter(|p| p.is_absolute())
@@ -38,7 +51,7 @@ impl ProcessLock {
         if !meta.is_dir() || meta.uid() != unsafe { libc::geteuid() } || meta.mode() & 0o077 != 0 {
             return Err(Failure("private_worker_lock_required"));
         }
-        let path = directory.join(format!("execution-{}.lock", config.target_identity));
+        let path = directory.join(format!("{service}-{}.lock", config.target_identity));
         let file = File::options()
             .read(true)
             .write(true)
@@ -57,7 +70,11 @@ impl ProcessLock {
         }
         // SAFETY: flock receives the valid descriptor and documented operation flags.
         if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
-            return Err(Failure("execution_worker_already_running"));
+            return Err(Failure(if service == "telegram" {
+                "telegram_worker_already_running"
+            } else {
+                "execution_worker_already_running"
+            }));
         }
         Ok(Self { _file: file })
     }
