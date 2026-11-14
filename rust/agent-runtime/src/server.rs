@@ -121,7 +121,9 @@ fn saved_match_route(path: &str) -> Option<&str> {
         .filter(|id| !id.is_empty() && !id.contains('/'))
 }
 fn profile_route(path: &str) -> bool {
-    path == "/api/v1/profile" || saved_match_route(path).is_some()
+    path == "/api/v1/profile"
+        || saved_match_route(path).is_some()
+        || path == "/api/v1/local-agent/profile-confirmation"
 }
 fn authorize(request: &Request, config: &Configuration) -> Result<()> {
     let peer = request
@@ -270,6 +272,25 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
             )
             .await
         }
+        Some(connection) if path == "/api/v1/local-agent/profile-confirmation" => {
+            if method != "POST" {
+                Err(Failure("match_method_not_allowed"))
+            } else {
+                match serde_json::from_slice::<crate::profile_confirmation::Confirmation>(&body) {
+                    Ok(input) => crate::profile_confirmation::confirm(connection, input)
+                        .await
+                        .map(|data| {
+                            api.wake.work_available();
+                            OwnerReply {
+                                data,
+                                status: StatusCode::OK,
+                                etag: None,
+                            }
+                        }),
+                    Err(_) => Err(Failure("invalid_profile_confirmation")),
+                }
+            }
+        }
         Some(connection) if saved_match_route(&path).is_some() => {
             if method != "POST" {
                 Err(Failure("match_method_not_allowed"))
@@ -320,6 +341,11 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
 fn profile_failure(error: Failure) -> Response {
     let status = failure(error).status();
     let detail = match error.0 {
+        "profile_changed_review_current_version" => "profile_changed_review_current_version",
+        "invalid_profile_confirmation" => {
+            "Review the current profile version and explicitly confirm it"
+        }
+        "owner_client_required" => "owner_ui_required",
         "job_not_found" => "Job not found",
         "invalid_job_id" => "Invalid job ID",
         "profile_not_found" => "No candidate profile saved",
@@ -591,8 +617,11 @@ fn failure(error: Failure) -> Response {
         }
         "profile_method_not_allowed" | "match_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
         "profile_version_required" => StatusCode::PRECONDITION_REQUIRED,
-        "profile_version_conflict" => StatusCode::CONFLICT,
-        "invalid_job_id"
+        "profile_version_conflict" | "profile_changed_review_current_version" => {
+            StatusCode::CONFLICT
+        }
+        "invalid_profile_confirmation"
+        | "invalid_job_id"
         | "invalid_saved_job_record"
         | "invalid_match_result"
         | "profile_version_syntax"

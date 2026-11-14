@@ -3562,3 +3562,208 @@ async fn saved_profile_match_keeps_unknown_experience_and_preserves_lookup_error
     stop.cancel();
     server.await.unwrap();
 }
+
+async fn confirmation_fixture() -> PgConnection {
+    let mut c = knowledge_fixture().await;
+    sqlx::raw_sql("ALTER TABLE owner_preferences ADD COLUMN created_at timestamptz NOT NULL DEFAULT clock_timestamp(),ADD COLUMN updated_at timestamptz NOT NULL DEFAULT clock_timestamp()").execute(&mut c).await.unwrap();
+    c
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn owner_profile_confirmation_commits_exact_version_and_repeated_review_preserves_recheck_progress()
+ {
+    let mut c = confirmation_fixture().await;
+    sqlx::query("DELETE FROM owner_preferences WHERE key='phase1_profile_confirmation'")
+        .execute(&mut c)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO owner_preferences(key,value) VALUES ('fixture_quotas','{\"hourly\":1,\"lifetime_allowed\":3,\"consumed\":3}')").execute(&mut c).await.unwrap();
+    let (url, stop, server) = http_fixture().await;
+    let http = client();
+    let target = format!("{url}/api/v1/local-agent/profile-confirmation");
+    let request = json!({"expected_version":"4.0","owner_confirmed":true});
+    assert_eq!(
+        http.post(&target)
+            .json(&request)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        401
+    );
+    assert_eq!(
+        http.post(&target)
+            .bearer_auth(HOST_TOKEN)
+            .header("x-agent-client", "extension")
+            .json(&request)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        403
+    );
+    for bad in [
+        json!({"expected_version":4,"owner_confirmed":false}),
+        json!({"expected_version":4,"owner_confirmed":"true"}),
+        json!({"expected_version":4,"owner_confirmed":true,"submit":true}),
+    ] {
+        assert_eq!(
+            http.post(&target)
+                .bearer_auth(HOST_TOKEN)
+                .json(&bad)
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            422
+        );
+    }
+    assert_eq!(
+        http.post(&target)
+            .bearer_auth(HOST_TOKEN)
+            .json(&json!({"expected_version":3,"owner_confirmed":true}))
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        409
+    );
+    let response = http
+        .post(&target)
+        .bearer_auth(HOST_TOKEN)
+        .json(&request)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let confirmed: Value = response.json().await.unwrap();
+    assert_eq!(confirmed["profile_id"], json!(profile_pin().id));
+    assert_eq!(confirmed["profile_version"], 4);
+    assert!(
+        chrono::DateTime::parse_from_rfc3339(confirmed["confirmed_at"].as_str().unwrap()).is_ok()
+    );
+    let mut observer = connection().await;
+    let saved: Value = sqlx::query_scalar(
+        "SELECT value FROM owner_preferences WHERE key='phase1_profile_confirmation'",
+    )
+    .fetch_one(&mut observer)
+    .await
+    .unwrap();
+    assert_eq!(saved, confirmed);
+    assert!(
+        knowledge::reviewed_profile(&mut observer)
+            .await
+            .unwrap()
+            .is_some()
+    );
+    let mut recheck: Value =
+        sqlx::query_scalar("SELECT value FROM owner_preferences WHERE key='apply_filter_recheck'")
+            .fetch_one(&mut observer)
+            .await
+            .unwrap();
+    assert_eq!(recheck["status"], "pending");
+    assert_eq!(recheck["reason"], "owner_profile_version_confirmed");
+    assert_eq!(recheck["checked"], 0);
+    recheck["checked"] = json!(7);
+    recheck["fresh_reads"] = json!(3);
+    recheck["cursor"] = json!("fixture-progress");
+    sqlx::query("UPDATE owner_preferences SET value=$1 WHERE key='apply_filter_recheck'")
+        .bind(&recheck)
+        .execute(&mut observer)
+        .await
+        .unwrap();
+    let repeat = http
+        .post(&target)
+        .bearer_auth(HOST_TOKEN)
+        .json(&json!({"expected_version":4.0,"owner_confirmed":1}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(repeat.status(), 200);
+    let retained: Value =
+        sqlx::query_scalar("SELECT value FROM owner_preferences WHERE key='apply_filter_recheck'")
+            .fetch_one(&mut observer)
+            .await
+            .unwrap();
+    assert_eq!(retained, recheck);
+    let quotas: Value =
+        sqlx::query_scalar("SELECT value FROM owner_preferences WHERE key='fixture_quotas'")
+            .fetch_one(&mut observer)
+            .await
+            .unwrap();
+    assert_eq!(
+        quotas,
+        json!({"hourly":1,"lifetime_allowed":3,"consumed":3})
+    );
+    for query in [
+        "SELECT count(*) FROM application_packets",
+        "SELECT count(*) FROM rust_agent_runs",
+        "SELECT count(*) FROM llm_monthly_usage",
+    ] {
+        let count: i64 = sqlx::query_scalar(query)
+            .fetch_one(&mut observer)
+            .await
+            .unwrap();
+        assert_eq!(count, 0);
+    }
+    stop.cancel();
+    server.await.unwrap();
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn owner_profile_confirmation_cannot_confirm_a_version_changed_under_row_lock() {
+    use automated_apply_agents::profile_confirmation::{self, Confirmation};
+    let mut c = confirmation_fixture().await;
+    let mut other = connection().await;
+    let original: Value = sqlx::query_scalar(
+        "SELECT value FROM owner_preferences WHERE key='phase1_profile_confirmation'",
+    )
+    .fetch_one(&mut c)
+    .await
+    .unwrap();
+    let mut tx = other.begin().await.unwrap();
+    sqlx::query("UPDATE candidate_profiles SET version=5 WHERE singleton_key='primary'")
+        .execute(&mut *tx)
+        .await
+        .unwrap();
+    let input: Confirmation =
+        serde_json::from_value(json!({"expected_version":4,"owner_confirmed":true})).unwrap();
+    let writer = async {
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        tx.commit().await.unwrap();
+    };
+    let (result, ()) = tokio::join!(profile_confirmation::confirm(&mut c, input), writer);
+    assert_eq!(
+        result,
+        Err(Failure("profile_changed_review_current_version"))
+    );
+    let after: Value = sqlx::query_scalar(
+        "SELECT value FROM owner_preferences WHERE key='phase1_profile_confirmation'",
+    )
+    .fetch_one(&mut c)
+    .await
+    .unwrap();
+    assert_eq!(after, original);
+    assert!(knowledge::reviewed_profile(&mut c).await.unwrap().is_none());
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn profile_confirmation_and_recheck_roll_back_together_if_recheck_cannot_commit() {
+    use automated_apply_agents::profile_confirmation::{self, Confirmation};
+    let mut c = confirmation_fixture().await;
+    sqlx::raw_sql("DELETE FROM owner_preferences WHERE key='phase1_profile_confirmation';ALTER TABLE owner_preferences ADD CONSTRAINT fixture_recheck_refusal CHECK(key<>'apply_filter_recheck')").execute(&mut c).await.unwrap();
+    let input: Confirmation =
+        serde_json::from_value(json!({"expected_version":4,"owner_confirmed":true})).unwrap();
+    assert_eq!(
+        profile_confirmation::confirm(&mut c, input).await,
+        Err(Failure("profile_database_error"))
+    );
+    let count:i64=sqlx::query_scalar("SELECT count(*) FROM owner_preferences WHERE key IN ('phase1_profile_confirmation','apply_filter_recheck')").fetch_one(&mut c).await.unwrap();
+    assert_eq!(count, 0);
+    let version: i32 =
+        sqlx::query_scalar("SELECT version FROM candidate_profiles WHERE singleton_key='primary'")
+            .fetch_one(&mut c)
+            .await
+            .unwrap();
+    assert_eq!(version, 4);
+}

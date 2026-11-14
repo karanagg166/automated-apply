@@ -132,3 +132,11 @@ base scorer, reads the saved job/profile, preserves missing-record order and unk
 experience, and ignores caller profile overrides. Native PG/HTTP fixtures verify exact
 results with no score/profile/history writes, AI usage or application creation. Uninstalled;
 remaining profile readiness/confirmation/resources/context and other services still pending.
+
+Owner profile confirmation: POST/local-agent/profile-confirmation now locks the primary
+profile, binds explicit review to its expected version, and atomically requests the legacy
+safe filter recheck when the version was not already confirmed. Repeated current review
+retains recheck progress; changed versions/failure roll back without quota/history/fact
+changes. Native PG/HTTP tests cover commit visibility, delegated client refusal, a concurrent
+version change and failed recheck persistence. Uninstalled; resources/readiness/full context
+and the remaining feature/action ports still need completion.

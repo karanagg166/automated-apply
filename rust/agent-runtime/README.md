@@ -309,3 +309,12 @@ as in the legacy saved-profile route. Results retain scores, skill labels, expla
 unknown-experience behavior. This owner-only endpoint neither persists candidate-derived
 job scores nor creates agent/model/application work. Relevance is not application admission.
 Unknown jobs are reported before missing profiles; the normal owner/auth/body boundary applies.
+
+`POST /api/v1/local-agent/profile-confirmation` records explicit owner review of an exact
+saved profile version. Its strict body requires `expected_version` and `owner_confirmed`;
+transport rejects delegated extension clients. The profile row is locked before comparing
+versions. Confirmation and the existing `apply_filter_recheck` intent commit atomically,
+then the worker receives a wake hint. Reconfirming a current version preserves recheck IDs,
+cursors and progress. No facts, application counters, filters, automation modes or resume
+associations change. This confirms a version; full readiness, identity/PDF and submission
+checks remain separate requirements. No live profile was confirmed during development.
