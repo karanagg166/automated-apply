@@ -51,6 +51,29 @@ Implementation `7659dfd69e2438a70d649c0cbccdcfab7f98db49`; [published checkpoint
 records245 Rust tests,20 Python browser checks,ten continuity tests,397 extension unit
 tests and76 Brave fixture cases. Full live acceptance remains incomplete.
 
+Later operational continuation: API and execution services now run from immutable
+`8e985c91c58588c9a9160a3e206e760426ac1bfc`; API health/readiness passed. Saved queue
+remains STOPPED revision162, supervised4/hourly1, with three uncertain applications
+quarantined and zero strict worker receipts. Do not infer unused admissions from today's
+daily counter. The additional allowance is exactly the owner's fourth supervised attempt.
+
+Rust native bridge `2e54eec15493f07aba8f112703ca8a4bdb4c3492` is installed for the distinct
+Brave host, using direct executable launch and adjacent private config. Chrome's agent
+registration was not changed. Native health, profile connection and27 installed file
+hashes passed in actual Brave with commands disabled and no site grant. Current source
+`1ec7995ff6b92d81eb1590fcdf97ae46690aae23` removes the unsuccessful automatic reload/repair
+path and refuses disabled extensions or original portal tabs during setup. A failed reload
+temporarily left DISABLE_RELOAD; subsequent cold-start verification restored the main
+extension. The temporary helper was verified unregistered and retired. Do not replay any
+consumed maintenance intent. Source127 standard Rust tests pass;121 PG tests remain the
+previous unchanged baseline; two new setup-policy tests pass. Full maintenance/locked
+focus and live application acceptance remain open.
+
+Pending owner action: run the documented interactive Brave launcher, grant Naukri site
+access, verify/sign in to Naukri, leave queue commands disabled and close that Brave
+window. An asynchronous request is pending. Do not start or take over this profile while
+the owner is doing setup. Continue independent Rust service/provider/API ports meanwhile.
+
 ## Remaining acceptance
 
 Finish and test PDF, Rust service/API/browser/application/Gmail ports and integrations.
