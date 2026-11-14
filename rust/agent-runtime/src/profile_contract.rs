@@ -345,6 +345,27 @@ fn number(schema: &Value, input: Value) -> Result<Value> {
         Ok(json!(value))
     }
 }
+pub(crate) fn resource_version(input: Value) -> Result<Value> {
+    number(&json!({"type":"integer","minimum":1}), input)
+}
+pub(crate) fn pagination_integer(input: Value, min: i64, max: i64) -> Result<i64> {
+    number(
+        &json!({"type":"integer","minimum":min,"maximum":max}),
+        input,
+    )?
+    .as_i64()
+    .ok_or_else(invalid)
+}
+pub(crate) fn project(input: Value) -> Result<Value> {
+    let c = contract(Operation::Create);
+    walk(
+        &c.schema,
+        &c.schema["$defs"]["VerifiedProject"],
+        input,
+        "project",
+        false,
+    )
+}
 fn calendar(text: &str) -> Result<String> {
     if text.len() != 10
         || text.as_bytes()[4] != b'-'

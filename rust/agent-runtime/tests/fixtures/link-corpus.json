@@ -1,0 +1,5142 @@
+[
+  {
+    "profile": {
+      "version": 1,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://example.com/default-github",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": "https://example.com/default-linkedin",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": "https://example.com/default-portfolio",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/default-resume",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/saved",
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://example.com/default-github",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": "https://example.com/default-linkedin",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": "https://example.com/default-portfolio",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/saved",
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": false,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": false,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://example.com/default-github",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": "https://example.com/default-linkedin",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": "https://example.com/default-portfolio",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "private-resume:20000000-0000-0000-0000-000000000001",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "private_upload",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "private-resume:20000000-0000-0000-0000-000000000001",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "private_upload",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://example.com/default-github",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": "https://example.com/default-linkedin",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": "https://example.com/default-portfolio",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      },
+      {
+        "id": "10000000-0000-0000-0000-000000000002",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/saved",
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      },
+      {
+        "id": "10000000-0000-0000-0000-000000000002",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://example.com/default-github",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": "https://example.com/default-linkedin",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": "https://example.com/default-portfolio",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/saved",
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      },
+      {
+        "id": "10000000-0000-0000-0000-000000000002",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      },
+      {
+        "id": "10000000-0000-0000-0000-000000000002",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://example.com/default-github",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": "https://example.com/default-linkedin",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": "https://example.com/default-portfolio",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "github",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://example.com/saved",
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "github",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://example.com/saved",
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": "https://example.com/default-linkedin",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": "https://example.com/default-portfolio",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/default-resume",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 4,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 4,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/default-resume",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 4,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/saved",
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 4,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/saved",
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 4,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": false,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 4,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": false,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 4,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "private-resume:20000000-0000-0000-0000-000000000001",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "private_upload",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 4,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "private-resume:20000000-0000-0000-0000-000000000001",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "private_upload",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 4,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      },
+      {
+        "id": "10000000-0000-0000-0000-000000000002",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/saved",
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 4,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      },
+      {
+        "id": "10000000-0000-0000-0000-000000000002",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/saved",
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 4,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      },
+      {
+        "id": "10000000-0000-0000-0000-000000000002",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 4,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      },
+      {
+        "id": "10000000-0000-0000-0000-000000000002",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 4,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "github",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://example.com/saved",
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 4,
+      "github_url": null,
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "github",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://example.com/saved",
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/default-resume",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "https://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://github.com/fictional",
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "https://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://github.com/fictional",
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": "https://example.com/default-linkedin",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": "https://example.com/default-portfolio",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/default-resume",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "https://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://github.com/fictional",
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/saved",
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "https://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://github.com/fictional",
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": "https://example.com/default-linkedin",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": "https://example.com/default-portfolio",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/saved",
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "https://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": false,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://github.com/fictional",
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "https://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": false,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://github.com/fictional",
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": "https://example.com/default-linkedin",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": "https://example.com/default-portfolio",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "https://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "private-resume:20000000-0000-0000-0000-000000000001",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "private_upload",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://github.com/fictional",
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "https://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "private-resume:20000000-0000-0000-0000-000000000001",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "private_upload",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://github.com/fictional",
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": "https://example.com/default-linkedin",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": "https://example.com/default-portfolio",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "https://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      },
+      {
+        "id": "10000000-0000-0000-0000-000000000002",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://github.com/fictional",
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/saved",
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "https://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      },
+      {
+        "id": "10000000-0000-0000-0000-000000000002",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://github.com/fictional",
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": "https://example.com/default-linkedin",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": "https://example.com/default-portfolio",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/saved",
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "https://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      },
+      {
+        "id": "10000000-0000-0000-0000-000000000002",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://github.com/fictional",
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "https://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      },
+      {
+        "id": "10000000-0000-0000-0000-000000000002",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://github.com/fictional",
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": "https://example.com/default-linkedin",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": "https://example.com/default-portfolio",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "https://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "github",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://github.com/fictional",
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "https://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "github",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": "https://github.com/fictional",
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": "https://example.com/default-linkedin",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": "https://example.com/default-portfolio",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/default-resume",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "http://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "http://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": "https://example.com/default-linkedin",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": "https://example.com/default-portfolio",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/default-resume",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "http://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/saved",
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "http://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": "https://example.com/default-linkedin",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": "https://example.com/default-portfolio",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/saved",
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "http://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": false,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "http://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": false,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": "https://example.com/default-linkedin",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": "https://example.com/default-portfolio",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "http://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "private-resume:20000000-0000-0000-0000-000000000001",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "private_upload",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "http://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "private-resume:20000000-0000-0000-0000-000000000001",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "private_upload",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": "https://example.com/default-linkedin",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": "https://example.com/default-portfolio",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "http://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      },
+      {
+        "id": "10000000-0000-0000-0000-000000000002",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/saved",
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "http://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      },
+      {
+        "id": "10000000-0000-0000-0000-000000000002",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": "https://example.com/default-linkedin",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": "https://example.com/default-portfolio",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/saved",
+        "source": "candidate_resource",
+        "resource_id": "10000000-0000-0000-0000-000000000001",
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "http://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      },
+      {
+        "id": "10000000-0000-0000-0000-000000000002",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "http://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      },
+      {
+        "id": "10000000-0000-0000-0000-000000000002",
+        "resource_type": "resume",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": false,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": "https://example.com/default-linkedin",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": "https://example.com/default-portfolio",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "http://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "github",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {},
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  },
+  {
+    "profile": {
+      "version": 1,
+      "github_url": "http://github.com/fictional",
+      "linkedin_url": null,
+      "portfolio_url": null
+    },
+    "resources": [
+      {
+        "id": "10000000-0000-0000-0000-000000000001",
+        "resource_type": "github",
+        "label": "Fictional resume",
+        "url": "https://example.com/saved",
+        "user_confirmed": true,
+        "is_primary": true,
+        "source_type": "user",
+        "updated_at": "2026-11-14T00:00:00Z"
+      }
+    ],
+    "defaults": {
+      "resume": "https://example.com/default-resume",
+      "github": "https://example.com/default-github",
+      "linkedin": "https://example.com/default-linkedin",
+      "portfolio": "https://example.com/default-portfolio",
+      "leetcode": "https://example.com/default-leetcode",
+      "codeforces": "https://example.com/default-codeforces",
+      "geeksforgeeks": "https://example.com/default-geeksforgeeks",
+      "hackerrank": "https://example.com/default-hackerrank"
+    },
+    "output": [
+      {
+        "resource_type": "github",
+        "url": null,
+        "source": "candidate_profile",
+        "resource_id": null,
+        "user_confirmed": true
+      },
+      {
+        "resource_type": "linkedin",
+        "url": "https://example.com/default-linkedin",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "portfolio",
+        "url": "https://example.com/default-portfolio",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "resume",
+        "url": "https://example.com/default-resume",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "leetcode",
+        "url": "https://example.com/default-leetcode",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "codeforces",
+        "url": "https://example.com/default-codeforces",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "geeksforgeeks",
+        "url": "https://example.com/default-geeksforgeeks",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "hackerrank",
+        "url": "https://example.com/default-hackerrank",
+        "source": "environment_default",
+        "resource_id": null,
+        "user_confirmed": false
+      },
+      {
+        "resource_type": "kaggle",
+        "url": null,
+        "source": null,
+        "resource_id": null,
+        "user_confirmed": false
+      }
+    ]
+  }
+]

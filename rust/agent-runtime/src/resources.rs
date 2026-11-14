@@ -4,8 +4,95 @@ use chrono::{DateTime, Timelike};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+use std::collections::BTreeMap;
 use std::net::Ipv4Addr;
 use uuid::Uuid;
+
+pub const LINK_KINDS: &[&str] = &[
+    "github",
+    "linkedin",
+    "portfolio",
+    "resume",
+    "leetcode",
+    "codeforces",
+    "geeksforgeeks",
+    "hackerrank",
+    "kaggle",
+];
+pub const LINK_DEFAULTS: &[(&str, &str)] = &[
+    ("resume", "CANDIDATE_RESUME_DRIVE_URL"),
+    ("github", "CANDIDATE_GITHUB_URL"),
+    ("linkedin", "CANDIDATE_ORIGINAL_LINKEDIN_URL"),
+    ("portfolio", "CANDIDATE_PORTFOLIO_URL"),
+    ("leetcode", "CANDIDATE_LEETCODE_URL"),
+    ("codeforces", "CANDIDATE_CODEFORCES_URL"),
+    ("geeksforgeeks", "CANDIDATE_GFG_URL"),
+    ("hackerrank", "CANDIDATE_HACKERRANK_URL"),
+];
+pub fn standard_field(kind: &str) -> Option<&'static str> {
+    match kind {
+        "github" => Some("github_url"),
+        "linkedin" => Some("linkedin_url"),
+        "portfolio" => Some("portfolio_url"),
+        _ => None,
+    }
+}
+pub fn link_defaults(values: &BTreeMap<String, String>) -> Result<BTreeMap<String, String>> {
+    let mut out = BTreeMap::new();
+    for (kind, key) in LINK_DEFAULTS {
+        if let Some(value) = values.get(*key).filter(|s| !s.is_empty()) {
+            out.insert(
+                (*kind).into(),
+                public_https(value).ok_or(Failure("invalid_resource_default"))?,
+            );
+        }
+    }
+    Ok(out)
+}
+/// Unconfirmed/ambiguous saved resources and explicitly cleared links suppress defaults.
+pub fn resolved_link(
+    profile: &Value,
+    resources: &[Resource],
+    defaults: &BTreeMap<String, String>,
+    kind: &str,
+) -> Value {
+    let mut result = json!({"resource_type":kind,"url":null,"source":null,"resource_id":null,"user_confirmed":false});
+    if let Some(field) = standard_field(kind)
+        && let Some(saved) = profile[field].as_str()
+    {
+        result["url"] = json!(public_https(saved));
+        result["source"] = json!("candidate_profile");
+        result["user_confirmed"] = json!(true);
+        return result;
+    }
+    let items: Vec<_> = resources
+        .iter()
+        .filter(|r| r.resource_type == kind && r.user_confirmed)
+        .collect();
+    let primary: Vec<_> = items.iter().copied().filter(|r| r.is_primary).collect();
+    if primary.len() == 1 || items.len() == 1 {
+        let item = if primary.is_empty() {
+            items[0]
+        } else {
+            primary[0]
+        };
+        result["url"] = json!(public_https(&item.url));
+        result["source"] = json!("candidate_resource");
+        result["resource_id"] = json!(item.id);
+        result["user_confirmed"] = json!(true);
+        return result;
+    }
+    if resources.iter().any(|r| r.resource_type == kind)
+        || standard_field(kind).is_some() && profile["version"].as_i64().is_some_and(|n| n > 1)
+    {
+        return result;
+    }
+    if let Some(default) = defaults.get(kind) {
+        result["url"] = json!(default);
+        result["source"] = json!("environment_default");
+    }
+    result
+}
 
 /// Python 3.11 PublicHTTPSURL compatibility. Syntax validation is not a fetch policy.
 pub fn public_https(value: &str) -> Option<String> {

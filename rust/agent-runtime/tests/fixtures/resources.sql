@@ -1,5 +1,12 @@
 -- Fictional inspection inventory; no owner data, schema or application grants.
 DROP TABLE IF EXISTS candidate_resources;
+DROP TABLE IF EXISTS candidate_evidence;
+CREATE TABLE candidate_evidence (
+    id uuid PRIMARY KEY,candidate_profile_id uuid NOT NULL,evidence_type text NOT NULL,
+    title text NOT NULL,content text NOT NULL,source_url text,source_description text,
+    user_confirmed boolean NOT NULL,project jsonb,
+    created_at timestamptz NOT NULL,updated_at timestamptz NOT NULL
+);
 CREATE TABLE candidate_resources (
     id uuid PRIMARY KEY,candidate_profile_id uuid NOT NULL,resource_type text NOT NULL,
     label text NOT NULL,url text NOT NULL,user_confirmed boolean NOT NULL,

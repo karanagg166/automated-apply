@@ -318,3 +318,32 @@ then the worker receives a wake hint. Reconfirming a current version preserves r
 cursors and progress. No facts, application counters, filters, automation modes or resume
 associations change. This confirms a version; full readiness, identity/PDF and submission
 checks remain separate requirements. No live profile was confirmed during development.
+
+Saved resource ports now include `GET/POST /api/v1/candidate/resources`,
+`GET/POST /api/v1/candidate/evidence` and `PATCH /api/v1/candidate/evidence/<UUID>`.
+They retain explicit confirmation, profile-scoped IDs, duplicate/primary conflicts and
+standard GitHub/LinkedIn/portfolio links stored only on the profile with an expected version.
+Evidence corrections require fresh confirmation unless the owner explicitly confirms the
+correction. Partial project replacement fills defaults without inventing missing facts.
+Writes validate returned records and commit before acknowledgment, without automatic retry.
+
+List pagination accepts one `offset` (0..100000) and one `limit` (1..100); duplicate/unknown
+query parameters are rejected. Resolved links use a separate bounded per-type inventory,
+including primaries outside the current list page. Unconfirmed or ambiguous saved resources
+and cleared profile links suppress environment defaults. The existing optional
+`CANDIDATE_RESUME_DRIVE_URL`, `CANDIDATE_GITHUB_URL`, `CANDIDATE_ORIGINAL_LINKEDIN_URL`,
+`CANDIDATE_PORTFOLIO_URL`, `CANDIDATE_LEETCODE_URL`, `CANDIDATE_CODEFORCES_URL`,
+`CANDIDATE_GFG_URL` and `CANDIDATE_HACKERRANK_URL` may be supplied through the private literal
+configuration. Defaults must pass public HTTPS syntax checks and remain unconfirmed.
+These checks perform no URL, DNS or resume fetch. `/candidate/resources/resolve` question
+handling, private PDF storage/download and other answer services still need migration.
+
+Additional standalone owner inspections are `GET /api/v1/rust-agent/resume-selection`
+(optional `selected_id=<UUID>`) and `GET /api/v1/rust-agent/profile-readiness`.
+They use repeatable-read, read-only profile/resource snapshots. A resource inventory above
+10,000 fails closed instead of selecting from a truncated list. A private resume reference
+is selected only with an exact canonical UUID and `source_type=private_upload`; creating
+private-upload authority is unavailable through the public resource-write contract.
+The exact legacy resource hash uses raw saved references and Python Unicode/datetime
+spelling. A selected reference does not mean a file was uploaded or independently verified.
+Complete profiles still require owner confirmation and do not assert identity acceptance.

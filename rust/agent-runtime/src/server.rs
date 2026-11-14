@@ -125,6 +125,52 @@ fn profile_route(path: &str) -> bool {
         || saved_match_route(path).is_some()
         || path == "/api/v1/local-agent/profile-confirmation"
         || resource_inspection(path)
+        || candidate_resource_route(path)
+}
+fn candidate_resource_route(path: &str) -> bool {
+    matches!(
+        path,
+        "/api/v1/candidate/resources" | "/api/v1/candidate/evidence"
+    ) || evidence_id(path).is_some()
+}
+fn evidence_id(path: &str) -> Option<&str> {
+    path.strip_prefix("/api/v1/candidate/evidence/")
+        .filter(|id| !id.is_empty() && !id.contains('/'))
+}
+fn resource_page(path: &str, method: &str, query: Option<&str>) -> Result<(i64, i64)> {
+    let mut page = (0, 25);
+    let Some(query) = query else {
+        return Ok(page);
+    };
+    if !matches!(
+        path,
+        "/api/v1/candidate/resources" | "/api/v1/candidate/evidence"
+    ) || method != "GET"
+        || query.len() > 256
+    {
+        return Err(Failure("query_parameters_not_supported"));
+    }
+    let mut seen = std::collections::HashSet::new();
+    for (key, value) in reqwest::Url::parse(&format!("http://127.0.0.1/?{query}"))
+        .map_err(|_| Failure("invalid_resource_page"))?
+        .query_pairs()
+    {
+        if !seen.insert(key.to_string()) {
+            return Err(Failure("invalid_resource_page"));
+        }
+        match key.as_ref() {
+            "offset" => {
+                page.0 = crate::profile_contract::pagination_integer(json!(value), 0, 100000)
+                    .map_err(|_| Failure("invalid_resource_page"))?
+            }
+            "limit" => {
+                page.1 = crate::profile_contract::pagination_integer(json!(value), 1, 100)
+                    .map_err(|_| Failure("invalid_resource_page"))?
+            }
+            _ => return Err(Failure("invalid_resource_page")),
+        }
+    }
+    Ok(page)
 }
 fn resource_inspection(path: &str) -> bool {
     matches!(
@@ -136,6 +182,13 @@ fn selected_resource(path: &str, method: &str, query: Option<&str>) -> Result<Op
     let Some(query) = query else {
         return Ok(None);
     };
+    if matches!(
+        path,
+        "/api/v1/candidate/resources" | "/api/v1/candidate/evidence"
+    ) && method == "GET"
+    {
+        return Ok(None);
+    }
     if path != "/api/v1/rust-agent/resume-selection" || method != "GET" {
         return Err(Failure("query_parameters_not_supported"));
     }
@@ -231,6 +284,17 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
         Ok(selected) => selected,
         Err(error) => return fail(error),
     };
+    let page = if matches!(
+        path.as_str(),
+        "/api/v1/candidate/resources" | "/api/v1/candidate/evidence"
+    ) {
+        match resource_page(&path, &method, request.uri().query()) {
+            Ok(page) => page,
+            Err(error) => return fail(error),
+        }
+    } else {
+        (0, 25)
+    };
     let if_match = if request.headers().contains_key("if-match") {
         Some(
             single(request.headers(), "if-match")
@@ -313,6 +377,9 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
                 })
             }
         }
+        Some(connection) if candidate_resource_route(&path) => {
+            candidate_resource_dispatch(connection, &method, &path, &body, page, &api.config).await
+        }
         Some(connection) if path == "/api/v1/local-agent/profile-confirmation" => {
             if method != "POST" {
                 Err(Failure("match_method_not_allowed"))
@@ -388,6 +455,20 @@ fn profile_failure(error: Failure) -> Response {
         }
         "invalid_resource_selection" => "Select a saved resource by its UUID",
         "invalid_resource_record" => "Saved resource is invalid",
+        "invalid_resource_input" => "Resource or evidence input is invalid",
+        "invalid_resource_page" => "Supply offset 0..100000 and limit 1..100 once each",
+        "resource_not_found" => "Resource not found",
+        "evidence_not_found" => "Evidence not found",
+        "resource_conflict" => "Duplicate URL or conflicting primary resource",
+        "resource_insert_conflict" => {
+            "Duplicate URL or conflicting primary resource; update the existing resource or demote its primary first"
+        }
+        "standard_link_confirmation_required" => {
+            "Standard links require explicit user confirmation and are stored only on the profile"
+        }
+        "standard_link_version_required" => {
+            "Supply expected_profile_version to change a standard profile link"
+        }
         "resource_inventory_limit" => "Resource inventory exceeds the inspection limit",
         "owner_client_required" => "owner_ui_required",
         "job_not_found" => "Job not found",
@@ -404,6 +485,8 @@ fn profile_failure(error: Failure) -> Response {
         "fictional_or_placeholder_profile_rejected" => "fictional_or_placeholder_profile_rejected",
         "profile_method_not_allowed"
         | "match_method_not_allowed"
+        | "resource_list_method_not_allowed"
+        | "evidence_patch_method_not_allowed"
         | "resource_read_method_not_allowed" => "Method Not Allowed",
         "profile_database_error" | "agent_database_reconnecting" | "agent_database_unavailable" => {
             "Profile database unavailable; retrieve the current profile before retrying"
@@ -426,12 +509,75 @@ fn profile_failure(error: Failure) -> Response {
             .headers_mut()
             .insert("www-authenticate", "Bearer".parse().unwrap());
     }
+    if error.0 == "resource_list_method_not_allowed" {
+        response
+            .headers_mut()
+            .insert("allow", "GET, POST".parse().unwrap());
+    }
+    if error.0 == "evidence_patch_method_not_allowed" {
+        response
+            .headers_mut()
+            .insert("allow", "PATCH".parse().unwrap());
+    }
     response
 }
 struct OwnerReply {
     data: Value,
     status: StatusCode,
     etag: Option<String>,
+}
+async fn candidate_resource_dispatch(
+    connection: &mut PgConnection,
+    method: &str,
+    path: &str,
+    body: &[u8],
+    page: (i64, i64),
+    config: &Configuration,
+) -> Result<OwnerReply> {
+    let result = match (method, path) {
+        ("GET", "/api/v1/candidate/resources" | "/api/v1/candidate/evidence") => {
+            crate::resource_store::list(
+                connection,
+                path.ends_with("evidence"),
+                page.0,
+                page.1,
+                &config.resource_defaults,
+            )
+            .await
+        }
+        ("POST", "/api/v1/candidate/resources") => {
+            let input =
+                serde_json::from_slice(body).map_err(|_| Failure("invalid_resource_input"))?;
+            crate::resource_store::save_resource(connection, input, config.profile_live).await
+        }
+        ("POST", "/api/v1/candidate/evidence") => {
+            let input =
+                serde_json::from_slice(body).map_err(|_| Failure("invalid_resource_input"))?;
+            crate::resource_store::save_evidence(connection, None, input).await
+        }
+        ("PATCH", _) if evidence_id(path).is_some() => {
+            let id = evidence_id(path)
+                .unwrap()
+                .parse()
+                .map_err(|_| Failure("invalid_resource_selection"))?;
+            let input =
+                serde_json::from_slice(body).map_err(|_| Failure("invalid_resource_input"))?;
+            crate::resource_store::save_evidence(connection, Some(id), input).await
+        }
+        (_, "/api/v1/candidate/resources" | "/api/v1/candidate/evidence") => {
+            Err(Failure("resource_list_method_not_allowed"))
+        }
+        _ => Err(Failure("evidence_patch_method_not_allowed")),
+    }?;
+    Ok(OwnerReply {
+        data: result,
+        status: if method == "POST" && path == "/api/v1/candidate/evidence" {
+            StatusCode::CREATED
+        } else {
+            StatusCode::OK
+        },
+        etag: None,
+    })
 }
 async fn profile_dispatch(
     connection: &mut PgConnection,
@@ -663,19 +809,32 @@ fn failure(error: Failure) -> Response {
         | "owner_origin_denied"
         | "owner_client_required" => StatusCode::FORBIDDEN,
         "owner_api_tls_required" => StatusCode::UPGRADE_REQUIRED,
-        "job_not_found" | "profile_not_found" | "agent_run_not_found" | "owner_route_not_found" => {
-            StatusCode::NOT_FOUND
-        }
+        "job_not_found"
+        | "profile_not_found"
+        | "agent_run_not_found"
+        | "owner_route_not_found"
+        | "resource_not_found"
+        | "evidence_not_found" => StatusCode::NOT_FOUND,
         "profile_method_not_allowed"
         | "match_method_not_allowed"
         | "resource_read_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
-        "profile_version_required" => StatusCode::PRECONDITION_REQUIRED,
+        "resource_list_method_not_allowed" | "evidence_patch_method_not_allowed" => {
+            StatusCode::METHOD_NOT_ALLOWED
+        }
+        "profile_version_required" | "standard_link_version_required" => {
+            StatusCode::PRECONDITION_REQUIRED
+        }
+        "standard_link_confirmation_required"
+        | "resource_conflict"
+        | "resource_insert_conflict" => StatusCode::CONFLICT,
         "profile_version_conflict" | "profile_changed_review_current_version" => {
             StatusCode::CONFLICT
         }
         "invalid_profile_confirmation"
         | "invalid_resource_selection"
         | "invalid_resource_record"
+        | "invalid_resource_input"
+        | "invalid_resource_page"
         | "resource_inventory_limit"
         | "invalid_job_id"
         | "invalid_saved_job_record"
