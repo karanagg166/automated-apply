@@ -366,6 +366,9 @@ pub(crate) fn project(input: Value) -> Result<Value> {
         false,
     )
 }
+pub(crate) fn legacy_word(c: char) -> bool {
+    contains(&unicode().word_ranges, c)
+}
 fn calendar(text: &str) -> Result<String> {
     if text.len() != 10
         || text.as_bytes()[4] != b'-'

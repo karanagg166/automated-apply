@@ -197,6 +197,31 @@ pub async fn save_resource(
     transaction.commit().await.map_err(db)?;
     Ok(output)
 }
+pub async fn resolve_question(
+    connection: &mut PgConnection,
+    input: Value,
+    defaults: &BTreeMap<String, String>,
+) -> Result<Value> {
+    let question = crate::link_resolver::question(input)?;
+    let mut transaction = connection.begin().await.map_err(db)?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        .execute(&mut *transaction)
+        .await
+        .map_err(db)?;
+    let profile = profile_store::get(&mut transaction).await?.value;
+    let id = profile["id"].as_str().unwrap().parse::<Uuid>().unwrap();
+    let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(r) FROM (SELECT id,resource_type,label,url,is_primary,source_type,user_confirmed,updated_at,row_number() OVER (PARTITION BY resource_type ORDER BY is_primary DESC,user_confirmed DESC,created_at,id) AS position FROM candidate_resources WHERE candidate_profile_id=$1) r WHERE position<=101").bind(id).fetch_all(&mut *transaction).await.map_err(db)?;
+    let resources = rows
+        .into_iter()
+        .map(|row| {
+            serde_json::from_value::<resources::Resource>(row)
+                .map_err(|_| Failure("invalid_resource_record"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let result = crate::link_resolver::resolve(&profile, &resources, defaults, &question);
+    transaction.commit().await.map_err(db)?;
+    Ok(result)
+}
 pub async fn save_evidence(
     connection: &mut PgConnection,
     id: Option<Uuid>,

@@ -22,6 +22,7 @@ pub mod knowledge_tools;
 pub mod configuration;
 pub mod graph;
 pub mod lifecycle;
+pub mod link_resolver;
 pub mod planner;
 pub mod process_lock;
 pub mod questions;

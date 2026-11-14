@@ -130,7 +130,9 @@ fn profile_route(path: &str) -> bool {
 fn candidate_resource_route(path: &str) -> bool {
     matches!(
         path,
-        "/api/v1/candidate/resources" | "/api/v1/candidate/evidence"
+        "/api/v1/candidate/resources"
+            | "/api/v1/candidate/evidence"
+            | "/api/v1/candidate/resources/resolve"
     ) || evidence_id(path).is_some()
 }
 fn evidence_id(path: &str) -> Option<&str> {
@@ -535,6 +537,13 @@ async fn candidate_resource_dispatch(
     config: &Configuration,
 ) -> Result<OwnerReply> {
     let result = match (method, path) {
+        ("POST", "/api/v1/candidate/resources/resolve") => {
+            let input =
+                serde_json::from_slice(body).map_err(|_| Failure("invalid_resource_input"))?;
+            crate::resource_store::resolve_question(connection, input, &config.resource_defaults)
+                .await
+        }
+        (_, "/api/v1/candidate/resources/resolve") => Err(Failure("match_method_not_allowed")),
         ("GET", "/api/v1/candidate/resources" | "/api/v1/candidate/evidence") => {
             crate::resource_store::list(
                 connection,

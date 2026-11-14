@@ -1,6 +1,40 @@
 // Included in the dedicated PostgreSQL test binary; fictional fixtures only.
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn resource_question_http_returns_scoped_provenance_and_keeps_file_upload_manual(){
+    let mut c=resource_fixture().await;
+    sqlx::query("UPDATE candidate_profiles SET github_url='https://github.com/fictional'").execute(&mut c).await.unwrap();
+    sqlx::query("INSERT INTO candidate_resources(id,candidate_profile_id,resource_type,label,url,user_confirmed,is_primary,source_type) VALUES ($1,$2,'other','Rust showcase','https://example.com/confirmed',true,false,'user')").bind(Uuid::new_v4()).bind(profile_pin().id).execute(&mut c).await.unwrap();
+    let before:Value=sqlx::query_scalar("SELECT jsonb_build_object('profile',(SELECT to_jsonb(p) FROM candidate_profiles p),'resources',(SELECT jsonb_agg(to_jsonb(r) ORDER BY id) FROM candidate_resources r),'confirmation',(SELECT value FROM owner_preferences WHERE key='phase1_profile_confirmation'))").fetch_one(&mut c).await.unwrap();
+    let (url,stop,server)=http_fixture().await;let http=client();let target=format!("{url}/api/v1/candidate/resources/resolve");
+    let github:Value=http.post(&target).bearer_auth(HOST_TOKEN).json(&json!({"question":" Github URL? "})).send().await.unwrap().json().await.unwrap();
+    assert_eq!(github["answer"],"https://github.com/fictional");assert_eq!(github["source"],"candidate_profile");assert_eq!(github["requires_review"],false);assert_eq!(github["used_llm"],false);
+    let custom:Value=http.post(&target).bearer_auth(HOST_TOKEN).json(&json!({"question":"Rust showcase"})).send().await.unwrap().json().await.unwrap();assert_eq!(custom["answer"],"https://example.com/confirmed");assert_eq!(custom["source"],"candidate_resource");
+    let upload:Value=http.post(&target).bearer_auth(HOST_TOKEN).json(&json!({"question":"Upload CV"})).send().await.unwrap().json().await.unwrap();
+    assert_eq!(upload["status"],"file_upload_required");assert!(upload["answer"].is_null());assert_eq!(upload["requires_review"],true);assert_eq!(upload["resources"].as_array().unwrap().len(),1);assert_eq!(upload["resources"][0]["accessibility"],"not_checked");assert_eq!(upload["resources"][0]["url"],"private-resume:20000000-0000-0000-0000-000000000001");
+    for question in ["Describe your github experience","Github and linkedin","Github projects","Foreign profile resume"] {
+        let response:Value=http.post(&target).bearer_auth(HOST_TOKEN).json(&json!({"question":question})).send().await.unwrap().json().await.unwrap();assert_eq!(response["status"],"needs_input");assert!(response["answer"].is_null());
+    }
+    let after:Value=sqlx::query_scalar("SELECT jsonb_build_object('profile',(SELECT to_jsonb(p) FROM candidate_profiles p),'resources',(SELECT jsonb_agg(to_jsonb(r) ORDER BY id) FROM candidate_resources r),'confirmation',(SELECT value FROM owner_preferences WHERE key='phase1_profile_confirmation'))").fetch_one(&mut c).await.unwrap();assert_eq!(after,before);
+    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM rust_agent_runs").fetch_one(&mut c).await.unwrap(),0);
+    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM application_packets").fetch_one(&mut c).await.unwrap(),0);
+    stop.cancel();server.await.unwrap();
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn resource_question_http_auth_body_method_and_missing_profile_fail_closed(){
+    let mut c=resource_fixture().await;let (url,stop,server)=http_fixture().await;let http=client();let target=format!("{url}/api/v1/candidate/resources/resolve");
+    assert_eq!(http.post(&target).body("invalid json").send().await.unwrap().status(),401);
+    assert_eq!(http.post(&target).bearer_auth(HOST_TOKEN).header("x-agent-client","extension").json(&json!({"question":"github"})).send().await.unwrap().status(),403);
+    for body in [json!({}),json!({"question":" "}),json!({"question":4}),json!({"question":"github","approve":true}),json!({"question":"x".repeat(2001)})] {assert_eq!(http.post(&target).bearer_auth(HOST_TOKEN).json(&body).send().await.unwrap().status(),422);}
+    let method=http.get(&target).bearer_auth(HOST_TOKEN).send().await.unwrap();assert_eq!(method.status(),405);assert_eq!(method.headers()["allow"],"POST");
+    assert_eq!(http.post(format!("{target}?submit=true")).bearer_auth(HOST_TOKEN).json(&json!({"question":"github"})).send().await.unwrap().status(),400);
+    sqlx::query("DELETE FROM candidate_profiles").execute(&mut c).await.unwrap();
+    assert_eq!(http.post(&target).bearer_auth(HOST_TOKEN).json(&json!({"question":"github"})).send().await.unwrap().status(),404);
+    stop.cancel();server.await.unwrap();
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
 async fn resource_writes_commit_before_ack_preserve_noops_and_resolve_beyond_list_page() {
     let mut c=resource_fixture().await;
     let (url,stop,server)=http_fixture().await;

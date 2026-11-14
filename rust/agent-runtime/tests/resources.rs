@@ -1,6 +1,54 @@
 use automated_apply_agents::resources::{Resource, assess_profile, public_https, select_resume};
 use serde_json::{Value, json};
 #[test]
+fn fictional_resource_questions_keep_upload_narrative_and_confirmation_boundaries() {
+    use automated_apply_agents::link_resolver::{question, resolve};
+    let cases: Vec<Value> =
+        serde_json::from_str(include_str!("fixtures/link-corpus.json")).unwrap();
+    for (i, case) in cases.iter().enumerate() {
+        let resources: Vec<Resource> = serde_json::from_value(case["resources"].clone()).unwrap();
+        let defaults = serde_json::from_value(case["defaults"].clone()).unwrap();
+        for input in case["questions"].as_array().unwrap() {
+            assert_eq!(
+                resolve(
+                    &case["profile"],
+                    &resources,
+                    &defaults,
+                    input["question"].as_str().unwrap()
+                ),
+                input["output"],
+                "case{i} question{}",
+                input["question"]
+            );
+        }
+    }
+    assert_eq!(
+        question(json!({"question":"  Github URL?  "})).unwrap(),
+        "Github URL?"
+    );
+    for invalid in [
+        json!({"question":" "}),
+        json!({"question":4}),
+        json!({"question":"github","approve":true}),
+        json!({"question":"a".repeat(2001)}),
+    ] {
+        assert!(question(invalid).is_err());
+    }
+    let resource: Resource = serde_json::from_value(cases[2]["resources"][0].clone()).unwrap();
+    let mut inventory = Vec::new();
+    for _ in 0..101 {
+        inventory.push(resource.clone());
+    }
+    let upload = resolve(
+        &cases[2]["profile"],
+        &inventory,
+        &std::collections::BTreeMap::new(),
+        "upload CV",
+    );
+    assert_eq!(upload["resources"].as_array().unwrap().len(), 100);
+    assert!(upload["answer"].is_null());
+}
+#[test]
 fn fictional_saved_link_provenance_corpus_and_private_defaults() {
     use automated_apply_agents::resources::{LINK_KINDS, link_defaults, resolved_link};
     use std::collections::BTreeMap;

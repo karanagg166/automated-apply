@@ -37,9 +37,11 @@ The worker now runs five deterministic saved-review roles over actual PostgreSQL
 tools. Its integration tests use fictional profiles/jobs in a disposable database; earlier
 coordinator tests also retain scripted model proposals and simulated write adapters.
 The Cohere V2 transport, explicit consent and shared monthly usage/cooldowns are
-implemented and fixture-tested. No live provider call has been performed. Rich resume/project
-context, Telegram pairing, browser execution, queue admission, other provider adapters,
-dashboard integration and real receipt acceptance remain to be ported. Nothing in this library grants new submissions,
+implemented and fixture-tested. No live provider call has been performed. Owner controls,
+workflow dashboard, bound Telegram relay and profile/resource APIs are implemented with
+fictional fixtures. Rich resume/project context, full Telegram command parity, browser
+execution, queue admission, other providers and real receipt acceptance remain open.
+Nothing in this library grants new submissions,
 turns on recurring AUTOMATIC or starts Ollama/GPU inference.
 
 Library references: [Tokio](https://docs.rs/tokio/latest/tokio/),
@@ -335,8 +337,8 @@ and cleared profile links suppress environment defaults. The existing optional
 `CANDIDATE_PORTFOLIO_URL`, `CANDIDATE_LEETCODE_URL`, `CANDIDATE_CODEFORCES_URL`,
 `CANDIDATE_GFG_URL` and `CANDIDATE_HACKERRANK_URL` may be supplied through the private literal
 configuration. Defaults must pass public HTTPS syntax checks and remain unconfirmed.
-These checks perform no URL, DNS or resume fetch. `/candidate/resources/resolve` question
-handling, private PDF storage/download and other answer services still need migration.
+These checks perform no URL, DNS or resume fetch. Private PDF storage/download and other
+answer services still need migration.
 
 Additional standalone owner inspections are `GET /api/v1/rust-agent/resume-selection`
 (optional `selected_id=<UUID>`) and `GET /api/v1/rust-agent/profile-readiness`.
@@ -347,3 +349,11 @@ private-upload authority is unavailable through the public resource-write contra
 The exact legacy resource hash uses raw saved references and Python Unicode/datetime
 spelling. A selected reference does not mean a file was uploaded or independently verified.
 Complete profiles still require owner confirmation and do not assert identity acceptance.
+
+`POST /api/v1/candidate/resources/resolve` accepts only a bounded `question` and returns the
+existing deterministic answer contract. It uses a read-only profile/resource snapshot and
+Unicode 14 word/case normalization. Confirmed links include provenance; defaults require
+review. Compound/narrative/additional-fact questions request input rather than returning an
+unrelated link. File questions return at most100 saved resume references, accessibility
+`not_checked` and `file_upload_required`; they never fetch or upload bytes. Questions cannot
+set confirmation, model/provider policy, browser destinations or application permission.
