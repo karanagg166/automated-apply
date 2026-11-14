@@ -95,3 +95,7 @@ frontend/test-results-browser/
 
 # Rust build output (Cargo.lock is committed for application reproducibility).
 /target/
+
+# Owner-local runtime data and preserved worktrees never belong in source commits.
+/.local/
+/.worktrees/
