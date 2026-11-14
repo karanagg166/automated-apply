@@ -1,6 +1,7 @@
 """Real Chromium against fictional loopback forms and the actual FastAPI application."""
 
 import hashlib
+import os
 from uuid import uuid4
 
 import pytest
@@ -24,7 +25,7 @@ async def browser_api(db_session, phase2_profile, phase2_auth, monkeypatch, tmp_
         monkeypatch.setenv("BROWSER_ASSISTANT_ENABLED", "true")
         monkeypatch.setenv("BROWSER_ALLOWED_ORIGINS", '["' + origin(base) + '"]')
         monkeypatch.setenv("BROWSER_PROFILE_ROOT", str(tmp_path / "profiles"))
-        monkeypatch.setenv("BROWSER_CHANNEL", "chromium")
+        monkeypatch.setenv("BROWSER_CHANNEL", os.getenv("AUTOMATED_APPLY_TEST_BROWSER", "chromium"))
         monkeypatch.setenv("BROWSER_HEADLESS", "true")
         monkeypatch.setenv("RESUME_ENCRYPTION_KEY", Fernet.generate_key().decode())
         get_settings.cache_clear()

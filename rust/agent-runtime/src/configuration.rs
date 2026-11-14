@@ -35,6 +35,8 @@ pub struct Configuration {
     pub(crate) resource_defaults: BTreeMap<String, String>,
     pub(crate) owner_signing: Option<crate::owner_proof::SigningKey>,
     pub(crate) answers: crate::answer_service::Settings,
+    pub(crate) resumes: crate::private_resume::Settings,
+    pub(crate) browser: crate::browser_inventory::Browser,
 }
 impl Configuration {
     pub fn listen(&self) -> SocketAddr {
@@ -256,6 +258,8 @@ impl Configuration {
             resource_defaults: defaults,
             owner_signing: crate::owner_proof::SigningKey::from_values(values)?,
             answers,
+            resumes: crate::private_resume::Settings::from_values(values)?,
+            browser: crate::browser_inventory::Browser::from_values(values)?,
         })
     }
     /// Control/execution persist; generation may hold one additional bounded API connection.

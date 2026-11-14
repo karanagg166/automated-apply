@@ -134,6 +134,15 @@ test("settings validates health response schema, endpoint format, and error code
     "#profile-connect": { addEventListener() {} },
     "#profile-disconnect": { addEventListener() {} },
     "#profile-commands": { checked: false, addEventListener() {} },
+    "#retained-auto": { checked: false, addEventListener() {} },
+    "#retained-auto-status": { textContent: "" },
+    "#retained-discovery": { checked: false, addEventListener() {} },
+    "#retained-work": {
+      value: "",
+      addEventListener() {},
+      replaceChildren() {},
+      append() {},
+    },
     "#endpoint": { textContent: "" },
     "#check": {
       listeners: {},
@@ -143,8 +152,26 @@ test("settings validates health response schema, endpoint format, and error code
     },
   };
   let nativeHandler;
-  global.document = { querySelector: (sel) => elements[sel] };
+  const maintenanceElements = [],
+    maintenanceListeners = {};
+  const windowListeners = {};
+  global.window = {
+    addEventListener: (event, listener) => {
+      windowListeners[event] = listener;
+    },
+  };
+  global.document = {
+    querySelector: (sel) => elements[sel],
+    createElement: (tagName) => ({ tagName, dataset: {} }),
+    head: { append: (node) => maintenanceElements.push(node) },
+    addEventListener: (event, listener) => {
+      maintenanceListeners[event] = listener;
+    },
+  };
   global.chrome = {
+    storage: { session: { get: async () => ({}) } },
+    alarms: { onAlarm: { addListener() {}, removeListener() {} } },
+    tabs: { getCurrent: async () => ({ id: 1, active: false }) },
     permissions: { contains: async () => true },
     runtime: {
       id: "gdjbmkffcpicbpiikcohlmokkmcpipgp",
@@ -155,6 +182,14 @@ test("settings validates health response schema, endpoint format, and error code
   };
   try {
     await import("../settings.js");
+    assert.equal(maintenanceElements.length, 1);
+    assert.equal(typeof windowListeners.pagehide, "function");
+    assert.equal(maintenanceElements[0].id, "naukri-maintenance-ready");
+    assert.equal(maintenanceElements[0].dataset.runtimeVersion, "1.3.1");
+    assert.equal(
+      typeof maintenanceListeners["automated-apply:maintenance-reload"],
+      "function",
+    );
     assert.equal(
       elements["#identity"].textContent,
       "Extension ID: gdjbmkffcpicbpiikcohlmokkmcpipgp",
@@ -226,5 +261,6 @@ test("settings validates health response schema, endpoint format, and error code
     );
   } finally {
     delete global.document;
+    delete global.window;
   }
 });

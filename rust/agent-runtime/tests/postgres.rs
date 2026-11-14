@@ -3014,6 +3014,8 @@ include!("support/missing_store_pg.rs");
 include!("support/answer_service_pg.rs");
 include!("support/answer_reuse_pg.rs");
 include!("support/gemini_pg.rs");
+include!("support/private_resume_pg.rs");
+include!("support/mcp_pg.rs");
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
 async fn owner_resume_inspection_scopes_saved_references_and_never_admits_or_fetches() {

@@ -1,5 +1,5 @@
 [workspace]
-members = ["rust/native-host", "rust/agent-runtime", "rust/domain"]
+members = ["rust/native-host", "rust/agent-runtime", "rust/domain", "rust/document-worker"]
 resolver = "3"
 
 [workspace.package]

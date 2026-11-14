@@ -55,7 +55,7 @@ With the existing owner token and frontend login configured, add:
 BROWSER_ASSISTANT_ENABLED=true
 BROWSER_ALLOWED_ORIGINS=["https://careers.example.com:443"]
 BROWSER_ASSET_ORIGINS=[]
-BROWSER_CHANNEL=chrome
+BROWSER_CHANNEL=brave
 BROWSER_HEADLESS=false
 BROWSER_PROFILE_ROOT=reports/browser-profiles
 APPLICATION_SUBMISSION_ENABLED=false

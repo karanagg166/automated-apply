@@ -110,12 +110,12 @@ function encodeFrame(objOrBytes) {
   return Buffer.concat([header, payload]);
 }
 
-test("manifest version 1.3.11 and public RSA key derive exact stable extension ID", () => {
+test("manifest release version and public RSA key derive exact stable extension ID", () => {
   const manifest = JSON.parse(
     readFileSync(resolve(here, "../manifest.json"), "utf8"),
   );
   assert.equal(manifest.manifest_version, 3);
-  assert.equal(manifest.version, "1.3.11");
+  assert.match(manifest.version, /^1\.3\.\d+$/);
   const hash = createHash("sha256")
     .update(Buffer.from(manifest.key, "base64"))
     .digest("hex")

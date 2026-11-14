@@ -13,6 +13,7 @@ import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium } from "../../frontend/node_modules/@playwright/test/index.mjs";
+import { fixtureExecutable } from "./browser-fixture-engine.mjs";
 
 const root = mkdtempSync(join(tmpdir(), "automated-apply-background-fixture-"));
 for (const name of [
@@ -70,7 +71,7 @@ const started = performance.now();
 // The real browser owns its visibility; no DOM visibility spoofing is used.
 const profile = join(root, "profile");
 const child = spawn(
-  chromium.executablePath(),
+  fixtureExecutable(chromium),
   [
     "--headless=new",
     "--no-first-run",
@@ -975,6 +976,7 @@ try {
     fixture_only: true,
     cases: evidence.length,
     browser: browser.version(),
+    engine: process.env.AUTOMATED_APPLY_TEST_BROWSER || "chromium",
     duration_ms: Math.round(performance.now() - started),
     live_naukri_requests: 0,
     unexpectedRequests,

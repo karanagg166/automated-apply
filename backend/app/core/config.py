@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     BROWSER_ALLOWED_ORIGINS: list[str] = Field(default_factory=list)
     BROWSER_ASSET_ORIGINS: list[str] = Field(default_factory=list, max_length=8)
     BROWSER_PROFILE_ROOT: str = "reports/browser-profiles"
-    BROWSER_CHANNEL: Literal["chrome", "chromium"] = "chrome"
+    BROWSER_CHANNEL: Literal["brave", "msedge", "chrome", "chromium"] = "brave"
     BROWSER_HEADLESS: bool = False
     MULTI_SELECT_FIELDS_ENABLED: bool = False
 

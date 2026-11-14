@@ -18,6 +18,7 @@ from fastapi import HTTPException
 from backend.app.browser.asset_policy import RESTRICTED_HOSTS, policy
 from backend.app.browser.assets import AssetUnavailable, PublicAssets
 from backend.app.browser.contracts import DetectedField, StepControl
+from backend.app.browser.engine import launch_options
 from backend.app.browser.field_policy import manual_only
 from backend.app.services.applications.resume_selector import digest
 
@@ -580,7 +581,7 @@ class LocalBrowser:
                     "--dns-over-https-mode=off",
                     "--no-proxy-server",
                 ],
-                channel=settings.BROWSER_CHANNEL,
+                **launch_options(settings.BROWSER_CHANNEL),
                 headless=settings.BROWSER_HEADLESS,
                 accept_downloads=False,
                 service_workers="block",

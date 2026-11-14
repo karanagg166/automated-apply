@@ -40,6 +40,16 @@ fn projected(text: &str, insensitive: bool) -> (String, Vec<usize>) {
 }
 impl Regex {
     pub fn new(pattern: &'static str, insensitive: bool) -> Self {
+        Self::compile(pattern, insensitive)
+    }
+    /// Escape a fixed application-owned literal with Python-compatible word boundaries.
+    pub fn literal_word(literal: &'static str, insensitive: bool) -> Self {
+        Self::compile(
+            &format!(r"(?<!\w){}(?!\w)", regex::escape(literal)),
+            insensitive,
+        )
+    }
+    fn compile(pattern: &str, insensitive: bool) -> Self {
         assert!(
             pattern.is_ascii(),
             "safeguard patterns must be fixed ASCII literals"

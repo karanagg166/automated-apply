@@ -1,5 +1,10 @@
 # Repository Guidelines
 
+## Account-independent continuity
+- Before continuing after a Codex account switch, read [the resume record](docs/project-state.md), the ownership registry and the existing branch diff.
+- Keep the resume record and sanitized acceptance reports current at milestones. Use `uv run --no-project python scripts/project_continuity.py snapshot` to preserve available local project history privately; `verify` checks it and `resume` displays the handoff.
+- Never rewrite Codex account ownership or session identities. Missing sidebar entries and missing transcript files are separate findings; preserve backups and state the actual recovery limits.
+
 ## Project Structure & Module Organization
 - `backend/app/` contains FastAPI routes, services, repositories, models, AI providers, and local-agent integrations. Backend tests live in `backend/tests/`; operational tools live in `backend/scripts/`.
 - `frontend/src/` contains Next.js routes, components, features, and API helpers. Unit tests live in `frontend/tests/`; browser journeys live in `frontend/tests/e2e/`.

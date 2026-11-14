@@ -1,5 +1,9 @@
 {
   "servers": {
+    "apify": {
+      "type": "http",
+      "url": "https://mcp.apify.com?tools=search-actors,fetch-actor-details,search-apify-docs,fetch-apify-docs"
+    },
     "supabase-automated-apply": {
       "type": "http",
       "url": "https://mcp.supabase.com/mcp?project_ref=luvdmwnlwaqgvfwlmlom&read_only=true&features=docs%2Cdatabase%2Cdebugging"

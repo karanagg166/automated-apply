@@ -24,6 +24,7 @@ def main():
     # Compile before launching the fixture so compiler contention is not measured as DB time.
     # Match the workspace feature graph so this reuses ordinary workspace test artifacts.
     # Selecting only one package otherwise compiles a second dependency-feature variant.
+    subprocess.run(["cargo", "build", "--locked", "--workspace", "--bins"], cwd=ROOT, check=True)
     subprocess.run(["cargo", "test", "--locked", "--workspace", "--test", "postgres", "--no-run"], cwd=ROOT, check=True)
     base = Path(tempfile.mkdtemp(prefix="rust-agent-fictional-pg-"))
     data = base / "data"

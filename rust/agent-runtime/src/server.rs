@@ -17,7 +17,7 @@ use axum::{
 };
 use serde::Deserialize;
 use serde_json::{Value, json};
-use sqlx::{PgConnection, Row};
+use sqlx::{Connection, PgConnection, Row};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use subtle::ConstantTimeEq;
 use tokio::sync::{Mutex, Semaphore};
@@ -28,7 +28,7 @@ pub struct Api {
     connection: Mutex<ControlConnection>,
     wake: Wake,
     requests: Semaphore,
-    generation: Semaphore,
+    long_request: Semaphore,
 }
 struct ControlConnection {
     value: Option<PgConnection>,
@@ -44,7 +44,7 @@ impl Api {
             }),
             wake,
             requests: Semaphore::new(8),
-            generation: Semaphore::new(1),
+            long_request: Semaphore::new(1),
         })
     }
 }
@@ -132,6 +132,34 @@ fn profile_route(path: &str) -> bool {
         || missing_route(path)
         || path == "/api/v1/application-answers/generate"
         || path == "/api/v1/application-answers/reuse-approvals"
+        || resume_route(path).is_some()
+}
+fn resume_route(path: &str) -> Option<(&str, &str)> {
+    let tail = path.strip_prefix("/api/v1/dashboard/resumes")?;
+    if tail.is_empty() {
+        return Some(("", ""));
+    }
+    let tail = tail.strip_prefix('/')?;
+    let (id, action) = tail.split_once('/').unwrap_or((tail, ""));
+    (!id.is_empty() && matches!(action, "" | "confirm")).then_some((id, action))
+}
+fn resume_label(query: Option<&str>) -> Result<String> {
+    let Some(query) = query else {
+        return Ok("Resume".into());
+    };
+    let raw = query
+        .strip_prefix("label=")
+        .filter(|s| !s.contains('&') && s.len() <= 2400)
+        .ok_or(Failure("invalid_resume_label"))?;
+    let raw = raw.replace('+', " ");
+    let label = percent_encoding::percent_decode_str(&raw)
+        .decode_utf8()
+        .map_err(|_| Failure("invalid_resume_label"))?
+        .into_owned();
+    if label.is_empty() || label.chars().count() > 200 {
+        return Err(Failure("invalid_resume_label"));
+    }
+    Ok(label)
 }
 fn missing_item(path: &str) -> Option<(&str, &str)> {
     let tail = path.strip_prefix("/api/v1/application-answers/missing/")?;
@@ -221,6 +249,10 @@ fn selected_resource(path: &str, method: &str, query: Option<&str>) -> Result<Op
     let Some(query) = query else {
         return Ok(None);
     };
+    if path == "/api/v1/dashboard/resumes" && method == "POST" {
+        resume_label(Some(query))?;
+        return Ok(None);
+    }
     if paginated(path) && method == "GET" {
         return Ok(None);
     }
@@ -309,6 +341,21 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
     }
     let method = request.method().as_str().to_owned();
     let path = request.uri().path().to_owned();
+    let pdf_upload = path == "/api/v1/dashboard/resumes" && method == "POST";
+    let label = if pdf_upload {
+        match resume_label(request.uri().query()) {
+            Ok(label) => Some(label),
+            Err(error) => return fail(error),
+        }
+    } else {
+        None
+    };
+    if pdf_upload
+        && single(request.headers(), "content-type").and_then(|s| s.split(';').next())
+            != Some("application/pdf")
+    {
+        return fail(Failure("pdf_content_type_required"));
+    }
     if method == "GET" && path == "/health" {
         return reply(
             StatusCode::OK,
@@ -339,7 +386,14 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
     let signature = single(request.headers(), "x-browser-owner-approval").map(str::to_owned);
     let body = match tokio::time::timeout(
         Duration::from_secs(20),
-        to_bytes(request.into_body(), 65536),
+        to_bytes(
+            request.into_body(),
+            if pdf_upload {
+                crate::private_resume::MAX_PDF
+            } else {
+                65536
+            },
+        ),
     )
     .await
     {
@@ -348,7 +402,7 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
             return reply(
                 StatusCode::PAYLOAD_TOO_LARGE,
                 if is_profile {
-                    json!({"detail":"Profile request exceeds 64 KiB"})
+                    json!({"detail":if pdf_upload{"PDF exceeds 5 MiB"}else{"Profile request exceeds 64 KiB"}})
                 } else {
                     json!({"error":"owner_request_too_large"})
                 },
@@ -388,6 +442,18 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
         }
         return generation_dispatch(&api, &body).await;
     }
+    if let Some(label) = label {
+        return resume_io_dispatch(&api, ResumeIo::Upload(&label, &body)).await;
+    }
+    if let Some((id, "")) = resume_route(&path)
+        && !id.is_empty()
+        && method == "GET"
+    {
+        return match id.parse() {
+            Ok(id) => resume_io_dispatch(&api, ResumeIo::Download(id)).await,
+            Err(_) => fail(Failure("private_resume_not_found")),
+        };
+    }
     let mut state = api.connection.lock().await;
     if state.value.is_none() {
         if !state.backoff.remaining().is_zero() {
@@ -408,7 +474,46 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
             }
         }
     }
-    let result = match state.value.as_mut() {
+    let mut result = match state.value.as_mut() {
+        Some(connection) if resume_route(&path).is_some() => {
+            let (id, action) = resume_route(&path).unwrap();
+            if id.is_empty() && method == "GET" {
+                crate::private_resume::listing(connection)
+                    .await
+                    .map(|data| OwnerReply {
+                        data,
+                        status: StatusCode::OK,
+                        etag: None,
+                    })
+            } else if let Ok(id) = id.parse::<Uuid>() {
+                if action == "confirm" && method == "POST" {
+                    match serde_json::from_slice(&body)
+                        .map_err(|_| Failure("invalid_resume_confirmation"))
+                        .and_then(crate::private_resume::confirmation)
+                    {
+                        Ok(input) => crate::private_resume::confirm(
+                            connection,
+                            id,
+                            input,
+                            &api.config.resumes,
+                        )
+                        .await
+                        .map(|data| OwnerReply {
+                            data,
+                            status: StatusCode::OK,
+                            etag: None,
+                        }),
+                        Err(error) => Err(error),
+                    }
+                } else {
+                    Err(Failure("resume_method_not_allowed"))
+                }
+            } else if id.is_empty() {
+                Err(Failure("resume_method_not_allowed"))
+            } else {
+                Err(Failure("private_resume_not_found"))
+            }
+        }
         Some(connection) if path == "/api/v1/profile" => {
             profile_dispatch(
                 connection,
@@ -565,6 +670,14 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
             }),
         None => Err(Failure("agent_database_unavailable")),
     };
+    // Flush any rollback queued by a rejected operation's transaction Drop before
+    // retaining this connection idle. This prevents cross-request lock retention.
+    if result.is_err()
+        && let Some(connection) = state.value.as_mut()
+        && connection.ping().await.is_err()
+    {
+        result = Err(Failure("profile_database_error"));
+    }
     if result
         .as_ref()
         .err()
@@ -591,6 +704,25 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
 fn profile_failure(error: Failure) -> Response {
     let status = failure(error).status();
     let detail = match error.0 {
+        "resume_encryption_unavailable" => {
+            "Configure the existing dedicated RESUME_ENCRYPTION_KEY before uploading a private resume"
+        }
+        "private_resume_outcome_unknown" => {
+            "Resume operation outcome is uncertain; inspect saved resumes before retrying"
+        }
+        "private_pdf_integrity_failed" | "private_pdf_checksum_failed" => {
+            "Private PDF integrity failed; restore the original PDF and encryption key"
+        }
+        "drive_resume_review_required" => {
+            "Drive imports require the Resume Sync profile-review approval"
+        }
+        "canonical_resume_changed" => {
+            "Canonical resume changed; review the current version before replacing it"
+        }
+        "private_resume_changed" => "Resume changed; review the current PDF contents",
+        "private_resume_binding_invalid" => "Private resume resource binding is invalid",
+        "private_resume_not_found" => "Private resume not found",
+        "pdf_content_type_required" => "Use application/pdf",
         "invalid_answer_request" => "Answer request is invalid",
         "generation_outcome_unknown" => {
             "Generation outcome is uncertain; inspect saved drafts and requests before retrying"
@@ -727,7 +859,7 @@ struct OwnerReply {
 /// A single bounded request-scoped API-role connection keeps control/Stop responsive.
 /// It is closed after the response computation; there is no additional pool or retry.
 async fn generation_dispatch(api: &Api, body: &[u8]) -> Response {
-    let Ok(_permit) = api.generation.try_acquire() else {
+    let Ok(_permit) = api.long_request.try_acquire() else {
         return reply(
             StatusCode::TOO_MANY_REQUESTS,
             json!({"detail":"An answer generation is already running"}),
@@ -752,6 +884,65 @@ async fn generation_dispatch(api: &Api, body: &[u8]) -> Response {
         Ok(data) => reply(StatusCode::OK, data),
         Err(error) => profile_failure(error),
     }
+}
+enum ResumeIo<'a> {
+    Upload(&'a str, &'a [u8]),
+    Download(Uuid),
+}
+enum ResumeOutput {
+    Upload(Value),
+    Download(Vec<u8>),
+}
+async fn resume_io_dispatch(api: &Api, input: ResumeIo<'_>) -> Response {
+    let Ok(_permit) = api.long_request.try_acquire() else {
+        return reply(
+            StatusCode::TOO_MANY_REQUESTS,
+            json!({"detail":"A bounded background request is already running"}),
+        );
+    };
+    let mut connection = match api.config.connect(false).await {
+        Ok(c) => c,
+        Err(error) => return profile_failure(error),
+    };
+    let result = tokio::time::timeout(Duration::from_secs(40), async {
+        readiness(&mut connection, &api.config).await?;
+        match input {
+            ResumeIo::Upload(label, body) => {
+                crate::private_resume::upload(&mut connection, label, body, &api.config.resumes)
+                    .await
+                    .map(ResumeOutput::Upload)
+            }
+            ResumeIo::Download(id) => {
+                crate::private_resume::download(&mut connection, id, &api.config.resumes)
+                    .await
+                    .map(ResumeOutput::Download)
+            }
+        }
+    })
+    .await
+    .unwrap_or(Err(Failure("private_resume_outcome_unknown")));
+    recovery::close(connection).await;
+    match result {
+        Ok(ResumeOutput::Upload(data)) => reply(StatusCode::CREATED, data),
+        Ok(ResumeOutput::Download(raw)) => pdf_reply(raw),
+        Err(error) => profile_failure(error),
+    }
+}
+fn pdf_reply(raw: Vec<u8>) -> Response {
+    let mut response = (StatusCode::OK, raw).into_response();
+    for (key, value) in [
+        ("content-type", "application/pdf"),
+        ("content-disposition", "attachment; filename=\"resume.pdf\""),
+        ("cache-control", "private, no-store"),
+        ("x-content-type-options", "nosniff"),
+        ("referrer-policy", "no-referrer"),
+    ] {
+        response.headers_mut().insert(
+            axum::http::HeaderName::from_static(key),
+            axum::http::HeaderValue::from_static(value),
+        );
+    }
+    response
 }
 async fn missing_dispatch(
     connection: &mut PgConnection,
@@ -959,6 +1150,11 @@ async fn dispatch(
     if format!("/{}", parts.join("/")) != path {
         return Err(Failure("owner_route_not_found"));
     }
+    if let Some(result) =
+        crate::tool_api::route(&api.config, connection, method, &parts, body).await
+    {
+        return result;
+    }
     match (method, parts.as_slice()) {
         ("GET", ["ready"]) => {
             readiness(connection, &api.config).await?;
@@ -1100,7 +1296,30 @@ fn failure(error: Failure) -> Response {
         | "owner_route_not_found"
         | "resource_not_found"
         | "evidence_not_found" => StatusCode::NOT_FOUND,
-        "answer_draft_not_found" | "missing_input_not_found" => StatusCode::NOT_FOUND,
+        "answer_draft_not_found" | "missing_input_not_found" | "private_resume_not_found" => {
+            StatusCode::NOT_FOUND
+        }
+        "pdf_content_type_required" => StatusCode::UNSUPPORTED_MEDIA_TYPE,
+        "resume_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
+        "resume_encryption_unavailable"
+        | "document_worker_unavailable"
+        | "private_resume_outcome_unknown" => StatusCode::SERVICE_UNAVAILABLE,
+        "invalid_resume_label"
+        | "invalid_resume_confirmation"
+        | "invalid_pdf_upload"
+        | "invalid_or_unsafe_pdf"
+        | "invalid_pdf_extraction"
+        | "pdf_validation_timeout"
+        | "pdf_output_limit"
+        | "pdf_memory_limit"
+        | "pdf_memory_supervision_failed" => StatusCode::UNPROCESSABLE_ENTITY,
+        "private_pdf_integrity_failed"
+        | "private_pdf_checksum_failed"
+        | "private_resume_changed"
+        | "canonical_resume_changed"
+        | "private_resume_binding_invalid"
+        | "drive_resume_review_required"
+        | "private_resume_insert_mismatch" => StatusCode::CONFLICT,
         "profile_method_not_allowed"
         | "match_method_not_allowed"
         | "resource_read_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
