@@ -1,5 +1,7 @@
 # Rust migration: native transport and coordinator milestones, 2026-11-14
 
+Latest: [Milestone 9 — graph, optional model review and human approvals](#milestone-9-durable-graph-model-review-and-human-approval-dashboard).
+
 Overall request: **IN PROGRESS**. Full Python replacement and multi-agent AI delivery
 are not complete. Installed application services/extension/native wrapper were not changed.
 
@@ -654,3 +656,102 @@ uv tool run --from ruff ruff check --isolated --select E9,F,I rust/scripts/expor
 Next remains complete profile/resource/REST compatibility and rich verified context, followed
 by actual browser/application tools, remaining provider/Gmail/service ports and Python
 runtime removal, then immutable live/rollback/focus/history/quota/receipt/resource acceptance.
+
+## Milestone 9: durable graph, model review and human approval dashboard
+
+Implementation: [`71af35a2aaec9d86a82c15d06790433c8e5703d9`](https://github.com/karanagg166/automated-apply/commit/71af35a2aaec9d86a82c15d06790433c8e5703d9),
+branch `feat/rust-agent-runtime`, [draft PR #50](https://github.com/karanagg166/automated-apply/pull/50),
+base `chore/uv-python-tooling` / [PR #49](https://github.com/karanagg166/automated-apply/pull/49).
+Overall migration and live acceptance remain **IN PROGRESS**.
+
+The Rust worker now persists an observable plan → typed decision → validation → tool →
+observation → review graph with bounded replanning, missing-fact waits, human checkpoints,
+provider cooldown, pause and uncertain-outcome reconciliation. The five specialist roles
+have separate instructions and typed tool permissions and share one worker/lease. They are
+not five always-running model processes. Deterministic steps remain the zero-inference
+default; optional explicitly consented Cohere review is wired through the real executable.
+The reviewer sees a bounded projection of source references and top-three ranking summaries,
+verified experience and skill count, excluding contact/resume/free-text contents. Only
+handoff, bounded fact questions and bounded replanning are offered by this reviewer schema.
+No private model scratch thoughts are required or stored.
+
+Human decisions bind the exact plan revision, current confirmed profile, prepared tool
+results, known job references, limits and (when applicable) exact undispatched tool effect.
+They expire after one hour. Approve, reject and request changes use CAS and atomic audit;
+actor identity cannot be supplied by a model/client body. Changes recompute actual facts,
+retain usage, and remain within the original replan/decision/tool/model/token caps. Prior
+external effects and unknown outcomes cannot be replayed through a loop. A separately
+approved tool still needs fresh backend authority, and approval never grants submission,
+changes admission quotas or resets allowances. Old records retain usage and idempotency
+when new graph/default limit fields were absent.
+
+The new authenticated `/workflow` page shows interactive stages, specialist tool availability,
+worker/run controls, prepared results, budget/audit state and human decisions. Creating a
+review through the dashboard enables human review by default. A dedicated loopback-only
+proxy checks owner session, host/origin and CSRF, bounds bodies/responses/deadlines, keeps
+the bearer token server-side and performs no redirects or automatic write retries. A stale
+checkpoint requires refresh and a new review checkbox. Unknown website/tool content is
+rendered as escaped data. Missing facts link to the existing profile flow; the running
+worker independently rechecks confirmed saved facts. Browser/application adapters are
+visibly `not_migrated` and cannot be enabled through this approval UI.
+
+| Check | Status | Exact evidence |
+| --- | --- | --- |
+| Standard Rust suites | PASS | 78 tests: 20 library, 20 coordinator, 7 graph, 9 host, 8 domain, 14 native; 0 failed; 49 PG cases deliberately ignored here |
+| Dedicated native PostgreSQL fixtures | PASS | All 49 executed, 0 failed/ignored; final run 13.36s |
+| Exact human review / changes / authority after approval | PASS | Included above: HTTP/CAS/forged actor/stale decision checks, real re-read loops, usage retention, no tool execution after changed authority |
+| Actual CLI with optional reviewer and human gate | PASS | Included above: fictional localhost provider, one replan, 7 actual SQL reads, 2 model calls, 10,256 retained reserved tokens, cooldown wait without recharge, owner approve then completion, shared monthly requests exactly 2 |
+| Cloud context bounds/privacy | PASS | Captured fixture requests <=5,000 bytes, output reservation 128 each; no fictional private contact/resume/key canaries; separate projection regression |
+| Workflow component/proxy regressions | PASS | 10 Vitest cases across 2 files; final run 984ms; CSRF/auth/origin/routes/targets/body/response limits, no redirects/retries, exact revision, escaping and review reset |
+| Production frontend build and TypeScript | PASS | Next.js build includes `/workflow` and `/api/workflow`; final compile 1.067s, TypeScript 1.849s; separate typecheck passed |
+| Actual isolated Chromium journey | PASS | 1 journey, 2 explicit approval mutations, 0 automatic retries: stale rejection, refresh, checkbox reset, fresh decision and escaped content |
+| Rust format / Clippy warnings denied / diff | PASS | Final local checks passed |
+| Locked optimized workspace build | PASS | 42.85s local build; functional CLI fixtures use debug executable |
+| Real cloud inference / owner browser / official Telegram / real applications | NOT TESTED | All new traffic uses fictional loopback fixtures; no owner accounts/keys/data touched |
+| Full Python runtime/API/service replacement | NOT TESTED | Remaining profile/REST/services/browser/application/Gmail/provider ports are still open |
+| Installed release / rollback / real focus/quota/receipt acceptance | NOT TESTED | No installation, service restart, production DDL or live action performed |
+| Whole-project CPU/RSS/GPU comparison | NOT TESTED | No new equivalent-boundary benchmark; earlier component comparisons retain their scope/SHAs |
+| Hosted Actions / merge / workspace cleanup | NOT TESTED | Not dispatched, merged or performed |
+
+Current total: **127 distinct Rust tests passed** (78 standard + 49 dedicated PostgreSQL),
+plus **10 frontend tests and 1 isolated browser journey**. Repeated runs and historical
+1,300 matching comparisons/25 native parity examples are not added again to these totals.
+[Sanitized fictional dashboard screenshot](../../rust/ui/workflow-fictional.png).
+The Chromium fixture uses a separate headless profile and a local fake worker. It does not
+validate the production owner browser or the Rust worker/Next.js together against live data.
+The Rust CLI/PostgreSQL/provider integration is tested separately above. Playwright's pinned
+headless shell was added to its development cache (99MiB download), retaining older caches;
+no Chrome owner profile, window, foreground state, keyboard or clipboard was used.
+
+Sanitized development failures: fixture setup initially referenced a nonexistent JSON
+profile column (`42703`), corrected to the existing fictional preferences column. Tool
+catalog compilation initially missed enum imports (`E0433`), corrected before final suites.
+The first browser invocation lacked its pinned cached executable; the pnpm-managed headless
+shell installation resolved it. Final scoped checks have no remaining failures. Fixed
+failure codes exercised include `agent_revision_conflict`, `agent_approval_not_pending`,
+`agent_approval_expired`, `agent_approval_context_changed`, `agent_replan_limit`,
+`human_approval_required`, `csrf_required` and bounded proxy transport errors. No raw private
+logs or personal data are published.
+
+Reproduction from this worktree:
+
+```sh
+cargo test --locked --workspace
+uv run --no-project --python .venv/bin/python python -m rust.scripts.run_postgres_tests
+cargo clippy --locked --workspace --all-targets -- -D warnings
+cargo fmt --all -- --check
+cargo build --locked --release --workspace
+pnpm -C frontend install --frozen-lockfile
+pnpm -C frontend exec vitest run --config ../rust/ui/vitest.config.mjs
+pnpm -C frontend typecheck
+FRONTEND_LOCAL_HTTP=true FRONTEND_ORIGIN=http://localhost:3000 FRONTEND_SESSION_SECRET=fictional-build-session-secret-minimum-thirty-two NEXT_TELEMETRY_DISABLED=1 pnpm -C frontend build
+pnpm -C frontend exec playwright install chromium --only-shell
+node rust/ui/browser-fixture.mjs
+git diff --check
+```
+
+Next: complete profile semantic normalization and CAS CRUD/ETag compatibility, remaining
+REST/services and rich verified context, then actual guarded browser/application and legacy
+Telegram commands, Gmail/provider ports and Python removal. Perform immutable installation,
+rollback, live account/focus/history/quota/receipt and whole-project Mac resource acceptance
+only after those ports are complete. The graph milestone is not full project completion.
