@@ -1,5 +1,5 @@
 -- Fictional data only; the harness rejects every nonfixture database URL.
-DROP TABLE IF EXISTS application_packets,jobs,companies,candidate_profiles,owner_preferences;
+DROP TABLE IF EXISTS application_events,application_submission_evidence,application_packet_fields,application_packets,jobs,companies,candidate_profiles,owner_preferences;
 CREATE TABLE candidate_profiles (
     id uuid PRIMARY KEY,singleton_key text UNIQUE NOT NULL,version integer NOT NULL,
     verified_skills jsonb NOT NULL,verified_experience_years double precision,preferences jsonb NOT NULL,

@@ -37,6 +37,7 @@ pub struct Configuration {
     pub(crate) answers: crate::answer_service::Settings,
     pub(crate) resumes: crate::private_resume::Settings,
     pub(crate) browser: crate::browser_inventory::Browser,
+    pub(crate) packets: crate::packet_service::Settings,
 }
 impl Configuration {
     pub fn listen(&self) -> SocketAddr {
@@ -260,6 +261,14 @@ impl Configuration {
             answers,
             resumes: crate::private_resume::Settings::from_values(values)?,
             browser: crate::browser_inventory::Browser::from_values(values)?,
+            packets: crate::packet_service::Settings {
+                policy: crate::packet_platform::Policy {
+                    testing: fixture,
+                    origins: trust_list(values, "BROWSER_ALLOWED_ORIGINS", true, fixture)?,
+                },
+                multi_select: boolean(values, "MULTI_SELECT_FIELDS_ENABLED", false)?,
+                schema: get("DATABASE_SCHEMA", "public"),
+            },
         })
     }
     /// Control/execution persist; generation may hold one additional bounded API connection.

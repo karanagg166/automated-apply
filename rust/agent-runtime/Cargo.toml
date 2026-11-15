@@ -31,6 +31,7 @@ tokio = { version = "1.54.1", features = ["rt", "macros", "time", "sync", "signa
 tokio-util = { version = "0.7.20", features = ["rt"] }
 unicode-normalization = "0.1.26"
 uuid = { workspace = true, features = ["v5"] }
+speedate = { version = "=0.18.0", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 tempfile = "3"

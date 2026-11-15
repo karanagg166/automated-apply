@@ -244,6 +244,19 @@ pub async fn list(connection: &mut PgConnection, offset: i64, limit: i64) -> Res
 }
 /// Called by generation only after it abstains; questions confer no application authority.
 pub async fn ensure_in(tx: &mut Transaction<'_, Postgres>, input: &Create) -> Result<String> {
+    ensure_retryable_in(tx, input).await.map_err(|error| {
+        if error == Failure("missing_input_transaction_rollback") {
+            conflict()
+        } else {
+            error
+        }
+    })
+}
+/// Preserve a known aborted transaction for a transaction-owning caller's bounded retry.
+pub(crate) async fn ensure_retryable_in(
+    tx: &mut Transaction<'_, Postgres>,
+    input: &Create,
+) -> Result<String> {
     let checked = missing_contract::normalize_create(
         serde_json::to_value(input).map_err(|_| Failure("invalid_missing_input_request"))?,
     )?;
@@ -268,7 +281,11 @@ pub async fn ensure_in(tx: &mut Transaction<'_, Postgres>, input: &Create) -> Re
     let key = missing_contract::key_for(profile, &input.request, input.packet_id);
     let id = key.trim_start_matches("needs_input:").to_owned();
     let value = json!({"id":id,"candidate_profile_id":profile,"question":input.request.question,"question_category":question_classifier::classify(&input.request.question).question_type,"job_id":input.request.job_id,"company_name":input.request.company_name,"job_description":input.request.job_description,"packet_id":input.packet_id,"missing_information":[input.missing_fact],"reason":input.reason,"required_input_type":input.required_input_type,"created_at":clock(tx).await?,"status":"needs_input","version":1,"profile_version":stamp.profile_version(),"context_digest":stamp.missing(),"answer":null,"evidence_note":"","draft_id":null});
-    sqlx::query("INSERT INTO owner_preferences(key,value,created_at,updated_at) VALUES($1,$2,clock_timestamp(),clock_timestamp()) ON CONFLICT(key) DO NOTHING").bind(key).bind(value).execute(&mut **tx).await.map_err(db)?;
+    sqlx::query("INSERT INTO owner_preferences(key,value,created_at,updated_at) VALUES($1,$2,clock_timestamp(),clock_timestamp()) ON CONFLICT(key) DO NOTHING").bind(key).bind(value).execute(&mut **tx).await.map_err(|error| {
+        if error.as_database_error().is_some_and(|e| matches!(e.code().as_deref(), Some("40001" | "40P01"))) {
+            Failure("missing_input_transaction_rollback")
+        } else { db(error) }
+    })?;
     let existing = row(tx, &id, profile, false).await?;
     if !missing_contract::matches_context(&existing.raw, profile, &input.request, input.packet_id) {
         return Err(Failure("missing_input_identity_collision"));

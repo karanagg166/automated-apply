@@ -3018,6 +3018,8 @@ include!("support/ollama_pg.rs");
 include!("support/notifications_pg.rs");
 include!("support/job_catalog_pg.rs");
 include!("support/packet_fields_pg.rs");
+include!("support/packet_context_pg.rs");
+include!("support/packet_service_pg.rs");
 include!("support/private_resume_pg.rs");
 include!("support/mcp_pg.rs");
 #[tokio::test(flavor = "current_thread")]

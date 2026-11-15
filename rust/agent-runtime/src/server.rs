@@ -135,6 +135,7 @@ fn profile_route(path: &str) -> bool {
         || resume_route(path).is_some()
         || crate::notifications::route(path).is_some()
         || crate::job_catalog::route(path).is_some()
+        || crate::packet_service::route(path).is_some()
 }
 fn resume_route(path: &str) -> Option<(&str, &str)> {
     let tail = path.strip_prefix("/api/v1/dashboard/resumes")?;
@@ -268,6 +269,7 @@ fn selected_resource(path: &str, method: &str, query: Option<&str>) -> Result<Op
         return Ok(None);
     }
     if crate::job_catalog::route(path).is_some()
+        || crate::packet_service::route(path).is_some()
         || (saved_match_route(path).is_some() && method == "GET")
     {
         return Ok(None);
@@ -357,6 +359,7 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
     }
     let method = request.method().as_str().to_owned();
     let path = request.uri().path().to_owned();
+    let packet_query = request.uri().query().map(str::to_owned);
     let job_page = match crate::job_catalog::Page::parse(
         if path == crate::job_catalog::JOBS && method == "GET" {
             request.uri().query()
@@ -501,6 +504,27 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
         }
     }
     let mut result = match state.value.as_mut() {
+        Some(connection) if crate::packet_service::route(&path).is_some() => {
+            crate::packet_service::dispatch(
+                connection,
+                &method,
+                &path,
+                packet_query.as_deref(),
+                &body,
+                &api.config.packets,
+                &api.config.answers,
+            )
+            .await
+            .map(|(data, created)| OwnerReply {
+                data,
+                status: if created {
+                    StatusCode::CREATED
+                } else {
+                    StatusCode::OK
+                },
+                etag: None,
+            })
+        }
         Some(connection) if crate::job_catalog::route(&path).is_some() => {
             crate::job_catalog::dispatch(connection, &method, &path, &job_page)
                 .await
@@ -767,6 +791,32 @@ fn profile_failure(error: Failure) -> Response {
     }
     let status = failure(error).status();
     let detail = match error.0 {
+        "packet_not_found" => "Application packet not found",
+        "packet_job_not_found" => "Saved job not found",
+        "packet_profile_required" => {
+            "Save a candidate profile before persisting an application packet"
+        }
+        "packet_idempotency_conflict" => {
+            "Idempotency key or candidate/job already belongs to a different packet request"
+        }
+        "packet_storage_conflict" | "packet_serialization_rollback" => {
+            "Application data conflict; reload before retrying"
+        }
+        "packet_multi_select_unavailable" => {
+            "Multiple selections require explicit enablement and an installed, permitted database capability; use manual handoff"
+        }
+        "invalid_packet_preparation" | "invalid_packet_page" | "invalid_packet_id" => {
+            "Application preparation request is invalid"
+        }
+        "packet_method_not_allowed" => "Method Not Allowed",
+        "packet_commit_outcome_unknown" => {
+            "Packet commit outcome is uncertain; inspect saved packets before retrying"
+        }
+        "packet_database_error"
+        | "invalid_packet_saved_record"
+        | "invalid_packet_context_record"
+        | "packet_context_inventory_limit"
+        | "packet_context_snapshot_required" => "Application storage unavailable",
         "resume_encryption_unavailable" => {
             "Configure the existing dedicated RESUME_ENCRYPTION_KEY before uploading a private resume"
         }
@@ -1355,6 +1405,22 @@ async fn dispatch(
 }
 fn failure(error: Failure) -> Response {
     let code = match error.0 {
+        "packet_not_found" | "packet_job_not_found" => StatusCode::NOT_FOUND,
+        "packet_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
+        "packet_idempotency_conflict"
+        | "packet_storage_conflict"
+        | "packet_serialization_rollback" => StatusCode::CONFLICT,
+        "packet_profile_required"
+        | "packet_multi_select_unavailable"
+        | "invalid_packet_preparation"
+        | "invalid_packet_page"
+        | "invalid_packet_id" => StatusCode::UNPROCESSABLE_ENTITY,
+        "packet_database_error"
+        | "packet_commit_outcome_unknown"
+        | "invalid_packet_saved_record"
+        | "invalid_packet_context_record"
+        | "packet_context_inventory_limit"
+        | "packet_context_snapshot_required" => StatusCode::SERVICE_UNAVAILABLE,
         "owner_authentication_required" => StatusCode::UNAUTHORIZED,
         "owner_peer_denied"
         | "owner_host_denied"
