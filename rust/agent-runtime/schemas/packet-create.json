@@ -1,0 +1,155 @@
+{
+  "$defs": {
+    "QuestionInput": {
+      "additionalProperties": false,
+      "properties": {
+        "category": {
+          "default": "unknown",
+          "enum": [
+            "personal_information",
+            "contact_information",
+            "professional_profile_url",
+            "education",
+            "experience",
+            "technical_skills",
+            "resume_upload",
+            "salary",
+            "notice_period",
+            "work_authorization",
+            "project_explanation",
+            "motivation",
+            "free_text",
+            "multiple_choice",
+            "yes_no",
+            "unknown"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "constraints": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Constraints"
+        },
+        "field_type": {
+          "default": "text",
+          "enum": [
+            "text",
+            "textarea",
+            "url",
+            "file",
+            "multiple_choice",
+            "yes_no",
+            "multi_select"
+          ],
+          "title": "Field Type",
+          "type": "string"
+        },
+        "max_characters": {
+          "default": 1500,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Max Characters",
+          "type": "integer"
+        },
+        "max_words": {
+          "anyOf": [
+            {
+              "maximum": 1500,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Words"
+        },
+        "options": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Options",
+          "type": "array"
+        },
+        "question": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "writing_style": {
+          "default": "professional",
+          "enum": [
+            "professional",
+            "conversational",
+            "technical",
+            "concise",
+            "founder_focused"
+          ],
+          "title": "Writing Style",
+          "type": "string"
+        }
+      },
+      "required": [
+        "question"
+      ],
+      "title": "QuestionInput",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "idempotency_key": {
+      "maxLength": 100,
+      "minLength": 8,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "questions": {
+      "items": {
+        "$ref": "#/$defs/QuestionInput"
+      },
+      "maxItems": 50,
+      "title": "Questions",
+      "type": "array"
+    },
+    "resume_resource_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Resume Resource Id"
+    }
+  },
+  "required": [
+    "idempotency_key"
+  ],
+  "title": "CreatePacket",
+  "type": "object"
+}

@@ -560,3 +560,29 @@ pub async fn generate(
     tx.commit().await.map_err(db)?;
     Ok(result)
 }
+
+/// Packet preparation can resolve facts and persist missing questions in its own
+/// transaction. It never commits, saves narrative drafts or dispatches inference.
+pub(crate) async fn factual_in(
+    tx: &mut Transaction<'_, Postgres>,
+    request: Generate,
+    settings: &Settings,
+) -> Result<Value> {
+    if request.rewrite
+        || request.save_draft
+        || matches!(
+            question_classifier::classify(&request.question).question_type,
+            "project_explanation"
+                | "technical_experience"
+                | "short_text"
+                | "motivation"
+                | "startup_interest"
+        )
+    {
+        return Err(Failure("packet_explicit_generation_required"));
+    }
+    match prepare(tx, request, settings).await? {
+        Prepared::Ready { request, result } => finish(tx, &request, result).await,
+        Prepared::Writing(_) => Err(Failure("packet_explicit_generation_required")),
+    }
+}

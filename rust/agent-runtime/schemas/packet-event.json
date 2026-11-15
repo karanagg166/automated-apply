@@ -1,0 +1,119 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "event_type": {
+      "title": "Event Type",
+      "type": "string"
+    },
+    "evidence_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Evidence Id"
+    },
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "next_state": {
+      "enum": [
+        "created",
+        "preparing",
+        "needs_input",
+        "ready_for_review",
+        "reviewed",
+        "approved_for_manual_handoff",
+        "external_application_opened",
+        "user_reported_submitted",
+        "provider_confirmed_submitted",
+        "submitting",
+        "submission_unknown",
+        "withdrawn",
+        "abandoned"
+      ],
+      "title": "Next State",
+      "type": "string"
+    },
+    "note": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Note"
+    },
+    "origin": {
+      "enum": [
+        "owner_rest",
+        "system",
+        "local_worker"
+      ],
+      "title": "Origin",
+      "type": "string"
+    },
+    "packet_id": {
+      "format": "uuid",
+      "title": "Packet Id",
+      "type": "string"
+    },
+    "packet_revision": {
+      "title": "Packet Revision",
+      "type": "integer"
+    },
+    "previous_state": {
+      "anyOf": [
+        {
+          "enum": [
+            "created",
+            "preparing",
+            "needs_input",
+            "ready_for_review",
+            "reviewed",
+            "approved_for_manual_handoff",
+            "external_application_opened",
+            "user_reported_submitted",
+            "provider_confirmed_submitted",
+            "submitting",
+            "submission_unknown",
+            "withdrawn",
+            "abandoned"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Previous State"
+    }
+  },
+  "required": [
+    "id",
+    "packet_id",
+    "event_type",
+    "previous_state",
+    "next_state",
+    "packet_revision",
+    "origin",
+    "evidence_id",
+    "note",
+    "created_at"
+  ],
+  "title": "ApplicationEventRead",
+  "type": "object"
+}
