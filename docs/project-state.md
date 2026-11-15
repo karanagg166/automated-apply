@@ -27,6 +27,14 @@ review/approval, per-platform controls or the Naukri4/hourly1/first-receipt fenc
 claim a search feed, account or tracking entry as an actual application receipt. The owner
 requests continued execution until full scope completion; current goal remains ACTIVE.
 
+Expanded-platform/MCP source `4b9c05add5eb558b6c08408dc38c6b0c7e19ca9d` registers the official
+Himalayas HTTP MCP in project VS Code config. Actual native HTTPS initialization,78-tool
+catalog and one public Rust/India/entry-level search passed (three requests; five reported
+jobs). No account token/write tool/application action. Runtime curation/ingestion and all
+new account/form/receipt acceptance remain pending. See [the qualified report](acceptance/expanded-platforms-and-himalayas-mcp-20261115.md)
+and [the delivery plan](plans/expanded-platforms-20261115.md). Pending packet-generation
+source work remains separate; continue it without undoing the owner's added scope.
+
 ## Continuity
 
 `uv run --no-project python scripts/project_continuity.py snapshot` preserves available
