@@ -15,6 +15,13 @@ from backend.tests.test_naukri_background_queue import call, setup
 from backend.tests.test_naukri_upload_preflight import upload_case as upload_case
 
 
+async def test_operator_helper_refuses_suspended_webui_before_loading_configuration(tmp_path):
+    from backend.scripts.request_naukri_maintenance import request_setup
+
+    with pytest.raises(ValueError, match="^extension_manager_navigation_suspended$"):
+        await request_setup(tmp_path / "missing-private-env")
+
+
 async def prepare(session):
     context = await setup(session)
     config = await queue.configuration(session)
