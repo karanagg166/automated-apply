@@ -117,6 +117,16 @@ preferences/synchronization and the remaining services still need ports. See
 work is the complete saved-jobs listing/detail/match/shortlist flow while Profile8 remains
 offline and the owner's physical browser step is pending.
 
+Saved-job screen milestone `2195b4c8ac9b144138912eb9309171bace790a05` ports complete listing,
+full17-field details, GET/POST matching and row-locked shortlisting. Fresh129 standard
++140 disposable PostgreSQL tests pass (269 distinct); Clippy/format/diff pass. No-op
+timestamps, method-specific match lookup order, concurrent progression and suppressed
+updates are covered; no production job write or application authority. See
+[the job catalog report](acceptance/rust-job-catalog-20261115.md). Continue application
+packet lifecycle/review/readiness and immutable snapshots next, preserving all legacy
+queue/admission/quarantine constraints. Native Profile8 remains offline; the owner's
+physical browser step is still pending and must not be inferred from “continue”.
+
 ## Remaining acceptance
 
 Finish and test PDF, Rust service/API/browser/application/Gmail ports and integrations.
