@@ -24,6 +24,12 @@ The seven routes, context construction and atomic persistence are implemented at
 [qualified API acceptance](../acceptance/rust-packet-preparation-api-20261115.md).
 The full packet lifecycle, execution/browser integration and installed acceptance remain open.
 
+`2ffe01b8cee2bc5db032010b29321646941b2c4e` adds the three owner refresh/question-add/human-answer
+routes with revision archives, CAS, material locks, approval clearing and explicit write
+acknowledgements. See [qualified edit acceptance](../acceptance/rust-packet-edits-20261115.md).
+Remaining lifecycle work is explicit generation, exact human review/approval, handoff,
+outcomes/tracking and execution/notification coordination.
+
 Implemented preparation prerequisites at `0171faddbca9613c6390b125e9323ffae2869336`:
 `packet_contract` validates owner preparation input; `packet_platform` preserves all ten
 existing local adapter rules; `packet_fields` maps checklist fields and uses a caller-owned

@@ -156,8 +156,18 @@ with std preserves datetime parsing without nightly. Naive expiry fails closed. 
 fictional; no owner data/browser/model call, production install, receipt or resource claim.
 See [the API acceptance report](acceptance/rust-packet-preparation-api-20261115.md).
 
-Next finish packet edits, immutable revision archives, answer generation/review, manual
-handoff/outcomes and execution/notification coordination. Do not expose working-looking
+Packet edit milestone `2ffe01b8cee2bc5db032010b29321646941b2c4e` adds the three Rust owner
+refresh/question-add/human-answer routes, prior revision archives, material write locks,
+CAS and approval clearing. Explicit resume selection,100-field cap, exact choice/length,
+stale/closed/foreign/upload fences and write acknowledgements are enforced. Fresh139
+standard +158 native disposable PG tests pass (297 distinct); Clippy/format/diff,68 DTO
+and four actual archive-expression oracle checks plus Ruff pass. Eight new native cases
+cover HTTP readback, races, failed/suppressed writes, archive rollback, concurrent profile
+corrections and real guard-validated approval clearing. No new dependency/production/model
+action or runtime install. See [the edit report](acceptance/rust-packet-edits-20261115.md).
+
+Next finish explicit packet answer generation, human review/approval, manual handoff/outcomes
+and execution/notification coordination. Do not expose working-looking
 routes with missing execution or owner-review side effects. Browser intake/worker,
 Gmail/Drive/legacy Telegram/CLI/fallback/rearranger/AGY and real platform/installed/resource
 acceptance remain pending. List context batching still needs optimization/measurement.
