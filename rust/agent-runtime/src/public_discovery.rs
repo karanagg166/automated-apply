@@ -82,9 +82,14 @@ pub struct Job {
     pub source_id: String,
     pub title: String,
     pub company_name: Option<String>,
+    /// Canonical attribution/deduplication identity; never use as an Apply override.
     pub source_url: String,
+    /// Original validated provider link, including its query and fragment.
+    pub application_url: String,
     pub description: String,
+    pub description_truncated: bool,
     pub published_at: Option<String>,
+    pub source_updated_at: Option<String>,
     pub expires_at: Option<String>,
     pub location_restrictions: Value,
     pub timezone_restrictions: Value,
@@ -119,6 +124,11 @@ fn optional(value: &Value, max: usize) -> Result<Option<String>> {
     }
 }
 fn source_url(platform: Platform, s: &str) -> Result<String> {
+    if s.bytes()
+        .any(|b| b.is_ascii_control() || b.is_ascii_whitespace())
+    {
+        return Err(invalid());
+    }
     let mut url = reqwest::Url::parse(s).map_err(|_| invalid())?;
     if url.scheme() != "https"
         || url.host_str() != Some(platform.host())
@@ -195,18 +205,26 @@ pub fn himalayas(bytes: &[u8]) -> Result<Batch> {
     let mut seen = HashSet::new();
     for row in rows {
         let parsed = (|| {
+            let application_url = row["applicationLink"].as_str().ok_or_else(invalid)?;
+            let canonical_url = source_url(Platform::Himalayas, application_url)?;
             Ok(Job {
                 source_id: text(&row["guid"], 512)?,
                 title: text(&row["title"], 255)?,
                 company_name: optional(&row["companyName"], 255)?,
-                source_url: source_url(Platform::Himalayas, &text(&row["applicationLink"], 2048)?)?,
+                source_url: canonical_url,
+                application_url: application_url.into(),
                 description: row["description"]
                     .as_str()
                     .unwrap_or("")
                     .chars()
                     .take(2048)
                     .collect(),
-                published_at: timestamp(&row["pubDate"])?,
+                description_truncated: row["description"]
+                    .as_str()
+                    .is_some_and(|s| s.chars().nth(2048).is_some()),
+                // Himalayas documents pubDate as last updated, not original posting age.
+                published_at: None,
+                source_updated_at: timestamp(&row["pubDate"])?,
                 expires_at: timestamp(&row["expiryDate"])?,
                 location_restrictions: restrictions(&row["locationRestrictions"])?,
                 timezone_restrictions: restrictions(&row["timezoneRestrictions"])?,
@@ -231,8 +249,38 @@ pub fn himalayas(bytes: &[u8]) -> Result<Batch> {
     }
     Ok(batch)
 }
-fn rss_job(fields: BTreeMap<String, String>) -> Result<Job> {
-    let get = |key: &str| fields.get(key).map(String::as_str).unwrap_or("").trim();
+#[derive(Default)]
+struct RssItem {
+    fields: BTreeMap<String, String>,
+    description_truncated: bool,
+}
+impl RssItem {
+    fn append(&mut self, key: &str, value: &str) -> Result<()> {
+        let entry = self.fields.entry(key.into()).or_default();
+        if key == "description" {
+            // Retain a bounded preview even when a valid provider item embeds huge HTML.
+            // XML tokens are still parsed and the complete response stays under MAX_BYTES.
+            let remaining = 2048_usize.saturating_sub(entry.chars().count());
+            let mut characters = value.chars();
+            entry.extend(characters.by_ref().take(remaining));
+            self.description_truncated |= characters.next().is_some();
+        } else {
+            if entry.len() + value.len() > 65536 {
+                return Err(invalid());
+            }
+            entry.push_str(value);
+        }
+        Ok(())
+    }
+}
+fn rss_job(item: RssItem) -> Result<Job> {
+    let get = |key: &str| {
+        item.fields
+            .get(key)
+            .map(String::as_str)
+            .unwrap_or("")
+            .trim()
+    };
     let full = get("title");
     if full.is_empty() || full.chars().count() > 512 {
         return Err(invalid());
@@ -265,8 +313,11 @@ fn rss_job(fields: BTreeMap<String, String>) -> Result<Job> {
         title,
         company_name: company,
         source_url: url,
+        application_url: get("link").into(),
         description: get("description").chars().take(2048).collect(),
+        description_truncated: item.description_truncated,
         published_at: date,
+        source_updated_at: None,
         expires_at: None,
         location_restrictions: Value::Null,
         timezone_restrictions: Value::Null,
@@ -286,7 +337,7 @@ pub fn we_work_remotely(bytes: &[u8]) -> Result<Batch> {
     std::str::from_utf8(bytes).map_err(|_| invalid())?;
     let mut reader = Reader::from_reader(bytes);
     let mut stack: Vec<String> = vec![];
-    let mut item: Option<BTreeMap<String, String>> = None;
+    let mut item: Option<RssItem> = None;
     let mut batch = Batch {
         platform: Platform::WeWorkRemotely,
         jobs: vec![],
@@ -319,7 +370,7 @@ pub fn we_work_remotely(bytes: &[u8]) -> Result<Batch> {
                     if item_count > 1000 {
                         return Err(Failure("public_feed_item_limit"));
                     }
-                    item = Some(BTreeMap::new());
+                    item = Some(RssItem::default());
                 }
                 stack.push(name);
             }
@@ -346,41 +397,29 @@ pub fn we_work_remotely(bytes: &[u8]) -> Result<Batch> {
                 }
             }
             Event::Text(e) => {
-                if let Some(fields) = item.as_mut()
+                if let Some(item) = item.as_mut()
                     && stack.len() == 4
                 {
                     let value: &str = e.as_ref();
-                    let entry = fields.entry(stack[3].clone()).or_default();
-                    if entry.len() + value.len() > 65536 {
-                        return Err(invalid());
-                    }
-                    entry.push_str(value);
+                    item.append(&stack[3], value)?;
                 }
             }
             Event::CData(e) => {
-                if let Some(fields) = item.as_mut()
+                if let Some(item) = item.as_mut()
                     && stack.len() == 4
                 {
                     let value: &str = e.as_ref();
-                    let entry = fields.entry(stack[3].clone()).or_default();
-                    if entry.len() + value.len() > 65536 {
-                        return Err(invalid());
-                    }
-                    entry.push_str(value);
+                    item.append(&stack[3], value)?;
                 }
             }
             Event::GeneralRef(e) => {
-                if let Some(fields) = item.as_mut()
+                if let Some(item) = item.as_mut()
                     && stack.len() == 4
                 {
                     let name: &str = e.as_ref();
                     let encoded = format!("&{name};");
                     let value = quick_xml::escape::unescape(&encoded).map_err(|_| invalid())?;
-                    let entry = fields.entry(stack[3].clone()).or_default();
-                    if entry.len() + value.len() > 65536 {
-                        return Err(invalid());
-                    }
-                    entry.push_str(&value);
+                    item.append(&stack[3], &value)?;
                 }
             }
             Event::DocType(_) => return Err(Failure("public_feed_doctype_denied")),
