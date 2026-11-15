@@ -2,9 +2,11 @@
 
 import uuid
 from datetime import datetime
-from sqlalchemy import String, Text, Integer, Boolean, DateTime, UniqueConstraint
+
+from sqlalchemy import Boolean, DateTime, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
-from backend.app.models.base import Base, GUID, TimestampMixin
+
+from backend.app.models.base import GUID, Base, TimestampMixin
 
 
 class ApiKeyPool(Base, TimestampMixin):

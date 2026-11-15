@@ -1,14 +1,16 @@
 """Extended adapter contract; legacy callers may still request a list of jobs."""
 
-from abc import ABC, abstractmethod
 import asyncio
+from abc import ABC, abstractmethod
 from typing import Any
+
 import httpx
+
 from backend.app.schemas.discovery import (
+    DiscoveryError,
     DiscoveryQuery,
     DiscoveryResult,
     DiscoveryStatus,
-    DiscoveryError,
 )
 from backend.app.schemas.normalized_job import NormalizedJob
 

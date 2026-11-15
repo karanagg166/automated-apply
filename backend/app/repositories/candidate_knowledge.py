@@ -1,18 +1,29 @@
 """Candidate-scoped persistence. Callers own transactions, except AI usage reservations."""
 from datetime import datetime, timezone
 
-from sqlalchemy import select, case, cast, String, func
-from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import String, case, cast, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.app.models.application_answer import CandidateResource, CandidateEvidence, ApplicationAnswerDraft
+from backend.app.models.application_answer import (
+    ApplicationAnswerDraft,
+    CandidateEvidence,
+    CandidateResource,
+)
 from backend.app.repositories.candidate_profile import (
-    CandidateProfileRepository, ProfileConflictError, ProfileNotFoundError, ProfilePreconditionError,
+    CandidateProfileRepository,
+    ProfileConflictError,
+    ProfileNotFoundError,
+    ProfilePreconditionError,
 )
 from backend.app.schemas.candidate_profile import CandidateProfileUpdate
-from backend.app.schemas.candidate_resources import EvidenceWrite, EvidencePatch, ResourceWrite
+from backend.app.schemas.candidate_resources import (
+    EvidencePatch,
+    EvidenceWrite,
+    ResourceWrite,
+)
 
 STANDARD_FIELDS = {"github": "github_url", "linkedin": "linkedin_url", "portfolio": "portfolio_url"}
 

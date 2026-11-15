@@ -4,9 +4,10 @@ from typing import Literal
 from uuid import UUID
 
 from pydantic import Field, TypeAdapter, model_validator
+
 from backend.app.ai.schemas import Contract
 from backend.app.core.urls import PublicHTTPSURL
-from backend.app.schemas.candidate_profile import ShortText, LongText, VerifiedProject
+from backend.app.schemas.candidate_profile import LongText, ShortText, VerifiedProject
 
 ResourceType = Literal["resume", "github", "linkedin", "portfolio", "leetcode", "codeforces", "geeksforgeeks", "hackerrank", "kaggle", "other"]
 EvidenceType = Literal["project", "experience", "achievement", "resume_note", "other"]

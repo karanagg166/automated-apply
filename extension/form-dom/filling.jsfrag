@@ -1,0 +1,504 @@
+    const isCustomWidgetUnanswered = (widget, controls) => {
+      const innerInputs = [
+        ...widget.querySelectorAll("input,textarea,select"),
+      ].filter(visible);
+      if (innerInputs.length) {
+        return innerInputs.every((input) => unanswered(input, controls));
+      }
+      const isEditor = widget.matches(
+        '[contenteditable="true"],[role="textbox"]',
+      );
+      if (isEditor) {
+        return !clean(widget.textContent);
+      }
+      const val = clean(
+        widget.getAttribute("data-value") ||
+          widget.getAttribute("aria-valuetext") ||
+          widget.getAttribute("aria-valuenow") ||
+          widget.getAttribute("value"),
+      );
+      if (val) return false;
+      if (widget.querySelector?.('[aria-selected="true"]')) return false;
+      const controlsId =
+        widget.getAttribute("aria-controls") ||
+        widget.getAttribute("aria-owns");
+      if (controlsId) {
+        const listbox = document.getElementById(controlsId);
+        if (listbox?.querySelector?.('[aria-selected="true"]')) return false;
+      }
+      return true;
+    };
+
+    const isCustomWidgetIncomplete = (widget, controls) => {
+      if (widget.matches("input,textarea,select")) return false;
+      if (widget.disabled || widget.getAttribute("aria-disabled") === "true")
+        return false;
+      if (!isRequired(widget)) return false;
+      if (isInvalid(widget)) return true;
+      return isCustomWidgetUnanswered(widget, controls);
+    };
+
+    const incompleteRequired = () => {
+      const controls = [
+        ...document.querySelectorAll("input,textarea,select"),
+      ].filter(visible);
+      const nativeIncomplete = controls.some(
+        (el) =>
+          !el.disabled &&
+          isRequired(el) &&
+          (unanswered(el, controls) || !el.validity.valid || isInvalid(el)),
+      );
+      if (nativeIncomplete) return true;
+
+      const customWidgets = [
+        ...document.querySelectorAll(
+          '[role="combobox"],[role="listbox"]:not(select),lyte-dropdown,lyte-select,lyte-autocomplete,crux-picklist-component,[contenteditable="true"],[role="textbox"]:not(input):not(textarea),[aria-required="true"]',
+        ),
+      ].filter(visible);
+
+      return customWidgets.some((widget) =>
+        isCustomWidgetIncomplete(widget, controls),
+      );
+    };
+
+    const actualValue = (el, kind) =>
+      kind === "select" && el.tagName === "SELECT"
+        ? clean(el.selectedOptions[0]?.textContent)
+        : ["radio", "checkbox"].includes(kind)
+          ? String(el.checked)
+          : el.value;
+
+    globalThis[key] = (req) => {
+      if (req.operation === "inspect")
+        return inspect(
+          req.only_empty === true,
+          req.interactions_allowed === true,
+        );
+      if (req.operation === "cancel_fill" && req.document_id === documentId) {
+        fillCancelled = true;
+        return {
+          state: "manual_required",
+          reason: "form_cancelled_reprepare_required",
+          results: [],
+          submitted: false,
+        };
+      }
+      if (
+        !last ||
+        req.document_id !== documentId ||
+        location.href !== last.url ||
+        !["ready", "validation_errors"].includes(last.state)
+      )
+        return {
+          state: "manual_required",
+          reason: "step_changed",
+          results: [],
+          submitted: false,
+        };
+      if (req.operation === "arm_submission") {
+        submitArmed = true;
+        return true;
+      }
+      if (req.operation === "validate_fill")
+        return validateSnapshot(req) || { state: "ready", submitted: false };
+      if (req.operation === "verify_fill") {
+        const changed = validateSnapshot(req);
+        const results = [...appliedValues].map(([field_id, value]) => {
+          const ref = refs.get(field_id);
+          return {
+            field_id,
+            status: !ref.el.validity.valid
+              ? "validation_error"
+              : actualValue(ref.el, ref.field.kind) === value
+                ? "filled"
+                : "failed",
+          };
+        });
+        return (
+          changed || {
+            state:
+              incompleteRequired() || results.some((r) => r.status !== "filled")
+                ? "needs_input"
+                : "form_filled",
+            results,
+            submitted: false,
+          }
+        );
+      }
+      if (req.operation === "upload_element") {
+        if (validateSnapshot(req)) return null;
+        const ref = refs.get(req.field_id);
+        return ref?.field.kind === "file" &&
+          !ref.el.files.length &&
+          ref.el.isConnected &&
+          visible(ref.el) &&
+          ref.el.type === "file" &&
+          label(ref.el) === ref.field.label
+          ? ref.el
+          : null;
+      }
+      if (req.operation === "next") {
+        const changed = validateSnapshot(req);
+        if (changed) return changed;
+        const controls = [
+          ...document.querySelectorAll("input,textarea,select"),
+        ].filter(visible);
+        if (
+          controls.some(
+            (el) =>
+              !el.disabled &&
+              isRequired(el) &&
+              (unanswered(el, controls) || !el.validity.valid || isInvalid(el)),
+          )
+        )
+          return { state: "manual_required", results: [], submitted: false };
+        const candidates = [...document.querySelectorAll("button")].filter(
+          (el) =>
+            visible(el) &&
+            el.type === "button" &&
+            /^(next|continue)$/i.test(clean(el.textContent)),
+        );
+        if (candidates.length !== 1 || !last.has_next)
+          return { state: "manual_required", results: [], submitted: false };
+        touched = true;
+        candidates[0].click();
+        return { state: "progressed", submitted: false };
+      }
+      if (
+        !["fill", "verify_submission"].includes(req.operation) ||
+        !Array.isArray(req.actions) ||
+        req.actions.length > 24
+      )
+        return { state: "failed", results: [], submitted: false };
+
+      if (req.operation === "fill") {
+        if (
+          fillConsumed ||
+          new Set(req.actions.map((a) => a.field_id)).size !==
+            req.actions.length
+        )
+          return {
+            state: "manual_required",
+            reason: "step_changed",
+            results: [],
+            submitted: false,
+          };
+        fillConsumed = true;
+      }
+      const initialError = validateSnapshot(req);
+      if (initialError) return initialError;
+      const currentControls = [
+        ...document.querySelectorAll("input,textarea,select"),
+      ].filter(visible);
+
+      if (req.operation === "verify_submission") {
+        for (const [id, ref] of refs) {
+          const action = req.actions.find((a) => a.field_id === id);
+          const el = ref.el;
+          if (!el.validity.valid || el.getAttribute("aria-invalid") === "true")
+            return { state: "manual_required" };
+          if (ref.field.kind === "file") {
+            if (el.files.length !== (action ? 1 : 0))
+              return { state: "manual_required" };
+          } else {
+            const value = ["checkbox", "radio"].includes(ref.field.kind)
+              ? String(el.checked)
+              : ref.field.kind === "select"
+                ? clean(el.selectedOptions[0]?.textContent)
+                : el.value;
+            if (
+              action ? value !== action.value : !["", "false"].includes(value)
+            )
+              return { state: "manual_required" };
+          }
+        }
+        return { state: "verified" };
+      }
+
+      // Snapshot unanswered and user-modified status before mutating any control in a group.
+      const canFill = new Map();
+      for (const [id, ref] of refs) {
+        const el = ref.el;
+        const isUnansweredNow = unanswered(el, currentControls);
+        const modifiedSinceInspect =
+          userEdited.has(el) ||
+          (ref.field.kind === "select"
+            ? el.selectedIndex !== ref.initialSelectedIndex
+            : ["checkbox", "radio"].includes(ref.field.kind)
+              ? el.checked !== ref.initialChecked
+              : el.value !== ref.initialValue);
+        canFill.set(id, isUnansweredNow && !modifiedSinceInspect);
+      }
+
+      touched = true;
+      const pendingResults = [];
+      const filledControls = new Set();
+      let interrupted = null;
+      const applyActions = function* () {
+        for (const action of req.actions) {
+          // Input/change handlers can navigate, replace controls or change the
+          // destination synchronously. Recheck the reviewed page before EACH write.
+          interrupted = validateSnapshot(req);
+          if (interrupted) break;
+          const { el, field, options } = refs.get(action.field_id);
+          const peers =
+            field.kind === "radio"
+              ? radioPeers(el, currentControls)
+              : field.kind === "checkbox"
+                ? checkboxPeers(el, currentControls)
+                : [];
+          // A page handler can populate another option after an earlier field's
+          // input event. Preserve that selection, including indeterminate values.
+          const groupChanged = peers.some(
+            (peer) =>
+              (peer.checked || peer.indeterminate) && !filledControls.has(peer),
+          );
+          const valueChanged =
+            field.kind === "select"
+              ? el.selectedIndex !==
+                refs.get(action.field_id).initialSelectedIndex
+              : ["radio", "checkbox"].includes(field.kind)
+                ? el.checked !== refs.get(action.field_id).initialChecked
+                : el.value !== refs.get(action.field_id).initialValue;
+          if (
+            !canFill.get(action.field_id) ||
+            groupChanged ||
+            userEdited.has(el) ||
+            valueChanged
+          ) {
+            pendingResults.push({
+              field_id: action.field_id,
+              status: "untouched",
+            });
+            continue;
+          }
+          if (
+            field.preview_only ||
+            field.kind === "file" ||
+            typeof action.value !== "string"
+          ) {
+            pendingResults.push({
+              field_id: action.field_id,
+              status: "untouched",
+            });
+            continue;
+          }
+          if (isConsentControl(el, field.group_label || "")) {
+            pendingResults.push({
+              field_id: action.field_id,
+              status: "untouched",
+            });
+            continue;
+          }
+          if (
+            req.only_empty === true &&
+            isFrameworkControlled(el) &&
+            req.interaction_authorized !== true
+          ) {
+            pendingResults.push({
+              field_id: action.field_id,
+              status: "failed",
+            });
+            continue;
+          }
+          if (action.value.length > field.max_length) {
+            pendingResults.push({
+              field_id: action.field_id,
+              status: "failed",
+            });
+            continue;
+          }
+          // Website events may autosave. They require a separate explicit review.
+          if (req.interaction_authorized === true) {
+            el.focus();
+            interrupted = validateSnapshot(req);
+            if (interrupted) break;
+          }
+          if (["checkbox", "radio"].includes(field.kind)) {
+            if (!["true", "false"].includes(action.value)) {
+              pendingResults.push({
+                field_id: action.field_id,
+                status: "failed",
+              });
+              continue;
+            }
+            const checked = action.value === "true";
+            if (
+              (req.emit_events === true ||
+                req.interaction_authorized === true) &&
+              el.checked !== checked
+            ) {
+              // React's controlled checkbox/radio change plugin observes click,
+              // not a checked assignment followed by synthetic input/change.
+              // The worker's network/submission guard stays active for this event.
+              el.click();
+            } else {
+              el.checked = checked;
+            }
+          } else if (field.kind === "select" && el.tagName !== "SELECT") {
+            const choices = refs.get(action.field_id).choices;
+            const index = choices?.labels.indexOf(action.value) ?? -1;
+            if (
+              !choices ||
+              index < 0 ||
+              (!choices.native && req.interaction_authorized !== true)
+            ) {
+              pendingResults.push({
+                field_id: action.field_id,
+                status: "failed",
+              });
+              continue;
+            }
+            if (choices.native) {
+              if (choices.options[index].value !== action.value) {
+                pendingResults.push({
+                  field_id: action.field_id,
+                  status: "failed",
+                });
+                continue;
+              }
+              Object.getOwnPropertyDescriptor(
+                HTMLInputElement.prototype,
+                "value",
+              ).set.call(el, action.value);
+            } else {
+              // Exact already-visible option only. The site's handler must retain
+              // its own selected value; the extension never forges that value.
+              refs.get(action.field_id).choiceClicked = action.value;
+              choices.options[index].click();
+            }
+          } else if (field.kind === "select") {
+            const matches = options.filter(
+              (o) =>
+                !o.disabled &&
+                !o.hidden &&
+                !isPlaceholderSelectOption(o, o.index) &&
+                clean(o.textContent) === action.value,
+            );
+            if (matches.length !== 1) {
+              pendingResults.push({
+                field_id: action.field_id,
+                status: "failed",
+              });
+              continue;
+            }
+            el.selectedIndex = matches[0].index;
+          } else {
+            if (["date", "month"].includes(field.kind)) {
+              const probe = document.createElement("input");
+              probe.type = field.kind;
+              probe.min = el.min;
+              probe.max = el.max;
+              probe.step = el.step;
+              probe.value = action.value;
+              if (probe.value !== action.value || !probe.validity.valid) {
+                pendingResults.push({
+                  field_id: action.field_id,
+                  status: "failed",
+                });
+                continue;
+              }
+            }
+            const proto =
+              field.kind === "textarea"
+                ? HTMLTextAreaElement.prototype
+                : HTMLInputElement.prototype;
+            Object.getOwnPropertyDescriptor(proto, "value").set.call(
+              el,
+              action.value,
+            );
+          }
+          if (
+            (req.emit_events === true || req.interaction_authorized === true) &&
+            !["checkbox", "radio"].includes(field.kind)
+          ) {
+            el.dispatchEvent(new Event("input", { bubbles: true }));
+            interrupted = validateSnapshot(req);
+            if (!interrupted)
+              el.dispatchEvent(new Event("change", { bubbles: true }));
+          }
+          if (req.interaction_authorized === true) el.blur();
+          filledControls.add(el);
+          appliedValues.set(action.field_id, action.value);
+          pendingResults.push({
+            field_id: action.field_id,
+            el,
+            checkValidity: true,
+            expectedValue: action.value,
+            kind: field.kind,
+          });
+          if (req.interaction_authorized === true) yield;
+        }
+
+        interrupted = interrupted || validateSnapshot(req);
+        const results = pendingResults.map((item) =>
+          item.checkValidity
+            ? {
+                field_id: item.field_id,
+                status: !item.el.isConnected
+                  ? "failed"
+                  : !item.el.validity.valid || isInvalid(item.el)
+                    ? "validation_error"
+                    : actualValue(item.el, item.kind) === item.expectedValue
+                      ? "filled"
+                      : "failed",
+              }
+            : item,
+        );
+        stopObserving();
+        return {
+          ...(interrupted ? { reason: interrupted.reason } : {}),
+          state: interrupted
+            ? "manual_required"
+            : incompleteRequired() || results.some((r) => r.status !== "filled")
+              ? "needs_input"
+              : "form_filled",
+          results,
+          submitted: false,
+        };
+      };
+      const execution = applyActions();
+      if (req.interaction_authorized === true) {
+        interactiveExecution = true;
+        return (async () => {
+          let step = execution.next();
+          while (!step.done) {
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            step = execution.next();
+          }
+          const result = step.value;
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          const changed = validateSnapshot(req);
+          for (const item of result.results) {
+            if (item.status !== "filled") continue;
+            const ref = refs.get(item.field_id);
+            if (
+              !ref?.el.isConnected ||
+              actualValue(ref.el, ref.field.kind) !==
+                appliedValues.get(item.field_id)
+            )
+              item.status = "failed";
+            else if (!ref.el.validity.valid || isInvalid(ref.el))
+              item.status = "validation_error";
+          }
+          interactiveExecution = false;
+          if (changed)
+            return {
+              ...result,
+              state: "manual_required",
+              reason: changed.reason,
+            };
+          if (result.results.some((item) => item.status !== "filled"))
+            result.state = "needs_input";
+          return { ...result, verification: "retained_after_blur" };
+        })().finally(() => {
+          interactiveExecution = false;
+        });
+      }
+      let step = execution.next();
+      while (!step.done) step = execution.next();
+      return step.value;
+    };
+  }
+  return globalThis[key](request);
+}

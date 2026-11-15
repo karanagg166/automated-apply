@@ -153,7 +153,7 @@ pub fn normalize(operation: Operation, input: Value) -> Result<Value> {
                     if matches!(operation, Operation::Patch) {
                         project
                             .as_object_mut()
-                            .unwrap()
+                            .ok_or_else(invalid)?
                             .retain(|key, _| value.get(key).is_some());
                     }
                     project
@@ -213,7 +213,7 @@ pub fn merge_evidence(current: Value, patch: Value) -> Result<Value> {
         .contains(&key.as_str())
     });
     let patch = normalize(Operation::Patch, patch)?;
-    let changes = patch.as_object().unwrap();
+    let changes = patch.as_object().ok_or_else(invalid)?;
     if !changes.contains_key("user_confirmed") && changes.keys().any(|key| key != "user_confirmed")
     {
         base.insert("user_confirmed".into(), json!(false));

@@ -155,8 +155,7 @@ async fn apply_in(
 ) -> Result<Value> {
     let now = Utc::now();
     let claim =
-        packet_mutation::locked_in(tx, packet, input.expected_revision, true, settings, now)
-            .await?;
+        packet_mutation::locked_in(tx, packet, input.expected_revision, true, settings).await?;
     if claim.material.snapshot["context_digest"] != initial.digest {
         return Err(Failure("packet_context_changed"));
     }

@@ -114,7 +114,7 @@ async def test_online_launcher_status_does_not_take_owner_lock(db_session, monke
         "verified_via": "owner_selected_chrome_version_page"}
     for key, value in [("chr_fixed_profile", mapping), ("chr_selection", {"profile_binding_id": binding}),
             ("naukri_automation", {"state": "RUNNING"}),
-            ("chr_prof:" + binding, {"connected": True, "last_heartbeat": now().isoformat()})]:
+            ("chr_prof:" + binding, {"connected": True, "window_id": 19, "last_heartbeat": now().isoformat()})]:
         db_session.add(OwnerPreference(key=key, value=value))
     await db_session.commit()
 

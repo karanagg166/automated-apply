@@ -5,24 +5,24 @@ from backend.app.schemas.company import (
     CompanyRead,
     CompanyUpdate,
 )
-from backend.app.schemas.job import (
-    JobCreate,
-    JobRead,
-    JobUpdate,
-    JobStatus,
-)
 from backend.app.schemas.contact import (
     ContactCreate,
     ContactRead,
     ContactUpdate,
-    EmailVerificationStatus,
     EmailCandidate,
+    EmailVerificationStatus,
 )
 from backend.app.schemas.credit import (
     ApiKeyPoolCreate,
     ApiKeyPoolRead,
     CreditBudgetStatus,
     ProviderUsageRecord,
+)
+from backend.app.schemas.job import (
+    JobCreate,
+    JobRead,
+    JobStatus,
+    JobUpdate,
 )
 from backend.app.schemas.normalized_job import (
     NormalizedJob,

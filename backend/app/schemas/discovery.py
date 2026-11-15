@@ -2,7 +2,9 @@
 
 from enum import StrEnum
 from typing import Annotated, Any, Literal
+
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+
 from backend.app.schemas.normalized_job import NormalizedJob
 
 Text = Annotated[

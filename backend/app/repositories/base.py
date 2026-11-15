@@ -1,9 +1,11 @@
 """Generic base repository defining common async database interactions."""
 
-from typing import Generic, TypeVar, Type, Any
+from typing import Any, Generic, Type, TypeVar
 from uuid import UUID
-from sqlalchemy import select, update, delete
+
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.app.models.base import Base
 
 ModelType = TypeVar("ModelType", bound=Base)

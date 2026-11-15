@@ -16,6 +16,7 @@ pub struct Settings {
     pub policy: Policy,
     pub multi_select: bool,
     pub schema: String,
+    pub telegram_notices: bool,
 }
 pub(crate) fn db(error: sqlx::Error) -> Failure {
     match error.as_database_error().and_then(|e| e.code()).as_deref() {
@@ -205,6 +206,23 @@ pub(crate) async fn read_in(
     settings: &Settings,
     now: DateTime<Utc>,
 ) -> Result<Value> {
+    read_context_in(tx, packet, settings, now, false).await
+}
+pub(crate) async fn read_locked_in(
+    tx: &mut Transaction<'_, Postgres>,
+    packet: Uuid,
+    settings: &Settings,
+    now: DateTime<Utc>,
+) -> Result<Value> {
+    read_context_in(tx, packet, settings, now, true).await
+}
+async fn read_context_in(
+    tx: &mut Transaction<'_, Postgres>,
+    packet: Uuid,
+    settings: &Settings,
+    now: DateTime<Utc>,
+    lock_context: bool,
+) -> Result<Value> {
     // This parent lock covers every following field/evidence read until the caller commits.
     let raw: Option<Value> =
         sqlx::query_scalar("SELECT to_jsonb(p) FROM application_packets p WHERE id=$1 FOR SHARE")
@@ -214,17 +232,15 @@ pub(crate) async fn read_in(
             .map_err(db)?;
     let raw = raw.ok_or(Failure("packet_not_found"))?;
     let snapshot = packet_record::normalize(Kind::Snapshot, raw["snapshot"].clone())?;
-    let current = packet_context::load_in(
-        tx,
-        id(&raw["job_id"])?,
-        raw["resume_resource_id"]
-            .as_str()
-            .map(|s| s.parse().map_err(|_| invalid()))
-            .transpose()?,
-        &settings.policy,
-        now,
-    )
-    .await?;
+    let selected = raw["resume_resource_id"]
+        .as_str()
+        .map(|s| s.parse().map_err(|_| invalid()))
+        .transpose()?;
+    let current = if lock_context {
+        packet_context::load_locked_in(tx, id(&raw["job_id"])?, selected, &settings.policy).await?
+    } else {
+        packet_context::load_in(tx, id(&raw["job_id"])?, selected, &settings.policy, now).await?
+    };
     let stale = current.snapshot["context_digest"] != snapshot["context_digest"]
         || current
             .profile
@@ -259,7 +275,7 @@ pub(crate) async fn read_in(
             submitted,
         },
         lifecycle,
-        now,
+        if lock_context { Utc::now() } else { now },
     )?;
     let mut result = json!({"snapshot":snapshot,"fields":fields,"readiness":ready,"submission_mode":"manual_handoff","review_status":if stale{"stale"}else if raw["approved_revision"].as_i64().is_some_and(|v|v!=0){"approved"}else if lifecycle=="reviewed"{"reviewed"}else{"pending"}});
     for key in [
@@ -387,6 +403,10 @@ pub enum Route<'a> {
     Events(&'a str),
     Questions(&'a str),
     Answer(&'a str, &'a str),
+    Review(&'a str),
+    Handoff(&'a str),
+    Submission(&'a str),
+    Tracking(&'a str),
 }
 pub fn route(path: &str) -> Option<Route<'_>> {
     if path == "/api/v1/applications/platforms" {
@@ -417,6 +437,10 @@ pub fn route(path: &str) -> Option<Route<'_>> {
         "readiness" => Some(Route::Readiness(id)),
         "events" => Some(Route::Events(id)),
         "questions" => Some(Route::Questions(id)),
+        "review" => Some(Route::Review(id)),
+        "handoff" => Some(Route::Handoff(id)),
+        "report-submission" => Some(Route::Submission(id)),
+        "tracking" => Some(Route::Tracking(id)),
         action => action
             .strip_prefix("questions/")
             .filter(|field| !field.is_empty() && !field.contains('/'))
@@ -517,6 +541,9 @@ pub async fn dispatch(
     let method_ok = match route {
         Route::Read(_) => matches!(method, "GET" | "PATCH"),
         Route::Questions(_) => method == "POST",
+        Route::Review(_) => method == "POST",
+        Route::Submission(_) => method == "POST",
+        Route::Tracking(_) => method == "PATCH",
         Route::Answer(_, _) => method == "PATCH",
         _ => method == if post { "POST" } else { "GET" },
     };
@@ -545,6 +572,27 @@ pub async fn dispatch(
             )
         })
         .transpose()?;
+    let review = if matches!(route, Route::Review(_)) {
+        Some(crate::packet_review::request(
+            serde_json::from_slice(body).map_err(|_| Failure("invalid_packet_review_request"))?,
+        )?)
+    } else {
+        None
+    };
+    let submission = if matches!(route, Route::Submission(_)) {
+        Some(crate::packet_tracking_contract::submission(
+            serde_json::from_slice(body).map_err(|_| Failure("invalid_packet_tracking_request"))?,
+        )?)
+    } else {
+        None
+    };
+    let tracking = if matches!(route, Route::Tracking(_)) {
+        Some(crate::packet_tracking_contract::tracking(
+            serde_json::from_slice(body).map_err(|_| Failure("invalid_packet_tracking_request"))?,
+        )?)
+    } else {
+        None
+    };
     let page = Page::parse(
         if matches!(route, Route::List | Route::Events(_)) {
             query
@@ -559,10 +607,19 @@ pub async fn dispatch(
     }
     for attempt in 0..2 {
         let mut tx = connection.begin().await.map_err(db)?;
-        sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
-            .execute(&mut *tx)
-            .await
-            .map_err(db)?;
+        sqlx::query(
+            if matches!(
+                route,
+                Route::Review(_) | Route::Handoff(_) | Route::Tracking(_) | Route::Submission(_)
+            ) {
+                "SET TRANSACTION ISOLATION LEVEL READ COMMITTED"
+            } else {
+                "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ"
+            },
+        )
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
         let now = Utc::now();
         let result=async {match route {
             Route::Preview(job)=>preview_in(&mut tx,parse_id(job)?,request.as_ref().unwrap(),settings,answers,now).await,
@@ -571,6 +628,10 @@ pub async fn dispatch(
             Route::Read(packet)=>read_in(&mut tx,parse_id(packet)?,settings,now).await,
             Route::Questions(packet)=>crate::packet_mutation::run_in(&mut tx,parse_id(packet)?,edit.as_ref().unwrap(),None,settings,answers,now).await,
             Route::Answer(packet,field)=>crate::packet_mutation::run_in(&mut tx,parse_id(packet)?,edit.as_ref().unwrap(),Some(parse_id(field)?),settings,answers,now).await,
+            Route::Review(packet)=>crate::packet_review::review_in(&mut tx,parse_id(packet)?,review.as_ref().unwrap(),settings).await,
+            Route::Handoff(packet)=>crate::packet_review::handoff_in(&mut tx,parse_id(packet)?,settings).await,
+            Route::Submission(packet)=>crate::packet_tracking::report_in(&mut tx,parse_id(packet)?,submission.as_ref().unwrap()).await,
+            Route::Tracking(packet)=>crate::packet_tracking::track_in(&mut tx,parse_id(packet)?,tracking.as_ref().unwrap(),settings).await,
             Route::Readiness(packet)=>Ok(read_in(&mut tx,parse_id(packet)?,settings,now).await?["readiness"].clone()),
             Route::Events(packet)=>{
                 let packet=parse_id(packet)?;

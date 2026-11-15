@@ -3,10 +3,12 @@
 import uuid
 from datetime import datetime
 from typing import Any
-from sqlalchemy import String, Text, Boolean, Numeric, DateTime, ForeignKey, JSON
+
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from backend.app.models.base import Base, GUID, TimestampMixin
+
+from backend.app.models.base import GUID, Base, TimestampMixin
 
 
 class Job(Base, TimestampMixin):

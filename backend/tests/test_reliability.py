@@ -150,7 +150,7 @@ def lock_settings():
                     DATABASE_URL="postgresql+asyncpg://fixture:fictional@127.0.0.1/candidate_profile_test")
 
 
-@pytest.mark.parametrize("service", ["execution", "telegram"])
+@pytest.mark.parametrize("service", ["api", "execution", "telegram", "discovery", "resume"])
 @pytest.mark.asyncio
 async def test_actual_process_lease_blocks_duplicate_and_recovers_after_crash(tmp_path, service):
     from backend.app.local_agent.process_lock import WorkerAlreadyRunning, process_lock
@@ -182,7 +182,7 @@ asyncio.run(main())
         process.stdout.close()
         process.stderr.close()
     async with process_lock(lock_settings(), service, directory=tmp_path):
-        assert len(list(tmp_path.glob("*.lock"))) == 1
+        assert len(list(tmp_path.glob("*.lock"))) == 2
 
 
 @pytest.mark.asyncio

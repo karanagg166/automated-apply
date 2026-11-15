@@ -3,7 +3,7 @@ import ipaddress
 from typing import Annotated
 from urllib.parse import unquote
 
-from pydantic import AfterValidator, HttpUrl, Field
+from pydantic import AfterValidator, Field, HttpUrl
 
 
 def validate_public_https(value: HttpUrl) -> HttpUrl:

@@ -2,6 +2,7 @@ import { createHash, createHmac, randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { readBoundedBody, RequestLimitError } from "@/lib/http-boundary";
 import { permittedRoute } from "@/lib/gateway";
+import { maximumBodyBytes, requiresOwnerApproval } from "@/lib/http-policy";
 import {
   allowedRequest,
   SESSION_COOKIE,
@@ -57,21 +58,11 @@ async function proxy(
       const value = req.headers.get(name);
       if (value) headers.set(name, value);
     }
-    const maximum =
-      path === "dashboard/resumes" ? 5 * 1024 * 1024 : 1024 * 1024;
+    const maximum = maximumBodyBytes(path);
     const body = mutation
       ? await readBoundedBody(req, maximum, 20000)
       : undefined;
-    if (
-      mutation &&
-      (/^browser-applications\/[a-f0-9-]{36}\/(authorize-submission|consent|opportunity-approve|company-source-preview|advance-step|resume-page)$/.test(
-        path,
-      ) ||
-        /^application-answers\/drafts\/[a-f0-9-]{36}\/approve-reuse$/.test(
-          path,
-        ) ||
-        /^application-answers\/missing\/[a-f0-9-]{32,36}\/approve$/.test(path))
-    ) {
+    if (requiresOwnerApproval(path, req.method)) {
       const approvalKey = process.env.BROWSER_OWNER_APPROVAL_KEY;
       if (!approvalKey || approvalKey.length < 32)
         return fail("Dashboard owner approval is not configured", 503);

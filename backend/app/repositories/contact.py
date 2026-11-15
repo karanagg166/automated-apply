@@ -2,8 +2,10 @@
 
 from datetime import datetime
 from uuid import UUID
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.app.models.contact import Contact
 from backend.app.repositories.base import BaseRepository
 

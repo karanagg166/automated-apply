@@ -23,7 +23,14 @@ fn result(question_type: &'static str, field: Option<&'static str>) -> Classific
 fn word(pattern: &'static str, text: &str) -> bool {
     static CACHE: LazyLock<Mutex<HashMap<&'static str, Regex>>> =
         LazyLock::new(|| Mutex::new(HashMap::new()));
-    let mut cache = CACHE.lock().unwrap();
+    // This cache contains only immutable compiled local patterns, no authorization state.
+    // Rebuild after poisoning instead of cascading a prior caller's panic.
+    let mut cache = CACHE.lock().unwrap_or_else(|poisoned| {
+        let mut cache = poisoned.into_inner();
+        cache.clear();
+        CACHE.clear_poison();
+        cache
+    });
     let regex = cache.entry(pattern).or_insert_with(|| {
         let body = pattern
             .strip_prefix(r"\b")

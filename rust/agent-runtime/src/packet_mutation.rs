@@ -99,7 +99,6 @@ pub(crate) async fn locked_in(
     revision: i32,
     fresh: bool,
     settings: &Settings,
-    now: DateTime<Utc>,
 ) -> Result<Claim> {
     let raw: Option<Value> =
         sqlx::query_scalar("SELECT to_jsonb(p) FROM application_packets p WHERE id=$1 FOR UPDATE")
@@ -125,7 +124,6 @@ pub(crate) async fn locked_in(
         return Err(Failure("packet_closed"));
     }
     let job = packet_service::id(&raw["job_id"])?;
-    packet_context::lock_in(tx, job).await?;
     let selected = raw["resume_resource_id"]
         .as_str()
         .map(|s| {
@@ -133,7 +131,7 @@ pub(crate) async fn locked_in(
                 .map_err(|_| Failure("invalid_packet_saved_record"))
         })
         .transpose()?;
-    let material = packet_context::load_in(tx, job, selected, &settings.policy, now).await?;
+    let material = packet_context::load_locked_in(tx, job, selected, &settings.policy).await?;
     let _profile = material
         .profile
         .as_ref()
@@ -190,7 +188,6 @@ pub(crate) async fn run_in(
         input.revision(),
         !matches!(input, Input::Refresh { .. }),
         settings,
-        now,
     )
     .await?;
     let job = packet_service::id(&raw["job_id"])?;

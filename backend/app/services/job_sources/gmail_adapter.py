@@ -1,9 +1,10 @@
 """Gmail Job Alert Adapter for extracting normalized job opportunities from job alert emails."""
 
-import re
 import hashlib
+import re
 from datetime import datetime, timezone
 from typing import Any
+
 import httpx
 
 from backend.app.core.config import get_settings

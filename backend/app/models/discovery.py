@@ -3,17 +3,19 @@
 import uuid
 from datetime import datetime, timezone
 from typing import Any
+
 from sqlalchemy import (
-    String,
-    Text,
+    JSON,
     DateTime,
     ForeignKey,
-    JSON,
-    UniqueConstraint,
     Numeric,
+    String,
+    Text,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
-from backend.app.models.base import Base, GUID
+
+from backend.app.models.base import GUID, Base
 
 
 def now():

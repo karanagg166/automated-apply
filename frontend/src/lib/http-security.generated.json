@@ -1,0 +1,564 @@
+{
+  "schema_version": 1,
+  "private_prefixes": [
+    "/api/v1/browser",
+    "/api/v1/local-agent",
+    "/api/v1/dashboard",
+    "/api/v1/operations",
+    "/api/v1/credits",
+    "/api/v1/startups",
+    "/api/v1/discovery",
+    "/api/v1/jobs",
+    "/api/v1/companies/",
+    "/api/v1/contact-enrichment",
+    "/api/v1/contacts/",
+    "/api/v1/outreach",
+    "/api/v1/integrations",
+    "/api/v1/applications",
+    "/api/v1/application-packets"
+  ],
+  "unauthenticated_callbacks": ["/api/v1/integrations/gmail/oauth/callback"],
+  "request_limits": {
+    "default": 1048576,
+    "application": 65536,
+    "chrome": 262144,
+    "resume": 5242880
+  },
+  "application_prefixes": [
+    "/api/v1/browser",
+    "/api/v1/applications",
+    "/api/v1/application-packets"
+  ],
+  "application_path_fragment": "/application-",
+  "owner_approval": [
+    "^browser-applications/[a-f0-9-]{36}/(authorize-submission|consent|opportunity-approve|company-source-preview|advance-step|resume-page)$",
+    "^application-answers/drafts/[a-f0-9-]{36}/approve-reuse$",
+    "^application-answers/missing/[a-f0-9-]{32,36}/approve$"
+  ],
+  "gateway_routes": [
+    {
+      "pattern": "^integrations\\/gmail\\/local\\/accounts$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/local\\/accounts\\/[12]\\/(connect|verify|disconnect|search|test-draft)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/local\\/accounts\\/[12]\\/drafts$",
+      "methods": ["GET", "POST"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/local\\/accounts\\/[12]\\/job-alerts$",
+      "methods": ["PUT"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/local\\/accounts\\/[12]\\/job-alerts\\/sync$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^integrations\\/apple-mail\\/accounts$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^integrations\\/apple-mail\\/accounts\\/[A-Za-z0-9-]{1,128}\\/(search|drafts)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^integrations\\/apple-mail\\/accounts\\/[A-Za-z0-9-]{1,128}\\/messages\\/[0-9]+\\/read$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/local\\/accounts\\/[12]\\/messages\\/[A-Za-z0-9_-]{1,200}\\/read$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^execution\\/naukri$",
+      "methods": ["GET", "PUT"]
+    },
+    {
+      "pattern": "^execution\\/naukri\\/profile-sync$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^execution\\/naukri\\/profile-sync\\/policy$",
+      "methods": ["PUT"]
+    },
+    {
+      "pattern": "^execution\\/queue$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^execution\\/queue\\/policy$",
+      "methods": ["PUT"]
+    },
+    {
+      "pattern": "^execution\\/queue\\/control$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^execution\\/naukri\\/automation\\/policy$",
+      "methods": ["PUT"]
+    },
+    {
+      "pattern": "^execution\\/naukri\\/automation\\/control$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^execution\\/naukri\\/jobs$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^execution\\/naukri\\/(import|apply)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^execution\\/[a-f0-9-]{36}\\/control$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^execution\\/[a-f0-9-]{36}\\/questions\\/[a-f0-9-]{36}$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^execution\\/questions$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^execution\\/packets\\/[a-f0-9-]{36}\\/questions\\/[a-f0-9-]{36}$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^execution\\/questions\\/[a-f0-9-]{36}\\/(approve-reuse|answer)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/workspace\\/(accounts|history|drafts)$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/workspace\\/accounts\\/(read_1|read_2|outreach)\\/connect$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/workspace\\/outreach\\/disconnect$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/workspace\\/history\\/review$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/workspace\\/history\\/[a-f0-9]{32}\\/forget$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/workspace\\/history\\/[a-f0-9]{32}\\/retention$",
+      "methods": ["PUT"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/workspace\\/drafts$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/workspace\\/drafts\\/[a-f0-9]{32}$",
+      "methods": ["PUT"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/workspace\\/drafts\\/[a-f0-9]{32}\\/create-in-gmail$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^application-answers\\/(drafts|reuse-approvals)$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^application-answers\\/missing$",
+      "methods": ["GET", "POST"]
+    },
+    {
+      "pattern": "^application-answers\\/missing\\/[a-f0-9-]{32,36}$",
+      "methods": ["GET", "PATCH"]
+    },
+    {
+      "pattern": "^application-answers\\/missing\\/[a-f0-9-]{32,36}\\/approve$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^application-answers\\/missing\\/[a-f0-9-]{32,36}\\/history$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^application-answers\\/drafts\\/[a-f0-9-]{36}$",
+      "methods": ["PATCH"]
+    },
+    {
+      "pattern": "^application-answers\\/drafts\\/[a-f0-9-]{36}\\/opportunity-evidence$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^application-answers\\/drafts\\/[a-f0-9-]{36}\\/(approve-reuse|revoke-reuse)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^browser-applications$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^browser-applications\\/policy$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^browser-applications\\/[a-f0-9-]{36}$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^browser-applications\\/[a-f0-9-]{36}\\/operation$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^browser-applications\\/[a-f0-9-]{36}\\/(open|actions|submission-preview|authorize-submission|submit|recover-submission|consent|opportunity-preview|opportunity-approve|company-source-preview|step-preview|advance-step|page-preview|resume-page)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^browser\\/submissions$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^browser\\/submissions\\/[a-f0-9-]{36}\\/(approve|execute|reconcile)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^browser\\/submissions\\/stop$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^browser\\/plans$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^browser\\/chrome-profiles$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^browser\\/chrome-profiles\\/(select|commands)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^browser\\/chrome-profiles\\/[a-f0-9-]{36}\\/disconnect$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^browser\\/extension-tasks$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^browser\\/extension-tasks\\/application\\/[a-f0-9-]{36}$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^browser\\/extension-tasks\\/[a-f0-9-]{36}\\/control$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^browser\\/plans\\/[a-f0-9-]{36}\\/(review|next)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^browser\\/stop$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^agent\\/(campaigns|status)$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^agent\\/commands$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^agent\\/campaigns\\/[a-f0-9-]{36}$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^agent\\/campaigns\\/[a-f0-9-]{36}\\/(approve|cancel)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^local-agent\\/search-preferences$",
+      "methods": ["GET", "PUT"]
+    },
+    {
+      "pattern": "^local-agent\\/(connections|history)$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^local-agent\\/policy$",
+      "methods": ["GET", "PUT"]
+    },
+    {
+      "pattern": "^local-agent\\/commands$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^local-agent\\/profile-confirmation$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^local-agent\\/platforms$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^local-agent\\/platforms\\/(naukri|wellfound|instahyre|work_at_a_startup|internshala)\\/accept-manual$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^local-agent\\/platforms\\/(naukri|wellfound|instahyre|work_at_a_startup|internshala)$",
+      "methods": ["DELETE"]
+    },
+    {
+      "pattern": "^dashboard\\/automation$",
+      "methods": ["GET", "PUT"]
+    },
+    {
+      "pattern": "^dashboard\\/automation\\/(history|matches)$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^dashboard\\/automation\\/(preview|run)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^dashboard\\/resume-sync$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^dashboard\\/candidate-context\\/configuration$",
+      "methods": ["GET", "PUT"]
+    },
+    {
+      "pattern": "^dashboard\\/candidate-context\\/(projects|answer)$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^dashboard\\/candidate-context\\/projects\\/project-[a-z0-9][a-z0-9-]{0,30}$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^dashboard\\/candidate-context\\/projects\\/project-[a-z0-9][a-z0-9-]{0,30}\\/(build|approve)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^dashboard\\/resume-sync\\/source$",
+      "methods": ["PUT"]
+    },
+    {
+      "pattern": "^dashboard\\/resume-sync\\/sync$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^dashboard\\/resume-sync\\/versions\\/[a-f0-9-]{36}\\/review$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^dashboard\\/resume-sync\\/versions\\/[a-f0-9-]{36}\\/approve$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^profile$",
+      "methods": ["GET", "PUT", "PATCH"]
+    },
+    {
+      "pattern": "^candidate\\/(resources|evidence)$",
+      "methods": ["GET", "POST"]
+    },
+    {
+      "pattern": "^candidate\\/evidence\\/[a-f0-9-]{36}$",
+      "methods": ["PATCH"]
+    },
+    {
+      "pattern": "^dashboard\\/(runtime|connections|overview|onboarding\\/manifest|notification-delivery-history|notification-preferences|notifications|presets|resumes)$",
+      "methods": ["GET", "POST", "PUT"]
+    },
+    {
+      "pattern": "^dashboard\\/notifications\\/sync$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^dashboard\\/notifications\\/[a-f0-9-]{36}\\/read$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^dashboard\\/resumes\\/[a-f0-9-]{36}$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^dashboard\\/resumes\\/[a-f0-9-]{36}\\/confirm$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^dashboard\\/jobs\\/[a-f0-9-]{36}\\/shortlist$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^startups\\/(search|sources|shortlist|integrations\\/status)$",
+      "methods": ["GET", "POST"]
+    },
+    {
+      "pattern": "^startups\\/discovery\\/(preview|runs)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^startups\\/[a-f0-9-]{36}(\\/(jobs|evidence|shortlist))?$",
+      "methods": ["GET", "POST"]
+    },
+    {
+      "pattern": "^jobs(\\/search)?$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^jobs\\/[a-f0-9-]{36}$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^jobs\\/[a-f0-9-]{36}\\/(application-preview|application-packets)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^companies\\/[a-f0-9-]{36}\\/(people|recommended-contacts|contacts|details)$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^companies\\/[a-f0-9-]{36}\\/contacts\\/(preview|enrich)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^discovery\\/people\\/search$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^contacts\\/[a-f0-9-]{36}$",
+      "methods": ["GET", "PATCH"]
+    },
+    {
+      "pattern": "^contact-enrichment\\/providers$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^discovery\\/(sources|runs\\/[a-f0-9-]{36})$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^discovery\\/(preview|runs)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^application-packets$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^application-packets\\/intake$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^application-packets\\/[a-f0-9-]{36}$",
+      "methods": ["GET", "PATCH"]
+    },
+    {
+      "pattern": "^application-packets\\/[a-f0-9-]{36}\\/(readiness|handoff|events)$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^application-packets\\/[a-f0-9-]{36}\\/(review|report-submission|questions)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^application-packets\\/[a-f0-9-]{36}\\/tracking$",
+      "methods": ["PATCH"]
+    },
+    {
+      "pattern": "^application-packets\\/[a-f0-9-]{36}\\/questions\\/[a-f0-9-]{36}$",
+      "methods": ["PATCH"]
+    },
+    {
+      "pattern": "^application-packets\\/[a-f0-9-]{36}\\/questions\\/[a-f0-9-]{36}\\/generate$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^outreach\\/(drafts|history)$",
+      "methods": ["GET", "POST"]
+    },
+    {
+      "pattern": "^outreach\\/drafts\\/preview$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^outreach\\/drafts\\/[a-f0-9-]{36}$",
+      "methods": ["GET", "PATCH"]
+    },
+    {
+      "pattern": "^outreach\\/drafts\\/[a-f0-9-]{36}\\/(approve|reject|send-preview|send)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^outreach\\/(send-attempts\\/[a-f0-9-]{36}|drafts\\/[a-f0-9-]{36}\\/eligibility)$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^integrations(\\/gmail\\/status)?$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/(connect\\/start|verify|disconnect)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^integrations\\/providers\\/apify$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^integrations\\/providers\\/apify\\/(inspect|actors\\/inspect)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/accounts$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/accounts\\/connect\\/start$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/accounts\\/[a-f0-9-]{36}$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/accounts\\/[a-f0-9-]{36}\\/selection$",
+      "methods": ["PUT"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/accounts\\/[a-f0-9-]{36}\\/sync$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/accounts\\/[a-f0-9-]{36}\\/(evidence|leads)$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/accounts\\/[a-f0-9-]{36}\\/evidence\\/[a-f0-9]{32}\\/import$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/accounts\\/[a-f0-9-]{36}\\/verify$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^integrations\\/gmail\\/accounts\\/[a-f0-9-]{36}\\/disconnect$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^operations\\/status$",
+      "methods": ["GET"]
+    }
+  ]
+}

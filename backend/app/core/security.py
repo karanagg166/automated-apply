@@ -3,9 +3,11 @@
 import base64
 import hashlib
 import secrets
+
+from cryptography.fernet import Fernet, InvalidToken
 from fastapi import HTTPException, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from cryptography.fernet import Fernet, InvalidToken
+
 from backend.app.core.config import get_settings
 
 
@@ -40,8 +42,9 @@ def decrypt_secret(ciphertext: str) -> str:
     fernet = Fernet(key)
     try:
         return fernet.decrypt(ciphertext.encode("utf-8")).decode("utf-8")
-    except (InvalidToken, Exception) as exc:
-        raise ValueError(f"Failed to decrypt secret: {exc}") from exc
+    except (InvalidToken, UnicodeDecodeError, ValueError):
+        # Keep ciphertext/provider exception details out of API errors and logs.
+        raise ValueError("Failed to decrypt secret") from None
 
 
 profile_bearer = HTTPBearer(auto_error=False, scheme_name="ProfileBearer")

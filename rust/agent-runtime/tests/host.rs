@@ -240,3 +240,53 @@ fn telegram_and_execution_have_distinct_legacy_compatible_kernel_leases() {
         Some("telegram_worker_already_running")
     );
 }
+
+#[test]
+fn runtime_writer_fence_excludes_shared_python_family_and_releases_on_close() {
+    use std::fs::OpenOptions;
+    use std::os::fd::AsRawFd;
+    let directory = tempfile::tempdir().unwrap();
+    fs::set_permissions(directory.path(), fs::Permissions::from_mode(0o700)).unwrap();
+    let config = Configuration::from_values(&fixture()).unwrap();
+    let path = directory
+        .path()
+        .join(format!("writer-{}.lock", config.target_identity()));
+    use std::os::unix::fs::OpenOptionsExt;
+    let python = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .mode(0o600)
+        .open(&path)
+        .unwrap();
+    // SAFETY: live descriptor and documented flock operation flags.
+    assert_eq!(
+        unsafe { libc::flock(python.as_raw_fd(), libc::LOCK_SH | libc::LOCK_NB) },
+        0
+    );
+    assert_eq!(
+        ProcessLock::acquire_writer(&config, Some(directory.path()))
+            .err()
+            .map(|e| e.0),
+        Some("legacy_writer_already_running")
+    );
+    drop(python);
+    let rust = ProcessLock::acquire_writer(&config, Some(directory.path())).unwrap();
+    let python = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .open(&path)
+        .unwrap();
+    // SAFETY: live descriptor and documented flock operation flags.
+    assert_ne!(
+        unsafe { libc::flock(python.as_raw_fd(), libc::LOCK_SH | libc::LOCK_NB) },
+        0
+    );
+    drop(rust);
+    // SAFETY: live descriptor and documented flock operation flags.
+    assert_eq!(
+        unsafe { libc::flock(python.as_raw_fd(), libc::LOCK_SH | libc::LOCK_NB) },
+        0
+    );
+}

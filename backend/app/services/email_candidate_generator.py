@@ -2,6 +2,7 @@
 
 import re
 import unicodedata
+
 from backend.app.schemas.contact import EmailCandidate
 
 

@@ -210,6 +210,50 @@ acceptance remain pending. List context batching still needs optimization/measur
 The owner physical profile/account step remains pending; do not relaunch browsers or
 reask the same question. Continue canonical source work; no duplicate builds/worktrees.
 
+## Canonical review milestone
+
+Owner renewed the active goal: finish the full Rust, continuously operating agentic
+project, fix relevant architectural findings and run live acceptance; report success
+only at actual scope completion. Existing specific approval/quota/focus controls remain.
+The source work after7ff1704 now includes exact packet review/approval/manual handoff,
+transactional notice gates, manual submission/outcome tracking, attributed bounded public
+Himalayas/WWR feeds and MCP tools, a shared generated HTTP security contract, cooperating
+Python/shared versus Rust/exclusive writer-family leases, and runtime/UI/extension source
+decomposition. No complete runtime installation or new application occurred.
+
+Native evidence for this checkpoint:152 standard Rust tests and181 dedicated disposable
+PostgreSQL tests pass (333 distinct), Clippy passes. Frontend305 tests/typecheck/build
+and extension399 tests/build pass. The first full Python run had3357 passed,64 skipped
+and6 failed in916.56s: a route-order regression introduced during decomposition caused
+three search failures; a stale online-profile fixture omitted the now-required window ID;
+two isolated dropdown cases failed under concurrent fixture load. Route ordering and
+fixture were corrected; all six pass in an isolated10.10s rerun. The complete sequential
+Python rerun then passed:3,364 passed,64 skipped,2 deprecation warnings in963.55s.
+The95 boundary and32 policy/lock focused checks overlap that suite and are not additional
+unique tests. Current Rust format/Clippy, policy-copy drift, review/tracking oracles and
+changed-Python Ruff checks pass. Review oracles cover32 requests and45 actual notice
+cases; tracking covers71 requests. No installed runtime cutover follows from these tests.
+
+The expanded native feed uses fixed official endpoints, durable per-platform cooldowns,
+source attribution and bounded parsing. It does not ingest jobs or verify application
+eligibility/accounts/employer destinations. No provider request was made by the new code
+in this milestone; the earlier three public Himalayas MCP requests remain separate evidence.
+See the new writer ownership/connection-budget document underdocs/architecture and
+ADRs006–008. The family fence is single-host source protection, not an installed or
+distributed lock; older and standalone writers require an explicit stop/inventory at cutover.
+Publish the validation/report/commit/push/PR checkpoint. Then continue unported
+intake/browser/execution, discovery ingestion, account,
+Gmail/Drive/provider/legacy command and production scheduling/install/resource/live work.
+
+Latest owner reply confirms Brave's macOS file permission was enabled. A read-only check
+of the already-running owned Brave instance passed native health through the extension;
+Naukri permission is granted, and selected tabs stayed unchanged. API health/readiness200,
+saved queue STOPPED162. No browser restart, navigation, new profile connection, site grant,
+Apply, quota change or receipt was performed. An earlier whole-desktop snapshot compared
+across the interruption first matched, then differed in foreground/window ordering over
+the longer interval; do not attribute that difference or claim full focus acceptance.
+This permission confirmation does not establish Naukri sign-in or Gmail reauthorization.
+
 ## Remaining acceptance
 
 Finish and test PDF, Rust service/API/browser/application/Gmail ports and integrations.

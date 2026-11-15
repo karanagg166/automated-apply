@@ -28,7 +28,7 @@
 
 ## ADR 003: FastMCP 4.x Mounted Sub-application vs Stdio Subprocess
 
-- **Status:** Accepted (Mounted SSE Sub-app)
+- **Status:** Superseded by ADR 006 (historical SSE design)
 - **Context:** FastMCP supports running tools via `stdio` (local subprocess) or `sse` / `http` (HTTP ASGI server).
 - **Decision:** Mount FastMCP inside the FastAPI web application using `app.mount("/mcp", mcp.http_app(transport="sse"))`.
 - **Rationale:**
@@ -56,3 +56,42 @@
   1. Implement atomic credit checking in `CreditManager` before issuing external requests.
   2. Implement a 24-hour negative lookup cache for failed or 404 queries to prevent repeatedly burning credits on nonexistent contacts.
   3. Automatically apply a cooldown window on HTTP 429 rate limits and deactivate keys on HTTP 401/403 authentication failures.
+
+---
+
+## ADR 006: Stateless Streamable HTTP MCP
+
+- **Status:** Accepted; documents the current implementation.
+- **Decision:** The legacy API mounts `mcp.http_app(path="/", transport="http",
+  stateless_http=True, json_response=True)` at `/mcp`, with host/origin protection and
+  the separate `MCPBoundary`. It is not the historical SSE transport from ADR 003.
+  The Rust project tool bridge currently uses bounded stdio and the authenticated
+  local owner API. A configured remote provider MCP is a separate transport.
+- **Consequences:** Keep REST owner authorization separate from MCP grants. No MCP
+  tool or model output can authorize applications, account changes or arbitrary sends.
+
+## ADR 007: Whole Writer-Family Rust Cutover
+
+- **Status:** Accepted source boundary; production installation remains unaccepted.
+- **Decision:** Keep one production writer family. Python processes share the target's
+  kernel writer lease; the replacement Rust host takes it exclusively before connecting.
+  Preserve service leases, database CAS, durable budgets, history and unknown-action fences.
+  Do not route a subset of production mutations to Rust while legacy writers remain active.
+- **Consequences:** Local process coordination is not a distributed ACL. Old installed
+  releases and standalone writers must be stopped or upgraded before cutover. The complete
+  Rust host needs at most four database connections, including optional Telegram and one
+  shared transient generation/document request. Hosted role/pooler headroom needs actual
+  verification. See [the ownership matrix and budget](architecture/runtime-ownership.md).
+
+## ADR 008: Declarative HTTP Security Policy
+
+- **Status:** Accepted.
+- **Decision:** `contracts/http-security.json` owns the closed gateway route list,
+  private path classification, body-size classes and exact owner-signature patterns.
+  `uv run --no-project python scripts/sync_http_security.py` generates package-local
+  copies for independently built backend and frontend images; `--check` rejects drift.
+  Next.js consumes the route and signature rules; FastAPI consumes the boundary rules.
+- **Consequences:** The separate HMAC key, exact method/path/body binding, short expiry,
+  durable nonce replay protection, bearer auth, session and CSRF checks remain mandatory.
+  Local tests compare generated copies and actual owner-approval route dependencies.
+  Existing backend endpoint dependencies remain the authority; metadata alone grants none.

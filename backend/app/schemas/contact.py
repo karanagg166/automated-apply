@@ -2,9 +2,10 @@
 
 from datetime import datetime
 from enum import Enum
-from uuid import UUID
 from typing import Any, Literal
-from pydantic import BaseModel, ConfigDict, Field, EmailStr
+from uuid import UUID
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class EmailVerificationStatus(str, Enum):

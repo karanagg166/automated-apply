@@ -363,7 +363,7 @@ pub fn resolved(mut prepared: Prepared, result: &Value, profile: &Value) -> Resu
             json!([{"source_type":"candidate_profile","source_id":profile["id"]}]);
     }
     field["provenance"] = p;
-    if result["error_code"].as_str().is_some_and(|s| !s.is_empty())
+    if let Some(error_code) = result["error_code"].as_str().filter(|s| !s.is_empty())
         && field["missing_information"]
             .as_array()
             .is_some_and(Vec::is_empty)
@@ -372,7 +372,7 @@ pub fn resolved(mut prepared: Prepared, result: &Value, profile: &Value) -> Resu
             field,
             &format!(
                 "Answer generation requires attention: {}; correct inputs/configuration or supply and review a factual answer",
-                result["error_code"].as_str().unwrap()
+                error_code
             ),
         );
     }

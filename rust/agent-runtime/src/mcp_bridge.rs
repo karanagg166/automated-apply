@@ -69,7 +69,7 @@ impl Bridge {
             definition(
                 "instahyre_saved_jobs",
                 "Read saved Instahyre jobs only; this does not establish a working live adapter.",
-                search,
+                search.clone(),
                 true,
             ),
             definition(
@@ -91,6 +91,28 @@ impl Bridge {
                 true,
             ),
         ];
+        for (name, description) in [
+            (
+                "himalayas_discover",
+                "Read the cached, attributed first page of the official Himalayas public API. At most one fetch per day; no account or application action.",
+            ),
+            (
+                "we_work_remotely_discover",
+                "Read the cached, attributed official We Work Remotely RSS feed. At most one fetch per 30 minutes; no account or application action.",
+            ),
+        ] {
+            list.push(definition(name,description,json!({"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":20,"default":20}},"additionalProperties":false}),true));
+        }
+        for name in [
+            "internshala_saved_jobs",
+            "wellfound_saved_jobs",
+            "ycombinator_saved_jobs",
+            "hiringcafe_saved_jobs",
+            "himalayas_saved_jobs",
+            "we_work_remotely_saved_jobs",
+        ] {
+            list.push(definition(name,"Read saved platform jobs only. Saved records do not establish live account, application or receipt verification.",search.clone(),true));
+        }
         if self.telegram {
             list.push(definition("telegram_notify_run","Queue one fixed notice per existing run for the paired owner. No recipient or text input.",json!({"type":"object","properties":{"run_id":{"type":"string","format":"uuid"}},"required":["run_id"],"additionalProperties":false}),false))
         }
@@ -177,16 +199,40 @@ fn decode<T: serde::de::DeserializeOwned>(value: Value) -> Result<T> {
 }
 fn operation(name: &str, args: Value) -> Result<(reqwest::Method, String, Option<Value>)> {
     use reqwest::Method;
-    if matches!(name, "naukri_saved_jobs" | "instahyre_saved_jobs") {
+    if matches!(name, "himalayas_discover" | "we_work_remotely_discover") {
+        let input: Search = decode(args)?;
+        if !(1..=20).contains(&input.limit) {
+            return Err(Failure("invalid_tool_arguments"));
+        }
+        let platform = if name == "himalayas_discover" {
+            "himalayas"
+        } else {
+            "we_work_remotely"
+        };
+        return Ok((
+            Method::POST,
+            format!("/api/v1/rust-agent/platforms/{platform}/discover"),
+            Some(json!({"limit":input.limit})),
+        ));
+    }
+    if matches!(
+        name,
+        "naukri_saved_jobs"
+            | "instahyre_saved_jobs"
+            | "internshala_saved_jobs"
+            | "wellfound_saved_jobs"
+            | "ycombinator_saved_jobs"
+            | "hiringcafe_saved_jobs"
+            | "himalayas_saved_jobs"
+            | "we_work_remotely_saved_jobs"
+    ) {
         let input: Search = decode(args)?;
         if !(1..=50).contains(&input.limit) {
             return Err(Failure("invalid_tool_arguments"));
         }
-        let platform = if name == "naukri_saved_jobs" {
-            "naukri"
-        } else {
-            "instahyre"
-        };
+        let platform = name
+            .strip_suffix("_saved_jobs")
+            .ok_or(Failure("unknown_mcp_tool"))?;
         return Ok((
             Method::POST,
             format!("/api/v1/rust-agent/platforms/{platform}/saved-jobs"),

@@ -4,17 +4,24 @@ Reserve the entire run cap, even on timeout/cancellation. Never release uncertai
 Reported actuals are audit data; preliminary billing cannot weaken the safety reservation.
 """
 
-from datetime import datetime, timezone, timedelta
-from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR
-from sqlalchemy import select, update, and_, or_, case, func
+from datetime import datetime, timedelta, timezone
+from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
+
+from sqlalchemy import and_, case, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
 from backend.app.models.discovery import (
     DiscoveryMonthlyBudget as Budget,
+)
+from backend.app.models.discovery import (
     DiscoveryReservation as Reservation,
+)
+from backend.app.models.discovery import (
     DiscoveryRun,
 )
-from backend.app.schemas.discovery import DiscoveryError, DiscoveryStatus as Status
+from backend.app.schemas.discovery import DiscoveryError
+from backend.app.schemas.discovery import DiscoveryStatus as Status
 
 
 def insert_for(session):

@@ -1,0 +1,624 @@
+    const inspect = (onlyEmpty = false, interactionsAllowed = false) => {
+      // A second popup/review must invalidate earlier plans in the same document.
+      documentId = crypto.randomUUID();
+      fillConsumed = false;
+      fillCancelled = false;
+      appliedValues = new Map();
+      const controls = [
+        ...document.querySelectorAll("input,textarea,select"),
+      ].filter(visible);
+      const applicationControl = (el) => {
+        if (!["naukri.com", "www.naukri.com"].includes(location.hostname))
+          return true;
+        // A posting's global search bar is not an application form. Naukri
+        // drawers without an explicit form/dialog scope remain manual until
+        // a genuine adapter establishes their boundaries.
+        return (
+          !el.closest("header,nav,[role='search'],[class*='nI-gNb']") &&
+          Boolean(el.closest("form,[role='form'],[role='dialog']"))
+        );
+      };
+      controlCount = controls.length;
+      snapshotControls = controls.map((el) => ({
+        el,
+        tagName: el.tagName,
+        type: el.type,
+        name: el.name,
+        id: el.id,
+        disabled: el.disabled,
+        readOnly: el.readOnly,
+        attributes: Object.fromEntries(
+          observedAttributes.map((name) => [name, el.getAttribute(name)]),
+        ),
+      }));
+      snapshotForms = [...document.forms].map((f) => ({
+        el: f,
+        action: f.action,
+        method: f.method,
+        target: f.target,
+        enctype: f.enctype,
+      }));
+      snapshotStepSignature = getStepSignature();
+      domMutated = false;
+      startObserving();
+      userEdited = new WeakSet();
+
+      const fields = [];
+      const unsupportedControls = [];
+      const diagnosticIds = new Map();
+      const diagnose = (el, item) => {
+        const wrapper = el.closest?.(
+          "[role='combobox'],lyte-dropdown,lyte-select,lyte-autocomplete,crux-picklist-component",
+        );
+        const inputs = wrapper
+          ? [...wrapper.querySelectorAll("input,select,textarea")].filter(
+              visible,
+            )
+          : [];
+        const control = inputs.length === 1 ? inputs[0] : el;
+        if (!diagnosticIds.has(control))
+          diagnosticIds.set(control, `u${diagnosticIds.size}`);
+        const entry = {
+          ...item,
+          control_id: diagnosticIds.get(control),
+          context: sectionLabel(control),
+        };
+        if (
+          !unsupportedControls.some(
+            (d) =>
+              d.control_id === entry.control_id &&
+              d.context === entry.context &&
+              d.reason === entry.reason,
+          )
+        )
+          unsupportedControls.push(entry);
+      };
+      refs = new Map();
+      let excludedSensitive = false;
+      let crossOriginFormFrame = false;
+
+      const security = securityState();
+      let challenge = security !== "none";
+
+      for (const frame of [...document.querySelectorAll("iframe")].filter(
+        visible,
+      )) {
+        const src = clean(frame.getAttribute("src") || "");
+        const fHint = [
+          src,
+          frame.title,
+          frame.id,
+          frame.name,
+          frame.className,
+        ].join(" ");
+        if (
+          /recaptcha|hcaptcha|turnstile|challenges\.cloudflare|funcaptcha|arkoselabs|captcha/i.test(
+            fHint,
+          )
+        ) {
+          challenge = true;
+          diagnose(frame, {
+            kind: "iframe",
+            label: clean(frame.title || "Security challenge") || "Challenge",
+            required: true,
+            reason: "Security challenge or CAPTCHA requires manual completion",
+          });
+          continue;
+        }
+        if (/stripe|paypal|checkout|payment|braintree|razorpay/i.test(fHint)) {
+          excludedSensitive = true;
+          diagnose(frame, {
+            kind: "iframe",
+            label: clean(frame.title || "Payment frame") || "Payment frame",
+            required: true,
+            reason: "Sensitive payment frame requires manual completion",
+          });
+          continue;
+        }
+        let crossOrigin = false;
+        try {
+          if (
+            src &&
+            !src.startsWith("about:") &&
+            !src.startsWith("javascript:")
+          ) {
+            crossOrigin =
+              new URL(src, location.href).origin !== location.origin;
+          }
+          if (
+            !crossOrigin &&
+            frame.hasAttribute("sandbox") &&
+            !/\ballow-same-origin\b/i.test(frame.getAttribute("sandbox") || "")
+          ) {
+            crossOrigin = true;
+          }
+          if (!crossOrigin && !frame.contentDocument) {
+            crossOrigin = true;
+          }
+        } catch {
+          crossOrigin = true;
+        }
+        if (crossOrigin || frame.closest("form,[role='form']")) {
+          diagnose(frame, {
+            kind: "iframe",
+            label:
+              clean(
+                frame.title ||
+                  frame.getAttribute("aria-label") ||
+                  "Embedded frame",
+              ) || "Embedded frame",
+            required: false,
+            reason:
+              "Cross-origin frame cannot be inspected safely — complete manually",
+          });
+          if (crossOrigin && frame.closest("form,[role='form']")) {
+            crossOriginFormFrame = true;
+          }
+        }
+      }
+
+      if (onlyEmpty) {
+        for (const widget of [
+          ...document.querySelectorAll(
+            '[role="combobox"],[role="listbox"]:not(select),lyte-dropdown,lyte-select,lyte-autocomplete,crux-picklist-component,[contenteditable="true"],[role="textbox"]:not(input):not(textarea)',
+          ),
+        ].filter(visible)) {
+          if (widget.querySelector("input,textarea,select")) continue;
+          if (widget.matches("input,select,textarea")) continue;
+          if (
+            widget.getAttribute("role") === "listbox" &&
+            [...document.querySelectorAll("[role='combobox']")].some(
+              (c) => c.getAttribute("aria-controls") === widget.id,
+            )
+          )
+            continue;
+          if (widget.getAttribute("role") === "combobox" && choicesFor(widget))
+            continue;
+          if (widget.getAttribute("aria-disabled") === "true") continue;
+          const isEditor = widget.matches(
+            '[contenteditable="true"],[role="textbox"]',
+          );
+          if (isEditor && clean(widget.textContent)) continue;
+          if (
+            !isEditor &&
+            clean(
+              widget.getAttribute("data-value") ||
+                widget.getAttribute("aria-valuetext"),
+            )
+          )
+            continue;
+          const wLabel =
+            cleanLabelText(rawLabel(widget)) ||
+            (isEditor ? "Rich text field" : "Custom combobox");
+          diagnose(widget, {
+            kind: isEditor ? "custom_widget" : "custom_combobox",
+            label: wLabel,
+            required: isRequired(widget),
+            reason: isEditor
+              ? "Rich-text or custom widget requires manual entry"
+              : "Custom combobox or dropdown requires manual selection",
+          });
+        }
+      }
+
+      const accessible = [
+        ...document.querySelectorAll("[role='combobox']"),
+      ].filter(
+        (el) =>
+          visible(el) &&
+          !controls.includes(el) &&
+          !el.querySelector("input,textarea,select") &&
+          choicesFor(el),
+      );
+      for (const el of [...controls, ...accessible]) {
+        if (!applicationControl(el)) continue;
+        if (
+          ["hidden", "submit", "button", "reset", "image"].includes(el.type) &&
+          !(
+            el.type === "button" &&
+            el.getAttribute("role") === "combobox" &&
+            choicesFor(el)
+          )
+        )
+          continue;
+        const rawLbl = rawLabel(el);
+        const hint = [
+          el.type,
+          el.name,
+          el.id,
+          el.autocomplete,
+          rawLbl,
+          rawGroupLabel(el),
+          sectionLabel(el),
+        ].join(" ");
+        if (/captcha/i.test(hint)) {
+          challenge = true;
+          continue;
+        }
+        if (selfIdentification.test(hint.replace(/[_-]/g, " "))) {
+          if (onlyEmpty)
+            diagnose(el, {
+              kind: clean(el.type || "select"),
+              label: cleanLabelText(rawLbl) || "Self-identification field",
+              required: isRequired(el),
+              reason: "Sensitive self-identification requires manual entry",
+            });
+          continue;
+        }
+        if (
+          sensitive.test(hint) ||
+          /^(cc-|current-password|new-password|one-time-code|transaction-)/i.test(
+            el.autocomplete || "",
+          )
+        ) {
+          excludedSensitive = true;
+          continue;
+        }
+        const choices = choicesFor(el);
+        if (
+          el.disabled ||
+          el.getAttribute("aria-disabled") === "true" ||
+          (el.readOnly && !choices)
+        )
+          continue;
+        if (onlyEmpty && !unanswered(el, controls)) continue;
+        if (
+          onlyEmpty &&
+          choices &&
+          !choices.native &&
+          (clean(
+            el.getAttribute("data-value") || el.getAttribute("aria-valuetext"),
+          ) ||
+            choices.options.some(
+              (o) => o.getAttribute("aria-selected") === "true",
+            ))
+        )
+          continue;
+
+        if (
+          onlyEmpty &&
+          el.tagName !== "SELECT" &&
+          isCustomComboboxControl(el) &&
+          !choices
+        ) {
+          diagnose(el, {
+            kind: "custom_combobox",
+            label: cleanLabelText(rawLbl) || "Custom combobox",
+            required: isRequired(el),
+            reason: "Custom combobox or dropdown requires manual selection",
+          });
+          continue;
+        }
+        if (
+          onlyEmpty &&
+          isDateControl(el) &&
+          !["date", "month"].includes(el.type)
+        ) {
+          diagnose(el, {
+            kind: "date",
+            label: cleanLabelText(rawLbl) || "Date field",
+            required: isRequired(el),
+            reason: "Date field requires manual entry",
+          });
+          continue;
+        }
+
+        const kind = choices
+          ? "select"
+          : el.tagName === "TEXTAREA"
+            ? "textarea"
+            : el.tagName === "SELECT"
+              ? "select"
+              : el.type;
+        if (
+          ![
+            "text",
+            "textarea",
+            "email",
+            "tel",
+            "url",
+            "number",
+            "date",
+            "month",
+            "select",
+            "radio",
+            "checkbox",
+            "file",
+          ].includes(kind)
+        ) {
+          if (onlyEmpty) {
+            diagnose(el, {
+              kind: clean(kind) || "input",
+              label: cleanLabelText(rawLbl) || "Unsupported input",
+              required: isRequired(el),
+              reason: `Unsupported input type (${clean(kind) || "custom"}) requires manual entry`,
+            });
+          }
+          continue;
+        }
+
+        const resolvedLabel = label(el);
+        const resolvedGroup = groupLabel(el);
+
+        if (onlyEmpty && !resolvedLabel) {
+          diagnose(el, {
+            kind,
+            label: clean(rawLbl) || "Unlabelled field",
+            required: isRequired(el),
+            reason: "Incomplete or missing field label requires manual entry",
+          });
+          continue;
+        }
+
+        if (
+          onlyEmpty &&
+          kind === "radio" &&
+          !resolvedGroup &&
+          !isConsentControl(el)
+        ) {
+          const grp = radioPeers(el, controls)[0] || el;
+          diagnose(grp, {
+            kind: "radio",
+            label: resolvedLabel || "Radio group",
+            required: isRequired(el),
+            reason:
+              "Radio group is missing a question label — select an option manually",
+          });
+          continue;
+        }
+
+        if (kind === "select" && !choices) {
+          const labels = [...el.options]
+            .filter(
+              (o, i) =>
+                !o.disabled && !o.hidden && !isPlaceholderSelectOption(o, i),
+            )
+            .map((o) => clean(o.textContent).toLowerCase());
+          if (!labels.length || new Set(labels).size !== labels.length) {
+            diagnose(el, {
+              kind,
+              label: resolvedLabel,
+              required: isRequired(el),
+              reason:
+                "Missing or ambiguous dropdown choices require manual selection",
+            });
+            continue;
+          }
+          if (el.options.length > 300 || el.multiple) {
+            if (onlyEmpty) {
+              diagnose(el, {
+                kind: "select",
+                label: resolvedLabel || "Dropdown",
+                required: isRequired(el),
+                reason: el.multiple
+                  ? "Multi-select dropdown requires manual selection"
+                  : "Dropdown with more than 300 options requires manual selection",
+              });
+              continue;
+            }
+            return {
+              version: 1,
+              document_id: documentId,
+              url: location.href,
+              fields: [],
+              state: "unsupported",
+              has_next: false,
+              has_submit: false,
+            };
+          }
+        }
+
+        if (fields.length >= 24) {
+          diagnose(el, {
+            kind,
+            label: resolvedLabel,
+            required: isRequired(el),
+            reason:
+              "Preview is limited to 24 unanswered fields; complete this control manually",
+          });
+          continue;
+        }
+
+        const eventChoiceSupported = Boolean(
+          choices &&
+          !choices.native &&
+          interactionsAllowed &&
+          el.tagName === "INPUT" &&
+          ["text", "search"].includes(el.type) &&
+          choices.options.every(
+            (option) =>
+              ["DIV", "SPAN", "LI"].includes(option.tagName) &&
+              !option.querySelector("a,button,input,select,textarea"),
+          ),
+        );
+        const field = {
+          group_label: resolvedGroup,
+          section: ["radio", "checkbox"].includes(kind)
+            ? null
+            : sectionLabel(el),
+          preview_only: Boolean(
+            ambiguousSection(el) ||
+            (choices && !choices.native && !eventChoiceSupported) ||
+            (onlyEmpty && isFrameworkControlled(el) && !interactionsAllowed),
+          ),
+          manual_reason: ambiguousSection(el)
+            ? "Repeated history entry has no stable employer or education identity; complete this entry manually"
+            : choices && !choices.native && !eventChoiceSupported
+              ? "Choose the exact option yourself; event-driven custom dropdown filling is manual"
+              : onlyEmpty && isFrameworkControlled(el) && !interactionsAllowed
+                ? "Framework-controlled field: authorize website interactions or type the proposed answer yourself"
+                : null,
+          field_id: `f${fields.length}`,
+          control_identity: controlIdentity(el),
+          page_step: pageStep(),
+          semantic_key: semanticHash(
+            JSON.stringify([
+              location.origin,
+              location.pathname,
+              pageStep(),
+              sectionLabel(el),
+              resolvedGroup,
+              resolvedLabel,
+              kind,
+              controlIdentity(el),
+              clean(el.getAttribute("aria-label")),
+              clean(el.getAttribute("aria-labelledby")),
+              clean(el.autocomplete),
+            ]),
+          ),
+          kind,
+          label: resolvedLabel,
+          required: isRequired(el),
+          options: choices
+            ? choices.labels
+            : kind === "select"
+              ? [...el.options]
+                  .filter(
+                    (o, i) =>
+                      !o.disabled &&
+                      !o.hidden &&
+                      !isPlaceholderSelectOption(o, i),
+                  )
+                  .map((o) => clean(o.textContent))
+              : ["radio", "checkbox"].includes(kind)
+                ? [resolvedLabel]
+                : [],
+          max_length: Math.min(4000, el.maxLength > 0 ? el.maxLength : 1500),
+          invalid: isInvalid(el),
+        };
+        if (
+          field.label.length >= 160 ||
+          (field.group_label || "").length >= 160
+        ) {
+          field.preview_only = true;
+          field.manual_reason =
+            "Question exceeds the inspection text limit; read and answer the complete question manually";
+        }
+        refs.set(field.field_id, {
+          el,
+          field,
+          choices,
+          choiceValues: choices?.options.map((o) => o.value),
+          dateConstraints: [el.min, el.max, el.step],
+          name: el.name,
+          autocomplete: el.autocomplete,
+          options: kind === "select" && !choices ? [...el.options] : [],
+          optionSnapshot:
+            kind === "select" && !choices
+              ? [...el.options].map((o) => ({
+                  value: o.value,
+                  disabled: o.disabled,
+                  hidden: o.hidden,
+                }))
+              : [],
+          initialValue: el.value,
+          initialChecked: el.checked,
+          initialSelectedIndex: kind === "select" ? el.selectedIndex : -1,
+        });
+        fields.push(field);
+      }
+
+      for (const field of fields) {
+        if (
+          fields.filter(
+            (other) =>
+              other.section === field.section &&
+              other.group_label === field.group_label &&
+              other.label === field.label,
+          ).length > 1
+        ) {
+          field.preview_only = true;
+          field.manual_reason =
+            "Repeated question needs a distinct employment or form context; answer each control manually";
+        }
+      }
+
+      const buttons = [
+        ...document.querySelectorAll("button,input[type=submit],[role=button]"),
+      ].filter((el) => visible(el) && applicationControl(el));
+      const next = buttons.filter(
+        (el) =>
+          el.tagName === "BUTTON" &&
+          el.type === "button" &&
+          /^(next|continue)$/i.test(clean(el.textContent)),
+      );
+      const login = controls.some((el) => el.type === "password");
+      const backgroundNetwork =
+        interactionsAllowed && Boolean(navigator.serviceWorker?.controller);
+      const noVerifiedApplicationForm =
+        ["naukri.com", "www.naukri.com"].includes(location.hostname) &&
+        fields.length === 0 &&
+        unsupportedControls.length === 0;
+      const state = login
+        ? "login_required"
+        : challenge ||
+            excludedSensitive ||
+            crossOriginFormFrame ||
+            backgroundNetwork ||
+            noVerifiedApplicationForm
+          ? "manual_required"
+          : fields.length
+            ? fields.some((f) => f.invalid)
+              ? "validation_errors"
+              : "ready"
+            : "unsupported";
+      last = {
+        version: 1,
+        document_id: documentId,
+        url: location.href,
+        fields,
+        state,
+        challenge_state:
+          security === "blocking"
+            ? "CHALLENGE_BLOCKING"
+            : security === "unverified_widget"
+              ? "WIDGET_PRESENT_UNVERIFIED"
+              : security === "unknown"
+                ? "UNKNOWN"
+                : "NONE",
+        completed_count: controls.filter(
+          (el) =>
+            applicationControl(el) &&
+            !["hidden", "submit", "button", "reset", "image"].includes(
+              el.type,
+            ) &&
+            !sensitive.test(
+              [el.type, el.name, el.id, rawLabel(el)].join(" "),
+            ) &&
+            !unanswered(el, controls),
+        ).length,
+        has_next: next.length === 1,
+        has_submit: buttons.some(
+          (el) =>
+            el.type === "submit" ||
+            /submit|apply|send/i.test(
+              clean(el.textContent || el.getAttribute("value")),
+            ),
+        ),
+      };
+      if (onlyEmpty) {
+        last.unsupported_controls = unsupportedControls.slice(0, 48);
+        last.security_status = security;
+        last.manual_reason = login
+          ? "login_required"
+          : excludedSensitive
+            ? "sensitive_control"
+            : challenge
+              ? security === "blocking"
+                ? "security_challenge"
+                : "security_widget"
+              : backgroundNetwork
+                ? "background_network_scope_unverified"
+                : crossOriginFormFrame ||
+                    (!fields.length &&
+                      unsupportedControls.some((u) => u.kind === "iframe"))
+                  ? "cross_origin_frame"
+                  : !fields.length && unsupportedControls.length
+                    ? "unsupported_controls"
+                    : noVerifiedApplicationForm
+                      ? "verified_application_form_not_present"
+                      : null;
+      }
+      return last;
+    };
+

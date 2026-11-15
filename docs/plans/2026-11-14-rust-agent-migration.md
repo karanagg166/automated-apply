@@ -30,6 +30,12 @@ this is a staged behavioral migration, not a claim that scaffolding replaces the
 
 ## Invariants
 
+The [writer ownership matrix and connection ceilings](../architecture/runtime-ownership.md)
+define the production cutover boundary. Use one writer family; source now has a shared
+Python/exclusive Rust target lease. Old installed binaries, standalone CLI writers and
+actual provider/role headroom still require a verified stop/inventory before cutover.
+Do not mistake this new source fence for an installed control or distributed DB ACL.
+
 - pnpm for JavaScript; Cargo for Rust; uv for remaining Python tooling.
 - No local model/GPU process starts merely because multiple agents exist. Prefer deterministic
   routing and reuse verified results; one browser executor and bounded model concurrency.

@@ -1,5 +1,5 @@
 fn packet_settings()->automated_apply_agents::packet_service::Settings {
-    automated_apply_agents::packet_service::Settings {policy:Default::default(),multi_select:false,schema:"public".into()}
+    automated_apply_agents::packet_service::Settings {policy:Default::default(),multi_select:false,schema:"public".into(),telegram_notices:false}
 }
 async fn packet_service_fixture()->(PgConnection,Uuid) {
     let mut c=packet_material_fixture().await;

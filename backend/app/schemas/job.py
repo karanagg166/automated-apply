@@ -3,8 +3,8 @@
 from datetime import datetime
 from enum import Enum
 from uuid import UUID
-from typing import Any
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class JobStatus(str, Enum):

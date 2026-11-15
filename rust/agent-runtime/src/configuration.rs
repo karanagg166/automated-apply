@@ -268,6 +268,7 @@ impl Configuration {
                 },
                 multi_select: boolean(values, "MULTI_SELECT_FIELDS_ENABLED", false)?,
                 schema: get("DATABASE_SCHEMA", "public"),
+                telegram_notices: crate::packet_notice::telegram_configured(values),
             },
         })
     }

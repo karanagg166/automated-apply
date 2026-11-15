@@ -1,0 +1,647 @@
+{
+  "$defs": {
+    "EvidenceReference": {
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "maxLength": 100,
+          "minLength": 1,
+          "title": "Source Id",
+          "type": "string"
+        },
+        "source_type": {
+          "enum": [
+            "owner_answer",
+            "verified_project",
+            "verified_role",
+            "candidate_evidence",
+            "candidate_profile",
+            "candidate_preferences",
+            "project_context",
+            "opportunity_job",
+            "opportunity_company"
+          ],
+          "title": "Source Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_type",
+        "source_id"
+      ],
+      "title": "EvidenceReference",
+      "type": "object"
+    },
+    "PacketField": {
+      "additionalProperties": false,
+      "properties": {
+        "answer_revision": {
+          "default": 1,
+          "minimum": 1,
+          "title": "Answer Revision",
+          "type": "integer"
+        },
+        "category": {
+          "default": "unknown",
+          "enum": [
+            "personal_information",
+            "contact_information",
+            "professional_profile_url",
+            "education",
+            "experience",
+            "technical_skills",
+            "resume_upload",
+            "salary",
+            "notice_period",
+            "work_authorization",
+            "project_explanation",
+            "motivation",
+            "free_text",
+            "multiple_choice",
+            "yes_no",
+            "unknown"
+          ],
+          "title": "Category",
+          "type": "string"
+        },
+        "constraints": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Constraints"
+        },
+        "effective_answer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Effective Answer"
+        },
+        "field_type": {
+          "default": "text",
+          "enum": [
+            "text",
+            "textarea",
+            "url",
+            "file",
+            "multiple_choice",
+            "yes_no",
+            "multi_select"
+          ],
+          "title": "Field Type",
+          "type": "string"
+        },
+        "human_answer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Human Answer"
+        },
+        "id": {
+          "format": "uuid",
+          "title": "Id",
+          "type": "string"
+        },
+        "max_characters": {
+          "default": 1500,
+          "maximum": 10000,
+          "minimum": 1,
+          "title": "Max Characters",
+          "type": "integer"
+        },
+        "max_words": {
+          "anyOf": [
+            {
+              "maximum": 1500,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Max Words"
+        },
+        "missing_information": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Information",
+          "type": "array"
+        },
+        "options": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Options",
+          "type": "array"
+        },
+        "proposed_answer": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Proposed Answer"
+        },
+        "provenance": {
+          "$ref": "#/$defs/Provenance"
+        },
+        "question": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "required": {
+          "default": true,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "requires_review": {
+          "default": true,
+          "title": "Requires Review",
+          "type": "boolean"
+        },
+        "review_status": {
+          "default": "pending",
+          "enum": [
+            "pending",
+            "reviewed"
+          ],
+          "title": "Review Status",
+          "type": "string"
+        },
+        "validation_status": {
+          "default": "needs_input",
+          "enum": [
+            "draft_ready",
+            "needs_input",
+            "file_upload_required",
+            "provider_unavailable",
+            "validation_failed"
+          ],
+          "title": "Validation Status",
+          "type": "string"
+        },
+        "writing_style": {
+          "default": "professional",
+          "enum": [
+            "professional",
+            "conversational",
+            "technical",
+            "concise",
+            "founder_focused"
+          ],
+          "title": "Writing Style",
+          "type": "string"
+        }
+      },
+      "required": [
+        "question",
+        "id"
+      ],
+      "title": "PacketField",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "answer_draft_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Answer Draft Id"
+        },
+        "answer_expires_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Answer Expires At"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Code"
+        },
+        "evidence_references": {
+          "items": {
+            "$ref": "#/$defs/EvidenceReference"
+          },
+          "maxItems": 12,
+          "title": "Evidence References",
+          "type": "array"
+        },
+        "form_page_step": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Form Page Step"
+        },
+        "form_section": {
+          "anyOf": [
+            {
+              "maxLength": 160,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Form Section"
+        },
+        "form_semantic_key": {
+          "anyOf": [
+            {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Form Semantic Key"
+        },
+        "interview_availability": {
+          "anyOf": [
+            {
+              "maxLength": 300,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Interview Availability"
+        },
+        "missing_input_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Missing Input Id"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Model"
+        },
+        "origin": {
+          "default": "user_provided",
+          "enum": [
+            "packet_core",
+            "user_provided"
+          ],
+          "title": "Origin",
+          "type": "string"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Provider"
+        },
+        "resolver": {
+          "default": "needs_input",
+          "enum": [
+            "deterministic",
+            "grounded_answer_service",
+            "human",
+            "needs_input",
+            "manual_upload"
+          ],
+          "title": "Resolver",
+          "type": "string"
+        },
+        "resource_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Resource Id"
+        },
+        "source": {
+          "default": "missing",
+          "enum": [
+            "candidate_profile",
+            "candidate_resource",
+            "gemini",
+            "cohere",
+            "ollama",
+            "approved_answer",
+            "deterministic_extractive",
+            "human",
+            "missing"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "telegram_owner_update": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Telegram Owner Update"
+        },
+        "telegram_question": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Telegram Question"
+        }
+      },
+      "title": "Provenance",
+      "type": "object"
+    },
+    "ResumeOption": {
+      "additionalProperties": false,
+      "properties": {
+        "confirmed": {
+          "title": "Confirmed",
+          "type": "boolean"
+        },
+        "download_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Download Path"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "primary": {
+          "title": "Primary",
+          "type": "boolean"
+        },
+        "resource_id": {
+          "format": "uuid",
+          "title": "Resource Id",
+          "type": "string"
+        },
+        "resource_version": {
+          "title": "Resource Version",
+          "type": "string"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Url"
+        }
+      },
+      "required": [
+        "resource_id",
+        "label",
+        "url",
+        "confirmed",
+        "primary",
+        "resource_version"
+      ],
+      "title": "ResumeOption",
+      "type": "object"
+    },
+    "ResumeSelection": {
+      "additionalProperties": false,
+      "properties": {
+        "alternatives": {
+          "items": {
+            "$ref": "#/$defs/ResumeOption"
+          },
+          "title": "Alternatives",
+          "type": "array"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        },
+        "selected": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResumeOption"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "upload_status": {
+          "const": "manual_resume_upload_required",
+          "default": "manual_resume_upload_required",
+          "title": "Upload Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "title": "ResumeSelection",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "application_url": {
+      "title": "Application Url",
+      "type": "string"
+    },
+    "approved_revision": {
+      "title": "Approved Revision",
+      "type": "integer"
+    },
+    "company": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Company"
+    },
+    "destination_kind": {
+      "title": "Destination Kind",
+      "type": "string"
+    },
+    "fields": {
+      "items": {
+        "$ref": "#/$defs/PacketField"
+      },
+      "title": "Fields",
+      "type": "array"
+    },
+    "job_title": {
+      "title": "Job Title",
+      "type": "string"
+    },
+    "manual_steps": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Manual Steps",
+      "type": "array"
+    },
+    "packet_id": {
+      "format": "uuid",
+      "title": "Packet Id",
+      "type": "string"
+    },
+    "professional_links": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "title": "Professional Links",
+      "type": "object"
+    },
+    "resume": {
+      "$ref": "#/$defs/ResumeSelection"
+    },
+    "revision": {
+      "title": "Revision",
+      "type": "integer"
+    },
+    "submission_mode": {
+      "const": "manual_handoff",
+      "default": "manual_handoff",
+      "title": "Submission Mode",
+      "type": "string"
+    },
+    "submitted": {
+      "const": false,
+      "default": false,
+      "title": "Submitted",
+      "type": "boolean"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "required": [
+    "packet_id",
+    "revision",
+    "approved_revision",
+    "company",
+    "job_title",
+    "application_url",
+    "destination_kind",
+    "resume",
+    "professional_links",
+    "fields",
+    "manual_steps",
+    "warnings"
+  ],
+  "title": "Handoff",
+  "type": "object"
+}

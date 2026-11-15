@@ -1,6 +1,8 @@
 import { readFileSync, writeFileSync, cpSync, mkdirSync } from "node:fs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { generateFormDOM } from "./generate-form-dom.mjs";
+generateFormDOM({ check: true });
 const arguments_ = process.argv.slice(2);
 assert(arguments_.length <= 1, "One explicit browser target is permitted");
 const browser = arguments_[0]?.replace(/^--browser=/, "") || "chrome";

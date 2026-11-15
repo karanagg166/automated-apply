@@ -387,7 +387,16 @@ pub(crate) async fn lock_in(tx: &mut Transaction<'_, Postgres>, job: Uuid) -> Re
     if let Some(profile) = profile {
         sqlx::query("SELECT id FROM candidate_resources WHERE candidate_profile_id=$1 ORDER BY id FOR UPDATE").bind(profile).fetch_all(&mut **tx).await.map_err(db)?;
         sqlx::query("SELECT id FROM candidate_evidence WHERE candidate_profile_id=$1 ORDER BY id FOR UPDATE").bind(profile).fetch_all(&mut **tx).await.map_err(db)?;
+        let available: bool =
+            sqlx::query_scalar("SELECT to_regclass('owner_preferences') IS NOT NULL")
+                .fetch_one(&mut **tx)
+                .await
+                .map_err(db)?;
+        if available {
+            sqlx::query("SELECT key FROM owner_preferences WHERE starts_with(key,'needs_input:') AND value->>'candidate_profile_id'=$1 AND (value->>'job_id' IS NULL OR value->>'job_id'=$2) ORDER BY key FOR UPDATE").bind(profile.to_string()).bind(job.to_string()).fetch_all(&mut **tx).await.map_err(db)?;
+        }
     }
+    sqlx::query("SELECT id FROM job_source_observations WHERE job_id=$1 ORDER BY source,original_url,id FOR UPDATE").bind(job).fetch_all(&mut **tx).await.map_err(db)?;
     Ok(())
 }
 /// Preload from the caller's existing consistent transaction. No connection, commit,
@@ -406,6 +415,26 @@ pub async fn load_in(
     if !matches!(isolation.as_str(), "repeatable read" | "serializable") {
         return Err(Failure("packet_context_snapshot_required"));
     }
+    load_material_in(tx, id, selected, policy, now).await
+}
+/// For review/handoff, acquire all legacy material locks and load immediately in the
+/// same exclusive borrow. READ COMMITTED then observes STOP/preferences after the owner fence.
+pub(crate) async fn load_locked_in(
+    tx: &mut Transaction<'_, Postgres>,
+    id: Uuid,
+    selected: Option<Uuid>,
+    policy: &Policy,
+) -> Result<Built> {
+    lock_in(tx, id).await?;
+    load_material_in(tx, id, selected, policy, Utc::now()).await
+}
+async fn load_material_in(
+    tx: &mut Transaction<'_, Postgres>,
+    id: Uuid,
+    selected: Option<Uuid>,
+    policy: &Policy,
+    now: DateTime<Utc>,
+) -> Result<Built> {
     let job:Option<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',id,'company_id',company_id,'title',title,'source_platform',source_platform,'job_url',job_url,'application_url',application_url,'description',description,'skills_required',skills_required,'location',location,'remote_type',remote_type,'is_remote',is_remote,'employment_type',employment_type,'experience_level',experience_level,'salary_min',salary_min::text,'salary_max',salary_max::text,'salary_currency',salary_currency,'salary_period',salary_period,'source_verification_status',source_verification_status,'status',status,'discovery_metadata',discovery_metadata,'date_posted',date_posted,'last_observed_at',last_observed_at) FROM jobs WHERE id=$1").bind(id).fetch_optional(&mut **tx).await.map_err(db)?;
     let job = job.ok_or(Failure("packet_job_not_found"))?;
     let profile = match crate::profile_store::get(tx).await {

@@ -71,7 +71,7 @@ async fn actual_mcp_stdio_handshake_catalog_and_tool_calls_use_authenticated_api
         let response:Value=serde_json::from_str(&line).unwrap();assert_eq!(response["id"],expected);
         match expected{
             1=>{assert_eq!(response["result"]["serverInfo"]["name"],"automated-apply-tools");input.write_all(b"{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n").await.unwrap();},
-            2=>{let tools=response["result"]["tools"].as_array().unwrap();assert_eq!(tools.len(),7);assert!(tools.iter().all(|tool|tool["annotations"]["readOnlyHint"]==true));},
+            2=>{let tools=response["result"]["tools"].as_array().unwrap();let mut names=tools.iter().map(|t|t["name"].as_str().unwrap()).collect::<Vec<_>>(); names.sort(); let mut expected=vec!["runtime_status","browser_readiness","naukri_saved_jobs","instahyre_saved_jobs","application_history","telegram_status","match_saved_job","himalayas_discover","we_work_remotely_discover","internshala_saved_jobs","wellfound_saved_jobs","ycombinator_saved_jobs","hiringcafe_saved_jobs","himalayas_saved_jobs","we_work_remotely_saved_jobs"]; expected.sort(); assert_eq!(names,expected);assert!(tools.iter().all(|tool|tool["annotations"]["readOnlyHint"]==true));},
             3=>{assert_eq!(response["result"]["structuredContent"]["jobs"][0]["id"],json!(id));assert_eq!(response["result"]["structuredContent"]["application_dispatch"],false);},
             4=>{assert_eq!(response["result"]["structuredContent"]["selected"],"brave");assert_eq!(response["result"]["structuredContent"]["browser_launched"],false);},
             5=>assert!(response["error"].is_object()||response["result"]["isError"]==true),

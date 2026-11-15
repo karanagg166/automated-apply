@@ -42,6 +42,7 @@ async fn run() -> Result<()> {
     let config = Arc::new(Configuration::load(&PathBuf::from(&arguments[2]))?);
     let fixture_directory = arguments.get(4).map(PathBuf::from);
     let _lease = ProcessLock::acquire(&config, fixture_directory.as_deref())?;
+    let _writer = ProcessLock::acquire_writer(&config, fixture_directory.as_deref())?;
     let _telegram_lease = if config.telegram_enabled() {
         Some(ProcessLock::acquire_telegram(
             &config,

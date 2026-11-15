@@ -1,0 +1,232 @@
+    const validateSnapshot = (req) => {
+      if (req.interaction_authorized && navigator.serviceWorker?.controller)
+        return {
+          state: "manual_required",
+          reason: "background_network_scope_unverified",
+          results: [],
+          submitted: false,
+        };
+      if (
+        req.expires_at &&
+        (!Number.isFinite(Date.parse(req.expires_at)) ||
+          Date.parse(req.expires_at) <= Date.now())
+      )
+        return {
+          state: "manual_required",
+          reason: "fill_plan_stale",
+          results: [],
+          submitted: false,
+        };
+      if (req.document_id !== documentId || location.href !== last?.url)
+        return {
+          state: "manual_required",
+          reason: "step_changed",
+          results: [],
+          submitted: false,
+        };
+      if (fillCancelled)
+        return {
+          state: "manual_required",
+          reason: "form_cancelled_reprepare_required",
+          results: [],
+          submitted: false,
+        };
+      if (securityState() !== "none")
+        return {
+          state: "manual_required",
+          reason: "security_challenge",
+          results: [],
+          submitted: false,
+        };
+      const currentControls = [
+        ...document.querySelectorAll("input,textarea,select"),
+      ].filter(visible);
+      if (currentControls.length !== controlCount)
+        return {
+          state: "manual_required",
+          reason: "dom_changed",
+          results: [],
+          submitted: false,
+        };
+
+      if (req.operation !== "verify_submission") {
+        flushMutations();
+        if (domMutated) {
+          stopObserving();
+          return {
+            state: "manual_required",
+            reason: "dom_changed",
+            results: [],
+            submitted: false,
+          };
+        }
+        if (getStepSignature() !== snapshotStepSignature) {
+          stopObserving();
+          return {
+            state: "manual_required",
+            reason: "step_changed",
+            results: [],
+            submitted: false,
+          };
+        }
+        const currentForms = [...document.forms];
+        if (
+          currentForms.length !== snapshotForms.length ||
+          currentForms.some(
+            (f, i) =>
+              f !== snapshotForms[i].el ||
+              f.action !== snapshotForms[i].action ||
+              f.method !== snapshotForms[i].method ||
+              f.target !== snapshotForms[i].target ||
+              f.enctype !== snapshotForms[i].enctype,
+          )
+        ) {
+          stopObserving();
+          return {
+            state: "manual_required",
+            reason: "dom_changed",
+            results: [],
+            submitted: false,
+          };
+        }
+        if (
+          currentControls.some(
+            (c, i) =>
+              c !== snapshotControls[i]?.el ||
+              c.tagName !== snapshotControls[i]?.tagName ||
+              c.type !== snapshotControls[i]?.type ||
+              c.name !== snapshotControls[i]?.name ||
+              c.id !== snapshotControls[i]?.id ||
+              c.disabled !== snapshotControls[i]?.disabled ||
+              c.readOnly !== snapshotControls[i]?.readOnly,
+          )
+        ) {
+          stopObserving();
+          return {
+            state: "manual_required",
+            reason: "dom_changed",
+            results: [],
+            submitted: false,
+          };
+        }
+      }
+
+      for (const ref of refs.values()) {
+        const el = ref.el;
+        if (ref.choices) {
+          let now = choicesFor(el);
+          // A narrowly supported static list may close after its reviewed option
+          // was clicked. Do not reopen it or fetch choices: bind the same mounted
+          // list/options and require the owning input to retain the exact label.
+          if (
+            !now &&
+            interactiveExecution &&
+            ref.choiceClicked &&
+            el.getAttribute("aria-expanded") === "false" &&
+            document.getElementById(el.getAttribute("aria-controls")) ===
+              ref.choices.list &&
+            el.value === ref.choiceClicked &&
+            ref.choices.list.isConnected
+          ) {
+            const options = [
+              ...ref.choices.list.querySelectorAll("[role='option']"),
+            ];
+            now = {
+              list: ref.choices.list,
+              options,
+              labels: options.map((o) =>
+                clean(o.getAttribute("aria-label") || o.textContent),
+              ),
+            };
+          }
+          if (
+            !now ||
+            now.list !== ref.choices.list ||
+            JSON.stringify(now.labels) !== JSON.stringify(ref.choices.labels) ||
+            now.options.length !== ref.choices.options.length ||
+            now.options.some(
+              (o, i) =>
+                o !== ref.choices.options[i] || o.value !== ref.choiceValues[i],
+            )
+          )
+            return {
+              state: "manual_required",
+              reason: "dom_changed",
+              results: [],
+              submitted: false,
+            };
+        }
+        const group = groupLabel(el);
+        const options = ref.choices
+          ? ref.choices.labels
+          : el.tagName === "SELECT"
+            ? [...el.options]
+                .filter(
+                  (o, i) =>
+                    !o.disabled &&
+                    !o.hidden &&
+                    !isPlaceholderSelectOption(o, i),
+                )
+                .map((o) => clean(o.textContent))
+            : ref.field.options;
+        if (
+          !el.isConnected ||
+          !visible(el) ||
+          el.disabled ||
+          (el.readOnly && !ref.choices) ||
+          el.name !== ref.name ||
+          el.autocomplete !== ref.autocomplete ||
+          group !== ref.field.group_label ||
+          (!["radio", "checkbox"].includes(ref.field.kind) &&
+            sectionLabel(el) !== ref.field.section) ||
+          JSON.stringify([el.min, el.max, el.step]) !==
+            JSON.stringify(ref.dateConstraints) ||
+          label(el) !== ref.field.label ||
+          (el.tagName === "INPUT" &&
+            !ref.choices &&
+            el.type !== ref.field.kind) ||
+          JSON.stringify(options) !== JSON.stringify(ref.field.options) ||
+          (el.tagName === "SELECT" &&
+            [...el.options].some(
+              (o, i) =>
+                o !== ref.options[i] ||
+                o.value !== ref.optionSnapshot[i]?.value ||
+                o.disabled !== ref.optionSnapshot[i]?.disabled ||
+                o.hidden !== ref.optionSnapshot[i]?.hidden,
+            )) ||
+          isRequired(el) !== ref.field.required ||
+          Math.min(4000, el.maxLength > 0 ? el.maxLength : 1500) !==
+            ref.field.max_length
+        )
+          return {
+            state: "manual_required",
+            reason: "dom_changed",
+            results: [],
+            submitted: false,
+          };
+      }
+      // Check the entire DOM snapshot before any mutation. Existing values are never returned.
+      for (const action of req.actions || []) {
+        const ref = refs.get(action.field_id);
+        if (
+          !ref ||
+          !ref.el.isConnected ||
+          !visible(ref.el) ||
+          ref.el.disabled ||
+          (ref.el.readOnly && !ref.choices) ||
+          ref.field.kind !== action.kind ||
+          label(ref.el) !== ref.field.label ||
+          (ref.el.tagName === "INPUT" &&
+            !ref.choices &&
+            ref.el.type !== action.kind)
+        )
+          return {
+            state: "manual_required",
+            reason: "dom_changed",
+            results: [],
+            submitted: false,
+          };
+      }
+      return null;
+    };
+

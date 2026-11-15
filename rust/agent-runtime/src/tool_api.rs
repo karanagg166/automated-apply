@@ -41,7 +41,22 @@ pub async fn route(
     })
 }
 async fn search(connection: &mut PgConnection, platform: &str, body: &[u8]) -> Result<Value> {
-    if !matches!(platform, "naukri" | "instahyre") {
+    let platform = if platform == "ycombinator" {
+        "work_at_a_startup"
+    } else {
+        platform
+    };
+    if !matches!(
+        platform,
+        "naukri"
+            | "instahyre"
+            | "internshala"
+            | "wellfound"
+            | "work_at_a_startup"
+            | "hiringcafe"
+            | "himalayas"
+            | "we_work_remotely"
+    ) {
         return Err(Failure("unsupported_job_platform"));
     }
     let input: Search =

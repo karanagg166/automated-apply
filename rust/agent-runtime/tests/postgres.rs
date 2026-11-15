@@ -3023,6 +3023,7 @@ include!("support/packet_context_pg.rs");
 include!("support/packet_service_pg.rs");
 include!("support/packet_edit_pg.rs");
 include!("support/packet_generation_pg.rs");
+include!("support/packet_review_pg.rs");
 include!("support/private_resume_pg.rs");
 include!("support/mcp_pg.rs");
 #[tokio::test(flavor = "current_thread")]
@@ -3999,3 +4000,7 @@ async fn profile_confirmation_and_recheck_roll_back_together_if_recheck_cannot_c
             .unwrap();
     assert_eq!(version, 4);
 }
+
+include!("support/packet_tracking_pg.rs");
+
+include!("support/public_discovery_pg.rs");

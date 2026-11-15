@@ -6,6 +6,7 @@ import signal
 from backend.app.automation.worker import serve
 from backend.app.core.config import get_settings
 from backend.app.db.session import close_db_engine, get_engine, get_session_factory
+from backend.app.local_agent.process_lock import process_lock
 from backend.app.operations.health import database_health
 
 
@@ -20,7 +21,8 @@ async def main():
     for name in (signal.SIGINT, signal.SIGTERM):
         asyncio.get_running_loop().add_signal_handler(name, stop.set)
     try:
-        await serve(get_session_factory(), settings, stop)
+        async with process_lock(settings, "discovery"):
+            await serve(get_session_factory(), settings, stop)
     finally:
         await close_db_engine()
 

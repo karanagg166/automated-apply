@@ -1,0 +1,67 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "confirmation_source": {
+      "enum": [
+        "user_reported",
+        "mock_employer"
+      ],
+      "title": "Confirmation Source",
+      "type": "string"
+    },
+    "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+    },
+    "evidence_confidence": {
+      "enum": [
+        "self_reported_unverified",
+        "mock_receipt_verified"
+      ],
+      "title": "Evidence Confidence",
+      "type": "string"
+    },
+    "human_confirmed": {
+      "title": "Human Confirmed",
+      "type": "boolean"
+    },
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "packet_id": {
+      "format": "uuid",
+      "title": "Packet Id",
+      "type": "string"
+    },
+    "packet_revision": {
+      "title": "Packet Revision",
+      "type": "integer"
+    },
+    "receipt_reference": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Receipt Reference"
+    }
+  },
+  "required": [
+    "id",
+    "packet_id",
+    "packet_revision",
+    "confirmation_source",
+    "receipt_reference",
+    "evidence_confidence",
+    "human_confirmed",
+    "created_at"
+  ],
+  "title": "SubmissionRead",
+  "type": "object"
+}

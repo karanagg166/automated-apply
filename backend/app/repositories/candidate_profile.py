@@ -1,12 +1,17 @@
 """Transaction-neutral profile persistence with atomic compare-and-swap updates."""
 
 from datetime import datetime, timezone
+
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.app.models.candidate_profile import CandidateProfile
-from backend.app.schemas.candidate_profile import CandidateProfileCreate, CandidateProfileUpdate
+from backend.app.schemas.candidate_profile import (
+    CandidateProfileCreate,
+    CandidateProfileUpdate,
+)
 
 
 class ProfileNotFoundError(Exception):

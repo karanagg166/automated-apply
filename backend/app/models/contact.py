@@ -3,9 +3,20 @@
 import uuid
 from datetime import datetime
 from typing import Any
-from sqlalchemy import String, Text, Numeric, DateTime, ForeignKey, JSON, UniqueConstraint, Boolean
+
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from backend.app.models.base import Base, GUID, TimestampMixin
+
+from backend.app.models.base import GUID, Base, TimestampMixin
 
 
 class Contact(Base, TimestampMixin):

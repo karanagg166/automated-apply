@@ -1,18 +1,29 @@
 """Authenticated primary profile API. Persist writes before acknowledging them."""
 
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from fastapi.routing import APIRoute
-from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import ValidationError
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.app.core.security import require_api_token
 from backend.app.db.session import get_db_session
 from backend.app.repositories.candidate_profile import (
-    ProfileConflictError, ProfileNotFoundError, ProfilePreconditionError,
+    ProfileConflictError,
+    ProfileNotFoundError,
+    ProfilePreconditionError,
 )
 from backend.app.repositories.job import JobRepository
-from backend.app.schemas.candidate_profile import CandidateProfileCreate, CandidateProfileRead, CandidateProfileUpdate
-from backend.app.services.application_assistant import ApplicationAssistant, JobMatchResult
+from backend.app.schemas.candidate_profile import (
+    CandidateProfileCreate,
+    CandidateProfileRead,
+    CandidateProfileUpdate,
+)
+from backend.app.services.application_assistant import (
+    ApplicationAssistant,
+    JobMatchResult,
+)
 from backend.app.services.candidate_profile_service import CandidateProfileService
 
 

@@ -1,0 +1,886 @@
+[
+  {
+    "accepted": true,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01"
+    },
+    "kind": "submission",
+    "output": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01",
+      "note": null,
+      "receipt_reference": null
+    }
+  },
+  {
+    "accepted": false,
+    "input": {},
+    "kind": "submission"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "approved_revision": 2,
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01"
+    },
+    "kind": "submission"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": false,
+      "idempotency_key": "fictional-report-01"
+    },
+    "kind": "submission"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": 1,
+      "idempotency_key": "fictional-report-01"
+    },
+    "kind": "submission"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": "true",
+      "idempotency_key": "fictional-report-01"
+    },
+    "kind": "submission"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": null,
+      "idempotency_key": "fictional-report-01"
+    },
+    "kind": "submission"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "confirmation": "submitted",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01"
+    },
+    "kind": "submission"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "confirmation": null,
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01"
+    },
+    "kind": "submission"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "confirmation": " I submitted this application on the official website ",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01"
+    },
+    "kind": "submission"
+  },
+  {
+    "accepted": true,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01",
+      "receipt_reference": null
+    },
+    "kind": "submission",
+    "output": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01",
+      "note": null,
+      "receipt_reference": null
+    }
+  },
+  {
+    "accepted": false,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01",
+      "receipt_reference": ""
+    },
+    "kind": "submission"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01",
+      "receipt_reference": " "
+    },
+    "kind": "submission"
+  },
+  {
+    "accepted": true,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01",
+      "receipt_reference": " receipt-1 "
+    },
+    "kind": "submission",
+    "output": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01",
+      "note": null,
+      "receipt_reference": "receipt-1"
+    }
+  },
+  {
+    "accepted": false,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01",
+      "receipt_reference": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    "kind": "submission"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "short"
+    },
+    "kind": "submission"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "abcdefgh!"
+    },
+    "kind": "submission"
+  },
+  {
+    "accepted": true,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "abcdefgh\n"
+    },
+    "kind": "submission",
+    "output": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "abcdefgh",
+      "note": null,
+      "receipt_reference": null
+    }
+  },
+  {
+    "accepted": true,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": " abcdefgh "
+    },
+    "kind": "submission",
+    "output": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "abcdefgh",
+      "note": null,
+      "receipt_reference": null
+    }
+  },
+  {
+    "accepted": false,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    "kind": "submission"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": null,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01"
+    },
+    "kind": "submission"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 0,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01"
+    },
+    "kind": "submission"
+  },
+  {
+    "accepted": true,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01"
+    },
+    "kind": "submission",
+    "output": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01",
+      "note": null,
+      "receipt_reference": null
+    }
+  },
+  {
+    "accepted": true,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 2147483646,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01"
+    },
+    "kind": "submission",
+    "output": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 2147483646,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01",
+      "note": null,
+      "receipt_reference": null
+    }
+  },
+  {
+    "accepted": false,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 2147483647,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01"
+    },
+    "kind": "submission"
+  },
+  {
+    "accepted": true,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": true,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01"
+    },
+    "kind": "submission",
+    "output": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01",
+      "note": null,
+      "receipt_reference": null
+    }
+  },
+  {
+    "accepted": true,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1.0,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01"
+    },
+    "kind": "submission",
+    "output": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01",
+      "note": null,
+      "receipt_reference": null
+    }
+  },
+  {
+    "accepted": false,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1.5,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01"
+    },
+    "kind": "submission"
+  },
+  {
+    "accepted": true,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": "1",
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01"
+    },
+    "kind": "submission",
+    "output": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01",
+      "note": null,
+      "receipt_reference": null
+    }
+  },
+  {
+    "accepted": true,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": "1.0",
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01"
+    },
+    "kind": "submission",
+    "output": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01",
+      "note": null,
+      "receipt_reference": null
+    }
+  },
+  {
+    "accepted": true,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01",
+      "note": null
+    },
+    "kind": "submission",
+    "output": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01",
+      "note": null,
+      "receipt_reference": null
+    }
+  },
+  {
+    "accepted": false,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01",
+      "note": ""
+    },
+    "kind": "submission"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01",
+      "note": " "
+    },
+    "kind": "submission"
+  },
+  {
+    "accepted": true,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01",
+      "note": " audit note "
+    },
+    "kind": "submission",
+    "output": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01",
+      "note": "audit note",
+      "receipt_reference": null
+    }
+  },
+  {
+    "accepted": false,
+    "input": {
+      "confirmation": "I submitted this application on the official website",
+      "expected_revision": 1,
+      "human_confirmed": true,
+      "idempotency_key": "fictional-report-01",
+      "note": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    },
+    "kind": "submission"
+  },
+  {
+    "accepted": true,
+    "input": {
+      "expected_revision": 1,
+      "tracking_state": "archived"
+    },
+    "kind": "tracking",
+    "output": {
+      "expected_revision": 1,
+      "lifecycle_state": null,
+      "note": null,
+      "tracking_state": "archived"
+    }
+  },
+  {
+    "accepted": false,
+    "input": {},
+    "kind": "tracking"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "approved_revision": 2,
+      "expected_revision": 1,
+      "tracking_state": "archived"
+    },
+    "kind": "tracking"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "expected_revision": 1,
+      "tracking_state": null
+    },
+    "kind": "tracking"
+  },
+  {
+    "accepted": true,
+    "input": {
+      "expected_revision": 1,
+      "tracking_state": "not_applied"
+    },
+    "kind": "tracking",
+    "output": {
+      "expected_revision": 1,
+      "lifecycle_state": null,
+      "note": null,
+      "tracking_state": "not_applied"
+    }
+  },
+  {
+    "accepted": true,
+    "input": {
+      "expected_revision": 1,
+      "tracking_state": "applied_manually"
+    },
+    "kind": "tracking",
+    "output": {
+      "expected_revision": 1,
+      "lifecycle_state": null,
+      "note": null,
+      "tracking_state": "applied_manually"
+    }
+  },
+  {
+    "accepted": true,
+    "input": {
+      "expected_revision": 1,
+      "tracking_state": "applied_verified"
+    },
+    "kind": "tracking",
+    "output": {
+      "expected_revision": 1,
+      "lifecycle_state": null,
+      "note": null,
+      "tracking_state": "applied_verified"
+    }
+  },
+  {
+    "accepted": true,
+    "input": {
+      "expected_revision": 1,
+      "tracking_state": "application_incomplete"
+    },
+    "kind": "tracking",
+    "output": {
+      "expected_revision": 1,
+      "lifecycle_state": null,
+      "note": null,
+      "tracking_state": "application_incomplete"
+    }
+  },
+  {
+    "accepted": true,
+    "input": {
+      "expected_revision": 1,
+      "tracking_state": "application_rejected"
+    },
+    "kind": "tracking",
+    "output": {
+      "expected_revision": 1,
+      "lifecycle_state": null,
+      "note": null,
+      "tracking_state": "application_rejected"
+    }
+  },
+  {
+    "accepted": true,
+    "input": {
+      "expected_revision": 1,
+      "tracking_state": "interview_scheduled"
+    },
+    "kind": "tracking",
+    "output": {
+      "expected_revision": 1,
+      "lifecycle_state": null,
+      "note": null,
+      "tracking_state": "interview_scheduled"
+    }
+  },
+  {
+    "accepted": true,
+    "input": {
+      "expected_revision": 1,
+      "tracking_state": "offer_received"
+    },
+    "kind": "tracking",
+    "output": {
+      "expected_revision": 1,
+      "lifecycle_state": null,
+      "note": null,
+      "tracking_state": "offer_received"
+    }
+  },
+  {
+    "accepted": true,
+    "input": {
+      "expected_revision": 1,
+      "tracking_state": "archived"
+    },
+    "kind": "tracking",
+    "output": {
+      "expected_revision": 1,
+      "lifecycle_state": null,
+      "note": null,
+      "tracking_state": "archived"
+    }
+  },
+  {
+    "accepted": false,
+    "input": {
+      "expected_revision": 1,
+      "tracking_state": " archived "
+    },
+    "kind": "tracking"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "expected_revision": 1,
+      "tracking_state": "invented"
+    },
+    "kind": "tracking"
+  },
+  {
+    "accepted": true,
+    "input": {
+      "expected_revision": 1,
+      "lifecycle_state": null,
+      "tracking_state": "archived"
+    },
+    "kind": "tracking",
+    "output": {
+      "expected_revision": 1,
+      "lifecycle_state": null,
+      "note": null,
+      "tracking_state": "archived"
+    }
+  },
+  {
+    "accepted": true,
+    "input": {
+      "expected_revision": 1,
+      "lifecycle_state": "external_application_opened",
+      "tracking_state": "archived"
+    },
+    "kind": "tracking",
+    "output": {
+      "expected_revision": 1,
+      "lifecycle_state": "external_application_opened",
+      "note": null,
+      "tracking_state": "archived"
+    }
+  },
+  {
+    "accepted": true,
+    "input": {
+      "expected_revision": 1,
+      "lifecycle_state": "withdrawn",
+      "tracking_state": "archived"
+    },
+    "kind": "tracking",
+    "output": {
+      "expected_revision": 1,
+      "lifecycle_state": "withdrawn",
+      "note": null,
+      "tracking_state": "archived"
+    }
+  },
+  {
+    "accepted": true,
+    "input": {
+      "expected_revision": 1,
+      "lifecycle_state": "abandoned",
+      "tracking_state": "archived"
+    },
+    "kind": "tracking",
+    "output": {
+      "expected_revision": 1,
+      "lifecycle_state": "abandoned",
+      "note": null,
+      "tracking_state": "archived"
+    }
+  },
+  {
+    "accepted": false,
+    "input": {
+      "expected_revision": 1,
+      "lifecycle_state": "submitting",
+      "tracking_state": "archived"
+    },
+    "kind": "tracking"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "expected_revision": 1,
+      "lifecycle_state": "provider_confirmed_submitted",
+      "tracking_state": "archived"
+    },
+    "kind": "tracking"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "expected_revision": 1,
+      "lifecycle_state": " withdrawn ",
+      "tracking_state": "archived"
+    },
+    "kind": "tracking"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "expected_revision": null,
+      "tracking_state": "archived"
+    },
+    "kind": "tracking"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "expected_revision": 0,
+      "tracking_state": "archived"
+    },
+    "kind": "tracking"
+  },
+  {
+    "accepted": true,
+    "input": {
+      "expected_revision": 1,
+      "tracking_state": "archived"
+    },
+    "kind": "tracking",
+    "output": {
+      "expected_revision": 1,
+      "lifecycle_state": null,
+      "note": null,
+      "tracking_state": "archived"
+    }
+  },
+  {
+    "accepted": true,
+    "input": {
+      "expected_revision": 2147483646,
+      "tracking_state": "archived"
+    },
+    "kind": "tracking",
+    "output": {
+      "expected_revision": 2147483646,
+      "lifecycle_state": null,
+      "note": null,
+      "tracking_state": "archived"
+    }
+  },
+  {
+    "accepted": false,
+    "input": {
+      "expected_revision": 2147483647,
+      "tracking_state": "archived"
+    },
+    "kind": "tracking"
+  },
+  {
+    "accepted": true,
+    "input": {
+      "expected_revision": true,
+      "tracking_state": "archived"
+    },
+    "kind": "tracking",
+    "output": {
+      "expected_revision": 1,
+      "lifecycle_state": null,
+      "note": null,
+      "tracking_state": "archived"
+    }
+  },
+  {
+    "accepted": true,
+    "input": {
+      "expected_revision": 1.0,
+      "tracking_state": "archived"
+    },
+    "kind": "tracking",
+    "output": {
+      "expected_revision": 1,
+      "lifecycle_state": null,
+      "note": null,
+      "tracking_state": "archived"
+    }
+  },
+  {
+    "accepted": false,
+    "input": {
+      "expected_revision": 1.5,
+      "tracking_state": "archived"
+    },
+    "kind": "tracking"
+  },
+  {
+    "accepted": true,
+    "input": {
+      "expected_revision": "1",
+      "tracking_state": "archived"
+    },
+    "kind": "tracking",
+    "output": {
+      "expected_revision": 1,
+      "lifecycle_state": null,
+      "note": null,
+      "tracking_state": "archived"
+    }
+  },
+  {
+    "accepted": true,
+    "input": {
+      "expected_revision": "1.0",
+      "tracking_state": "archived"
+    },
+    "kind": "tracking",
+    "output": {
+      "expected_revision": 1,
+      "lifecycle_state": null,
+      "note": null,
+      "tracking_state": "archived"
+    }
+  },
+  {
+    "accepted": true,
+    "input": {
+      "expected_revision": 1,
+      "note": null,
+      "tracking_state": "archived"
+    },
+    "kind": "tracking",
+    "output": {
+      "expected_revision": 1,
+      "lifecycle_state": null,
+      "note": null,
+      "tracking_state": "archived"
+    }
+  },
+  {
+    "accepted": false,
+    "input": {
+      "expected_revision": 1,
+      "note": "",
+      "tracking_state": "archived"
+    },
+    "kind": "tracking"
+  },
+  {
+    "accepted": false,
+    "input": {
+      "expected_revision": 1,
+      "note": " ",
+      "tracking_state": "archived"
+    },
+    "kind": "tracking"
+  },
+  {
+    "accepted": true,
+    "input": {
+      "expected_revision": 1,
+      "note": " audit note ",
+      "tracking_state": "archived"
+    },
+    "kind": "tracking",
+    "output": {
+      "expected_revision": 1,
+      "lifecycle_state": null,
+      "note": "audit note",
+      "tracking_state": "archived"
+    }
+  },
+  {
+    "accepted": false,
+    "input": {
+      "expected_revision": 1,
+      "note": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "tracking_state": "archived"
+    },
+    "kind": "tracking"
+  }
+]

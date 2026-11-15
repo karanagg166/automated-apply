@@ -98,7 +98,7 @@ pub fn record(row: Value, version: i32) -> Result<Value> {
         "file_upload",
         "unknown",
     ]
-    .contains(&row["question_category"].as_str().unwrap())
+    .contains(&row["question_category"].as_str().ok_or_else(invalid)?)
         || ![
             "professional",
             "conversational",
@@ -106,8 +106,9 @@ pub fn record(row: Value, version: i32) -> Result<Value> {
             "concise",
             "founder_focused",
         ]
-        .contains(&row["writing_style"].as_str().unwrap())
-        || !["draft", "reviewed", "discarded"].contains(&row["review_status"].as_str().unwrap())
+        .contains(&row["writing_style"].as_str().ok_or_else(invalid)?)
+        || !["draft", "reviewed", "discarded"]
+            .contains(&row["review_status"].as_str().ok_or_else(invalid)?)
     {
         return Err(invalid());
     }

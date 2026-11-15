@@ -23,6 +23,12 @@ impl ProcessLock {
     ) -> Result<Self> {
         Self::acquire_service(config, fixture_directory, "telegram")
     }
+    pub fn acquire_writer(
+        config: &Configuration,
+        fixture_directory: Option<&Path>,
+    ) -> Result<Self> {
+        Self::acquire_service(config, fixture_directory, "writer")
+    }
     fn acquire_service(
         config: &Configuration,
         fixture_directory: Option<&Path>,
@@ -37,7 +43,15 @@ impl ProcessLock {
             if fixture_directory.is_some() {
                 return Err(Failure("production_lock_override_forbidden"));
             }
-            owner_home()?.join("Library/Application Support/Automated Apply/runtime-locks")
+            if cfg!(target_os = "macos") {
+                owner_home()?.join("Library/Application Support/Automated Apply/runtime-locks")
+            } else {
+                // Same path as the Python launcher; writable under a read-only image
+                // with /tmp mounted. Container replicas must share this lock directory.
+                PathBuf::from(format!("/tmp/automated-apply-{}-runtime-locks", unsafe {
+                    libc::geteuid()
+                }))
+            }
         };
         DirBuilder::new()
             .recursive(true)
@@ -70,10 +84,10 @@ impl ProcessLock {
         }
         // SAFETY: flock receives the valid descriptor and documented operation flags.
         if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
-            return Err(Failure(if service == "telegram" {
-                "telegram_worker_already_running"
-            } else {
-                "execution_worker_already_running"
+            return Err(Failure(match service {
+                "telegram" => "telegram_worker_already_running",
+                "writer" => "legacy_writer_already_running",
+                _ => "execution_worker_already_running",
             }));
         }
         Ok(Self { _file: file })
