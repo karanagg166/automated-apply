@@ -194,3 +194,28 @@ retains recheck progress; changed versions/failure roll back without quota/histo
 changes. Native PG/HTTP tests cover commit visibility, delegated client refusal, a concurrent
 version change and failed recheck persistence. Uninstalled; resources/readiness/full context
 and the remaining feature/action ports still need completion.
+
+## Approved completion execution — 2026-11-16
+
+Owner approved implementation of the complete-source then combined-acceptance plan.
+Brave is primary and Edge an explicitly selected alternative; Safari is deferred.
+Do not mark the whole plan complete when an individual slice passes.
+
+1. Complete Rust parity for discovery/ingestion/scheduling, browser/execution, account,
+   Gmail/Drive, Telegram/CLI/provider/local fallback and all remaining service routes.
+2. Complete shared dashboard/MCP controls and adapters for Naukri, Instahyre, Wellfound,
+   YC, Internshala, HiringCafe, Himalayas and WWR. Keep unavailable capabilities truthful.
+3. After source integration, execute `scripts/run_acceptance.py --run`; repair failures,
+   rerun affected checks and obtain a clean combined cycle before installation acceptance.
+4. Review production grants/migration, keep STOP, quiesce every legacy writer, install
+   one Rust family and independently verify data/policy/account/resume/rollback/focus.
+5. Validate Naukri first under the remaining fourth admission/hourly1; never infer a fifth.
+   Obtain an independent strict worker receipt, then validate other platforms under
+   their explicit action budgets. Perform24-hour awake/locked recovery/resource observation,
+   using non-submitting work when allowances are exhausted. No sleep-operation claim.
+6. Publish exact acceptance and blockers; merge only after completion/review conditions.
+
+First source slice7500f9a adds explicit token-bound cached public-feed ingestion and
+write-annotated MCP tools. Runner correctiona56e512 bounds stages and preserves timeout
+failures. See [the qualified evidence](../acceptance/cached-feed-ingestion-20261116.md).
+Automatic scheduling, other ports, combined full cycle and all live/install gates remain.

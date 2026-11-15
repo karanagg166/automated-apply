@@ -291,3 +291,20 @@ after the owner's completion conditions hold.
 Detailed plan: [Rust migration](plans/2026-11-14-rust-agent-migration.md). Publish each
 milestone and exact test counts in `docs/acceptance/`, update the PR and this record,
 and preserve the ownership handoff. Never publish private transcripts or credentials.
+
+## Approved plan implementation — 2026-11-16
+
+Owner requested implementation of the approved complete-source then combined-test plan.
+Browser decision: Brave primary, Edge explicit alternative, Safari deferred. First new
+slice7500f9a adds token-bound cached Himalayas/WWR ingestion, conservative durable source/
+canonical deduplication, preserved owner decisions, expiry/partial-evidence guards and
+explicit write-annotated MCP tools. No source platform ingest is an application receipt.
+Runner correctiona56e512 adds bounded sequential fixture orchestration with private logs,
+failures and NOT TESTED stages. Full combined run is deferred until remaining source work
+is integrated.346 distinct Rust cases covered (158 standard;187 full PG plus one extra
+HTTP case),3 runner tests pass; initial MCP catalog failure is corrected and recorded.
+See [the new report](acceptance/cached-feed-ingestion-20261116.md). No live DB/provider/
+browser/install/submission action. Continue remaining discovery scheduling/filtering,
+browser/execution/account/Gmail/Drive/provider/Telegram/CLI ports, then the combined
+cycle and STOP-only whole-family cutover/live acceptance. Do not repeat owner login asks
+or re-enable the failed Brave window-creation path. This is an active incomplete plan.
