@@ -202,9 +202,8 @@ including598 current-system timezone names pass. No dependency, live preference 
 or delivery. System TZif validation intentionally has no arbitrary TZPATH/tzdata fallback;
 scheduled synchronization remains pending. See [the preferences report](acceptance/rust-notification-preferences-20261115.md).
 
-Next finish human packet review/approval, manual handoff/outcomes and execution/notification
-coordination, following the review checklist in the packet slice plan. Do not expose working-looking
-routes with missing execution or owner-review side effects. Browser intake/worker,
+Human packet review/approval, manual handoff/outcomes and transactional execution/notice
+coordination are ported in the later review checkpoint below. Browser intake/worker,
 Gmail/Drive/legacy Telegram/CLI/fallback/rearranger/AGY and real platform/installed/resource
 acceptance remain pending. List context batching still needs optimization/measurement.
 The owner physical profile/account step remains pending; do not relaunch browsers or
@@ -256,6 +255,20 @@ Apply, quota change or receipt was performed. An earlier whole-desktop snapshot 
 across the interruption first matched, then differed in foreground/window ordering over
 the longer interval; do not attribute that difference or claim full focus acceptance.
 This permission confirmation does not establish Naukri sign-in or Gmail reauthorization.
+
+Latest public-feed correction `70a18eeb31c475aafaf11bcf415f5445d1a2b20d` preserves exact
+provider application links separately from canonical source identities and distinguishes
+Himalayas update time from unknown original posting time. Actual native Himalayas request
+returned20 jobs. WWR's first native parse failed on a huge valid description; one bounded
+diagnostic response was saved privately and the final bounded, explicitly marked preview
+parser accepts it with20 results and no further request. No final fresh WWR transport
+retest, ingestion, account verification or application is claimed. Fresh156 standard
++181 native fictional PostgreSQL tests pass (337 distinct), plus an overlapping final
+nine-parser-case boundary rerun. See [exact live/fixture limits](acceptance/public-feed-live-and-links-20261115.md).
+Fresh Brave inventory found no Naukri page; selected tabs stayed unchanged. Do not
+repeat the pending physical login question or relaunch the owner's browser. Continue
+independent source ports. Private history snapshot/verify also passed; absent source
+transcripts remain absent, and no account/session ownership was rewritten.
 
 ## Remaining acceptance
 
