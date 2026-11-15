@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import signal
 import subprocess
 import uuid
 from datetime import datetime, timezone
@@ -30,7 +31,28 @@ STAGES = (
 )
 
 
-def run_stages(stages, output, invoke=subprocess.run):
+def bounded_run(command, *, cwd, stdout, stderr, check, timeout):
+    # Own the complete test process group, including uv/cargo/browser descendants.
+    with subprocess.Popen(command, cwd=cwd, stdout=stdout, stderr=stderr,
+                          start_new_session=True) as child:
+        try:
+            return subprocess.CompletedProcess(command, child.wait(timeout=timeout))
+        except subprocess.TimeoutExpired:
+            for sig in (signal.SIGTERM, signal.SIGKILL):
+                try:
+                    os.killpg(child.pid, sig)
+                except ProcessLookupError:
+                    break
+                if sig == signal.SIGTERM:
+                    try:
+                        child.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        pass
+            child.wait()
+            raise
+
+
+def run_stages(stages, output, invoke=bounded_run):
     """Stop at first failure and distinguish unexecuted stages from passing ones."""
     rows = []
     failed = False

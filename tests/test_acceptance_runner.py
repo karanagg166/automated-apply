@@ -1,8 +1,12 @@
 """Acceptance orchestration must never turn skipped work or failures into success."""
 import importlib.util
 import json
+import subprocess
+import sys
 from pathlib import Path
 from types import SimpleNamespace
+
+import pytest
 
 spec = importlib.util.spec_from_file_location("acceptance_runner", Path(__file__).resolve().parents[1] / "scripts/run_acceptance.py")
 runner = importlib.util.module_from_spec(spec)
@@ -45,3 +49,11 @@ def test_timeout_is_a_failure_and_never_replays_or_runs_the_next_stage(tmp_path)
     rows = json.loads(raw)["stages"]
     assert rows[0]["exit_code"] == 124
     assert rows[1]["status"] == "NOT TESTED"
+
+
+def test_real_command_timeout_terminates_the_owned_process_group(tmp_path):
+    with (tmp_path / "private.log").open("wb") as log:
+        with pytest.raises(subprocess.TimeoutExpired):
+            runner.bounded_run([sys.executable, "-c", "import time; time.sleep(60)"],
+                               cwd=tmp_path, stdout=log, stderr=subprocess.STDOUT,
+                               check=False, timeout=0.05)
