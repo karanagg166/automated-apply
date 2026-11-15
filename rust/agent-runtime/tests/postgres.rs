@@ -3014,6 +3014,7 @@ include!("support/missing_store_pg.rs");
 include!("support/answer_service_pg.rs");
 include!("support/answer_reuse_pg.rs");
 include!("support/gemini_pg.rs");
+include!("support/ollama_pg.rs");
 include!("support/private_resume_pg.rs");
 include!("support/mcp_pg.rs");
 #[tokio::test(flavor = "current_thread")]

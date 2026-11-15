@@ -30,6 +30,7 @@ pub struct Settings {
 enum Writer {
     Cohere(CohereModel),
     Gemini(crate::gemini::GeminiModel),
+    Ollama(crate::ollama::OllamaModel),
 }
 impl Settings {
     pub(crate) fn share_gate(&mut self, gate: std::sync::Arc<tokio::sync::Semaphore>) {
@@ -37,6 +38,7 @@ impl Settings {
             match model {
                 Writer::Cohere(model) => model.share_gate(gate),
                 Writer::Gemini(model) => model.gate = gate,
+                Writer::Ollama(model) => model.gate = gate,
             }
         }
     }
@@ -83,7 +85,12 @@ impl Settings {
                     Err(error) => out.unavailable = error,
                 }
             }
-        } else if matches!(provider, "agy" | "ollama") {
+        } else if provider == "ollama" {
+            match crate::ollama::OllamaModel::from_values(values, fixture) {
+                Ok(model) => out.writing = Some(Writer::Ollama(model)),
+                Err(error) => out.unavailable = error,
+            }
+        } else if provider == "agy" {
             out.unavailable = Failure("provider_execution_not_authorized");
         } else if provider == "gemini" {
             match crate::gemini::GeminiModel::from_values(values, fixture) {
@@ -469,6 +476,16 @@ pub async fn generate(
                 .await
         }
         Writer::Gemini(provider) => {
+            provider
+                .write_answer(
+                    connection,
+                    &writing.request.question,
+                    &writing.context,
+                    &writing.instructions,
+                )
+                .await
+        }
+        Writer::Ollama(provider) => {
             provider
                 .write_answer(
                     connection,

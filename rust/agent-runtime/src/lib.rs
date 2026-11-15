@@ -44,6 +44,7 @@ pub mod grounding;
 pub mod lifecycle;
 pub mod link_resolver;
 pub mod mcp_bridge;
+mod ollama;
 pub mod personal_facts;
 pub mod planner;
 pub mod private_resume;

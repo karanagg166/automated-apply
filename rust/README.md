@@ -49,4 +49,20 @@ locks before inference, rechecks evidence before saving, and cannot submit appli
 One transient generation connection keeps owner controls responsive; no database pool is
 added. Gemini also requires its separate approved monthly request count and candidate-data
 grant; it accepts one complete text-only structured result and never follows generated tools.
-Local/CLI provider and application service ports remain in progress.
+Explicit `LLM_PROVIDER=ollama` with `OLLAMA_ENABLED=true` now uses the existing optional
+provider ledger (`owner_preferences`, `ai:ollama:YYYY-MM`), including consumed requests,
+cooldowns and unknown retained fields. It never silently selects a model, starts a daemon,
+pulls weights or falls back to a remote service. The production endpoint is fixed to
+`http://127.0.0.1:11434`; fixture overrides work only in explicit fictional mode.
+Before candidate text, `/api/status` must report `cloud.disabled=true` and `/api/show`
+must contain local model metadata without remote routing. Older daemons fail closed.
+The request asks for two threads, a 2,048-token context, at most 256 output tokens and
+`keep_alive=0`; these are daemon options, not measured resource guarantees. The serialized
+request is capped at 5,000 bytes and responses at 128KiB. A shared transport deadline
+bounds metadata and generation together. Incomplete results are rejected rather than
+continued. The runtime shares one generation permit with graph inference; operators
+must also enforce `OLLAMA_NUM_PARALLEL=1` for any other daemon clients.
+No real Ollama generation has been accepted yet. The separate legacy
+`OLLAMA_GENERATION_AUTHORIZED` rearranger, local fallback and CLI/application service
+ports remain in progress; this port implements the explicitly enabled optional structured
+draft path. Conservative grounding, context rechecks and owner review still apply.

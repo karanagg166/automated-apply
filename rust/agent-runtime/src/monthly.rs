@@ -154,3 +154,52 @@ pub async fn cooldown(connection: &mut PgConnection, month: &Month, seconds: u32
         .bind(f64::from(seconds.clamp(minimum,31536000))).bind(&month.0).bind(month.1.name()).execute(connection).await.map_err(|_|Failure("provider_ledger_unavailable"))?;
     Ok(())
 }
+
+/// The optional local provider historically uses owner_preferences, not llm_monthly_usage.
+/// Preserve all unknown JSON fields and fail closed on malformed existing counters.
+pub(crate) async fn reserve_ollama(
+    connection: &mut PgConnection,
+    configured: u32,
+) -> Result<String> {
+    if configured > 10000 {
+        return Err(Failure("invalid_provider_budget"));
+    }
+    if configured == 0 {
+        return Err(Failure("monthly_request_limit"));
+    }
+    let mut tx = connection
+        .begin()
+        .await
+        .map_err(|_| Failure("provider_ledger_unavailable"))?;
+    let result=async {
+        let key:String=sqlx::query_scalar("SELECT 'ai:ollama:'||to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM')").fetch_one(&mut *tx).await.map_err(|_|Failure("provider_ledger_unavailable"))?;
+        sqlx::query("INSERT INTO owner_preferences(key,value,created_at,updated_at) VALUES($1,'{\"requests\":0,\"cooldown\":0}',clock_timestamp(),clock_timestamp()) ON CONFLICT(key) DO NOTHING").bind(&key).execute(&mut *tx).await.map_err(|_|Failure("provider_ledger_unavailable"))?;
+        let mut value:serde_json::Value=sqlx::query_scalar("SELECT value FROM owner_preferences WHERE key=$1 FOR UPDATE").bind(&key).fetch_one(&mut *tx).await.map_err(|_|Failure("provider_ledger_unavailable"))?;
+        let requests=value["requests"].as_u64().ok_or(Failure("provider_ledger_invalid"))?;
+        let cooldown=value.get("cooldown").map(|v|v.as_f64().filter(|v|v.is_finite() && *v>=0.0).ok_or(Failure("provider_ledger_invalid"))).transpose()?.unwrap_or(0.0);
+        let now:f64=sqlx::query_scalar("SELECT EXTRACT(EPOCH FROM clock_timestamp())::float8").fetch_one(&mut *tx).await.map_err(|_|Failure("provider_ledger_unavailable"))?;
+        if cooldown>now {return Err(Failure("rate_limited"));}
+        if requests>=u64::from(configured.min(1000)) {return Err(Failure("monthly_request_limit"));}
+        value["requests"]=serde_json::json!(requests+1);
+        sqlx::query("UPDATE owner_preferences SET value=$2,updated_at=clock_timestamp() WHERE key=$1").bind(&key).bind(value).execute(&mut *tx).await.map_err(|_|Failure("provider_ledger_unavailable"))?;
+        Ok(key)
+    }.await;
+    match result {
+        Ok(key) => {
+            tx.commit()
+                .await
+                .map_err(|_| Failure("provider_ledger_unavailable"))?;
+            Ok(key)
+        }
+        Err(error) => {
+            tx.rollback()
+                .await
+                .map_err(|_| Failure("provider_ledger_unavailable"))?;
+            Err(error)
+        }
+    }
+}
+pub(crate) async fn cooldown_ollama(connection: &mut PgConnection, key: &str) -> Result<()> {
+    sqlx::query("UPDATE owner_preferences SET value=jsonb_set(value,'{cooldown}',to_jsonb(GREATEST(COALESCE((value->>'cooldown')::float8,0),EXTRACT(EPOCH FROM clock_timestamp())::float8+60))),updated_at=clock_timestamp() WHERE key=$1").bind(key).execute(connection).await.map_err(|_|Failure("provider_ledger_unavailable"))?;
+    Ok(())
+}
