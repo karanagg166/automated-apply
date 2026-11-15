@@ -30,6 +30,12 @@ acknowledgements. See [qualified edit acceptance](../acceptance/rust-packet-edit
 Remaining lifecycle work is explicit generation, exact human review/approval, handoff,
 outcomes/tracking and execution/notification coordination.
 
+Explicit generation is implemented at `7538875b9b0018e4b1095b589d2d7beeb6b85f88`, with
+provider work outside packet claims, fresh post-call CAS/context/field checks and no
+inference retry on a known packet rollback. See [the qualified evidence](../acceptance/rust-packet-generation-20261115.md).
+Exact human review/approval, handoff/outcomes/tracking and execution/notification
+coordination remain next.
+
 Implemented preparation prerequisites at `0171faddbca9613c6390b125e9323ffae2869336`:
 `packet_contract` validates owner preparation input; `packet_platform` preserves all ten
 existing local adapter rules; `packet_fields` maps checklist fields and uses a caller-owned

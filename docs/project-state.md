@@ -183,8 +183,18 @@ cover HTTP readback, races, failed/suppressed writes, archive rollback, concurre
 corrections and real guard-validated approval clearing. No new dependency/production/model
 action or runtime install. See [the edit report](acceptance/rust-packet-edits-20261115.md).
 
-Next finish explicit packet answer generation, human review/approval, manual handoff/outcomes
-and execution/notification coordination. Do not expose working-looking
+Explicit packet generation `7538875b9b0018e4b1095b589d2d7beeb6b85f88` now uses the bounded
+generation connection outside packet claims, then rechecks revision/context/original
+field under a fresh material claim. Saved drafts and consumed model requests survive
+rejected packet updates; known packet rollbacks retry without another model call. Fresh141
+standard +164 native disposable PG tests pass (305 distinct), Clippy/format/diff,7,128
+builder and19 input oracle cases, existing3,240 preparation cases and Ruff pass. Six new
+native cases include owner edit/STOP during loopback inference, stale profile rejection,
+429 cooldown and post-model event failure/serialization. No real provider/key/browser/
+owner DB action or installation. See [the generation report](acceptance/rust-packet-generation-20261115.md).
+
+Next finish human packet review/approval, manual handoff/outcomes and execution/notification
+coordination. Do not expose working-looking
 routes with missing execution or owner-review side effects. Browser intake/worker,
 Gmail/Drive/legacy Telegram/CLI/fallback/rearranger/AGY and real platform/installed/resource
 acceptance remain pending. List context batching still needs optimization/measurement.
