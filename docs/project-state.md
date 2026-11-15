@@ -74,9 +74,30 @@ A single owned background headful Brave instance is in use; never launch a secon
 against its profile or take over another browser. macOS reported the screen locked and
 AXWindows hidden; one unlock request was sent. Later independent extension readback
 confirmed Naukri permission granted and unrelated example.com denied; queue remains
-STOPPED revision162. Inactive Naukri sign-in inspection is now in progress. Do not ask the
-owner to run setup commands or configure the extension again. Preserve selected tabs,
-foreground state, commands disabled and the exact pending tab/intent metadata privately.
+STOPPED revision162. Verified Naukri identity was recovered privately by matching retained
+actual profile UI evidence to the current approved hash. One ordinary email-verification
+request failed with “Something went wrong”; delivery is unconfirmed, do not resend. The
+matching project's Gmail account requires reauthorization on actual search (409), despite
+its saved connected status. No password was changed.
+
+Existing Chrome Profile8 is PROFILE_OFFLINE (heartbeat over52hours old; absent from saved
+active profiles). A persisted connected flag is not a live connection. No inactive Chrome
+profile document was available. Native setup helper3744b12 now permits only the approved
+ordinary profile request and refuses Chrome WebUI; nine tests pass. Its actual invocation
+failed PROFILE_OFFLINE before creating an intent/tab. The missing Chrome native-host
+registration was restored to the same canonical immutable Rust2e54 executable used by
+Brave; actual framed API health passed, but Chrome's extension reconnection is unaccepted.
+The original registration was absent, so rollback removes only the new hash-matched
+manifest. No Chrome extension was updated and no browser was launched or activated.
+Actual sampled OS focus/window order and selected Chrome tab IDs remained unchanged.
+See [the native profile/account report](acceptance/native-profile-setup-20261115.md).
+
+The remaining physical step is owner unlock/opening the existing approved Chrome Profile8
+once, or account sign-in in the owned Brave window. The existing launcher refuses startup
+while another Chrome profile runs to preserve owner focus. Do not ask for terminal or
+extension-configuration work again. Keep queue STOPPED, Brave commands disabled, all three
+uncertain applications quarantined and all maintenance/verification intent metadata private.
+Continue independent Rust ports while waiting; full migration is not complete.
 
 Rust local-model milestone `06f9b4c7abe2e10fb6198886747ac5e1d2efcfb6` ports explicitly enabled
 Ollama structured drafts. It preserves the legacy optional owner-preference ledger,
