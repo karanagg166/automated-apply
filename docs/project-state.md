@@ -9,8 +9,18 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 Development branch: `feat/rust-agent-runtime`, PR #50, base `chore/uv-python-tooling`
 (PR #49). The Rust migration is incomplete. Installed legacy services and the extension
-must not be mistaken for development. Resume this checkout and preserve inherited dirty
-PDF/document-worker work. No new worktrees or source copies.
+must not be mistaken for development. Resume this checkout and its current ownership;
+PDF/document-worker and subsequent packet work are committed. No new worktrees or source copies.
+
+Latest operational gate: Brave native health and API health/readiness pass under
+STOPPED162. A windowless native inactive/minimized window experiment failed focus
+acceptance and exposed restored tabs, including an unloaded inactive Naukri login page.
+Preserve those tabs and do not repeat that window-creation path. Guard implementation
+`b9f4925e55ac57538b88aa3dce494e5fc53a8c90` reuses existing neutral windows only;
+four Node tests pass, but actual setup safely refused and no successful login/DOM check
+is claimed. See [the complete qualified finding](acceptance/brave-window-focus-and-login-20261115.md).
+Naukri sign-in remains an owner step; do not reask or retry verification. Queue/quotas,
+quarantine and first-receipt controls remain intact. Continue independent source ports.
 
 Latest owner steering, 2026-11-15: complete agentic automation; provide Apify MCP and
 Telegram tools; prefer Safari, Edge or Brave over Chrome. Existing quotas, first-receipt,

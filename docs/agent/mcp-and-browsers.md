@@ -96,7 +96,8 @@ worker receipt remain necessary before recurring automatic execution.
 The owned automation profile passed real Brave native messaging and profile connection
 with commands disabled. A later reload temporarily left the extension marked as reloading;
 subsequent cold-start verification restored its connection. Automatic setup now refuses
-disabled extensions. The site grant is absent. When ready, the owner can run from
+disabled extensions. Later checks report the Naukri grant present, but an unloaded
+restored login tab still needs an actual signed-in account check. When ready, the owner can run from
 the canonical project directory:
 
 ```sh
@@ -114,3 +115,11 @@ only after the owner completes this browser action. Failed automatic reload and 
 attempts are not accepted as unattended maintenance. No protected browser preference
 file is edited to clear a disable reason. The temporary repair helper was independently
 confirmed unregistered and its unreferenced files retired; it is not part of the product.
+
+The subsequent windowless-profile native inactive/minimized-window experiment failed
+focus acceptance. That creation path is suspended. Agent-side
+`scripts/prepare_brave_login.mjs` now reuses an existing verifiable neutral window only,
+refuses existing portal tabs/pending navigation and preserves any admitted intent.
+It never launches or creates a window. A safe refusal is not successful login setup.
+Preserve the restored Naukri sign-in tab; do not request the same owner setup again.
+See [the actual failure and guard evidence](../acceptance/brave-window-focus-and-login-20261115.md).
