@@ -29,6 +29,46 @@ export function assertSetupTabs(pages, extensionId) {
   );
 }
 
+export function inactiveNaukriLoginPlan(windows, tabs) {
+  assert(
+    Array.isArray(windows) && Array.isArray(tabs),
+    "owned_inventory_required",
+  );
+  assert(windows.length > 0, "owner_brave_window_required");
+  assert(
+    !tabs.some((tab) =>
+      [tab.url, tab.pendingUrl].some((value) => {
+        try {
+          const host = new URL(value).hostname;
+          return host === "naukri.com" || host.endsWith(".naukri.com");
+        } catch {
+          return false;
+        }
+      }),
+    ),
+    "existing_naukri_tab_preserved",
+  );
+  const eligible = windows.filter(
+    (window) =>
+      Number.isInteger(window.id) &&
+      window.type === "normal" &&
+      !window.incognito &&
+      tabs.some(
+        (tab) =>
+          tab.windowId === window.id &&
+          tab.active &&
+          tab.url === "about:blank" &&
+          (!tab.pendingUrl || tab.pendingUrl === "about:blank"),
+      ),
+  );
+  assert(eligible.length === 1, "unique_owned_neutral_window_required");
+  return {
+    windowId: eligible[0].id,
+    url: "https://www.naukri.com/nlogin/login",
+    active: false,
+  };
+}
+
 export async function stoppedQueue(configPath) {
   const metadata = lstatSync(configPath);
   assert(
