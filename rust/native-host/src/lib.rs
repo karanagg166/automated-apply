@@ -71,6 +71,7 @@ pub struct Configuration {
     token: String,
     extension_id: String,
     endpoint: String,
+    local_socket: Option<std::path::PathBuf>,
 }
 impl Configuration {
     pub fn load(path: &Path, origin: &str) -> Result<Self> {
@@ -140,6 +141,10 @@ impl Configuration {
             token,
             extension_id,
             endpoint: endpoint.trim_end_matches('/').to_owned(),
+            local_socket: vars
+                .get("LOCAL_AGENT_UNIX_SOCKET")
+                .map(|raw| automated_apply_local_ipc::checked_path(raw).map_err(|e| Failure(e.0)))
+                .transpose()?,
         })
     }
 }
@@ -284,10 +289,15 @@ fn version_one() -> u8 {
 }
 
 pub fn forward(command: &Command, config: &Configuration) -> Result<Value> {
-    let client = reqwest::blocking::Client::builder()
+    let mut builder = reqwest::blocking::Client::builder()
         .no_proxy()
         .retry(reqwest::retry::never())
-        .redirect(reqwest::redirect::Policy::none())
+        .redirect(reqwest::redirect::Policy::none());
+    if let Some(path) = &config.local_socket {
+        // A configured private socket never falls back to TCP.
+        builder = builder.unix_socket(path.as_path());
+    }
+    let client = builder
         .build()
         .map_err(|_| Failure("native_configuration_error"))?;
     let deadline = Instant::now() + Duration::from_secs(35);

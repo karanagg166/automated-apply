@@ -24,6 +24,7 @@ pub struct Configuration {
     pub(crate) require_tls: bool,
     pub(crate) trust_proxy: bool,
     pub(crate) listen: SocketAddr,
+    pub(crate) local_socket: Option<std::path::PathBuf>,
     pub(crate) fixture: bool,
     pub(crate) target_identity: String,
     pub(crate) database: String,
@@ -42,6 +43,9 @@ pub struct Configuration {
 impl Configuration {
     pub fn listen(&self) -> SocketAddr {
         self.listen
+    }
+    pub fn local_socket(&self) -> Option<&Path> {
+        self.local_socket.as_deref()
     }
     pub fn is_fixture(&self) -> bool {
         self.fixture
@@ -248,6 +252,10 @@ impl Configuration {
             require_tls,
             trust_proxy: boolean(values, "RUST_AGENT_TRUST_LOOPBACK_PROXY", false)?,
             listen,
+            local_socket: values
+                .get("RUST_AGENT_UNIX_SOCKET")
+                .map(|raw| automated_apply_local_ipc::checked_path(raw).map_err(|e| Failure(e.0)))
+                .transpose()?,
             fixture,
             target_identity,
             database,

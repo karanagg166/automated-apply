@@ -6,6 +6,7 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
+automated-apply-local-ipc = { path = "../local-ipc" }
 dotenvy = "0.15"
 jsonschema = { version = "0.61.2", default-features = false }
 libc = "0.2"

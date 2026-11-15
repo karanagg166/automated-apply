@@ -115,6 +115,7 @@ name = "automated-apply-agents"
 version = "0.1.0"
 dependencies = [
  "automated-apply-domain",
+ "automated-apply-local-ipc",
  "axum",
  "base64 0.22.1",
  "chrono",
@@ -167,9 +168,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "automated-apply-local-ipc"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "tempfile",
+]
+
+[[package]]
 name = "automated-apply-native"
 version = "0.1.0"
 dependencies = [
+ "automated-apply-local-ipc",
  "dotenvy",
  "jsonschema",
  "libc",

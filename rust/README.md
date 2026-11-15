@@ -84,3 +84,25 @@ The next packet service reuses a pure Rust readiness calculation with an explici
 time cutoff and3,584 compact legacy comparisons. Its typed projections describe validated
 saved data; packet context, persistence and API wiring remain pending. See
 [the next packet slice](../docs/plans/application-packet-rust-slice.md).
+
+Production local clients can use a private Unix socket alongside the loopback listener.
+Set `RUST_AGENT_UNIX_SOCKET` in the explicit runtime/MCP config, the same variable in
+Next.js for workflow controls, `BACKEND_UNIX_SOCKET` for its ordinary API gateway, and
+`LOCAL_AGENT_UNIX_SOCKET` in the native bridge's adjacent private config. Keep the numeric
+HTTP endpoint and port aligned with the runtime; private IPC does not assert forwarded TLS.
+There is no fallback to TCP after a configured socket fails. MCP refuses production TLS
+configuration without this private transport. Ordinary TCP still requires configured TLS
+proxy trust; merely claiming HTTPS in a header or request URL grants no trust.
+
+Use an absolute canonical socket path at most100 UTF-8 bytes long, with an existing
+owner-owned0700 parent directory. Socket files are0600. The verified private parent protects
+creation without changing the process-wide umask; kernel peer UID is checked on every Unix
+connection. Bearer, origin, Host and owner-only lifecycle controls remain enforced. The host
+recovers only an exact owned stale socket after connection refusal while holding its runtime
+locks; active/uncertain sockets, files and symlinks are refused. Shutdown removes only its
+unchanged socket inode. These ephemeral socket operations never clean runtime data/history.
+
+The IPC listener shares the existing API state, request limits and database connection;
+it creates no pool or writer family. Native IPC transport parity does not implement the
+still-unported Chrome command dispatcher. Do not point the installed extension at the Rust
+host until all command/service ports and the complete STOP-mode cutover checks pass.

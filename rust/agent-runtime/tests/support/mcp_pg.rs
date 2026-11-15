@@ -51,10 +51,9 @@ async fn actual_mcp_stdio_handshake_catalog_and_tool_calls_use_authenticated_api
     use std::{os::unix::fs::PermissionsExt,process::Stdio};
     let mut c=knowledge_fixture().await;
     let id=Uuid::new_v4();sqlx::query("INSERT INTO jobs(id,title,job_url,source_platform)VALUES($1,'Fictional Instahyre role','https://example.com/fictional','instahyre')").bind(id).execute(&mut c).await.unwrap();
-    let (url,stop,server)=http_fixture().await;
+    let (values,_socket_directory,stop,server)=unix_http_fixture().await;
     let temp=tempfile::tempdir().unwrap();let path=temp.path().join("fictional.private.env");
-    let mut values=host_values();values.insert("RUST_AGENT_LISTEN".into(),url.trim_start_matches("http://").into());
-    let raw=values.into_iter().map(|(k,v)|format!("{k}={v}\n")).collect::<String>();
+    let raw=values.into_iter().map(|(k,v)|format!("{k}='{v}'\n")).collect::<String>();
     std::fs::write(&path,raw).unwrap();std::fs::set_permissions(&path,std::fs::Permissions::from_mode(0o600)).unwrap();
     let mut child=tokio::process::Command::new(env!("CARGO_BIN_EXE_automated-apply-tools")).arg("--config").arg(&path).env_clear().env("PATH","/usr/bin:/bin").stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::null()).kill_on_drop(true).spawn().unwrap();
     let mut input=child.stdin.take().unwrap();let mut lines=BufReader::new(child.stdout.take().unwrap()).lines();

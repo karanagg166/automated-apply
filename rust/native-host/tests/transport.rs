@@ -438,3 +438,69 @@ fn partial_pipe_times_out_and_closed_pipe_is_truncated() {
         Err(Failure("native_truncated_message"))
     );
 }
+
+#[test]
+fn private_socket_forwarding_never_connects_to_configured_tcp_endpoint() {
+    use std::os::unix::net::UnixListener;
+    let dir = TempDir::new().unwrap();
+    fs::set_permissions(dir.path(), fs::Permissions::from_mode(0o700)).unwrap();
+    let path = fs::canonicalize(dir.path()).unwrap().join("native.sock");
+    let listener = UnixListener::bind(&path).unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
+    let tcp = TcpListener::bind("127.0.0.1:0").unwrap();
+    tcp.set_nonblocking(true).unwrap();
+    let mut vars = values(&format!("http://{}", tcp.local_addr().unwrap()));
+    vars.insert(
+        "LOCAL_AGENT_UNIX_SOCKET".into(),
+        path.to_str().unwrap().into(),
+    );
+    let config = Configuration::from_values(&vars, ORIGIN).unwrap();
+    let c = command("health");
+    let response = success(&c);
+    let server = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(3)))
+            .unwrap();
+        let mut bytes = vec![];
+        while !bytes.ends_with(b"\r\n\r\n") {
+            let mut byte = [0];
+            stream.read_exact(&mut byte).unwrap();
+            bytes.push(byte[0]);
+        }
+        let header = String::from_utf8(bytes).unwrap().to_lowercase();
+        assert!(header.starts_with("post /api/v1/local-agent/chrome http/1.1"));
+        assert!(header.contains("authorization: bearer fictional-native-token"));
+        assert!(header.contains(&format!("x-agent-client: {ID}")));
+        assert!(!header.contains("x-forwarded-proto"));
+        let length: usize = header
+            .lines()
+            .find_map(|line| line.strip_prefix("content-length:"))
+            .unwrap()
+            .trim()
+            .parse()
+            .unwrap();
+        let mut body = vec![0; length];
+        stream.read_exact(&mut body).unwrap();
+        assert_eq!(
+            serde_json::from_slice::<Value>(&body).unwrap()["command"],
+            "health"
+        );
+        write!(
+            stream,
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+            response.len(),
+            response
+        )
+        .unwrap();
+    });
+    assert_eq!(forward(&c, &config).unwrap()["ok"], true);
+    server.join().unwrap();
+    assert!(matches!(tcp.accept(),Err(e) if e.kind()==std::io::ErrorKind::WouldBlock));
+    // A formerly valid socket that disappeared never causes fallback to TCP.
+    fs::remove_file(&path).unwrap();
+    assert_eq!(forward(&c, &config), Err(Failure("backend_offline")));
+    assert!(matches!(tcp.accept(),Err(e) if e.kind()==std::io::ErrorKind::WouldBlock));
+    vars.insert("LOCAL_AGENT_UNIX_SOCKET".into(), "relative.sock".into());
+    assert!(Configuration::from_values(&vars, ORIGIN).is_err());
+}

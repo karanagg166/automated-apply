@@ -51,6 +51,10 @@ async fn run() -> Result<()> {
     } else {
         None
     };
+    let mut local_socket = match config.local_socket() {
+        Some(path) => Some(automated_apply_agents::local_socket::BoundSocket::bind(path).await?),
+        None => None,
+    };
     let mut control = config.connect(false).await?;
     server::readiness(&mut control, &config).await?;
     let execution = config.connect(true).await?;
@@ -82,6 +86,20 @@ async fn run() -> Result<()> {
         shutdown.cancel();
         result
     };
+    let local_http = async {
+        if let Some(bound) = local_socket.as_mut() {
+            let listener = bound
+                .listener
+                .take()
+                .ok_or(Failure("private_socket_bind_failed"))?;
+            let result=axum::serve(listener,server::router(api.clone()).into_make_service_with_connect_info::<automated_apply_agents::local_socket::OwnerPeer>()).with_graceful_shutdown(shutdown.clone().cancelled_owned()).await.map_err(|_|Failure("owner_server_failed"));
+            shutdown.cancel();
+            result
+        } else {
+            shutdown.cancelled().await;
+            Ok(())
+        }
+    };
     let executor = async {
         let result = recovery::supervise(&config, execution, wake.clone(), shutdown.clone()).await;
         shutdown.cancel();
@@ -102,7 +120,8 @@ async fn run() -> Result<()> {
         shutdown.cancel();
         result
     };
-    let (http, executor, telegram, ()) = tokio::join!(http, executor, telegram, signals);
+    let (http, local_http, executor, telegram, ()) =
+        tokio::join!(http, local_http, executor, telegram, signals);
     // A handler that was already running when SIGTERM arrived may have changed
     // control after the worker stopped. Reconcile only after every handler drains.
     tokio::time::timeout(std::time::Duration::from_secs(5), server::quiesce(&api))
@@ -110,6 +129,7 @@ async fn run() -> Result<()> {
         .map_err(|_| Failure("shutdown_pause_unconfirmed"))?
         .map_err(|_| Failure("shutdown_pause_unconfirmed"))?;
     http?;
+    local_http?;
     telegram?;
     executor
 }

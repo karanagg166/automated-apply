@@ -4006,3 +4006,5 @@ include!("support/packet_tracking_pg.rs");
 include!("support/public_discovery_pg.rs");
 include!("support/feed_ingestion_pg.rs");
 include!("support/discovery_schedule_pg.rs");
+
+include!("support/local_socket_pg.rs");

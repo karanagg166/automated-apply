@@ -7,6 +7,7 @@ rust-version.workspace = true
 publish = false
 
 [dependencies]
+automated-apply-local-ipc = { path = "../local-ipc" }
 automated-apply-domain = { version = "0.1.0", path = "../domain" }
 axum = { version = "0.8", default-features = false, features = ["json", "http1", "tokio"] }
 chrono = { version = "0.4.45", default-features = false, features = ["std"] }

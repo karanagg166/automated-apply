@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { readBoundedBody, RequestLimitError } from "@/lib/http-boundary";
+import { privateSocketFetch, privateSocketPath } from "@/lib/private-socket";
 import { permittedRoute } from "@/lib/gateway";
 import { maximumBodyBytes, requiresOwnerApproval } from "@/lib/http-policy";
 import {
@@ -79,14 +80,23 @@ async function proxy(
         `v1:${timestamp}:${nonce}:${signature}`,
       );
     }
-    const upstream = await fetch(url, {
-      method: req.method,
-      headers,
-      body: body ? new Uint8Array(body) : undefined,
-      cache: "no-store",
-      redirect: "error",
-      signal: AbortSignal.timeout(path === "dashboard/resumes" ? 20000 : 90000),
-    });
+    const socketPath = await privateSocketPath(process.env.BACKEND_UNIX_SOCKET);
+    const timeoutMs = path === "dashboard/resumes" ? 20000 : 90000;
+    const upstream = socketPath
+      ? await privateSocketFetch(socketPath, url, {
+          method: req.method,
+          headers,
+          body: body ? new Uint8Array(body) : undefined,
+          timeoutMs,
+        })
+      : await fetch(url, {
+          method: req.method,
+          headers,
+          body: body ? new Uint8Array(body) : undefined,
+          cache: "no-store",
+          redirect: "error",
+          signal: AbortSignal.timeout(timeoutMs),
+        });
     const out = new Headers({
       "Cache-Control": "private, no-store",
       "Content-Type":

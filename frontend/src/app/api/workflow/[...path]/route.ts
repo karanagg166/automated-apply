@@ -1,5 +1,6 @@
 import { request as httpRequest } from "node:http";
 import { NextRequest } from "next/server";
+import { privateSocketPath } from "@/lib/private-socket";
 import { permittedWorkflowRoute } from "@/lib/workflow-routes";
 import {
   allowedRequest,
@@ -56,6 +57,9 @@ async function proxy(
       request.headers.get("content-type")?.split(";")[0] !== "application/json"
     )
       return reply({ error: "json_required" }, 415);
+    const socketPath = await privateSocketPath(
+      process.env.RUST_AGENT_UNIX_SOCKET,
+    );
     const body = mutation
       ? await readBoundedBody(request, 65536)
       : Buffer.alloc(0);
@@ -65,6 +69,7 @@ async function proxy(
       "Content-Length": String(body.length),
     };
     if (
+      !socketPath &&
       configuration().secure &&
       process.env.RUST_AGENT_TRUST_LOOPBACK_PROXY === "true"
     )
@@ -73,6 +78,7 @@ async function proxy(
     return await new Promise<Response>((resolve) => {
       const upstream = httpRequest(
         {
+          socketPath,
           hostname: target.hostname,
           port: target.port,
           path: `/api/v1/rust-agent/${route}`,

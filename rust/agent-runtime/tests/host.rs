@@ -290,3 +290,26 @@ fn runtime_writer_fence_excludes_shared_python_family_and_releases_on_close() {
         0
     );
 }
+
+#[test]
+fn production_mcp_requires_private_ipc_and_uses_the_same_literal_configuration() {
+    use automated_apply_agents::mcp_bridge::Bridge;
+    let dir = tempfile::tempdir().unwrap();
+    fs::set_permissions(dir.path(), fs::Permissions::from_mode(0o700)).unwrap();
+    let path = dir.path().join("mcp.env");
+    let mut values = production();
+    write(&path, &values);
+    assert_eq!(
+        Bridge::load(&path).err().map(|e| e.0),
+        Some("mcp_private_socket_required")
+    );
+    let socket = fs::canonicalize(dir.path()).unwrap().join("s.sock");
+    values.insert(
+        "RUST_AGENT_UNIX_SOCKET".into(),
+        socket.to_str().unwrap().into(),
+    );
+    write(&path, &values);
+    assert!(Bridge::load(&path).is_ok());
+    fs::write(&socket, b"preserve").unwrap();
+    assert!(Bridge::load(&path).is_err());
+}

@@ -28,11 +28,19 @@ impl Bridge {
         if config.listen().port() < 1025 {
             return Err(Failure("invalid_mcp_api_endpoint"));
         }
-        let http = reqwest::Client::builder()
+        if config.require_tls && config.local_socket.is_none() {
+            return Err(Failure("mcp_private_socket_required"));
+        }
+        let mut builder = reqwest::Client::builder()
             .no_proxy()
+            .retry(reqwest::retry::never())
             .redirect(reqwest::redirect::Policy::none())
             .connect_timeout(Duration::from_secs(3))
-            .timeout(Duration::from_secs(15))
+            .timeout(Duration::from_secs(15));
+        if let Some(path) = &config.local_socket {
+            builder = builder.unix_socket(path.as_path());
+        }
+        let http = builder
             .build()
             .map_err(|_| Failure("mcp_transport_unavailable"))?;
         let telegram = config.telegram_enabled();

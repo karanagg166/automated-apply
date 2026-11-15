@@ -69,6 +69,7 @@ pub mod grounding;
 pub mod http_policy;
 pub mod lifecycle;
 pub mod link_resolver;
+pub mod local_socket;
 pub mod mcp_bridge;
 mod ollama;
 pub mod personal_facts;

@@ -187,12 +187,16 @@ pub(super) fn selected_resource(
         .map_err(|_| Failure("invalid_resource_selection"))
 }
 pub(super) fn authorize(request: &Request, config: &Configuration) -> Result<()> {
-    let peer = request
+    let private_peer = request
         .extensions()
-        .get::<ConnectInfo<SocketAddr>>()
-        .ok_or(Failure("owner_peer_denied"))?
-        .0;
-    if !peer.ip().is_loopback() {
+        .get::<ConnectInfo<crate::local_socket::OwnerPeer>>()
+        .is_some_and(|p| p.0.accepted());
+    if !private_peer
+        && !request
+            .extensions()
+            .get::<ConnectInfo<SocketAddr>>()
+            .is_some_and(|peer| peer.0.ip().is_loopback())
+    {
         return Err(Failure("owner_peer_denied"));
     }
     let headers = request.headers();
@@ -201,10 +205,13 @@ pub(super) fn authorize(request: &Request, config: &Configuration) -> Result<()>
         .parse::<axum::http::uri::Authority>()
         .map_err(|_| Failure("owner_host_denied"))?;
     if host.contains(['@', '/', '?', '#'])
-        || !config.hosts.iter().any(|h| {
-            h.eq_ignore_ascii_case(host)
-                || (!h.contains(':') && h.eq_ignore_ascii_case(authority.host()))
-        })
+        || !(private_peer
+            && authority.host() == "127.0.0.1"
+            && authority.port_u16() == Some(config.listen.port()))
+            && !config.hosts.iter().any(|h| {
+                h.eq_ignore_ascii_case(host)
+                    || (!h.contains(':') && h.eq_ignore_ascii_case(authority.host()))
+            })
     {
         return Err(Failure("owner_host_denied"));
     }
@@ -220,6 +227,7 @@ pub(super) fn authorize(request: &Request, config: &Configuration) -> Result<()>
         return Err(Failure("owner_client_required"));
     }
     if config.require_tls
+        && !private_peer
         && !(config.trust_proxy && single(headers, "x-forwarded-proto") == Some("https"))
     {
         return Err(Failure("owner_api_tls_required"));
