@@ -145,14 +145,24 @@ copy, dependency, production/browser/model action or installation. See
 [the preparation foundation report](acceptance/rust-packet-preparation-foundation-20261115.md).
 This is not a completed packet service or seven-route HTTP integration.
 
-Next implement material-context construction and the complete [seven-route packet preparation/inspection slice](plans/application-packet-rust-slice.md).
-Pure readiness is not wired to packet APIs yet. Reuse existing Rust resume selection,
-matching and canonical serializers; packet material context digests differ from answer
-stamps. Preserve atomic packet/field/event creation and exact idempotent replay. Preview
-can ensure missing-input questions, so avoid the public answer generator's independent
-transaction commits. Worker/native/application/Gmail/Drive/other platform and installed
-acceptance remain pending. Continue from this clean canonical checkout; no new source
-worktrees or duplicate builds are needed for read-only agent reviews.
+Packet preparation/inspection milestone `8befb06dd344cd81db18734f40fbe900c27c460b` now completes
+the [seven-route slice](plans/application-packet-rust-slice.md): saved material context,
+atomic packet/field/event creation, exact original-snapshot replay and shared-lock reads.
+Fresh137 standard +150 native disposable PG tests pass (287 distinct), Clippy/format/diff
+and three new oracle checks/Ruff pass. New oracles cover38 context fingerprints,135 saved
+DTOs and832 actual service-read state combinations. Two new context PG tests and six
+packet-flow PG tests cover real native IO/concurrency/rollback/guards. Pinned speedate0.18
+with std preserves datetime parsing without nightly. Naive expiry fails closed. All
+fictional; no owner data/browser/model call, production install, receipt or resource claim.
+See [the API acceptance report](acceptance/rust-packet-preparation-api-20261115.md).
+
+Next finish packet edits, immutable revision archives, answer generation/review, manual
+handoff/outcomes and execution/notification coordination. Do not expose working-looking
+routes with missing execution or owner-review side effects. Browser intake/worker,
+Gmail/Drive/legacy Telegram/CLI/fallback/rearranger/AGY and real platform/installed/resource
+acceptance remain pending. List context batching still needs optimization/measurement.
+The owner physical profile/account step remains pending; do not relaunch browsers or
+reask the same question. Continue canonical source work; no duplicate builds/worktrees.
 
 ## Remaining acceptance
 
