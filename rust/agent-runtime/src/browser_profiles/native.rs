@@ -26,10 +26,16 @@ impl Command {
             .and_then(|s| s.parse().ok())
             .ok_or_else(request_error)?;
         for key in [
+            "request_id",
             "profile_binding_id",
             "browser_session_id",
             "chrome_command_id",
             "command_lease_token",
+            "application_id",
+            "task_id",
+            "plan_id",
+            "work_id",
+            "work_lease_token",
         ] {
             if let Some(s) = value[key].as_str() {
                 value[key] = json!(s.parse::<Uuid>().map_err(|_| request_error())?);
@@ -47,14 +53,25 @@ impl Command {
             .ok_or(Failure("profile_connection_fields_required"))
     }
 }
-fn result(command: &Command, result: Result<Value>) -> Value {
+pub(super) fn result(command: &Command, result: Result<Value>) -> Value {
+    let capability = if matches!(
+        command.name(),
+        "open_application_task"
+            | "get_application_task"
+            | "update_application_task"
+            | "ask_form_questions"
+    ) {
+        "extension_task"
+    } else {
+        "chrome_profile"
+    };
     match result {
         Ok(mut data) => {
             data["submitted"] = json!(false);
-            json!({"version":1,"request_id":command.request_id,"correlation_id":Uuid::new_v4(),"ok":true,"capability":"chrome_profile","error_code":null,"data":data})
+            json!({"version":1,"request_id":command.request_id,"correlation_id":Uuid::new_v4(),"ok":true,"capability":capability,"error_code":null,"data":data})
         }
         Err(error) => {
-            json!({"version":1,"request_id":command.request_id,"correlation_id":Uuid::new_v4(),"ok":false,"capability":"chrome_profile","error_code":error.0,"data":{}})
+            json!({"version":1,"request_id":command.request_id,"correlation_id":Uuid::new_v4(),"ok":false,"capability":capability,"error_code":error.0,"data":{}})
         }
     }
 }
@@ -91,30 +108,31 @@ pub(super) async fn dispatch(
     let outcome = execute(tx, command, settings, packets, now).await;
     match outcome {
         Err(e)
-            if !matches!(
-                e.0,
-                "profile_connection_fields_required"
-                    | "PROFILE_OFFLINE"
-                    | "profile_identity_conflict"
-                    | "profile_limit_reached"
-                    | "PROFILE_SESSION_CHANGED"
-                    | "PROFILE_REVISION_CONFLICT"
-                    | "browser_command_execution_unavailable"
-                    | "PROFILE_NOT_SELECTED"
-                    | "PROFILE_COMMANDS_DISABLED"
-                    | "profile_command_revision_conflict"
-                    | "profile_command_expired"
-                    | "extension_task_context_stale"
-                    | "packet_not_found"
-                    | "stale_or_unreviewed_candidate_context"
-                    | "application_not_eligible"
-                    | "naukri_automation_stopped"
-                    | "naukri_automation_paused"
-                    | "execution_mode_off"
-                    | "unverified_application_destination"
-                    | "unsupported_form_adapter"
-                    | "platform_fill_policy_denied"
-            ) =>
+            if !tasks::domain_denial(e)
+                && !matches!(
+                    e.0,
+                    "profile_connection_fields_required"
+                        | "PROFILE_OFFLINE"
+                        | "profile_identity_conflict"
+                        | "profile_limit_reached"
+                        | "PROFILE_SESSION_CHANGED"
+                        | "PROFILE_REVISION_CONFLICT"
+                        | "browser_command_execution_unavailable"
+                        | "PROFILE_NOT_SELECTED"
+                        | "PROFILE_COMMANDS_DISABLED"
+                        | "profile_command_revision_conflict"
+                        | "profile_command_expired"
+                        | "extension_task_context_stale"
+                        | "packet_not_found"
+                        | "stale_or_unreviewed_candidate_context"
+                        | "application_not_eligible"
+                        | "naukri_automation_stopped"
+                        | "naukri_automation_paused"
+                        | "execution_mode_off"
+                        | "unverified_application_destination"
+                        | "unsupported_form_adapter"
+                        | "platform_fill_policy_denied"
+                ) =>
         {
             Err(e)
         }
@@ -130,6 +148,9 @@ async fn execute(
 ) -> Result<Value> {
     let v = &command.value;
     match command.name() {
+        "open_application_task" | "get_application_task" | "update_application_task" => {
+            tasks::dispatch(tx, command, settings, packets, now).await
+        }
         "poll_chrome_command" | "start_chrome_command" | "ack_chrome_command" => {
             commands::dispatch(tx, command, settings, packets, now).await
         }

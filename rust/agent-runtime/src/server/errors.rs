@@ -7,6 +7,12 @@ use axum::{
 use serde_json::{Value, json};
 
 pub(super) fn profile_failure(error: Failure) -> Response {
+    if error.0 == "invalid_browser_task_record" {
+        return reply(StatusCode::SERVICE_UNAVAILABLE, json!({"detail":error.0}));
+    }
+    if crate::browser_profiles::tasks::owner_denial(error) {
+        return reply(StatusCode::CONFLICT, json!({"detail":error.0}));
+    }
     if matches!(
         error.0,
         "command_id_conflict"

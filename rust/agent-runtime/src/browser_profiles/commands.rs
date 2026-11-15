@@ -115,6 +115,21 @@ pub(super) async fn require_profile(
     command: &native::Command,
     now: DateTime<Utc>,
 ) -> Result<Value> {
+    check_profile(tx, command, now, false).await
+}
+pub(super) async fn read_profile(
+    tx: &mut Transaction<'_, Postgres>,
+    command: &native::Command,
+    now: DateTime<Utc>,
+) -> Result<Value> {
+    check_profile(tx, command, now, true).await
+}
+async fn check_profile(
+    tx: &mut Transaction<'_, Postgres>,
+    command: &native::Command,
+    now: DateTime<Utc>,
+    read_only: bool,
+) -> Result<Value> {
     let row = native::authenticate(tx, command).await?;
     if let Some(fixed) = get(tx, "chr_fixed_profile").await?
         && fixed["profile_binding_id"] != row["id"]
@@ -122,7 +137,9 @@ pub(super) async fn require_profile(
         return Err(Failure("PROFILE_OFFLINE"));
     }
     if !online(&row, now)? {
-        invalidation::invalidate(tx, &row["id"], "PROFILE_OFFLINE", now).await?;
+        if !read_only {
+            invalidation::invalidate(tx, &row["id"], "PROFILE_OFFLINE", now).await?;
+        }
         return Err(Failure("PROFILE_OFFLINE"));
     }
     let selected = selection(tx).await?;
@@ -131,6 +148,40 @@ pub(super) async fn require_profile(
     }
     if command.value["browser_session_id"] != row["browser_session_id"] {
         return Err(Failure("PROFILE_SESSION_CHANGED"));
+    }
+    if !command.value["chrome_command_id"].is_null()
+        && !matches!(
+            command.name(),
+            "connect_chrome_profile"
+                | "heartbeat_chrome_profile"
+                | "disconnect_chrome_profile"
+                | "poll_chrome_command"
+                | "start_chrome_command"
+                | "ack_chrome_command"
+        )
+    {
+        let id = command
+            .id("chrome_command_id")
+            .map_err(|_| Failure("profile_command_expired"))?;
+        let lease = get(tx, &format!("chr_cmd:{id}"))
+            .await?
+            .ok_or(Failure("profile_command_expired"))?;
+        let v = &command.value;
+        if lease["state"] != "executing"
+            || lease["version"] != v["expected_command_version"]
+            || lease["lease_token"].is_null()
+            || lease["lease_token"] != v["command_lease_token"]
+            || lease["profile_binding_id"] != row["id"]
+            || lease["browser_session_id"] != row["browser_session_id"]
+            || lease["selection_version"] != selected["version"]
+            || lease["expected_profile_version"] != row["version"]
+            || timestamp(&lease["expires_at"])? <= now
+            || timestamp(&lease["lease_expires_at"])? <= now
+            || !v["application_id"].is_null() && lease["application_id"] != v["application_id"]
+            || lease["action"] == "prepare" && lease["task_id"] != v["task_id"]
+        {
+            return Err(Failure("profile_command_expired"));
+        }
     }
     Ok(row)
 }
@@ -235,14 +286,37 @@ pub(super) async fn dispatch(
     put(tx, &key, &value).await?;
     Ok(json!({"command":value}))
 }
-async fn context(
+pub(super) async fn context(
     tx: &mut Transaction<'_, Postgres>,
     application: Uuid,
     browser: &Settings,
     settings: &crate::packet_service::Settings,
     now: DateTime<Utc>,
 ) -> Result<(Value, String)> {
-    let packet = crate::packet_service::read_locked_in(tx, application, settings, now).await?;
+    context_in(tx, application, browser, settings, now, true).await
+}
+pub(super) async fn read_context(
+    tx: &mut Transaction<'_, Postgres>,
+    application: Uuid,
+    browser: &Settings,
+    settings: &crate::packet_service::Settings,
+    now: DateTime<Utc>,
+) -> Result<(Value, String)> {
+    context_in(tx, application, browser, settings, now, false).await
+}
+async fn context_in(
+    tx: &mut Transaction<'_, Postgres>,
+    application: Uuid,
+    browser: &Settings,
+    settings: &crate::packet_service::Settings,
+    now: DateTime<Utc>,
+    locked: bool,
+) -> Result<(Value, String)> {
+    let packet = if locked {
+        crate::packet_service::read_locked_in(tx, application, settings, now).await?
+    } else {
+        crate::packet_service::read_snapshot_in(tx, application, settings, now).await?
+    };
     let row:Option<(Value,Option<Value>,Value,Option<Value>)>=sqlx::query_as("SELECT to_jsonb(p),to_jsonb(c),to_jsonb(j),(SELECT value FROM owner_preferences WHERE key='phase1_profile_confirmation') FROM application_packets p JOIN jobs j ON j.id=p.job_id LEFT JOIN candidate_profiles c ON c.singleton_key='primary' WHERE p.id=$1").bind(application).fetch_optional(&mut **tx).await.map_err(db)?;
     let (stored, profile, job, confirmation) = row.ok_or(Failure("packet_not_found"))?;
     let profile = profile.ok_or(Failure("stale_or_unreviewed_candidate_context"))?;
@@ -253,6 +327,7 @@ async fn context(
             .as_str()
             .is_some_and(|s| !s.is_empty())
         || packet["candidate_profile_id"] != profile["id"]
+        || packet["candidate_profile_version"] != profile["version"]
         || packet["readiness"]["stale"] == true
         || matches!(
             stored["lifecycle_state"].as_str(),

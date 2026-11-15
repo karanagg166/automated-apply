@@ -206,7 +206,7 @@ pub(crate) async fn read_in(
     settings: &Settings,
     now: DateTime<Utc>,
 ) -> Result<Value> {
-    read_context_in(tx, packet, settings, now, false).await
+    read_context_in(tx, packet, settings, now, false, true).await
 }
 pub(crate) async fn read_locked_in(
     tx: &mut Transaction<'_, Postgres>,
@@ -214,7 +214,16 @@ pub(crate) async fn read_locked_in(
     settings: &Settings,
     now: DateTime<Utc>,
 ) -> Result<Value> {
-    read_context_in(tx, packet, settings, now, true).await
+    read_context_in(tx, packet, settings, now, true, true).await
+}
+/// A repeatable-read task checkpoint is metadata only; later mutations reacquire the full fence.
+pub(crate) async fn read_snapshot_in(
+    tx: &mut Transaction<'_, Postgres>,
+    packet: Uuid,
+    settings: &Settings,
+    now: DateTime<Utc>,
+) -> Result<Value> {
+    read_context_in(tx, packet, settings, now, false, false).await
 }
 async fn read_context_in(
     tx: &mut Transaction<'_, Postgres>,
@@ -222,14 +231,19 @@ async fn read_context_in(
     settings: &Settings,
     now: DateTime<Utc>,
     lock_context: bool,
+    lock_parent: bool,
 ) -> Result<Value> {
-    // This parent lock covers every following field/evidence read until the caller commits.
-    let raw: Option<Value> =
-        sqlx::query_scalar("SELECT to_jsonb(p) FROM application_packets p WHERE id=$1 FOR SHARE")
-            .bind(packet)
-            .fetch_optional(&mut **tx)
-            .await
-            .map_err(db)?;
+    // Ordinary packet reads retain the parent lock. Metadata-only task checkpoints
+    // use the caller's repeatable snapshot; every later mutation reacquires the full fence.
+    let raw: Option<Value> = sqlx::query_scalar(if lock_parent {
+        "SELECT to_jsonb(p) FROM application_packets p WHERE id=$1 FOR SHARE"
+    } else {
+        "SELECT to_jsonb(p) FROM application_packets p WHERE id=$1"
+    })
+    .bind(packet)
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(db)?;
     let raw = raw.ok_or(Failure("packet_not_found"))?;
     let snapshot = packet_record::normalize(Kind::Snapshot, raw["snapshot"].clone())?;
     let selected = raw["resume_resource_id"]

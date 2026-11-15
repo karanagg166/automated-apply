@@ -14,6 +14,7 @@ mod invalidation;
 mod native;
 mod status;
 mod storage;
+pub mod tasks;
 use storage::*;
 
 pub const NATIVE: &str = "/api/v1/local-agent/chrome";
@@ -24,6 +25,7 @@ pub struct Settings {
     pub(crate) commands_enabled: bool,
     pub(crate) telegram_notices: bool,
     pub(crate) fixture_origin: Option<String>,
+    pub(crate) fill_enabled: bool,
 }
 impl Settings {
     pub fn from_values(values: &BTreeMap<String, String>) -> Result<Self> {
@@ -70,6 +72,7 @@ impl Settings {
             commands_enabled: boolean(values, "CHROME_PROFILE_COMMANDS_ENABLED", false)?,
             telegram_notices: crate::packet_notice::telegram_configured(values),
             fixture_origin,
+            fill_enabled: boolean(values, "BROWSER_FILL_ENABLED", false)?,
         })
     }
     pub(crate) fn permits(&self, extension: Option<&str>) -> bool {
@@ -83,10 +86,13 @@ pub enum Route {
     Select,
     Disconnect(Uuid),
     Enqueue,
+    Tasks,
+    TaskApplication(Uuid),
+    TaskControl(Uuid),
 }
 impl Route {
     pub fn method(self) -> &'static str {
-        if matches!(self, Self::List) {
+        if matches!(self, Self::List | Self::Tasks | Self::TaskApplication(_)) {
             "GET"
         } else {
             "POST"
@@ -99,6 +105,16 @@ pub fn route(path: &str) -> Option<Route> {
         PROFILES => Some(Route::List),
         "/api/v1/browser/chrome-profiles/select" => Some(Route::Select),
         "/api/v1/browser/chrome-profiles/commands" => Some(Route::Enqueue),
+        "/api/v1/browser/extension-tasks" => Some(Route::Tasks),
+        _ if path.starts_with("/api/v1/browser/extension-tasks/application/") => path
+            .strip_prefix("/api/v1/browser/extension-tasks/application/")
+            .and_then(|s| s.parse().ok())
+            .map(Route::TaskApplication),
+        _ if path.starts_with("/api/v1/browser/extension-tasks/") => path
+            .strip_prefix("/api/v1/browser/extension-tasks/")
+            .and_then(|s| s.strip_suffix("/control"))
+            .and_then(|s| s.parse().ok())
+            .map(Route::TaskControl),
         _ => path
             .strip_prefix("/api/v1/browser/chrome-profiles/")
             .and_then(|s| s.strip_suffix("/disconnect"))
@@ -198,7 +214,10 @@ pub async fn dispatch(
     if method != route.method() {
         return Err(Failure("browser_profile_method_not_allowed"));
     }
-    let input = if matches!(route, Route::List) {
+    let input = if matches!(
+        route,
+        Route::List | Route::Tasks | Route::TaskApplication(_)
+    ) {
         Value::Null
     } else {
         body(bytes)?
@@ -213,9 +232,14 @@ pub async fn dispatch(
     } else {
         None
     };
-    if !matches!(route, Route::Native | Route::List | Route::Enqueue) {
+    if !matches!(
+        route,
+        Route::Native | Route::List | Route::Enqueue | Route::Tasks | Route::TaskApplication(_)
+    ) {
         let keys = if matches!(route, Route::Select) {
             &["expected_version", "profile_binding_id"][..]
+        } else if matches!(route, Route::TaskControl(_)) {
+            &["expected_version", "action"][..]
         } else {
             &["expected_version"][..]
         };
@@ -236,9 +260,32 @@ pub async fn dispatch(
                 .and_then(|s| s.parse::<Uuid>().ok())
                 .ok_or_else(request_error)?;
         }
+        if matches!(route, Route::TaskControl(_))
+            && !matches!(
+                input["action"].as_str(),
+                Some("pause" | "resume" | "cancel")
+            )
+        {
+            return Err(request_error());
+        }
+    }
+    if let Some(command) = command.as_ref()
+        && command.name() == "get_application_task"
+    {
+        match tasks::read_without_owner(c, command, settings, packets).await {
+            Ok(Some(value)) => return Ok(native::result(command, Ok(value))),
+            Ok(None) => {}
+            Err(e) if tasks::domain_denial(e) => return Ok(native::result(command, Err(e))),
+            Err(e) => return Err(e),
+        }
     }
     let mut tx = c.begin().await.map_err(db)?;
     let result = async {
+        match route {
+            Route::Tasks => return tasks::listing(&mut tx).await,
+            Route::TaskApplication(id) => return tasks::by_application(&mut tx, id).await,
+            _ => {}
+        }
         if matches!(route, Route::List) {
             let read = status::snapshot(&mut tx, settings).await?;
             if read.offline.is_empty() && !read.expired {
@@ -255,6 +302,20 @@ pub async fn dispatch(
             Route::List => listing(&mut tx, settings, now).await,
             Route::Enqueue => {
                 commands::enqueue(&mut tx, enqueue.as_ref().unwrap(), settings, packets, now).await
+            }
+            Route::Tasks | Route::TaskApplication(_) => unreachable!(),
+            Route::TaskControl(id) => {
+                let value = tasks::load(&mut tx, id).await?;
+                tasks::control(
+                    &mut tx,
+                    value,
+                    input["action"].as_str().unwrap(),
+                    expected(&input["expected_version"], 1)?,
+                    settings,
+                    packets,
+                    now,
+                )
+                .await
             }
             Route::Select => {
                 select(
