@@ -27,7 +27,7 @@ in the immutable legacy runtime yet.
 | Oracle reproducibility | PASS | Exporter `--check`; fictional data only; temporary module clock restored; no owner config/DB/network |
 | Existing PostgreSQL baseline | PASS / retained | 140 previously passed at 2195b4c in 34.92s; no DB/runtime path changed by this pure module, so not rerun |
 | Combined Rust evidence | PASS / qualified | 270 = 130 fresh standard + 140 unchanged prior PG; not 270 newly executed tests |
-| Worker-history API regression | PASS | Fresh 30 Python API tests passed in 2.55s, including one new real localhost-ASGI/SQLite fixture test |
+| Worker-history API regression | PASS | Fresh 30 Python API tests passed in 2.55s, including one new in-process ASGI/SQLite fixture test |
 | OpenAPI/frontend | PASS | Regenerated API declaration differs only by the specific origin union; TypeScript typecheck and full frontend format check pass |
 | Ruff/Clippy/format/diff | PASS | E9,F,I; workspace all-target warnings denied; Cargo formatting/whitespace |
 | Production history fix | NOT TESTED | Source only; immutable legacy 8e985c9 unchanged |

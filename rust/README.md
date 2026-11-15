@@ -79,3 +79,8 @@ Matching remains read-only and preserves each method's legacy lookup order. Shor
 locks the row, refuses progressed jobs and commits a confirmed update before acknowledgement;
 repeating an already-shortlisted selection preserves its timestamp. It grants no application
 admission or submission authority.
+
+The next packet service reuses a pure Rust readiness calculation with an explicit current
+time cutoff and3,584 compact legacy comparisons. Its typed projections describe validated
+saved data; packet context, persistence and API wiring remain pending. See
+[the next packet slice](../docs/plans/application-packet-rust-slice.md).
