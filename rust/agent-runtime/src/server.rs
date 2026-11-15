@@ -8,6 +8,7 @@ use crate::{
     recovery::{self, Backoff},
     worker::Wake,
 };
+mod accounts;
 mod boundary;
 mod discovery;
 mod document_io;
@@ -406,6 +407,33 @@ mod tests {
         assert_eq!(
             authorize(&request, &config),
             Err(Failure("owner_api_tls_required"))
+        );
+    }
+    #[test]
+    fn browser_oauth_callback_exception_retains_transport_checks_and_is_get_only() {
+        let mut config = config();
+        let mut callback = request(&config);
+        *callback.uri_mut() = crate::mailboxes::routes::CALLBACK.parse().unwrap();
+        callback.headers_mut().remove("authorization");
+        assert!(authorize(&callback, &config).is_ok());
+        *callback.method_mut() = axum::http::Method::POST;
+        assert_eq!(
+            authorize(&callback, &config),
+            Err(Failure("owner_authentication_required"))
+        );
+        *callback.method_mut() = axum::http::Method::GET;
+        config.require_tls = true;
+        assert_eq!(
+            authorize(&callback, &config),
+            Err(Failure("owner_api_tls_required"))
+        );
+        config.require_tls = false;
+        callback
+            .headers_mut()
+            .insert("origin", "https://untrusted.example.net".parse().unwrap());
+        assert_eq!(
+            authorize(&callback, &config),
+            Err(Failure("owner_origin_denied"))
         );
     }
     #[test]

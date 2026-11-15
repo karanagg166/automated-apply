@@ -4008,3 +4008,5 @@ include!("support/feed_ingestion_pg.rs");
 include!("support/discovery_schedule_pg.rs");
 
 include!("support/local_socket_pg.rs");
+
+include!("support/mailboxes_pg.rs");

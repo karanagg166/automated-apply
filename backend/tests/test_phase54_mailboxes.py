@@ -257,3 +257,25 @@ async def test_cross_account_alert_dedup_keeps_origins_and_unknown_facts(db_sess
     assert first[0]["requisition"] == second[0]["requisition"]
     assert len(second) == 1 and len(second[0]["sources"]) == 2
     assert second[0]["state"] == "NEEDS_FACTUAL_AND_ORIGIN_REVIEW" and second[0]["origin_authenticated"] is False
+
+
+@pytest.mark.parametrize("failed", [False, True])
+async def test_expired_refresh_lease_is_not_restored_after_completion(db_session, failed):
+    settings, fake = configured(), GoogleFixture()
+    async with fake.client() as oauth:
+        service, _, _ = await connect(db_session, settings, fake, oauth)
+        row = await db_session.get(OwnerPreference, ACCOUNT + "1")
+        row.value = {**row.value,
+            "expires_at": (now() - timedelta(seconds=1)).isoformat(),
+            "refresh_lease": "fictional-expired-owner",
+            "refresh_lease_until": (now() - timedelta(seconds=1)).isoformat()}
+        await db_session.commit()
+        if failed:
+            fake.fail = "/token"
+            with pytest.raises(ConnectionError, match="reauthorization"):
+                await service.access("1")
+        else:
+            await service.access("1")
+        saved = (await db_session.get(OwnerPreference, ACCOUNT + "1")).value
+        assert "refresh_lease" not in saved and "refresh_lease_until" not in saved
+        assert saved["status"] == ("reauthorization_required" if failed else "connected")

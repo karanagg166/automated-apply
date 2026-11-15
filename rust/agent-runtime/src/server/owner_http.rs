@@ -53,6 +53,9 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
             json!({"alive":true,"scope":"saved_job_review_no_application_dispatch"}),
         );
     }
+    if method == "GET" && path == crate::mailboxes::routes::CALLBACK {
+        return accounts::callback(&api, request).await;
+    }
     let selected = match selected_resource(&path, &method, request.uri().query()) {
         Ok(selected) => selected,
         Err(error) => return fail(error),
@@ -124,6 +127,9 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     } else {
         None
     };
+    if let Some(route) = crate::mailboxes::routes::route(&path) {
+        return accounts::dispatch(&api, route, &method, &body).await;
+    }
     if path == "/api/v1/rust-agent/discovery/schedule" {
         return discovery::schedule(&api, &method, &body).await;
     }

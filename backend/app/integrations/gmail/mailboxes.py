@@ -291,6 +291,10 @@ class Mailboxes:
             return token, value
         if value.get("refresh_lease_until", "") > now().isoformat():
             raise ConnectionError("gmail_refresh_in_progress")
+        # An expired lease is not part of the account baseline. Restoring it after
+        # a newer refresh would let the former lease owner overwrite that result.
+        value.pop("refresh_lease", None)
+        value.pop("refresh_lease_until", None)
         lease = uuid4().hex
         row.value = {**value, "refresh_lease": lease, "refresh_lease_until": (now() + timedelta(seconds=70)).isoformat()}
         refresh = store.decrypt(value["refresh"], key + ":refresh")

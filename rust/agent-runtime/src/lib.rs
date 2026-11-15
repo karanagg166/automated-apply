@@ -87,3 +87,5 @@ pub mod server;
 pub mod telegram;
 pub mod tool_api;
 pub mod worker;
+
+pub mod mailboxes;

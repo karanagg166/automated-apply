@@ -42,7 +42,7 @@ until a release inventory proves every remaining writer participates or is stopp
 | Rust control HTTP connection | 1 persistent |
 | Rust execution coordinator connection | 1 persistent |
 | Rust Telegram enabled | 1 persistent; 0 when disabled |
-| Rust answer generation or private document IO | 1 transient shared permit across both operations |
+| Rust answer generation, private document or account IO | 1 transient shared permit across those operations |
 | Rust public feed discovery | 0 additional; releases the existing control connection during HTTPS IO |
 | Complete Rust family | **4 peak with Telegram; 3 without**; no pool or overflow |
 | Each Python SQLAlchemy business pool | `DB_POOL_SIZE + DB_MAX_OVERFLOW` per process; source defaults 1 + 0 |

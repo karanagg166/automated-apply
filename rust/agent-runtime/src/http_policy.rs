@@ -3,6 +3,17 @@ use regex::Regex;
 use serde_json::Value;
 use std::sync::LazyLock;
 
+static POLICY: LazyLock<Value> = LazyLock::new(|| {
+    serde_json::from_str(include_str!("../../../contracts/http-security.json"))
+        .expect("checked HTTP policy")
+});
+pub fn unauthenticated_callback(path: &str, method: &str) -> bool {
+    method == "GET"
+        && POLICY["unauthenticated_callbacks"]
+            .as_array()
+            .is_some_and(|paths| paths.iter().any(|p| p.as_str() == Some(path)))
+}
+
 static APPROVALS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
     let policy: Value = serde_json::from_str(include_str!("../../../contracts/http-security.json"))
         .expect("checked HTTP policy");

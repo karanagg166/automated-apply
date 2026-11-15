@@ -38,6 +38,7 @@ pub struct Configuration {
     pub(crate) answers: crate::answer_service::Settings,
     pub(crate) resumes: crate::private_resume::Settings,
     pub(crate) browser: crate::browser_inventory::Browser,
+    pub(crate) mailboxes: crate::mailboxes::Settings,
     pub(crate) packets: crate::packet_service::Settings,
 }
 impl Configuration {
@@ -269,6 +270,7 @@ impl Configuration {
             answers,
             resumes: crate::private_resume::Settings::from_values(values)?,
             browser: crate::browser_inventory::Browser::from_values(values)?,
+            mailboxes: crate::mailboxes::Settings::from_values(values, fixture)?,
             packets: crate::packet_service::Settings {
                 policy: crate::packet_platform::Policy {
                     testing: fixture,

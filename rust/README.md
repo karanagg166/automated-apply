@@ -106,3 +106,19 @@ The IPC listener shares the existing API state, request limits and database conn
 it creates no pool or writer family. Native IPC transport parity does not implement the
 still-unported Chrome command dispatcher. Do not point the installed extension at the Rust
 host until all command/service ports and the complete STOP-mode cutover checks pass.
+
+The Rust local Gmail lifecycle now supports the two existing account slots: strict
+read/draft consent, browser cookie + one-use PKCE state, exact callback URI, allowlisted
+cross-checked identity, encrypted credentials, generation fences, refresh leases, verification
+and local disconnect before provider revocation. Only the callback's GET path is exempt
+from bearer authentication, as declared in the shared HTTP policy; transport checks remain.
+Account IO shares the transient generation/document permit and stays outside the control
+connection so Stop remains available. Owner preference writes supply production timestamps
+explicitly and acknowledge commit before reporting success. Expired leases are removed
+before completion so an older refresh cannot overwrite a newer result.
+
+This lifecycle port has only fictional HTTP/PostgreSQL acceptance. Account status does
+not perform an implicit provider check. Existing alert policy is retained, while the Rust
+status reports monitoring unavailable until that poller is ported. Search/body review,
+drafts, alert polling, legacy account variants and Drive services are still separate
+remaining ports. No owner OAuth consent or installed configuration was changed.

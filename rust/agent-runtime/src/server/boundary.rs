@@ -232,6 +232,11 @@ pub(super) fn authorize(request: &Request, config: &Configuration) -> Result<()>
     {
         return Err(Failure("owner_api_tls_required"));
     }
+    if crate::http_policy::unauthenticated_callback(request.uri().path(), request.method().as_str())
+    {
+        // Public browser callback has its own one-use state, cookie, PKCE and exact URI checks.
+        return Ok(());
+    }
     let token = single(headers, "authorization")
         .and_then(|s| {
             if profile_route(request.uri().path()) {
