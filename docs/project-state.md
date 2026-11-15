@@ -325,3 +325,14 @@ No installed service/profile/provider or application action changed. New Gmail G
 transport source is now being implemented; preserve its uncommitted files and finish
 its tests/consent/account-service wiring. Continue remaining ports and the final combined
 cycle/cutover/live acceptance; the full plan remains ACTIVE and incomplete.
+
+Google/Gmail protocol foundation7921916 is committed: fixed GET-only message transport,
+closed Google OAuth endpoints, strict tokens/scopes/PKCE/identity and numeric-loopback
+fixtures;8 focused native tests plus Python protocol/DTO comparisons and Clippy pass.
+See [qualified evidence](acceptance/google-mail-transport-20261116.md). No account routes
+or consent/refresh lifecycle is claimed working and no live Google call occurred.
+A production blocker was identified in source: MCP uses HTTP while the host requires
+TLS, so its production tools cannot currently work. Next implement private owner-only
+Unix socket transport authenticated by kernel peer UID; preserve HTTP TLS/token/origin
+policy and do not forge forwarded TLS headers. Current legacy/native installed paths
+remain untouched. Then continue account service fencing and all remaining full-plan work.
