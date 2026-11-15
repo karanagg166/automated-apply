@@ -792,6 +792,25 @@ fn profile_failure(error: Failure) -> Response {
     let status = failure(error).status();
     let detail = match error.0 {
         "packet_not_found" => "Application packet not found",
+        "packet_field_not_found" => "Question does not belong to this application packet",
+        "packet_revision_conflict" => "Packet revision changed; reload it before retrying",
+        "packet_write_ack_failed" => {
+            "Application write was not acknowledged; reload before retrying"
+        }
+        "packet_closed" => "Closed or submitted packets cannot be edited",
+        "packet_context_changed" => {
+            "Saved evidence changed; refresh the packet before editing or reviewing"
+        }
+        "packet_profile_changed" => "Saved candidate no longer matches this packet",
+        "packet_refresh_required" => "Select a resume or request refresh_saved_data",
+        "packet_field_limit" => "A packet supports at most 100 checklist and screening fields",
+        "packet_upload_attestation_denied" => {
+            "An answer cannot attest to a portal file upload; upload the file on the official website"
+        }
+        "packet_answer_invalid" => {
+            "Supply a nonblank answer within the displayed length and exact option constraints"
+        }
+        "invalid_packet_edit_request" => "Application packet edit request is invalid",
         "packet_job_not_found" => "Saved job not found",
         "packet_profile_required" => {
             "Save a candidate profile before persisting an application packet"
@@ -813,6 +832,8 @@ fn profile_failure(error: Failure) -> Response {
             "Packet commit outcome is uncertain; inspect saved packets before retrying"
         }
         "packet_database_error"
+        | "invalid_packet_field_record"
+        | "invalid_packet_job_record"
         | "invalid_packet_saved_record"
         | "invalid_packet_context_record"
         | "packet_context_inventory_limit"
@@ -1405,7 +1426,19 @@ async fn dispatch(
 }
 fn failure(error: Failure) -> Response {
     let code = match error.0 {
-        "packet_not_found" | "packet_job_not_found" => StatusCode::NOT_FOUND,
+        "packet_not_found" | "packet_job_not_found" | "packet_field_not_found" => {
+            StatusCode::NOT_FOUND
+        }
+        "packet_write_ack_failed"
+        | "packet_revision_conflict"
+        | "packet_closed"
+        | "packet_context_changed"
+        | "packet_profile_changed" => StatusCode::CONFLICT,
+        "invalid_packet_edit_request"
+        | "packet_refresh_required"
+        | "packet_field_limit"
+        | "packet_upload_attestation_denied"
+        | "packet_answer_invalid" => StatusCode::UNPROCESSABLE_ENTITY,
         "packet_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
         "packet_idempotency_conflict"
         | "packet_storage_conflict"
@@ -1416,6 +1449,8 @@ fn failure(error: Failure) -> Response {
         | "invalid_packet_page"
         | "invalid_packet_id" => StatusCode::UNPROCESSABLE_ENTITY,
         "packet_database_error"
+        | "invalid_packet_field_record"
+        | "invalid_packet_job_record"
         | "packet_commit_outcome_unknown"
         | "invalid_packet_saved_record"
         | "invalid_packet_context_record"

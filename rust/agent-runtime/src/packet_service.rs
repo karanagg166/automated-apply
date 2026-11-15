@@ -17,7 +17,7 @@ pub struct Settings {
     pub multi_select: bool,
     pub schema: String,
 }
-fn db(error: sqlx::Error) -> Failure {
+pub(crate) fn db(error: sqlx::Error) -> Failure {
     match error.as_database_error().and_then(|e| e.code()).as_deref() {
         Some("40001") => Failure("packet_serialization_rollback"),
         Some("23505" | "23503" | "23514") => Failure("packet_storage_conflict"),
@@ -27,7 +27,7 @@ fn db(error: sqlx::Error) -> Failure {
 fn invalid() -> Failure {
     Failure("invalid_packet_saved_record")
 }
-fn id(value: &Value) -> Result<Uuid> {
+pub(crate) fn id(value: &Value) -> Result<Uuid> {
     value
         .as_str()
         .and_then(|s| s.parse().ok())
@@ -105,7 +105,7 @@ pub fn readiness(
     }
     Ok(value)
 }
-async fn multi_select(
+pub(crate) async fn multi_select(
     tx: &mut Transaction<'_, Postgres>,
     request: &Prepare,
     settings: &Settings,
@@ -199,7 +199,7 @@ async fn preview_in(
         json!({"job_id":job,"candidate_profile_id":material.profile.as_ref().map(|p|p["id"].clone()),"candidate_profile_version":material.profile.as_ref().map(|p|p["version"].clone()),"snapshot":material.snapshot,"fields":fields,"readiness":ready,"submission_mode":"manual_handoff"}),
     )
 }
-async fn read_in(
+pub(crate) async fn read_in(
     tx: &mut Transaction<'_, Postgres>,
     packet: Uuid,
     settings: &Settings,
@@ -353,9 +353,9 @@ async fn create_in(
         .iter()
         .enumerate()
     {
-        sqlx::query("INSERT INTO application_packet_fields(id,packet_id,position,question,category,field_type,required,max_characters,max_words,constraints,options,writing_style,proposed_answer,human_answer,provenance,validation_status,review_status,requires_review,missing_information,answer_revision) SELECT f.id,$1,$2,f.question,f.category,f.field_type,f.required,f.max_characters,f.max_words,f.constraints,f.options,f.writing_style,f.proposed_answer,f.human_answer,f.provenance,f.validation_status,f.review_status,f.requires_review,f.missing_information,f.answer_revision FROM jsonb_populate_record(NULL::application_packet_fields,$3) f").bind(packet).bind(position as i32).bind(field).execute(&mut **tx).await.map_err(db)?;
+        crate::packet_mutation::add_field_in(tx, packet, position, field).await?;
     }
-    sqlx::query("INSERT INTO application_events(id,packet_id,event_type,previous_state,next_state,packet_revision,origin) VALUES($1,$2,'packet_created',NULL,'created',1,'owner_rest')").bind(Uuid::new_v4()).bind(packet).execute(&mut **tx).await.map_err(db)?;
+    crate::packet_mutation::event_in(tx, packet, "packet_created", None, "created", 1).await?;
     read_in(tx, packet, settings, now).await
 }
 async fn replay(
@@ -385,6 +385,8 @@ pub enum Route<'a> {
     Read(&'a str),
     Readiness(&'a str),
     Events(&'a str),
+    Questions(&'a str),
+    Answer(&'a str, &'a str),
 }
 pub fn route(path: &str) -> Option<Route<'_>> {
     if path == "/api/v1/applications/platforms" {
@@ -414,7 +416,11 @@ pub fn route(path: &str) -> Option<Route<'_>> {
         "" => Some(Route::Read(id)),
         "readiness" => Some(Route::Readiness(id)),
         "events" => Some(Route::Events(id)),
-        _ => None,
+        "questions" => Some(Route::Questions(id)),
+        action => action
+            .strip_prefix("questions/")
+            .filter(|field| !field.is_empty() && !field.contains('/'))
+            .map(|field| Route::Answer(id, field)),
     }
 }
 #[derive(Default)]
@@ -508,7 +514,13 @@ pub async fn dispatch(
 ) -> Result<(Value, bool)> {
     let route = route(path).ok_or(Failure("owner_route_not_found"))?;
     let post = matches!(route, Route::Preview(_) | Route::Create(_));
-    if method != if post { "POST" } else { "GET" } {
+    let method_ok = match route {
+        Route::Read(_) => matches!(method, "GET" | "PATCH"),
+        Route::Questions(_) => method == "POST",
+        Route::Answer(_, _) => method == "PATCH",
+        _ => method == if post { "POST" } else { "GET" },
+    };
+    if !method_ok {
         return Err(Failure("packet_method_not_allowed"));
     }
     let request = if post {
@@ -519,6 +531,20 @@ pub async fn dispatch(
     } else {
         None
     };
+    let edit_kind = match route {
+        Route::Read(_) if method == "PATCH" => Some(crate::packet_mutation_contract::Kind::Refresh),
+        Route::Questions(_) => Some(crate::packet_mutation_contract::Kind::Questions),
+        Route::Answer(_, _) => Some(crate::packet_mutation_contract::Kind::Answer),
+        _ => None,
+    };
+    let edit = edit_kind
+        .map(|kind| {
+            crate::packet_mutation_contract::normalize(
+                kind,
+                serde_json::from_slice(body).map_err(|_| Failure("invalid_packet_edit_request"))?,
+            )
+        })
+        .transpose()?;
     let page = Page::parse(
         if matches!(route, Route::List | Route::Events(_)) {
             query
@@ -541,7 +567,10 @@ pub async fn dispatch(
         let result=async {match route {
             Route::Preview(job)=>preview_in(&mut tx,parse_id(job)?,request.as_ref().unwrap(),settings,answers,now).await,
             Route::Create(job)=>create_in(&mut tx,parse_id(job)?,request.as_ref().unwrap(),settings,answers,now).await,
+            Route::Read(packet) if method=="PATCH"=>crate::packet_mutation::run_in(&mut tx,parse_id(packet)?,edit.as_ref().unwrap(),None,settings,answers,now).await,
             Route::Read(packet)=>read_in(&mut tx,parse_id(packet)?,settings,now).await,
+            Route::Questions(packet)=>crate::packet_mutation::run_in(&mut tx,parse_id(packet)?,edit.as_ref().unwrap(),None,settings,answers,now).await,
+            Route::Answer(packet,field)=>crate::packet_mutation::run_in(&mut tx,parse_id(packet)?,edit.as_ref().unwrap(),Some(parse_id(field)?),settings,answers,now).await,
             Route::Readiness(packet)=>Ok(read_in(&mut tx,parse_id(packet)?,settings,now).await?["readiness"].clone()),
             Route::Events(packet)=>{
                 let packet=parse_id(packet)?;

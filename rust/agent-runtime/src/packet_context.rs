@@ -359,8 +359,36 @@ pub fn build(input: Value, policy: &Policy, now: DateTime<Utc>) -> Result<Built>
     })
 }
 
-fn db(_: sqlx::Error) -> Failure {
-    Failure("packet_database_error")
+fn db(error: sqlx::Error) -> Failure {
+    crate::packet_service::db(error)
+}
+/// Retain the legacy material lock order before edits/review. Called after the packet claim.
+pub(crate) async fn lock_in(tx: &mut Transaction<'_, Postgres>, job: Uuid) -> Result<()> {
+    let company: Option<Option<Uuid>> =
+        sqlx::query_scalar("SELECT company_id FROM jobs WHERE id=$1 FOR UPDATE")
+            .bind(job)
+            .fetch_optional(&mut **tx)
+            .await
+            .map_err(db)?;
+    let company = company.ok_or(Failure("packet_job_not_found"))?;
+    let profile: Option<Uuid> = sqlx::query_scalar(
+        "SELECT id FROM candidate_profiles WHERE singleton_key='primary' FOR UPDATE",
+    )
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(db)?;
+    if let Some(company) = company {
+        sqlx::query("SELECT id FROM companies WHERE id=$1 FOR UPDATE")
+            .bind(company)
+            .fetch_optional(&mut **tx)
+            .await
+            .map_err(db)?;
+    }
+    if let Some(profile) = profile {
+        sqlx::query("SELECT id FROM candidate_resources WHERE candidate_profile_id=$1 ORDER BY id FOR UPDATE").bind(profile).fetch_all(&mut **tx).await.map_err(db)?;
+        sqlx::query("SELECT id FROM candidate_evidence WHERE candidate_profile_id=$1 ORDER BY id FOR UPDATE").bind(profile).fetch_all(&mut **tx).await.map_err(db)?;
+    }
+    Ok(())
 }
 /// Preload from the caller's existing consistent transaction. No connection, commit,
 /// schema operation or source URL fetch is hidden inside packet material construction.
