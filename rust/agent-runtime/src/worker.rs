@@ -41,7 +41,8 @@ impl Wake {
     }
 }
 
-/// No DDL, new connection, provider request, browser, Telegram or application dispatch.
+/// No DDL or new connection. Explicitly enabled public discovery uses fixed endpoints;
+/// it never opens a browser or dispatches applications. Owner notices retain their relay.
 /// A DB error returns a sanitized failure to the host; leases and budgets stay durable.
 pub async fn serve(
     connection: &mut PgConnection,
@@ -67,6 +68,7 @@ pub async fn serve_with_model(
 ) -> Result<()> {
     let mut changes = wake.changed.subscribe();
     let mut last_heartbeat = None;
+    let mut last_discovery: Option<tokio::time::Instant> = None;
     loop {
         if shutdown.is_cancelled() {
             return quiesce(connection).await;
@@ -79,6 +81,19 @@ pub async fn serve_with_model(
         }
         let control = lifecycle::control(connection).await?;
         if control.mode == Mode::Running {
+            if last_discovery.is_none_or(|at| at.elapsed() >= Duration::from_secs(30)) {
+                last_discovery = Some(tokio::time::Instant::now());
+                let mut provider = crate::discovery_schedule::PublicProvider;
+                let work = crate::discovery_schedule::tick(connection, &mut provider);
+                if let Err(error) = controlled(work, Uuid::nil(), &mut changes, &shutdown).await {
+                    if crate::recovery::database_failure(error) {
+                        return Err(error);
+                    }
+                    crate::discovery_schedule::record_status(connection, Some(error)).await?;
+                }
+                // Re-read persisted control after any cancellation/owner change.
+                continue;
+            }
             lifecycle::reconcile_known_questions(connection).await?;
             let mut store = Store { connection };
             if let Some(mut lease) = store.claim().await? {

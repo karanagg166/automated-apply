@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { PublicDiscovery } from "@/features/public-discovery";
 import type {
   WorkflowCapabilities,
   WorkflowControl,
@@ -241,6 +242,7 @@ export function WorkflowGraph() {
         still awaiting Rust migration and live validation.
       </p>
       {error && <p role="alert">{error}</p>}
+      <PublicDiscovery request={workflowApi} />
       <section style={box} aria-label="Worker controls">
         <p>
           Worker:{" "}

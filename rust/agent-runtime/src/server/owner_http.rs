@@ -124,6 +124,9 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     } else {
         None
     };
+    if path == "/api/v1/rust-agent/discovery/schedule" {
+        return discovery::schedule(&api, &method, &body).await;
+    }
     if let Some(platform) = crate::feed_ingestion::route(&path) {
         if method != "POST" {
             return reply(

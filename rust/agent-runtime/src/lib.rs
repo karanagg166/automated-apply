@@ -1,5 +1,6 @@
 //! Specialist agents propose; the coordinator accounts, persists and fences execution.
 //! Transports and model providers are separate from model-controlled contracts.
+pub mod account_tokens;
 pub mod answer_context;
 pub mod answer_contract;
 pub mod answer_direct;
@@ -17,6 +18,7 @@ pub mod runner;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Failure(pub &'static str);
 pub type Result<T> = std::result::Result<T, Failure>;
+pub mod discovery_schedule;
 pub mod feed_ingestion;
 mod job_catalog;
 pub mod job_context;

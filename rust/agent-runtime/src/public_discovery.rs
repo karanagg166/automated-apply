@@ -550,6 +550,10 @@ pub async fn reserve(
                 if batch.platform.name() != platform.name() || batch.jobs.len() > 20 {
                     return Err(Failure("public_feed_saved_state_invalid"));
                 }
+                for job in &batch.jobs {
+                    validate_saved_job(platform, job)
+                        .map_err(|_| Failure("public_feed_saved_state_invalid"))?;
+                }
                 let mut value = output(
                     &batch,
                     limit,

@@ -141,3 +141,63 @@ pub(super) async fn dispatch(api: &Api, platform: &str, body: &[u8]) -> Response
         Err(error) => fail(error),
     }
 }
+
+pub(super) async fn schedule(api: &Api, method: &str, body: &[u8]) -> Response {
+    if !matches!(method, "GET" | "PUT") {
+        return reply(
+            StatusCode::METHOD_NOT_ALLOWED,
+            json!({"error":"schedule_method_not_allowed"}),
+        );
+    }
+    let update = if method == "PUT" {
+        match crate::discovery_schedule::request(body) {
+            Ok(value) => Some(value),
+            Err(e) => return reply(StatusCode::UNPROCESSABLE_ENTITY, json!({"error":e.0})),
+        }
+    } else {
+        None
+    };
+    let mut state = api.connection.lock().await;
+    let Some(c) = state.value.as_mut() else {
+        return reply(
+            StatusCode::SERVICE_UNAVAILABLE,
+            json!({"error":"agent_database_reconnecting"}),
+        );
+    };
+    let result = if let Some(update) = update {
+        match crate::discovery_schedule::update(c, update).await {
+            Ok(_) => crate::discovery_schedule::status(c).await,
+            Err(e) => Err(e),
+        }
+    } else {
+        crate::discovery_schedule::status(c).await
+    };
+    if result
+        .as_ref()
+        .is_err_and(|e| crate::recovery::database_failure(*e))
+    {
+        if let Some(c) = state.value.take() {
+            recovery::close(c).await;
+        }
+        state.backoff.failed();
+    }
+    match result {
+        Ok(policy) => {
+            if method == "PUT" {
+                api.wake.work_available();
+            }
+            reply(StatusCode::OK, json!(policy))
+        }
+        Err(e) => reply(
+            if matches!(
+                e.0,
+                "discovery_schedule_revision_conflict" | "discovery_schedule_write_ack_failed"
+            ) {
+                StatusCode::CONFLICT
+            } else {
+                StatusCode::SERVICE_UNAVAILABLE
+            },
+            json!({"error":e.0}),
+        ),
+    }
+}

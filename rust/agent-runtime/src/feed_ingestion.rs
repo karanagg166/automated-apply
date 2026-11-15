@@ -28,6 +28,22 @@ fn db(_: sqlx::Error) -> Failure {
 }
 
 pub async fn ingest(c: &mut PgConnection, platform: Platform, input: Input) -> Result<Value> {
+    ingest_in(c, platform, input, None).await
+}
+pub async fn ingest_scheduled(
+    c: &mut PgConnection,
+    platform: Platform,
+    input: Input,
+    revision: i32,
+) -> Result<Value> {
+    ingest_in(c, platform, input, Some(revision)).await
+}
+async fn ingest_in(
+    c: &mut PgConnection,
+    platform: Platform,
+    input: Input,
+    schedule_revision: Option<i32>,
+) -> Result<Value> {
     let mut tx = c.begin().await.map_err(db)?;
     // Same transaction-scoped identity lock as legacy ingestion, never a second pool.
     sqlx::query("SELECT pg_advisory_xact_lock(240204)")
@@ -39,6 +55,30 @@ pub async fn ingest(c: &mut PgConnection, platform: Platform, input: Input) -> R
         platform.name(),
         input.batch_token
     );
+    if let Some(expected) = schedule_revision {
+        // Hold authority through commit: STOP/disable wins before admission or
+        // waits for the already admitted intake transaction to finish.
+        let mode: Option<String> =
+            sqlx::query_scalar("SELECT mode FROM rust_agent_control WHERE key='primary' FOR SHARE")
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(db)?;
+        let value: Option<Value> = sqlx::query_scalar(
+            "SELECT value FROM owner_preferences WHERE key='public_feed_schedule' FOR SHARE",
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(db)?;
+        let policy: crate::discovery_schedule::Policy =
+            serde_json::from_value(value.ok_or(Failure("discovery_schedule_changed"))?)
+                .map_err(|_| Failure("discovery_schedule_changed"))?;
+        if mode.as_deref() != Some("RUNNING")
+            || policy.revision != expected
+            || !policy.enabled.iter().any(|p| p.name() == platform.name())
+        {
+            return Err(Failure("discovery_schedule_changed"));
+        }
+    }
     if let Some(prior) =
         sqlx::query_scalar::<_, Value>("SELECT value FROM owner_preferences WHERE key=$1")
             .bind(&ledger)

@@ -1,5 +1,6 @@
 import { request as httpRequest } from "node:http";
 import { NextRequest } from "next/server";
+import { permittedWorkflowRoute } from "@/lib/workflow-routes";
 import {
   allowedRequest,
   configuration,
@@ -11,16 +12,6 @@ import { readBoundedBody, RequestLimitError } from "@/lib/http-boundary";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-const uuid = "[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}";
-const routes: Record<string, RegExp> = {
-  GET: new RegExp(
-    `^(control|capabilities|runs|questions|runs/${uuid}(/(plan|events))?)$`,
-  ),
-  PUT: /^control$/,
-  POST: new RegExp(
-    `^(runs|runs/${uuid}/control|runs/${uuid}/approvals/${uuid}|runs/${uuid}/questions/${uuid}/resolve)$`,
-  ),
-};
 function reply(value: unknown, status: number) {
   return Response.json(value, {
     status,
@@ -39,7 +30,7 @@ async function proxy(
     return reply({ error: "csrf_required" }, 403);
   const { path } = await context.params;
   const route = path.join("/");
-  if (request.nextUrl.search || !routes[request.method]?.test(route))
+  if (request.nextUrl.search || !permittedWorkflowRoute(route, request.method))
     return reply({ error: "workflow_route_not_found" }, 404);
   try {
     const target = new URL(
