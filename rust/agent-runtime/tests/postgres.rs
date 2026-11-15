@@ -3016,6 +3016,7 @@ include!("support/answer_reuse_pg.rs");
 include!("support/gemini_pg.rs");
 include!("support/ollama_pg.rs");
 include!("support/notifications_pg.rs");
+include!("support/notification_preferences_pg.rs");
 include!("support/job_catalog_pg.rs");
 include!("support/packet_fields_pg.rs");
 include!("support/packet_context_pg.rs");

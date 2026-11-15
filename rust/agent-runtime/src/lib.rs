@@ -24,6 +24,7 @@ pub mod missing_contract;
 pub mod missing_store;
 pub mod model_policy;
 pub mod monthly;
+pub mod notification_preferences;
 mod notifications;
 pub mod owner_proof;
 pub mod packet_archive;

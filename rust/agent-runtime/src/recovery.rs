@@ -36,6 +36,7 @@ pub(crate) fn database_failure(error: Failure) -> bool {
         "telegram_database_error"
             | "packet_database_error"
             | "packet_commit_outcome_unknown"
+            | "notification_preferences_outcome_unknown"
             | "provider_ledger_unavailable"
             | "profile_database_error"
             | "agent_database_error"

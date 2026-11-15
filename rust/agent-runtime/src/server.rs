@@ -134,6 +134,7 @@ fn profile_route(path: &str) -> bool {
         || path == "/api/v1/application-answers/reuse-approvals"
         || resume_route(path).is_some()
         || crate::notifications::route(path).is_some()
+        || path == crate::notification_preferences::PATH
         || crate::job_catalog::route(path).is_some()
         || crate::packet_service::route(path).is_some()
         || crate::packet_generation::route(path).is_some()
@@ -270,6 +271,7 @@ fn selected_resource(path: &str, method: &str, query: Option<&str>) -> Result<Op
         return Ok(None);
     }
     if crate::job_catalog::route(path).is_some()
+        || path == crate::notification_preferences::PATH
         || crate::packet_service::route(path).is_some()
         || crate::packet_generation::route(path).is_some()
         || (saved_match_route(path).is_some() && method == "GET")
@@ -518,6 +520,15 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
         }
     }
     let mut result = match state.value.as_mut() {
+        Some(connection) if path == crate::notification_preferences::PATH => {
+            crate::notification_preferences::dispatch(connection, &method, &body)
+                .await
+                .map(|data| OwnerReply {
+                    data,
+                    status: StatusCode::OK,
+                    etag: None,
+                })
+        }
         Some(connection) if crate::packet_service::route(&path).is_some() => {
             crate::packet_service::dispatch(
                 connection,
@@ -805,6 +816,19 @@ fn profile_failure(error: Failure) -> Response {
     }
     let status = failure(error).status();
     let detail = match error.0 {
+        "invalid_notification_preferences" => {
+            "Notification preferences are invalid; external channels remain disabled"
+        }
+        "invalid_saved_notification_preferences" => {
+            "Saved notification preferences are invalid; correct them before continuing"
+        }
+        "notification_preferences_outcome_unknown" => {
+            "Preference commit outcome is uncertain; retrieve current preferences before retrying"
+        }
+        "notification_preferences_write_ack_failed" => {
+            "Preference write was not acknowledged; retrieve current preferences before retrying"
+        }
+        "notification_preferences_method_not_allowed" => "Method Not Allowed",
         "packet_not_found" => "Application packet not found",
         "packet_field_not_found" => "Question does not belong to this application packet",
         "packet_revision_conflict" => "Packet revision changed; reload it before retrying",
@@ -1462,6 +1486,12 @@ async fn dispatch(
 }
 fn failure(error: Failure) -> Response {
     let code = match error.0 {
+        "invalid_notification_preferences" => StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_saved_notification_preferences" | "notification_preferences_outcome_unknown" => {
+            StatusCode::SERVICE_UNAVAILABLE
+        }
+        "notification_preferences_write_ack_failed" => StatusCode::CONFLICT,
+        "notification_preferences_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
         "packet_not_found" | "packet_job_not_found" | "packet_field_not_found" => {
             StatusCode::NOT_FOUND
         }
