@@ -136,6 +136,27 @@ pub fn prepare(
     resume: Option<&ResumeSelection>,
     origin: &str,
 ) -> Result<Prepared> {
+    prepare_mode(question, job, profile, resume, origin, false, false)
+}
+pub fn prepare_generation(
+    question: Question,
+    job: Uuid,
+    profile: Option<&Value>,
+    resume: Option<&ResumeSelection>,
+    origin: &str,
+    rewrite: bool,
+) -> Result<Prepared> {
+    prepare_mode(question, job, profile, resume, origin, true, rewrite)
+}
+fn prepare_mode(
+    question: Question,
+    job: Uuid,
+    profile: Option<&Value>,
+    resume: Option<&ResumeSelection>,
+    origin: &str,
+    explicit: bool,
+    rewrite: bool,
+) -> Result<Prepared> {
     if !matches!(origin, "packet_core" | "user_provided") {
         return Err(invalid());
     }
@@ -253,7 +274,8 @@ pub fn prepare(
         }
         return Ok(out);
     }
-    if narrative(classification.question_type) {
+    let narrative = narrative(classification.question_type);
+    if narrative && !explicit {
         field["provenance"]["resolver"] = json!("grounded_answer_service");
         missing(
             field,
@@ -263,6 +285,22 @@ pub fn prepare(
     }
     let mut request = generate(&question, job);
     request.max_characters = request.max_characters.max(20);
+    request.save_draft = explicit && narrative;
+    request.rewrite = rewrite;
+    if explicit
+        && narrative
+        && let Some(constraints) = &question.constraints
+    {
+        request.question = format!("{}\nForm constraints: {constraints}", question.question);
+        if request.question.chars().count() > 2000 {
+            field["validation_status"] = json!("validation_failed");
+            missing(
+                field,
+                "Combined question and constraints exceed the supported input limit",
+            );
+            return Ok(out);
+        }
+    }
     out.resolution = Some(request);
     Ok(out)
 }

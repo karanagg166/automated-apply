@@ -136,6 +136,7 @@ fn profile_route(path: &str) -> bool {
         || crate::notifications::route(path).is_some()
         || crate::job_catalog::route(path).is_some()
         || crate::packet_service::route(path).is_some()
+        || crate::packet_generation::route(path).is_some()
 }
 fn resume_route(path: &str) -> Option<(&str, &str)> {
     let tail = path.strip_prefix("/api/v1/dashboard/resumes")?;
@@ -270,6 +271,7 @@ fn selected_resource(path: &str, method: &str, query: Option<&str>) -> Result<Op
     }
     if crate::job_catalog::route(path).is_some()
         || crate::packet_service::route(path).is_some()
+        || crate::packet_generation::route(path).is_some()
         || (saved_match_route(path).is_some() && method == "GET")
     {
         return Ok(None);
@@ -469,7 +471,19 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
         if method != "POST" {
             return fail(Failure("match_method_not_allowed"));
         }
-        return generation_dispatch(&api, &body).await;
+        return generation_dispatch(&api, &body, None).await;
+    }
+    if let Some((packet, field)) = crate::packet_generation::route(&path) {
+        if method != "POST" {
+            return fail(Failure("packet_method_not_allowed"));
+        }
+        let ids = packet
+            .parse::<Uuid>()
+            .and_then(|packet| field.parse::<Uuid>().map(|field| (packet, field)));
+        return match ids {
+            Ok(ids) => generation_dispatch(&api, &body, Some(ids)).await,
+            Err(_) => fail(Failure("invalid_packet_id")),
+        };
     }
     if let Some(label) = label {
         return resume_io_dispatch(&api, ResumeIo::Upload(&label, &body)).await;
@@ -810,7 +824,9 @@ fn profile_failure(error: Failure) -> Response {
         "packet_answer_invalid" => {
             "Supply a nonblank answer within the displayed length and exact option constraints"
         }
-        "invalid_packet_edit_request" => "Application packet edit request is invalid",
+        "invalid_packet_edit_request" | "invalid_packet_generation_request" => {
+            "Application packet edit request is invalid"
+        }
         "packet_job_not_found" => "Saved job not found",
         "packet_profile_required" => {
             "Save a candidate profile before persisting an application packet"
@@ -1005,7 +1021,7 @@ struct OwnerReply {
 }
 /// A single bounded request-scoped API-role connection keeps control/Stop responsive.
 /// It is closed after the response computation; there is no additional pool or retry.
-async fn generation_dispatch(api: &Api, body: &[u8]) -> Response {
+async fn generation_dispatch(api: &Api, body: &[u8], packet: Option<(Uuid, Uuid)>) -> Response {
     let Ok(_permit) = api.long_request.try_acquire() else {
         return reply(
             StatusCode::TOO_MANY_REQUESTS,
@@ -1013,7 +1029,15 @@ async fn generation_dispatch(api: &Api, body: &[u8]) -> Response {
         );
     };
     let input = match serde_json::from_slice::<Value>(body) {
-        Ok(input) if crate::answer_contract::normalize(input.clone()).is_ok() => input,
+        Ok(input)
+            if if packet.is_some() {
+                crate::packet_generation::request(input.clone()).is_ok()
+            } else {
+                crate::answer_contract::normalize(input.clone()).is_ok()
+            } =>
+        {
+            input
+        }
         _ => return profile_failure(Failure("invalid_answer_request")),
     };
     let mut connection = match api.config.connect(false).await {
@@ -1022,7 +1046,19 @@ async fn generation_dispatch(api: &Api, body: &[u8]) -> Response {
     };
     let result = tokio::time::timeout(Duration::from_secs(40), async {
         readiness(&mut connection, &api.config).await?;
-        crate::answer_service::generate(&mut connection, input, &api.config.answers).await
+        if let Some((packet, field)) = packet {
+            crate::packet_generation::generate(
+                &mut connection,
+                packet,
+                field,
+                crate::packet_generation::request(input)?,
+                &api.config.packets,
+                &api.config.answers,
+            )
+            .await
+        } else {
+            crate::answer_service::generate(&mut connection, input, &api.config.answers).await
+        }
     })
     .await
     .unwrap_or(Err(Failure("generation_outcome_unknown")));
@@ -1434,7 +1470,8 @@ fn failure(error: Failure) -> Response {
         | "packet_closed"
         | "packet_context_changed"
         | "packet_profile_changed" => StatusCode::CONFLICT,
-        "invalid_packet_edit_request"
+        "invalid_packet_generation_request"
+        | "invalid_packet_edit_request"
         | "packet_refresh_required"
         | "packet_field_limit"
         | "packet_upload_attestation_denied"

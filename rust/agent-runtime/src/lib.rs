@@ -30,6 +30,7 @@ pub mod packet_archive;
 pub mod packet_context;
 pub mod packet_contract;
 pub mod packet_fields;
+pub mod packet_generation;
 mod packet_mutation;
 pub mod packet_mutation_contract;
 pub mod packet_platform;

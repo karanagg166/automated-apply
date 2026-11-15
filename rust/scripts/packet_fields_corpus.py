@@ -50,7 +50,7 @@ def oracle():
     return scope
 
 
-async def build():
+async def build(generate=False, rewrite=False):
     scope = oracle()
     profiles = [None, dict(id="10000000-0000-0000-0000-000000000001", verified_skills=["Rust", "Python", "Straße"]), dict(id="10000000-0000-0000-0000-000000000002", verified_skills=[])]
     resource = dict(id="20000000-0000-0000-0000-000000000001", resource_type="resume", label="Fictional resume", url="https://example.com/resume.pdf", source_type="user", user_confirmed=True, is_primary=True, updated_at="2026-11-15T00:00:00.000007+00:00")
@@ -59,6 +59,8 @@ async def build():
     questions.extend(dict(question=q, field_type=t, options=options, required=required, max_characters=limit) for q,t,options,required,limit in [
         ("Email","url",[],True,1500),("Email","text",[],True,1),("Email 4 characters","text",[],True,1500),("Email 1 word","text",[],True,1500),("Email","multiple_choice",["Yes","No"],True,1500),("Skills","multi_select",["Rust","Python","Java"],True,1500),("Technical skills (select all that apply)","multi_select",["Python","Rust"],True,1500),("Programming languages","multi_select",["Straße","Java"],False,1500),("Technical skills","multi_select",["Rust","Python"],True,2),("Have you worked 5 years with Rust?","multi_select",["Rust","Python"],True,1500),("Upload resume","multi_select",["Rust"],True,1500),("Resume URL","url",[],True,1500),("Resume URL","text",[],True,1),("Email","file",[],True,1500)])
     questions = [scope["QuestionInput"].model_validate(q).model_dump(mode="json") for q in questions]
+    if generate:
+        questions.extend(scope["QuestionInput"].model_validate(q).model_dump(mode="json") for q in [dict(question="Describe a project",constraints="Use only confirmed facts",max_characters=10),dict(question="Describe a project"+"x"*1970,constraints="Use confirmed facts"),dict(question="Email",constraints="Keep factual",max_characters=1)])
     results = [dict(question_type="personal_details",status="draft_ready",answer="Fictional Person",source="candidate_profile",requires_review=False), dict(question_type="profile_link",status="draft_ready",answer="https://example.com/profile",source="candidate_resource",requires_review=False), dict(question_type="unknown",missing_information=["Provide a verified fact"]), dict(question_type="profile_link",status="draft_ready",answer="https://example.com/unconfirmed",source="environment_default"), dict(question_type="unknown",status="validation_failed",error_code="fictional_validation_error"), dict(question_type="unknown",status="draft_ready",answer="Yes",source="owner_approved_exact_context",draft_id="40000000-0000-0000-0000-000000000001",missing_input_id="a"*32), dict(question_type="unknown",status="draft_ready",answer=" ",source="candidate_profile"), dict(question_type="unknown",status="draft_ready",answer="Fictional",source="unknown_source",used_llm=True,provider="cohere",model="fictional-model"), dict(question_type="unknown",status="draft_ready",answer="Fictional",used_llm=True,provider="unrecognized_provider")]
     results = [AnswerGenerationResult.model_validate(r).model_dump(mode="json") for r in results]
     outputs, unique, cases = [], {}, []
@@ -82,7 +84,7 @@ async def build():
                     answers = Answers(answer)
                     origin = "packet_core" if q < 7 else "user_provided"
                     try:
-                        field = await scope["AnswerBuilder"](answers).build(scope["QuestionInput"].model_validate(question), job, profile, origin=origin, resume=resume)
+                        field = await scope["AnswerBuilder"](answers).build(scope["QuestionInput"].model_validate(question), job, profile, origin=origin, resume=resume,generate=generate,rewrite=rewrite)
                         field = field.model_dump(mode="json")
                         field.pop("id")
                         output = dict(accepted=True, field=field, resolution=answers.request)

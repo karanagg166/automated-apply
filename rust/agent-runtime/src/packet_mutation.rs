@@ -35,7 +35,7 @@ pub(crate) fn question(field: &Value) -> Result<Question> {
     packet_contract::question(Value::Object(body))
         .map_err(|_| Failure("invalid_packet_saved_record"))
 }
-async fn multiple(
+pub(crate) async fn multiple(
     tx: &mut Transaction<'_, Postgres>,
     questions: Vec<Question>,
     settings: &Settings,
@@ -75,7 +75,7 @@ pub(crate) async fn add_field_in(
     }
     Ok(())
 }
-async fn replace_answer_in(
+pub(crate) async fn replace_answer_in(
     tx: &mut Transaction<'_, Postgres>,
     field: Uuid,
     replacement: &Value,
@@ -87,28 +87,20 @@ async fn replace_answer_in(
     }
     Ok(())
 }
-pub(crate) async fn run_in(
+pub(crate) struct Claim {
+    pub raw: Value,
+    pub material: packet_context::Built,
+    pub prior_fields: Vec<Value>,
+    pub normalized: Vec<Value>,
+}
+pub(crate) async fn locked_in(
     tx: &mut Transaction<'_, Postgres>,
     packet: Uuid,
-    input: &Input,
-    field: Option<Uuid>,
+    revision: i32,
+    fresh: bool,
     settings: &Settings,
-    answers: &answer_service::Settings,
     now: DateTime<Utc>,
-) -> Result<Value> {
-    if matches!(
-        input,
-        Input::Refresh {
-            refresh_saved_data: false,
-            explicit_resume: false,
-            ..
-        }
-    ) {
-        return Err(Failure("packet_refresh_required"));
-    }
-    if let Input::Questions { questions, .. } = input {
-        multiple(tx, questions.clone(), settings).await?;
-    }
+) -> Result<Claim> {
     let raw: Option<Value> =
         sqlx::query_scalar("SELECT to_jsonb(p) FROM application_packets p WHERE id=$1 FOR UPDATE")
             .bind(packet)
@@ -116,7 +108,7 @@ pub(crate) async fn run_in(
             .await
             .map_err(packet_service::db)?;
     let raw = raw.ok_or(Failure("packet_not_found"))?;
-    if raw["revision"] != input.revision() {
+    if raw["revision"] != revision {
         return Err(Failure("packet_revision_conflict"));
     }
     if matches!(
@@ -142,12 +134,12 @@ pub(crate) async fn run_in(
         })
         .transpose()?;
     let material = packet_context::load_in(tx, job, selected, &settings.policy, now).await?;
-    let profile = material
+    let _profile = material
         .profile
         .as_ref()
         .filter(|p| p["id"] == raw["candidate_profile_id"])
         .ok_or(Failure("packet_profile_changed"))?;
-    if !matches!(input, Input::Refresh { .. })
+    if fresh
         && material.snapshot["context_digest"]
             != packet_record::normalize(Kind::Snapshot, raw["snapshot"].clone())?["context_digest"]
     {
@@ -158,6 +150,61 @@ pub(crate) async fn run_in(
         .iter()
         .map(|f| packet_record::normalize(Kind::Field, f.clone()))
         .collect::<Result<Vec<_>>>()?;
+    Ok(Claim {
+        raw,
+        material,
+        prior_fields,
+        normalized,
+    })
+}
+pub(crate) async fn run_in(
+    tx: &mut Transaction<'_, Postgres>,
+    packet: Uuid,
+    input: &Input,
+    field: Option<Uuid>,
+    settings: &Settings,
+    answers: &answer_service::Settings,
+    now: DateTime<Utc>,
+) -> Result<Value> {
+    if matches!(
+        input,
+        Input::Refresh {
+            refresh_saved_data: false,
+            explicit_resume: false,
+            ..
+        }
+    ) {
+        return Err(Failure("packet_refresh_required"));
+    }
+    if let Input::Questions { questions, .. } = input {
+        multiple(tx, questions.clone(), settings).await?;
+    }
+    let Claim {
+        raw,
+        material,
+        prior_fields,
+        normalized,
+    } = locked_in(
+        tx,
+        packet,
+        input.revision(),
+        !matches!(input, Input::Refresh { .. }),
+        settings,
+        now,
+    )
+    .await?;
+    let job = packet_service::id(&raw["job_id"])?;
+    let selected = raw["resume_resource_id"]
+        .as_str()
+        .map(|s| {
+            s.parse()
+                .map_err(|_| Failure("invalid_packet_saved_record"))
+        })
+        .transpose()?;
+    let profile = material
+        .profile
+        .as_ref()
+        .ok_or(Failure("packet_profile_changed"))?;
     match input {
         Input::Refresh {
             resume_resource_id,
@@ -277,7 +324,7 @@ pub(crate) async fn run_in(
         }
     }
 }
-async fn finish_in(
+pub(crate) async fn finish_in(
     tx: &mut Transaction<'_, Postgres>,
     packet: Uuid,
     snapshot: &Value,

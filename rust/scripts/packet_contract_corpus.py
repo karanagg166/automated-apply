@@ -26,7 +26,7 @@ def packet_models():
     path = "backend/app/schemas/applications.py"
     tree = ast.parse((ROOT / path).read_text())
     constants = {"Lifecycle", "Tracking", "ReadinessState", "FieldCategory", "FieldType", "ValidationState", "ReviewState", "IdempotencyKey"}
-    classes = {"Contract", "PlatformCapability", "Destination", "ResumeOption", "ResumeSelection", "Provenance", "QuestionInput", "PacketField", "PacketSnapshot", "Readiness", "PacketPreview", "PacketRead", "PrepareInput", "CreatePacket", "ApplicationEventRead", "RevisionInput", "PacketEdit", "QuestionsAdd", "AnswerEdit"}
+    classes = {"Contract", "PlatformCapability", "Destination", "ResumeOption", "ResumeSelection", "Provenance", "QuestionInput", "PacketField", "PacketSnapshot", "Readiness", "PacketPreview", "PacketRead", "PrepareInput", "CreatePacket", "ApplicationEventRead", "RevisionInput", "PacketEdit", "QuestionsAdd", "AnswerEdit", "AnswerGenerateInput"}
     nodes = [n for n in tree.body if isinstance(n, ast.Assign) and isinstance(n.targets[0], ast.Name) and n.targets[0].id in constants or isinstance(n, ast.ClassDef) and n.name in classes]
     exec(compile(ast.Module(body=nodes, type_ignores=[]), path, "exec"), scope)
     if "backend.app.core.config" in sys.modules or "backend.app.models.base" in sys.modules:
