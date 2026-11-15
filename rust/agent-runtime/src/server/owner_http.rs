@@ -56,6 +56,19 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     if method == "GET" && path == crate::mailboxes::routes::CALLBACK {
         return accounts::callback(&api, request).await;
     }
+    if let Some(route) = crate::browser_profiles::route(&path)
+        && route.method() != method
+    {
+        let mut response = reply(
+            StatusCode::METHOD_NOT_ALLOWED,
+            json!({"detail":"browser_profile_method_not_allowed"}),
+        );
+        response.headers_mut().insert(
+            "allow",
+            axum::http::HeaderValue::from_static(route.method()),
+        );
+        return response;
+    }
     if let Some(route) = crate::resume_review::route(&path)
         && route.method() != method
     {
@@ -220,6 +233,21 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
         }
     }
     let mut result = match state.value.as_mut() {
+        Some(connection) if crate::browser_profiles::route(&path).is_some() => {
+            crate::browser_profiles::dispatch(
+                connection,
+                crate::browser_profiles::route(&path).unwrap(),
+                &method,
+                &body,
+                &api.config.browser_profiles,
+            )
+            .await
+            .map(|data| OwnerReply {
+                data,
+                status: StatusCode::OK,
+                etag: None,
+            })
+        }
         Some(connection) if crate::resume_review::route(&path).is_some() => {
             crate::resume_review::dispatch(
                 connection,

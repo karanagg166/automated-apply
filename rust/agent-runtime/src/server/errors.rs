@@ -7,6 +7,30 @@ use axum::{
 use serde_json::{Value, json};
 
 pub(super) fn profile_failure(error: Failure) -> Response {
+    if error.0.starts_with("browser_profile_")
+        || error.0.starts_with("invalid_browser_profile_")
+        || matches!(
+            error.0,
+            "PROFILE_SELECTION_CONFLICT"
+                | "PROFILE_REVISION_CONFLICT"
+                | "PROFILE_OFFLINE"
+                | "FIXED_PROFILE_REQUIRED"
+                | "extension_identity_not_authorized"
+        )
+    {
+        let status = match error.0 {
+            "invalid_browser_profile_request" => StatusCode::UNPROCESSABLE_ENTITY,
+            "extension_identity_not_authorized" => StatusCode::FORBIDDEN,
+            "browser_profile_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
+            "PROFILE_SELECTION_CONFLICT"
+            | "PROFILE_REVISION_CONFLICT"
+            | "PROFILE_OFFLINE"
+            | "FIXED_PROFILE_REQUIRED"
+            | "browser_profile_write_ack_failed" => StatusCode::CONFLICT,
+            _ => StatusCode::SERVICE_UNAVAILABLE,
+        };
+        return reply(status, json!({"detail":error.0}));
+    }
     if matches!(error.0, "invalid_job_status" | "invalid_catalog_job_record") {
         return reply(
             StatusCode::BAD_REQUEST,

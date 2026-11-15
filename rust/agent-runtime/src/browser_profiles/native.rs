@@ -1,0 +1,256 @@
+use super::*;
+static SCHEMA: LazyLock<jsonschema::Validator> = LazyLock::new(|| {
+    let raw: Value =
+        serde_json::from_str(include_str!("../../../native-host/schemas/command.json"))
+            .expect("frozen native schema");
+    jsonschema::draft202012::options()
+        .should_validate_formats(true)
+        .build(&raw)
+        .expect("native schema")
+});
+// Contains credentials: deliberately no Debug or serializer.
+pub struct Command {
+    value: Value,
+    pub request_id: Uuid,
+}
+impl Command {
+    pub fn parse(mut value: Value) -> Result<Self> {
+        if !SCHEMA.is_valid(&value) {
+            return Err(request_error());
+        }
+        if value.get("request_id").is_none() {
+            value["request_id"] = json!(Uuid::new_v4());
+        }
+        let request_id = value["request_id"]
+            .as_str()
+            .and_then(|s| s.parse().ok())
+            .ok_or_else(request_error)?;
+        for key in [
+            "profile_binding_id",
+            "browser_session_id",
+            "chrome_command_id",
+            "command_lease_token",
+        ] {
+            if let Some(s) = value[key].as_str() {
+                value[key] = json!(s.parse::<Uuid>().map_err(|_| request_error())?);
+            }
+        }
+        Ok(Self { value, request_id })
+    }
+    fn name(&self) -> &str {
+        self.value["command"].as_str().unwrap()
+    }
+    fn id(&self, key: &str) -> Result<Uuid> {
+        self.value[key]
+            .as_str()
+            .and_then(|s| s.parse().ok())
+            .ok_or(Failure("profile_connection_fields_required"))
+    }
+}
+fn result(command: &Command, result: Result<Value>) -> Value {
+    match result {
+        Ok(mut data) => {
+            data["submitted"] = json!(false);
+            json!({"version":1,"request_id":command.request_id,"correlation_id":Uuid::new_v4(),"ok":true,"capability":"chrome_profile","error_code":null,"data":data})
+        }
+        Err(error) => {
+            json!({"version":1,"request_id":command.request_id,"correlation_id":Uuid::new_v4(),"ok":false,"capability":"chrome_profile","error_code":error.0,"data":{}})
+        }
+    }
+}
+async fn authenticate(tx: &mut Transaction<'_, Postgres>, command: &Command) -> Result<Value> {
+    let profile = command
+        .id("profile_binding_id")
+        .map_err(|_| Failure("PROFILE_OFFLINE"))?;
+    let row = get(tx, &format!("chr_prof:{profile}"))
+        .await?
+        .ok_or(Failure("PROFILE_OFFLINE"))?;
+    let secret = command.value["profile_secret"]
+        .as_str()
+        .ok_or(Failure("PROFILE_OFFLINE"))?;
+    let hash = format!("{:x}", Sha256::digest(secret.as_bytes()));
+    if !bool::from(
+        string(&row, "secret_hash")?
+            .as_bytes()
+            .ct_eq(hash.as_bytes()),
+    ) {
+        return Err(Failure("PROFILE_OFFLINE"));
+    }
+    Ok(row)
+}
+pub(super) async fn dispatch(
+    tx: &mut Transaction<'_, Postgres>,
+    command: &Command,
+    settings: &Settings,
+    now: DateTime<Utc>,
+) -> Result<Value> {
+    let outcome = execute(tx, command, settings, now).await;
+    match outcome {
+        Err(e)
+            if !matches!(
+                e.0,
+                "profile_connection_fields_required"
+                    | "PROFILE_OFFLINE"
+                    | "profile_identity_conflict"
+                    | "profile_limit_reached"
+                    | "PROFILE_SESSION_CHANGED"
+                    | "PROFILE_REVISION_CONFLICT"
+                    | "browser_command_execution_unavailable"
+            ) =>
+        {
+            Err(e)
+        }
+        other => Ok(result(command, other)),
+    }
+}
+async fn execute(
+    tx: &mut Transaction<'_, Postgres>,
+    command: &Command,
+    settings: &Settings,
+    now: DateTime<Utc>,
+) -> Result<Value> {
+    let v = &command.value;
+    match command.name() {
+        "connect_chrome_profile" => {
+            let id = command.id("profile_binding_id")?;
+            let session = command.id("browser_session_id")?;
+            let secret = v["profile_secret"]
+                .as_str()
+                .ok_or(Failure("profile_connection_fields_required"))?;
+            let label = v["profile_label"]
+                .as_str()
+                .ok_or(Failure("profile_connection_fields_required"))?;
+            let window = v["window_id"]
+                .as_i64()
+                .ok_or(Failure("profile_connection_fields_required"))?;
+            let hash = format!("{:x}", Sha256::digest(secret.as_bytes()));
+            let key = format!("chr_prof:{id}");
+            let old = get(tx, &key).await?;
+            if let Some(row) = old.as_ref() {
+                if !bool::from(
+                    string(row, "secret_hash")?
+                        .as_bytes()
+                        .ct_eq(hash.as_bytes()),
+                ) {
+                    return Err(Failure("profile_identity_conflict"));
+                }
+                if row["browser_session_id"] != json!(session) || row["window_id"] != window {
+                    invalidation::session_replaced(
+                        tx,
+                        row,
+                        row["browser_session_id"] == json!(session),
+                        now,
+                        settings,
+                    )
+                    .await?;
+                }
+            } else if prefix(tx, "chr_prof:").await?.len() >= 8 {
+                return Err(Failure("profile_limit_reached"));
+            }
+            invalidation::invalidate(tx, &json!(id), "profile_reconnected", now).await?;
+            let version = old
+                .as_ref()
+                .map(|r| number(r, "version"))
+                .transpose()?
+                .unwrap_or(0)
+                .checked_add(1)
+                .ok_or_else(invalid)?;
+            let row = json!({"id":id,"owner":"primary","native_host":"com.automated_apply.agent","secret_hash":hash,"label":label,"version":version,"connected":true,"browser_session_id":session,"window_id":window,"commands_enabled":false,"last_heartbeat":now.to_rfc3339()});
+            put(tx, &key, &row).await?;
+            Ok(json!({"profile":public(&row,&selection(tx).await?["profile_binding_id"],now)?}))
+        }
+        "heartbeat_chrome_profile" => {
+            let mut row = authenticate(tx, command).await?;
+            if row["connected"] != true {
+                return Err(Failure("PROFILE_OFFLINE"));
+            }
+            let session = command
+                .id("browser_session_id")
+                .map_err(|_| Failure("PROFILE_SESSION_CHANGED"))?;
+            let changed = row["browser_session_id"] != json!(session);
+            let window_changed = row["window_id"] != v["window_id"];
+            let enabled = v["profile_commands_enabled"] == true && settings.commands_enabled;
+            if changed || row["commands_enabled"] == true && !enabled {
+                invalidation::invalidate(
+                    tx,
+                    &row["id"],
+                    if changed {
+                        "browser_restart"
+                    } else {
+                        "profile_commands_disabled"
+                    },
+                    now,
+                )
+                .await?;
+            }
+            if changed || window_changed {
+                invalidation::session_replaced(tx, &row, !changed, now, settings).await?;
+            }
+            if changed {
+                for (key, mut task) in prefix(tx, "ext_task:").await? {
+                    if task["profile_binding_id"] != row["id"] || task_terminal(&task) {
+                        continue;
+                    }
+                    let reason = task["reason"]
+                        .as_str()
+                        .unwrap_or("browser_restart")
+                        .to_owned();
+                    task["browser_session_id"] = json!(session);
+                    task["tab_id"] = Value::Null;
+                    task["window_id"] = v["window_id"].clone();
+                    task["tab_active"] = json!(false);
+                    task["network_guard_active"] = json!(false);
+                    task["plan_id"] = Value::Null;
+                    task["authorization_id"] = Value::Null;
+                    task["browser_connection"] = json!("disconnected");
+                    if !task["counts"].is_object() {
+                        return Err(invalid());
+                    }
+                    for key in ["completed", "ready", "existing"] {
+                        task["counts"][key] = json!(0);
+                    }
+                    invalidation::move_task(tx, &key, task, &reason, now).await?;
+                }
+            }
+            let increment = changed || window_changed || row["commands_enabled"] != json!(enabled);
+            row["version"] = json!(
+                number(&row, "version")?
+                    .checked_add(i64::from(increment))
+                    .ok_or_else(invalid)?
+            );
+            row["browser_session_id"] = json!(session);
+            row["window_id"] = v["window_id"].clone();
+            row["last_heartbeat"] = json!(now.to_rfc3339());
+            row["commands_enabled"] = json!(enabled);
+            put(tx, &format!("chr_prof:{}", string(&row, "id")?), &row).await?;
+            let mut data =
+                json!({"profile":public(&row,&selection(tx).await?["profile_binding_id"],now)?});
+            // Actual Brave focus acceptance suspended automatic window creation.
+            if v["window_id"].is_null() {
+                data["background_window_allowed"] = json!(false);
+            }
+            Ok(data)
+        }
+        "disconnect_chrome_profile" => {
+            let row = authenticate(tx, command).await?;
+            disconnect(
+                tx,
+                command.id("profile_binding_id")?,
+                v["expected_profile_version"].as_i64().unwrap_or(0),
+                now,
+            )
+            .await
+            .map(|mut d| {
+                d["profile_binding_id"] = row["id"].clone();
+                d
+            })
+        }
+        "health" => Ok(
+            json!({"connections":[{"name":"Supabase PostgreSQL","state":"CONNECTED"},{"name":"Local FastAPI","state":"CONNECTED"}],"runtime":"rust","browser_dispatch_available":false}),
+        ),
+        "get_agent_capabilities" => Ok(
+            json!({"operations":{"connect_chrome_profile":"chrome_profile","heartbeat_chrome_profile":"chrome_profile","disconnect_chrome_profile":"chrome_profile"},"submissions":false,"email_sending":false,"paid_calls":false}),
+        ),
+        _ => Err(Failure("browser_command_execution_unavailable")),
+    }
+}

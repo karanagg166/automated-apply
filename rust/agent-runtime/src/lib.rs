@@ -60,6 +60,7 @@ pub mod knowledge_tools;
 mod legacy_regex;
 
 pub mod browser_inventory;
+pub mod browser_profiles;
 pub mod configuration;
 mod gemini;
 pub mod gmail_read;

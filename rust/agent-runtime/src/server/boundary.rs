@@ -32,6 +32,7 @@ pub(super) fn profile_route(path: &str) -> bool {
         || crate::packet_service::route(path).is_some()
         || crate::packet_generation::route(path).is_some()
         || crate::resume_review::route(path).is_some()
+        || crate::browser_profiles::route(path).is_some()
 }
 pub(super) fn resume_route(path: &str) -> Option<(&str, &str)> {
     let tail = path.strip_prefix("/api/v1/dashboard/resumes")?;
@@ -216,15 +217,28 @@ pub(super) fn authorize(request: &Request, config: &Configuration) -> Result<()>
     {
         return Err(Failure("owner_host_denied"));
     }
+    let native = request.uri().path() == crate::browser_profiles::NATIVE;
+    let extension = single(headers, "x-agent-client");
+    if native && !config.browser_profiles.permits(extension) {
+        return Err(Failure("extension_identity_not_authorized"));
+    }
     if headers.contains_key("origin")
-        && single(headers, "origin").is_none_or(|value| !config.origins.iter().any(|s| s == value))
+        && single(headers, "origin").is_none_or(|value| {
+            !config.origins.iter().any(|s| s == value)
+                && !(native
+                    && config
+                        .browser_profiles
+                        .extension
+                        .as_ref()
+                        .is_some_and(|id| value == format!("chrome-extension://{id}")))
+        })
     {
         return Err(Failure("owner_origin_denied"));
     }
     if request.method() == axum::http::Method::GET && request.uri().path() == "/health" {
         return Ok(());
     }
-    if headers.contains_key("x-agent-client") {
+    if headers.contains_key("x-agent-client") && !native {
         return Err(Failure("owner_client_required"));
     }
     if config.require_tls

@@ -4014,3 +4014,4 @@ include!("support/mailboxes_pg.rs");
 include!("support/mail_read_draft_pg.rs");
 
 include!("support/resume_review_pg.rs");
+include!("support/browser_profiles_pg.rs");
