@@ -107,6 +107,16 @@ distinct); Clippy and formatting pass. No real model was started or downloaded. 
 local fallback and the separate rearranger remain pending. See
 [the local-model report](acceptance/rust-ollama-20261115.md).
 
+Rust notification milestone `8e35f7ad5a5ba845c516cb7622be1ecc6adb3da5` adds owner inbox,
+mark-read and saved delivery-history routes on the existing connection. Fresh129 standard
++135 disposable PG tests pass (264 distinct); Clippy/formatting pass. Independent read-only
+review found no blocking defect; stricter query/response caps are documented. No production
+notification dispatch/data change or Rust runtime installation occurred. Notification
+preferences/synchronization and the remaining services still need ports. See
+[the notification report](acceptance/rust-notifications-20261115.md). Next independent
+work is the complete saved-jobs listing/detail/match/shortlist flow while Profile8 remains
+offline and the owner's physical browser step is pending.
+
 ## Remaining acceptance
 
 Finish and test PDF, Rust service/API/browser/application/Gmail ports and integrations.
