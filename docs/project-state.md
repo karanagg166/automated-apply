@@ -421,3 +421,17 @@ No installed/actual owner browser/provider/account/queue action or application r
 Form inspection, exact-field review/consume, fill receipts and question bridging remain
 next, followed by the remaining full-plan ports and combined/cutover/live gates.
 Do not stop at this checkpoint, repeat login asks or treat task metadata as completion.
+
+Newest owner execution instruction: research/plan/structure first, implement all remaining
+files, then run all test categories together at the end; avoid repeated test runs. Apply
+[the consolidated delivery plan](plans/completion-execution-20261116.md) and
+[primary research record](plans/completion-research-20261116.md). Preserve current uncommitted
+pure form policy/schema/test work. Do not run tests, builds or new live acceptance during
+the remaining source-writing phase; add regression fixtures for the final combined gate.
+Final runner must include missing browser/UI/Python PostgreSQL stages before execution.
+Source review found243 API declarations across21 files; this is not route parity coverage.
+Current rough engineering estimate is58% complete /42% remaining after the three published
+browser milestones. It is not measured acceptance; hold until another meaningful evidence-
+backed milestone and report increases to the owner. Last full validated checkpoint remains
+193standard+262nativePG at9c4ace5; untested new source must not inherit those passes.
+No pending test processes remain. Full plan stays active; continue source implementation.
