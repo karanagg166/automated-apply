@@ -345,3 +345,15 @@ fixture failures were corrected; no production install/account/profile/queue cha
 See [qualified transport evidence](acceptance/private-runtime-transport-20261116.md).
 Continue account consent/generation/refresh service ports now. Full plan remains ACTIVE;
 no partial final report, fifth Naukri admission, unknown replay or automatic window creation.
+
+Local Gmail lifecycle `01c3f6b0d8f283dffcc21f3b20e1fdc601debb41` now ports consent,
+browser-bound one-use PKCE callback, strict identity/scopes/allowlist, encrypted access,
+generation/refresh leases, verification and disconnect before revocation.181 standard
+Rust +11 native fictional PG and17 legacy Python module tests pass; Clippy/format/Ruff
+and private continuity snapshot/verify pass. A failing concurrent refresh regression
+exposed expired-lease restoration; Rust and legacy Python source now remove those fields.
+See [qualified account evidence](acceptance/gmail-account-lifecycle-20261116.md).
+No actual account/provider/service/profile change or installation. Search/MIME/drafts,
+alerts/Drive/legacy account variants and other full-plan ports remain next; alert status
+marks the Rust poller unavailable instead of claiming its saved policy is active.
+Continue without a partial final report, repeat login request, fifth admission or unknown replay.
