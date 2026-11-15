@@ -30,3 +30,18 @@ def test_unavailable_command_fails_without_leaking_exception_details(tmp_path):
     report = (tmp_path / "results.json").read_text()
     assert "fictional-secret-canary" not in report
     assert json.loads(report)["stages"][0]["exit_code"] == 127
+
+
+def test_timeout_is_a_failure_and_never_replays_or_runs_the_next_stage(tmp_path):
+    calls = []
+    def invoke(command, **kwargs):
+        calls.append(command)
+        assert kwargs["timeout"] == 2700
+        raise runner.subprocess.TimeoutExpired(command, 2700, output="fictional-secret")
+    assert not runner.run_stages((("slow", ("slow",)), ("next", ("never",))), tmp_path, invoke)
+    assert calls == [["slow"]]
+    raw = (tmp_path / "results.json").read_text()
+    assert "fictional-secret" not in raw
+    rows = json.loads(raw)["stages"]
+    assert rows[0]["exit_code"] == 124
+    assert rows[1]["status"] == "NOT TESTED"

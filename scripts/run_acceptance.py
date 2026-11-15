@@ -41,8 +41,10 @@ def run_stages(stages, output, invoke=subprocess.run):
             with (output / (name + ".private.log")).open("xb") as log:
                 os.chmod(log.name, 0o600)
                 try:
-                    result = invoke(list(command), cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, check=False)
+                    result = invoke(list(command), cwd=ROOT, stdout=log, stderr=subprocess.STDOUT, check=False, timeout=2700)
                     code = result.returncode
+                except subprocess.TimeoutExpired:
+                    code = 124
                 except OSError:
                     code = 127
             row.update(status="PASS" if code == 0 else "FAIL", exit_code=code,
