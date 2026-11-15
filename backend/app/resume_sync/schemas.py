@@ -61,6 +61,7 @@ class ResumeVersionRead(Contract):
 
 
 class SyncStatus(Contract):
+    download_available: Literal[False] = False
     source: Literal["Google Drive"] = "Google Drive"
     canonical_url: str | None
     file_id: str | None

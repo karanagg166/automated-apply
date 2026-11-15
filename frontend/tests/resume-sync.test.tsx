@@ -37,6 +37,7 @@ const state: Schema<"SyncStatus"> = {
   drive_revision: null,
   metadata_note:
     "Drive revision metadata may be unavailable; every check verifies PDF SHA-256.",
+  download_available: false,
   source: "Google Drive",
   canonical_url: source,
   file_id: version.file_id,

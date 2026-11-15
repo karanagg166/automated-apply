@@ -33,7 +33,10 @@ impl Backoff {
 pub(crate) fn database_failure(error: Failure) -> bool {
     matches!(
         error.0,
-        "public_feed_database_error"
+        "resume_review_database_error"
+            | "resume_review_commit_outcome_unknown"
+            | "resume_review_rollback_unconfirmed"
+            | "public_feed_database_error"
             | "public_feed_commit_outcome_unknown"
             | "telegram_database_error"
             | "packet_database_error"

@@ -36,6 +36,7 @@ pub struct Configuration {
     pub(crate) resource_defaults: BTreeMap<String, String>,
     pub(crate) owner_signing: Option<crate::owner_proof::SigningKey>,
     pub(crate) answers: crate::answer_service::Settings,
+    pub(crate) resume_review: crate::resume_review::Settings,
     pub(crate) resumes: crate::private_resume::Settings,
     pub(crate) browser: crate::browser_inventory::Browser,
     pub(crate) mailboxes: crate::mailboxes::Settings,
@@ -269,6 +270,7 @@ impl Configuration {
             owner_signing: crate::owner_proof::SigningKey::from_values(values)?,
             answers,
             resumes: crate::private_resume::Settings::from_values(values)?,
+            resume_review: crate::resume_review::Settings::from_values(values)?,
             browser: crate::browser_inventory::Browser::from_values(values)?,
             mailboxes: crate::mailboxes::Settings::from_values(values, fixture)?,
             packets: crate::packet_service::Settings {

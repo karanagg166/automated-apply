@@ -56,6 +56,19 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     if method == "GET" && path == crate::mailboxes::routes::CALLBACK {
         return accounts::callback(&api, request).await;
     }
+    if let Some(route) = crate::resume_review::route(&path)
+        && route.method() != method
+    {
+        let mut response = reply(
+            StatusCode::METHOD_NOT_ALLOWED,
+            json!({"detail":"resume_review_method_not_allowed"}),
+        );
+        response.headers_mut().insert(
+            "allow",
+            axum::http::HeaderValue::from_static(route.method()),
+        );
+        return response;
+    }
     let selected = match selected_resource(&path, &method, request.uri().query()) {
         Ok(selected) => selected,
         Err(error) => return fail(error),
@@ -84,6 +97,11 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
             request.into_body(),
             if pdf_upload {
                 crate::private_resume::MAX_PDF
+            } else if matches!(
+                crate::resume_review::route(&path),
+                Some(crate::resume_review::Route::Approve(_))
+            ) {
+                1048576
             } else {
                 65536
             },
@@ -202,6 +220,23 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
         }
     }
     let mut result = match state.value.as_mut() {
+        Some(connection) if crate::resume_review::route(&path).is_some() => {
+            crate::resume_review::dispatch(
+                connection,
+                crate::resume_review::route(&path).unwrap(),
+                &method,
+                &body,
+                &api.config.resume_review,
+                &api.config.resumes,
+                api.config.profile_live,
+            )
+            .await
+            .map(|data| OwnerReply {
+                data,
+                status: StatusCode::OK,
+                etag: None,
+            })
+        }
         Some(connection) if path == crate::notification_preferences::PATH => {
             crate::notification_preferences::dispatch(connection, &method, &body)
                 .await

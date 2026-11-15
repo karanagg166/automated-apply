@@ -93,3 +93,5 @@ pub mod mailboxes;
 pub mod mail_evidence;
 
 pub mod gmail_drafts;
+
+pub mod resume_review;

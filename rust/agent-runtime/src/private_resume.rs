@@ -410,3 +410,29 @@ async fn confirm_in(
     };
     Ok(json!({"resource_id":resource,"confirmed":true}))
 }
+
+// Legacy resume reviews share this key, but are JSON rather than PDF bytes.
+pub(crate) fn decrypt_review(settings: &Settings, ciphertext: &[u8]) -> Result<Value> {
+    if ciphertext.len() > 8 * 1024 * 1024 {
+        return Err(Failure("private_resume_review_invalid"));
+    }
+    let token =
+        std::str::from_utf8(ciphertext).map_err(|_| Failure("private_resume_review_invalid"))?;
+    let raw = settings
+        .cipher()?
+        .decrypt(token)
+        .map_err(|_| Failure("private_resume_review_invalid"))?;
+    let value: Value =
+        serde_json::from_slice(&raw).map_err(|_| Failure("private_resume_review_invalid"))?;
+    if !value.is_object() {
+        return Err(Failure("private_resume_review_invalid"));
+    }
+    Ok(value)
+}
+pub(crate) fn encrypt_review(settings: &Settings, value: &Value) -> Result<Vec<u8>> {
+    let raw = serde_json::to_vec(value).map_err(|_| Failure("private_resume_review_invalid"))?;
+    if raw.len() > 6 * 1024 * 1024 {
+        return Err(Failure("private_resume_review_invalid"));
+    }
+    Ok(settings.cipher()?.encrypt(&raw).into_bytes())
+}

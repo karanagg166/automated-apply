@@ -143,3 +143,20 @@ Parser1.0.1 requires Rust1.98, above this workspace's declared minimum; it was n
 The older pinned parser is compiled/tested on the current host toolchain, not a separate
 fresh Rust1.94 installation. Exactly four packages were added (including build-time
 `hashify`0.2.9); existing external lockfile versions/checksums/edges were preserved.
+
+Saved Drive resume reviews now have native source/status/review/approval routes. The
+current design deliberately defers Drive downloading and directs the owner to manual
+PDF upload; the Rust `/sync` route and attempts to enable downloading retain that409.
+This does not add Drive OAuth grants, change sharing, or reuse Gmail credentials.
+Status reports `download_available=false` and no Rust scheduler heartbeat. Source CAS
+retains archived versions and active pointers when the latest source changes.
+
+Review inspection proposes a skill union without modifying facts. Explicit owner approval
+checks source generation, latest version, profile version, skill-removal consent, PDF
+checksum and resource binding. Facts, active resume association, private resource, evidence
+and encrypted review commit atomically. Rejected writes finish rollback before responding;
+uncertain commit reconnects the control connection without replaying approval. Repeating
+an already approved version preserves timestamps, evidence and bytes. Source/status reads
+batch the50-version history and older active/latest pointers in two metadata-only queries;
+ciphertext is never converted to JSON just to display status. No raw PDF, extracted text or
+review data is sent to a model. This source is uninstalled and has fictional acceptance only.

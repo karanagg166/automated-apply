@@ -230,3 +230,72 @@ pub(crate) async fn save_normalized(
     saved.created = created;
     Ok(saved)
 }
+
+/// An outer resume-review transaction atomically changes facts and the material resume binding.
+pub(crate) async fn activate_resume_in(
+    c: &mut PgConnection,
+    supplied: Value,
+    expected: Option<i32>,
+    resume: Uuid,
+    live: bool,
+) -> Result<Saved> {
+    let supplied = profile_contract::normalize(Operation::Create, supplied)?;
+    if live {
+        profile_contract::reject_placeholders(&supplied)?;
+    }
+    sqlx::query("SELECT id FROM candidate_profiles WHERE singleton_key='primary' FOR UPDATE")
+        .execute(&mut *c)
+        .await
+        .map_err(db)?;
+    let current = load(c).await?;
+    if current.as_ref().map(|profile| profile.version) != expected {
+        return Err(Failure("profile_version_conflict"));
+    }
+    let created = current.is_none();
+    let id = if let Some(current) = current {
+        let id = current.value["id"]
+            .as_str()
+            .and_then(|s| s.parse::<Uuid>().ok())
+            .ok_or(Failure("invalid_profile_record"))?;
+        let affected = sqlx::query(include_str!("../sql/update_profile_resume.sql"))
+            .bind(&supplied)
+            .bind(id)
+            .bind(current.version)
+            .bind(resume)
+            .execute(&mut *c)
+            .await
+            .map_err(db)?
+            .rows_affected();
+        if affected != 1 {
+            return Err(Failure("profile_version_conflict"));
+        }
+        id
+    } else {
+        let id = Uuid::new_v4();
+        // The separate insert keeps ordinary profile CRUD compatible with pre-resume schemas.
+        let affected = sqlx::query(include_str!("../sql/insert_profile_resume.sql"))
+            .bind(&supplied)
+            .bind(id)
+            .bind(resume)
+            .execute(&mut *c)
+            .await
+            .map_err(db)?
+            .rows_affected();
+        if affected != 1 {
+            return Err(Failure("profile_version_conflict"));
+        }
+        id
+    };
+    let active: Option<Uuid> =
+        sqlx::query_scalar("SELECT active_resume_version_id FROM candidate_profiles WHERE id=$1")
+            .bind(id)
+            .fetch_one(&mut *c)
+            .await
+            .map_err(db)?;
+    let mut saved = get(c).await?;
+    if active != Some(resume) || !legacy_equal(&career(&saved.value), &supplied) {
+        return Err(Failure("profile_write_ack_failed"));
+    }
+    saved.created = created;
+    Ok(saved)
+}

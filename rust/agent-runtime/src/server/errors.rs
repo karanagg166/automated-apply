@@ -13,6 +13,45 @@ pub(super) fn profile_failure(error: Failure) -> Response {
             json!({"detail":"Invalid argument","error_type":"invalid_argument"}),
         );
     }
+    if matches!(
+        error.0,
+        "invalid_resume_review_request"
+            | "invalid_resume_drive_source"
+            | "resume_skill_removal_confirmation_required"
+    ) {
+        return reply(StatusCode::UNPROCESSABLE_ENTITY, json!({"detail":error.0}));
+    }
+    if error.0 == "resume_review_method_not_allowed" {
+        return reply(StatusCode::METHOD_NOT_ALLOWED, json!({"detail":error.0}));
+    }
+    if matches!(
+        error.0,
+        "resume_review_not_found" | "resume_source_not_found"
+    ) {
+        return reply(StatusCode::NOT_FOUND, json!({"detail":error.0}));
+    }
+    if matches!(
+        error.0,
+        "resume_review_database_error"
+            | "resume_review_commit_outcome_unknown"
+            | "resume_review_rollback_unconfirmed"
+            | "invalid_resume_review_record"
+            | "private_resume_review_invalid"
+            | "resume_review_incomplete"
+    ) {
+        return reply(StatusCode::SERVICE_UNAVAILABLE, json!({"detail":error.0}));
+    }
+    if matches!(
+        error.0,
+        "drive_oauth_deferred_use_manual_pdf_upload"
+            | "resume_source_generation_conflict"
+            | "resume_latest_version_required"
+            | "resume_source_write_ack_failed"
+            | "resume_review_write_ack_failed"
+            | "profile_write_ack_failed"
+    ) {
+        return reply(StatusCode::CONFLICT, json!({"detail":error.0}));
+    }
     let status = failure(error).status();
     let detail = match error.0 {
         "invalid_notification_preferences" => {
