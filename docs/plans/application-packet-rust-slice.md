@@ -36,6 +36,27 @@ inference retry on a known packet rollback. See [the qualified evidence](../acce
 Exact human review/approval, handoff/outcomes/tracking and execution/notification
 coordination remain next.
 
+Review/approval next-slice requirements:
+
+- For an existing `exec:` packet binding, take the legacy `agent_conversation:primary`
+  owner fence before the packet/material locks; reload the bound execution afterward.
+  Do not import, start or advance a worker merely to review a packet.
+- Validate unique in-packet review IDs, valid answered fields, exact expected revision,
+  current profile/material and explicit resume/destination confirmation for approval.
+- Archive/CAS into preparing, durably mark selected field reviews, then set the new exact
+  approved revision and append its event. Preserve execution's reviewed answer-revision
+  map in the same transaction. Every write must be acknowledged.
+- Port the complete transactional `execution.notifications.notify_packet` behavior:
+  stale/terminal/invalid destination, execution stop/cancel, automation mode/revision,
+  in-app pause/opt-in, readiness and deduplication gates. Keep optional Telegram notices
+  in the existing owner-bound outbox; do not send a message from the review transaction.
+- Handoff must hold current material locks, require exact revision approval/readiness and
+  return only the manual steps/data contract. It grants no worker submission authority.
+- Verify rollback on failed field/parent/event/execution/notice writes; owner STOP and
+  concurrent raw profile/resource corrections; rejected stale/unknown/closed packets;
+  preserved archives and first-receipt/quota/history controls. Fixtures alone do not
+  complete installed or live platform acceptance.
+
 Implemented preparation prerequisites at `0171faddbca9613c6390b125e9323ffae2869336`:
 `packet_contract` validates owner preparation input; `packet_platform` preserves all ten
 existing local adapter rules; `packet_fields` maps checklist fields and uses a caller-owned

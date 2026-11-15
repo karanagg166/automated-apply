@@ -193,8 +193,17 @@ native cases include owner edit/STOP during loopback inference, stale profile re
 429 cooldown and post-model event failure/serialization. No real provider/key/browser/
 owner DB action or installation. See [the generation report](acceptance/rust-packet-generation-20261115.md).
 
+Owner notification preferences `1d8f25a7df5998d16e59ec220f3ab1e02000aeee` now port GET/PUT
+with default reads, closed full replacement, disabled external channels, acknowledged
+atomic writes, invalid saved-state repair and fail-closed commit handling. The pure
+transaction-safe reader is ready for packet notices. Fresh142 standard +167 native
+disposable PG tests pass (309 distinct); Clippy/format/diff/Ruff and738 actual DTO cases
+including598 current-system timezone names pass. No dependency, live preference change
+or delivery. System TZif validation intentionally has no arbitrary TZPATH/tzdata fallback;
+scheduled synchronization remains pending. See [the preferences report](acceptance/rust-notification-preferences-20261115.md).
+
 Next finish human packet review/approval, manual handoff/outcomes and execution/notification
-coordination. Do not expose working-looking
+coordination, following the review checklist in the packet slice plan. Do not expose working-looking
 routes with missing execution or owner-review side effects. Browser intake/worker,
 Gmail/Drive/legacy Telegram/CLI/fallback/rearranger/AGY and real platform/installed/resource
 acceptance remain pending. List context batching still needs optimization/measurement.
