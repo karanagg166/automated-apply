@@ -127,6 +127,23 @@ packet lifecycle/review/readiness and immutable snapshots next, preserving all l
 queue/admission/quarantine constraints. Native Profile8 remains offline; the owner's
 physical browser step is still pending and must not be inferred from “continue”.
 
+Packet readiness foundation `367a70dce545b215d1197008bb44f18eadc51fe2` ports the pure rule
+calculation with3,584 compact actual-Python-oracle comparisons inside one test. Fresh130
+standard Rust tests pass; unchanged prior140 PG baseline retained (270 combined, not all
+freshly executed). Read-only review, Clippy, oracle reproduction and formatting pass.
+Legacy worker event history now accepts the DB's existing local_worker origin;30 Python
+API tests pass, API types regenerated, TypeScript/Prettier pass. This source fix is not
+installed into legacy8e985c9. See [the readiness/history report](acceptance/rust-packet-readiness-20261115.md).
+
+Next implement the complete [seven-route packet preparation/inspection slice](plans/application-packet-rust-slice.md).
+Pure readiness is not wired to packet APIs yet. Reuse existing Rust resume selection,
+matching and canonical serializers; packet material context digests differ from answer
+stamps. Preserve atomic packet/field/event creation and exact idempotent replay. Preview
+can ensure missing-input questions, so avoid the public answer generator's independent
+transaction commits. Worker/native/application/Gmail/Drive/other platform and installed
+acceptance remain pending. Continue from this clean canonical checkout; no new source
+worktrees or duplicate builds are needed for read-only agent reviews.
+
 ## Remaining acceptance
 
 Finish and test PDF, Rust service/API/browser/application/Gmail ports and integrations.
