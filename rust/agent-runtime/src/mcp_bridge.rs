@@ -103,6 +103,9 @@ impl Bridge {
         ] {
             list.push(definition(name,description,json!({"type":"object","properties":{"limit":{"type":"integer","minimum":1,"maximum":20,"default":20}},"additionalProperties":false}),true));
         }
+        for name in ["himalayas_ingest", "we_work_remotely_ingest"] {
+            list.push(definition(name,"Explicitly save a completed public feed batch as unverified discovered jobs; never apply or overwrite owner decisions.",json!({"type":"object","properties":{"batch_token":{"type":"string","format":"uuid"}},"required":["batch_token"],"additionalProperties":false}),false));
+        }
         for name in [
             "internshala_saved_jobs",
             "wellfound_saved_jobs",
@@ -199,6 +202,19 @@ fn decode<T: serde::de::DeserializeOwned>(value: Value) -> Result<T> {
 }
 fn operation(name: &str, args: Value) -> Result<(reqwest::Method, String, Option<Value>)> {
     use reqwest::Method;
+    if matches!(name, "himalayas_ingest" | "we_work_remotely_ingest") {
+        let input: crate::feed_ingestion::Input = decode(args)?;
+        let platform = if name == "himalayas_ingest" {
+            "himalayas"
+        } else {
+            "we_work_remotely"
+        };
+        return Ok((
+            Method::POST,
+            format!("/api/v1/rust-agent/platforms/{platform}/ingest"),
+            Some(json!({"batch_token":input.batch_token})),
+        ));
+    }
     if matches!(name, "himalayas_discover" | "we_work_remotely_discover") {
         let input: Search = decode(args)?;
         if !(1..=20).contains(&input.limit) {

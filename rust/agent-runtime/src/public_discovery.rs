@@ -153,6 +153,22 @@ fn source_url(platform: Platform, s: &str) -> Result<String> {
     url.set_query(None);
     Ok(url.into())
 }
+pub fn validate_saved_job(platform: Platform, job: &Job) -> Result<()> {
+    if source_url(platform, &job.application_url)? != job.source_url
+        || job.title.trim().is_empty()
+        || job.title.chars().count() > 255
+        || job.source_id.is_empty()
+        || job.description.chars().count() > 2048
+        || job.applicant_count.is_some()
+        || matches!(platform, Platform::Himalayas) && job.published_at.is_some()
+    {
+        return Err(Failure("feed_batch_invalid"));
+    }
+    if let Some(date) = &job.published_at {
+        DateTime::parse_from_rfc3339(date).map_err(|_| Failure("feed_batch_invalid"))?;
+    }
+    Ok(())
+}
 fn timestamp(value: &Value) -> Result<Option<String>> {
     if value.is_null() {
         return Ok(None);
@@ -534,7 +550,7 @@ pub async fn reserve(
                 if batch.platform.name() != platform.name() || batch.jobs.len() > 20 {
                     return Err(Failure("public_feed_saved_state_invalid"));
                 }
-                let value = output(
+                let mut value = output(
                     &batch,
                     limit,
                     raw["fetched_at"]
@@ -542,6 +558,7 @@ pub async fn reserve(
                         .ok_or(Failure("public_feed_saved_state_invalid"))?,
                     true,
                 )?;
+                value["batch_token"] = raw["token"].clone();
                 tx.commit()
                     .await
                     .map_err(|_| Failure("public_feed_commit_outcome_unknown"))?;
@@ -579,7 +596,10 @@ pub async fn finish(
             record["state"] = json!("completed");
             record["fetched_at"] = json!(now);
             record["batch"] = json!(batch);
-            output(&batch, limit, now, false)
+            output(&batch, limit, now, false).map(|mut value| {
+                value["batch_token"] = json!(token);
+                value
+            })
         }
         Err(error) => {
             record["state"] = json!("failed");

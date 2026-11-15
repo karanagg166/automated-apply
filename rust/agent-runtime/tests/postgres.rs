@@ -4004,3 +4004,4 @@ async fn profile_confirmation_and_recheck_roll_back_together_if_recheck_cannot_c
 include!("support/packet_tracking_pg.rs");
 
 include!("support/public_discovery_pg.rs");
+include!("support/feed_ingestion_pg.rs");

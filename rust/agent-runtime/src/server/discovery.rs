@@ -4,6 +4,53 @@ use crate::{Failure, recovery};
 use axum::{http::StatusCode, response::Response};
 use serde_json::json;
 
+pub(super) async fn ingest(api: &Api, platform: &str, body: &[u8]) -> Response {
+    let platform = match crate::public_discovery::Platform::parse(platform) {
+        Ok(p) => p,
+        Err(e) => return reply(StatusCode::NOT_FOUND, json!({"error":e.0})),
+    };
+    let input = match crate::feed_ingestion::request(body) {
+        Ok(p) => p,
+        Err(e) => return reply(StatusCode::UNPROCESSABLE_ENTITY, json!({"error":e.0})),
+    };
+    let mut state = api.connection.lock().await;
+    let Some(connection) = state.value.as_mut() else {
+        return reply(
+            StatusCode::SERVICE_UNAVAILABLE,
+            json!({"error":"agent_database_reconnecting"}),
+        );
+    };
+    let result = crate::feed_ingestion::ingest(connection, platform, input).await;
+    if result.as_ref().is_err_and(|e| {
+        matches!(
+            e.0,
+            "public_feed_database_error" | "public_feed_commit_outcome_unknown"
+        )
+    }) {
+        if let Some(c) = state.value.take() {
+            recovery::close(c).await;
+        }
+        state.backoff.failed();
+    }
+    match result {
+        Ok(value) => reply(StatusCode::OK, value),
+        Err(e) => reply(
+            if matches!(
+                e.0,
+                "feed_batch_changed"
+                    | "feed_batch_stale"
+                    | "feed_identity_conflict"
+                    | "feed_ingestion_write_ack_failed"
+            ) {
+                StatusCode::CONFLICT
+            } else {
+                StatusCode::SERVICE_UNAVAILABLE
+            },
+            json!({"error":e.0}),
+        ),
+    }
+}
+
 pub(super) async fn dispatch(api: &Api, platform: &str, body: &[u8]) -> Response {
     use crate::public_discovery::{self, Reservation};
     let fail = |error: Failure| {

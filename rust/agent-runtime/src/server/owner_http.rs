@@ -124,6 +124,15 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     } else {
         None
     };
+    if let Some(platform) = crate::feed_ingestion::route(&path) {
+        if method != "POST" {
+            return reply(
+                StatusCode::METHOD_NOT_ALLOWED,
+                json!({"error":"public_feed_method_not_allowed"}),
+            );
+        }
+        return discovery::ingest(&api, platform, &body).await;
+    }
     if let Some(platform) = crate::public_discovery::route(&path) {
         if method != "POST" {
             return reply(
