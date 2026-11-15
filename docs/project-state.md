@@ -69,10 +69,22 @@ consumed maintenance intent. Source127 standard Rust tests pass;121 PG tests rem
 previous unchanged baseline; two new setup-policy tests pass. Full maintenance/locked
 focus and live application acceptance remain open.
 
-Pending owner action: run the documented interactive Brave launcher, grant Naukri site
-access, verify/sign in to Naukri, leave queue commands disabled and close that Brave
-window. An asynchronous request is pending. Do not start or take over this profile while
-the owner is doing setup. Continue independent Rust service/provider/API ports meanwhile.
+Latest setup steering: the owner explicitly requested autonomous Playwright setup.
+A single owned background headful Brave instance is in use; never launch a second process
+against its profile or take over another browser. macOS reported the screen locked and
+AXWindows hidden; one unlock request was sent. Later independent extension readback
+confirmed Naukri permission granted and unrelated example.com denied; queue remains
+STOPPED revision162. Inactive Naukri sign-in inspection is now in progress. Do not ask the
+owner to run setup commands or configure the extension again. Preserve selected tabs,
+foreground state, commands disabled and the exact pending tab/intent metadata privately.
+
+Rust local-model milestone `06f9b4c7abe2e10fb6198886747ac5e1d2efcfb6` ports explicitly enabled
+Ollama structured drafts. It preserves the legacy optional owner-preference ledger,
+consumed quotas/cooldowns, locality checks before candidate text, bounded HTTP and the
+shared generation permit. Fresh129 standard +131 disposable PostgreSQL tests pass (260
+distinct); Clippy and formatting pass. No real model was started or downloaded. AGY,
+local fallback and the separate rearranger remain pending. See
+[the local-model report](acceptance/rust-ollama-20261115.md).
 
 ## Remaining acceptance
 
