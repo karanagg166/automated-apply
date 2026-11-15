@@ -368,3 +368,18 @@ New pinned MIME/header/tokenizer libraries add4 packages with existing external 
 unchanged. No actual Google/mailbox/profile/application/installed change. Continue Drive,
 legacy account/history/alerts and all remaining full-plan services, then combined/cutover/live
 acceptance. User still requests no partial final report; pending login and quota/focus gates remain.
+
+Saved resume-review implementation `d8c02569b4dff61465086a3f2e867ede12e42a15` ports the five
+existing owner routes, source CAS/history and atomic profile/PDF/evidence activation with
+strict review, rollback/ACK and reconnect-without-replay. Metadata history is batched in two
+queries including older active/latest pointers, without loading ciphertext. Drive OAuth/
+downloading remains intentionally deferred per current code/account plan; manual PDF upload
+continues. A false availability literal is now in both API schema and generated UI types.
+Fresh188 standard +225 complete native PG (413 distinct Rust),35 Python resume and317 UI
+tests pass; typecheck/format/Clippy/Ruff pass. See [qualified resume evidence](acceptance/native-resume-review-20261116.md).
+No actual owner PDF/account/provider/profile/browser/queue/install change occurred. Full
+project remains ACTIVE/incomplete; continue legacy account/history/alerts and browser/
+execution/provider/CLI/Telegram/platform ports, then final combined/cutover/live acceptance.
+The owner's requested status estimate was explicitly rough:55% complete /45% remaining
+for the full plan, not a measured acceptance score. Do not turn fixture counts into a claim
+of production completion. No partial final report or repeat of the pending login request.
