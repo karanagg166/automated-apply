@@ -72,3 +72,10 @@ also run directly on the existing PostgreSQL connection. They retain fixed50/100
 pages, private field projections and commit-before-ACK read receipts, with no delivery
 dispatch or application authority. Notification preferences and synchronization remain
 on the legacy path until their separate ports are complete.
+
+The saved-jobs screen now has Rust listing, full17-field details, GET/POST matching and
+shortlisting. Reads need no provider call; catalog reads do not require a candidate profile.
+Matching remains read-only and preserves each method's legacy lookup order. Shortlisting
+locks the row, refuses progressed jobs and commits a confirmed update before acknowledgement;
+repeating an already-shortlisted selection preserves its timestamp. It grants no application
+admission or submission authority.

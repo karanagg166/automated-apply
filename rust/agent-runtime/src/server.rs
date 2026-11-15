@@ -134,6 +134,7 @@ fn profile_route(path: &str) -> bool {
         || path == "/api/v1/application-answers/reuse-approvals"
         || resume_route(path).is_some()
         || crate::notifications::route(path).is_some()
+        || crate::job_catalog::route(path).is_some()
 }
 fn resume_route(path: &str) -> Option<(&str, &str)> {
     let tail = path.strip_prefix("/api/v1/dashboard/resumes")?;
@@ -266,6 +267,11 @@ fn selected_resource(path: &str, method: &str, query: Option<&str>) -> Result<Op
     if paginated(path) && method == "GET" {
         return Ok(None);
     }
+    if crate::job_catalog::route(path).is_some()
+        || (saved_match_route(path).is_some() && method == "GET")
+    {
+        return Ok(None);
+    }
     if path != "/api/v1/rust-agent/resume-selection" || method != "GET" {
         return Err(Failure("query_parameters_not_supported"));
     }
@@ -351,6 +357,16 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
     }
     let method = request.method().as_str().to_owned();
     let path = request.uri().path().to_owned();
+    let job_page = match crate::job_catalog::Page::parse(
+        if path == crate::job_catalog::JOBS && method == "GET" {
+            request.uri().query()
+        } else {
+            None
+        },
+    ) {
+        Ok(page) => page,
+        Err(error) => return fail(error),
+    };
     let pdf_upload = path == "/api/v1/dashboard/resumes" && method == "POST";
     let label = if pdf_upload {
         match resume_label(request.uri().query()) {
@@ -485,6 +501,15 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
         }
     }
     let mut result = match state.value.as_mut() {
+        Some(connection) if crate::job_catalog::route(&path).is_some() => {
+            crate::job_catalog::dispatch(connection, &method, &path, &job_page)
+                .await
+                .map(|data| OwnerReply {
+                    data,
+                    status: StatusCode::OK,
+                    etag: None,
+                })
+        }
         Some(connection) if crate::notifications::route(&path).is_some() => {
             crate::notifications::dispatch(connection, &method, &path, page.0)
                 .await
@@ -666,11 +691,24 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
             }
         }
         Some(connection) if saved_match_route(&path).is_some() => {
-            if method != "POST" {
-                Err(Failure("match_method_not_allowed"))
+            if !matches!(method.as_str(), "GET" | "POST") {
+                Err(Failure("saved_match_method_not_allowed"))
             } else if let Ok(id) = saved_match_route(&path).unwrap().parse::<Uuid>() {
-                crate::saved_match::calculate(connection, id)
-                    .await
+                let result = if method == "GET" {
+                    crate::saved_match::read_calculate(connection, id).await
+                } else {
+                    crate::saved_match::calculate(connection, id).await
+                };
+                result
+                    .map_err(|error| {
+                        if method == "GET"
+                            && matches!(error.0, "job_not_found" | "profile_not_found")
+                        {
+                            Failure("saved_record_not_found")
+                        } else {
+                            error
+                        }
+                    })
                     .map(|data| OwnerReply {
                         data,
                         status: StatusCode::OK,
@@ -721,6 +759,12 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
     }
 }
 fn profile_failure(error: Failure) -> Response {
+    if matches!(error.0, "invalid_job_status" | "invalid_catalog_job_record") {
+        return reply(
+            StatusCode::BAD_REQUEST,
+            json!({"detail":"Invalid argument","error_type":"invalid_argument"}),
+        );
+    }
     let status = failure(error).status();
     let detail = match error.0 {
         "resume_encryption_unavailable" => {
@@ -742,6 +786,10 @@ fn profile_failure(error: Failure) -> Response {
         "private_resume_binding_invalid" => "Private resume resource binding is invalid",
         "private_resume_not_found" => "Private resume not found",
         "notification_not_found" => "Notification not found",
+        "saved_record_not_found" => "Saved record or candidate profile not found",
+        "job_shortlist_conflict" => "This job has already progressed beyond shortlisting",
+        "job_shortlist_write_conflict" => "Job update was not saved; reload before shortlisting",
+        "invalid_job_page" => "Invalid request",
         "invalid_notification_id" | "invalid_notification_record" => "Notification data is invalid",
         "invalid_notification_page" => "Supply offset 0..100000 once; page size is fixed at 50",
         "pdf_content_type_required" => "Use application/pdf",
@@ -831,6 +879,7 @@ fn profile_failure(error: Failure) -> Response {
         "fictional_or_placeholder_profile_rejected" => "fictional_or_placeholder_profile_rejected",
         "profile_method_not_allowed"
         | "match_method_not_allowed"
+        | "saved_match_method_not_allowed"
         | "resource_list_method_not_allowed"
         | "evidence_patch_method_not_allowed"
         | "resource_read_method_not_allowed" => "Method Not Allowed",
@@ -841,6 +890,11 @@ fn profile_failure(error: Failure) -> Response {
         _ => "Profile request rejected",
     };
     let mut response = reply(status, json!({"detail":detail}));
+    if error.0 == "saved_match_method_not_allowed" {
+        response
+            .headers_mut()
+            .insert("allow", "GET, POST".parse().unwrap());
+    }
     if error.0 == "match_method_not_allowed" {
         response
             .headers_mut()
@@ -1318,6 +1372,8 @@ fn failure(error: Failure) -> Response {
         | "owner_route_not_found"
         | "resource_not_found"
         | "evidence_not_found" => StatusCode::NOT_FOUND,
+        "saved_record_not_found" => StatusCode::NOT_FOUND,
+        "job_shortlist_conflict" | "job_shortlist_write_conflict" => StatusCode::CONFLICT,
         "answer_draft_not_found"
         | "missing_input_not_found"
         | "private_resume_not_found"
@@ -1348,6 +1404,7 @@ fn failure(error: Failure) -> Response {
         | "private_resume_insert_mismatch" => StatusCode::CONFLICT,
         "profile_method_not_allowed"
         | "match_method_not_allowed"
+        | "saved_match_method_not_allowed"
         | "resource_read_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
         "missing_item_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
         "resource_list_method_not_allowed" | "evidence_patch_method_not_allowed" => {
@@ -1391,6 +1448,7 @@ fn failure(error: Failure) -> Response {
         | "answer_draft_context_mismatch"
         | "resource_inventory_limit"
         | "invalid_job_id"
+        | "invalid_job_page"
         | "invalid_saved_job_record"
         | "invalid_match_result"
         | "profile_version_syntax"

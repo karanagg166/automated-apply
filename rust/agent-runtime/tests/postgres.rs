@@ -3016,6 +3016,7 @@ include!("support/answer_reuse_pg.rs");
 include!("support/gemini_pg.rs");
 include!("support/ollama_pg.rs");
 include!("support/notifications_pg.rs");
+include!("support/job_catalog_pg.rs");
 include!("support/private_resume_pg.rs");
 include!("support/mcp_pg.rs");
 #[tokio::test(flavor = "current_thread")]
@@ -3742,13 +3743,13 @@ async fn saved_profile_match_keeps_unknown_experience_and_preserves_lookup_error
             .contains("Experience is unknown; no seniority points awarded.")
     );
     let wrong_method = http
-        .get(&target)
+        .put(&target)
         .bearer_auth(HOST_TOKEN)
         .send()
         .await
         .unwrap();
     assert_eq!(wrong_method.status(), 405);
-    assert_eq!(wrong_method.headers()["allow"], "POST");
+    assert_eq!(wrong_method.headers()["allow"], "GET, POST");
     assert_eq!(
         http.post(format!("{url}/api/v1/jobs/not-a-uuid/match"))
             .bearer_auth(HOST_TOKEN)

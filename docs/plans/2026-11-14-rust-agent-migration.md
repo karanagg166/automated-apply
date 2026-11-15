@@ -74,7 +74,7 @@ failures. No software can guarantee an external employer or provider always succ
 Current profile ports include CRUD/CAS, saved-job matching, atomic owner confirmation,
 saved-resume selection, onboarding readiness, resource/evidence persistence and link
 provenance. Rich contexts, grounding, drafts, exact missing-answer approvals and reusable
-answers now run in Rust. Current validation passes 264 distinct tests (129 standard +135
+answers now run in Rust. Current validation passes 269 distinct tests (129 standard +140
 dedicated PostgreSQL), including 2,442 new direct-answer comparisons and 899 reuse intent,
 digest and DTO comparisons within two tests. Existing matching/profile/context corpora remain.
 Cohere and Gemini generation are opt-in; deterministic extraction and direct answers need
