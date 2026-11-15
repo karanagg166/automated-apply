@@ -395,3 +395,16 @@ See [qualified browser evidence](acceptance/native-browser-profiles-20261116.md)
 No actual browser/account/provider/queue/service change. Poll/start/ack remain unavailable;
 continue command broker, task/form/application execution and remaining approved ports.
 The owner reiterated continuing to full completion; do not stop at this source checkpoint.
+
+Browser command broker `35cf48e38db12c88333abc781a6afa086506bec3` ports owner enqueue and
+native poll/start/ack with existing idempotency hashes, selection/session/lease fences,
+fresh packet/material/profile/destination/policy checks and retained receipt/quarantine
+no-replay rules. Lease expiry is checked after material waits. Status normally uses one
+SQL snapshot without the owner lock, and closed history no longer fills live inventory.
+Fresh192 standard +250 full native PG tests (442 distinct), Clippy/format/diff pass.
+Three real native-process framed requests use the fictional Rust HTTP host;20,002 closed
+records and owner-lock contention tests pass. Continuity snapshot/verify checks881 refs.
+See [qualified broker evidence](acceptance/native-browser-command-broker-20261116.md).
+No installed/actual owner browser/provider/account/queue action. Task/form/execution ports
+remain next; native command transport is not a working application or strict receipt.
+Continue full authorized work without a partial final report or repeated login request.
