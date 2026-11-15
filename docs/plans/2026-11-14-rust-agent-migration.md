@@ -40,8 +40,10 @@ this is a staged behavioral migration, not a claim that scaffolding replaces the
   Fixture-only data may use in-memory test doubles.
 - Model output, Telegram text, websites and job descriptions cannot grant privileges.
 - Preserve current saved policy (age14, applicants1000, score50, any verified skill), history,
-  hourly1, lifetime supervised cap3 and actual consumed admissions. Read current state at
-  cutover; never overwrite it with defaults or assume the third attempt remains unused.
+  hourly1, lifetime supervised cap4 and actual consumed admissions. The fourth allowance
+  is exactly one additional eligible attempt, not recurring permission. Read current state
+  at cutover; never overwrite it with defaults, refund admissions or replay the three
+  quarantined uncertain jobs. A strict worker receipt remains required before AUTOMATIC.
 - Gmail READ + CREATE DRAFT ONLY. No CAPTCHA/rate-limit bypass, uncertain-action replay,
   owner keyboard/clipboard, active-tab edits or browser foreground changes.
 - No Chrome WebUI/settings automatic navigation; native inactive setup path still needs
@@ -72,14 +74,17 @@ failures. No software can guarantee an external employer or provider always succ
 Current profile ports include CRUD/CAS, saved-job matching, atomic owner confirmation,
 saved-resume selection, onboarding readiness, resource/evidence persistence and link
 provenance. Rich contexts, grounding, drafts, exact missing-answer approvals and reusable
-answers now run in Rust. Current validation passes 245 distinct tests (124 standard +121
+answers now run in Rust. Current validation passes 264 distinct tests (129 standard +135
 dedicated PostgreSQL), including 2,442 new direct-answer comparisons and 899 reuse intent,
 digest and DTO comparisons within two tests. Existing matching/profile/context corpora remain.
 Cohere and Gemini generation are opt-in; deterministic extraction and direct answers need
 no model. Gemini preserves its separate owner request grant and existing monthly ledger;
 both transports refuse redirects and hidden retries. Concurrent grant rejection explicitly
 finishes rollback before returning so a quiet rejected caller cannot retain a ledger lock.
-Local/CLI provider ports and remaining services are next. Private encrypted PDF upload,
+Explicit local Ollama structured drafts now preserve the optional owner-preference request
+ledger, enforce local-daemon metadata before candidate text and bound transport/resources;
+no real model was started or downloaded. Its separate authorized rearranger, local fallback,
+CLI provider and remaining services are next. Private encrypted PDF upload,
 extraction, download and version-bound confirmation now have a native isolated document
 worker and legacy Fernet compatibility; Drive-specific review remains on its existing
 separate path. A native official-SDK MCP bridge exposes bounded saved-platform reads and
@@ -91,7 +96,7 @@ full Python removal have not happened; whole-project acceptance remains IN PROGR
 
 | Deliverable | State |
 | --- | --- |
-| Rust native transport | Implemented;14tests +25parity examples +Mac fixture benchmark; uninstalled |
+| Rust native transport | Direct Rust bridge2e54 installed for Brave; Chrome registration restored, CLI health passed but extension reconnection is blocked; full runtime cutover pending |
 | Agent coordinator and specialist roles | Five-role saved-review worker runs actual SQL tools without inference; live action adapters pending |
 | Durable PostgreSQL runtime and restart recovery | CAS controls, retained budgets, fair factual questions and quarantine tested; production migration/ACL/install pending |
 | Verified profile / saved matching / history read tools | Implemented with actual PostgreSQL fixtures; 1,300 matching comparisons pass; uninstalled |
@@ -99,7 +104,7 @@ full Python removal have not happened; whole-project acceptance remains IN PROGR
 | Rust browser / application adapters | Pending |
 | Full Python removal and API parity | Pending |
 | CPU / RSS / GPU resource acceptance | Native and warm matching component gains measured; whole-project/GPU acceptance pending |
-| Immutable install / rollback / real submission acceptance | Not performed |
+| Immutable install / rollback / real submission acceptance | Native bridge installed and legacy API/execution8e985c9 restored under STOP; full Rust installation/rollback and strict worker receipt acceptance remain pending |
 
 The session cannot self-resume after a platform usage-limit reset unless the hosting
 application supplies scheduling. Keep this plan, commits and acceptance reports as the

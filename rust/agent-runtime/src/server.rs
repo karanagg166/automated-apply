@@ -133,6 +133,7 @@ fn profile_route(path: &str) -> bool {
         || path == "/api/v1/application-answers/generate"
         || path == "/api/v1/application-answers/reuse-approvals"
         || resume_route(path).is_some()
+        || crate::notifications::route(path).is_some()
 }
 fn resume_route(path: &str) -> Option<(&str, &str)> {
     let tail = path.strip_prefix("/api/v1/dashboard/resumes")?;
@@ -176,6 +177,7 @@ fn paginated(path: &str) -> bool {
             | "/api/v1/candidate/evidence"
             | "/api/v1/application-answers/drafts"
             | "/api/v1/application-answers/missing"
+            | crate::notifications::INBOX
     ) || missing_item(path).is_some_and(|(_, action)| action == "history")
 }
 fn draft_id(path: &str) -> Option<&str> {
@@ -211,6 +213,11 @@ fn evidence_id(path: &str) -> Option<&str> {
 }
 fn resource_page(path: &str, method: &str, query: Option<&str>) -> Result<(i64, i64)> {
     let mut page = (0, 25);
+    let invalid = Failure(if path == crate::notifications::INBOX {
+        "invalid_notification_page"
+    } else {
+        "invalid_resource_page"
+    });
     let Some(query) = query else {
         return Ok(page);
     };
@@ -219,22 +226,25 @@ fn resource_page(path: &str, method: &str, query: Option<&str>) -> Result<(i64, 
     }
     let mut seen = std::collections::HashSet::new();
     for (key, value) in reqwest::Url::parse(&format!("http://127.0.0.1/?{query}"))
-        .map_err(|_| Failure("invalid_resource_page"))?
+        .map_err(|_| invalid)?
         .query_pairs()
     {
         if !seen.insert(key.to_string()) {
-            return Err(Failure("invalid_resource_page"));
+            return Err(invalid);
         }
         match key.as_ref() {
             "offset" => {
                 page.0 = crate::profile_contract::pagination_integer(json!(value), 0, 100000)
-                    .map_err(|_| Failure("invalid_resource_page"))?
+                    .map_err(|_| invalid)?
             }
             "limit" => {
+                if path == crate::notifications::INBOX {
+                    return Err(invalid);
+                }
                 page.1 = crate::profile_contract::pagination_integer(json!(value), 1, 100)
-                    .map_err(|_| Failure("invalid_resource_page"))?
+                    .map_err(|_| invalid)?
             }
-            _ => return Err(Failure("invalid_resource_page")),
+            _ => return Err(invalid),
         }
     }
     Ok(page)
@@ -475,6 +485,15 @@ async fn handle(State(api): State<Arc<Api>>, request: Request) -> Response {
         }
     }
     let mut result = match state.value.as_mut() {
+        Some(connection) if crate::notifications::route(&path).is_some() => {
+            crate::notifications::dispatch(connection, &method, &path, page.0)
+                .await
+                .map(|data| OwnerReply {
+                    data,
+                    status: StatusCode::OK,
+                    etag: None,
+                })
+        }
         Some(connection) if resume_route(&path).is_some() => {
             let (id, action) = resume_route(&path).unwrap();
             if id.is_empty() && method == "GET" {
@@ -722,6 +741,9 @@ fn profile_failure(error: Failure) -> Response {
         "private_resume_changed" => "Resume changed; review the current PDF contents",
         "private_resume_binding_invalid" => "Private resume resource binding is invalid",
         "private_resume_not_found" => "Private resume not found",
+        "notification_not_found" => "Notification not found",
+        "invalid_notification_id" | "invalid_notification_record" => "Notification data is invalid",
+        "invalid_notification_page" => "Supply offset 0..100000 once; page size is fixed at 50",
         "pdf_content_type_required" => "Use application/pdf",
         "invalid_answer_request" => "Answer request is invalid",
         "generation_outcome_unknown" => {
@@ -1296,15 +1318,19 @@ fn failure(error: Failure) -> Response {
         | "owner_route_not_found"
         | "resource_not_found"
         | "evidence_not_found" => StatusCode::NOT_FOUND,
-        "answer_draft_not_found" | "missing_input_not_found" | "private_resume_not_found" => {
-            StatusCode::NOT_FOUND
-        }
+        "answer_draft_not_found"
+        | "missing_input_not_found"
+        | "private_resume_not_found"
+        | "notification_not_found" => StatusCode::NOT_FOUND,
         "pdf_content_type_required" => StatusCode::UNSUPPORTED_MEDIA_TYPE,
         "resume_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
         "resume_encryption_unavailable"
         | "document_worker_unavailable"
         | "private_resume_outcome_unknown" => StatusCode::SERVICE_UNAVAILABLE,
         "invalid_resume_label"
+        | "invalid_notification_id"
+        | "invalid_notification_page"
+        | "invalid_notification_record"
         | "invalid_resume_confirmation"
         | "invalid_pdf_upload"
         | "invalid_or_unsafe_pdf"

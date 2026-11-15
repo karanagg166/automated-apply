@@ -66,3 +66,9 @@ No real Ollama generation has been accepted yet. The separate legacy
 `OLLAMA_GENERATION_AUTHORIZED` rearranger, local fallback and CLI/application service
 ports remain in progress; this port implements the explicitly enabled optional structured
 draft path. Conservative grounding, context rechecks and owner review still apply.
+
+The private dashboard notification inbox, mark-read receipts and saved delivery history
+also run directly on the existing PostgreSQL connection. They retain fixed50/100-row
+pages, private field projections and commit-before-ACK read receipts, with no delivery
+dispatch or application authority. Notification preferences and synchronization remain
+on the legacy path until their separate ports are complete.

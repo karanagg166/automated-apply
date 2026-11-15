@@ -23,6 +23,7 @@ pub mod missing_contract;
 pub mod missing_store;
 pub mod model_policy;
 pub mod monthly;
+mod notifications;
 pub mod owner_proof;
 pub mod profile_confirmation;
 pub mod profile_contract;
