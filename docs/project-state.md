@@ -308,3 +308,20 @@ browser/install/submission action. Continue remaining discovery scheduling/filte
 browser/execution/account/Gmail/Drive/provider/Telegram/CLI ports, then the combined
 cycle and STOP-only whole-family cutover/live acceptance. Do not repeat owner login asks
 or re-enable the failed Brave window-creation path. This is an active incomplete plan.
+
+## Active completion continuation — scheduler/accounts
+
+Owner explicitly requests no partial final reports: continue the complete plan and
+report completion only after its acceptance; interrupt only for unavoidable genuinely
+missing owner information/actions, without repeating the pending login request.
+Implementation21bc50a adds opt-in revisioned public discovery on the existing worker,
+STOP/policy transaction fences, fair source rotation/cooldowns, guarded dashboard controls,
+and Python-compatible purpose-bound account token encryption with key rotation.
+Evidence:159 full standard +196 full native PG +3 extra token cases (358 distinct Rust),
+309 frontend tests/typecheck/build/format and Clippy pass. Actual headless Brave UI fixture
+screenshot uses fictional requests/data and fixture styling, not live account acceptance.
+See [the checkpoint](acceptance/discovery-schedule-and-token-parity-20261116.md).
+No installed service/profile/provider or application action changed. New Gmail GET-only
+transport source is now being implemented; preserve its uncommitted files and finish
+its tests/consent/account-service wiring. Continue remaining ports and the final combined
+cycle/cutover/live acceptance; the full plan remains ACTIVE and incomplete.
