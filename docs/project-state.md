@@ -383,3 +383,15 @@ execution/provider/CLI/Telegram/platform ports, then final combined/cutover/live
 The owner's requested status estimate was explicitly rough:55% complete /45% remaining
 for the full plan, not a measured acceptance score. Do not turn fixture counts into a claim
 of production completion. No partial final report or repeat of the pending login request.
+
+Native browser lifecycle `b0462175df6e0ed113601fe5629ef2f3c7f7f771` now implements fixed
+extension-only native authentication, connect/heartbeat/disconnect and owner status/
+selection/disconnect. Session/window replacement quarantines admitted original forms,
+revokes old tasks/plans/commands and preserves quotas/pause reasons without replay.
+Windowless heartbeat always denies automatic window creation. Suppressed-write rollback,
+unknown commit and API reconnect are tested. Fresh191 standard +235 full native PG tests
+(426 distinct), Clippy/format/diff pass;42 isolated Python projection comparisons pass.
+See [qualified browser evidence](acceptance/native-browser-profiles-20261116.md).
+No actual browser/account/provider/queue/service change. Poll/start/ack remain unavailable;
+continue command broker, task/form/application execution and remaining approved ports.
+The owner reiterated continuing to full completion; do not stop at this source checkpoint.
