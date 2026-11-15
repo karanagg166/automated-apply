@@ -62,6 +62,8 @@ mod legacy_regex;
 pub mod browser_inventory;
 pub mod configuration;
 mod gemini;
+pub mod gmail_read;
+pub mod google_oauth;
 pub mod graph;
 pub mod grounding;
 pub mod http_policy;
