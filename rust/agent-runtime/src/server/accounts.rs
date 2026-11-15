@@ -7,7 +7,10 @@ use crate::mailboxes::{
 fn error(error: Failure, callback: bool) -> Response {
     let status = if callback {
         StatusCode::BAD_REQUEST
-    } else if matches!(error.0, "invalid_gmail_consent") {
+    } else if matches!(
+        error.0,
+        "invalid_gmail_consent" | "invalid_gmail_search" | "invalid_gmail_draft_request"
+    ) {
         StatusCode::UNPROCESSABLE_ENTITY
     } else if matches!(
         error.0,
@@ -29,19 +32,24 @@ async fn connection(api: &Api) -> Result<PgConnection> {
     }
     Ok(c)
 }
-pub(super) async fn dispatch(api: &Api, route: Route, method: &str, body: &[u8]) -> Response {
-    let expected = if matches!(route, Route::Accounts) {
-        "GET"
-    } else {
-        "POST"
+pub(super) async fn dispatch(api: &Api, route: Route<'_>, method: &str, body: &[u8]) -> Response {
+    let allowed = match route {
+        Route::Accounts => method == "GET",
+        Route::Drafts(_) => matches!(method, "GET" | "POST"),
+        Route::Callback => false,
+        _ => method == "POST",
     };
-    if method != expected {
+    if !allowed {
         return reply(
             StatusCode::METHOD_NOT_ALLOWED,
             json!({"detail":"gmail_account_method_not_allowed"}),
         );
     }
-    if !matches!(route, Route::Connect(_))
+    let json_body = matches!(
+        route,
+        Route::Connect(_) | Route::Search(_) | Route::TestDraft(_)
+    ) || matches!(route, Route::Drafts(_)) && method == "POST";
+    if !json_body
         && !body.is_empty()
         && !serde_json::from_slice::<Value>(body)
             .ok()
@@ -83,6 +91,14 @@ pub(super) async fn dispatch(api: &Api, route: Route, method: &str, body: &[u8])
             Route::Connect(slot)=>service.start(&mut c,slot,mailboxes::consent(body)?,&browser).await,
             Route::Verify(slot)=>service.verify(&mut c,slot).await,
             Route::Disconnect(slot)=>service.disconnect(&mut c,slot).await,
+            Route::Search(slot)=>service.search(&mut c,slot,mailboxes::Search::parse(json_body_value(body)?)?).await,
+            Route::Read(slot,id)=>service.read(&mut c,slot,id).await,
+            Route::Drafts(slot)=>if method=="POST" {service.create_draft(&mut c,slot,mailboxes::ReviewedDraft::parse(json_body_value(body)?)?).await} else {service.drafts(&mut c,slot).await},
+            Route::TestDraft(slot)=>{
+                let input=json_body_value(body)?;
+                if input.as_object().is_none_or(|object|object.keys().any(|key|key!="expected_generation")){return Err(Failure("invalid_gmail_draft_request"));}
+                service.self_test_draft(&mut c,slot,mailboxes::expected_generation(&input)?).await
+            }
             Route::Callback=>Err(Failure("invalid_oauth_callback")),
         }
     }).await.unwrap_or(Err(Failure("gmail_account_outcome_unknown")));
@@ -176,4 +192,8 @@ pub(super) async fn callback(api: &Api, request: Request) -> Response {
         }
         Err(failure) => error(failure, true),
     }
+}
+
+fn json_body_value(body: &[u8]) -> Result<Value> {
+    serde_json::from_slice(body).map_err(|_| Failure("invalid_gmail_draft_request"))
 }

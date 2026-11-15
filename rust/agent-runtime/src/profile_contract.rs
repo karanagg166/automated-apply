@@ -475,7 +475,7 @@ fn safe_email(text: &str) -> bool {
     }
     text.chars().all(|c| !contains(&unicode().unsafe_ranges, c))
 }
-fn email(text: &str) -> Result<String> {
+pub(crate) fn email(text: &str) -> Result<String> {
     let mut address = text;
     if let Some((display, rest)) = text.rsplit_once('<') {
         if !rest.ends_with('>') || !safe_email(&display.replace(' ', "")) {

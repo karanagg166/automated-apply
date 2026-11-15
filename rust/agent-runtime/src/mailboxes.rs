@@ -1,5 +1,9 @@
 //! Owner-invoked local Gmail account lifecycle. No sending or automatic account activation.
+mod drafts;
 mod lifecycle;
+pub use drafts::{ReviewedDraft, draft_hash, expected_generation, mime_message, verified_content};
+mod reading;
+pub use reading::{Search, message_id};
 pub mod routes;
 mod storage;
 use crate::{
@@ -21,6 +25,8 @@ use uuid::Uuid;
 
 pub struct Settings {
     enabled: bool,
+    fixture: bool,
+    read_endpoint: Option<String>,
     allowed: BTreeSet<String>,
     ttl: i64,
     drafts: bool,
@@ -57,7 +63,16 @@ impl Settings {
             .ok()
             .filter(|n| (60..=900).contains(n))
             .ok_or(Failure("invalid_oauth_state_ttl"))?;
+        if let Some(endpoint) = values.get("RUST_GMAIL_FIXTURE_ENDPOINT") {
+            crate::gmail_read::ReadClient::new(
+                "fictional-configuration-check",
+                fixture,
+                Some(endpoint),
+            )?;
+        }
         Ok(Self {
+            fixture,
+            read_endpoint: values.get("RUST_GMAIL_FIXTURE_ENDPOINT").cloned(),
             enabled: boolean(values, "GMAIL_LOCAL_ACCOUNTS_ENABLED", false)?,
             allowed: allowed.iter().map(|s| folded(s)).collect(),
             ttl,

@@ -3,14 +3,18 @@ use super::*;
 pub const ACCOUNTS: &str = "/api/v1/integrations/gmail/local/accounts";
 pub const CALLBACK: &str = "/api/v1/integrations/gmail/oauth/callback";
 #[derive(Clone, Copy)]
-pub enum Route {
+pub enum Route<'a> {
     Accounts,
     Connect(Slot),
     Verify(Slot),
     Disconnect(Slot),
     Callback,
+    Search(Slot),
+    Read(Slot, &'a str),
+    Drafts(Slot),
+    TestDraft(Slot),
 }
-pub fn route(path: &str) -> Option<Route> {
+pub fn route(path: &str) -> Option<Route<'_>> {
     if path == ACCOUNTS {
         return Some(Route::Accounts);
     }
@@ -20,7 +24,16 @@ pub fn route(path: &str) -> Option<Route> {
     let tail = path.strip_prefix(ACCOUNTS)?.strip_prefix('/')?;
     let (slot, action) = tail.split_once('/')?;
     let slot = Slot::parse(slot).ok()?;
+    if let Some(id) = action
+        .strip_prefix("messages/")
+        .and_then(|tail| tail.strip_suffix("/read"))
+    {
+        return message_id(id).ok().map(|_| Route::Read(slot, id));
+    }
     match action {
+        "search" => Some(Route::Search(slot)),
+        "drafts" => Some(Route::Drafts(slot)),
+        "test-draft" => Some(Route::TestDraft(slot)),
         "connect" => Some(Route::Connect(slot)),
         "verify" => Some(Route::Verify(slot)),
         "disconnect" => Some(Route::Disconnect(slot)),

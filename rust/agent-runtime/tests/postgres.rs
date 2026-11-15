@@ -4010,3 +4010,5 @@ include!("support/discovery_schedule_pg.rs");
 include!("support/local_socket_pg.rs");
 
 include!("support/mailboxes_pg.rs");
+
+include!("support/mail_read_draft_pg.rs");

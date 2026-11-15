@@ -122,3 +122,24 @@ not perform an implicit provider check. Existing alert policy is retained, while
 status reports monitoring unavailable until that poller is ported. Search/body review,
 drafts, alert polling, legacy account variants and Drive services are still separate
 remaining ports. No owner OAuth consent or installed configuration was changed.
+
+Local Gmail search now uses only bounded INBOX metadata (at most5 results). Reading a
+body additionally requires the existing reviewed-body setting and a recent, exact
+slot/generation/message selection. MIME evidence skips attachments and hidden HTML,
+bounds parts/depth/decoded bytes and returns unverified signals plus cleaned public links;
+raw bodies are not saved or returned. Links are validated locally and never opened.
+
+Draft creation requires the exact owner-reviewed recipient/subject/body hash and current
+account generation. A durable dispatch record precedes its one fixed `/drafts` POST.
+Repeated/uncertain requests reconcile by RFC message ID and exact provider content; they
+never POST again. Readback rejects changed content, extra recipients and SENT labels.
+Explicit self-test drafts also search SENT for original and provider message IDs.
+Disconnects during network IO fence result publication without erasing dispatch history.
+Neither SDK has a send/modify/delete endpoint. No live mailbox or test draft was created.
+
+Pinned `mail-builder`1.0.0 (hostname discovery disabled), `mail-parser`0.11.9 and
+`html5gum`0.9.1 provide MIME construction, RFC headers/addresses and bounded HTML tokenization.
+Parser1.0.1 requires Rust1.98, above this workspace's declared minimum; it was not selected.
+The older pinned parser is compiled/tested on the current host toolchain, not a separate
+fresh Rust1.94 installation. Exactly four packages were added (including build-time
+`hashify`0.2.9); existing external lockfile versions/checksums/edges were preserved.
