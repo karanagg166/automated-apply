@@ -135,7 +135,17 @@ Legacy worker event history now accepts the DB's existing local_worker origin;30
 API tests pass, API types regenerated, TypeScript/Prettier pass. This source fix is not
 installed into legacy8e985c9. See [the readiness/history report](acceptance/rust-packet-readiness-20261115.md).
 
-Next implement the complete [seven-route packet preparation/inspection slice](plans/application-packet-rust-slice.md).
+Packet preparation foundation `0171faddbca9613c6390b125e9323ffae2869336` now ports strict
+owner inputs, all ten existing destination adapters and local field mapping. AST-only
+oracles compare237 requests,4,968 destinations and3,240 fields inside three tests. A new
+transaction-safe factual resolver preserves enclosing packet rollback, including durable
+missing questions, without inference or narrative draft creation. Fresh133 standard and142
+native PostgreSQL tests pass (275 distinct); Clippy/format/oracles/Ruff pass. No new source
+copy, dependency, production/browser/model action or installation. See
+[the preparation foundation report](acceptance/rust-packet-preparation-foundation-20261115.md).
+This is not a completed packet service or seven-route HTTP integration.
+
+Next implement material-context construction and the complete [seven-route packet preparation/inspection slice](plans/application-packet-rust-slice.md).
 Pure readiness is not wired to packet APIs yet. Reuse existing Rust resume selection,
 matching and canonical serializers; packet material context digests differ from answer
 stamps. Preserve atomic packet/field/event creation and exact idempotent replay. Preview
