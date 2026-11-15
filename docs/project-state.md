@@ -357,3 +357,14 @@ No actual account/provider/service/profile change or installation. Search/MIME/d
 alerts/Drive/legacy account variants and other full-plan ports remain next; alert status
 marks the Rust poller unavailable instead of claiming its saved policy is active.
 Continue without a partial final report, repeat login request, fifth admission or unknown replay.
+
+Selected-message/MIME/reviewed-draft implementation `10f4bc62d39c57dcf557a22c995d705515602e5a`
+now adds INBOX search/recent body consent, no raw body at rest, bounded hidden-HTML/link
+parsing, exact content-hash reviewed drafts and self-test verification. Dispatch intent
+precedes the one fixed POST; unknown writes reconcile without reposting, and disconnect
+races fence results while retaining intent.186 standard Rust +19 related native fictional
+PG tests pass; Clippy/format/diff pass. See [qualified mail evidence](acceptance/gmail-selected-read-and-drafts-20261116.md).
+New pinned MIME/header/tokenizer libraries add4 packages with existing external locks
+unchanged. No actual Google/mailbox/profile/application/installed change. Continue Drive,
+legacy account/history/alerts and all remaining full-plan services, then combined/cutover/live
+acceptance. User still requests no partial final report; pending login and quota/focus gates remain.
