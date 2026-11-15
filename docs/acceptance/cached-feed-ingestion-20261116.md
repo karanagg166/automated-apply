@@ -2,7 +2,7 @@
 
 Branch `feat/rust-agent-runtime`, base `chore/uv-python-tooling`, [PR50](https://github.com/karanagg166/automated-apply/pull/50).
 Implementation [7500f9a08466112f4f5afbfe05fb0d71b7879fd5](https://github.com/karanagg166/automated-apply/commit/7500f9a08466112f4f5afbfe05fb0d71b7879fd5),
-runner timeout correction [a56e512c3dd79513a3ff86063ddc5e8712bd89cc](https://github.com/karanagg166/automated-apply/commit/a56e512c3dd79513a3ff86063ddc5e8712bd89cc).
+runner timeout corrections [a56e512c3dd79513a3ff86063ddc5e8712bd89cc](https://github.com/karanagg166/automated-apply/commit/a56e512c3dd79513a3ff86063ddc5e8712bd89cc) and [3e8c3409d99ea323bba013e536ca93f11b78eb5f](https://github.com/karanagg166/automated-apply/commit/3e8c3409d99ea323bba013e536ca93f11b78eb5f).
 This implements the first remaining discovery slice of the approved completion plan;
 it is not implementation or acceptance of the entire plan.
 
@@ -37,7 +37,7 @@ frontend tests/typecheck/format/build, extension tests/Brave+Edge builds, browse
 continuity tests and diff checks. Builds finish on the Brave target. Private per-stage
 logs and atomically replaced status JSON are retained under a unique ignored run path.
 The runner stops at the first failure, leaves later stages NOT TESTED, has a45-minute
-per-command timeout and never dispatches hosted CI, installs, production DDL or live
+per-command timeout that terminates its owned test process group, and never dispatches hosted CI, installs, production DDL or live
 applications. A passed runner explicitly means local fixture acceptance, not live
 platform acceptance. Long fixture commands may launch isolated test browsers.
 
@@ -50,7 +50,7 @@ platform acceptance. Long fixture commands may launch isolated test browsers.
 | Additional HTTP integration | PASS |1 additional distinct native PG case,0.08s;188 PG cases covered across runs |
 | Distinct Rust cases executed | PASS |346 =158 standard +188 PG; no claim of a single188-case full run |
 | Intake focused PG run | PASS |6 passed,0.43s; overlaps complete187-case run |
-| Local acceptance runner | PASS |3 Python tests,0.03s: stop on failure, missing command, timeout/privacy |
+| Local acceptance runner | PASS |4 Python tests,0.09s: stop on failure, missing command, timeout/privacy and actual process timeout |
 | Clippy / format / diff / Python Ruff | PASS |All-target warnings denied; final Clippy4.78s |
 | Combined runner plan | PASS |Stage manifest generated; no full combined run performed |
 | Initial full PG attempt | FAIL |186 passed,1 failed: MCP catalog expected old15 tools; corrected to17 with explicit write annotations |

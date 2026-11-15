@@ -302,7 +302,7 @@ explicit write-annotated MCP tools. No source platform ingest is an application 
 Runner correctiona56e512 adds bounded sequential fixture orchestration with private logs,
 failures and NOT TESTED stages. Full combined run is deferred until remaining source work
 is integrated.346 distinct Rust cases covered (158 standard;187 full PG plus one extra
-HTTP case),3 runner tests pass; initial MCP catalog failure is corrected and recorded.
+HTTP case),4 runner tests pass after owned-process-group timeout correction3e8c340; initial MCP catalog failure is corrected and recorded.
 See [the new report](acceptance/cached-feed-ingestion-20261116.md). No live DB/provider/
 browser/install/submission action. Continue remaining discovery scheduling/filtering,
 browser/execution/account/Gmail/Drive/provider/Telegram/CLI ports, then the combined
