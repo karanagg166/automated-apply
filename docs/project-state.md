@@ -212,6 +212,10 @@ reask the same question. Continue canonical source work; no duplicate builds/wor
 
 ## Canonical review milestone
 
+Implementation `2b6c4e1cc16452172627129e4cd761280b91f134`, byte-preserving fragment
+correction `c57b7e4035d2d34f900821c3dd362cd8fda9ecc0`; see
+[the qualified acceptance report](acceptance/runtime-review-and-boundaries-20261115.md).
+
 Owner renewed the active goal: finish the full Rust, continuously operating agentic
 project, fix relevant architectural findings and run live acceptance; report success
 only at actual scope completion. Existing specific approval/quota/focus controls remain.
@@ -241,8 +245,7 @@ in this milestone; the earlier three public Himalayas MCP requests remain separa
 See the new writer ownership/connection-budget document underdocs/architecture and
 ADRs006–008. The family fence is single-host source protection, not an installed or
 distributed lock; older and standalone writers require an explicit stop/inventory at cutover.
-Publish the validation/report/commit/push/PR checkpoint. Then continue unported
-intake/browser/execution, discovery ingestion, account,
+Continue unported intake/browser/execution, discovery ingestion, account,
 Gmail/Drive/provider/legacy command and production scheduling/install/resource/live work.
 
 Latest owner reply confirms Brave's macOS file permission was enabled. A read-only check
