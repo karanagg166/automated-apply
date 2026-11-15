@@ -130,4 +130,3 @@
       observer?.takeRecords();
       observer?.disconnect();
     };
-

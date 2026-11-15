@@ -789,4 +789,3 @@ export function formDOM(request = { operation: "inspect" }) {
         );
       return `${location.href}|${steps.join(";")}`;
     };
-
