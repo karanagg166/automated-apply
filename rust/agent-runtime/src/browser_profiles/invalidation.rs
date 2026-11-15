@@ -44,7 +44,7 @@ async fn associated(
     tx: &mut Transaction<'_, Postgres>,
     identity: &Value,
 ) -> Result<Vec<(String, Value)>> {
-    let rows:Vec<(String,Value)>=sqlx::query_as("SELECT key,value FROM owner_preferences WHERE (starts_with(key,'ext_task:') OR starts_with(key,'fill_plan:') OR starts_with(key,'chr_cmd:')) AND coalesce(value->'profile_binding_id','null'::jsonb) = $1::jsonb ORDER BY created_at,key LIMIT 10001").bind(identity).fetch_all(&mut **tx).await.map_err(db)?;
+    let rows:Vec<(String,Value)>=sqlx::query_as("SELECT key,value FROM owner_preferences WHERE ((starts_with(key,'ext_task:') AND (value->>'state' IS NULL OR value->>'state' NOT IN ('FAILED_FINAL','SUBMISSION_UNKNOWN','SUBMITTED_CONFIRMED'))) OR (starts_with(key,'fill_plan:') AND value->>'state' IN ('preview','authorized')) OR (starts_with(key,'chr_cmd:') AND (value->>'state' IS NULL OR value->>'state' NOT IN ('completed','failed','expired','cancelled','outcome_unknown')))) AND coalesce(value->'profile_binding_id','null'::jsonb) = $1::jsonb ORDER BY created_at,key LIMIT 10001").bind(identity).fetch_all(&mut **tx).await.map_err(db)?;
     if rows.len() > 10000 {
         return Err(Failure("browser_profile_inventory_limit"));
     }
@@ -106,25 +106,12 @@ pub(super) async fn invalidate(
     }
     Ok(())
 }
-pub(super) async fn offline(
-    tx: &mut Transaction<'_, Postgres>,
-    identity: &Value,
-    now: DateTime<Utc>,
-) -> Result<()> {
-    if associated(tx, identity).await?.iter().any(|(k, v)| {
-        k.starts_with("ext_task:") && !task_terminal(v) && v["state"] != "PAUSED"
-            || k.starts_with("chr_cmd:") && !terminal(v)
-    }) {
-        invalidate(tx, identity, "PROFILE_OFFLINE", now).await?;
-    }
-    Ok(())
-}
 pub(super) async fn expire(
     tx: &mut Transaction<'_, Postgres>,
     profile: Option<(&Value, &Value)>,
     now: DateTime<Utc>,
 ) -> Result<()> {
-    for (key, mut value) in prefix(tx, "chr_cmd:").await? {
+    for (key, mut value) in active_commands(tx, profile.map(|(p, _)| &p["id"])).await? {
         if terminal(&value) {
             continue;
         }

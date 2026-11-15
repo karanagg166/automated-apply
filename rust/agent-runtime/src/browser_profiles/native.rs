@@ -10,7 +10,7 @@ static SCHEMA: LazyLock<jsonschema::Validator> = LazyLock::new(|| {
 });
 // Contains credentials: deliberately no Debug or serializer.
 pub struct Command {
-    value: Value,
+    pub(super) value: Value,
     pub request_id: Uuid,
 }
 impl Command {
@@ -37,10 +37,10 @@ impl Command {
         }
         Ok(Self { value, request_id })
     }
-    fn name(&self) -> &str {
+    pub(super) fn name(&self) -> &str {
         self.value["command"].as_str().unwrap()
     }
-    fn id(&self, key: &str) -> Result<Uuid> {
+    pub(super) fn id(&self, key: &str) -> Result<Uuid> {
         self.value[key]
             .as_str()
             .and_then(|s| s.parse().ok())
@@ -58,7 +58,10 @@ fn result(command: &Command, result: Result<Value>) -> Value {
         }
     }
 }
-async fn authenticate(tx: &mut Transaction<'_, Postgres>, command: &Command) -> Result<Value> {
+pub(super) async fn authenticate(
+    tx: &mut Transaction<'_, Postgres>,
+    command: &Command,
+) -> Result<Value> {
     let profile = command
         .id("profile_binding_id")
         .map_err(|_| Failure("PROFILE_OFFLINE"))?;
@@ -82,9 +85,10 @@ pub(super) async fn dispatch(
     tx: &mut Transaction<'_, Postgres>,
     command: &Command,
     settings: &Settings,
+    packets: &crate::packet_service::Settings,
     now: DateTime<Utc>,
 ) -> Result<Value> {
-    let outcome = execute(tx, command, settings, now).await;
+    let outcome = execute(tx, command, settings, packets, now).await;
     match outcome {
         Err(e)
             if !matches!(
@@ -96,6 +100,20 @@ pub(super) async fn dispatch(
                     | "PROFILE_SESSION_CHANGED"
                     | "PROFILE_REVISION_CONFLICT"
                     | "browser_command_execution_unavailable"
+                    | "PROFILE_NOT_SELECTED"
+                    | "PROFILE_COMMANDS_DISABLED"
+                    | "profile_command_revision_conflict"
+                    | "profile_command_expired"
+                    | "extension_task_context_stale"
+                    | "packet_not_found"
+                    | "stale_or_unreviewed_candidate_context"
+                    | "application_not_eligible"
+                    | "naukri_automation_stopped"
+                    | "naukri_automation_paused"
+                    | "execution_mode_off"
+                    | "unverified_application_destination"
+                    | "unsupported_form_adapter"
+                    | "platform_fill_policy_denied"
             ) =>
         {
             Err(e)
@@ -107,10 +125,14 @@ async fn execute(
     tx: &mut Transaction<'_, Postgres>,
     command: &Command,
     settings: &Settings,
+    packets: &crate::packet_service::Settings,
     now: DateTime<Utc>,
 ) -> Result<Value> {
     let v = &command.value;
     match command.name() {
+        "poll_chrome_command" | "start_chrome_command" | "ack_chrome_command" => {
+            commands::dispatch(tx, command, settings, packets, now).await
+        }
         "connect_chrome_profile" => {
             let id = command.id("profile_binding_id")?;
             let session = command.id("browser_session_id")?;
@@ -187,7 +209,7 @@ async fn execute(
                 invalidation::session_replaced(tx, &row, !changed, now, settings).await?;
             }
             if changed {
-                for (key, mut task) in prefix(tx, "ext_task:").await? {
+                for (key, mut task) in active_tasks(tx, &row["id"]).await? {
                     if task["profile_binding_id"] != row["id"] || task_terminal(&task) {
                         continue;
                     }
@@ -232,7 +254,7 @@ async fn execute(
             Ok(data)
         }
         "disconnect_chrome_profile" => {
-            let row = authenticate(tx, command).await?;
+            authenticate(tx, command).await?;
             disconnect(
                 tx,
                 command.id("profile_binding_id")?,
@@ -240,10 +262,6 @@ async fn execute(
                 now,
             )
             .await
-            .map(|mut d| {
-                d["profile_binding_id"] = row["id"].clone();
-                d
-            })
         }
         "health" => Ok(
             json!({"connections":[{"name":"Supabase PostgreSQL","state":"CONNECTED"},{"name":"Local FastAPI","state":"CONNECTED"}],"runtime":"rust","browser_dispatch_available":false}),

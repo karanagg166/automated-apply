@@ -8,7 +8,7 @@ async fn browser_fixture()->PgConnection {
     sqlx::raw_sql("CREATE TABLE IF NOT EXISTS owner_preferences(key varchar(50) PRIMARY KEY,value jsonb NOT NULL); ALTER TABLE owner_preferences ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT clock_timestamp(), ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT clock_timestamp(); DELETE FROM owner_preferences; CREATE TABLE IF NOT EXISTS agent_operations(key varchar(180) PRIMARY KEY,actor varchar(120) NOT NULL,command varchar(50) NOT NULL,payload_hash varchar(64) NOT NULL,result jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT clock_timestamp()); DELETE FROM agent_operations;").execute(&mut c).await.unwrap();c
 }
 async fn browser_call(c:&mut PgConnection,route:BrowserRoute,input:Value)->Result<Value> {
-    browser_profiles::dispatch(c,route,route.method(),input.to_string().as_bytes(),&browser_profiles::Settings::from_values(&browser_values()).unwrap()).await
+    browser_profiles::dispatch(c,route,route.method(),input.to_string().as_bytes(),&browser_profiles::Settings::from_values(&browser_values()).unwrap(),&packet_settings()).await
 }
 fn browser_context()->Value {json!({"profile_binding_id":Uuid::new_v4(),"profile_secret":"f".repeat(64),"browser_session_id":Uuid::new_v4(),"window_id":10})}
 async fn browser_native(c:&mut PgConnection,name:&str,context:&Value,updates:Value)->Result<Value> {
@@ -74,7 +74,7 @@ async fn browser_profiles_status_expires_without_redelivery_and_redacts_live_com
     for (i,state) in ["queued","leased","executing","completed"].iter().enumerate() {browser_save(&mut c,&format!("chr_cmd:{i}"),json!({"id":i,"profile_binding_id":context["profile_binding_id"],"state":state,"version":1,"expires_at":"2000-01-01T00:00:00Z","lease_token":"SECRET_LEASE","payload_hash":"PRIVATE_HASH"})).await;}
     let listing=browser_call(&mut c,BrowserRoute::List,Value::Null).await.unwrap();assert_eq!(listing["commands"][0]["state"],"expired");assert_eq!(listing["commands"][1]["state"],"outcome_unknown");assert_eq!(listing["commands"][2]["state"],"outcome_unknown");assert_eq!(listing["commands"][3]["state"],"completed");assert!(!listing.to_string().contains("SECRET_LEASE"));assert!(!listing.to_string().contains("PRIVATE_HASH"));
     let before=browser_snapshot(&mut c).await;browser_call(&mut c,BrowserRoute::List,Value::Null).await.unwrap();assert_eq!(browser_snapshot(&mut c).await,before);
-    let poll=browser_native(&mut c,"poll_chrome_command",&context,json!({})).await.unwrap();assert_eq!(poll["ok"],false);assert_eq!(poll["error_code"],"browser_command_execution_unavailable");assert_eq!(browser_snapshot(&mut c).await,before);
+    let poll=browser_native(&mut c,"poll_chrome_command",&context,json!({})).await.unwrap();assert_eq!(poll["ok"],false);assert_eq!(poll["error_code"],"PROFILE_NOT_SELECTED");assert_eq!(browser_snapshot(&mut c).await,before);
 }
 #[tokio::test(flavor="current_thread")]
 #[ignore="requires dedicated disposable PostgreSQL harness"]

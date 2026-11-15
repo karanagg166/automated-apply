@@ -68,6 +68,38 @@ fn browser_profile_config_and_routes_are_closed_and_disabled_by_default() {
             .method(),
         "GET"
     );
+    let mut values = BTreeMap::from([
+        ("ENVIRONMENT".into(), "testing".into()),
+        ("RUST_RUNTIME_FIXTURE".into(), "true".into()),
+        (
+            "BROWSER_FIXTURE_ORIGIN".into(),
+            "http://127.0.0.1:12345".into(),
+        ),
+    ]);
+    assert!(Settings::from_values(&values).is_ok());
+    for origin in [
+        "http://localhost:12345",
+        "http://127.0.0.1:12345/",
+        "https://127.0.0.1:12345",
+        "http://127.0.0.1:12345/path",
+        "http://user@127.0.0.1:12345",
+        "http://127.0.0.1:12345?x=1",
+    ] {
+        values.insert("BROWSER_FIXTURE_ORIGIN".into(), origin.into());
+        assert_eq!(
+            Settings::from_values(&values).err(),
+            Some(Failure("invalid_browser_fixture_origin"))
+        );
+    }
+    values.insert(
+        "BROWSER_FIXTURE_ORIGIN".into(),
+        "http://127.0.0.1:12345".into(),
+    );
+    values.insert("ENVIRONMENT".into(), "production".into());
+    assert_eq!(
+        Settings::from_values(&values).err(),
+        Some(Failure("invalid_browser_fixture_origin"))
+    );
     for path in [
         "/api/v1/browser/chrome-profiles/x/disconnect",
         "/api/v1/browser/chrome-profiles/select/extra",
@@ -143,4 +175,116 @@ print(json.dumps(out))
     let expected: Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(json!(actual), expected);
     assert_eq!(cases.len(), 42);
+}
+#[test]
+fn browser_command_inputs_and_idempotency_hash_match_actual_python() {
+    use std::{
+        io::Write,
+        path::PathBuf,
+        process::{Command, Stdio},
+    };
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let code = r#"
+import ast,hashlib,json,sys
+from pathlib import Path
+from uuid import UUID
+from typing import Literal
+from pydantic import BaseModel,ConfigDict,Field
+class Contract(BaseModel):model_config=ConfigDict(extra='forbid',hide_input_in_errors=True,validate_assignment=True)
+scope=dict(UUID=UUID,Literal=Literal,Field=Field,Contract=Contract)
+tree=ast.parse(Path('backend/app/browser/chrome_profiles.py').read_text());nodes=[n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='ChromeCommandInput'];exec(compile(ast.Module(body=nodes,type_ignores=[]),'command-oracle','exec'),scope)
+out=[]
+for raw in json.load(sys.stdin):
+ try:
+  item=scope['ChromeCommandInput'].model_validate(raw);out.append({'ok':item.model_dump(mode='json'),'hash':hashlib.sha256(item.model_dump_json().encode()).hexdigest()})
+ except ValueError:out.append({'error':True})
+assert 'backend.app.core.config' not in sys.modules
+print(json.dumps(out))
+"#;
+    let good = json!({"request_id":"11111111-1111-4111-8111-111111111111","profile_binding_id":"22222222-2222-4222-8222-222222222222","selection_version":1,"expected_profile_version":2,"application_id":"33333333-3333-4333-8333-333333333333","packet_revision":3,"action":"open"});
+    let mut cases = vec![good.clone()];
+    for (key, values) in [
+        (
+            "selection_version",
+            vec![
+                json!("2"),
+                json!(true),
+                json!(2.0),
+                json!(0),
+                json!(-1),
+                json!(null),
+            ],
+        ),
+        (
+            "expected_task_version",
+            vec![json!("3"), json!(true), json!(null), json!(0)],
+        ),
+        (
+            "action",
+            vec![
+                json!("prepare"),
+                json!("pause"),
+                json!("resume"),
+                json!("cancel"),
+                json!("submit"),
+                json!(null),
+            ],
+        ),
+        (
+            "task_id",
+            vec![
+                json!("44444444-4444-4444-8444-444444444444"),
+                json!(null),
+                json!("invalid"),
+            ],
+        ),
+        (
+            "request_id",
+            vec![
+                json!("{11111111-1111-4111-8111-111111111111}"),
+                json!("11111111111141118111111111111111"),
+                json!(false),
+            ],
+        ),
+    ] {
+        for value in values {
+            let mut input = good.clone();
+            input[key] = value;
+            cases.push(input);
+        }
+    }
+    let mut extra = good.clone();
+    extra["unreviewed"] = json!(true);
+    cases.push(extra);
+    let mut child = Command::new(root.join(".venv/bin/python"))
+        .args(["-c", code])
+        .current_dir(root)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(json!(cases).to_string().as_bytes())
+        .unwrap();
+    let out = child.wait_with_output().unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let oracle: Vec<Value> = serde_json::from_slice(&out.stdout).unwrap();
+    for (case, expected) in cases.iter().zip(oracle) {
+        let actual = match browser_profiles::commands::request(case.clone()) {
+            Ok(input) => {
+                json!({"ok":serde_json::to_value(&input).unwrap(),"hash":browser_profiles::commands::payload_hash(&input)})
+            }
+            Err(_) => json!({"error":true}),
+        };
+        assert_eq!(actual, expected, "{case}");
+    }
+    assert_eq!(cases.len(), 24);
 }

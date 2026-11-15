@@ -68,3 +68,23 @@ pub(super) async fn selection(tx: &mut Transaction<'_, Postgres>) -> Result<Valu
     }
     Ok(value)
 }
+pub(super) async fn active_commands(
+    tx: &mut Transaction<'_, Postgres>,
+    identity: Option<&Value>,
+) -> Result<Vec<(String, Value)>> {
+    let rows:Vec<(String,Value)>=sqlx::query_as("SELECT key,value FROM owner_preferences WHERE starts_with(key,'chr_cmd:') AND (value->>'state' IS NULL OR value->>'state' NOT IN ('completed','failed','expired','cancelled','outcome_unknown')) AND ($1::jsonb IS NULL OR value->'profile_binding_id'=$1) ORDER BY created_at,key LIMIT 10001").bind(identity).fetch_all(&mut **tx).await.map_err(db)?;
+    if rows.len() > 10000 {
+        return Err(Failure("browser_profile_inventory_limit"));
+    }
+    Ok(rows)
+}
+pub(super) async fn active_tasks(
+    tx: &mut Transaction<'_, Postgres>,
+    identity: &Value,
+) -> Result<Vec<(String, Value)>> {
+    let rows:Vec<(String,Value)>=sqlx::query_as("SELECT key,value FROM owner_preferences WHERE starts_with(key,'ext_task:') AND (value->>'state' IS NULL OR value->>'state' NOT IN ('FAILED_FINAL','SUBMISSION_UNKNOWN','SUBMITTED_CONFIRMED')) AND value->'profile_binding_id'=$1 ORDER BY created_at DESC,key LIMIT 10001").bind(identity).fetch_all(&mut **tx).await.map_err(db)?;
+    if rows.len() > 10000 {
+        return Err(Failure("browser_profile_inventory_limit"));
+    }
+    Ok(rows)
+}

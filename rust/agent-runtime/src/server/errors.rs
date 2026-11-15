@@ -7,6 +7,26 @@ use axum::{
 use serde_json::{Value, json};
 
 pub(super) fn profile_failure(error: Failure) -> Response {
+    if matches!(
+        error.0,
+        "command_id_conflict"
+            | "PROFILE_COMMANDS_DISABLED"
+            | "profile_queue_full"
+            | "extension_task_required"
+            | "extension_task_not_found"
+            | "extension_task_revision_conflict"
+            | "extension_task_context_stale"
+            | "stale_or_unreviewed_candidate_context"
+            | "application_not_eligible"
+            | "naukri_automation_paused"
+            | "naukri_automation_stopped"
+            | "execution_mode_off"
+            | "unverified_application_destination"
+            | "unsupported_form_adapter"
+            | "platform_fill_policy_denied"
+    ) {
+        return reply(StatusCode::CONFLICT, json!({"detail":error.0}));
+    }
     if error.0.starts_with("browser_profile_")
         || error.0.starts_with("invalid_browser_profile_")
         || matches!(

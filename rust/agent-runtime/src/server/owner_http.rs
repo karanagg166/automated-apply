@@ -240,6 +240,7 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
                 &method,
                 &body,
                 &api.config.browser_profiles,
+                &api.config.packets,
             )
             .await
             .map(|data| OwnerReply {

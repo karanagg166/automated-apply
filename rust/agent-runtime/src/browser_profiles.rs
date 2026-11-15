@@ -9,8 +9,10 @@ use std::{collections::BTreeMap, sync::LazyLock};
 use subtle::ConstantTimeEq;
 use uuid::Uuid;
 
+pub mod commands;
 mod invalidation;
 mod native;
+mod status;
 mod storage;
 use storage::*;
 
@@ -21,6 +23,7 @@ pub struct Settings {
     pub(crate) native_enabled: bool,
     pub(crate) commands_enabled: bool,
     pub(crate) telegram_notices: bool,
+    pub(crate) fixture_origin: Option<String>,
 }
 impl Settings {
     pub fn from_values(values: &BTreeMap<String, String>) -> Result<Self> {
@@ -38,11 +41,35 @@ impl Settings {
         if native_enabled && extension.is_none() {
             return Err(Failure("browser_extension_id_required"));
         }
+        let fixture_origin = values
+            .get("BROWSER_FIXTURE_ORIGIN")
+            .filter(|s| !s.is_empty())
+            .cloned();
+        if let Some(origin) = fixture_origin.as_deref() {
+            let fixture = values.get("ENVIRONMENT").is_some_and(|s| s == "testing")
+                && boolean(values, "RUST_RUNTIME_FIXTURE", false)?;
+            let u = reqwest::Url::parse(origin)
+                .map_err(|_| Failure("invalid_browser_fixture_origin"))?;
+            if !fixture
+                || u.scheme() != "http"
+                || u.host_str() != Some("127.0.0.1")
+                || u.port().is_none()
+                || u.origin().ascii_serialization() != origin
+                || !u.username().is_empty()
+                || u.password().is_some()
+                || u.query().is_some()
+                || u.fragment().is_some()
+                || u.path() != "/"
+            {
+                return Err(Failure("invalid_browser_fixture_origin"));
+            }
+        }
         Ok(Self {
             extension,
             native_enabled,
             commands_enabled: boolean(values, "CHROME_PROFILE_COMMANDS_ENABLED", false)?,
             telegram_notices: crate::packet_notice::telegram_configured(values),
+            fixture_origin,
         })
     }
     pub(crate) fn permits(&self, extension: Option<&str>) -> bool {
@@ -55,6 +82,7 @@ pub enum Route {
     List,
     Select,
     Disconnect(Uuid),
+    Enqueue,
 }
 impl Route {
     pub fn method(self) -> &'static str {
@@ -70,6 +98,7 @@ pub fn route(path: &str) -> Option<Route> {
         NATIVE => Some(Route::Native),
         PROFILES => Some(Route::List),
         "/api/v1/browser/chrome-profiles/select" => Some(Route::Select),
+        "/api/v1/browser/chrome-profiles/commands" => Some(Route::Enqueue),
         _ => path
             .strip_prefix("/api/v1/browser/chrome-profiles/")
             .and_then(|s| s.strip_suffix("/disconnect"))
@@ -164,6 +193,7 @@ pub async fn dispatch(
     method: &str,
     bytes: &[u8],
     settings: &Settings,
+    packets: &crate::packet_service::Settings,
 ) -> Result<Value> {
     if method != route.method() {
         return Err(Failure("browser_profile_method_not_allowed"));
@@ -178,7 +208,12 @@ pub async fn dispatch(
     } else {
         None
     };
-    if !matches!(route, Route::Native | Route::List) {
+    let enqueue = if matches!(route, Route::Enqueue) {
+        Some(commands::request(input.clone())?)
+    } else {
+        None
+    };
+    if !matches!(route, Route::Native | Route::List | Route::Enqueue) {
         let keys = if matches!(route, Route::Select) {
             &["expected_version", "profile_binding_id"][..]
         } else {
@@ -204,14 +239,23 @@ pub async fn dispatch(
     }
     let mut tx = c.begin().await.map_err(db)?;
     let result = async {
+        if matches!(route, Route::List) {
+            let read = status::snapshot(&mut tx, settings).await?;
+            if read.offline.is_empty() && !read.expired {
+                return Ok(read.data);
+            }
+        }
         // All lifecycle changes share the legacy owner row; no parallel writer family.
         lock(&mut tx).await?;
         let now = now(&mut tx).await?;
         match route {
             Route::Native => {
-                native::dispatch(&mut tx, command.as_ref().unwrap(), settings, now).await
+                native::dispatch(&mut tx, command.as_ref().unwrap(), settings, packets, now).await
             }
             Route::List => listing(&mut tx, settings, now).await,
+            Route::Enqueue => {
+                commands::enqueue(&mut tx, enqueue.as_ref().unwrap(), settings, packets, now).await
+            }
             Route::Select => {
                 select(
                     &mut tx,
@@ -235,6 +279,13 @@ pub async fn dispatch(
                 .await
                 .map_err(|_| Failure("browser_profile_commit_outcome_unknown"))?;
             Ok(value)
+        }
+        Err(error) if error == Failure("PROFILE_OFFLINE") => {
+            // Offline enqueue can revoke old authority before denial, matching legacy behavior.
+            tx.commit()
+                .await
+                .map_err(|_| Failure("browser_profile_commit_outcome_unknown"))?;
+            Err(error)
         }
         Err(error) => {
             tx.rollback()
@@ -309,24 +360,19 @@ async fn disconnect(
 async fn listing(
     tx: &mut Transaction<'_, Postgres>,
     settings: &Settings,
-    now: DateTime<Utc>,
+    _now: DateTime<Utc>,
 ) -> Result<Value> {
-    let profiles = prefix(tx, "chr_prof:").await?;
-    let selected = selection(tx).await?;
-    for (_, profile) in &profiles {
-        if !online(profile, now)? {
-            invalidation::offline(tx, &profile["id"], now).await?;
-        }
+    // Re-read after acquiring the owner fence; a heartbeat may have made the initial read current.
+    let read = status::snapshot(tx, settings).await?;
+    for identity in &read.offline {
+        invalidation::invalidate(tx, identity, "PROFILE_OFFLINE", read.now).await?;
     }
-    invalidation::expire(tx, None, now).await?;
-    // Bounded SQL projections exclude credentials, raw form bodies and lease authority.
-    let commands:Vec<Value>=sqlx::query_scalar("SELECT value-'lease_token'-'payload_hash' FROM (SELECT key,value,created_at FROM owner_preferences WHERE starts_with(key,'chr_cmd:') ORDER BY created_at DESC,key DESC LIMIT 30) s ORDER BY created_at,key").fetch_all(&mut **tx).await.map_err(db)?;
-    let receipts:Vec<Value>=sqlx::query_scalar("SELECT value FROM (SELECT key,value,created_at FROM owner_preferences WHERE starts_with(key,'ext_receipt:') ORDER BY created_at DESC,key DESC LIMIT 30) s ORDER BY created_at,key").fetch_all(&mut **tx).await.map_err(db)?;
-    let profiles = profiles
-        .iter()
-        .map(|(_, v)| public(v, &selected["profile_binding_id"], now))
-        .collect::<Result<Vec<_>>>()?;
-    Ok(
-        json!({"selection":selected,"profiles":profiles,"commands":commands,"receipts":receipts,"channel_available":settings.commands_enabled}),
-    )
+    if read.expired {
+        invalidation::expire(tx, None, read.now).await?;
+    }
+    if read.offline.is_empty() && !read.expired {
+        Ok(read.data)
+    } else {
+        Ok(status::snapshot(tx, settings).await?.data)
+    }
 }
