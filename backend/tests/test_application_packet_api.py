@@ -1,11 +1,13 @@
 """Protected REST workflow, redacted validation, transaction rollback and concurrency."""
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
+from pydantic import ValidationError
 from sqlalchemy import func, select
 
 from backend.app.models.application_packet import ApplicationEvent, ApplicationPacket
+from backend.app.schemas.applications import ApplicationEventRead
 
 pytestmark = pytest.mark.asyncio
 
@@ -135,6 +137,32 @@ async def test_complete_rest_workflow(async_client, phase2_auth, application_tar
         "GET", ROOT + "?platform=naukri&status=user_reported_submitted&limit=1"
     )
     assert len(listed["packets"]) == 1
+
+
+async def test_existing_worker_history_is_readable_without_accepting_arbitrary_origins(
+    async_client, phase2_auth, application_target, db_session
+):
+    job, _ = application_target
+    created = await async_client.post(
+        f"/api/v1/jobs/{job.id}/application-packets",
+        headers=phase2_auth,
+        json={"idempotency_key": "fictional-worker-history"},
+    )
+    assert created.status_code == 201
+    packet = created.json()
+    for origin in ("system", "local_worker"):
+        db_session.add(ApplicationEvent(
+            packet_id=UUID(packet["id"]), event_type="profile_checked",
+            previous_state="created", next_state="created", packet_revision=1,
+            origin=origin,
+        ))
+    await db_session.commit()
+    response = await async_client.get(f"{ROOT}/{packet['id']}/events", headers=phase2_auth)
+    assert response.status_code == 200
+    events = response.json()
+    assert {event["origin"] for event in events} == {"owner_rest", "system", "local_worker"}
+    with pytest.raises(ValidationError):
+        ApplicationEventRead.model_validate({**events[-1], "origin": "untrusted_website"})
 
 
 async def test_concurrent_revision_is_conflict_and_errors_do_not_mutate(

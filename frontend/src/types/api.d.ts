@@ -4135,7 +4135,7 @@ export interface components {
        * Origin
        * @enum {string}
        */
-      origin: "owner_rest" | "system";
+      origin: "owner_rest" | "system" | "local_worker";
       /** Evidence Id */
       evidence_id: string | null;
       /** Note */

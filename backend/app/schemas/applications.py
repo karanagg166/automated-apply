@@ -346,7 +346,7 @@ class ApplicationEventRead(Contract):
     previous_state: Lifecycle | None
     next_state: Lifecycle
     packet_revision: int
-    origin: Literal["owner_rest", "system"]
+    origin: Literal["owner_rest", "system", "local_worker"]
     evidence_id: UUID | None
     note: str | None
     created_at: datetime

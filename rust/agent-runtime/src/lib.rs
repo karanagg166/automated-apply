@@ -26,6 +26,7 @@ pub mod model_policy;
 pub mod monthly;
 mod notifications;
 pub mod owner_proof;
+pub mod packet_readiness;
 pub mod profile_confirmation;
 pub mod profile_contract;
 pub mod profile_store;
