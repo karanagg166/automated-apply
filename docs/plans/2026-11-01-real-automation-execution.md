@@ -34,6 +34,14 @@ AUTOMATIC policies and per-platform readiness. Authorized account setup uses onl
 verified facts; OAuth, OTP, CAPTCHA or other unavoidable owner actions are surfaced
 once. Never bypass provider restrictions or silently activate an adapter stub.
 
+Owner expansion,2026-11-15: add HiringCafe, Himalayas and We Work Remotely; reconfirm
+Wellfound and YC Work at a Startup. Account creation is authorized where an account is
+missing and necessary, using verified saved identity/profile details. Add project MCP
+adapters where useful. Preserve independent per-platform controls and actual discovery,
+profile/form, submission/receipt and recurring acceptance; no universal completion claim
+from a search-only adapter. Public source research and implementation can continue while
+the separate browser/account physical handoff is pending.
+
 Use the existing Apollo/SignalHire adapters for professional contact evidence and
 Gmail drafts. Respect actual account access and credits. Gmail sending remains
 disabled. No paid plan purchase is authorized. Current runtime has neither
@@ -63,6 +71,9 @@ after the Naukri first-submission priority; do not ask for keys again.
 | B1 | Instahyre adapter and account setup | Actual discovery/form/receipt/recurring acceptance under its own policy | Not accepted |
 | B2 | Wellfound adapter and account setup | Actual discovery/form/receipt/recurring acceptance under its own policy | Not accepted |
 | B3 | Y Combinator Work at a Startup adapter/account setup | Actual discovery/form/receipt/recurring acceptance under its own policy | Not accepted |
+| B5 | HiringCafe adapter/account setup/project MCP | Actual search, original employer destination, deduplication, profile/form/receipt and guarded recurring workflow | Not accepted |
+| B6 | Himalayas API/MCP/account setup | Public discovery and required authenticated jobseeker operations; actual employer receipt and per-platform controls | Not accepted |
+| B7 | We Work Remotely feed/account/project MCP | Official attributed discovery, employer destination and actual form/receipt workflow | Not accepted |
 | B4 | Internshala adapter and account setup | Actual discovery/form/receipt/recurring acceptance under its own policy | Not accepted |
 | C1 | Connect Apollo and SignalHire to existing contact/draft workflow | Actual authentication, bounded lookup evidence, verified recipient provenance, real Gmail draft; no send | Existing SignalHire account evidenced; free login/API entitlement unverified; no lookup/draft |
 | D1 | Integrated frontend/API/schema/worker checks and release | Relevant regressions and local integrated checks, live provider acceptance, rollback and restart evidence; sanitized report pushed | Pending |

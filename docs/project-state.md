@@ -18,6 +18,15 @@ identity/resume, focus, budget and uncertain-action rules remain. Browser change
 fresh account binding and actual focus/receipt validation. Never copy cookies or silently
 fall back to Chrome.
 
+Owner scope expansion in the current continuation: also deliver HiringCafe, Himalayas,
+Wellfound, Y Combinator Work at a Startup (the owner's “y2 combinator”) and We Work Remotely.
+Create missing accounts when necessary using verified saved facts; provide project MCP
+tools/adapters as needed. This extends the existing Naukri/Instahyre/Internshala scope.
+It does not waive provider budgets, truthful screening, focus preservation, deduplication,
+review/approval, per-platform controls or the Naukri4/hourly1/first-receipt fences. Do not
+claim a search feed, account or tracking entry as an actual application receipt. The owner
+requests continued execution until full scope completion; current goal remains ACTIVE.
+
 ## Continuity
 
 `uv run --no-project python scripts/project_continuity.py snapshot` preserves available

@@ -1,5 +1,9 @@
 {
   "servers": {
+    "himalayas": {
+      "type": "http",
+      "url": "https://mcp.himalayas.app/mcp"
+    },
     "apify": {
       "type": "http",
       "url": "https://mcp.apify.com?tools=search-actors,fetch-actor-details,search-apify-docs,fetch-apify-docs"
