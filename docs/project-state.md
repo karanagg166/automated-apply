@@ -336,3 +336,12 @@ TLS, so its production tools cannot currently work. Next implement private owner
 Unix socket transport authenticated by kernel peer UID; preserve HTTP TLS/token/origin
 policy and do not forge forwarded TLS headers. Current legacy/native installed paths
 remain untouched. Then continue account service fencing and all remaining full-plan work.
+
+Private transport fix `e841b7d0c9ab48e0504a41ac3f887046471bc034` adds owner-private Unix
+IPC for MCP/native/Next.js while retaining ordinary TCP TLS/token/origin policy and the
+existing API connection/permits.177 standard Rust +2 targeted native PG cases pass;
+317 frontend cases/typecheck/build/format and Clippy pass. Initial macOS socket-mode and
+fixture failures were corrected; no production install/account/profile/queue change.
+See [qualified transport evidence](acceptance/private-runtime-transport-20261116.md).
+Continue account consent/generation/refresh service ports now. Full plan remains ACTIVE;
+no partial final report, fifth Naukri admission, unknown replay or automatic window creation.
