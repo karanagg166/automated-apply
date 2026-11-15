@@ -408,3 +408,16 @@ See [qualified broker evidence](acceptance/native-browser-command-broker-2026111
 No installed/actual owner browser/provider/account/queue action. Task/form/execution ports
 remain next; native command transport is not a working application or strict receipt.
 Continue full authorized work without a partial final report or repeated login request.
+
+Task lifecycle `9c4ace570535a5856184775f8045ee89eafdd05f` ports native open/get/update
+and owner list/application lookup/control, preserving tab/profile/version ownership,
+sticky stop, interrupted-fill uncertainty and request nonce/savepoint/lease fences.
+Ordinary task checkpoints are read-only repeatable snapshots without owner/packet locks;
+filling checks reopen under the mutating fence. Existing packet locking stays unchanged.
+Fresh193 standard +262 complete native PG (455 distinct Rust), Clippy/format/diff pass;
+36 isolated actual-Python DTO/helper comparisons are inside one new standard test.
+See [qualified task evidence](acceptance/native-browser-task-lifecycle-20261116.md).
+No installed/actual owner browser/provider/account/queue action or application receipt.
+Form inspection, exact-field review/consume, fill receipts and question bridging remain
+next, followed by the remaining full-plan ports and combined/cutover/live gates.
+Do not stop at this checkpoint, repeat login asks or treat task metadata as completion.
