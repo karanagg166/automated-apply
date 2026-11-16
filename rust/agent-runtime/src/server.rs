@@ -10,6 +10,7 @@ use crate::{
 };
 mod accounts;
 mod boundary;
+mod contact_io;
 mod discovery;
 mod document_io;
 mod errors;

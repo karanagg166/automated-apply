@@ -173,6 +173,9 @@ impl Client {
     pub fn provider(&self) -> &'static str {
         self.name.name()
     }
+    pub(super) fn timeout(&self) -> Duration {
+        self.timeout
+    }
     async fn request(
         &self,
         method: Method,
@@ -266,6 +269,9 @@ impl Client {
         }
         let (finding, remaining, requests) = match self.name {
             Name::Apollo => {
+                eligibility
+                    .require_key(&self.key_hash)
+                    .map_err(|e| Error::new("authorization_required", e.0))?;
                 eligibility
                     .require(operation, Utc::now())
                     .map_err(|e| Error::new("authorization_required", e.0))?;

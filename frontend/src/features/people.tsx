@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, Mail, Search, ShieldCheck, Users } from "lucide-react";
@@ -19,6 +19,12 @@ import {
 } from "@/components/ui";
 import type { Startup } from "./startups";
 import { ContactReview, type ContactDetail } from "./contact-review";
+import {
+  clearReviewedLookupAttempt,
+  readLookupAttempt,
+  runLookupAttempt,
+  type LookupAttempt,
+} from "./contact-lookup-attempt";
 export type Contact = {
   id: string;
   company_id: string;
@@ -43,6 +49,14 @@ export type Contact = {
 };
 type EnrichmentPreview = {
   providers?: Array<Record<string, unknown>>;
+  provider_plan?: Array<{
+    provider: string;
+    lookup_count_upper_bound: number;
+    reserved_credit_upper_bound: number | null;
+    configured: boolean;
+  }>;
+  cached_contacts?: unknown[];
+  discovered_people?: unknown[];
   blockers?: string[];
   [key: string]: unknown;
 };
@@ -64,6 +78,20 @@ export function CompanyPeople({
     [evidenceReview, setEvidenceReview] = useState(0),
     [roleFilter, setRoleFilter] = useState("all"),
     [researchConsent, setResearchConsent] = useState(false);
+  const [lookupAttempt, setLookupAttempt] = useState<LookupAttempt | null>(
+    null,
+  );
+  const [lookupStorageError, setLookupStorageError] = useState<unknown>(null);
+  const [lookupHistoryReviewed, setLookupHistoryReviewed] = useState(false);
+  useEffect(() => {
+    try {
+      const attempt = readLookupAttempt(companyId);
+      setLookupAttempt(attempt);
+      if (attempt) setProvider(attempt.provider);
+    } catch (error) {
+      setLookupStorageError(error);
+    }
+  }, [companyId]);
   const contacts = useQuery({
     queryKey: ["contacts", companyId],
     queryFn: () =>
@@ -105,14 +133,18 @@ export function CompanyPeople({
       ),
   });
   const execute = useMutation({
-    mutationFn: () =>
-      post<{ state: string; errors: string[] }>(
-        `companies/${companyId}/contacts/enrich`,
-        { ...payload, idempotency_key: crypto.randomUUID() },
-      ),
+    retry: false,
+    mutationFn: () => runLookupAttempt(companyId, provider),
     onSuccess: () => {
       client.invalidateQueries({ queryKey: ["contacts", companyId] });
       setApproved(false);
+    },
+    onSettled: () => {
+      try {
+        setLookupAttempt(readLookupAttempt(companyId));
+      } catch (error) {
+        setLookupStorageError(error);
+      }
     },
   });
   const draft = useMutation({
@@ -459,6 +491,11 @@ export function CompanyPeople({
           <Field label="Provider">
             <Select
               value={provider}
+              disabled={
+                !!lookupAttempt ||
+                execute.isPending ||
+                lookupStorageError != null
+              }
               onChange={(e) => {
                 setProvider(e.target.value);
                 preview.reset();
@@ -473,11 +510,47 @@ export function CompanyPeople({
             Preview permissions and cost
           </Button>
           {preview.isError && <ErrorState error={preview.error} />}{" "}
+          {lookupStorageError != null && (
+            <ErrorState error={lookupStorageError} />
+          )}
+          {lookupAttempt && (
+            <Notice>
+              A lookup request is retained in this browser. Recover its saved
+              result before preparing another request.
+            </Notice>
+          )}
+          {lookupAttempt && (
+            <Button busy={execute.isPending} onClick={() => execute.mutate()}>
+              Recover prior lookup result
+            </Button>
+          )}
           {preview.data && (
             <>
-              <pre className="source-text">
-                {JSON.stringify(preview.data, null, 2)}
-              </pre>
+              <p>
+                Saved contacts: {preview.data.cached_contacts?.length ?? 0}.
+                Saved public profiles:{" "}
+                {preview.data.discovered_people?.length ?? 0}.
+              </p>
+              {preview.data.provider_plan?.map((plan) => (
+                <article key={plan.provider} className="panel panel-body">
+                  <strong>{readable(plan.provider)}</strong>
+                  <p>
+                    Up to {plan.lookup_count_upper_bound} lookup(s). Maximum
+                    locally reserved credits:{" "}
+                    {plan.reserved_credit_upper_bound ??
+                      "account cost review required"}
+                    .
+                  </p>
+                  <p>
+                    {plan.configured
+                      ? "Provider configuration is present; current account access and balance still require verification."
+                      : "Provider credentials or enablement are missing."}
+                  </p>
+                </article>
+              ))}
+              {preview.data.blockers?.map((blocker) => (
+                <Notice key={blocker}>{readable(blocker)}</Notice>
+              ))}
               <Notice>
                 Provider-returned email is not mailbox verification. Required
                 credentials, terms, account costs and budgets are enforced again
@@ -494,7 +567,9 @@ export function CompanyPeople({
               </label>
               <Button
                 variant="primary"
-                disabled={!approved}
+                disabled={
+                  !approved || !!lookupAttempt || lookupStorageError != null
+                }
                 busy={execute.isPending}
                 onClick={() => execute.mutate()}
               >
@@ -511,6 +586,40 @@ export function CompanyPeople({
               ))}
             </Notice>
           )}
+          {execute.data &&
+            lookupAttempt &&
+            !["billing_uncertain", "queued", "running"].includes(
+              execute.data.state,
+            ) && (
+              <>
+                <label className="check-label">
+                  <input
+                    type="checkbox"
+                    checked={lookupHistoryReviewed}
+                    onChange={(e) => setLookupHistoryReviewed(e.target.checked)}
+                  />
+                  I reviewed the retained lookup result and its remaining
+                  blockers
+                </label>
+                <Button
+                  disabled={!lookupHistoryReviewed}
+                  onClick={() => {
+                    try {
+                      clearReviewedLookupAttempt(companyId, execute.data);
+                      setLookupAttempt(null);
+                      setLookupHistoryReviewed(false);
+                      setApproved(false);
+                      preview.reset();
+                      execute.reset();
+                    } catch (error) {
+                      setLookupStorageError(error);
+                    }
+                  }}
+                >
+                  Prepare another reviewed lookup
+                </Button>
+              </>
+            )}
         </div>
       </Modal>
       <Modal

@@ -207,3 +207,143 @@ pub async fn check(c: &mut PgConnection, run: &Run, settings: &Settings) -> Resu
     commit(tx).await?;
     Ok(company)
 }
+
+/// Closing history grants no further work. Original token/input remain required after expiry.
+pub async fn finish(
+    c: &mut PgConnection,
+    run: &Run,
+    selected: &[Uuid],
+    errors: &[&str],
+    requested_state: &str,
+) -> Result<Value> {
+    if selected.len() > 25
+        || errors.len() > 100
+        || errors.iter().any(|s| {
+            s.is_empty()
+                || s.len() > 100
+                || !s
+                    .bytes()
+                    .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+        })
+        || !matches!(
+            requested_state,
+            "completed"
+                | "not_configured"
+                | "authorization_required"
+                | "not_found"
+                | "failed"
+                | "rate_limited"
+                | "budget_exhausted"
+                | "billing_uncertain"
+                | "queued"
+                | "running"
+                | "unsupported_operation"
+        )
+    {
+        return Err(Failure("invalid_contact_run_completion"));
+    }
+    let mut tx = begin(c).await?;
+    let finish_key = format!("cl_finish:{}", run.id.simple());
+    if let Some(record)=sqlx::query_scalar::<_,Value>("SELECT value FROM owner_preferences WHERE key=$1 AND octet_length(value::text)<=524288 FOR UPDATE").bind(&finish_key).fetch_optional(&mut *tx).await.map_err(db)?{
+        if record["schema_version"]!=1||record["run_id"]!=run.id.to_string()||record["request_hash"]!=run.request_hash||record["token_hash"]!=hash(&run.token.to_string()){return Err(conflict());}let value=record["result"].clone();commit(tx).await?;return Ok(value);
+    }
+    let journal:Value=sqlx::query_scalar("SELECT value FROM owner_preferences WHERE key=$1 AND octet_length(value::text)<=32768 FOR UPDATE").bind(key(run.id)).fetch_optional(&mut *tx).await.map_err(db)?.ok_or_else(conflict)?;
+    if journal["id"] != run.id.to_string()
+        || journal["company_id"] != run.company.to_string()
+        || journal["request_hash"] != run.request_hash
+        || journal["input"] != run.input
+        || journal["token_hash"] != hash(&run.token.to_string())
+    {
+        return Err(conflict());
+    }
+    let before:Option<Value>=sqlx::query_scalar("SELECT CASE WHEN octet_length(to_jsonb(r)::text)<=300000 THEN to_jsonb(r) ELSE NULL END FROM contact_enrichment_runs r WHERE id=$1 FOR UPDATE").bind(run.id).fetch_optional(&mut *tx).await.map_err(db)?.ok_or_else(conflict)?;
+    let before = before.ok_or_else(invalid)?;
+    if before["state"] != "running"
+        || before["company_id"] != run.company.to_string()
+        || before["request_hash"] != run.request_hash
+    {
+        return Err(conflict());
+    }
+    let intents:Vec<Option<Value>>=sqlx::query_scalar("SELECT CASE WHEN jsonb_typeof(value::jsonb)='object' AND octet_length(value::text)<=32768 THEN value ELSE NULL END FROM owner_preferences WHERE starts_with(key,$1) ORDER BY key LIMIT 101").bind(lookups::prefix(run.id)).fetch_all(&mut *tx).await.map_err(db)?;
+    if intents.len() > 100 {
+        return Err(Failure("contact_lookup_inventory_requires_review"));
+    }
+    let intents = intents
+        .into_iter()
+        .map(|v| v.ok_or_else(invalid))
+        .collect::<Result<Vec<_>>>()?;
+    let unknown = intents
+        .iter()
+        .any(|i| i["state"] == "dispatch_unknown" || i["outcome_unknown"] == true);
+    let prepared = intents.iter().any(|i| i["state"] == "prepared");
+    let state = if unknown {
+        "billing_uncertain"
+    } else if prepared && requested_state == "completed" {
+        "failed"
+    } else {
+        requested_state
+    };
+    let (_, time) = now(&mut tx).await?;
+    let (company, domain): (Option<String>, Option<String>) =
+        sqlx::query_as("SELECT name,domain FROM companies WHERE id=$1 FOR SHARE")
+            .bind(run.company)
+            .fetch_optional(&mut *tx)
+            .await
+            .map_err(db)?
+            .unwrap_or((None, None));
+    let mut ids = selected.to_vec();
+    ids.sort();
+    ids.dedup();
+    let maximum = run.input["max_people"].as_u64().ok_or_else(invalid)? as usize;
+    let contacts:Vec<Value>=sqlx::query_scalar(&format!("SELECT {CONTACT} FROM contacts c WHERE c.id=ANY($1) AND c.company_id=$3 ORDER BY c.id FOR UPDATE")).bind(&ids).bind(json!({})).bind(run.company).fetch_all(&mut *tx).await.map_err(db)?;
+    let mut retained = Vec::new();
+    let mut research = Vec::new();
+    let mut errors = errors
+        .iter()
+        .map(|s| s.to_string())
+        .collect::<BTreeSet<_>>();
+    if contacts.len() != ids.len() || company.is_none() {
+        errors.insert("contact_completion_inventory_changed_requires_review".into());
+    }
+    for contact in contacts.iter().take(maximum) {
+        retained.push(contact["id"].clone());
+        if run.input["include_candidates"] == true
+            && !rules::truthy(&contact["email"])
+            && contact["do_not_contact"] == false
+            && !rules::truthy(&contact["metadata_"]["identity_review_required"])
+        {
+            if let Some(domain) = domain.as_deref() {
+                let name = contact["full_name"].as_str().ok_or_else(invalid)?;
+                let (first, last) = name.split_once(' ').unwrap_or((name, ""));
+                let candidates = candidates::generate(first, last, domain, None)?;
+                research.push(json!({"contact_id":contact["id"],"candidates":candidates.into_iter().take(6).collect::<Vec<_>>()}));
+            }
+        }
+    }
+    if unknown {
+        errors.insert("contact_admitted_provider_outcome_requires_review".into());
+    }
+    let mut after = before.clone();
+    after["state"] = json!(state);
+    after["contact_ids"] = json!(retained);
+    after["counts"] =
+        json!({"contacts":retained.len(),"candidate_research":research,"outbound_messages_sent":0});
+    after["errors"] = json!(errors.into_iter().take(50).collect::<Vec<_>>());
+    after["completed_at"] = sqlx::query_scalar::<_, Value>("SELECT to_jsonb($1::timestamptz)")
+        .bind(time)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(db)?;
+    let updated:Option<Value>=sqlx::query_scalar("UPDATE contact_enrichment_runs r SET state=$3::jsonb->>'state',contact_ids=$3::jsonb->'contact_ids',counts=$3::jsonb->'counts',errors=$3::jsonb->'errors',completed_at=($3::jsonb->>'completed_at')::timestamptz WHERE id=$1 AND to_jsonb(r)=$2::jsonb RETURNING to_jsonb(r)").bind(run.id).bind(&before).bind(&after).fetch_optional(&mut *tx).await.map_err(db)?;
+    if updated.as_ref() != Some(&after) {
+        return Err(ack());
+    }
+    let result = policy::saved_run(after)?;
+    let expected = json!({"schema_version":1,"run_id":run.id,"request_hash":run.request_hash,"token_hash":hash(&run.token.to_string()),"result":result});
+    let actual:Option<Value>=sqlx::query_scalar("INSERT INTO owner_preferences(key,value,created_at,updated_at) VALUES($1,$2,clock_timestamp(),clock_timestamp()) ON CONFLICT DO NOTHING RETURNING value").bind(finish_key).bind(&expected).fetch_optional(&mut *tx).await.map_err(db)?;
+    if actual.as_ref() != Some(&expected) {
+        return Err(ack());
+    }
+    commit(tx).await?;
+    Ok(result)
+}

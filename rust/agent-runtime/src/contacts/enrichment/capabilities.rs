@@ -94,8 +94,15 @@ pub struct Eligibility {
     evidence_url: Option<String>,
     endpoints: Vec<String>,
     pub pool: Option<String>,
+    key_hash: Option<String>,
 }
 impl Eligibility {
+    pub(super) fn require_key(&self, key_hash: &str) -> Result<()> {
+        if self.key_hash.as_deref() != Some(key_hash) {
+            return Err(Failure("contact_apollo_eligibility_key_context_changed"));
+        }
+        Ok(())
+    }
     pub(super) fn deadline(
         &self,
         operation: Operation,
@@ -153,6 +160,13 @@ impl Eligibility {
                 .get("APOLLO_CREDIT_POOL")
                 .filter(|s| !s.is_empty() && s.len() <= 100)
                 .cloned(),
+            key_hash: values
+                .get("APOLLO_API_KEY")
+                .filter(|s| !s.trim().is_empty())
+                .map(|s| {
+                    use sha2::{Digest, Sha256};
+                    format!("{:x}", Sha256::digest(s.as_bytes()))
+                }),
         })
     }
     pub fn require(&self, operation: Operation, now: DateTime<Utc>) -> Result<()> {

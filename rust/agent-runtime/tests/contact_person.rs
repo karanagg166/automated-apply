@@ -230,6 +230,61 @@ print(json.dumps({'keys':out,'folds':[scope['folded'](s) for s in payload['folds
         assert_eq!(json!(identity::folded(input.as_str().unwrap())), *want);
     }
 }
+
+#[test]
+fn local_candidate_patterns_match_actual_generator_and_remain_unverified() {
+    let cases = json!([
+        ["Fictional", "Person", "example.com", null],
+        ["Fictional", "Person", "https://www.example.com/team", null],
+        ["José", "Niño", "example.com", null],
+        ["A", "B", "example.com", null],
+        ["Fictional", "", "example.com", null],
+        ["", "Person", "example.com", null],
+        ["", "", "example.com", null],
+        ["First-name", "O'Last", "example.com", null],
+        [
+            "Fictional",
+            "Person",
+            "example.com",
+            "{first}.{last}@{domain}"
+        ],
+        [
+            "Fictional",
+            "Person",
+            "example.com",
+            "{first}_{last}@{domain}"
+        ],
+        ["Fictional", "Person", "example.com", "{unknown}@{domain}"],
+        ["工程师", "姓名", "example.com", null]
+    ]);
+    let actual = oracle(
+        r#"import ast,json,re,runpy,sys,unicodedata
+from pathlib import Path
+from pydantic import BaseModel,Field
+from typing import Literal
+scope={'BaseModel':BaseModel,'Field':Field,'Literal':Literal};tree=ast.parse(Path('backend/app/schemas/contact.py').read_text());nodes=[n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='EmailCandidate'];exec(compile(ast.Module(body=nodes,type_ignores=[]),'<actual-candidate-dto>','exec'),scope)
+scope.update(re=re,unicodedata=unicodedata);tree=ast.parse(Path('backend/app/services/email_candidate_generator.py').read_text());nodes=[n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='EmailCandidateGenerator'];exec(compile(ast.Module(body=nodes,type_ignores=[]),'<actual-candidate-generator>','exec'),scope)
+print(json.dumps([[c.model_dump(mode='json') for c in scope['EmailCandidateGenerator'].generate_candidates(*row)] for row in json.load(sys.stdin)]))
+"#,
+        &cases,
+    );
+    for (input, want) in cases
+        .as_array()
+        .unwrap()
+        .iter()
+        .zip(actual.as_array().unwrap())
+    {
+        let got = automated_apply_agents::contacts::enrichment::candidates::generate(
+            input[0].as_str().unwrap(),
+            input[1].as_str().unwrap(),
+            input[2].as_str().unwrap(),
+            input[3].as_str(),
+        )
+        .unwrap();
+        assert_eq!(json!(got), *want);
+        assert!(got.iter().all(|c| c["status"] == "candidate"));
+    }
+}
 #[test]
 fn apollo_observations_match_actual_projection_without_raw_personal_data_or_mailbox_verification() {
     let base = json!({"name":"Fictional Person","title":"CTO","organization":{"primary_domain":"example.com"},"linkedin_url":"https://www.linkedin.com/in/fictional-person","email":"person@example.com","id":"fictional-provider-person","email_status":"verified","phone":"PRIVATE_PHONE_CANARY","vendor_payload":"PRIVATE_VENDOR_CANARY"});

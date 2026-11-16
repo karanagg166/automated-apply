@@ -86,6 +86,7 @@ fn request() -> Value {
 }
 fn eligibility_at(at: DateTime<Utc>) -> capabilities::Eligibility {
     capabilities::Eligibility::from_values(&BTreeMap::from([
+        ("APOLLO_API_KEY".into(), "fictional-provider-key".into()),
         ("APOLLO_FREE_ACCOUNT_CONFIRMED".into(), "true".into()),
         ("APOLLO_WORK_EMAIL_CONFIRMED".into(), "true".into()),
         ("APOLLO_ELIGIBILITY_REVIEWED_AT".into(), at.to_rfc3339()),

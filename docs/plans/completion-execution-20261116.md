@@ -1,5 +1,17 @@
 # Complete-source delivery plan — 2026-11-16
 
+Owner enrichment controller design2026-11-17: finish local-first discovered-person and
+confirmed saved business-evidence ingestion before fixed provider lookup. Use one shared
+transient host permit/connection, never hold the owner mutex or transaction over HTTP.
+Keep a bounded80-second work budget/90-second endpoint and original180-second run lease;
+each metadata deadline is15 seconds and a billable request starts only with its full
+configured timeout plus persistence margin remaining. Cancellation/response loss leaves
+durable prepared/admitted intents and full reserved costs, never a resumed POST. Finalize
+local run counts/errors/candidate-pattern research with exact ACK and immutable finish
+receipt; unresolved admitted work makes the result billing-uncertain. The frontend keeps
+one idempotency key for a reviewed attempt and must review retained history before another
+attempt. Scope remains business-evidence discovery/local drafts; no sending or purchases.
+
 Provider result design2026-11-17: transport binds its outcome to the consumed dispatch
 invocation/reservation/provider/request and a private content hash. Persist that immutable
 normalized result plus lookup/budget finding and one run-usage entry before identity

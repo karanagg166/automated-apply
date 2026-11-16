@@ -31,6 +31,7 @@ pub(super) fn profile_route(path: &str) -> bool {
         || crate::job_catalog::route(path).is_some()
         || crate::contacts::route(path).is_some()
         || crate::contacts::enrichment::route(path).is_some()
+        || crate::contacts::enrichment::io_route(path).is_some()
         || crate::packet_service::route(path).is_some()
         || crate::packet_generation::route(path).is_some()
         || crate::resume_review::route(path).is_some()

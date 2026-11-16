@@ -1,10 +1,13 @@
 //! Local enrichment planning and saved records. This module never dispatches provider IO.
 use super::*;
 pub mod budget;
+pub mod candidates;
 pub mod capabilities;
 pub mod contract;
+pub mod controller;
 pub mod dispatch;
 pub mod identity;
+pub mod local;
 pub mod lookups;
 pub mod person;
 pub mod policy;
@@ -95,6 +98,11 @@ pub fn route(path: &str) -> Option<Route> {
         .and_then(|s| s.parse().ok())
         .map(Route::Preview)
 }
+pub fn io_route(path: &str) -> Option<Uuid> {
+    path.strip_prefix("/api/v1/companies/")
+        .and_then(|s| s.strip_suffix("/contacts/enrich"))
+        .and_then(|s| s.parse().ok())
+}
 pub fn provider_status(provider: &Provider, budget: Option<&Value>) -> Result<Value> {
     let reserved = match budget {
         Some(b) => b["reserved"]
@@ -105,7 +113,7 @@ pub fn provider_status(provider: &Provider, budget: Option<&Value>) -> Result<Va
     };
     let configured = provider.enabled && provider.credentials_configured;
     Ok(
-        json!({"provider":provider.name,"enabled":provider.enabled,"credentials_configured":provider.credentials_configured,"configuration_status":if configured{"completed"}else{"not_configured"},"capabilities":{"search_people":provider.name=="apollo","enrich_person":true,"get_usage":provider.name=="signalhire","test_connection":true,"bulk":false,"mailbox_verification":false,"delivery":"synchronous"},"budget":{"monthly_limit":provider.monthly_limit,"reserved_estimate":reserved,"remaining_local_budget":(provider.monthly_limit as f64-reserved).max(0.0),"provider_balance":null,"credits_per_lookup_estimate":if provider.lookup_cost==0{None}else{Some(provider.lookup_cost)},"per_run_limit":provider.per_run_limit,"cooldown_until":budget.map(|b|b["cooldown_until"].clone()).unwrap_or(Value::Null)},"live_verification":"not_checked","billing_configuration_required":provider.lookup_cost==0,"native_lookup_execution_ready":false}),
+        json!({"provider":provider.name,"enabled":provider.enabled,"credentials_configured":provider.credentials_configured,"configuration_status":if configured{"completed"}else{"not_configured"},"capabilities":{"search_people":provider.name=="apollo","enrich_person":true,"get_usage":provider.name=="signalhire","test_connection":true,"bulk":false,"mailbox_verification":false,"delivery":"synchronous"},"budget":{"monthly_limit":provider.monthly_limit,"reserved_estimate":reserved,"remaining_local_budget":(provider.monthly_limit as f64-reserved).max(0.0),"provider_balance":null,"credits_per_lookup_estimate":if provider.lookup_cost==0{None}else{Some(provider.lookup_cost)},"per_run_limit":provider.per_run_limit,"cooldown_until":budget.map(|b|b["cooldown_until"].clone()).unwrap_or(Value::Null)},"live_verification":"not_checked","billing_configuration_required":provider.lookup_cost==0,"native_lookup_execution_ready":false,"native_lookup_controller_implemented":true,"runtime_acceptance":"not_verified"}),
     )
 }
 async fn providers(

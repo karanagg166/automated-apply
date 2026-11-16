@@ -260,6 +260,9 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     } else {
         None
     };
+    if let Some(company) = crate::contacts::enrichment::io_route(&path) {
+        return contact_io::dispatch(&api, company, &method, packet_query.as_deref(), &body).await;
+    }
     if let Some(route) = crate::gmail_accounts::io_route(&path) {
         return gmail_accounts_io::dispatch(&api, route, &method, &body).await;
     }

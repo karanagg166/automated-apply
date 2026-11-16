@@ -4076,3 +4076,4 @@ include!("support/contact_lookups_pg.rs");
 include!("support/contact_dispatch_pg.rs");
 include!("support/contact_identity_pg.rs");
 include!("support/contact_results_pg.rs");
+include!("support/contact_controller_pg.rs");
