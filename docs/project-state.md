@@ -7,6 +7,19 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest relevance ranking sourced3c5af0 reuses the existing deterministic domain job matcher
+and ports actual company weights/reasons/missing facts/exclusions/profile version with
+bounded inputs. No score establishes factual or application authority. Two standard
+declarations (32 actual ranking comparisons and inventory/no authority regression) are
+UNRUN. See [qualified relevance report](acceptance/startup-relevance-ranking-source-20261117.md).
+Continue snapshot-backed derived startup detail/search/shortlist persistence, public research
+and remaining dashboard/registry/provider/CLI/conversation/eight-platform source before
+combined gates. No current tests/build/check/live/install or estimate gain;58/42/prior455
+held. Pure ranking is not yet a wired catalog; full Rust host remains uninstalled.
+Private continuity snapshot3a1a08dff910edaa8d4469422a070620f354078b64d5f0a4ef8d8ebd051f0a92
+at2026-11-16T22:26:31Z preserves104 indexed/6 available/98 missing transcripts; no sidebar/
+account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest startup intelligence source84538f1 ports source-identity size selection, human
 confirmation priority, exact/range conflicts and saved job/board/company hiring qualification.
 Future observations and unsupported negative hiring statements do not establish current
