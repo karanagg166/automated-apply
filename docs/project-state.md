@@ -7,6 +7,17 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest provider projection source0c0c8a0 freezes actual PersonObservation/provider request
+DTOs and ports company-bound professional identity/mailbox claims without raw vendor
+personal fields. Conflicting profiles/mailboxes and redacted names are withheld; IDNA
+business-host comparison is corrected. Four standard declarations (32+24 DTO /16+16 actual
+provider method cases plus conservative assertions) are UNRUN; no PG/frontend addition.
+See [qualified provider projection](acceptance/contact-provider-projection-source-20261117.md).
+Continue fixed transport/fresh capability/one-time dispatch/result identity ingestion/
+controller, grounded outreach and remaining full source before combined acceptance. No
+current-head build/check/test/provider/live/install or percentage gain;58/42/prior455 held.
+Provider execution readiness remains false.
+
 Latest lookup preparation source42ce99b atomically binds original run/current target/
 provider plan to unique legacy lookup, zero-POST private intent and positive credit reserve.
 Expired unknown claims remain blocked; only known completed/not-found expired cache may
