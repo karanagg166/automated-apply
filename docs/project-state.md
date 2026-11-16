@@ -7,6 +7,15 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest company ingestion source987d64b preserves exact source/domain/URL identity and actual
+content hashes, conservative canonical company facts, missing-domain review guards and
+immutable observation replay with complete ACK/rollback. One standard declaration (20
+actual identity/hash cases) +10 PG declarations are UNRUN. See [qualified ingestion report](acceptance/company-identity-ingestion-source-20261117.md).
+Continue owner manual startup-run orchestration, durable public research/provider status and
+remaining dashboard/registry/provider/CLI/conversation/eight-platform full source before
+combined gates. No current tests/build/check/live/install or estimate increase;58/42/prior455
+held. Ingestion is currently a domain service, not a live provider/installation claim.
+
 Latest research contract sourcef3f3d6f freezes actual company observations/startup runs and
 public/official/manual people inputs with exact count/band, public URL, domain, aware time,
 email publication and manual permission rules. Two standard declarations (160 actual DTO
