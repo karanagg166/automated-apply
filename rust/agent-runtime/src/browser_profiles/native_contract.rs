@@ -420,3 +420,21 @@ pub(super) fn parse(bytes: &[u8]) -> Result<(Value, String)> {
 pub fn payload_hash(bytes: &[u8]) -> Result<String> {
     parse(bytes).map(|(_, hash)| hash)
 }
+/// The internal observer shares the exact native report DTO, defaults and model validators.
+/// This validates observations; it does not authenticate a profile or authorize an action.
+pub fn work_report(mut value: Value) -> Result<Value> {
+    static REPORT: LazyLock<jsonschema::Validator> = LazyLock::new(|| {
+        jsonschema::draft202012::options()
+            .should_validate_formats(true)
+            .build(&json!({"$defs":SCHEMA["$defs"],"$ref":"#/$defs/NaukriWorkReport"}))
+            .expect("native work report schema")
+    });
+    if !REPORT.is_valid(&value) {
+        return Err(request_error());
+    }
+    normalize(&json!({"$ref":"#/$defs/NaukriWorkReport"}), &mut value)?;
+    if !REPORT.is_valid(&value) {
+        return Err(request_error());
+    }
+    Ok(value)
+}

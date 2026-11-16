@@ -8,6 +8,7 @@ mod events;
 pub mod fences;
 pub mod filters;
 mod history;
+mod notices;
 mod preflight;
 mod questionnaire_context;
 pub mod queue;
@@ -16,6 +17,7 @@ pub mod queue_page;
 mod queue_status;
 pub mod receipts;
 mod storage;
+pub mod submission;
 
 use crate::{Failure, Result};
 use serde_json::Value;

@@ -184,7 +184,7 @@ pub(crate) async fn admit_in(
             work["revision"] = json!(next(&work)?);
             // The existing schema trigger reads this exact admission before permitting submitting.
             put(tx, &format!("apply_work:{}", request.identity), &work).await?;
-            let changed:Option<(i32,String,Option<i32>)>=sqlx::query_as("UPDATE application_packets SET lifecycle_state='submitting',revision=revision+1,approved_revision=NULL WHERE id=$1 AND revision=$2 RETURNING revision,lifecycle_state,approved_revision").bind(packet["id"].as_str().and_then(|s|s.parse::<Uuid>().ok()).ok_or_else(invalid)?).bind(packet["revision"].as_i64().ok_or_else(invalid)?).fetch_optional(&mut **tx).await.map_err(db)?;
+            let changed:Option<(i32,String,Option<i32>)>=sqlx::query_as("UPDATE application_packets SET lifecycle_state='submitting',revision=revision+1,approved_revision=NULL,updated_at=clock_timestamp() WHERE id=$1 AND revision=$2 RETURNING revision,lifecycle_state,approved_revision").bind(packet["id"].as_str().and_then(|s|s.parse::<Uuid>().ok()).ok_or_else(invalid)?).bind(packet["revision"].as_i64().ok_or_else(invalid)?).fetch_optional(&mut **tx).await.map_err(db)?;
             if changed
                 != Some((
                     i32::try_from(revision).map_err(|_| invalid())?,
