@@ -7,6 +7,16 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest public research rules source `3834099421594938700bd132812f29b4df92579c`
+ports actual search-index queries, fixed role aliases, Unicode/name/word rules, exact
+official company attribution and canonical URL/name ambiguity handling. Raw snippets
+are excluded; generated official results remain human_confirmed=false. Two standard
+declarations (60 actual adapter/query +8 ambiguity cases, plus bounds) are UNRUN.
+See [qualified professional research rules report](acceptance/public-research-rules-source-20261117.md).
+Continue durable original research admission/retained findings/contact ingestion and
+remaining agreed full source before combined gates. No current tests/build/check/live/
+install or estimate increase; 58/42 and prior 455 held. Full Rust host uninstalled.
+
 Latest startup owner/registry source `e97c210dc19b528ca030666d5950b09ddcf9498e`
 connects saved source metadata, read-only snapshot preview, original manual POST and
 retained run GET through the existing transient permit. Private deployment fields stay
