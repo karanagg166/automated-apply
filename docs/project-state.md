@@ -7,6 +7,18 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest contact enrichment planning source175f63e adds read-only local-first preview,
+saved provider/configuration/budget status and qualified retained runs/candidate patterns.
+Two standard (29 DTO +12 role +12 lookup +48 fallback cases) +8 PG/HTTP declarations are
+UNRUN. See [qualified preview report](acceptance/contact-enrichment-preview-source-20261117.md).
+Public primary provider docs were refreshed; no private API/account action. Continue
+durable lookup/credit admission, provider IO/identity ingestion, grounded outreach and
+remaining registry/conversation/eight-platform source before combined gates. No current
+test/build/check/live/install or percentage gain;58/42/prior455 held.
+Private continuity snapshotfed847dc77c992e4321b8c6d44c7c30737254fe09283f4ef485f5290de1d7950
+at2026-11-16T19:24:15Z preserves104 indexed/6 available/98 missing transcripts; no sidebar
+recovery or session/account ownership rewrite.
+
 Latest owner contact correction sourcee56651b adds actual frozen DTO, exact reviewed-row
 precondition, shared owner/company/contact locks, current mailbox-proof guard, bounded
 identity changes and complete update/evidence ACK rollback. The dashboard renders selected
