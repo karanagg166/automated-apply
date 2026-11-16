@@ -143,7 +143,7 @@ describe("Company and people research screen", () => {
     expect(screen.getByText(/Chief Technology Officer/i)).toBeInTheDocument();
 
     // Source-backed confidence badge
-    expect(screen.getByText("Verified · Source-backed")).toBeInTheDocument();
+    expect(screen.getByText("Supported identity evidence")).toBeInTheDocument();
 
     // Verified mailbox badge
     expect(
@@ -226,6 +226,36 @@ describe("Company and people research screen", () => {
       screen.queryByRole("button", { name: /send invitation/i }),
     ).toBeNull();
   });
+});
+
+it("keeps supported identity evidence separate from a provider-reported mailbox", async () => {
+  vi.mocked(api).mockImplementation(async (path: string) => {
+    if (path === "companies/comp-1/contacts")
+      return {
+        contacts: [
+          {
+            ...fictionalContacts[0],
+            email_status: "provider_reported",
+            email_evidence_status: "provider_reported",
+            confidence: "supported",
+            email_send_ready: false,
+          },
+        ],
+      } as any;
+    if (path === "companies/comp-1/people") return { people: [] } as any;
+    return {} as any;
+  });
+  mount();
+  await screen.findByText("Supported identity evidence");
+  expect(
+    screen.queryByText("Verified · Source-backed"),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.queryByText("Verified using authorized method"),
+  ).not.toBeInTheDocument();
+  expect(
+    screen.getByText("Provider reported mailbox"),
+  ).toBeInTheDocument();
 });
 
 it("separates published source support from actual mailbox verification", async () => {

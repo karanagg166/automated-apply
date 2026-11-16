@@ -284,7 +284,7 @@ export function CompanyPeople({
                         ? "Suppressed"
                         : "Stale source evidence"
                       : c.confidence === "supported"
-                        ? "Verified · Source-backed"
+                        ? "Supported identity evidence"
                         : c.confidence === "provider_reported"
                           ? "Provider reported"
                           : readable(c.confidence)}

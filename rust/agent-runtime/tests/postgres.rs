@@ -4067,3 +4067,4 @@ include!("support/gmail_workspace_account_pg.rs");
 include!("support/gmail_workspace_dispatch_pg.rs");
 include!("support/gmail_legacy_pg.rs");
 include!("support/gmail_legacy_oauth_pg.rs");
+include!("support/contacts_pg.rs");

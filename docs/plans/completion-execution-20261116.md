@@ -205,6 +205,17 @@ verify and local-first disconnect; do not alias/rebind the account into another 
 Connector/provider registry and historical outreach read routes follow the saved-status
 dependency. Add actual projection and isolated auth/no-write fixtures before the final gate.
 
+Saved contact structure: `contacts/rules.rs` ports explainable role/team-size/job relevance,
+freshness/email categories/publication bindings and retention projection; it cannot grant
+email sending. `contacts.rs` owns company contact filters, contact/evidence details and
+bounded saved-job recommendations in coherent read-only snapshots. Preserve suppression,
+current evidence versus provider claims, stable ID tie order and original profile/employer
+associations. Query only needed metadata, bound job references/evidence/pages and reject
+malformed saved context; avoid paid/provider IO or GET writes. Freeze actual rules through
+AST-only oracles and add isolated filtering/privacy/expiry/auth fixtures. Owner correction,
+professional people discovery/enrichment budgets and grounded local outreach follow this
+read dependency, using the same owner fence and immutable unknown-intent rules.
+
 The existing runner is the starting point, not yet a complete end-to-end gate: it omits
 UI/browser journeys, several extension browser fixture suites and PostgreSQL-backed Python
 integration. Extend it during source integration with a disposable DB lifecycle and strict

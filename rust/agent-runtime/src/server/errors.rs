@@ -7,6 +7,22 @@ use axum::{
 use serde_json::{Value, json};
 
 pub(super) fn profile_failure(error: Failure) -> Response {
+    if error.0.starts_with("contact_")
+        || matches!(
+            error.0,
+            "invalid_contact_query" | "invalid_contact_saved_record"
+        )
+    {
+        let status = match error.0 {
+            "contact_not_found" | "contact_company_not_found" | "contact_job_not_found" => {
+                StatusCode::NOT_FOUND
+            }
+            "invalid_contact_query" => StatusCode::UNPROCESSABLE_ENTITY,
+            "contact_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
+            _ => StatusCode::SERVICE_UNAVAILABLE,
+        };
+        return reply(status, json!({"detail":error.0}));
+    }
     if error.0.starts_with("gmail_legacy_") || error.0.starts_with("invalid_gmail_legacy_") {
         let status = match error.0 {
             "invalid_gmail_legacy_request" => StatusCode::UNPROCESSABLE_ENTITY,

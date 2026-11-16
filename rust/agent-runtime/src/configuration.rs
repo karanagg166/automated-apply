@@ -43,6 +43,7 @@ pub struct Configuration {
     pub(crate) browser_profiles: crate::browser_profiles::Settings,
     pub(crate) mailboxes: crate::mailboxes::Settings,
     pub(crate) gmail_accounts: crate::gmail_accounts::Settings,
+    pub(crate) contacts: crate::contacts::Settings,
     pub(crate) packets: crate::packet_service::Settings,
     pub(crate) legacy_discovery_enabled: bool,
     pub(crate) discovery_timeout_seconds: f64,
@@ -297,6 +298,7 @@ impl Configuration {
             browser_profiles: crate::browser_profiles::Settings::from_values(values)?,
             mailboxes: crate::mailboxes::Settings::from_values(values, fixture)?,
             gmail_accounts: crate::gmail_accounts::Settings::from_values(values)?,
+            contacts: crate::contacts::Settings::from_values(values)?,
             legacy_discovery_enabled: boolean(values, "AUTOMATION_EXECUTION_ENABLED", false)?,
             discovery_timeout_seconds: get("DISCOVERY_TIMEOUT_SECONDS", "90")
                 .parse::<f64>()

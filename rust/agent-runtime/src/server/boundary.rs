@@ -29,6 +29,7 @@ pub(super) fn profile_route(path: &str) -> bool {
         || crate::notifications::route(path).is_some()
         || path == crate::notification_preferences::PATH
         || crate::job_catalog::route(path).is_some()
+        || crate::contacts::route(path).is_some()
         || crate::packet_service::route(path).is_some()
         || crate::packet_generation::route(path).is_some()
         || crate::resume_review::route(path).is_some()
