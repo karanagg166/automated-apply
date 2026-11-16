@@ -61,6 +61,13 @@ Next job alerts, three-role account/draft workspace, full conversation/registry/
 providers/platforms, then all final gates. No current-head check/build/test/install or
 percentage gain; prior455 at9c4ace5 and58/42 held.
 
+Local-mailbox refresh correction78f2df5 records immutable credential-free attempts and
+requires reauthorization for abandoned, uncertain or expired late refresh outcomes. Older
+local-slot transport failure can no longer permit an automatic second refresh. Two new PG
+declarations and one updated existing case are UNRUN. See [qualified correction report](acceptance/local-mailbox-refresh-unknown-source-20261116.md).
+Continue approved local Gmail alerts, three-role workspace/drafts and full remaining source;
+no current-head build/check/test/install/percentage gain, prior455 at9c4ace5/58-42 held.
+
 Latest operational gate: Brave native health and API health/readiness pass under
 STOPPED162. A windowless native inactive/minimized window experiment failed focus
 acceptance and exposed restored tabs, including an unloaded inactive Naukri login page.
