@@ -43,3 +43,45 @@ fn submission_descriptors_keep_expected_binding_without_exposing_private_fields(
         submission::PROFILE_URL
     );
 }
+#[test]
+fn submission_receipt_hash_matches_the_actual_legacy_evidence_expression() {
+    use std::{
+        io::Write,
+        path::PathBuf,
+        process::{Command, Stdio},
+    };
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let inputs = json!([{"status":"Application Sent","nested":{"z":1,"a":true}},{"title":"Fictional résumé 🚀","value":1.0,"small":1e-7,"none":null}]);
+    let script = r#"import ast,hashlib,json,sys
+from pathlib import Path
+m=ast.parse(Path('backend/app/execution/naukri_submission.py').read_text())
+f=next(n for n in m.body if isinstance(n,ast.AsyncFunctionDef) and n.name=='confirm')
+expr=next(n.value for n in ast.walk(f) if isinstance(n,ast.keyword) and n.arg=='request_hash')
+code=compile(ast.Expression(expr),'<actual receipt hash>','eval')
+print(json.dumps([eval(code,{'hashlib':hashlib,'json':json,'receipt':receipt}) for receipt in json.load(sys.stdin)]))
+"#;
+    let mut child = Command::new(root.join(".venv/bin/python"))
+        .args(["-c", script])
+        .current_dir(root)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(inputs.to_string().as_bytes())
+        .unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let expected: Vec<String> = serde_json::from_slice(&output.stdout).unwrap();
+    for (input, expected) in inputs.as_array().unwrap().iter().zip(expected) {
+        assert_eq!(submission::receipt_request_hash(input), expected);
+    }
+}

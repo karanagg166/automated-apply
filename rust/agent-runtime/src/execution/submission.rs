@@ -3,6 +3,7 @@ use super::{events, filters, notices, preflight, queue_control, receipts, storag
 use crate::{Failure, Result, packet_service, private_resume};
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 pub const PROFILE_URL: &str = "https://www.naukri.com/mnjuser/profile";
@@ -13,6 +14,12 @@ pub const READS: &[&str] = &[
     "reconcile_application",
     "verify_account",
 ];
+pub fn receipt_request_hash(receipt: &Value) -> String {
+    format!(
+        "{:x}",
+        Sha256::digest(crate::python_json::serialize(receipt, false, true).as_bytes())
+    )
+}
 pub fn browser_url(work: &Value) -> Result<&str> {
     match work["operation"].as_str() {
         Some("inspect_profile" | "verify_account") => Ok(PROFILE_URL),
@@ -373,7 +380,7 @@ pub(crate) async fn confirm_in(
         let revision = next(&packet)?;
         let evidence = Uuid::new_v4();
         let idempotency = format!("naukri-worker-{}", work["id"].as_str().ok_or_else(invalid)?);
-        let ack:Option<Uuid>=sqlx::query_scalar("INSERT INTO application_submission_evidence(id,packet_id,packet_revision,confirmation_source,receipt_reference,evidence_confidence,human_confirmed,idempotency_key,request_hash) VALUES($1,$2,$3,'naukri_status_ui',$4,'provider_ui_persistent',false,$5,$6) RETURNING id").bind(evidence).bind(packet_id).bind(revision).bind(&key).bind(idempotency).bind(crate::python_json::digest(&receipt)).fetch_optional(&mut **tx).await.map_err(db)?;
+        let ack:Option<Uuid>=sqlx::query_scalar("INSERT INTO application_submission_evidence(id,packet_id,packet_revision,confirmation_source,receipt_reference,evidence_confidence,human_confirmed,idempotency_key,request_hash) VALUES($1,$2,$3,'naukri_status_ui',$4,'provider_ui_persistent',false,$5,$6) RETURNING id").bind(evidence).bind(packet_id).bind(revision).bind(&key).bind(idempotency).bind(receipt_request_hash(&receipt)).fetch_optional(&mut **tx).await.map_err(db)?;
         if ack != Some(evidence) {
             return Err(Failure("execution_write_ack_failed"));
         }

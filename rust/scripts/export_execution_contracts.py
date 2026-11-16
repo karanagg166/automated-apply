@@ -19,6 +19,9 @@ NAMES = {
     "Configuration": "execution-configuration",
     "Control": "execution-control",
     "Start": "execution-start",
+    "AccountApproval": "naukri-account-approval",
+    "SyncPolicy": "naukri-profile-sync-policy",
+    "SyncPolicyUpdate": "naukri-profile-sync-policy-update",
 }
 
 
@@ -78,6 +81,12 @@ def render():
             "QueuePolicyUpdate",
             "QueueControl",
         },
+    )
+    load(scope, "backend/app/execution/naukri_identity.py", {"AccountApproval"})
+    load(
+        scope,
+        "backend/app/execution/profile_sync.py",
+        {"FieldName", "SyncPolicy", "SyncPolicyUpdate"},
     )
     return {
         name: json.dumps(scope[kind].model_json_schema(), indent=2, sort_keys=True)

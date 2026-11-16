@@ -11,6 +11,7 @@ mod history;
 mod notices;
 mod preflight;
 pub mod preparation;
+pub mod profile_sync;
 mod questionnaire_context;
 pub mod queue;
 mod queue_control;

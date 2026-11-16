@@ -126,8 +126,9 @@ pub(crate) async fn prepare_in(
     events::queue(tx, &work, "preparation_finished", now).await?;
     Ok(true)
 }
-/// Idle preparation does not acquire the owner lock. The hint grants no authority;
-/// all mutable policy and claims are reread after the lock before local work starts.
+/// Idle preparation does not acquire the owner lock. Snapshot-dependent factual resolution
+/// retains SERIALIZABLE; row locks on control records detect updates committed while waiting
+/// for the shared owner fence, including legacy READ COMMITTED writers. No automatic replay.
 pub async fn prepare_one(c: &mut PgConnection, services: Services<'_>) -> Result<bool> {
     let hint:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM owner_preferences WHERE starts_with(key,'apply_work:') AND value->>'platform'='naukri' AND value->>'stage' NOT IN ('SUBMITTED_RECORDED','SUBMITTED_CONFIRMED','FAILED_FINAL','SKIPPED') AND ((value->>'operation'='prepare' AND value->>'status'='queued') OR (value->>'stage'='READY_TO_APPLY' AND value->>'status'='waiting' AND value->'admitted_actions'='[]'::jsonb) OR (value->>'status' IN ('leased','executing') AND CASE WHEN pg_input_is_valid(value->>'lease_until','timestamp with time zone') THEN (value->>'lease_until')::timestamptz<=clock_timestamp() ELSE true END)))").fetch_one(&mut *c).await.map_err(db)?;
     if !hint {
@@ -135,7 +136,10 @@ pub async fn prepare_one(c: &mut PgConnection, services: Services<'_>) -> Result
     }
     let mut tx = c.begin().await.map_err(db)?;
     let result = async {
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE").execute(&mut *tx).await.map_err(db)?;
         lock(&mut tx).await?;
+        sqlx::query("SELECT key FROM owner_preferences WHERE key IN ('application_queue_policy','exec_config:naukri','phase1_profile_confirmation','naukri_account_binding','chr_selection') ORDER BY key FOR UPDATE").fetch_all(&mut *tx).await.map_err(db)?;
+        sqlx::query("SELECT id FROM candidate_profiles WHERE singleton_key='primary' FOR UPDATE").fetch_optional(&mut *tx).await.map_err(db)?;
         let now = now(&mut tx).await?;
         prepare_in(&mut tx, services, now).await
     }

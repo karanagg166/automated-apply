@@ -1,0 +1,44 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "account_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Account Sha256",
+      "type": "string"
+    },
+    "candidate_profile_id": {
+      "format": "uuid",
+      "title": "Candidate Profile Id",
+      "type": "string"
+    },
+    "evidence_sha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Evidence Sha256",
+      "type": "string"
+    },
+    "expected_revision": {
+      "minimum": 0,
+      "title": "Expected Revision",
+      "type": "integer"
+    },
+    "owner_confirmed": {
+      "title": "Owner Confirmed",
+      "type": "boolean"
+    },
+    "profile_binding_id": {
+      "format": "uuid",
+      "title": "Profile Binding Id",
+      "type": "string"
+    }
+  },
+  "required": [
+    "expected_revision",
+    "candidate_profile_id",
+    "profile_binding_id",
+    "account_sha256",
+    "evidence_sha256",
+    "owner_confirmed"
+  ],
+  "title": "AccountApproval",
+  "type": "object"
+}

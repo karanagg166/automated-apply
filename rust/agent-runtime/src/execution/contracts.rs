@@ -11,6 +11,9 @@ pub enum Kind {
     Configuration,
     ExecutionControl,
     Start,
+    AccountApproval,
+    SyncPolicy,
+    SyncPolicyUpdate,
 }
 struct Contract {
     schema: Value,
@@ -40,6 +43,18 @@ fn contract(kind: Kind) -> &'static Contract {
         LazyLock::new(|| compile(include_str!("../../schemas/execution-control.json")));
     static START: LazyLock<Contract> =
         LazyLock::new(|| compile(include_str!("../../schemas/execution-start.json")));
+    static ACCOUNT: LazyLock<Contract> =
+        LazyLock::new(|| compile(include_str!("../../schemas/naukri-account-approval.json")));
+    static SYNC: LazyLock<Contract> = LazyLock::new(|| {
+        compile(include_str!(
+            "../../schemas/naukri-profile-sync-policy.json"
+        ))
+    });
+    static SYNC_UPDATE: LazyLock<Contract> = LazyLock::new(|| {
+        compile(include_str!(
+            "../../schemas/naukri-profile-sync-policy-update.json"
+        ))
+    });
     match kind {
         Kind::Policy => &POLICY,
         Kind::PolicyUpdate => &UPDATE,
@@ -47,6 +62,9 @@ fn contract(kind: Kind) -> &'static Contract {
         Kind::Configuration => &CONFIG,
         Kind::ExecutionControl => &EXEC_CONTROL,
         Kind::Start => &START,
+        Kind::AccountApproval => &ACCOUNT,
+        Kind::SyncPolicy => &SYNC,
+        Kind::SyncPolicyUpdate => &SYNC_UPDATE,
     }
 }
 fn invalid() -> Failure {
@@ -107,6 +125,13 @@ fn fill(root: &Value, schema: &Value, name: Option<&str>, value: &mut Value) -> 
         && let Some(number) = value.as_f64()
     {
         *value = json!(number);
+    }
+    if schema["format"] == "uuid" {
+        let id = value
+            .as_str()
+            .and_then(|s| s.parse::<uuid::Uuid>().ok())
+            .ok_or_else(invalid)?;
+        *value = json!(id);
     }
     if name == Some("QueuePreferences") {
         for key in ["roles", "locations", "excluded_companies"] {

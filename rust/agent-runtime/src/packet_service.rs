@@ -354,8 +354,8 @@ pub(crate) async fn create_in(
 ) -> Result<Value> {
     create_context_in(tx, job, request, settings, answers, now, false).await
 }
-/// Owner lock must already be held. Queue preparation reads current material after waiting,
-/// using the established job/profile/resource locks rather than an earlier RR snapshot.
+/// Owner lock and a consistent snapshot must already be held. Queue preparation also
+/// locks current material versions so concurrent updates cannot silently retain older facts.
 pub(crate) async fn create_locked_in(
     tx: &mut Transaction<'_, Postgres>,
     job: Uuid,

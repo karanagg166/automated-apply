@@ -1,0 +1,91 @@
+{
+  "$defs": {
+    "SyncPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "approved_fields": {
+          "items": {
+            "enum": [
+              "full_name",
+              "email",
+              "phone",
+              "summary",
+              "skills",
+              "experience",
+              "education",
+              "projects",
+              "location",
+              "preferences",
+              "notice_period",
+              "expected_compensation",
+              "resume",
+              "github",
+              "portfolio",
+              "linkedin",
+              "headline",
+              "professional_title"
+            ],
+            "type": "string"
+          },
+          "maxItems": 18,
+          "title": "Approved Fields",
+          "type": "array"
+        },
+        "auto_profile_sync": {
+          "default": false,
+          "title": "Auto Profile Sync",
+          "type": "boolean"
+        },
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "interval_seconds": {
+          "default": 1800,
+          "maximum": 86400,
+          "minimum": 300,
+          "title": "Interval Seconds",
+          "type": "integer"
+        },
+        "profile_version": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Profile Version"
+        },
+        "verify_saved_resume": {
+          "default": false,
+          "title": "Verify Saved Resume",
+          "type": "boolean"
+        }
+      },
+      "title": "SyncPolicy",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "expected_revision": {
+      "minimum": 0,
+      "title": "Expected Revision",
+      "type": "integer"
+    },
+    "policy": {
+      "$ref": "#/$defs/SyncPolicy"
+    }
+  },
+  "required": [
+    "expected_revision",
+    "policy"
+  ],
+  "title": "SyncPolicyUpdate",
+  "type": "object"
+}
