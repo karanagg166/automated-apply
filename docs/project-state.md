@@ -7,6 +7,17 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest grounded outreach source1a86221 binds exact current confirmed profile, complete
+bounded candidate/contact evidence/resources, corrected saved job and approved local-project
+digest. Pure copy uses only grounded contributions and safe saved public links, with current
+employer/mailbox/suppression/freshness guards and provider-reported warning. Eleven native
+PG declarations including7 actual composer cases are UNRUN. See [qualified context report](acceptance/outreach-grounded-context-source-20261117.md).
+Continue durable generation/create/edit/approval/writer, remaining full source then combined
+acceptance. No current tests/build/check/live/install or estimate gain;58/42/prior455 held.
+Private continuity snapshotad99d5af6fb1d61bf99ce7f3133de3521ef8aef304bb4af146c3069db3311f65
+at2026-11-16T21:37:07Z preserves104 indexed/6 available/98 missing transcripts; no account/
+session/sidebar ownership rewrite or unavailable transcript recovery claim.
+
 Latest outreach source504cf2c freezes actual draft input/edit/decision DTOs and adds bounded
 owner-only saved history/send-attempt projections. Interrupted attempts are qualified
 without GET writes/replay; private intent/context fields are excluded and saved acceptance
