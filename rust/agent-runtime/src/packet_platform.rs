@@ -179,7 +179,7 @@ fn smart_identity(url: &str) -> Option<SmartIdentity> {
         query,
     })
 }
-fn application_page(url: &str, policy: &Policy) -> Option<String> {
+pub(crate) fn application_page(url: &str, policy: &Policy) -> Option<String> {
     let u = reqwest::Url::parse(url).ok()?;
     let h = u.host_str()?;
     if u.query()

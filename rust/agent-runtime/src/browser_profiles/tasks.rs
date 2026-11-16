@@ -813,3 +813,54 @@ pub(super) fn domain_denial(e: Failure) -> bool {
 pub(crate) fn owner_denial(e: Failure) -> bool {
     domain_denial(e)
 }
+
+/// A saved owner reply advances only its packet task and invalidates every old fill grant.
+pub(crate) async fn owner_answer_saved(
+    tx: &mut Transaction<'_, Postgres>,
+    question: &Value,
+    packet: &Value,
+    waiting: bool,
+    now: DateTime<Utc>,
+) -> Result<()> {
+    let Some(raw) = question["extension_task_id"].as_str() else {
+        return Ok(());
+    };
+    let id = raw.parse::<Uuid>().map_err(|_| invalid())?;
+    let mut task = load(tx, id).await?;
+    if task["application_id"] != packet["id"] {
+        return Err(Failure("extension_answer_context_mismatch"));
+    }
+    let state = if task_terminal(&task) || task["state"] == "PAUSED" {
+        string(&task, "state")?.to_owned()
+    } else {
+        if waiting {
+            "NEEDS_INPUT"
+        } else {
+            "PACKET_READY"
+        }
+        .into()
+    };
+    let fields = packet["fields"].as_array().ok_or_else(invalid)?;
+    let revisions = fields
+        .iter()
+        .map(|f| Ok((string(f, "id")?.to_owned(), f["answer_revision"].clone())))
+        .collect::<Result<serde_json::Map<String, Value>>>()?;
+    let missing = task["counts"]["missing"]
+        .as_i64()
+        .filter(|n| *n >= 0)
+        .ok_or_else(invalid)?
+        .saturating_sub(1)
+        .max(0);
+    task["counts"]["missing"] = json!(missing);
+    let changes = json!({"packet_revision":packet["revision"],"field_answer_revisions":revisions,"plan_id":null,"authorization_id":null,"counts":task["counts"]});
+    move_in(
+        tx,
+        task,
+        &state,
+        "owner_answer_saved_fresh_inspection_required",
+        changes,
+        now,
+    )
+    .await?;
+    Ok(())
+}

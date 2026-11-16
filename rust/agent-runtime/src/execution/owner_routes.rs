@@ -1,5 +1,9 @@
 //! Owner execution controls, preparation intents and retained outbox. No external IO.
-use super::{contracts::Kind, events, fences, filters, legacy_policy, review, storage::*};
+use super::{
+    contracts::{self, Kind},
+    events, fences, filters, legacy_policy, legacy_questions, review,
+    storage::*,
+};
 use crate::{Failure, Result, job_context::Reviewed};
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
@@ -16,12 +20,18 @@ pub enum Route<'a> {
     Jobs,
     Events,
     Ack(&'a str),
+    Questions,
+    Ask(&'a str, &'a str),
+    PacketAsk(&'a str, &'a str),
+    Answer(&'a str),
+    ApproveReuse(&'a str),
+    Reuse(&'a str, &'a str, &'a str),
 }
 impl Route<'_> {
     pub fn method(self) -> &'static str {
         match self {
             Self::Configuration | Self::AutomationPolicy => "PUT",
-            Self::Jobs | Self::Events => "GET",
+            Self::Jobs | Self::Events | Self::Questions => "GET",
             _ => "POST",
         }
     }
@@ -32,8 +42,36 @@ impl Route<'_> {
             Self::AutomationControl => Some(Kind::AutomationControl),
             Self::Start => Some(Kind::Start),
             Self::Control(_) => Some(Kind::ExecutionControl),
+            Self::Answer(_) => Some(Kind::QuestionAnswer),
             _ => None,
         }
+    }
+    pub(super) fn input(self, body: &[u8]) -> Result<Option<Value>> {
+        if let Some(kind) = self.kind() {
+            return contracts::normalize(
+                kind,
+                serde_json::from_slice(body).map_err(|_| Failure("invalid_execution_contract"))?,
+            )
+            .map(Some);
+        }
+        if matches!(self, Self::PacketAsk(..)) {
+            let mut value: Value =
+                serde_json::from_slice(body).map_err(|_| Failure("invalid_execution_contract"))?;
+            let object = value
+                .as_object()
+                .filter(|o| o.len() == 1 && o.contains_key("expected_revision"))
+                .ok_or(Failure("invalid_execution_contract"))?;
+            value["expected_revision"] = json!(
+                crate::profile_contract::pagination_integer(
+                    object["expected_revision"].clone(),
+                    1,
+                    2147483646
+                )
+                .map_err(|_| Failure("invalid_execution_contract"))?
+            );
+            return Ok(Some(value));
+        }
+        Ok(None)
     }
     pub fn status(self) -> u16 {
         if matches!(self, Self::Start) {
@@ -52,11 +90,29 @@ pub fn route(path: &str) -> Option<Route<'_>> {
         "naukri/apply" => Some(Route::Start),
         "naukri/jobs" => Some(Route::Jobs),
         "events" => Some(Route::Events),
+        "questions" => Some(Route::Questions),
         _ => {
             let parts = tail.split('/').collect::<Vec<_>>();
             match parts.as_slice() {
                 [id, "control"] if !id.is_empty() => Some(Route::Control(id)),
                 ["events", id, "ack"] if !id.is_empty() => Some(Route::Ack(id)),
+                ["questions", id, "answer"] if !id.is_empty() => Some(Route::Answer(id)),
+                ["questions", id, "approve-reuse"] if !id.is_empty() => {
+                    Some(Route::ApproveReuse(id))
+                }
+                [execution, "questions", field] if !execution.is_empty() && !field.is_empty() => {
+                    Some(Route::Ask(execution, field))
+                }
+                ["packets", packet, "questions", field]
+                    if !packet.is_empty() && !field.is_empty() =>
+                {
+                    Some(Route::PacketAsk(packet, field))
+                }
+                [execution, "questions", field, "reuse", source]
+                    if !execution.is_empty() && !field.is_empty() && !source.is_empty() =>
+                {
+                    Some(Route::Reuse(execution, field, source))
+                }
                 _ => None,
             }
         }
@@ -249,9 +305,67 @@ pub(super) async fn dispatch_in(
     route: Route<'_>,
     data: Option<Value>,
     telegram: bool,
+    services: Option<legacy_questions::Services<'_>>,
     now: DateTime<Utc>,
 ) -> Result<Value> {
     match route {
+        Route::Questions => {
+            let rows:Vec<Value>=sqlx::query_scalar("SELECT value FROM owner_preferences WHERE starts_with(key,'exec_q:') ORDER BY created_at,key").fetch_all(&mut **tx).await.map_err(db)?;
+            Ok(json!(rows))
+        }
+        Route::Ask(execution, field) => {
+            legacy_questions::ask_in(
+                tx,
+                id(execution)?,
+                id(field)?,
+                services.ok_or(Failure("execution_services_required"))?,
+                now,
+            )
+            .await
+        }
+        Route::PacketAsk(packet, field) => {
+            legacy_questions::ask_packet_in(
+                tx,
+                id(packet)?,
+                id(field)?,
+                data.as_ref()
+                    .and_then(|d| d["expected_revision"].as_i64())
+                    .ok_or(Failure("invalid_execution_contract"))?,
+                services.ok_or(Failure("execution_services_required"))?,
+                now,
+            )
+            .await
+        }
+        Route::Answer(raw) => {
+            legacy_questions::answer_in(
+                tx,
+                id(raw)?,
+                &data.ok_or_else(invalid)?,
+                services.ok_or(Failure("execution_services_required"))?,
+                now,
+            )
+            .await
+        }
+        Route::ApproveReuse(raw) => {
+            legacy_questions::approve_in(
+                tx,
+                id(raw)?,
+                services.ok_or(Failure("execution_services_required"))?,
+                now,
+            )
+            .await
+        }
+        Route::Reuse(execution, field, source) => {
+            legacy_questions::reuse_in(
+                tx,
+                id(source)?,
+                id(execution)?,
+                id(field)?,
+                services.ok_or(Failure("execution_services_required"))?,
+                now,
+            )
+            .await
+        }
         Route::Configuration => configure_in(tx, data.ok_or_else(invalid)?, now).await,
         Route::AutomationPolicy => {
             legacy_policy::configure_in(tx, data.ok_or_else(invalid)?, telegram, now).await

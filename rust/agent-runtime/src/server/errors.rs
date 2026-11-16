@@ -16,6 +16,7 @@ pub(super) fn profile_failure(error: Failure) -> Response {
     if matches!(
         error.0,
         "execution_database_error"
+            | "execution_services_required"
             | "execution_commit_outcome_unknown"
             | "execution_active_inventory_limit"
             | "execution_write_ack_failed"

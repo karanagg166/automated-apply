@@ -15,6 +15,7 @@ mod form_loss;
 mod history;
 pub mod intake;
 pub mod legacy_policy;
+mod legacy_questions;
 pub mod listing_ingestion;
 mod local_policy;
 mod notices;
@@ -97,6 +98,34 @@ pub fn denial(error: Failure) -> bool {
             | "expired"
             | "invalid_evidence"
             | "already_applied"
+            | "question_not_found"
+            | "question_already_answered"
+            | "question_revision_conflict"
+            | "question_expired_or_application_cancelled"
+            | "questionnaire_question_context_changed"
+            | "execution_not_waiting_for_question"
+            | "answerable_packet_field_required"
+            | "missing_or_expired_answer_required"
+            | "supported_ats_application_required"
+            | "current_answer_required"
+            | "answer_context_stale"
+            | "answer_changed_review_again"
+            | "unexpired_reuse_approval_required"
+            | "source_answer_changed_review_again"
+            | "answer_reuse_context_mismatch"
+            | "sensitive_answer_not_retained"
+            | "answer_length_invalid"
+            | "numeric_answer_required"
+            | "iso_date_answer_required"
+            | "email_answer_required"
+            | "public_https_answer_required"
+            | "answer_must_match_option"
+            | "yes_or_no_required"
+            | "availability_requires_future_datetime_and_iana_timezone"
+            | "packet_context_stale_or_destination_invalid"
+            | "extension_answer_context_mismatch"
+            | "telegram_question_too_long_manual_required"
+            | "invalid_execution_transition"
     )
 }
 #[derive(Clone, Copy)]
@@ -154,7 +183,7 @@ pub fn route(path: &str) -> Option<Route<'_>> {
 }
 pub async fn dispatch(
     c: &mut PgConnection,
-    route: Route,
+    route: Route<'_>,
     method: &str,
     query: Option<&str>,
 ) -> Result<Value> {
@@ -162,7 +191,7 @@ pub async fn dispatch(
 }
 pub async fn dispatch_body(
     c: &mut PgConnection,
-    route: Route,
+    route: Route<'_>,
     method: &str,
     query: Option<&str>,
     body: &[u8],
@@ -202,16 +231,7 @@ pub async fn dispatch_body_configured(
                 serde_json::from_slice(body).map_err(|_| Failure("invalid_execution_contract"))?,
             )?)
         }
-        Route::Owner(owner) => owner
-            .kind()
-            .map(|kind| {
-                contracts::normalize(
-                    kind,
-                    serde_json::from_slice(body)
-                        .map_err(|_| Failure("invalid_execution_contract"))?,
-                )
-            })
-            .transpose()?,
+        Route::Owner(owner) => owner.input(body)?,
         _ => None,
     };
     let mut tx = c.begin().await.map_err(storage::db)?;
@@ -236,6 +256,11 @@ pub async fn dispatch_body_configured(
                     owner,
                     input,
                     config.is_some_and(|c| c.telegram_enabled()),
+                    config.map(|c| legacy_questions::Services {
+                        packets: &c.packets,
+                        answers: &c.answers,
+                        resumes: &c.resumes,
+                    }),
                     now,
                 )
                 .await

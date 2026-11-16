@@ -40,7 +40,7 @@ async fn move_intent(
     }
     Ok(value)
 }
-async fn intent(
+pub(crate) async fn intent(
     tx: &mut Transaction<'_, Postgres>,
     packet: &Value,
     now: DateTime<Utc>,
@@ -141,7 +141,7 @@ pub(crate) fn message_text(q: &Value) -> Result<String> {
         string(q, "job_url")?
     ))
 }
-async fn envelope(
+pub(crate) async fn envelope(
     tx: &mut Transaction<'_, Postgres>,
     packet: &Value,
     execution: &mut Value,
@@ -196,9 +196,13 @@ async fn envelope(
         *execution = move_intent(tx, execution.clone(), "waiting_for_owner_answer").await?;
         value
     };
-    value["form_kind"] = observed["kind"].clone();
-    value["form_semantic_key"] = field["provenance"]["form_semantic_key"].clone();
-    value["extension_task_id"] = task["id"].clone();
+    if observed.is_object() {
+        value["form_kind"] = observed["kind"].clone();
+        value["form_semantic_key"] = field["provenance"]["form_semantic_key"].clone();
+    }
+    if task.is_object() {
+        value["extension_task_id"] = task["id"].clone();
+    }
     put(tx, &key, &value).await?;
     Ok(value)
 }

@@ -164,6 +164,37 @@ pub(crate) async fn run_in(
     answers: &answer_service::Settings,
     now: DateTime<Utc>,
 ) -> Result<Value> {
+    run_with_answer_metadata_in(tx, packet, input, field, settings, answers, now, None).await
+}
+/// Owner-question provenance is included in the same guarded field update as
+/// the answer, so the database advances answer_revision exactly once.
+pub(crate) async fn run_with_answer_metadata_in(
+    tx: &mut Transaction<'_, Postgres>,
+    packet: Uuid,
+    input: &Input,
+    field: Option<Uuid>,
+    settings: &Settings,
+    answers: &answer_service::Settings,
+    now: DateTime<Utc>,
+    metadata: Option<&Value>,
+) -> Result<Value> {
+    if let Some(metadata) = metadata {
+        if !matches!(input, Input::Answer { .. })
+            || metadata.as_object().is_none_or(|o| {
+                o.keys().any(|k| {
+                    !matches!(
+                        k.as_str(),
+                        "telegram_question"
+                            | "answer_expires_at"
+                            | "interview_availability"
+                            | "telegram_owner_update"
+                    )
+                })
+            })
+        {
+            return Err(Failure("invalid_packet_edit_request"));
+        }
+    }
     if matches!(
         input,
         Input::Refresh {
@@ -315,6 +346,11 @@ pub(crate) async fn run_in(
             old["provenance"] = original["provenance"].clone();
             old["provenance"]["source"] = json!("human");
             old["provenance"]["resolver"] = json!("human");
+            if let Some(metadata) = metadata {
+                for (k, v) in metadata.as_object().unwrap() {
+                    old["provenance"][k] = v.clone();
+                }
+            }
             replace_answer_in(tx, field, &old).await?;
             let snapshot = packet_record::normalize(Kind::Snapshot, raw["snapshot"].clone())?;
             finish_in(tx, packet, &snapshot, &raw, "answer_edited", settings, now).await

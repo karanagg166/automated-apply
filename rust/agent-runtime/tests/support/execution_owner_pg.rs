@@ -4,6 +4,7 @@ async fn owner_legacy(c:&mut PgConnection,state:&str)->Value{let id=Uuid::new_v4
 async fn owner_preparation_policy(c:&mut PgConnection)->Value{
     let owner:Uuid=sqlx::query_scalar("SELECT id FROM candidate_profiles WHERE singleton_key='primary'").fetch_one(&mut *c).await.unwrap();
     let resources:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(r) FROM candidate_resources r WHERE candidate_profile_id=$1 ORDER BY id").bind(owner).fetch_all(&mut *c).await.unwrap();let resources=resources.into_iter().map(|v|serde_json::from_value(v).unwrap()).collect::<Vec<automated_apply_agents::resources::Resource>>();let resume=automated_apply_agents::resources::select_resume(&resources,None).unwrap().selected.unwrap();let version:i32=sqlx::query_scalar("SELECT version FROM candidate_profiles WHERE id=$1").bind(owner).fetch_one(&mut *c).await.unwrap();
+    browser_save(c,"phase1_profile_confirmation",json!({"profile_id":owner,"profile_version":version,"confirmed_at":"2026-11-16T00:00:00Z"})).await;
     json!({"profile_version":version,"resume_resource_id":resume.resource_id,"resume_version":resume.resource_version,"allowed_roles":["Rust Engineer"],"allowed_locations":["Remote"],"experience_min":0,"experience_max":60})
 }
 #[tokio::test(flavor="current_thread")]
