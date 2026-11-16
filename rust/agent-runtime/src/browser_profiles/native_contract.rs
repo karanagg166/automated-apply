@@ -34,6 +34,7 @@ impl InputOrder {
         match self {
             Self::Object(fields) => fields
                 .iter()
+                .rev()
                 .find(|(k, _)| k == key)
                 .map(|(_, v)| v)
                 .unwrap_or(&EMPTY_ORDER),
