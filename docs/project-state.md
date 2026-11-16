@@ -7,6 +7,17 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest owner controller sourcefc08727 connects local-first saved evidence, guarded fixed
+provider calls/results/identity and exact finalization over shared transient host IO.
+Dashboard request IDs persist before POST, recover retained requests and use GET history
+after a run ID is known; no uncertain new-attempt reset. Candidate patterns stay unverified.
+One standard (12 actual candidate cases) +10 PG/loopback/HTTP +6 frontend declarations are
+UNRUN. See [qualified controller report](acceptance/contact-owner-controller-source-20261117.md).
+Continue grounded local outreach, remaining public research/company/dashboard and full
+registry/provider/CLI/conversation/eight-platform source before combined acceptance.
+No current build/check/test/provider/live/install or percentage gain;58/42/prior455 held.
+Controller implementation is separate from still-unverified runtime readiness.
+
 Latest provider results source8f8f05b binds transport outcomes to consumed grants and
 commits immutable finding/lookup/full-cap budget/usage before separate guarded identity
 ingestion. Identical replay is retained-only; late/changed target results remain held.
