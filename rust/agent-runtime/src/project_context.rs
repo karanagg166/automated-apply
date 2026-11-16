@@ -134,6 +134,26 @@ impl Snapshot {
             &json!({"configuration":self.configuration,"knowledge":self.knowledge}),
         )
     }
+    /// Legacy browser plans bind the metadata of all current approved projects.
+    pub(crate) fn browser_digest(&self) -> Result<String> {
+        let mut projects = Vec::new();
+        for (project, knowledge) in &self.knowledge {
+            let candidate = &knowledge["candidate"];
+            let approved = &knowledge["approved"];
+            if candidate.is_null()
+                || approved.is_null()
+                || candidate["revision"] != approved["revision"]
+                || project != &candidate["configuration"]
+            {
+                continue;
+            }
+            if approved["project_id"] != project["id"] {
+                return Err(invalid());
+            }
+            projects.push(json!({"project_id":approved["project_id"],"name":project["name"],"revision":approved["revision"],"priority":project["priority"],"commit_sha":approved["commit_sha"],"fact_ids":approved["fact_ids"]}));
+        }
+        Ok(crate::python_json::digest(&json!(projects)))
+    }
     /// Provider projection carries only approved narrative text and opaque citations.
     /// Full provenance remains in the local snapshot digest and saved draft evidence.
     pub fn prompt_evidence(&self, question: &str, category: &str) -> Result<Vec<Value>> {

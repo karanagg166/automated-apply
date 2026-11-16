@@ -599,3 +599,18 @@ pub(crate) async fn factual_in(
         Prepared::Writing(_) => Err(Failure("packet_explicit_generation_required")),
     }
 }
+/// Explicit form inspection can extract a reviewable narrative, but never waits on a model.
+/// Uses the caller's serializable transaction so draft/missing-input writes roll back together.
+pub(crate) async fn form_in(
+    tx: &mut Transaction<'_, Postgres>,
+    request: Generate,
+    settings: &Settings,
+) -> Result<Value> {
+    if request.rewrite {
+        return Err(Failure("form_rewrite_not_authorized"));
+    }
+    match prepare(tx, request, settings).await? {
+        Prepared::Ready { request, result } => finish(tx, &request, result, true).await,
+        Prepared::Writing(_) => Err(Failure("form_rewrite_not_authorized")),
+    }
+}

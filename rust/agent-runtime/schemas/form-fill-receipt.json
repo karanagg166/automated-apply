@@ -1,0 +1,84 @@
+{
+  "$defs": {
+    "FieldResult": {
+      "additionalProperties": false,
+      "properties": {
+        "field_id": {
+          "pattern": "^f[0-9]{1,3}$",
+          "title": "Field Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "filled",
+            "failed",
+            "needs_input",
+            "validation_error",
+            "untouched"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "field_id",
+        "status"
+      ],
+      "title": "FieldResult",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "network_guard_active": {
+      "default": false,
+      "title": "Network Guard Active",
+      "type": "boolean"
+    },
+    "plan_id": {
+      "format": "uuid",
+      "title": "Plan Id",
+      "type": "string"
+    },
+    "results": {
+      "items": {
+        "$ref": "#/$defs/FieldResult"
+      },
+      "maxItems": 24,
+      "title": "Results",
+      "type": "array"
+    },
+    "state": {
+      "enum": [
+        "form_filled",
+        "needs_input",
+        "manual_required",
+        "failed"
+      ],
+      "title": "State",
+      "type": "string"
+    },
+    "submitted": {
+      "const": false,
+      "default": false,
+      "title": "Submitted",
+      "type": "boolean"
+    },
+    "verification_method": {
+      "default": "dom_assignment",
+      "enum": [
+        "dom_assignment",
+        "retained_after_blur"
+      ],
+      "title": "Verification Method",
+      "type": "string"
+    }
+  },
+  "required": [
+    "plan_id",
+    "results",
+    "state"
+  ],
+  "title": "FillReceipt",
+  "type": "object"
+}

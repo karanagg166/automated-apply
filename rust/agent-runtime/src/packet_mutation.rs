@@ -367,6 +367,63 @@ pub(crate) async fn finish_in(
     .await?;
     packet_service::read_in(tx, packet, settings, now).await
 }
+/// The explicit native inspection may preserve an observed unanswered narrative.
+/// No model call or generated rewrite is allowed while the owner transaction is held.
+pub(crate) async fn observed_question_in(
+    tx: &mut Transaction<'_, Postgres>,
+    packet: Uuid,
+    revision: i32,
+    question: Question,
+    settings: &Settings,
+    answers: &answer_service::Settings,
+    now: DateTime<Utc>,
+) -> Result<Value> {
+    multiple(tx, vec![question.clone()], settings).await?;
+    let claim = locked_in(tx, packet, revision, true, settings).await?;
+    if claim.prior_fields.len() >= 100 {
+        return Err(Failure("packet_field_limit"));
+    }
+    let profile = claim
+        .material
+        .profile
+        .as_ref()
+        .ok_or(Failure("packet_profile_changed"))?;
+    let selected = claim.raw["resume_resource_id"]
+        .as_str()
+        .map(|s| {
+            s.parse()
+                .map_err(|_| Failure("invalid_packet_saved_record"))
+        })
+        .transpose()?;
+    let resume = crate::resources::select_resume(&claim.material.resources, selected)?;
+    let prepared = packet_fields::prepare_generation(
+        question,
+        packet_service::id(&claim.raw["job_id"])?,
+        Some(profile),
+        Some(&resume),
+        "user_provided",
+        false,
+    )?;
+    let field = if let Some(request) = prepared.resolution.as_ref() {
+        let result = answer_service::form_in(tx, request.clone(), answers).await?;
+        packet_fields::resolved(prepared, &result, profile)?
+    } else {
+        prepared.field
+    };
+    let snapshot = packet_record::normalize(Kind::Snapshot, claim.raw["snapshot"].clone())?;
+    packet_archive::advance_in(tx, &claim.raw, &claim.prior_fields, revision, now).await?;
+    add_field_in(tx, packet, claim.prior_fields.len(), &field).await?;
+    finish_in(
+        tx,
+        packet,
+        &snapshot,
+        &claim.raw,
+        "questions_added",
+        settings,
+        now,
+    )
+    .await
+}
 pub(crate) async fn event_in(
     tx: &mut Transaction<'_, Postgres>,
     packet: Uuid,

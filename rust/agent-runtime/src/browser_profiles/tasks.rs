@@ -449,6 +449,7 @@ async fn update(
     command: &native::Command,
     settings: &Settings,
     packets: &crate::packet_service::Settings,
+    forms: Option<form_service::Services<'_>>,
     now: DateTime<Utc>,
 ) -> Result<Value> {
     let v = &command.value;
@@ -674,6 +675,28 @@ async fn update(
         )
         .await;
     }
+    if event == "inspection_prepared" {
+        if value["state"] == "PAUSED" {
+            return Err(Failure("extension_task_paused_or_cancelled"));
+        }
+        let plan = form_service::load(
+            tx,
+            command
+                .id("plan_id")
+                .map_err(|_| Failure("plan_required"))?,
+        )
+        .await?;
+        let (task, _) = form_review::attach(
+            tx,
+            value,
+            plan,
+            settings,
+            packets,
+            forms.ok_or(Failure("browser_form_inspection_unavailable"))?,
+        )
+        .await?;
+        return Ok(task);
+    }
     Err(Failure(if event == "fill_finished" {
         "verified_fill_receipt_required"
     } else if event == "inspection_prepared" {
@@ -687,6 +710,7 @@ pub(super) async fn dispatch(
     command: &native::Command,
     settings: &Settings,
     packets: &crate::packet_service::Settings,
+    forms: Option<form_service::Services<'_>>,
     now: DateTime<Utc>,
 ) -> Result<Value> {
     commands::require_profile(tx, command, now).await?;
@@ -706,9 +730,11 @@ pub(super) async fn dispatch(
     }
     let mut savepoint = sqlx::Connection::begin(&mut **tx).await.map_err(db)?;
     let operation=async{
+        let mut questions=None;
         let value=match command.name() {
+            "ask_form_questions"=>{let task=load(&mut savepoint,task_id(command)?).await?;bound(&task,&command.value,false)?;let data=form_questions::ask(&mut savepoint,task,settings,packets,forms.ok_or(Failure("browser_form_inspection_unavailable"))?,now).await?;questions=Some(data["questions"].clone());data["task"].clone()},
             "open_application_task"=>create(&mut savepoint,command,settings,packets,now).await?,
-            "update_application_task"=>update(&mut savepoint,command,settings,packets,now).await?,
+            "update_application_task"=>update(&mut savepoint,command,settings,packets,forms,now).await?,
             "get_application_task"=>{let mut value=load(&mut savepoint,task_id(command)?).await?;if value["profile_binding_id"]!=command.value["profile_binding_id"]{return Err(Failure("PROFILE_NOT_SELECTED"));}
                 if !command.value["expected_task_version"].is_null(){bound(&value,&command.value,true)?;fresh(&mut savepoint,&value,settings,packets,now).await?;}
                 if value["state"]=="FILLING" {match fresh(&mut savepoint,&value,settings,packets,now).await {Ok(_)=>{},Err(e) if domain_denial(e)=>{value=move_in(&mut savepoint,value,"PAUSED","candidate_or_packet_changed_during_fill",json!({"plan_id":null,"authorization_id":null,"browser_connection":"paused"}),now).await?;},Err(e)=>return Err(e)}}value},
@@ -719,7 +745,7 @@ pub(super) async fn dispatch(
             let hash=format!("{:x}",Sha256::digest(command.value.to_string().as_bytes()));let audit=json!({"task_id":value["id"],"submitted":false});
             let saved:Option<Value>=sqlx::query_scalar("INSERT INTO agent_operations(key,actor,command,payload_hash,result,created_at) VALUES($1,$2,$3,$4,$5,clock_timestamp()) RETURNING result").bind(&key).bind(format!("chrome:{extension}")).bind(command.name()).bind(hash).bind(&audit).fetch_optional(&mut *savepoint).await.map_err(db)?;if saved.as_ref()!=Some(&audit){return Err(Failure("browser_profile_write_ack_failed"));}
         }
-        Ok(json!({"task":value,"submitted":false}))
+        let mut data=json!({"task":value,"submitted":false});if let Some(questions)=questions{data["questions"]=questions;}Ok(data)
     }.await;
     match operation {
         Ok(value) => {
@@ -745,6 +771,12 @@ pub(super) fn domain_denial(e: Failure) -> bool {
     matches!(
         e.0,
         "extension_task_required"
+            | "extension_task_not_waiting_for_answers"
+            | "fresh_form_inspection_required"
+            | "packet_context_stale_or_destination_invalid"
+            | "application_paused_or_cancelled"
+            | "execution_not_waiting_for_question"
+            | "telegram_question_too_long_manual_required"
             | "extension_task_not_found"
             | "extension_task_revision_conflict"
             | "extension_task_terminal"

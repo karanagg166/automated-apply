@@ -241,6 +241,10 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
                 &body,
                 &api.config.browser_profiles,
                 &api.config.packets,
+                Some(crate::browser_profiles::form_service::Services {
+                    answers: &api.config.answers,
+                    resumes: &api.config.resumes,
+                }),
             )
             .await
             .map(|data| OwnerReply {

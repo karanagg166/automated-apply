@@ -56,6 +56,11 @@ impl Command {
 pub(super) fn result(command: &Command, result: Result<Value>) -> Value {
     let capability = if matches!(
         command.name(),
+        "inspect_form" | "prepare_form_answers" | "authorize_form" | "record_form_fill"
+    ) {
+        "form_fill"
+    } else if matches!(
+        command.name(),
         "open_application_task"
             | "get_application_task"
             | "update_application_task"
@@ -103,12 +108,14 @@ pub(super) async fn dispatch(
     command: &Command,
     settings: &Settings,
     packets: &crate::packet_service::Settings,
+    forms: Option<form_service::Services<'_>>,
     now: DateTime<Utc>,
 ) -> Result<Value> {
-    let outcome = execute(tx, command, settings, packets, now).await;
+    let outcome = execute(tx, command, settings, packets, forms, now).await;
     match outcome {
         Err(e)
             if !tasks::domain_denial(e)
+                && !form_service::domain_denial(e)
                 && !matches!(
                     e.0,
                     "profile_connection_fields_required"
@@ -144,13 +151,26 @@ async fn execute(
     command: &Command,
     settings: &Settings,
     packets: &crate::packet_service::Settings,
+    forms: Option<form_service::Services<'_>>,
     now: DateTime<Utc>,
 ) -> Result<Value> {
     let v = &command.value;
     match command.name() {
-        "open_application_task" | "get_application_task" | "update_application_task" => {
-            tasks::dispatch(tx, command, settings, packets, now).await
+        "inspect_form" | "prepare_form_answers" | "authorize_form" | "record_form_fill" => {
+            form_service::dispatch(
+                tx,
+                command,
+                settings,
+                packets,
+                forms.ok_or(Failure("browser_form_inspection_unavailable"))?,
+                now,
+            )
+            .await
         }
+        "open_application_task"
+        | "get_application_task"
+        | "update_application_task"
+        | "ask_form_questions" => tasks::dispatch(tx, command, settings, packets, forms, now).await,
         "poll_chrome_command" | "start_chrome_command" | "ack_chrome_command" => {
             commands::dispatch(tx, command, settings, packets, now).await
         }

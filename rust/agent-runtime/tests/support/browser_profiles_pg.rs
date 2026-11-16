@@ -8,7 +8,7 @@ async fn browser_fixture()->PgConnection {
     sqlx::raw_sql("CREATE TABLE IF NOT EXISTS owner_preferences(key varchar(50) PRIMARY KEY,value jsonb NOT NULL); ALTER TABLE owner_preferences ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT clock_timestamp(), ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT clock_timestamp(); DELETE FROM owner_preferences; CREATE TABLE IF NOT EXISTS agent_operations(key varchar(180) PRIMARY KEY,actor varchar(120) NOT NULL,command varchar(50) NOT NULL,payload_hash varchar(64) NOT NULL,result jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT clock_timestamp()); DELETE FROM agent_operations;").execute(&mut c).await.unwrap();c
 }
 async fn browser_call(c:&mut PgConnection,route:BrowserRoute,input:Value)->Result<Value> {
-    browser_profiles::dispatch(c,route,route.method(),input.to_string().as_bytes(),&browser_profiles::Settings::from_values(&browser_values()).unwrap(),&packet_settings()).await
+    browser_profiles::dispatch(c,route,route.method(),input.to_string().as_bytes(),&browser_profiles::Settings::from_values(&browser_values()).unwrap(),&packet_settings(),None).await
 }
 fn browser_context()->Value {json!({"profile_binding_id":Uuid::new_v4(),"profile_secret":"f".repeat(64),"browser_session_id":Uuid::new_v4(),"window_id":10})}
 async fn browser_native(c:&mut PgConnection,name:&str,context:&Value,updates:Value)->Result<Value> {

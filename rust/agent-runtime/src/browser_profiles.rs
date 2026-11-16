@@ -10,6 +10,11 @@ use subtle::ConstantTimeEq;
 use uuid::Uuid;
 
 pub mod commands;
+mod form_questions;
+mod form_receipts;
+mod form_review;
+pub mod form_service;
+pub mod forms;
 mod invalidation;
 mod native;
 mod status;
@@ -89,10 +94,15 @@ pub enum Route {
     Tasks,
     TaskApplication(Uuid),
     TaskControl(Uuid),
+    Plans,
+    PlanReview(Uuid),
 }
 impl Route {
     pub fn method(self) -> &'static str {
-        if matches!(self, Self::List | Self::Tasks | Self::TaskApplication(_)) {
+        if matches!(
+            self,
+            Self::List | Self::Tasks | Self::TaskApplication(_) | Self::Plans
+        ) {
             "GET"
         } else {
             "POST"
@@ -106,6 +116,12 @@ pub fn route(path: &str) -> Option<Route> {
         "/api/v1/browser/chrome-profiles/select" => Some(Route::Select),
         "/api/v1/browser/chrome-profiles/commands" => Some(Route::Enqueue),
         "/api/v1/browser/extension-tasks" => Some(Route::Tasks),
+        "/api/v1/browser/plans" => Some(Route::Plans),
+        _ if path.starts_with("/api/v1/browser/plans/") => path
+            .strip_prefix("/api/v1/browser/plans/")
+            .and_then(|s| s.strip_suffix("/review"))
+            .and_then(|s| s.parse().ok())
+            .map(Route::PlanReview),
         _ if path.starts_with("/api/v1/browser/extension-tasks/application/") => path
             .strip_prefix("/api/v1/browser/extension-tasks/application/")
             .and_then(|s| s.parse().ok())
@@ -210,13 +226,14 @@ pub async fn dispatch(
     bytes: &[u8],
     settings: &Settings,
     packets: &crate::packet_service::Settings,
+    forms: Option<form_service::Services<'_>>,
 ) -> Result<Value> {
     if method != route.method() {
         return Err(Failure("browser_profile_method_not_allowed"));
     }
     let input = if matches!(
         route,
-        Route::List | Route::Tasks | Route::TaskApplication(_)
+        Route::List | Route::Tasks | Route::TaskApplication(_) | Route::Plans
     ) {
         Value::Null
     } else {
@@ -234,7 +251,13 @@ pub async fn dispatch(
     };
     if !matches!(
         route,
-        Route::Native | Route::List | Route::Enqueue | Route::Tasks | Route::TaskApplication(_)
+        Route::Native
+            | Route::List
+            | Route::Enqueue
+            | Route::Tasks
+            | Route::TaskApplication(_)
+            | Route::Plans
+            | Route::PlanReview(_)
     ) {
         let keys = if matches!(route, Route::Select) {
             &["expected_version", "profile_binding_id"][..]
@@ -269,6 +292,16 @@ pub async fn dispatch(
             return Err(request_error());
         }
     }
+    if matches!(route, Route::PlanReview(_))
+        && (input
+            .as_object()
+            .is_none_or(|o| o.keys().any(|k| k != "field_ids"))
+            || input["field_ids"]
+                .as_array()
+                .is_none_or(|a| a.len() > 24 || a.iter().any(|v| v.as_str().is_none())))
+    {
+        return Err(Failure("invalid_field_approval"));
+    }
     if let Some(command) = command.as_ref()
         && command.name() == "get_application_task"
     {
@@ -280,10 +313,29 @@ pub async fn dispatch(
         }
     }
     let mut tx = c.begin().await.map_err(db)?;
+    if matches!(route, Route::PlanReview(_))
+        || command.as_ref().is_some_and(|c| {
+            matches!(
+                c.name(),
+                "inspect_form"
+                    | "prepare_form_answers"
+                    | "authorize_form"
+                    | "record_form_fill"
+                    | "ask_form_questions"
+            ) || c.name() == "update_application_task"
+                && c.value["task_event"] == "inspection_prepared"
+        })
+    {
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
+            .execute(&mut *tx)
+            .await
+            .map_err(db)?;
+    }
     let result = async {
         match route {
             Route::Tasks => return tasks::listing(&mut tx).await,
             Route::TaskApplication(id) => return tasks::by_application(&mut tx, id).await,
+            Route::Plans => return form_service::listing(&mut tx).await,
             _ => {}
         }
         if matches!(route, Route::List) {
@@ -297,13 +349,32 @@ pub async fn dispatch(
         let now = now(&mut tx).await?;
         match route {
             Route::Native => {
-                native::dispatch(&mut tx, command.as_ref().unwrap(), settings, packets, now).await
+                native::dispatch(
+                    &mut tx,
+                    command.as_ref().unwrap(),
+                    settings,
+                    packets,
+                    forms,
+                    now,
+                )
+                .await
             }
             Route::List => listing(&mut tx, settings, now).await,
             Route::Enqueue => {
                 commands::enqueue(&mut tx, enqueue.as_ref().unwrap(), settings, packets, now).await
             }
-            Route::Tasks | Route::TaskApplication(_) => unreachable!(),
+            Route::Tasks | Route::TaskApplication(_) | Route::Plans => unreachable!(),
+            Route::PlanReview(id) => {
+                form_review::review(
+                    &mut tx,
+                    id,
+                    &input["field_ids"],
+                    settings,
+                    packets,
+                    forms.ok_or(Failure("browser_form_inspection_unavailable"))?,
+                )
+                .await
+            }
             Route::TaskControl(id) => {
                 let value = tasks::load(&mut tx, id).await?;
                 tasks::control(
