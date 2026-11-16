@@ -306,6 +306,16 @@ pub async fn dispatch(
         return Err(Failure("invalid_field_approval"));
     }
     if let Some(command) = command.as_ref()
+        && let Some(data) = native::static_read(command.name())
+    {
+        // Confirm this connection still reaches PostgreSQL, without taking/writing the owner fence.
+        let _: i32 = sqlx::query_scalar("SELECT 1")
+            .fetch_one(&mut *c)
+            .await
+            .map_err(db)?;
+        return Ok(native::result(command, Ok(data)));
+    }
+    if let Some(command) = command.as_ref()
         && command.name() == "get_application_task"
     {
         match tasks::read_without_owner(c, command, settings, packets).await {
@@ -316,7 +326,7 @@ pub async fn dispatch(
         }
     }
     let mut tx = c.begin().await.map_err(db)?;
-    if matches!(route, Route::PlanReview(_))
+    let serializable = matches!(route, Route::PlanReview(_))
         || command.as_ref().is_some_and(|c| {
             matches!(
                 c.name(),
@@ -327,8 +337,8 @@ pub async fn dispatch(
                     | "ask_form_questions"
             ) || c.name() == "update_application_task"
                 && c.value["task_event"] == "inspection_prepared"
-        })
-    {
+        });
+    if serializable {
         sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
             .execute(&mut *tx)
             .await
@@ -349,6 +359,9 @@ pub async fn dispatch(
         }
         // All lifecycle changes share the legacy owner row; no parallel writer family.
         lock(&mut tx).await?;
+        if serializable {
+            lock_snapshot_scope(&mut tx).await?;
+        }
         let now = now(&mut tx).await?;
         match route {
             Route::Native => {

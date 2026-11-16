@@ -4,7 +4,7 @@ import asyncio
 import json
 import os
 import time
-from contextlib import AsyncExitStack, asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager, suppress
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
@@ -382,3 +382,51 @@ async def test_native_identity_rejection_does_not_wait_for_database_checkout(pos
         assert response.status_code == 403
         assert finished_before_release, "native authorization rejection waited for an unrelated database transaction"
         assert "pool_acquisition" not in current["stages"]
+
+
+@pytest.mark.asyncio
+async def test_owner_lock_version_fences_a_snapshot_before_first_control_row_exists(postgres):
+    from backend.app.agent import store
+
+    _, url, _, engine = postgres
+    factory = async_sessionmaker(engine, expire_on_commit=False, autoflush=False)
+    content = {"messages": [{"text": "Fictional retained message"}],
+               "updated_at": "2026-11-15T00:00:00+00:00"}
+    async with factory() as seed, seed.begin():
+        seed.add(OwnerPreference(key=store.MEMORY_KEY, value=content))
+    waiter = await asyncpg.connect(url)
+    snapshot = waiter.transaction(isolation="repeatable_read")
+    await snapshot.start()
+    task = None
+    try:
+        async with factory() as owner:
+            async with owner.begin():
+                memory = await store.memory_row(owner, lock=True)
+                assert memory.value == content
+                # The first control row is absent from the waiter's snapshot.
+                task = asyncio.create_task(waiter.fetchval(
+                    "SELECT key FROM owner_preferences WHERE key=$1 FOR UPDATE",
+                    store.MEMORY_KEY,
+                ))
+                async with asyncio.timeout(2):
+                    while not await owner.scalar(text("""
+                        SELECT EXISTS(SELECT 1 FROM pg_stat_activity
+                        WHERE pid=:pid AND wait_event_type='Lock')
+                    """), {"pid": waiter.get_server_pid()}):
+                        await asyncio.sleep(.005)
+                owner.add(OwnerPreference(key="exec_config:naukri", value={"mode": "OFF"}))
+            with pytest.raises(asyncpg.SerializationError) as failure:
+                await asyncio.wait_for(task, 2)
+            assert failure.value.sqlstate == "40001"
+        async with factory() as observed:
+            memory = await observed.get(OwnerPreference, store.MEMORY_KEY)
+            assert memory.value == content
+            control = await observed.get(OwnerPreference, "exec_config:naukri")
+            assert control.value == {"mode": "OFF"}
+    finally:
+        if task is not None and not task.done():
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+        await snapshot.rollback()
+        await waiter.close()

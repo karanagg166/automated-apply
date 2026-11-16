@@ -55,6 +55,17 @@ pub(super) fn result(command: &Command, result: Result<Value>) -> Value {
         }
     }
 }
+pub(super) fn static_read(name: &str) -> Option<Value> {
+    match name {
+        "health" => Some(
+            json!({"connections":[{"name":"Supabase PostgreSQL","state":"CONNECTED"},{"name":"Local FastAPI","state":"CONNECTED"}],"runtime":"rust","browser_dispatch_available":false}),
+        ),
+        "get_agent_capabilities" => Some(
+            json!({"operations":{"connect_chrome_profile":"chrome_profile","heartbeat_chrome_profile":"chrome_profile","disconnect_chrome_profile":"chrome_profile"},"submissions":false,"email_sending":false,"paid_calls":false}),
+        ),
+        _ => None,
+    }
+}
 pub(super) async fn authenticate(
     tx: &mut Transaction<'_, Postgres>,
     command: &Command,
@@ -279,12 +290,9 @@ async fn execute(
             )
             .await
         }
-        "health" => Ok(
-            json!({"connections":[{"name":"Supabase PostgreSQL","state":"CONNECTED"},{"name":"Local FastAPI","state":"CONNECTED"}],"runtime":"rust","browser_dispatch_available":false}),
-        ),
-        "get_agent_capabilities" => Ok(
-            json!({"operations":{"connect_chrome_profile":"chrome_profile","heartbeat_chrome_profile":"chrome_profile","disconnect_chrome_profile":"chrome_profile"},"submissions":false,"email_sending":false,"paid_calls":false}),
-        ),
+        "health" | "get_agent_capabilities" => {
+            static_read(command.name()).ok_or(Failure("browser_command_execution_unavailable"))
+        }
         _ => Err(Failure("browser_command_execution_unavailable")),
     }
 }

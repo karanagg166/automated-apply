@@ -35,13 +35,14 @@ async def test_parent_owner_lock_is_reused_but_rolled_back_child_lock_is_not(db_
             await child.rollback()
         queries.clear()
         await memory_row(db_session, lock=True)
-        assert len(queries) == 1 and queries[0].startswith("SELECT")
+        assert len(queries) == 2 and queries[0].startswith("SELECT")
+        assert queries[1].startswith("UPDATE owner_preferences SET updated_at=")
     finally:
         event.remove(engine, "before_cursor_execute", observe)
 
 
 @pytest.mark.asyncio
-async def test_existing_owner_memory_never_requires_an_initialization_write(db_session):
+async def test_existing_owner_memory_advances_only_the_fence_without_initialization(db_session):
     from backend.app.agent.store import MEMORY_KEY
     from backend.app.dashboard.models import OwnerPreference
 
@@ -56,9 +57,10 @@ async def test_existing_owner_memory_never_requires_an_initialization_write(db_s
     try:
         found = await memory_row(db_session, lock=True)
         assert found.value == {"preserved": "fictional"}
-        assert len(queries) == 1 and queries[0].startswith("SELECT")
+        assert len(queries) == 2 and queries[0].startswith("SELECT")
+        assert queries[1].startswith("UPDATE owner_preferences SET updated_at=")
         await memory_row(db_session, lock=True)
-        assert len(queries) == 1
+        assert len(queries) == 2
     finally:
         event.remove(engine, "before_cursor_execute", observe)
 

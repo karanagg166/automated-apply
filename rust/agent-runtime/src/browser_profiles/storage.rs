@@ -19,6 +19,9 @@ pub(super) async fn lock(tx: &mut Transaction<'_, Postgres>) -> Result<()> {
         .await
         .map_err(db)?;
     }
+    if !crate::owner_fence::advance_in(tx).await.map_err(db)? {
+        return Err(Failure("browser_profile_write_ack_failed"));
+    }
     Ok(())
 }
 pub(super) async fn now(tx: &mut Transaction<'_, Postgres>) -> Result<DateTime<Utc>> {
@@ -27,6 +30,16 @@ pub(super) async fn now(tx: &mut Transaction<'_, Postgres>) -> Result<DateTime<U
         .await
         .map_err(db)?;
     timestamp(&json!(s))
+}
+/// SERIALIZABLE forms may establish their snapshot while waiting for the owner row.
+/// Lock the actual authority versions after that wait: a legacy READ COMMITTED Stop,
+/// selection/account/policy edit or heartbeat cannot be read silently from an older snapshot.
+pub(super) async fn lock_snapshot_scope(tx: &mut Transaction<'_, Postgres>) -> Result<()> {
+    let keys:Vec<String>=sqlx::query_scalar("SELECT key FROM owner_preferences WHERE key IN ('application_queue_policy','exec_config:naukri','naukri_automation','naukri_account_binding','phase1_profile_confirmation','chr_selection','chr_fixed_profile','naukri_profile_sync_policy','naukri_extension_maintenance','candidate_configuration_v1') OR starts_with(key,'candidate_project-') OR starts_with(key,'document_project-') OR key='chr_prof:'||(SELECT value->>'profile_binding_id' FROM owner_preferences WHERE key='chr_selection') ORDER BY key LIMIT 10001 FOR UPDATE").fetch_all(&mut **tx).await.map_err(db)?;
+    if keys.len() > 10000 {
+        return Err(Failure("browser_profile_inventory_limit"));
+    }
+    Ok(())
 }
 pub(super) async fn get(tx: &mut Transaction<'_, Postgres>, key: &str) -> Result<Option<Value>> {
     sqlx::query_scalar("SELECT value FROM owner_preferences WHERE key=$1")

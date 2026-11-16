@@ -8,7 +8,7 @@ import re
 from datetime import datetime, timedelta, timezone
 from uuid import UUID, uuid4
 
-from sqlalchemy import func, inspect, select
+from sqlalchemy import func, inspect, select, update
 
 from backend.app.agent.contracts import Approval, Campaign, Filters, Message, Plan
 from backend.app.agent.tools import ToolDenied, owner_allowed
@@ -74,6 +74,16 @@ async def memory_row(session, *, lock=False, skip_locked=False):
         with span("owner_row_lock_wait"):
             row = await session.scalar(query.with_for_update(skip_locked=skip_locked) if lock else query)
     if lock and row is not None:
+        # Advance the lock row's version for repeatable-snapshot waiters, even
+        # when a newly inserted control record was absent from their snapshot.
+        # Keep private memory JSON and its own message/TTL timestamps intact.
+        acknowledged = await session.execute(
+            update(OwnerPreference).where(OwnerPreference.key == MEMORY_KEY)
+            .values(updated_at=func.now()).returning(OwnerPreference.key)
+            .execution_options(synchronize_session=False)
+        )
+        if acknowledged.scalar_one_or_none() != MEMORY_KEY:
+            raise ToolDenied("owner_lock_write_ack_failed")
         transaction = session.sync_session.get_nested_transaction() or session.sync_session.get_transaction()
         session.info["agent_owner_lock"] = (transaction, row)
     return row

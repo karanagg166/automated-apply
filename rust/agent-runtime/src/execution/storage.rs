@@ -69,6 +69,9 @@ pub(super) async fn lock(tx: &mut Transaction<'_, Postgres>) -> Result<()> {
             return Err(Failure("execution_write_ack_failed"));
         }
     }
+    if !crate::owner_fence::advance_in(tx).await.map_err(db)? {
+        return Err(Failure("execution_write_ack_failed"));
+    }
     Ok(())
 }
 pub(super) async fn put(
