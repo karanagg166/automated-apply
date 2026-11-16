@@ -4020,3 +4020,4 @@ include!("support/browser_tasks_pg.rs");
 include!("support/browser_forms_pg.rs");
 include!("support/execution_status_pg.rs");
 include!("support/execution_control_pg.rs");
+include!("support/execution_queue_pg.rs");

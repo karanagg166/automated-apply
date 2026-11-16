@@ -1,9 +1,16 @@
 //! Legacy application execution parity. Pure policy/observations confer no browser authority.
+pub mod admission;
 mod automatic;
+mod budgets;
 pub mod contracts;
+pub mod eligibility;
 mod events;
 pub mod fences;
 pub mod filters;
+mod history;
+mod preflight;
+mod questionnaire_context;
+pub mod queue;
 mod queue_control;
 pub mod queue_page;
 mod queue_status;

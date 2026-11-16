@@ -42,7 +42,7 @@ pub(super) async fn audit(
     }
     Ok(())
 }
-pub(super) async fn projects(tx: &mut Transaction<'_, Postgres>) -> Result<String> {
+pub(crate) async fn projects(tx: &mut Transaction<'_, Postgres>) -> Result<String> {
     let records:Vec<(String,Value)>=sqlx::query_as("SELECT key,value FROM owner_preferences WHERE key='candidate_configuration_v1' OR starts_with(key,'candidate_project-') OR starts_with(key,'document_project-') ORDER BY key LIMIT 10001").fetch_all(&mut **tx).await.map_err(db)?;
     if records.len() > 10000 {
         return Err(Failure("browser_profile_inventory_limit"));

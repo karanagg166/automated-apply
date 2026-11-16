@@ -104,7 +104,7 @@ fn trim(value: &Value) -> Result<Value> {
         None => Value::Null,
     })
 }
-fn date_present(value: &Value) -> bool {
+pub(crate) fn date_present(value: &Value) -> bool {
     let Some(s) = value.as_str() else {
         return false;
     };
