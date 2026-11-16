@@ -7,6 +7,20 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest primary lifecycle sourcefe44efa (Asia/Kolkata2026-11-17) ports original unprefixed
+OAuth, connected_accounts/oauth_states and token purposes, pinned compose upgrade,
+consumed-before-exchange/current-context guards, durable non-replayed refresh, current
+identity verify and configuration-independent local-first disconnect. One standard
+(20 actual DTO comparisons) +15 PG/HTTP declarations are UNRUN. See the
+[qualified primary lifecycle report](acceptance/gmail-primary-lifecycle-source-20261117.md).
+Next full connector/provider/CLI/MCP/natural conversation parity, contacts/local outreach/
+startup/company/dashboard, all eight platforms and final infrastructure before combined
+tests and reviewed whole-family STOP migration/install/live evidence. No current-head
+tests/build/check/provider/live/install or percentage gain;58/42/prior455 at9c4ace5 held.
+Private continuity snapshotda5db51efd4c5cb7fff1a21c800f0aada2f390968119f6ac247a3eac1d86356e
+at2026-11-16T18:45:52Z preserves104 indexed/6 available/98 missing; no missing-byte/sidebar
+recovery or account/session identity rewrite. No partial final or100% claim.
+
 Latest legacy-status source8e399d6 adds public-column-only primary Gmail saved status,
 honest recorded-vs-current verification and explicit historical send/send-preview refusal
 before account/token/body/database work, regardless of an older send flag. Two standard
