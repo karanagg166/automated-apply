@@ -15,7 +15,7 @@ pub struct Services<'a> {
 fn ready(config: &Value) -> bool {
     config["state"] == "RUNNING" && config["policy"]["platforms"]["naukri"]["enabled"] == true
 }
-fn preparation_denial(error: Failure) -> bool {
+pub(crate) fn preparation_denial(error: Failure) -> bool {
     matches!(
         error.0,
         "prior_application_or_unknown_submission_no_replay"
