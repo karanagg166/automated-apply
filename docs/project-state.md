@@ -7,6 +7,17 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest dashboard recovery source2606907 persists UUID-only local draft requests before POST,
+reuses exact scope after response loss and uses GET once known. Reviewed replacement reads
+the saved revision again, preserves old rows and recovers unresolved/newer pointers instead
+of discarding them. Missing facts never navigate to an absent ID; legacy/uncertain send
+history locks edits. Ten new frontend declarations are UNRUN. See [qualified recovery report](acceptance/outreach-dashboard-recovery-source-20261117.md).
+Continue remaining public research/company/startup/dashboard/registry/provider/CLI/
+conversation/eight-platform source then combined gates. No current tests/types/build/check/
+live/install or estimate gain;58/42/prior455 held. Private continuity snapshot01674ef40635c8fe1889ca3af7e22fcce8c3c0b844cfe45b6f0d5b1b43c59eee
+at2026-11-16T22:02:48Z preserves104 indexed/6 available/98 missing transcripts; no sidebar/
+account identity rewrite or unavailable transcript recovery claim.
+
 Latest outreach controller source720d9ea connects owner preview/create and local/MCP flow
 over shared transient IO. Optional governed rewriting uses stable keys/original120-second
 opaque admission, no locks over IO, separately retained finding and fresh context/ledger
