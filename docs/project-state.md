@@ -7,6 +7,16 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest Apollo capability source4dd980a ports pure rate/pool/24-hour eligibility guards
+and corrects the documented credit_usage_stats wrapper difference from the legacy parser.
+Three standard declarations (24 rate +16 root pool +12 eligibility cases, wrapper and
+preflight assertions) are UNRUN; no PG/frontend declaration added. See the
+[qualified capability report](acceptance/apollo-capability-parser-source-20261117.md).
+No provider key/account probe or entitlement claim. Continue fixed provider IO, durable
+run/lookup admission and identity ingestion, grounded outreach, remaining full source and
+final combined tests. No current-head build/check/test/live/install or percentage gain;
+58/42/prior455 held. Native provider dispatch readiness remains false.
+
 Latest contact credit ledger source7fdd777 adds atomic single-use reservation/monthly
 increment, no-refund actual findings, exact ACK rollback and bounded monotonic cooldown.
 Ten native PG declarations are UNRUN; no standard/frontend declaration added. See the
