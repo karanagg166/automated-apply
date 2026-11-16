@@ -4027,3 +4027,7 @@ include!("support/execution_profile_policy_pg.rs");
 include!("support/owner_snapshot_pg.rs");
 
 include!("support/profile_sync_work_pg.rs");
+
+include!("support/execution_search_pg.rs");
+
+include!("support/execution_reconsideration_pg.rs");

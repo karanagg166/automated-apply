@@ -266,7 +266,7 @@ pub(crate) async fn enqueue_in(
     {
         return Err(Failure("queue_source_disabled"));
     }
-    let pending:i64=sqlx::query_scalar("SELECT count(*) FROM owner_preferences WHERE starts_with(key,'apply_work:') AND coalesce(value->>'stage','unknown') NOT IN ('SUBMITTED_RECORDED','SUBMITTED_CONFIRMED','FAILED_FINAL','SKIPPED') AND (coalesce(value->>'stage','unknown')!='NEEDS_INPUT' OR coalesce(value->>'status','unknown')!='waiting' OR NOT coalesce(value->>'reason'=ANY($1::text[]),false) OR value->>'packet_id' IS NOT NULL OR value->>'lease_until' IS NOT NULL OR value->'form_pending'='true'::jsonb OR coalesce(value->'admitted_actions','null'::jsonb)!='[]'::jsonb)").bind(filters::FILTER_HOLDS.to_vec()).fetch_one(&mut **tx).await.map_err(db)?;
+    let pending = super::intake::capacity_in(tx).await?;
     if pending >= policy["max_pending"].as_i64().ok_or_else(invalid)? {
         return Err(Failure("queue_backpressure"));
     }

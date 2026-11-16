@@ -9,6 +9,7 @@ mod events;
 pub mod fences;
 pub mod filters;
 mod history;
+pub mod intake;
 mod local_policy;
 mod notices;
 mod preflight;
@@ -23,6 +24,8 @@ mod queue_control;
 pub mod queue_page;
 mod queue_status;
 pub mod receipts;
+pub mod reconsideration;
+pub mod search;
 mod storage;
 pub mod submission;
 
