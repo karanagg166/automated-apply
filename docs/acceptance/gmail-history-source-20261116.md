@@ -1,0 +1,25 @@
+# Reviewed Gmail application history — source checkpoint 2026-11-16
+
+Implementation [42ddd19ef4abaea367c404b539d088a9ee3dd23b](https://github.com/karanagg166/automated-apply/commit/42ddd19ef4abaea367c404b539d088a9ee3dd23b), branch `feat/rust-agent-runtime`, [PR50](https://github.com/karanagg166/automated-apply/pull/50), base `chore/uv-python-tooling`. Uninstalled, untested source; no current-head compilation claim.
+
+The native workspace now implements the existing history list/review/forget/retention paths. Three schemas are written from the actual Python HistoryReview/Version/Retention AST without loading configuration or mail services. Normalization preserves strict review/confirmation flags, bounded selected account/evidence IDs, aware observed dates, public HTTPS URLs, integer DTO behavior and canonical ATS/casefold opportunity identity.
+
+Reviews acquire the shared owner fence before the existing history advisory lock in a SERIALIZABLE transaction. Each selected message must belong to the selected account and remain unexpired; only its account/expiry metadata is read. Raw subjects/bodies are not copied. Canonical-URL or company/role identity merges mailbox references while retaining a current owner-confirmed application and non-uncertain status. Multiple ambiguous old duplicates fail closed. Version/CAS and exact write acknowledgments prevent silent overwrite or partial publication. History remains owner-reviewed local evidence; it creates no provider receipt, worker dispatch or submission authority.
+
+GET is a coherent read-only projection that omits expired records and avoids the owner lock. Separate local maintenance scrubs at most100 expired history/message/draft-OAuth metadata records per tick on the existing execution connection, independently of queue RUNNING. It preserves unrelated account credentials/uncertain actions and performs no provider request or file cleanup. Empty maintenance avoids owner contention. Forget keeps only a versioned tombstone. Intentional privacy strengthening: retention cannot revive an expired record, and an explicit fresh review of an expired record cannot inherit expired confirmation/evidence. Ambiguous duplicate history also requires resolution instead of choosing an arbitrary row. Whole-family STOP-only migration remains required.
+
+Owner HTTP authentication, origin/client restrictions, body limits and exact methods remain. The shared reviewed-history duplicate guard is unchanged; new valid reviews feed that guard without treating an email as an independent strict worker receipt. All API/provider account, OAuth/read-policy/sync/alert/draft-workspace ports remain separate and unfinished.
+
+| Gate | Result | Exact evidence / limitation |
+| --- | --- | --- |
+| Source integration | PASS (source only) | Actual DTO export, local routes/review/CAS, read-only listing, shared duplicate integration and bounded retention; formatter applied |
+| New standard tests | NOT TESTED | 2 declarations:40 actual DTO comparisons;18 actual canonical URL/casefold identity comparisons |
+| New native PostgreSQL/HTTP tests | NOT TESTED | 12 declarations: selected mailbox merge; wrong/expired evidence/CAS rollback; concurrent review; read-only held-lock GET; retention/forget; canonical URL correction; ambiguous duplicates; dropped ACK; bounded expiry/noop; expired privacy guards; actual local HTTP auth/methods; duplicate preparation guard |
+| Final runner contracts | NOT TESTED | New Gmail schema drift stage declared; only schema --write ran, not --check |
+| Compile/Clippy/combined suites | NOT TESTED | New executed tests0; final gate deferred under source-first instruction |
+| Actual Gmail/Mac/provider/browser/install | NOT TESTED | No real message read, provider call, owner-data query, migration, browser action or installed runtime change |
+| Timing/resources/restart/focus/24h | BLOCKED / NOT TESTED | No measured comparison; prior physical account/focus/operator migration gates remain |
+
+After complete source integration, run `scripts/run_acceptance.py`, including the new schema stage, tests/gmail_history_contract.rs and tests/support/gmail_history_pg.rs. No executed new failure log exists. Sanitized fixed codes include gmail_history_version_conflict, gmail_history_identity_conflict, gmail_history_evidence_unavailable, gmail_history_expired_record, gmail_history_write_ack_failed and gmail_history_commit_outcome_unknown. Raw mail, private account identities and history records are excluded from publication.
+
+Prior validated9c4ace570535a5856184775f8045ee89eafdd05f remains193 standard +262 native disposable PostgreSQL passes,455 distinct; it does not validate this head. Estimate58% complete/42% remaining held. Continue all remaining Gmail account/history intake/alerts/workspace, full conversation/registry, outreach/providers/platforms, combined tests and reviewed installation/live acceptance. STOP162/lifetime4/hour1/three quarantines/strict worker receipts0, current filters/account/PDF/history, focus and Gmail READ + CREATE DRAFT ONLY remain. No hosted Actions, merge, cleanup or live activation.

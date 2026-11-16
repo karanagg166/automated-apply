@@ -12,6 +12,19 @@ Development branch: `feat/rust-agent-runtime`, PR #50, base `chore/uv-python-too
 must not be mistaken for development. Resume this checkout and its current ownership;
 PDF/document-worker and subsequent packet work are committed. No new worktrees or source copies.
 
+Latest source checkpoint, 2026-11-16:42ddd19 adds complete local reviewed Gmail history
+routes/CAS/evidence/expiry maintenance; Telegram browser/local commands and prompt delivery
+reconciliation are also committed. All newer source since9c4ace5 is UNTESTED and uninstalled
+as a whole. The owner's source-first method still defers all build/check/test suites to the
+final combined gate. Prior validated9c4ace5 provides193 standard +262 dedicated native PG
+passes,455 distinct; it does not validate this head. Estimate58% complete/42% remaining held.
+Next: complete legacy Gmail read-account/OAuth/selection/sync, job alerts and draft workspace,
+full natural conversation/registry, outreach/providers/platforms, then combined acceptance
+and reviewed whole-family STOP-only installation/live proof. No partial final or100% claim.
+Latest private continuity snapshot95fb05976f07df5e5fecb6a918e7101e28fbcb0d5ed7d129f18b31bb5c6d96a3
+at2026-11-16T13:37:45Z retains104 indexed/6 available/98 missing; no identity rewrite or
+missing-byte/sidebar recovery claim. See the latest [Gmail source report](acceptance/gmail-history-source-20261116.md).
+
 Latest operational gate: Brave native health and API health/readiness pass under
 STOPPED162. A windowless native inactive/minimized window experiment failed focus
 acceptance and exposed restored tabs, including an unloaded inactive Naukri login page.
@@ -599,3 +612,5 @@ Telegram browser source8d85a95 adds selected ordinary-profile status and guarded
 Telegram local-command sourcef939e54 adds saved runtime/connection/discovery status, policy-audited URL previews and isolated owner-hashed selection reset, reusing actual native hashes and retained audit identities. Saved metadata is labeled separately from live checks; complete provider/CLI/MCP registry and natural conversation remain pending. Two standard +8 PG declarations and2 extra existing hash cases are UNRUN. See [qualified local-command report](acceptance/telegram-local-commands-source-20261116.md). No test/build/check/live/provider/install/measurement; prior455 at9c4ace5 and58/42 held. Continue explicit unknown-prompt reconciliation, full conversation/registry and remaining Gmail/outreach/provider/platform source before final combined gate; no partial final.
 
 Telegram reconciliation source63cf059 fixes queue dashboard answering for delivery_unknown/not_sent and preserves same-packet siblings. It adds exact-attempt/current-binding immutable owner findings, no resend/expiry renewal, late positive Bot API evidence/conflict records and an authenticated dashboard control/fixed gateway route. One Rust standard +9 PG/loopback +4 frontend declarations,1 expanded existing UI case and3 gateway assertions are UNRUN. See [qualified reconciliation report](acceptance/telegram-reconciliation-source-20261116.md). No build/check/test/live/provider/install/measurement; prior455 at9c4ace5 and58/42 held. Continue full natural conversation/registry, Gmail account/history/alerts/workspace and all remaining outreach/provider/platform source before final combined gate; no partial final.
+
+Reviewed Gmail history source42ddd19 adds the existing list/review/forget/retention routes, actual DTO normalization, account-bound unexpired evidence, monotonic current confirmation/status, canonical identity, owner/SERIALIZABLE/version fencing and bounded100-record expiry maintenance on the existing execution connection. GET is read-only; ambiguous duplicate rows fail closed; expired confirmation/evidence cannot silently revive. Two standard declarations (40 actual DTO/18 identity comparisons) +12 PG/HTTP declarations are UNRUN. See [qualified history report](acceptance/gmail-history-source-20261116.md). No build/check/test/live/provider/install/measurement; prior455 at9c4ace5 and58/42 held. Continue full Gmail account/OAuth/selection/sync/alerts/draft workspace and remaining conversation/registry/outreach/provider/platform source before final combined gate; no partial final.
