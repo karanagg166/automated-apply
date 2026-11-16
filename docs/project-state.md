@@ -520,3 +520,12 @@ still required. See [qualified receipt report](acceptance/execution-receipt-sour
 No build/test/check/live receipt/delivery/install or percentage gain. Continue native
 discovery/preparation/profile checks, questionnaire processing and full broker, then all
 remaining plan scope. Keep source-first/final-gate instruction and no partial final.
+
+Saved-source/preparation source4b47ae3 adds ten-row approved-source cursors, private
+metadata projections, no cursor skip on backpressure, idle owner-lock avoidance and local
+factual packet/resume/account preparation. A separate current-material packet creation
+path preserves post-lock policy reads without relaxing normal snapshot requirements. Four
+new PG declarations and all existing packet regressions are UNRUN. See
+[qualified preparation report](acceptance/execution-preparation-source-20261116.md).
+No tests/build/check/live/scheduler/install or percentage increase; continue ordinary
+discovery/profile/questionnaire/native broker and the entire remaining scope.
