@@ -7,6 +7,15 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest outreach source504cf2c freezes actual draft input/edit/decision DTOs and adds bounded
+owner-only saved history/send-attempt projections. Interrupted attempts are qualified
+without GET writes/replay; private intent/context fields are excluded and saved acceptance
+never proves delivery. Three standard declarations (70 actual DTO cases plus projection/
+bounds) +8 native PG/HTTP declarations are UNRUN. See [qualified outreach history report](acceptance/outreach-history-contracts-source-20261117.md).
+Continue grounded draft context/create/edit/exact approval and remaining full source before
+combined gates. No current test/build/check/live/install or estimate increase;58/42/prior455
+held. Gmail sending remains disabled; full Rust host remains uninstalled.
+
 Latest owner controller sourcefc08727 connects local-first saved evidence, guarded fixed
 provider calls/results/identity and exact finalization over shared transient host IO.
 Dashboard request IDs persist before POST, recover retained requests and use GET history
