@@ -21,6 +21,25 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     }
     let method = request.method().as_str().to_owned();
     let path = request.uri().path().to_owned();
+    if let Some(route) = crate::gmail_legacy::route(&path) {
+        if route.method() != method {
+            let mut response = reply(
+                StatusCode::METHOD_NOT_ALLOWED,
+                json!({"detail":"gmail_legacy_method_not_allowed"}),
+            );
+            response.headers_mut().insert(
+                "allow",
+                axum::http::HeaderValue::from_static(route.method()),
+            );
+            return response;
+        }
+        if matches!(route, crate::gmail_legacy::Route::SendRefusal) {
+            return reply(
+                StatusCode::CONFLICT,
+                json!({"detail":{"code":"send_blocked","blockers":[crate::gmail_legacy::SEND_BLOCKER]}}),
+            );
+        }
+    }
     let packet_query = request.uri().query().map(str::to_owned);
     let job_page = match crate::job_catalog::Page::parse(
         if path == crate::job_catalog::JOBS && method == "GET" {
@@ -380,6 +399,30 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
                 status: StatusCode::OK,
                 etag: None,
             })
+        }
+        Some(connection)
+            if matches!(
+                crate::gmail_legacy::route(&path),
+                Some(crate::gmail_legacy::Route::Status)
+            ) =>
+        {
+            if method != "GET" {
+                Err(Failure("gmail_legacy_method_not_allowed"))
+            } else if packet_query.as_ref().is_some_and(|s| !s.is_empty()) || !body.is_empty() {
+                Err(Failure("invalid_gmail_legacy_request"))
+            } else {
+                crate::gmail_legacy::status(
+                    connection,
+                    &api.config.gmail_accounts,
+                    api.config.mailboxes.provider().is_ok(),
+                )
+                .await
+                .map(|data| OwnerReply {
+                    data,
+                    status: StatusCode::OK,
+                    etag: None,
+                })
+            }
         }
         Some(connection) if crate::gmail_history::route(&path).is_some() => {
             crate::gmail_history::dispatch(

@@ -194,6 +194,17 @@ dispatching/unknown/saved drafts. Freeze current behavior before adding IO route
 the existing frontend and gateway contracts, and add deferred actual DTO/hash/profile/CAS/
 auth/lost-response fixtures. A saved local draft is not a Gmail draft or sent message.
 
+Legacy single-account integration parity remains separate from the three-role workspace:
+`gmail_legacy.rs` will first expose existing saved status through public-column-only SQL,
+label recorded verification separately from current probes and force send/modify capability
+off regardless of an older deployment flag. Preserve legacy read/compose scope facts without
+activating them. Historical outreach send/send-preview routes must be explicit owner-only
+policy refusals with zero account/token/send-attempt work. Then port original unprefixed
+OAuth, exact connected_accounts/oauth_states identity and token purposes, durable refresh,
+verify and local-first disconnect; do not alias/rebind the account into another family.
+Connector/provider registry and historical outreach read routes follow the saved-status
+dependency. Add actual projection and isolated auth/no-write fixtures before the final gate.
+
 The existing runner is the starting point, not yet a complete end-to-end gate: it omits
 UI/browser journeys, several extension browser fixture suites and PostgreSQL-backed Python
 integration. Extend it during source integration with a disposable DB lifecycle and strict

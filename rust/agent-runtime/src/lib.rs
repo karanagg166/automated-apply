@@ -98,6 +98,7 @@ pub mod mail_evidence;
 pub mod gmail_accounts;
 pub mod gmail_drafts;
 pub mod gmail_history;
+pub mod gmail_legacy;
 pub mod gmail_workspace;
 
 pub mod execution;

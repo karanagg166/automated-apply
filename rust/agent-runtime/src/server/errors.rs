@@ -7,6 +7,15 @@ use axum::{
 use serde_json::{Value, json};
 
 pub(super) fn profile_failure(error: Failure) -> Response {
+    if error.0.starts_with("gmail_legacy_") || error.0.starts_with("invalid_gmail_legacy_") {
+        let status = match error.0 {
+            "invalid_gmail_legacy_request" => StatusCode::UNPROCESSABLE_ENTITY,
+            "gmail_legacy_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
+            "gmail_legacy_identity_requires_review" => StatusCode::CONFLICT,
+            _ => StatusCode::SERVICE_UNAVAILABLE,
+        };
+        return reply(status, json!({"detail":error.0}));
+    }
     if error.0.starts_with("gmail_workspace_")
         || error.0.starts_with("invalid_gmail_workspace_")
         || matches!(
