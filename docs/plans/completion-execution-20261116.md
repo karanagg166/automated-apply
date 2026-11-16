@@ -1,5 +1,13 @@
 # Complete-source delivery plan — 2026-11-16
 
+Startup contract/filter design2026-11-17: freeze actual StartupFilters/ShortlistInput through
+AST-only loading, retain request defaults/coercions/explicit optional values and expose
+bounded repeated-list GET parsing. Port actual size bands, strict min/max/exact count,
+role/location/industry rules before derived catalog work. Unknown/range evidence never
+becomes an inferred headcount; AI must not match retail. Early-stage remains an explicit
+editable opt-in, never a restored owner restriction. Add actual-source oracle fixtures now,
+but do not run them before the final combined gate.
+
 Saved company read design2026-11-17: port company people and startup jobs/evidence before
 derived catalog scoring/search. One read-only repeatable-read snapshot checks the exact
 company, uses stable bounded pagination/counts and exposes public selected columns only.

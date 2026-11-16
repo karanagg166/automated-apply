@@ -103,6 +103,7 @@ pub mod gmail_history;
 pub mod gmail_legacy;
 pub mod gmail_workspace;
 pub mod outreach;
+pub mod startup_catalog;
 
 pub mod execution;
 mod owner_fence;
