@@ -52,6 +52,15 @@ See [qualified sync report](acceptance/gmail-selected-sync-source-20261116.md). 
 test/build/check/live/install or percentage gain. Next reviewed lead import, job alerts,
 three-role draft workspace and all remaining plan scope before combined final gate.
 
+Latest reviewed-lead source3b1ef35 wires exact selected account/evidence/link import,
+unverified actual normalized projection, conservative source/URL/company identity,
+human-decision preservation, similarity-only hints and atomic observation/message markers.
+Two standard (18 actual constructor comparisons plus route) +10 PG/HTTP declarations UNRUN.
+See [qualified lead report](acceptance/gmail-reviewed-lead-import-source-20261116.md).
+Next job alerts, three-role account/draft workspace, full conversation/registry/outreach/
+providers/platforms, then all final gates. No current-head check/build/test/install or
+percentage gain; prior455 at9c4ace5 and58/42 held.
+
 Latest operational gate: Brave native health and API health/readiness pass under
 STOPPED162. A windowless native inactive/minimized window experiment failed focus
 acceptance and exposed restored tabs, including an unloaded inactive Naukri login page.
