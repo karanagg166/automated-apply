@@ -21,14 +21,16 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     }
     let method = request.method().as_str().to_owned();
     let path = request.uri().path().to_owned();
-    if crate::contacts::route(&path).is_some() && method != "GET" {
+    if let Some(route) = crate::contacts::route(&path)
+        && !route.accepts(&method)
+    {
         let mut response = reply(
             StatusCode::METHOD_NOT_ALLOWED,
             json!({"detail":"contact_method_not_allowed"}),
         );
         response
             .headers_mut()
-            .insert("allow", axum::http::HeaderValue::from_static("GET"));
+            .insert("allow", axum::http::HeaderValue::from_static(route.allow()));
         return response;
     }
     if let Some(route) = crate::gmail_legacy::route(&path) {
@@ -51,6 +53,9 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
         }
     }
     let packet_query = request.uri().query().map(str::to_owned);
+    if method == "PATCH" && crate::contacts::route(&path).is_some() && packet_query.is_some() {
+        return fail(Failure("invalid_contact_query"));
+    }
     let job_page = match crate::job_catalog::Page::parse(
         if path == crate::job_catalog::JOBS && method == "GET" {
             request.uri().query()
@@ -390,6 +395,30 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
                 packet_query.as_deref(),
                 &body,
                 &api.config.gmail_accounts,
+            )
+            .await
+            .map(|data| OwnerReply {
+                data,
+                status: StatusCode::OK,
+                etag: None,
+            })
+        }
+        Some(connection)
+            if method == "PATCH"
+                && matches!(
+                    crate::contacts::route(&path),
+                    Some(crate::contacts::Route::Detail(_))
+                ) =>
+        {
+            let Some(crate::contacts::Route::Detail(id)) = crate::contacts::route(&path) else {
+                unreachable!()
+            };
+            crate::contacts::correction::correct(
+                connection,
+                id,
+                if_match.as_deref(),
+                &body,
+                &api.config.contacts,
             )
             .await
             .map(|data| OwnerReply {

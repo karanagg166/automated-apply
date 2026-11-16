@@ -390,7 +390,7 @@ async fn contacts_owner_http_auth_methods_and_query_bounds_precede_data_projecti
         403
     );
     let denied = http
-        .patch(&endpoint)
+        .delete(&endpoint)
         .bearer_auth(HOST_TOKEN)
         .json(&json!({"email_status":"verified"}))
         .send()

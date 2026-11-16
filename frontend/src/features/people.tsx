@@ -18,6 +18,7 @@ import {
   Skeleton,
 } from "@/components/ui";
 import type { Startup } from "./startups";
+import { ContactReview, type ContactDetail } from "./contact-review";
 export type Contact = {
   id: string;
   company_id: string;
@@ -60,6 +61,7 @@ export function CompanyPeople({
     [provider, setProvider] = useState("apollo"),
     [approved, setApproved] = useState(false),
     [evidenceId, setEvidenceId] = useState<string | null>(null),
+    [evidenceReview, setEvidenceReview] = useState(0),
     [roleFilter, setRoleFilter] = useState("all"),
     [researchConsent, setResearchConsent] = useState(false);
   const contacts = useQuery({
@@ -84,7 +86,7 @@ export function CompanyPeople({
   });
   const evidence = useQuery({
     queryKey: ["contact-evidence", evidenceId],
-    queryFn: () => api<Record<string, unknown>>(`contacts/${evidenceId}`),
+    queryFn: () => api<ContactDetail>(`contacts/${evidenceId}`),
     enabled: !!evidenceId,
   });
   const payload = {
@@ -522,9 +524,19 @@ export function CompanyPeople({
         ) : evidence.isError ? (
           <ErrorState error={evidence.error} />
         ) : (
-          <pre className="source-text">
-            {JSON.stringify(evidence.data, null, 2)}
-          </pre>
+          <ContactReview
+            key={`${evidenceId}:${evidenceReview}:${evidence.data.review_version}`}
+            contact={evidence.data}
+            onRefresh={async () => {
+              const result = await evidence.refetch();
+              if (result.error) throw result.error;
+              setEvidenceReview((value) => value + 1);
+            }}
+            onSaved={() => {
+              client.invalidateQueries({ queryKey: ["contacts"] });
+              client.invalidateQueries({ queryKey: ["recommended-contacts"] });
+            }}
+          />
         )}
       </Modal>
     </>

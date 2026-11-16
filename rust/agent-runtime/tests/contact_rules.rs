@@ -176,6 +176,48 @@ print(json.dumps(out,default=lambda value:value.isoformat()))
 }
 use sha2::Digest as _;
 #[test]
+fn contact_correction_normalization_matches_actual_dto_preserving_null_and_omission() {
+    let cases = json!([
+        {}, {"full_name":"  Fictional Person  "},{"role_title":"\u{1c} CTO \u{1f}"},
+        {"full_name":null},{"role_title":null},{"company_id":null},{"do_not_contact":null},
+        {"email_status":null},{"verification_evidence_id":null},{"human_review_notes":null},
+        {"suppression_reason":null},{"do_not_contact":true},{"do_not_contact":false},
+        {"do_not_contact":"YES"},{"do_not_contact":"off"},{"do_not_contact":1},
+        {"do_not_contact":0.0},{"do_not_contact":2},{"do_not_contact":"unknown"},
+        {"full_name":""},{"full_name":"   "},{"full_name":123},{"role_title":"x".repeat(256)},
+        {"human_review_notes":"x".repeat(4001)},{"suppression_reason":"x".repeat(1001)},
+        {"email_status":"verified"},{"email_status":"provider_reported"},{"email_status":"candidate"},
+        {"email_status":"unknown"},{"email_status":"invalid"},{"email_status":"guessed"},
+        {"company_id":"AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA"},
+        {"verification_evidence_id":"11111111-1111-4111-8111-111111111111"},
+        {"company_id":"wrong"},{"email":"unapproved-field@example.com"},null
+    ]);
+    let actual = oracle(
+        r#"import json,runpy,sys
+model=runpy.run_path('rust/scripts/export_contact_contracts.py')['model']()
+out=[]
+for value in json.load(sys.stdin):
+ try:out.append({'ok':True,'value':model.model_validate(value).model_dump(mode='json',exclude_unset=True)})
+ except (ValueError,TypeError):out.append({'ok':False})
+assert 'backend.app.core.config' not in sys.modules
+print(json.dumps(out))
+"#,
+        &cases,
+    );
+    for (index, (input, want)) in cases
+        .as_array()
+        .unwrap()
+        .iter()
+        .zip(actual.as_array().unwrap())
+        .enumerate()
+    {
+        match contacts::contract::normalize(input.clone()) {
+            Ok(value) => assert_eq!(json!({"ok":true,"value":value}), *want, "case {index}"),
+            Err(_) => assert_eq!(json!({"ok":false}), *want, "case {index}"),
+        }
+    }
+}
+#[test]
 fn contact_business_mailbox_categories_match_actual_lowercase_rules_and_uppercase_role_inboxes_are_conservative()
  {
     let cases = json!([

@@ -1,5 +1,16 @@
 # Complete-source delivery plan — 2026-11-16
 
+Contact correction design2026-11-17: freeze the actual `ContactCorrection` DTO without
+service/config imports; add owner-only PATCH on the existing detail route. Public saved
+rows expose an opaque PostgreSQL row-version/updated-time precondition, required through
+If-Match before correction. Use SERIALIZABLE/shared owner fence, old/new company locks
+in UUID order, then contact lock. Recheck the complete precondition and mailbox evidence;
+never treat identity evidence/provider claims as mailbox verification. Company changes
+require no retained email and bounded exact identity deletion. Append one immutable
+human-correction evidence row with exact insert ACK; compare the complete contact update
+ACK and roll back all changes on mismatch. A lost response cannot replay the old version.
+No provider action, queue/policy edit or new sending permission is part of correction.
+
 Use the canonical Rust/Tokio/Axum/SQLx runtime and existing PostgreSQL state. Finish
 research, contracts and module boundaries before implementing the remaining services;
 write their regression fixtures during implementation but execute the combined local

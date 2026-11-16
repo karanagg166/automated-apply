@@ -10,14 +10,21 @@ pub(super) fn profile_failure(error: Failure) -> Response {
     if error.0.starts_with("contact_")
         || matches!(
             error.0,
-            "invalid_contact_query" | "invalid_contact_saved_record"
+            "invalid_contact_query" | "invalid_contact_saved_record" | "invalid_contact_correction"
         )
     {
         let status = match error.0 {
             "contact_not_found" | "contact_company_not_found" | "contact_job_not_found" => {
                 StatusCode::NOT_FOUND
             }
-            "invalid_contact_query" => StatusCode::UNPROCESSABLE_ENTITY,
+            "invalid_contact_query"
+            | "invalid_contact_correction"
+            | "contact_required_field_null"
+            | "contact_current_mailbox_evidence_required"
+            | "contact_mailbox_missing" => StatusCode::UNPROCESSABLE_ENTITY,
+            "contact_review_precondition_required" => StatusCode::PRECONDITION_REQUIRED,
+            "contact_review_version_conflict" => StatusCode::PRECONDITION_FAILED,
+            "contact_affiliation_mailbox_review_required" => StatusCode::CONFLICT,
             "contact_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
             _ => StatusCode::SERVICE_UNAVAILABLE,
         };
