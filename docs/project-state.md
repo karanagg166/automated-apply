@@ -7,6 +7,15 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest contact credit ledger source7fdd777 adds atomic single-use reservation/monthly
+increment, no-refund actual findings, exact ACK rollback and bounded monotonic cooldown.
+Ten native PG declarations are UNRUN; no standard/frontend declaration added. See the
+[qualified credit-ledger report](acceptance/contact-credit-ledger-source-20261117.md).
+This ledger is not wired to provider dispatch and does not confer entitlement. Continue
+durable run/lookup admission, current capability proof/provider IO/identity ingestion,
+grounded outreach and remaining full source before combined acceptance. No new tests,
+build/check/live/install or percentage gain;58/42/prior455 held.
+
 Latest contact enrichment planning source175f63e adds read-only local-first preview,
 saved provider/configuration/budget status and qualified retained runs/candidate patterns.
 Two standard (29 DTO +12 role +12 lookup +48 fallback cases) +8 PG/HTTP declarations are
