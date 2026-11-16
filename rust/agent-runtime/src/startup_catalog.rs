@@ -5,5 +5,6 @@ pub mod identity;
 pub mod intelligence;
 pub mod ranking;
 pub mod rules;
+pub mod runs;
 pub mod search;
 pub mod shortlist;

@@ -1,5 +1,15 @@
 # Complete-source delivery plan — 2026-11-16
 
+Manual startup-run design2026-11-17: claim the original discovery_runs row and private
+opaque invocation under the shared owner fence before ingestion. Match actual request hashes
+with startup_ source prefix; idempotency replay returns retained run without reconstructing
+authority. Complete permission-confirmed manual observations and company-scoped saved
+ranking in one second SERIALIZABLE transaction, exact run/journal ACK and original180-second
+deadline. Failed/cancelled work retains the original running claim for review, never resume,
+refund or automatic replay. Read output qualifies expired running records without GET writes
+and strips private input/journal/unknown fields. This manual-only domain slice precedes the
+full source registry, provider orchestration and host route integration; no fake provider PASS.
+
 Canonical company ingestion design2026-11-17: source ID, then exact normalized domain,
 then attributable source URL form the actual legacy identity key. Under owner-first
 SERIALIZABLE and the existing ingestion advisory fence, reject source mappings to multiple

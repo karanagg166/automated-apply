@@ -229,8 +229,9 @@ pub(crate) async fn search_in(
     shortlisted: bool,
     settings: &crate::contacts::Settings,
     now: DateTime<Utc>,
+    scope: Option<&[Uuid]>,
 ) -> Result<Value> {
-    let ids:Vec<Uuid>=sqlx::query_scalar("SELECT c.id FROM companies c WHERE (NOT $1 OR EXISTS(SELECT 1 FROM startup_shortlist_entries s WHERE s.company_id=c.id)) AND ($2::text IS NULL OR EXISTS(SELECT 1 FROM company_source_observations o WHERE o.company_id=c.id AND o.source=$2) OR EXISTS(SELECT 1 FROM jobs j WHERE j.company_id=c.id AND j.source_platform=$2)) ORDER BY c.id LIMIT 501").bind(shortlisted).bind(filters["source"].as_str()).fetch_all(&mut **tx).await.map_err(db)?;
+    let ids:Vec<Uuid>=sqlx::query_scalar("SELECT c.id FROM companies c WHERE ($3::uuid[] IS NULL OR c.id=ANY($3)) AND (NOT $1 OR EXISTS(SELECT 1 FROM startup_shortlist_entries s WHERE s.company_id=c.id)) AND ($2::text IS NULL OR EXISTS(SELECT 1 FROM company_source_observations o WHERE o.company_id=c.id AND o.source=$2) OR EXISTS(SELECT 1 FROM jobs j WHERE j.company_id=c.id AND j.source_platform=$2)) ORDER BY c.id LIMIT 501").bind(shortlisted).bind(filters["source"].as_str()).bind(scope.map(|ids|ids.to_vec())).fetch_all(&mut **tx).await.map_err(db)?;
     if ids.len() > 500 {
         return Err(Failure("startup_catalog_company_limit"));
     }
@@ -328,6 +329,7 @@ pub async fn dispatch(
         matches!(route, Route::Shortlist),
         settings,
         now,
+        None,
     )
     .await?;
     tx.commit()

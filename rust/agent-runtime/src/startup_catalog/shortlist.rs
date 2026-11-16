@@ -13,7 +13,7 @@ fn db(_: sqlx::Error) -> Failure {
 fn invalid() -> Failure {
     Failure("invalid_startup_catalog_record")
 }
-fn public_snapshot(snapshot: &Value) -> Result<Value> {
+pub(crate) fn public_snapshot(snapshot: &Value) -> Result<Value> {
     if !snapshot.is_object() {
         return Err(invalid());
     }
