@@ -23,6 +23,7 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     let path = request.uri().path().to_owned();
     if let Some(route) = crate::outreach::drafts::route(&path)
         && !route.accepts(&method)
+        && !(path == crate::outreach::drafts::PATH && method == "POST")
     {
         let mut response = reply(
             StatusCode::METHOD_NOT_ALLOWED,
@@ -284,6 +285,11 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     };
     if let Some(company) = crate::contacts::enrichment::io_route(&path) {
         return contact_io::dispatch(&api, company, &method, packet_query.as_deref(), &body).await;
+    }
+    if let Some(action) = crate::outreach::controller::route(&path)
+        && (method != "GET" || action == crate::outreach::controller::Action::Preview)
+    {
+        return outreach_io::dispatch(&api, action, &method, packet_query.as_deref(), &body).await;
     }
     if let Some(route) = crate::gmail_accounts::io_route(&path) {
         return gmail_accounts_io::dispatch(&api, route, &method, &body).await;

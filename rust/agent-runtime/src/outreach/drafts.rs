@@ -85,7 +85,7 @@ pub(super) fn request_hash(input: &Value, origin: &str) -> String {
     value["origin"] = json!(origin);
     fingerprint(&value)
 }
-async fn begin(c: &mut PgConnection) -> Result<Transaction<'_, Postgres>> {
+pub(super) async fn begin(c: &mut PgConnection) -> Result<Transaction<'_, Postgres>> {
     let mut tx = c.begin().await.map_err(db)?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
         .execute(&mut *tx)
@@ -376,7 +376,7 @@ async fn write_in(
     }
     Ok(expected)
 }
-async fn now_in(tx: &mut Transaction<'_, Postgres>) -> Result<Value> {
+pub(super) async fn now_in(tx: &mut Transaction<'_, Postgres>) -> Result<Value> {
     sqlx::query_scalar("SELECT to_jsonb(clock_timestamp())")
         .fetch_one(&mut **tx)
         .await
@@ -415,6 +415,16 @@ pub async fn create_local(
                 .map_err(|_| Failure("outreach_commit_outcome_unknown"))?;
             return Ok(result);
         }
+        let writer_key = format!("outreach_gen:create:{}", fingerprint(&json!(key)));
+        let prior_writer: bool =
+            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM owner_preferences WHERE key=$1)")
+                .bind(writer_key)
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(db)?;
+        if prior_writer {
+            return Err(Failure("outreach_idempotency_key_conflict"));
+        }
     }
     let context = Context::load_in(&mut tx, &input, settings, true).await?;
     let preview = context.preview(input.clone())?;
@@ -422,19 +432,31 @@ pub async fn create_local(
         tx.rollback().await.map_err(db)?;
         return Ok(preview);
     }
-    let id = Uuid::new_v4();
-    let stamp = now_in(&mut tx).await?;
-    let mut metadata = preview.clone();
-    metadata["max_length"] = input["max_length"].clone();
-    let expected = json!({"id":id,"job_id":input["job_id"],"contact_id":input["contact_id"],"subject":preview["subject"],"body":preview["body"],"resume_version":null,"gmail_draft_id":null,"gmail_message_id":null,"gmail_thread_id":null,"approval_status":"pending_approval","approved_at":null,"sent_at":null,"connected_account_id":null,"draft_revision":1,"candidate_profile_version":context.profile["version"],"recipient_email":context.contact["email"],"evidence_snapshot":context.snapshot,"evidence_hash":context.digest(),"approval_hash":null,"approved_revision":null,"last_edited_at":null,"validation_status":"requires_review","generation_metadata":metadata,"created_via":origin,"idempotency_key":input["idempotency_key"],"request_hash":hash,"created_at":stamp,"updated_at":stamp});
-    let got:Option<Value>=sqlx::query_scalar("INSERT INTO outreach_logs AS d(id,job_id,contact_id,subject,body,approval_status,draft_revision,candidate_profile_version,recipient_email,evidence_snapshot,evidence_hash,validation_status,generation_metadata,created_via,idempotency_key,request_hash,created_at,updated_at) VALUES($1,($2::jsonb->>'job_id')::uuid,($2::jsonb->>'contact_id')::uuid,$2::jsonb->>'subject',$2::jsonb->>'body','pending_approval',1,($2::jsonb->>'candidate_profile_version')::integer,$2::jsonb->>'recipient_email',$2::jsonb->'evidence_snapshot',$2::jsonb->>'evidence_hash','requires_review',$2::jsonb->'generation_metadata',$2::jsonb->>'created_via',$2::jsonb->>'idempotency_key',$2::jsonb->>'request_hash',($2::jsonb->>'created_at')::timestamptz,($2::jsonb->>'updated_at')::timestamptz) RETURNING to_jsonb(d)").bind(id).bind(&expected).fetch_optional(&mut *tx).await.map_err(db)?;
-    if got.as_ref() != Some(&expected) || get_in(&mut tx, id, false).await? != expected {
-        return Err(Failure("outreach_write_ack_failed"));
-    }
-    let result = read_in(&mut tx, &expected, settings).await?;
+    let result = insert_in(&mut tx, &context, &input, &preview, origin, settings).await?;
     tx.commit()
         .await
         .map_err(|_| Failure("outreach_commit_outcome_unknown"))?;
+    Ok(result)
+}
+pub(super) async fn insert_in(
+    tx: &mut Transaction<'_, Postgres>,
+    context: &Context,
+    input: &Value,
+    preview: &Value,
+    origin: &str,
+    settings: &crate::contacts::Settings,
+) -> Result<Value> {
+    let hash = request_hash(input, origin);
+    let id = Uuid::new_v4();
+    let stamp = now_in(tx).await?;
+    let mut metadata = preview.clone();
+    metadata["max_length"] = input["max_length"].clone();
+    let expected = json!({"id":id,"job_id":input["job_id"],"contact_id":input["contact_id"],"subject":preview["subject"],"body":preview["body"],"resume_version":null,"gmail_draft_id":null,"gmail_message_id":null,"gmail_thread_id":null,"approval_status":"pending_approval","approved_at":null,"sent_at":null,"connected_account_id":null,"draft_revision":1,"candidate_profile_version":context.profile["version"],"recipient_email":context.contact["email"],"evidence_snapshot":context.snapshot,"evidence_hash":context.digest(),"approval_hash":null,"approved_revision":null,"last_edited_at":null,"validation_status":"requires_review","generation_metadata":metadata,"created_via":origin,"idempotency_key":input["idempotency_key"],"request_hash":hash,"created_at":stamp,"updated_at":stamp});
+    let got:Option<Value>=sqlx::query_scalar("INSERT INTO outreach_logs AS d(id,job_id,contact_id,subject,body,approval_status,draft_revision,candidate_profile_version,recipient_email,evidence_snapshot,evidence_hash,validation_status,generation_metadata,created_via,idempotency_key,request_hash,created_at,updated_at) VALUES($1,($2::jsonb->>'job_id')::uuid,($2::jsonb->>'contact_id')::uuid,$2::jsonb->>'subject',$2::jsonb->>'body','pending_approval',1,($2::jsonb->>'candidate_profile_version')::integer,$2::jsonb->>'recipient_email',$2::jsonb->'evidence_snapshot',$2::jsonb->>'evidence_hash','requires_review',$2::jsonb->'generation_metadata',$2::jsonb->>'created_via',$2::jsonb->>'idempotency_key',$2::jsonb->>'request_hash',($2::jsonb->>'created_at')::timestamptz,($2::jsonb->>'updated_at')::timestamptz) RETURNING to_jsonb(d)").bind(id).bind(&expected).fetch_optional(&mut **tx).await.map_err(db)?;
+    if got.as_ref() != Some(&expected) || get_in(tx, id, false).await? != expected {
+        return Err(Failure("outreach_write_ack_failed"));
+    }
+    let result = read_in(tx, &expected, settings).await?;
     Ok(result)
 }
 pub async fn dispatch(

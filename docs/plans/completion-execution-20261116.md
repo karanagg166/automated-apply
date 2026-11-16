@@ -1,5 +1,16 @@
 # Complete-source delivery plan — 2026-11-16
 
+Outreach writer/controller design2026-11-17: local preview is read-only and local creation
+uses the existing ledger. Optional REST rewriting requires a stable caller idempotency key
+and one original120-second opaque invocation committed before calling the existing governed
+answer writer. Preview/create intents are distinct. Do not hold owner/material locks or a
+transaction over model IO. Recheck original journal and complete current context before
+persisting; changed/late results are held and cannot create a draft. Repeated completed
+requests return retained findings/original drafts; interrupted admissions never renew or
+redispatch. Use the shared transient host permit/connection and60-second endpoint bound.
+Provider settings/budgets and grounding remain those of the existing answer writer. MCP
+composition remains local regardless of use_llm. No sending/provider entitlement is granted.
+
 Outreach local lifecycle design2026-11-17: preserve outreach_logs as the single draft
 ledger. Owner-fenced serializable local creation checks idempotency before composition and
 persists exact snapshot/content/revision in one transaction. No narrative request enters

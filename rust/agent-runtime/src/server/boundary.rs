@@ -32,6 +32,7 @@ pub(super) fn profile_route(path: &str) -> bool {
         || crate::contacts::route(path).is_some()
         || crate::outreach::history::route(path).is_some()
         || crate::outreach::drafts::route(path).is_some()
+        || crate::outreach::controller::route(path).is_some()
         || crate::contacts::enrichment::route(path).is_some()
         || crate::contacts::enrichment::io_route(path).is_some()
         || crate::packet_service::route(path).is_some()

@@ -3,6 +3,7 @@ use super::*;
 use crate::contacts::rules;
 use automated_apply_domain::text::folded;
 use sqlx::{Postgres, Transaction};
+#[derive(Clone)]
 pub struct Context {
     pub(super) profile: Value,
     pub(super) contact: Value,
@@ -431,6 +432,8 @@ impl Context {
         for e in self.snapshot["contact_evidence"]
             .as_array()
             .ok_or_else(invalid)?
+            .iter()
+            .take(100)
         {
             references.push(json!({"source_type":"contact_evidence","source_id":e["id"]}));
         }

@@ -17,10 +17,13 @@ pub(super) fn profile_failure(error: Failure) -> Response {
             | "outreach_send_reserved_draft_immutable"
             | "outreach_draft_not_eligible"
             | "outreach_context_changed" => StatusCode::CONFLICT,
+            "outreach_generation_intent_conflict"
+            | "outreach_generation_reconciliation_required" => StatusCode::CONFLICT,
             "invalid_outreach_contract"
             | "invalid_outreach_query"
             | "invalid_outreach_origin"
             | "outreach_job_employer_mismatch" => StatusCode::UNPROCESSABLE_ENTITY,
+            "outreach_writer_idempotency_key_required" => StatusCode::UNPROCESSABLE_ENTITY,
             "outreach_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
             _ => StatusCode::SERVICE_UNAVAILABLE,
         };

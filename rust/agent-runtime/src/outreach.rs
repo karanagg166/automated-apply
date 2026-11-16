@@ -1,6 +1,7 @@
 //! Grounded local outreach draft review. No sending or provider delivery authority.
 pub mod context;
 pub mod contract;
+pub mod controller;
 pub mod drafts;
 pub mod history;
 use crate::{Failure, Result};

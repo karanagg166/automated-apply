@@ -4080,3 +4080,4 @@ include!("support/contact_controller_pg.rs");
 include!("support/outreach_history_pg.rs");
 include!("support/outreach_context_pg.rs");
 include!("support/outreach_drafts_pg.rs");
+include!("support/outreach_controller_pg.rs");
