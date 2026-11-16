@@ -53,6 +53,7 @@ pub(crate) mod schedule;
 pub mod search;
 mod storage;
 pub mod submission;
+pub mod telegram_commands;
 pub(crate) mod telegram_questions;
 
 use crate::{Failure, Result};
