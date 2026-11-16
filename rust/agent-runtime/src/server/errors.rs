@@ -7,10 +7,20 @@ use axum::{
 use serde_json::{Value, json};
 
 pub(super) fn profile_failure(error: Failure) -> Response {
+    if error.0 == "invalid_research_contract" {
+        return reply(StatusCode::UNPROCESSABLE_ENTITY, json!({"detail":error.0}));
+    }
     if error.0.starts_with("startup_") || error.0.starts_with("invalid_startup_") {
         let status = match error.0 {
             "startup_catalog_not_found" | "startup_catalog_run_not_found" => StatusCode::NOT_FOUND,
             "startup_catalog_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
+            "startup_run_idempotency_conflict" | "startup_run_invocation_conflict" => {
+                StatusCode::CONFLICT
+            }
+            "startup_provider_orchestration_not_implemented" => StatusCode::NOT_IMPLEMENTED,
+            "startup_source_unknown" | "startup_run_idempotency_key_required" => {
+                StatusCode::UNPROCESSABLE_ENTITY
+            }
             "invalid_startup_query" | "invalid_startup_contract" => {
                 StatusCode::UNPROCESSABLE_ENTITY
             }

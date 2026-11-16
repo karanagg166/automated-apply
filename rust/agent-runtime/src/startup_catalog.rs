@@ -3,6 +3,7 @@ pub mod contract;
 pub mod detail;
 pub mod identity;
 pub mod intelligence;
+pub mod owner;
 pub mod ranking;
 pub mod rules;
 pub mod runs;

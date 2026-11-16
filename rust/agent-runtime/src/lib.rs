@@ -15,6 +15,7 @@ pub mod evidence_retrieval;
 pub mod extractive;
 pub mod postgres;
 pub mod runner;
+pub mod source_registry;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Failure(pub &'static str);

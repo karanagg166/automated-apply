@@ -184,7 +184,9 @@ pub async fn admit_manual(c: &mut PgConnection, input: Value, timeout: f64) -> R
         return Err(Failure("startup_manual_run_required"));
     }
     let hash = request_hash(&input)?;
-    let key = input["idempotency_key"].as_str().ok_or_else(invalid)?;
+    let key = input["idempotency_key"]
+        .as_str()
+        .ok_or(Failure("startup_run_idempotency_key_required"))?;
     if let Some(id) =
         sqlx::query_scalar::<_, Uuid>("SELECT id FROM discovery_runs WHERE idempotency_key=$1")
             .bind(key)

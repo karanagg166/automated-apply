@@ -1,5 +1,18 @@
 # Complete-source delivery plan — 2026-11-16
 
+Startup registry/host design 2026-11-17: expose original public source metadata from
+bounded private configuration, separate saved prerequisites from current probes and
+native implementation availability. Never expose board names, actor inputs, keys or
+operator evidence URLs. Keep unsupported directory collection explicit and manual
+imports subject to per-import rights confirmation. Public search requires both local
+credentials and a validated saved permission URL; mere rights flags cannot make it
+available. Source/status and preview perform zero provider requests and zero writes.
+Preview reads one read-only repeatable snapshot for effective profile preferences.
+Wire manual POST and retained run GET through the shared bounded transient host request
+permit, preserving original claims, immutable history and sanitized errors. Unported
+job-led orchestration must fail explicitly without admitting a pretend completed run.
+Then implement provider orchestration and live verification as separate dependencies.
+
 Apify configuration dependency design2026-11-17: freeze actual ActorConfiguration and port
 its fixed input builder, public review URLs, pinned build, exact unique limit mapping,
 enabled/review/24-hour expiry and inclusive hard-budget prerequisites. Keep schema-valid
