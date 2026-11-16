@@ -1,5 +1,6 @@
 //! Local enrichment planning and saved records. This module never dispatches provider IO.
 use super::*;
+pub mod budget;
 pub mod contract;
 pub mod policy;
 pub struct Provider {

@@ -4070,3 +4070,4 @@ include!("support/gmail_legacy_oauth_pg.rs");
 include!("support/contacts_pg.rs");
 include!("support/contact_correction_pg.rs");
 include!("support/contact_enrichment_preview_pg.rs");
+include!("support/contact_budget_pg.rs");

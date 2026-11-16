@@ -1,5 +1,15 @@
 # Complete-source delivery plan — 2026-11-16
 
+Contact credit ledger design2026-11-17: port existing discovery monthly/reservation tables
+with integer credit estimates and SQL numeric accounting, not floating arithmetic. Shared
+owner/SERIALIZABLE transactions commit reservation plus monthly increment before any
+future remote action. Every reservation identity is single-use; provider-reported actuals
+remain audit data and cannot refund the reserved cap. Finish is a guarded one-way state
+transition with idempotent identical acknowledgment, fixed terminal states and exact
+returned fields. Cooldown is monotonic across bounded saved provider months, including a
+new zero-reserved current-month row. The ledger itself grants no provider entitlement,
+does not perform IO and is not exposed as a remotely callable budget-control endpoint.
+
 Contact provider source design2026-11-17: port read-only local-first enrichment preview,
 saved monthly budget/configuration status and retained run review before provider IO.
 Freeze actual EnrichInput alongside ContactCorrection. RR read-only snapshots keep budget
