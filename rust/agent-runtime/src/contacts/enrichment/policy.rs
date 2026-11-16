@@ -55,6 +55,21 @@ pub fn saved_run(mut value: Value) -> Result<Value> {
     if !value.is_object() {
         return Err(invalid());
     }
+    value.as_object_mut().unwrap().retain(|key, _| {
+        matches!(
+            key.as_str(),
+            "id" | "company_id"
+                | "state"
+                | "target_roles"
+                | "provider_plan"
+                | "contact_ids"
+                | "counts"
+                | "usage"
+                | "errors"
+                | "started_at"
+                | "completed_at"
+        )
+    });
     let states = [
         "not_configured",
         "authorization_required",

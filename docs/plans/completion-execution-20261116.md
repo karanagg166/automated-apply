@@ -1,5 +1,14 @@
 # Complete-source delivery plan — 2026-11-16
 
+Contact run admission design2026-11-17: create the original enrichment run and an immutable
+native invocation journal atomically under the shared owner fence. Bind company snapshot,
+actual legacy ordered request hash, normalized request and180-second nonrenewable token
+lease. An idempotency replay returns retained history only; it never recovers dispatch
+authority, adopts a legacy run or renews an abandoned invocation. Guards recheck exact
+run/company/request/configuration before later lookup admission. The run token stays
+opaque/nonserialized. No provider calls or paid lookup permission are added by starting
+or checking a run; lookup intent, live capability and credit admission remain separate.
+
 Apollo capability parser design2026-11-17: separate pure endpoint-rate/credit-pool parsing
 and24-hour operator eligibility checks from future fixed-endpoint HTTP. Preserve integral
 allowance arithmetic/unique endpoint identity, add the documented credit wrapper, and

@@ -175,6 +175,30 @@ print(json.dumps(out,default=lambda value:value.isoformat()))
     }
 }
 use sha2::Digest as _;
+#[test]
+fn contact_run_request_hash_matches_actual_pydantic_ordered_utf8_model_dump() {
+    let company = uuid::Uuid::from_u128(2);
+    let cases = json!([{}, {"target_roles":["  CTO  "]},{"target_roles":["Straße","工程师","Technical 🦀 leader"]},{"max_people":"3"},{"max_people":true},{"providers":["signalhire","apollo"]},{"providers":[]},{"allow_paid":true},{"allow_fallback":true},{"include_candidates":true},{"idempotency_key":"fictional_first"},{"idempotency_key":"fictional_second"},{"target_roles":["quote\"role","line\nbreak"]},{"max_people":25,"allow_paid":"yes"}]);
+    let actual = oracle(
+        r#"import hashlib,json,runpy,sys
+model=runpy.run_path('rust/scripts/export_contact_contracts.py')['models']()['contact-enrichment']
+company='00000000-0000-0000-0000-000000000002'
+print(json.dumps([hashlib.sha256((company+model.model_validate(value).model_dump_json(exclude={'idempotency_key'})).encode()).hexdigest() for value in json.load(sys.stdin)]))
+"#,
+        &cases,
+    );
+    for (input, want) in cases
+        .as_array()
+        .unwrap()
+        .iter()
+        .zip(actual.as_array().unwrap())
+    {
+        assert_eq!(
+            json!(contacts::enrichment::runs::request_hash(company, input).unwrap()),
+            *want
+        );
+    }
+}
 fn apollo_rate_fixture() -> Value {
     json!({"api/v1/people/match":{"minute":{"limit":10,"consumed":2,"left_over":8},"hour":{"limit":100,"consumed":20,"left_over":80},"day":{"limit":1000,"consumed":200,"left_over":800}}})
 }
