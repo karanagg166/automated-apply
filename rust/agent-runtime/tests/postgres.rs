@@ -4023,3 +4023,4 @@ include!("support/execution_control_pg.rs");
 include!("support/execution_queue_pg.rs");
 include!("support/execution_submission_pg.rs");
 include!("support/execution_preparation_pg.rs");
+include!("support/execution_profile_policy_pg.rs");
