@@ -1,5 +1,14 @@
 # Complete-source delivery plan — 2026-11-16
 
+Outreach local lifecycle design2026-11-17: preserve outreach_logs as the single draft
+ledger. Owner-fenced serializable local creation checks idempotency before composition and
+persists exact snapshot/content/revision in one transaction. No narrative request enters
+this local-only function. Reads/list/eligibility remain read-only. Edits and decisions check
+expected revision, refuse every historical send attempt/sent row, update once and verify the
+complete row both in RETURNING and after triggers. Approval binds resulting revision,
+recipient/content and current evidence digest; unsupported edited sentences require new
+grounding. Old incompatible snapshots require regeneration. No approval grants sending.
+
 Outreach snapshot design2026-11-17: use read-only repeatable-read snapshots for previews;
 mutations take the existing owner fence first, then company/contact/job/profile/evidence/
 resource locks in fixed order. Require the primary profile's exact saved owner confirmation,

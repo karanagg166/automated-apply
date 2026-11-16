@@ -9,10 +9,18 @@ use serde_json::{Value, json};
 pub(super) fn profile_failure(error: Failure) -> Response {
     if error.0.starts_with("outreach_") || error.0.starts_with("invalid_outreach_") {
         let status = match error.0 {
-            "outreach_send_attempt_not_found" | "outreach_draft_not_found" => StatusCode::NOT_FOUND,
-            "invalid_outreach_contract" | "invalid_outreach_query" => {
-                StatusCode::UNPROCESSABLE_ENTITY
-            }
+            "outreach_send_attempt_not_found"
+            | "outreach_draft_not_found"
+            | "outreach_contact_not_found" => StatusCode::NOT_FOUND,
+            "outreach_idempotency_key_conflict"
+            | "outreach_draft_revision_conflict"
+            | "outreach_send_reserved_draft_immutable"
+            | "outreach_draft_not_eligible"
+            | "outreach_context_changed" => StatusCode::CONFLICT,
+            "invalid_outreach_contract"
+            | "invalid_outreach_query"
+            | "invalid_outreach_origin"
+            | "outreach_job_employer_mismatch" => StatusCode::UNPROCESSABLE_ENTITY,
             "outreach_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
             _ => StatusCode::SERVICE_UNAVAILABLE,
         };
