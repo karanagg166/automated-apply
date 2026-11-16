@@ -1,5 +1,16 @@
 # Complete-source delivery plan — 2026-11-16
 
+Public research rules design 2026-11-17: first port the existing search-index query,
+fixed role aliases, Unicode word/case/name rules and selected professional evidence
+projection. Never fetch result URLs or retain raw search/vendor snippets. Deduplicate
+canonical professional URLs before marking equal folded names ambiguous. Provider
+titles remain source-reported candidates requiring independent identity review. Official
+results must match the exact reviewed company domain and named professional role;
+observed time and permission provenance remain explicit. These pure parsers confer no
+transport/budget authority. Then compose durable original search admission, retained
+findings and owner-fenced conservative local ingestion using existing contact identity
+rules; unknown search charges and original intents must survive restart without replay.
+
 Startup registry/host design 2026-11-17: expose original public source metadata from
 bounded private configuration, separate saved prerequisites from current probes and
 native implementation availability. Never expose board names, actor inputs, keys or

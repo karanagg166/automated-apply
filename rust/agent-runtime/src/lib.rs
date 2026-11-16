@@ -13,6 +13,7 @@ pub mod contracts;
 pub mod engine;
 pub mod evidence_retrieval;
 pub mod extractive;
+pub mod people_research;
 pub mod postgres;
 pub mod runner;
 pub mod source_registry;

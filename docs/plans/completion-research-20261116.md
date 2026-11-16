@@ -4,6 +4,19 @@ Primary sources were reread before the remaining implementation. These are desig
 not evidence of an installed service, authenticated account, provider entitlement or receipt.
 Keep pinned Cargo/pnpm dependencies unless a needed implementation justifies a change.
 
+Provider research follow-up, 2026-11-17: [Apify Run Actor](https://docs.apify.com/api/v2/actors-runs-post),
+[dataset items](https://docs.apify.com/api/v2/dataset-items-get) and
+[account limits](https://docs.apify.com/api/v2/users-me-limits-get) remain separate surfaces.
+Run limits/build selection belong to the original run admission; a local HTTP deadline
+does not establish remote termination. Use Authorization headers and bounded selected
+storage reads, never URL tokens or arbitrary retained run/dataset identifiers.
+[Serper's public site](https://serper.dev/) exposes search result examples but its public
+`/docs` returned 404 and the [playground](https://serper.dev/playground) did not expose the
+authenticated request contract in this reader. Preserve the repository's fixed search
+endpoint/header contract as existing source compatibility; do not claim current account,
+credit, retention entitlement or live endpoint verification from the marketing page.
+No account/provider execution was performed by this research.
+
 | Subject | Primary reference | Consequence for this implementation |
 | --- | --- | --- |
 | Native framing/origin | [Chromium native messaging](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging) | UTF-8 JSON uses32-bit native-endian length framing; host responses cap1MiB. Caller origin and allowed extension identity must be validated; application limits remain stricter |
