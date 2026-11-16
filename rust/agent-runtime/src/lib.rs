@@ -22,6 +22,7 @@ pub mod discovery_schedule;
 pub mod feed_ingestion;
 mod job_catalog;
 pub mod job_context;
+pub mod job_urls;
 pub mod knowledge;
 pub mod missing_contract;
 pub mod missing_store;

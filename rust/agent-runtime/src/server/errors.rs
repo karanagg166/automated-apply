@@ -24,11 +24,12 @@ pub(super) fn profile_failure(error: Failure) -> Response {
             | "execution_rollback_unconfirmed"
             | "execution_method_not_allowed"
             | "invalid_execution_contract"
+            | "invalid_naukri_import"
             | "invalid_execution_page"
             | "invalid_execution_saved_record"
     ) {
         let status = match error.0 {
-            "invalid_execution_contract" | "invalid_execution_page" => {
+            "invalid_execution_contract" | "invalid_execution_page" | "invalid_naukri_import" => {
                 StatusCode::UNPROCESSABLE_ENTITY
             }
             "execution_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,

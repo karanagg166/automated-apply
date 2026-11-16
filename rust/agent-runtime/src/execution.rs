@@ -19,6 +19,7 @@ mod legacy_questions;
 pub mod listing_ingestion;
 mod local_policy;
 mod notices;
+pub mod owner_import;
 pub mod owner_questions;
 pub mod owner_routes;
 pub mod owner_status;

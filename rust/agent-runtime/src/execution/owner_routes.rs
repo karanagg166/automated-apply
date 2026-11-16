@@ -17,6 +17,7 @@ pub enum Route<'a> {
     AutomationPolicy,
     AutomationControl,
     Start,
+    Import,
     Control(&'a str),
     Jobs,
     Events,
@@ -42,6 +43,7 @@ impl Route<'_> {
             Self::AutomationPolicy => Some(Kind::AutomationPolicyUpdate),
             Self::AutomationControl => Some(Kind::AutomationControl),
             Self::Start => Some(Kind::Start),
+            Self::Import => Some(Kind::ImportBatch),
             Self::Control(_) => Some(Kind::ExecutionControl),
             Self::Answer(_) => Some(Kind::QuestionAnswer),
             _ => None,
@@ -89,6 +91,7 @@ pub fn route(path: &str) -> Option<Route<'_>> {
         "naukri/automation/policy" => Some(Route::AutomationPolicy),
         "naukri/automation/control" => Some(Route::AutomationControl),
         "naukri/apply" => Some(Route::Start),
+        "naukri/import" => Some(Route::Import),
         "naukri/jobs" => Some(Route::Jobs),
         "events" => Some(Route::Events),
         "questions" => Some(Route::Questions),
@@ -312,6 +315,7 @@ pub(super) async fn dispatch_in(
 ) -> Result<Value> {
     match route {
         Route::Summary => super::owner_status::status_in(tx, config, now).await,
+        Route::Import => super::owner_import::import_in(tx, data.ok_or_else(invalid)?, now).await,
         Route::Questions => {
             let rows:Vec<Value>=sqlx::query_scalar("SELECT value FROM owner_preferences WHERE starts_with(key,'exec_q:') ORDER BY created_at,key").fetch_all(&mut **tx).await.map_err(db)?;
             Ok(json!(rows))
