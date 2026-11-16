@@ -35,6 +35,7 @@ pub(super) fn profile_route(path: &str) -> bool {
         || crate::browser_profiles::route(path).is_some()
         || crate::execution::route(path).is_some()
         || crate::gmail_history::route(path).is_some()
+        || crate::gmail_workspace::route(path).is_some()
         || crate::gmail_accounts::route(path).is_some()
         || crate::gmail_accounts::io_route(path).is_some()
 }

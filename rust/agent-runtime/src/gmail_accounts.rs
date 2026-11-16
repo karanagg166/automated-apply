@@ -39,7 +39,8 @@ pub struct Settings {
     sync: bool,
     body: bool,
     allowed: BTreeSet<String>,
-    store: Option<TokenStore>,
+    pub(crate) store: Option<TokenStore>,
+    pub(crate) drafts: bool,
     ttl: i64,
     retention: bool,
     fixture: bool,
@@ -79,6 +80,7 @@ impl Settings {
             body: crate::configuration::boolean(values, "GMAIL_READ_BODY_REVIEWED", false)?,
             allowed,
             store: TokenStore::from_values(values)?,
+            drafts: crate::configuration::boolean(values, "GMAIL_DRAFTS_ENABLED", false)?,
             retention: crate::configuration::boolean(values, "GMAIL_RETENTION_ENABLED", false)?,
             fixture,
             endpoint: values.get("RUST_GMAIL_FIXTURE_ENDPOINT").cloned(),
@@ -92,7 +94,7 @@ impl Settings {
                 .ok_or(Failure("invalid_oauth_state_ttl"))?,
         })
     }
-    fn allows(&self, email: &str) -> bool {
+    pub(crate) fn allows(&self, email: &str) -> bool {
         self.allowed.is_empty()
             || self
                 .allowed
@@ -180,7 +182,7 @@ fn db(_: sqlx::Error) -> Failure {
 fn invalid() -> Failure {
     Failure("invalid_gmail_read_saved_record")
 }
-async fn schema(tx: &mut Transaction<'_, Postgres>) -> Result<bool> {
+pub(crate) async fn schema(tx: &mut Transaction<'_, Postgres>) -> Result<bool> {
     sqlx::query_scalar("SELECT to_regclass('gmail_read_accounts') IS NOT NULL AND to_regclass('gmail_read_oauth_states') IS NOT NULL").fetch_one(&mut **tx).await.map_err(db)
 }
 async fn account_in(tx: &mut Transaction<'_, Postgres>, id: Uuid, locked: bool) -> Result<Value> {
@@ -216,7 +218,7 @@ async fn policy_in(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> Result<Value
     }
     Ok(value)
 }
-async fn status_in(
+pub(crate) async fn status_in(
     tx: &mut Transaction<'_, Postgres>,
     id: Uuid,
     settings: &Settings,

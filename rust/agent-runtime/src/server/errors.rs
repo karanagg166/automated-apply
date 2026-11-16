@@ -7,6 +7,27 @@ use axum::{
 use serde_json::{Value, json};
 
 pub(super) fn profile_failure(error: Failure) -> Response {
+    if error.0.starts_with("gmail_workspace_")
+        || error.0.starts_with("invalid_gmail_workspace_")
+        || matches!(
+            error.0,
+            "gmail_draft_version_or_state_conflict"
+                | "gmail_draft_header_invalid"
+                | "current_approved_profile_required"
+        )
+    {
+        let status = match error.0 {
+            "invalid_gmail_workspace_contract" | "gmail_draft_header_invalid" => {
+                StatusCode::UNPROCESSABLE_ENTITY
+            }
+            "gmail_workspace_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
+            "gmail_draft_version_or_state_conflict"
+            | "current_approved_profile_required"
+            | "gmail_workspace_role_identity_conflict" => StatusCode::CONFLICT,
+            _ => StatusCode::SERVICE_UNAVAILABLE,
+        };
+        return reply(status, json!({"detail":error.0}));
+    }
     if error.0.starts_with("gmail_read_")
         || error.0.starts_with("invalid_gmail_read_")
         || matches!(

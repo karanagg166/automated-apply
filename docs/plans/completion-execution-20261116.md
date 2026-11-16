@@ -180,6 +180,20 @@ selection and no additional persistent connection; disabled/not-due hints avoid 
 Audit abandoned local-mailbox refresh leases too: expired uncertain refreshes require
 reauthorization, never restart into another provider refresh.
 
+Three-role workspace structure: `gmail_workspace.rs` owns read-only coherent role/status
+projection and local draft list/save/edit, with `gmail_workspace/contract.rs` freezing
+actual AccountConsent/DraftInput/DraftApproval models. `gmail_workspace/account.rs` will
+own original draft.* OAuth, separate compose-only account, exact legacy token purposes
+and durable non-replayed refresh outcomes; `gmail_workspace/dispatch.rs` will own explicit
+reviewed draft creation with immutable intent before its one POST, current account/profile/
+content/version checks and unknown-safe reconciliation. Reuse selected read-account
+authorization for fixed read_1/read_2 roles without moving/adopting another role identity.
+Local drafts remain purpose-bound encrypted, with legacy Python canonical content hashes;
+local edits require current reviewed profile and exact version and cannot overwrite
+dispatching/unknown/saved drafts. Freeze current behavior before adding IO routes, preserve
+the existing frontend and gateway contracts, and add deferred actual DTO/hash/profile/CAS/
+auth/lost-response fixtures. A saved local draft is not a Gmail draft or sent message.
+
 The existing runner is the starting point, not yet a complete end-to-end gate: it omits
 UI/browser journeys, several extension browser fixture suites and PostgreSQL-backed Python
 integration. Extend it during source integration with a disposable DB lifecycle and strict

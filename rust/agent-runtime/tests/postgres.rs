@@ -4062,3 +4062,4 @@ include!("support/gmail_read_oauth_pg.rs");
 include!("support/gmail_sync_pg.rs");
 include!("support/gmail_lead_import_pg.rs");
 include!("support/gmail_alerts_pg.rs");
+include!("support/gmail_workspace_pg.rs");

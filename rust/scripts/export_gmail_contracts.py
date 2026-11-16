@@ -22,13 +22,15 @@ def models():
              "PublicHTTPSURL": runpy.run_path(str(ROOT / "backend/app/core/urls.py"))["PublicHTTPSURL"]}
     load(scope, "backend/app/ai/schemas.py", {"Contract"})
     load(scope, "backend/app/integrations/gmail/history.py", {"HistoryReview"})
-    load(scope, "backend/app/integrations/gmail/workspace.py", {"Version", "Retention"})
+    load(scope, "backend/app/integrations/gmail/workspace.py", {"Version", "Retention", "AccountConsent"})
+    load(scope, "backend/app/integrations/gmail/drafts.py", {"DraftInput", "DraftApproval"})
     load(scope, "backend/app/integrations/gmail/read_service.py", {"ReadConnect", "ReadPolicy", "LeadImport"})
     load(scope, "backend/app/integrations/gmail/job_alerts.py", {"AlertPolicy"})
     return {"gmail-history-review": scope["HistoryReview"], "gmail-history-version": scope["Version"],
             "gmail-history-retention": scope["Retention"], "gmail-read-connect": scope["ReadConnect"],
             "gmail-read-policy": scope["ReadPolicy"], "gmail-lead-import": scope["LeadImport"],
-            "gmail-alert-policy": scope["AlertPolicy"]}
+            "gmail-alert-policy": scope["AlertPolicy"], "gmail-workspace-consent": scope["AccountConsent"],
+            "gmail-workspace-draft": scope["DraftInput"], "gmail-workspace-approval": scope["DraftApproval"]}
 
 
 def main():

@@ -72,6 +72,12 @@ pub(crate) async fn preparation_authority_in(
         serde_json::json!({"state":record["state"],"revision":record["revision"],"mode":configuration["mode"]}),
     )
 }
+
+pub(crate) async fn reviewed_profile_in(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+) -> crate::Result<serde_json::Value> {
+    preflight::profile_in(tx, &serde_json::json!({})).await
+}
 pub fn denial(error: Failure) -> bool {
     matches!(
         error.0,

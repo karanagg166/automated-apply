@@ -1,0 +1,32 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "content_hash": {
+      "pattern": "^[a-f0-9]{64}$",
+      "title": "Content Hash",
+      "type": "string"
+    },
+    "expected_account_generation": {
+      "minimum": 1,
+      "title": "Expected Account Generation",
+      "type": "integer"
+    },
+    "expected_version": {
+      "minimum": 1,
+      "title": "Expected Version",
+      "type": "integer"
+    },
+    "owner_reviewed": {
+      "title": "Owner Reviewed",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "expected_version",
+    "content_hash",
+    "owner_reviewed",
+    "expected_account_generation"
+  ],
+  "title": "DraftApproval",
+  "type": "object"
+}

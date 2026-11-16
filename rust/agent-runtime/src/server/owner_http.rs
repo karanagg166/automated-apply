@@ -94,6 +94,23 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
         );
         return response;
     }
+    if let Some(route) = crate::gmail_workspace::route(&path)
+        && !route.accepts(&method)
+    {
+        let mut response = reply(
+            StatusCode::METHOD_NOT_ALLOWED,
+            json!({"detail":"gmail_workspace_method_not_allowed"}),
+        );
+        response.headers_mut().insert(
+            "allow",
+            axum::http::HeaderValue::from_static(match route {
+                crate::gmail_workspace::Route::Accounts => "GET",
+                crate::gmail_workspace::Route::Drafts => "GET, POST",
+                crate::gmail_workspace::Route::Draft(_) => "PUT",
+            }),
+        );
+        return response;
+    }
     if let Some(route) = crate::gmail_history::route(&path)
         && route.method() != method
     {
@@ -332,6 +349,22 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
             crate::gmail_accounts::dispatch(
                 connection,
                 crate::gmail_accounts::route(&path).unwrap(),
+                &method,
+                packet_query.as_deref(),
+                &body,
+                &api.config.gmail_accounts,
+            )
+            .await
+            .map(|data| OwnerReply {
+                data,
+                status: StatusCode::OK,
+                etag: None,
+            })
+        }
+        Some(connection) if crate::gmail_workspace::route(&path).is_some() => {
+            crate::gmail_workspace::dispatch(
+                connection,
+                crate::gmail_workspace::route(&path).unwrap(),
                 &method,
                 packet_query.as_deref(),
                 &body,
