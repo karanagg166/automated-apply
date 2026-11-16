@@ -21,6 +21,19 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     }
     let method = request.method().as_str().to_owned();
     let path = request.uri().path().to_owned();
+    if let Some(route) = crate::contacts::enrichment::route(&path)
+        && route.method() != method
+    {
+        let mut response = reply(
+            StatusCode::METHOD_NOT_ALLOWED,
+            json!({"detail":"contact_method_not_allowed"}),
+        );
+        response.headers_mut().insert(
+            "allow",
+            axum::http::HeaderValue::from_static(route.method()),
+        );
+        return response;
+    }
     if let Some(route) = crate::contacts::route(&path)
         && !route.accepts(&method)
     {
@@ -418,6 +431,23 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
                 id,
                 if_match.as_deref(),
                 &body,
+                &api.config.contacts,
+            )
+            .await
+            .map(|data| OwnerReply {
+                data,
+                status: StatusCode::OK,
+                etag: None,
+            })
+        }
+        Some(connection) if crate::contacts::enrichment::route(&path).is_some() => {
+            crate::contacts::enrichment::dispatch(
+                connection,
+                crate::contacts::enrichment::route(&path).unwrap(),
+                &method,
+                packet_query.as_deref(),
+                &body,
+                &api.config.contact_enrichment,
                 &api.config.contacts,
             )
             .await

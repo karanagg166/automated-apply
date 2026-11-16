@@ -32,3 +32,17 @@ PostgreSQL fixture shutdown follow-up: [official PostgreSQL17 pg_ctl documentati
 Queue quota timezone research: [Chrono-TZ official API documentation](https://docs.rs/chrono-tz/0.10.4/chrono_tz/) identifies0.10.4 as the current documented release and describes IANA-generated timezone conversions and day changes across DST. The source dependency is pinned exactly0.10.4 with std only; the lock adds chrono-tz,phf,phf_shared,siphasher without replacing existing locked versions. Production timing, binary size and timezone parity are untested; the final suite contains explicit ZoneInfo comparisons.
 
 Queue read projection research: [PostgreSQL17 CTE materialization documentation](https://www.postgresql.org/docs/17/queries-with.html#QUERIES-WITH-CTE-MATERIALIZATION) supports NOT MATERIALIZED for the side-effect-free inventory/filter CTEs, so the planner can push projections/filters instead of retaining a full history payload as an intermediate relation. The source queue read uses two business SELECT statements inside a read-only repeatable snapshot; transaction setup/commit are additional protocol work. No timing or memory behavior has been measured for it.
+# Contact provider research refresh — 2026-11-17
+
+Read primary [Apollo People API Search](https://docs.apollo.io/reference/people-api-search),
+[Apollo People Enrichment](https://docs.apollo.io/reference/people-enrichment) and
+[SignalHire API overview](https://docs.signalhire.com/overview) during the source phase.
+Apollo documents zero-credit search without emails/phones and qualifies free-account
+access by work-email registration plus additional eligibility. Match enrichment can
+consume credits; account-specific ceilings and live endpoint/credit proof still gate
+dispatch. Search availability never proves a free enrichment entitlement. SignalHire
+documents synchronous Person API with withoutWaterfall and asynchronous alternatives;
+unexpected async/unknown outcomes must not cause another billable submission. Existing
+adapter capabilities remain narrower than provider product availability. No account/API
+call, registration, purchase or real-person lookup was performed by this research.
+

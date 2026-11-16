@@ -176,6 +176,165 @@ print(json.dumps(out,default=lambda value:value.isoformat()))
 }
 use sha2::Digest as _;
 #[test]
+fn contact_enrichment_request_matches_actual_dto_defaults_and_bounded_authorization_flags() {
+    let cases = json!([
+        {},{"target_roles":[" CTO ","engineering_manager"]},{"target_roles":[]},{"target_roles":null},
+        {"target_roles":[""]},{"target_roles":["x".repeat(256)]},{"target_roles":vec!["role";21]},
+        {"max_people":1},{"max_people":25},{"max_people":26},{"max_people":0},{"max_people":"5"},
+        {"max_people":5.0},{"max_people":5.5},{"max_people":true},{"providers":[]},
+        {"providers":["apollo","signalhire"]},{"providers":["apollo","apollo"]},{"providers":["other"]},
+        {"allow_paid":"YES"},{"allow_paid":true},{"allow_paid":null},{"allow_paid":2},
+        {"allow_fallback":"off","include_candidates":1},{"idempotency_key":"fictional_123-key"},
+        {"idempotency_key":"bad key"},{"idempotency_key":"x".repeat(101)},{"unexpected":true},null
+    ]);
+    let actual = oracle(
+        r#"import json,runpy,sys
+model=runpy.run_path('rust/scripts/export_contact_contracts.py')['models']()['contact-enrichment']
+out=[]
+for value in json.load(sys.stdin):
+ try:out.append({'ok':True,'value':model.model_validate(value).model_dump(mode='json')})
+ except (ValueError,TypeError):out.append({'ok':False})
+assert 'backend.app.core.config' not in sys.modules
+print(json.dumps(out))
+"#,
+        &cases,
+    );
+    for (index, (input, want)) in cases
+        .as_array()
+        .unwrap()
+        .iter()
+        .zip(actual.as_array().unwrap())
+        .enumerate()
+    {
+        let got = match contacts::enrichment::contract::normalize(input.clone()) {
+            Ok(v) => json!({"ok":true,"value":v}),
+            Err(_) => json!({"ok":false}),
+        };
+        assert_eq!(got, *want, "case {index}");
+    }
+}
+#[test]
+fn contact_local_first_role_lookup_and_fallback_decisions_match_actual_functions() {
+    let now = DateTime::parse_from_rfc3339("2026-11-17T00:00:00Z")
+        .unwrap()
+        .with_timezone(&Utc);
+    let mut lookup = Vec::new();
+    for n in 0..12 {
+        let mut c = fixture()["contact"].clone();
+        c["human_corrected"] = json!(false);
+        match n {
+            0 => {}
+            1 => c["do_not_contact"] = json!(true),
+            2 => c["human_corrected"] = json!(true),
+            3 => c["metadata_"]["identity_review_required"] = json!(true),
+            4 => c["last_checked_at"] = json!("2026-01-01T00:00:00Z"),
+            5 => {
+                c["email"] = Value::Null;
+                c["linkedin_url"] = Value::Null;
+            }
+            6 => {
+                c["email_status"] = json!("candidate");
+                c["metadata_"]["evidence_strength"] = json!("weak");
+            }
+            7 => c["metadata_"]["email_observed_at"] = json!("invalid"),
+            8 => {
+                c["email"] = Value::Null;
+                c["metadata_"]["evidence_strength"] = json!("strong");
+            }
+            9 => {
+                c["email"] = Value::Null;
+                c["metadata_"]["evidence_strength"] = json!("moderate");
+            }
+            10 => c["last_checked_at"] = Value::Null,
+            _ => c["email_status"] = json!("provider_reported"),
+        };
+        lookup.push(c);
+    }
+    let roles = json!([
+        ["Chief Technology Officer", ["cto"]],
+        ["CEO", ["ceo"]],
+        ["Human Resources Manager", ["hr"]],
+        ["Talent acquisition lead", ["recruiter"]],
+        ["Engineering-manager", ["engineering_manager"]],
+        ["Rust Developer", ["cto"]],
+        [null, []],
+        ["Recruiting Coordinator", ["recruiter"]],
+        ["Founder", ["ceo", "founder"]],
+        ["CHIEF TECHNOLOGY OFFICER", ["cto"]],
+        ["Straße Engineer", ["strasse"]],
+        [null, ["cto"]]
+    ]);
+    let mut fallback = Vec::new();
+    for status in ["completed", "not_found", "billing_uncertain", "failed"] {
+        for entries in [
+            json!([]),
+            json!([{"email":null}]),
+            json!([{"email":"person@example.com"}]),
+        ] {
+            for allow in [false, true] {
+                for identifier in [false, true] {
+                    fallback.push(json!({"status":status,"contacts":entries,"allow":allow,"identifier":identifier}));
+                }
+            }
+        }
+    }
+    let actual = oracle(
+        r#"import ast,datetime as dt,json,sys
+from pathlib import Path
+from types import SimpleNamespace
+class Frozen(dt.datetime):
+ @classmethod
+ def now(cls,tz=None):return cls(2026,11,17,tzinfo=dt.timezone.utc)
+dt.datetime=Frozen
+scope={'State':SimpleNamespace(COMPLETED='completed')}
+def load(path,names):
+ tree=ast.parse(Path(path).read_text());nodes=[n for n in tree.body if (isinstance(n,ast.FunctionDef) and n.name in names) or (isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id in names for t in n.targets))];exec(compile(ast.Module(body=nodes,type_ignores=[]),'<actual-local-first>','exec'),scope)
+load('backend/app/services/contact_enrichment/verification.py',{'fresh','email_observed_at'})
+load('backend/app/services/contact_enrichment/service.py',{'role_matches'})
+load('backend/app/services/contact_enrichment/waterfall.py',{'RELIABLE_STATUSES','needs_lookup','fallback_justified'})
+value=json.load(sys.stdin);lookup=[]
+for contact in value['lookup']:
+ if contact['last_checked_at']:contact['last_checked_at']=Frozen.fromisoformat(contact['last_checked_at'])
+ lookup.append(scope['needs_lookup'](SimpleNamespace(**contact),30))
+fallback=[]
+for row in value['fallback']:
+ prior=SimpleNamespace(status=row['status'],contacts=[SimpleNamespace(**c) for c in row['contacts']]);fallback.append(scope['fallback_justified'](prior,row['allow'],row['identifier']))
+print(json.dumps({'lookup':lookup,'roles':[scope['role_matches'](*row) for row in value['roles']],'fallback':fallback}))
+"#,
+        &json!({"lookup":lookup,"roles":roles,"fallback":fallback}),
+    );
+    for (c, want) in lookup.iter().zip(actual["lookup"].as_array().unwrap()) {
+        assert_eq!(
+            json!(contacts::enrichment::policy::needs_lookup(c, 30, now)),
+            *want
+        );
+    }
+    for (c, want) in roles
+        .as_array()
+        .unwrap()
+        .iter()
+        .zip(actual["roles"].as_array().unwrap())
+    {
+        assert_eq!(
+            json!(contacts::enrichment::policy::role_matches(
+                c[0].as_str(),
+                c[1].as_array().unwrap()
+            )),
+            *want
+        );
+    }
+    for (c, want) in fallback.iter().zip(actual["fallback"].as_array().unwrap()) {
+        assert_eq!(
+            json!(contacts::enrichment::policy::fallback_justified(
+                c,
+                c["allow"].as_bool().unwrap(),
+                c["identifier"].as_bool().unwrap()
+            )),
+            *want
+        );
+    }
+}
+#[test]
 fn contact_correction_normalization_matches_actual_dto_preserving_null_and_omission() {
     let cases = json!([
         {}, {"full_name":"  Fictional Person  "},{"role_title":"\u{1c} CTO \u{1f}"},

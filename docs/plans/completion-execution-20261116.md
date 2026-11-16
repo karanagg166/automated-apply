@@ -1,5 +1,15 @@
 # Complete-source delivery plan — 2026-11-16
 
+Contact provider source design2026-11-17: port read-only local-first enrichment preview,
+saved monthly budget/configuration status and retained run review before provider IO.
+Freeze actual EnrichInput alongside ContactCorrection. RR read-only snapshots keep budget
+status separate from provider balance, live eligibility and installed execution readiness.
+Match actual role aliases/cache lookup/fallback policy; cap contacts1000/people100 and
+disclose truncation. Preview reserves nothing, even with allow_paid. Historical run review
+whitelists structured fields and fixed failure codes, never raw exception text/vendor
+records. The later durable lookup/credit admission and identity ingestion use the shared
+owner fence and immutable intents, with no unknown resubmission or implicit fallback.
+
 Contact correction design2026-11-17: freeze the actual `ContactCorrection` DTO without
 service/config imports; add owner-only PATCH on the existing detail route. Public saved
 rows expose an opaque PostgreSQL row-version/updated-time precondition, required through
