@@ -7,6 +7,16 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest legacy-status source8e399d6 adds public-column-only primary Gmail saved status,
+honest recorded-vs-current verification and explicit historical send/send-preview refusal
+before account/token/body/database work, regardless of an older send flag. Two standard
+(16 actual projection comparisons plus routes) +4 native PG/HTTP declarations are UNRUN.
+See [qualified legacy-status report](acceptance/gmail-legacy-status-source-20261116.md).
+Next original primary-account unprefixed OAuth/refresh/verify/local-first disconnect,
+full conversation/registry/contacts/outreach/providers/eight-platform source and final
+infrastructure, then combined tests and reviewed whole-family STOP installation/live proof.
+No current-head tests/build/check/live/install/percentage gain;58/42/prior455 at9c4ace5 held.
+
 Latest draft-dispatch source32720fe adds the existing explicit Gmail draft endpoint with
 exact content/profile/account binding, one immutable POST admission, independent content/
 marker readback and at most3 explicit GET-only reconciliations. Cancelled/unknown leases
@@ -19,6 +29,9 @@ outreach/providers/eight-platform source and final infrastructure, then combined
 reviewed whole-family STOP migration/install and actual per-platform/focus/resource proof.
 No current-head test/build/check/provider/live/install or percentage gain;58/42/prior455
 at9c4ace5 held. No partial final or100% claim; all existing external/owner-action gates stay.
+Latest private continuity snapshotdd24c563039414dd4726b6a6d69cbffe56ea1e21c700bbe98c56d400d08685e4
+at2026-11-16T18:25:08Z preserves104 indexed/6 available/98 missing; missing transcripts
+and account-filtered sidebar entries are not recovered or rewritten.
 
 Mailbox-owner correctiondabd37b puts older local lifecycle/read/draft guards under the
 shared owner fence, adds the reverse outreach identity check after exchange and supplies
