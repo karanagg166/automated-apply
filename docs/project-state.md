@@ -7,6 +7,16 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest identity reconciliation source12d2169 adds bounded saved mapping/profile/email
+resolution, current owner-source support, preserved correction/suppression/tombstones,
+conflict findings, complete ACK rollback and immutable per-observation receipts. One
+standard declaration (10 actual keys+7 fold cases) +14 native PG declarations are UNRUN.
+See [qualified identity report](acceptance/contact-identity-reconciliation-source-20261117.md).
+Continue immutable provider-result finding/identity integration and owner controller,
+grounded outreach and remaining full source before coordinated gates. No current-head
+build/check/test/live/provider/install or percentage gain;58/42/prior455 held. Provider
+public execution readiness false.
+
 Latest fixed provider dispatch sourcecc1ab7d adds bounded fixed transports, opaque fresh
 key/op/cost/eligibility-bound metadata, exact final target/ledger/pointer guards and one
 committed POST admission/consumable grant. Unknown/async/timeout results never gain a retry.

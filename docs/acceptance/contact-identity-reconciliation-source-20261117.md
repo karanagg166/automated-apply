@@ -1,0 +1,21 @@
+# Contact identity reconciliation — source checkpoint 2026-11-17
+
+Implementation [12d2169c4f1843b97ad9c2136c836e1a86d0c7f9](https://github.com/karanagg166/automated-apply/commit/12d2169c4f1843b97ad9c2136c836e1a86d0c7f9), branch `feat/rust-agent-runtime`, [PR50](https://github.com/karanagg166/automated-apply/pull/50), base `chore/uv-python-tooling`. Untested, uninstalled source.
+
+Native reconciliation resolves normalized professional observations against batched saved identities/tombstones, exact canonical profiles and company mailboxes. Name alone does not merge records; an additional source/name/role match requires current owner-confirmed exact-source evidence. Company/name/profile/mapping conflicts append review evidence and preserve facts; mailbox conflicts retain the recorded address/status. Suppression/tombstones prevent recreation. Owner-corrected identity, mailbox, verification and freshness fields remain unchanged. Provider-returned verified claims become provider-reported on a newly stored mailbox. Generic role inboxes remain company-level evidence.
+
+Short shared owner/company/contact transactions bound inventory at1000 contacts and8MiB total, with per-row metadata limits and batched mapping/support queries. Complete contact, mapping, evidence and observation-receipt acknowledgments are compared. Failed writes roll back the whole finding. An immutable per-observation receipt binds normalized input/company; identical replay returns the retained result without timestamp refresh or another evidence row. Conflicting receipt reuse and future observations fail closed. Official company publication requires explicit human confirmation, matching host and exact mailbox digest. No network request, sending or application-policy change occurs here.
+
+| Gate | Result | Exact evidence / limitation |
+| --- | --- | --- |
+| Source integration | PASS (source only) | Bounded reconciliation, conservative conflict/suppression/owner rules, complete ACKs and immutable receipts; formatter applied |
+| Standard fixtures | NOT TESTED | 1 new declaration:10 actual identity-key construction cases and7 actual Unicode fold cases, extracting original resolver statements without service imports |
+| Dedicated native PostgreSQL | NOT TESTED | 14 new declarations: existing profile/new mailbox qualification; receipt replay/conflict; owner corrections; suppression/tombstone; name/multiple-match conflict; name-only/current owner support; role inbox; company conflict; invalid/new mailbox; confirmed publication;4 contact ACK faults;5 mapping/evidence/receipt ACK faults; future/inventory bounds; concurrent receipt |
+| Current-head build/lint/tests | NOT TESTED | New executed tests0; full source still precedes coordinated execution |
+| Provider result/controller integration | NOT TESTED / INCOMPLETE | Reconciliation is not yet connected to immutable dispatched-result findings and the owner enrichment controller |
+| Actual account/Mac/runtime/install | NOT TESTED | Fictional fixture declarations only; no provider/person/account operation or installed change |
+| Timing/resources | NOT TESTED | Bounded inventory and batched query structure; no measured comparison |
+
+Native qualifications additionally require unexpired source support and preserve owner-corrected freshness rather than refreshing it from a provider. Fixed failures include `contact_observation_receipt_conflict`, `contact_observation_time_requires_review`, `contact_identity_inventory_requires_review`, `contact_identity_write_ack_failed` and qualified identity-conflict findings. No executed failure log or private observation/evidence payload is published.
+
+Final reproduction: coordinated `scripts/run_acceptance.py`, Rust `contact_person` and dedicated `contact_identity_*` PostgreSQL cases, then provider-result/controller/outreach/registry/platform integration and full build/browser/UI acceptance. Prior validated9c4ace570535a5856184775f8045ee89eafdd05f remains193 standard +262 native PG passes,455 distinct; it does not validate this head.58/42 held; provider public readiness false. STOP162/lifetime4/hour1/three quarantines/strict worker receipts0 and saved filters/identity/PDF/focus/history controls remain. No hosted Actions, merge, cleanup, purchase, provider activation or runtime installation.
