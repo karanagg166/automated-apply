@@ -2,6 +2,8 @@
 pub mod contract;
 pub mod oauth;
 pub mod refresh;
+pub mod sync;
+pub mod sync_rules;
 use crate::{Failure, Result, account_tokens::TokenStore};
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
@@ -15,6 +17,7 @@ pub enum IoRoute {
     Connect,
     Verify(Uuid),
     Disconnect(Uuid),
+    Sync(Uuid),
 }
 pub fn io_route(path: &str) -> Option<IoRoute> {
     let tail = path.strip_prefix(PATH)?.strip_prefix('/')?;
@@ -26,6 +29,7 @@ pub fn io_route(path: &str) -> Option<IoRoute> {
     match action {
         "verify" => Some(IoRoute::Verify(id)),
         "disconnect" => Some(IoRoute::Disconnect(id)),
+        "sync" => Some(IoRoute::Sync(id)),
         _ => None,
     }
 }
@@ -36,6 +40,9 @@ pub struct Settings {
     allowed: BTreeSet<String>,
     store: Option<TokenStore>,
     ttl: i64,
+    retention: bool,
+    fixture: bool,
+    endpoint: Option<String>,
 }
 impl Settings {
     pub fn from_values(values: &BTreeMap<String, String>) -> Result<Self> {
@@ -57,11 +64,23 @@ impl Settings {
                     .map_err(|_| Failure("gmail_account_allowlist_invalid"))
             })
             .collect::<Result<_>>()?;
+        let fixture = values.get("ENVIRONMENT").is_some_and(|s| s == "testing")
+            && crate::configuration::boolean(values, "RUST_RUNTIME_FIXTURE", false)?;
+        if let Some(endpoint) = values.get("RUST_GMAIL_FIXTURE_ENDPOINT") {
+            crate::gmail_read::ReadClient::new(
+                "fictional-config-validation",
+                fixture,
+                Some(endpoint),
+            )?;
+        }
         Ok(Self {
             sync: crate::configuration::boolean(values, "GMAIL_READ_SYNC_ENABLED", false)?,
             body: crate::configuration::boolean(values, "GMAIL_READ_BODY_REVIEWED", false)?,
             allowed,
             store: TokenStore::from_values(values)?,
+            retention: crate::configuration::boolean(values, "GMAIL_RETENTION_ENABLED", false)?,
+            fixture,
+            endpoint: values.get("RUST_GMAIL_FIXTURE_ENDPOINT").cloned(),
             ttl: values
                 .get("OAUTH_STATE_TTL_SECONDS")
                 .map(String::as_str)

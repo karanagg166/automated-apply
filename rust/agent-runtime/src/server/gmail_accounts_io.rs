@@ -90,13 +90,21 @@ pub(super) async fn dispatch(api: &Api, route: IoRoute, method: &str, body: &[u8
         provider,
     };
     let browser = crate::mailboxes::browser_nonce();
-    let result = tokio::time::timeout(Duration::from_secs(65), async {
-        match route {
-            IoRoute::Connect => service.start(&mut c, input, None, &browser).await,
-            IoRoute::Verify(id) => service.verify(&mut c, id).await,
-            IoRoute::Disconnect(id) => service.disconnect(&mut c, id).await,
-        }
-    })
+    let result = tokio::time::timeout(
+        Duration::from_secs(if matches!(route, IoRoute::Sync(_)) {
+            135
+        } else {
+            65
+        }),
+        async {
+            match route {
+                IoRoute::Connect => service.start(&mut c, input, None, &browser).await,
+                IoRoute::Verify(id) => service.verify(&mut c, id).await,
+                IoRoute::Disconnect(id) => service.disconnect(&mut c, id).await,
+                IoRoute::Sync(id) => service.sync(&mut c, id).await,
+            }
+        },
+    )
     .await
     .unwrap_or(Err(Failure("gmail_read_operation_outcome_unknown")));
     recovery::close(c).await;

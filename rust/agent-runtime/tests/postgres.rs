@@ -4059,3 +4059,4 @@ include!("support/telegram_reconciliation_pg.rs");
 include!("support/gmail_history_pg.rs");
 include!("support/gmail_accounts_pg.rs");
 include!("support/gmail_read_oauth_pg.rs");
+include!("support/gmail_sync_pg.rs");

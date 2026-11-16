@@ -151,6 +151,15 @@ Use the shared transient connection/long-request permit, fixed Google endpoints,
 equality, mailbox allowlist and separate outreach-account guard. Legacy send upgrades stay
 refusal-only. Callback routing must preserve the existing mailbox.* local account handler.
 
+Selected sync structure: `gmail_accounts/sync_rules.rs` owns calendar-clamped history
+windows, folder progression, metadata filters and uncertain-only projections;
+`gmail_accounts/sync.rs` owns committed120s selection/account leases, batched per-page
+message-ID deduplication, guard-before-read, bounded GET-only IO and atomic evidence plus
+checkpoint publication. Retention of decrypted metadata needs its existing opt-in. No raw
+body is persisted. All status inferences remain requires_review/confirmed=false. Lease
+expiry, reconnect, disconnect or a new selection prevents stale evidence publication;
+failed selected reads preserve their checkpoint and may repeat bounded GETs only.
+
 The existing runner is the starting point, not yet a complete end-to-end gate: it omits
 UI/browser journeys, several extension browser fixture suites and PostgreSQL-backed Python
 integration. Extend it during source integration with a disposable DB lifecycle and strict
