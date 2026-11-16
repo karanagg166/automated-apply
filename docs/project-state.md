@@ -7,6 +7,18 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest local-alert source6053fe5 adds approved local-account policy/sync, receiving-domain
+authentication before body, permanent message receipts, cross-account factual candidates,
+spent/unknown-history quarantine, atomic ACKs and shared transient background scheduling.
+GET/UI distinguishes configured alerts from paused processing. Three standard +16 native
+PG/HTTP/worker +1 frontend declarations are UNRUN. See the [qualified alert report](acceptance/gmail-local-alerts-source-20261116.md).
+No current-head tests/build/check/live/install or percentage gain; prior455 at9c4ace5 and
+58/42 held. Next three-role workspace/outreach-account/drafts, remaining conversation/
+registry/outreach/providers/eight-platform source, then final combined gates and reviewed
+STOP-only installation/live proof. No partial final. Private continuity snapshot
+5a2e4486ffb73b00a5278c58d05db40f5c4cbee650dda45531ced47d8124c6ea at
+2026-11-16T17:57:35Z preserves104 indexed/6 available/98 missing; no sidebar recovery claim.
+
 Development branch: `feat/rust-agent-runtime`, PR #50, base `chore/uv-python-tooling`
 (PR #49). The Rust migration is incomplete. Installed legacy services and the extension
 must not be mistaken for development. Resume this checkout and its current ownership;
