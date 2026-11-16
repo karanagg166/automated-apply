@@ -9,6 +9,11 @@ use std::sync::LazyLock;
 use uuid::Uuid;
 
 pub(crate) async fn profile_in(tx: &mut Transaction<'_, Postgres>, work: &Value) -> Result<Value> {
+    // Keep a canonical correction from committing inside an admitted current-fact transaction.
+    sqlx::query("SELECT id FROM candidate_profiles WHERE singleton_key='primary' FOR SHARE")
+        .execute(&mut **tx)
+        .await
+        .map_err(db)?;
     let profile = crate::profile_store::get(tx)
         .await
         .map_err(|error| {

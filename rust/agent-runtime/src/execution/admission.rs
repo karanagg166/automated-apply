@@ -208,6 +208,10 @@ pub async fn admit(
 ) -> Result<Value> {
     let mut tx = c.begin().await.map_err(db)?;
     let result = async {
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
+            .execute(&mut *tx)
+            .await
+            .map_err(db)?;
         lock(&mut tx).await?;
         admit_in(&mut tx, request, services).await
     }

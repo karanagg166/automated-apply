@@ -430,6 +430,10 @@ pub async fn observe(
     let report = crate::browser_profiles::native_contract::work_report(report)?;
     let mut tx = c.begin().await.map_err(db)?;
     let result = async {
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
+            .execute(&mut *tx)
+            .await
+            .map_err(db)?;
         lock(&mut tx).await?;
         let now = now(&mut tx).await?;
         let mut work = super::queue::leased_in(

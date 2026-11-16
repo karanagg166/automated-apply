@@ -109,6 +109,7 @@ pub(crate) async fn check_in(
     }
     if writing {
         fresh(work, now)?;
+        super::questionnaire_answer_context::verify_in(tx, work, &profile).await?;
         let answer = &work["questionnaire_answer"];
         if let Some(id) = answer["question_id"].as_str().filter(|s| !s.is_empty()) {
             id.parse::<Uuid>().map_err(|_| invalid())?;

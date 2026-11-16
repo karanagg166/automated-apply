@@ -33,6 +33,11 @@ enum Writer {
     Ollama(crate::ollama::OllamaModel),
 }
 impl Settings {
+    /// The questionnaire runner may use only the separately authorized Cohere writer for narratives.
+    pub(crate) fn questionnaire_cohere_ready(&self) -> bool {
+        self.provider == "cohere" && matches!(self.writing.as_ref(), Some(Writer::Cohere(_)))
+    }
+
     pub(crate) fn share_gate(&mut self, gate: std::sync::Arc<tokio::sync::Semaphore>) {
         if let Some(model) = &mut self.writing {
             match model {
