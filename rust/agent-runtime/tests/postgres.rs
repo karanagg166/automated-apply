@@ -4025,3 +4025,5 @@ include!("support/execution_submission_pg.rs");
 include!("support/execution_preparation_pg.rs");
 include!("support/execution_profile_policy_pg.rs");
 include!("support/owner_snapshot_pg.rs");
+
+include!("support/profile_sync_work_pg.rs");

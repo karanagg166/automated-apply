@@ -53,27 +53,7 @@ pub(crate) async fn admit_in(
         .filter(|s| *s == "naukri")
         .ok_or_else(invalid)?;
     let setting = &policy["platforms"][platform];
-    let local: Option<Value> =
-        sqlx::query_scalar("SELECT preferences FROM agent_policies WHERE key='primary'")
-            .fetch_optional(&mut **tx)
-            .await
-            .map_err(db)?;
-    let preference = match &local {
-        None => "automatic_preferred",
-        Some(local) => local["platforms"]
-            .as_object()
-            .ok_or_else(invalid)?
-            .get(platform)
-            .unwrap_or(&local["default"])
-            .as_str()
-            .ok_or_else(invalid)?,
-    };
-    if !matches!(
-        preference,
-        "approve" | "automatic_preferred" | "draft_only" | "manual_only" | "disabled"
-    ) {
-        return Err(invalid());
-    }
+    let preference = super::local_policy::preference_in(tx, platform).await?;
     if preference == "disabled" || setting["enabled"] != true {
         return Err(Failure("platform_disabled"));
     }
