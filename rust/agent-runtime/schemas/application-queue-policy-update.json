@@ -1,0 +1,342 @@
+{
+  "$defs": {
+    "PlatformQueuePolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "age_mode": {
+          "default": "global",
+          "enum": [
+            "global",
+            "custom"
+          ],
+          "title": "Age Mode",
+          "type": "string"
+        },
+        "applicants_mode": {
+          "default": "global",
+          "enum": [
+            "global",
+            "custom"
+          ],
+          "title": "Applicants Mode",
+          "type": "string"
+        },
+        "cap_mode": {
+          "default": "global",
+          "enum": [
+            "global",
+            "custom"
+          ],
+          "title": "Cap Mode",
+          "type": "string"
+        },
+        "discovery_interval_seconds": {
+          "default": 300,
+          "maximum": 86400,
+          "minimum": 60,
+          "title": "Discovery Interval Seconds",
+          "type": "integer"
+        },
+        "enabled": {
+          "default": false,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "hourly_submission_cap": {
+          "default": 5,
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Hourly Submission Cap",
+          "type": "integer"
+        },
+        "limits": {
+          "$ref": "#/$defs/QueueLimits"
+        },
+        "mode": {
+          "default": "PREPARE_ONLY",
+          "enum": [
+            "PREPARE_ONLY",
+            "SUPERVISED",
+            "AUTOMATIC"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "notify_telegram": {
+          "default": false,
+          "title": "Notify Telegram",
+          "type": "boolean"
+        },
+        "owner_submission_authorized": {
+          "default": false,
+          "title": "Owner Submission Authorized",
+          "type": "boolean"
+        },
+        "preferences": {
+          "$ref": "#/$defs/QueuePreferences"
+        },
+        "preferences_mode": {
+          "default": "global",
+          "enum": [
+            "global",
+            "custom"
+          ],
+          "title": "Preferences Mode",
+          "type": "string"
+        },
+        "skill_match_mode": {
+          "default": "all",
+          "enum": [
+            "all",
+            "any"
+          ],
+          "title": "Skill Match Mode",
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "enum": [
+              "approved_gmail_alerts",
+              "saved_verified_job",
+              "naukri_ui_search"
+            ],
+            "type": "string"
+          },
+          "maxItems": 3,
+          "title": "Sources",
+          "type": "array"
+        },
+        "supervised_submission_cap": {
+          "default": 1,
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Supervised Submission Cap",
+          "type": "integer"
+        }
+      },
+      "title": "PlatformQueuePolicy",
+      "type": "object"
+    },
+    "QueueLimits": {
+      "additionalProperties": false,
+      "properties": {
+        "applicant_limit": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": 10000,
+          "title": "Applicant Limit"
+        },
+        "daily_cap": {
+          "default": 80,
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Daily Cap",
+          "type": "integer"
+        },
+        "max_job_age_days": {
+          "default": 2,
+          "maximum": 30,
+          "minimum": 1,
+          "title": "Max Job Age Days",
+          "type": "integer"
+        },
+        "minimum_match_score": {
+          "default": 80,
+          "maximum": 100,
+          "minimum": 50,
+          "title": "Minimum Match Score",
+          "type": "integer"
+        },
+        "unknown_applicants": {
+          "default": "needs_review",
+          "enum": [
+            "needs_review",
+            "skip",
+            "allow_lower_bound",
+            "allow"
+          ],
+          "title": "Unknown Applicants",
+          "type": "string"
+        }
+      },
+      "title": "QueueLimits",
+      "type": "object"
+    },
+    "QueuePolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "background_only": {
+          "const": true,
+          "default": true,
+          "title": "Background Only",
+          "type": "boolean"
+        },
+        "concurrency": {
+          "const": 1,
+          "default": 1,
+          "title": "Concurrency",
+          "type": "integer"
+        },
+        "day_timezone": {
+          "default": "Asia/Kolkata",
+          "title": "Day Timezone",
+          "type": "string"
+        },
+        "global_limits": {
+          "$ref": "#/$defs/QueueLimits"
+        },
+        "max_pending": {
+          "default": 200,
+          "maximum": 500,
+          "minimum": 1,
+          "title": "Max Pending",
+          "type": "integer"
+        },
+        "notify_submitted": {
+          "default": true,
+          "title": "Notify Submitted",
+          "type": "boolean"
+        },
+        "platforms": {
+          "additionalProperties": {
+            "$ref": "#/$defs/PlatformQueuePolicy"
+          },
+          "propertyNames": {
+            "const": "naukri"
+          },
+          "title": "Platforms",
+          "type": "object"
+        }
+      },
+      "title": "QueuePolicy",
+      "type": "object"
+    },
+    "QueuePreferences": {
+      "additionalProperties": false,
+      "properties": {
+        "excluded_companies": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 100,
+          "title": "Excluded Companies",
+          "type": "array"
+        },
+        "experience_max": {
+          "anyOf": [
+            {
+              "maximum": 60,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Experience Max"
+        },
+        "experience_min": {
+          "anyOf": [
+            {
+              "maximum": 60,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Experience Min"
+        },
+        "locations": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 25,
+          "title": "Locations",
+          "type": "array"
+        },
+        "maximum_salary": {
+          "anyOf": [
+            {
+              "maximum": 1000000000000.0,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum Salary"
+        },
+        "minimum_salary": {
+          "anyOf": [
+            {
+              "maximum": 1000000000000.0,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum Salary"
+        },
+        "roles": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 25,
+          "title": "Roles",
+          "type": "array"
+        },
+        "salary_currency": {
+          "default": "INR",
+          "pattern": "^[A-Z]{3}$",
+          "title": "Salary Currency",
+          "type": "string"
+        },
+        "salary_period": {
+          "default": "year",
+          "enum": [
+            "year",
+            "month"
+          ],
+          "title": "Salary Period",
+          "type": "string"
+        }
+      },
+      "title": "QueuePreferences",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "expected_revision": {
+      "minimum": 0,
+      "title": "Expected Revision",
+      "type": "integer"
+    },
+    "policy": {
+      "$ref": "#/$defs/QueuePolicy"
+    }
+  },
+  "required": [
+    "expected_revision",
+    "policy"
+  ],
+  "title": "QueuePolicyUpdate",
+  "type": "object"
+}
