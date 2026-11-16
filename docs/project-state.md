@@ -43,6 +43,15 @@ then full remaining source. No check/build/test/live/install;58/42 held. Latest 
 snapshot1bae3d7e69f68ff8dd4a44fc98d5ca8bb15ccfb54c4ea4fc2b411428cb90c672
 at2026-11-16T17:17:07Z retains104 indexed/6 available/98 missing; no sidebar recovery claim.
 
+Latest selected-sync source2137c9c ports explicit fixed GET batches, calendar windows/
+folders/metadata rules, committed120s account/selection leases, guard-before-read, batched
+deduplication and atomic evidence/checkpoints. Subject/body signals remain uncertain;
+current identity/scopes/selection/expiry fence publication. Three standard (36 actual
+window/query +14 subject comparisons plus cursor rules) and12 PG/HTTP declarations UNRUN.
+See [qualified sync report](acceptance/gmail-selected-sync-source-20261116.md). No current
+test/build/check/live/install or percentage gain. Next reviewed lead import, job alerts,
+three-role draft workspace and all remaining plan scope before combined final gate.
+
 Latest operational gate: Brave native health and API health/readiness pass under
 STOPPED162. A windowless native inactive/minimized window experiment failed focus
 acceptance and exposed restored tabs, including an unloaded inactive Naukri login page.
@@ -636,3 +645,5 @@ Reviewed Gmail history source42ddd19 adds the existing list/review/forget/retent
 Gmail read selection source1fe3b37 adds local account list/status/selection/evidence/leads, frozen actual DTOs, batched credential-free metadata, saved-vs-live labeling, current scopes/body/version guards, lease invalidation and read-only account/expiry paging with message-purpose metadata decryption. Three standard +8 PG/HTTP declarations are UNRUN. See [qualified selection report](acceptance/gmail-read-selection-source-20261116.md). No build/check/test/live/provider/install/measurement; prior455 at9c4ace5 and58/42 held. Continue full connect/OAuth/refresh/verify/disconnect/sync/lead import, alerts/draft workspace and all remaining scope before final combined gate; no partial final.
 
 Gmail OAuth sourcecf3b946 adds original read-account authorization/callback/refresh/verify/disconnect lifecycle, fixed Google transport, exact scope/identity/account guards, durable unknown refresh intents and shared transient API permit without owner locks across IO. One standard +13 PG/loopback declarations are UNRUN. See [qualified OAuth report](acceptance/gmail-read-oauth-source-20261116.md). No check/build/test/live/provider/install/measurement; prior455 at9c4ace5 and58/42 held. Continue selected sync/lead import, job alerts/three-role draft workspace and all remaining conversation/registry/outreach/provider/platform source before combined gate; no partial final.
+
+Selected Gmail sync source2137c9c adds calendar-clamped historical windows, folder progression, committed selection/account leases, fixed bounded GETs, page-batched deduplication, private-safe uncertain evidence and atomic checkpoints. Three standard +12 PG/HTTP declarations are UNRUN. See [qualified sync report](acceptance/gmail-selected-sync-source-20261116.md). No check/build/test/live/provider/install/measurement; prior455 at9c4ace5 and58/42 held. Continue reviewed lead import, job alerts/three-role draft workspace and all remaining conversation/registry/outreach/provider/platform source before combined gate; no partial final.
