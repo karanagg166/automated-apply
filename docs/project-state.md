@@ -7,6 +7,16 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest startup detail sourcefe0e7c2 connects owner GET to coherent saved company observations,
+qualified size/hiring, bounded complete professional counters and relevance, without private
+profile/contact/vendor data. Actual output DTO schemas are frozen. Nine PG/HTTP declarations
+including actual StartupRead validation are UNRUN. See [qualified detail report](acceptance/startup-saved-detail-source-20261117.md).
+Continue filtered catalog/search and shortlist persistence (including replacing the detail
+shortlist flag placeholder with saved state), public discovery and remaining dashboard/
+registry/provider/CLI/conversation/eight-platform full source before combined gates.
+No current tests/build/check/live/install or estimate gain;58/42/prior455 held. Full Rust host
+remains uninstalled; owner browser/production state unchanged.
+
 Latest relevance ranking sourced3c5af0 reuses the existing deterministic domain job matcher
 and ports actual company weights/reasons/missing facts/exclusions/profile version with
 bounded inputs. No score establishes factual or application authority. Two standard
