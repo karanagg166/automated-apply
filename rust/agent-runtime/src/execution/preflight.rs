@@ -9,7 +9,16 @@ use std::sync::LazyLock;
 use uuid::Uuid;
 
 pub(crate) async fn profile_in(tx: &mut Transaction<'_, Postgres>, work: &Value) -> Result<Value> {
-    let profile = crate::profile_store::get(tx).await?.value;
+    let profile = crate::profile_store::get(tx)
+        .await
+        .map_err(|error| {
+            if error.0 == "profile_not_found" {
+                Failure("verified_profile_context_changed")
+            } else {
+                error
+            }
+        })?
+        .value;
     let confirmation = get(tx, "phase1_profile_confirmation")
         .await?
         .unwrap_or(Value::Null);

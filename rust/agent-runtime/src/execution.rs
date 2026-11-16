@@ -10,6 +10,7 @@ pub mod filters;
 mod history;
 mod notices;
 mod preflight;
+pub mod preparation;
 mod questionnaire_context;
 pub mod queue;
 mod queue_control;

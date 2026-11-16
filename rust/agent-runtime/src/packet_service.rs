@@ -162,9 +162,24 @@ async fn preview_in(
     answers: &answer_service::Settings,
     now: DateTime<Utc>,
 ) -> Result<Value> {
+    preview_context_in(tx, job, request, settings, answers, now, false).await
+}
+async fn preview_context_in(
+    tx: &mut Transaction<'_, Postgres>,
+    job: Uuid,
+    request: &Prepare,
+    settings: &Settings,
+    answers: &answer_service::Settings,
+    now: DateTime<Utc>,
+    locked: bool,
+) -> Result<Value> {
     multi_select(tx, request, settings).await?;
-    let material =
-        packet_context::load_in(tx, job, request.resume_resource_id, &settings.policy, now).await?;
+    let material = if locked {
+        packet_context::load_locked_in(tx, job, request.resume_resource_id, &settings.policy)
+            .await?
+    } else {
+        packet_context::load_in(tx, job, request.resume_resource_id, &settings.policy, now).await?
+    };
     let resume = crate::resources::select_resume(&material.resources, request.resume_resource_id)?;
     let mut fields = Vec::with_capacity(7 + request.questions.len());
     for (i, question) in core()?
@@ -337,6 +352,29 @@ pub(crate) async fn create_in(
     answers: &answer_service::Settings,
     now: DateTime<Utc>,
 ) -> Result<Value> {
+    create_context_in(tx, job, request, settings, answers, now, false).await
+}
+/// Owner lock must already be held. Queue preparation reads current material after waiting,
+/// using the established job/profile/resource locks rather than an earlier RR snapshot.
+pub(crate) async fn create_locked_in(
+    tx: &mut Transaction<'_, Postgres>,
+    job: Uuid,
+    request: &Prepare,
+    settings: &Settings,
+    answers: &answer_service::Settings,
+    now: DateTime<Utc>,
+) -> Result<Value> {
+    create_context_in(tx, job, request, settings, answers, now, true).await
+}
+async fn create_context_in(
+    tx: &mut Transaction<'_, Postgres>,
+    job: Uuid,
+    request: &Prepare,
+    settings: &Settings,
+    answers: &answer_service::Settings,
+    now: DateTime<Utc>,
+    locked: bool,
+) -> Result<Value> {
     // Fetch only identity before checking keys: replay performs no new preparation/question writes.
     let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM jobs WHERE id=$1)")
         .bind(job)
@@ -363,9 +401,9 @@ pub(crate) async fn create_in(
     let hash = crate::python_json::digest(&input);
     let rows:Vec<(Uuid,String,String)>=sqlx::query_as("SELECT id,idempotency_key,request_hash FROM application_packets WHERE idempotency_key=$1 OR (job_id=$2 AND candidate_profile_id=$3) ORDER BY id FOR SHARE").bind(key).bind(job).bind(owner).fetch_all(&mut **tx).await.map_err(db)?;
     if !rows.is_empty() {
-        return replay(tx, rows, key, &hash, settings, now).await;
+        return replay(tx, rows, key, &hash, settings, now, locked).await;
     }
-    let preview = preview_in(tx, job, request, settings, answers, now).await?;
+    let preview = preview_context_in(tx, job, request, settings, answers, now, locked).await?;
     let packet = Uuid::new_v4();
     let inserted:Option<Uuid>=sqlx::query_scalar("INSERT INTO application_packets(id,job_id,candidate_profile_id,candidate_profile_version,resume_resource_id,application_url,platform,lifecycle_state,tracking_state,revision,readiness_state,idempotency_key,request_hash,snapshot) VALUES($1,$2,$3,$4,$5,$6,$7,'created','not_applied',1,$8,$9,$10,$11) ON CONFLICT DO NOTHING RETURNING id")
         .bind(packet).bind(job).bind(owner).bind(preview["candidate_profile_version"].as_i64().ok_or_else(invalid)? as i32)
@@ -386,7 +424,11 @@ pub(crate) async fn create_in(
         crate::packet_mutation::add_field_in(tx, packet, position, field).await?;
     }
     crate::packet_mutation::event_in(tx, packet, "packet_created", None, "created", 1).await?;
-    read_in(tx, packet, settings, now).await
+    if locked {
+        read_locked_in(tx, packet, settings, now).await
+    } else {
+        read_in(tx, packet, settings, now).await
+    }
 }
 async fn replay(
     tx: &mut Transaction<'_, Postgres>,
@@ -395,6 +437,7 @@ async fn replay(
     hash: &str,
     settings: &Settings,
     now: DateTime<Utc>,
+    locked: bool,
 ) -> Result<Value> {
     let matching = rows
         .into_iter()
@@ -403,7 +446,11 @@ async fn replay(
     if matching.len() != 1 {
         return Err(Failure("packet_idempotency_conflict"));
     }
-    read_in(tx, matching[0].0, settings, now).await
+    if locked {
+        read_locked_in(tx, matching[0].0, settings, now).await
+    } else {
+        read_in(tx, matching[0].0, settings, now).await
+    }
 }
 
 pub const LIST: &str = "/api/v1/application-packets";
