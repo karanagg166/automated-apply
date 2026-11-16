@@ -160,6 +160,14 @@ body is persisted. All status inferences remain requires_review/confirmed=false.
 expiry, reconnect, disconnect or a new selection prevents stale evidence publication;
 failed selected reads preserve their checkpoint and may repeat bounded GETs only.
 
+Reviewed email-link import is a local transaction in `gmail_accounts/lead_import.rs`:
+require the exact selected account/message/unexpired link and actual LeadImport owner
+review, then conservative source/URL/company identity and source observations. Preserve
+canonical human decisions and employer associations, keep imported vacancies unverified,
+and mark per-URL message import references only after an acknowledged durable job write.
+Similarity can produce review hints but cannot merge. No opening URLs, provider calls,
+eligibility guesses or auto-application follows this owner import operation.
+
 The existing runner is the starting point, not yet a complete end-to-end gate: it omits
 UI/browser journeys, several extension browser fixture suites and PostgreSQL-backed Python
 integration. Extend it during source integration with a disposable DB lifecycle and strict

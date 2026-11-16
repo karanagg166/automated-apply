@@ -16,6 +16,10 @@ pub(super) fn profile_failure(error: Failure) -> Response {
                 | "gmail_body_access_review_required"
                 | "gmail_sync_version_conflict"
                 | "gmail_evidence_projection_limit"
+                | "gmail_evidence_not_found"
+                | "gmail_lead_not_in_selected_evidence"
+                | "gmail_lead_identity_requires_review"
+                | "gmail_lead_legacy_inventory_limit"
         )
     {
         let status = match error.0 {
@@ -27,7 +31,10 @@ pub(super) fn profile_failure(error: Failure) -> Response {
             | "gmail_readonly_schema_update_required"
             | "gmail_readonly_scope_required"
             | "gmail_body_access_review_required"
-            | "gmail_sync_version_conflict" => StatusCode::CONFLICT,
+            | "gmail_sync_version_conflict"
+            | "gmail_evidence_not_found"
+            | "gmail_lead_not_in_selected_evidence"
+            | "gmail_lead_identity_requires_review" => StatusCode::CONFLICT,
             _ => StatusCode::SERVICE_UNAVAILABLE,
         };
         return reply(status, json!({"detail":error.0}));

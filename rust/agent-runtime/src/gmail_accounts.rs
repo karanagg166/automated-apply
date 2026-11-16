@@ -1,5 +1,6 @@
 //! Legacy read-account metadata, selected policy and retained evidence. Provider IO is separate.
 pub mod contract;
+pub mod lead_import;
 pub mod oauth;
 pub mod refresh;
 pub mod sync;
@@ -105,13 +106,14 @@ pub enum Route {
     Selection(Uuid),
     Evidence(Uuid),
     Leads(Uuid),
+    Import(Uuid, Uuid),
 }
 impl Route {
     pub fn method(self) -> &'static str {
-        if matches!(self, Self::Selection(_)) {
-            "PUT"
-        } else {
-            "GET"
+        match self {
+            Self::Selection(_) => "PUT",
+            Self::Import(..) => "POST",
+            _ => "GET",
         }
     }
 }
@@ -127,7 +129,12 @@ pub fn route(path: &str) -> Option<Route> {
         "selection" => Some(Route::Selection(id)),
         "evidence" => Some(Route::Evidence(id)),
         "leads" => Some(Route::Leads(id)),
-        _ => None,
+        _ => action
+            .strip_prefix("evidence/")
+            .and_then(|s| s.strip_suffix("/import"))
+            .filter(|s| crate::gmail_history::contract::identity(s))
+            .and_then(|s| s.parse().ok())
+            .map(|evidence| Route::Import(id, evidence)),
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -390,9 +397,13 @@ pub async fn dispatch(
         return Err(Failure("invalid_gmail_read_page"));
     }
     let page = Page::parse(query)?;
-    let input = if matches!(route, Route::Selection(_)) {
+    let input = if matches!(route, Route::Selection(_) | Route::Import(..)) {
         Some(contract::normalize(
-            contract::Kind::Policy,
+            if matches!(route, Route::Import(..)) {
+                contract::Kind::LeadImport
+            } else {
+                contract::Kind::Policy
+            },
             serde_json::from_slice(body).map_err(|_| Failure("invalid_gmail_read_contract"))?,
         )?)
     } else {
@@ -400,7 +411,7 @@ pub async fn dispatch(
     };
     let mut tx = c.begin().await.map_err(db)?;
     let result=async{
-        if matches!(route,Route::Selection(_)){sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE").execute(&mut *tx).await.map_err(db)?;crate::execution::lock_owner_in(&mut tx).await?;sqlx::query("SELECT pg_advisory_xact_lock(407006,1)").execute(&mut *tx).await.map_err(db)?;}else{sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY").execute(&mut *tx).await.map_err(db)?;}
+        if matches!(route,Route::Selection(_) | Route::Import(..)){sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE").execute(&mut *tx).await.map_err(db)?;crate::execution::lock_owner_in(&mut tx).await?;sqlx::query("SELECT pg_advisory_xact_lock(407006,1)").execute(&mut *tx).await.map_err(db)?;}else{sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY").execute(&mut *tx).await.map_err(db)?;}
         if !schema(&mut tx).await?{return if matches!(route,Route::Accounts){Ok(json!({"accounts":[],"workflow":"readonly","schema_ready":false,"error_code":"gmail_readonly_schema_update_required"}))}else{Err(Failure("gmail_readonly_schema_update_required"))};}
         match route{
             Route::Accounts=>{
@@ -415,6 +426,7 @@ pub async fn dispatch(
             }
             Route::Status(id)=>status_in(&mut tx,id,settings).await,
             Route::Selection(id)=>configure_in(&mut tx,id,input.as_ref().unwrap(),settings).await,
+            Route::Import(id,evidence)=>{let now:DateTime<Utc>=sqlx::query_scalar("SELECT clock_timestamp()").fetch_one(&mut *tx).await.map_err(db)?;lead_import::import_in(&mut tx,id,&evidence.simple().to_string(),input.as_ref().unwrap(),now).await},
             Route::Evidence(id)|Route::Leads(id)=>{let now:DateTime<Utc>=sqlx::query_scalar("SELECT clock_timestamp()").fetch_one(&mut *tx).await.map_err(db)?;let evidence=evidence_in(&mut tx,id,page,settings,now).await?;Ok(if matches!(route,Route::Evidence(_)){json!({"evidence":evidence,"offset":page.offset,"limit":page.limit})}else{json!({"leads":leads(id,&evidence)?,"offset":page.offset,"limit":page.limit})})}
         }
     }.await;
