@@ -59,13 +59,7 @@ pub(crate) async fn recover_unknown_in(
         return Err(Failure("execution_active_inventory_limit"));
     }
     for (key, mut work) in rows {
-        let count = |key: &str| {
-            work.get(key)
-                .map(|v| v.as_i64().filter(|n| *n >= 0).ok_or_else(invalid))
-                .transpose()
-                .map(|v| v.unwrap_or(0))
-        };
-        if count("reconciliation_attempts")? >= 3 || count("account_recheck_attempts")? >= 3 {
+        if super::read_bounds::exhausted(&work)? {
             if notices::unknown(tx, &mut work, telegram, now).await? {
                 put(tx, &key, &work).await?;
             }
@@ -95,6 +89,7 @@ pub(crate) async fn receive_in(
     now: DateTime<Utc>,
 ) -> Result<bool> {
     let operation = work["operation"].as_str().ok_or_else(invalid)?.to_owned();
+    super::read_bounds::report(work)?;
     if matches!(report["kind"].as_str(), Some("needs_input" | "failed")) {
         let uncertain = operation == "apply"
             || work["admitted_actions"]
@@ -447,20 +442,6 @@ pub async fn observe(
         .await?;
         if work["status"] != "executing" {
             return Err(Failure("queue_action_not_admitted"));
-        }
-        if let Some(counter) = match work["operation"].as_str() {
-            Some("reconcile_application") => Some("reconciliation_attempts"),
-            Some("verify_account") => Some("account_recheck_attempts"),
-            _ => None,
-        } {
-            let count = work
-                .get(counter)
-                .map(|v| v.as_i64().filter(|n| *n >= 0).ok_or_else(invalid))
-                .transpose()?
-                .unwrap_or(0)
-                .checked_add(1)
-                .ok_or_else(invalid)?;
-            work[counter] = json!(count);
         }
         let continuing = receive_in(
             &mut tx,

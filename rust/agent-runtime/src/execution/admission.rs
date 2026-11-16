@@ -59,6 +59,7 @@ pub(crate) async fn admit_in(
     }
     let operation = work["operation"].as_str().ok_or_else(invalid)?.to_owned();
     let writing = filters::WRITES.contains(&operation.as_str());
+    super::read_bounds::admit(&mut work)?;
     let mut initial_packet = None;
     if writing {
         if matches!(preference, "manual_only" | "draft_only") {

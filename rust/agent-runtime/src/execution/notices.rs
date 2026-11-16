@@ -109,8 +109,7 @@ pub(super) async fn unknown(
     {
         return Ok(false);
     }
-    let attempts = |key: &str| work[key].as_i64().unwrap_or(0);
-    if attempts("reconciliation_attempts").max(attempts("account_recheck_attempts")) < 3 {
+    if !super::read_bounds::exhausted(work)? {
         return Ok(false);
     }
     let channels = save(tx, work, true, telegram).await?;

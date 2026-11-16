@@ -167,6 +167,23 @@ pub(crate) async fn claim_in(
         {
             continue;
         }
+        if !super::read_bounds::claim(&mut work)? {
+            work["stage"] = json!("SUBMISSION_UNKNOWN");
+            work["status"] = json!("unknown");
+            work["reason"] = json!("bounded_reconciliation_exhausted");
+            work["revision"] = json!(next(&work)?);
+            work["lease_token"] = Value::Null;
+            work["lease_until"] = Value::Null;
+            put(tx, &key, &work).await?;
+            events::queue(
+                tx,
+                &work,
+                "bounded_read_reconciliation_exhausted_no_replay",
+                now,
+            )
+            .await?;
+            continue;
+        }
         let attempts = work["attempts"]
             .as_i64()
             .filter(|n| *n >= 0)
