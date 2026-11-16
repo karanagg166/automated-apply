@@ -7,6 +7,16 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest provider results source8f8f05b binds transport outcomes to consumed grants and
+commits immutable finding/lookup/full-cap budget/usage before separate guarded identity
+ingestion. Identical replay is retained-only; late/changed target results remain held.
+Qualified explicit no-mailbox fallback survives first-pass strong-profile refresh.
+Thirteen native PG/loopback declarations are UNRUN; no standard/frontend addition. See the
+[qualified results report](acceptance/contact-provider-results-source-20261117.md).
+Continue full local-first controller/host orchestration, grounded outreach and remaining
+full source before final coordinated gates. No current-head build/check/test/live/provider/
+install or percentage gain;58/42/prior455 held; public provider readiness false.
+
 Latest identity reconciliation source12d2169 adds bounded saved mapping/profile/email
 resolution, current owner-source support, preserved correction/suppression/tombstones,
 conflict findings, complete ACK rollback and immutable per-observation receipts. One
