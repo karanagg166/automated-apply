@@ -7,6 +7,16 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest owner contact correction sourcee56651b adds actual frozen DTO, exact reviewed-row
+precondition, shared owner/company/contact locks, current mailbox-proof guard, bounded
+identity changes and complete update/evidence ACK rollback. The dashboard renders selected
+evidence and requires reviewed corrections/current reload after every attempt. One standard
+(36 actual DTO cases) +14 PG/HTTP +4 frontend declarations are UNRUN. See the
+[qualified correction report](acceptance/contact-owner-correction-source-20261117.md).
+Continue provider preview/research/budgets, grounded outreach and remaining saved company/
+dashboard/registry/conversation/eight-platform source before combined acceptance. No new
+test/build/check/live/install or percentage gain;58/42/prior455 held.
+
 Latest saved contacts source1910d51 adds bounded read-only company contact/evidence and
 job-recommendation routes, same-record provider/strength filters, full saved target-job
 association, qualified mailbox/draft readiness and corrected identity badge wording.
