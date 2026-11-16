@@ -96,6 +96,16 @@ pub struct Eligibility {
     pub pool: Option<String>,
 }
 impl Eligibility {
+    pub(super) fn deadline(
+        &self,
+        operation: Operation,
+        now: DateTime<Utc>,
+    ) -> Result<DateTime<Utc>> {
+        self.require(operation, now)?;
+        self.reviewed_at
+            .map(|at| at + chrono::Duration::hours(24))
+            .ok_or(Failure("contact_apollo_eligibility_review_required"))
+    }
     pub fn from_values(values: &BTreeMap<String, String>) -> Result<Self> {
         let flag = |name: &str| -> Result<bool> {
             match values

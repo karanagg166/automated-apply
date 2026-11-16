@@ -4073,3 +4073,4 @@ include!("support/contact_enrichment_preview_pg.rs");
 include!("support/contact_budget_pg.rs");
 include!("support/contact_runs_pg.rs");
 include!("support/contact_lookups_pg.rs");
+include!("support/contact_dispatch_pg.rs");

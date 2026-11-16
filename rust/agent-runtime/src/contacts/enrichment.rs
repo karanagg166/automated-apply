@@ -3,9 +3,11 @@ use super::*;
 pub mod budget;
 pub mod capabilities;
 pub mod contract;
+pub mod dispatch;
 pub mod lookups;
 pub mod person;
 pub mod policy;
+pub mod providers;
 pub mod runs;
 pub struct Provider {
     pub name: &'static str,
