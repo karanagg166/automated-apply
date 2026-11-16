@@ -396,7 +396,7 @@ pub(super) async fn dispatch(
         .as_deref()
         .ok_or(Failure("extension_identity_not_authorized"))?;
     let key = format!("manual_form:{extension}:{}", command.request_id);
-    let hash = format!("{:x}", Sha256::digest(v.to_string().as_bytes()));
+    let hash = command.payload_hash.clone();
     let previous: Option<String> =
         sqlx::query_scalar("SELECT payload_hash FROM agent_operations WHERE key=$1")
             .bind(&key)

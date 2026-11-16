@@ -1,47 +1,22 @@
 use super::*;
-static SCHEMA: LazyLock<jsonschema::Validator> = LazyLock::new(|| {
-    let raw: Value =
-        serde_json::from_str(include_str!("../../../native-host/schemas/command.json"))
-            .expect("frozen native schema");
-    jsonschema::draft202012::options()
-        .should_validate_formats(true)
-        .build(&raw)
-        .expect("native schema")
-});
 // Contains credentials: deliberately no Debug or serializer.
 pub struct Command {
     pub(super) value: Value,
     pub request_id: Uuid,
+    pub(super) payload_hash: String,
 }
 impl Command {
-    pub fn parse(mut value: Value) -> Result<Self> {
-        if !SCHEMA.is_valid(&value) {
-            return Err(request_error());
-        }
-        if value.get("request_id").is_none() {
-            value["request_id"] = json!(Uuid::new_v4());
-        }
+    pub fn parse(bytes: &[u8]) -> Result<Self> {
+        let (value, payload_hash) = native_contract::parse(bytes)?;
         let request_id = value["request_id"]
             .as_str()
             .and_then(|s| s.parse().ok())
             .ok_or_else(request_error)?;
-        for key in [
-            "request_id",
-            "profile_binding_id",
-            "browser_session_id",
-            "chrome_command_id",
-            "command_lease_token",
-            "application_id",
-            "task_id",
-            "plan_id",
-            "work_id",
-            "work_lease_token",
-        ] {
-            if let Some(s) = value[key].as_str() {
-                value[key] = json!(s.parse::<Uuid>().map_err(|_| request_error())?);
-            }
-        }
-        Ok(Self { value, request_id })
+        Ok(Self {
+            value,
+            request_id,
+            payload_hash,
+        })
     }
     pub(super) fn name(&self) -> &str {
         self.value["command"].as_str().unwrap()

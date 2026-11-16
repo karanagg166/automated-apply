@@ -742,7 +742,7 @@ pub(super) async fn dispatch(
         };
         if !command.value["chrome_command_id"].is_null() {let fresh=storage::now(&mut savepoint).await?;commands::require_profile(&mut savepoint,command,fresh).await?;}
         if command.name()!="get_application_task" {
-            let hash=format!("{:x}",Sha256::digest(command.value.to_string().as_bytes()));let audit=json!({"task_id":value["id"],"submitted":false});
+            let hash=command.payload_hash.clone();let audit=json!({"task_id":value["id"],"submitted":false});
             let saved:Option<Value>=sqlx::query_scalar("INSERT INTO agent_operations(key,actor,command,payload_hash,result,created_at) VALUES($1,$2,$3,$4,$5,clock_timestamp()) RETURNING result").bind(&key).bind(format!("chrome:{extension}")).bind(command.name()).bind(hash).bind(&audit).fetch_optional(&mut *savepoint).await.map_err(db)?;if saved.as_ref()!=Some(&audit){return Err(Failure("browser_profile_write_ack_failed"));}
         }
         let mut data=json!({"task":value,"submitted":false});if let Some(questions)=questions{data["questions"]=questions;}Ok(data)

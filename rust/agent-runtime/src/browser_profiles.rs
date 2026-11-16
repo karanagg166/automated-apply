@@ -17,6 +17,7 @@ pub mod form_service;
 pub mod forms;
 mod invalidation;
 mod native;
+pub mod native_contract;
 mod status;
 mod storage;
 pub mod tasks;
@@ -240,7 +241,7 @@ pub async fn dispatch(
         body(bytes)?
     };
     let command = if matches!(route, Route::Native) {
-        Some(native::Command::parse(input.clone())?)
+        Some(native::Command::parse(bytes)?)
     } else {
         None
     };

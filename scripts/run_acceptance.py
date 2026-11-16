@@ -22,6 +22,10 @@ PYTHON = (
 )
 STAGES = (
     ("policy-drift", (*PYTHON, "scripts/sync_http_security.py", "--check")),
+    (
+        "native-field-order",
+        (*PYTHON, "-m", "rust.scripts.export_native_field_order", "--check"),
+    ),
     ("rust-format", ("cargo", "fmt", "--all", "--", "--check")),
     ("rust-tests", ("cargo", "test", "--locked", "--workspace")),
     ("rust-postgres", (*PYTHON, "-m", "rust.scripts.run_postgres_tests")),
