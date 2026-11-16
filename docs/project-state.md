@@ -7,6 +7,18 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest research contract sourcef3f3d6f freezes actual company observations/startup runs and
+public/official/manual people inputs with exact count/band, public URL, domain, aware time,
+email publication and manual permission rules. Two standard declarations (160 actual DTO
+cases plus boundary/bounds/no transport assertions) are UNRUN. See [qualified research input report](acceptance/research-input-contracts-source-20261117.md).
+Continue canonical company/manual evidence ingestion, durable public research/provider
+status and remaining dashboard/registry/provider/CLI/conversation/eight-platform full source
+before combined gates. No current tests/build/check/live/install or estimate gain;58/42/
+prior455 held. Frozen inputs confer no provider execution authority; full host uninstalled.
+Private continuity snapshote077c3a3638ebeed136d434902006c98f9c41af40578768e971517e99e3b9037
+at2026-11-16T23:11:45Z preserves104 indexed/6 available/98 missing transcripts; no sidebar/
+account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest catalog sourceab7d8cb connects GET/POST filtered/ranked saved search, complete bounded
 application-state evidence, original shortlist snapshots/notes/run/ACK/privacy and actual
 detail shortlist state. One standard declaration (140 actual status cases+multiple-packet
