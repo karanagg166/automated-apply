@@ -7,6 +7,15 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest saved contacts source1910d51 adds bounded read-only company contact/evidence and
+job-recommendation routes, same-record provider/strength filters, full saved target-job
+association, qualified mailbox/draft readiness and corrected identity badge wording.
+Three standard +10 PG/HTTP +1 new frontend declarations are UNRUN;1 existing UI assertion
+updated. See [qualified saved-contact report](acceptance/saved-contacts-source-20261117.md).
+Continue owner correction/evidence, provider research/budgets and grounded local outreach,
+then full registry/conversation/eight-platform source and final coordinated acceptance.
+No current-head tests/build/check/live/install or percentage gain;58/42/prior455 held.
+
 Latest outreach UI correction6d60fac removes legacy send-preview/send mutations and
 confirmation modal under the owner's READ + CREATE DRAFT ONLY scope. Local draft approval,
 history and locked uncertain attempts remain; useful historical fields replace raw JSON.
