@@ -149,3 +149,9 @@ async fn browser_forms_commit_failure_is_unknown_and_reconnection_never_replays_
     sqlx::raw_sql("CREATE FUNCTION fixture_form_commit_fail() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF starts_with(NEW.key,'fill_plan:') THEN RAISE EXCEPTION 'fictional deferred failure'; END IF; RETURN NEW; END $$;CREATE CONSTRAINT TRIGGER fixture_form_commit_fail AFTER INSERT ON owner_preferences DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION fixture_form_commit_fail()").execute(&mut c).await.unwrap();
     let error=browser_form_native(&mut c,"inspect_form",&context,json!({"application_id":packet["id"],"inspection":browser_form_observation(&packet)})).await.unwrap_err();assert_eq!(error,Failure("browser_profile_commit_outcome_unknown"));let mut observer=connection().await;assert_eq!(browser_snapshot(&mut observer).await,before);sqlx::raw_sql("DROP TRIGGER fixture_form_commit_fail ON owner_preferences;DROP FUNCTION fixture_form_commit_fail()").execute(&mut observer).await.unwrap();
 }
+#[tokio::test(flavor="current_thread")]
+#[ignore="requires dedicated disposable PostgreSQL harness"]
+async fn browser_forms_paused_question_only_context_cannot_authorize_a_browser_fill() {
+    let(mut c,context,packet)=browser_command_fixture().await;let plan=browser_form_inspect(&mut c,&context,&packet,json!({})).await["plan"].clone();let id=Uuid::new_v4();browser_save(&mut c,&format!("exec:{id}"),json!({"id":id,"packet_id":packet["id"],"state":"PAUSED","revision":2,"history":[],"evidence":[],"cancelled":false,"question_only":true})).await;
+    let result=browser_form_authorize(&mut c,&context,&plan,json!({})).await;assert_eq!(result["error_code"],"execution_paused_or_cancelled");assert_eq!(browser_pref(&mut c,&format!("fill_plan:{}",plan["id"].as_str().unwrap())).await["state"],"preview");
+}

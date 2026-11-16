@@ -168,7 +168,13 @@ pub(super) async fn fill_event(
             state.as_str(),
             "REJECTED" | "FAILED_FINAL" | "SUBMITTED_CONFIRMED" | "SUBMISSION_UNKNOWN" | "PAUSED"
         );
-    if value["question_only"] == true || stopped {
+    if value["question_only"] == true {
+        if stopped {
+            return Err(Failure("execution_paused_or_cancelled"));
+        }
+        return Ok(());
+    }
+    if stopped {
         if stopped && status == "fill_authorized" {
             return Err(Failure("execution_paused_or_cancelled"));
         }
