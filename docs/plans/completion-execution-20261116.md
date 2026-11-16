@@ -1,5 +1,15 @@
 # Complete-source delivery plan — 2026-11-16
 
+Derived startup detail design2026-11-17: build profile, company observations, jobs/current
+board evidence and professional contact counts in one read-only repeatable-read transaction
+with one database clock. Bound inventories and expanded bytes; select only needed job
+metadata and normalized declared company attributes. Do not promote legacy company metadata
+to public facts. Reuse existing contact projection/retention rules and aggregate complete
+bounded counts, excluding suppressed/review/future contacts. Feed only a supported-contact
+summary to pure relevance. Publish current source-qualified size/hiring/profile version and
+missing facts; retain no private profile/contact fields in the public detail. Detail first;
+search/shortlist composition follows over the same private snapshot functions.
+
 Startup ranking design2026-11-17: reuse the existing deterministic domain discovery matcher
 for saved profile/job relevance, then port actual company relevance weights/reasons/missing
 facts/exclusions. Strip candidate PII from matcher inputs, preserve unknowns and exact

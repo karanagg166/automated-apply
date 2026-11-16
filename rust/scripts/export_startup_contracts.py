@@ -18,8 +18,9 @@ def models():
              "Field": Field, "StringConstraints": StringConstraints, "Annotated": Annotated,
              "Literal": Literal, "model_validator": model_validator, "UUID": UUID, "datetime": datetime}
     load(scope, "backend/app/schemas/discovery.py", {"Text"})
-    load(scope, "backend/app/services/startup_discovery/schemas.py", {"Band", "Hiring", "StartupFilters", "ShortlistInput"})
-    return {"startup-filters": scope["StartupFilters"], "startup-shortlist": scope["ShortlistInput"]}
+    load(scope, "backend/app/services/startup_discovery/schemas.py", {"Band", "Hiring", "StartupFilters", "ShortlistInput", "StartupAttributes", "HiringEvidence", "SizeEvidence", "StartupRead", "StartupSearchRead"})
+    return {"startup-filters": scope["StartupFilters"], "startup-shortlist": scope["ShortlistInput"],
+            "startup-read": scope["StartupRead"], "startup-search": scope["StartupSearchRead"]}
 
 
 def main():

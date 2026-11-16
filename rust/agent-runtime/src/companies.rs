@@ -128,7 +128,7 @@ pub fn person(value: Value, now: DateTime<Utc>) -> Result<Value> {
     result["email_send_ready"] = json!(false);
     Ok(result)
 }
-fn attributes(value: &Value) -> Result<Value> {
+pub(crate) fn attributes(value: &Value) -> Result<Value> {
     let object = value.as_object().ok_or_else(invalid)?;
     let mut result = json!({});
     for key in [

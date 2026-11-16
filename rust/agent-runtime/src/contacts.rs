@@ -236,6 +236,88 @@ async fn list(
         .collect::<Result<Vec<_>>>()?;
     Ok(json!({"contacts":contacts,"total":count,"offset":page.offset,"limit":page.limit}))
 }
+/// Complete bounded counters for the saved company catalog, without contact PII in its response.
+pub(crate) async fn startup_counts_in(
+    tx: &mut Transaction<'_, Postgres>,
+    employer: &Value,
+    size: &Value,
+    settings: &Settings,
+    now: DateTime<Utc>,
+) -> Result<Value> {
+    let id = employer["id"]
+        .as_str()
+        .and_then(|s| s.parse::<Uuid>().ok())
+        .ok_or_else(invalid)?;
+    let company = json!({"id":id,"name":employer["name"],"domain":employer["domain"],"metadata_":{"employee_count":size["employee_count"],"_verified_team_size_band":size["team_size_band"]}});
+    let rows: Vec<Value> = sqlx::query_scalar(&format!(
+        "SELECT {CONTACT} FROM contacts c WHERE c.company_id=$1 ORDER BY c.id LIMIT 10001"
+    ))
+    .bind(id)
+    .bind(json!({}))
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(db)?;
+    if rows.len() > 10000
+        || rows.iter().map(|v| v.to_string().len()).sum::<usize>() > 8 * 1024 * 1024
+    {
+        return Err(Failure("startup_contact_inventory_limit"));
+    }
+    let (mut professional, mut technical, mut leader, mut mailbox) = (0_u64, 0_u64, 0_u64, 0_u64);
+    for raw in &rows {
+        let c = rules::output(raw, &company, None, settings, now)?;
+        if raw["do_not_contact"] == true
+            || !rules::timestamp(&raw["last_checked_at"]).is_some_and(|at| at <= now)
+            || c["confidence"] != "supported"
+            || matches!(
+                c["priority"].as_str(),
+                Some("review_required" | "suppressed")
+            )
+        {
+            continue;
+        }
+        professional += 1;
+        let role =
+            automated_apply_domain::text::folded(raw["role_title"].as_str().ok_or_else(invalid)?);
+        if [
+            "founder",
+            "cto",
+            "chief technology",
+            "head of engineering",
+            "vp engineering",
+        ]
+        .iter()
+        .any(|s| role.contains(s))
+        {
+            leader += 1;
+        }
+        if [
+            "engineer",
+            "developer",
+            "cto",
+            "chief technology",
+            "technical recruiter",
+        ]
+        .iter()
+        .any(|s| role.contains(s))
+        {
+            technical += 1;
+        }
+        if c["email_draft_review_ready"] == true
+            && raw["email"]
+                .as_str()
+                .zip(employer["domain"].as_str())
+                .is_some_and(|(email, domain)| rules::business_email(email, domain).is_some())
+            && ["last_verified_at", "last_reviewed_at"]
+                .iter()
+                .all(|key| rules::timestamp(&raw[*key]).is_some_and(|at| at <= now))
+        {
+            mailbox += 1;
+        }
+    }
+    Ok(
+        json!({"professional_contact_count":professional,"technical_staff_count":technical,"leader_evidence_count":leader,"qualified_business_mailbox_count":mailbox,"contact_inventory_count":rows.len()}),
+    )
+}
 async fn detail(
     tx: &mut Transaction<'_, Postgres>,
     id: Uuid,
