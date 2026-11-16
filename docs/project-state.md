@@ -485,3 +485,13 @@ Next port transactional execution storage/status/control and the complete stop/c
 admission/identity/PDF/questionnaire/upload/submission/reconciliation kernel. These pure
 helpers are not an operational application queue. Preserve all prior active scope and
 continue; no partial final or increase beyond58/42. Full validated checkpoint is still9c4ace5.
+
+Execution status sourcef23f5e3 now wires the two existing owner GET routes for queue status
+and Naukri account-binding metadata. Read-only repeatable snapshot,2 business SELECTs,
+retained-history aggregate/public projection, no owner-row lock, no policy/budget rewrite;
+native submission remains unavailable. Five new PG test declarations are UNRUN, including
+20,002-row/owner-lock/redaction and STOP/quota preservation fixtures. No build/check/test/
+fixture/live operation. See [qualified status report](acceptance/execution-status-source-20261116.md).
+Current-account receipt predicate now rejects missing UUID/revision context as well. Next:
+transactional owner control/fences and full native queue/kernel, then all remaining ports.
+No actual source installation, browser or provider change, strict receipt or percentage gain.
