@@ -376,6 +376,28 @@ impl Client {
         })
     }
     pub async fn execute(&self, grant: super::dispatch::Grant) -> Outcome {
+        let invocation = grant.invocation();
+        let reservation = grant.reservation().to_owned();
+        let provider = grant.provider().to_owned();
+        let request_hash = format!(
+            "{:x}",
+            Sha256::digest(grant.request().to_string().as_bytes())
+        );
+        let mut outcome = self.execute_inner(grant).await;
+        let result_hash = format!(
+            "{:x}",
+            Sha256::digest(outcome.snapshot().to_string().as_bytes())
+        );
+        outcome.binding = Some(Binding {
+            invocation,
+            reservation,
+            provider,
+            request_hash,
+            result_hash,
+        });
+        outcome
+    }
+    async fn execute_inner(&self, grant: super::dispatch::Grant) -> Outcome {
         if grant.provider() != self.provider()
             || grant.key_hash() != self.key_hash
             || Utc::now() >= grant.deadline()
@@ -418,6 +440,7 @@ impl Client {
             return Outcome::error(reply.error());
         }
         let mut result = Outcome {
+            binding: None,
             state: "completed",
             observations: Vec::new(),
             provider_run_id: None,
@@ -623,7 +646,15 @@ impl LiveProof {
         self.expires_at
     }
 }
+pub(super) struct Binding {
+    pub invocation: Uuid,
+    pub reservation: String,
+    pub provider: String,
+    pub request_hash: String,
+    result_hash: String,
+}
 pub struct Outcome {
+    binding: Option<Binding>,
     pub state: &'static str,
     pub observations: Vec<Value>,
     pub provider_run_id: Option<String>,
@@ -633,11 +664,30 @@ pub struct Outcome {
     pub outcome_unknown: bool,
 }
 impl Outcome {
+    pub(super) fn snapshot(&self) -> Value {
+        json!({"state":self.state,"observations":self.observations,"provider_run_id":self.provider_run_id,"credits_used":self.credits_used,"retry_after_seconds":self.retry_after_seconds,"error_code":self.error_code,"outcome_unknown":self.outcome_unknown})
+    }
+    pub(super) fn binding(&self) -> Result<&Binding> {
+        let binding = self
+            .binding
+            .as_ref()
+            .ok_or(Failure("contact_provider_result_binding_required"))?;
+        let hash = format!(
+            "{:x}",
+            Sha256::digest(self.snapshot().to_string().as_bytes())
+        );
+        if hash != binding.result_hash {
+            return Err(Failure("contact_provider_result_changed"));
+        }
+        Ok(binding)
+    }
+
     fn unknown(code: &'static str) -> Self {
         Self::error(Error::new("billing_uncertain", code))
     }
     fn error(error: Error) -> Self {
         Self {
+            binding: None,
             state: error.state,
             observations: Vec::new(),
             provider_run_id: None,

@@ -162,6 +162,18 @@ pub async fn finish(
     actual: Option<i64>,
     provider_run: Option<&str>,
 ) -> Result<Value> {
+    let mut tx = transaction(c).await?;
+    let finding = finish_in(&mut tx, reservation, state, actual, provider_run).await?;
+    commit(tx).await?;
+    Ok(finding)
+}
+pub(super) async fn finish_in(
+    tx: &mut Transaction<'_, Postgres>,
+    reservation: &Reservation,
+    state: &str,
+    actual: Option<i64>,
+    provider_run: Option<&str>,
+) -> Result<Value> {
     if !terminal(state)
         || actual.is_some_and(|n| !(0..=9_999_999_999).contains(&n))
         || provider_run
@@ -169,8 +181,7 @@ pub async fn finish(
     {
         return Err(invalid_budget());
     }
-    let mut tx = transaction(c).await?;
-    let before:Value=sqlx::query_scalar("SELECT jsonb_build_object('id',id,'provider',provider,'month',month,'amount_exact',reserved=$2::numeric,'provider_run_id',provider_run_id,'reported_actual',reported_actual::text,'state',state,'created_at',created_at) FROM discovery_budget_reservations WHERE id=$1 FOR UPDATE").bind(&reservation.id).bind(reservation.amount.to_string()).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(Failure("contact_reservation_not_found"))?;
+    let before:Value=sqlx::query_scalar("SELECT jsonb_build_object('id',id,'provider',provider,'month',month,'amount_exact',reserved=$2::numeric,'provider_run_id',provider_run_id,'reported_actual',reported_actual::text,'state',state,'created_at',created_at) FROM discovery_budget_reservations WHERE id=$1 FOR UPDATE").bind(&reservation.id).bind(reservation.amount.to_string()).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(Failure("contact_reservation_not_found"))?;
     if before["provider"] != reservation.provider
         || before["month"] != reservation.month
         || before["amount_exact"] != true
@@ -185,7 +196,6 @@ pub async fn finish(
         {
             return Err(Failure("contact_reservation_terminal_conflict"));
         }
-        commit(tx).await?;
         return Ok(
             json!({"reservation_id":reservation.id,"state":state,"reserved_credits":reservation.amount,"reported_actual":actual,"provider_run_id":provider_run,"accounting":"full_cap_retained","record_basis":"retained_budget_finding"}),
         );
@@ -197,26 +207,34 @@ pub async fn finish(
     expected["state"] = json!(state);
     expected["provider_run_id"] = json!(provider_run);
     expected["reported_actual"] = json!(actual_text);
-    let saved:Option<Value>=sqlx::query_scalar("UPDATE discovery_budget_reservations SET state=$2,reported_actual=$3::numeric,provider_run_id=$4 WHERE id=$1 AND state='reserved' RETURNING jsonb_build_object('id',id,'provider',provider,'month',month,'amount_exact',reserved=$5::numeric,'provider_run_id',provider_run_id,'reported_actual',reported_actual::text,'state',state,'created_at',created_at)").bind(&reservation.id).bind(state).bind(actual.map(|n|n.to_string())).bind(provider_run).bind(reservation.amount.to_string()).fetch_optional(&mut *tx).await.map_err(db)?;
+    let saved:Option<Value>=sqlx::query_scalar("UPDATE discovery_budget_reservations SET state=$2,reported_actual=$3::numeric,provider_run_id=$4 WHERE id=$1 AND state='reserved' RETURNING jsonb_build_object('id',id,'provider',provider,'month',month,'amount_exact',reserved=$5::numeric,'provider_run_id',provider_run_id,'reported_actual',reported_actual::text,'state',state,'created_at',created_at)").bind(&reservation.id).bind(state).bind(actual.map(|n|n.to_string())).bind(provider_run).bind(reservation.amount.to_string()).fetch_optional(&mut **tx).await.map_err(db)?;
     if saved.as_ref() != Some(&expected) {
         return Err(ack());
     }
-    commit(tx).await?;
     Ok(
         json!({"reservation_id":reservation.id,"state":state,"reserved_credits":reservation.amount,"reported_actual":actual,"provider_run_id":provider_run,"accounting":"full_cap_retained","record_basis":"recorded_budget_finding"}),
     )
 }
 /// Provider cooldowns are monotonic and survive a month boundary.
 pub async fn cooldown(c: &mut PgConnection, provider: &str, seconds: i64) -> Result<Value> {
+    let mut tx = transaction(c).await?;
+    let finding = cooldown_in(&mut tx, provider, seconds).await?;
+    commit(tx).await?;
+    Ok(finding)
+}
+pub(super) async fn cooldown_in(
+    tx: &mut Transaction<'_, Postgres>,
+    provider: &str,
+    seconds: i64,
+) -> Result<Value> {
     valid_provider(provider)?;
     if !(1..=86400).contains(&seconds) {
         return Err(invalid_budget());
     }
-    let mut tx = transaction(c).await?;
-    let now = clock(&mut tx).await?;
+    let now = clock(tx).await?;
     let until = now + chrono::Duration::seconds(seconds);
     let month = now.format("%Y-%m").to_string();
-    let existing:Vec<(String,String,Option<DateTime<Utc>>)>=sqlx::query_as("SELECT month,reserved::text,cooldown_until FROM discovery_monthly_budgets WHERE provider=$1 ORDER BY month LIMIT 121 FOR UPDATE").bind(provider).fetch_all(&mut *tx).await.map_err(db)?;
+    let existing:Vec<(String,String,Option<DateTime<Utc>>)>=sqlx::query_as("SELECT month,reserved::text,cooldown_until FROM discovery_monthly_budgets WHERE provider=$1 ORDER BY month LIMIT 121 FOR UPDATE").bind(provider).fetch_all(&mut **tx).await.map_err(db)?;
     if existing.len() > 120
         || existing.iter().any(|(m, amount, _)| {
             chrono::NaiveDate::parse_from_str(&format!("{m}-01"), "%Y-%m-%d").is_err()
@@ -233,14 +251,14 @@ pub async fn cooldown(c: &mut PgConnection, provider: &str, seconds: i64) -> Res
         if expected.len() >= 120 {
             return Err(Failure("contact_budget_inventory_requires_review"));
         }
-        let inserted:Option<bool>=sqlx::query_scalar("INSERT INTO discovery_monthly_budgets(provider,month,reserved,cooldown_until) VALUES($1,$2,0,NULL) RETURNING provider=$1 AND month=$2 AND reserved=0 AND cooldown_until IS NULL").bind(provider).bind(&month).fetch_optional(&mut *tx).await.map_err(db)?;
+        let inserted:Option<bool>=sqlx::query_scalar("INSERT INTO discovery_monthly_budgets(provider,month,reserved,cooldown_until) VALUES($1,$2,0,NULL) RETURNING provider=$1 AND month=$2 AND reserved=0 AND cooldown_until IS NULL").bind(provider).bind(&month).fetch_optional(&mut **tx).await.map_err(db)?;
         if inserted != Some(true) {
             return Err(ack());
         }
         expected.insert(month, ("0.000000".into(), until));
     }
     let months = expected.keys().cloned().collect::<Vec<_>>();
-    let saved:Vec<(String,String,DateTime<Utc>,String)>=sqlx::query_as("UPDATE discovery_monthly_budgets SET cooldown_until=greatest(coalesce(cooldown_until,$3),$3) WHERE provider=$1 AND month=ANY($2) RETURNING month,reserved::text,cooldown_until,provider").bind(provider).bind(&months).bind(until).fetch_all(&mut *tx).await.map_err(db)?;
+    let saved:Vec<(String,String,DateTime<Utc>,String)>=sqlx::query_as("UPDATE discovery_monthly_budgets SET cooldown_until=greatest(coalesce(cooldown_until,$3),$3) WHERE provider=$1 AND month=ANY($2) RETURNING month,reserved::text,cooldown_until,provider").bind(provider).bind(&months).bind(until).fetch_all(&mut **tx).await.map_err(db)?;
     if saved.len() != expected.len()
         || saved.iter().any(|(m, amount, deadline, p)| {
             p != provider || expected.get(m) != Some(&(amount.clone(), *deadline))
@@ -248,7 +266,6 @@ pub async fn cooldown(c: &mut PgConnection, provider: &str, seconds: i64) -> Res
     {
         return Err(ack());
     }
-    commit(tx).await?;
     Ok(
         json!({"provider":provider,"minimum_cooldown_until":until,"months_updated":months.len(),"credits_refunded":0}),
     )

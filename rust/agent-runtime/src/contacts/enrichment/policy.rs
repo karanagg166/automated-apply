@@ -51,6 +51,12 @@ pub fn fallback_justified(previous: &Value, allow: bool, identifier: bool) -> bo
             .as_array()
             .is_some_and(|c| !c.is_empty() && !c.iter().any(|p| rules::truthy(&p["email"])))
 }
+pub fn fallback_target(contact: &Value) -> bool {
+    !rules::truthy(&contact["do_not_contact"])
+        && !rules::truthy(&contact["human_corrected"])
+        && !rules::truthy(&contact["metadata_"]["identity_review_required"])
+        && !rules::truthy(&contact["email"])
+}
 pub fn saved_run(mut value: Value) -> Result<Value> {
     if !value.is_object() {
         return Err(invalid());

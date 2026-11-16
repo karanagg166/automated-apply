@@ -196,7 +196,8 @@ pub async fn prepare(
                 now,
             )?;
             if !policy::role_matches(contact["role_title"].as_str(), roles)
-                || !policy::needs_lookup(&contact, contacts_settings.cache_days, now)
+                || !(policy::needs_lookup(&contact, contacts_settings.cache_days, now)
+                    || order > 0 && policy::fallback_target(&contact))
             {
                 return Err(Failure("contact_lookup_not_needed"));
             }
@@ -321,7 +322,7 @@ pub async fn prepare(
     {
         return Err(ack());
     }
-    let intent = json!({"schema_version":1,"run_id":run.id(),"lookup_id":id,"provider":name,"operation":operation,"identity_key":identity_hash,"reservation_id":reservation_id,"estimated_cost":cost,"state":"prepared","post_admissions":0,"request":request,"target_key":target_key,"target_version":version,"dispatch_deadline":run.deadline(),"prepared_at":now,"dispatch_authorized":false});
+    let intent = json!({"schema_version":1,"run_id":run.id(),"lookup_id":id,"provider":name,"operation":operation,"identity_key":identity_hash,"reservation_id":reservation_id,"estimated_cost":cost,"state":"prepared","fallback":order>0,"post_admissions":0,"request":request,"target_key":target_key,"target_version":version,"dispatch_deadline":run.deadline(),"prepared_at":now,"dispatch_authorized":false});
     put_new(
         &mut tx,
         &format!("{}{reservation_id}", prefix(run.id())),

@@ -115,7 +115,8 @@ pub async fn authorize(
                 || contact["full_name"] != request["full_name"]
                 || contact["linkedin_url"].as_str().and_then(lookups::linkedin)
                     != request["linkedin_url"].as_str().map(str::to_owned)
-                || !policy::needs_lookup(&contact, contacts_settings.cache_days, now)
+                || !(policy::needs_lookup(&contact, contacts_settings.cache_days, now)
+                    || before["fallback"] == true && policy::fallback_target(&contact))
                 || !policy::role_matches(
                     contact["role_title"].as_str(),
                     run.input()["target_roles"].as_array().ok_or_else(changed)?,
@@ -166,6 +167,28 @@ pub async fn authorize(
     let cooling:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM discovery_monthly_budgets WHERE provider=$1 AND cooldown_until>$2)").bind(claim.provider()).bind(now).fetch_one(&mut *tx).await.map_err(db)?;
     if !lookup || cooling {
         return Err(changed());
+    }
+    if before["fallback"] == true {
+        let providers = run.input()["providers"].as_array().ok_or_else(changed)?;
+        let index = providers
+            .iter()
+            .position(|p| p == claim.provider())
+            .filter(|i| *i > 0)
+            .ok_or_else(changed)?;
+        let prior:Vec<Value>=sqlx::query_scalar("SELECT value FROM owner_preferences WHERE starts_with(key,$1) AND octet_length(value::text)<=32768 ORDER BY key LIMIT 101").bind(lookups::prefix(run.id())).fetch_all(&mut *tx).await.map_err(db)?;
+        if prior.len() > 100
+            || run.input()["allow_fallback"] != true
+            || !prior.iter().any(|p| {
+                p["provider"] == providers[index - 1]
+                    && p["target_key"] == before["target_key"]
+                    && p["state"] == "observed"
+                    && p["result_state"] == "completed"
+                    && p["usable_profile_result"] == true
+                    && p["missing_business_email"] == true
+            })
+        {
+            return Err(changed());
+        }
     }
     let deadline = run.deadline().min(proof.deadline());
     let invocation = Uuid::new_v4();

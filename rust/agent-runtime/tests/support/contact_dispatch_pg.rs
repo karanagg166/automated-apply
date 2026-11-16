@@ -25,7 +25,7 @@ async fn contact_provider_handler(
         if state.mode == "error" {
             return axum::http::StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
-        return axum::Json(json!({"person":{"name":body["name"],"title":"Founder","organization":{"primary_domain":body["domain"]},"linkedin_url":body["linkedin_url"],"email":"person5@contact-fixture.example","id":"fictional-provider-person-five","email_status":"verified","phone":"PRIVATE_PROVIDER_PHONE_CANARY"}})).into_response();
+        return axum::Json(json!({"person":{"name":body["name"],"title":"Founder","organization":{"primary_domain":body["domain"]},"linkedin_url":body["linkedin_url"],"email":if state.mode=="no_email"{None}else{Some("person5@contact-fixture.example")},"id":"fictional-provider-person-five","email_status":"verified","phone":"PRIVATE_PROVIDER_PHONE_CANARY"}})).into_response();
     }
     state
         .metadata

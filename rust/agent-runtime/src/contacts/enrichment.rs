@@ -9,6 +9,7 @@ pub mod lookups;
 pub mod person;
 pub mod policy;
 pub mod providers;
+pub mod results;
 pub mod runs;
 pub struct Provider {
     pub name: &'static str,

@@ -1,5 +1,16 @@
 # Complete-source delivery plan — 2026-11-16
 
+Provider result design2026-11-17: transport binds its outcome to the consumed dispatch
+invocation/reservation/provider/request and a private content hash. Persist that immutable
+normalized result plus lookup/budget finding and one run-usage entry before identity
+ingestion, including expired/changed target contexts. No refund or second POST is possible.
+Repeated identical record returns retained finding; differing outcomes cannot overwrite it.
+Identity ingestion is a separate owner-fenced transaction with original company/target
+version checks and idempotent observation receipts. Persisted late results stay reviewable
+without mutating a changed contact. Only completed, successfully reconciled matching
+profile results without a company email may enable the already-reviewed explicit fallback.
+All provider/identity/runtime changes remain source-only until the coordinated final gate.
+
 Identity ingestion design2026-11-17: reconcile normalized observations under the shared
 owner/company/contact locks with bounded inventory byte/row limits. Resolve batched saved
 identity mappings/tombstones, exact canonical profiles/business mailboxes and only current
