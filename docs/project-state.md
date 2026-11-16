@@ -7,6 +7,16 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest Apify configuration source `a26d8006d85a70a6a6e85ad876ee4c4fa1dd1149` freezes
+the actual actor DTO, pinned build, bounded fixed input mapping and collection guards.
+Saved review/cost preflight grants neither live verification nor dispatch authority.
+The startup score default now retains exact omitted/explicit numeric serialization.
+Three standard declarations (100 actual comparison cases plus bounds) are UNRUN.
+See [qualified actor configuration report](acceptance/apify-actor-configuration-source-20261117.md).
+Continue native source registry/startup owner endpoints, durable public research/providers
+and remaining agreed full source before combined gates. No current tests/build/check/live/
+install or estimate increase; 58/42 and prior 455 remain held. Full Rust host uninstalled.
+
 Latest manual startup run sourcea3c977d retains original discovery_runs requests/hashes,
 opaque180-second invocation, atomic permission-confirmed company evidence/scoped saved
 ranking/finalization and no-replay retained reads. Failed completion rolls back data while
