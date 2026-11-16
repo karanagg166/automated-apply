@@ -1,5 +1,16 @@
 # Complete-source delivery plan — 2026-11-16
 
+Contact per-target admission design2026-11-17: recheck the original native run, current
+company/contact/version and local-first role/cache policy in the same owner-fenced
+SERIALIZABLE transaction as a unique lookup claim, immutable private intent and positive
+credit reservation. A prepared lookup is not a dispatch grant. Preserve every old claim;
+only known completed/not-found expired cache entries may receive a new explicit run claim,
+while running/unknown/failed/billing-uncertain entries remain non-replayable. Enforce
+original provider order, per-run credits/unique-person limits and evidence-backed fallback.
+Paid contact enrichment requires an existing canonical professional profile identifier;
+search is primary Apollo only after bounded matching local inventories are empty. No
+provider request is sent by preparation; final one-time dispatch/capability checks follow.
+
 Contact run admission design2026-11-17: create the original enrichment run and an immutable
 native invocation journal atomically under the shared owner fence. Bind company snapshot,
 actual legacy ordered request hash, normalized request and180-second nonrenewable token

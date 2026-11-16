@@ -73,29 +73,41 @@ pub async fn reserve(
     amount: i64,
     maximum: i64,
 ) -> Result<Reservation> {
+    let mut tx = transaction(c).await?;
+    let reservation = reserve_in(&mut tx, provider, id, amount, maximum).await?;
+    commit(tx).await?;
+    Ok(reservation)
+}
+/// Caller holds the shared owner fence in a SERIALIZABLE transaction.
+pub(super) async fn reserve_in(
+    tx: &mut Transaction<'_, Postgres>,
+    provider: &str,
+    id: &str,
+    amount: i64,
+    maximum: i64,
+) -> Result<Reservation> {
     valid_provider(provider)?;
     valid_id(id)?;
     if !(1..=100).contains(&amount) || maximum < amount || maximum > 9_999_999_999 {
         return Err(invalid_budget());
     }
-    let mut tx = transaction(c).await?;
-    let now = clock(&mut tx).await?;
+    let now = clock(tx).await?;
     let month = now.format("%Y-%m").to_string();
     if sqlx::query_scalar::<_, bool>(
         "SELECT EXISTS(SELECT 1 FROM discovery_budget_reservations WHERE id=$1)",
     )
     .bind(id)
-    .fetch_one(&mut *tx)
+    .fetch_one(&mut **tx)
     .await
     .map_err(db)?
     {
         return Err(Failure("contact_reservation_already_used"));
     }
-    let cooling:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM discovery_monthly_budgets WHERE provider=$1 AND cooldown_until>$2)").bind(provider).bind(now).fetch_one(&mut *tx).await.map_err(db)?;
+    let cooling:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM discovery_monthly_budgets WHERE provider=$1 AND cooldown_until>$2)").bind(provider).bind(now).fetch_one(&mut **tx).await.map_err(db)?;
     if cooling {
         return Err(Failure("contact_provider_cooling_down"));
     }
-    let previous:Option<(String,bool,bool,Option<DateTime<Utc>>)>=sqlx::query_as("SELECT reserved::text,reserved>=0,reserved+$3::numeric<=$4::numeric,cooldown_until FROM discovery_monthly_budgets WHERE provider=$1 AND month=$2 FOR UPDATE").bind(provider).bind(&month).bind(amount.to_string()).bind(maximum.to_string()).fetch_optional(&mut *tx).await.map_err(db)?;
+    let previous:Option<(String,bool,bool,Option<DateTime<Utc>>)>=sqlx::query_as("SELECT reserved::text,reserved>=0,reserved+$3::numeric<=$4::numeric,cooldown_until FROM discovery_monthly_budgets WHERE provider=$1 AND month=$2 FOR UPDATE").bind(provider).bind(&month).bind(amount.to_string()).bind(maximum.to_string()).fetch_optional(&mut **tx).await.map_err(db)?;
     if let Some((_, nonnegative, fits, _)) = &previous {
         if !nonnegative {
             return Err(invalid_budget());
@@ -104,7 +116,7 @@ pub async fn reserve(
             return Err(Failure("contact_provider_budget_exhausted"));
         }
     }
-    let written:Option<Value>=sqlx::query_scalar("INSERT INTO discovery_budget_reservations(id,provider,month,reserved,provider_run_id,reported_actual,state,created_at) VALUES($1,$2,$3,$4::numeric,NULL,NULL,'reserved',$5) ON CONFLICT(id) DO NOTHING RETURNING jsonb_build_object('id',id,'provider',provider,'month',month,'amount_exact',reserved=$4::numeric,'provider_run_id',provider_run_id,'reported_actual',reported_actual,'state',state,'created_at_exact',created_at=$5)").bind(id).bind(provider).bind(&month).bind(amount.to_string()).bind(now).fetch_optional(&mut *tx).await.map_err(db)?;
+    let written:Option<Value>=sqlx::query_scalar("INSERT INTO discovery_budget_reservations(id,provider,month,reserved,provider_run_id,reported_actual,state,created_at) VALUES($1,$2,$3,$4::numeric,NULL,NULL,'reserved',$5) ON CONFLICT(id) DO NOTHING RETURNING jsonb_build_object('id',id,'provider',provider,'month',month,'amount_exact',reserved=$4::numeric,'provider_run_id',provider_run_id,'reported_actual',reported_actual,'state',state,'created_at_exact',created_at=$5)").bind(id).bind(provider).bind(&month).bind(amount.to_string()).bind(now).fetch_optional(&mut **tx).await.map_err(db)?;
     if written
         != Some(
             json!({"id":id,"provider":provider,"month":month,"amount_exact":true,"provider_run_id":null,"reported_actual":null,"state":"reserved","created_at_exact":true}),
@@ -113,14 +125,13 @@ pub async fn reserve(
         return Err(ack());
     }
     let accepted: Option<bool> = if let Some((before, _, _, cooldown)) = previous {
-        sqlx::query_scalar("UPDATE discovery_monthly_budgets SET reserved=round(reserved+$3::numeric,6) WHERE provider=$1 AND month=$2 AND reserved=$4::numeric AND reserved+$3::numeric<=$5::numeric AND (cooldown_until IS NULL OR cooldown_until<=$6) RETURNING provider=$1 AND month=$2 AND reserved=round($4::numeric+$3::numeric,6) AND cooldown_until IS NOT DISTINCT FROM $7").bind(provider).bind(&month).bind(amount.to_string()).bind(before).bind(maximum.to_string()).bind(now).bind(cooldown).fetch_optional(&mut *tx).await.map_err(db)?
+        sqlx::query_scalar("UPDATE discovery_monthly_budgets SET reserved=round(reserved+$3::numeric,6) WHERE provider=$1 AND month=$2 AND reserved=$4::numeric AND reserved+$3::numeric<=$5::numeric AND (cooldown_until IS NULL OR cooldown_until<=$6) RETURNING provider=$1 AND month=$2 AND reserved=round($4::numeric+$3::numeric,6) AND cooldown_until IS NOT DISTINCT FROM $7").bind(provider).bind(&month).bind(amount.to_string()).bind(before).bind(maximum.to_string()).bind(now).bind(cooldown).fetch_optional(&mut **tx).await.map_err(db)?
     } else {
-        sqlx::query_scalar("INSERT INTO discovery_monthly_budgets(provider,month,reserved,cooldown_until) VALUES($1,$2,$3::numeric,NULL) RETURNING reserved=$3::numeric AND cooldown_until IS NULL AND provider=$1 AND month=$2").bind(provider).bind(&month).bind(amount.to_string()).fetch_optional(&mut *tx).await.map_err(db)?
+        sqlx::query_scalar("INSERT INTO discovery_monthly_budgets(provider,month,reserved,cooldown_until) VALUES($1,$2,$3::numeric,NULL) RETURNING reserved=$3::numeric AND cooldown_until IS NULL AND provider=$1 AND month=$2").bind(provider).bind(&month).bind(amount.to_string()).fetch_optional(&mut **tx).await.map_err(db)?
     };
     if accepted != Some(true) {
         return Err(ack());
     }
-    commit(tx).await?;
     Ok(Reservation {
         id: id.into(),
         provider: provider.into(),

@@ -176,6 +176,69 @@ print(json.dumps(out,default=lambda value:value.isoformat()))
 }
 use sha2::Digest as _;
 #[test]
+fn contact_professional_identifier_matches_actual_profile_normalizer_and_domain_scope_is_public_https()
+ {
+    let cases = json!([
+        "https://linkedin.com/in/fictional-person",
+        "https://www.linkedin.com/in/fictional-person/",
+        "https://in.linkedin.com/in/fictional_person?utm_source=fixture",
+        "https://uk.linkedin.com/in/fictional~person#fragment",
+        "https://us.linkedin.com/in/fictional%25person",
+        "https://www.linkedin.com/company/fictional-company",
+        "https://evil.example/in/fictional-person",
+        "http://linkedin.com/in/fictional-person",
+        "https://linkedin.com/in/fictional%2Fperson",
+        "https://linkedin.com/in/",
+        "https://linkedin.com/in/fictional-person/details",
+        "https://linkedin.com/in/fictional%20person",
+        "https://linkedin.com/in/fictional-person?ref=fixture",
+        "https://linkedin.com/in/fictional-person/?other=fixture"
+    ]);
+    let actual = oracle(
+        r#"import ast,json,re,runpy,sys
+from pathlib import Path
+from urllib.parse import parse_qsl,unquote,urlencode,urlsplit,urlunsplit
+from pydantic import TypeAdapter
+scope={'re':re,'urlsplit':urlsplit,'urlunsplit':urlunsplit,'unquote':unquote,'parse_qsl':parse_qsl,'urlencode':urlencode,'_validator':TypeAdapter(runpy.run_path('backend/app/core/urls.py')['PublicHTTPSURL'])}
+def load(path,names):
+ tree=ast.parse(Path(path).read_text());nodes=[n for n in tree.body if (isinstance(n,ast.FunctionDef) and n.name in names) or (isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id in names for t in n.targets))];exec(compile(ast.Module(body=nodes,type_ignores=[]),'<actual-profile-identifier>','exec'),scope)
+load('backend/app/core/job_urls.py',{'canonical_job_url','_TRACKING'});load('backend/app/services/people_discovery/normalizer.py',{'normalize_linkedin_url'})
+out=[]
+for value in json.load(sys.stdin):
+ try:out.append(scope['normalize_linkedin_url'](value))
+ except ValueError:out.append(None)
+assert 'backend.app.core.config' not in sys.modules
+print(json.dumps(out))
+"#,
+        &cases,
+    );
+    for (input, want) in cases
+        .as_array()
+        .unwrap()
+        .iter()
+        .zip(actual.as_array().unwrap())
+    {
+        assert_eq!(
+            json!(contacts::enrichment::lookups::linkedin(
+                input.as_str().unwrap()
+            )),
+            *want
+        );
+    }
+    assert_eq!(
+        contacts::enrichment::lookups::domain("www.example.com"),
+        Some("example.com".into())
+    );
+    for raw in [
+        "localhost",
+        "127.0.0.1",
+        "http://example.com",
+        "https://user:secret@example.com",
+    ] {
+        assert!(contacts::enrichment::lookups::domain(raw).is_none());
+    }
+}
+#[test]
 fn contact_run_request_hash_matches_actual_pydantic_ordered_utf8_model_dump() {
     let company = uuid::Uuid::from_u128(2);
     let cases = json!([{}, {"target_roles":["  CTO  "]},{"target_roles":["Straße","工程师","Technical 🦀 leader"]},{"max_people":"3"},{"max_people":true},{"providers":["signalhire","apollo"]},{"providers":[]},{"allow_paid":true},{"allow_fallback":true},{"include_candidates":true},{"idempotency_key":"fictional_first"},{"idempotency_key":"fictional_second"},{"target_roles":["quote\"role","line\nbreak"]},{"max_people":25,"allow_paid":"yes"}]);

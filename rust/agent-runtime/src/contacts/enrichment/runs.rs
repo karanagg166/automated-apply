@@ -52,6 +52,9 @@ impl Run {
     pub fn company(&self) -> Uuid {
         self.company
     }
+    pub(super) fn deadline(&self) -> DateTime<Utc> {
+        self.deadline
+    }
     pub fn input(&self) -> &Value {
         &self.input
     }
