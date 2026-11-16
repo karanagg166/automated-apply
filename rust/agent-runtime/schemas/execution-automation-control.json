@@ -1,0 +1,25 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "enum": [
+        "start",
+        "pause",
+        "stop"
+      ],
+      "title": "Action",
+      "type": "string"
+    },
+    "expected_revision": {
+      "minimum": 0,
+      "title": "Expected Revision",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "action",
+    "expected_revision"
+  ],
+  "title": "AutomationControl",
+  "type": "object"
+}

@@ -47,6 +47,12 @@ pub async fn lock_in(tx: &mut Transaction<'_, Postgres>, packet: Uuid) -> Result
             return Err(Failure("packet_write_ack_failed"));
         }
     }
+    if !crate::owner_fence::advance_in(tx)
+        .await
+        .map_err(packet_service::db)?
+    {
+        return Err(Failure("packet_write_ack_failed"));
+    }
     let current: Option<Value> =
         sqlx::query_scalar("SELECT value FROM owner_preferences WHERE key=$1 FOR UPDATE")
             .bind(key)

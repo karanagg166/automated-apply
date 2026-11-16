@@ -246,17 +246,19 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     }
     let mut result = match state.value.as_mut() {
         Some(connection) if crate::execution::route(&path).is_some() => {
-            crate::execution::dispatch_body(
+            crate::execution::dispatch_body_configured(
                 connection,
                 crate::execution::route(&path).unwrap().for_method(&method),
                 &method,
                 packet_query.as_deref(),
                 &body,
+                Some(&api.config),
             )
             .await
             .map(|data| OwnerReply {
                 data,
-                status: StatusCode::OK,
+                status: StatusCode::from_u16(crate::execution::route(&path).unwrap().status())
+                    .unwrap_or(StatusCode::OK),
                 etag: None,
             })
         }

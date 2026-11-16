@@ -1,0 +1,315 @@
+{
+  "$defs": {
+    "ImportJob": {
+      "additionalProperties": false,
+      "properties": {
+        "alert_candidate_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Alert Candidate Id"
+        },
+        "application_url": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Application Url"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "maxLength": 30000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        },
+        "employer": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Employer",
+          "type": "string"
+        },
+        "employment_type": {
+          "anyOf": [
+            {
+              "enum": [
+                "full_time",
+                "part_time",
+                "contract",
+                "internship"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Employment Type"
+        },
+        "experience_max": {
+          "anyOf": [
+            {
+              "maximum": 60,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Experience Max"
+        },
+        "experience_min": {
+          "anyOf": [
+            {
+              "maximum": 60,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Experience Min"
+        },
+        "experience_requirement": {
+          "default": "unknown",
+          "enum": [
+            "required",
+            "preferred",
+            "unknown"
+          ],
+          "title": "Experience Requirement",
+          "type": "string"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Location"
+        },
+        "message_reference": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message Reference"
+        },
+        "observed_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Observed At"
+        },
+        "posted_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Posted At"
+        },
+        "posting_status": {
+          "default": "unknown",
+          "enum": [
+            "unknown",
+            "active",
+            "closed",
+            "already_applied"
+          ],
+          "title": "Posting Status",
+          "type": "string"
+        },
+        "preferred_skills": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Preferred Skills",
+          "type": "array"
+        },
+        "provenance": {
+          "default": "owner_url",
+          "enum": [
+            "owner_url",
+            "owner_job_alert"
+          ],
+          "title": "Provenance",
+          "type": "string"
+        },
+        "remote_type": {
+          "default": "unknown",
+          "enum": [
+            "remote",
+            "hybrid",
+            "onsite",
+            "unknown"
+          ],
+          "title": "Remote Type",
+          "type": "string"
+        },
+        "required_skills": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Required Skills",
+          "type": "array"
+        },
+        "salary_currency": {
+          "anyOf": [
+            {
+              "maxLength": 3,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Salary Currency"
+        },
+        "salary_max": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Salary Max"
+        },
+        "salary_min": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Salary Min"
+        },
+        "salary_period": {
+          "anyOf": [
+            {
+              "enum": [
+                "year",
+                "month"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Salary Period"
+        },
+        "title": {
+          "maxLength": 255,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "url": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Url",
+          "type": "string"
+        },
+        "valid_through": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Valid Through"
+        }
+      },
+      "required": [
+        "url",
+        "title",
+        "employer"
+      ],
+      "title": "ImportJob",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "jobs": {
+      "items": {
+        "$ref": "#/$defs/ImportJob"
+      },
+      "maxItems": 50,
+      "minItems": 1,
+      "title": "Jobs",
+      "type": "array"
+    }
+  },
+  "required": [
+    "jobs"
+  ],
+  "title": "ImportBatch",
+  "type": "object"
+}

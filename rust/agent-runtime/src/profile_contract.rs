@@ -283,7 +283,7 @@ fn object(root: &Value, schema: &Value, input: Value, orm: bool) -> Result<Value
     }
     Ok(Value::Object(output))
 }
-fn number(schema: &Value, input: Value) -> Result<Value> {
+pub(crate) fn number(schema: &Value, input: Value) -> Result<Value> {
     let integer = schema.get("type") == Some(&json!("integer"));
     let original = match input {
         Value::Number(n) => n.to_string(),

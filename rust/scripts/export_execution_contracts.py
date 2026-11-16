@@ -3,6 +3,7 @@
 import argparse
 import ast
 import json
+import runpy
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Literal
@@ -12,6 +13,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 ROOT = Path(__file__).resolve().parents[2]
+PublicHTTPSURL = runpy.run_path(str(ROOT / "backend/app/core/urls.py"))["PublicHTTPSURL"]
 NAMES = {
     "QueuePolicy": "application-queue-policy",
     "QueuePolicyUpdate": "application-queue-policy-update",
@@ -19,6 +21,11 @@ NAMES = {
     "Configuration": "execution-configuration",
     "Control": "execution-control",
     "Start": "execution-start",
+    "QuestionAnswer": "execution-question-answer",
+    "AutomationPolicy": "execution-automation-policy",
+    "AutomationPolicyUpdate": "execution-automation-policy-update",
+    "AutomationControl": "execution-automation-control",
+    "ImportBatch": "execution-import-batch",
     "AccountApproval": "naukri-account-approval",
     "SyncPolicy": "naukri-profile-sync-policy",
     "SyncPolicyUpdate": "naukri-profile-sync-policy-update",
@@ -62,11 +69,12 @@ def render():
         "timezone": timezone,
         "ZoneInfo": ZoneInfo,
         "ZoneInfoNotFoundError": ZoneInfoNotFoundError,
+        "PublicHTTPSURL": PublicHTTPSURL,
     }
     load(
         scope,
         "backend/app/execution/contracts.py",
-        {"Contract", "Mode", "State", "Configuration", "Control", "Start"},
+        {"Contract", "Mode", "State", "Configuration", "Control", "Start", "QuestionAnswer", "AutomationPolicy", "AutomationPolicyUpdate", "AutomationControl", "ImportJob", "ImportBatch"},
     )
     load(
         scope,

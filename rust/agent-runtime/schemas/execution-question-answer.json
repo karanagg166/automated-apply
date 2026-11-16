@@ -1,0 +1,22 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "answer": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Answer",
+      "type": "string"
+    },
+    "expected_revision": {
+      "minimum": 1,
+      "title": "Expected Revision",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "expected_revision",
+    "answer"
+  ],
+  "title": "QuestionAnswer",
+  "type": "object"
+}

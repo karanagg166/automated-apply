@@ -7,6 +7,9 @@ use axum::{
 use serde_json::{Value, json};
 
 pub(super) fn profile_failure(error: Failure) -> Response {
+    if error.0 == "execution_event_not_found" {
+        return reply(StatusCode::NOT_FOUND, json!({"detail":error.0}));
+    }
     if crate::execution::denial(error) {
         return reply(StatusCode::CONFLICT, json!({"detail":error.0}));
     }
