@@ -7,6 +7,16 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest startup intelligence source84538f1 ports source-identity size selection, human
+confirmation priority, exact/range conflicts and saved job/board/company hiring qualification.
+Future observations and unsupported negative hiring statements do not establish current
+facts. Three standard declarations (24 actual size+26 actual hiring and separate conservative
+regressions) are UNRUN. See [qualified intelligence report](acceptance/startup-intelligence-source-20261117.md).
+Continue relevance ranking/derived catalog/shortlists/public discovery and remaining
+dashboard/registry/provider/CLI/conversation/eight-platform full source before combined gates.
+No current tests/build/check/live/install or estimate increase;58/42/prior455 held. Pure
+intelligence is not yet a wired catalog, full Rust host remains uninstalled.
+
 Latest startup filter source6101f3c freezes actual filters/shortlist DTOs and ports explicit
 size/exact-range/role/location/industry rules, bounded GET parsing and schema drift stage.
 Three standard declarations (68 actual DTO+110 actual normalizer cases and GET bounds) are
