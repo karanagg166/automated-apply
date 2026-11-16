@@ -7,6 +7,16 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest role-account sourcebe4c8df adds fixed read-slot identity reservation/connect,
+original draft.* OAuth/token purposes, separate compose account, consumed-before-exchange
+callbacks, durable non-replayed refresh intents and local-first disconnect on shared IO.
+Ten PG/HTTP declarations and expanded existing route assertions are UNRUN. See the
+[qualified account report](acceptance/gmail-workspace-account-source-20261116.md).
+Next explicit reviewed Gmail draft dispatch and remaining legacy integration/status/refusal
+source, full conversation/registry/outreach/providers/eight platforms, then combined gates.
+No current-head build/check/test/provider/live/install or percentage gain;58/42/prior455
+at9c4ace5 held. No partial final; preserve all external/owner-action and no-replay gates.
+
 Latest workspace local source7ee8217 adds coherent fixed-role saved metadata and encrypted
 local draft list/save/edit with original Python hashes/purposes, current reviewed profile,
 exact CAS, immutable dispatched/unknown state and bounded read-only GETs. Three standard
