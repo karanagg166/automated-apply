@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ExecutionQuestionAnswer,
+  ExecutionQuestionDelivery,
   isPendingExecutionQuestion,
   type ExecutionQuestion,
 } from "@/features/execution-question-answer";
@@ -566,6 +567,20 @@ function NaukriPreparation() {
                   Telegram delivery outcome is unknown. You can answer the
                   existing question here; this prompt will not be automatically
                   resent.
+                </Notice>
+              )}
+              <ExecutionQuestionDelivery
+                key={`delivery:${q.id}:${q.delivery_attempt}`}
+                question={q}
+                onSaved={() => {
+                  void act(async () => {});
+                }}
+              />
+              {q.state === "delivery_not_sent" && (
+                <Notice>
+                  You recorded that the prompt was not sent. It will not be
+                  resent automatically. You can answer the current question
+                  here.
                 </Notice>
               )}
               {q.answer && <p>Saved answer: {q.factual_context || q.answer}</p>}

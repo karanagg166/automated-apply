@@ -26,6 +26,7 @@ pub enum Route<'a> {
     Ask(&'a str, &'a str),
     PacketAsk(&'a str, &'a str),
     Answer(&'a str),
+    ReconcileDelivery(&'a str),
     ApproveReuse(&'a str),
     Reuse(&'a str, &'a str, &'a str),
 }
@@ -50,6 +51,12 @@ impl Route<'_> {
         }
     }
     pub(super) fn input(self, body: &[u8]) -> Result<Option<Value>> {
+        if matches!(self, Self::ReconcileDelivery(_)) {
+            return super::telegram_reconciliation::normalize(
+                serde_json::from_slice(body).map_err(|_| Failure("invalid_execution_contract"))?,
+            )
+            .map(Some);
+        }
         if let Some(kind) = self.kind() {
             return contracts::normalize(
                 kind,
@@ -101,6 +108,9 @@ pub fn route(path: &str) -> Option<Route<'_>> {
                 [id, "control"] if !id.is_empty() => Some(Route::Control(id)),
                 ["events", id, "ack"] if !id.is_empty() => Some(Route::Ack(id)),
                 ["questions", id, "answer"] if !id.is_empty() => Some(Route::Answer(id)),
+                ["questions", id, "delivery-reconciliation"] if !id.is_empty() => {
+                    Some(Route::ReconcileDelivery(id))
+                }
                 ["questions", id, "approve-reuse"] if !id.is_empty() => {
                     Some(Route::ApproveReuse(id))
                 }
@@ -349,6 +359,18 @@ pub(super) async fn dispatch_in(
                 id(raw)?,
                 &data.ok_or_else(invalid)?,
                 services.ok_or(Failure("execution_services_required"))?,
+                now,
+            )
+            .await
+        }
+        Route::ReconcileDelivery(raw) => {
+            super::telegram_reconciliation::reconcile_in(
+                tx,
+                id(raw)?,
+                &data.ok_or_else(invalid)?,
+                config
+                    .and_then(|c| c.telegram.as_ref())
+                    .ok_or(Failure("approved_telegram_channel_required"))?,
                 now,
             )
             .await

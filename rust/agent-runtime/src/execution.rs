@@ -55,6 +55,7 @@ mod storage;
 pub mod submission;
 pub mod telegram_commands;
 pub(crate) mod telegram_questions;
+pub mod telegram_reconciliation;
 
 use crate::{Failure, Result};
 use serde_json::Value;
@@ -135,6 +136,11 @@ pub fn denial(error: Failure) -> bool {
             | "packet_context_stale_or_destination_invalid"
             | "extension_answer_context_mismatch"
             | "telegram_question_too_long_manual_required"
+            | "telegram_delivery_attempt_conflict"
+            | "telegram_delivery_binding_required"
+            | "telegram_delivery_lease_active"
+            | "telegram_delivery_already_resolved"
+            | "telegram_delivery_message_conflict"
             | "invalid_execution_transition"
     )
 }

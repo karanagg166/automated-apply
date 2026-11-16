@@ -165,6 +165,11 @@ pub(crate) async fn finish(
         {
             return Err(Failure("telegram_delivery_fence_lost"));
         }
+        if question["delivery_receipt"]["message_id"]==json!(message_id)
+            && question["delivery_receipt"]["attempt"]==json!(delivery.attempt)
+            && question["delivery_receipt"]["binding"]==delivery.binding {
+            return Ok(());
+        }
         let mut ids = question["message_ids"]
             .as_array()
             .ok_or_else(invalid)?
@@ -177,9 +182,16 @@ pub(crate) async fn finish(
         }
         question["message_ids"] = json!(ids);
         question["delivery_lease"] = Value::Null;
+        if !question["delivery_reconciliation"].is_null()
+            && (question["delivery_reconciliation"]["input"]["outcome"]=="not_sent"
+                || question["delivery_reconciliation"]["input"]["message_id"]!=json!(message_id)) {
+            question["delivery_reconciliation_conflict"]=json!("late_bot_receipt_differs_from_owner_report");
+        }
+        let at=now(&mut tx).await?;
+        question["delivery_receipt"]=json!({"message_id":message_id,"attempt":delivery.attempt,"binding":delivery.binding,"source":"bot_api_positive_receipt","at":stamp(at),"application_receipt":false});
         if matches!(
             question["state"].as_str(),
-            Some("pending" | "delivery_unknown")
+            Some("pending" | "delivery_unknown" | "delivery_not_sent")
         ) {
             question["state"] = json!("sent");
         }

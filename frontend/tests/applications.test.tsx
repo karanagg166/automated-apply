@@ -826,7 +826,7 @@ describe("Applications Pipeline & Detail Views", () => {
   });
 });
 
-it.each(["pending", "sent", "delivery_unknown"])(
+it.each(["pending", "sent", "delivery_unknown", "delivery_not_sent"])(
   "saves the displayed %s packet question revision without an implicit resume",
   async (state) => {
     const current = { ...mockPacket, revision: 7 };

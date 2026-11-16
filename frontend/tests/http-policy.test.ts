@@ -38,6 +38,24 @@ describe("shared request security policy", () => {
     ).toBe(false);
   });
   it("retains the closed gateway allowlist", () => {
+    expect(
+      permittedRoute(
+        `execution/questions/${id}/delivery-reconciliation`,
+        "POST",
+      ),
+    ).toBe(true);
+    expect(
+      permittedRoute(
+        `execution/questions/${id}/delivery-reconciliation`,
+        "GET",
+      ),
+    ).toBe(false);
+    expect(
+      permittedRoute(
+        `execution/questions/${id}/delivery-reconciliation/resend`,
+        "POST",
+      ),
+    ).toBe(false);
     expect(permittedRoute(`application-packets/${id}/tracking`, "PATCH")).toBe(
       true,
     );

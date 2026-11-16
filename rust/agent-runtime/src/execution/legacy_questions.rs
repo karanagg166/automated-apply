@@ -295,7 +295,7 @@ pub(super) async fn answer_origin_in(
     }
     intent["answer_revisions"][field_id.to_string()] = field["answer_revision"].clone();
     // Bound only pending siblings in this packet and the original exact revision.
-    let siblings:Vec<(String,Value)>=sqlx::query_as("SELECT key,value FROM owner_preferences WHERE starts_with(key,'exec_q:') AND key!=$1 AND value->>'packet_id'=$2 AND value->'packet_revision'=$3 AND value->>'state' IN ('pending','sent') ORDER BY created_at,key LIMIT 10001").bind(&key).bind(packet_id.to_string()).bind(&packet["revision"]).fetch_all(&mut **tx).await.map_err(db)?;
+    let siblings:Vec<(String,Value)>=sqlx::query_as("SELECT key,value FROM owner_preferences WHERE starts_with(key,'exec_q:') AND key!=$1 AND value->>'packet_id'=$2 AND value->'packet_revision'=$3 AND value->>'state' IN ('pending','sent','delivery_unknown','delivery_not_sent') ORDER BY created_at,key LIMIT 10001").bind(&key).bind(packet_id.to_string()).bind(&packet["revision"]).fetch_all(&mut **tx).await.map_err(db)?;
     if siblings.len() > 10000 {
         return Err(Failure("execution_active_inventory_limit"));
     }

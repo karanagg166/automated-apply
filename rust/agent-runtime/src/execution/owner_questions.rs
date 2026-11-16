@@ -112,8 +112,10 @@ pub(crate) async fn answer_in(
     if question["state"] == "answered" {
         return Err(Failure("question_already_answered"));
     }
-    if !matches!(question["state"].as_str(), Some("pending" | "sent"))
-        || timestamp(&question["expires_at"])? <= now
+    if !matches!(
+        question["state"].as_str(),
+        Some("pending" | "sent" | "delivery_unknown" | "delivery_not_sent")
+    ) || timestamp(&question["expires_at"])? <= now
     {
         return Err(Failure("question_expired_or_application_cancelled"));
     }

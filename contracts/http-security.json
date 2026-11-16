@@ -129,7 +129,7 @@
       "methods": ["POST"]
     },
     {
-      "pattern": "^execution\\/questions\\/[a-f0-9-]{36}\\/(approve-reuse|answer)$",
+      "pattern": "^execution\\/questions\\/[a-f0-9-]{36}\\/(approve-reuse|answer|delivery-reconciliation)$",
       "methods": ["POST"]
     },
     {
