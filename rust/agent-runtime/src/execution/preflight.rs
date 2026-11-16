@@ -255,3 +255,76 @@ pub(crate) fn fresh_write(work: &Value, pdf: &Value, now: DateTime<Utc>) -> Resu
     }
     Ok(())
 }
+/// Recheck an already consumed Apply permit without reserving a second action or treating its
+/// own submitting packet as a new application. Every other historical packet still fences it.
+pub(crate) async fn admitted_apply_in(
+    tx: &mut Transaction<'_, Postgres>,
+    work: &mut Value,
+    packets: &packet_service::Settings,
+    resumes: &private_resume::Settings,
+    now: DateTime<Utc>,
+) -> Result<()> {
+    check_account_in(tx, work).await?;
+    if work["status"] != "executing"
+        || !work["admitted_actions"].as_array().is_some_and(|a| {
+            a.iter().any(|a| {
+                a["fingerprint"]
+                    .as_str()
+                    .is_some_and(|s| s.starts_with("apply:"))
+            })
+        })
+    {
+        return Err(Failure("queue_action_not_admitted"));
+    }
+    let expiry = timestamp(&work["permit_expires_at"])?;
+    if expiry <= now || expiry > now + chrono::Duration::seconds(2) {
+        return Err(Failure("queue_write_permit_expired"));
+    }
+    let packet_id = work["packet_id"]
+        .as_str()
+        .and_then(|s| s.parse::<Uuid>().ok())
+        .ok_or_else(invalid)?;
+    let job_id = work["job_id"]
+        .as_str()
+        .and_then(|s| s.parse::<Uuid>().ok())
+        .ok_or_else(invalid)?;
+    let packet = packet_service::read_locked_in(tx, packet_id, packets, now).await?;
+    if packet["lifecycle_state"] != "submitting"
+        || packet["revision"] != work["packet_revision"]
+        || packet["job_id"] != work["job_id"]
+        || packet["candidate_profile_id"] != work["candidate_profile_id"]
+        || packet["candidate_profile_version"] != work["profile_version"]
+        || packet["readiness"]["stale"] == true
+    {
+        return Err(Failure("queue_packet_context_changed"));
+    }
+    let req = work["requisition"].as_str().ok_or_else(invalid)?;
+    if history::receipt_exists_in(tx, req).await? {
+        return Err(Failure("prior_receipt_requires_reconciliation_no_replay"));
+    }
+    let protected:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM jobs j WHERE j.source_platform='naukri' AND j.job_url ~ $1 AND (j.status IN ('applied','submitted') OR to_jsonb(j)->>'application_status' IN ('applied','submitted','interview','offer','applied_manually','applied_verified') OR j.discovery_metadata#>>'{data_provenance,posting_status}'='already_applied' OR EXISTS(SELECT 1 FROM application_packets p WHERE p.job_id=j.id AND p.id<>$2 AND p.lifecycle_state IN ('user_reported_submitted','provider_confirmed_submitted','submitting','submission_unknown'))))").bind(format!("-{req}/?([?#].*)?$" )).bind(packet_id).fetch_one(&mut **tx).await.map_err(db)?;
+    if protected {
+        return Err(Failure("prior_application_or_unknown_submission_no_replay"));
+    }
+    let job: Value = sqlx::query_scalar("SELECT to_jsonb(j) FROM jobs j WHERE id=$1")
+        .bind(job_id)
+        .fetch_optional(&mut **tx)
+        .await
+        .map_err(db)?
+        .ok_or(Failure("queue_job_identity_changed"))?;
+    if job["source_platform"] != "naukri"
+        || filters::naukri_url(job["job_url"].as_str().ok_or_else(invalid)?)?
+            .rsplit('-')
+            .next()
+            != Some(req)
+    {
+        return Err(Failure("queue_job_identity_changed"));
+    }
+    let config = queue_control::configuration(tx).await?;
+    eligible_in(tx, work, &config["policy"], &job, now).await?;
+    let pdf = pdf_in(tx, &packet, resumes, now).await?;
+    if pdf["state"] != "PDF_VERIFIED_LOCAL" || pdf["sha256"] != work["upload_preflight"]["sha256"] {
+        return Err(Failure("canonical_pdf_unavailable_or_invalid"));
+    }
+    fresh_write(work, &pdf, now)
+}

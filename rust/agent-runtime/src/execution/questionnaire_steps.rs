@@ -70,7 +70,7 @@ pub fn reuse_key(work: &Value, step: &Value) -> String {
 }
 pub fn descriptor(work: &Value) -> Value {
     let mut value = json!({"expected_account_sha256":work["account_sha256"],"expected_resume_sha256":work["upload_preflight"]["sha256"],"account_observation":submission::account_observation(work),"expected_title":work["title"],"expected_company":work["company"]});
-    if work["operation"] == "answer_questionnaire" {
+    if work["operation"] == "answer_questionnaire" && work["status"] == "executing" {
         value["questionnaire"] = json!({"document_id":work["questionnaire"]["document_id"],"step_sha256":work["questionnaire"]["step_sha256"],"answer":work["questionnaire_answer"]["answer"],"permit_expires_at":work["permit_expires_at"]});
     }
     value

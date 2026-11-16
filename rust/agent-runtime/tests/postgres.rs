@@ -4041,3 +4041,5 @@ include!("support/queue_owner_questions_pg.rs");
 include!("support/questionnaire_preparation_pg.rs");
 
 include!("support/reconciliation_bounds_pg.rs");
+
+include!("support/naukri_native_pg.rs");

@@ -19,6 +19,7 @@ pub mod forms;
 mod invalidation;
 mod native;
 pub mod native_contract;
+mod naukri;
 mod status;
 mod storage;
 pub mod tasks;
@@ -325,6 +326,23 @@ pub async fn dispatch(
             Err(e) => return Err(e),
         }
     }
+    if let Some(command) = command.as_ref()
+        && command.name() == "naukri_queue_status"
+    {
+        return match naukri::read_status(c, command).await {
+            Ok(data) => Ok(native::result(command, Ok(data))),
+            Err(e)
+                if naukri::domain_denial(e)
+                    || matches!(
+                        e.0,
+                        "PROFILE_OFFLINE" | "PROFILE_NOT_SELECTED" | "PROFILE_SESSION_CHANGED"
+                    ) =>
+            {
+                Ok(native::result(command, Err(e)))
+            }
+            Err(e) => Err(e),
+        };
+    }
     let mut tx = c.begin().await.map_err(db)?;
     let serializable = matches!(route, Route::PlanReview(_))
         || command.as_ref().is_some_and(|c| {
@@ -335,8 +353,9 @@ pub async fn dispatch(
                     | "authorize_form"
                     | "record_form_fill"
                     | "ask_form_questions"
-            ) || c.name() == "update_application_task"
-                && c.value["task_event"] == "inspection_prepared"
+            ) || naukri::supports(c.name())
+                || c.name() == "update_application_task"
+                    && c.value["task_event"] == "inspection_prepared"
         });
     if serializable {
         sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")

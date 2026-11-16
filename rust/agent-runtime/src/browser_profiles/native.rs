@@ -31,6 +31,13 @@ impl Command {
 pub(super) fn result(command: &Command, result: Result<Value>) -> Value {
     let capability = if matches!(
         command.name(),
+        "naukri_queue_status" | "naukri_queue_control"
+    ) {
+        "naukri_queue_controls"
+    } else if naukri::supports(command.name()) {
+        "naukri_background_read"
+    } else if matches!(
+        command.name(),
         "inspect_form" | "prepare_form_answers" | "authorize_form" | "record_form_fill"
     ) {
         "form_fill"
@@ -102,6 +109,7 @@ pub(super) async fn dispatch(
         Err(e)
             if !tasks::domain_denial(e)
                 && !form_service::domain_denial(e)
+                && !naukri::domain_denial(e)
                 && !matches!(
                     e.0,
                     "profile_connection_fields_required"
@@ -142,6 +150,9 @@ async fn execute(
 ) -> Result<Value> {
     let v = &command.value;
     match command.name() {
+        name if naukri::supports(name) => {
+            naukri::dispatch(tx, command, settings, packets, forms, now).await
+        }
         "inspect_form" | "prepare_form_answers" | "authorize_form" | "record_form_fill" => {
             form_service::dispatch(
                 tx,

@@ -649,3 +649,21 @@ pub async fn observe(
         }
     }
 }
+/// Current read/save scope only; never renews an existing permit or creates a second Save intent.
+pub(crate) async fn check_in(
+    tx: &mut Transaction<'_, Postgres>,
+    work: &Value,
+    now: DateTime<Utc>,
+) -> Result<()> {
+    validate_in(tx, work).await?;
+    if work["operation"] == "sync_profile"
+        && work["status"] == "executing"
+        && !(work["sync_field"] == "skills" && work["sync_phase"] == "prepare")
+    {
+        validate_attempt(&work["sync_attempt"], now)?;
+        if timestamp(&work["permit_expires_at"])? <= now {
+            return Err(Failure("profile_sync_permit_expired"));
+        }
+    }
+    Ok(())
+}
