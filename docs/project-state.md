@@ -447,3 +447,18 @@ Question delivery/reply parity, queue/kernel and remaining full-plan ports are s
 No installed/browser/account/owner-data/provider/queue action or strict receipt. Keep58/42
 rough estimate and continue source work, including final-runner database/browser stages;
 do not end at this checkpoint or run the deferred acceptance early.
+
+Final-gate source `3473cf039e336cde8ea1a9b27b4c0aef1d70a3ae` expands the local runner
+with Python PostgreSQL, four UI configurations,26 extension browser fixtures and explicit
+backend browser journeys. Three stack fixtures now create owned native PostgreSQL17
+clusters without Docker, with private environments and matching built Brave/Edge native
+host names. Default extension build/fixtures now use Brave; no Chrome fallback in fixture
+launchers. Source only:9 new harness regressions written,0 executed; formatters wrote files,
+but no build/lint/check/test/browser/cluster/service/provider/application action ran.
+The form source follow-up30033ac retains paused question-only denial;16 PG declarations
+are now unrun. See [qualified infrastructure report](acceptance/final-gate-source-20261116.md).
+Continue command defaults/hash compatibility, native execution/kernel and other remaining
+ports before executing the final gate. Actual Edge app absent from observed Applications;
+Safari remains deferred. Do not claim the source runner is validated or increase58/42.
+Current private continuity snapshot found104 index entries but only6 available transcripts
+and98 missing files; saved6 available privately. Missing transcript recovery remains limited.

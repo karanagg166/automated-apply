@@ -26,3 +26,5 @@ integration stages; add those before final acceptance. The source API inventory 
 decorated declarations in21 files, not243 required active endpoints or a migration percentage.
 Reconcile actual router mounts, disabled sending contracts, OpenAPI and callers during the
 coverage pass. See [the implementation structure](completion-execution-20261116.md).
+
+PostgreSQL fixture shutdown follow-up: [official PostgreSQL17 pg_ctl documentation](https://www.postgresql.org/docs/17/app-pg-ctl.html) confirms status3 means no server, status4 means inaccessible/missing data directory; fast shutdown rolls back transactions and disconnects clients. The source harness cleans its own temporary cluster only after confirmed shutdown/no-server status, preserving it on uncertain shutdown. No fixture was started during this research.
