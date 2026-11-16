@@ -7,6 +7,14 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Mailbox-owner correctiondabd37b puts older local lifecycle/read/draft guards under the
+shared owner fence, adds the reverse outreach identity check after exchange and supplies
+bootstrap timestamps without changing conversation JSON/messages/TTL. Three native PG
+declarations are UNRUN. See [qualified correction](acceptance/gmail-mailbox-owner-fence-source-20261116.md).
+Continue explicit reviewed Gmail draft dispatch, remaining integration/status/refusal,
+conversation/registry/outreach/providers/eight-platform source and final combined gates.
+No current-head tests/build/check/live/install/percentage gain;58/42/prior455 held.
+
 Latest role-account sourcebe4c8df adds fixed read-slot identity reservation/connect,
 original draft.* OAuth/token purposes, separate compose account, consumed-before-exchange
 callbacks, durable non-replayed refresh intents and local-first disconnect on shared IO.
