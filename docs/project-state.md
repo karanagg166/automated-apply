@@ -7,6 +7,20 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest startup owner/registry source `e97c210dc19b528ca030666d5950b09ddcf9498e`
+connects saved source metadata, read-only snapshot preview, original manual POST and
+retained run GET through the existing transient permit. Private deployment fields stay
+private; saved prerequisites grant neither live verification nor dispatch authority.
+Unported provider orchestration returns explicit 501 without admission. Exact original
+hashes survive host normalization; manual requests require stable keys. Three standard
+and eight PG/HTTP declarations are UNRUN. See [qualified owner registry report](acceptance/startup-owner-registry-source-20261117.md).
+Continue durable public research/provider orchestration, startup dashboard recovery and
+remaining agreed full source before combined gates. No current tests/build/check/live/
+install or estimate increase; 58/42 and prior 455 held. Full Rust host uninstalled.
+Private continuity snapshot d87718c68473ea7db3aa61b37c4b393347aaf6d404a21c1639890ed898e30dda
+at 2026-11-16T23:39:10Z preserves 104 indexed / 6 available / 98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest Apify configuration source `a26d8006d85a70a6a6e85ad876ee4c4fa1dd1149` freezes
 the actual actor DTO, pinned build, bounded fixed input mapping and collection guards.
 Saved review/cost preflight grants neither live verification nor dispatch authority.
