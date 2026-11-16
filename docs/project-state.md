@@ -7,6 +7,16 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest local outreach ledger source2ebf118 preserves original outreach_logs idempotency,
+current private snapshot, expected revisions, historical attempt immutability and exact
+content/evidence approval. Owner read/edit/approve/reject routes are connected; unified
+preview/create IO controller is next. Source review corrected actual guard timestamp/revision
+ACK semantics; fixtures load the actual final SQL guard. Two standard declarations (20
+sentence+14 hash actual cases) +12 PG/HTTP declarations are UNRUN. See [qualified ledger report](acceptance/outreach-local-ledger-source-20261117.md).
+Continue durable optional writer/controller, all remaining full source then combined gates.
+No current tests/build/check/live/install or estimate increase;58/42/prior455 held. Gmail
+sending remains disabled; full Rust host remains uninstalled.
+
 Latest grounded outreach source1a86221 binds exact current confirmed profile, complete
 bounded candidate/contact evidence/resources, corrected saved job and approved local-project
 digest. Pure copy uses only grounded contributions and safe saved public links, with current
