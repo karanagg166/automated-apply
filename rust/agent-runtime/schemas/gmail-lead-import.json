@@ -1,0 +1,56 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "company_domain": {
+      "anyOf": [
+        {
+          "maxLength": 255,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Company Domain"
+    },
+    "company_name": {
+      "anyOf": [
+        {
+          "maxLength": 255,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Company Name"
+    },
+    "job_url": {
+      "format": "uri",
+      "maxLength": 2048,
+      "minLength": 1,
+      "title": "Job Url",
+      "type": "string"
+    },
+    "reviewed_job_evidence": {
+      "title": "Reviewed Job Evidence",
+      "type": "boolean"
+    },
+    "title": {
+      "maxLength": 255,
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "job_url",
+    "title",
+    "reviewed_job_evidence"
+  ],
+  "title": "LeadImport",
+  "type": "object"
+}

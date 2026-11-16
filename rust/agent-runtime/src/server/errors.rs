@@ -7,6 +7,31 @@ use axum::{
 use serde_json::{Value, json};
 
 pub(super) fn profile_failure(error: Failure) -> Response {
+    if error.0.starts_with("gmail_read_")
+        || error.0.starts_with("invalid_gmail_read_")
+        || matches!(
+            error.0,
+            "gmail_readonly_schema_update_required"
+                | "gmail_readonly_scope_required"
+                | "gmail_body_access_review_required"
+                | "gmail_sync_version_conflict"
+                | "gmail_evidence_projection_limit"
+        )
+    {
+        let status = match error.0 {
+            "invalid_gmail_read_contract" | "invalid_gmail_read_page" => {
+                StatusCode::UNPROCESSABLE_ENTITY
+            }
+            "gmail_read_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
+            "gmail_read_account_not_found"
+            | "gmail_readonly_schema_update_required"
+            | "gmail_readonly_scope_required"
+            | "gmail_body_access_review_required"
+            | "gmail_sync_version_conflict" => StatusCode::CONFLICT,
+            _ => StatusCode::SERVICE_UNAVAILABLE,
+        };
+        return reply(status, json!({"detail":error.0}));
+    }
     if error.0.starts_with("gmail_history_") || error.0.starts_with("invalid_gmail_history_") {
         let status = match error.0 {
             "invalid_gmail_history_contract" => StatusCode::UNPROCESSABLE_ENTITY,
