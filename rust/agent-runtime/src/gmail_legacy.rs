@@ -1,4 +1,6 @@
 //! Public saved legacy Gmail status. Older sending grants never authorize a send action.
+pub mod oauth;
+pub mod refresh;
 use crate::{
     Failure, Result,
     gmail_accounts::Settings,
@@ -34,11 +36,58 @@ pub fn route(path: &str) -> Option<Route> {
     }
     Some(Route::SendRefusal)
 }
-fn db(_: sqlx::Error) -> Failure {
+pub(crate) fn db(_: sqlx::Error) -> Failure {
     Failure("gmail_legacy_database_error")
 }
-fn invalid() -> Failure {
+pub(crate) fn invalid() -> Failure {
     Failure("invalid_gmail_legacy_saved_record")
+}
+pub fn connect(mut value: Value) -> Result<Value> {
+    use std::sync::LazyLock;
+    static SCHEMA: LazyLock<Value> = LazyLock::new(|| {
+        serde_json::from_str(include_str!("../schemas/gmail-legacy-connect.json"))
+            .expect("frozen primary Gmail connect")
+    });
+    static VALIDATOR: LazyLock<jsonschema::Validator> = LazyLock::new(|| {
+        jsonschema::draft202012::options()
+            .should_validate_formats(true)
+            .build(&SCHEMA)
+            .expect("primary Gmail connect schema")
+    });
+    let invalid = || Failure("invalid_gmail_legacy_request");
+    let body = value.as_object_mut().ok_or_else(invalid)?;
+    body.entry("authorization_mode")
+        .or_insert(json!("metadata"));
+    body.entry("expected_email").or_insert(Value::Null);
+    if let Some(email) = body.get_mut("expected_email").filter(|s| !s.is_null()) {
+        *email = json!(
+            crate::profile_contract::email(
+                email
+                    .as_str()
+                    .ok_or_else(invalid)?
+                    .trim_matches(crate::context_contract::python_space)
+            )
+            .map_err(|_| invalid())?
+        );
+    }
+    if !VALIDATOR.is_valid(&value) {
+        return Err(invalid());
+    }
+    Ok(value)
+}
+#[derive(Clone, Copy)]
+pub enum IoRoute {
+    Connect,
+    Verify,
+    Disconnect,
+}
+pub fn io_route(path: &str) -> Option<IoRoute> {
+    match path {
+        "/api/v1/integrations/gmail/connect/start" => Some(IoRoute::Connect),
+        "/api/v1/integrations/gmail/verify" => Some(IoRoute::Verify),
+        "/api/v1/integrations/gmail/disconnect" => Some(IoRoute::Disconnect),
+        _ => None,
+    }
 }
 /// `value` is already a public-column projection, not a credential-bearing account row.
 pub fn projection(

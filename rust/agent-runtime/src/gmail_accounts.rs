@@ -42,6 +42,7 @@ pub struct Settings {
     pub(crate) store: Option<TokenStore>,
     pub(crate) drafts: bool,
     pub(crate) ttl: i64,
+    pub(crate) legacy_expected_email: Option<String>,
     retention: bool,
     fixture: bool,
     endpoint: Option<String>,
@@ -80,6 +81,20 @@ impl Settings {
             body: crate::configuration::boolean(values, "GMAIL_READ_BODY_REVIEWED", false)?,
             allowed,
             store: TokenStore::from_values(values)?,
+            legacy_expected_email: values
+                .get("GMAIL_EXPECTED_EMAIL")
+                .filter(|s| {
+                    !s.trim_matches(crate::context_contract::python_space)
+                        .is_empty()
+                })
+                .map(|s| {
+                    crate::profile_contract::email(
+                        s.trim_matches(crate::context_contract::python_space),
+                    )
+                    .map(|s| automated_apply_domain::text::folded(&s))
+                    .map_err(|_| Failure("invalid_gmail_expected_email"))
+                })
+                .transpose()?,
             drafts: crate::configuration::boolean(values, "GMAIL_DRAFTS_ENABLED", false)?,
             retention: crate::configuration::boolean(values, "GMAIL_RETENTION_ENABLED", false)?,
             fixture,

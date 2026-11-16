@@ -121,3 +121,70 @@ fn legacy_status_and_refusal_paths_are_closed_and_never_recognize_arbitrary_outr
         assert!(gmail_legacy::route(path).is_none());
     }
 }
+
+#[test]
+fn primary_connect_input_matches_actual_legacy_model_without_trimming_authorization_enum() {
+    let mut cases = Vec::new();
+    for index in 0..20 {
+        let mut value = json!({"expected_email":"fixture@EXAMPLE.COM"});
+        match index {
+            0 => {}
+            1 => value = json!({}),
+            2 => value["expected_email"] = Value::Null,
+            3 => value["expected_email"] = json!(" Candidate <fixture@example.com> "),
+            4 => value["expected_email"] = json!("invalid"),
+            5 => value["expected_email"] = json!(1),
+            6 => value["authorization_mode"] = json!("metadata"),
+            7 => value["authorization_mode"] = json!("compose"),
+            8 => value["authorization_mode"] = json!("send"),
+            9 => value["authorization_mode"] = json!(" metadata "),
+            10 => value["authorization_mode"] = json!("read_body"),
+            11 => value["authorization_mode"] = Value::Null,
+            12 => value["authorization_mode"] = json!(false),
+            13 => value["read_body"] = json!(true),
+            14 => value["extra"] = json!(false),
+            15 => value["expected_email"] = json!("plus+tag@example.com"),
+            16 => value["authorization_mode"] = json!("COMPOSE"),
+            17 => value["expected_email"] = json!(" "),
+            18 => value = json!([]),
+            _ => value = Value::Null,
+        }
+        cases.push(value);
+    }
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let script = r#"import json,runpy,sys
+model=runpy.run_path('rust/scripts/export_gmail_contracts.py')['models']()['gmail-legacy-connect'];out=[]
+for value in json.load(sys.stdin):
+ try:out.append(model.model_validate(value).model_dump(mode='json'))
+ except ValueError:out.append(None)
+assert 'backend.app.core.config' not in sys.modules
+print(json.dumps(out))
+"#;
+    let mut child = Command::new(root.join(".venv/bin/python"))
+        .current_dir(root)
+        .args(["-B", "-c", script])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(json!(cases).to_string().as_bytes())
+        .unwrap();
+    let output = child.wait_with_output().unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let actual: Value = serde_json::from_slice(&output.stdout).unwrap();
+    for (value, want) in cases.into_iter().zip(actual.as_array().unwrap()) {
+        assert_eq!(
+            gmail_legacy::connect(value).ok().as_ref(),
+            if want.is_null() { None } else { Some(want) }
+        );
+    }
+}

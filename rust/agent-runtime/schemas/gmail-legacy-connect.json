@@ -1,0 +1,30 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "authorization_mode": {
+      "default": "metadata",
+      "enum": [
+        "metadata",
+        "send",
+        "compose"
+      ],
+      "title": "Authorization Mode",
+      "type": "string"
+    },
+    "expected_email": {
+      "anyOf": [
+        {
+          "format": "email",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expected Email"
+    }
+  },
+  "title": "ConnectInput",
+  "type": "object"
+}
