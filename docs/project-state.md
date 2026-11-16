@@ -7,6 +7,15 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest saved company sourcec958651 adds owner-only coherent people/jobs/evidence GETs,
+selected professional/normalized public fields, reused job DTO, stable bounded pages and
+stale/future observation qualification. No provider IO, raw vendor payload or GET mutation.
+Two standard +8 native PG/HTTP declarations are UNRUN. See [qualified company read report](acceptance/company-saved-reads-source-20261117.md).
+Continue actual startup contracts/size/hiring/scoring/catalog/shortlists and public research,
+then remaining dashboard/registry/provider/CLI/conversation/eight-platform source before
+combined gates. No current tests/build/check/live/install or estimate gain;58/42/prior455
+held. Full Rust host uninstalled; owner browser/production state unchanged.
+
 Latest dashboard recovery source2606907 persists UUID-only local draft requests before POST,
 reuses exact scope after response loss and uses GET once known. Reviewed replacement reads
 the saved revision again, preserves old rows and recovers unresolved/newer pointers instead
