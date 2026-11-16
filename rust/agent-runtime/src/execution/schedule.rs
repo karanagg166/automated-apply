@@ -34,9 +34,10 @@ pub(crate) async fn record(
     }
 }
 pub(crate) async fn tick(c: &mut PgConnection, config: &Configuration) -> Result<bool> {
+    let legacy = super::legacy_worker::tick(c, config).await?;
     let metadata:Value=sqlx::query_scalar("SELECT jsonb_build_object('running',EXISTS(SELECT 1 FROM owner_preferences WHERE key='application_queue_policy' AND value->>'state'='RUNNING' AND value#>>'{policy,platforms,naukri,enabled}'='true'),'last',(SELECT value FROM owner_preferences WHERE key='apply_schedule:naukri'),'at',clock_timestamp())").fetch_one(&mut *c).await.map_err(db)?;
     if metadata["running"] != true {
-        return Ok(false);
+        return Ok(legacy);
     }
     let seeded = preparation::seed_saved_sources(c).await?;
     let rechecked = reconsideration::tick(c).await?;
@@ -56,15 +57,19 @@ pub(crate) async fn tick(c: &mut PgConnection, config: &Configuration) -> Result
     if seeded > 0 || rechecked || prepared || due {
         record(c,"apply_schedule:naukri",None,Some(json!({"saved_sources_added":seeded,"filter_recheck_changed":rechecked,"prepared":prepared,"provider_calls":0,"application_dispatch":false}))).await?;
     }
-    Ok(seeded > 0 || rechecked || prepared)
+    Ok(legacy || seeded > 0 || rechecked || prepared)
 }
 pub(crate) async fn pause(c: &mut PgConnection) -> Result<()> {
-    let running:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM owner_preferences WHERE key='application_queue_policy' AND value->>'state'='RUNNING')").fetch_one(&mut *c).await.map_err(db)?;
+    let running:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM owner_preferences WHERE key IN ('application_queue_policy','naukri_automation') AND value->>'state'='RUNNING')").fetch_one(&mut *c).await.map_err(db)?;
     if !running {
         return Ok(());
     }
     let mut tx = c.begin().await.map_err(db)?;
     let result = async {
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
+            .execute(&mut *tx)
+            .await
+            .map_err(db)?;
         lock(&mut tx).await?;
         let config = super::queue_control::configuration(&mut tx).await?;
         if config["state"] == "RUNNING" {
@@ -72,6 +77,16 @@ pub(crate) async fn pause(c: &mut PgConnection) -> Result<()> {
             super::queue_control::control(
                 &mut tx,
                 json!({"action":"pause","expected_revision":config["revision"]}),
+                now,
+            )
+            .await?;
+        }
+        let legacy = super::legacy_policy::record(&mut tx).await?;
+        if legacy["state"] == "RUNNING" {
+            let now = now(&mut tx).await?;
+            super::legacy_policy::control_in(
+                &mut tx,
+                json!({"action":"pause","expected_revision":legacy["revision"]}),
                 now,
             )
             .await?;

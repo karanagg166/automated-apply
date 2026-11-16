@@ -47,6 +47,17 @@ pub fn decision(
     prior: bool,
     now: DateTime<Utc>,
 ) -> Result<Value> {
+    decision_with_history(job, company, profile, confirmed, prior, false, now)
+}
+pub(crate) fn decision_with_history(
+    job: Value,
+    company: Option<Value>,
+    profile: Option<&Value>,
+    confirmed: bool,
+    prior: bool,
+    history_match: bool,
+    now: DateTime<Utc>,
+) -> Result<Value> {
     if job["job_url"]
         .as_str()
         .is_none_or(|u| filters::naukri_url(u).is_err())
@@ -108,41 +119,16 @@ pub fn decision(
             &listing,
             &candidate,
             company.as_ref(),
-            false,
+            history_match,
         ))
     } else {
         None
     };
-    let (mut state, mut reason) = ("NEEDS_INPUT", "candidate_profile_missing");
-    if let Some(fit) = &fit {
-        let required =
-            job["discovery_metadata"]["data_provenance"]["experience_requirement"] == "required";
-        let lower = job["discovery_metadata"]["experience_min_years"].as_f64();
-        let upper = job["discovery_metadata"]["experience_max_years"].as_f64();
-        let years = profile.and_then(|p| p["verified_experience_years"].as_f64());
-        (state, reason) = if crate::packet_platform::posting_unavailable(job, now.date_naive())? {
-            ("REJECTED", "vacancy_closed_expired_or_invalid")
-        } else if !fit.exclusion_reasons.is_empty() {
-            ("REJECTED", "previous_application_or_owner_exclusion")
-        } else if required
-            && lower
-                .zip(years)
-                .is_some_and(|(l, y)| y < l || upper.is_some_and(|u| y > u))
-        {
-            ("REJECTED", "required_experience_outside_verified_band")
-        } else if required && (lower.is_none() || years.is_none()) {
-            ("NEEDS_INPUT", "required_experience_unknown")
-        } else if fit.matched_skills.is_empty()
-            || fit.match_score < 50.
-            || !fit.missing_skills.is_empty()
-        {
-            ("NEEDS_INPUT", "fit_requires_owner_review")
-        } else if lower.is_none() || years.is_none() {
-            ("NEEDS_INPUT", "experience_suitability_unknown")
-        } else {
-            ("ELIGIBLE", "preparation_only_owner_review_required")
-        };
-    }
+    let (mut state, mut reason) = if let Some(fit) = &fit {
+        preparation_eligibility(job, profile.ok_or_else(invalid)?, fit, now)?
+    } else {
+        ("NEEDS_INPUT", "candidate_profile_missing")
+    };
     if !confirmed {
         (state, reason) = ("NEEDS_INPUT", "confirmed_profile_required");
     }
@@ -165,6 +151,23 @@ pub(super) async fn jobs_in(
     now: DateTime<Utc>,
 ) -> Result<Vec<Value>> {
     let rows:Vec<(Value,Option<Value>)>=sqlx::query_as("SELECT to_jsonb(j),CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_set(to_jsonb(c),'{metadata_}',coalesce(c.metadata,'{}'::jsonb)) END FROM jobs j LEFT JOIN companies c ON c.id=j.company_id WHERE j.source_platform='naukri' AND ($1::uuid IS NULL OR j.id=$1) ORDER BY j.created_at DESC,j.id LIMIT 100").bind(selected).fetch_all(&mut **tx).await.map_err(db)?;
+    evaluate_rows(tx, rows, now).await
+}
+pub(super) async fn batch_in(
+    tx: &mut Transaction<'_, Postgres>,
+    after: Option<Uuid>,
+    now: DateTime<Utc>,
+) -> Result<(Vec<Value>, Vec<Value>)> {
+    let rows:Vec<(Value,Option<Value>)>=sqlx::query_as("SELECT to_jsonb(j),CASE WHEN c.id IS NULL THEN NULL ELSE jsonb_set(to_jsonb(c),'{metadata_}',coalesce(c.metadata,'{}'::jsonb)) END FROM jobs j LEFT JOIN companies c ON c.id=j.company_id WHERE j.source_platform='naukri' AND ($1::uuid IS NULL OR j.id>$1) ORDER BY j.id LIMIT 100").bind(after).fetch_all(&mut **tx).await.map_err(db)?;
+    let jobs = rows.iter().map(|(j, _)| j.clone()).collect();
+    let decisions = evaluate_rows(tx, rows, now).await?;
+    Ok((jobs, decisions))
+}
+async fn evaluate_rows(
+    tx: &mut Transaction<'_, Postgres>,
+    rows: Vec<(Value, Option<Value>)>,
+    now: DateTime<Utc>,
+) -> Result<Vec<Value>> {
     let profile = match crate::profile_store::get(tx).await {
         Ok(p) => Some(p.value),
         Err(Failure("profile_not_found")) => None,
@@ -237,4 +240,40 @@ pub(super) async fn jobs_in(
             decision(j, c, profile.as_ref(), confirmed, retained, now)
         })
         .collect()
+}
+
+pub fn preparation_eligibility(
+    job: &Value,
+    profile: &Value,
+    fit: &matching::DiscoveryMatch,
+    now: DateTime<Utc>,
+) -> Result<(&'static str, &'static str)> {
+    let required =
+        job["discovery_metadata"]["data_provenance"]["experience_requirement"] == "required";
+    let lower = job["discovery_metadata"]["experience_min_years"].as_f64();
+    let upper = job["discovery_metadata"]["experience_max_years"].as_f64();
+    let years = profile["verified_experience_years"].as_f64();
+    let result = if crate::packet_platform::posting_unavailable(job, now.date_naive())? {
+        ("REJECTED", "vacancy_closed_expired_or_invalid")
+    } else if !fit.exclusion_reasons.is_empty() {
+        ("REJECTED", "previous_application_or_owner_exclusion")
+    } else if required
+        && lower
+            .zip(years)
+            .is_some_and(|(l, y)| y < l || upper.is_some_and(|u| y > u))
+    {
+        ("REJECTED", "required_experience_outside_verified_band")
+    } else if required && (lower.is_none() || years.is_none()) {
+        ("NEEDS_INPUT", "required_experience_unknown")
+    } else if fit.matched_skills.is_empty()
+        || fit.match_score < 50.
+        || !fit.missing_skills.is_empty()
+    {
+        ("NEEDS_INPUT", "fit_requires_owner_review")
+    } else if lower.is_none() || years.is_none() {
+        ("NEEDS_INPUT", "experience_suitability_unknown")
+    } else {
+        ("ELIGIBLE", "preparation_only_owner_review_required")
+    };
+    Ok(result)
 }

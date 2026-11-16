@@ -15,7 +15,7 @@ pub(crate) async fn receipt_exists_in(
         .await
         .map_err(db)
 }
-pub(crate) async fn previously_applied_in(
+pub(crate) async fn provider_applied_in(
     tx: &mut Transaction<'_, Postgres>,
     job: &Value,
 ) -> Result<bool> {
@@ -62,4 +62,38 @@ pub(crate) async fn previously_applied_in(
             .ok()
             .is_some_and(|u| u.rsplit('-').next() == Some(requisition))
     }))
+}
+
+pub(crate) async fn previously_applied_in(
+    tx: &mut Transaction<'_, Postgres>,
+    job: &Value,
+) -> Result<bool> {
+    if provider_applied_in(tx, job).await? {
+        return Ok(true);
+    }
+    let retained_mail:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM owner_preferences WHERE starts_with(key,'gmail_application:'))").fetch_one(&mut **tx).await.map_err(db)?;
+    if retained_mail {
+        let at = now(tx).await?;
+        let history = super::reviewed_history::load_in(tx, at).await?;
+        if !history.is_empty() {
+            let company = if job["company_id"].is_null() {
+                None
+            } else {
+                let id = job["company_id"]
+                    .as_str()
+                    .and_then(|s| s.parse::<Uuid>().ok())
+                    .ok_or_else(invalid)?;
+                sqlx::query_scalar("SELECT jsonb_set(to_jsonb(c),'{metadata_}',coalesce(c.metadata,'{}'::jsonb)) FROM companies c WHERE id=$1").bind(id).fetch_optional(&mut **tx).await.map_err(db)?
+            };
+            let reviewed = crate::job_context::Reviewed::new(job.clone(), company)?;
+            if super::reviewed_history::previously_applied(
+                reviewed.job_view(),
+                reviewed.employer(),
+                &history,
+            ) {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
 }

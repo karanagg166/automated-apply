@@ -132,7 +132,7 @@ fn terminal(value: &Value) -> bool {
         Some("REJECTED" | "FAILED_FINAL" | "SUBMITTED_CONFIRMED" | "SUBMISSION_UNKNOWN")
     )
 }
-async fn intent_control_in(
+pub(super) async fn intent_control_in(
     tx: &mut Transaction<'_, Postgres>,
     identity: Uuid,
     data: &Value,
@@ -260,7 +260,7 @@ async fn configure_in(
     }
     Ok(data)
 }
-async fn start_in(
+pub(super) async fn start_in(
     tx: &mut Transaction<'_, Postgres>,
     data: Value,
     now: DateTime<Utc>,
