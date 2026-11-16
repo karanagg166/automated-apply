@@ -511,3 +511,12 @@ or production scheduler installation yet. Two new standard +9 new PG declaration
 UNRUN; full encrypted-PDF/write fault fixtures remain to add with kernel integration. See
 [qualified admission report](acceptance/execution-admission-source-20261116.md).
 No test/build/check/live action or percentage increase; continue full kernel and other ports.
+
+History/receipt sourcefd85d94 adds internal typed observations, two-document immutable
+receipts, canonical guarded confirmation and transactional owner notices/outbox. Historical
+reconciliation without Apply cannot assert worker packet success. Two standard +4 PG
+declarations remain UNRUN; native broker/lost-read response bounds/full write fixtures are
+still required. See [qualified receipt report](acceptance/execution-receipt-source-20261116.md).
+No build/test/check/live receipt/delivery/install or percentage gain. Continue native
+discovery/preparation/profile checks, questionnaire processing and full broker, then all
+remaining plan scope. Keep source-first/final-gate instruction and no partial final.
