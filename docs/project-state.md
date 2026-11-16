@@ -559,3 +559,5 @@ backend PG declarations and two adjusted existing timing cases are UNRUN. See
 New source is uninstalled; whole writer-family STOP coordination and full combined tests
 remain required. Continue profile-sync work/save/reconcile, questionnaires, discovery/
 native broker/scheduler and all remaining scope; hold58/42, no partial final.
+
+Profile-worker sourceb6b1f4a adds confirmed-version/account-bound periodic comparison, independently verified summary/skills saves, immutable intent history, preserved skill chips, optional real private-PDF byte checks and reference-only dashboard notices. Two standard +9 native-PG regression declarations are UNRUN. No build/check/test/provider/install operation; prior455 remain prior9c4ace5 evidence. See [qualified worker report](acceptance/profile-worker-source-20261116.md). Continue native broker/discovery/questionnaires and other source before final combined gate;58/42 held. Unknown saves never replay; only positive independent persistence closes an active pointer. Installed STOP162/lifetime4/hour1/three quarantines/zero strict receipts unchanged.
