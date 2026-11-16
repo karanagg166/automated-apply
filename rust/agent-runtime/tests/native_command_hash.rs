@@ -90,6 +90,14 @@ fn native_command_defaults_masked_secret_models_dates_numbers_and_raw_dictionary
         "conversation",
         json!({"intent":{"category":"PREPARE_APPLICATION","url":"HTTPS://Example.com:443"}}),
     ));
+    cases.push(command(
+        "conversation",
+        json!({"intent":{"category":"RESET_CONTEXT"}}),
+    ));
+    cases.push(command(
+        "preview_application_url",
+        json!({"url":"https://wellfound.com/jobs/fictional?private=query"}),
+    ));
     for experience in [0.0, 1.0, 1.5, 0.0000001] {
         cases.push(command("finish_naukri_work",json!({"work_report":{"kind":"job_facts","job":{"requisition":"123456789012","title":" Fictional Engineer ","company":" Fictional Employer ","location":" Fictional City ","description":" Fictional duties ","skills":[" Rust ","Rust"," Python "],"experience_min":experience,"posted_at":"2020-01-02T12:34:56.123+00:00","salary_min":1000000000000.0,"evidence_sha256":"a".repeat(64)}}})));
     }

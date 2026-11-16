@@ -43,6 +43,8 @@ pub struct Configuration {
     pub(crate) browser_profiles: crate::browser_profiles::Settings,
     pub(crate) mailboxes: crate::mailboxes::Settings,
     pub(crate) packets: crate::packet_service::Settings,
+    pub(crate) legacy_discovery_enabled: bool,
+    pub(crate) discovery_timeout_seconds: f64,
 }
 impl Configuration {
     pub fn listen(&self) -> SocketAddr {
@@ -293,6 +295,12 @@ impl Configuration {
             browser: crate::browser_inventory::Browser::from_values(values)?,
             browser_profiles: crate::browser_profiles::Settings::from_values(values)?,
             mailboxes: crate::mailboxes::Settings::from_values(values, fixture)?,
+            legacy_discovery_enabled: boolean(values, "AUTOMATION_EXECUTION_ENABLED", false)?,
+            discovery_timeout_seconds: get("DISCOVERY_TIMEOUT_SECONDS", "90")
+                .parse::<f64>()
+                .ok()
+                .filter(|s| s.is_finite() && (5.0..=180.0).contains(s))
+                .ok_or(Failure("invalid_discovery_timeout"))?,
             packets: crate::packet_service::Settings {
                 policy: crate::packet_platform::Policy {
                     testing: fixture,

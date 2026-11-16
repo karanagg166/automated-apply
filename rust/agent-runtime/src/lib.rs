@@ -87,6 +87,7 @@ pub mod resources;
 pub mod resume_suggestions;
 pub mod server;
 pub mod telegram;
+pub mod telegram_local;
 pub mod tool_api;
 pub mod worker;
 

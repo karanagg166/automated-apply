@@ -389,7 +389,7 @@ fn encode(
     }
     Ok(())
 }
-pub(super) fn parse(bytes: &[u8]) -> Result<(Value, String)> {
+pub(crate) fn parse(bytes: &[u8]) -> Result<(Value, String)> {
     if bytes.len() > 1024 * 1024 {
         return Err(request_error());
     }

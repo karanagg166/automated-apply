@@ -160,7 +160,7 @@ impl Notice {
     pub fn text(&self) -> String {
         match self {
             Self::AgentUpdate{id}=>format!("Agent update recorded for run {id}. Check the dashboard for its current status; this message is not an application receipt."),
-        Self::Help=>"/ping /status /jobs /agents review /agents runs /agents start /agents pause /agents stop. /naukri status | queue | find | add | apply | pause | resume | cancel | automation uses saved controls and limits; apply prepares saved jobs only. /browser status|open|prepare|pause|resume|cancel uses the selected ordinary profile; /chrome is an alias. Field filling still needs separate extension approval. Account/general commands remain in migration. These commands never click Apply.".into(),
+        Self::Help=>"/ping /status /connections /jobs /reset /apply <public HTTPS URL>. /apply saves a preview only; /reset clears bot selection context. /agents review|runs|start|pause|stop controls saved review. /naukri status|queue|find|add|apply|pause|resume|cancel|automation retains saved controls and limits; its apply command prepares saved jobs. /browser status|open|prepare|pause|resume|cancel uses the selected ordinary profile; /chrome is an alias. Field filling needs separate extension approval. Natural conversation remains in migration. These commands never click Apply.".into(),
         Self::Pong=>"pong — your authorized private message reached the Rust worker.".into(),
         Self::Status{mode,online}=>format!("Rust saved-review agents: {}; worker {}. Application dispatch remains unavailable.",match mode{Mode::Running=>"RUNNING",Mode::Paused=>"PAUSED",Mode::Stopped=>"STOPPED"},if *online{"online"}else{"offline"}),
         Self::Run{id,state}=>format!("Saved-review run {id}: {}. Workflow status is not an application receipt.",serde_json::to_value(state).unwrap().as_str().unwrap()),
@@ -499,7 +499,19 @@ pub async fn receive_configured(
     } else {
         None
     };
-    if owner_reply || local_command.is_some() || browser_command.is_some() {
+    let owner_command = if config.is_some() && settings.authorized(&update["message"]) {
+        crate::telegram_local::parse(
+            update["message"]["text"].as_str().unwrap_or(""),
+            &identity.username,
+        )
+    } else {
+        None
+    };
+    if owner_reply
+        || local_command.is_some()
+        || browser_command.is_some()
+        || owner_command.is_some()
+    {
         sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
             .execute(&mut *tx)
             .await
@@ -509,6 +521,9 @@ pub async fn receive_configured(
                 .as_ref()
                 .is_some_and(|command| command.mutates())
             || browser_command
+                .as_ref()
+                .is_some_and(|command| command.mutates())
+            || owner_command
                 .as_ref()
                 .is_some_and(|command| command.mutates())
         {
@@ -580,6 +595,16 @@ pub async fn receive_configured(
             .await?;
             intake = command.mutates();
             reply
+        } else if let Some(command) = owner_command.as_ref() {
+            crate::telegram_local::dispatch_in(
+                &mut tx,
+                command,
+                config.unwrap(),
+                settings.owner_user(),
+                settings.chat,
+                id,
+            )
+            .await?
         } else {
             let notice = match command(text, &identity.username) {
                 Command::Help => Notice::Help,

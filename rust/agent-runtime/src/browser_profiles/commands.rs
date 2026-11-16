@@ -433,7 +433,7 @@ async fn context_in(
     }
     Ok((packet, destination))
 }
-fn page_kind(url: &str) -> Result<&'static str> {
+pub(crate) fn page_kind(url: &str) -> Result<&'static str> {
     let u = reqwest::Url::parse(url).map_err(|_| invalid())?;
     let host = u.host_str().ok_or_else(invalid)?;
     if host == "docs.google.com" && u.path().starts_with("/forms/") || host == "forms.gle" {
