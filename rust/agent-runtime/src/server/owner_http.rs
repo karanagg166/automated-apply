@@ -246,18 +246,21 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
         }
     }
     let mut result = match state.value.as_mut() {
-        Some(connection) if crate::execution::route(&path).is_some() => crate::execution::dispatch(
-            connection,
-            crate::execution::route(&path).unwrap(),
-            &method,
-            packet_query.as_deref(),
-        )
-        .await
-        .map(|data| OwnerReply {
-            data,
-            status: StatusCode::OK,
-            etag: None,
-        }),
+        Some(connection) if crate::execution::route(&path).is_some() => {
+            crate::execution::dispatch_body(
+                connection,
+                crate::execution::route(&path).unwrap(),
+                &method,
+                packet_query.as_deref(),
+                &body,
+            )
+            .await
+            .map(|data| OwnerReply {
+                data,
+                status: StatusCode::OK,
+                etag: None,
+            })
+        }
         Some(connection) if crate::browser_profiles::route(&path).is_some() => {
             crate::browser_profiles::dispatch(
                 connection,

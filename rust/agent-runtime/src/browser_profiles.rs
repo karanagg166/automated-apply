@@ -10,6 +10,7 @@ use subtle::ConstantTimeEq;
 use uuid::Uuid;
 
 pub mod commands;
+mod execution_fence;
 mod form_questions;
 mod form_receipts;
 mod form_review;
@@ -21,6 +22,7 @@ pub mod native_contract;
 mod status;
 mod storage;
 pub mod tasks;
+pub(crate) use execution_fence::fence_naukri;
 use storage::*;
 
 pub const NATIVE: &str = "/api/v1/local-agent/chrome";

@@ -34,6 +34,7 @@ pub(crate) fn database_failure(error: Failure) -> bool {
     matches!(
         error.0,
         "execution_database_error"
+            | "execution_commit_outcome_unknown"
             | "execution_read_commit_failed"
             | "execution_rollback_unconfirmed"
             | "browser_profile_database_error"

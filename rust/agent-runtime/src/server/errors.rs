@@ -7,9 +7,15 @@ use axum::{
 use serde_json::{Value, json};
 
 pub(super) fn profile_failure(error: Failure) -> Response {
+    if crate::execution::denial(error) {
+        return reply(StatusCode::CONFLICT, json!({"detail":error.0}));
+    }
     if matches!(
         error.0,
         "execution_database_error"
+            | "execution_commit_outcome_unknown"
+            | "execution_active_inventory_limit"
+            | "execution_write_ack_failed"
             | "execution_read_commit_failed"
             | "execution_rollback_unconfirmed"
             | "execution_method_not_allowed"

@@ -8,7 +8,7 @@ use crate::{Failure, Result};
 use serde_json::{Value, json};
 use sqlx::{Postgres, Transaction};
 
-fn configuration(saved: Option<&Value>) -> Result<Value> {
+pub(super) fn configuration(saved: Option<&Value>) -> Result<Value> {
     let mut value = saved
         .cloned()
         .unwrap_or(json!({"revision":0,"state":"STOPPED","policy":{}}));
