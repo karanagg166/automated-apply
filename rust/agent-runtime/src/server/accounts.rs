@@ -18,6 +18,9 @@ fn error(error: Failure, callback: bool) -> Response {
     } else if matches!(
         error.0,
         "gmail_account_database_error"
+            | "execution_database_error"
+            | "execution_write_ack_failed"
+            | "gmail_account_write_ack_failed"
             | "gmail_account_commit_outcome_unknown"
             | "invalid_gmail_account_record"
             | "gmail_alert_database_error"

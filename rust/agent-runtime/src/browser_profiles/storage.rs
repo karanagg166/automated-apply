@@ -11,7 +11,7 @@ pub(super) async fn lock(tx: &mut Transaction<'_, Postgres>) -> Result<()> {
     .await
     .map_err(db)?;
     if key.is_none() {
-        sqlx::query("INSERT INTO owner_preferences(key,value) VALUES('agent_conversation:primary','{}') ON CONFLICT(key) DO NOTHING").execute(&mut **tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO owner_preferences(key,value,created_at,updated_at) VALUES('agent_conversation:primary','{}',clock_timestamp(),clock_timestamp()) ON CONFLICT(key) DO NOTHING").execute(&mut **tx).await.map_err(db)?;
         let _: String = sqlx::query_scalar(
             "SELECT key FROM owner_preferences WHERE key='agent_conversation:primary' FOR UPDATE",
         )

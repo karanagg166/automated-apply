@@ -298,7 +298,12 @@ impl<P: Provider> Service<'_, P> {
         self.fence(&mut tx, slot, expected).await?;
         commit(tx).await
     }
-    async fn fence(&self, c: &mut PgConnection, slot: Slot, expected: i64) -> Result<Value> {
+    async fn fence(
+        &self,
+        c: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+        slot: Slot,
+        expected: i64,
+    ) -> Result<Value> {
         self.settings.enabled()?;
         lock(c).await?;
         let value = read(c, &slot.key(), true)

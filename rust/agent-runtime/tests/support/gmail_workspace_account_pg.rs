@@ -728,3 +728,129 @@ async fn gmail_workspace_actual_http_role_consent_draft_callback_cookie_and_loca
     google_stop.cancel();
     google_task.await.unwrap();
 }
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn gmail_mailbox_first_owner_fence_supplies_nondefault_timestamps_and_preserves_existing_conversation()
+ {
+    let mut c = mailbox_fixture().await;
+    sqlx::query("DELETE FROM owner_preferences WHERE key='agent_conversation:primary'")
+        .execute(&mut c)
+        .await
+        .unwrap();
+    let settings = mailbox_settings();
+    let google = MailboxGoogle::default();
+    let service = Service {
+        settings: &settings,
+        provider: &google,
+    };
+    service
+        .start(&mut c, Slot::One, mailbox_consent(), &"b".repeat(64))
+        .await
+        .unwrap();
+    assert_eq!(
+        browser_pref(&mut c, "agent_conversation:primary").await,
+        json!({})
+    );
+    let timestamps:bool=sqlx::query_scalar("SELECT created_at IS NOT NULL AND updated_at IS NOT NULL FROM owner_preferences WHERE key='agent_conversation:primary'").fetch_one(&mut c).await.unwrap();
+    assert!(timestamps);
+    let retained = json!({"messages":[{"role":"user","content":"Fictional retained owner conversation"}],"expires_at":"2099-01-01T00:00:00Z","selection":{"role":"keep"}});
+    sqlx::query("UPDATE owner_preferences SET value=$1 WHERE key='agent_conversation:primary'")
+        .bind(&retained)
+        .execute(&mut c)
+        .await
+        .unwrap();
+    service
+        .start(&mut c, Slot::Two, mailbox_consent(), &"c".repeat(64))
+        .await
+        .unwrap();
+    assert_eq!(
+        browser_pref(&mut c, "agent_conversation:primary").await,
+        retained
+    );
+}
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn gmail_local_mailbox_callback_rechecks_outreach_identity_after_exchange_without_connecting_both()
+ {
+    let (mut c, _, _) = workspace_fixture().await;
+    let mut other = connection().await;
+    let settings = mailbox_settings();
+    let mut google = MailboxGoogle::default();
+    google.held_exchange = true;
+    let service = Service {
+        settings: &settings,
+        provider: &google,
+    };
+    let browser = "b".repeat(64);
+    let start = service
+        .start(&mut c, Slot::One, mailbox_consent(), &browser)
+        .await
+        .unwrap();
+    let state = mailbox_state(&start);
+    let operation = service.callback(
+        &mut c,
+        &state,
+        &browser,
+        "https://workspace.example/api/v1/integrations/gmail/oauth/callback",
+        Some("code"),
+        None,
+    );
+    let competing = async {
+        google.entered.notified().await;
+        browser_save(&mut other,"gmail_drafts:account",json!({"status":"connected","generation":2,"google_subject":"fictional-subject","account_email":"fixture@example.com"})).await;
+        google.release.notify_one();
+    };
+    let (result, ()) = tokio::join!(operation, competing);
+    assert_eq!(
+        result.unwrap_err(),
+        Failure("gmail_separate_outreach_account_required")
+    );
+    assert_eq!(mailbox_row(&mut c, "1").await["status"], "authorizing");
+    assert_eq!(draft_account_row(&mut c).await["status"], "connected");
+    assert_eq!(google.exchanges.get(), 1);
+}
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn gmail_local_writer_advances_owner_fence_so_older_serializable_context_cannot_commit() {
+    let (mut c, _, _) = workspace_fixture().await;
+    let mut other = connection().await;
+    let before = browser_pref(&mut c, "agent_conversation:primary").await;
+    let mut stale = other.begin().await.unwrap();
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
+        .execute(&mut *stale)
+        .await
+        .unwrap();
+    let _: Value = sqlx::query_scalar(
+        "SELECT value FROM owner_preferences WHERE key='agent_conversation:primary'",
+    )
+    .fetch_one(&mut *stale)
+    .await
+    .unwrap();
+    let settings = mailbox_settings();
+    let google = MailboxGoogle::default();
+    Service {
+        settings: &settings,
+        provider: &google,
+    }
+    .start(&mut c, Slot::One, mailbox_consent(), &"b".repeat(64))
+    .await
+    .unwrap();
+    let failed = sqlx::query(
+        "SELECT key FROM owner_preferences WHERE key='agent_conversation:primary' FOR UPDATE",
+    )
+    .fetch_one(&mut *stale)
+    .await
+    .unwrap_err();
+    assert_eq!(
+        failed.as_database_error().unwrap().code().as_deref(),
+        Some("40001")
+    );
+    stale.rollback().await.unwrap();
+    assert_eq!(
+        browser_pref(&mut c, "agent_conversation:primary").await,
+        before
+    );
+}

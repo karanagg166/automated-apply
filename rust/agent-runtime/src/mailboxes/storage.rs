@@ -2,9 +2,10 @@ use super::*;
 pub(super) fn db(_: sqlx::Error) -> Failure {
     Failure("gmail_account_database_error")
 }
-pub(super) async fn lock(c: &mut PgConnection) -> Result<()> {
+pub(super) async fn lock(c: &mut sqlx::Transaction<'_, sqlx::Postgres>) -> Result<()> {
+    crate::execution::lock_owner_in(c).await?;
     sqlx::query("SELECT pg_advisory_xact_lock(407054,1)")
-        .execute(c)
+        .execute(&mut **c)
         .await
         .map_err(db)?;
     Ok(())

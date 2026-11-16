@@ -134,6 +134,10 @@ impl<P: Provider> Service<'_, P> {
         {
             return Err(Failure("gmail_account_already_connected"));
         }
+        let outreach:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM owner_preferences WHERE key='gmail_drafts:account' AND (value->>'google_subject'=$1 OR lower(value->>'account_email')=lower($2)))").bind(&subject).bind(&email).fetch_one(&mut *tx).await.map_err(db)?;
+        if outreach {
+            return Err(Failure("gmail_separate_outreach_account_required"));
+        }
         let key = slot.key();
         put(&mut tx,&key,&json!({"status":"connected","generation":expected,"google_subject":subject,"account_email":email,"scopes":scopes(GrantMode::ReadDraft),"access":store.encrypt(&json!(tokens.access()),&format!("{key}:access"))?,"refresh":store.encrypt(&json!(tokens.refresh().ok_or(Failure("invalid_token_response"))?),&format!("{key}:refresh"))?,"expires_at":expires(tokens.expires_in()),"last_verified_at":timestamp()})).await?;
         commit(tx).await?;
