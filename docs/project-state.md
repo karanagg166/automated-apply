@@ -503,3 +503,11 @@ standard and10 new native-PG test declarations remain UNRUN. No build/check/test
 operation or installation; prior455 tests remain prior9c4ace5 evidence. See
 [qualified control report](acceptance/execution-control-source-20261116.md).
 Continue complete kernel/claims/admissions and remaining ports; hold58/42 and no partial final.
+
+Queue/admission sourcec83f2fb ports internal enqueue/claims/lease recovery, factual any/all
+skill eligibility, current account/private-PDF and original-questionnaire context, durable
+lifetime/hour/day aggregates and atomic Apply/packet admission. No native queue dispatch
+or production scheduler installation yet. Two new standard +9 new PG declarations are
+UNRUN; full encrypted-PDF/write fault fixtures remain to add with kernel integration. See
+[qualified admission report](acceptance/execution-admission-source-20261116.md).
+No test/build/check/live action or percentage increase; continue full kernel and other ports.
