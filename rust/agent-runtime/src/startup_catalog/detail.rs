@@ -56,6 +56,22 @@ pub(crate) async fn load_in(
     settings: &crate::contacts::Settings,
     now: DateTime<Utc>,
 ) -> Result<Value> {
+    Ok(snapshot_in(tx, id, filters, profile, settings, now)
+        .await?
+        .public)
+}
+pub(crate) struct Snapshot {
+    pub public: Value,
+    pub jobs: Vec<Value>,
+}
+pub(crate) async fn snapshot_in(
+    tx: &mut Transaction<'_, Postgres>,
+    id: Uuid,
+    filters: &Value,
+    profile: Option<&Value>,
+    settings: &crate::contacts::Settings,
+    now: DateTime<Utc>,
+) -> Result<Snapshot> {
     let company:Option<Value>=sqlx::query_scalar("SELECT CASE WHEN octet_length(metadata::text)<=524288 THEN jsonb_build_object('id',id,'name',name,'domain',domain,'metadata_',metadata) ELSE NULL END FROM companies WHERE id=$1").bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(Failure("startup_catalog_not_found"))?;
     let company = company.ok_or_else(invalid)?;
     if !company["metadata_"].is_object() {
@@ -221,7 +237,18 @@ pub(crate) async fn load_in(
     }
     result["sources"] = json!(sources);
     result["next_steps"] = json!({"jobs":format!("/api/v1/startups/{id}/jobs"),"contacts":format!("/api/v1/companies/{id}/contacts"),"contact_enrichment_preview":format!("/api/v1/companies/{id}/contacts/preview"),"outreach":"/api/v1/outreach/drafts","application_preview_template":"/api/v1/jobs/{job_id}/application-preview"});
-    Ok(result)
+    let shortlisted: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM startup_shortlist_entries WHERE company_id=$1)",
+    )
+    .bind(id)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(db)?;
+    result["shortlisted"] = json!(shortlisted);
+    Ok(Snapshot {
+        public: result,
+        jobs,
+    })
 }
 pub async fn read(
     c: &mut PgConnection,

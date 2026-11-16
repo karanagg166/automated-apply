@@ -1,5 +1,16 @@
 # Complete-source delivery plan — 2026-11-16
 
+Catalog/search/shortlist design2026-11-17: GET and typed POST search use the same actual
+filter normalization and read-only repeatable-read snapshot. Limit candidate companies500
+after optional source/shortlist predicates; fail above this cap, never truncate total/ranking.
+Reuse derived detail's private bounded job snapshot for filters/history, load packet states
+in one bounded set and preserve submission evidence versus preparation/interview/rejection.
+Rank all qualifying companies before pagination; aggregate byte/inventory caps fail closed.
+Company detail reads actual shortlist state. Shortlist is one owner-first SERIALIZABLE
+insert preserving the original saved snapshot/note/run on replay, with complete insert and
+post-trigger ACK; validate referenced existing startup run without invoking providers. No
+application/queue transition or provider call accompanies search or shortlist.
+
 Derived startup detail design2026-11-17: build profile, company observations, jobs/current
 board evidence and professional contact counts in one read-only repeatable-read transaction
 with one database clock. Bound inventories and expanded bytes; select only needed job

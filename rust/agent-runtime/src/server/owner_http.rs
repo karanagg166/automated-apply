@@ -21,6 +21,27 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     }
     let method = request.method().as_str().to_owned();
     let path = request.uri().path().to_owned();
+    let startup_allow = crate::startup_catalog::search::route(&path)
+        .map(|r| {
+            if matches!(r, crate::startup_catalog::search::Route::Search) {
+                "GET, POST"
+            } else {
+                "GET"
+            }
+        })
+        .or_else(|| crate::startup_catalog::shortlist::route(&path).map(|_| "POST"));
+    if let Some(allow) = startup_allow
+        && !allow.split(", ").any(|s| s == method)
+    {
+        let mut response = reply(
+            StatusCode::METHOD_NOT_ALLOWED,
+            json!({"detail":"startup_catalog_method_not_allowed"}),
+        );
+        response
+            .headers_mut()
+            .insert("allow", axum::http::HeaderValue::from_static(allow));
+        return response;
+    }
     if crate::startup_catalog::detail::route(&path).is_some() && method != "GET" {
         let mut response = reply(
             StatusCode::METHOD_NOT_ALLOWED,
@@ -499,6 +520,38 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
                 packet_query.as_deref(),
                 &body,
                 &api.config.contact_enrichment,
+                &api.config.contacts,
+            )
+            .await
+            .map(|data| OwnerReply {
+                data,
+                status: StatusCode::OK,
+                etag: None,
+            })
+        }
+        Some(connection) if crate::startup_catalog::search::route(&path).is_some() => {
+            crate::startup_catalog::search::dispatch(
+                connection,
+                crate::startup_catalog::search::route(&path).unwrap(),
+                &method,
+                packet_query.as_deref(),
+                &body,
+                &api.config.contacts,
+            )
+            .await
+            .map(|data| OwnerReply {
+                data,
+                status: StatusCode::OK,
+                etag: None,
+            })
+        }
+        Some(connection) if crate::startup_catalog::shortlist::route(&path).is_some() => {
+            crate::startup_catalog::shortlist::save(
+                connection,
+                crate::startup_catalog::shortlist::route(&path).unwrap(),
+                &method,
+                packet_query.as_deref(),
+                &body,
                 &api.config.contacts,
             )
             .await

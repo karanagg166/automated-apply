@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 pub(super) fn profile_failure(error: Failure) -> Response {
     if error.0.starts_with("startup_") || error.0.starts_with("invalid_startup_") {
         let status = match error.0 {
-            "startup_catalog_not_found" => StatusCode::NOT_FOUND,
+            "startup_catalog_not_found" | "startup_catalog_run_not_found" => StatusCode::NOT_FOUND,
             "startup_catalog_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
             "invalid_startup_query" | "invalid_startup_contract" => {
                 StatusCode::UNPROCESSABLE_ENTITY

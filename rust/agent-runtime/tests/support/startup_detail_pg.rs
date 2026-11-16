@@ -2,6 +2,7 @@
 use automated_apply_agents::startup_catalog::detail as startup_detail;
 async fn startup_detail_fixture() -> (PgConnection, Uuid, Uuid) {
     let (mut c, company, job) = companies_fixture().await;
+    startup_shortlist_schema(&mut c).await;
     sqlx::query("UPDATE companies SET metadata='{\"industry\":\"PRIVATE_LEGACY_INDUSTRY_CANARY\",\"employee_count\":999999,\"raw_vendor\":\"PRIVATE_EMPLOYER_CANARY\"}' WHERE id=$1").bind(company).execute(&mut c).await.unwrap();
     sqlx::query("DELETE FROM company_source_observations WHERE company_id=$1")
         .bind(company)
@@ -11,6 +12,9 @@ async fn startup_detail_fixture() -> (PgConnection, Uuid, Uuid) {
     sqlx::query("INSERT INTO company_source_observations(id,company_id,source,identity_key,content_hash,source_url,observed_at,attributes,verification_status) VALUES($1,$2,'manual','fictional_current_company','fictional_content','https://contact-fixture.example/about',clock_timestamp()-interval '1 day','{\"employee_count\":12,\"team_size_band\":\"11-50\",\"industry\":\"Developer tools\",\"technology_stack\":[\"Rust\"],\"location\":\"Bengaluru\",\"country\":\"India\",\"remote_policy\":\"remote\",\"private\":\"PRIVATE_COMPANY_ATTR_CANARY\"}','source_reported')").bind(Uuid::from_u128(993001)).bind(company).execute(&mut c).await.unwrap();
     sqlx::query("UPDATE jobs SET last_observed_at=clock_timestamp()-interval '1 day',source_platform='manual',source_verification_status='source_reported',discovery_metadata='{\"is_confirmed_current\":true,\"private\":\"PRIVATE_DETAIL_JOB_CANARY\"}' WHERE id=$1").bind(job).execute(&mut c).await.unwrap();
     (c, company, job)
+}
+async fn startup_shortlist_schema(c: &mut PgConnection) {
+    sqlx::raw_sql("DROP TABLE IF EXISTS startup_shortlist_entries;CREATE TABLE startup_shortlist_entries(company_id uuid PRIMARY KEY,run_id uuid,snapshot jsonb NOT NULL DEFAULT '{}',note text,created_at timestamptz NOT NULL DEFAULT now())").execute(c).await.unwrap();
 }
 async fn startup_read(c: &mut PgConnection, company: Uuid) -> Result<Value> {
     startup_detail::read(c, company, "GET", None, &[], &contact_settings()).await
