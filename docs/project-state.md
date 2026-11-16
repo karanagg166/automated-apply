@@ -7,6 +7,17 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest manual startup run sourcea3c977d retains original discovery_runs requests/hashes,
+opaque180-second invocation, atomic permission-confirmed company evidence/scoped saved
+ranking/finalization and no-replay retained reads. Failed completion rolls back data while
+preserving the claim; expired GETs qualify recovery without writes. One standard declaration
+(16 actual claim hash cases) +10 PG declarations are UNRUN. See [qualified manual run report](acceptance/startup-manual-runs-source-20261117.md).
+Continue source registry/owner startup endpoints/provider status, durable public research and
+remaining dashboard/registry/provider/CLI/conversation/eight-platform full source before
+combined gates. No current tests/build/check/live/install or estimate increase;58/42/prior455
+held. Manual runs remain a domain service awaiting registry/host integration; no provider
+or operational completion claim; full Rust host uninstalled.
+
 Latest company ingestion source987d64b preserves exact source/domain/URL identity and actual
 content hashes, conservative canonical company facts, missing-domain review guards and
 immutable observation replay with complete ACK/rollback. One standard declaration (20
