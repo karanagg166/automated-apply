@@ -36,6 +36,7 @@ pub(super) fn profile_route(path: &str) -> bool {
         || crate::execution::route(path).is_some()
         || crate::gmail_history::route(path).is_some()
         || crate::gmail_accounts::route(path).is_some()
+        || crate::gmail_accounts::io_route(path).is_some()
 }
 pub(super) fn resume_route(path: &str) -> Option<(&str, &str)> {
     let tail = path.strip_prefix("/api/v1/dashboard/resumes")?;

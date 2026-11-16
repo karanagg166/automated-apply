@@ -132,6 +132,9 @@ fn set_cookie(response: &mut Response, slot: Slot, browser: &str, seconds: i64, 
     }
 }
 pub(super) async fn callback(api: &Api, request: Request) -> Response {
+    if super::gmail_accounts_io::recognizes_callback(request.uri().query()) {
+        return super::gmail_accounts_io::callback(api, request).await;
+    }
     let decoded = match routes::callback(request.uri().query()) {
         Ok(value) => value,
         Err(failure) => return error(failure, true),

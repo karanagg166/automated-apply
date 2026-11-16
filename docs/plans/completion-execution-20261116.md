@@ -140,6 +140,17 @@ writing; bounded maintenance scrubs expired stored metadata separately on the ex
 connection. Complete legacy read-account/OAuth/selection/sync and alert/draft workspace
 services follow this local-history dependency; local-slot services remain independent.
 
+Legacy read-account IO continues in `gmail_accounts/oauth.rs` and `refresh.rs`: preserve
+the read.* callback namespace, original encrypted token/verifier purposes, account chooser
+and workspace slot identities. Commit exact one-use callback consumption before code
+exchange; commit a durable refresh intent before refresh/identity IO, release owner/account
+locks during every request, and recheck account generation/identity/scopes/intent before
+publishing. An abandoned refresh becomes reauthorization-required, never silently replayed.
+Disconnect fences local account/policy/evidence/OAuth state before best-effort revocation.
+Use the shared transient connection/long-request permit, fixed Google endpoints, scope
+equality, mailbox allowlist and separate outreach-account guard. Legacy send upgrades stay
+refusal-only. Callback routing must preserve the existing mailbox.* local account handler.
+
 The existing runner is the starting point, not yet a complete end-to-end gate: it omits
 UI/browser journeys, several extension browser fixture suites and PostgreSQL-backed Python
 integration. Extend it during source integration with a disposable DB lifecycle and strict

@@ -14,6 +14,9 @@ pub struct TokenStore {
     keys: BTreeMap<String, Key>,
 }
 impl TokenStore {
+    pub(crate) fn active_id(&self) -> &str {
+        &self.active
+    }
     pub fn from_values(values: &BTreeMap<String, String>) -> Result<Option<Self>> {
         match (
             values.get("OAUTH_ACTIVE_KEY_ID"),

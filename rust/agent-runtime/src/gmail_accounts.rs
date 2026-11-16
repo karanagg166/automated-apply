@@ -1,5 +1,7 @@
 //! Legacy read-account metadata, selected policy and retained evidence. Provider IO is separate.
 pub mod contract;
+pub mod oauth;
+pub mod refresh;
 use crate::{Failure, Result, account_tokens::TokenStore};
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
@@ -8,12 +10,32 @@ use sqlx::{Connection, PgConnection, Postgres, Transaction};
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use uuid::Uuid;
 pub const PATH: &str = "/api/v1/integrations/gmail/accounts";
+#[derive(Clone, Copy)]
+pub enum IoRoute {
+    Connect,
+    Verify(Uuid),
+    Disconnect(Uuid),
+}
+pub fn io_route(path: &str) -> Option<IoRoute> {
+    let tail = path.strip_prefix(PATH)?.strip_prefix('/')?;
+    if tail == "connect/start" {
+        return Some(IoRoute::Connect);
+    }
+    let (id, action) = tail.split_once('/')?;
+    let id = id.parse().ok()?;
+    match action {
+        "verify" => Some(IoRoute::Verify(id)),
+        "disconnect" => Some(IoRoute::Disconnect(id)),
+        _ => None,
+    }
+}
 const PUBLIC_ACCOUNT: &str = "SELECT jsonb_build_object('id',id,'provider',provider,'google_subject',google_subject,'account_email',account_email,'granted_scopes',granted_scopes,'status',status,'token_generation',token_generation,'token_expires_at',token_expires_at,'connected_at',connected_at,'last_verified_at',last_verified_at,'last_refresh_at',last_refresh_at) FROM gmail_read_accounts";
 pub struct Settings {
     sync: bool,
     body: bool,
     allowed: BTreeSet<String>,
     store: Option<TokenStore>,
+    ttl: i64,
 }
 impl Settings {
     pub fn from_values(values: &BTreeMap<String, String>) -> Result<Self> {
@@ -40,6 +62,14 @@ impl Settings {
             body: crate::configuration::boolean(values, "GMAIL_READ_BODY_REVIEWED", false)?,
             allowed,
             store: TokenStore::from_values(values)?,
+            ttl: values
+                .get("OAUTH_STATE_TTL_SECONDS")
+                .map(String::as_str)
+                .unwrap_or("600")
+                .parse::<i64>()
+                .ok()
+                .filter(|n| (60..=900).contains(n))
+                .ok_or(Failure("invalid_oauth_state_ttl"))?,
         })
     }
     fn allows(&self, email: &str) -> bool {
