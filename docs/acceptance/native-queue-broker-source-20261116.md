@@ -1,0 +1,28 @@
+# Authenticated native queue broker — source checkpoint 2026-11-16
+
+Implementation [`58b26d281c85ba60d423ff290bd873ac4f7d9478`](https://github.com/karanagg166/automated-apply/commit/58b26d281c85ba60d423ff290bd873ac4f7d9478), branch `feat/rust-agent-runtime`, [PR50](https://github.com/karanagg166/automated-apply/pull/50), base `chore/uv-python-tooling`. Uninstalled source; no test/build/live operation.
+
+The existing native command schema now dispatches Naukri status/control/poll/bind/check/admit/finish/abandon into the transactional queue, discovery, profile, original-questionnaire and receipt services. Profile secret, selected installation/session/version, positive window and exact tab/lease/revision remain bound. Queue status uses a coherent read-only snapshot without owner contention. Mutating native calls use serializable owner fencing and a rejection savepoint: expected denials roll back partial work; failed acknowledgements/database/snapshot failures propagate for whole-transaction rollback.
+
+Polling yields to legacy commands, form work and active leases. It orders original-questionnaire work, periodic profile comparison, bounded ordinary search, then listing/account/history reads. Unknown recovery uses durable lost-response ceilings. No application allowance, original form or historic action is renewed. The adapter does not run a browser, model or provider. The host's independent preparation/scheduler integration, all legacy owner routes, complete recovery controls and end-to-end worker acceptance remain unfinished.
+
+Consumed Apply checks preserve the already submitting packet while checking all other historical packets/receipts, current account/factual eligibility/private PDF and original unexpired two-second permit. A check never creates another admission or extends the permit. Supported profile saves retain their separate intent/current-policy gate. Questionnaire answer values are now transported only for the executing answer step; discovery/preparation/inspection do not expose saved answers, mail bodies, source references, PDF bytes or browser secrets.
+
+A trusted original-tab loss report works under STOP, validates the original browser/account binding, retains spent Apply history, closes pending/sent/uncertain owner envelopes and permits only bounded reconciliation. It is idempotent. Authenticated browser-session/window replacement keeps its existing separate source handling. Automatic extension-manager/WebUI navigation stays suspended. Only an existing-window ordinary profile-setup request may be returned, pinned to current account/context/expiry; opened/adopted metadata prevents a new setup action. Windowless binding is refused. No browser focus acceptance is claimed by server source.
+
+| Gate | Result | Evidence / limitation |
+| --- | --- | --- |
+| Source implementation | PASS (source only) | Native command wiring, authenticated scope, rejection rollback, read-only status, transport minimization and original loss handling; formatter applied |
+| New standard regression | NOT TESTED | 1 declaration: transport privacy and answer exposure only after admission |
+| New native PostgreSQL regressions | NOT TESTED | 12 declarations: full listing read lifecycle; read-only status under owner lock; secret/session/window/tab denial; Stop/revocation; busy/active lease; read abandon/backoff; original loss under Stop; suspended WebUI/windowless refusal; dropped work ACK rollback; actual HTTP host/extension auth; first-receipt AUTO guard; profile Save intent/independent read lifecycle |
+| Compilation/Clippy/lint/all suites | NOT TESTED | New tests executed0; final combined gate remains deferred |
+| Native process/framed IPC/extension browser journeys | NOT TESTED | DTO and HTTP fixtures are written only; no framed transport, browser or Mac acceptance run |
+| Scheduler/remaining service and recovery parity | NOT TESTED | Incomplete; this source is not a fully operational project |
+| Actual Mac/owner DB/browser/provider/application | NOT TESTED | No live request, navigation, profile Save, application or install |
+| Installation/strict receipt/focus/awake/locked/24h | BLOCKED / NOT TESTED | Existing migration/account/focus gates remain; actual strict receipt count0 |
+
+Prior fully validated checkpoint9c4ace570535a5856184775f8045ee89eafdd05f remains193 standard +262 native PostgreSQL passes,455 distinct. It does not validate this head. Approximate engineering estimate remains58% complete /42% remaining.
+
+Final reproduction is `scripts/run_acceptance.py` after all source units are integrated. New fictional declarations are the broker's local test and tests/support/naukri_native_pg.rs. No executed failure logs exist. Rejection codes include queue_lease_lost, queue_window_binding_changed, queue_write_permit_expired, questionnaire_original_browser_context_required, automatic_first_verified_worker_receipt_required and execution_write_ack_failed. An unknown commit/response grants no action replay.
+
+The status path avoids the owner lock and secret/history payload; mutation uses one rejection savepoint inside the existing owner transaction. These are source/query descriptions, not measured speed/RSS/Stop-latency gains. Bounded history/active lease/source inventories still need final load/resource measurements and whole-family installation review. Continue host scheduler/connection scheduling, complete owner/recovery/legacy service/provider/platform ports, then combined checks and actual per-platform acceptance under the [plan](../plans/completion-execution-20261116.md). Preserve installed STOP162, lifetime4/hour1, three quarantines, saved filters, Gmail read/draft-only, first strict receipt and actual focus constraints.
