@@ -7,6 +7,18 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest fixed provider dispatch sourcecc1ab7d adds bounded fixed transports, opaque fresh
+key/op/cost/eligibility-bound metadata, exact final target/ledger/pointer guards and one
+committed POST admission/consumable grant. Unknown/async/timeout results never gain a retry.
+Ten standard loopback +8 native PG/loopback declarations are UNRUN. See the
+[qualified fixed-dispatch report](acceptance/contact-fixed-dispatch-source-20261117.md).
+No actual provider request/install. Continue result identity ingestion/immutable findings,
+controller/source integration, grounded outreach and remaining full plan before combined
+gates. Current-head tests/build/check/live remain unrun;58/42/prior455 held; provider public
+execution readiness false. Private continuity snapshotff9efdf2f660edb067a3890445972bfbece6fe051aeef19eec9e53b790243f5a
+at2026-11-16T20:01:15Z preserves104 indexed/6 available/98 missing transcripts; no sidebar
+recovery/account identity rewrite.
+
 Latest provider projection source0c0c8a0 freezes actual PersonObservation/provider request
 DTOs and ports company-bound professional identity/mailbox claims without raw vendor
 personal fields. Conflicting profiles/mailboxes and redacted names are withheld; IDNA
