@@ -2,12 +2,12 @@
 import argparse
 import json
 import runpy
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
 ROOT = Path(__file__).resolve().parents[2]
 load = runpy.run_path(str(ROOT / "rust/scripts/export_execution_contracts.py"))["load"]
@@ -16,11 +16,15 @@ load = runpy.run_path(str(ROOT / "rust/scripts/export_execution_contracts.py"))[
 def models():
     scope = {"__name__": __name__, "BaseModel": BaseModel, "ConfigDict": ConfigDict,
              "Field": Field, "StringConstraints": StringConstraints, "Annotated": Annotated,
-             "Literal": Literal, "model_validator": model_validator, "UUID": UUID, "datetime": datetime}
-    load(scope, "backend/app/schemas/discovery.py", {"Text"})
-    load(scope, "backend/app/services/startup_discovery/schemas.py", {"Band", "Hiring", "StartupFilters", "ShortlistInput", "StartupAttributes", "HiringEvidence", "SizeEvidence", "StartupRead", "StartupSearchRead"})
+             "Literal": Literal, "field_validator": field_validator, "model_validator": model_validator,
+             "UUID": UUID, "datetime": datetime, "timedelta": timedelta, "timezone": timezone,
+             "PublicHTTPSURL":runpy.run_path(str(ROOT / "backend/app/core/urls.py"))["PublicHTTPSURL"],
+             "NormalizedJob":runpy.run_path(str(ROOT / "backend/app/schemas/normalized_job.py"))["NormalizedJob"]}
+    load(scope, "backend/app/schemas/discovery.py", {"Text", "DiscoveryQuery"})
+    load(scope, "backend/app/services/startup_discovery/schemas.py", {"Band", "Hiring", "Key", "CompanyObservation", "StartupFilters", "StartupRunRequest", "ShortlistInput", "StartupAttributes", "HiringEvidence", "SizeEvidence", "StartupRead", "StartupSearchRead"})
     return {"startup-filters": scope["StartupFilters"], "startup-shortlist": scope["ShortlistInput"],
-            "startup-read": scope["StartupRead"], "startup-search": scope["StartupSearchRead"]}
+            "startup-read": scope["StartupRead"], "startup-search": scope["StartupSearchRead"],
+            "company-observation":scope["CompanyObservation"],"startup-run-request":scope["StartupRunRequest"]}
 
 
 def main():

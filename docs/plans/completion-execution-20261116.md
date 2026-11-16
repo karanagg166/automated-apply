@@ -1,5 +1,13 @@
 # Complete-source delivery plan — 2026-11-16
 
+Research input contracts design2026-11-17: freeze actual company observations/startup runs
+and public/manual/official people query DTOs before any provider work. Preserve observed
+timezone/time limits, strict exact counts, public URL validation, actual company-domain
+normalization, attributable published-email pairs and manual import permission rules.
+Source labels and owner-confirmed claims remain data, never transport grants. Normalize
+only declared fields, bound nested lists/bytes and compare actual schema/validator behavior
+with fictional records. No DNS/page fetch, provider/account call or new budget admission.
+
 Catalog/search/shortlist design2026-11-17: GET and typed POST search use the same actual
 filter normalization and read-only repeatable-read snapshot. Limit candidate companies500
 after optional source/shortlist predicates; fail above this cap, never truncate total/ranking.

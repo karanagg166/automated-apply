@@ -1,0 +1,84 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "evidence_text": {
+      "anyOf": [
+        {
+          "maxLength": 4000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Evidence Text"
+    },
+    "evidence_url": {
+      "maxLength": 2048,
+      "title": "Evidence Url",
+      "type": "string"
+    },
+    "linkedin_url": {
+      "maxLength": 2048,
+      "title": "Linkedin Url",
+      "type": "string"
+    },
+    "name": {
+      "anyOf": [
+        {
+          "maxLength": 255,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Name"
+    },
+    "outreach_mode": {
+      "const": "manual",
+      "default": "manual",
+      "title": "Outreach Mode",
+      "type": "string"
+    },
+    "role": {
+      "anyOf": [
+        {
+          "maxLength": 255,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Role"
+    },
+    "source": {
+      "default": "manual",
+      "enum": [
+        "public_search",
+        "manual"
+      ],
+      "title": "Source",
+      "type": "string"
+    },
+    "verification_status": {
+      "default": "requires_review",
+      "enum": [
+        "source_reported",
+        "requires_review"
+      ],
+      "title": "Verification Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "linkedin_url",
+    "evidence_url"
+  ],
+  "title": "PublicPerson",
+  "type": "object"
+}

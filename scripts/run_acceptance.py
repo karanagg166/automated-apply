@@ -47,6 +47,10 @@ STAGES = (
         "startup-contracts",
         (*PYTHON, "-m", "rust.scripts.export_startup_contracts", "--check"),
     ),
+    (
+        "people-contracts",
+        (*PYTHON, "-m", "rust.scripts.export_people_contracts", "--check"),
+    ),
     ("rust-tests", ("cargo", "test", "--locked", "--workspace")),
     ("rust-postgres", (*PYTHON, "-m", "rust.scripts.run_postgres_tests")),
     (

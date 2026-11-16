@@ -1,0 +1,298 @@
+{
+  "$defs": {
+    "OfficialPersonEvidence": {
+      "additionalProperties": false,
+      "properties": {
+        "business_email": {
+          "anyOf": [
+            {
+              "format": "email",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Business Email"
+        },
+        "email_publication_url": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Email Publication Url"
+        },
+        "evidence_url": {
+          "format": "uri",
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Evidence Url",
+          "type": "string"
+        },
+        "full_name": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Full Name",
+          "type": "string"
+        },
+        "human_confirmed": {
+          "default": false,
+          "title": "Human Confirmed",
+          "type": "boolean"
+        },
+        "observed_at": {
+          "format": "date-time",
+          "title": "Observed At",
+          "type": "string"
+        },
+        "permission_evidence_url": {
+          "format": "uri",
+          "maxLength": 2048,
+          "minLength": 1,
+          "title": "Permission Evidence Url",
+          "type": "string"
+        },
+        "professional_url": {
+          "anyOf": [
+            {
+              "format": "uri",
+              "maxLength": 2048,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Professional Url"
+        },
+        "role_title": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Role Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "full_name",
+        "role_title",
+        "evidence_url",
+        "permission_evidence_url",
+        "observed_at"
+      ],
+      "title": "OfficialPersonEvidence",
+      "type": "object"
+    },
+    "PublicPerson": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_text": {
+          "anyOf": [
+            {
+              "maxLength": 4000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Evidence Text"
+        },
+        "evidence_url": {
+          "maxLength": 2048,
+          "title": "Evidence Url",
+          "type": "string"
+        },
+        "linkedin_url": {
+          "maxLength": 2048,
+          "title": "Linkedin Url",
+          "type": "string"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "outreach_mode": {
+          "const": "manual",
+          "default": "manual",
+          "title": "Outreach Mode",
+          "type": "string"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "maxLength": 255,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role"
+        },
+        "source": {
+          "default": "manual",
+          "enum": [
+            "public_search",
+            "manual"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "verification_status": {
+          "default": "requires_review",
+          "enum": [
+            "source_reported",
+            "requires_review"
+          ],
+          "title": "Verification Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "linkedin_url",
+        "evidence_url"
+      ],
+      "title": "PublicPerson",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "allow_paid": {
+      "default": false,
+      "title": "Allow Paid",
+      "type": "boolean"
+    },
+    "company_domain": {
+      "anyOf": [
+        {
+          "maxLength": 255,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Company Domain"
+    },
+    "company_name": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Company Name",
+      "type": "string"
+    },
+    "limit": {
+      "default": 10,
+      "maximum": 20,
+      "minimum": 1,
+      "title": "Limit",
+      "type": "integer"
+    },
+    "location": {
+      "anyOf": [
+        {
+          "maxLength": 200,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Location"
+    },
+    "manual_people": {
+      "items": {
+        "$ref": "#/$defs/PublicPerson"
+      },
+      "maxItems": 20,
+      "title": "Manual People",
+      "type": "array"
+    },
+    "official_people": {
+      "items": {
+        "$ref": "#/$defs/OfficialPersonEvidence"
+      },
+      "maxItems": 20,
+      "title": "Official People",
+      "type": "array"
+    },
+    "permission_confirmed": {
+      "default": false,
+      "title": "Permission Confirmed",
+      "type": "boolean"
+    },
+    "research_mode": {
+      "default": "public_profiles",
+      "enum": [
+        "public_profiles",
+        "official_company"
+      ],
+      "title": "Research Mode",
+      "type": "string"
+    },
+    "roles": {
+      "items": {
+        "enum": [
+          "founder",
+          "co-founder",
+          "ceo",
+          "cto",
+          "head of engineering",
+          "engineering manager",
+          "vp engineering",
+          "technical recruiter",
+          "software engineer",
+          "software developer",
+          "technical staff",
+          "talent acquisition",
+          "recruiter"
+        ],
+        "type": "string"
+      },
+      "maxItems": 10,
+      "minItems": 1,
+      "title": "Roles",
+      "type": "array"
+    },
+    "source": {
+      "default": "public_search",
+      "enum": [
+        "public_search",
+        "manual",
+        "linkedin"
+      ],
+      "title": "Source",
+      "type": "string"
+    }
+  },
+  "required": [
+    "company_name"
+  ],
+  "title": "PeopleQuery",
+  "type": "object"
+}
