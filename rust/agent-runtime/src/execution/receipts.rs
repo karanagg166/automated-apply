@@ -76,6 +76,15 @@ pub fn first_worker_bound(
     worker_recorded(key, receipt, now)
         && receipt["worker_dispatched"] == true
         && account["approved"] == true
+        && ["candidate_profile_id", "profile_binding_id"]
+            .iter()
+            .all(|key| {
+                account[key]
+                    .as_str()
+                    .and_then(|s| s.parse::<Uuid>().ok())
+                    .is_some()
+            })
+        && account["revision"].as_i64().is_some_and(|n| n >= 1)
         && receipt["queue_id"]
             .as_str()
             .and_then(|s| s.parse::<Uuid>().ok())

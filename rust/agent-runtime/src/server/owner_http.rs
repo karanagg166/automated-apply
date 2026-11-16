@@ -69,6 +69,19 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
         );
         return response;
     }
+    if let Some(route) = crate::execution::route(&path)
+        && route.method() != method
+    {
+        let mut response = reply(
+            StatusCode::METHOD_NOT_ALLOWED,
+            json!({"detail":"execution_method_not_allowed"}),
+        );
+        response.headers_mut().insert(
+            "allow",
+            axum::http::HeaderValue::from_static(route.method()),
+        );
+        return response;
+    }
     if let Some(route) = crate::resume_review::route(&path)
         && route.method() != method
     {
@@ -233,6 +246,18 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
         }
     }
     let mut result = match state.value.as_mut() {
+        Some(connection) if crate::execution::route(&path).is_some() => crate::execution::dispatch(
+            connection,
+            crate::execution::route(&path).unwrap(),
+            &method,
+            packet_query.as_deref(),
+        )
+        .await
+        .map(|data| OwnerReply {
+            data,
+            status: StatusCode::OK,
+            etag: None,
+        }),
         Some(connection) if crate::browser_profiles::route(&path).is_some() => {
             crate::browser_profiles::dispatch(
                 connection,

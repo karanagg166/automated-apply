@@ -9,6 +9,25 @@ use serde_json::{Value, json};
 pub(super) fn profile_failure(error: Failure) -> Response {
     if matches!(
         error.0,
+        "execution_database_error"
+            | "execution_read_commit_failed"
+            | "execution_rollback_unconfirmed"
+            | "execution_method_not_allowed"
+            | "invalid_execution_contract"
+            | "invalid_execution_page"
+            | "invalid_execution_saved_record"
+    ) {
+        let status = match error.0 {
+            "invalid_execution_contract" | "invalid_execution_page" => {
+                StatusCode::UNPROCESSABLE_ENTITY
+            }
+            "execution_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
+            _ => StatusCode::SERVICE_UNAVAILABLE,
+        };
+        return reply(status, json!({"detail":error.0}));
+    }
+    if matches!(
+        error.0,
         "invalid_browser_task_record" | "invalid_browser_form_record"
     ) {
         return reply(StatusCode::SERVICE_UNAVAILABLE, json!({"detail":error.0}));

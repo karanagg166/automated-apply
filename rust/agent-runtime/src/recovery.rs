@@ -33,7 +33,10 @@ impl Backoff {
 pub(crate) fn database_failure(error: Failure) -> bool {
     matches!(
         error.0,
-        "browser_profile_database_error"
+        "execution_database_error"
+            | "execution_read_commit_failed"
+            | "execution_rollback_unconfirmed"
+            | "browser_profile_database_error"
             | "browser_profile_commit_outcome_unknown"
             | "browser_profile_rollback_unconfirmed"
             | "resume_review_database_error"

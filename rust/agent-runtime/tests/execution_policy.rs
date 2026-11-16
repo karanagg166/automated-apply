@@ -238,8 +238,7 @@ fn execution_receipt_provenance_matches_legacy_and_first_worker_requires_current
     let hash = "a".repeat(64);
     let receipt = json!({"queue_id":id,"requisition":"123456789012","confirmation_source":"naukri_application_status_ui","operation_mode":"recurring_worker_ui","persistent_after_reload":true,"status":"Application Sent","account_sha256":hash,"worker_dispatched":true,"observed_at":"2026-11-15T23:59:59Z","first_observation":{"document_id":"first-document","evidence_sha256":"b".repeat(64),"observed_at":"2026-11-15T23:59:58Z"},"second_observation":{"document_id":"second-document","evidence_sha256":"c".repeat(64),"state":"APPLICATION_SENT","account_sha256":hash}});
     let work = json!({"id":id,"platform":"naukri","requisition":"123456789012","candidate_profile_id":id,"account_sha256":hash,"account_binding_revision":3,"stage":"SUBMITTED_CONFIRMED","submission_mode":"recurring_worker_ui","admitted_actions":[{"fingerprint":"apply:initial"}]});
-    let account =
-        json!({"approved":true,"candidate_profile_id":id,"account_sha256":hash,"revision":3});
+    let account = json!({"approved":true,"candidate_profile_id":id,"profile_binding_id":id,"account_sha256":hash,"revision":3});
     assert!(receipts::first_worker_bound(
         key,
         &receipt,
@@ -303,4 +302,15 @@ fn execution_receipt_provenance_matches_legacy_and_first_worker_requires_current
         &account,
         now()
     ));
+    for field in ["candidate_profile_id", "profile_binding_id", "revision"] {
+        let mut malformed = account.clone();
+        malformed.as_object_mut().unwrap().remove(field);
+        assert!(!receipts::first_worker_bound(
+            key,
+            &receipt,
+            &work,
+            &malformed,
+            now()
+        ));
+    }
 }

@@ -33,6 +33,7 @@ pub(super) fn profile_route(path: &str) -> bool {
         || crate::packet_generation::route(path).is_some()
         || crate::resume_review::route(path).is_some()
         || crate::browser_profiles::route(path).is_some()
+        || crate::execution::route(path).is_some()
 }
 pub(super) fn resume_route(path: &str) -> Option<(&str, &str)> {
     let tail = path.strip_prefix("/api/v1/dashboard/resumes")?;
@@ -170,6 +171,7 @@ pub(super) fn selected_resource(
         return Ok(None);
     }
     if crate::job_catalog::route(path).is_some()
+        || crate::execution::route(path).is_some()
         || path == crate::notification_preferences::PATH
         || crate::packet_service::route(path).is_some()
         || crate::packet_generation::route(path).is_some()
