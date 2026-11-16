@@ -11,7 +11,7 @@ A ten-record reconsideration tick processes only untouched filter holds. It skip
 | Gate | Result | Evidence / limitation |
 | --- | --- | --- |
 | Source implementation | PASS (source only) | Search, bounded batch intake and reconsideration written; formatter applied |
-| New standard regressions | NOT TESTED | 2 declarations; actual AST-only Python search function oracle contains560 rotation/encoding/pagination/timing comparisons; disabled/empty/corrupt proposal cases |
+| New standard regressions | NOT TESTED | 2 declarations; actual AST-only Python search function oracle contains280 rotation/encoding/pagination/timing comparisons; disabled/empty/corrupt proposal cases |
 | New PostgreSQL regressions | NOT TESTED | 9 declarations: search scheduling/Stop; permanent unknown/damaged receipt/aliases; capacity/drop-ACK rollback; actual guarded applied/unknown packet history; fresh-read-only recheck; spent/receipt preservation; cursor backpressure; owner contention/Stop; event-ACK rollback |
 | Compilation/Clippy/lint/full suites | NOT TESTED | New tests executed0; source-first/final combined gate remains active |
 | Actual Mac/browser/search/provider/owner data | NOT TESTED | No live listing, source request, browser navigation or application |
