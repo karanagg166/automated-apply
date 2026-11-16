@@ -7,6 +7,17 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest lookup preparation source42ce99b atomically binds original run/current target/
+provider plan to unique legacy lookup, zero-POST private intent and positive credit reserve.
+Expired unknown claims remain blocked; only known completed/not-found expired cache may
+be replaced by a new explicit run, preserving old claims/intents/full charges. One standard
+(14 actual profile URL cases plus domain assertions) +10 PG declarations are UNRUN. See the
+[qualified lookup report](acceptance/contact-lookup-preparation-source-20261117.md).
+Prepared claims confer no dispatch permission. Continue one-time final dispatch guard,
+fixed provider IO/current capability/result identity ingestion, grounded outreach and all
+remaining source before combined gates. No current-head tests/build/check/live/install or
+percentage gain;58/42/prior455 held. Provider execution readiness remains false.
+
 Latest contact run source970de71 adds atomic original run/native journal, actual ordered
 request hashes, opaque180-second invocation, exact context guards and retained-only
 idempotency replay. Public run root fields are whitelisted. One standard (14 actual hash
