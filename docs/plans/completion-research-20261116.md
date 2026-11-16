@@ -28,3 +28,5 @@ Reconcile actual router mounts, disabled sending contracts, OpenAPI and callers 
 coverage pass. See [the implementation structure](completion-execution-20261116.md).
 
 PostgreSQL fixture shutdown follow-up: [official PostgreSQL17 pg_ctl documentation](https://www.postgresql.org/docs/17/app-pg-ctl.html) confirms status3 means no server, status4 means inaccessible/missing data directory; fast shutdown rolls back transactions and disconnects clients. The source harness cleans its own temporary cluster only after confirmed shutdown/no-server status, preserving it on uncertain shutdown. No fixture was started during this research.
+
+Queue quota timezone research: [Chrono-TZ official API documentation](https://docs.rs/chrono-tz/0.10.4/chrono_tz/) identifies0.10.4 as the current documented release and describes IANA-generated timezone conversions and day changes across DST. The source dependency is pinned exactly0.10.4 with std only; the lock adds chrono-tz,phf,phf_shared,siphasher without replacing existing locked versions. Production timing, binary size and timezone parity are untested; the final suite contains explicit ZoneInfo comparisons.

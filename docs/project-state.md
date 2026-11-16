@@ -474,3 +474,14 @@ queue/kernel and all other remaining source ports before the final test gate. Ke
 STOP, three quarantined consumed admissions/lifetime4/hour1, zero strict receipts, pending
 physical sign-in action and all actual owner browser focus constraints. Do not stop at this
 source checkpoint or report it as a validated/installed/working full project.
+
+Execution core source454dffa adds six actual frozen DTOs and pure policy/filter/queue-ID/
+inspection/receipt predicates under `rust/agent-runtime/src/execution/`. Chrono-TZ0.10.4
+is pinned with std; Cargo resolved4 new packages without changing existing versions or
+compiling. Three standard regressions are written but UNRUN, including3,240 date/applicant
+scenarios. Source/schema generation/formatting only; no check/build/test/live action.
+See [qualified execution core report](acceptance/execution-policy-source-20261116.md).
+Next port transactional execution storage/status/control and the complete stop/claim/
+admission/identity/PDF/questionnaire/upload/submission/reconciliation kernel. These pure
+helpers are not an operational application queue. Preserve all prior active scope and
+continue; no partial final or increase beyond58/42. Full validated checkpoint is still9c4ace5.
