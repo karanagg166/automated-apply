@@ -1,0 +1,29 @@
+# Owner-reviewed listing import — source checkpoint 2026-11-16
+
+Implementation [`52ddda0e6f2ad0932b3bab5cfd58ecb5025ac03e`](https://github.com/karanagg166/automated-apply/commit/52ddda0e6f2ad0932b3bab5cfd58ecb5025ac03e), branch `feat/rust-agent-runtime`, [PR50](https://github.com/karanagg166/automated-apply/pull/50), base `chore/uv-python-tooling`. Uninstalled source; no compilation or tests run.
+
+POST /api/v1/execution/naukri/import now accepts the frozen owner DTO, separately normalizes actual listing evidence and saves it through shared source/URL identity ingestion. Optional alert review requires the exact current candidate URL/state/expiry. An invalid later record rolls back those provisional review markers; a dropped source/job/candidate acknowledgment rolls back the entire transaction. Per-record conflicting identity evidence is retained as a rejection under a savepoint; database or acknowledgment failures abort rather than return an uncertain partial success. This is stricter than the legacy per-record database-failure counter and is intentional.
+
+Owner-import facts remain requires_review/provider_verified=false. Salary/date/experience requirements, public URL syntax, explicit ATS application identity, observation timestamps and factual provenance remain distinct. URL normalization is local only: tracking removal, sorted query keys, Greenhouse host identity and recognized Lever/Ashby/SmartRecruiters posting paths do not fetch URLs. Six URL cases and16 normalization cases are declared against actual Python source; timestamps are compared in equivalent UTC representation and fixture observation times are pinned. No remote/provider verification is implied.
+
+The shared ingestion path still preserves canonical human title/status/score/explanation/employer/history. Only an explicit owner correction for the same Naukri requisition can supply a differently named reviewed employer while retaining the existing company association. Consumers use the separate reviewed view, so the old company's domain/enrichment is not asserted for the correction. Existing external ATS source/metadata is preserved when source identity joins it. Ambiguous identity remains rejected; a normalized legacy ATS lookup has a10000-row fail-closed bound. Source rows retain exact acknowledgment checks. Native observed-job ingestion keeps its separate employer-conflict restrictions.
+
+Same-company/title similarity returns at most20 review hints from a bounded500-row candidate set; it never merges two requisitions. Source/URL identity determines duplicates. Import creates no packet, Apply admission or submission permit. Current queue filters, supervised lifetime4/hour1, three quarantines, unknown outcomes and first strict receipt requirements remain independently enforced.
+
+| Gate | Result | Evidence / limitation |
+| --- | --- | --- |
+| Source integration | PASS (source only) | Owner import, local URL identity, current alert review, shared conservative persistence and similarity hints; formatter applied |
+| New standard tests | NOT TESTED | 1 declaration:16 actual-model normalization cases +6 actual URL/ATS cases; no application settings or network |
+| New native PostgreSQL tests | NOT TESTED | 6 declarations: insert/re-import/canonical decision retention; current alert/rollback; dropped source ACK rollback; existing external ATS identity/source retention; HTTP auth/closed DTO/missing alert; different-requisition similarity without merge |
+| Existing native ingestion regression | NOT TESTED | Shared save implementation changed; previous native listing fixtures must run in the final batch, no prior result reused as head validation |
+| Compile/Clippy/lint/all suites | NOT TESTED | New executed tests0; final combined gate remains deferred under the owner's source-first instruction |
+| Actual Mac/Gmail/provider/browser/application/install | NOT TESTED | No owner data read, remote request, browser action, Apply or source installation |
+| Actual resource/timing/restart | NOT TESTED | Row bounds/batching describe source only, with no measured performance claim |
+| Full legacy/provider/platform parity | NOT TESTED | Complete preparation worker/recovery/Telegram, Gmail history/alerts/drafts, outreach/provider/platform scope remains unfinished |
+| Focus/strict receipts/awake/locked/24h | BLOCKED / NOT TESTED | Existing owner account/focus/operator migration gates remain; strict worker receipt count0 |
+
+Final reproduction after all planned source is integrated: `scripts/run_acceptance.py`, including tests/owner_import.rs and tests/support/owner_import_pg.rs through the dedicated disposable PostgreSQL harness. No executed failure log exists. Static codes include invalid_naukri_import, job_identity_requires_review, execution_write_ack_failed, execution_database_error, execution_rollback_unconfirmed and execution_commit_outcome_unknown. No candidate PII, mailbox content, credential, resume, raw screenshot or private log is published.
+
+Prior validated checkpoint9c4ace570535a5856184775f8045ee89eafdd05f remains193 standard +262 dedicated PostgreSQL passes,455 distinct, and does not validate this head. Estimate58% complete /42% remaining is unchanged; no reliable finish time is claimed. Continue the [complete-source plan](../plans/completion-execution-20261116.md), then combined tests, reviewed whole-family migration/install and actual per-platform evidence. Preserve installed STOP162, current saved filters/history/identity/PDF, Gmail read/draft-only, browser focus rules and all rollback inventory. No hosted Actions, merge or live activation.
+
+Private continuity snapshot0303cb6702b846e7abc483f95569630fb54bde7d3514098b62e7bdaef5af4d41 saved104 indexed/6 available/98 missing transcripts at2026-11-16T12:40:04Z. Available bytes are preserved privately; missing transcript files/sidebar visibility are not restored by identity rewrites.
