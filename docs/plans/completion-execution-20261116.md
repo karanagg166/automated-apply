@@ -1,5 +1,13 @@
 # Complete-source delivery plan — 2026-11-16
 
+Saved company read design2026-11-17: port company people and startup jobs/evidence before
+derived catalog scoring/search. One read-only repeatable-read snapshot checks the exact
+company, uses stable bounded pagination/counts and exposes public selected columns only.
+People evidence retains bounded text/manual mode, never raw vendor fields/mailbox proof.
+Company observations expose only normalized declared attributes and validated public links;
+old/future observations remain qualified. Reuse the actual job catalog projection instead
+of another DTO serializer. No GET writes, provider/network probes, owner mutex or cleanup.
+
 Dashboard draft recovery design2026-11-17: persist only contact/request/draft UUIDs before
 local creation, retain exact request scope through response loss and use GET once a draft
 ID is known. Reject corrupt/unbound storage or responses before another request; never

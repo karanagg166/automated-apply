@@ -30,6 +30,7 @@ pub(super) fn profile_route(path: &str) -> bool {
         || path == crate::notification_preferences::PATH
         || crate::job_catalog::route(path).is_some()
         || crate::contacts::route(path).is_some()
+        || crate::companies::route(path).is_some()
         || crate::outreach::history::route(path).is_some()
         || crate::outreach::drafts::route(path).is_some()
         || crate::outreach::controller::route(path).is_some()

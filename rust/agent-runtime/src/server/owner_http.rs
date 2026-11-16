@@ -21,6 +21,16 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     }
     let method = request.method().as_str().to_owned();
     let path = request.uri().path().to_owned();
+    if crate::companies::route(&path).is_some() && method != "GET" {
+        let mut response = reply(
+            StatusCode::METHOD_NOT_ALLOWED,
+            json!({"detail":"company_saved_method_not_allowed"}),
+        );
+        response
+            .headers_mut()
+            .insert("allow", axum::http::HeaderValue::from_static("GET"));
+        return response;
+    }
     if let Some(route) = crate::outreach::drafts::route(&path)
         && !route.accepts(&method)
         && !(path == crate::outreach::drafts::PATH && method == "POST")
@@ -488,6 +498,19 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
                 etag: None,
             })
         }
+        Some(connection) if crate::companies::route(&path).is_some() => crate::companies::dispatch(
+            connection,
+            crate::companies::route(&path).unwrap(),
+            &method,
+            packet_query.as_deref(),
+            &body,
+        )
+        .await
+        .map(|data| OwnerReply {
+            data,
+            status: StatusCode::OK,
+            etag: None,
+        }),
         Some(connection) if crate::contacts::route(&path).is_some() => crate::contacts::dispatch(
             connection,
             crate::contacts::route(&path).unwrap(),

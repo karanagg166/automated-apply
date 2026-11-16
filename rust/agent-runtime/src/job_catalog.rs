@@ -140,6 +140,34 @@ fn read(mut value: Value) -> Result<Value> {
     }
     Ok(value)
 }
+/// Saved company screen shares the original job DTO projection and normalization.
+pub(crate) async fn company_in(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    company: Uuid,
+    limit: i64,
+    offset: i64,
+) -> Result<Value> {
+    let total: i64 = sqlx::query_scalar("SELECT count(*) FROM jobs WHERE company_id=$1")
+        .bind(company)
+        .fetch_one(&mut **tx)
+        .await
+        .map_err(db)?;
+    let rows:Vec<Option<Value>>=sqlx::query_scalar(concat!("WITH selected AS (SELECT ",projection!()," AS value,last_observed_at,id FROM jobs WHERE company_id=$1 ORDER BY last_observed_at DESC NULLS LAST,id LIMIT $2 OFFSET $3) SELECT CASE WHEN octet_length(value::text)<=2097152 THEN value ELSE NULL END FROM selected ORDER BY last_observed_at DESC NULLS LAST,id")).bind(company).bind(limit).bind(offset).fetch_all(&mut **tx).await.map_err(db)?;
+    let mut bytes = 0;
+    let mut jobs = Vec::new();
+    for value in rows {
+        let value = value.ok_or(Failure("invalid_catalog_job_record"))?;
+        bytes += value.to_string().len();
+        if bytes > 8 * 1024 * 1024 {
+            return Err(Failure("company_saved_projection_limit"));
+        }
+        jobs.push(read(value)?);
+    }
+    let count = jobs.len() as i64;
+    Ok(
+        json!({"jobs":jobs,"total":total,"limit":limit,"offset":offset,"has_more":offset+count<total,"evidence_basis":"saved_local_records"}),
+    )
+}
 pub(crate) async fn dispatch(
     connection: &mut PgConnection,
     method: &str,
