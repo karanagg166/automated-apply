@@ -529,3 +529,14 @@ new PG declarations and all existing packet regressions are UNRUN. See
 [qualified preparation report](acceptance/execution-preparation-source-20261116.md).
 No tests/build/check/live/scheduler/install or percentage increase; continue ordinary
 discovery/profile/questionnaire/native broker and the entire remaining scope.
+
+Profile fact foundation and corrections source877cad2 adds18-field pure comparison,
+add-only verified skill/chip checks, actual account/sync DTOs and canonical UUIDs. Source
+review corrected preparation's nested missing-answer snapshot requirement: SERIALIZABLE
+plus post-owner-lock control/profile/material version locks, not the previous described
+READ COMMITTED path. Receipt hash now matches the actual spaced-ASCII legacy expression.
+Three new standard oracle/DTO declarations +1 new owner-wait/Stop PG declaration are UNRUN.
+See [qualified facts/snapshot report](acceptance/profile-facts-and-snapshot-source-20261116.md).
+Broader serializable form/review/generation owner-wait/control audit remains required.
+Continue full account/profile-sync IO, questionnaires, discovery/native broker/scheduler
+and remaining scope. No check/test/build/live/install or estimate increase beyond58/42.
