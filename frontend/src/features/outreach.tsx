@@ -1,9 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowUpRight, Check, Mail } from "lucide-react";
 import { api, dateLabel, patch, post, readable } from "@/lib/api";
+import {
+  prepareReviewedDraftReplacement,
+  readDraftAttempt,
+  recoverLocalDraft,
+} from "./outreach-draft-attempt";
 import {
   Badge,
   Button,
@@ -17,6 +23,9 @@ import {
 } from "@/components/ui";
 type Draft = {
   id: string;
+  contact_id?: string | null;
+  job_id?: string | null;
+  sent_at?: string | null;
   subject: string;
   body: string;
   recipient_email: string | null;
@@ -137,8 +146,10 @@ export function Outreach() {
 }
 export function OutreachDetail({ id }: { id: string }) {
   const client = useQueryClient(),
+    router = useRouter(),
     [subject, setSubject] = useState(""),
-    [body, setBody] = useState("");
+    [body, setBody] = useState(""),
+    [replacementReviewed, setReplacementReviewed] = useState(false);
   const query = useQuery({
     queryKey: ["draft", id],
     queryFn: () => api<Draft>(`outreach/drafts/${id}`),
@@ -147,6 +158,7 @@ export function OutreachDetail({ id }: { id: string }) {
     if (query.data) {
       setSubject(query.data.subject);
       setBody(query.data.body);
+      setReplacementReviewed(false);
     }
   }, [query.data]);
   const updated = () => {
@@ -155,6 +167,7 @@ export function OutreachDetail({ id }: { id: string }) {
     client.invalidateQueries({ queryKey: ["outreach-history"] });
   };
   const save = useMutation({
+    retry: false,
     mutationFn: () =>
       patch(`outreach/drafts/${id}`, {
         expected_revision: query.data!.draft_revision,
@@ -164,11 +177,48 @@ export function OutreachDetail({ id }: { id: string }) {
     onSuccess: updated,
   });
   const approve = useMutation({
+    retry: false,
     mutationFn: () =>
       post(`outreach/drafts/${id}/approve`, {
         expected_revision: query.data!.draft_revision,
       }),
     onSuccess: updated,
+  });
+  const replacement = useMutation({
+    retry: false,
+    mutationFn: async () => {
+      const reviewed = query.data;
+      if (!replacementReviewed || !reviewed?.contact_id || reviewed.job_id)
+        throw new Error(
+          "Review the saved contact draft before preparing a new introduction.",
+        );
+      const current = await api<Draft>(`outreach/drafts/${id}`);
+      if (
+        current.id !== reviewed.id ||
+        current.draft_revision !== reviewed.draft_revision ||
+        current.contact_id !== reviewed.contact_id ||
+        current.job_id
+      )
+        throw new Error(
+          "The saved draft changed. Reload and review its current revision.",
+        );
+      const retained = readDraftAttempt(reviewed.contact_id);
+      if (!retained || retained.draftId === current.id)
+        prepareReviewedDraftReplacement({
+          id: current.id,
+          contact_id: reviewed.contact_id,
+          draft_revision: current.draft_revision,
+          delivery_status: current.delivery_status,
+          send_attempt_id: current.send_attempt_id,
+          sent_at: current.sent_at,
+        });
+      return recoverLocalDraft(reviewed.contact_id);
+    },
+    onSuccess: (draft) => {
+      updated();
+      router.push(`/outreach/${draft.id}`);
+    },
+    onError: () => client.invalidateQueries({ queryKey: ["draft", id] }),
   });
   const attempt = useQuery({
     queryKey: ["send-attempt", query.data?.send_attempt_id],
@@ -187,6 +237,8 @@ export function OutreachDetail({ id }: { id: string }) {
   if (query.isError) return <ErrorState error={query.error} />;
   const d = query.data;
   const dirty = subject !== d.subject || body !== d.body;
+  const immutable =
+    !!d.send_attempt_id || !!d.sent_at || d.delivery_status !== "not_attempted";
   return (
     <>
       <Link className="external" href="/outreach">
@@ -219,7 +271,7 @@ export function OutreachDetail({ id }: { id: string }) {
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
                 maxLength={255}
-                disabled={!!d.send_attempt_id}
+                disabled={immutable}
               />
             </Field>
             <Field label="Exact message">
@@ -229,12 +281,18 @@ export function OutreachDetail({ id }: { id: string }) {
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
                 maxLength={5000}
-                disabled={!!d.send_attempt_id}
+                disabled={immutable}
               />
             </Field>
             <div className="actions">
               <Button
-                disabled={!dirty || !subject || !body || !!d.send_attempt_id}
+                disabled={
+                  !dirty ||
+                  !subject ||
+                  !body ||
+                  immutable ||
+                  replacement.isPending
+                }
                 busy={save.isPending}
                 onClick={() => save.mutate()}
               >
@@ -245,7 +303,8 @@ export function OutreachDetail({ id }: { id: string }) {
                 disabled={
                   dirty ||
                   !d.eligibility.eligible_for_approval ||
-                  !!d.send_attempt_id ||
+                  immutable ||
+                  replacement.isPending ||
                   d.approval_status === "approved"
                 }
                 busy={approve.isPending}
@@ -257,6 +316,35 @@ export function OutreachDetail({ id }: { id: string }) {
             </div>
             {save.isError && <ErrorState error={save.error} />}{" "}
             {approve.isError && <ErrorState error={approve.error} />}
+            {d.contact_id && !d.job_id && !immutable && (
+              <>
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={replacementReviewed}
+                    disabled={dirty || replacement.isPending}
+                    onChange={(event) =>
+                      setReplacementReviewed(event.target.checked)
+                    }
+                  />
+                  I reviewed this saved draft and want a new local introduction
+                  using the current contact evidence.
+                </label>
+                <Button
+                  disabled={
+                    !replacementReviewed ||
+                    dirty ||
+                    save.isPending ||
+                    approve.isPending
+                  }
+                  busy={replacement.isPending}
+                  onClick={() => replacement.mutate()}
+                >
+                  Prepare another local draft
+                </Button>
+              </>
+            )}
+            {replacement.isError && <ErrorState error={replacement.error} />}
           </div>
         </section>
         <aside className="stack">

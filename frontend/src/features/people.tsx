@@ -19,6 +19,7 @@ import {
 } from "@/components/ui";
 import type { Startup } from "./startups";
 import { ContactReview, type ContactDetail } from "./contact-review";
+import { recoverLocalDraft } from "./outreach-draft-attempt";
 import {
   clearReviewedLookupAttempt,
   readLookupAttempt,
@@ -148,14 +149,8 @@ export function CompanyPeople({
     },
   });
   const draft = useMutation({
-    mutationFn: (id: string) =>
-      post<{ id: string }>("outreach/drafts", {
-        contact_id: id,
-        purpose: "exploratory",
-        writing_style: "concise",
-        use_llm: false,
-        idempotency_key: crypto.randomUUID(),
-      }),
+    retry: false,
+    mutationFn: recoverLocalDraft,
     onSuccess: (d) => router.push(`/outreach/${d.id}`),
   });
   const research = useMutation({

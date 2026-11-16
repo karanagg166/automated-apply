@@ -1,5 +1,13 @@
 # Complete-source delivery plan — 2026-11-16
 
+Dashboard draft recovery design2026-11-17: persist only contact/request/draft UUIDs before
+local creation, retain exact request scope through response loss and use GET once a draft
+ID is known. Reject corrupt/unbound storage or responses before another request; never
+navigate to an absent draft ID when facts are missing. Preparing another draft requires
+review of the matching saved local draft and no historical send attempt/sent status; keep
+the old row and require a fresh key. Requests remain local use_llm=false, mutation retries
+disabled. No private body, email or candidate facts are stored in browser recovery metadata.
+
 Outreach writer/controller design2026-11-17: local preview is read-only and local creation
 uses the existing ledger. Optional REST rewriting requires a stable caller idempotency key
 and one original120-second opaque invocation committed before calling the existing governed
