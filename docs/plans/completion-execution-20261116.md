@@ -1,5 +1,13 @@
 # Complete-source delivery plan — 2026-11-16
 
+Apify configuration dependency design2026-11-17: freeze actual ActorConfiguration and port
+its fixed input builder, public review URLs, pinned build, exact unique limit mapping,
+enabled/review/24-hour expiry and inclusive hard-budget prerequisites. Keep schema-valid
+configuration separate from current provider capability and one-time dispatch admission.
+Port fixed denied actor/input patterns without executing inputs or reusing connected MCP
+credentials. No default actor, implicit entitlement, cookies/session inputs or price claim.
+Preserve Pydantic omitted-default versus explicit numeric coercion for exact request hashes.
+
 Manual startup-run design2026-11-17: claim the original discovery_runs row and private
 opaque invocation under the shared owner fence before ingestion. Match actual request hashes
 with startup_ source prefix; idempotency replay returns retained run without reconstructing

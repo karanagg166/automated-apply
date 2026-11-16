@@ -43,6 +43,7 @@ const LISTS: &[&str] = &[
 pub fn normalize(kind: Kind, mut value: Value) -> Result<Value> {
     let contract = contract(kind);
     let fields = value.as_object_mut().ok_or_else(invalid)?;
+    let score_submitted = fields.contains_key("minimum_score");
     for (key, property) in contract.schema["properties"]
         .as_object()
         .expect("startup properties")
@@ -102,7 +103,7 @@ pub fn normalize(kind: Kind, mut value: Value) -> Result<Value> {
                 }
             }
         }
-        if let Some(v) = fields.get_mut("minimum_score") {
+        if let Some(v) = fields.get_mut("minimum_score").filter(|_| score_submitted) {
             *v = crate::profile_contract::number(
                 &json!({"type":"number","minimum":0,"maximum":100}),
                 v.clone(),
