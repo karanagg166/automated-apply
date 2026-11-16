@@ -1,4 +1,5 @@
 //! Fixed role metadata and encrypted local drafts. Gmail IO is owned by separate services.
+pub mod account;
 pub mod contract;
 use crate::{
     Failure, Result,
@@ -11,6 +12,92 @@ use uuid::Uuid;
 pub const PATH: &str = "/api/v1/integrations/gmail/workspace";
 pub(crate) const ACCOUNT: &str = "gmail_drafts:account";
 pub(crate) const DRAFT: &str = "gmail_draft:";
+#[derive(Clone, Copy)]
+pub enum Slot {
+    ReadOne,
+    ReadTwo,
+    Outreach,
+}
+impl Slot {
+    pub fn parse(value: &str) -> Option<Self> {
+        match value {
+            "read_1" => Some(Self::ReadOne),
+            "read_2" => Some(Self::ReadTwo),
+            "outreach" => Some(Self::Outreach),
+            _ => None,
+        }
+    }
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::ReadOne => "read_1",
+            Self::ReadTwo => "read_2",
+            Self::Outreach => "outreach",
+        }
+    }
+}
+#[derive(Clone, Copy)]
+pub enum IoRoute {
+    Connect(Slot),
+    Disconnect,
+}
+pub fn io_route(path: &str) -> Option<IoRoute> {
+    let tail = path.strip_prefix(PATH)?;
+    if tail == "/outreach/disconnect" {
+        return Some(IoRoute::Disconnect);
+    }
+    tail.strip_prefix("/accounts/")
+        .and_then(|s| s.strip_suffix("/connect"))
+        .and_then(Slot::parse)
+        .map(IoRoute::Connect)
+}
+pub async fn start_read<P: crate::gmail_accounts::oauth::Provider>(
+    c: &mut PgConnection,
+    slot: Slot,
+    input: Value,
+    browser: &str,
+    settings: &Settings,
+    provider: &P,
+) -> Result<Value> {
+    if matches!(slot, Slot::Outreach) {
+        return Err(Failure("invalid_gmail_workspace_contract"));
+    }
+    let input = contract::normalize(contract::Kind::Consent, input)?;
+    if input["account_consent"] != true {
+        return Err(Failure("gmail_account_consent_required"));
+    }
+    let mut tx = begin(c).await?;
+    if !gmail_accounts::schema(&mut tx).await? {
+        return Err(Failure("gmail_readonly_schema_update_required"));
+    }
+    let key = format!("gmail_workspace_slot:{}", slot.name());
+    let id = if let Some(saved) = get(&mut tx, &key).await? {
+        saved["account_id"]
+            .as_str()
+            .and_then(|s| s.parse::<Uuid>().ok())
+            .ok_or_else(invalid)?
+    } else {
+        let id = Uuid::new_v4();
+        let ack:Option<Uuid>=sqlx::query_scalar("INSERT INTO gmail_read_accounts(id,provider,google_subject,account_email,status,token_generation,granted_scopes,connected_at) VALUES($1,'gmail','',$2,'disconnected',1,'[]',clock_timestamp()) RETURNING id").bind(id).bind(format!("pending:{}",id.simple())).fetch_optional(&mut *tx).await.map_err(db)?;
+        if ack != Some(id) {
+            return Err(Failure("gmail_workspace_write_ack_failed"));
+        }
+        put(&mut tx, &key, &json!({"account_id":id})).await?;
+        id
+    };
+    let duplicate:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM owner_preferences WHERE key IN ('gmail_workspace_slot:read_1','gmail_workspace_slot:read_2') AND key<>$1 AND value->>'account_id'=$2)").bind(&key).bind(id.to_string()).fetch_one(&mut *tx).await.map_err(db)?;
+    if duplicate {
+        return Err(Failure("gmail_workspace_role_identity_conflict"));
+    }
+    commit(tx).await?;
+    crate::gmail_accounts::oauth::Service { settings, provider }
+        .start(
+            c,
+            json!({"account_consent":true,"read_body":input["read_body"]}),
+            Some(id),
+            browser,
+        )
+        .await
+}
 #[derive(Clone, Copy)]
 pub enum Route<'a> {
     Accounts,

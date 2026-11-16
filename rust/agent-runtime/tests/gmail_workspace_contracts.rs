@@ -187,4 +187,16 @@ fn workspace_routes_preserve_existing_local_contract_and_deny_nested_or_arbitrar
             .unwrap()
             .accepts("PUT")
     );
+    for slot in ["read_1", "read_2", "outreach"] {
+        assert!(gmail_workspace::io_route(&format!("{root}/accounts/{slot}/connect")).is_some());
+    }
+    assert!(gmail_workspace::io_route(&format!("{root}/outreach/disconnect")).is_some());
+    for suffix in [
+        "/accounts/read_3/connect",
+        "/accounts/read_1/send",
+        "/outreach/send",
+        "/accounts/outreach/connect/extra",
+    ] {
+        assert!(gmail_workspace::io_route(&format!("{root}{suffix}")).is_none());
+    }
 }

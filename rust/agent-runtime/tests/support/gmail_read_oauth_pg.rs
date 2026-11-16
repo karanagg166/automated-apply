@@ -775,13 +775,21 @@ async fn read_google_http() -> (
     CancellationToken,
     tokio::task::JoinHandle<()>,
 ) {
+    read_google_http_grant(GrantMode::Metadata,"fixture@example.com").await
+}
+async fn read_google_http_grant(mode:GrantMode,email:&'static str) -> (
+    String,
+    Arc<std::sync::Mutex<Vec<String>>>,
+    CancellationToken,
+    tokio::task::JoinHandle<()>,
+) {
     use axum::{
         extract::{Request, State},
         response::IntoResponse,
     };
     let calls = Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
     async fn handle(
-        State(calls): State<Arc<std::sync::Mutex<Vec<String>>>>,
+        State((calls,mode,email)): State<(Arc<std::sync::Mutex<Vec<String>>>,GrantMode,&'static str)>,
         request: Request,
     ) -> axum::response::Response {
         let method = request.method().to_string();
@@ -802,16 +810,16 @@ async fn read_google_http() -> (
                 .collect::<BTreeMap<_, _>>();
                 assert_eq!(form["grant_type"], "authorization_code");
                 assert!((43..=128).contains(&form["code_verifier"].len()));
-                json!({"access_token":"fictional-read-http-access","refresh_token":"fictional-read-http-refresh","expires_in":3600,"token_type":"Bearer","scope":scopes(GrantMode::Metadata).into_iter().collect::<Vec<_>>().join(" ")})
+                json!({"access_token":"fictional-read-http-access","refresh_token":"fictional-read-http-refresh","expires_in":3600,"token_type":"Bearer","scope":scopes(mode).into_iter().collect::<Vec<_>>().join(" ")})
             }
             ("GET", "/userinfo") => {
                 assert_eq!(
                     request.headers()["authorization"],
                     "Bearer fictional-read-http-access"
                 );
-                json!({"sub":"fictional-read-http-subject","email":"fixture@example.com","email_verified":true})
+                json!({"sub":"fictional-read-http-subject","email":email,"email_verified":true})
             }
-            ("GET", "/profile") => json!({"emailAddress":"fixture@example.com"}),
+            ("GET", "/profile") => json!({"emailAddress":email}),
             ("POST", "/revoke") => json!({}),
             _ => return axum::http::StatusCode::NOT_FOUND.into_response(),
         };
@@ -823,7 +831,7 @@ async fn read_google_http() -> (
     let shutdown = stop.clone();
     let router = axum::Router::new()
         .fallback(handle)
-        .with_state(calls.clone());
+        .with_state((calls.clone(),mode,email));
     let server = tokio::spawn(async move {
         axum::serve(listener, router)
             .with_graceful_shutdown(shutdown.cancelled_owned())

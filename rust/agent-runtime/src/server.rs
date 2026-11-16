@@ -14,6 +14,7 @@ mod discovery;
 mod document_io;
 mod errors;
 mod gmail_accounts_io;
+mod gmail_workspace_io;
 mod owner_http;
 use boundary::*;
 use document_io::{ResumeIo, generation_dispatch, resume_io_dispatch};

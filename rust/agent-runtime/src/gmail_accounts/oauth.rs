@@ -99,6 +99,9 @@ pub struct Callback {
     pub error: Option<String>,
 }
 pub fn callback(query: Option<&str>) -> Result<Callback> {
+    callback_prefix(query, "read.")
+}
+pub(crate) fn callback_prefix(query: Option<&str>, prefix: &str) -> Result<Callback> {
     let invalid = || Failure("invalid_oauth_callback");
     let raw = query.filter(|s| s.len() <= 16000).ok_or_else(invalid)?;
     let url = reqwest::Url::parse(&format!("http://127.0.0.1/?{raw}")).map_err(|_| invalid())?;
@@ -122,7 +125,7 @@ pub fn callback(query: Option<&str>) -> Result<Callback> {
     }
     let state = values
         .remove("state")
-        .filter(|s| s.strip_prefix("read.").is_some_and(browser))
+        .filter(|s| s.strip_prefix(prefix).is_some_and(browser))
         .ok_or_else(invalid)?;
     let code = values.remove("code");
     let error = values.remove("error");

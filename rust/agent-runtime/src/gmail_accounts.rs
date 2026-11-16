@@ -41,7 +41,7 @@ pub struct Settings {
     allowed: BTreeSet<String>,
     pub(crate) store: Option<TokenStore>,
     pub(crate) drafts: bool,
-    ttl: i64,
+    pub(crate) ttl: i64,
     retention: bool,
     fixture: bool,
     endpoint: Option<String>,

@@ -216,6 +216,10 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     if let Some(route) = crate::gmail_accounts::io_route(&path) {
         return gmail_accounts_io::dispatch(&api, route, &method, &body).await;
     }
+    if let Some(route) = crate::gmail_workspace::io_route(&path) {
+        return gmail_workspace_io::dispatch(&api, route, &method, packet_query.as_deref(), &body)
+            .await;
+    }
     if let Some(route) = crate::mailboxes::routes::route(&path) {
         return accounts::dispatch(&api, route, &method, &body).await;
     }
