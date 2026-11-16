@@ -462,3 +462,15 @@ ports before executing the final gate. Actual Edge app absent from observed Appl
 Safari remains deferred. Do not claim the source runner is validated or increase58/42.
 Current private continuity snapshot found104 index entries but only6 available transcripts
 and98 missing files; saved6 available privately. Missing transcript recovery remains limited.
+
+Native command source91cc44a +ordering follow-up4c2d282 now fill DTO defaults and calculate
+legacy declaration-order/masked-secret hashes from original bytes, including opaque dict
+order. Eleven layouts were extracted by AST only; a drift exporter joins the final runner.
+Two new standard test declarations contain18 positive actual-Python hash comparisons and
+8 rejection cases, all UNRUN. No current build/check/Clippy/test/live change. See
+[qualified contract source report](acceptance/native-command-contract-source-20261116.md).
+Source form fixtures now use valid64-character semantic keys. Continue native execution/
+queue/kernel and all other remaining source ports before the final test gate. Keep58/42,
+STOP, three quarantined consumed admissions/lifetime4/hour1, zero strict receipts, pending
+physical sign-in action and all actual owner browser focus constraints. Do not stop at this
+source checkpoint or report it as a validated/installed/working full project.
