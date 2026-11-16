@@ -7,6 +7,19 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest draft-dispatch source32720fe adds the existing explicit Gmail draft endpoint with
+exact content/profile/account binding, one immutable POST admission, independent content/
+marker readback and at most3 explicit GET-only reconciliations. Cancelled/unknown leases
+and spent intent identities cannot gain another POST; late errors preserve newer proof.
+The UI keeps uncertain drafts locked and offers a reviewed existing-draft check. Fourteen
+native PG/HTTP +2 frontend declarations and expanded existing route assertions are UNRUN.
+See [qualified draft-dispatch report](acceptance/gmail-workspace-dispatch-source-20261116.md).
+Next remaining legacy integration/status/refusal parity, full conversation/registry/
+outreach/providers/eight-platform source and final infrastructure, then combined tests,
+reviewed whole-family STOP migration/install and actual per-platform/focus/resource proof.
+No current-head test/build/check/provider/live/install or percentage gain;58/42/prior455
+at9c4ace5 held. No partial final or100% claim; all existing external/owner-action gates stay.
+
 Mailbox-owner correctiondabd37b puts older local lifecycle/read/draft guards under the
 shared owner fence, adds the reverse outreach identity check after exchange and supplies
 bootstrap timestamps without changing conversation JSON/messages/TTL. Three native PG
