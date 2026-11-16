@@ -44,6 +44,7 @@ pub struct Configuration {
     pub(crate) mailboxes: crate::mailboxes::Settings,
     pub(crate) gmail_accounts: crate::gmail_accounts::Settings,
     pub(crate) contacts: crate::contacts::Settings,
+    pub(crate) outreach: crate::outreach::Settings,
     pub(crate) contact_enrichment: crate::contacts::enrichment::Settings,
     pub(crate) contact_providers: crate::contacts::enrichment::providers::Clients,
     pub(crate) apollo_eligibility: crate::contacts::enrichment::capabilities::Eligibility,
@@ -302,6 +303,7 @@ impl Configuration {
             mailboxes: crate::mailboxes::Settings::from_values(values, fixture)?,
             gmail_accounts: crate::gmail_accounts::Settings::from_values(values)?,
             contacts: crate::contacts::Settings::from_values(values)?,
+            outreach: crate::outreach::Settings::from_values(values)?,
             contact_enrichment: crate::contacts::enrichment::Settings::from_values(values)?,
             contact_providers: crate::contacts::enrichment::providers::Clients::from_values(
                 values, fixture,

@@ -21,6 +21,16 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     }
     let method = request.method().as_str().to_owned();
     let path = request.uri().path().to_owned();
+    if crate::outreach::history::route(&path).is_some() && method != "GET" {
+        let mut response = reply(
+            StatusCode::METHOD_NOT_ALLOWED,
+            json!({"detail":"outreach_method_not_allowed"}),
+        );
+        response
+            .headers_mut()
+            .insert("allow", axum::http::HeaderValue::from_static("GET"));
+        return response;
+    }
     if let Some(route) = crate::contacts::enrichment::route(&path)
         && route.method() != method
     {
@@ -513,6 +523,22 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
                     etag: None,
                 })
             }
+        }
+        Some(connection) if crate::outreach::history::route(&path).is_some() => {
+            crate::outreach::history::dispatch(
+                connection,
+                crate::outreach::history::route(&path).unwrap(),
+                &method,
+                packet_query.as_deref(),
+                &body,
+                &api.config.outreach,
+            )
+            .await
+            .map(|data| OwnerReply {
+                data,
+                status: StatusCode::OK,
+                etag: None,
+            })
         }
         Some(connection) if crate::gmail_history::route(&path).is_some() => {
             crate::gmail_history::dispatch(

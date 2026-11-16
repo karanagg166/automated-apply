@@ -1,0 +1,89 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "contact_id": {
+      "format": "uuid",
+      "title": "Contact Id",
+      "type": "string"
+    },
+    "idempotency_key": {
+      "anyOf": [
+        {
+          "maxLength": 100,
+          "minLength": 8,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Idempotency Key"
+    },
+    "job_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Job Id"
+    },
+    "max_length": {
+      "default": 1800,
+      "maximum": 5000,
+      "minimum": 400,
+      "title": "Max Length",
+      "type": "integer"
+    },
+    "personal_instructions": {
+      "anyOf": [
+        {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Personal Instructions"
+    },
+    "purpose": {
+      "default": "job_opportunity",
+      "enum": [
+        "job_opportunity",
+        "exploratory"
+      ],
+      "title": "Purpose",
+      "type": "string"
+    },
+    "use_llm": {
+      "default": true,
+      "title": "Use Llm",
+      "type": "boolean"
+    },
+    "writing_style": {
+      "default": "professional",
+      "enum": [
+        "professional",
+        "concise",
+        "friendly",
+        "technical",
+        "founder-focused"
+      ],
+      "title": "Writing Style",
+      "type": "string"
+    }
+  },
+  "required": [
+    "contact_id"
+  ],
+  "title": "DraftInput",
+  "type": "object"
+}

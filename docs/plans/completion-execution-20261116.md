@@ -1,5 +1,17 @@
 # Complete-source delivery plan — 2026-11-16
 
+Grounded outreach design2026-11-17: freeze actual draft input/edit/decision DTOs and preserve
+the original outreach_logs revision/content/evidence approval semantics. Read history never
+sends or invents delivery proof; expired prepared/attempting records are qualified in the
+response without GET writes. Build draft context from current confirmed profile/project
+evidence, current exact employer/contact evidence and public saved links; sender/login
+data is separate. Read and mutation snapshots bind all material facts. Candidate/source
+claims and provider-reported mailboxes remain qualified, every draft requires owner review,
+and no approval enables Gmail sending. Optional rewriting uses the existing bounded grounded
+answer writer outside locks, then rechecks the complete snapshot before persistence. New
+context digests include approved local project snapshots; older incompatible drafts require
+regeneration instead of retroactive approval. Never treat HTTP/model success as a send receipt.
+
 Owner enrichment controller design2026-11-17: finish local-first discovered-person and
 confirmed saved business-evidence ingestion before fixed provider lookup. Use one shared
 transient host permit/connection, never hold the owner mutex or transaction over HTTP.

@@ -7,6 +7,17 @@ use axum::{
 use serde_json::{Value, json};
 
 pub(super) fn profile_failure(error: Failure) -> Response {
+    if error.0.starts_with("outreach_") || error.0.starts_with("invalid_outreach_") {
+        let status = match error.0 {
+            "outreach_send_attempt_not_found" | "outreach_draft_not_found" => StatusCode::NOT_FOUND,
+            "invalid_outreach_contract" | "invalid_outreach_query" => {
+                StatusCode::UNPROCESSABLE_ENTITY
+            }
+            "outreach_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
+            _ => StatusCode::SERVICE_UNAVAILABLE,
+        };
+        return reply(status, json!({"detail":error.0}));
+    }
     if error.0.starts_with("contact_")
         || matches!(
             error.0,
