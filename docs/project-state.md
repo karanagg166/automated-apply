@@ -7,6 +7,15 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest outreach UI correction6d60fac removes legacy send-preview/send mutations and
+confirmation modal under the owner's READ + CREATE DRAFT ONLY scope. Local draft approval,
+history and locked uncertain attempts remain; useful historical fields replace raw JSON.
+Three frontend declarations are UNRUN; no Rust/PG declaration added. See the
+[qualified UI report](acceptance/outreach-draft-only-ui-source-20261117.md). Continue full
+connector/provider/CLI/MCP/conversation, contacts/local outreach/startup/company/dashboard,
+eight-platform source and final infrastructure before combined gates. No current-head
+test/build/check/live/install or percentage gain;58/42/prior455 at9c4ace5 held.
+
 Latest primary lifecycle sourcefe44efa (Asia/Kolkata2026-11-17) ports original unprefixed
 OAuth, connected_accounts/oauth_states and token purposes, pinned compose upgrade,
 consumed-before-exchange/current-context guards, durable non-replayed refresh, current
