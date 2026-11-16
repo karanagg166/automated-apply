@@ -7,6 +7,16 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest contact run source970de71 adds atomic original run/native journal, actual ordered
+request hashes, opaque180-second invocation, exact context guards and retained-only
+idempotency replay. Public run root fields are whitelisted. One standard (14 actual hash
+cases) +8 PG declarations are UNRUN. See the
+[qualified run-admission report](acceptance/contact-run-admission-source-20261117.md).
+No provider dispatch or budget grant is inferred. Continue per-target durable admission,
+fixed provider IO/current capability/identity ingestion, grounded outreach and remaining
+full source before combined gates. No current build/check/test/live/install or percentage
+gain;58/42/prior455 held. Native provider execution readiness remains false.
+
 Latest Apollo capability source4dd980a ports pure rate/pool/24-hour eligibility guards
 and corrects the documented credit_usage_stats wrapper difference from the legacy parser.
 Three standard declarations (24 rate +16 root pool +12 eligibility cases, wrapper and
