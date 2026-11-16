@@ -9,7 +9,10 @@ fn error(error: Failure, callback: bool) -> Response {
         StatusCode::BAD_REQUEST
     } else if matches!(
         error.0,
-        "invalid_gmail_consent" | "invalid_gmail_search" | "invalid_gmail_draft_request"
+        "invalid_gmail_consent"
+            | "invalid_gmail_search"
+            | "invalid_gmail_draft_request"
+            | "invalid_gmail_alert_policy"
     ) {
         StatusCode::UNPROCESSABLE_ENTITY
     } else if matches!(
@@ -17,6 +20,10 @@ fn error(error: Failure, callback: bool) -> Response {
         "gmail_account_database_error"
             | "gmail_account_commit_outcome_unknown"
             | "invalid_gmail_account_record"
+            | "gmail_alert_database_error"
+            | "gmail_alert_write_ack_failed"
+            | "gmail_alert_commit_outcome_unknown"
+            | "invalid_gmail_alert_saved_record"
     ) {
         StatusCode::SERVICE_UNAVAILABLE
     } else {
@@ -37,6 +44,7 @@ pub(super) async fn dispatch(api: &Api, route: Route<'_>, method: &str, body: &[
         Route::Accounts => method == "GET",
         Route::Drafts(_) => matches!(method, "GET" | "POST"),
         Route::Callback => false,
+        Route::AlertPolicy(_) => method == "PUT",
         _ => method == "POST",
     };
     if !allowed {
@@ -47,7 +55,7 @@ pub(super) async fn dispatch(api: &Api, route: Route<'_>, method: &str, body: &[
     }
     let json_body = matches!(
         route,
-        Route::Connect(_) | Route::Search(_) | Route::TestDraft(_)
+        Route::Connect(_) | Route::Search(_) | Route::TestDraft(_) | Route::AlertPolicy(_)
     ) || matches!(route, Route::Drafts(_)) && method == "POST";
     if !json_body
         && !body.is_empty()
@@ -76,17 +84,17 @@ pub(super) async fn dispatch(api: &Api, route: Route<'_>, method: &str, body: &[
         provider: settings,
     };
     let browser = mailboxes::browser_nonce();
-    let result=tokio::time::timeout(Duration::from_secs(65),async {
+    let result=tokio::time::timeout(Duration::from_secs(if matches!(route,Route::AlertSync(_)){110}else{65}),async {
         match route {
             Route::Accounts=>{
                 let mut accounts=vec![];let slots=if settings.slots()==1{vec![Slot::One]}else{vec![Slot::One,Slot::Two]};
                 for slot in slots {
                     let mut status=service.status(&mut c,slot).await?;
-                    let raw:Option<Value>=sqlx::query_scalar("SELECT value FROM owner_preferences WHERE key=$1").bind(format!("gm54_alerts:{}",slot.name())).fetch_optional(&mut c).await.map_err(|_|Failure("gmail_account_database_error"))?;
-                    // Preserve the configured policy, without claiming an unported poller is running.
-                    status["job_alerts"]=json!({"enabled":false,"configured_enabled":raw.as_ref().is_some_and(|v|v["enabled"]==true),"version":raw.as_ref().and_then(|v|v["version"].as_i64()).unwrap_or(0),"runtime_available":false,"sender":"naukrialerts@naukri.com","sending_enabled":false,"links_opened":false});accounts.push(status);
+                    status["job_alerts"]=mailboxes::alerts::status(&mut c,slot,settings).await?;
+                    status["permissions"]["monitoring"]=status["job_alerts"]["polling_allowed"].clone();accounts.push(status);
                 }
-                Ok(json!({"accounts":accounts,"sending_enabled":false,"monitoring_enabled":false}))
+                let monitoring=accounts.iter().any(|a|a["job_alerts"]["polling_allowed"]==true);
+                Ok(json!({"accounts":accounts,"sending_enabled":false,"monitoring_enabled":monitoring}))
             }
             Route::Connect(slot)=>service.start(&mut c,slot,mailboxes::consent(body)?,&browser).await,
             Route::Verify(slot)=>service.verify(&mut c,slot).await,
@@ -99,6 +107,8 @@ pub(super) async fn dispatch(api: &Api, route: Route<'_>, method: &str, body: &[
                 if input.as_object().is_none_or(|object|object.keys().any(|key|key!="expected_generation")){return Err(Failure("invalid_gmail_draft_request"));}
                 service.self_test_draft(&mut c,slot,mailboxes::expected_generation(&input)?).await
             }
+            Route::AlertPolicy(slot)=>service.configure_alerts(&mut c,slot,json_body_value(body)?).await,
+            Route::AlertSync(slot)=>service.poll_alerts(&mut c,slot,true,api.config.telegram.as_ref()).await,
             Route::Callback=>Err(Failure("invalid_oauth_callback")),
         }
     }).await.unwrap_or(Err(Failure("gmail_account_outcome_unknown")));

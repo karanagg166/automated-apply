@@ -516,6 +516,7 @@ async fn mailbox_revoked_and_transient_refresh_errors_have_distinct_durable_stat
         Some("gmail_read_draft_account_not_connected")
     );
     assert_eq!(google.refreshes.get(), 1);
+    sqlx::query("DELETE FROM owner_preferences WHERE key='gm54_account:1'").execute(&mut c).await.unwrap();
     mailbox_seed(&mut c, true).await;
     google
         .fail

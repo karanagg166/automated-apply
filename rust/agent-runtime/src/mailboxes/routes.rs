@@ -13,6 +13,8 @@ pub enum Route<'a> {
     Read(Slot, &'a str),
     Drafts(Slot),
     TestDraft(Slot),
+    AlertPolicy(Slot),
+    AlertSync(Slot),
 }
 pub fn route(path: &str) -> Option<Route<'_>> {
     if path == ACCOUNTS {
@@ -34,6 +36,8 @@ pub fn route(path: &str) -> Option<Route<'_>> {
         "search" => Some(Route::Search(slot)),
         "drafts" => Some(Route::Drafts(slot)),
         "test-draft" => Some(Route::TestDraft(slot)),
+        "job-alerts" => Some(Route::AlertPolicy(slot)),
+        "job-alerts/sync" => Some(Route::AlertSync(slot)),
         "connect" => Some(Route::Connect(slot)),
         "verify" => Some(Route::Verify(slot)),
         "disconnect" => Some(Route::Disconnect(slot)),

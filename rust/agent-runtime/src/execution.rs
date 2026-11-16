@@ -63,6 +63,15 @@ use sqlx::{Connection, PgConnection};
 pub(crate) async fn lock_owner_in(tx: &mut sqlx::Transaction<'_, sqlx::Postgres>) -> Result<()> {
     storage::lock(tx).await
 }
+pub(crate) async fn preparation_authority_in(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+) -> Result<Value> {
+    let record = legacy_policy::record(tx).await?;
+    let configuration = legacy_policy::configuration(tx).await?;
+    Ok(
+        serde_json::json!({"state":record["state"],"revision":record["revision"],"mode":configuration["mode"]}),
+    )
+}
 pub fn denial(error: Failure) -> bool {
     matches!(
         error.0,

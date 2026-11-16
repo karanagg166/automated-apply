@@ -4,6 +4,9 @@ mod lifecycle;
 pub use drafts::{ReviewedDraft, draft_hash, expected_generation, mime_message, verified_content};
 mod reading;
 pub use reading::{Search, message_id};
+mod alert_candidates;
+pub mod alert_rules;
+pub mod alerts;
 pub mod routes;
 mod storage;
 use crate::{
@@ -35,6 +38,9 @@ pub struct Settings {
     google: Option<GoogleOAuth>,
 }
 impl Settings {
+    pub(crate) fn alerts_available(&self) -> bool {
+        self.enabled && self.body && !self.allowed.is_empty()
+    }
     pub(crate) fn configured_slots(&self) -> usize {
         self.allowed.len().min(2)
     }
@@ -119,7 +125,7 @@ impl Settings {
         self.ttl
     }
 }
-#[derive(Clone, Copy, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq)]
 pub enum Slot {
     #[serde(rename = "1")]
     One,

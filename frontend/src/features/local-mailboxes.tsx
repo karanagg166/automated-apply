@@ -24,6 +24,8 @@ type Account = {
   token_health: string;
   last_verified_at?: string;
   job_alerts?: {
+    polling_allowed?: boolean;
+    automation_state?: string;
     version: number;
     enabled: boolean;
     sender: string;
@@ -178,6 +180,17 @@ function Mailbox({ account }: { account: Account }) {
               {account.job_alerts?.enabled ? "Enabled" : "Disabled"} · Last
               check {dateLabel(account.job_alerts?.last_check_at)}
             </p>
+            {account.job_alerts?.polling_allowed !== undefined && (
+              <p className="muted">
+                Alert policy is configured separately from processing.
+                Processing is{" "}
+                {account.job_alerts.polling_allowed
+                  ? "allowed by the current saved controls"
+                  : "paused by account, deployment or automation controls"}
+                . Saved preparation automation:{" "}
+                {account.job_alerts.automation_state || "STOPPED"}.
+              </p>
+            )}
             {account.job_alerts?.last_result && (
               <p>
                 Messages: {account.job_alerts.last_result.messages} · New

@@ -48,7 +48,7 @@ pub fn message_id(id: &str) -> Result<()> {
     Ok(())
 }
 impl<P: Provider> Service<'_, P> {
-    fn reader(&self, token: &str) -> Result<ReadClient> {
+    pub(super) fn reader(&self, token: &str) -> Result<ReadClient> {
         ReadClient::new(
             token,
             self.settings.fixture,
