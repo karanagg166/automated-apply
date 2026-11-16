@@ -34,10 +34,11 @@ pub(crate) async fn record(
     }
 }
 pub(crate) async fn tick(c: &mut PgConnection, config: &Configuration) -> Result<bool> {
+    let indexed = super::retained_index::tick(c).await?;
     let legacy = super::legacy_worker::tick(c, config).await?;
     let metadata:Value=sqlx::query_scalar("SELECT jsonb_build_object('running',EXISTS(SELECT 1 FROM owner_preferences WHERE key='application_queue_policy' AND value->>'state'='RUNNING' AND value#>>'{policy,platforms,naukri,enabled}'='true'),'last',(SELECT value FROM owner_preferences WHERE key='apply_schedule:naukri'),'at',clock_timestamp())").fetch_one(&mut *c).await.map_err(db)?;
     if metadata["running"] != true {
-        return Ok(legacy);
+        return Ok(legacy || indexed > 0);
     }
     let seeded = preparation::seed_saved_sources(c).await?;
     let rechecked = reconsideration::tick(c).await?;
@@ -57,7 +58,7 @@ pub(crate) async fn tick(c: &mut PgConnection, config: &Configuration) -> Result
     if seeded > 0 || rechecked || prepared || due {
         record(c,"apply_schedule:naukri",None,Some(json!({"saved_sources_added":seeded,"filter_recheck_changed":rechecked,"prepared":prepared,"provider_calls":0,"application_dispatch":false}))).await?;
     }
-    Ok(legacy || seeded > 0 || rechecked || prepared)
+    Ok(legacy || indexed > 0 || seeded > 0 || rechecked || prepared)
 }
 pub(crate) async fn pause(c: &mut PgConnection) -> Result<()> {
     let running:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM owner_preferences WHERE key IN ('application_queue_policy','naukri_automation') AND value->>'state'='RUNNING')").fetch_one(&mut *c).await.map_err(db)?;

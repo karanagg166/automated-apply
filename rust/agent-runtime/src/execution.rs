@@ -46,6 +46,7 @@ mod queue_status;
 pub mod read_bounds;
 pub mod receipts;
 pub mod reconsideration;
+pub mod retained_index;
 pub mod review;
 pub mod reviewed_history;
 pub(crate) mod schedule;
