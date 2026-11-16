@@ -1,5 +1,13 @@
 # Complete-source delivery plan — 2026-11-16
 
+Startup ranking design2026-11-17: reuse the existing deterministic domain discovery matcher
+for saved profile/job relevance, then port actual company relevance weights/reasons/missing
+facts/exclusions. Strip candidate PII from matcher inputs, preserve unknowns and exact
+profile version, and keep the score explicitly relevance_not_probability. Use observed
+attributes only for technology/location/stage boosts; no score establishes a verified fact,
+mailbox, team size or application eligibility. Catalog history filtering and submission
+guards remain separate. Bound jobs/contacts/input JSON and add actual-source oracle coverage.
+
 Company intelligence design2026-11-17: port actual latest-per-source size claims, human
 confirmation preference, overlapping band/count conflict detection and non-inferred chosen
 snapshot. Hiring uses saved job/current-board evidence, expiry/closed markers and attributable
