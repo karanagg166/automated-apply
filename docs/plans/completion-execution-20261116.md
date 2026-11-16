@@ -1,5 +1,15 @@
 # Complete-source delivery plan — 2026-11-16
 
+Canonical company ingestion design2026-11-17: source ID, then exact normalized domain,
+then attributable source URL form the actual legacy identity key. Under owner-first
+SERIALIZABLE and the existing ingestion advisory fence, reject source mappings to multiple
+companies, conflicting domains and URL-only display-name changes; name alone never merges
+companies. Preserve all current company facts; fill only a missing domain after explicit
+identity-review checks. Add normalized immutable company observations with actual content
+hash and unique replay identity, preserving original run/time/status on duplicate. Complete
+company/observation ACKs and post-trigger reloads roll back the entire transaction on drift.
+No provider fetch or new application authority is associated with a local import.
+
 Research input contracts design2026-11-17: freeze actual company observations/startup runs
 and public/manual/official people query DTOs before any provider work. Preserve observed
 timezone/time limits, strict exact counts, public URL validation, actual company-domain
