@@ -66,6 +66,33 @@ pub async fn serve_with_model(
     telegram: Option<crate::telegram::Settings>,
     models: Option<crate::model_policy::Models>,
 ) -> Result<()> {
+    serve_internal(connection, wake, shutdown, telegram, models, None).await
+}
+pub(crate) async fn serve_configured(
+    connection: &mut PgConnection,
+    wake: Wake,
+    shutdown: CancellationToken,
+    config: &crate::configuration::Configuration,
+) -> Result<()> {
+    serve_internal(
+        connection,
+        wake,
+        shutdown,
+        config.telegram.clone(),
+        config.models.clone(),
+        Some(config),
+    )
+    .await
+}
+async fn serve_internal(
+    connection: &mut PgConnection,
+    wake: Wake,
+    shutdown: CancellationToken,
+    telegram: Option<crate::telegram::Settings>,
+    models: Option<crate::model_policy::Models>,
+    config: Option<&crate::configuration::Configuration>,
+) -> Result<()> {
+    let mut last_application_tick: Option<tokio::time::Instant> = None;
     let mut changes = wake.changed.subscribe();
     let mut last_heartbeat = None;
     let mut last_discovery: Option<tokio::time::Instant> = None;
@@ -78,6 +105,24 @@ pub async fn serve_with_model(
         {
             lifecycle::heartbeat(connection).await?;
             last_heartbeat = Some(tokio::time::Instant::now());
+        }
+        if let Some(config) = config
+            && last_application_tick.is_none_or(|at| at.elapsed() >= Duration::from_secs(5))
+        {
+            last_application_tick = Some(tokio::time::Instant::now());
+            match crate::execution::schedule::tick(connection, config).await {
+                Ok(_) => {}
+                Err(error) if crate::recovery::database_failure(error) => return Err(error),
+                Err(error) => {
+                    crate::execution::schedule::record(
+                        connection,
+                        "apply_schedule:naukri",
+                        Some(error),
+                        None,
+                    )
+                    .await?;
+                }
+            }
         }
         let control = lifecycle::control(connection).await?;
         if control.mode == Mode::Running {
@@ -157,7 +202,7 @@ pub async fn serve_with_model(
             biased;
             _=shutdown.cancelled()=>{},
             _=changes.recv()=>{},
-            _=wake.work.notified()=>{},
+            _=wake.work.notified()=>{last_application_tick=None;},
             _=tokio::time::sleep(Duration::from_secs(5))=>{},
         }
     }

@@ -72,7 +72,7 @@ async fn run() -> Result<()> {
         .map_err(|_| Failure("shutdown_signal_unavailable"))?;
     println!(
         "{}",
-        serde_json::json!({"event":"rust_agent_ready","address":address.to_string(),"scope":"saved_job_review_no_application_dispatch"})
+        serde_json::json!({"event":"rust_agent_ready","address":address.to_string(),"scope":"owner_policy_fenced_runtime"})
     );
     let http = async {
         let result = axum::serve(
@@ -120,8 +120,19 @@ async fn run() -> Result<()> {
         shutdown.cancel();
         result
     };
-    let (http, local_http, executor, telegram, ()) =
-        tokio::join!(http, local_http, executor, telegram, signals);
+    let queue_generation = async {
+        let result = server::serve_queue_generation(api.clone(), shutdown.clone()).await;
+        shutdown.cancel();
+        result
+    };
+    let (http, local_http, executor, telegram, queue_generation, ()) = tokio::join!(
+        http,
+        local_http,
+        executor,
+        telegram,
+        queue_generation,
+        signals
+    );
     // A handler that was already running when SIGTERM arrived may have changed
     // control after the worker stopped. Reconcile only after every handler drains.
     tokio::time::timeout(std::time::Duration::from_secs(5), server::quiesce(&api))
@@ -131,5 +142,6 @@ async fn run() -> Result<()> {
     http?;
     local_http?;
     telegram?;
+    queue_generation?;
     executor
 }

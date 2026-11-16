@@ -106,14 +106,8 @@ pub async fn supervise(
             .take()
             .ok_or(Failure("agent_database_unavailable"))?;
         let started = Instant::now();
-        let result = worker::serve_with_model(
-            &mut current,
-            wake.clone(),
-            shutdown.clone(),
-            config.telegram.clone(),
-            config.models.clone(),
-        )
-        .await;
+        let result =
+            worker::serve_configured(&mut current, wake.clone(), shutdown.clone(), config).await;
         close(current).await;
         match result {
             Ok(()) => return Ok(()),

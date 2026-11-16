@@ -36,6 +36,7 @@ pub struct Configuration {
     pub(crate) resource_defaults: BTreeMap<String, String>,
     pub(crate) owner_signing: Option<crate::owner_proof::SigningKey>,
     pub(crate) answers: crate::answer_service::Settings,
+    pub(crate) questionnaire_answers: Option<crate::answer_service::Settings>,
     pub(crate) resume_review: crate::resume_review::Settings,
     pub(crate) resumes: crate::private_resume::Settings,
     pub(crate) browser: crate::browser_inventory::Browser,
@@ -246,7 +247,23 @@ impl Configuration {
         }
         let mut answers =
             crate::answer_service::Settings::from_values(values, fixture, defaults.clone())?;
-        answers.share_gate(gate);
+        answers.share_gate(gate.clone());
+        let mut questionnaire_answers = if boolean(values, "COHERE_ENABLED", false)?
+            && boolean(values, "COHERE_CANDIDATE_DATA_AUTHORIZED", false)?
+        {
+            let mut selected = values.clone();
+            selected.insert("LLM_PROVIDER".into(), "cohere".into());
+            Some(crate::answer_service::Settings::from_values(
+                &selected,
+                fixture,
+                defaults.clone(),
+            )?)
+        } else {
+            None
+        };
+        if let Some(answers) = &mut questionnaire_answers {
+            answers.share_gate(gate);
+        }
         Ok(Self {
             options,
             token,
@@ -270,6 +287,7 @@ impl Configuration {
             resource_defaults: defaults,
             owner_signing: crate::owner_proof::SigningKey::from_values(values)?,
             answers,
+            questionnaire_answers,
             resumes: crate::private_resume::Settings::from_values(values)?,
             resume_review: crate::resume_review::Settings::from_values(values)?,
             browser: crate::browser_inventory::Browser::from_values(values)?,
@@ -463,4 +481,78 @@ pub(crate) fn private_values(path: &Path) -> Result<BTreeMap<String, String>> {
         }
     }
     Ok(values)
+}
+#[cfg(test)]
+mod questionnaire_tests {
+    use super::*;
+    fn values() -> BTreeMap<String, String> {
+        BTreeMap::from([
+            ("ENVIRONMENT".into(), "testing".into()),
+            ("RUST_RUNTIME_FIXTURE".into(), "true".into()),
+            (
+                "DATABASE_URL".into(),
+                "postgresql://rust_agent_fixture@127.0.0.1:54321/rust_agent_fixture".into(),
+            ),
+            (
+                "JOB_AGENT_API_TOKEN".into(),
+                "0123456789abcdefghijklmnopqrstuvwxyzABCDEF".into(),
+            ),
+            ("API_REQUIRE_TLS".into(), "false".into()),
+            ("LLM_PROVIDER".into(), "gemini".into()),
+            ("COHERE_MODEL".into(), "command-a-03-2025".into()),
+            ("COHERE_API_KEY".into(), "fictional-fixture-key".into()),
+            ("COHERE_EVALUATION_KEY_CONFIRMED".into(), "true".into()),
+            ("COHERE_OWNER_TEXT_AUTHORIZED".into(), "true".into()),
+            (
+                "RUST_COHERE_FIXTURE_ENDPOINT".into(),
+                "http://127.0.0.1:54321/v2/chat".into(),
+            ),
+        ])
+    }
+    #[test]
+    fn questionnaire_cohere_scope_requires_both_saved_enable_and_candidate_consent_without_replacing_default_writer()
+     {
+        for (enabled, consent, ready) in [
+            (false, false, false),
+            (true, false, false),
+            (false, true, false),
+            (true, true, true),
+        ] {
+            let mut v = values();
+            v.insert("COHERE_ENABLED".into(), enabled.to_string());
+            v.insert(
+                "COHERE_CANDIDATE_DATA_AUTHORIZED".into(),
+                consent.to_string(),
+            );
+            let config = Configuration::from_values(&v).unwrap();
+            assert_eq!(
+                config
+                    .questionnaire_answers
+                    .as_ref()
+                    .is_some_and(|s| s.questionnaire_cohere_ready()),
+                ready
+            );
+            assert!(!config.answers.questionnaire_cohere_ready());
+            assert_eq!(config.review_model(), "deterministic");
+        }
+    }
+    #[test]
+    fn questionnaire_scope_does_not_assume_missing_evaluation_or_owner_text_authorization() {
+        for denied in [
+            "COHERE_EVALUATION_KEY_CONFIRMED",
+            "COHERE_OWNER_TEXT_AUTHORIZED",
+        ] {
+            let mut v = values();
+            v.insert("COHERE_ENABLED".into(), "true".into());
+            v.insert("COHERE_CANDIDATE_DATA_AUTHORIZED".into(), "true".into());
+            v.insert(denied.into(), "false".into());
+            let config = Configuration::from_values(&v).unwrap();
+            assert!(
+                !config
+                    .questionnaire_answers
+                    .as_ref()
+                    .is_some_and(|s| s.questionnaire_cohere_ready())
+            );
+        }
+    }
 }

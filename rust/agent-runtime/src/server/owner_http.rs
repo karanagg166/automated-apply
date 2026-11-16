@@ -573,6 +573,16 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     } else if result.is_ok() {
         state.backoff.reset();
     }
+    if method != "GET"
+        && result.as_ref().is_ok_and(|r| r.data["ok"] != false)
+        && (crate::execution::route(&path).is_some()
+            || path == crate::browser_profiles::NATIVE
+                && result
+                    .as_ref()
+                    .is_ok_and(|r| r.data["data"]["work"]["status"] == "queued"))
+    {
+        api.wake.work_available();
+    }
     match result {
         Ok(result) => {
             let mut response = reply(result.status, result.data);

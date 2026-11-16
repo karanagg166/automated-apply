@@ -17,6 +17,7 @@ mod owner_http;
 use boundary::*;
 use document_io::{ResumeIo, generation_dispatch, resume_io_dispatch};
 mod profile;
+mod queue_generation;
 use axum::{
     Router,
     body::to_bytes,
@@ -26,6 +27,7 @@ use axum::{
 };
 use errors::{failure, profile_failure, reply};
 use profile::{candidate_resource_dispatch, missing_dispatch, profile_dispatch};
+pub use queue_generation::serve as serve_queue_generation;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use sqlx::{Connection, PgConnection, Row};
@@ -83,6 +85,7 @@ pub async fn quiesce(api: &Api) -> Result<()> {
     result
 }
 async fn pause(connection: &mut PgConnection) -> Result<()> {
+    crate::execution::schedule::pause(connection).await?;
     let control = lifecycle::control(connection).await?;
     if control.mode == Mode::Running {
         lifecycle::set_control(connection, control.revision, Mode::Paused).await?;

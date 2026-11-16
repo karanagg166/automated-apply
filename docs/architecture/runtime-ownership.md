@@ -42,7 +42,7 @@ until a release inventory proves every remaining writer participates or is stopp
 | Rust control HTTP connection | 1 persistent |
 | Rust execution coordinator connection | 1 persistent |
 | Rust Telegram enabled | 1 persistent; 0 when disabled |
-| Rust answer generation, private document or account IO | 1 transient shared permit across those operations |
+| Rust HTTP/background answer generation, private document or account IO | 1 transient shared permit across those operations |
 | Rust public feed discovery | 0 additional; releases the existing control connection during HTTPS IO |
 | Complete Rust family | **4 peak with Telegram; 3 without**; no pool or overflow |
 | Each Python SQLAlchemy business pool | `DB_POOL_SIZE + DB_MAX_OVERFLOW` per process; source defaults 1 + 0 |
@@ -76,3 +76,24 @@ No new production worker, role grant, schema migration or runtime installation o
 
 The pending owner browser/account step, missing strict worker receipt and per-platform
 live acceptance remain separate gates. Passing a process lease test does not satisfy them.
+
+## Queue scheduling source checkpoint
+
+The configured execution worker now runs saved-source intake, filter reconsideration and
+local factual preparation on its existing connection, gated by the separate saved queue
+policy. The Rust coordinator RUNNING flag does not activate an application queue or
+rewrite its authority. An API/background questionnaire task shares the one transient
+long-request slot with HTTP inference/document/account IO and the provider concurrency
+gate. It releases the control mutex before opening that transient connection and never
+holds the owner transaction during inference. No additional persistent slot is added.
+Idle hints are read-only; local scheduling heartbeat writes are limited to30 seconds
+when nothing changes. These are source bounds, not measured production timing/resource
+results. A busy coordinator/model operation can delay its next local scheduling tick;
+final latency/load acceptance must measure this. Native browser polling/profile work
+continues on the separate API control connection.
+
+After handlers and background tasks drain, final host quiescence pauses a RUNNING
+application queue through its existing fences, preserving uncertain actions and quotas,
+then pauses the Rust coordinator. It does not resume either control on restart. This
+source is uninstalled and its new scheduling/connection/shutdown tests remain UNRUN
+until the agreed final combined gate.
