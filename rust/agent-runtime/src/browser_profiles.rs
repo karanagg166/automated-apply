@@ -27,6 +27,7 @@ mod naukri;
 mod status;
 mod storage;
 pub mod tasks;
+pub mod telegram_commands;
 pub(crate) use execution_fence::fence_naukri;
 use storage::*;
 

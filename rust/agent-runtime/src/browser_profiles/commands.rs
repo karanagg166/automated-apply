@@ -53,10 +53,23 @@ pub(super) async fn enqueue(
     packets: &crate::packet_service::Settings,
     now: DateTime<Utc>,
 ) -> Result<Value> {
+    enqueue_actor(tx, input, settings, packets, now, "owner").await
+}
+pub(super) async fn enqueue_actor(
+    tx: &mut Transaction<'_, Postgres>,
+    input: &Input,
+    settings: &Settings,
+    packets: &crate::packet_service::Settings,
+    now: DateTime<Utc>,
+    actor: &str,
+) -> Result<Value> {
+    if !matches!(actor, "owner" | "telegram") {
+        return Err(Failure("owner_actor_required"));
+    }
     let key = format!("chr_cmd:{}", input.request_id);
     let hash = payload_hash(input);
     if let Some(previous) = get(tx, &key).await? {
-        if previous["payload_hash"] != hash {
+        if previous["payload_hash"] != hash || previous["actor"] != actor {
             return Err(Failure("command_id_conflict"));
         }
         return Ok(previous);
@@ -106,7 +119,7 @@ pub(super) async fn enqueue(
         return Err(Failure("profile_queue_full"));
     }
     let mut value = serde_json::to_value(input).map_err(|_| request_error())?;
-    for (key,item) in json!({"id":input.request_id,"version":1,"payload_hash":hash,"actor":"owner","state":"queued","reason":null,"browser_session_id":profile["browser_session_id"],"destination":destination,"expires_at":(now+chrono::Duration::seconds(120)).to_rfc3339(),"lease_expires_at":null,"lease_token":null,"submitted":false}).as_object().unwrap() {value[key]=item.clone();}
+    for (key,item) in json!({"id":input.request_id,"version":1,"payload_hash":hash,"actor":actor,"state":"queued","reason":null,"browser_session_id":profile["browser_session_id"],"destination":destination,"expires_at":(now+chrono::Duration::seconds(120)).to_rfc3339(),"lease_expires_at":null,"lease_token":null,"submitted":false}).as_object().unwrap() {value[key]=item.clone();}
     put(tx, &key, &value).await?;
     Ok(value)
 }
