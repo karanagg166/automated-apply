@@ -7,6 +7,15 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest catalog sourceab7d8cb connects GET/POST filtered/ranked saved search, complete bounded
+application-state evidence, original shortlist snapshots/notes/run/ACK/privacy and actual
+detail shortlist state. One standard declaration (140 actual status cases+multiple-packet
+regression) +12 PG/HTTP declarations are UNRUN. See [qualified catalog report](acceptance/startup-catalog-shortlist-source-20261117.md).
+Continue public research/discovery/provider status and remaining dashboard/registry/provider/
+CLI/conversation/eight-platform full source before combined gates. No current tests/build/
+check/live/install or estimate increase;58/42/prior455 held. Source company shortlist never
+grants application authority; full Rust host remains uninstalled.
+
 Latest startup detail sourcefe0e7c2 connects owner GET to coherent saved company observations,
 qualified size/hiring, bounded complete professional counters and relevance, without private
 profile/contact/vendor data. Actual output DTO schemas are frozen. Nine PG/HTTP declarations
