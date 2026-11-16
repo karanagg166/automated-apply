@@ -1,5 +1,12 @@
 # Complete-source delivery plan — 2026-11-16
 
+Apollo capability parser design2026-11-17: separate pure endpoint-rate/credit-pool parsing
+and24-hour operator eligibility checks from future fixed-endpoint HTTP. Preserve integral
+allowance arithmetic/unique endpoint identity, add the documented credit wrapper, and
+refuse simultaneous root/wrapped pool claims. Never aggregate unrelated credit types.
+Rate exhaustion and unknown schemas block lookup; provider metadata is not billable
+authorization, account setup, a budget reservation or installed dispatch readiness.
+
 Contact credit ledger design2026-11-17: port existing discovery monthly/reservation tables
 with integer credit estimates and SQL numeric accounting, not floating arithmetic. Shared
 owner/SERIALIZABLE transactions commit reservation plus monthly increment before any

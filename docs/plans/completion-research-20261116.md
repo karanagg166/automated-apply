@@ -46,3 +46,15 @@ unexpected async/unknown outcomes must not cause another billable submission. Ex
 adapter capabilities remain narrower than provider product availability. No account/API
 call, registration, purchase or real-person lookup was performed by this research.
 
+Additional primary [credit stats](https://docs.apollo.io/reference/view-credit-usage-stats),
+[API stats](https://docs.apollo.io/reference/view-api-usage-stats),
+[authentication](https://docs.apollo.io/reference/authentication) and
+[rate limits](https://docs.apollo.io/reference/rate-limits) were read. Current credit stats
+documents a `credit_usage_stats` wrapper, while the legacy pure parser expects a root
+pool. Native parsing must support the documented wrapper and qualified root compatibility,
+refusing duplicated/ambiguous pool representations. Rate examples contain inconsistent
+remaining/consumed figures; keep conservative arithmetic checks and require actual account
+evidence, rather than treating a documentation example as endpoint allowance. Stats and
+health introspection are documented separately from billable enrichment. No live balance,
+endpoint entitlement or API key verification was performed.
+

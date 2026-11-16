@@ -175,6 +175,247 @@ print(json.dumps(out,default=lambda value:value.isoformat()))
     }
 }
 use sha2::Digest as _;
+fn apollo_rate_fixture() -> Value {
+    json!({"api/v1/people/match":{"minute":{"limit":10,"consumed":2,"left_over":8},"hour":{"limit":100,"consumed":20,"left_over":80},"day":{"limit":1000,"consumed":200,"left_over":800}}})
+}
+#[test]
+fn apollo_endpoint_rate_metadata_matches_actual_conservative_parser() {
+    use contacts::enrichment::capabilities as caps;
+    let endpoint = "api/v1/people/match";
+    let mut cases = Vec::new();
+    for n in 0..24 {
+        let mut value = apollo_rate_fixture();
+        match n {
+            0 => {}
+            1 => {
+                let row = value.as_object_mut().unwrap().remove(endpoint).unwrap();
+                value["[\"api/v1/people\",\"match\"]"] = row;
+            }
+            2 => value["[\"api/v1/people\",\"match\"]"] = value[endpoint].clone(),
+            3 => value[endpoint]["minute"]["limit"] = json!(true),
+            4 => value[endpoint]["minute"]["consumed"] = json!(2.0),
+            5 => value[endpoint]["minute"]["left_over"] = json!(-1),
+            6 => value[endpoint]["minute"]["consumed"] = json!(11),
+            7 => value[endpoint]["minute"]["left_over"] = json!(9),
+            8 => {
+                value[endpoint].as_object_mut().unwrap().remove("hour");
+            }
+            9 => value[endpoint]["day"] = Value::Null,
+            10 => value[endpoint] = json!([]),
+            11 => value = json!({}),
+            12 => value = Value::Null,
+            13 => value[endpoint]["minute"]["left_over"] = json!(0),
+            14 => value[endpoint]["minute"]["limit"] = json!("10"),
+            15 => {
+                value[endpoint]["minute"] = json!({"limit":0,"consumed":0,"left_over":0});
+            }
+            16 => value[endpoint]["minute"]["consumed"] = Value::Null,
+            17 => value[endpoint]["minute"]["left_over"] = json!(100),
+            18 => value[endpoint]["minute"]["limit"] = json!(-1),
+            19 => value["[\"other\",true]"] = json!({}),
+            20 => {
+                value.as_object_mut().unwrap().remove(endpoint);
+                value["other"] = json!({});
+            }
+            21 => value[endpoint]["day"]["extra"] = json!("ignored"),
+            22 => {
+                let row = value.as_object_mut().unwrap().remove(endpoint).unwrap();
+                value["[\"api/v1/people/match\"]"] = row;
+            }
+            _ => value[endpoint]["minute"]["left_over"] = json!(8.0),
+        };
+        cases.push(value);
+    }
+    let actual = oracle(
+        r#"import ast,json,sys
+from pathlib import Path
+tree=ast.parse(Path('backend/app/services/contact_enrichment/apollo_capabilities.py').read_text());nodes=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in {'number','endpoint_limits'}];scope={'json':json};exec(compile(ast.Module(body=nodes,type_ignores=[]),'<actual-apollo-rates>','exec'),scope)
+out=[]
+for value in json.load(sys.stdin):
+ try:out.append({'ok':True,'value':scope['endpoint_limits'](value,'api/v1/people/match')})
+ except ValueError:out.append({'ok':False})
+print(json.dumps(out))
+"#,
+        &json!(cases),
+    );
+    for (index, (value, want)) in cases.iter().zip(actual.as_array().unwrap()).enumerate() {
+        let got = match caps::endpoint_limits(value, endpoint) {
+            Ok(v) => json!({"ok":true,"value":v}),
+            Err(_) => json!({"ok":false}),
+        };
+        assert_eq!(got, *want, "case {index}");
+    }
+}
+#[test]
+fn apollo_credit_pool_retains_actual_legacy_arithmetic_and_accepts_documented_unambiguous_wrapper()
+{
+    use contacts::enrichment::capabilities as caps;
+    let mut cases = Vec::new();
+    for n in 0..16 {
+        let mut value = json!({"lead_credit":{"limit":50,"consumed":5,"left_over":45}});
+        match n {
+            0 => {}
+            1 => value["lead_credit"]["limit"] = json!(true),
+            2 => value["lead_credit"]["consumed"] = json!(5.0),
+            3 => value["lead_credit"]["left_over"] = json!(-1),
+            4 => value["lead_credit"]["consumed"] = json!(51),
+            5 => value["lead_credit"]["left_over"] = json!(46),
+            6 => value["lead_credit"]["left_over"] = json!(0),
+            7 => value["lead_credit"] = json!([]),
+            8 => value = json!({}),
+            9 => value = Value::Null,
+            10 => value["lead_credit"]["limit"] = json!("50"),
+            11 => value["lead_credit"] = json!({"limit":0,"consumed":0,"left_over":0}),
+            12 => value["unrelated_pool"] = json!({"limit":500,"consumed":0,"left_over":500}),
+            13 => value["lead_credit"]["extra"] = json!(999),
+            14 => value["lead_credit"]["left_over"] = json!(50),
+            _ => value["lead_credit"]["left_over"] = Value::Null,
+        };
+        cases.push(value);
+    }
+    let actual = oracle(
+        r#"import ast,json,sys
+from pathlib import Path
+tree=ast.parse(Path('backend/app/services/contact_enrichment/apollo_capabilities.py').read_text());nodes=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in {'number','credit_balance'}];scope={};exec(compile(ast.Module(body=nodes,type_ignores=[]),'<actual-apollo-credits>','exec'),scope)
+out=[]
+for value in json.load(sys.stdin):
+ try:out.append({'ok':True,'value':scope['credit_balance'](value,'lead_credit')})
+ except ValueError:out.append({'ok':False})
+print(json.dumps(out))
+"#,
+        &json!(cases),
+    );
+    for (index, (value, want)) in cases.iter().zip(actual.as_array().unwrap()).enumerate() {
+        let got = match caps::credit_balance(value, "lead_credit") {
+            Ok(v) => json!({"ok":true,"value":v}),
+            Err(_) => json!({"ok":false}),
+        };
+        assert_eq!(got, *want, "case {index}");
+    }
+    let wrapped = json!({"credit_usage_stats":cases[0],"current_credit_cycle":{"start_date":"2026-11-01T00:00:00Z","end_date":"2026-12-01T00:00:00Z"}});
+    assert_eq!(
+        caps::credit_balance(&wrapped, "lead_credit").unwrap(),
+        caps::credit_balance(&cases[0], "lead_credit").unwrap()
+    );
+    for value in [
+        json!({"credit_usage_stats":cases[0],"lead_credit":cases[0]["lead_credit"]}),
+        json!({"credit_usage_stats":[]}),
+        json!({"credit_usage_stats":{"other_pool":cases[0]["lead_credit"]}}),
+    ] {
+        assert!(caps::credit_balance(&value, "lead_credit").is_err());
+    }
+}
+#[test]
+fn apollo_eligibility_matches_actual_time_and_endpoint_rules_and_preflight_confers_no_lookup_grant()
+{
+    use contacts::enrichment::capabilities::{self as caps, Operation};
+    let now = DateTime::parse_from_rfc3339("2026-11-17T00:00:00Z")
+        .unwrap()
+        .with_timezone(&Utc);
+    let base = json!({"APOLLO_FREE_ACCOUNT_CONFIRMED":true,"APOLLO_WORK_EMAIL_CONFIRMED":true,"APOLLO_ELIGIBILITY_REVIEWED_AT":"2026-11-16T23:00:00Z","APOLLO_ELIGIBILITY_EVIDENCE_URL":"https://contact-fixture.example/review","APOLLO_REVIEWED_ENDPOINTS":["api/v1/people/match"],"APOLLO_CREDIT_POOL":"lead_credit"});
+    let mut cases = Vec::new();
+    for n in 0..12 {
+        let mut value = base.clone();
+        match n {
+            0 => {}
+            1 => value["APOLLO_FREE_ACCOUNT_CONFIRMED"] = json!(false),
+            2 => value["APOLLO_WORK_EMAIL_CONFIRMED"] = json!(false),
+            3 => value["APOLLO_ELIGIBILITY_REVIEWED_AT"] = Value::Null,
+            4 => value["APOLLO_ELIGIBILITY_REVIEWED_AT"] = json!("2026-11-15T23:00:00Z"),
+            5 => value["APOLLO_ELIGIBILITY_REVIEWED_AT"] = json!("2026-11-17T00:00:01Z"),
+            6 => value["APOLLO_REVIEWED_ENDPOINTS"] = json!([]),
+            7 => value["APOLLO_ELIGIBILITY_EVIDENCE_URL"] = Value::Null,
+            8 => value["APOLLO_REVIEWED_ENDPOINTS"] = json!(["api/v1/mixed_people/api_search"]),
+            9 => value["APOLLO_ELIGIBILITY_REVIEWED_AT"] = json!("2026-11-17T04:30:00+05:30"),
+            10 => value["APOLLO_ELIGIBILITY_REVIEWED_AT"] = json!("2026-11-16T23:00:00"),
+            _ => value["APOLLO_ELIGIBILITY_REVIEWED_AT"] = json!("2026-11-16T00:00:00Z"),
+        };
+        cases.push(value);
+    }
+    let actual = oracle(
+        r#"import ast,datetime as dt,json,sys
+from pathlib import Path
+from types import SimpleNamespace
+class Frozen(dt.datetime):
+ @classmethod
+ def now(cls,tz=None):return cls(2026,11,17,tzinfo=dt.timezone.utc)
+class ProviderError(Exception):pass
+scope={'datetime':Frozen,'timedelta':dt.timedelta,'timezone':dt.timezone,'ProviderError':ProviderError,'State':SimpleNamespace(AUTHORIZATION_REQUIRED='authorization_required')}
+tree=ast.parse(Path('backend/app/services/contact_enrichment/apollo_capabilities.py').read_text());nodes=[n for n in tree.body if (isinstance(n,ast.FunctionDef) and n.name=='eligibility') or (isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='ENDPOINTS' for t in n.targets))];exec(compile(ast.Module(body=nodes,type_ignores=[]),'<actual-apollo-eligibility>','exec'),scope)
+out=[]
+for value in json.load(sys.stdin):
+ if value['APOLLO_ELIGIBILITY_REVIEWED_AT']:value['APOLLO_ELIGIBILITY_REVIEWED_AT']=Frozen.fromisoformat(value['APOLLO_ELIGIBILITY_REVIEWED_AT'])
+ try:scope['eligibility'](SimpleNamespace(**value),'enrich_person');out.append(True)
+ except ProviderError:out.append(False)
+print(json.dumps(out))
+"#,
+        &json!(cases),
+    );
+    let values = |v: &Value| {
+        v.as_object()
+            .unwrap()
+            .iter()
+            .filter(|(_, v)| !v.is_null())
+            .map(|(k, v)| {
+                (
+                    k.clone(),
+                    v.as_str()
+                        .map(str::to_owned)
+                        .unwrap_or_else(|| v.to_string()),
+                )
+            })
+            .collect::<std::collections::BTreeMap<_, _>>()
+    };
+    for (index, (value, want)) in cases.iter().zip(actual.as_array().unwrap()).enumerate() {
+        let eligibility = caps::Eligibility::from_values(&values(value)).unwrap();
+        assert_eq!(
+            json!(eligibility.require(Operation::Enrich, now).is_ok()),
+            *want,
+            "case {index}"
+        );
+    }
+    let eligibility = caps::Eligibility::from_values(&values(&base)).unwrap();
+    let health = json!({"healthy":true,"is_logged_in":true});
+    let credits =
+        json!({"credit_usage_stats":{"lead_credit":{"limit":50,"consumed":5,"left_over":45}}});
+    let finding = caps::preflight(
+        &eligibility,
+        Operation::Enrich,
+        &health,
+        &apollo_rate_fixture(),
+        &credits,
+        2,
+        now,
+    )
+    .unwrap();
+    assert_eq!(finding["lookup_authorized"], false);
+    assert_eq!(finding["provider_requests_performed"], 0);
+    assert!(
+        caps::preflight(
+            &eligibility,
+            Operation::Enrich,
+            &json!({"healthy":false}),
+            &apollo_rate_fixture(),
+            &credits,
+            2,
+            now
+        )
+        .is_err()
+    );
+    assert_eq!(
+        caps::preflight(
+            &eligibility,
+            Operation::Enrich,
+            &health,
+            &apollo_rate_fixture(),
+            &credits,
+            46,
+            now
+        )
+        .unwrap_err(),
+        automated_apply_agents::Failure("contact_provider_budget_exhausted")
+    );
+}
 #[test]
 fn contact_enrichment_request_matches_actual_dto_defaults_and_bounded_authorization_flags() {
     let cases = json!([
