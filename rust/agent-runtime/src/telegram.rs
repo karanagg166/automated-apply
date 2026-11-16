@@ -13,6 +13,9 @@ pub struct Settings {
     fixture: bool,
 }
 impl Settings {
+    pub(crate) fn owner_user(&self) -> i64 {
+        self.user
+    }
     pub fn from_values(values: &BTreeMap<String, String>, fixture: bool) -> Result<Option<Self>> {
         let enabled = values
             .get("RUST_TELEGRAM_ENABLED")
@@ -319,10 +322,20 @@ impl Bot {
         self.send_text(&notice.text()).await
     }
     async fn send_text(&self, text: &str) -> BotResult<i64> {
-        if text.is_empty() || text.chars().count() > 3500 {
+        self.send_checked(text, false).await
+    }
+    async fn send_question(&self, text: &str) -> BotResult<i64> {
+        self.send_checked(text, true).await
+    }
+    async fn send_checked(&self, text: &str, question: bool) -> BotResult<i64> {
+        if text.is_empty() || text.encode_utf16().count() > if question { 4000 } else { 3500 } {
             return Err(Error::new("telegram_reply_size"));
         }
-        let result=self.call("sendMessage",json!({"chat_id":self.settings.chat,"text":text,"link_preview_options":{"is_disabled":true}})).await?;
+        let mut payload = json!({"chat_id":self.settings.chat,"text":text,"link_preview_options":{"is_disabled":true}});
+        if question {
+            payload["reply_markup"] = json!({"force_reply":true,"selective":true});
+        }
+        let result = self.call("sendMessage", payload).await?;
         if result
             .get("chat")
             .and_then(|c| c.get("id"))
@@ -394,7 +407,7 @@ pub async fn initialize(
     sqlx::query("UPDATE agent_telegram_state SET bot_id=$1,evidence_type=$2,last_error=NULL WHERE key='primary'").bind(identity.id.to_string()).bind(if settings.fixture{"simulated_transport"}else{"live_poll"}).execute(&mut *tx).await.map_err(db)?;
     tx.commit().await.map_err(db)
 }
-async fn bound(connection: &mut PgConnection, settings: &Settings) -> Result<()> {
+pub(crate) async fn bound(connection: &mut PgConnection, settings: &Settings) -> Result<()> {
     let valid:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM rust_telegram_runtime r,agent_telegram_state s WHERE r.key='primary' AND s.key='primary' AND r.binding=$1 AND s.bot_id=$2 AND s.evidence_type=$3)").bind(settings.binding()).bind(settings.token.split(':').next().unwrap_or("")).bind(if settings.fixture{"simulated_transport"}else{"live_poll"}).fetch_one(connection).await.map_err(db)?;
     if !valid {
         return Err(Failure("telegram_owner_binding_changed"));
@@ -449,12 +462,34 @@ pub async fn receive(
     update: &Value,
     wake: &Wake,
 ) -> Result<bool> {
+    receive_configured(connection, settings, identity, update, wake, None).await
+}
+pub async fn receive_configured(
+    connection: &mut PgConnection,
+    settings: &Settings,
+    identity: &Identity,
+    update: &Value,
+    wake: &Wake,
+    config: Option<&crate::configuration::Configuration>,
+) -> Result<bool> {
     let id = update
         .get("update_id")
         .and_then(Value::as_i64)
         .filter(|n| *n >= 0 && *n < i64::MAX)
         .ok_or(Failure("invalid_update_id"))?;
     let mut tx = connection.begin().await.map_err(db)?;
+    let owner_reply = config.is_some()
+        && settings.authorized(&update["message"])
+        && update["message"]["reply_to_message"]["message_id"]
+            .as_i64()
+            .is_some_and(|n| n > 0);
+    if owner_reply {
+        sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
+            .execute(&mut *tx)
+            .await
+            .map_err(db)?;
+        crate::execution::telegram_questions::lock_in(&mut tx).await?;
+    }
     bound(&mut tx, settings).await?;
     let offset: i64 = sqlx::query_scalar(
         "SELECT next_update_id FROM agent_telegram_state WHERE key='primary' FOR UPDATE",
@@ -475,70 +510,92 @@ pub async fn receive(
             .get("text")
             .and_then(Value::as_str)
             .unwrap_or("");
-        let reply = match command(text, &identity.username) {
-            Command::Help => Notice::Help,
-            Command::Ping => Notice::Pong,
-            Command::Unavailable => Notice::Unavailable,
-            Command::Status => {
-                let c = lifecycle::control(&mut tx).await?;
-                Notice::Status {
-                    mode: c.mode,
-                    online: c.worker_online,
+        let correlated = if owner_reply {
+            let now: chrono::DateTime<chrono::Utc> = sqlx::query_scalar("SELECT clock_timestamp()")
+                .fetch_one(&mut *tx)
+                .await
+                .map_err(db)?;
+            crate::execution::telegram_questions::receive_in(
+                &mut tx,
+                settings,
+                config.unwrap(),
+                &update["message"],
+                id,
+                now,
+            )
+            .await?
+        } else {
+            None
+        };
+        let reply = if let Some(reply) = correlated {
+            intake = true;
+            reply
+        } else {
+            let notice = match command(text, &identity.username) {
+                Command::Help => Notice::Help,
+                Command::Ping => Notice::Pong,
+                Command::Unavailable => Notice::Unavailable,
+                Command::Status => {
+                    let c = lifecycle::control(&mut tx).await?;
+                    Notice::Status {
+                        mode: c.mode,
+                        online: c.worker_online,
+                    }
                 }
-            }
-            Command::Control(mode) => {
-                let c = lifecycle::control(&mut tx).await?;
-                let next = lifecycle::set_control(&mut tx, c.revision, mode).await?;
-                control_changed = true;
-                Notice::Status {
-                    mode: next.mode,
-                    online: next.worker_online,
+                Command::Control(mode) => {
+                    let c = lifecycle::control(&mut tx).await?;
+                    let next = lifecycle::set_control(&mut tx, c.revision, mode).await?;
+                    control_changed = true;
+                    Notice::Status {
+                        mode: next.mode,
+                        online: next.worker_online,
+                    }
                 }
-            }
-            Command::Review => {
-                let key = Uuid::new_v5(
-                    &Uuid::NAMESPACE_URL,
-                    format!("telegram:{}:{id}", settings.chat).as_bytes(),
-                );
-                let run = lifecycle::intake_policy(
-                    &mut tx,
-                    key,
-                    Limits::default(),
-                    Some(crate::model_policy::Policy::Deterministic {}),
-                )
-                .await?;
-                intake = true;
-                Notice::Run {
-                    id: run.run.id,
-                    state: run.run.state,
-                }
-            }
-            Command::Runs => {
-                let rows = lifecycle::listing(&mut tx).await?;
-                if let Some(first) = rows.first() {
-                    let runid = first["id"]
-                        .as_str()
-                        .and_then(|s| s.parse::<Uuid>().ok())
-                        .ok_or(Failure("invalid_agent_record"))?;
-                    let run = lifecycle::load(&mut tx, runid).await?;
+                Command::Review => {
+                    let key = Uuid::new_v5(
+                        &Uuid::NAMESPACE_URL,
+                        format!("telegram:{}:{id}", settings.chat).as_bytes(),
+                    );
+                    let run = lifecycle::intake_policy(
+                        &mut tx,
+                        key,
+                        Limits::default(),
+                        Some(crate::model_policy::Policy::Deterministic {}),
+                    )
+                    .await?;
+                    intake = true;
                     Notice::Run {
                         id: run.run.id,
                         state: run.run.state,
                     }
-                } else {
-                    Notice::Unavailable
                 }
-            }
-            Command::Run(id) => match lifecycle::load(&mut tx, id).await {
-                Ok(run) => Notice::Run {
-                    id: run.run.id,
-                    state: run.run.state,
+                Command::Runs => {
+                    let rows = lifecycle::listing(&mut tx).await?;
+                    if let Some(first) = rows.first() {
+                        let runid = first["id"]
+                            .as_str()
+                            .and_then(|s| s.parse::<Uuid>().ok())
+                            .ok_or(Failure("invalid_agent_record"))?;
+                        let run = lifecycle::load(&mut tx, runid).await?;
+                        Notice::Run {
+                            id: run.run.id,
+                            state: run.run.state,
+                        }
+                    } else {
+                        Notice::Unavailable
+                    }
+                }
+                Command::Run(id) => match lifecycle::load(&mut tx, id).await {
+                    Ok(run) => Notice::Run {
+                        id: run.run.id,
+                        state: run.run.state,
+                    },
+                    Err(Failure("agent_run_not_found")) => Notice::Unavailable,
+                    Err(error) => return Err(error),
                 },
-                Err(Failure("agent_run_not_found")) => Notice::Unavailable,
-                Err(error) => return Err(error),
-            },
+            };
+            notice.text()
         };
-        let reply = reply.text();
         sqlx::query(
             "INSERT INTO agent_telegram_deliveries(update_id,reply,state)VALUES($1,$2,'pending')",
         )
@@ -774,6 +831,7 @@ pub async fn prepare(config: &crate::configuration::Configuration) -> Result<Opt
 impl Relay {
     async fn cycle(
         &mut self,
+        config: &crate::configuration::Configuration,
         wake: &Wake,
         shutdown: &tokio_util::sync::CancellationToken,
         backoff: &mut crate::recovery::Backoff,
@@ -789,24 +847,54 @@ impl Relay {
             .fetch_one(&mut self.connection)
             .await
             .map_err(db)?;
-            let pending:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM rust_telegram_outbox WHERE state='pending' AND binding=$1)").bind(self.bot.settings.binding()).fetch_one(&mut self.connection).await.map_err(db)?;
+            let pending:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM rust_telegram_outbox WHERE state='pending' AND binding=$1) OR EXISTS(SELECT 1 FROM owner_preferences WHERE starts_with(key,'exec_q:') AND value->>'state'='pending' AND value->>'delivery_error' IS DISTINCT FROM 'telegram_question_too_long_manual_required' AND CASE WHEN pg_input_is_valid(value->>'expires_at','timestamp with time zone') THEN (value->>'expires_at')::timestamptz>clock_timestamp() ELSE true END)").bind(self.bot.settings.binding()).fetch_one(&mut self.connection).await.map_err(db)?;
             let updates = self.bot.updates(offset, pending).await;
             let updates = match updates {
                 Ok(updates) => updates,
                 Err(error) => return self.transport_error(error).await,
             };
-            let empty = updates.is_empty();
+            let mut empty = updates.is_empty();
             for update in updates {
-                receive(
+                receive_configured(
                     &mut self.connection,
                     &self.bot.settings,
                     &self.identity,
                     &update,
                     wake,
+                    Some(config),
                 )
                 .await?;
             }
             sqlx::query("UPDATE agent_telegram_state SET last_poll_at=clock_timestamp(),last_error=NULL WHERE key='primary'").execute(&mut self.connection).await.map_err(db)?;
+            if let Some(question) = crate::execution::telegram_questions::claim(
+                &mut self.connection,
+                &self.bot.settings,
+                config,
+            )
+            .await?
+            {
+                let result = self.bot.send_question(&question.text).await;
+                match result {
+                    Ok(message) => {
+                        crate::execution::telegram_questions::finish(
+                            &mut self.connection,
+                            &self.bot.settings,
+                            &question,
+                            message,
+                        )
+                        .await?;
+                        cooldown(&mut self.connection, Duration::from_secs(1)).await?;
+                    }
+                    Err(error) => return self.transport_error(error).await,
+                }
+                backoff.reset();
+                empty = false;
+                let wait = remaining(&mut self.connection).await?;
+                if !wait.is_zero() {
+                    tokio::select! {biased;_=shutdown.cancelled()=>return Ok(()),_=tokio::time::sleep(wait)=>{}}
+                }
+            }
+
             if let Some(delivery) = claim_delivery(&mut self.connection, &self.bot.settings).await?
             {
                 let result = self.bot.send_text(&delivery.text).await;
@@ -840,7 +928,7 @@ impl Relay {
     ) -> Result<()> {
         let mut backoff = crate::recovery::Backoff::default();
         loop {
-            let result = tokio::select! {biased;_=shutdown.cancelled()=>Ok(()),result=self.cycle(&wake,&shutdown,&mut backoff)=>result};
+            let result = tokio::select! {biased;_=shutdown.cancelled()=>Ok(()),result=self.cycle(config,&wake,&shutdown,&mut backoff)=>result};
             match result {
                 Ok(()) => {
                     crate::recovery::close(self.connection).await;

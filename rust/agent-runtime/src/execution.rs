@@ -53,6 +53,7 @@ pub(crate) mod schedule;
 pub mod search;
 mod storage;
 pub mod submission;
+pub(crate) mod telegram_questions;
 
 use crate::{Failure, Result};
 use serde_json::Value;

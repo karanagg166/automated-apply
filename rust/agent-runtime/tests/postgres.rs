@@ -4051,3 +4051,4 @@ include!("support/execution_summary_pg.rs");
 include!("support/owner_import_pg.rs");
 include!("support/legacy_preparation_pg.rs");
 include!("support/retained_index_pg.rs");
+include!("support/telegram_questions_pg.rs");

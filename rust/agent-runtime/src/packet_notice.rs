@@ -274,6 +274,30 @@ pub async fn notify_in(
                 return Err(Failure("packet_write_ack_failed"));
             }
         }
+        // Bind only this newly generated typed notice. Historical pending rows
+        // without a current bound outbox are never imported or replayed.
+        let available:bool=sqlx::query_scalar("SELECT to_regclass('rust_telegram_runtime') IS NOT NULL AND to_regclass('rust_telegram_outbox') IS NOT NULL").fetch_one(&mut **tx).await.map_err(packet_service::db)?;
+        if available && inserted == Some(update) {
+            let binding: Option<String> =
+                sqlx::query_scalar("SELECT binding FROM rust_telegram_runtime WHERE key='primary'")
+                    .fetch_optional(&mut **tx)
+                    .await
+                    .map_err(packet_service::db)?;
+            if let Some(binding) = binding {
+                let id = Uuid::new_v5(
+                    &Uuid::NAMESPACE_URL,
+                    format!("packet_notice:{update}").as_bytes(),
+                );
+                let reply = telegram["reply"].as_str().ok_or_else(invalid)?;
+                if reply.encode_utf16().count() > 3500 {
+                    return Err(Failure("telegram_reply_size"));
+                }
+                let ack:Option<Uuid>=sqlx::query_scalar("INSERT INTO rust_telegram_outbox(id,update_id,binding,reply,state) VALUES($1,$2,$3,$4,'pending') ON CONFLICT(id) DO UPDATE SET id=EXCLUDED.id WHERE rust_telegram_outbox.update_id=EXCLUDED.update_id AND rust_telegram_outbox.binding=EXCLUDED.binding AND rust_telegram_outbox.reply=EXCLUDED.reply RETURNING id").bind(id).bind(update).bind(binding).bind(reply).fetch_optional(&mut **tx).await.map_err(packet_service::db)?;
+                if ack != Some(id) {
+                    return Err(Failure("packet_write_ack_failed"));
+                }
+            }
+        }
     }
     Ok(true)
 }

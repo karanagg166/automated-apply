@@ -14,6 +14,7 @@ mod execution_fence;
 mod form_questions;
 pub(crate) use form_questions::{
     envelope as owner_question_envelope, intent as owner_question_intent,
+    message_text as owner_question_message,
 };
 mod form_receipts;
 mod form_review;

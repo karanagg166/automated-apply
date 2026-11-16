@@ -181,6 +181,29 @@ pub(super) async fn answer_in(
     services: Services<'_>,
     now: DateTime<Utc>,
 ) -> Result<Value> {
+    answer_origin_in(
+        tx,
+        identity,
+        data,
+        services,
+        now,
+        &json!({"channel":"dashboard","source":"owner_dashboard"}),
+    )
+    .await
+}
+pub(super) async fn answer_origin_in(
+    tx: &mut Transaction<'_, Postgres>,
+    identity: Uuid,
+    data: &Value,
+    services: Services<'_>,
+    now: DateTime<Utc>,
+    origin: &Value,
+) -> Result<Value> {
+    let source = match origin["channel"].as_str() {
+        Some("dashboard") => "owner_dashboard",
+        Some("telegram") => "owner_telegram",
+        _ => return Err(Failure("owner_answer_channel_required")),
+    };
     let key = format!("exec_q:{identity}");
     let mut question = get(tx, &key).await?.ok_or(Failure("question_not_found"))?;
     if question["id"] != identity.to_string() {
@@ -200,12 +223,15 @@ pub(super) async fn answer_in(
             tx,
             &mut question,
             answer,
-            "owner_dashboard",
+            source,
             services.packets,
             services.resumes,
             now,
         )
         .await?;
+        question["provenance"] = origin.clone();
+        question["provenance"]["application_only"] = json!(true);
+        put(tx, &key, &question).await?;
         return Ok(question);
     }
     let mut intent = load_intent(tx, id(&question["execution_id"])?).await?;
@@ -229,7 +255,10 @@ pub(super) async fn answer_in(
     }
     let field_id = id(&question["field_id"])?;
     let effective = question_answers::field_answer(&question, answer);
-    let metadata = answer_metadata(&question, &expiry, Some(answer));
+    let mut metadata = answer_metadata(&question, &expiry, Some(answer));
+    if source == "owner_telegram" {
+        metadata["telegram_owner_update"] = origin["update_id"].clone();
+    }
     let updated = packet_mutation::run_with_answer_metadata_in(
         tx,
         packet_id,
@@ -258,7 +287,7 @@ pub(super) async fn answer_in(
     question["answer"] = json!(effective);
     question["factual_context"] = json!(answer);
     question["answer_expires_at"] = expiry;
-    question["provenance"] = json!({"channel":"dashboard","source":"owner_dashboard"});
+    question["provenance"] = origin.clone();
     question["reuse_approved"] = json!(false);
     put(tx, &key, &question).await?;
     if intent["answer_revisions"].is_null() {
