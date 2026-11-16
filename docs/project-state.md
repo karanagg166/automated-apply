@@ -495,3 +495,11 @@ fixture/live operation. See [qualified status report](acceptance/execution-statu
 Current-account receipt predicate now rejects missing UUID/revision context as well. Next:
 transactional owner control/fences and full native queue/kernel, then all remaining ports.
 No actual source installation, browser or provider change, strict receipt or percentage gain.
+
+Execution controller source757ea01 adds the owner queue policy/control routes, shared-owner
+revision fencing, interrupted-write quarantine, fresh-inspection resume, independent
+Naukri task/plan/command revocation and current-account first-worker-proof guard. One new
+standard and10 new native-PG test declarations remain UNRUN. No build/check/test/live
+operation or installation; prior455 tests remain prior9c4ace5 evidence. See
+[qualified control report](acceptance/execution-control-source-20261116.md).
+Continue complete kernel/claims/admissions and remaining ports; hold58/42 and no partial final.
