@@ -1,3 +1,4 @@
+import { fixtureExecutable } from "./browser-fixture-engine.mjs";
 // One fictional Greenhouse journey: real Chromium + inspector/bridge/popup,
 // bounded fake native transport; no installed extension, live site or owner data.
 import assert from "node:assert/strict";
@@ -7,7 +8,10 @@ import { formDOM } from "../form-dom.js";
 
 const application = "11111111-1111-4111-8111-111111111111";
 const url = "https://job-boards.greenhouse.io/fictional-employer/jobs/1";
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  executablePath: fixtureExecutable(chromium),
+  headless: true,
+});
 try {
   const context = await browser.newContext({
     viewport: { width: 600, height: 1000 },

@@ -1,3 +1,4 @@
+import { fixtureExecutable } from "./browser-fixture-engine.mjs";
 // Isolated Chromium only. Provider HTML and account are fictional; no native host.
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
@@ -36,7 +37,7 @@ writeFileSync(
   `import {executeNaukri} from './naukri-execution.js';globalThis.fixtureReady=true;globalThis.create=async()=>{const t=await chrome.tabs.create({url:'about:blank',active:false});await chrome.tabs.update(t.id,{url:${JSON.stringify(url)},active:false});for(let i=0;i<100;i++){if((await chrome.tabs.get(t.id)).status==='complete')return t.id;await new Promise(r=>setTimeout(r,50));}throw Error('fixture_not_loaded')};globalThis.run=async(id,work)=>(await chrome.scripting.executeScript({target:{tabId:id,frameIds:[0]},world:'ISOLATED',func:executeNaukri,args:[work]}))[0].result;`,
 );
 const child = spawn(
-  chromium.executablePath(),
+  fixtureExecutable(chromium),
   [
     "--headless=new",
     "--no-first-run",

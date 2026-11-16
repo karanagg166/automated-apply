@@ -1,3 +1,4 @@
+import { installedBrowserExecutable } from "./engine.mjs";
 // Private JSON-lines transport. Each inspected document keeps its own tab and guard.
 import { chromium } from "../../../frontend/node_modules/@playwright/test/index.mjs";
 import { formDOM } from "../../../extension/form-dom.js";
@@ -106,7 +107,9 @@ async function launch(req) {
       unlinkSync(resolve(profile, name));
   }
   context = await chromium.launchPersistentContext(profile, {
-    channel: "chromium",
+    executablePath: installedBrowserExecutable(
+      process.env.AUTOMATED_APPLY_TEST_BROWSER || "brave",
+    ),
     headless: req.headless === true,
     serviceWorkers: "block",
     acceptDownloads: false,

@@ -1,3 +1,4 @@
+import { fixtureExecutable } from "./browser-fixture-engine.mjs";
 // Explicit opt-in public read-only acceptance. Fresh Chromium context, no profile,
 // credentials, candidate facts, clicking, filling, challenge interaction or submission.
 import { chromium } from "../../frontend/node_modules/@playwright/test/index.mjs";
@@ -31,7 +32,10 @@ const destinations = [
     "https://jobs.ashbyhq.com/sarvam/fcb15601-6440-41f7-aa79-b9992057a4b2/application",
   ],
 ];
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  executablePath: fixtureExecutable(chromium),
+  headless: true,
+});
 const observations = [];
 try {
   for (const [site, url] of destinations) {

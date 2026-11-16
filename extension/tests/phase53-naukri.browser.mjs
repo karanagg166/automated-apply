@@ -1,8 +1,10 @@
+import { fixtureExecutable } from "./browser-fixture-engine.mjs";
 // Isolated fictional Naukri-shaped DOM; no login, personal profile or employer traffic.
 import assert from "node:assert/strict";
 import { chromium } from "../../frontend/node_modules/@playwright/test/index.mjs";
 import { formDOM } from "../form-dom.js";
 const browser = await chromium.launch({
+  executablePath: fixtureExecutable(chromium),
   headless: true,
   args: ["--host-resolver-rules=MAP www.naukri.com ~NOTFOUND"],
 });

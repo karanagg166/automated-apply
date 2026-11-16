@@ -1,3 +1,4 @@
+import { fixtureExecutable } from "./browser-fixture-engine.mjs";
 // Focused isolated Chromium radio interactions. Every provider response is a
 // fictional fixture; no owner browser, live vacancy, keyboard or chooser.
 import assert from "node:assert/strict";
@@ -35,7 +36,7 @@ writeFileSync(
 const started = performance.now();
 const profile = join(root, "profile");
 const child = spawn(
-  chromium.executablePath(),
+  fixtureExecutable(chromium),
   [
     "--headless=new",
     "--no-first-run",

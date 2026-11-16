@@ -1,8 +1,12 @@
+import { fixtureExecutable } from "./browser-fixture-engine.mjs";
 // Fictional Chromium acceptance only: no live destination, credentials or submission.
 import assert from "node:assert/strict";
 import { chromium } from "../../frontend/node_modules/@playwright/test/index.mjs";
 import { formDOM } from "../form-dom.js";
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  executablePath: fixtureExecutable(chromium),
+  headless: true,
+});
 let nonGet = 0,
   cases = 0;
 try {

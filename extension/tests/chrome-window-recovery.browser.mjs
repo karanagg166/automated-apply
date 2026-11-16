@@ -1,3 +1,4 @@
+import { fixtureExecutable } from "./browser-fixture-engine.mjs";
 // Real isolated Chromium window APIs; fictional native policy, no provider pages.
 import assert from "node:assert/strict";
 import {
@@ -58,7 +59,7 @@ globalThis.recover = async (allowed) => {
 );
 const profile = join(root, "profile");
 const child = spawn(
-  chromium.executablePath(),
+  fixtureExecutable(chromium),
   [
     "--headless=new",
     "--no-first-run",

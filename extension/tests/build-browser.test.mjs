@@ -71,3 +71,12 @@ test("unknown targets cannot overwrite an existing valid bundle", () => {
     );
   }
 });
+
+test("ordinary build defaults to the Brave host while preserving extension identity", () => {
+  const root = fixture();
+  execFileSync(process.execPath, [join(root, "build.mjs")]);
+  const info = JSON.parse(readFileSync(join(root, "dist/build-info.json")));
+  assert.equal(info.browser, "brave");
+  assert.equal(info.native_host, "com.automated_apply.brave");
+  assert.equal(info.extension_id, "gdjbmkffcpicbpiikcohlmokkmcpipgp");
+});

@@ -1,7 +1,12 @@
+import { nativePostgresFixture } from "./native-postgres-fixture.mjs";
+import {
+  fixtureExecutable,
+  fixtureNativeHost,
+} from "./browser-fixture-engine.mjs";
 // Explicit isolated test only: two real MV3 profiles, Python native host, FastAPI,
 // disposable PostgreSQL 17. No installed Chrome profile or private env is touched.
 import assert from "node:assert/strict";
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, mkdir, cp, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -15,15 +20,13 @@ const prepareOnly = process.argv.includes("--prepare-only");
 if (!python?.startsWith("/"))
   throw Error("absolute_existing_test_python_required");
 const temp = await mkdtemp(join(tmpdir(), "automated-apply-profile-test-"));
-const container = `aa-profile-test-${randomUUID().slice(0, 8)}`;
 const extensionId = "gdjbmkffcpicbpiikcohlmokkmcpipgp";
 const url = "https://jobs.lever.co/fictional-profile/fictional-job/apply";
-const password = "fictional_stack_only"; // pragma: allowlist secret — disposable fixture only
 const token = "fictional-profile-command-test-token";
 const contexts = [];
 let apiProcess,
   apiLog = "",
-  startedContainer = false,
+  postgres,
   nonGet = 0;
 const env = {
   PATH: process.env.PATH,
@@ -32,11 +35,6 @@ const env = {
   LANG: "en_US.UTF-8",
   PYTHONUNBUFFERED: "1",
 };
-function docker(...args) {
-  const result = spawnSync("docker", args, { encoding: "utf8" });
-  assert.equal(result.status, 0, result.stderr);
-  return result.stdout.trim();
-}
 async function freePort() {
   const server = createServer();
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -46,46 +44,16 @@ async function freePort() {
 }
 const quote = (value) => "'" + value.replaceAll("'", "'\\''") + "'";
 try {
-  docker(
-    "run",
-    "--pull=never",
-    "-d",
-    "--rm",
-    "--name",
-    container,
-    "-e",
-    `POSTGRES_PASSWORD=${password}`,
-    "-e",
-    "POSTGRES_DB=candidate_profile_test",
-    "-p",
-    "127.0.0.1::5432",
-    "postgres:17-alpine",
-  );
-  startedContainer = true;
-  const pgPort = Number(
-    docker("port", container, "5432/tcp").split(":").at(-1),
-  );
-  assert.ok(pgPort && ![5432, 54322].includes(pgPort));
-  let ready = false;
-  for (let i = 0; i < 80; i++) {
-    const result = spawnSync(
-      "docker",
-      ["exec", container, "pg_isready", "-h", "127.0.0.1", "-U", "postgres"],
-      { stdio: "ignore" },
-    );
-    if (result.status === 0) {
-      ready = true;
-      break;
-    }
-    await delay(250);
-  }
-  assert.ok(ready, "disposable PostgreSQL TCP listener");
+  postgres = await nativePostgresFixture(python);
   const apiPort = await freePort();
   const endpoint = `http://127.0.0.1:${apiPort}`;
   const config = join(temp, "fictional.private.env");
   const values = {
     ENVIRONMENT: "testing",
-    DATABASE_URL: `postgresql+asyncpg://postgres:${password}@127.0.0.1:${pgPort}/candidate_profile_test`,
+    DATABASE_URL: postgres.url.replace(
+      "postgresql://",
+      "postgresql+asyncpg://",
+    ),
     DATABASE_SCHEMA: "job_agent",
     DB_REMOTE_ONLY: "false",
     DB_REQUIRE_TLS: "false",
@@ -167,6 +135,7 @@ try {
   );
   const extension = join(temp, "extension");
   await cp(join(root, "extension/dist"), extension, { recursive: true });
+  const nativeHost = fixtureNativeHost(extension);
   const manifest = JSON.parse(
     await readFile(join(extension, "manifest.json"), "utf8"),
   );
@@ -183,9 +152,9 @@ try {
     const path = join(temp, name);
     await mkdir(join(path, "NativeMessagingHosts"), { recursive: true });
     await writeFile(
-      join(path, "NativeMessagingHosts/com.automated_apply.agent.json"),
+      join(path, `NativeMessagingHosts/${nativeHost}.json`),
       JSON.stringify({
-        name: "com.automated_apply.agent",
+        name: nativeHost,
         description: "Fictional isolated profile test",
         path: wrapper,
         type: "stdio",
@@ -194,7 +163,7 @@ try {
       { mode: 0o600 },
     );
     const context = await chromium.launchPersistentContext(path, {
-      channel: "chromium",
+      executablePath: fixtureExecutable(chromium),
       headless: true,
       env,
       args: [
@@ -501,15 +470,7 @@ try {
       "completed",
     );
     assert.equal(nonGet, 0);
-    const audit = docker(
-      "exec",
-      container,
-      "psql",
-      "-U",
-      "postgres",
-      "-d",
-      "candidate_profile_test",
-      "-Atc",
+    const audit = postgres.sql(
       "SELECT count(*) FROM job_agent.agent_operations WHERE command IN ('authorize_form','record_form_fill'); SELECT count(*) FROM job_agent.owner_preferences WHERE key LIKE 'ext_receipt:%'; SELECT count(*) FROM job_agent.application_packets WHERE lifecycle_state IN ('submitting','provider_confirmed_submitted','user_reported_submitted');",
     );
     assert.deepEqual(audit.split("\n"), ["0", "0", "0"]);
@@ -693,17 +654,7 @@ try {
       "UPDATE job_agent.owner_preferences SET value=jsonb_set(value::jsonb, '{last_heartbeat}', to_jsonb('2000-01-01T00:00:00+00:00'::text)) WHERE key='chr_prof:" +
       restarted.identity.id +
       "';";
-    docker(
-      "exec",
-      container,
-      "psql",
-      "-U",
-      "postgres",
-      "-d",
-      "candidate_profile_test",
-      "-c",
-      pg,
-    );
+    postgres.sql(pg);
     const listing = await api("browser/chrome-profiles");
     assert.equal(
       listing.profiles.find((value) => value.selected).status,
@@ -721,15 +672,7 @@ try {
     assert.equal(denied.detail, "PROFILE_OFFLINE");
     assert.equal(nonGet, 0);
     // Independent SQL verifies receipts, two distinct bindings, commands and no submission.
-    const receipt = docker(
-      "exec",
-      container,
-      "psql",
-      "-U",
-      "postgres",
-      "-d",
-      "candidate_profile_test",
-      "-Atc",
+    const receipt = postgres.sql(
       "SELECT count(*) FROM job_agent.owner_preferences WHERE key LIKE 'chr_prof:%'; SELECT count(*) FROM job_agent.owner_preferences WHERE key LIKE 'ext_task:%' AND jsonb_array_length(value::jsonb->'verified_receipts') > 0; SELECT count(*) FROM job_agent.owner_preferences WHERE key LIKE 'ext_receipt:%'; SELECT count(*) FROM job_agent.application_packets WHERE lifecycle_state IN ('submitting','provider_confirmed_submitted','user_reported_submitted');",
     );
     assert.deepEqual(receipt.split("\n"), ["2", "1", "1", "0"]);
@@ -743,7 +686,6 @@ try {
     apiProcess.kill("SIGTERM");
     await new Promise((resolve) => apiProcess.once("exit", resolve));
   }
-  if (startedContainer)
-    spawnSync("docker", ["rm", "-f", container], { stdio: "ignore" });
+  await postgres?.close();
   await rm(temp, { recursive: true, force: true });
 }

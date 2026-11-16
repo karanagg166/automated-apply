@@ -572,7 +572,7 @@ page(2);control.onclick=()=>menu.style.visibility='visible';menu.querySelector('
   const report = {
     fixture_only: true,
     browser: context.browser()?.version(),
-    engine: process.env.AUTOMATED_APPLY_TEST_BROWSER || "chromium",
+    engine: process.env.AUTOMATED_APPLY_TEST_BROWSER || "brave",
     cases: evidence.length,
     duration_ms: Math.round(performance.now() - started),
     live_naukri_requests: 0,

@@ -1,3 +1,4 @@
+import { fixtureExecutable } from "./browser-fixture-engine.mjs";
 // Actual installed React, an isolated CDP world and fictional intercepted pages.
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -47,7 +48,10 @@ const { chromium } = await import(
     ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href
     : "../../frontend/node_modules/@playwright/test/index.mjs"
 );
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  executablePath: fixtureExecutable(chromium),
+  headless: true,
+});
 let cases = 0,
   writes = 0;
 try {

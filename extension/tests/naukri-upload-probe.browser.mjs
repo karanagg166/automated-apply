@@ -1,3 +1,4 @@
+import { fixtureExecutable } from "./browser-fixture-engine.mjs";
 // Isolated actual Chromium, fictional pages/PDF only. No running Chrome profile.
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
@@ -26,7 +27,10 @@ let chooserEvents = 0;
 let cases = 0;
 const evidence = [];
 async function launch() {
-  browser = await chromium.launch({ headless: true });
+  browser = await chromium.launch({
+    executablePath: fixtureExecutable(chromium),
+    headless: true,
+  });
   context = await browser.newContext();
   await context.route("**/*", (route) => {
     if (new URL(route.request().url()).origin !== origin) {

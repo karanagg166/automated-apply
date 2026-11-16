@@ -1,9 +1,13 @@
+import { fixtureExecutable } from "./browser-fixture-engine.mjs";
 // Actual isolated Chromium; fictional intercepted pages only, no native host or owner data.
 import assert from "node:assert/strict";
 import { chromium } from "../../frontend/node_modules/@playwright/test/index.mjs";
 import { formDOM } from "../form-dom.js";
 
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  executablePath: fixtureExecutable(chromium),
+  headless: true,
+});
 try {
   const page = await browser.newPage();
   let writes = 0;

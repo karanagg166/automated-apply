@@ -1,3 +1,4 @@
+import { fixtureExecutable } from "./browser-fixture-engine.mjs";
 // Actual isolated extension reload; fictional native status, no owner Chrome.
 import assert from "node:assert/strict";
 import {
@@ -58,7 +59,7 @@ writeFileSync(
   JSON.stringify({ extensions: { ui: { developer_mode: false } } }),
 );
 const child = spawn(
-  chromium.executablePath(),
+  fixtureExecutable(chromium),
   [
     "--headless=new",
     "--no-first-run",

@@ -1,8 +1,12 @@
+import { fixtureExecutable } from "./browser-fixture-engine.mjs";
 // Controlled fictional multipage employer journey, no real destination or submission.
 import assert from "node:assert/strict";
 import { chromium } from "../../frontend/node_modules/@playwright/test/index.mjs";
 import { formDOM } from "../form-dom.js";
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  executablePath: fixtureExecutable(chromium),
+  headless: true,
+});
 let nonGet = 0;
 try {
   const page = await browser.newPage();

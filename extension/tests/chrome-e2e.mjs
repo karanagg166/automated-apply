@@ -1,4 +1,10 @@
-// Autonomous real Chrome for Testing + Native Messaging Host + FastAPI + PostgreSQL 17 E2E suite.
+import { nativePostgresFixture } from "./native-postgres-fixture.mjs";
+import {
+  fixtureExecutable,
+  fixtureNativeHost,
+  fixtureEngine,
+} from "./browser-fixture-engine.mjs";
+// Real isolated Brave/Edge + Native Messaging Host + FastAPI + native PostgreSQL 17 E2E suite.
 // Coordinates via macOS fcntl.flock on /tmp/automated-apply-heavy-tests.lock.
 // Uses an isolated Chrome profile, disposable FastAPI port, and disposable PostgreSQL 17.
 import assert from "node:assert/strict";
@@ -29,7 +35,9 @@ const LOCK_PATH = "/tmp/automated-apply-heavy-tests.lock";
 async function loadPlaywright() {
   const candidates = [
     "@playwright/test",
-    pathToFileURL(resolve(repoRoot, "frontend/node_modules/@playwright/test/index.mjs")).href,
+    pathToFileURL(
+      resolve(repoRoot, "frontend/node_modules/@playwright/test/index.mjs"),
+    ).href,
   ];
   for (const spec of candidates) {
     try {
@@ -88,12 +96,23 @@ export function buildSanitizedChildEnv(overrides = {}) {
   return { ...clean, ...overrides };
 }
 
-export function assertDisposableLocalDatabaseUrl(rawUrl, expectedPort, expectedDbName = "candidate_profile_test", expectedUser = null) {
+export function assertDisposableLocalDatabaseUrl(
+  rawUrl,
+  expectedPort,
+  expectedDbName = "candidate_profile_test",
+  expectedUser = null,
+) {
   if (typeof rawUrl !== "string" || !rawUrl.trim()) {
     throw new Error("Refusing empty database URL for disposable E2E harness");
   }
-  if (/(supabase|pooler|amazonaws|neon\.tech|railway|render\.com|rds\.|sslmode=require)/i.test(rawUrl)) {
-    throw new Error("Refusing nonlocal or Supabase/cloud database URL in disposable E2E harness");
+  if (
+    /(supabase|pooler|amazonaws|neon\.tech|railway|render\.com|rds\.|sslmode=require)/i.test(
+      rawUrl,
+    )
+  ) {
+    throw new Error(
+      "Refusing nonlocal or Supabase/cloud database URL in disposable E2E harness",
+    );
   }
   const normalized = rawUrl.startsWith("postgresql+asyncpg://")
     ? "postgresql://" + rawUrl.slice("postgresql+asyncpg://".length)
@@ -102,15 +121,23 @@ export function assertDisposableLocalDatabaseUrl(rawUrl, expectedPort, expectedD
   try {
     parsed = new URL(normalized);
   } catch {
-    throw new Error("Refusing unparseable database URL in disposable E2E harness");
+    throw new Error(
+      "Refusing unparseable database URL in disposable E2E harness",
+    );
   }
   if (parsed.protocol !== "postgresql:") {
-    throw new Error(`Refusing unexpected database protocol: ${parsed.protocol}`);
+    throw new Error(
+      `Refusing unexpected database protocol: ${parsed.protocol}`,
+    );
   }
   if (parsed.hostname !== "127.0.0.1") {
     throw new Error(`Refusing non-loopback database host: ${parsed.hostname}`);
   }
-  if (Number(parsed.port) !== expectedPort || expectedPort === 5432 || expectedPort === 54322) {
+  if (
+    Number(parsed.port) !== expectedPort ||
+    expectedPort === 5432 ||
+    expectedPort === 54322
+  ) {
     throw new Error(`Refusing non-disposable database port: ${parsed.port}`);
   }
   if (parsed.pathname !== `/${expectedDbName}`) {
@@ -120,7 +147,9 @@ export function assertDisposableLocalDatabaseUrl(rawUrl, expectedPort, expectedD
     throw new Error(`Refusing unexpected database user: ${parsed.username}`);
   }
   if (parsed.search || parsed.hash) {
-    throw new Error("Refusing database URL with query parameters or fragments in disposable E2E harness");
+    throw new Error(
+      "Refusing database URL with query parameters or fragments in disposable E2E harness",
+    );
   }
   return rawUrl;
 }
@@ -135,10 +164,16 @@ function acquireFlock(python, lockPath) {
       "sys.stdout.flush()",
       "signal.pause()",
     ].join("; ");
-    const child = spawn(python, ["-c", script, lockPath], { stdio: ["pipe", "pipe", "ignore"] });
+    const child = spawn(python, ["-c", script, lockPath], {
+      stdio: ["pipe", "pipe", "ignore"],
+    });
     const timer = setTimeout(() => {
       child.kill();
-      rejectLock(new Error("Timed out waiting for /tmp/automated-apply-heavy-tests.lock"));
+      rejectLock(
+        new Error(
+          "Timed out waiting for /tmp/automated-apply-heavy-tests.lock",
+        ),
+      );
     }, 300000);
     child.stdout.on("data", (chunk) => {
       if (chunk.toString("utf8").includes("LOCKED")) {
@@ -161,12 +196,23 @@ function acquireFlock(python, lockPath) {
   });
 }
 
-function runFrameProbe(python, envPath, origin, rawBuffer, closeStdin = true, timeoutMs = 15000) {
+function runFrameProbe(
+  python,
+  envPath,
+  origin,
+  rawBuffer,
+  closeStdin = true,
+  timeoutMs = 15000,
+) {
   return new Promise((resolveProbe, rejectProbe) => {
     const child = spawn(
       python,
       ["-m", "backend.app.local_agent.native_host", envPath, origin],
-      { cwd: repoRoot, env: buildSanitizedChildEnv(), stdio: ["pipe", "pipe", "ignore"] },
+      {
+        cwd: repoRoot,
+        env: buildSanitizedChildEnv(),
+        stdio: ["pipe", "pipe", "ignore"],
+      },
     );
     const timer = setTimeout(() => {
       child.kill();
@@ -180,7 +226,9 @@ function runFrameProbe(python, envPath, origin, rawBuffer, closeStdin = true, ti
         if (output.length >= len + 4) {
           clearTimeout(timer);
           child.stdin.end();
-          resolveProbe(JSON.parse(output.subarray(4, len + 4).toString("utf8")));
+          resolveProbe(
+            JSON.parse(output.subarray(4, len + 4).toString("utf8")),
+          );
         }
       }
     });
@@ -223,33 +271,54 @@ async function main() {
   const python = findPython();
 
   // Step 0: Build unpacked extension into extension/dist
-  const buildRun = spawnSync("node", ["build.mjs"], { cwd: extensionRoot, encoding: "utf8" });
-  assert.equal(buildRun.status, 0, `extension build failed: ${buildRun.stderr}`);
+  const buildRun = spawnSync(
+    "node",
+    ["build.mjs", `--browser=${fixtureEngine()}`],
+    { cwd: extensionRoot, encoding: "utf8" },
+  );
+  assert.equal(
+    buildRun.status,
+    0,
+    `extension build failed: ${buildRun.stderr}`,
+  );
   const distDir = join(extensionRoot, "dist");
-  const manifest = JSON.parse(readFileSync(join(distDir, "manifest.json"), "utf8"));
-  assert.equal(manifest.version, "1.2.2");
-  const keyHash = createHash("sha256").update(Buffer.from(manifest.key, "base64")).digest("hex").slice(0, 32);
-  const derivedId = [...keyHash].map((c) => String.fromCharCode(97 + Number.parseInt(c, 16))).join("");
+  const manifest = JSON.parse(
+    readFileSync(join(distDir, "manifest.json"), "utf8"),
+  );
+  assert.equal(
+    manifest.version,
+    JSON.parse(readFileSync(join(extensionRoot, "manifest.json"), "utf8"))
+      .version,
+  );
+  const nativeHost = fixtureNativeHost(distDir);
+  const keyHash = createHash("sha256")
+    .update(Buffer.from(manifest.key, "base64"))
+    .digest("hex")
+    .slice(0, 32);
+  const derivedId = [...keyHash]
+    .map((c) => String.fromCharCode(97 + Number.parseInt(c, 16)))
+    .join("");
   assert.equal(derivedId, EXPECTED_ID);
 
   const lock = await acquireFlock(python, LOCK_PATH);
-  const baseDir = mkdtempSync(join(tmpdir(), "automated-apply-agy-chrome-e2e-"));
+  const baseDir = mkdtempSync(
+    join(tmpdir(), "automated-apply-agy-chrome-e2e-"),
+  );
   chmodSync(baseDir, 0o700);
 
-  const pgContainerName = `automated-apply-agy-ext-pg-${process.pid}-${Date.now()}`;
-  const pgPort = 55449;
+  let postgres;
+  let pgPort;
   const apiPort = 18095;
   const slowProxyPort = 18096;
   const refusedPort = 18099;
 
-  let startedContainer = false;
   let apiProcess = null;
   let slowProxyServer = null;
   let context = null;
 
   const report = {
-    evidence_type: "actual-chrome-for-testing-mv3-native-fastapi-postgresql17",
-    profile: "isolated_chrome_for_testing",
+    evidence_type: "actual-selected-browser-mv3-native-fastapi-postgresql17",
+    profile: `isolated_${fixtureEngine()}`,
     extension_version: manifest.version,
     stable_extension_id: derivedId,
     advisory_lock: LOCK_PATH,
@@ -257,10 +326,10 @@ async function main() {
     disposable_pg_port: pgPort,
     execution_model: {
       real_browser_and_runtime: [
-        "Chrome for Testing launched with --load-extension and isolated profile",
+        "Selected Brave/Edge launched headlessly with --load-extension and isolated profile",
         "MV3 background service worker install, chrome://extensions reload, CDP stopAllWorkers suspension/recovery, and browser restart",
         "Real Chrome Native Messaging over OS stdio pipes to backend.app.local_agent.native_host",
-        "Real loopback FastAPI service and disposable Docker PostgreSQL 17 container on 127.0.0.1:55449",
+        "Real loopback FastAPI service and owned native PostgreSQL 17 cluster on a temporary loopback port",
         "Real DOM clicks on #check in settings.html and #repair, #preview, #observe in popup.html",
       ],
       simulated_page_content: [
@@ -287,7 +356,11 @@ async function main() {
       apiProcess.kill("SIGTERM");
       await new Promise((r) => {
         const t = setTimeout(() => {
-          try { apiProcess.kill("SIGKILL"); } catch { /* ignore */ }
+          try {
+            apiProcess.kill("SIGKILL");
+          } catch {
+            /* ignore */
+          }
           r();
         }, 5000);
         apiProcess.once("exit", () => {
@@ -300,61 +373,33 @@ async function main() {
   };
 
   try {
-    // Always create and use ONLY our own disposable PostgreSQL 17 container on 127.0.0.1:55449.
-    // Never accept ambient PHASE1_DISPOSABLE_DATABASE_URL or DATABASE_URL from process.env.
-    const dockerRun = spawnSync(
-      "docker",
-      [
-        "run",
-        "-d",
-        "--rm",
-        "--name",
-        pgContainerName,
-        "-e",
-        "POSTGRES_PASSWORD=phase1_agy_disposable",
-        "-e",
-        "POSTGRES_DB=candidate_profile_test",
-        "-p",
-        `127.0.0.1:${pgPort}:5432`,
-        "postgres:17-alpine",
-      ],
-      { encoding: "utf8" },
-    );
-    assert.equal(dockerRun.status, 0, `Failed to start disposable postgres container: ${dockerRun.stderr}`);
-    startedContainer = true;
-    let pgReady = false;
-    for (let i = 0; i < 60; i += 1) {
-      const ready = spawnSync(
-        "docker",
-        ["exec", "-e", "PGPASSWORD=phase1_agy_disposable", pgContainerName, "psql", "-h", "127.0.0.1", "-U", "postgres", "-d", "candidate_profile_test", "-c", "SELECT 1"],
-        { stdio: "ignore" },
-      );
-      if (ready.status === 0) {
-        pgReady = true;
-        break;
-      }
-      await new Promise((r) => setTimeout(r, 250));
-    }
-    assert.equal(pgReady, true, "Disposable postgres TCP listener did not become ready");
-    const pgAuth = ["postgres", "phase1_agy_disposable"].join(":");
+    postgres = await nativePostgresFixture(python);
+    pgPort = postgres.port;
+    report.disposable_pg_port = pgPort;
     const adminDbUrl = assertDisposableLocalDatabaseUrl(
-      `postgresql://${pgAuth}@127.0.0.1:${pgPort}/candidate_profile_test`,
+      postgres.url,
       pgPort,
       "candidate_profile_test",
       "postgres",
     );
 
-    // Bootstrap public schema & restricted runtime role job_agent_runtime against verified disposable container
+    // Bootstrap public schema & restricted runtime role job_agent_runtime against owned disposable cluster
     const bootstrapRun = spawnSync(
       python,
       ["backend/scripts/phase1/verify_public.py", "--bootstrap"],
       {
         cwd: repoRoot,
-        env: buildSanitizedChildEnv({ PHASE1_DISPOSABLE_DATABASE_URL: adminDbUrl }),
+        env: buildSanitizedChildEnv({
+          PHASE1_DISPOSABLE_DATABASE_URL: adminDbUrl,
+        }),
         encoding: "utf8",
       },
     );
-    assert.equal(bootstrapRun.status, 0, `verify_public bootstrap failed: ${bootstrapRun.stderr}`);
+    assert.equal(
+      bootstrapRun.status,
+      0,
+      `verify_public bootstrap failed: ${bootstrapRun.stderr}`,
+    );
 
     const envFile = join(baseDir, "disposable.private.env");
     const prepRun = spawnSync(
@@ -362,18 +407,27 @@ async function main() {
       ["backend/scripts/phase1/prepare_disposable.py", "--output", envFile],
       {
         cwd: repoRoot,
-        env: buildSanitizedChildEnv({ PHASE1_DISPOSABLE_DATABASE_URL: adminDbUrl }),
+        env: buildSanitizedChildEnv({
+          PHASE1_DISPOSABLE_DATABASE_URL: adminDbUrl,
+        }),
         encoding: "utf8",
       },
     );
-    assert.equal(prepRun.status, 0, `prepare_disposable failed: ${prepRun.stderr}`);
+    assert.equal(
+      prepRun.status,
+      0,
+      `prepare_disposable failed: ${prepRun.stderr}`,
+    );
 
     const writeEnvConfig = (targetPath, overrides = {}) => {
       const baseText = readFileSync(envFile, "utf8");
       const map = {};
       for (const line of baseText.split("\n")) {
         const idx = line.indexOf("=");
-        if (idx > 0) map[line.slice(0, idx).trim()] = JSON.parse(line.slice(idx + 1).trim());
+        if (idx > 0)
+          map[line.slice(0, idx).trim()] = JSON.parse(
+            line.slice(idx + 1).trim(),
+          );
       }
       assertDisposableLocalDatabaseUrl(
         map.DATABASE_URL,
@@ -385,9 +439,10 @@ async function main() {
       map.CHROME_EXTENSION_ID = EXPECTED_ID;
       map.CHROME_NATIVE_MESSAGING_ENABLED = "true";
       Object.assign(map, overrides);
-      const serialized = Object.entries(map)
-        .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
-        .join("\n") + "\n";
+      const serialized =
+        Object.entries(map)
+          .map(([k, v]) => `${k}=${JSON.stringify(v)}`)
+          .join("\n") + "\n";
       writeFileSync(targetPath, serialized, { mode: 0o600 });
       chmodSync(targetPath, 0o600);
       return map;
@@ -401,10 +456,19 @@ async function main() {
     const startApi = async () => {
       apiProcess = spawn(
         python,
-        ["backend/scripts/phase1/local_service.py", "api", "--env-file", activeEnvPath],
+        [
+          "backend/scripts/phase1/local_service.py",
+          "api",
+          "--env-file",
+          activeEnvPath,
+        ],
         { cwd: repoRoot, env: buildSanitizedChildEnv(), stdio: "ignore" },
       );
-      const ready = await waitForHttpReady(`http://127.0.0.1:${apiPort}/ready`, 60, 200);
+      const ready = await waitForHttpReady(
+        `http://127.0.0.1:${apiPort}/ready`,
+        60,
+        200,
+      );
       assert.equal(ready, true, "Disposable FastAPI failed to become ready");
     };
 
@@ -415,7 +479,7 @@ async function main() {
     const hostsDir = join(profileDir, "NativeMessagingHosts");
     mkdirSync(hostsDir, { recursive: true, mode: 0o700 });
     const wrapperPath = join(baseDir, "native-host");
-    const hostManifestPath = join(hostsDir, "com.automated_apply.agent.json");
+    const hostManifestPath = join(hostsDir, `${nativeHost}.json`);
 
     const bindWrapper = (configPath) => {
       writeFileSync(
@@ -428,13 +492,15 @@ async function main() {
 
     const writeHostManifest = (allowedExtensionId = EXPECTED_ID) => {
       const doc = {
-        name: "com.automated_apply.agent",
+        name: nativeHost,
         description: "Isolated AGY Chrome extension E2E host",
         type: "stdio",
         path: wrapperPath,
         allowed_origins: [`chrome-extension://${allowedExtensionId}/`],
       };
-      writeFileSync(hostManifestPath, JSON.stringify(doc, null, 2), { mode: 0o600 });
+      writeFileSync(hostManifestPath, JSON.stringify(doc, null, 2), {
+        mode: 0o600,
+      });
       chmodSync(hostManifestPath, 0o600);
     };
 
@@ -443,9 +509,12 @@ async function main() {
 
     const launchChrome = async (extPath = distDir) => {
       context = await chromium.launchPersistentContext(profileDir, {
-        channel: "chromium",
+        executablePath: fixtureExecutable(chromium),
         headless: true,
-        args: [`--disable-extensions-except=${extPath}`, `--load-extension=${extPath}`],
+        args: [
+          `--disable-extensions-except=${extPath}`,
+          `--load-extension=${extPath}`,
+        ],
       });
       report.browser_version = await context.browser().version();
       const worker =
@@ -460,7 +529,10 @@ async function main() {
     const installRoutes = async (ctx) => {
       await ctx.route("**/*", async (route) => {
         const reqUrl = route.request().url();
-        if (route.request().method() === "POST" && reqUrl.includes("docs.google.com/forms")) {
+        if (
+          route.request().method() === "POST" &&
+          reqUrl.includes("docs.google.com/forms")
+        ) {
           report.form_post_requests += 1;
         }
         if (reqUrl.startsWith("https://example.org/")) {
@@ -545,21 +617,32 @@ async function main() {
     assert.equal(healthHttp.status, 200);
     const settingsPage = await context.newPage();
     await settingsPage.goto(`chrome-extension://${EXPECTED_ID}/settings.html`);
-    await expect(settingsPage.locator("#identity")).toContainText(`Extension ID: ${EXPECTED_ID}`);
+    await expect(settingsPage.locator("#identity")).toContainText(
+      `Extension ID: ${EXPECTED_ID}`,
+    );
     await settingsPage.locator("#check").click();
     // Match the settings/native request budget rather than the default 5s assertion.
-    await expect(settingsPage.locator("#endpoint")).toContainText(`Active endpoint: http://127.0.0.1:${apiPort}`, { timeout: 45000 });
+    await expect(settingsPage.locator("#endpoint")).toContainText(
+      `Active endpoint: http://127.0.0.1:${apiPort}`,
+      { timeout: 45000 },
+    );
     const capabilitiesCheck = await settingsPage.evaluate(async () => {
-      const cap = await chrome.runtime.sendNativeMessage("com.automated_apply.agent", {
-        version: 1,
-        request_id: crypto.randomUUID(),
-        command: "get_agent_capabilities",
-      });
-      const conn = await chrome.runtime.sendNativeMessage("com.automated_apply.agent", {
-        version: 1,
-        request_id: crypto.randomUUID(),
-        command: "connection_status",
-      });
+      const cap = await chrome.runtime.sendNativeMessage(
+        "com.automated_apply.agent",
+        {
+          version: 1,
+          request_id: crypto.randomUUID(),
+          command: "get_agent_capabilities",
+        },
+      );
+      const conn = await chrome.runtime.sendNativeMessage(
+        "com.automated_apply.agent",
+        {
+          version: 1,
+          request_id: crypto.randomUUID(),
+          command: "connection_status",
+        },
+      );
       return { cap, conn };
     });
     assert.equal(capabilitiesCheck.cap.ok, true);
@@ -567,7 +650,10 @@ async function main() {
     assert.equal(capabilitiesCheck.cap.data.email_sending, false);
     assert.equal(capabilitiesCheck.cap.data.paid_calls, false);
     assert.equal(capabilitiesCheck.conn.ok, true);
-    report.preview_correlations.push(capabilitiesCheck.cap.correlation_id, capabilitiesCheck.conn.correlation_id);
+    report.preview_correlations.push(
+      capabilitiesCheck.cap.correlation_id,
+      capabilitiesCheck.conn.correlation_id,
+    );
     await settingsPage.close();
     report.cases_passed.push("3_native_host_discovery");
     report.cases_passed.push("4_backend_health_and_ping");
@@ -576,7 +662,9 @@ async function main() {
     const appPage = context.pages()[0] || (await context.newPage());
     const popupPage = await context.newPage();
     await popupPage.goto(`chrome-extension://${EXPECTED_ID}/popup.html`);
-    await popupPage.getByText("Connection and URL preview", { exact: true }).click();
+    await popupPage
+      .getByText("Connection and URL preview", { exact: true })
+      .click();
 
     const runPreviewOnPage = async (url) => {
       if (url) await appPage.goto(url, { waitUntil: "domcontentloaded" });
@@ -592,16 +680,21 @@ async function main() {
     };
 
     // CASE 5: Ordinary HTTPS page preview
-    const ordinaryRes = await runPreviewOnPage("https://example.org/jobs/software-engineer");
+    const ordinaryRes = await runPreviewOnPage(
+      "https://example.org/jobs/software-engineer",
+    );
     assert.equal(ordinaryRes.ok, true);
     assert.equal(ordinaryRes.data.platform, "employer_forms");
     assert.equal(ordinaryRes.data.submitted, false);
     assert.equal(ordinaryRes.data.page_inspected, false);
-    await expect(popupPage.locator("#status")).toContainText("URL preview saved. Use Prepare answers to answer the form. No application submitted.");
+    await expect(popupPage.locator("#status")).toContainText(
+      "URL preview saved. Use Prepare answers to answer the form. No application submitted.",
+    );
     report.cases_passed.push("5_ordinary_https_page_preview");
 
     // CASE 6 & 23: Non-sensitive Google Forms preview & No unauthorized form submission
-    const formUrl = "https://docs.google.com/forms/d/e/1FAIpQLSf_phase1_qa/viewform";
+    const formUrl =
+      "https://docs.google.com/forms/d/e/1FAIpQLSf_phase1_qa/viewform";
     const formRes = await runPreviewOnPage(formUrl);
     assert.equal(formRes.ok, true);
     assert.equal(formRes.data.platform, "google_forms");
@@ -615,7 +708,8 @@ async function main() {
     report.cases_passed.push("23_no_unauthorized_form_submission");
 
     // CASE 7: Google Forms redirects (both interstitial redirect notice and HTTP 302 redirect, plus unsafe redirect rejection)
-    const redirectTargetForm = "https://docs.google.com/forms/d/e/1FAIpQLSf_redirected_qa/viewform";
+    const redirectTargetForm =
+      "https://docs.google.com/forms/d/e/1FAIpQLSf_redirected_qa/viewform";
     const interstitialRedirectUrl = `https://www.google.com/url?q=${encodeURIComponent(redirectTargetForm)}&sa=D`;
     const interstitialRes = await runPreviewOnPage(interstitialRedirectUrl);
     assert.equal(interstitialRes.ok, true);
@@ -623,7 +717,8 @@ async function main() {
     assert.equal(interstitialRes.data.url, redirectTargetForm);
     assert.equal(interstitialRes.data.submitted, false);
 
-    const http302RedirectTarget = "https://docs.google.com/forms/d/e/1FAIpQLSf_http302_qa/viewform";
+    const http302RedirectTarget =
+      "https://docs.google.com/forms/d/e/1FAIpQLSf_http302_qa/viewform";
     const http302RedirectUrl = `https://www.google.com/url?mode=auto&q=${encodeURIComponent(http302RedirectTarget)}`;
     await appPage.goto(http302RedirectUrl, { waitUntil: "domcontentloaded" });
     await appPage.waitForURL(http302RedirectTarget, { timeout: 10000 });
@@ -638,7 +733,9 @@ async function main() {
       const mod = await import(chrome.runtime.getURL("preview.js"));
       return await mod.preview({
         id: 101,
-        url: "https://www.google.com/url?q=" + encodeURIComponent("http://127.0.0.1:8000/internal"),
+        url:
+          "https://www.google.com/url?q=" +
+          encodeURIComponent("http://127.0.0.1:8000/internal"),
       });
     });
     assert.equal(unsafeRedirectRes.ok, false);
@@ -651,22 +748,45 @@ async function main() {
         const visible = (element) =>
           !!element?.getClientRects().length &&
           (typeof element.checkVisibility !== "function" ||
-            element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }));
+            element.checkVisibility({
+              checkOpacity: true,
+              checkVisibilityCSS: true,
+            }));
         const linkedLogout = [
-          ...document.querySelectorAll('a[href*="logout"],a[href*="sign_out"],button[data-action="logout"]'),
+          ...document.querySelectorAll(
+            'a[href*="logout"],a[href*="sign_out"],button[data-action="logout"]',
+          ),
         ].some(visible);
-        const labelledLogout = [...document.querySelectorAll('a,button,[role="button"],[role="menuitem"]')]
+        const labelledLogout = [
+          ...document.querySelectorAll(
+            'a,button,[role="button"],[role="menuitem"]',
+          ),
+        ]
           .slice(0, 500)
           .some((element) => {
             if (!visible(element)) return false;
-            const label = (element.getAttribute?.("aria-label") || element.innerText || element.textContent || "").trim();
-            if (/^(?:log\s*-?\s*out|sign\s*-?\s*out)$/i.test(label)) return true;
+            const label = (
+              element.getAttribute?.("aria-label") ||
+              element.innerText ||
+              element.textContent ||
+              ""
+            ).trim();
+            if (/^(?:log\s*-?\s*out|sign\s*-?\s*out)$/i.test(label))
+              return true;
             const href = (element.getAttribute?.("href") || "").trim();
-            return /(?:^|[/?#&=_])(?:log[-_]?out|sign[-_]?out)(?:$|[/?#&])/i.test(href);
+            return /(?:^|[/?#&=_])(?:log[-_]?out|sign[-_]?out)(?:$|[/?#&])/i.test(
+              href,
+            );
           });
         const signedIn = linkedLogout || labelledLogout;
-        const password = [...document.querySelectorAll('input[type="password"]')].some(visible);
-        return signedIn && !password ? "signed_in_indicator" : password && !signedIn ? "login_required" : "unverifiable";
+        const password = [
+          ...document.querySelectorAll('input[type="password"]'),
+        ].some(visible);
+        return signedIn && !password
+          ? "signed_in_indicator"
+          : password && !signedIn
+            ? "login_required"
+            : "unverifiable";
       });
       const currentUrl = appPage.url();
       const obsRes = await popupPage.evaluate(
@@ -685,42 +805,76 @@ async function main() {
         },
         { tabUrl: currentUrl, indicator: domIndicator },
       );
-      if (obsRes.ok) report.observation_correlations.push(obsRes.correlation_id);
+      if (obsRes.ok)
+        report.observation_correlations.push(obsRes.correlation_id);
       return obsRes;
     };
 
     // CASE 8: Popup interaction (real button clicks on #repair, #preview, #observe, and portal session indicator checks)
     await popupPage.locator("#repair").click();
-    await expect(popupPage.locator("#menu-status")).toContainText("Right-click menu registered for HTTPS pages.");
+    await expect(popupPage.locator("#menu-status")).toContainText(
+      "Right-click menu registered for HTTPS pages.",
+    );
 
     // Exercise real #preview and #observe button clicks in popup.html (when popupPage is active tab, activeTab is chrome-extension://)
     await popupPage.locator("#preview").click();
-    await expect(popupPage.locator("#status")).toContainText("unsupported_page");
+    await expect(popupPage.locator("#status")).toContainText(
+      "unsupported_page",
+    );
     await popupPage.locator("#observe").click();
-    await expect(popupPage.locator("#observation")).toContainText("Open a supported job portal in the active tab");
+    await expect(popupPage.locator("#observation")).toContainText(
+      "Open a supported job portal in the active tab",
+    );
 
     // Exercise portal session indicator detection across all 3 states on https://www.naukri.com/mnjuser/homepage
     for (const [mode, expectedObs, expectedState, expectedSnippet] of [
-      ["login_required", "login_required", "owner_action_required", "A login form is visible."],
-      ["signed_in", "signed_in_indicator", "browser_session_observed", "A visible sign-in indicator was observed and saved."],
-      ["unverifiable", "unverifiable", "owner_action_required", "no supported visible sign-in indicator was found"],
+      [
+        "login_required",
+        "login_required",
+        "owner_action_required",
+        "A login form is visible.",
+      ],
+      [
+        "signed_in",
+        "signed_in_indicator",
+        "browser_session_observed",
+        "A visible sign-in indicator was observed and saved.",
+      ],
+      [
+        "unverifiable",
+        "unverifiable",
+        "owner_action_required",
+        "no supported visible sign-in indicator was found",
+      ],
     ]) {
       portalFixtureMode = mode;
-      const obsRes = await runObserveOnPortalPage(`https://www.naukri.com/mnjuser/homepage?mode=${mode}`);
-      assert.equal(obsRes.ok, true, `observeSession failed for ${mode}: ${JSON.stringify(obsRes)}`);
+      const obsRes = await runObserveOnPortalPage(
+        `https://www.naukri.com/mnjuser/homepage?mode=${mode}`,
+      );
+      assert.equal(
+        obsRes.ok,
+        true,
+        `observeSession failed for ${mode}: ${JSON.stringify(obsRes)}`,
+      );
       assert.equal(obsRes.data.observation, expectedObs);
       assert.equal(obsRes.data.state, expectedState);
       assert.equal(obsRes.data.api_connected, false);
       assert.equal(obsRes.data.identity_verified, false);
-      await expect(popupPage.locator("#observation")).toContainText(expectedSnippet);
+      await expect(popupPage.locator("#observation")).toContainText(
+        expectedSnippet,
+      );
     }
     report.cases_passed.push("8_popup_interaction");
 
     // CASE 9: Context-menu interaction
     // Verify context menu item is live in Chrome's registry and dispatch context-menu preview for linkUrl
     await worker.evaluate(async () => {
-      await chrome.contextMenus.update("automated-apply-preview", { enabled: true });
-      await chrome.contextMenus.update("automated-apply-answer-fields", { enabled: true });
+      await chrome.contextMenus.update("automated-apply-preview", {
+        enabled: true,
+      });
+      await chrome.contextMenus.update("automated-apply-answer-fields", {
+        enabled: true,
+      });
     });
     const menuRes = await popupPage.evaluate(async () => {
       const mod = await import(chrome.runtime.getURL("preview.js"));
@@ -736,7 +890,9 @@ async function main() {
     report.cases_passed.push("9_context_menu_interaction");
 
     // CASE 10: Page refresh
-    await appPage.goto("https://example.org/refresh-target", { waitUntil: "domcontentloaded" });
+    await appPage.goto("https://example.org/refresh-target", {
+      waitUntil: "domcontentloaded",
+    });
     const beforeRefresh = await runPreviewOnPage();
     assert.equal(beforeRefresh.ok, true);
     await appPage.reload({ waitUntil: "domcontentloaded" });
@@ -751,42 +907,62 @@ async function main() {
     await cdp.send("ServiceWorker.enable");
     await cdp.send("ServiceWorker.stopAllWorkers");
     await popupPage.reload();
-    await popupPage.getByText("Connection and URL preview", { exact: true }).click();
+    await popupPage
+      .getByText("Connection and URL preview", { exact: true })
+      .click();
     await popupPage.locator("#repair").click();
-    await expect(popupPage.locator("#menu-status")).toContainText("Right-click menu registered for HTTPS pages.");
+    await expect(popupPage.locator("#menu-status")).toContainText(
+      "Right-click menu registered for HTTPS pages.",
+    );
     worker =
       context.serviceWorkers().find((w) => w.url().includes(EXPECTED_ID)) ||
       (await context.waitForEvent("serviceworker", { timeout: 10000 }));
-    const postWakeRes = await runPreviewOnPage("https://example.org/after-worker-wake");
+    const postWakeRes = await runPreviewOnPage(
+      "https://example.org/after-worker-wake",
+    );
     assert.equal(postWakeRes.ok, true);
     await cdp.detach();
     report.cases_passed.push("11_service_worker_suspension_recovery");
 
     // CASE 13 & 14: Backend unavailable & Backend recovery (both preview and portal session observation)
     const offlineEnvPath = join(baseDir, "offline.private.env");
-    writeEnvConfig(offlineEnvPath, { LOCAL_AGENT_ENDPOINT: `http://127.0.0.1:${refusedPort}` });
+    writeEnvConfig(offlineEnvPath, {
+      LOCAL_AGENT_ENDPOINT: `http://127.0.0.1:${refusedPort}`,
+    });
     bindWrapper(offlineEnvPath);
 
-    const offlinePreview = await runPreviewOnPage("https://example.org/while-backend-offline");
+    const offlinePreview = await runPreviewOnPage(
+      "https://example.org/while-backend-offline",
+    );
     assert.equal(offlinePreview.ok, false);
     assert.equal(offlinePreview.error_code, "backend_offline");
     await expect(popupPage.locator("#status")).toContainText("backend_offline");
 
     portalFixtureMode = "signed_in";
-    const offlineObs = await runObserveOnPortalPage("https://www.naukri.com/mnjuser/offline-check");
+    const offlineObs = await runObserveOnPortalPage(
+      "https://www.naukri.com/mnjuser/offline-check",
+    );
     assert.equal(offlineObs.ok, false);
     assert.equal(offlineObs.error_code, "backend_offline");
-    await expect(popupPage.locator("#observation")).toContainText("The local backend is offline.");
+    await expect(popupPage.locator("#observation")).toContainText(
+      "The local backend is offline.",
+    );
     report.cases_passed.push("13_backend_unavailable");
 
     // Restore backend config and verify immediate recovery on the exact same URLs
     bindWrapper(activeEnvPath);
-    const recoveredObs = await runObserveOnPortalPage("https://www.naukri.com/mnjuser/offline-check");
+    const recoveredObs = await runObserveOnPortalPage(
+      "https://www.naukri.com/mnjuser/offline-check",
+    );
     assert.equal(recoveredObs.ok, true);
 
-    const recoveredPreview = await runPreviewOnPage("https://example.org/while-backend-offline");
+    const recoveredPreview = await runPreviewOnPage(
+      "https://example.org/while-backend-offline",
+    );
     assert.equal(recoveredPreview.ok, true);
-    await expect(popupPage.locator("#status")).toContainText("URL preview saved. Use Prepare answers to answer the form. No application submitted.");
+    await expect(popupPage.locator("#status")).toContainText(
+      "URL preview saved. Use Prepare answers to answer the form. No application submitted.",
+    );
     report.cases_passed.push("14_backend_recovery");
 
     // CASE 15: Slow API responses (1.2s delayed proxy -> coalesced concurrent calls + clean completion)
@@ -816,19 +992,30 @@ async function main() {
         }, 1200);
       });
     });
-    await new Promise((r) => slowProxyServer.listen(slowProxyPort, "127.0.0.1", r));
+    await new Promise((r) =>
+      slowProxyServer.listen(slowProxyPort, "127.0.0.1", r),
+    );
     const slowEnvPath = join(baseDir, "slow.private.env");
-    writeEnvConfig(slowEnvPath, { LOCAL_AGENT_ENDPOINT: `http://127.0.0.1:${slowProxyPort}` });
+    writeEnvConfig(slowEnvPath, {
+      LOCAL_AGENT_ENDPOINT: `http://127.0.0.1:${slowProxyPort}`,
+    });
     bindWrapper(slowEnvPath);
 
     const slowStarted = Date.now();
     const slowPair = await popupPage.evaluate(async () => {
       const mod = await import(chrome.runtime.getURL("preview.js"));
-      const tab = { id: 115, url: "https://example.org/slow-api-response", title: "Slow API" };
+      const tab = {
+        id: 115,
+        url: "https://example.org/slow-api-response",
+        title: "Slow API",
+      };
       return await Promise.all([mod.preview(tab), mod.preview(tab)]);
     });
     const slowElapsed = Date.now() - slowStarted;
-    assert.ok(slowElapsed >= 1100, `Expected slow API delay >= 1100ms, got ${slowElapsed}ms`);
+    assert.ok(
+      slowElapsed >= 1100,
+      `Expected slow API delay >= 1100ms, got ${slowElapsed}ms`,
+    );
     assert.equal(slowPair[0].ok, true);
     assert.equal(slowPair[0].request_id, slowPair[1].request_id);
     report.preview_correlations.push(slowPair[0].correlation_id);
@@ -839,25 +1026,28 @@ async function main() {
 
     // CASE 16: Backend restarts during requests
     await stopApi();
-    const midRestartRes = await runPreviewOnPage("https://example.org/backend-restarting");
+    const midRestartRes = await runPreviewOnPage(
+      "https://example.org/backend-restarting",
+    );
     assert.equal(midRestartRes.ok, false);
     assert.equal(midRestartRes.error_code, "backend_offline");
     await startApi();
-    const afterRestartRes = await runPreviewOnPage("https://example.org/backend-restarting");
+    const afterRestartRes = await runPreviewOnPage(
+      "https://example.org/backend-restarting",
+    );
     assert.equal(afterRestartRes.ok, true);
     report.cases_passed.push("16_backend_restarts_during_requests");
 
     // CASE 17: Native host timeout
-    writeFileSync(
-      wrapperPath,
-      `#!/bin/sh\nsleep 5\n`,
-      { mode: 0o700 },
-    );
+    writeFileSync(wrapperPath, `#!/bin/sh\nsleep 5\n`, { mode: 0o700 });
     const timeoutRes = await popupPage.evaluate(async () => {
       const mod = await import(chrome.runtime.getURL("preview.js"));
       mod.setNativeTimeoutForTesting(300);
       try {
-        return await mod.preview({ id: 117, url: "https://example.org/native-timeout-test" });
+        return await mod.preview({
+          id: 117,
+          url: "https://example.org/native-timeout-test",
+        });
       } finally {
         mod.setNativeTimeoutForTesting(45000);
       }
@@ -870,7 +1060,9 @@ async function main() {
     // CASE 18 & 21: Wrong-origin rejection & Stale extension ID
     // 18a / 21a: Chrome-level allowed_origins mismatch
     writeHostManifest("a".repeat(32));
-    const chromeOriginDenied = await runPreviewOnPage("https://example.org/stale-chrome-origin");
+    const chromeOriginDenied = await runPreviewOnPage(
+      "https://example.org/stale-chrome-origin",
+    );
     assert.equal(chromeOriginDenied.ok, false);
     assert.equal(chromeOriginDenied.error_code, "native_origin_not_authorized");
 
@@ -879,20 +1071,29 @@ async function main() {
     const staleEnvPath = join(baseDir, "stale-id.private.env");
     writeEnvConfig(staleEnvPath, { CHROME_EXTENSION_ID: "a".repeat(32) });
     bindWrapper(staleEnvPath);
-    const hostOriginDenied = await runPreviewOnPage("https://example.org/stale-env-origin");
+    const hostOriginDenied = await runPreviewOnPage(
+      "https://example.org/stale-env-origin",
+    );
     assert.equal(hostOriginDenied.ok, false);
     assert.equal(hostOriginDenied.error_code, "native_origin_denied");
 
     // 18c: FastAPI /api/v1/local-agent/chrome X-Agent-Client header mismatch
-    const apiWrongClient = await fetch(`http://127.0.0.1:${apiPort}/api/v1/local-agent/chrome`, {
-      method: "POST",
-      headers: {
-        ...authHeaders,
-        "Content-Type": "application/json",
-        "X-Agent-Client": "b".repeat(32),
+    const apiWrongClient = await fetch(
+      `http://127.0.0.1:${apiPort}/api/v1/local-agent/chrome`,
+      {
+        method: "POST",
+        headers: {
+          ...authHeaders,
+          "Content-Type": "application/json",
+          "X-Agent-Client": "b".repeat(32),
+        },
+        body: JSON.stringify({
+          version: 1,
+          request_id: crypto.randomUUID(),
+          command: "health",
+        }),
       },
-      body: JSON.stringify({ version: 1, request_id: crypto.randomUUID(), command: "health" }),
-    });
+    );
     assert.equal(apiWrongClient.status, 403);
     bindWrapper(activeEnvPath);
     report.cases_passed.push("18_wrong_origin_rejection");
@@ -917,50 +1118,89 @@ async function main() {
       }
       return results;
     });
-    assert.ok(badExtensionInputs.every((r) => r.ok === false && r.error_code === "unsupported_page"));
+    assert.ok(
+      badExtensionInputs.every(
+        (r) => r.ok === false && r.error_code === "unsupported_page",
+      ),
+    );
 
     const validOrigin = `chrome-extension://${EXPECTED_ID}/`;
-    const malformedFrame = await runFrameProbe(python, activeEnvPath, validOrigin, encodeFrame("{bad-json"));
+    const malformedFrame = await runFrameProbe(
+      python,
+      activeEnvPath,
+      validOrigin,
+      encodeFrame("{bad-json"),
+    );
     assert.equal(malformedFrame.error_code, "native_invalid_message");
     const oversizedHeader = Buffer.alloc(4);
     oversizedHeader.writeUInt32LE(16385, 0);
-    const oversizedFrame = await runFrameProbe(python, activeEnvPath, validOrigin, oversizedHeader);
+    const oversizedFrame = await runFrameProbe(
+      python,
+      activeEnvPath,
+      validOrigin,
+      oversizedHeader,
+    );
     assert.equal(oversizedFrame.error_code, "native_message_size");
     report.cases_passed.push("19_malformed_and_oversized_requests");
 
     // CASE 20: Duplicate and concurrent gestures
     const concurrentPreviews = await popupPage.evaluate(async () => {
       const mod = await import(chrome.runtime.getURL("preview.js"));
-      const tab = { id: 120, url: "https://example.org/concurrent-gesture-test", title: "Concurrent" };
-      return await Promise.all([mod.preview(tab), mod.preview(tab), mod.preview(tab)]);
+      const tab = {
+        id: 120,
+        url: "https://example.org/concurrent-gesture-test",
+        title: "Concurrent",
+      };
+      return await Promise.all([
+        mod.preview(tab),
+        mod.preview(tab),
+        mod.preview(tab),
+      ]);
     });
     assert.equal(concurrentPreviews[0].ok, true);
-    assert.equal(concurrentPreviews[0].request_id, concurrentPreviews[1].request_id);
-    assert.equal(concurrentPreviews[1].request_id, concurrentPreviews[2].request_id);
+    assert.equal(
+      concurrentPreviews[0].request_id,
+      concurrentPreviews[1].request_id,
+    );
+    assert.equal(
+      concurrentPreviews[1].request_id,
+      concurrentPreviews[2].request_id,
+    );
     report.preview_correlations.push(concurrentPreviews[0].correlation_id);
     report.cases_passed.push("20_duplicate_and_concurrent_gestures");
 
     // CASE 22: Missing native messaging host
     unlinkSync(hostManifestPath);
-    const missingHostPreview = await runPreviewOnPage("https://example.org/missing-native-host");
+    const missingHostPreview = await runPreviewOnPage(
+      "https://example.org/missing-native-host",
+    );
     assert.equal(missingHostPreview.ok, false);
     assert.equal(missingHostPreview.error_code, "native_host_not_found");
 
-    const missingHostObs = await runObserveOnPortalPage("https://www.naukri.com/mnjuser/missing-host");
+    const missingHostObs = await runObserveOnPortalPage(
+      "https://www.naukri.com/mnjuser/missing-host",
+    );
     assert.equal(missingHostObs.ok, false);
     assert.equal(missingHostObs.error_code, "native_host_not_found");
-    await expect(popupPage.locator("#observation")).toContainText("The native host is unavailable.");
+    await expect(popupPage.locator("#observation")).toContainText(
+      "The native host is unavailable.",
+    );
 
     // Restore native host manifest
     writeHostManifest(EXPECTED_ID);
-    const restoredHostPreview = await runPreviewOnPage("https://example.org/restored-native-host");
+    const restoredHostPreview = await runPreviewOnPage(
+      "https://example.org/restored-native-host",
+    );
     assert.equal(restoredHostPreview.ok, true);
     report.cases_passed.push("22_missing_native_messaging_host");
 
     // CASE 1 (reload in chrome://extensions UI): Extension install and reload
     const mgmtPage = await context.newPage();
     await mgmtPage.goto("chrome://extensions");
-    const devSwitch = mgmtPage.getByRole("switch", { name: "Developer mode", exact: true });
+    const devSwitch = mgmtPage.getByRole("switch", {
+      name: "Developer mode",
+      exact: true,
+    });
     if (!(await devSwitch.isChecked())) await devSwitch.click();
     await mgmtPage.getByRole("button", { name: "Reload", exact: true }).click();
     await new Promise((r) => setTimeout(r, 800));
@@ -968,13 +1208,19 @@ async function main() {
 
     const wakePopup = await context.newPage();
     await wakePopup.goto(`chrome-extension://${EXPECTED_ID}/popup.html`);
-    await expect(wakePopup.locator("#menu-status")).toContainText("Right-click menu registered for HTTPS pages.");
+    await expect(wakePopup.locator("#menu-status")).toContainText(
+      "Right-click menu registered for HTTPS pages.",
+    );
     worker =
       context.serviceWorkers().find((w) => w.url().includes(EXPECTED_ID)) ||
       (await context.waitForEvent("serviceworker", { timeout: 10000 }));
     const afterReloadPreview = await wakePopup.evaluate(async () => {
       const mod = await import(chrome.runtime.getURL("preview.js"));
-      return await mod.preview({ id: 121, url: "https://example.org/after-extension-reload", title: "Reloaded" });
+      return await mod.preview({
+        id: 121,
+        url: "https://example.org/after-extension-reload",
+        title: "Reloaded",
+      });
     });
     assert.equal(afterReloadPreview.ok, true);
     report.preview_correlations.push(afterReloadPreview.correlation_id);
@@ -989,35 +1235,53 @@ async function main() {
     await installRoutes(context);
     assert.equal(worker.url().split("/")[2], EXPECTED_ID);
     const restartPage = context.pages()[0] || (await context.newPage());
-    await restartPage.goto("https://example.org/after-chrome-restart", { waitUntil: "domcontentloaded" });
+    await restartPage.goto("https://example.org/after-chrome-restart", {
+      waitUntil: "domcontentloaded",
+    });
     const restartPopup = await context.newPage();
     await restartPopup.goto(`chrome-extension://${EXPECTED_ID}/popup.html`);
     const afterRestartBrowserRes = await restartPopup.evaluate(async () => {
       const mod = await import(chrome.runtime.getURL("preview.js"));
-      return await mod.preview({ id: 122, url: "https://example.org/after-chrome-restart", title: "Restarted" });
+      return await mod.preview({
+        id: 122,
+        url: "https://example.org/after-chrome-restart",
+        title: "Restarted",
+      });
     });
     assert.equal(afterRestartBrowserRes.ok, true);
     report.preview_correlations.push(afterRestartBrowserRes.correlation_id);
     report.cases_passed.push("12_chrome_restart");
 
     // Verify backend audit correlation in PostgreSQL via /api/v1/local-agent/history
-    const historyRes = await fetch(`http://127.0.0.1:${apiPort}/api/v1/local-agent/history`, {
-      headers: authHeaders,
-    });
+    const historyRes = await fetch(
+      `http://127.0.0.1:${apiPort}/api/v1/local-agent/history`,
+      {
+        headers: authHeaders,
+      },
+    );
     assert.equal(historyRes.status, 200);
     const historyRows = await historyRes.json();
     const expectedCorrelations = [
-      ...new Set([...report.preview_correlations, ...report.observation_correlations]),
+      ...new Set([
+        ...report.preview_correlations,
+        ...report.observation_correlations,
+      ]),
     ];
     const byCorrelation = new Map(
       historyRows.map((row) => [row.result?.correlation_id, row]),
     );
     for (const cid of expectedCorrelations) {
       const matched = byCorrelation.get(cid);
-      assert.ok(matched, `Missing PostgreSQL audit row for correlation_id ${cid}`);
+      assert.ok(
+        matched,
+        `Missing PostgreSQL audit row for correlation_id ${cid}`,
+      );
       assert.equal(matched.actor, `chrome:${EXPECTED_ID}`);
       assert.equal(matched.result.ok, true);
-      if (matched.command === "preview_application_url" || matched.command === "observe_platform_session") {
+      if (
+        matched.command === "preview_application_url" ||
+        matched.command === "observe_platform_session"
+      ) {
         assert.equal(matched.result.data.submitted, false);
       }
     }
@@ -1031,22 +1295,34 @@ async function main() {
     console.log(JSON.stringify(report, null, 2));
   } finally {
     if (context) {
-      try { await context.close(); } catch { /* ignore */ }
+      try {
+        await context.close();
+      } catch {
+        /* ignore */
+      }
     }
     if (slowProxyServer) {
-      try { slowProxyServer.close(); } catch { /* ignore */ }
+      try {
+        slowProxyServer.close();
+      } catch {
+        /* ignore */
+      }
     }
     await stopApi();
-    if (startedContainer && pgContainerName.startsWith("automated-apply-agy-ext-pg-")) {
-      spawnSync("docker", ["rm", "-f", pgContainerName], { stdio: "ignore" });
-    }
-    if (baseDir.startsWith(tmpdir()) && baseDir.includes("automated-apply-agy-chrome-e2e-")) {
+    await postgres?.close();
+    if (
+      baseDir.startsWith(tmpdir()) &&
+      baseDir.includes("automated-apply-agy-chrome-e2e-")
+    ) {
       rmSync(baseDir, { recursive: true, force: true });
     }
     lock.release();
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(resolve(process.argv[1])).href
+) {
   await main();
 }

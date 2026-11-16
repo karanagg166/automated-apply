@@ -1,4 +1,8 @@
-import { defineConfig, devices } from "@playwright/test";
+import {
+  fixtureExecutable,
+  fixtureEngine,
+} from "../extension/tests/browser-fixture-engine.mjs";
+import { defineConfig } from "@playwright/test";
 import { scryptSync } from "node:crypto";
 const salt = "0123456789abcdef0123456789abcdef"; // pragma: allowlist secret — fixed test salt
 const password = "fictional-ui-owner-passphrase"; // pragma: allowlist secret — isolated fixture only
@@ -15,7 +19,16 @@ export default defineConfig({
     screenshot: "only-on-failure",
     video: "retain-on-failure",
   },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: fixtureEngine(),
+      use: {
+        browserName: "chromium",
+        headless: true,
+        launchOptions: { executablePath: fixtureExecutable() },
+      },
+    },
+  ],
   webServer: [
     {
       command: `${process.env.PYTHON || "python3"} ../backend/scripts/phase7_ui_fixture.py`,

@@ -1,5 +1,6 @@
+import { fixtureExecutable } from "../extension/tests/browser-fixture-engine.mjs";
 import { scryptSync } from "node:crypto";
-import { defineConfig, devices } from "@playwright/test";
+import { defineConfig } from "@playwright/test";
 
 const salt = "0123456789abcdef0123456789abcdef";
 
@@ -12,7 +13,9 @@ export default defineConfig({
   reporter: "list",
   use: {
     baseURL: "http://localhost:3152",
-    ...devices["Desktop Chrome"],
+    browserName: "chromium",
+    headless: true,
+    launchOptions: { executablePath: fixtureExecutable() },
     screenshot: "only-on-failure",
   },
   // All backend responses are fictional route fixtures. No backend or profile

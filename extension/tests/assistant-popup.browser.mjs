@@ -1,8 +1,12 @@
+import { fixtureExecutable } from "./browser-fixture-engine.mjs";
 // Actual popup DOM with a fictional worker boundary; no live employer interaction.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { chromium } from "../../frontend/node_modules/@playwright/test/index.mjs";
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  executablePath: fixtureExecutable(chromium),
+  headless: true,
+});
 try {
   const page = await browser.newPage({
     viewport: { width: 460, height: 1200 },

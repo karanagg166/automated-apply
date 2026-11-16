@@ -976,7 +976,7 @@ try {
     fixture_only: true,
     cases: evidence.length,
     browser: browser.version(),
-    engine: process.env.AUTOMATED_APPLY_TEST_BROWSER || "chromium",
+    engine: process.env.AUTOMATED_APPLY_TEST_BROWSER || "brave",
     duration_ms: Math.round(performance.now() - started),
     live_naukri_requests: 0,
     unexpectedRequests,

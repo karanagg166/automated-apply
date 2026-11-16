@@ -1,6 +1,11 @@
+import { nativePostgresFixture } from "./native-postgres-fixture.mjs";
+import {
+  fixtureExecutable,
+  fixtureNativeHost,
+} from "./browser-fixture-engine.mjs";
 // Real Chrome/MV3/native/FastAPI/SQL stack. All employer data and DB are fictional.
 import assert from "node:assert/strict";
-import { spawn, execFileSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { mkdtemp, mkdir, writeFile, readFile, cp, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
@@ -19,65 +24,10 @@ let context,
   apiProcess,
   nonGet = 0,
   logs = "",
-  postgresContainer;
+  postgres;
 const quote = (value) => "'" + value.replaceAll("'", "'\\''") + "'";
 try {
-  // Never use an owner DSN. This journey owns a fresh, loopback-only container.
-  const containerName = `phase52-stack-${crypto.randomUUID()}`;
-  postgresContainer = execFileSync(
-    "docker",
-    [
-      "run",
-      "--detach",
-      "--rm",
-      "--pull=never",
-      "--name",
-      containerName,
-      "-p",
-      "127.0.0.1::5432",
-      "-e",
-      "POSTGRES_PASSWORD=fictional_stack_only",
-      "-e",
-      "POSTGRES_DB=candidate_profile_test",
-      "postgres:17-alpine",
-    ],
-    { encoding: "utf8" },
-  ).trim();
-  const databasePort = execFileSync(
-    "docker",
-    ["port", postgresContainer, "5432/tcp"],
-    { encoding: "utf8" },
-  )
-    .trim()
-    .split(":")
-    .at(-1);
-  let databaseReady = false;
-  for (let attempt = 0; attempt < 100; attempt++) {
-    try {
-      execFileSync(
-        "docker",
-        [
-          "exec",
-          postgresContainer,
-          "pg_isready",
-          "-U",
-          "postgres",
-          "-d",
-          "candidate_profile_test",
-        ],
-        { stdio: "ignore" },
-      );
-      databaseReady = true;
-      break;
-    } catch {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-  }
-  assert.equal(
-    databaseReady,
-    true,
-    "disposable PostgreSQL did not become ready",
-  );
+  postgres = await nativePostgresFixture(python);
   const socket = createServer();
   await new Promise((resolve) => socket.listen(0, "127.0.0.1", resolve));
   const port = socket.address().port;
@@ -90,7 +40,7 @@ try {
     config,
     [
       "ENVIRONMENT=testing",
-      `DATABASE_URL=postgresql+asyncpg://postgres:fictional_stack_only@127.0.0.1:${databasePort}/candidate_profile_test`,
+      `DATABASE_URL=${postgres.url.replace("postgresql://", "postgresql+asyncpg://")}`,
       "DATABASE_SCHEMA=job_agent",
       "SECRET_KEY=fictional-stack-test-secret-key-0000",
       "JOB_AGENT_API_TOKEN=fictional-stack-owner-token",
@@ -146,6 +96,7 @@ try {
   }
   assert.equal(ready, true, logs);
   await cp(join(root, "extension/dist"), extension, { recursive: true });
+  const nativeHost = fixtureNativeHost(extension);
   const manifest = JSON.parse(
     await readFile(join(extension, "manifest.json"), "utf8"),
   );
@@ -161,9 +112,9 @@ try {
     mode: 0o700,
   });
   await writeFile(
-    join(profile, "NativeMessagingHosts/com.automated_apply.agent.json"),
+    join(profile, `NativeMessagingHosts/${nativeHost}.json`),
     JSON.stringify({
-      name: "com.automated_apply.agent",
+      name: nativeHost,
       description: "Fictional complete stack",
       type: "stdio",
       path: wrapper,
@@ -172,7 +123,7 @@ try {
     { mode: 0o600 },
   );
   context = await chromium.launchPersistentContext(profile, {
-    channel: "chromium",
+    executablePath: fixtureExecutable(chromium),
     headless: true,
     args: [
       `--disable-extensions-except=${extension}`,
@@ -241,21 +192,9 @@ try {
   assert.equal(stored.counts.existing, 1);
   // Independently inspect PostgreSQL rather than relying only on an API echo.
   const persisted = JSON.parse(
-    execFileSync(
-      "docker",
-      [
-        "exec",
-        postgresContainer,
-        "psql",
-        "-U",
-        "postgres",
-        "-d",
-        "candidate_profile_test",
-        "-Atc",
-        `SELECT value FROM job_agent.owner_preferences WHERE key='ext_task:${taskId}'`,
-      ],
-      { encoding: "utf8" },
-    ).trim(),
+    postgres.sql(
+      `SELECT value FROM job_agent.owner_preferences WHERE key='ext_task:${taskId}'`,
+    ),
   );
   assert.equal(persisted.verified_receipts.length, 1);
   assert.equal(
@@ -297,8 +236,5 @@ try {
     await new Promise((resolve) => apiProcess.once("exit", resolve));
   }
   await rm(temporary, { recursive: true, force: true });
-  if (postgresContainer)
-    execFileSync("docker", ["rm", "--force", postgresContainer], {
-      stdio: "ignore",
-    });
+  await postgres?.close();
 }

@@ -1,3 +1,4 @@
+import { fixtureExecutable } from "./browser-fixture-engine.mjs";
 // Fictional intercepted pages only. No employer request, installed profile or native host.
 import assert from "node:assert/strict";
 import { pathToFileURL } from "node:url";
@@ -8,7 +9,10 @@ const { chromium } = await import(
     ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href
     : "../../frontend/node_modules/@playwright/test/index.mjs"
 );
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  executablePath: fixtureExecutable(chromium),
+  headless: true,
+});
 let cases = 0;
 try {
   for (const change of [

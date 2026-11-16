@@ -1,4 +1,8 @@
-import { defineConfig, devices } from "@playwright/test";
+import {
+  fixtureExecutable,
+  fixtureEngine,
+} from "../extension/tests/browser-fixture-engine.mjs";
+import { defineConfig } from "@playwright/test";
 import { scryptSync } from "node:crypto";
 
 const salt = "0123456789abcdef0123456789abcdef"; // pragma: allowlist secret — fixed fictional fixture
@@ -11,7 +15,16 @@ export default defineConfig({
   retries: 0,
   reporter: "list",
   use: { baseURL: "http://localhost:3101", trace: "retain-on-failure" },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: fixtureEngine(),
+      use: {
+        browserName: "chromium",
+        headless: true,
+        launchOptions: { executablePath: fixtureExecutable() },
+      },
+    },
+  ],
   webServer: [
     {
       command: `${process.env.PYTHON || "../backend/venv/bin/python"} ../backend/scripts/phase3_browser_fixture.py`,

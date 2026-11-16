@@ -1,3 +1,4 @@
+import { fixtureExecutable } from "./browser-fixture-engine.mjs";
 // Real MV3 DNR against a real loopback fictional employer HTTP server.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
@@ -34,7 +35,7 @@ try {
     "<!doctype html><title>Fictional guard driver</title>",
   );
   context = await chromium.launchPersistentContext(join(temp, "profile"), {
-    channel: "chromium",
+    executablePath: fixtureExecutable(chromium),
     headless: true,
     args: [
       `--disable-extensions-except=${extension}`,

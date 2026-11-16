@@ -1,9 +1,13 @@
+import { fixtureExecutable } from "./browser-fixture-engine.mjs";
 // Actual popup UI in isolated Chromium with fictional browser/native responses.
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { chromium } from "../../frontend/node_modules/@playwright/test/index.mjs";
 
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  executablePath: fixtureExecutable(chromium),
+  headless: true,
+});
 try {
   const page = await browser.newPage({
     viewport: { width: 560, height: 1000 },

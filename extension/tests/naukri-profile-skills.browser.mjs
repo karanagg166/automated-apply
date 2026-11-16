@@ -1,3 +1,4 @@
+import { fixtureExecutable } from "./browser-fixture-engine.mjs";
 // Real isolated Chromium tabs + shipped queue/DOM code; fictional provider pages
 // and native responses only. Never opens the owner's Chrome or a live vacancy.
 import assert from "node:assert/strict";
@@ -72,7 +73,7 @@ const started = performance.now();
 // The real browser owns its visibility; no DOM visibility spoofing is used.
 const profile = join(root, "profile");
 const child = spawn(
-  chromium.executablePath(),
+  fixtureExecutable(chromium),
   [
     "--headless=new",
     "--no-first-run",

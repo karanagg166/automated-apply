@@ -5,7 +5,7 @@ import { generateFormDOM } from "./generate-form-dom.mjs";
 generateFormDOM({ check: true });
 const arguments_ = process.argv.slice(2);
 assert(arguments_.length <= 1, "One explicit browser target is permitted");
-const browser = arguments_[0]?.replace(/^--browser=/, "") || "chrome";
+const browser = arguments_[0]?.replace(/^--browser=/, "") || "brave";
 assert(
   ["chrome", "brave", "edge"].includes(browser),
   "Unsupported browser target",

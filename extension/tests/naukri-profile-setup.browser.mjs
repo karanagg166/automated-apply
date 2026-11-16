@@ -1,3 +1,4 @@
+import { fixtureExecutable } from "./browser-fixture-engine.mjs";
 // Real isolated Chromium + shipped maintenance code. Fictional page and native
 // responses only; never attaches to the owner's Chrome or visits live Naukri.
 import assert from "node:assert/strict";
@@ -75,7 +76,7 @@ globalThis.adoptAndReconstruct=async()=>{
 const started = performance.now();
 const profile = join(root, "profile");
 const child = spawn(
-  chromium.executablePath(),
+  fixtureExecutable(chromium),
   [
     "--headless=new",
     "--no-first-run",

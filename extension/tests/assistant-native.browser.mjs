@@ -1,3 +1,7 @@
+import {
+  fixtureExecutable,
+  fixtureNativeHost,
+} from "./browser-fixture-engine.mjs";
 // Isolated real MV3 worker -> real Python native host -> fictional HTTP backend.
 // Backend database/state contracts are tested separately; this does not claim DB E2E.
 import assert from "node:assert/strict";
@@ -162,6 +166,7 @@ const quote = (value) => "'" + value.replaceAll("'", "'\\''") + "'";
 try {
   const extension = join(temp, "extension");
   await cp(join(root, "extension/dist"), extension, { recursive: true });
+  const nativeHost = fixtureNativeHost(extension);
   const manifest = JSON.parse(
     await readFile(join(extension, "manifest.json"), "utf8"),
   );
@@ -198,9 +203,9 @@ try {
     mode: 0o700,
   });
   await writeFile(
-    join(profile, "NativeMessagingHosts/com.automated_apply.agent.json"),
+    join(profile, `NativeMessagingHosts/${nativeHost}.json`),
     JSON.stringify({
-      name: "com.automated_apply.agent",
+      name: nativeHost,
       description: "Fictional Phase52 isolated native acceptance",
       type: "stdio",
       path: wrapper,
@@ -210,7 +215,7 @@ try {
   );
   async function launch() {
     browserContext = await chromium.launchPersistentContext(profile, {
-      channel: "chromium",
+      executablePath: fixtureExecutable(chromium),
       headless: true,
       args: [
         `--disable-extensions-except=${extension}`,

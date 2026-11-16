@@ -1,3 +1,4 @@
+import { fixtureExecutable } from "./browser-fixture-engine.mjs";
 // One isolated real-Chrome alarm/reload/stop journey; native messaging is absent.
 import assert from "node:assert/strict";
 import {
@@ -45,7 +46,7 @@ writeFileSync(
 );
 const profile = join(root, "profile");
 const child = spawn(
-  chromium.executablePath(),
+  fixtureExecutable(chromium),
   [
     "--headless=new",
     "--no-first-run",
