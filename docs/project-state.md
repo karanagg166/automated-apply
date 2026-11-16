@@ -548,3 +548,14 @@ Five new PG declarations remain UNRUN. See [qualified controls report](acceptanc
 Full profile-sync work/save/reconcile, questionnaires, discovery/native broker/scheduler
 and broader serializable owner-wait audit remain required. No build/test/check/live/
 installation or percentage gain; continue the complete existing scope, not a partial final.
+
+Owner-wait fence source30cd214 addresses visible-control and first-control insertion
+snapshot races by advancing only owner-row metadata in Rust browser/execution and the
+Python cached guard; private memory JSON/message/TTL/identity fields remain untouched.
+Serializable forms also lock bounded control/profile/project reference versions. Native
+health/capability reads ping PostgreSQL without owner locks/updates. Five new Rust PG +1
+backend PG declarations and two adjusted existing timing cases are UNRUN. See
+[qualified owner snapshot report](acceptance/owner-snapshot-fence-source-20261116.md).
+New source is uninstalled; whole writer-family STOP coordination and full combined tests
+remain required. Continue profile-sync work/save/reconcile, questionnaires, discovery/
+native broker/scheduler and all remaining scope; hold58/42, no partial final.
