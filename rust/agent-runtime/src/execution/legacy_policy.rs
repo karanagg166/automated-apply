@@ -45,10 +45,23 @@ pub(super) async fn enabled(tx: &mut Transaction<'_, Postgres>) -> Result<()> {
     Ok(())
 }
 pub(super) async fn validate_in(tx: &mut Transaction<'_, Postgres>, policy: &Value) -> Result<()> {
+    validate_snapshot_in(tx, policy, true).await
+}
+pub(super) async fn validate_read_in(
+    tx: &mut Transaction<'_, Postgres>,
+    policy: &Value,
+) -> Result<()> {
+    validate_snapshot_in(tx, policy, false).await
+}
+async fn validate_snapshot_in(
+    tx: &mut Transaction<'_, Postgres>,
+    policy: &Value,
+    locked: bool,
+) -> Result<()> {
     if policy["source"] == "gmail_job_alerts" {
         return Err(Failure("gmail_intake_deferred_to_phase54"));
     }
-    let profile =
+    let profile = if locked {
         super::preflight::profile_in(tx, &json!({"profile_version":policy["profile_version"]}))
             .await
             .map_err(|e| {
@@ -57,7 +70,32 @@ pub(super) async fn validate_in(tx: &mut Transaction<'_, Postgres>, policy: &Val
                 } else {
                     e
                 }
-            })?;
+            })?
+    } else {
+        let profile = crate::profile_store::get(tx)
+            .await
+            .map_err(|e| {
+                if e.0 == "profile_not_found" {
+                    Failure("confirmed_profile_version_required")
+                } else {
+                    e
+                }
+            })?
+            .value;
+        let confirmation = get(tx, "phase1_profile_confirmation")
+            .await?
+            .unwrap_or(Value::Null);
+        if profile["version"] != policy["profile_version"]
+            || confirmation["profile_id"] != profile["id"]
+            || confirmation["profile_version"] != profile["version"]
+            || confirmation["confirmed_at"]
+                .as_str()
+                .is_none_or(str::is_empty)
+        {
+            return Err(Failure("confirmed_profile_version_required"));
+        }
+        profile
+    };
     let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(r) FROM candidate_resources r WHERE candidate_profile_id=$1 ORDER BY id LIMIT 10001").bind(profile["id"].as_str().and_then(|s|s.parse::<Uuid>().ok()).ok_or_else(invalid)?).fetch_all(&mut **tx).await.map_err(db)?;
     if rows.len() > 10000 {
         return Err(Failure("execution_active_inventory_limit"));

@@ -212,3 +212,31 @@ fn recurring_preparation_reason_matches_actual_legacy_policy_without_changing_ap
         );
     }
 }
+#[test]
+fn naukri_capabilities_match_actual_legacy_function_without_promoting_source_to_live_acceptance() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let script = r#"
+import ast,json
+from pathlib import Path
+names={'EVIDENCE','capability_matrix'};body=[]
+for n in ast.parse(Path('backend/app/execution/naukri.py').read_text()).body:
+ name=n.name if isinstance(n,ast.FunctionDef) else n.targets[0].id if isinstance(n,ast.Assign) and len(n.targets)==1 and isinstance(n.targets[0],ast.Name) else None
+ if name in names:body.append(n)
+assert len(body)==2
+scope={};exec(compile(ast.Module(body=body,type_ignores=[]),'actual_capabilities','exec'),scope)
+print(json.dumps(scope['capability_matrix']()))
+"#;
+    let out = Command::new(root.join(".venv/bin/python"))
+        .args(["-c", script])
+        .current_dir(root)
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let actual: Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(
+        automated_apply_agents::execution::owner_status::capabilities(),
+        actual
+    );
+    assert_eq!(actual["live_verified"], false);
+    assert_eq!(actual["recurring_submission"]["enabled"], false);
+}

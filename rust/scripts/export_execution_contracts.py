@@ -37,7 +37,7 @@ def load(scope, source, names):
     for node in ast.parse((ROOT / source).read_text()).body:
         name = (
             node.name
-            if isinstance(node, ast.ClassDef)
+            if isinstance(node, (ast.ClassDef, ast.FunctionDef))
             else (
                 node.targets[0].id
                 if isinstance(node, ast.Assign)
@@ -96,11 +96,14 @@ def render():
         "backend/app/execution/profile_sync.py",
         {"FieldName", "SyncPolicy", "SyncPolicyUpdate"},
     )
-    return {
+    rendered = {
         name: json.dumps(scope[kind].model_json_schema(), indent=2, sort_keys=True)
         + "\n"
         for kind, name in NAMES.items()
     }
+    load(scope,"backend/app/execution/naukri.py",{"EVIDENCE","capability_matrix"})
+    rendered["naukri-capability-matrix"]=json.dumps(scope["capability_matrix"](),indent=2,sort_keys=True)+"\n"
+    return rendered
 
 
 def main():

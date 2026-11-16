@@ -21,6 +21,7 @@ mod local_policy;
 mod notices;
 pub mod owner_questions;
 pub mod owner_routes;
+pub mod owner_status;
 mod preflight;
 pub mod preparation;
 pub mod profile_sync;
@@ -151,12 +152,19 @@ impl Route<'_> {
     pub fn for_method(self, method: &str) -> Self {
         if matches!(self, Self::Account) && method == "PUT" {
             Self::AccountApproval
+        } else if matches!(self, Self::Owner(owner_routes::Route::Summary)) && method == "PUT" {
+            Self::Owner(owner_routes::Route::Configuration)
         } else {
             self
         }
     }
     pub fn allow(self) -> &'static str {
         if matches!(self, Self::Account | Self::AccountApproval) {
+            "GET, PUT"
+        } else if matches!(
+            self,
+            Self::Owner(owner_routes::Route::Summary | owner_routes::Route::Configuration)
+        ) {
             "GET, PUT"
         } else {
             self.method()
@@ -261,6 +269,7 @@ pub async fn dispatch_body_configured(
                         answers: &c.answers,
                         resumes: &c.resumes,
                     }),
+                    config,
                     now,
                 )
                 .await

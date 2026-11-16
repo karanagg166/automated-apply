@@ -35,6 +35,9 @@ pub struct Settings {
     google: Option<GoogleOAuth>,
 }
 impl Settings {
+    pub(crate) fn configured_slots(&self) -> usize {
+        self.allowed.len().min(2)
+    }
     pub fn from_values(values: &BTreeMap<String, String>, fixture: bool) -> Result<Self> {
         let allowed: Vec<String> = serde_json::from_str(
             values

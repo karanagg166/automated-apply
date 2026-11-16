@@ -12,6 +12,7 @@ use uuid::Uuid;
 
 #[derive(Clone, Copy)]
 pub enum Route<'a> {
+    Summary,
     Configuration,
     AutomationPolicy,
     AutomationControl,
@@ -31,7 +32,7 @@ impl Route<'_> {
     pub fn method(self) -> &'static str {
         match self {
             Self::Configuration | Self::AutomationPolicy => "PUT",
-            Self::Jobs | Self::Events | Self::Questions => "GET",
+            Self::Summary | Self::Jobs | Self::Events | Self::Questions => "GET",
             _ => "POST",
         }
     }
@@ -84,7 +85,7 @@ impl Route<'_> {
 pub fn route(path: &str) -> Option<Route<'_>> {
     let tail = path.strip_prefix("/api/v1/execution/")?;
     match tail {
-        "naukri" => Some(Route::Configuration),
+        "naukri" => Some(Route::Summary),
         "naukri/automation/policy" => Some(Route::AutomationPolicy),
         "naukri/automation/control" => Some(Route::AutomationControl),
         "naukri/apply" => Some(Route::Start),
@@ -306,9 +307,11 @@ pub(super) async fn dispatch_in(
     data: Option<Value>,
     telegram: bool,
     services: Option<legacy_questions::Services<'_>>,
+    config: Option<&crate::configuration::Configuration>,
     now: DateTime<Utc>,
 ) -> Result<Value> {
     match route {
+        Route::Summary => super::owner_status::status_in(tx, config, now).await,
         Route::Questions => {
             let rows:Vec<Value>=sqlx::query_scalar("SELECT value FROM owner_preferences WHERE starts_with(key,'exec_q:') ORDER BY created_at,key").fetch_all(&mut **tx).await.map_err(db)?;
             Ok(json!(rows))
