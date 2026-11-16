@@ -135,7 +135,7 @@ pub async fn dispatch(
     let now = stamp(&now)?;
     let result = match route {
         Route::Attempt(id) => {
-            let value:Option<Value>=sqlx::query_scalar(&format!("SELECT CASE WHEN pg_column_size(a)>262144 THEN NULL ELSE {ATTEMPT} END FROM outreach_send_attempts a WHERE a.id=$1")).bind(id).fetch_optional(&mut *tx).await.map_err(db)?;
+            let value:Option<Value>=sqlx::query_scalar(&format!("SELECT CASE WHEN coalesce(octet_length(a.subject),0)+coalesce(octet_length(a.body),0)+coalesce(octet_length(a.reconciliation_note),0)>262144 THEN NULL ELSE {ATTEMPT} END FROM outreach_send_attempts a WHERE a.id=$1")).bind(id).fetch_optional(&mut *tx).await.map_err(db)?;
             qualify(
                 value.ok_or(Failure("outreach_send_attempt_not_found"))?,
                 true,
@@ -149,7 +149,7 @@ pub async fn dispatch(
                 .fetch_one(&mut *tx)
                 .await
                 .map_err(db)?;
-            let rows:Vec<(String,Value)>=sqlx::query_as(&format!("WITH page AS (SELECT * FROM ({timeline}) t ORDER BY created_at DESC,id,kind LIMIT $1 OFFSET $2) SELECT p.kind,CASE WHEN p.kind='attempt' THEN CASE WHEN pg_column_size(a)>262144 THEN NULL ELSE {ATTEMPT} END ELSE CASE WHEN pg_column_size(d)>262144 THEN NULL ELSE {LOCAL} END END FROM page p LEFT JOIN outreach_send_attempts a ON p.kind='attempt' AND a.id=p.id LEFT JOIN outreach_logs d ON p.kind='local' AND d.id=p.id ORDER BY p.created_at DESC,p.id,p.kind")).bind(limit).bind(offset).fetch_all(&mut *tx).await.map_err(db)?;
+            let rows:Vec<(String,Value)>=sqlx::query_as(&format!("WITH page AS (SELECT * FROM ({timeline}) t ORDER BY created_at DESC,id,kind LIMIT $1 OFFSET $2) SELECT p.kind,CASE WHEN p.kind='attempt' THEN CASE WHEN coalesce(octet_length(a.subject),0)+coalesce(octet_length(a.body),0)+coalesce(octet_length(a.reconciliation_note),0)>262144 THEN NULL ELSE {ATTEMPT} END ELSE CASE WHEN coalesce(octet_length(d.subject),0)+coalesce(octet_length(d.body),0)>262144 THEN NULL ELSE {LOCAL} END END FROM page p LEFT JOIN outreach_send_attempts a ON p.kind='attempt' AND a.id=p.id LEFT JOIN outreach_logs d ON p.kind='local' AND d.id=p.id ORDER BY p.created_at DESC,p.id,p.kind")).bind(limit).bind(offset).fetch_all(&mut *tx).await.map_err(db)?;
             let mut bytes = 0;
             let mut messages = Vec::new();
             for (kind, value) in rows {

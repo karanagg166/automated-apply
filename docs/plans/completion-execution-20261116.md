@@ -1,5 +1,15 @@
 # Complete-source delivery plan — 2026-11-16
 
+Outreach snapshot design2026-11-17: use read-only repeatable-read snapshots for previews;
+mutations take the existing owner fence first, then company/contact/job/profile/evidence/
+resource locks in fixed order. Require the primary profile's exact saved owner confirmation,
+current exact employer association, non-suppressed identity and fresh person-specific
+business mailbox evidence; provider-reported remains explicitly unverified. Bind complete
+bounded candidate evidence/resource inventories, canonical profile, company/contact and
+contact evidence, corrected saved job digest, owner confirmation and approved local-project
+snapshot. Use approved local projects before profile/evidence fallback. Only validated public
+HTTPS links enter copy. Full private snapshots stay out of preview/history responses.
+
 Grounded outreach design2026-11-17: freeze actual draft input/edit/decision DTOs and preserve
 the original outreach_logs revision/content/evidence approval semantics. Read history never
 sends or invents delivery proof; expired prepared/attempting records are qualified in the
