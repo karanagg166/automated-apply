@@ -207,6 +207,87 @@ it("distinguishes confirmed history and keeps its retention separate", async () 
   expect(post).not.toHaveBeenCalled();
 });
 
+it("offers explicit read-only reconciliation of an uncertain draft without editable content or automatic action", async () => {
+  accounts[2] = {
+    slot: "outreach",
+    status: "connected",
+    drafts_enabled: true,
+    generation: 2,
+  };
+  drafts = [
+    {
+      id: "a".repeat(32),
+      version: 1,
+      content_hash: "b".repeat(64),
+      status: "unknown",
+      company: "Fictional Co",
+      role: "Rust",
+      unconfirmed_gmail_draft_id: "fictional-draft",
+      content: {
+        recipient: "target@example.com",
+        subject: "Reviewed subject",
+        body: "Reviewed message",
+      },
+    },
+  ];
+  mount();
+  const check = await screen.findByRole("button", {
+    name: "Check for existing Gmail draft",
+  });
+  expect(check).toBeDisabled();
+  expect(screen.getByLabelText("Draft message")).toBeDisabled();
+  expect(
+    screen.queryByRole("button", { name: "Save draft edits locally" }),
+  ).not.toBeInTheDocument();
+  expect(post).not.toHaveBeenCalled();
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: "I reviewed this exact recipient, subject and message",
+    }),
+  );
+  fireEvent.click(check);
+  await waitFor(() =>
+    expect(post).toHaveBeenCalledWith(
+      `${base}/drafts/${"a".repeat(32)}/create-in-gmail`,
+      {
+        expected_version: 1,
+        content_hash: "b".repeat(64),
+        expected_account_generation: 2,
+        owner_reviewed: true,
+      },
+    ),
+  );
+});
+
+it("labels a retained historical draft reference separately from verified content", async () => {
+  drafts = [
+    {
+      id: "a".repeat(32),
+      version: 1,
+      content_hash: "b".repeat(64),
+      status: "saved_in_gmail",
+      company: "Fictional Co",
+      role: "Rust",
+      gmail_draft_id: "historical-draft",
+      content: {
+        recipient: "target@example.com",
+        subject: "Retained subject",
+        body: "Retained message",
+      },
+    },
+  ];
+  mount();
+  await screen.findByText(
+    "Saved draft reference retained. Open Gmail to review its current contents.",
+  );
+  expect(
+    screen.queryByText(
+      "Draft content verified in Gmail. Open Gmail to review or edit it.",
+    ),
+  ).not.toBeInTheDocument();
+  expect(post).not.toHaveBeenCalled();
+});
+
 it("allows only fixed account/history/draft routes and denies send/write operations", () => {
   expect(permittedRoute(`${base}/accounts/read_1/connect`, "POST")).toBe(true);
   expect(

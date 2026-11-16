@@ -1,6 +1,7 @@
 //! Fixed role metadata and encrypted local drafts. Gmail IO is owned by separate services.
 pub mod account;
 pub mod contract;
+pub mod dispatch;
 use crate::{
     Failure, Result,
     account_tokens::TokenStore,
@@ -39,9 +40,17 @@ impl Slot {
 pub enum IoRoute {
     Connect(Slot),
     Disconnect,
+    Create(Uuid),
 }
 pub fn io_route(path: &str) -> Option<IoRoute> {
     let tail = path.strip_prefix(PATH)?;
+    if let Some(id) = tail
+        .strip_prefix("/drafts/")
+        .and_then(|s| s.strip_suffix("/create-in-gmail"))
+        .filter(|s| identity(s))
+    {
+        return id.parse().ok().map(IoRoute::Create);
+    }
     if tail == "/outreach/disconnect" {
         return Some(IoRoute::Disconnect);
     }
@@ -221,6 +230,9 @@ fn public_draft(settings: &Settings, key: &str, value: &Value) -> Result<Value> 
         "role",
         "content_hash",
         "gmail_draft_id",
+        "unconfirmed_gmail_draft_id",
+        "unknown_reason",
+        "content_verified",
     ] {
         if let Some(value) = value.get(key) {
             result[key] = value.clone();

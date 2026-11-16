@@ -58,6 +58,14 @@ pub(super) async fn dispatch(
         return error(Failure("invalid_gmail_workspace_contract"), false);
     }
     let input = match route {
+        IoRoute::Create(_) => match serde_json::from_slice(body)
+            .map_err(|_| Failure("invalid_gmail_workspace_contract"))
+            .and_then(|v| {
+                gmail_workspace::contract::normalize(gmail_workspace::contract::Kind::Approval, v)
+            }) {
+            Ok(v) => v,
+            Err(e) => return error(e, false),
+        },
         IoRoute::Connect(_) => match serde_json::from_slice(body)
             .map_err(|_| Failure("invalid_gmail_workspace_contract"))
             .and_then(|v| {
@@ -88,27 +96,40 @@ pub(super) async fn dispatch(
     };
     let browser = crate::mailboxes::browser_nonce();
     let settings = &api.config.gmail_accounts;
-    let result = tokio::time::timeout(Duration::from_secs(65), async {
-        match route {
-            IoRoute::Disconnect => account::disconnect(&mut c).await,
-            IoRoute::Connect(slot) => {
-                let provider = api.config.mailboxes.provider()?;
-                match slot {
-                    Slot::Outreach => {
-                        account::Service { settings, provider }
-                            .start(&mut c, input, &browser)
-                            .await
-                    }
-                    _ => {
-                        gmail_workspace::start_read(
-                            &mut c, slot, input, &browser, settings, provider,
-                        )
+    let result = tokio::time::timeout(
+        Duration::from_secs(if matches!(route, IoRoute::Create(_)) {
+            115
+        } else {
+            65
+        }),
+        async {
+            match route {
+                IoRoute::Create(id) => {
+                    let provider = api.config.mailboxes.provider()?;
+                    account::Service { settings, provider }
+                        .create_draft(&mut c, id, input)
                         .await
+                }
+                IoRoute::Disconnect => account::disconnect(&mut c).await,
+                IoRoute::Connect(slot) => {
+                    let provider = api.config.mailboxes.provider()?;
+                    match slot {
+                        Slot::Outreach => {
+                            account::Service { settings, provider }
+                                .start(&mut c, input, &browser)
+                                .await
+                        }
+                        _ => {
+                            gmail_workspace::start_read(
+                                &mut c, slot, input, &browser, settings, provider,
+                            )
+                            .await
+                        }
                     }
                 }
             }
-        }
-    })
+        },
+    )
     .await
     .unwrap_or(Err(Failure("gmail_workspace_operation_outcome_unknown")));
     recovery::close(c).await;

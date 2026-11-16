@@ -100,6 +100,9 @@ impl Settings {
                 .allowed
                 .contains(&automated_apply_domain::text::folded(email))
     }
+    pub(crate) fn draft_client(&self, token: &str) -> Result<crate::gmail_drafts::DraftClient> {
+        crate::gmail_drafts::DraftClient::new(token, self.fixture, self.endpoint.as_deref())
+    }
 }
 #[derive(Clone, Copy)]
 pub enum Route {

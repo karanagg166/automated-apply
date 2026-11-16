@@ -4064,3 +4064,4 @@ include!("support/gmail_lead_import_pg.rs");
 include!("support/gmail_alerts_pg.rs");
 include!("support/gmail_workspace_pg.rs");
 include!("support/gmail_workspace_account_pg.rs");
+include!("support/gmail_workspace_dispatch_pg.rs");

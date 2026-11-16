@@ -43,7 +43,7 @@ fn public(value: &Value, settings: &Settings) -> Value {
     result["permissions"]["drafts"] = json!(settings.drafts && valid(value, settings).is_ok());
     result
 }
-fn valid(value: &Value, settings: &Settings) -> Result<()> {
+pub(super) fn valid(value: &Value, settings: &Settings) -> Result<()> {
     if value["status"] != "connected" {
         return Err(Failure("gmail_drafts_account_not_connected"));
     }
@@ -63,7 +63,11 @@ fn valid(value: &Value, settings: &Settings) -> Result<()> {
     }
     Ok(())
 }
-async fn separate(tx: &mut Transaction<'_, Postgres>, subject: &str, email: &str) -> Result<()> {
+pub(super) async fn separate(
+    tx: &mut Transaction<'_, Postgres>,
+    subject: &str,
+    email: &str,
+) -> Result<()> {
     if !gmail_accounts::schema(tx).await? {
         return Err(Failure("gmail_readonly_schema_update_required"));
     }

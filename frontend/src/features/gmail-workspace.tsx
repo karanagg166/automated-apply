@@ -43,6 +43,8 @@ type Draft = {
   company: string;
   role: string;
   gmail_draft_id?: string;
+  unconfirmed_gmail_draft_id?: string;
+  content_verified?: boolean;
   content: { recipient: string; subject: string; body: string };
 };
 const base = "integrations/gmail/workspace";
@@ -748,7 +750,7 @@ function DraftEditor({
         owner_reviewed: reviewed,
         expected_account_generation: generation,
       }),
-    onSuccess: refresh,
+    onSettled: refresh,
   });
   const locked = draft.status !== "local_draft";
   return (
@@ -816,14 +818,39 @@ function DraftEditor({
       )}
       {draft.status === "saved_in_gmail" && (
         <p>
-          Saved as a draft. Open Gmail to review or edit it. Nothing was sent.
+          {draft.content_verified
+            ? "Draft content verified in Gmail. Open Gmail to review or edit it."
+            : "Saved draft reference retained. Open Gmail to review its current contents."}
         </p>
       )}
       {["dispatching", "unknown"].includes(draft.status) && (
-        <Notice>
-          Check the outreach mailbox manually before any further action. This
-          draft will not be retried automatically.
-        </Notice>
+        <>
+          <Notice>
+            Draft creation is unconfirmed. Check for this exact draft in the
+            outreach account. This check reads existing drafts and preserves the
+            original creation attempt.
+          </Notice>
+          {draft.unconfirmed_gmail_draft_id && (
+            <p>
+              Unconfirmed Gmail reference: {draft.unconfirmed_gmail_draft_id}
+            </p>
+          )}
+          <label>
+            <input
+              type="checkbox"
+              checked={reviewed}
+              onChange={(e) => setReviewed(e.target.checked)}
+            />{" "}
+            I reviewed this exact recipient, subject and message
+          </label>
+          <Button
+            disabled={!enabled || !reviewed}
+            busy={create.isPending}
+            onClick={() => create.mutate()}
+          >
+            Check for existing Gmail draft
+          </Button>
+        </>
       )}
       {(save.isError || create.isError) && (
         <Notice>{(save.error || create.error)?.message}</Notice>

@@ -191,6 +191,10 @@ fn workspace_routes_preserve_existing_local_contract_and_deny_nested_or_arbitrar
         assert!(gmail_workspace::io_route(&format!("{root}/accounts/{slot}/connect")).is_some());
     }
     assert!(gmail_workspace::io_route(&format!("{root}/outreach/disconnect")).is_some());
+    assert!(
+        gmail_workspace::io_route(&format!("{root}/drafts/{}/create-in-gmail", "a".repeat(32)))
+            .is_some()
+    );
     for suffix in [
         "/accounts/read_3/connect",
         "/accounts/read_1/send",
