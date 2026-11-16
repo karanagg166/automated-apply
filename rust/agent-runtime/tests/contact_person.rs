@@ -150,6 +150,86 @@ print(json.dumps(out))
 fn request() -> Value {
     json!({"company_id":"11111111-1111-4111-8111-111111111111","company_domain":"example.com","linkedin_url":"https://www.linkedin.com/in/fictional-person/"})
 }
+
+#[test]
+fn identity_keys_and_unicode_fold_match_actual_resolver_source_without_service_imports() {
+    use automated_apply_agents::contacts::enrichment::identity;
+    let base = json!({"full_name":"Fictional Person","source":"apollo","company_domain":"example.com","email":"person@example.com","linkedin_url":"https://www.linkedin.com/in/fictional-person/","provider_person_id":"fictional-provider-id"});
+    let mut cases = Vec::new();
+    for n in 0..10 {
+        let mut value = base.clone();
+        match n {
+            0 => {}
+            1 => value["email"] = json!("jobs@example.com"),
+            2 => value["email"] = json!("person@other.example"),
+            3 => value["professional_url"] = json!("https://example.com/team/person"),
+            4 => value["discovered_person_id"] = json!("11111111-1111-4111-8111-111111111111"),
+            5 => value["linkedin_url"] = Value::Null,
+            6 => value["provider_person_id"] = Value::Null,
+            7 => value["source"] = json!("signalhire"),
+            8 => value["email_kind"] = json!("inferred"),
+            _ => {
+                value["email"] = Value::Null;
+                value["email_kind"] = json!("role_based");
+            }
+        }
+        cases.push(value);
+    }
+    let folds = json!([
+        "  Fictional   Person  ",
+        "STRAẞE Engineer",
+        "\u{1c} CTO \u{1f}",
+        "ΚΟΣΜΟΣ",
+        "İdentıty",
+        "नाम",
+        ""
+    ]);
+    let actual = oracle(
+        r#"import ast,hashlib,json,re,runpy,sys
+from pathlib import Path
+from types import SimpleNamespace
+from urllib.parse import urlsplit
+scope={'hashlib':hashlib,'re':re,'urlsplit':urlsplit}
+def load(path,names):
+ tree=ast.parse(Path(path).read_text());nodes=[n for n in tree.body if (isinstance(n,ast.FunctionDef) and n.name in names) or (isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id in names for t in n.targets))];exec(compile(ast.Module(body=nodes,type_ignores=[]),'<actual-identity>','exec'),scope)
+load('backend/app/services/contact_enrichment/verification.py',{'domain','business_email','email_kind','ROLE_INBOXES'})
+load('backend/app/services/contact_enrichment/contact_identity.py',{'folded'})
+tree=ast.parse(Path('backend/app/services/contact_enrichment/contact_identity.py').read_text());cls=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='ContactIdentityResolver');method=next(n for n in cls.body if isinstance(n,ast.AsyncFunctionDef) and n.name=='reconcile');body=[];active=False
+for n in method.body:
+ if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='email' for t in n.targets):active=True
+ if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='matches' for t in n.targets):break
+ if active:body.append(n)
+body.append(ast.parse('result=sorted(keys)').body[0]);code=compile(ast.fix_missing_locations(ast.Module(body=body,type_ignores=[])),'<actual-identity-keys>','exec');models=runpy.run_path('rust/scripts/export_contact_contracts.py')['models']();payload=json.load(sys.stdin);out=[]
+for value in payload['cases']:
+ observation=models['contact-person-observation'].model_validate(value);local=dict(scope,observation=observation,company=SimpleNamespace(domain='example.com'));exec(code,local);out.append(local['result'])
+assert 'backend.app.core.config' not in sys.modules
+print(json.dumps({'keys':out,'folds':[scope['folded'](s) for s in payload['folds']]}))
+"#,
+        &json!({"cases":cases,"folds":folds}),
+    );
+    for (input, want) in cases.iter().zip(actual["keys"].as_array().unwrap()) {
+        let observation = person::normalize(Kind::Observation, input.clone()).unwrap();
+        let email = observation["email"].as_str().and_then(|s| {
+            automated_apply_agents::contacts::rules::business_email(s, "example.com")
+        });
+        let kind = email
+            .as_deref()
+            .map(automated_apply_agents::contacts::rules::email_kind)
+            .unwrap_or(observation["email_kind"].as_str().unwrap());
+        assert_eq!(
+            json!(identity::identity_keys(&observation, email.as_deref(), kind).unwrap()),
+            *want
+        );
+    }
+    for (input, want) in folds
+        .as_array()
+        .unwrap()
+        .iter()
+        .zip(actual["folds"].as_array().unwrap())
+    {
+        assert_eq!(json!(identity::folded(input.as_str().unwrap())), *want);
+    }
+}
 #[test]
 fn apollo_observations_match_actual_projection_without_raw_personal_data_or_mailbox_verification() {
     let base = json!({"name":"Fictional Person","title":"CTO","organization":{"primary_domain":"example.com"},"linkedin_url":"https://www.linkedin.com/in/fictional-person","email":"person@example.com","id":"fictional-provider-person","email_status":"verified","phone":"PRIVATE_PHONE_CANARY","vendor_payload":"PRIVATE_VENDOR_CANARY"});

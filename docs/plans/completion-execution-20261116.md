@@ -1,5 +1,16 @@
 # Complete-source delivery plan — 2026-11-16
 
+Identity ingestion design2026-11-17: reconcile normalized observations under the shared
+owner/company/contact locks with bounded inventory byte/row limits. Resolve batched saved
+identity mappings/tombstones, exact canonical profiles/business mailboxes and only current
+owner-confirmed exact-source/name/role support; name alone never merges people. Preserve
+suppression and owner-corrected facts. Conflicting names/profiles/mappings/mailboxes record
+review evidence, retain existing facts and cannot become fallback eligibility. Use complete
+contact/identity/evidence ACKs plus immutable per-observation receipt; identical replay
+returns the retained finding without refreshing timestamps or appending evidence. Provider
+claims never create mailbox verification. Existing generic inbox evidence stays company
+level. No network IO or application policy edits occur in reconciliation transactions.
+
 Fixed contact transport design2026-11-17: freeze actual person/request DTOs and construct
 all network bodies from a consumed native dispatch grant, never arbitrary request JSON.
 One HTTP client uses fixed Apollo/SignalHire origins, no redirects/proxy/retries, bounded

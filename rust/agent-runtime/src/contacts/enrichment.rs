@@ -4,6 +4,7 @@ pub mod budget;
 pub mod capabilities;
 pub mod contract;
 pub mod dispatch;
+pub mod identity;
 pub mod lookups;
 pub mod person;
 pub mod policy;
