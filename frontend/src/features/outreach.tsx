@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowUpRight, Check, Mail, Send } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Check, Mail } from "lucide-react";
 import { api, dateLabel, patch, post, readable } from "@/lib/api";
 import {
   Badge,
@@ -11,7 +11,6 @@ import {
   ErrorState,
   Field,
   Input,
-  Modal,
   Notice,
   PageTitle,
   Skeleton,
@@ -34,17 +33,6 @@ type Draft = {
   };
   outbound_messages_sent: number;
 };
-type SendPreview = {
-  draft_revision: number;
-  approval_hash: string;
-  sender_account_id: string;
-  sender: string;
-  recipient: string;
-  subject: string;
-  body: string;
-  confirmation_token: string;
-  confirmation_expires_at: string;
-};
 export function Outreach() {
   const query = useQuery({
     queryKey: ["drafts"],
@@ -63,7 +51,7 @@ export function Outreach() {
       <PageTitle
         eyebrow="BETTER CONVERSATIONS BEGIN WITH RELEVANCE"
         title="Make your introduction count."
-        description="Professional, evidence-grounded outreach. Reviewed by you, sent only with your exact consent."
+        description="Prepare and review professional outreach drafts using verified evidence."
         actions={
           <Link className="button primary" href="/people">
             <Mail size={14} />
@@ -72,9 +60,8 @@ export function Outreach() {
         }
       />
       <Notice>
-        These are persisted local drafts. A draft or approval does not mean
-        Gmail has accepted a message. Secondary Gmail authorization and an
-        exact-content confirmation are required before sending.
+        These drafts are saved locally. Gmail supports reading and unsent draft
+        creation through the separate mailbox workspace. Sending is disabled.
       </Notice>
       {query.isPending ? (
         <Skeleton />
@@ -151,29 +138,15 @@ export function Outreach() {
 export function OutreachDetail({ id }: { id: string }) {
   const client = useQueryClient(),
     [subject, setSubject] = useState(""),
-    [body, setBody] = useState(""),
-    [preview, setPreview] = useState<SendPreview | null>(null),
-    [exactConsent, setExactConsent] = useState(false),
-    [notice, setNotice] = useState("");
+    [body, setBody] = useState("");
   const query = useQuery({
     queryKey: ["draft", id],
     queryFn: () => api<Draft>(`outreach/drafts/${id}`),
-  });
-  const gmail = useQuery({
-    queryKey: ["gmail-status"],
-    queryFn: () =>
-      api<{
-        sending_enabled: boolean;
-        send_capability: string;
-        status: string;
-      }>("integrations/gmail/status"),
   });
   useEffect(() => {
     if (query.data) {
       setSubject(query.data.subject);
       setBody(query.data.body);
-      setPreview(null);
-      setExactConsent(false);
     }
   }, [query.data]);
   const updated = () => {
@@ -197,46 +170,22 @@ export function OutreachDetail({ id }: { id: string }) {
       }),
     onSuccess: updated,
   });
-  const sendPreview = useMutation({
-    mutationFn: () => post<SendPreview>(`outreach/drafts/${id}/send-preview`),
-    onSuccess: (p) => {
-      setPreview(p);
-      setExactConsent(false);
-    },
-  });
-  const send = useMutation({
-    mutationFn: () =>
-      post<{ status: string }>(`outreach/drafts/${id}/send`, {
-        expected_revision: preview!.draft_revision,
-        approval_hash: preview!.approval_hash,
-        sender_account_id: preview!.sender_account_id,
-        confirmation_token: preview!.confirmation_token,
-        idempotency_key: `send_${id}_${preview!.draft_revision}`,
-      }),
-    onSuccess: (result) => {
-      setNotice(
-        `Recorded send attempt: ${readable(result.status)}. Inspect history; this is not a delivery claim.`,
-      );
-      setPreview(null);
-      updated();
-    },
-  });
   const attempt = useQuery({
     queryKey: ["send-attempt", query.data?.send_attempt_id],
     queryFn: () =>
-      api<Record<string, unknown>>(
-        `outreach/send-attempts/${query.data!.send_attempt_id}`,
-      ),
+      api<{
+        status: string;
+        attempted_at?: string | null;
+        accepted_at?: string | null;
+        failure_category?: string | null;
+        reconciliation_required?: boolean;
+        rfc_message_id?: string | null;
+      }>(`outreach/send-attempts/${query.data!.send_attempt_id}`),
     enabled: !!query.data?.send_attempt_id,
   });
   if (query.isPending) return <Skeleton />;
   if (query.isError) return <ErrorState error={query.error} />;
   const d = query.data;
-  const sendReady =
-    gmail.data?.sending_enabled &&
-    gmail.data.send_capability === "send_authorized" &&
-    d.approval_status === "approved" &&
-    !d.send_attempt_id;
   const dirty = subject !== d.subject || body !== d.body;
   return (
     <>
@@ -252,7 +201,6 @@ export function OutreachDetail({ id }: { id: string }) {
           actions={<Badge>{readable(d.delivery_status)}</Badge>}
         />
       </div>
-      {notice && <Notice>{notice}</Notice>}
       <div className="detail-grid">
         <section className="panel">
           <div className="panel-header">
@@ -350,35 +298,15 @@ export function OutreachDetail({ id }: { id: string }) {
               <Mail size={17} className="muted" />
             </div>
             <div className="panel-body stack">
-              {gmail.isError ? (
-                <ErrorState error={gmail.error} />
-              ) : (
-                <>
-                  <Badge tone={sendReady ? "green" : "amber"}>
-                    {readable(gmail.data?.send_capability)}
-                  </Badge>
-                  <p className="section-intro">
-                    {!gmail.data?.sending_enabled
-                      ? "Gmail sending is disabled by server configuration."
-                      : !sendReady
-                        ? "Connect and authorize the designated secondary Gmail account, then approve this exact draft."
-                        : "Request a short-lived send preview and review the exact sender, recipient and content."}
-                  </p>
-                  <Button
-                    disabled={!sendReady || dirty}
-                    busy={sendPreview.isPending}
-                    onClick={() => sendPreview.mutate()}
-                  >
-                    <Send size={13} />
-                    Review exact send
-                  </Button>
-                  <Link className="external" href="/connections">
-                    Connection & scopes
-                    <ArrowUpRight size={13} />
-                  </Link>
-                </>
-              )}
-              {sendPreview.isError && <ErrorState error={sendPreview.error} />}
+              <Badge>Reading and drafts only</Badge>
+              <p className="section-intro">
+                Sending is disabled. Review your account and save unsent Gmail
+                drafts in the separate mailbox workspace.
+              </p>
+              <Link className="external" href="/connections">
+                Gmail account and draft workspace
+                <ArrowUpRight size={13} />
+              </Link>
             </div>
           </section>
           {d.send_attempt_id && (
@@ -393,59 +321,34 @@ export function OutreachDetail({ id }: { id: string }) {
                 </Notice>
                 {attempt.isError ? (
                   <ErrorState error={attempt.error} />
+                ) : attempt.isPending ? (
+                  <Skeleton />
                 ) : (
-                  <pre className="source-text">
-                    {JSON.stringify(attempt.data, null, 2)}
-                  </pre>
+                  <div className="stack">
+                    <Badge>{readable(attempt.data?.status)}</Badge>
+                    <p>
+                      Attempt recorded: {dateLabel(attempt.data?.attempted_at)}
+                    </p>
+                    <p>
+                      Provider acceptance recorded:{" "}
+                      {dateLabel(attempt.data?.accepted_at)}
+                    </p>
+                    {attempt.data?.reconciliation_required && (
+                      <Notice>Manual reconciliation is required.</Notice>
+                    )}
+                    {attempt.data?.failure_category && (
+                      <p>{readable(attempt.data.failure_category)}</p>
+                    )}
+                    {attempt.data?.rfc_message_id && (
+                      <p>Message reference: {attempt.data.rfc_message_id}</p>
+                    )}
+                  </div>
                 )}
               </div>
             </section>
           )}
         </aside>
       </div>
-      <Modal
-        open={!!preview}
-        onOpenChange={(v) => !v && setPreview(null)}
-        title="Confirm this exact email"
-        description="This approval applies only to the displayed content, sender, recipient and draft revision."
-      >
-        {preview && (
-          <div className="stack">
-            <div className="evidence-item">
-              <strong>From: {preview.sender}</strong>
-              <p>To: {preview.recipient}</p>
-              <p>Subject: {preview.subject}</p>
-            </div>
-            <pre className="source-text">{preview.body}</pre>
-            <p className="section-intro">
-              Confirmation expires{" "}
-              {new Date(preview.confirmation_expires_at).toLocaleTimeString()}.
-            </p>
-            <label className="check-label">
-              <input
-                type="checkbox"
-                checked={exactConsent}
-                onChange={(e) => setExactConsent(e.target.checked)}
-              />
-              I authorize sending this exact message from my secondary Gmail
-              account to this recipient now.
-            </label>
-            <Button
-              variant="primary"
-              disabled={
-                !exactConsent ||
-                Date.parse(preview.confirmation_expires_at) <= Date.now()
-              }
-              busy={send.isPending}
-              onClick={() => send.mutate()}
-            >
-              <Send size={13} />
-              Send this exact email
-            </Button>
-            {send.isError && <ErrorState error={send.error} />}
-          </div>
-        )}
-      </Modal>
     </>
   );
 }

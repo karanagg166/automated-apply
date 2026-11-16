@@ -214,7 +214,7 @@ export function Connections() {
                     </h3>
                     <p>
                       {c.platform === "gmail"
-                        ? "Local drafts, OAuth identity and exact-content send confirmation."
+                        ? "Local drafts, OAuth identity and reviewed unsent Gmail drafts."
                         : enrich
                           ? "Optional professional contact enrichment. Returned addresses require separate mailbox verification."
                           : manual
@@ -370,10 +370,9 @@ export function Connections() {
                   </Select>
                 </Field>
                 <Notice>
-                  Use a separately authorized secondary account. Identity
-                  connection does not enable sending. Every send still requires
-                  exact-content approval and a short-lived confirmation
-                  challenge.
+                  Use a separately authorized secondary account. Gmail access is
+                  limited to reading and unsent draft creation. Sending is
+                  disabled.
                 </Notice>
                 <label className="check-label">
                   <input
