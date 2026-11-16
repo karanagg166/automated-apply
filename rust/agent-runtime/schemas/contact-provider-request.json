@@ -1,0 +1,104 @@
+{
+  "properties": {
+    "allow_paid": {
+      "default": false,
+      "title": "Allow Paid",
+      "type": "boolean"
+    },
+    "company_domain": {
+      "anyOf": [
+        {
+          "maxLength": 255,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Company Domain"
+    },
+    "company_id": {
+      "format": "uuid",
+      "title": "Company Id",
+      "type": "string"
+    },
+    "full_name": {
+      "anyOf": [
+        {
+          "maxLength": 255,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Full Name"
+    },
+    "linkedin_url": {
+      "anyOf": [
+        {
+          "maxLength": 2048,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Linkedin Url"
+    },
+    "max_people": {
+      "default": 5,
+      "maximum": 25,
+      "minimum": 1,
+      "title": "Max People",
+      "type": "integer"
+    },
+    "person_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Person Id"
+    },
+    "provider_person_id": {
+      "anyOf": [
+        {
+          "maxLength": 255,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider Person Id"
+    },
+    "target_roles": {
+      "items": {
+        "maxLength": 255,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 20,
+      "title": "Target Roles",
+      "type": "array"
+    }
+  },
+  "required": [
+    "company_id"
+  ],
+  "title": "ContactEnrichmentRequest",
+  "type": "object"
+}

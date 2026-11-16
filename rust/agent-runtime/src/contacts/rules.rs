@@ -106,7 +106,7 @@ pub fn business_email(email: &str, company_domain: &str) -> Option<String> {
             .strip_prefix("www.")
             .unwrap_or(company.host_str()?),
     );
-    if email.rsplit_once('@')?.1 == domain {
+    if idna::domain_to_ascii_strict(email.rsplit_once('@')?.1).ok()? == domain {
         Some(email)
     } else {
         None

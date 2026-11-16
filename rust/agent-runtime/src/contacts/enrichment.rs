@@ -4,6 +4,7 @@ pub mod budget;
 pub mod capabilities;
 pub mod contract;
 pub mod lookups;
+pub mod person;
 pub mod policy;
 pub mod runs;
 pub struct Provider {

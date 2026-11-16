@@ -1,0 +1,228 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "company_domain": {
+      "anyOf": [
+        {
+          "maxLength": 255,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Company Domain"
+    },
+    "discovered_person_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Discovered Person Id"
+    },
+    "email": {
+      "anyOf": [
+        {
+          "maxLength": 255,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Email"
+    },
+    "email_kind": {
+      "default": "person_specific",
+      "enum": [
+        "person_specific",
+        "role_based",
+        "company_general",
+        "inferred"
+      ],
+      "title": "Email Kind",
+      "type": "string"
+    },
+    "email_publication_url": {
+      "anyOf": [
+        {
+          "format": "uri",
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Email Publication Url"
+    },
+    "email_status": {
+      "default": "unknown",
+      "enum": [
+        "unknown",
+        "candidate",
+        "provider_reported",
+        "verified",
+        "invalid"
+      ],
+      "title": "Email Status",
+      "type": "string"
+    },
+    "evidence_strength": {
+      "default": "moderate",
+      "enum": [
+        "weak",
+        "moderate",
+        "strong"
+      ],
+      "title": "Evidence Strength",
+      "type": "string"
+    },
+    "evidence_url": {
+      "anyOf": [
+        {
+          "format": "uri",
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Evidence Url"
+    },
+    "full_name": {
+      "maxLength": 255,
+      "minLength": 1,
+      "title": "Full Name",
+      "type": "string"
+    },
+    "human_confirmed": {
+      "default": false,
+      "title": "Human Confirmed",
+      "type": "boolean"
+    },
+    "linkedin_url": {
+      "anyOf": [
+        {
+          "maxLength": 2048,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Linkedin Url"
+    },
+    "observed_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Observed At"
+    },
+    "permission_evidence_url": {
+      "anyOf": [
+        {
+          "format": "uri",
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Permission Evidence Url"
+    },
+    "professional_url": {
+      "anyOf": [
+        {
+          "format": "uri",
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Professional Url"
+    },
+    "provider_person_id": {
+      "anyOf": [
+        {
+          "maxLength": 255,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider Person Id"
+    },
+    "provider_verification_claim": {
+      "anyOf": [
+        {
+          "maxLength": 100,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider Verification Claim"
+    },
+    "role_title": {
+      "anyOf": [
+        {
+          "maxLength": 255,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Role Title"
+    },
+    "source": {
+      "maxLength": 255,
+      "minLength": 1,
+      "title": "Source",
+      "type": "string"
+    }
+  },
+  "required": [
+    "full_name",
+    "source"
+  ],
+  "title": "PersonObservation",
+  "type": "object"
+}

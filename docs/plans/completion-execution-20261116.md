@@ -1,5 +1,15 @@
 # Complete-source delivery plan — 2026-11-16
 
+Fixed contact transport design2026-11-17: freeze actual person/request DTOs and construct
+all network bodies from a consumed native dispatch grant, never arbitrary request JSON.
+One HTTP client uses fixed Apollo/SignalHire origins, no redirects/proxy/retries, bounded
+response/deadline/header parsing and provider-specific headers; loopback substitution is
+fixture-only. Fresh single-use opaque capability observations bind provider/key/operation/
+cost and expire before final database dispatch admission. Keep introspection distinct from
+billable POSTs; preserve unexpected async IDs/unknown outcomes without another POST.
+Normalize public professional identity/business mailbox fields only, never raw vendor
+phone/personal fields. Provider-returned mailboxes remain provider-reported claims.
+
 Contact per-target admission design2026-11-17: recheck the original native run, current
 company/contact/version and local-first role/cache policy in the same owner-fenced
 SERIALIZABLE transaction as a unique lookup claim, immutable private intent and positive

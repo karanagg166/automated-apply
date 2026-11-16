@@ -58,3 +58,14 @@ evidence, rather than treating a documentation example as endpoint allowance. St
 health introspection are documented separately from billable enrichment. No live balance,
 endpoint entitlement or API key verification was performed.
 
+Read SignalHire's primary [Person endpoint](https://docs.signalhire.com/person-api/retrieve-person),
+[withoutWaterfall](https://docs.signalhire.com/person-api/without-waterfall),
+[credits](https://docs.signalhire.com/person-api/credits) and
+[authentication](https://docs.signalhire.com/authentication) references. Native transport
+uses the fixed documented origin/header, one identifier, withoutWaterfall=true and no
+callback/personal-field path. An unexpected accepted asynchronous response remains an
+unknown result to preserve, never a reason to submit again. Credits metadata is distinct
+from mailbox verification and current-employer/profile reconciliation. No provider call
+was made during this research. Initial URL-based documentation click IDs failed to
+resolve; the already-open official page references resolved successfully.
+
