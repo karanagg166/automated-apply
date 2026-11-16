@@ -7,6 +7,18 @@ use axum::{
 use serde_json::{Value, json};
 
 pub(super) fn profile_failure(error: Failure) -> Response {
+    if error.0.starts_with("gmail_history_") || error.0.starts_with("invalid_gmail_history_") {
+        let status = match error.0 {
+            "invalid_gmail_history_contract" => StatusCode::UNPROCESSABLE_ENTITY,
+            "gmail_history_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
+            "gmail_history_version_conflict"
+            | "gmail_history_identity_conflict"
+            | "gmail_history_evidence_unavailable"
+            | "gmail_history_expired_record" => StatusCode::CONFLICT,
+            _ => StatusCode::SERVICE_UNAVAILABLE,
+        };
+        return reply(status, json!({"detail":error.0}));
+    }
     if error.0 == "execution_event_not_found" {
         return reply(StatusCode::NOT_FOUND, json!({"detail":error.0}));
     }

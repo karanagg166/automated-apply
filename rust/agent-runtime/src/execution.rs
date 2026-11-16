@@ -60,6 +60,9 @@ pub mod telegram_reconciliation;
 use crate::{Failure, Result};
 use serde_json::Value;
 use sqlx::{Connection, PgConnection};
+pub(crate) async fn lock_owner_in(tx: &mut sqlx::Transaction<'_, sqlx::Postgres>) -> Result<()> {
+    storage::lock(tx).await
+}
 pub fn denial(error: Failure) -> bool {
     matches!(
         error.0,

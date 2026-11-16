@@ -96,6 +96,7 @@ pub mod mailboxes;
 pub mod mail_evidence;
 
 pub mod gmail_drafts;
+pub mod gmail_history;
 
 pub mod execution;
 mod owner_fence;

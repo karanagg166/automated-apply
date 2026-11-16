@@ -1,0 +1,22 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "expected_version": {
+      "minimum": 1,
+      "title": "Expected Version",
+      "type": "integer"
+    },
+    "retention_days": {
+      "maximum": 7300,
+      "minimum": 14,
+      "title": "Retention Days",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "expected_version",
+    "retention_days"
+  ],
+  "title": "Retention",
+  "type": "object"
+}

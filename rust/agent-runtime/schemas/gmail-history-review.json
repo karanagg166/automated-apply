@@ -1,0 +1,89 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "applied_at": {
+      "format": "date-time",
+      "title": "Applied At",
+      "type": "string"
+    },
+    "company": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Company",
+      "type": "string"
+    },
+    "confirmed_application": {
+      "title": "Confirmed Application",
+      "type": "boolean"
+    },
+    "evidence": {
+      "additionalProperties": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "maxProperties": 2,
+      "minProperties": 1,
+      "propertyNames": {
+        "format": "uuid"
+      },
+      "title": "Evidence",
+      "type": "object"
+    },
+    "expected_version": {
+      "minimum": 0,
+      "title": "Expected Version",
+      "type": "integer"
+    },
+    "job_url": {
+      "anyOf": [
+        {
+          "format": "uri",
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Job Url"
+    },
+    "owner_reviewed": {
+      "title": "Owner Reviewed",
+      "type": "boolean"
+    },
+    "retention_days": {
+      "maximum": 7300,
+      "minimum": 14,
+      "title": "Retention Days",
+      "type": "integer"
+    },
+    "role": {
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Role",
+      "type": "string"
+    },
+    "status": {
+      "pattern": "^(applied|recruiter_response|interview|rejected|status_update|uncertain)$",
+      "title": "Status",
+      "type": "string"
+    }
+  },
+  "required": [
+    "expected_version",
+    "company",
+    "role",
+    "applied_at",
+    "evidence",
+    "status",
+    "confirmed_application",
+    "retention_days",
+    "owner_reviewed"
+  ],
+  "title": "HistoryReview",
+  "type": "object"
+}

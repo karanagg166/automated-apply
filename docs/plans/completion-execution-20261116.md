@@ -129,6 +129,17 @@ Connected helper/IDE apps are development tools, not application runtime credent
 
 ## Final test matrix and ordering
 
+Gmail history port structure: freeze the actual HistoryReview/Version/Retention declarations
+through AST-only schema export; implement pure normalization and retained-record validation
+in `gmail_history/contract.rs`, then owner-fenced local review/forget/retention/read-only list
+and bounded expiry maintenance in `gmail_history.rs`. Reuse existing canonical ATS URL and
+reviewed-history duplicate guards. Evidence must belong to the explicitly selected account
+and be unexpired; owner-confirmed status stays monotonic across mailbox evidence merges.
+No mailbox IO or message-derived automatic confirmation. GET omits expired records without
+writing; bounded maintenance scrubs expired stored metadata separately on the execution
+connection. Complete legacy read-account/OAuth/selection/sync and alert/draft workspace
+services follow this local-history dependency; local-slot services remain independent.
+
 The existing runner is the starting point, not yet a complete end-to-end gate: it omits
 UI/browser journeys, several extension browser fixture suites and PostgreSQL-backed Python
 integration. Extend it during source integration with a disposable DB lifecycle and strict
