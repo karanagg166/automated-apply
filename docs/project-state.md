@@ -7,6 +7,15 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest startup filter source6101f3c freezes actual filters/shortlist DTOs and ports explicit
+size/exact-range/role/location/industry rules, bounded GET parsing and schema drift stage.
+Three standard declarations (68 actual DTO+110 actual normalizer cases and GET bounds) are
+UNRUN. No PG/frontend additions. See [qualified startup filter report](acceptance/startup-filter-contracts-source-20261117.md).
+Continue actual company size/hiring intelligence, ranking/catalog/shortlists/public discovery
+and remaining dashboard/registry/provider/CLI/conversation/eight-platform source before
+combined gates. No current tests/build/check/live/install or estimate gain;58/42/prior455
+held. Early-stage remains explicit/default false; no owner restriction restored.
+
 Latest saved company sourcec958651 adds owner-only coherent people/jobs/evidence GETs,
 selected professional/normalized public fields, reused job DTO, stable bounded pages and
 stale/future observation qualification. No provider IO, raw vendor payload or GET mutation.
