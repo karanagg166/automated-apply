@@ -503,7 +503,20 @@ async fn mailbox_revoked_and_transient_refresh_errors_have_distinct_durable_stat
         svc.access(&mut c, Slot::One).await.err().map(|e| e.0),
         Some("gmail_refresh_unavailable")
     );
-    assert_eq!(mailbox_row(&mut c, "1").await["status"], "connected");
+    assert_eq!(
+        mailbox_row(&mut c, "1").await["status"],
+        "reauthorization_required"
+    );
+    assert_eq!(
+        mailbox_row(&mut c, "1").await["refresh_outcome"],
+        "outcome_unknown"
+    );
+    assert_eq!(
+        svc.access(&mut c, Slot::One).await.err().map(|e| e.0),
+        Some("gmail_read_draft_account_not_connected")
+    );
+    assert_eq!(google.refreshes.get(), 1);
+    mailbox_seed(&mut c, true).await;
     google
         .fail
         .set(Some(Failure("credential_revoked_or_code_invalid")));
@@ -519,6 +532,99 @@ async fn mailbox_revoked_and_transient_refresh_errors_have_distinct_durable_stat
     assert_eq!(result["revocation"], "manual_revocation_required");
     let row = mailbox_row(&mut c, "1").await;
     assert_eq!(row, json!({"status":"disconnected","generation":2}));
+}
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn local_mailbox_abandoned_refresh_lease_never_replays_on_restart_and_retains_unknown_intent()
+{
+    let mut c = mailbox_fixture().await;
+    mailbox_seed(&mut c, true).await;
+    let settings = mailbox_settings();
+    let google = MailboxGoogle {
+        held_refresh: true,
+        ..MailboxGoogle::default()
+    };
+    let service = Service {
+        settings: &settings,
+        provider: &google,
+    };
+    {
+        let request = service.access(&mut c, Slot::One);
+        tokio::pin!(request);
+        tokio::select! {_ = google.entered.notified()=>{},result=&mut request=>panic!("refresh unexpectedly completed: {}",result.is_ok())};
+    }
+    let mut other = connection().await;
+    sqlx::query("UPDATE owner_preferences SET value=jsonb_set(value,'{refresh_lease_until}','\"2000-01-01T00:00:00Z\"') WHERE key='gm54_account:1'").execute(&mut other).await.unwrap();
+    let restarted = MailboxGoogle::default();
+    let service = Service {
+        settings: &settings,
+        provider: &restarted,
+    };
+    assert_eq!(
+        service
+            .access(&mut other, Slot::One)
+            .await
+            .err()
+            .map(|e| e.0),
+        Some("gmail_refresh_unavailable")
+    );
+    assert_eq!(restarted.refreshes.get(), 0);
+    let row = mailbox_row(&mut other, "1").await;
+    assert_eq!(row["status"], "reauthorization_required");
+    assert_eq!(row["refresh_outcome"], "outcome_unknown");
+    assert!(row["access"].is_null());
+    let intents: Vec<Value> = sqlx::query_scalar(
+        "SELECT value FROM owner_preferences WHERE starts_with(key,'gm54_rfr:')",
+    )
+    .fetch_all(&mut other)
+    .await
+    .unwrap();
+    assert_eq!(intents.len(), 1);
+    assert_eq!(intents[0]["state"], "outcome_unknown");
+    assert_eq!(
+        intents[0]["reason"],
+        "abandoned_refresh_requires_reauthorization"
+    );
+    assert!(!intents[0].to_string().contains("fictional-saved-refresh"));
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn local_mailbox_positive_refresh_response_after_lease_expiry_cannot_publish_new_credentials()
+{
+    let mut c = mailbox_fixture().await;
+    mailbox_seed(&mut c, true).await;
+    let settings = mailbox_settings();
+    let google = MailboxGoogle {
+        held_refresh: true,
+        ..MailboxGoogle::default()
+    };
+    let service = Service {
+        settings: &settings,
+        provider: &google,
+    };
+    let mut other = connection().await;
+    let request = service.access(&mut c, Slot::One);
+    let expire = async {
+        google.entered.notified().await;
+        sqlx::query("UPDATE owner_preferences SET value=jsonb_set(value,'{refresh_lease_until}','\"2000-01-01T00:00:00Z\"') WHERE key='gm54_account:1'").execute(&mut other).await.unwrap();
+        google.release.notify_one();
+    };
+    let (result, ()) = tokio::join!(request, expire);
+    assert_eq!(result.err().map(|e| e.0), Some("gmail_refresh_unavailable"));
+    assert_eq!(google.refreshes.get(), 1);
+    let row = mailbox_row(&mut c, "1").await;
+    assert_eq!(row["status"], "reauthorization_required");
+    assert_eq!(row["refresh_outcome"], "outcome_unknown");
+    assert!(row["access"].is_null());
+    let intent: Value = sqlx::query_scalar(
+        "SELECT value FROM owner_preferences WHERE starts_with(key,'gm54_rfr:')",
+    )
+    .fetch_one(&mut c)
+    .await
+    .unwrap();
+    assert_eq!(intent["state"], "outcome_unknown");
+    assert_eq!(intent["reason"], "gmail_refresh_lease_expired");
 }
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]

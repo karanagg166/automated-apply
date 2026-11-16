@@ -178,11 +178,28 @@ impl<P: Provider> Service<'_, P> {
         if instant(&value["refresh_lease_until"]).is_some_and(|t| t > Utc::now()) {
             return Err(Failure("gmail_refresh_in_progress"));
         }
+        if value["refresh_lease"].is_string() {
+            let mut unknown = value.clone();
+            unknown["status"] = json!("reauthorization_required");
+            unknown["access"] = Value::Null;
+            unknown["refresh_outcome"] = json!("outcome_unknown");
+            let history = format!("gm54_rfr:{}", &digest(text(&value, "refresh_lease")?)[..32]);
+            let retained = read(&mut tx, &history, true).await?;
+            let mut retained=retained.unwrap_or(json!({"slot":slot.name(),"generation":expected,"lease":value["refresh_lease"],"source":"legacy_abandoned_refresh"}));
+            retained["state"] = json!("outcome_unknown");
+            retained["reason"] = json!("abandoned_refresh_requires_reauthorization");
+            put(&mut tx, &history, &retained).await?;
+            put(&mut tx, &key, &unknown).await?;
+            commit(tx).await?;
+            return Err(Failure("gmail_refresh_unavailable"));
+        }
         let lease = Uuid::new_v4().simple().to_string();
         let mut claimed = value.clone();
         claimed["refresh_lease"] = json!(lease);
         claimed["refresh_lease_until"] = json!(expires(70));
         let refresh = decrypt("refresh")?;
+        let history = format!("gm54_rfr:{}", &digest(&lease)[..32]);
+        put(&mut tx,&history,&json!({"slot":slot.name(),"generation":expected,"lease":lease,"state":"refreshing","lease_until":claimed["refresh_lease_until"],"started_at":timestamp()})).await?;
         put(&mut tx, &key, &claimed).await?;
         commit(tx).await?;
         let refreshed = async {
@@ -206,6 +223,15 @@ impl<P: Provider> Service<'_, P> {
         if current["refresh_lease"] != lease {
             return Err(Failure("gmail_refresh_superseded"));
         }
+        let mut intent = read(&mut tx, &history, true)
+            .await?
+            .ok_or(Failure("invalid_gmail_account_record"))?;
+        let refreshed =
+            if instant(&current["refresh_lease_until"]).is_none_or(|at| at <= Utc::now()) {
+                Err(Failure("gmail_refresh_lease_expired"))
+            } else {
+                refreshed
+            };
         let mut next = value.clone();
         next.as_object_mut()
             .ok_or(Failure("invalid_gmail_account_record"))?
@@ -224,10 +250,17 @@ impl<P: Provider> Service<'_, P> {
                         | "gmail_identity_mismatch"
                         | "identity_verification_failed"
                 );
-                if invalid {
-                    next["status"] = json!("reauthorization_required");
-                    next["access"] = Value::Null;
-                }
+                next["status"] = json!("reauthorization_required");
+                next["access"] = Value::Null;
+                next["refresh_outcome"] = json!(if invalid {
+                    "failed_reauthorization_required"
+                } else {
+                    "outcome_unknown"
+                });
+                intent["state"] = next["refresh_outcome"].clone();
+                intent["reason"] = json!(error.0);
+                intent["finished_at"] = json!(timestamp());
+                put(&mut tx, &history, &intent).await?;
                 put(&mut tx, &key, &next).await?;
                 commit(tx).await?;
                 return Err(Failure(if invalid {
@@ -245,6 +278,9 @@ impl<P: Provider> Service<'_, P> {
         next["last_refresh_at"] = json!(timestamp());
         next["last_verified_at"] = json!(timestamp());
         next["expires_at"] = json!(expires(tokens.expires_in()));
+        intent["state"] = json!("completed");
+        intent["finished_at"] = json!(timestamp());
+        put(&mut tx, &history, &intent).await?;
         put(&mut tx, &key, &next).await?;
         commit(tx).await?;
         Ok(Access {

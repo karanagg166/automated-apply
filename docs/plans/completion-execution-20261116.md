@@ -168,6 +168,18 @@ and mark per-URL message import references only after an acknowledged durable jo
 Similarity can produce review hints but cannot merge. No opening URLs, provider calls,
 eligibility guesses or auto-application follows this owner import operation.
 
+Local mailbox alert structure: `mailboxes/alerts.rs` owns actual AlertPolicy, account/
+automation revision-bound leases, fixed official-sender Gmail reads and safe cursor/error
+publication; split pure authentication/query/candidate rules into `mailboxes/alert_rules.rs`
+and candidate/notification persistence into `mailboxes/alert_candidates.rs`. Reuse existing
+read-only transport/MIME and owner notifications. Require the receiving mx.google.com DMARC
+and DKIM result before full-body access, then recheck it. Deduplicate requisitions across
+accounts without inventing employer/title/vacancy or writing jobs. Preserve prior/uncertain
+applications. Schedule on the same transient permit as questionnaire inference, with fair
+selection and no additional persistent connection; disabled/not-due hints avoid owner locks.
+Audit abandoned local-mailbox refresh leases too: expired uncertain refreshes require
+reauthorization, never restart into another provider refresh.
+
 The existing runner is the starting point, not yet a complete end-to-end gate: it omits
 UI/browser journeys, several extension browser fixture suites and PostgreSQL-backed Python
 integration. Extend it during source integration with a disposable DB lifecycle and strict
