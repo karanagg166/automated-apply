@@ -1,5 +1,14 @@
 # Complete-source delivery plan — 2026-11-16
 
+Company intelligence design2026-11-17: port actual latest-per-source size claims, human
+confirmation preference, overlapping band/count conflict detection and non-inferred chosen
+snapshot. Hiring uses saved job/current-board evidence, expiry/closed markers and attributable
+company statements; absence of jobs is never a negative statement. Bound all inventories and
+retain source labels. Add explicit conservative corrections: future observations are not
+fresh evidence, and a negative hiring statement needs its recorded authoritative flag even
+for older stored rows. Compare actual legacy functions on valid historical fixtures; keep
+these intentional corrections in separate regression assertions. No IO, mutation or activation.
+
 Startup contract/filter design2026-11-17: freeze actual StartupFilters/ShortlistInput through
 AST-only loading, retain request defaults/coercions/explicit optional values and expose
 bounded repeated-list GET parsing. Port actual size bands, strict min/max/exact count,
