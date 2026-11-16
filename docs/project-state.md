@@ -7,6 +7,16 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest outreach controller source720d9ea connects owner preview/create and local/MCP flow
+over shared transient IO. Optional governed rewriting uses stable keys/original120-second
+opaque admission, no locks over IO, separately retained finding and fresh context/ledger
+finalization. Unknowns never redispatch; cross-mode keys and malformed retained payloads
+fail closed. Fifteen native PG/loopback/HTTP declarations are UNRUN. See [qualified outreach controller report](acceptance/outreach-owner-controller-source-20261117.md).
+Continue dashboard durable draft recovery and remaining research/company/dashboard/registry/
+provider/CLI/conversation/eight-platform source before combined gates. No current tests/
+build/check/live/install or estimate gain;58/42/prior455 held. Full Rust host uninstalled;
+Gmail sending disabled; no owner browser/production action.
+
 Latest local outreach ledger source2ebf118 preserves original outreach_logs idempotency,
 current private snapshot, expected revisions, historical attempt immutability and exact
 content/evidence approval. Owner read/edit/approve/reject routes are connected; unified

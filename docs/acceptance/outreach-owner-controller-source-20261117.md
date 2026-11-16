@@ -1,0 +1,22 @@
+# Owner outreach controller — source checkpoint 2026-11-17
+
+Implementation [720d9eae6c279168f2bda661d4c28546d79b8f44](https://github.com/karanagg166/automated-apply/commit/720d9eae6c279168f2bda661d4c28546d79b8f44), branch `feat/rust-agent-runtime`, [PR50](https://github.com/karanagg166/automated-apply/pull/50), base `chore/uv-python-tooling`. Untested, uninstalled source.
+
+Owner preview/create endpoints now compose the existing grounded context and original local ledger over the shared transient permit/connection with a60-second endpoint bound. Local preview is read-only, and local/MCP composition never invokes a model. Optional REST rewriting requires an explicit stable request key, current reviewed facts and one original120-second opaque invocation committed before calling the existing governed answer writer. Provider settings, authorization, budgets, cooldowns and claim validation remain those of that writer; no new entitlement is inferred.
+
+No control mutex, owner transaction or material lock survives the model wait. Returned findings commit separately before a new transaction rechecks the original journal, complete current context and deadline, then inserts the original local draft and closes the journal atomically. A failed draft/finish ACK leaves the retained finding. Interrupted admissions never renew, resume or refund. Completed requests return retained findings/original drafts; changed contexts expose no fresh copy. Model-use metadata remains historical even when a finding is held. Preview/create identities are distinct; switching an uncertain create to local mode cannot reuse its identity.
+
+Retained preview fields, references, provider metadata and usage have closed response bounds; private intent fields cannot enter recovery responses. Public contact-evidence references cap at100 while the private digest still binds the complete bounded inventory. Narrative references must belong to the selected grounded facts. Every resulting draft requires review and grants no Gmail sending authority.
+
+| Gate | Result | Exact evidence / limitation |
+| --- | --- | --- |
+| Source integration | PASS (source only) | Shared owner IO controller/local flow, opaque writer admission, separate immutable finding, current-context ledger finalization, retained recovery/privacy guards; formatting applied |
+| Dedicated native PG/loopback/HTTP | NOT TESTED | 15 declarations: local flow; MCP local-only; stable-key prerequisite; one model/draft/replay; retained preview/stale context; profile change;429/no refund; unconfigured writer; failed INSERT; failed admission ACK; cancelled wait/no locks/expired no replay; owner HTTP; failed finish ACK; changed/malformed retained response; local-mode identity refusal |
+| Standard/frontend fixtures | NOT TESTED | No new declarations in this slice; existing suites remain unrun |
+| Current tests/build/check/lint/types | NOT TESTED | New executed tests0; complete source precedes combined acceptance |
+| Actual Mac/provider/Gmail/runtime/install | NOT TESTED | No real inference, mail, account request, browser work or installed change |
+| Timing/resources/concurrency | NOT TESTED | Shared permit/connection/deadline source only; no measured acceptance or hardware comparison |
+
+Fixed findings include `outreach_writer_idempotency_key_required`, `outreach_generation_reconciliation_required`, `outreach_generation_result_requires_review`, `outreach_generation_context_changed`, `outreach_generation_intent_conflict` and `outreach_generation_outcome_unknown`. A retained finding is not a provider-delivery receipt. No executed failure logs, credentials, candidate data, mail or private browser evidence are published.
+
+Final reproduction: coordinated `scripts/run_acceptance.py`, complete dedicated disposable native PG `outreach_controller_*`, full Rust/legacy/UI/types/browser gates and later owner runtime acceptance. Commands are documented, not executed now. Next: dashboard durable draft recovery, remaining research/company/dashboard/registry/provider/CLI/conversation/eight-platform source, then coordinated gates and reviewed migration/install/live evidence. Last validated9c4ace570535a5856184775f8045ee89eafdd05f remains193 standard+262 native PG=455 distinct passes; not current-head validation.58/42 held. STOP162/lifetime4/hour1/three uncertain quarantines/strict worker receipts0 and current filters/identity/PDF/focus rules remain. No hosted Actions, merge, cleanup, sending or installation.
