@@ -540,3 +540,11 @@ See [qualified facts/snapshot report](acceptance/profile-facts-and-snapshot-sour
 Broader serializable form/review/generation owner-wait/control audit remains required.
 Continue full account/profile-sync IO, questionnaires, discovery/native broker/scheduler
 and remaining scope. No check/test/build/live/install or estimate increase beyond58/42.
+
+Owner account/profile controls sourcea7415da adds account PUT with explicit confirmation,
+primary/selected binding, CAS and contact preservation; profile-sync GET/PUT policy keeps
+current confirmed version, read-only status and uncertain-save history/rollback shape.
+Five new PG declarations remain UNRUN. See [qualified controls report](acceptance/account-profile-controls-source-20261116.md).
+Full profile-sync work/save/reconcile, questionnaires, discovery/native broker/scheduler
+and broader serializable owner-wait audit remain required. No build/test/check/live/
+installation or percentage gain; continue the complete existing scope, not a partial final.
