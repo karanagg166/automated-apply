@@ -7,6 +7,15 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest workspace local source7ee8217 adds coherent fixed-role saved metadata and encrypted
+local draft list/save/edit with original Python hashes/purposes, current reviewed profile,
+exact CAS, immutable dispatched/unknown state and bounded read-only GETs. Three standard
+(37 actual DTO/10 actual content/hash comparisons plus routes) +9 native PG/HTTP declarations
+are UNRUN. See [qualified local-workspace report](acceptance/gmail-workspace-local-source-20261116.md).
+Next read-slot connect and separate outreach compose OAuth/refresh/disconnect/explicit draft
+dispatch; then remaining full source before final combined gate. No current test/build/
+check/live/install or percentage gain;58/42/prior455 at9c4ace5 held. No partial final.
+
 Latest local-alert source6053fe5 adds approved local-account policy/sync, receiving-domain
 authentication before body, permanent message receipts, cross-account factual candidates,
 spent/unknown-history quarantine, atomic ACKs and shared transient background scheduling.
