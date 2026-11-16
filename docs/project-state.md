@@ -435,3 +435,15 @@ browser milestones. It is not measured acceptance; hold until another meaningful
 backed milestone and report increases to the owner. Last full validated checkpoint remains
 193standard+262nativePG at9c4ace5; untested new source must not inherit those passes.
 No pending test processes remain. Full plan stays active; continue source implementation.
+
+Form source checkpoint `203a1b9eb04f2c0949b64043193ba86c9bf118c4` adds frozen form DTOs,
+native inspection/preparation/exact-review/consume/receipt, owner plan list/review, task
+attachment, durable unanswered-question bridging and explicit Ask queueing. Fifteen new
+PostgreSQL regression declarations are saved but UNRUN; no compilation/build/Clippy or
+new combined tests were run under the latest owner instruction. Formatting was written.
+See [source-only evidence](acceptance/native-browser-forms-source-20261116.md). Last full
+validated checkpoint remains9c4ace5/455distinct; new source does not inherit that result.
+Question delivery/reply parity, queue/kernel and remaining full-plan ports are still open.
+No installed/browser/account/owner-data/provider/queue action or strict receipt. Keep58/42
+rough estimate and continue source work, including final-runner database/browser stages;
+do not end at this checkpoint or run the deferred acceptance early.
