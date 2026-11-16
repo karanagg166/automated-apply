@@ -1,0 +1,22 @@
+# Gmail read-account selection/evidence — source checkpoint 2026-11-16
+
+Implementation [1fe3b37ddf783caa43f0b4bd84bd290b72e381bf](https://github.com/karanagg166/automated-apply/commit/1fe3b37ddf783caa43f0b4bd84bd290b72e381bf), branch `feat/rust-agent-runtime`, [PR50](https://github.com/karanagg166/automated-apply/pull/50), base `chore/uv-python-tooling`. Uninstalled, untested source.
+
+The existing legacy Gmail read-account list/status/selection/evidence/leads paths now have native local implementations. Three more actual AST DTOs freeze Connect/ReadPolicy/LeadImport constraints without settings or mailbox imports. Folder/label/sender/body/history/page/retention rules retain explicit consent and strict booleans. This slice does not yet perform connect/OAuth, refresh/verify/disconnect, synchronization or lead import; those implementations remain next.
+
+Account listing uses one public metadata projection and one batched policy query after schema presence recognition, bounded to1000 accounts. It never SELECTs encrypted credential columns. Saved verification is labeled saved_not_current_probe and live_verified remains false; send/modify remain false. Configured account restrictions suppress claimed read permissions. Policy status strips page tokens and leases. Selection mutations use SERIALIZABLE, shared owner fence, legacy account advisory lock and account row lock, exact version/ACK and the current metadata/read scopes/body approval. A new selection invalidates the old window/checkpoint/lease instead of adopting its in-flight work.
+
+Evidence uses account/expiry filtering before bounded offset/limit, with a read-only snapshot and no GET purging. Only selected stored metadata envelopes are decrypted with the original message-bound purpose; ciphertext is removed from the owner response. Output is capped at4MiB. Leads retain ordered evidence references, requires_review/current-vacancy false, per-URL import tracking and legacy uncertain-import markers; they create no jobs or provider receipt. Exact methods, authenticated owner/client boundaries and bounded query errors are wired through the owner API. Complete pinned schema/grants verification remains part of reviewed installation; presence recognition alone is not that acceptance.
+
+| Gate | Result | Exact evidence / limitation |
+| --- | --- | --- |
+| Source integration | PASS (source only) | Actual schema export, private-safe batched status, guarded selection, read-only evidence/leads and owner HTTP; formatter applied |
+| New standard tests | NOT TESTED | 3 declarations:47 actual DTO comparisons;8 actual retained-lead grouping comparisons; bounded pages/closed routes |
+| New native PostgreSQL/HTTP tests | NOT TESTED | 8 declarations: held-lock secret-free status; selected policy/lease invalidation; scope/body/version guards; concurrent CAS/dropped ACK; expiry/account paging; metadata-purpose binding; unauthorized status; actual local HTTP auth/methods/query bounds |
+| Compile/Clippy/combined suites | NOT TESTED | Executed new tests0; final source-first gate deferred |
+| Actual Gmail/Mac/provider/install | NOT TESTED | No live mail read, provider request, owner-data query, migration or installed runtime change |
+| Performance/resource/focus/restart/24h | BLOCKED / NOT TESTED | Batched query structure is source only; no measured resource gain; existing account/focus/operator gates remain |
+
+After all source is integrated, run `scripts/run_acceptance.py`, including the expanded Gmail schema stage, tests/gmail_read_contract.rs and tests/support/gmail_accounts_pg.rs. No new executed failure log exists. Sanitized fixed codes include invalid_gmail_read_contract, invalid_gmail_read_page, gmail_body_access_review_required, gmail_readonly_scope_required, gmail_sync_version_conflict and gmail_read_write_ack_failed. Credentials/mail/PII/raw private logs remain excluded from publication.
+
+Prior9c4ace570535a5856184775f8045ee89eafdd05f remains193 standard +262 native disposable PostgreSQL passes,455 distinct; it does not validate this head. Estimate58% complete/42% remaining held. Continue full Gmail account/OAuth/sync/alert/draft workspace, conversation/registry, outreach/providers/platforms, final combined acceptance and reviewed whole-family STOP installation/live proof. STOP162/lifetime4/hour1/three quarantines/strict worker receipts0, saved filters/account/PDF/history/focus and Gmail READ + CREATE DRAFT ONLY remain. No hosted Actions, merge, cleanup or live activation.

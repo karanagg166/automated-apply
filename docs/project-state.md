@@ -25,6 +25,14 @@ Latest private continuity snapshot95fb05976f07df5e5fecb6a918e7101e28fbcb0d5ed7d1
 at2026-11-16T13:37:45Z retains104 indexed/6 available/98 missing; no identity rewrite or
 missing-byte/sidebar recovery claim. See the latest [Gmail source report](acceptance/gmail-history-source-20261116.md).
 
+Newer read-account source1fe3b37 ports local saved account/status/selection/evidence/leads
+with batched public metadata, actual selection rules, version/owner fencing and private
+envelope purpose checks. Three standard (47 actual DTO/8 lead comparisons plus page/routes)
+and8 PG/HTTP declarations are UNRUN. See [qualified selection report](acceptance/gmail-read-selection-source-20261116.md).
+Next: legacy Gmail connect/OAuth/refresh/verify/disconnect/sync and reviewed lead import,
+alerts/draft workspace plus all remaining plan scope. No current-head test/install claim;
+58/42 held and prior455 evidence remains9c4ace5.
+
 Latest operational gate: Brave native health and API health/readiness pass under
 STOPPED162. A windowless native inactive/minimized window experiment failed focus
 acceptance and exposed restored tabs, including an unloaded inactive Naukri login page.
@@ -614,3 +622,5 @@ Telegram local-command sourcef939e54 adds saved runtime/connection/discovery sta
 Telegram reconciliation source63cf059 fixes queue dashboard answering for delivery_unknown/not_sent and preserves same-packet siblings. It adds exact-attempt/current-binding immutable owner findings, no resend/expiry renewal, late positive Bot API evidence/conflict records and an authenticated dashboard control/fixed gateway route. One Rust standard +9 PG/loopback +4 frontend declarations,1 expanded existing UI case and3 gateway assertions are UNRUN. See [qualified reconciliation report](acceptance/telegram-reconciliation-source-20261116.md). No build/check/test/live/provider/install/measurement; prior455 at9c4ace5 and58/42 held. Continue full natural conversation/registry, Gmail account/history/alerts/workspace and all remaining outreach/provider/platform source before final combined gate; no partial final.
 
 Reviewed Gmail history source42ddd19 adds the existing list/review/forget/retention routes, actual DTO normalization, account-bound unexpired evidence, monotonic current confirmation/status, canonical identity, owner/SERIALIZABLE/version fencing and bounded100-record expiry maintenance on the existing execution connection. GET is read-only; ambiguous duplicate rows fail closed; expired confirmation/evidence cannot silently revive. Two standard declarations (40 actual DTO/18 identity comparisons) +12 PG/HTTP declarations are UNRUN. See [qualified history report](acceptance/gmail-history-source-20261116.md). No build/check/test/live/provider/install/measurement; prior455 at9c4ace5 and58/42 held. Continue full Gmail account/OAuth/selection/sync/alerts/draft workspace and remaining conversation/registry/outreach/provider/platform source before final combined gate; no partial final.
+
+Gmail read selection source1fe3b37 adds local account list/status/selection/evidence/leads, frozen actual DTOs, batched credential-free metadata, saved-vs-live labeling, current scopes/body/version guards, lease invalidation and read-only account/expiry paging with message-purpose metadata decryption. Three standard +8 PG/HTTP declarations are UNRUN. See [qualified selection report](acceptance/gmail-read-selection-source-20261116.md). No build/check/test/live/provider/install/measurement; prior455 at9c4ace5 and58/42 held. Continue full connect/OAuth/refresh/verify/disconnect/sync/lead import, alerts/draft workspace and all remaining scope before final combined gate; no partial final.
