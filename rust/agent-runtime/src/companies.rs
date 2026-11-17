@@ -271,13 +271,14 @@ pub async fn dispatch(
                 "observations",
             )
         };
-        let total: i64 =
-            sqlx::query_scalar(&format!("SELECT count(*) FROM {table} WHERE company_id=$1"))
-                .bind(id)
-                .fetch_one(&mut *tx)
-                .await
-                .map_err(db)?;
-        let rows:Vec<Option<Value>>=sqlx::query_scalar(&format!("WITH selected AS (SELECT {projection} AS value,observed_at,id FROM {table} WHERE company_id=$1 ORDER BY {order} LIMIT $2 OFFSET $3) SELECT CASE WHEN octet_length(value::text)<=262144 THEN value ELSE NULL END FROM selected ORDER BY {order}")).bind(id).bind(limit).bind(offset).fetch_all(&mut *tx).await.map_err(db)?;
+        let total: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+            "SELECT count(*) FROM {table} WHERE company_id=$1"
+        )))
+        .bind(id)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(db)?;
+        let rows:Vec<Option<Value>>=sqlx::query_scalar(sqlx::AssertSqlSafe(format!("WITH selected AS (SELECT {projection} AS value,observed_at,id FROM {table} WHERE company_id=$1 ORDER BY {order} LIMIT $2 OFFSET $3) SELECT CASE WHEN octet_length(value::text)<=262144 THEN value ELSE NULL END FROM selected ORDER BY {order}"))).bind(id).bind(limit).bind(offset).fetch_all(&mut *tx).await.map_err(db)?;
         let mut bytes = 0;
         let mut records = Vec::new();
         for row in rows {

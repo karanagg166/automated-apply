@@ -1,4 +1,4 @@
-//! Deferred terminal parent/local receipt/ranking fixtures. No production account or provider evidence.
+// Deferred terminal parent/local receipt/ranking fixtures. No production account or provider evidence.
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
 async fn public_result_original_loopback_run_is_locally_complete_and_terminal_replay_never_reads_new_profile_or_gets_again()

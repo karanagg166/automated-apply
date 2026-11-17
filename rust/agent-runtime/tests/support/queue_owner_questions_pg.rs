@@ -1,4 +1,4 @@
-//! Current original-form owner replies, fictional PostgreSQL; no prompt is sent.
+// Current original-form owner replies, fictional PostgreSQL; no prompt is sent.
 async fn queue_question_fixture()->(PgConnection,Value,Value,automated_apply_agents::private_resume::Settings){
     let(mut c,work,resumes)=questionnaire_fixture().await;let mut waiting=questionnaire_observe(&mut c,&work,questionnaire_report(&work,"What is your full name?"),&resumes).await.unwrap();waiting["stage"]=json!("NEEDS_INPUT");waiting["status"]=json!("waiting");waiting["reason"]=json!("questionnaire_verified_answer_required");waiting["revision"]=json!(waiting["revision"].as_i64().unwrap()+1);let id=waiting["id"].as_str().unwrap().parse::<Uuid>().unwrap();browser_save(&mut c,&format!("apply_work:{id}"),waiting.clone()).await;let question=automated_apply_agents::execution::owner_questions::ask(&mut c,id,&packet_settings(),&resumes).await.unwrap();(c,waiting,question,resumes)
 }

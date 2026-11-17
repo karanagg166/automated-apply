@@ -1,4 +1,4 @@
-//! Deferred disposable PG + numeric loopback fixtures. No real account, budgets or Actor execution.
+// Deferred disposable PG + numeric loopback fixtures. No real account, budgets or Actor execution.
 use automated_apply_agents::apify_metadata::{
     owner as apify_owner, transport::Client as ApifyMetadataClient,
 };

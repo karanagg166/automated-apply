@@ -1,4 +1,4 @@
-//! Deferred original startup-parent/public-child fixtures. All HTTP is explicit numeric loopback.
+// Deferred original startup-parent/public-child fixtures. All HTTP is explicit numeric loopback.
 use automated_apply_agents::startup_catalog::job_led as startup_job_led;
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]

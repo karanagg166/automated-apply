@@ -1,4 +1,4 @@
-//! Deferred original read-account OAuth/refresh guards. Fixed fake provider, no real mail.
+// Deferred original read-account OAuth/refresh guards. Fixed fake provider, no real mail.
 use sha2::Digest as _;
 struct ReadGoogle {
     mode: Cell<bool>,

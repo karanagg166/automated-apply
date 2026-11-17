@@ -1,4 +1,4 @@
-//! Deferred legacy worker/lease recovery fixtures; no browser/provider/model calls.
+// Deferred legacy worker/lease recovery fixtures; no browser/provider/model calls.
 async fn legacy_fixture()->(PgConnection,Uuid,Value){let(mut c,_)=listing_fixture().await;let result=owner_import_call(&mut c,json!([owner_import_item("923456789012")])).await.unwrap();let job=result["job_ids"][0].as_str().unwrap().parse::<Uuid>().unwrap();let intent=owner_execution_call(&mut c,"/api/v1/execution/naukri/apply","POST",json!({"job_ids":[job]})).await.unwrap()[0].clone();(c,job,intent)}
 async fn legacy_tick(c:&mut PgConnection)->Result<bool>{let config=Configuration::from_values(&queue_runtime_values()).unwrap();automated_apply_agents::execution::legacy_worker::tick(c,&config).await}
 async fn legacy_prepare_claim(c:&mut PgConnection,claim:automated_apply_agents::execution::legacy_work::Claim)->Result<()>{let config=Configuration::from_values(&queue_runtime_values()).unwrap();automated_apply_agents::execution::legacy_prepare::prepare(c,claim,&config).await}

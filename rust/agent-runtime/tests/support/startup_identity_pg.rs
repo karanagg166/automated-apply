@@ -1,4 +1,4 @@
-//! Deferred canonical company import, replay and atomic rollback fixtures; fictional data only.
+// Deferred canonical company import, replay and atomic rollback fixtures; fictional data only.
 use automated_apply_agents::startup_catalog::identity as startup_identity;
 async fn startup_identity_fixture() -> PgConnection {
     let (mut c, _, _) = companies_fixture().await;

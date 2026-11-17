@@ -1,4 +1,4 @@
-//! Deferred startup parent + original paid child composition. All provider IO is fictional numeric loopback.
+// Deferred startup parent + original paid child composition. All provider IO is fictional numeric loopback.
 async fn startup_paid_fixture() -> PgConnection {
     let mut c = apify_owner_fixture().await;
     startup_shortlist_schema(&mut c).await;
@@ -241,7 +241,7 @@ async fn startup_paid_finalization_ack_detects_late_budget_change_without_refund
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
 async fn startup_paid_owner_http_uses_original_keyed_parent_and_saved_child_without_another_actor_start()
  {
-    let mut c = startup_paid_fixture().await;
+    let _c = startup_paid_fixture().await;
     let (v, f, remote_stop, remote_task) = apify_job_http("ok").await;
     let mut v = startup_paid_values(v);
     v.extend(host_values());

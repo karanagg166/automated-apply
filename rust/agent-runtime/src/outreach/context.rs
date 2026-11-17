@@ -36,7 +36,7 @@ async fn inventory(
     if !matches!(table, "candidate_evidence" | "candidate_resources") {
         return Err(invalid());
     }
-    let rows:Vec<Option<Value>>=sqlx::query_scalar(&format!("SELECT CASE WHEN octet_length(to_jsonb(r)::text)<=1048576 THEN to_jsonb(r) ELSE NULL END FROM {table} r WHERE candidate_profile_id=$1 ORDER BY id LIMIT 10001{}",if lock{" FOR SHARE"}else{""})).bind(profile).fetch_all(&mut **tx).await.map_err(db)?;
+    let rows:Vec<Option<Value>>=sqlx::query_scalar(sqlx::AssertSqlSafe(format!("SELECT CASE WHEN octet_length(to_jsonb(r)::text)<=1048576 THEN to_jsonb(r) ELSE NULL END FROM {table} r WHERE candidate_profile_id=$1 ORDER BY id LIMIT 10001{}",if lock{" FOR SHARE"}else{""}))).bind(profile).fetch_all(&mut **tx).await.map_err(db)?;
     let rows = rows
         .into_iter()
         .map(|v| v.ok_or_else(invalid))
@@ -103,19 +103,19 @@ impl Context {
             .await
             .map_err(db)?
             .ok_or(Failure("outreach_contact_not_found"))?;
-        let company:Option<Value>=sqlx::query_scalar(&format!("SELECT CASE WHEN octet_length(to_jsonb(c)::text)<=1048576 THEN to_jsonb(c) ELSE NULL END FROM companies c WHERE id=$1{}",if lock{" FOR SHARE"}else{""})).bind(company_id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(Failure("outreach_contact_employer_missing"))?;
+        let company:Option<Value>=sqlx::query_scalar(sqlx::AssertSqlSafe(format!("SELECT CASE WHEN octet_length(to_jsonb(c)::text)<=1048576 THEN to_jsonb(c) ELSE NULL END FROM companies c WHERE id=$1{}",if lock{" FOR SHARE"}else{""}))).bind(company_id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(Failure("outreach_contact_employer_missing"))?;
         let company = company.ok_or_else(invalid)?;
-        let contact:Option<Value>=sqlx::query_scalar(&format!("SELECT CASE WHEN octet_length(to_jsonb(c)::text)<=1048576 THEN jsonb_set(to_jsonb(c),'{{metadata_}}',coalesce(c.metadata::jsonb,'{{}}'::jsonb)) ELSE NULL END FROM contacts c WHERE id=$1{}",if lock{" FOR SHARE"}else{""})).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(Failure("outreach_contact_not_found"))?;
+        let contact:Option<Value>=sqlx::query_scalar(sqlx::AssertSqlSafe(format!("SELECT CASE WHEN octet_length(to_jsonb(c)::text)<=1048576 THEN jsonb_set(to_jsonb(c),'{{metadata_}}',coalesce(c.metadata::jsonb,'{{}}'::jsonb)) ELSE NULL END FROM contacts c WHERE id=$1{}",if lock{" FOR SHARE"}else{""}))).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(Failure("outreach_contact_not_found"))?;
         let contact = contact.ok_or_else(invalid)?;
         if contact["company_id"] != json!(company_id) {
             return Err(Failure("outreach_context_changed"));
         }
         let job = if let Some(id) = input["job_id"].as_str() {
             let id = id.parse::<Uuid>().map_err(|_| invalid())?;
-            let found: Option<Uuid> = sqlx::query_scalar(&format!(
+            let found: Option<Uuid> = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
                 "SELECT id FROM jobs WHERE id=$1{}",
                 if lock { " FOR SHARE" } else { "" }
-            ))
+            )))
             .bind(id)
             .fetch_optional(&mut **tx)
             .await
@@ -147,7 +147,7 @@ impl Context {
             Err(e) => return Err(e),
         };
         let profile_id = profile["id"].as_str().and_then(|s| s.parse::<Uuid>().ok());
-        let confirmation:Option<Value>=sqlx::query_scalar(&format!("SELECT CASE WHEN octet_length(value::text)<=32768 THEN value ELSE NULL END FROM owner_preferences WHERE key='phase1_profile_confirmation'{}",if lock{" FOR SHARE"}else{""})).fetch_optional(&mut **tx).await.map_err(db)?.flatten();
+        let confirmation:Option<Value>=sqlx::query_scalar(sqlx::AssertSqlSafe(format!("SELECT CASE WHEN octet_length(value::text)<=32768 THEN value ELSE NULL END FROM owner_preferences WHERE key='phase1_profile_confirmation'{}",if lock{" FOR SHARE"}else{""}))).fetch_optional(&mut **tx).await.map_err(db)?.flatten();
         let confirmation = confirmation.unwrap_or(Value::Null);
         let evidence = if let Some(id) = profile_id {
             inventory(tx, "candidate_evidence", id, lock).await?
@@ -159,7 +159,7 @@ impl Context {
         } else {
             vec![]
         };
-        let contact_evidence:Vec<Option<Value>>=sqlx::query_scalar(&format!("SELECT CASE WHEN octet_length(to_jsonb(e)::text)<=1048576 THEN to_jsonb(e) ELSE NULL END FROM contact_evidence e WHERE contact_id=$1 ORDER BY id LIMIT 10001{}",if lock{" FOR SHARE"}else{""})).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
+        let contact_evidence:Vec<Option<Value>>=sqlx::query_scalar(sqlx::AssertSqlSafe(format!("SELECT CASE WHEN octet_length(to_jsonb(e)::text)<=1048576 THEN to_jsonb(e) ELSE NULL END FROM contact_evidence e WHERE contact_id=$1 ORDER BY id LIMIT 10001{}",if lock{" FOR SHARE"}else{""}))).bind(id).fetch_all(&mut **tx).await.map_err(db)?;
         let contact_evidence = contact_evidence
             .into_iter()
             .map(|v| v.ok_or_else(invalid))

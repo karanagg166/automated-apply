@@ -1,4 +1,4 @@
-//! Deferred local run/invocation fixtures. No run grants provider dispatch.
+// Deferred local run/invocation fixtures. No run grants provider dispatch.
 use automated_apply_agents::contacts::enrichment::runs as contact_runs;
 async fn contact_run_start(
     c: &mut PgConnection,

@@ -208,7 +208,7 @@ async fn account_in(tx: &mut Transaction<'_, Postgres>, id: Uuid, locked: bool) 
         "{PUBLIC_ACCOUNT} WHERE provider='gmail' AND id=$1{}",
         if locked { " FOR UPDATE" } else { "" }
     );
-    sqlx::query_scalar(&query)
+    sqlx::query_scalar(sqlx::AssertSqlSafe(query))
         .bind(id)
         .fetch_optional(&mut **tx)
         .await
@@ -435,7 +435,7 @@ pub async fn dispatch(
         if !schema(&mut tx).await?{return if matches!(route,Route::Accounts){Ok(json!({"accounts":[],"workflow":"readonly","schema_ready":false,"error_code":"gmail_readonly_schema_update_required"}))}else{Err(Failure("gmail_readonly_schema_update_required"))};}
         match route{
             Route::Accounts=>{
-                let accounts:Vec<Value>=sqlx::query_scalar(&format!("{PUBLIC_ACCOUNT} WHERE provider='gmail' ORDER BY connected_at,id LIMIT 1001")).fetch_all(&mut *tx).await.map_err(db)?;
+                let accounts:Vec<Value>=sqlx::query_scalar(sqlx::AssertSqlSafe(format!("{PUBLIC_ACCOUNT} WHERE provider='gmail' ORDER BY connected_at,id LIMIT 1001"))).fetch_all(&mut *tx).await.map_err(db)?;
                 if accounts.len()>1000{return Err(Failure("gmail_read_account_inventory_limit"));}
                 let ids=accounts.iter().map(|a|a["id"].as_str().and_then(|s|s.parse::<Uuid>().ok()).ok_or_else(invalid)).collect::<Result<Vec<_>>>()?;
                 let keys=ids.iter().map(|id|format!("gmail_sync:{}",id.simple())).collect::<Vec<_>>();

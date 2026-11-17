@@ -1,4 +1,4 @@
-//! Deferred Naukri command transactions on fictional PostgreSQL. No Telegram/browser network.
+// Deferred Naukri command transactions on fictional PostgreSQL. No Telegram/browser network.
 #[tokio::test(flavor="current_thread")]
 #[ignore="requires dedicated disposable PostgreSQL harness"]
 async fn telegram_naukri_pause_fences_unknown_writes_without_refunding_spent_budget(){

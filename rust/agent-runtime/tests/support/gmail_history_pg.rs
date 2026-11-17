@@ -1,4 +1,4 @@
-//! Deferred local Gmail history API, isolation, CAS and retention. No mailbox/provider IO.
+// Deferred local Gmail history API, isolation, CAS and retention. No mailbox/provider IO.
 const HISTORY_ACCOUNT_1: &str = "00000000-0000-4000-8000-000000000001";
 const HISTORY_ACCOUNT_2: &str = "00000000-0000-4000-8000-000000000002";
 async fn gmail_history_call(c: &mut PgConnection, path: &str, value: Value) -> Result<Value> {

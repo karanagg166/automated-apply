@@ -1,4 +1,4 @@
-//! Deferred native service adoption of deterministic local-answer v1, with no rewrite callback.
+// Deferred native service adoption of deterministic local-answer v1, with no rewrite callback.
 #[tokio::test(flavor="current_thread")]
 #[ignore="requires dedicated disposable PostgreSQL harness"]
 async fn local_answer_v1_service_preserves_deterministic_provenance_draft_and_zero_provider_usage() {

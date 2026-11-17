@@ -1,4 +1,4 @@
-//! Guarded original-Apply questionnaire fixtures. No native transport/browser or real submission.
+// Guarded original-Apply questionnaire fixtures. No native transport/browser or real submission.
 async fn questionnaire_fixture()->(PgConnection,Value,automated_apply_agents::private_resume::Settings){
     use sha2::Digest;
     let(mut c,inspection)=listing_fixture().await;let eligible=listing_observe(&mut c,&inspection,listing_report(&inspection)).await.unwrap();assert_eq!(eligible["operation"],"prepare");

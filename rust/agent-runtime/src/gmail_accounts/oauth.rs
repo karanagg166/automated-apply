@@ -187,9 +187,9 @@ impl<P: Provider> Service<'_, P> {
         let mut account = if let Some(id) = existing {
             Some(account_in(&mut tx, id, true).await?)
         } else if let Some(email) = input["expected_email"].as_str() {
-            sqlx::query_scalar(&format!(
+            sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
                 "{PUBLIC_ACCOUNT} WHERE provider='gmail' AND account_email=$1 FOR UPDATE"
-            ))
+            )))
             .bind(automated_apply_domain::text::folded(email))
             .fetch_optional(&mut *tx)
             .await
@@ -332,9 +332,9 @@ impl<P: Provider> Service<'_, P> {
             return Err(Failure("wrong_google_account"));
         }
         let mut tx = begin(c).await?;
-        let account: Option<Value> = sqlx::query_scalar(&format!(
+        let account: Option<Value> = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
             "{PUBLIC_ACCOUNT} WHERE provider='gmail' AND account_email=$1 FOR UPDATE"
-        ))
+        )))
         .bind(expected)
         .fetch_optional(&mut *tx)
         .await

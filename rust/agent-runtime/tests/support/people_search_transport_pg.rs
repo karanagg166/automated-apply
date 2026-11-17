@@ -1,4 +1,4 @@
-//! Deferred actual loopback-only HTTP through original admission and retained findings.
+// Deferred actual loopback-only HTTP through original admission and retained findings.
 use automated_apply_agents::people_research::{
     controller::Service as PeopleSearchService, transport::Client as PeopleSearchClient,
 };

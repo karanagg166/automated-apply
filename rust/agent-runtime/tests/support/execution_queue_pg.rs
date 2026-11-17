@@ -1,4 +1,4 @@
-//! Final combined gate only; fictional records and real native PostgreSQL locking.
+// Final combined gate only; fictional records and real native PostgreSQL locking.
 async fn execution_running(c:&mut PgConnection)->Value{let mut config=execution_seed_policy(c).await;config["state"]=json!("RUNNING");browser_save(c,"application_queue_policy",config.clone()).await;browser_save(c,"exec_config:naukri",json!({"mode":"ON_DEMAND"})).await;config}
 async fn execution_enqueue(c:&mut PgConnection,number:&str)->Value{automated_apply_agents::execution::queue::enqueue(c,&format!("https://www.naukri.com/job-listings-fictional-{number}"),"saved_verified_job",Some("fictional-reference")).await.unwrap()}
 #[tokio::test(flavor="current_thread")]

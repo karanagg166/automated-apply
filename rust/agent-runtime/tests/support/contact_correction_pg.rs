@@ -1,4 +1,4 @@
-//! Deferred fictional owner corrections. Provider calls and real contact records are excluded.
+// Deferred fictional owner corrections. Provider calls and real contact records are excluded.
 async fn correction_fixture() -> (PgConnection, Uuid, Uuid) {
     let (mut c, company, job) = contacts_fixture().await;
     sqlx::raw_sql("CREATE TABLE contact_identities(id uuid PRIMARY KEY,company_id uuid NOT NULL,contact_id uuid NOT NULL,namespace text NOT NULL,identity_key text NOT NULL)").execute(&mut c).await.unwrap();
@@ -250,7 +250,9 @@ async fn contact_correction_rejects_expired_future_cross_company_mailbox_or_unau
         "provenance=jsonb_set(provenance::jsonb,'{result}','\"unknown\"')",
     ] {
         sqlx::query("UPDATE contact_evidence SET company_id=($2::jsonb->>'company_id')::uuid,collected_at=($2::jsonb->>'collected_at')::timestamptz,expires_at=($2::jsonb->>'expires_at')::timestamptz,provenance=$2::jsonb->'provenance',user_confirmed=($2::jsonb->>'user_confirmed')::boolean WHERE id=$1").bind(evidence).bind(&original).execute(&mut c).await.unwrap();
-        sqlx::query(&format!("UPDATE contact_evidence SET {sql} WHERE id=$1"))
+        sqlx::query(sqlx::AssertSqlSafe(format!(
+            "UPDATE contact_evidence SET {sql} WHERE id=$1"
+        )))
             .bind(evidence)
             .execute(&mut c)
             .await

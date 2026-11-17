@@ -1,4 +1,4 @@
-//! Deferred local ledger, CAS/grounding and complete-row rollback fixtures.
+// Deferred local ledger, CAS/grounding and complete-row rollback fixtures.
 use automated_apply_agents::outreach::drafts as outreach_drafts;
 async fn outreach_draft_guard(c: &mut PgConnection) {
     // Run the actual final additive guard; timestamp/revision semantics must not be mocked.
@@ -488,7 +488,7 @@ async fn outreach_drafts_owner_http_validates_auth_revision_contract_and_current
     assert_eq!(approved["eligibility"]["approval_current"], true);
     assert_eq!(approved["eligibility"]["email_send_ready"], false);
     stop.cancel();
-    task.await.unwrap().unwrap();
+    task.await.unwrap();
 }
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]

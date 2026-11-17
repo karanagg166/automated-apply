@@ -1,4 +1,4 @@
-//! Deferred fictional history fixtures. No Gmail credentials, transport or real messages.
+// Deferred fictional history fixtures. No Gmail credentials, transport or real messages.
 use automated_apply_agents::outreach::{self, history as outreach_history};
 async fn outreach_history_schema(c: &mut PgConnection) {
     sqlx::raw_sql("DROP TABLE IF EXISTS outreach_send_attempts,outreach_logs CASCADE;CREATE TABLE outreach_logs(id uuid PRIMARY KEY,job_id uuid,contact_id uuid,subject text NOT NULL,body text NOT NULL,resume_version varchar(100),gmail_draft_id varchar(255),gmail_message_id varchar(255),gmail_thread_id varchar(255),approval_status varchar(50) NOT NULL DEFAULT 'pending_approval',approved_at timestamptz,sent_at timestamptz,connected_account_id uuid,draft_revision integer NOT NULL DEFAULT 1,candidate_profile_version integer,recipient_email varchar(254),evidence_snapshot jsonb NOT NULL DEFAULT '{}',evidence_hash varchar(64),approval_hash varchar(64),approved_revision integer,last_edited_at timestamptz,validation_status varchar(30) NOT NULL DEFAULT 'requires_review',generation_metadata jsonb NOT NULL DEFAULT '{}',created_via varchar(20) NOT NULL DEFAULT 'legacy',idempotency_key varchar(100) UNIQUE,request_hash varchar(64),created_at timestamptz NOT NULL DEFAULT clock_timestamp(),updated_at timestamptz NOT NULL DEFAULT clock_timestamp());CREATE TABLE outreach_send_attempts(id uuid PRIMARY KEY,draft_id uuid NOT NULL UNIQUE,connected_account_id uuid,confirmation_hash varchar(64),actor_id varchar(64),draft_revision integer NOT NULL,approval_hash varchar(64),recipient_email varchar(254),sender_email varchar(254),sender_binding varchar(64),subject text NOT NULL,body text NOT NULL,content_digest varchar(64),evidence_digest varchar(64),rfc_message_id varchar(255),idempotency_key varchar(100),request_hash varchar(64),status varchar(30) NOT NULL,gmail_message_id varchar(255),gmail_thread_id varchar(255),attempted_at timestamptz,accepted_at timestamptz,failure_category varchar(64),reconciliation_required boolean NOT NULL DEFAULT false,reconciled_at timestamptz,reconciled_by varchar(64),reconciliation_note text,created_at timestamptz NOT NULL DEFAULT clock_timestamp(),updated_at timestamptz NOT NULL DEFAULT clock_timestamp())").execute(&mut *c).await.unwrap();
@@ -323,5 +323,5 @@ async fn outreach_history_owner_http_authentication_and_method_errors_preserve_s
     );
     assert_eq!(outreach_snapshot(&mut c).await, before);
     stop.cancel();
-    task.await.unwrap().unwrap();
+    task.await.unwrap();
 }

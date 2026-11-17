@@ -1,4 +1,4 @@
-//! Deferred isolated fixtures. Gmail/Telegram transport and every person/job are fictional.
+// Deferred isolated fixtures. Gmail/Telegram transport and every person/job are fictional.
 #[derive(Default)]
 struct AlertReader {
     page: RefCell<Value>,

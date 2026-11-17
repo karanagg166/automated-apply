@@ -1,4 +1,4 @@
-//! Deferred original paid search admissions. No transport is executed by these fixtures.
+// Deferred original paid search admissions. No transport is executed by these fixtures.
 use automated_apply_agents::people_research::{
     runs as people_search_runs, settings::Settings as PeopleSearchSettings,
 };

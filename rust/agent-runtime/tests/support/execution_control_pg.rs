@@ -1,4 +1,4 @@
-//! Final-gate-only controller integration. Fictional native PostgreSQL; no browser/provider.
+// Final-gate-only controller integration. Fictional native PostgreSQL; no browser/provider.
 async fn execution_mutate(c:&mut PgConnection,route:automated_apply_agents::execution::Route<'_>,input:Value)->Result<Value>{automated_apply_agents::execution::dispatch_body(c,route,route.method(),None,input.to_string().as_bytes()).await}
 async fn execution_control(c:&mut PgConnection,revision:i64,action:&str)->Result<Value>{execution_mutate(c,automated_apply_agents::execution::Route::Control,json!({"expected_revision":revision,"action":action})).await}
 async fn execution_work(c:&mut PgConnection,stage:&str,status:&str,operation:&str)->String {let id=Uuid::new_v4();let key=format!("apply_work:{id}");browser_save(c,&key,json!({"id":id,"platform":"naukri","stage":stage,"status":status,"operation":operation,"reason":null,"revision":8,"lease_token":Uuid::new_v4(),"lease_until":"2099-01-01T00:00:00Z","admitted_actions":[{"fingerprint":"apply:retained-spent"}]})).await;key}

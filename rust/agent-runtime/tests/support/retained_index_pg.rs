@@ -1,4 +1,4 @@
-//! Deferred historical receipt indexing; no new observations or application attempt.
+// Deferred historical receipt indexing; no new observations or application attempt.
 async fn historical_receipt(c:&mut PgConnection,req:&str,valid:bool)->Value{
  let value=if valid{json!({"requisition":req,"confirmation_source":"naukri_application_status_ui","operation_mode":"owner_authorized_software_operated_ui","status":"Application Sent","persistent_after_reload":true,"private_evidence_sha256":"a".repeat(64),"observed_at":"2026-01-01T00:00:00Z","job_title":"Fictional historical engineer","hiring_company":"Fictional historical employer"})}else{json!({"damaged":true})};browser_save(c,&format!("naukri_receipt:{req}"),value.clone()).await;value
 }

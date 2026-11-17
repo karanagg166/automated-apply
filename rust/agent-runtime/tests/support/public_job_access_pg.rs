@@ -1,4 +1,4 @@
-//! Deferred original public batch admission fixtures. No HTTP/client/tool is involved.
+// Deferred original public batch admission fixtures. No HTTP/client/tool is involved.
 use automated_apply_agents::job_sources::{
     access as public_job_access, plan::Source as PublicJobSource,
 };

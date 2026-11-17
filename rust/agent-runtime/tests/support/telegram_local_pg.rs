@@ -1,4 +1,4 @@
-//! Deferred local-only Telegram commands. No Gmail/Telegram/browser network.
+// Deferred local-only Telegram commands. No Gmail/Telegram/browser network.
 async fn telegram_local_fixture()->(PgConnection,TelegramSettings,TelegramIdentity){let(mut c,_,_)=browser_command_fixture().await;let(settings,identity)=telegram_question_binding(&mut c).await;(c,settings,identity)}
 async fn telegram_local_result(c:&mut PgConnection,update:i64)->Value{let request=Uuid::new_v5(&Uuid::NAMESPACE_URL,format!("telegram:22:{update}").as_bytes());sqlx::query_scalar("SELECT result FROM agent_operations WHERE key=$1").bind(format!("telegram:11:{request}")).fetch_one(c).await.unwrap()}
 #[tokio::test(flavor="current_thread")]

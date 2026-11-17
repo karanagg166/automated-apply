@@ -1,4 +1,4 @@
-//! Unrun owner execution fixtures. Dedicated fictional PostgreSQL only; no browser/provider IO.
+// Unrun owner execution fixtures. Dedicated fictional PostgreSQL only; no browser/provider IO.
 async fn owner_execution_call(c:&mut PgConnection,path:&str,method:&str,value:Value)->Result<Value>{let route=automated_apply_agents::execution::route(path).unwrap();automated_apply_agents::execution::dispatch_body(c,route,method,None,value.to_string().as_bytes()).await}
 async fn owner_legacy(c:&mut PgConnection,state:&str)->Value{let id=Uuid::new_v4();let value=json!({"id":id,"job_id":Uuid::new_v4(),"platform":"naukri","state":state,"revision":7,"fence":9,"attempts":2,"packet_id":null,"cancelled":false,"history":[],"lease_until":"2099-01-01T00:00:00Z"});browser_save(c,&format!("exec:{id}"),value.clone()).await;value}
 async fn owner_preparation_policy(c:&mut PgConnection)->Value{

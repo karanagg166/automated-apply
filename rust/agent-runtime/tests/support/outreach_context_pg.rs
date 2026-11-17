@@ -1,4 +1,4 @@
-//! Deferred grounded drafting fixtures using only saved fictional records.
+// Deferred grounded drafting fixtures using only saved fictional records.
 use automated_apply_agents::outreach::context::Context as OutreachContext;
 async fn outreach_context_fixture() -> (PgConnection, Uuid) {
     let (mut c, company, job) = contacts_fixture().await;

@@ -1,4 +1,4 @@
-//! Deferred fictional identity reconciliation, suppression and complete-ACK fixtures.
+// Deferred fictional identity reconciliation, suppression and complete-ACK fixtures.
 use automated_apply_agents::contacts::enrichment::identity as contact_identity;
 async fn contact_identity_fixture() -> (PgConnection, Uuid) {
     let (mut c, company, _) = contacts_fixture().await;

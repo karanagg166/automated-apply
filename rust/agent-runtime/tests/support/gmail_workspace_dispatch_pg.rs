@@ -1,4 +1,4 @@
-//! Deferred draft dispatch/reconciliation fixtures. Every message/recipient/provider is fictional.
+// Deferred draft dispatch/reconciliation fixtures. Every message/recipient/provider is fictional.
 #[derive(Default)]
 struct DraftWriteClient {
     posts: Cell<usize>,

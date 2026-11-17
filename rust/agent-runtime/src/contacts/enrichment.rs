@@ -152,9 +152,9 @@ async fn preview(
         .fetch_one(&mut **tx)
         .await
         .map_err(db)?;
-    let mut contacts: Vec<Value> = sqlx::query_scalar(&format!(
+    let mut contacts: Vec<Value> = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
         "SELECT {CONTACT} FROM contacts c WHERE c.company_id=$1 ORDER BY c.id LIMIT 1001"
-    ))
+    )))
     .bind(id)
     .bind(json!({}))
     .fetch_all(&mut **tx)

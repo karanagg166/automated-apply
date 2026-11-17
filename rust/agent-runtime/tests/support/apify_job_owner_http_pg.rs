@@ -1,4 +1,4 @@
-//! Deferred owner HTTP paid lifecycle: numeric loopback only, no real token/account or paid execution.
+// Deferred owner HTTP paid lifecycle: numeric loopback only, no real token/account or paid execution.
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
 async fn apify_owner_http_preview_is_read_only_without_owner_lock_or_provider_calls_and_shows_exact_saved_caps()

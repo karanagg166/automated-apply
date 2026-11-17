@@ -1,4 +1,4 @@
-//! Deferred pagination, response-loss and original-context/cancellation fixtures.
+// Deferred pagination, response-loss and original-context/cancellation fixtures.
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
 async fn public_job_incomplete_second_board_retains_only_observed_jobs_without_a_skip_cursor() {

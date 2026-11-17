@@ -1,4 +1,4 @@
-//! Deferred MCP -> authenticated Unix owner API -> fictional providers. No real accounts.
+// Deferred MCP -> authenticated Unix owner API -> fictional providers. No real accounts.
 fn discovery_mcp_bridge(values: &BTreeMap<String,String>) -> (automated_apply_agents::mcp_bridge::Bridge,tempfile::TempDir) {
     use std::os::unix::fs::PermissionsExt;
     let directory=tempfile::tempdir().unwrap();

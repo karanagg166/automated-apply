@@ -1,4 +1,4 @@
-//! Deferred committed dispatch plus loopback provider evidence; no real contact/account request.
+// Deferred committed dispatch plus loopback provider evidence; no real contact/account request.
 use automated_apply_agents::contacts::enrichment::{
     capabilities as contact_capabilities, dispatch as contact_dispatch,
     providers as contact_providers,

@@ -1,4 +1,4 @@
-//! Deferred filtered catalog and original shortlist fixtures; no provider/application action.
+// Deferred filtered catalog and original shortlist fixtures; no provider/application action.
 use automated_apply_agents::startup_catalog::{
     search as startup_search, shortlist as startup_shortlist,
 };
@@ -348,7 +348,7 @@ async fn startup_search_shortlist_owner_http_auth_and_methods_grant_no_submissio
         200
     );
     stop.cancel();
-    task.await.unwrap().unwrap();
+    task.await.unwrap();
 }
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]

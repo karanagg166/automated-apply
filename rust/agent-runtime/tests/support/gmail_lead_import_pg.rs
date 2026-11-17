@@ -1,4 +1,4 @@
-//! Deferred selected Gmail lead intake: local identity/ACK/history only, no URL/provider request.
+// Deferred selected Gmail lead intake: local identity/ACK/history only, no URL/provider request.
 async fn gmail_lead_fixture() -> (PgConnection, Uuid, Uuid) {
     let (c, one, two) = gmail_read_fixture().await;
     drop(c);

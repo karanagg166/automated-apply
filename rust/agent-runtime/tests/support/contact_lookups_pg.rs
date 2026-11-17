@@ -1,4 +1,4 @@
-//! Deferred atomic lookup preparation. No actual provider transport or dispatch permission.
+// Deferred atomic lookup preparation. No actual provider transport or dispatch permission.
 use automated_apply_agents::contacts::enrichment::lookups as contact_lookups;
 async fn contact_lookup_fixture() -> (PgConnection, Uuid, contacts::enrichment::Settings) {
     let (mut c, company) = enrichment_preview_fixture().await;

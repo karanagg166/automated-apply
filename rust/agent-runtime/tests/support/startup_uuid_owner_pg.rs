@@ -1,4 +1,4 @@
-//! Deferred UUID startup admission/local completion HTTP. Numeric-loopback providers only.
+// Deferred UUID startup admission/local completion HTTP. Numeric-loopback providers only.
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
 async fn startup_uuid_owner_public_put_get_and_empty_complete_use_original_child_only() {

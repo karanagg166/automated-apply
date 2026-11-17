@@ -1,4 +1,4 @@
-//! Deferred selected-profile chat commands; SQL queue only, never an actual window/DOM action.
+// Deferred selected-profile chat commands; SQL queue only, never an actual window/DOM action.
 #[tokio::test(flavor="current_thread")]
 #[ignore="requires dedicated disposable PostgreSQL harness"]
 async fn telegram_browser_open_enqueues_one_current_selected_command_with_telegram_actor_and_no_fill_grant(){

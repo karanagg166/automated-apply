@@ -1,4 +1,4 @@
-//! Deferred existing owner-preference memory with disposable records only.
+// Deferred existing owner-preference memory with disposable records only.
 use automated_apply_agents::conversation::{intent as conversation_intent,memory as conversation_memory};
 #[tokio::test(flavor="current_thread")]
 #[ignore="requires dedicated disposable PostgreSQL harness"]

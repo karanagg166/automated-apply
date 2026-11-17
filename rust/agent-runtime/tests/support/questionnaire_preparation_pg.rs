@@ -1,4 +1,4 @@
-//! Grounded preparation on a fictional generation connection, with remote narratives disabled.
+// Grounded preparation on a fictional generation connection, with remote narratives disabled.
 async fn queued_questionnaire(c:&mut PgConnection,work:&Value,question:&str,resumes:&automated_apply_agents::private_resume::Settings)->Value{questionnaire_observe(c,work,questionnaire_report(work,question),resumes).await.unwrap()}
 async fn questionnaire_prepare(c:&mut PgConnection,resumes:&automated_apply_agents::private_resume::Settings)->Result<bool>{let packets=packet_settings();let answers=answer_settings();automated_apply_agents::execution::questionnaire_preparation::prepare_one(c,automated_apply_agents::execution::questionnaire_preparation::Services{packets:&packets,answers:&answers,narratives:None,resumes}).await}
 #[tokio::test(flavor="current_thread")]

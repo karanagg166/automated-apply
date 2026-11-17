@@ -1,4 +1,4 @@
-//! Deferred actual discovery_runs + original child coupling; private fixture profiles, no real owner data.
+// Deferred actual discovery_runs + original child coupling; private fixture profiles, no real owner data.
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
 async fn public_owner_run_shorter_configured_deadline_caps_the_original_child_lease() {

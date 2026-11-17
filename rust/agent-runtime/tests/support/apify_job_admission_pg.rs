@@ -1,4 +1,4 @@
-//! Deferred exact USD/admission fixtures. No token files, HTTP, Actors or real money.
+// Deferred exact USD/admission fixtures. No token files, HTTP, Actors or real money.
 use automated_apply_agents::apify_jobs::{
     admission as apify_admission, settings::Settings as ApifyJobSettings,
 };

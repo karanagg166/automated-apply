@@ -1,4 +1,4 @@
-//! Deferred separate GET-only recovery, durable pages and local finding completion. Numeric loopback only.
+// Deferred separate GET-only recovery, durable pages and local finding completion. Numeric loopback only.
 use automated_apply_agents::apify_jobs::read_controller::{self, Service as ApifyReadService};
 async fn apify_read_seed(
     c: &mut PgConnection,

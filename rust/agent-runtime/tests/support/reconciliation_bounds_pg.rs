@@ -1,4 +1,4 @@
-//! Lost responses consume durable read opportunities; never renew a spent Apply.
+// Lost responses consume durable read opportunities; never renew a spent Apply.
 #[tokio::test(flavor="current_thread")]
 #[ignore="requires dedicated disposable PostgreSQL harness"]
 async fn execution_lost_reconciliation_polls_stop_after_three_leases_and_restarts_do_not_renew_them(){

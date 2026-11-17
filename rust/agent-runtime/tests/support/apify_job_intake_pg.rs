@@ -1,4 +1,4 @@
-//! Deferred actual-schema intake over selected loopback findings; no real account or paid operation.
+// Deferred actual-schema intake over selected loopback findings; no real account or paid operation.
 use automated_apply_agents::apify_jobs::intake as apify_intake;
 async fn apify_intake_fixture() -> PgConnection {
     let mut c = apify_job_admission_fixture().await;

@@ -1,4 +1,4 @@
-//! Deferred complete paid-to-local flow and context/ACK/recovery, loopback fixtures only.
+// Deferred complete paid-to-local flow and context/ACK/recovery, loopback fixtures only.
 use automated_apply_agents::people_research::completion as people_search_completion;
 async fn people_search_complete(
     c: &mut PgConnection,

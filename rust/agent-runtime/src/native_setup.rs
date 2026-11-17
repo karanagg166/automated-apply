@@ -1,7 +1,7 @@
 //! Stage the browser companion configuration from the exact candidate runtime settings.
 use crate::{Failure, Result, configuration::Configuration};
 use std::{
-    fs::{self, OpenOptions},
+    fs::OpenOptions,
     io::Write,
     os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::Path,

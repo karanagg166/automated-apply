@@ -1,4 +1,4 @@
-//! Deferred fixed loopback primary + explicit local-only Ollama fixtures.
+// Deferred fixed loopback primary + explicit local-only Ollama fixtures.
 struct FallbackPrimary { mode:&'static str,calls:AtomicUsize }
 async fn fallback_primary_response(axum::extract::State(f):axum::extract::State<Arc<FallbackPrimary>>,request:axum::extract::Request)->axum::response::Response {
     use axum::response::IntoResponse;

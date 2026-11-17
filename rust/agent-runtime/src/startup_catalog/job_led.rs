@@ -120,7 +120,7 @@ async fn load_state(
         || row["source"] != format!("startup_{}", input["source"].as_str().ok_or_else(invalid)?)
         || journal["profile_pin"] != scope["profile_pin"]
         || journal["child_scope_hash"] != crate::python_json::digest(&scope)
-        || scope["request_hash"] != job_sources::scope::request_hash(&child_input(&input, id)?)
+        || scope["request_hash"] != job_sources::scope::request_hash(&child_input(&input, id)?)?
     {
         return Err(invalid());
     }

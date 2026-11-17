@@ -178,9 +178,9 @@ pub async fn prepare(
             )
         }
         Target::Contact(id) => {
-            let contact: Value = sqlx::query_scalar(&format!(
+            let contact: Value = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
                 "SELECT {CONTACT} FROM contacts c WHERE c.id=$1 AND c.company_id=$3 FOR UPDATE"
-            ))
+            )))
             .bind(id)
             .bind(json!({}))
             .bind(run.company())

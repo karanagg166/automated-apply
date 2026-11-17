@@ -1,4 +1,4 @@
-//! Final-gate owner controls only. No account sign-in, profile save or live portal.
+// Final-gate owner controls only. No account sign-in, profile save or live portal.
 fn account_input(context:&Value,packet:&Value)->Value{json!({"expected_revision":0,"candidate_profile_id":packet["candidate_profile_id"],"profile_binding_id":context["profile_binding_id"],"account_sha256":"a".repeat(64),"evidence_sha256":"b".repeat(64),"owner_confirmed":true})}
 #[tokio::test(flavor="current_thread")]
 #[ignore="requires dedicated disposable PostgreSQL harness"]

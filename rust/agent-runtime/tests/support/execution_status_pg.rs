@@ -1,4 +1,4 @@
-//! Real HTTP/SQL fictional status fixtures; no production configuration or browser.
+// Real HTTP/SQL fictional status fixtures; no production configuration or browser.
 async fn execution_status(c:&mut PgConnection,query:Option<&str>)->Result<Value>{automated_apply_agents::execution::dispatch(c,automated_apply_agents::execution::Route::Queue,"GET",query).await}
 async fn execution_seed_policy(c:&mut PgConnection)->Value {
     let policy=automated_apply_agents::execution::contracts::normalize(automated_apply_agents::execution::contracts::Kind::Policy,json!({"global_limits":{"max_job_age_days":14,"applicant_limit":1000,"minimum_match_score":50},"platforms":{"naukri":{"enabled":true,"mode":"SUPERVISED","owner_submission_authorized":true,"supervised_submission_cap":4,"hourly_submission_cap":1,"skill_match_mode":"any"}}})).unwrap();let value=json!({"revision":162,"state":"STOPPED","policy":policy});browser_save(c,"application_queue_policy",value.clone()).await;value

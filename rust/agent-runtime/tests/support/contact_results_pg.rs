@@ -1,4 +1,4 @@
-//! Deferred actual admission/loopback/result/identity fixtures; no provider account is accessed.
+// Deferred actual admission/loopback/result/identity fixtures; no provider account is accessed.
 use automated_apply_agents::contacts::enrichment::results as contact_results;
 async fn contact_result_fixture(
     mode: &'static str,

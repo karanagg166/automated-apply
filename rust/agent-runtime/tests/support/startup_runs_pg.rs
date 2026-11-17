@@ -1,4 +1,4 @@
-//! Deferred original manual startup run lifecycle fixtures. No provider or platform requests.
+// Deferred original manual startup run lifecycle fixtures. No provider or platform requests.
 use automated_apply_agents::startup_catalog::runs as startup_runs;
 async fn startup_run_fixture() -> PgConnection {
     let (mut c, _, _) = startup_detail_fixture().await;

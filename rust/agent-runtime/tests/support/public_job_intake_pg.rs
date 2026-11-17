@@ -1,4 +1,4 @@
-//! Deferred actual-schema local intake fixtures. Selected findings below are fictional, not provider acceptance.
+// Deferred actual-schema local intake fixtures. Selected findings below are fictional, not provider acceptance.
 use automated_apply_agents::job_sources::intake as public_intake;
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]

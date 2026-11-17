@@ -1,4 +1,4 @@
-//! Deferred company people/jobs/evidence saved-read fixtures. No provider requests.
+// Deferred company people/jobs/evidence saved-read fixtures. No provider requests.
 use automated_apply_agents::companies as saved_companies;
 async fn companies_fixture() -> (PgConnection, Uuid, Uuid) {
     let (mut c, company, job) = contacts_fixture().await;
@@ -320,5 +320,5 @@ async fn company_saved_owner_http_routes_require_owner_auth_and_keep_unsupported
     }
     assert_eq!(companies_snapshot(&mut c).await, before);
     stop.cancel();
-    task.await.unwrap().unwrap();
+    task.await.unwrap();
 }

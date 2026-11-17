@@ -1,4 +1,4 @@
-//! Final-gate local preparation and approved-source cursor fixtures; no mail/provider IO.
+// Final-gate local preparation and approved-source cursor fixtures; no mail/provider IO.
 async fn execution_prepare_one(c:&mut PgConnection)->Result<bool>{let packets=packet_settings();let answers=answer_settings();let resumes=automated_apply_agents::private_resume::Settings::from_values(&host_values()).unwrap();automated_apply_agents::execution::preparation::prepare_one(c,automated_apply_agents::execution::preparation::Services{packets:&packets,answers:&answers,resumes:&resumes}).await}
 #[tokio::test(flavor="current_thread")]
 #[ignore="requires dedicated disposable PostgreSQL harness"]

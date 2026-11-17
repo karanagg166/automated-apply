@@ -1,4 +1,4 @@
-//! Deferred fixed public GETs through original DB admission; all remote targets map to numeric loopback.
+// Deferred fixed public GETs through original DB admission; all remote targets map to numeric loopback.
 use automated_apply_agents::job_sources::{
     controller::Service as PublicJobService, transport::Client as PublicJobClient,
 };

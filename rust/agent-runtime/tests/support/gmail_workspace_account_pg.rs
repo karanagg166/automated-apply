@@ -1,4 +1,4 @@
-//! Deferred compose-account and role OAuth fixtures; all identity and transport are fictional.
+// Deferred compose-account and role OAuth fixtures; all identity and transport are fictional.
 #[derive(Default)]
 struct DraftGoogle {
     inner: ReadGoogle,

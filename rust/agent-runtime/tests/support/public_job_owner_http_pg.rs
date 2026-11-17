@@ -1,4 +1,4 @@
-//! Deferred owner-authenticated loopback API and local saved discovery evidence only.
+// Deferred owner-authenticated loopback API and local saved discovery evidence only.
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
 async fn public_owner_preview_is_read_only_and_does_not_take_a_blocked_owner_fence() {

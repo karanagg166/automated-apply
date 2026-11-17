@@ -1,4 +1,4 @@
-//! Deferred local-first owner orchestration and loopback provider acceptance fixtures.
+// Deferred local-first owner orchestration and loopback provider acceptance fixtures.
 use automated_apply_agents::contacts::enrichment::{
     controller as contact_controller, local as contact_local,
 };

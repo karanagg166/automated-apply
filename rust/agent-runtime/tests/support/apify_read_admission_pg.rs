@@ -1,4 +1,4 @@
-//! Deferred separate acknowledged-run read allowances. Original acquisition uses fictional loopback only.
+// Deferred separate acknowledged-run read allowances. Original acquisition uses fictional loopback only.
 use automated_apply_agents::apify_jobs::read_admission as apify_read;
 async fn apify_read_fixture() -> PgConnection {
     let mut c = apify_job_admission_fixture().await;

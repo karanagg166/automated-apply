@@ -65,9 +65,9 @@ pub async fn correct(
     if locked != companies {
         return Err(Failure("contact_company_not_found"));
     }
-    let (before, version): (Option<Value>, String) = sqlx::query_as(&format!(
+    let (before, version): (Option<Value>, String) = sqlx::query_as(sqlx::AssertSqlSafe(format!(
         "SELECT CASE WHEN octet_length(c.metadata::text)<=262144 AND coalesce(octet_length(c.human_review_notes),0)<=10000 AND coalesce(octet_length(c.suppression_reason),0)<=10000 THEN to_jsonb(c) ELSE NULL END,{VERSION} FROM contacts c WHERE c.id=$1 FOR UPDATE"
-    ))
+    )))
     .bind(id)
     .fetch_optional(&mut *tx)
     .await
@@ -144,7 +144,7 @@ pub async fn correct(
     after["human_corrected"] = json!(true);
     after["last_reviewed_at"] = at.clone();
     after["updated_at"] = at.clone();
-    let written:Option<Value>=sqlx::query_scalar(&format!("UPDATE contacts c SET full_name=$2::jsonb->>'full_name',role_title=$2::jsonb->>'role_title',company_id=($2::jsonb->>'company_id')::uuid,email_status=$2::jsonb->>'email_status',do_not_contact=($2::jsonb->>'do_not_contact')::boolean,suppression_reason=$2::jsonb->>'suppression_reason',human_review_notes=$2::jsonb->>'human_review_notes',last_verified_at=($2::jsonb->>'last_verified_at')::timestamptz,human_corrected=true,last_reviewed_at=$3,updated_at=$3 WHERE c.id=$1 AND {VERSION}=$4 RETURNING to_jsonb(c)")).bind(id).bind(&after).bind(now).bind(expected).fetch_optional(&mut *tx).await.map_err(db)?;
+    let written:Option<Value>=sqlx::query_scalar(sqlx::AssertSqlSafe(format!("UPDATE contacts c SET full_name=$2::jsonb->>'full_name',role_title=$2::jsonb->>'role_title',company_id=($2::jsonb->>'company_id')::uuid,email_status=$2::jsonb->>'email_status',do_not_contact=($2::jsonb->>'do_not_contact')::boolean,suppression_reason=$2::jsonb->>'suppression_reason',human_review_notes=$2::jsonb->>'human_review_notes',last_verified_at=($2::jsonb->>'last_verified_at')::timestamptz,human_corrected=true,last_reviewed_at=$3,updated_at=$3 WHERE c.id=$1 AND {VERSION}=$4 RETURNING to_jsonb(c)"))).bind(id).bind(&after).bind(now).bind(expected).fetch_optional(&mut *tx).await.map_err(db)?;
     if written.as_ref() != Some(&after) {
         return Err(ack());
     }

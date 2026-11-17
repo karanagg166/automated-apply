@@ -1,4 +1,4 @@
-//! Deferred fictional executable and disposable PostgreSQL only. No AGY login/model calls.
+// Deferred fictional executable and disposable PostgreSQL only. No AGY login/model calls.
 fn cli_answer_values(mode:&str)->(BTreeMap<String,String>,tempfile::TempDir,std::path::PathBuf) {
     use std::{fs,os::unix::fs::PermissionsExt};
     let dir=tempfile::tempdir().unwrap();let home=dir.path();

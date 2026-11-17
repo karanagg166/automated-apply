@@ -1,4 +1,4 @@
-//! Deferred original paid owner rows and atomic local result/ranking fixtures. Loopback only.
+// Deferred original paid owner rows and atomic local result/ranking fixtures. Loopback only.
 use automated_apply_agents::apify_jobs::runs as apify_runs;
 async fn apify_owner_fixture() -> PgConnection {
     let mut c = apify_intake_fixture().await;

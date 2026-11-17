@@ -1,4 +1,4 @@
-//! Deferred original paid execution through numeric loopback. No real Actors, tokens or money.
+// Deferred original paid execution through numeric loopback. No real Actors, tokens or money.
 use automated_apply_agents::apify_jobs::{
     controller::Service as ApifyJobService, transport::Client as ApifyJobClient,
 };

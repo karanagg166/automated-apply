@@ -1,4 +1,4 @@
-//! Deferred primary-account saved metadata and policy refusal fixtures. No provider IO.
+// Deferred primary-account saved metadata and policy refusal fixtures. No provider IO.
 async fn legacy_gmail_fixture() -> PgConnection {
     let (mut c, _, _) = workspace_fixture().await;
     sqlx::raw_sql("CREATE TABLE IF NOT EXISTS connected_accounts(id uuid PRIMARY KEY,provider varchar(30) NOT NULL,google_subject varchar(255) NOT NULL,account_email varchar(254) NOT NULL,encrypted_refresh_token text,encrypted_access_token text,encryption_key_id varchar(64),granted_scopes json NOT NULL,status varchar(30) NOT NULL,token_generation integer NOT NULL DEFAULT 1,token_expires_at timestamptz,connected_at timestamptz NOT NULL,last_verified_at timestamptz,last_refresh_at timestamptz,disconnected_at timestamptz,created_at timestamptz NOT NULL DEFAULT clock_timestamp(),updated_at timestamptz NOT NULL DEFAULT clock_timestamp());DELETE FROM connected_accounts").execute(&mut c).await.unwrap();

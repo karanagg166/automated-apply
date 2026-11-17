@@ -1,4 +1,4 @@
-//! Deferred local professional imports against the real public-person/identity table definitions.
+// Deferred local professional imports against the real public-person/identity table definitions.
 use automated_apply_agents::people_research::ingest as people_ingest;
 async fn people_ingest_fixture() -> (PgConnection, Uuid) {
     let mut c = startup_run_fixture().await;

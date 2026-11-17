@@ -1,4 +1,4 @@
-//! Deferred unprefixed primary OAuth/refresh/verify fixtures, isolated fictional data only.
+// Deferred unprefixed primary OAuth/refresh/verify fixtures, isolated fictional data only.
 #[derive(Default)]
 struct PrimaryGoogle {
     base: ReadGoogle,

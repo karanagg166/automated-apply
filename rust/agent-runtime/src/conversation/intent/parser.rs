@@ -327,10 +327,10 @@ fn legacy(text: &str) -> Result<Intent> {
     if (value.contains("connected") || value.contains("connection"))
         && rx!(r"^(?:check|show|is |are |tell)").is_match(&value)?
     {
-        return make(
-            "CONNECTION_STATUS",
-            json!({"connection":["gmail","telegram","supabase","chrome","agy"].into_iter().find(|name|value.contains(name))}),
-        );
+        let connection = ["gmail", "telegram", "supabase", "chrome", "agy"]
+            .into_iter()
+            .find(|name| value.contains(name));
+        return make("CONNECTION_STATUS", json!({"connection": connection}));
     }
     if rx!(r"(?:how many|status|pending).*(?:application)|application.*(?:pending|status)")
         .is_match(&value)?

@@ -1,4 +1,4 @@
-//! Unrun owner question/reply/reuse fixtures. No Telegram send or browser action.
+// Unrun owner question/reply/reuse fixtures. No Telegram send or browser action.
 async fn owner_question_call(c:&mut PgConnection,path:&str,value:Value)->Result<Value>{let config=Configuration::from_values(&queue_runtime_values()).unwrap();let route=automated_apply_agents::execution::route(path).unwrap();automated_apply_agents::execution::dispatch_body_configured(c,route,route.method(),None,value.to_string().as_bytes(),Some(&config)).await}
 async fn owner_question_packet()->(PgConnection,Value,Value){
     let(mut c,job)=packet_service_fixture().await;let packet=packet_create(&mut c,job,"fictional-owner-questions",json!([{"question":"Preferred shift?","options":["Day","Night"],"field_type":"multiple_choice","required":true},{"question":"Preferred contact method?","options":["Email","Phone"],"field_type":"multiple_choice","required":true}])).await.unwrap();

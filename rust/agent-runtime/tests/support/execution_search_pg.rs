@@ -1,4 +1,4 @@
-//! Fictional ordinary discovery intake, final combined gate only.
+// Fictional ordinary discovery intake, final combined gate only.
 #[tokio::test(flavor="current_thread")]
 #[ignore="requires dedicated disposable PostgreSQL harness"]
 async fn execution_search_scheduling_is_single_leased_and_respects_saved_source_confirmation_and_stop(){

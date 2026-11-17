@@ -1,4 +1,4 @@
-//! Deferred owner-authenticated acknowledged-read resource and local-only completion. Numeric loopback only.
+// Deferred owner-authenticated acknowledged-read resource and local-only completion. Numeric loopback only.
 async fn apify_read_owner_seed(
     c: &mut PgConnection,
     v: &BTreeMap<String, String>,

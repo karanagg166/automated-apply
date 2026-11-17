@@ -100,9 +100,9 @@ pub async fn authorize(
                 .as_str()
                 .and_then(|s| s.parse::<Uuid>().ok())
                 .ok_or_else(changed)?;
-            let contact: Value = sqlx::query_scalar(&format!(
+            let contact: Value = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
                 "SELECT {CONTACT} FROM contacts c WHERE c.id=$1 AND c.company_id=$3 FOR UPDATE"
-            ))
+            )))
             .bind(id)
             .bind(json!({}))
             .bind(run.company())

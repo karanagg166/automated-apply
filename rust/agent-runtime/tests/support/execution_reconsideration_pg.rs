@@ -1,4 +1,4 @@
-//! Retained observations are hints for a fresh read; none can directly create a packet or Apply.
+// Retained observations are hints for a fresh read; none can directly create a packet or Apply.
 async fn recheck_hold(c:&mut PgConnection,number:&str)->Value {
     let mut work=execution_enqueue(c,number).await;work["stage"]=json!("NEEDS_INPUT");work["status"]=json!("waiting");work["reason"]=json!("applicant_count_requires_review");work["facts"]=json!({"posted_at":chrono::Utc::now().to_rfc3339(),"applicants_min":10,"applicants_max":10,"experience_min":0,"experience_max":2});work["profile_version"]=json!(3);browser_save(c,&format!("apply_work:{}",work["id"].as_str().unwrap()),work.clone()).await;work
 }

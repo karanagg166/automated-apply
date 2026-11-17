@@ -1,4 +1,4 @@
-//! Deferred local workspace fixtures. No real account/profile/mail/draft is used.
+// Deferred local workspace fixtures. No real account/profile/mail/draft is used.
 use automated_apply_agents::gmail_workspace;
 async fn workspace_fixture() -> (PgConnection, Uuid, Uuid) {
     let (c, one, two) = gmail_read_fixture().await;

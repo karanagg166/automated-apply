@@ -212,16 +212,18 @@ async fn list(
 ) -> Result<Value> {
     let company = company(tx, id).await?;
     let filters = page.value(None);
-    let count: i64 = sqlx::query_scalar(&format!("SELECT count(*) FROM contacts c WHERE {FILTER}"))
-        .bind(id)
-        .bind(&filters)
-        .bind(now)
-        .fetch_one(&mut **tx)
-        .await
-        .map_err(db)?;
-    let rows: Vec<Value> = sqlx::query_scalar(&format!(
+    let count: i64 = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+        "SELECT count(*) FROM contacts c WHERE {FILTER}"
+    )))
+    .bind(id)
+    .bind(&filters)
+    .bind(now)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(db)?;
+    let rows: Vec<Value> = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
         "SELECT {CONTACT} FROM contacts c WHERE {FILTER} ORDER BY c.id LIMIT $4 OFFSET $5"
-    ))
+    )))
     .bind(id)
     .bind(&filters)
     .bind(now)
@@ -249,9 +251,9 @@ pub(crate) async fn startup_counts_in(
         .and_then(|s| s.parse::<Uuid>().ok())
         .ok_or_else(invalid)?;
     let company = json!({"id":id,"name":employer["name"],"domain":employer["domain"],"metadata_":{"employee_count":size["employee_count"],"_verified_team_size_band":size["team_size_band"]}});
-    let rows: Vec<Value> = sqlx::query_scalar(&format!(
+    let rows: Vec<Value> = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
         "SELECT {CONTACT} FROM contacts c WHERE c.company_id=$1 ORDER BY c.id LIMIT 10001"
-    ))
+    )))
     .bind(id)
     .bind(json!({}))
     .fetch_all(&mut **tx)
@@ -324,14 +326,15 @@ async fn detail(
     settings: &Settings,
     now: DateTime<Utc>,
 ) -> Result<Value> {
-    let contact: Value =
-        sqlx::query_scalar(&format!("SELECT {CONTACT} FROM contacts c WHERE c.id=$1"))
-            .bind(id)
-            .bind(json!({}))
-            .fetch_optional(&mut **tx)
-            .await
-            .map_err(db)?
-            .ok_or(Failure("contact_not_found"))?;
+    let contact: Value = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
+        "SELECT {CONTACT} FROM contacts c WHERE c.id=$1"
+    )))
+    .bind(id)
+    .bind(json!({}))
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(db)?
+    .ok_or(Failure("contact_not_found"))?;
     let company_id = contact["company_id"]
         .as_str()
         .and_then(|s| s.parse().ok())
@@ -373,7 +376,7 @@ async fn recommended(
         Err(error) => return Err(error),
     };
     let filters = json!({"target_job_id":id});
-    let mut contacts:Vec<Value>=sqlx::query_scalar(&format!("SELECT {CONTACT} FROM contacts c WHERE c.company_id=$1 AND c.do_not_contact=false ORDER BY c.id LIMIT 1001")).bind(company_id).bind(filters).fetch_all(&mut **tx).await.map_err(db)?;
+    let mut contacts:Vec<Value>=sqlx::query_scalar(sqlx::AssertSqlSafe(format!("SELECT {CONTACT} FROM contacts c WHERE c.company_id=$1 AND c.do_not_contact=false ORDER BY c.id LIMIT 1001"))).bind(company_id).bind(filters).fetch_all(&mut **tx).await.map_err(db)?;
     let truncated = contacts.len() > 1000;
     contacts.truncate(1000);
     let mut contacts = contacts

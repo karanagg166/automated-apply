@@ -1,4 +1,4 @@
-//! Deferred fictional owner-import transactions. No portal/Gmail requests or real-data writes.
+// Deferred fictional owner-import transactions. No portal/Gmail requests or real-data writes.
 fn owner_import_item(req:&str)->Value{json!({"url":format!("https://www.naukri.com/job-listings-fictional-{req}"),"title":"Rust Engineer","employer":"Owner Reviewed Fictional Employer","description":"Fictional listing evidence","required_skills":["Rust"],"experience_min":0,"experience_max":2,"experience_requirement":"required","remote_type":"remote","location":"Remote"})}
 async fn owner_import_call(c:&mut PgConnection,items:Value)->Result<Value>{owner_execution_call(c,"/api/v1/execution/naukri/import","POST",json!({"jobs":items})).await}
 #[tokio::test(flavor="current_thread")]

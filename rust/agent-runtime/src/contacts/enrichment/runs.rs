@@ -295,7 +295,7 @@ pub async fn finish(
     ids.sort();
     ids.dedup();
     let maximum = run.input["max_people"].as_u64().ok_or_else(invalid)? as usize;
-    let contacts:Vec<Value>=sqlx::query_scalar(&format!("SELECT {CONTACT} FROM contacts c WHERE c.id=ANY($1) AND c.company_id=$3 ORDER BY c.id FOR UPDATE")).bind(&ids).bind(json!({})).bind(run.company).fetch_all(&mut *tx).await.map_err(db)?;
+    let contacts:Vec<Value>=sqlx::query_scalar(sqlx::AssertSqlSafe(format!("SELECT {CONTACT} FROM contacts c WHERE c.id=ANY($1) AND c.company_id=$3 ORDER BY c.id FOR UPDATE"))).bind(&ids).bind(json!({})).bind(run.company).fetch_all(&mut *tx).await.map_err(db)?;
     let mut retained = Vec::new();
     let mut research = Vec::new();
     let mut errors = errors

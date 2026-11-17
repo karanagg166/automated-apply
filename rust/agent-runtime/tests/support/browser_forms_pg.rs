@@ -1,4 +1,4 @@
-//! Source-phase regressions: fictional profile, isolated PostgreSQL, no browser/provider IO.
+// Source-phase regressions: fictional profile, isolated PostgreSQL, no browser/provider IO.
 fn browser_form_values()->BTreeMap<String,String> {
     let mut values=browser_values();values.insert("BROWSER_FILL_ENABLED".into(),"true".into());values
 }

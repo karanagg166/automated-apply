@@ -1,4 +1,4 @@
-//! Deferred saved professional-contact API fixtures. No paid requests or real person records.
+// Deferred saved professional-contact API fixtures. No paid requests or real person records.
 use automated_apply_agents::contacts;
 async fn contacts_fixture() -> (PgConnection, Uuid, Uuid) {
     let (mut c, _) = listing_fixture().await;

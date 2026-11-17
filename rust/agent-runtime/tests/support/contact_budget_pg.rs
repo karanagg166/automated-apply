@@ -1,4 +1,4 @@
-//! Deferred fictional credit accounting; no provider request is issued by these cases.
+// Deferred fictional credit accounting; no provider request is issued by these cases.
 use automated_apply_agents::contacts::enrichment::budget as contact_budget;
 async fn contact_budget_fixture() -> PgConnection {
     let (mut c, _) = enrichment_preview_fixture().await;

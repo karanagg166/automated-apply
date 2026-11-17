@@ -1,4 +1,4 @@
-//! Deferred owner startup boundary fixtures. Disposable PostgreSQL and loopback HTTP only.
+// Deferred owner startup boundary fixtures. Disposable PostgreSQL and loopback HTTP only.
 use automated_apply_agents::startup_catalog::owner as startup_owner;
 fn startup_sources_settings() -> automated_apply_agents::source_registry::Settings {
     automated_apply_agents::source_registry::Settings::from_values(&BTreeMap::new()).unwrap()

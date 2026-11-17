@@ -1,4 +1,4 @@
-//! Deferred explicit sentence-only provider branch through fixed fictional loopback.
+// Deferred explicit sentence-only provider branch through fixed fictional loopback.
 fn sentence_values(mut values:BTreeMap<String,String>)->BTreeMap<String,String> {
     values.insert("OLLAMA_ENABLED".into(),"false".into());values.insert("OLLAMA_GENERATION_AUTHORIZED".into(),"true".into());values
 }

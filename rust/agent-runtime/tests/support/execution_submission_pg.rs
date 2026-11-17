@@ -1,4 +1,4 @@
-//! Internal state-machine acceptance fixtures. No live native/browser/provider receipt is claimed.
+// Internal state-machine acceptance fixtures. No live native/browser/provider receipt is claimed.
 async fn submission_fixture()->(PgConnection,Value,Value) {
     let(mut c,job)=packet_service_fixture().await;let packet=packet_create(&mut c,job,"fictional-submission-receipt",json!([])).await.unwrap();execution_running(&mut c).await;let mut config=browser_pref(&mut c,"application_queue_policy").await;config["policy"]["notify_submitted"]=json!(false);browser_save(&mut c,"application_queue_policy",config).await;
     sqlx::raw_sql("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT clock_timestamp();CREATE TABLE IF NOT EXISTS agent_policies(key varchar(20) PRIMARY KEY,version integer NOT NULL,preferences jsonb NOT NULL);DELETE FROM agent_policies").execute(&mut c).await.unwrap();

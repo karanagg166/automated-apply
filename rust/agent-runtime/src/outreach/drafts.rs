@@ -99,7 +99,7 @@ pub(super) async fn get_in(
     id: Uuid,
     lock: bool,
 ) -> Result<Value> {
-    let value:Option<Value>=sqlx::query_scalar(&format!("SELECT CASE WHEN octet_length(to_jsonb(d)::text)<=18874368 THEN to_jsonb(d) ELSE NULL END FROM outreach_logs d WHERE id=$1{}",if lock{" FOR UPDATE"}else{""})).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(Failure("outreach_draft_not_found"))?;
+    let value:Option<Value>=sqlx::query_scalar(sqlx::AssertSqlSafe(format!("SELECT CASE WHEN octet_length(to_jsonb(d)::text)<=18874368 THEN to_jsonb(d) ELSE NULL END FROM outreach_logs d WHERE id=$1{}",if lock{" FOR UPDATE"}else{""}))).bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(Failure("outreach_draft_not_found"))?;
     let value = value.ok_or_else(invalid)?;
     if !value["draft_revision"]
         .as_i64()

@@ -1,4 +1,4 @@
-//! Native listing transition fixtures; no real listing/browser/account evidence.
+// Native listing transition fixtures; no real listing/browser/account evidence.
 async fn listing_fixture()->(PgConnection,Value){
     let(mut c,binding,_)=sync_fixture(json!([])).await;
     sqlx::raw_sql("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS canonical_key text UNIQUE,ADD COLUMN IF NOT EXISTS content_identity varchar(64) UNIQUE,ADD COLUMN IF NOT EXISTS first_observed_at timestamptz,ADD COLUMN IF NOT EXISTS updated_at timestamptz DEFAULT clock_timestamp(),ADD COLUMN IF NOT EXISTS salary_range varchar(100),ADD COLUMN IF NOT EXISTS match_score numeric(5,2),ADD COLUMN IF NOT EXISTS match_explanation text;ALTER TABLE companies ADD COLUMN IF NOT EXISTS is_catch_all boolean NOT NULL DEFAULT false;DROP TABLE job_source_observations").execute(&mut c).await.unwrap();

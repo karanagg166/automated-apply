@@ -1,4 +1,4 @@
-//! Deferred actual owner HTTP over disposable PostgreSQL and a loopback-only search provider.
+// Deferred actual owner HTTP over disposable PostgreSQL and a loopback-only search provider.
 async fn people_research_http(
     mode: &'static str,
 ) -> (

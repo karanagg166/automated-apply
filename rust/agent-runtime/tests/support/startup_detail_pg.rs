@@ -1,4 +1,4 @@
-//! Deferred derived startup detail fixtures. Fictional PostgreSQL only; no provider IO.
+// Deferred derived startup detail fixtures. Fictional PostgreSQL only; no provider IO.
 use automated_apply_agents::startup_catalog::detail as startup_detail;
 async fn startup_detail_fixture() -> (PgConnection, Uuid, Uuid) {
     let (mut c, company, job) = companies_fixture().await;
@@ -285,5 +285,5 @@ async fn startup_detail_owner_http_uses_saved_contract_and_refuses_auth_method_a
     );
     assert_eq!(companies_snapshot(&mut c).await, before);
     stop.cancel();
-    task.await.unwrap().unwrap();
+    task.await.unwrap();
 }

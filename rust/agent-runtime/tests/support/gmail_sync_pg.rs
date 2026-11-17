@@ -1,4 +1,4 @@
-//! Deferred selected sync with fictional GETs, genuine database locks/CAS and interruption.
+// Deferred selected sync with fictional GETs, genuine database locks/CAS and interruption.
 use base64::Engine as _;
 struct SelectedReader {
     pages: RefCell<std::collections::VecDeque<Value>>,

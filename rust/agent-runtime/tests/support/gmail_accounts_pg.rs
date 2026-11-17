@@ -1,4 +1,4 @@
-//! Deferred saved read-account policies, current projections and selected retained evidence.
+// Deferred saved read-account policies, current projections and selected retained evidence.
 fn gmail_read_settings() -> automated_apply_agents::gmail_accounts::Settings {
     automated_apply_agents::gmail_accounts::Settings::from_values(&mailbox_values()).unwrap()
 }

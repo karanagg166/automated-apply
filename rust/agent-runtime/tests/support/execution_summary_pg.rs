@@ -1,4 +1,4 @@
-//! Unrun read-only Naukri summary fixtures; retained evidence never becomes new acceptance.
+// Unrun read-only Naukri summary fixtures; retained evidence never becomes new acceptance.
 async fn owner_naukri_status(c:&mut PgConnection,values:BTreeMap<String,String>)->Result<Value>{let config=Configuration::from_values(&values).unwrap();automated_apply_agents::execution::dispatch_body_configured(c,automated_apply_agents::execution::route("/api/v1/execution/naukri").unwrap(),"GET",None,&[],Some(&config)).await}
 #[tokio::test(flavor="current_thread")]
 #[ignore="requires dedicated disposable PostgreSQL harness"]

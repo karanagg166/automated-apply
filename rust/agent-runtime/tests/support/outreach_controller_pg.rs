@@ -1,4 +1,4 @@
-//! Deferred unified owner HTTP and loopback-only governed-writer fixtures.
+// Deferred unified owner HTTP and loopback-only governed-writer fixtures.
 use automated_apply_agents::outreach::controller::{
     self as outreach_controller, Action as OutreachAction,
 };
@@ -603,7 +603,7 @@ async fn outreach_controller_owner_http_preview_create_and_recovery_share_auth_a
     assert_eq!(first["id"], replay["id"]);
     assert_eq!(outreach_journals(&mut c).await, json!({}));
     stop.cancel();
-    task.await.unwrap().unwrap();
+    task.await.unwrap();
 }
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]

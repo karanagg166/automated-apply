@@ -1,4 +1,4 @@
-//! Deferred owner-bound Telegram questions. All transport evidence is fictional/loopback.
+// Deferred owner-bound Telegram questions. All transport evidence is fictional/loopback.
 async fn telegram_question_binding(c:&mut PgConnection)->(TelegramSettings,TelegramIdentity){
  sqlx::raw_sql("DROP TABLE IF EXISTS rust_telegram_outbox,rust_telegram_runtime,agent_telegram_deliveries,agent_telegram_state;CREATE TABLE agent_telegram_state(key text PRIMARY KEY,next_update_id bigint NOT NULL DEFAULT 0,bot_id text,last_poll_at timestamptz,last_error text,evidence_type text NOT NULL DEFAULT 'unverified');CREATE TABLE agent_telegram_deliveries(update_id bigint PRIMARY KEY,reply text NOT NULL,state text NOT NULL CHECK(state IN('pending','sending','sent')))").execute(&mut *c).await.unwrap();sqlx::raw_sql(include_str!("../../sql/003_telegram.sql")).execute(&mut *c).await.unwrap();let settings=TelegramSettings::from_values(&telegram_values("http://127.0.0.1:54321"),true).unwrap().unwrap();let identity=TelegramIdentity{id:123,username:"fictional_bot".into()};telegram::initialize(c,&settings,&identity).await.unwrap();(settings,identity)
 }

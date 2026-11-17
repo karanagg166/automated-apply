@@ -1,4 +1,4 @@
-//! Host lifecycle/connection scheduling on fictional PostgreSQL; all provider traffic is loopback.
+// Host lifecycle/connection scheduling on fictional PostgreSQL; all provider traffic is loopback.
 #[tokio::test(flavor="current_thread")]
 #[ignore="requires dedicated disposable PostgreSQL harness"]
 async fn configured_execution_worker_prepares_saved_queue_independently_of_coordinator_mode_without_dispatch(){
