@@ -1042,6 +1042,14 @@ stage isolation. Do not run it now or operate the owner's browser to execute fix
 | Resource/recovery | Same hardware/workload comparison of total processes, CPU/RSS, latency/Stop under load, connection peak and24-hour awake/locked observation after install |
 | Live per-platform | Account/session/PDF proof, eligible inspected vacancy, authorized admission, exact truthful screening/upload and independent durable receipt; provider unavailable remains BLOCKED, never fixture PASS |
 
+Run a newly built Brave extension through the actual Rust native host into the
+Rust HTTP router and disposable PostgreSQL in one combined fixture. Use an isolated
+headless profile, a fictional portal page and the executable-adjacent host config.
+Verify selecting the connected browser, reading STOPPED status, refusing Start with
+commands disabled, and saving a scoped portal observation. Keep the existing legacy
+browser tests and database-only harness. This fixture cannot establish live focus,
+applicant identity, or provider submission.
+
 Only the final combined gate establishes current full-source test results. If an actual
 failure requires a fix, run the affected regression and repeat integration checks needed
 by that change; do not rerun every unrelated suite after every edit. Completion cannot be

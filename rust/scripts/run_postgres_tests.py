@@ -13,7 +13,12 @@ ROOT = Path(__file__).resolve().parents[2]
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--filter", help="Run matching Rust test names in the disposable fixture")
-    selected = parser.parse_args().filter
+    parser.add_argument(
+        "--with-browser",
+        action="store_true",
+        help="Include the headless Brave and native host fixture using the current Brave extension build",
+    )
+    args = parser.parse_args()
     incremental = os.environ.get("CARGO_INCREMENTAL")
     if incremental is not None and incremental not in {"0", "1"}:
         raise SystemExit("invalid_fixture_incremental_setting")
@@ -46,9 +51,12 @@ def main():
             subprocess.run([str(binary / "createdb"), "-h", "127.0.0.1", "-p", str(port), "-U", "rust_agent_fixture", "rust_agent_fixture"], env=environment, stdout=log, stderr=log, check=True)
         test_env = {**environment, "RUST_AGENT_TEST_DATABASE_URL": f"postgresql://rust_agent_fixture@127.0.0.1:{port}/rust_agent_fixture"}
         arguments = ["cargo", "test", "--locked", "--workspace", "--test", "postgres"]
-        if selected:
-            arguments.append(selected)
-        subprocess.run([*arguments, "--", "--ignored", "--test-threads=1"], env=test_env, cwd=ROOT, check=True)
+        if args.filter:
+            arguments.append(args.filter)
+        flags = ["--ignored", "--test-threads=1"]
+        if not args.with_browser:
+            flags.extend(["--skip", "native_brave_extension_fixture"])
+        subprocess.run([*arguments, "--", *flags], env=test_env, cwd=ROOT, check=True)
     finally:
         if start_attempted:
             result = subprocess.run([str(binary / "pg_ctl"), "-D", str(data), "-w", "-t", "15", "-m", "fast", "stop"], env=environment, capture_output=True)

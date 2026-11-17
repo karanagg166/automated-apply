@@ -56,7 +56,6 @@ STAGES = (
         (*PYTHON, "-m", "rust.scripts.export_apify_contracts", "--check"),
     ),
     ("rust-tests", ("cargo", "test", "--locked", "--workspace")),
-    ("rust-postgres", (*PYTHON, "-m", "rust.scripts.run_postgres_tests")),
     (
         "rust-clippy",
         (
@@ -79,6 +78,10 @@ STAGES = (
     ("extension-brave", ("pnpm", "-C", "extension", "build", "--browser=brave")),
     ("extension-edge", ("pnpm", "-C", "extension", "build", "--browser=edge")),
     ("extension-brave-final", ("pnpm", "-C", "extension", "build", "--browser=brave")),
+    (
+        "rust-postgres",
+        (*PYTHON, "-m", "rust.scripts.run_postgres_tests", "--with-browser"),
+    ),
     ("frontend-e2e", (*PYTHON, "scripts/run_fixture_stage.py", "frontend-ui")),
     (
         "frontend-browser-e2e",

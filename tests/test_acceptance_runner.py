@@ -17,6 +17,12 @@ runner = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(runner)
 
 
+def test_final_postgres_gate_includes_native_browser_after_brave_build():
+    stages = dict(runner.STAGES)
+    assert list(stages).index("extension-brave-final") < list(stages).index("rust-postgres")
+    assert stages["rust-postgres"][-1] == "--with-browser"
+
+
 def test_first_failure_stops_later_stages_and_persists_truthful_results(tmp_path):
     calls = []
 

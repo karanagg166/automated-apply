@@ -4139,6 +4139,7 @@ include!("support/telegram_local_pg.rs");
 include!("support/conversation_jobs_pg.rs");
 include!("support/platform_policy_pg.rs");
 include!("support/platform_sessions_pg.rs");
+include!("support/native_brave_stack_pg.rs");
 include!("support/connection_report_pg.rs");
 include!("support/owner_commands_pg.rs");
 include!("support/expanded_packet_platform_pg.rs");
