@@ -50,12 +50,41 @@ fn compatibility_post_requires_stable_key_and_execution_does_not_grant_unsupport
         owner::compatibility_id(&a).unwrap(),
         owner::compatibility_id(&b).unwrap()
     );
-    for source in ["manual", "naukri", "apify", "himalayas"] {
+    for source in ["manual", "apify", "himalayas"] {
         assert_eq!(
             owner::execution_request(json!({"source":source})).unwrap_err(),
             Failure("discovery_source_execution_not_implemented")
         );
     }
+}
+#[test]
+fn paid_owner_requests_use_separate_compatibility_namespace_without_granting_paid_authority() {
+    let input =
+        owner::execution_request(json!({"source":"naukri","idempotency_key":"fictional_original"}))
+            .unwrap();
+    assert_eq!(input["allow_paid"], false);
+    assert_eq!(
+        owner::compatibility_id(&input).unwrap(),
+        Uuid::new_v5(
+            &Uuid::NAMESPACE_URL,
+            b"automated-apply:apify-discovery:fictional_original"
+        )
+    );
+    let mut public = input.clone();
+    public["source"] = json!("arbeitnow");
+    assert_ne!(
+        owner::compatibility_id(&input).unwrap(),
+        owner::compatibility_id(&public).unwrap()
+    );
+    assert!(owner::execution_request(json!({"source":"naukri","manual_jobs":[{}]})).is_err());
+    let row = Settings::from_values(&BTreeMap::new())
+        .unwrap()
+        .job("naukri", chrono::Utc::now())
+        .unwrap();
+    assert_eq!(row["owner_run_supported"], true);
+    assert_eq!(row["native_execution_implemented"], true);
+    assert_eq!(row["configuration"]["native_execution"]["ready"], false);
+    assert_eq!(row["live_verified"], false);
 }
 #[test]
 fn metadata_distinguishes_native_public_owner_runs_from_existing_feed_and_startup_paths() {

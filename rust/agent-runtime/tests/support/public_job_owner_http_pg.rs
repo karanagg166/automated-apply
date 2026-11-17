@@ -266,7 +266,7 @@ async fn public_owner_auth_methods_queries_unsupported_sources_and_missing_keys_
             .status(),
         405
     );
-    for source in ["manual", "naukri"] {
+    for (source, status) in [("manual", 501), ("naukri", 422)] {
         assert_eq!(
             http.put(&path)
                 .bearer_auth(HOST_TOKEN)
@@ -275,7 +275,7 @@ async fn public_owner_auth_methods_queries_unsupported_sources_and_missing_keys_
                 .await
                 .unwrap()
                 .status(),
-            501
+            status
         );
     }
     assert_eq!(

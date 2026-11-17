@@ -119,6 +119,17 @@ print(json.dumps(out))
                     .find(|r| r[id] == expected[id])
                     .unwrap();
                 for (key, value) in expected.as_object().unwrap() {
+                    // Native reviewed execution is additional source evidence; legacy DTO parity remains separate.
+                    if key == "configuration" && row["adapter_type"] == "apify" {
+                        let mut original = row[key].clone();
+                        original.as_object_mut().unwrap().remove("native_execution");
+                        assert_eq!(&original, value, "case {i} original configuration");
+                        assert_eq!(
+                            row[key]["native_execution"]["ready"], false,
+                            "legacy cases have no pinned build/schema review"
+                        );
+                        continue;
+                    }
                     assert_eq!(
                         &row[key], value,
                         "case {i} source {} field {key}",

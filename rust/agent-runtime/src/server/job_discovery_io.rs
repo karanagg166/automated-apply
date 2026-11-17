@@ -68,19 +68,38 @@ pub(super) async fn dispatch(
         Duration::from_secs_f64(api.config.discovery_timeout_seconds + 10.0),
         async {
             readiness(&mut c, &api.config).await?;
+            // A bad optional paid configuration cannot hide saved terminal results or public routes.
+            let disabled = crate::apify_jobs::settings::Settings::from_values(&Default::default())?;
+            let paid = api.config.apify_jobs.as_ref().unwrap_or(&disabled);
             match route {
                 Route::Preview => {
-                    owner::preview(&mut c, &api.config.sources, input.expect("preview input")).await
+                    let input=input.expect("preview input");
+                    let mut out=owner::preview(&mut c,&api.config.sources,input.clone()).await?;
+                    if crate::source_registry::APIFY_PORTALS.contains(&input["source"].as_str().unwrap_or("")) {
+                        let selected=paid.preview(input["source"].as_str().expect("validated source"),out["query"].clone(),input["allow_paid"]==true,chrono::Utc::now());
+                        out["estimated_usd"]=selected["estimated_usd"].as_str().and_then(|s|s.parse::<f64>().ok()).map(|v|json!(v)).unwrap_or(Value::Null);
+                        out["paid_execution"]=selected;
+                        out["message"]=json!("Planning only; no provider call or budget reservation. The full run cap remains reserved after an uncertain start.");
+                    }
+                    Ok(out)
                 }
                 Route::Run(id) if method == "GET" => owner::read(&mut c, id).await,
-                Route::Complete(id) => runs::finish(&mut c, &api.config.sources, id).await,
+                Route::Complete(id) => match owner::native_kind(&mut c,id).await? {
+                    owner::NativeKind::Paid=>crate::apify_jobs::runs::finish(&mut c,paid,id).await,
+                    _=>runs::finish(&mut c,&api.config.sources,id).await,
+                },
                 _ => {
+                    let input=input.expect("run input");
+                    if crate::source_registry::APIFY_PORTALS.contains(&input["source"].as_str().unwrap_or("")) {
+                        return crate::apify_jobs::runs::Service{settings:paid,client:&api.config.apify_jobs_client}
+                            .run(&mut c,input,id.expect("run id")).await;
+                    }
                     runs::Service {
                         settings: &api.config.sources,
                         client: &api.config.public_jobs,
                         timeout_seconds: api.config.discovery_timeout_seconds,
                     }
-                    .run(&mut c, input.expect("run input"), id.expect("run id"))
+                    .run(&mut c, input, id.expect("run id"))
                     .await
                 }
             }

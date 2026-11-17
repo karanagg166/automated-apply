@@ -27,6 +27,7 @@ pub(super) fn profile_failure(error: Failure) -> Response {
             | "public_job_source_unknown"
             | "discovery_source_unknown" => StatusCode::UNPROCESSABLE_ENTITY,
             "discovery_run_request_conflict"
+            | "discovery_run_original_scope_ambiguous"
             | "discovery_run_compatibility_key_conflict"
             | "discovery_run_source_id_already_claimed"
             | "public_job_request_conflict"
@@ -45,16 +46,35 @@ pub(super) fn profile_failure(error: Failure) -> Response {
     if error.0.starts_with("apify_") || error.0.starts_with("invalid_apify_") {
         let status = match error.0 {
             "apify_metadata_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
-            "apify_metadata_access_rate_limited" | "apify_metadata_rate_limited" => {
-                StatusCode::TOO_MANY_REQUESTS
-            }
+            "apify_metadata_access_rate_limited"
+            | "apify_metadata_rate_limited"
+            | "apify_execution_cooling_down"
+            | "apify_execution_budget_exhausted"
+            | "apify_execution_rate_limited" => StatusCode::TOO_MANY_REQUESTS,
             "apify_local_token_not_configured"
             | "apify_metadata_authentication_required"
             | "apify_actor_metadata_not_allowlisted"
+            | "apify_reviewed_execution_route_required"
+            | "apify_review_prerequisites_required"
+            | "apify_intake_configuration_changed"
+            | "apify_intake_profile_changed"
+            | "apify_intake_finding_expired"
+            | "apify_intake_finding_missing"
+            | "apify_owner_child_already_claimed"
+            | "apify_original_intent_request_conflict"
             | "apify_metadata_inspection_superseded" => StatusCode::CONFLICT,
-            "apify_metadata_timeout" => StatusCode::GATEWAY_TIMEOUT,
+            "apify_metadata_timeout"
+            | "apify_execution_commit_outcome_unknown"
+            | "apify_owner_commit_outcome_unknown"
+            | "apify_intake_commit_outcome_unknown"
+            | "apify_execution_transport_unconfirmed" => StatusCode::GATEWAY_TIMEOUT,
             "apify_actor_inspect_invalid"
             | "apify_actor_id_invalid"
+            | "apify_paid_opt_in_required"
+            | "apify_manual_records_not_supported"
+            | "apify_portal_unknown"
+            | "apify_first_page_only"
+            | "apify_estimate_exceeds_reserved_cap"
             | "apify_metadata_query_invalid" => StatusCode::UNPROCESSABLE_ENTITY,
             _ => StatusCode::SERVICE_UNAVAILABLE,
         };

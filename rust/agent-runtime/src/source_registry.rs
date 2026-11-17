@@ -36,6 +36,7 @@ pub struct Settings {
     search_key_present: bool,
     search_rights_reviewed: bool,
     search_permission_present: bool,
+    apify_execution: Option<crate::apify_jobs::settings::Settings>,
 }
 fn invalid() -> Failure {
     Failure("invalid_discovery_source_settings")
@@ -108,6 +109,7 @@ impl Settings {
             .map(|s| crate::resources::public_https(s).ok_or_else(invalid))
             .transpose()?;
         Ok(Self {
+            apify_execution: crate::apify_jobs::settings::Settings::from_values(values).ok(),
             boards,
             lever_region: values
                 .get("LEVER_REGION")
@@ -192,6 +194,11 @@ impl Settings {
             );
             row["authentication"] =
                 json!("Apify bearer token and reviewed, permitted actor configuration");
+            row["native_execution_implemented"] = json!(true);
+            row["owner_run_supported"] = json!(true);
+            row["configuration"]["native_execution"] = self.apify_execution.as_ref().map(|s|s.preview(source,
+                crate::job_sources::contract::query(json!({"limit":1})).expect("fixed readiness query"),true,now))
+                .unwrap_or_else(||json!({"ready":false,"blocker":"apify_execution_configuration_invalid","provider_calls":0,"writes":0,"dispatch_authorized":false,"live_verified":false}));
             if matches!(*source, "wellfound" | "work_at_a_startup") {
                 row["operations"] = json!(["jobs", "company_intelligence"])
             }

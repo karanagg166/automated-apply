@@ -48,6 +48,8 @@ pub struct Configuration {
     pub(crate) sources: crate::source_registry::Settings,
     pub(crate) public_jobs: crate::job_sources::transport::Client,
     pub(crate) apify_metadata: crate::apify_metadata::transport::Client,
+    pub(crate) apify_jobs: Option<crate::apify_jobs::settings::Settings>,
+    pub(crate) apify_jobs_client: crate::apify_jobs::transport::Client,
     pub(crate) people_research: crate::people_research::settings::Settings,
     pub(crate) people_search_client: Option<crate::people_research::transport::Client>,
     pub(crate) contact_enrichment: crate::contacts::enrichment::Settings,
@@ -312,6 +314,8 @@ impl Configuration {
             sources: crate::source_registry::Settings::from_values(values)?,
             public_jobs: crate::job_sources::transport::Client::from_values(values, fixture)?,
             apify_metadata: crate::apify_metadata::transport::Client::from_values(values, fixture)?,
+            apify_jobs: crate::apify_jobs::settings::Settings::from_values(values).ok(),
+            apify_jobs_client: crate::apify_jobs::transport::Client::from_values(values, fixture)?,
             people_research: crate::people_research::settings::Settings::from_values(values)?,
             people_search_client: crate::people_research::transport::Client::from_values(
                 values, fixture,

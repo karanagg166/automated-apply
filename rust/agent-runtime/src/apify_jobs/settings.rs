@@ -85,6 +85,28 @@ impl Settings {
     pub fn per_run_cap(&self) -> Usd {
         self.cap
     }
+    /// Saved prerequisites only; no Actor lookup, reservation or dispatch authority.
+    pub fn preview(
+        &self,
+        portal: &str,
+        query: Value,
+        allow_paid: bool,
+        now: DateTime<Utc>,
+    ) -> Value {
+        match self.plan(portal, query, allow_paid, now) {
+            Ok(plan) => {
+                let estimated = Usd::estimated_total(
+                    &plan.actor["estimated_start_usd"],
+                    &plan.actor["estimated_per_item_usd"],
+                    plan.query["limit"].as_u64().unwrap_or(100),
+                );
+                json!({"ready":true,"blocker":null,"run_cap_usd":self.cap.decimal(),"monthly_limit_usd":self.monthly.decimal(),"estimated_usd":estimated.ok().and_then(|v|v.decimal().parse::<f64>().ok()),"accounting":"full_cap_reserved_until_independent_billing_reconciliation","provider_calls":0,"writes":0,"dispatch_authorized":false,"live_verified":false})
+            }
+            Err(e) => {
+                json!({"ready":false,"blocker":e.0,"run_cap_usd":self.cap.decimal(),"monthly_limit_usd":self.monthly.decimal(),"estimated_usd":null,"provider_calls":0,"writes":0,"dispatch_authorized":false,"live_verified":false})
+            }
+        }
+    }
     pub(super) fn credential_context(&self) -> Result<&str> {
         self.credential_context
             .as_deref()

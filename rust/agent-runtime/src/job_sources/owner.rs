@@ -44,13 +44,19 @@ pub fn request(raw: Value) -> Result<Value> {
 }
 pub fn execution_request(raw: Value) -> Result<Value> {
     let value = request(raw)?;
-    if super::plan::Source::parse(
-        value["source"]
-            .as_str()
-            .ok_or(Failure("invalid_discovery_run_request"))?,
-    )
-    .is_err()
-    {
+    let source = value["source"]
+        .as_str()
+        .ok_or(Failure("invalid_discovery_run_request"))?;
+    if crate::source_registry::APIFY_PORTALS.contains(&source) {
+        if value["manual_jobs"]
+            .as_array()
+            .is_none_or(|a| !a.is_empty())
+        {
+            return Err(Failure("apify_manual_records_not_supported"));
+        }
+        return Ok(value);
+    }
+    if super::plan::Source::parse(source).is_err() {
         return Err(Failure("discovery_source_execution_not_implemented"));
     }
     if value["manual_jobs"]
@@ -68,7 +74,17 @@ pub fn compatibility_id(request: &Value) -> Result<Uuid> {
         .ok_or(Failure("discovery_run_idempotency_key_required"))?;
     Ok(Uuid::new_v5(
         &Uuid::NAMESPACE_URL,
-        format!("automated-apply:public-discovery:{key}").as_bytes(),
+        format!(
+            "automated-apply:{}-discovery:{key}",
+            if crate::source_registry::APIFY_PORTALS
+                .contains(&request["source"].as_str().unwrap_or(""))
+            {
+                "apify"
+            } else {
+                "public"
+            }
+        )
+        .as_bytes(),
     ))
 }
 pub async fn preview(c: &mut PgConnection, settings: &Settings, raw: Value) -> Result<Value> {
@@ -98,6 +114,11 @@ pub async fn preview(c: &mut PgConnection, settings: &Settings, raw: Value) -> R
 }
 /// Saved legacy history remains visible without adopting missing original native authority.
 pub async fn read(c: &mut PgConnection, id: Uuid) -> Result<Value> {
+    match native_kind(c, id).await? {
+        NativeKind::Paid => return crate::apify_jobs::runs::read(c, id).await,
+        NativeKind::Public => return super::runs::read(c, id).await,
+        NativeKind::Legacy => {}
+    }
     match super::runs::read(c, id).await {
         Err(e) if e.0 == "discovery_run_original_scope_missing" => legacy(c, id).await,
         result => result,
@@ -118,8 +139,11 @@ async fn legacy(c: &mut PgConnection, id: Uuid) -> Result<Value> {
         .ok_or(Failure("discovery_run_saved_limit"))?;
     // The second snapshot may observe a concurrent native admission; it must use native validation.
     let native: bool =
-        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM owner_preferences WHERE key=$1)")
-            .bind(format!("job_run:{}", id.simple()))
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM owner_preferences WHERE key=ANY($1))")
+            .bind(vec![
+                format!("job_run:{}", id.simple()),
+                format!("apify_owner:{}", id.simple()),
+            ])
             .fetch_one(&mut *tx)
             .await
             .map_err(|_| Failure("discovery_run_database_error"))?;
@@ -174,4 +198,40 @@ async fn legacy(c: &mut PgConnection, id: Uuid) -> Result<Value> {
         .await
         .map_err(|_| Failure("discovery_run_database_error"))?;
     Ok(out)
+}
+
+pub(crate) enum NativeKind {
+    Public,
+    Paid,
+    Legacy,
+}
+/// Original private keys select a native implementation; a legacy row never grants adoption.
+pub(crate) async fn native_kind(c: &mut PgConnection, id: Uuid) -> Result<NativeKind> {
+    let mut tx = c
+        .begin()
+        .await
+        .map_err(|_| Failure("discovery_run_database_error"))?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| Failure("discovery_run_database_error"))?;
+    let kinds: Vec<String> =
+        sqlx::query_scalar("SELECT key FROM owner_preferences WHERE key=ANY($1) ORDER BY key")
+            .bind(vec![
+                format!("job_run:{}", id.simple()),
+                format!("apify_owner:{}", id.simple()),
+            ])
+            .fetch_all(&mut *tx)
+            .await
+            .map_err(|_| Failure("discovery_run_database_error"))?;
+    let kind = match kinds.as_slice() {
+        [] => NativeKind::Legacy,
+        [key] if key.starts_with("job_run:") => NativeKind::Public,
+        [_] => NativeKind::Paid,
+        _ => return Err(Failure("discovery_run_original_scope_ambiguous")),
+    };
+    tx.commit()
+        .await
+        .map_err(|_| Failure("discovery_run_database_error"))?;
+    Ok(kind)
 }

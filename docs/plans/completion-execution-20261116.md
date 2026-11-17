@@ -1,5 +1,21 @@
 # Complete-source delivery plan — 2026-11-16
 
+Paid owner boundary design2026-11-17: extend existing authenticated discovery UUID
+PUT/keyed POST and local-only complete routes to configured Apify sources, using the
+same transient semaphore/temporary connection. Validate source/body before acquiring
+the permit. Select saved native public/paid parent by private original-journal key in
+one read-only snapshot; legacy reads must refuse either native scope appearing in a
+later snapshot. The same saved-kind discriminator selects local-only completion,
+never arbitrary request/provider IDs or a start retry. Keep paid missing configuration,
+opt-in, budget and cooldown errors explicit and sanitized. Registry native execution
+readiness is an additional saved review/budget/build-schema projection, separate from
+legacy configuration availability and live verification. Invalid paid configuration
+disables its execution without preventing unrelated public/saved read paths. Preview
+uses effective saved query and returns selected estimated/capped costs and blockers
+without provider calls, owner-fence writes or budget reservation. Paid POST compatibility
+UUID uses a distinct fixed namespace; public UUID mapping remains unchanged. Full UI
+paid consent/result accounting and bounded acknowledged-run recovery follow separately.
+
 Paid owner-run composition design2026-11-17: refactor original Apify admission into
 the same owner-first transaction as an actual discovery_runs row and private owner
 journal; only an opaque original claim can acquire provider data. Standalone saved
