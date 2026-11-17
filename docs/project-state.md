@@ -1,3 +1,18 @@
+Latest explicit owner read-resource source `f67fc0233f86c8725f07eb9df7ec2655827e68eb` exposes distinct parent/
+read UUID GET/PUT and empty local-complete POST. Requires retained native paid parent;
+GET stays saved-only, PUT can consume only bounded GET authority and POST only combines
+saved pages. Paid parent usage exposes original read count/last UUID/next time. Shared
+permit/connection and auth/CSRF remain. HTTP policy copies generated; one standard,
+six PG/HTTP and two gateway declarations are UNRUN.
+See [qualified owner read-resource report](acceptance/apify-acknowledged-read-owner-source-20261117.md).
+Continue durable dashboard read UUID/consent/recovery, then remaining agreed startup/
+runtime/provider/tool/platform source before combined gates. Full API inventory/types
+still pending. No current tests/build/check/native live/install or estimate increase;
+58/42 and prior455 held; no actual provider/recovery/production/browser operations.
+Private continuity snapshotafca959b9d8b5dadf16fbfec8f953a0fca762025740a2924ebec05a444125485
+at2026-11-17T13:20:37.477015+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest GET-only acknowledged-read lifecycle source `ed77d2e3b74a207c1aba83b1aeb5cf56435f9cec` consumes separate
 read claims, admits4GET/45seconds with durable checkpoints, preserves original paid
 start/HTTP evidence and CASes new selected run status. All selected pages/hash/time
