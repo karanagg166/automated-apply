@@ -1,5 +1,17 @@
 # Complete-source delivery plan — 2026-11-16
 
+Public provider parsing design 2026-11-17: port the seven existing public adapters'
+record parsers over the actual normalized job contract, without transport authority.
+Preserve operator board/employer attribution, exact hosted posting/application identity,
+Ashby visibility/remote consistency, SmartRecruiters active/company/detail checks,
+explicit salary units and unknown publication/remote evidence. Parse only selected
+professional job fields and provenance; exclude arbitrary source_fields/vendor JSON
+from new observations as a deliberate privacy tightening. HN accepts only top-level
+attributable hiring comments; HTML/entity handling stays local without following links.
+Native endpoint transport, complete pagination/deduplication, durable pacing and atomic
+startup orchestration follow. Fixture comparisons use actual parser methods with a
+fictional clock and bounded projection of the documented provenance difference.
+
 Public job contract design 2026-11-17: freeze the actual NormalizedJob and DiscoveryQuery
 before porting the seven legacy public providers. Preserve defaults, whitespace/type
 coercion, strict experience evidence, bounded finite pay, explicit UTC observation
