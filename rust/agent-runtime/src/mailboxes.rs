@@ -26,6 +26,36 @@ use std::collections::{BTreeMap, BTreeSet};
 use storage::*;
 use uuid::Uuid;
 
+pub(crate) async fn connection_evidence(
+    connection: &mut PgConnection,
+    slot: usize,
+    settings: &Settings,
+) -> Result<Option<Value>> {
+    let saved: Option<Value> = sqlx::query_scalar(
+        "SELECT jsonb_build_object('status',value->'status','account_email',value->'account_email',
+         'last_verified_at',value->'last_verified_at','scopes',value->'scopes',
+         'identity_bound',NULLIF(value->>'google_subject','') IS NOT NULL AND
+             jsonb_typeof(value->'refresh')='string' AND NULLIF(value->>'refresh','') IS NOT NULL)
+         FROM owner_preferences WHERE key=$1 AND octet_length(value::text)<=65536",
+    )
+    .bind(format!("gm54_account:{slot}"))
+    .fetch_optional(connection)
+    .await
+    .map_err(db)?;
+    let Some(value) = saved else {
+        return Ok(None);
+    };
+    let granted: Option<BTreeSet<String>> = serde_json::from_value(value["scopes"].clone()).ok();
+    let authorized = value["account_email"]
+        .as_str()
+        .is_some_and(|email| settings.allowed(email));
+    Ok((authorized
+        && value["status"] == "connected"
+        && value["identity_bound"] == true
+        && granted.as_ref() == Some(&crate::google_oauth::scopes(GrantMode::ReadDraft)))
+    .then(|| value["last_verified_at"].clone()))
+}
+
 pub struct Settings {
     enabled: bool,
     fixture: bool,

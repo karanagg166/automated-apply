@@ -11,6 +11,7 @@ pub mod apify_config;
 pub mod apify_jobs;
 pub mod apify_metadata;
 mod cli_provider;
+mod connection_report;
 pub mod context_contract;
 pub mod contracts;
 pub mod conversation;

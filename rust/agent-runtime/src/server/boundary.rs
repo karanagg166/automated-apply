@@ -22,6 +22,7 @@ pub(super) fn profile_route(path: &str) -> bool {
         || path == crate::conversation::preferences::PATH
         || path == crate::platform_policy::PATH
         || crate::platform_sessions::route(path).is_some()
+        || path == crate::connection_report::PATH
         || resource_inspection(path)
         || candidate_resource_route(path)
         || draft_route(path)

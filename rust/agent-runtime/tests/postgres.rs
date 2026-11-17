@@ -4064,6 +4064,7 @@ include!("support/telegram_local_pg.rs");
 include!("support/conversation_jobs_pg.rs");
 include!("support/platform_policy_pg.rs");
 include!("support/platform_sessions_pg.rs");
+include!("support/connection_report_pg.rs");
 include!("support/telegram_reconciliation_pg.rs");
 include!("support/gmail_history_pg.rs");
 include!("support/gmail_accounts_pg.rs");

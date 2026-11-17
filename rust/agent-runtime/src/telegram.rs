@@ -16,6 +16,16 @@ impl Settings {
     pub(crate) fn owner_user(&self) -> i64 {
         self.user
     }
+    pub(crate) fn bot_id(&self) -> &str {
+        self.token.split(':').next().unwrap_or("")
+    }
+    pub(crate) fn operation_key(&self, update: i64) -> String {
+        let request = Uuid::new_v5(
+            &Uuid::NAMESPACE_URL,
+            format!("telegram:{}:{update}", self.chat).as_bytes(),
+        );
+        format!("telegram:{}:{request}", self.user)
+    }
     pub fn from_values(values: &BTreeMap<String, String>, fixture: bool) -> Result<Option<Self>> {
         let enabled = values
             .get("RUST_TELEGRAM_ENABLED")
@@ -109,12 +119,7 @@ impl Settings {
         use sha2::{Digest, Sha256};
         format!(
             "{:x}",
-            Sha256::digest(format!(
-                "{}:{}:{}",
-                self.token.split(':').next().unwrap_or(""),
-                self.user,
-                self.chat
-            ))
+            Sha256::digest(format!("{}:{}:{}", self.bot_id(), self.user, self.chat))
         )
     }
 }

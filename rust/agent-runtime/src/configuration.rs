@@ -53,6 +53,7 @@ pub struct Configuration {
     pub(crate) people_research: crate::people_research::settings::Settings,
     pub(crate) people_search_client: Option<crate::people_research::transport::Client>,
     pub(crate) contact_enrichment: crate::contacts::enrichment::Settings,
+    pub(crate) connection_settings: crate::connection_report::Settings,
     pub(crate) contact_providers: crate::contacts::enrichment::providers::Clients,
     pub(crate) apollo_eligibility: crate::contacts::enrichment::capabilities::Eligibility,
     pub(crate) packets: crate::packet_service::Settings,
@@ -322,6 +323,7 @@ impl Configuration {
                 values, fixture,
             )?,
             contact_enrichment: crate::contacts::enrichment::Settings::from_values(values)?,
+            connection_settings: crate::connection_report::Settings::from_values(values),
             contact_providers: crate::contacts::enrichment::providers::Clients::from_values(
                 values, fixture,
             )?,

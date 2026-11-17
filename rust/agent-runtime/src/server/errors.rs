@@ -7,6 +7,25 @@ use axum::{
 use serde_json::{Value, json};
 
 pub(super) fn profile_failure(error: Failure) -> Response {
+    if matches!(
+        error.0,
+        "connection_report_method_not_allowed"
+            | "invalid_connection_report_request"
+            | "connection_report_database_error"
+    ) {
+        let status = match error.0 {
+            "connection_report_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
+            "invalid_connection_report_request" => StatusCode::UNPROCESSABLE_ENTITY,
+            _ => StatusCode::SERVICE_UNAVAILABLE,
+        };
+        let mut response = reply(status, json!({"detail":error.0}));
+        if status == StatusCode::METHOD_NOT_ALLOWED {
+            response
+                .headers_mut()
+                .insert("allow", "GET".parse().unwrap());
+        }
+        return response;
+    }
     let policy_status = match error.0 {
         "invalid_platform_policy" => Some(StatusCode::UNPROCESSABLE_ENTITY),
         "invalid_policy_platforms"

@@ -155,20 +155,29 @@ pub async fn status(
         .execute(&mut *tx)
         .await
         .map_err(db)?;
+    let result = status_in(&mut tx, settings, oauth_configured).await?;
+    tx.commit()
+        .await
+        .map_err(|_| Failure("gmail_legacy_commit_outcome_unknown"))?;
+    Ok(result)
+}
+
+pub(crate) async fn status_in(
+    connection: &mut PgConnection,
+    settings: &Settings,
+    oauth_configured: bool,
+) -> Result<Value> {
     let ready: bool = sqlx::query_scalar("SELECT to_regclass('connected_accounts') IS NOT NULL")
-        .fetch_one(&mut *tx)
+        .fetch_one(&mut *connection)
         .await
         .map_err(db)?;
     if !ready {
         let mut value = projection(None, false, oauth_configured)?;
         value["schema_ready"] = json!(false);
         value["error_code"] = json!("gmail_legacy_schema_update_required");
-        tx.commit()
-            .await
-            .map_err(|_| Failure("gmail_legacy_commit_outcome_unknown"))?;
         return Ok(value);
     }
-    let accounts:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',id,'status',status,'account_email',account_email,'google_subject',google_subject,'granted_scopes',granted_scopes,'connected_at',connected_at,'last_verified_at',last_verified_at,'last_refresh_at',last_refresh_at) FROM connected_accounts WHERE provider='gmail' ORDER BY id LIMIT 2").fetch_all(&mut *tx).await.map_err(db)?;
+    let accounts:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',id,'status',status,'account_email',account_email,'google_subject',google_subject,'granted_scopes',granted_scopes,'connected_at',connected_at,'last_verified_at',last_verified_at,'last_refresh_at',last_refresh_at) FROM connected_accounts WHERE provider='gmail' ORDER BY id LIMIT 2").fetch_all(connection).await.map_err(db)?;
     if accounts.len() > 1 {
         return Err(Failure("gmail_legacy_identity_requires_review"));
     }
@@ -178,8 +187,5 @@ pub async fn status(
         .is_some_and(|email| settings.allows(email));
     let mut value = projection(accounts.first(), authorized, oauth_configured)?;
     value["schema_ready"] = json!(true);
-    tx.commit()
-        .await
-        .map_err(|_| Failure("gmail_legacy_commit_outcome_unknown"))?;
     Ok(value)
 }

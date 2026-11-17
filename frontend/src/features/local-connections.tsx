@@ -82,8 +82,8 @@ export function LocalConnections() {
     <section className="stack" aria-label="Local foundation connections">
       <ChromeProfiles />
       <Notice>
-        Phase 1 permits previews. Submission, email sending and paid provider
-        execution remain disabled. A configured credential is not verification.
+        The dashboard shows the evidence available for each connection.
+        Application and provider permissions are managed in their own controls.
       </Notice>
       {connections.isError && <ErrorState error={connections.error} />}
       {connections.isPending && <p>Checking local connection evidence…</p>}
@@ -112,7 +112,7 @@ export function LocalConnections() {
                         manual_only: "Manual-only",
                         owner_action_required: "Awaiting approval",
                         owner_authorization_required: "Awaiting approval",
-                        authenticated: "Awaiting approval",
+                        authenticated: "Authenticated",
                         degraded: "Degraded",
                         unsupported: "Unsupported",
                       } as Record<string, string>
@@ -145,11 +145,7 @@ export function LocalConnections() {
                     <dt>Owner authorization required</dt>
                     <dd>{item.owner_authorization_required ? "Yes" : "No"}</dd>
                     <dt>May consume paid credits</dt>
-                    <dd>
-                      {item.may_consume_paid_credits
-                        ? "Yes · execution disabled"
-                        : "No"}
-                    </dd>
+                    <dd>{item.may_consume_paid_credits ? "Yes" : "No"}</dd>
                   </dl>
                   <details>
                     <summary>Safe setup / help</summary>
@@ -167,8 +163,8 @@ export function LocalConnections() {
                       </a>
                       <p>
                         Sign in yourself, then use “Check this portal session”
-                        in the Chrome extension. This checks visible indicators
-                        only; submission remains manual.
+                        in the browser extension. This checks visible sign-in
+                        indicators.
                       </p>
                       <Button
                         disabled={
