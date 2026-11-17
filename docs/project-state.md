@@ -7,6 +7,20 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest local intake rules source `a1da12b32e5bb7131782baed958c84fc46b20f4f`
+ports actual source/board/ID/URL keys, conservative content identity and explicit versus
+profile-expanded discovery filtering. Unknown evidence stays visible without becoming
+Apply eligibility; title similarity never merges jobs. Three standard declarations
+(84 actual comparisons plus untyped provenance refusal) are UNRUN.
+See [qualified intake rules report](acceptance/public-job-intake-rules-source-20261117.md).
+Continue atomic SQL job/company/source-observation/receipt intake with current context,
+TTL and bounded legacy identity checks, then startup orchestration/owner dashboard,
+reviewed Apify execution and remaining agreed source before combined gates. No current
+tests/build/check/native live/install or estimate increase; 58/42 and prior455 held.
+Private continuity snapshot ed400893182191cd7139eaf1d9c8235372ce8d079edea1fa02ccc82baf079591
+at 2026-11-17T09:38:35.868555+00:00 preserves104 indexed /6 available /98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest public transport/finding source `bf03a79cec97f33f9850f4210bafef2993094623`
 consumes original grants through fixed no-proxy/cookie/auth/retry/redirect GETs and
 bounded complete/partial traversal. Conflicting identities are removed, incomplete
