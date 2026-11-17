@@ -2,6 +2,10 @@
 
 The active goal limits delivery to the owner’s laptop. GitHub pushes, pull requests, remote reports, hosted Actions and merges remain suspended until the owner reauthorizes them. Finish source and fixtures, run combined validation, then install and verify locally. See the [completion plan](plans/completion-execution-20261116.md).
 
+Local source `579be22` ties the Naukri first worker receipt to the admitted Apply and authenticated browser acknowledgment, independent history, and immutable packet evidence. Admission-only outcomes remain eligible for read-only history reconciliation. The new and revised fixtures await the combined run. See the [Naukri receipt checkpoint](acceptance/naukri-worker-dispatch-proof-local-source-20261118.md).
+
+Private continuity snapshot `d99d91b4281efaa334bae099d4fa52039e6086d903bb728080ac2e35df36f148` at `2026-11-17T21:17:06.610057+00:00` preserved six available transcripts from 104 indexed threads. The other 98 transcripts remain missing.
+
 Local source `67a06d2` links approved HiringCafe imports to supported employer application pages when the saved posting and employer vacancy identities agree. The packet retains the original listing and flags changed employer evidence as stale. One new dashboard case and one PostgreSQL case await the combined run. See the [employer handoff checkpoint](acceptance/hiringcafe-employer-handoff-local-source-20261118.md).
 
 Private continuity snapshot `7ac5e3c6ac244a778f113fac3fbde7198cbbab1f7065d31f8cefae4a2b89cfe2` at `2026-11-17T21:11:57.409968+00:00` preserved six available transcripts from 104 indexed threads. The other 98 transcripts remain missing.
