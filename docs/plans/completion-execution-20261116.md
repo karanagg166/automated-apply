@@ -1,5 +1,22 @@
 # Complete-source delivery plan — 2026-11-16
 
+Paid owner-run composition design2026-11-17: refactor original Apify admission into
+the same owner-first transaction as an actual discovery_runs row and private owner
+journal; only an opaque original claim can acquire provider data. Standalone saved
+paid intents or legacy compatibility keys cannot be adopted as new parents. Bind the
+normalized original request, child scope/configuration/credential/profile hashes,
+actual row and exact monthly snapshot; final admission ACKs follow all parent triggers
+and recheck child journal/reservation/month/profile/plan/cooldown/deadline. Replays are
+saved reads. Complete retained findings with shared local intake and native bounded
+ranking/history suppression in one transaction; independently verify rows, receipt,
+original child and ranking/history inputs after terminal parent/journal triggers.
+Terminal replay returns original immutable results without current credentials/profile
+or freshness. A previously saved local receipt remains usable for pending parent
+completion only with current original pinned context. Expose honest pending/unknown,
+local-intake and ranking states, minimum HTTP counts and full-cap preliminary accounting;
+no retry POST, cap refund, application authority or live verification. Keep transport
+and local-only completion separate for subsequent owner routing/known-run recovery.
+
 Apify retained local intake design2026-11-17: extract only the provider-independent
 job/company/source-observation batch and closed receipt validator from public intake;
 keep public original-scope/configuration/window guards unchanged. The paid wrapper

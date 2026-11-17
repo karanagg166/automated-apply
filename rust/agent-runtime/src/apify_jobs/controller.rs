@@ -22,7 +22,15 @@ impl Service<'_> {
             Admission::Retained(value) => return Ok(value),
             Admission::Original(claim) => claim,
         };
-        let mut session = Session::original(*claim)?;
+        self.acquire_original(c, *claim).await
+    }
+    pub(super) async fn acquire_original(
+        &self,
+        c: &mut PgConnection,
+        claim: admission::Claim,
+    ) -> Result<Value> {
+        let id = claim.request_id();
+        let mut session = Session::original(claim)?;
         let target = session.plan().actor_metadata()?;
         let actor = session
             .exchange(

@@ -52,7 +52,8 @@ pub(super) fn project(
     }
     let mut selected = Vec::new();
     for job in jobs {
-        let job = crate::job_sources::contract::normalize(job.clone(), at).map_err(|_| invalid())?;
+        let job =
+            crate::job_sources::contract::normalize(job.clone(), at).map_err(|_| invalid())?;
         if job["source_name"] != source
             || job["source_verification_status"] != "source_reported"
             || job["is_confirmed_current"] != false

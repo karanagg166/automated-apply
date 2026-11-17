@@ -55,10 +55,10 @@ async fn rows_in(
     }
     Ok(rows)
 }
-pub(super) struct Ranked {
-    pub(super) entries: Value,
-    pub(super) suppressed: usize,
-    pub(super) history_hash: Value,
+pub(crate) struct Ranked {
+    pub(crate) entries: Value,
+    pub(crate) suppressed: usize,
+    pub(crate) history_hash: Value,
     ids: Vec<Uuid>,
     rows: Vec<(Value, Option<Value>)>,
     history: Vec<Value>,
@@ -66,7 +66,7 @@ pub(super) struct Ranked {
     enabled: bool,
 }
 impl Ranked {
-    pub(super) async fn verify_in(&self, tx: &mut Transaction<'_, Postgres>) -> Result<()> {
+    pub(crate) async fn verify_in(&self, tx: &mut Transaction<'_, Postgres>) -> Result<()> {
         if self.enabled
             && (rows_in(tx, &self.ids).await? != self.rows
                 || reviewed_history::load_in(tx, self.at).await? != self.history)
@@ -76,7 +76,7 @@ impl Ranked {
         Ok(())
     }
 }
-pub(super) async fn rank_in(
+pub(crate) async fn rank_in(
     tx: &mut Transaction<'_, Postgres>,
     receipt: &Value,
     profile: Option<&Value>,
@@ -161,7 +161,7 @@ pub(super) async fn rank_in(
     })
 }
 /// Rehydrate only the actual score DTO and original IDs/version; arbitrary journal fields are omitted.
-pub(super) fn project(value: &Value, receipt: &Value, version: &Value) -> Result<Value> {
+pub(crate) fn project(value: &Value, receipt: &Value, version: &Value) -> Result<Value> {
     let ids = ids(receipt)?;
     let mut seen = BTreeSet::new();
     let mut projected = Vec::new();

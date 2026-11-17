@@ -40,7 +40,7 @@ pub(super) async fn load_in(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> Res
         None => Ok(None),
     }
 }
-fn request(value: Value) -> Result<Value> {
+pub(super) fn request(value: Value) -> Result<Value> {
     let input = crate::job_sources::scope::normalize(value)?;
     if input["source"]
         .as_str()
@@ -281,6 +281,7 @@ pub(super) struct Grant {
 pub struct Claim {
     pub(super) journal: Value,
     pub(super) grant: Option<Grant>,
+    monthly: (Value, String),
 }
 impl Claim {
     pub fn request_id(&self) -> Uuid {
@@ -297,32 +298,41 @@ pub async fn admit(
     raw: Value,
     id: Uuid,
 ) -> Result<Admission> {
+    let input = request(raw)?;
+    let mut tx = transaction(c).await?;
+    let result = admit_in(&mut tx, settings, input, id).await?;
+    tx.commit()
+        .await
+        .map_err(|_| Failure("apify_execution_commit_outcome_unknown"))?;
+    Ok(result)
+}
+pub(super) async fn admit_in(
+    tx: &mut Transaction<'_, Postgres>,
+    settings: &Settings,
+    raw: Value,
+    id: Uuid,
+) -> Result<Admission> {
     if id.is_nil() {
         return Err(invalid());
     }
     let input = request(raw)?;
     let input_hash = crate::job_sources::scope::request_hash(&input)?;
-    let mut tx = transaction(c).await?;
-    let now = clock(&mut tx).await?;
-    if let Some(saved) = load_in(&mut tx, id).await? {
+    let now = clock(tx).await?;
+    if let Some(saved) = load_in(tx, id).await? {
         if saved["request_hash"] != input_hash {
             return Err(Failure("apify_original_intent_request_conflict"));
         }
-        let result = project_in(&mut tx, &saved, id, now).await?;
-        tx.commit()
-            .await
-            .map_err(|_| Failure("apify_execution_commit_outcome_unknown"))?;
+        let result = project_in(tx, &saved, id, now).await?;
         return Ok(Admission::Retained(result));
     }
     let profile =
-        crate::startup_catalog::detail::profile_in(&mut tx, input["use_profile"] == true).await?;
+        crate::startup_catalog::detail::profile_in(tx, input["use_profile"] == true).await?;
     let query = crate::job_sources::scope::effective_query(&input["query"], profile.as_ref())?;
     let pin = crate::job_sources::scope::profile_pin(profile.as_ref())?;
     let source = input["source"].as_str().ok_or_else(invalid)?;
     let plan = settings.plan(source, query.clone(), input["allow_paid"] == true, now)?;
     let credential = settings.credential_context()?;
-    let reservation =
-        budget::reserve_in(&mut tx, id, plan.cap(), settings.monthly_cap(), now).await?;
+    let reservation = budget::reserve_in(tx, id, plan.cap(), settings.monthly_cap(), now).await?;
     let scope = json!({"request_hash":input_hash,"effective_query":query,"profile_pin":pin,"configuration_hash":plan.context(),"credential_context":credential});
     let invocation = Uuid::new_v4();
     let expires = now + chrono::Duration::seconds(75);
@@ -335,27 +345,25 @@ pub async fn admit(
     )
     .bind(key(id))
     .bind(&journal)
-    .fetch_optional(&mut *tx)
+    .fetch_optional(&mut **tx)
     .await
     .map_err(db)?;
-    if saved.as_ref() != Some(&journal) || load_in(&mut tx, id).await?.as_ref() != Some(&journal) {
+    if saved.as_ref() != Some(&journal) || load_in(tx, id).await?.as_ref() != Some(&journal) {
         return Err(ack());
     }
-    reservation.verify_in(&mut tx).await?;
+    reservation.verify_in(tx).await?;
     let profile_now =
-        crate::startup_catalog::detail::profile_in(&mut tx, input["use_profile"] == true).await?;
+        crate::startup_catalog::detail::profile_in(tx, input["use_profile"] == true).await?;
     if crate::job_sources::scope::profile_pin(profile_now.as_ref())? != pin {
         return Err(ack());
     }
-    let end = clock(&mut tx).await?;
-    project_in(&mut tx, &journal, id, end).await?;
+    let end = clock(tx).await?;
+    project_in(tx, &journal, id, end).await?;
     if end >= expires {
         return Err(Failure("apify_original_intent_expired_before_commit"));
     }
-    tx.commit()
-        .await
-        .map_err(|_| Failure("apify_execution_commit_outcome_unknown"))?;
     Ok(Admission::Original(Box::new(Claim {
+        monthly: budget::monthly_snapshot_in(tx, &journal["reservation"]).await?,
         journal,
         grant: Some(Grant {
             plan,
@@ -365,6 +373,43 @@ pub async fn admit(
         }),
     })))
 }
+pub(super) async fn assert_original_in(
+    tx: &mut Transaction<'_, Postgres>,
+    settings: &Settings,
+    claim: &Claim,
+) -> Result<()> {
+    let grant = claim.grant.as_ref().ok_or_else(ack)?;
+    if load_in(tx, grant.id).await?.as_ref() != Some(&claim.journal)
+        || budget::monthly_snapshot_in(tx, &claim.journal["reservation"]).await? != claim.monthly
+    {
+        return Err(ack());
+    }
+    let now = clock(tx).await?;
+    project_in(tx, &claim.journal, grant.id, now).await?;
+    let profile = crate::startup_catalog::detail::profile_in(
+        tx,
+        claim.journal["request"]["use_profile"] == true,
+    )
+    .await?;
+    let plan = settings.plan(
+        grant.plan.portal(),
+        claim.journal["effective_query"].clone(),
+        claim.journal["request"]["allow_paid"] == true,
+        now,
+    )?;
+    let cooling: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM discovery_monthly_budgets WHERE provider='apify' AND cooldown_until>$1)")
+        .bind(now).fetch_one(&mut **tx).await.map_err(db)?;
+    if crate::job_sources::scope::profile_pin(profile.as_ref())? != claim.journal["profile_pin"]
+        || plan.context() != grant.plan.context()
+        || claim.journal["credential_context"] != settings.credential_context()?
+        || now >= grant.expires
+        || cooling
+    {
+        return Err(ack());
+    }
+    Ok(())
+}
+
 pub async fn read(c: &mut PgConnection, id: Uuid) -> Result<Value> {
     let mut tx = c.begin().await.map_err(db)?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")

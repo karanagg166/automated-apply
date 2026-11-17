@@ -42,7 +42,11 @@ async fn public_owner_run_shorter_configured_deadline_caps_the_original_child_le
 use automated_apply_agents::job_sources::runs as public_owner_runs;
 async fn public_owner_run_fixture() -> PgConnection {
     let mut c = public_job_access_fixture().await;
-    sqlx::raw_sql("DROP TABLE IF EXISTS discovery_runs CASCADE;DELETE FROM owner_preferences WHERE starts_with(key,'job_run:')").execute(&mut c).await.unwrap();
+    discovery_run_table(&mut c).await;
+    c
+}
+async fn discovery_run_table(c: &mut PgConnection) {
+    sqlx::raw_sql("DROP TABLE IF EXISTS discovery_runs CASCADE;DELETE FROM owner_preferences WHERE starts_with(key,'job_run:') OR starts_with(key,'apify_owner:')").execute(&mut *c).await.unwrap();
     let source = include_str!("../../../../supabase/fresh_public/001_phase1_public.sql");
     let table = source
         .split("CREATE TABLE IF NOT EXISTS public.discovery_runs (")
@@ -54,10 +58,9 @@ async fn public_owner_run_fixture() -> PgConnection {
     sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
         "CREATE TABLE IF NOT EXISTS public.discovery_runs ({table}"
     )))
-    .execute(&mut c)
+    .execute(&mut *c)
     .await
     .unwrap();
-    c
 }
 fn public_owner_input() -> Value {
     json!({"source":"greenhouse","use_profile":false})

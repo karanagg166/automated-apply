@@ -8,6 +8,7 @@ pub mod intake;
 pub mod money;
 pub mod plan;
 pub mod record;
+pub mod runs;
 mod session;
 pub mod settings;
 pub mod transport;
