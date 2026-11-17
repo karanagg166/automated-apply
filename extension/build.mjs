@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { generateFormDOM } from "./generate-form-dom.mjs";
 generateFormDOM({ check: true });
 const arguments_ = process.argv.slice(2);
-assert(arguments_.length <= 1, "One explicit browser target is permitted");
+assert(arguments_.length <= 2, "One browser and one output are permitted");
 const browser = arguments_[0]?.replace(/^--browser=/, "") || "brave";
 assert(
   ["chrome", "brave", "edge"].includes(browser),
@@ -13,6 +13,15 @@ assert(
 assert(
   !arguments_.length || arguments_[0] === `--browser=${browser}`,
   "Explicit browser flag required",
+);
+assert(
+  arguments_.length < 2 ||
+    (browser === "edge" && arguments_[1] === "--output=dist-edge"),
+  "Unsupported extension output",
+);
+const output = new URL(
+  arguments_.length === 2 ? "dist-edge/" : "dist/",
+  import.meta.url,
 );
 const nativeHost =
   browser === "chrome"
@@ -51,8 +60,7 @@ const hash = createHash("sha256")
 const id = [...hash]
   .map((c) => String.fromCharCode(97 + Number.parseInt(c, 16)))
   .join("");
-mkdirSync(new URL("dist/", import.meta.url), { recursive: true });
-for (const file of [
+const files = [
   "manifest.json",
   "form-dom.js",
   "naukri.js",
@@ -79,16 +87,15 @@ for (const file of [
   "settings.html",
   "settings.js",
   "style.css",
-]) {
-  cpSync(
-    new URL(file, import.meta.url),
-    new URL(`dist/${file}`, import.meta.url),
-  );
+];
+mkdirSync(output, { recursive: true });
+for (const file of files) {
+  const target = new URL(file, output);
+  cpSync(new URL(file, import.meta.url), target);
   // Brave deliberately searches Chrome's native-host registry on macOS. Use a
   // browser-specific fixed name so installing Brave never enables the disabled
   // Chrome host. Only these application-owned literals differ between bundles.
   if (browser !== "chrome" && /\.(?:js|html)$/.test(file)) {
-    const target = new URL(`dist/${file}`, import.meta.url);
     const text = readFileSync(target, "utf8");
     writeFileSync(
       target,
@@ -97,13 +104,14 @@ for (const file of [
   }
 }
 writeFileSync(
-  new URL("dist/build-info.json", import.meta.url),
+  new URL("build-info.json", output),
   JSON.stringify(
     {
       browser,
       native_host: nativeHost,
       extension_id: id,
       version: manifest.version,
+      files,
     },
     null,
     2,

@@ -9,7 +9,8 @@ function fixture() {
   const root = mkdtempSync(join(tmpdir(), "automated-apply-build-fictional-"));
   cpSync(new URL("../", import.meta.url), root, {
     recursive: true,
-    filter: (source) => !/\/(node_modules|dist|tests)(\/|$)/.test(source),
+    filter: (source) =>
+      !/\/(node_modules|dist|dist-edge|tests)(\/|$)/.test(source),
   });
   return root;
 }
@@ -79,4 +80,19 @@ test("ordinary build defaults to the Brave host while preserving extension ident
   assert.equal(info.browser, "brave");
   assert.equal(info.native_host, "com.automated_apply.brave");
   assert.equal(info.extension_id, "gdjbmkffcpicbpiikcohlmokkmcpipgp");
+});
+
+test("the retained Edge release does not overwrite the Brave build", () => {
+  const root = fixture();
+  const build = (flags) =>
+    execFileSync(process.execPath, [join(root, "build.mjs"), ...flags]);
+  build([]);
+  const brave = readFileSync(join(root, "dist/build-info.json"), "utf8");
+  build(["--browser=edge", "--output=dist-edge"]);
+  assert.equal(readFileSync(join(root, "dist/build-info.json"), "utf8"), brave);
+  const info = JSON.parse(
+    readFileSync(join(root, "dist-edge/build-info.json")),
+  );
+  assert.equal(info.native_host, "com.automated_apply.edge");
+  assert.equal(info.extension_id, JSON.parse(brave).extension_id);
 });

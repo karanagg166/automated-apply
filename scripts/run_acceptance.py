@@ -83,8 +83,10 @@ STAGES = (
         (*PYTHON, "scripts/run_fixture_stage.py", "frontend-cutover"),
     ),
     ("extension-tests", ("pnpm", "-C", "extension", "test")),
-    ("extension-brave", ("pnpm", "-C", "extension", "build", "--browser=brave")),
-    ("extension-edge", ("pnpm", "-C", "extension", "build", "--browser=edge")),
+    (
+        "extension-edge",
+        ("pnpm", "-C", "extension", "build", "--browser=edge", "--output=dist-edge"),
+    ),
     ("extension-brave-final", ("pnpm", "-C", "extension", "build", "--browser=brave")),
     (
         "rust-postgres",
@@ -122,6 +124,19 @@ STAGES = (
     ("browser-guards", ("node", "--test", "tests/brave_setup_policy.test.mjs")),
     ("tooling", (*PYTHON, "-m", "pytest", "tests", "-q")),
     ("diff", ("git", "diff", "--check")),
+    (
+        "rust-release-build",
+        (
+            "cargo",
+            "build",
+            "--locked",
+            "--release",
+            "--workspace",
+            "--target-dir",
+            "target",
+        ),
+    ),
+    ("release-artifacts", (*PYTHON, "-m", "rust.scripts.local_release", "inventory")),
 )
 
 

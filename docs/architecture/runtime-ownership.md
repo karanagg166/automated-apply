@@ -90,6 +90,18 @@ approval key from the same private file as the Rust host. Both dashboard API
 routes use that socket. The combined runner prepares standalone static assets
 at build time and checks both authenticated routes through a fictional socket.
 
+The combined runner also builds the optimized Rust binaries and records a
+checksum inventory of the binaries, standalone dashboard, separate Brave and
+Edge extension bundles, and reviewed SQL. Use
+`uv run --no-project python -m rust.scripts.local_release stage --acceptance-run RUN`
+after the full clean-commit run passes. It copies verified artifacts once into
+the canonical checkout's private release directory. Use
+`uv run --no-project python -m rust.scripts.local_rollback snapshot` to preserve
+the current launch and browser registration files. Review
+`uv run --no-project python -m rust.scripts.local_rollback verify SNAPSHOT --compare-installed`
+immediately before replacing those files. The rollback inventory also verifies
+the recorded executable, launcher, and configuration references where available.
+
 The pending owner browser/account step, missing strict worker receipt and per-platform
 live acceptance remain separate gates. Passing a process lease test does not satisfy them.
 
