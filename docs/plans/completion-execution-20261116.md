@@ -1,5 +1,21 @@
 # Complete-source delivery plan — 2026-11-16
 
+Public discovery owner boundary design2026-11-17: expose original preview/run/read paths
+plus UUID GET/PUT run resources through existing owner authentication, CSRF gateway,
+single shared transient permit and one temporary connection. Validate requests before
+connection/authority; original POST requires a stable compatibility key mapped into a
+fixed UUID namespace, while new dashboard requests persist an opaque UUID before PUT.
+Preview is REPEATABLE READ READ ONLY and returns selected source/effective query only;
+GET never mutates/provider-dispatches. Read legacy rows as explicitly unverified saved
+history without adopting them into native authority. Unsupported manual/paid execution
+remains explicit until its separate source lifecycle is implemented. Keep source metadata
+implementation flags distinct from live verification. Dashboard Web Locks serialize
+cross-tab recovery; persist only UUID and source, require explicit original dispatch,
+inspect saved GET before recovery, and allow local completion only from retained findings.
+Never erase an unresolved browser attempt on criteria edits/reload/network failure or
+silently generate a new admission. Terminal review can prepare a new attempt while all
+DB history/source pacing remains intact. No browser mount effect may dispatch providers.
+
 Owner public result finalization design2026-11-17: share transaction-local intake and
 its deferred full-row acknowledgements so a fresh owner completion commits employer/
 job/observation/local receipt, saved relevance rankings and terminal actual parent row/

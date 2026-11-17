@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -15,7 +15,14 @@ import {
   Shield,
   ZapOff,
 } from "lucide-react";
-import { api, post, readable } from "@/lib/api";
+import { api, ApiError, post, readable } from "@/lib/api";
+import {
+  inspectDiscovery,
+  prepareNewDiscovery,
+  readDiscoveryAttempt,
+  recoverDiscovery,
+  type DiscoveryAttempt,
+} from "./job-discovery-attempt";
 import {
   Badge,
   Button,
@@ -46,6 +53,7 @@ export type SourceConfig = {
   mutation_capabilities: string[];
   configuration: Record<string, unknown>;
   live_verified: boolean;
+  owner_run_supported?: boolean;
 };
 
 export type JobDiscoveryPreview = {
@@ -86,6 +94,8 @@ export type JobDiscoveryRun = {
   usage: Record<string, unknown>;
   rankings: unknown[];
   job_ids: string[];
+  local_intake_complete?: boolean | null;
+  rankings_complete?: boolean | null;
 };
 
 function generateIdempotencyKey(): string {
@@ -99,6 +109,7 @@ function generateIdempotencyKey(): string {
 function sourceAvailable(source: SourceConfig | undefined): boolean {
   return Boolean(
     source?.enabled &&
+    source.owner_run_supported !== false &&
     source.pricing === "free" &&
     source.adapter_type === "direct_api" &&
     source.read_only &&
@@ -123,6 +134,9 @@ export function JobDiscovery() {
   const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState<string>("");
   const [runResult, setRunResult] = useState<JobDiscoveryRun | null>(null);
+  const [attempt, setAttempt] = useState<DiscoveryAttempt | null>(null);
+  const [attemptLoaded, setAttemptLoaded] = useState(false);
+  const [attemptError, setAttemptError] = useState<unknown>(null);
 
   const sourcesQuery = useQuery({
     queryKey: ["discovery-sources"],
@@ -169,11 +183,21 @@ export function JobDiscovery() {
   });
 
   const executeMutation = useMutation({
-    mutationFn: (key: string) =>
-      post<JobDiscoveryRun>("discovery/runs", {
-        ...runPayload,
-        idempotency_key: key,
-      }),
+    mutationFn: (mayStart: boolean) =>
+      recoverDiscovery(
+        {
+          ...runPayload,
+          idempotency_key: idempotencyKey || null,
+        },
+        mayStart,
+      ),
+    onSettled: () => {
+      try {
+        setAttempt(readDiscoveryAttempt());
+      } catch (error) {
+        setAttemptError(error);
+      }
+    },
     onSuccess: (data) => {
       setRunResult(data);
       setConsentConfirmed(false);
@@ -183,7 +207,7 @@ export function JobDiscovery() {
   });
 
   const inspectMutation = useMutation({
-    mutationFn: () => api<JobDiscoveryRun>(`discovery/runs/${runResult!.id}`),
+    mutationFn: inspectDiscovery,
     onSuccess: (data) => {
       setRunResult(data);
       client.invalidateQueries({ queryKey: ["jobs"] });
@@ -191,12 +215,36 @@ export function JobDiscovery() {
   });
 
   const requestPending =
+    !attemptLoaded ||
     previewMutation.isPending ||
     executeMutation.isPending ||
     inspectMutation.isPending;
+  const savedAdmissionMissing =
+    inspectMutation.error instanceof ApiError &&
+    inspectMutation.error.status === 404;
+  const criteriaLocked = Boolean(attempt && !savedAdmissionMissing);
+  const terminalReviewed =
+    runResult?.local_intake_complete === true &&
+    runResult.rankings_complete === true &&
+    Boolean(runResult.finished_at);
+  useEffect(() => {
+    try {
+      const saved = readDiscoveryAttempt();
+      setAttempt(saved);
+      if (saved) {
+        setSelectedSource(saved.source);
+        inspectMutation.mutate();
+      }
+    } catch (error) {
+      setAttemptError(error);
+    }
+    setAttemptLoaded(true);
+    // Mount performs a saved GET only. New dispatch and local completion require their own actions.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleCriteriaChange = () => {
-    inspectMutation.reset();
+    if (!attempt) inspectMutation.reset();
     previewMutation.reset();
     executeMutation.reset();
     setConsentConfirmed(false);
@@ -215,16 +263,29 @@ export function JobDiscovery() {
   };
 
   const handleExecute = () => {
-    if (!idempotencyKey) return;
-    executeMutation.mutate(idempotencyKey);
+    if (!idempotencyKey || !consentConfirmed) return;
+    executeMutation.mutate(true);
   };
 
   const handleRetry = () => {
-    if (!idempotencyKey) return;
-    executeMutation.mutate(idempotencyKey);
+    executeMutation.mutate(false);
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
+    try {
+      if (attempt) {
+        if (!runResult)
+          throw new Error(
+            "Recover the saved discovery before preparing another search.",
+          );
+        await prepareNewDiscovery(runResult.id);
+      }
+    } catch (error) {
+      setAttemptError(error);
+      return;
+    }
+    setAttempt(null);
+    setAttemptError(null);
     inspectMutation.reset();
     previewMutation.reset();
     executeMutation.reset();
@@ -251,6 +312,28 @@ export function JobDiscovery() {
             Preview the search plan first, then explicitly run discovery to
             ingest listings.
           </p>
+          {attemptError != null && <ErrorState error={attemptError} />}
+          {attempt && (
+            <Notice>
+              A saved search is retained for recovery. Refresh its result or
+              complete its saved observations before preparing another search.
+              <Button
+                disabled={requestPending}
+                onClick={() => inspectMutation.mutate()}
+              >
+                Recover saved discovery
+              </Button>
+              {runResult?.usage.finding_retained === true &&
+                !terminalReviewed && (
+                  <Button disabled={requestPending} onClick={handleRetry}>
+                    Complete saved discovery
+                  </Button>
+                )}
+            </Notice>
+          )}
+          {inspectMutation.isError && !runResult && (
+            <ErrorState error={inspectMutation.error} />
+          )}
 
           {sourcesQuery.isPending ? (
             <Skeleton />
@@ -267,7 +350,7 @@ export function JobDiscovery() {
               >
                 <Select
                   aria-label="Discovery source provider"
-                  disabled={requestPending}
+                  disabled={requestPending || Boolean(attempt)}
                   value={selectedSource}
                   onChange={(e) => {
                     setSelectedSource(e.target.value);
@@ -364,7 +447,7 @@ export function JobDiscovery() {
               >
                 <Input
                   aria-label="Role or technology keywords"
-                  disabled={requestPending}
+                  disabled={requestPending || criteriaLocked}
                   placeholder="e.g. Backend Engineer, Python, React"
                   value={keywords}
                   onChange={(e) => {
@@ -380,7 +463,7 @@ export function JobDiscovery() {
               >
                 <Input
                   aria-label="Search locations"
-                  disabled={requestPending}
+                  disabled={requestPending || criteriaLocked}
                   placeholder="e.g. Berlin, Remote, India"
                   value={locations}
                   onChange={(e) => {
@@ -394,7 +477,7 @@ export function JobDiscovery() {
                 <Field label="Workplace / Remote preference">
                   <Select
                     aria-label="Workplace preference"
-                    disabled={requestPending}
+                    disabled={requestPending || criteriaLocked}
                     value={remotePreference}
                     onChange={(e) => {
                       setRemotePreference(
@@ -414,7 +497,7 @@ export function JobDiscovery() {
                 <Field label="Result limit">
                   <Select
                     aria-label="Result limit"
-                    disabled={requestPending}
+                    disabled={requestPending || criteriaLocked}
                     value={String(limit)}
                     onChange={(e) => {
                       setLimit(Number(e.target.value));
@@ -432,7 +515,7 @@ export function JobDiscovery() {
                 <input
                   type="checkbox"
                   aria-label="Incorporate preferences from saved profile"
-                  disabled={requestPending}
+                  disabled={requestPending || criteriaLocked}
                   checked={useProfile}
                   onChange={(e) => {
                     setUseProfile(e.target.checked);
@@ -445,7 +528,12 @@ export function JobDiscovery() {
               <Button
                 onClick={handlePreview}
                 busy={previewMutation.isPending}
-                disabled={!isCurrentSourceAvailable || requestPending}
+                disabled={
+                  !isCurrentSourceAvailable ||
+                  requestPending ||
+                  criteriaLocked ||
+                  attemptError != null
+                }
               >
                 <Search size={14} />
                 Preview discovery plan
@@ -534,7 +622,12 @@ export function JobDiscovery() {
                   Run approved discovery
                   <ArrowUpRight size={14} />
                 </Button>
-                <Button disabled={requestPending} onClick={handleReset}>
+                <Button
+                  disabled={
+                    requestPending || Boolean(attempt && !terminalReviewed)
+                  }
+                  onClick={handleReset}
+                >
                   Cancel plan
                 </Button>
               </div>
@@ -551,9 +644,14 @@ export function JobDiscovery() {
                   onClick={handleRetry}
                 >
                   <RefreshCw size={13} />
-                  Retry discovery with same key
+                  Recover interrupted discovery
                 </Button>
-                <Button disabled={requestPending} onClick={handleReset}>
+                <Button
+                  disabled={
+                    requestPending || Boolean(attempt && !terminalReviewed)
+                  }
+                  onClick={handleReset}
+                >
                   Change search criteria
                 </Button>
               </div>
@@ -619,8 +717,8 @@ export function JobDiscovery() {
                   <AlertTriangle size={15} />
                   <span>
                     Provider rate limit reached. The upstream service has
-                    temporarily throttled requests. Please wait a few minutes
-                    before retrying.
+                    temporarily throttled requests. The saved run remains
+                    retained; a new search must respect the provider cooldown.
                   </span>
                 </Notice>
               )}
@@ -676,7 +774,12 @@ export function JobDiscovery() {
                   View discovered jobs
                   <ArrowUpRight size={13} />
                 </Link>
-                <Button disabled={requestPending} onClick={handleReset}>
+                <Button
+                  disabled={
+                    requestPending || Boolean(attempt && !terminalReviewed)
+                  }
+                  onClick={handleReset}
+                >
                   Start new search
                 </Button>
               </div>
@@ -701,9 +804,9 @@ export function JobDiscovery() {
           <div className="detail-section">
             <h3>Stable idempotency key</h3>
             <p>
-              Retrying a failed run reuses the exact same idempotency token to
-              prevent duplicate ingestion or orphaned requests. Modifying search
-              criteria assigns a fresh key.
+              A saved search survives page reloads. Recovering it reads the
+              original result or completes saved observations. Prepare a new
+              search after reviewing the completed result.
             </p>
           </div>
           <div className="detail-section">

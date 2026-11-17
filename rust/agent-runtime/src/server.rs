@@ -18,6 +18,7 @@ mod errors;
 mod gmail_accounts_io;
 mod gmail_legacy_io;
 mod gmail_workspace_io;
+mod job_discovery_io;
 mod outreach_io;
 mod owner_http;
 mod people_research_io;

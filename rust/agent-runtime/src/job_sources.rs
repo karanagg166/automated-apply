@@ -6,6 +6,7 @@ pub mod filters;
 mod findings;
 pub mod identity;
 pub mod intake;
+pub mod owner;
 pub mod plan;
 mod ranking;
 pub mod records;

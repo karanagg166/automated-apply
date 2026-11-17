@@ -46,6 +46,7 @@ pub struct Configuration {
     pub(crate) contacts: crate::contacts::Settings,
     pub(crate) outreach: crate::outreach::Settings,
     pub(crate) sources: crate::source_registry::Settings,
+    pub(crate) public_jobs: crate::job_sources::transport::Client,
     pub(crate) apify_metadata: crate::apify_metadata::transport::Client,
     pub(crate) people_research: crate::people_research::settings::Settings,
     pub(crate) people_search_client: Option<crate::people_research::transport::Client>,
@@ -309,6 +310,7 @@ impl Configuration {
             contacts: crate::contacts::Settings::from_values(values)?,
             outreach: crate::outreach::Settings::from_values(values)?,
             sources: crate::source_registry::Settings::from_values(values)?,
+            public_jobs: crate::job_sources::transport::Client::from_values(values, fixture)?,
             apify_metadata: crate::apify_metadata::transport::Client::from_values(values, fixture)?,
             people_research: crate::people_research::settings::Settings::from_values(values)?,
             people_search_client: crate::people_research::transport::Client::from_values(

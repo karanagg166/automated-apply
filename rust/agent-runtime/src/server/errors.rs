@@ -7,6 +7,41 @@ use axum::{
 use serde_json::{Value, json};
 
 pub(super) fn profile_failure(error: Failure) -> Response {
+    if error.0.starts_with("public_job_")
+        || error.0.starts_with("discovery_run_")
+        || error.0.starts_with("invalid_discovery_")
+        || error.0.starts_with("invalid_public_job_")
+        || error.0.starts_with("discovery_source_")
+        || error.0 == "discovery_method_not_allowed"
+    {
+        let status = match error.0 {
+            "discovery_run_not_found" => StatusCode::NOT_FOUND,
+            "discovery_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
+            "discovery_run_idempotency_key_required" => StatusCode::PRECONDITION_REQUIRED,
+            "discovery_source_execution_not_implemented" => StatusCode::NOT_IMPLEMENTED,
+            "public_job_source_rate_limited" => StatusCode::TOO_MANY_REQUESTS,
+            "discovery_run_outcome_unknown" => StatusCode::GATEWAY_TIMEOUT,
+            "invalid_discovery_query"
+            | "invalid_discovery_run_request"
+            | "public_job_manual_source_required"
+            | "public_job_source_unknown"
+            | "discovery_source_unknown" => StatusCode::UNPROCESSABLE_ENTITY,
+            "discovery_run_request_conflict"
+            | "discovery_run_compatibility_key_conflict"
+            | "discovery_run_source_id_already_claimed"
+            | "public_job_request_conflict"
+            | "public_job_boards_not_configured"
+            | "public_job_intake_configuration_changed"
+            | "public_job_intake_profile_changed"
+            | "public_job_intake_finding_expired"
+            | "public_job_intake_finding_missing"
+            | "public_job_url_identity_ambiguous"
+            | "public_job_company_identity_conflict"
+            | "public_job_source_url_identity_conflict" => StatusCode::CONFLICT,
+            _ => StatusCode::SERVICE_UNAVAILABLE,
+        };
+        return reply(status, json!({"detail":error.0}));
+    }
     if error.0.starts_with("apify_") || error.0.starts_with("invalid_apify_") {
         let status = match error.0 {
             "apify_metadata_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,

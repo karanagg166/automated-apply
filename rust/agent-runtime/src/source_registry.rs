@@ -159,7 +159,7 @@ impl Settings {
             } else {
                 json!({})
             };
-            output.push(source_row(
+            let mut row = source_row(
                 source,
                 "direct_api",
                 if configured {
@@ -170,8 +170,10 @@ impl Settings {
                 "free",
                 true,
                 config,
-                false,
-            ));
+                true,
+            );
+            row["owner_run_supported"] = json!(true);
+            output.push(row);
         }
         for source in APIFY_PORTALS {
             let configured = self.actor_ready(source, now);
@@ -284,6 +286,13 @@ impl Settings {
         }
         json!({"sources":output,"evidence_basis":"saved_configuration_not_current_provider_probe","provider_calls":0,"writes":0})
     }
+    pub fn job(&self, source: &str, now: DateTime<Utc>) -> Result<Value> {
+        self.jobs(now)["sources"]
+            .as_array()
+            .and_then(|rows| rows.iter().find(|row| row["id"] == source))
+            .cloned()
+            .ok_or(Failure("discovery_source_unknown"))
+    }
     pub(crate) fn public_boards(&self, source: &str) -> Option<&Value> {
         self.boards.get(source)
     }
@@ -392,5 +401,5 @@ fn source_row(
             )
         }
     };
-    json!({"id":id,"display_name":display,"adapter_type":adapter,"operations":["jobs"],"authentication":"none","availability":availability,"pricing":pricing,"enabled":enabled,"read_only":true,"mutation_capabilities":[],"configuration":configuration,"live_verified":false,"native_execution_implemented":implemented,"dispatch_authorized":false})
+    json!({"id":id,"display_name":display,"adapter_type":adapter,"operations":["jobs"],"authentication":"none","availability":availability,"pricing":pricing,"enabled":enabled,"read_only":true,"mutation_capabilities":[],"configuration":configuration,"live_verified":false,"native_execution_implemented":implemented,"owner_run_supported":false,"dispatch_authorized":false})
 }

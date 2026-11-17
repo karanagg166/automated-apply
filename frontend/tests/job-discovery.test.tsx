@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { JobDiscovery } from "@/features/job-discovery";
 import { api, post, ApiError } from "@/lib/api";
 
@@ -91,13 +91,13 @@ const mockPreview = {
 };
 
 const mockRunSuccess = {
-  id: "run-uuid-1234-5678",
+  id: "20000000-0000-0000-0000-000000000002",
   source: "arbeitnow",
   status: "success",
   counts: {
     discovered: 15,
     inserted: 12,
-    updated: 0,
+    updated: 3,
     duplicate: 3,
     rejected: 0,
     failed: 0,
@@ -109,9 +109,16 @@ const mockRunSuccess = {
   provider_run_id: null,
   usage: {},
   rankings: [],
-  job_ids: ["job-1", "job-2"],
+  job_ids: Array.from(
+    { length: 15 },
+    (_, index) =>
+      `30000000-0000-0000-0000-${(index + 1).toString(16).padStart(12, "0")}`,
+  ),
+  local_intake_complete: true,
+  rankings_complete: true,
 };
 
+let runReply: (path: string, options?: RequestInit) => Promise<unknown>;
 function mount() {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -126,13 +133,65 @@ function mount() {
   );
 }
 
+afterEach(() => {
+  vi.restoreAllMocks();
+  Reflect.deleteProperty(navigator, "locks");
+});
 describe("JobDiscovery", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(api).mockImplementation(async (path) => {
+    localStorage.clear();
+    vi.spyOn(crypto, "randomUUID").mockReturnValue(
+      mockRunSuccess.id as ReturnType<typeof crypto.randomUUID>,
+    );
+    let pending: Promise<unknown> = Promise.resolve();
+    Object.defineProperty(navigator, "locks", {
+      configurable: true,
+      value: {
+        request: vi.fn((_name: string, work: () => Promise<unknown>) => {
+          const result = pending.then(work);
+          pending = result.catch(() => undefined);
+          return result;
+        }),
+      },
+    });
+    runReply = async () => structuredClone(mockRunSuccess);
+    vi.mocked(api).mockImplementation(async (path, options) => {
       if (path === "discovery/sources") return structuredClone(mockSources);
+      if (path.startsWith("discovery/runs/")) return runReply(path, options);
       throw new Error(`Unhandled api path: ${path}`);
     });
+  });
+
+  it("recovers a persisted completed search on reload using GET only and releases criteria after terminal review", async () => {
+    localStorage.setItem(
+      "job-discovery-attempt:v1",
+      JSON.stringify({ requestId: mockRunSuccess.id, source: "arbeitnow" }),
+    );
+    const user = userEvent.setup();
+    mount();
+    expect(await screen.findByText(/Saved \(New\): 12/)).toBeInTheDocument();
+    expect(post).not.toHaveBeenCalled();
+    expect(
+      vi.mocked(api).mock.calls.every(([, options]) => !options?.method),
+    ).toBe(true);
+    expect(
+      screen.getByRole("combobox", { name: "Discovery source provider" }),
+    ).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Start new search" }));
+    await waitFor(() =>
+      expect(localStorage.getItem("job-discovery-attempt:v1")).toBeNull(),
+    );
+    expect(
+      screen.getByRole("combobox", { name: "Discovery source provider" }),
+    ).toBeEnabled();
+    expect(
+      vi
+        .mocked(api)
+        .mock.calls.filter(
+          ([path]) => path === `discovery/runs/${mockRunSuccess.id}`,
+        ),
+    ).toHaveLength(2);
   });
 
   it("displays free available providers as selectable and paid/unconfigured providers as disabled", async () => {
@@ -219,9 +278,7 @@ describe("JobDiscovery", () => {
 
   it("requires explicit user consent before executing discovery and triggers run", async () => {
     const user = userEvent.setup();
-    vi.mocked(post)
-      .mockResolvedValueOnce(structuredClone(mockPreview))
-      .mockResolvedValueOnce(structuredClone(mockRunSuccess));
+    vi.mocked(post).mockResolvedValueOnce(structuredClone(mockPreview));
 
     mount();
 
@@ -255,16 +312,20 @@ describe("JobDiscovery", () => {
     await user.click(runButton);
 
     await waitFor(() => {
-      expect(post).toHaveBeenCalledTimes(2);
+      expect(
+        vi
+          .mocked(api)
+          .mock.calls.some(([, options]) => options?.method === "PUT"),
+      ).toBe(true);
     });
-
-    const [runPath, runPayload] = vi.mocked(post).mock.calls[1] as [
-      string,
-      { source: string; idempotency_key: string },
-    ];
-    expect(runPath).toBe("discovery/runs");
+    const [runPath, options] = vi
+      .mocked(api)
+      .mock.calls.find(([, options]) => options?.method === "PUT")!;
+    expect(runPath).toBe(`discovery/runs/${mockRunSuccess.id}`);
+    const runPayload = JSON.parse(options!.body as string);
     expect(runPayload.source).toBe("arbeitnow");
     expect(runPayload.idempotency_key).toBeTruthy();
+    expect(post).toHaveBeenCalledTimes(1);
 
     await waitFor(() => {
       expect(screen.getByText(/Saved \(New\): 12/i)).toBeInTheDocument();
@@ -272,73 +333,33 @@ describe("JobDiscovery", () => {
     });
   });
 
-  it("reuses the exact same idempotency key on retry after a failure", async () => {
+  it("recovers the persisted original UUID by GET after response loss without a second PUT", async () => {
     const user = userEvent.setup();
-    vi.mocked(post)
-      .mockResolvedValueOnce(structuredClone(mockPreview))
-      .mockRejectedValueOnce(
-        new ApiError(504, "The request timed out or network is unavailable."),
-      )
-      .mockResolvedValueOnce(structuredClone(mockRunSuccess));
-
+    vi.mocked(post).mockResolvedValueOnce(mockPreview);
+    runReply = async (_path, options) => {
+      if (options?.method === "PUT") throw new ApiError(504, "Response lost");
+      return structuredClone(mockRunSuccess);
+    };
     mount();
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", { name: /Preview discovery plan/i }),
-      ).toBeEnabled();
-    });
-
     await user.click(
-      screen.getByRole("button", { name: /Preview discovery plan/i }),
+      await screen.findByRole("button", { name: /Preview discovery plan/ }),
     );
-
-    await waitFor(() => {
-      expect(
-        screen.getByText("Review your job discovery plan"),
-      ).toBeInTheDocument();
-    });
-
     await user.click(
-      screen.getByRole("checkbox", {
-        name: /Run this approved job discovery on Arbeitnow now/i,
-      }),
+      await screen.findByRole("checkbox", { name: /Run this approved/ }),
     );
-
     await user.click(
-      screen.getByRole("button", { name: /Run approved discovery/i }),
+      screen.getByRole("button", { name: /Run approved discovery/ }),
     );
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole("button", {
-          name: /Retry discovery with same key/i,
-        }),
-      ).toBeInTheDocument();
-    });
-
-    const firstRunKey = (
-      vi.mocked(post).mock.calls[1][1] as { idempotency_key: string }
-    ).idempotency_key;
-
-    const retryButton = screen.getByRole("button", {
-      name: /Retry discovery with same key/i,
-    });
-    await user.click(retryButton);
-
-    await waitFor(() => {
-      expect(post).toHaveBeenCalledTimes(3);
-    });
-
-    const retryKey = (
-      vi.mocked(post).mock.calls[2][1] as { idempotency_key: string }
-    ).idempotency_key;
-
-    expect(retryKey).toBe(firstRunKey);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Saved \(New\): 12/i)).toBeInTheDocument();
-    });
+    await user.click(
+      await screen.findByRole("button", { name: "Recover saved discovery" }),
+    );
+    expect(await screen.findByText(/Saved \(New\): 12/)).toBeInTheDocument();
+    expect(
+      vi
+        .mocked(api)
+        .mock.calls.filter(([, options]) => options?.method === "PUT"),
+    ).toHaveLength(1);
+    expect(api).toHaveBeenCalledWith(`discovery/runs/${mockRunSuccess.id}`);
   });
 
   it("handles no_results, rate_limited, and source_unavailable states honestly", async () => {
@@ -347,11 +368,11 @@ describe("JobDiscovery", () => {
       ...mockRunSuccess,
       status: "no_results",
       counts: { discovered: 0, inserted: 0, duplicate: 0, rejected: 0 },
+      job_ids: [],
     };
 
-    vi.mocked(post)
-      .mockResolvedValueOnce(structuredClone(mockPreview))
-      .mockResolvedValueOnce(noResultsRun);
+    vi.mocked(post).mockResolvedValueOnce(structuredClone(mockPreview));
+    runReply = async () => noResultsRun;
 
     mount();
 
@@ -394,12 +415,12 @@ describe("JobDiscovery", () => {
       ...mockRunSuccess,
       status: "rate_limited",
       counts: { discovered: 0, inserted: 0, duplicate: 0, rejected: 0 },
+      job_ids: [],
       errors: ["Upstream rate limit exceeded for provider arbeitnow"],
     };
 
-    vi.mocked(post)
-      .mockResolvedValueOnce(structuredClone(mockPreview))
-      .mockResolvedValueOnce(rateLimitedRun);
+    vi.mocked(post).mockResolvedValueOnce(structuredClone(mockPreview));
+    runReply = async () => rateLimitedRun;
 
     mount();
 
@@ -468,9 +489,8 @@ describe("JobDiscovery", () => {
     const pending = new Promise<typeof mockRunSuccess>((resolve) => {
       finish = resolve;
     });
-    vi.mocked(post)
-      .mockResolvedValueOnce(mockPreview)
-      .mockReturnValueOnce(pending);
+    vi.mocked(post).mockResolvedValueOnce(mockPreview);
+    runReply = () => pending;
     mount();
     await user.click(
       await screen.findByRole("button", { name: /Preview discovery plan/ }),
@@ -496,15 +516,19 @@ describe("JobDiscovery", () => {
 
   it("inspects an interrupted saved run with GET without replaying discovery", async () => {
     const user = userEvent.setup();
-    vi.mocked(api).mockImplementation(async (path) => {
+    vi.mocked(api).mockImplementation(async (path, options) => {
       if (path === "discovery/sources") return structuredClone(mockSources);
       if (path === `discovery/runs/${mockRunSuccess.id}`)
-        return { ...mockRunSuccess, status: "recovery_required" };
+        return {
+          ...mockRunSuccess,
+          status: options?.method === "PUT" ? "running" : "recovery_required",
+          local_intake_complete: false,
+          rankings_complete: false,
+          finished_at: null,
+        };
       throw new Error(`Unexpected API path ${path}`);
     });
-    vi.mocked(post)
-      .mockResolvedValueOnce(mockPreview)
-      .mockResolvedValueOnce({ ...mockRunSuccess, status: "running" });
+    vi.mocked(post).mockResolvedValueOnce(mockPreview);
     mount();
     await user.click(
       await screen.findByRole("button", { name: /Preview discovery plan/ }),
@@ -525,6 +549,6 @@ describe("JobDiscovery", () => {
       await screen.findByText(/This discovery run was interrupted/),
     ).toBeInTheDocument();
     expect(api).toHaveBeenCalledWith(`discovery/runs/${mockRunSuccess.id}`);
-    expect(post).toHaveBeenCalledTimes(2);
+    expect(post).toHaveBeenCalledTimes(1);
   });
 });

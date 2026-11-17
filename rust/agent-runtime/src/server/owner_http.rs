@@ -324,6 +324,10 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     } else {
         None
     };
+    if let Some(route) = crate::job_sources::owner::route(&path) {
+        return job_discovery_io::dispatch(&api, route, &method, packet_query.as_deref(), &body)
+            .await;
+    }
     if let Some(route) = crate::startup_catalog::owner::route(&path) {
         return startup_io::dispatch(&api, route, &method, packet_query.as_deref(), &body).await;
     }
