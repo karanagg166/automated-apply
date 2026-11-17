@@ -2,6 +2,10 @@
 
 The active goal limits delivery to the owner’s laptop. GitHub pushes, pull requests, remote reports, hosted Actions and merges remain suspended until the owner reauthorizes them. Finish source and fixtures, run combined validation, then install and verify locally. See the [completion plan](plans/completion-execution-20261116.md).
 
+Local source `adca6e9` separates scheduled feed HTTPS work from the application worker's PostgreSQL connection. Intake now checks both saved control revisions and can reuse a valid cache after Resume. One new PostgreSQL fixture and the existing worker cancellation cases await the combined run. The estimate remains 58% complete. See the [scheduled feed worker checkpoint](acceptance/scheduled-feed-worker-local-source-20261118.md).
+
+Private continuity snapshot `12c3c6e6397d38a89f87593cc9334a7188409724a00864616beaaf89d3f43fe1` at `2026-11-17T20:53:37.041840+00:00` preserved six available transcripts from 104 indexed threads. The other 98 transcripts remain missing.
+
 Local source `51a20ee` binds new portal observations to the selected ordinary browser session and marks stale and legacy unscoped evidence in Connections. One PostgreSQL and one extension fixture await the combined run. Applicant identity and submission still require provider-specific evidence. The estimate remains 58% complete. See the [portal observation checkpoint](acceptance/portal-observation-scope-local-source-20261118.md).
 
 Private continuity snapshot `37d6a08edaf5c39f39b392d3e1235863a069da8dd5acd62bc81a7daa3c9ee532` at `2026-11-17T20:47:42.446946+00:00` preserved six available transcripts from 104 indexed threads. The other 98 transcripts remain missing.
