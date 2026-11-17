@@ -1,4 +1,5 @@
 //! Approved project evidence loaded from one read snapshot; no scanning or approval side effects.
+mod conversation;
 use crate::{
     Failure, Result,
     context_contract::{self, Kind, python_space},
