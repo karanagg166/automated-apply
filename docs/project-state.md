@@ -1,3 +1,5 @@
+CURRENT OWNER DIRECTION2026-11-17: LOCAL COMPLETION ONLY. Owner said “do not push my code on github for now” and “focus on completing this project on my laptop only locally.” No further pushes, PR updates/publication, hosted Actions or merges until reauthorized. Keep local commits/reports/snapshots and continue the saved completion plan locally. Existing published checkpoints are historical; no remote deletion/rewriting requested. Source phase still applies: finish remaining source/fixtures before combined tests/build/check/live/install. Current uncommitted intent parser/schema/128 generated fictional oracle cases must be preserved and completed. Last validated455 are prior only;58/42 held. Active project goal records local-only delivery and existing operational safeguards.
+
 Latest local-answer v1 source `dfb7afdb071a4ddbb8e604e1af02eb70e33b4972` adopts deterministic resolution in native answer
 preparation and adds immutable provenance plus transient max8 rewrite flights in the library.
 Only network-only callbacks may be cancelled; production service configures none here.
