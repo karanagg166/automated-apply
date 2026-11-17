@@ -360,7 +360,23 @@ impl Settings {
         }
         for source in ["wellfound", "work_at_a_startup"] {
             let configured = self.actor_ready(source, now);
-            output.push(json!({"provider":source,"modes":["job_led"],"availability":if configured{"available"}else{"configuration_required"},"configured":configured,"authorized":configured,"pricing":"paid","permission_basis":"operator_reviewed_actor_required","native_execution_implemented":false,"live_verified":false,"dispatch_authorized":false}));
+            let mut row = json!({"provider":source,"modes":["job_led"],"availability":if configured{"available"}else{"configuration_required"},"configured":configured,"authorized":configured,"pricing":"paid","permission_basis":"operator_reviewed_actor_required","native_execution_implemented":true,"live_verified":false,"dispatch_authorized":false});
+            row["native_execution"] = self
+                .apify_execution
+                .as_ref()
+                .map(|s| {
+                    s.preview(
+                        source,
+                        crate::job_sources::contract::query(json!({"limit":1}))
+                            .expect("fixed readiness query"),
+                        true,
+                        now,
+                    )
+                })
+                .unwrap_or_else(
+                    || json!({"ready":false,"blocker":"apify_execution_configuration_invalid"}),
+                );
+            output.push(row);
         }
         output.push(json!({"provider":"yc_directory","modes":[],"availability":"unsupported","configured":false,"authorized":false,"pricing":"unknown","permission_basis":"no_supported_directory_api_or_license_verified","manual_reference":"https://www.ycombinator.com/companies","native_execution_implemented":false,"live_verified":false,"dispatch_authorized":false}));
         output.push(json!({"provider":"manual","modes":["company_first"],"availability":"manual_import_only","configured":true,"authorized":false,"pricing":"free","permission_basis":"per_import_rights_confirmation_and_evidence_required","native_execution_implemented":true,"live_verified":false,"dispatch_authorized":false}));

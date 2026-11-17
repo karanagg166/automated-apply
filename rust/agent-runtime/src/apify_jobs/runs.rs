@@ -329,6 +329,44 @@ pub async fn read(c: &mut PgConnection, id: Uuid) -> Result<Value> {
     tx.commit().await.map_err(db)?;
     Ok(out)
 }
+pub(crate) async fn read_in(
+    tx: &mut Transaction<'_, Postgres>,
+    id: Uuid,
+    at: DateTime<Utc>,
+) -> Result<Value> {
+    output(&state_in(tx, id, at).await?, id, at)
+}
+pub(crate) async fn scope_in(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> Result<Value> {
+    let at = clock(tx).await?;
+    let state = state_in(tx, id, at).await?;
+    Ok(
+        json!({"request_hash":state.child["request_hash"],"effective_query":state.child["effective_query"],"profile_pin":state.child["profile_pin"],"configuration_hash":state.child["configuration_hash"],"scope_hash":state.child["scope_hash"]}),
+    )
+}
+pub(crate) async fn local_receipt_in(
+    tx: &mut Transaction<'_, Postgres>,
+    id: Uuid,
+) -> Result<Option<Value>> {
+    let at = clock(tx).await?;
+    Ok(state_in(tx, id, at).await?.receipt)
+}
+pub(crate) async fn current_context_in(
+    tx: &mut Transaction<'_, Postgres>,
+    settings: &Settings,
+    id: Uuid,
+) -> Result<()> {
+    let at = clock(tx).await?;
+    let state = state_in(tx, id, at).await?;
+    intake::context_in(tx, &state.child, settings, at).await
+}
+pub(crate) async fn ledger_in(
+    tx: &mut Transaction<'_, Postgres>,
+    id: Uuid,
+) -> Result<(Value, String)> {
+    let at = clock(tx).await?;
+    let state = state_in(tx, id, at).await?;
+    super::budget::monthly_snapshot_in(tx, &state.child["reservation"]).await
+}
 /// Finish saved findings/receipts locally; never construct a provider acquisition grant.
 pub async fn finish(c: &mut PgConnection, settings: &Settings, id: Uuid) -> Result<Value> {
     let mut tx = admission::transaction(c).await?;

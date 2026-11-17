@@ -1,5 +1,22 @@
 # Complete-source delivery plan — 2026-11-16
 
+Paid startup composition2026-11-17: share the existing job-led startup parent and
+catalog-result path using a typed public/paid child adapter, limited to startup's
+already supported Wellfound and Work at a Startup paid sources. Admit the actual
+startup parent plus actual paid job parent/original intent/reservation in one owner
+transaction; retain deterministic child UUID and compatibility key. Original opaque
+child acquisition stays provider-specific; replay may finish only retained local
+findings. Reuse frozen job-to-company receipt attribution, pinned profile/current
+configuration and selected catalog recheck; source-reported company claims do not
+promote curated startup facts. Compare exact nested paid child/reservation/month/
+cooldown after startup triggers before commit. Saved completed parent reads remain
+independent of current paid configuration/profile. Parent and child result hashes
+include separate paid reservation/recovery metadata without renewing authority.
+Expose child_run evidence needed for explicit acknowledged-read recovery in the job
+flow; startup parent finalization stays local. Full startup UUID PUT/local completion
+and durable dashboard consent/recovery follow. No source fixture proves a platform's
+real discovery/application automation.
+
 Acknowledged read dashboard design2026-11-17: keep a separate local pointer containing
 only parent/read UUIDs under the original discovery Web Lock. Save before explicit
 empty keyed PUT; mounting/inspection performs saved GETs only. Require separate owner

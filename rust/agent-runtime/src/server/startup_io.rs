@@ -94,7 +94,13 @@ pub(super) async fn dispatch(
                             contacts: &api.config.contacts,
                             timeout_seconds: api.config.discovery_timeout_seconds,
                         }
-                        .run(&mut c, raw, id)
+                        .run_with_paid(
+                            &mut c,
+                            raw,
+                            id,
+                            api.config.apify_jobs.as_ref(),
+                            Some(&api.config.apify_jobs_client),
+                        )
                         .await;
                     }
                     if value["source"] != "manual" || value["mode"] != "company_first" {

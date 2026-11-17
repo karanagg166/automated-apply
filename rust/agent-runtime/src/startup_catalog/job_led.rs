@@ -1,11 +1,11 @@
-//! Original startup parent + native public job child. Reads never reconstruct a provider invocation.
+//! Original startup parent + typed public/paid job child. Reads never reconstruct a provider invocation.
+mod child;
 use super::{runs, search};
 use crate::{
     Failure, Result,
     job_sources::{
         self,
         plan::{Snapshot, Source},
-        runs as jobs,
     },
     research_contract::{self, Kind},
     source_registry::Settings,
@@ -44,7 +44,10 @@ pub fn request_id(input: &Value) -> Result<Uuid> {
 }
 fn input(raw: Value, now: DateTime<Utc>) -> Result<Value> {
     let v = research_contract::normalize(Kind::StartupRun, raw, now)?;
-    if v["mode"] != "job_led" || Source::parse(v["source"].as_str().ok_or_else(invalid)?).is_err() {
+    if v["mode"] != "job_led"
+        || (!child::paid(&v["source"])
+            && Source::parse(v["source"].as_str().ok_or_else(invalid)?).is_err())
+    {
         return Err(Failure("startup_provider_orchestration_not_implemented"));
     }
     Ok(v)
@@ -106,7 +109,7 @@ async fn load_state(
         job_sources::access::time(&row["started_at"])?,
     )?;
     let child = child_id(id);
-    let scope = jobs::scope_in(tx, child).await?;
+    let scope = child::scope(tx, &input["source"], child).await?;
     if journal["schema"] != 1
         || journal["id"] != json!(id)
         || journal["child_id"] != json!(child)
@@ -125,7 +128,7 @@ async fn load_state(
         .as_f64()
         .filter(|n| n.is_finite() && (5.0..=180.0).contains(n))
         .ok_or_else(invalid)?;
-    let child = jobs::read_in(tx, child, at).await?;
+    let child = child::read_in(tx, &input["source"], child, at).await?;
     if journal["state"] == "admitted"
         && (row["status"] != "running" || !row["finished_at"].is_null())
         || journal["state"] == "completed"
@@ -153,6 +156,12 @@ fn output(state: &State, at: DateTime<Utc>) -> Result<Value> {
             .ok_or_else(invalid)?,
     )?;
     out["child_run"] = json!({"id":state.child["id"],"status":state.child["status"],"counts":state.child["counts"],"local_intake_complete":state.child["local_intake_complete"],"rankings_complete":state.child["rankings_complete"]});
+    if child::paid(&state.journal["input"]["source"]) {
+        for field in ["provider_run_id", "reservation", "billing_final"] {
+            out["child_run"][field] = state.child[field].clone();
+        }
+        out["child_run"]["usage"] = state.child["usage"].clone();
+    }
     out["usage"] = json!({"stage":if state.journal["state"]=="completed"{"completed"}else if state.child["local_intake_complete"]==true && state.child["rankings_complete"]==true{"company_results_pending"}else{"child_pending"},"finding_retained":state.child["usage"]["finding_retained"]==true,"replay_authorized":false});
     out["local_intake_complete"] = json!(state.journal["state"] == "completed");
     out["application_dispatch"] = json!(false);
@@ -161,7 +170,7 @@ fn output(state: &State, at: DateTime<Utc>) -> Result<Value> {
 }
 pub struct Original {
     id: Uuid,
-    child: Box<jobs::Claim>,
+    child: child::Original,
 }
 pub enum Admission {
     Retained(Value),
@@ -170,6 +179,16 @@ pub enum Admission {
 pub async fn admit(
     c: &mut PgConnection,
     settings: &Settings,
+    raw: Value,
+    id: Uuid,
+    timeout: f64,
+) -> Result<Admission> {
+    admit_with_paid(c, settings, None, raw, id, timeout).await
+}
+pub async fn admit_with_paid(
+    c: &mut PgConnection,
+    settings: &Settings,
+    paid: Option<&crate::apify_jobs::settings::Settings>,
     raw: Value,
     id: Uuid,
     timeout: f64,
@@ -204,31 +223,40 @@ pub async fn admit(
     if exists {
         return Err(Failure("startup_run_idempotency_conflict"));
     }
-    let child = match jobs::admit_in(
+    let child = child::admit(
         &mut tx,
         settings,
+        paid,
         child_input(&input, id)?,
         child_id(id),
         timeout,
     )
-    .await?
-    {
-        jobs::Admission::Original(claim) => claim,
-        _ => return Err(Failure("startup_job_led_child_already_claimed")),
+    .await?;
+    let scope = child::scope(&mut tx, &input["source"], child_id(id)).await?;
+    let context = if child::paid(&input["source"]) {
+        scope["configuration_hash"]
+            .as_str()
+            .ok_or_else(invalid)?
+            .to_owned()
+    } else {
+        Snapshot::build(
+            settings,
+            Source::parse(input["source"].as_str().ok_or_else(invalid)?)?,
+            scope["effective_query"].clone(),
+        )?
+        .context()
+        .to_owned()
     };
-    let scope = jobs::scope_in(&mut tx, child_id(id)).await?;
-    let source = Source::parse(input["source"].as_str().ok_or_else(invalid)?)?;
-    let context = Snapshot::build(settings, source, scope["effective_query"].clone())?;
     let stamp: Value = sqlx::query_scalar("SELECT to_jsonb(clock_timestamp())")
         .fetch_one(&mut *tx)
         .await
         .map_err(db)?;
-    let expected = json!({"id":id,"source":format!("startup_{}",source.name()),"request_hash":hash,"query_summary":{"mode":"job_led","filters":input["filters"],"child_run_id":child_id(id),"company_ids":[],"job_ids":[]},"status":"running","rankings":[],"counts":{},"errors":[],"started_at":stamp,"finished_at":null,"provider_run_id":null,"usage":{"stage":"original_admission"},"idempotency_key":compat});
+    let expected = json!({"id":id,"source":format!("startup_{}",input["source"].as_str().ok_or_else(invalid)?),"request_hash":hash,"query_summary":{"mode":"job_led","filters":input["filters"],"child_run_id":child_id(id),"company_ids":[],"job_ids":[]},"status":"running","rankings":[],"counts":{},"errors":[],"started_at":stamp,"finished_at":null,"provider_run_id":null,"usage":{"stage":"original_admission"},"idempotency_key":compat});
     let saved:Option<Value>=sqlx::query_scalar("INSERT INTO discovery_runs AS r(id,source,request_hash,query_summary,status,rankings,counts,errors,started_at,finished_at,provider_run_id,usage,idempotency_key) SELECT x.id,x.source,x.request_hash,x.query_summary,x.status,x.rankings,x.counts,x.errors,x.started_at,x.finished_at,x.provider_run_id,x.usage,x.idempotency_key FROM jsonb_populate_record(NULL::discovery_runs,$1) x RETURNING to_jsonb(r)").bind(&expected).fetch_optional(&mut *tx).await.map_err(db)?;
     if saved.as_ref() != Some(&expected) {
         return Err(ack());
     }
-    let value = json!({"schema":1,"id":id,"child_id":child_id(id),"state":"admitted","input":input,"row":expected,"profile_pin":scope["profile_pin"],"child_scope_hash":crate::python_json::digest(&scope),"configuration_hash":context.context(),"timeout_seconds":timeout});
+    let value = json!({"schema":1,"id":id,"child_id":child_id(id),"state":"admitted","input":input,"row":expected,"profile_pin":scope["profile_pin"],"child_scope_hash":crate::python_json::digest(&scope),"configuration_hash":context,"timeout_seconds":timeout});
     let saved: Option<Value> = sqlx::query_scalar(
         "INSERT INTO owner_preferences(key,value) VALUES($1,$2) RETURNING value",
     )
@@ -243,7 +271,7 @@ pub async fn admit(
     {
         return Err(ack());
     }
-    jobs::assert_original_in(&mut tx, &child).await?;
+    child::assert_original(&mut tx, paid, &child).await?;
     let end = now(&mut tx).await?;
     load_state(&mut tx, id, end).await?;
     tx.commit()
@@ -276,6 +304,7 @@ async fn current_scope(
     tx: &mut Transaction<'_, Postgres>,
     state: &State,
     settings: &Settings,
+    paid: Option<&crate::apify_jobs::settings::Settings>,
 ) -> Result<()> {
     let profile =
         super::detail::profile_in(tx, state.journal["input"]["filters"]["use_profile"] == true)
@@ -287,7 +316,15 @@ async fn current_scope(
         .as_str()
         .and_then(|s| s.parse::<Uuid>().ok())
         .ok_or_else(invalid)?;
-    let scope = jobs::scope_in(tx, child_id(parent)).await?;
+    if child::paid(&state.journal["input"]["source"]) {
+        return crate::apify_jobs::runs::current_context_in(
+            tx,
+            paid.ok_or(Failure("apify_reviewed_execution_route_required"))?,
+            child_id(parent),
+        )
+        .await;
+    }
+    let scope = child::scope(tx, &state.journal["input"]["source"], child_id(parent)).await?;
     let source = Source::parse(
         state.journal["input"]["source"]
             .as_str()
@@ -302,8 +339,12 @@ async fn current_scope(
     }
     Ok(())
 }
-async fn companies_in(tx: &mut Transaction<'_, Postgres>, child: Uuid) -> Result<Vec<Uuid>> {
-    let receipt = jobs::local_receipt_in(tx, child)
+async fn companies_in(
+    tx: &mut Transaction<'_, Postgres>,
+    source: &Value,
+    child: Uuid,
+) -> Result<Vec<Uuid>> {
+    let receipt = child::receipt(tx, source, child)
         .await?
         .ok_or(Failure("startup_job_led_child_intake_missing"))?;
     let expected = receipt["company_ids_by_job"]
@@ -340,6 +381,15 @@ pub async fn finish(
     settings: &Settings,
     contacts: &crate::contacts::Settings,
 ) -> Result<Value> {
+    finish_with_paid(c, id, settings, None, contacts).await
+}
+pub async fn finish_with_paid(
+    c: &mut PgConnection,
+    id: Uuid,
+    settings: &Settings,
+    paid: Option<&crate::apify_jobs::settings::Settings>,
+    contacts: &crate::contacts::Settings,
+) -> Result<Value> {
     let mut tx = begin(c).await?;
     let at = now(&mut tx).await?;
     let state = load_state(&mut tx, id, at).await?;
@@ -353,8 +403,13 @@ pub async fn finish(
     if state.child["local_intake_complete"] != true || state.child["rankings_complete"] != true {
         return Err(Failure("startup_job_led_child_incomplete"));
     }
-    current_scope(&mut tx, &state, settings).await?;
-    let companies = companies_in(&mut tx, child_id(id)).await?;
+    current_scope(&mut tx, &state, settings, paid).await?;
+    let paid_ledger = if child::paid(&state.journal["input"]["source"]) {
+        Some(crate::apify_jobs::runs::ledger_in(&mut tx, child_id(id)).await?)
+    } else {
+        None
+    };
+    let companies = companies_in(&mut tx, &state.journal["input"]["source"], child_id(id)).await?;
     let mut filters = state.journal["input"]["filters"].clone();
     filters["page"] = json!(1);
     filters["limit"] = json!(100);
@@ -392,8 +447,8 @@ pub async fn finish(
     {
         return Err(ack());
     }
-    current_scope(&mut tx, &state, settings).await?;
-    if companies_in(&mut tx, child_id(id)).await? != companies
+    current_scope(&mut tx, &state, settings, paid).await?;
+    if companies_in(&mut tx, &state.journal["input"]["source"], child_id(id)).await? != companies
         || search::search_in(&mut tx, &filters, false, contacts, at, Some(&companies)).await?
             != selected
     {
@@ -401,6 +456,11 @@ pub async fn finish(
     }
     let end = now(&mut tx).await?;
     let after = load_state(&mut tx, id, end).await?;
+    if let Some(ledger) = paid_ledger {
+        if crate::apify_jobs::runs::ledger_in(&mut tx, child_id(id)).await? != ledger {
+            return Err(ack());
+        }
+    }
     if after.child != state.child || after.journal != closed || after.row != expected {
         return Err(ack());
     }
@@ -418,23 +478,34 @@ pub struct Service<'a> {
 }
 impl Service<'_> {
     pub async fn run(&self, c: &mut PgConnection, raw: Value, id: Uuid) -> Result<Value> {
-        match admit(c, self.sources, raw, id, self.timeout_seconds).await? {
+        self.run_with_paid(c, raw, id, None, None).await
+    }
+    pub async fn run_with_paid(
+        &self,
+        c: &mut PgConnection,
+        raw: Value,
+        id: Uuid,
+        paid: Option<&crate::apify_jobs::settings::Settings>,
+        paid_client: Option<&crate::apify_jobs::transport::Client>,
+    ) -> Result<Value> {
+        let source = input(raw.clone(), Utc::now())?["source"].clone();
+        match admit_with_paid(c, self.sources, paid, raw, id, self.timeout_seconds).await? {
             Admission::Original(original) => {
                 let Original { id, child } = *original;
-                jobs::acquire_original(c, self.client, *child).await?;
-                jobs::finish(c, self.sources, child_id(id)).await?;
-                finish(c, id, self.sources, self.contacts).await
+                child::acquire(c, paid, paid_client, self.client, child).await?;
+                child::finish(c, self.sources, paid, &source, child_id(id)).await?;
+                finish_with_paid(c, id, self.sources, paid, self.contacts).await
             }
             Admission::Retained(value) => {
                 if value["local_intake_complete"] == true {
                     return Ok(value);
                 }
-                let child = jobs::read(c, child_id(id)).await?;
+                let child = child::read(c, &source, child_id(id)).await?;
                 if child["usage"]["finding_retained"] != true {
                     return Ok(value);
                 }
-                jobs::finish(c, self.sources, child_id(id)).await?;
-                finish(c, id, self.sources, self.contacts).await
+                child::finish(c, self.sources, paid, &source, child_id(id)).await?;
+                finish_with_paid(c, id, self.sources, paid, self.contacts).await
             }
         }
     }
