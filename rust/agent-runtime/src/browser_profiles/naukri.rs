@@ -57,6 +57,8 @@ pub(super) fn domain_denial(error: Failure) -> bool {
                 | "current_profile_preferences_or_required_skills_exclude_job"
                 | "packet_context_stale"
                 | "existing_worker_receipt_requires_review"
+                | "apply_action_observation_required"
+                | "provider_job_or_company_changed"
                 | "persistent_provider_application_status_required"
                 | "independent_history_reload_required"
         )

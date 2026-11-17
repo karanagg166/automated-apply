@@ -49,8 +49,32 @@ pub(super) async fn require_policy(
             return Err(Failure("automatic_first_verified_worker_receipt_required"));
         }
         for (key, receipt, work, created) in rows {
-            if receipts::first_worker_bound(&key, &receipt, &work, &account, now) {
-                return Ok(());
+            if receipts::first_worker_bound(&key, &receipt, &work, &account, now)
+                && let Some(packet) = work["packet_id"]
+                    .as_str()
+                    .and_then(|s| s.parse::<Uuid>().ok())
+            {
+                let persisted: bool = sqlx::query_scalar(
+                    "SELECT EXISTS(
+                        SELECT 1 FROM application_submission_evidence e JOIN application_packets p ON p.id=e.packet_id
+                        WHERE p.id=$1 AND p.lifecycle_state='provider_confirmed_submitted'
+                          AND p.job_id::text=$2 AND p.candidate_profile_id::text=$3
+                          AND e.confirmation_source='naukri_status_ui' AND NOT e.human_confirmed
+                          AND e.evidence_confidence='provider_ui_persistent'
+                          AND e.receipt_reference=$4 AND e.request_hash=$5
+                    )",
+                )
+                .bind(packet)
+                .bind(work["job_id"].as_str())
+                .bind(account["candidate_profile_id"].as_str())
+                .bind(&key)
+                .bind(super::submission::receipt_request_hash(&receipt))
+                .fetch_one(&mut **tx)
+                .await
+                .map_err(db)?;
+                if persisted {
+                    return Ok(());
+                }
             }
             cursor = Some((created, key));
         }

@@ -235,6 +235,17 @@ pub(crate) async fn receive_in(
         ) {
             return Err(Failure("apply_action_observation_required"));
         }
+        if observation["title"] != work["title"] || observation["company"] != work["company"] {
+            return Err(Failure("provider_job_or_company_changed"));
+        }
+        let admission =
+            receipts::apply_admission(work).ok_or(Failure("apply_action_observation_required"))?;
+        work["apply_dispatch_observation"] = json!({
+            "admission_id":admission["id"],"document_id":observation["document_id"],
+            "state":observation["state"],"account_sha256":observation["account_sha256"],
+            "profile_binding_id":work["binding"]["profile_binding_id"],
+            "evidence_sha256":observation["evidence_sha256"],"observed_at":stamp(now),
+        });
         if observation["state"] == "QUESTIONNAIRE" {
             work["stage"] = json!("QUESTIONS");
             work["status"] = json!("queued");
@@ -287,14 +298,21 @@ pub(crate) async fn confirm_in(
     if get(tx, &key).await?.is_some() {
         return Err(Failure("existing_worker_receipt_requires_review"));
     }
-    let dispatched = work["admitted_actions"].as_array().is_some_and(|actions| {
-        actions.iter().any(|a| {
-            a["fingerprint"]
-                .as_str()
-                .is_some_and(|s| s.starts_with("apply:"))
-        })
-    });
-    let receipt = json!({"requisition":work["requisition"],"queue_id":work["id"],"account_sha256":work["account_sha256"],"status":"Application Sent","account_observation":account_observation(work),"confirmation_source":"naukri_application_status_ui","operation_mode":"recurring_worker_ui","observed_at":stamp(now),"persistent_after_reload":true,"first_observation":work["confirmation_observation"],"second_observation":observation,"worker_dispatched":dispatched});
+    let packet_id = work["packet_id"]
+        .as_str()
+        .and_then(|s| s.parse::<Uuid>().ok())
+        .ok_or_else(invalid)?;
+    let existing_evidence: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM application_submission_evidence WHERE packet_id=$1)",
+    )
+    .bind(packet_id)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(db)?;
+    let dispatched = !existing_evidence
+        && receipts::dispatch_bound(work, &work["confirmation_observation"])
+        && work["apply_dispatch_observation"]["document_id"] != observation["document_id"];
+    let receipt = json!({"requisition":work["requisition"],"queue_id":work["id"],"account_sha256":work["account_sha256"],"status":"Application Sent","account_observation":account_observation(work),"confirmation_source":"naukri_application_status_ui","operation_mode":"recurring_worker_ui","observed_at":stamp(now),"persistent_after_reload":true,"first_observation":work["confirmation_observation"],"second_observation":observation,"worker_dispatched":dispatched,"apply_dispatch_observation":dispatched.then(|| work["apply_dispatch_observation"].clone())});
     if !receipts::worker_recorded(&key, &receipt, now) {
         return Err(Failure("persistent_provider_application_status_required"));
     }
@@ -313,10 +331,6 @@ pub(crate) async fn confirm_in(
         }
     }
     preflight::check_account_in(tx, work).await?;
-    let packet_id = work["packet_id"]
-        .as_str()
-        .and_then(|s| s.parse::<Uuid>().ok())
-        .ok_or_else(invalid)?;
     let job_id = work["job_id"]
         .as_str()
         .and_then(|s| s.parse::<Uuid>().ok())
@@ -364,14 +378,7 @@ pub(crate) async fn confirm_in(
     if ack != Some(("applied".into(), metadata)) {
         return Err(Failure("execution_write_ack_failed"));
     }
-    let evidence_exists: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM application_submission_evidence WHERE packet_id=$1)",
-    )
-    .bind(packet_id)
-    .fetch_one(&mut **tx)
-    .await
-    .map_err(db)?;
-    if dispatched && !evidence_exists {
+    if dispatched {
         let revision = next(&packet)?;
         let evidence = Uuid::new_v4();
         let idempotency = format!("naukri-worker-{}", work["id"].as_str().ok_or_else(invalid)?);

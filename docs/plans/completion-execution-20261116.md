@@ -812,6 +812,8 @@ acceptance once the complete source is integrated. Preserve the installed legacy
 until STOP-only whole-family cutover is ready. This plan supplements the existing
 [migration plan](2026-11-14-rust-agent-migration.md), not a replacement of its scope.
 
+For new Naukri worker receipts, retain the exact browser Apply acknowledgment with its admitted action, original document and account. Require the acknowledgment to precede both independent history observations. An admitted action with no acknowledgment can still be reconciled without replay, but the resulting history cannot enable recurring AUTOMATIC. Prior manual packet evidence stays immutable and prevents attribution of that packet to the worker. Keep legacy receipt history readable.
+
 ## Scope
 
 - In: complete native runtime/API/worker/CLI parity; agent tools and dashboard controls;

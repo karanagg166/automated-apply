@@ -55,18 +55,86 @@ async fn execution_control_http_requires_owner_and_valid_contract_before_changin
 }
 #[tokio::test(flavor="current_thread")]
 #[ignore="requires dedicated disposable PostgreSQL harness"]
-async fn execution_automatic_requires_admitted_current_account_proof_and_scans_past_bad_history() {
-    let mut c=browser_fixture().await;let config=execution_seed_policy(&mut c).await;let mut policy=config["policy"].clone();policy["platforms"]["naukri"]["mode"]=json!("AUTOMATIC");let input=json!({"expected_revision":162,"policy":policy});
-    assert_eq!(execution_mutate(&mut c,automated_apply_agents::execution::Route::Policy,input.clone()).await.unwrap_err(),Failure("approved_naukri_account_binding_required"));
-    let account=json!({"revision":4,"approved":true,"candidate_profile_id":Uuid::new_v4(),"profile_binding_id":Uuid::new_v4(),"account_sha256":"a".repeat(64)});browser_save(&mut c,"naukri_account_binding",account.clone()).await;browser_save(&mut c,"chr_selection",json!({"version":2,"profile_binding_id":account["profile_binding_id"]})).await;
-    let id=Uuid::new_v4();let work_key=format!("apply_work:{id}");let receipt_key="naukri_worker_receipt:123456789012";let mut work=json!({"id":id,"platform":"naukri","requisition":"123456789012","candidate_profile_id":account["candidate_profile_id"],"account_sha256":account["account_sha256"],"account_binding_revision":4,"stage":"SUBMITTED_CONFIRMED","submission_mode":"recurring_worker_ui","admitted_actions":[]});
-    let receipt=json!({"requisition":"123456789012","queue_id":id,"confirmation_source":"naukri_application_status_ui","operation_mode":"recurring_worker_ui","persistent_after_reload":true,"status":"Application Sent","account_sha256":account["account_sha256"],"worker_dispatched":true,"observed_at":"2026-11-15T01:01:00Z","first_observation":{"document_id":"document-one","evidence_sha256":"b".repeat(64),"observed_at":"2026-11-15T01:00:00Z"},"second_observation":{"document_id":"document-two","evidence_sha256":"c".repeat(64),"state":"APPLICATION_SENT","account_sha256":account["account_sha256"]}});browser_save(&mut c,&work_key,work.clone()).await;browser_save(&mut c,receipt_key,receipt).await;
-    assert_eq!(execution_mutate(&mut c,automated_apply_agents::execution::Route::Policy,input.clone()).await.unwrap_err(),Failure("automatic_first_verified_worker_receipt_required"));
-    work["admitted_actions"]=json!([{"fingerprint":"apply:retained-spent"}]);browser_save(&mut c,&work_key,work.clone()).await;
-    // Fifteen newer damaged proofs force a second keyset batch without a false cap or replay.
-    for i in 0..15{let req=format!("2234567890{i:02}");let other=Uuid::new_v4();browser_save(&mut c,&format!("apply_work:{other}"),json!({"id":other,"platform":"naukri","stage":"SUBMITTED_CONFIRMED"})).await;browser_save(&mut c,&format!("naukri_worker_receipt:{req}"),json!({"requisition":req,"queue_id":other,"account_sha256":account["account_sha256"],"worker_dispatched":true})).await;}
-    let accepted=execution_mutate(&mut c,automated_apply_agents::execution::Route::Policy,input).await.unwrap();assert_eq!(accepted["revision"],163);assert_eq!(accepted["state"],"STOPPED");assert_eq!(browser_pref(&mut c,&work_key).await,work);assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM owner_preferences WHERE starts_with(key,'naukri_worker_receipt:')").fetch_one(&mut c).await.unwrap(),16);
-    browser_save(&mut c,"chr_selection",json!({"version":3,"profile_binding_id":Uuid::new_v4()})).await;browser_save(&mut c,"exec_config:naukri",json!({"mode":"ON_DEMAND"})).await;assert_eq!(execution_control(&mut c,163,"start").await.unwrap_err(),Failure("naukri_account_binding_context_changed"));
+async fn execution_automatic_requires_bound_worker_and_packet_evidence_and_scans_past_bad_history()
+{
+    let (mut c, work, account) = submission_fixture().await;
+    let first = submission_observe(
+        &mut c,
+        &work,
+        submission_report("fictional-history-document-one"),
+    )
+    .await
+    .unwrap();
+    let next = submission_reclaim(&mut c, &first).await;
+    let confirmed = submission_observe(
+        &mut c,
+        &next,
+        submission_report("fictional-history-document-two"),
+    )
+    .await
+    .unwrap();
+    let config = execution_seed_policy(&mut c).await;
+    let mut policy = config["policy"].clone();
+    policy["platforms"]["naukri"]["mode"] = json!("AUTOMATIC");
+    let input = json!({"expected_revision":162,"policy":policy});
+    let route = automated_apply_agents::execution::Route::Policy;
+    let key = format!("apply_work:{}", work["id"].as_str().unwrap());
+    let mut admission_only = confirmed.clone();
+    admission_only["apply_dispatch_observation"] = Value::Null;
+    browser_save(&mut c, &key, admission_only).await;
+    assert_eq!(
+        execution_mutate(&mut c, route, input.clone())
+            .await
+            .unwrap_err(),
+        Failure("automatic_first_verified_worker_receipt_required")
+    );
+    browser_save(&mut c, &key, confirmed.clone()).await;
+    browser_save(&mut c, "naukri_account_binding", json!({})).await;
+    assert_eq!(
+        execution_mutate(&mut c, route, input.clone())
+            .await
+            .unwrap_err(),
+        Failure("approved_naukri_account_binding_required")
+    );
+    browser_save(&mut c, "naukri_account_binding", account.clone()).await;
+    let receipt_key = "naukri_worker_receipt:123456789012";
+    let original = browser_pref(&mut c, receipt_key).await;
+    let mut drift = original.clone();
+    drift["second_observation"]["evidence_sha256"] = json!("d".repeat(64));
+    browser_save(&mut c, receipt_key, drift).await;
+    assert_eq!(
+        execution_mutate(&mut c, route, input.clone())
+            .await
+            .unwrap_err(),
+        Failure("automatic_first_verified_worker_receipt_required")
+    );
+    browser_save(&mut c, receipt_key, original).await;
+    for i in 0..15 {
+        let req = format!("2234567890{i:02}");
+        let other = Uuid::new_v4();
+        browser_save(
+            &mut c,
+            &format!("apply_work:{other}"),
+            json!({"id":other,"platform":"naukri","stage":"SUBMITTED_CONFIRMED"}),
+        )
+        .await;
+        browser_save(&mut c, &format!("naukri_worker_receipt:{req}"),
+            json!({"requisition":req,"queue_id":other,"account_sha256":account["account_sha256"],"worker_dispatched":true})).await;
+    }
+    let accepted = execution_mutate(&mut c, route, input).await.unwrap();
+    assert_eq!(accepted["revision"], 163);
+    assert_eq!(accepted["state"], "STOPPED");
+    assert_eq!(browser_pref(&mut c, &key).await, confirmed);
+    browser_save(
+        &mut c,
+        "chr_selection",
+        json!({"version":3,"profile_binding_id":Uuid::new_v4()}),
+    )
+    .await;
+    assert_eq!(
+        execution_control(&mut c, 163, "start").await.unwrap_err(),
+        Failure("naukri_account_binding_context_changed")
+    );
 }
 #[tokio::test(flavor="current_thread")]
 #[ignore="requires dedicated disposable PostgreSQL harness"]

@@ -5,7 +5,21 @@ async fn submission_fixture()->(PgConnection,Value,Value) {
     let id=Uuid::new_v4();let profile=Uuid::new_v4();let binding=json!({"profile_binding_id":profile,"profile_version":2,"selection_version":1,"browser_session_id":Uuid::new_v4(),"window_id":10,"tab_id":50});let account=json!({"revision":5,"approved":true,"candidate_profile_id":packet["candidate_profile_id"],"profile_binding_id":profile,"account_sha256":"a".repeat(64)});browser_save(&mut c,"naukri_account_binding",account.clone()).await;browser_save(&mut c,"chr_selection",json!({"version":1,"profile_binding_id":profile})).await;
     let at:Value=sqlx::query_scalar("SELECT to_jsonb(clock_timestamp())").fetch_one(&mut c).await.unwrap();let until:Value=sqlx::query_scalar("SELECT to_jsonb(clock_timestamp()+interval '180 seconds')").fetch_one(&mut c).await.unwrap();
     let work=json!({"id":id,"platform":"naukri","requisition":"123456789012","url":"https://www.naukri.com/job-listings-fictional-123456789012","job_id":job,"packet_id":packet["id"],"packet_revision":2,"profile_version":packet["candidate_profile_version"],"candidate_profile_id":packet["candidate_profile_id"],"account_binding_revision":5,"account_sha256":"a".repeat(64),"account_observation":{"source":"profile_ui","work_id":id,"account_sha256":"a".repeat(64),"profile_document_id":"fictional-profile-document","observed_at":at,"binding":binding},"binding":binding,"title":"Rust Engineer","company":"Fictional Labs","stage":"VERIFYING","status":"executing","operation":"reconcile_application","revision":8,"policy_revision":162,"lease_token":Uuid::new_v4(),"lease_until":until,"available_at":at,"attempts":1,"admitted_actions":[{"id":Uuid::new_v4(),"fingerprint":"apply:initial","at":at}]});browser_save(&mut c,&format!("apply_work:{id}"),work.clone()).await;
-    sqlx::query("UPDATE application_packets SET lifecycle_state='submitting',revision=2,approved_revision=NULL WHERE id=$1").bind(packet["id"].as_str().unwrap().parse::<Uuid>().unwrap()).execute(&mut c).await.unwrap();(c,work,account)
+    sqlx::query("UPDATE application_packets SET lifecycle_state='submitting',revision=2,approved_revision=NULL WHERE id=$1").bind(packet["id"].as_str().unwrap().parse::<Uuid>().unwrap()).execute(&mut c).await.unwrap();
+    let mut work = work;
+    work["operation"] = json!("apply");
+    work["document_id"] = json!("fictional-apply-document");
+    browser_save(&mut c, &format!("apply_work:{id}"), work.clone()).await;
+    let mut applied = submission_report("fictional-apply-document");
+    applied["observed_url"] = work["url"].clone();
+    applied["execution"]["state"] = json!("CLICKED");
+    let acknowledged = submission_observe(&mut c, &work, applied).await.unwrap();
+    assert_eq!(
+        acknowledged["apply_dispatch_observation"]["admission_id"],
+        work["admitted_actions"][0]["id"]
+    );
+    let verifying = submission_reclaim(&mut c, &acknowledged).await;
+    (c, verifying, account)
 }
 fn submission_report(document:&str)->Value {json!({"kind":"execution_observation","observed_url":automated_apply_agents::execution::submission::HISTORY_URL,"requisition":"123456789012","execution":{"state":"APPLICATION_SENT","document_id":document,"account_sha256":"a".repeat(64),"evidence_sha256":"b".repeat(64),"title":"Rust Engineer","company":"Fictional Labs"}})}
 async fn submission_observe(c:&mut PgConnection,work:&Value,report:Value)->Result<Value>{let settings=packet_settings();let resumes=automated_apply_agents::private_resume::Settings::from_values(&host_values()).unwrap();let request=automated_apply_agents::execution::admission::Request{identity:work["id"].as_str().unwrap().parse().unwrap(),revision:work["revision"].as_i64().unwrap(),token:work["lease_token"].as_str().unwrap().parse().unwrap(),binding:&work["binding"]};automated_apply_agents::execution::submission::observe(c,request,report,automated_apply_agents::execution::admission::Services{packets:&settings,resumes:&resumes}).await}
@@ -33,4 +47,55 @@ async fn execution_submission_wrong_identity_or_failed_apply_keeps_quarantine_an
 #[ignore="requires dedicated disposable PostgreSQL harness"]
 async fn execution_submission_reconciliation_bound_or_stop_never_requeues_apply_or_refunds_history(){
     let(mut c,mut work,_)=submission_fixture().await;work["status"]=json!("unknown");work["stage"]=json!("SUBMISSION_UNKNOWN");work["reconciliation_attempts"]=json!(3);let key=format!("apply_work:{}",work["id"].as_str().unwrap());browser_save(&mut c,&key,work.clone()).await;automated_apply_agents::execution::submission::recover_unknown(&mut c,false).await.unwrap();assert_eq!(browser_pref(&mut c,&key).await,work);let mut config=browser_pref(&mut c,"application_queue_policy").await;config["state"]=json!("STOPPED");browser_save(&mut c,"application_queue_policy",config).await;work["reconciliation_attempts"]=json!(0);browser_save(&mut c,&key,work.clone()).await;automated_apply_agents::execution::submission::recover_unknown(&mut c,false).await.unwrap();assert_eq!(browser_pref(&mut c,&key).await,work);
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn execution_history_without_apply_acknowledgment_preserves_the_admission_and_is_not_worker_proof()
+ {
+    let (mut c, mut work, account) = submission_fixture().await;
+    let work_key = format!("apply_work:{}", work["id"].as_str().unwrap());
+    work.as_object_mut()
+        .unwrap()
+        .remove("apply_dispatch_observation");
+    browser_save(&mut c, &work_key, work.clone()).await;
+    let first = submission_observe(
+        &mut c,
+        &work,
+        submission_report("fictional-history-document-one"),
+    )
+    .await
+    .unwrap();
+    let next = submission_reclaim(&mut c, &first).await;
+    let reconciled = submission_observe(
+        &mut c,
+        &next,
+        submission_report("fictional-history-document-two"),
+    )
+    .await
+    .unwrap();
+    assert_eq!(reconciled["submission_mode"], "reconciled_provider_history");
+    assert_eq!(reconciled["admitted_actions"], work["admitted_actions"]);
+    let receipt_key = "naukri_worker_receipt:123456789012";
+    let receipt = browser_pref(&mut c, receipt_key).await;
+    let at = chrono::DateTime::parse_from_rfc3339(receipt["observed_at"].as_str().unwrap())
+        .unwrap()
+        .with_timezone(&chrono::Utc);
+    assert_eq!(receipt["worker_dispatched"], false);
+    assert!(
+        automated_apply_agents::execution::receipts::worker_recorded(receipt_key, &receipt, at)
+    );
+    assert!(
+        !automated_apply_agents::execution::receipts::first_worker_bound(
+            receipt_key,
+            &receipt,
+            &reconciled,
+            &account,
+            at,
+        )
+    );
+    let canonical: i64 = sqlx::query_scalar("SELECT count(*) FROM application_submission_evidence")
+        .fetch_one(&mut c)
+        .await
+        .unwrap();
+    assert_eq!(canonical, 0);
 }
