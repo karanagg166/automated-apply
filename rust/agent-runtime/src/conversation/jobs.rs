@@ -24,25 +24,12 @@ pub(super) struct Search {
 }
 
 pub(super) async fn policy(tx: &mut Transaction<'_, Postgres>) -> Result<Option<Value>> {
-    sqlx::query_scalar("SELECT preferences FROM agent_policies WHERE key = 'primary'")
-        .fetch_optional(&mut **tx)
-        .await
-        .map_err(db)
+    crate::platform_policy::saved(tx).await
 }
 
 pub(super) fn preview_allowed(policy: Option<&Value>, url: &str) -> Result<bool> {
     let platform = crate::browser_profiles::commands::page_kind(url)?;
-    let preference = match policy {
-        None => return Ok(true),
-        Some(policy) => policy["platforms"][platform]
-            .as_str()
-            .or_else(|| policy["default"].as_str()),
-    };
-    match preference {
-        Some("approve" | "automatic_preferred" | "draft_only" | "manual_only") => Ok(true),
-        Some("disabled") => Ok(false),
-        _ => Err(Failure("invalid_conversation_preview_policy")),
-    }
+    Ok(crate::platform_policy::preference(policy, platform)? != "disabled")
 }
 
 fn display_url(raw: &str) -> Option<String> {

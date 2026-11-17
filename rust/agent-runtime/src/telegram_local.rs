@@ -168,30 +168,7 @@ async fn execute_in(
         }
         Command::Preview(url) => {
             let platform = crate::browser_profiles::commands::page_kind(url)?;
-            let policy: Option<Value> =
-                sqlx::query_scalar("SELECT preferences FROM agent_policies WHERE key='primary'")
-                    .fetch_optional(&mut **tx)
-                    .await
-                    .map_err(db)?;
-            let preference = if let Some(policy) = &policy {
-                policy["platforms"][platform]
-                    .as_str()
-                    .or_else(|| policy["default"].as_str())
-                    .ok_or_else(invalid)?
-            } else {
-                match platform {
-                    "naukri" => "automatic_preferred",
-                    "gmail" => "draft_only",
-                    "linkedin" => "manual_only",
-                    _ => "approve",
-                }
-            };
-            if !matches!(
-                preference,
-                "approve" | "automatic_preferred" | "draft_only" | "manual_only" | "disabled"
-            ) {
-                return Err(invalid());
-            }
+            let preference = crate::platform_policy::preference_in(tx, platform).await?;
             if preference == "disabled" {
                 return Err(Failure("connection_disabled"));
             }
@@ -369,16 +346,17 @@ pub(crate) async fn dispatch_in(
                 .rollback()
                 .await
                 .map_err(|_| Failure("telegram_local_rollback_unconfirmed"))?;
-            if error.0 == "connection_disabled"
-                || matches!(command, Command::Conversation(_))
-                    && matches!(
-                        error.0,
-                        "conversation_memory_review_required"
-                            | "conversation_memory_saved_limit"
-                            | "invalid_saved_conversation_preferences"
-                            | "invalid_conversation_preview_policy"
-                            | "project_conversation_fact_review_required"
-                    )
+            if matches!(
+                error.0,
+                "connection_disabled" | "invalid_saved_platform_policy"
+            ) || matches!(command, Command::Conversation(_))
+                && matches!(
+                    error.0,
+                    "conversation_memory_review_required"
+                        | "conversation_memory_saved_limit"
+                        | "invalid_saved_conversation_preferences"
+                        | "project_conversation_fact_review_required"
+                )
             {
                 Err(error)
             } else {

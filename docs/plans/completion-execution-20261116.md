@@ -4,6 +4,10 @@
 
 Complete and validate Automated Apply on the owner’s laptop. The active goal and repository instructions suspend GitHub pushes, pull requests, remote reports, hosted Actions and merges until the owner reauthorizes them. Keep local Git milestones, acceptance reports and private continuity snapshots. Finish the source and fixtures, run combined validation, then review the local installation and verify operation on the laptop.
 
+The native owner policy route will reuse `agent_policies` and `agent_policy_events`. Preserve the dashboard's nine platform preferences and compare-and-swap version, including the original Gmail and LinkedIn restrictions. All preview, fill and execution clients will read the same saved preference with its existing fallback rules. The write path takes the owner fence and row lock, saves one event for the next version, and checks both stored records before commit. A preference change does not grant an execution budget or modify the active Naukri mode. Exercise the dashboard contract, extension denial, stale versions and partial-write rollback in the combined gate.
+
+The portal session routes will reuse the existing `portal_<platform>` records for Naukri, Wellfound, Instahyre, YC Work at a Startup and Internshala. Keep the dashboard's manual acceptance and forget behavior, with one owner fence and a checked row write. The extension already sends a gesture-scoped indicator through native messaging. Accept only its known operation and indicator values through the authenticated extension route. Persist the sanitized indicator and the existing actor/request digest atomically, so replay returns the saved result. A visible sign-in indicator does not establish account identity, API access or submission readiness. Feed platforms continue through their own discovery and handoff contracts. Use the same saved portal projection for the dashboard and Telegram.
+
 Cached application conversation integration, 2026-11-18. Use the existing dashboard search preferences path and owner preference row. Read current profile and saved filters inside the job snapshot. Reuse the existing platform preview policy and prepare packets through the existing packet service. Bind Telegram selections to current saved filters, reject rows with submission or uncertain Apply history, and write selection, reply record and update cursor together. Keep arbitrary URLs in preview only.
 
 Cached conversation filters/preferences design2026-11-17 LOCAL ONLY: freeze the actual SearchPreferences subclass without importing ORM/configuration and port its complete defaults/coercion/range ordering through the existing profile contract walker. Preserve literal known-properties/dedup controls. Port read-only cached job/company predicate separately from worker eligibility: explicit company/role/location/skills/remote/type/platform/status/recency/score/salary and optional requested startup/employee/exclusion filters; unknown required properties refuse, numeric experience is never inferred from descriptions. Capture Python matches with AST-only fictional objects/fixed time for reference generation. No search match grants application eligibility, history replay, new budget or profile facts. Durable GET/PUT preference and cached search orchestration follow with owner fences/revision ACKs and history suppression. Write source/fixtures before final combined tests.
@@ -818,7 +822,7 @@ then run tests together at the end; do not repeatedly run suites. Accordingly:
    new source as correct/accepted merely because it exists. No untested install/cutover.
 4. Run the combined acceptance after all agreed source units are integrated. Fix actual
    failures and rerun affected checks; repeat the whole cycle only for integration risk.
-5. Publish intermediate code milestones with prior evidence identified as prior and
+5. Record local intermediate milestones with prior evidence identified as prior and
    new validation explicitly NOT TESTED. Keep this resume record current across accounts.
 
 Static inventory read243 decorated API route declarations from21 Python source files
@@ -848,8 +852,8 @@ Private inventory `.local/completion-route-inventory.json` contains source paths
   unit, native PostgreSQL, API/auth, browser, UI, concurrency/recovery and build checks.
 - [ ] Perform reviewed STOP-only migration/install/rollback and actual Mac focus, connection,
   resource, restart, awake/locked and independently verified per-platform application checks.
-- [ ] Publish final exact results/remaining external gates and merge only when the owner's
-  completion and review conditions hold;100% requires all applicable acceptance gates.
+- [ ] Record final exact local results and remaining external gates. Completion requires
+  all applicable acceptance gates. Keep publication and merges suspended.
 
 ## File structure and ownership
 

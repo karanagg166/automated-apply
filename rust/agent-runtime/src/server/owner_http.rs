@@ -728,6 +728,15 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
                 etag: None,
             })
         }
+        Some(connection) if path == crate::platform_policy::PATH => {
+            crate::platform_policy::dispatch(connection, &method, &body)
+                .await
+                .map(|data| OwnerReply {
+                    data,
+                    status: StatusCode::OK,
+                    etag: None,
+                })
+        }
         Some(connection) if crate::packet_service::route(&path).is_some() => {
             crate::packet_service::dispatch(
                 connection,

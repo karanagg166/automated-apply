@@ -7,6 +7,27 @@ use axum::{
 use serde_json::{Value, json};
 
 pub(super) fn profile_failure(error: Failure) -> Response {
+    let policy_status = match error.0 {
+        "invalid_platform_policy" => Some(StatusCode::UNPROCESSABLE_ENTITY),
+        "invalid_policy_platforms"
+        | "fixed_platform_policy"
+        | "policy_version_conflict"
+        | "platform_policy_write_ack_failed" => Some(StatusCode::CONFLICT),
+        "platform_policy_database_error"
+        | "invalid_saved_platform_policy"
+        | "platform_policy_outcome_unknown" => Some(StatusCode::SERVICE_UNAVAILABLE),
+        "platform_policy_method_not_allowed" => Some(StatusCode::METHOD_NOT_ALLOWED),
+        _ => None,
+    };
+    if let Some(status) = policy_status {
+        let mut response = reply(status, json!({"detail":error.0}));
+        if status == StatusCode::METHOD_NOT_ALLOWED {
+            response
+                .headers_mut()
+                .insert("allow", "GET, PUT".parse().unwrap());
+        }
+        return response;
+    }
     if error.0.starts_with("public_job_")
         || error.0.starts_with("discovery_run_")
         || error.0.starts_with("invalid_discovery_")

@@ -405,30 +405,13 @@ async fn context_in(
             .ok_or(Failure("unsupported_form_adapter"))?
     };
     let platform = page_kind(&destination)?;
-    let policy: Option<Value> =
-        sqlx::query_scalar("SELECT preferences FROM agent_policies WHERE key='primary'")
-            .fetch_optional(&mut **tx)
-            .await
-            .map_err(db)?;
-    if let Some(policy) = policy {
-        let platforms = policy["platforms"].as_object().ok_or_else(invalid)?;
-        let preference = platforms
-            .get(platform)
-            .unwrap_or(&policy["default"])
-            .as_str()
-            .ok_or_else(invalid)?;
-        if !matches!(
-            preference,
-            "approve" | "automatic_preferred" | "draft_only" | "manual_only" | "disabled"
-        ) {
-            return Err(invalid());
-        }
-        if matches!(preference, "disabled" | "manual_only" | "draft_only")
-            || policy["default"] == "disabled" && !platforms.contains_key(platform)
-        {
-            return Err(Failure("platform_fill_policy_denied"));
-        }
-    } else if matches!(platform, "gmail" | "linkedin") {
+    let preference = crate::platform_policy::preference_in(tx, platform)
+        .await
+        .map_err(|error| match error.0 {
+            "platform_policy_database_error" => Failure("browser_profile_database_error"),
+            _ => invalid(),
+        })?;
+    if matches!(preference, "disabled" | "manual_only" | "draft_only") {
         return Err(Failure("platform_fill_policy_denied"));
     }
     Ok((packet, destination))
