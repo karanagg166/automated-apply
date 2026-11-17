@@ -1,5 +1,18 @@
 # Complete-source delivery plan — 2026-11-16
 
+Public local-intake dependency design 2026-11-17: first freeze actual source/board/ID
+and canonical URL observation keys, conservative company/domain/location/content identity
+and explicit discovery-query filters. Profile-expanded provider terms must remain distinct
+from owner-explicit filtering; unknown publication/location/employment/remote fields stay
+visible as in the existing discovery service and confer no application eligibility. Use
+original Unicode case/HTML/whitespace semantics and fixed explanation codes. Then build
+owner-first atomic local intake with original finding/config/profile/filter checks,
+24-hour finding TTL, bounded complete legacy URL inventories, source/URL identity before
+company names and no title-similarity merge. Preserve all existing application decisions,
+notes, scores, explanations, primary links, company facts and uncertain history. ACK every
+job/observation/receipt after triggers, retain original finding on local failure, and
+separate startup-parent/child original admissions from any later local-only recovery.
+
 Public batch transport design 2026-11-17: consume the original opaque grant exactly
 once through fixed GET plans, sensitive data never in diagnostics. Disable redirects,
 environment proxies and automatic retry. Bound each JSON response to 8 MiB, total decoded
