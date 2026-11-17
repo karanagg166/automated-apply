@@ -7,6 +7,19 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest local SQL intake source `92c43479d35d3b449193e78dd26f2a1b49bf4865` validates original finding/scope,
+current configuration/profile and24-hour TTL before owner-fenced atomic employer/job/
+source-observation/immutable receipt writes. Complete bounded legacy URL identity,
+full-row history preservation, actual PG type coercion and final post-trigger ACKs are
+in source. Fifteen PG/loopback declarations are UNRUN. Parent finalization/rankings are
+still separate. See [qualified local SQL intake report](acceptance/public-job-sql-intake-source-20261117.md).
+Continue parent result/ranking integration, startup orchestration/owner dashboard,
+reviewed Apify execution and remaining agreed source before combined gates. No current
+tests/build/check/native live/install or estimate increase;58/42 and prior455 held.
+Private continuity snapshot c008763b7f6ba30494951b912c2d4eabaf8b3a632895146b149b1f4ef7a855b0
+at2026-11-17T10:28:30.830175+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest original owner-run admission source `da0ca27ce351e7f35fe5e22bfa032d78dd594085` couples the actual
 run row, private profile/query scope and original child/source window in one owner-first
 transaction with final independent ACKs. Saved reads/replays never renew authority;
