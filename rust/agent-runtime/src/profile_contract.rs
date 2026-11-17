@@ -218,6 +218,10 @@ fn walk(root: &Value, schema: &Value, input: Value, key: &str, in_list: bool) ->
         _ => Err(invalid()),
     }
 }
+/// Reuse frozen profile string/list/date/number normalization for a fixed native extension schema.
+pub(crate) fn normalize_shape(schema: &Value, input: Value) -> Result<Value> {
+    walk(schema, schema, input, "", false)
+}
 fn object(root: &Value, schema: &Value, input: Value, orm: bool) -> Result<Value> {
     let input = input.as_object().ok_or_else(invalid)?;
     let properties = schema

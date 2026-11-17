@@ -52,9 +52,23 @@ fn remove(text: &str, pattern: &Regex) -> Result<String> {
     replace(text, pattern, |_| " ".into())
 }
 fn number(text: &str, max: i64) -> Result<u16> {
-    crate::profile_contract::pagination_integer(json!(text), 1, max)
-        .map(|v| v as u16)
-        .map_err(|_| Failure("invalid_conversation_intent"))
+    let invalid = || Failure("invalid_conversation_intent");
+    if text.is_empty() {
+        return Err(invalid());
+    }
+    let mut value = 0u32;
+    for c in text.chars() {
+        let digit = crate::profile_contract::decimal_digit(c).ok_or_else(invalid)?;
+        value = value
+            .checked_mul(10)
+            .and_then(|n| n.checked_add(digit))
+            .filter(|n| *n <= max as u32)
+            .ok_or_else(invalid)?;
+    }
+    if value == 0 {
+        return Err(invalid());
+    }
+    Ok(value as u16)
 }
 pub(super) fn unsafe_request(text: &str) -> Result<bool> {
     rx!(r"[;`]|ignore .*instructions|system prompt|\bexecute\b|\bshell\b|password|access.?token|api.?key|send (?:an? |the )?email|\bsubmit\b|\bbypass\b|\boverride\b|disable .*approval",true).is_match(text)
