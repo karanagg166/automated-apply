@@ -1,3 +1,15 @@
+Latest local fallback source `7c20bb796d9e3b02dd5cd50fd7b5959ea6c5f99f` preserves original primary/local consumed ledgers,
+actual selected model/usage, shared transport deadline and unsafe/unknown failure stops.
+Cloud deadlines keep per-provider caps and never cancel ledger COMMITs. Questionnaire
+forces fallback off. MCP source arrays now use object structured results. Four standard+
+six PG declarations UNRUN; existing framed assertion aligned. See [qualified fallback report](acceptance/local-fallback-source-20261117.md).
+Continue sentence rearranger/local conversation/tools/platform source, then final API/
+contracts/types/fixture alignment and combined gates. Current source untested/uninstalled;
+58/42/prior455 held; no actual provider/daemon/production/browser/install operation.
+Private continuity snapshotb90d0761e190875ba92f6385405e8aa31dba1367015f39cd23947cbc9263f56b
+at2026-11-17T15:08:16.307982+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or missing transcript recovery claim.
+
 Latest explicit CLI writer source `9608a0ab85deed11b7bac56e3d86cd69170d86f0` reuses AGY monthly counts/shared provider
 gate and answer grounding/stamps. Exact private profiles, trusted workspace/no-overage
 settings, fixed argv/selected environment, pre-prompt empty-tool init, bounded frames/
