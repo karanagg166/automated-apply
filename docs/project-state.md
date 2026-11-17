@@ -1,3 +1,17 @@
+Latest durable startup dashboard source `3833f23eb112a8ddc081bb442bf3512eea049529` isolates job-led controls,
+persists UUID/source before PUT, uses GET-only reload and empty local completion,
+locks unresolved criteria and releases only reviewed terminal pointers. Native source/
+paid preview/consent gates and guarded original child handoff are in source. Ten helper+
+four component+one browser declarations UNRUN. See [qualified startup dashboard report](acceptance/startup-durable-dashboard-source-20261117.md).
+Continue remaining agreed native provider/tool/conversation/runtime/platform source,
+then final inventory/OpenAPI/types/fixture alignment and combined tests. Earlier
+phase2 UI fixtures still expect legacy public POST and need UUID alignment at that
+source gate. No current tests/build/check/native live/install or estimate increase;
+58/42/prior455 held; no actual provider/recovery/production/browser operations.
+Private continuity snapshot6c46d85fb4b4a9cbc80bd90c2c725281b1a3368ed8bfd8e08112049e43027c00
+at2026-11-17T14:31:39.950317+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest durable startup owner source `dcbaadf48ea8271377e653f67a4aac62d256b5f7` adds UUID PUT and empty local
 completion POST alongside saved GET. Body/source/method checks precede the existing
 request slot; local completion cannot dispatch providers and unknown child stays
