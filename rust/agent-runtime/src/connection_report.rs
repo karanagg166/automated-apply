@@ -130,6 +130,13 @@ pub(crate) async fn dispatch(
     if !body.is_empty() {
         return Err(Failure("invalid_connection_report_request"));
     }
+    snapshot(connection, config).await
+}
+
+pub(crate) async fn snapshot(
+    connection: &mut PgConnection,
+    config: &Configuration,
+) -> Result<Value> {
     let mut snapshot = connection.begin().await.map_err(db)?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         .execute(&mut *snapshot)

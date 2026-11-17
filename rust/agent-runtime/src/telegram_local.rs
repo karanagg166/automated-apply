@@ -157,16 +157,7 @@ async fn execute_in(
                 json!({"deployment_enabled":config.legacy_discovery_enabled,"schedule_enabled":schedule.unwrap_or(false),"public_feed_schedule":public,"latest":latest,"discovery_executed":false,"submitted":false}),
             )
         }
-        Command::Preview(url) => {
-            let platform = crate::browser_profiles::commands::page_kind(url)?;
-            let preference = crate::platform_policy::preference_in(tx, platform).await?;
-            if preference == "disabled" {
-                return Err(Failure("connection_disabled"));
-            }
-            Ok(
-                json!({"url":url,"platform":platform,"policy":{"preference":preference,"preview_allowed":true,"submission_allowed":false,"email_send_allowed":false,"paid_calls_allowed":false,"capability":"url_preview","reason":"phase1_preview_only"},"status":"preview_saved","page_inspected":false,"submitted":false}),
-            )
-        }
+        Command::Preview(url) => crate::owner_commands::preview_application_url(tx, url).await,
         Command::Conversation(intent) => {
             crate::conversation::reply::respond(tx, config, owner, (**intent).clone(), now).await
         }

@@ -20,6 +20,7 @@ pub mod evidence_retrieval;
 pub mod extractive;
 pub mod local_answer;
 mod local_fallback;
+mod owner_commands;
 pub mod people_research;
 mod platform_policy;
 mod platform_sessions;

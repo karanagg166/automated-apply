@@ -151,12 +151,7 @@ pub(crate) async fn dispatch(
     body: &[u8],
 ) -> Result<Value> {
     match method {
-        "GET" if body.is_empty() => {
-            let (version, preferences) = load(connection, false)
-                .await?
-                .unwrap_or_else(|| (1, initial()));
-            return response(version, &preferences);
-        }
+        "GET" if body.is_empty() => return view(connection).await,
         "GET" => return Err(Failure("invalid_platform_policy")),
         "PUT" => {}
         _ => return Err(Failure("platform_policy_method_not_allowed")),
@@ -224,4 +219,11 @@ pub(crate) async fn dispatch(
         .await
         .map_err(|_| Failure("platform_policy_outcome_unknown"))?;
     response(version, &target.1)
+}
+
+pub(crate) async fn view(connection: &mut PgConnection) -> Result<Value> {
+    let (version, preferences) = load(connection, false)
+        .await?
+        .unwrap_or_else(|| (1, initial()));
+    response(version, &preferences)
 }

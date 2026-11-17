@@ -103,6 +103,11 @@ pub(crate) async fn effective(connection: &mut sqlx::PgConnection) -> Result<Val
     normalize(Value::Object(fields)).map_err(|_| Failure("invalid_saved_conversation_preferences"))
 }
 
+pub(crate) async fn read(connection: &mut sqlx::PgConnection) -> Result<Value> {
+    normalize(saved(connection).await?.unwrap_or_else(|| json!({})))
+        .map_err(|_| Failure("invalid_saved_conversation_preferences"))
+}
+
 pub(crate) async fn dispatch(
     connection: &mut sqlx::PgConnection,
     method: &str,
@@ -114,10 +119,7 @@ pub(crate) async fn dispatch(
         return Err(invalid());
     }
     match method {
-        "GET" if body.is_empty() => {
-            normalize(saved(connection).await?.unwrap_or_else(|| json!({})))
-                .map_err(|_| Failure("invalid_saved_conversation_preferences"))
-        }
+        "GET" if body.is_empty() => read(connection).await,
         "PUT" => {
             let value = normalize(serde_json::from_slice(body).map_err(|_| invalid())?)?;
             let mut tx = connection

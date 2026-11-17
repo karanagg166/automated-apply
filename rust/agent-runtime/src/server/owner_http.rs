@@ -21,6 +21,17 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     }
     let method = request.method().as_str().to_owned();
     let path = request.uri().path().to_owned();
+    let local_command_route = crate::owner_commands::route(&path);
+    if let Some(route) = local_command_route
+        && method != route.method()
+    {
+        let mut response = fail(Failure("local_command_method_not_allowed"));
+        response.headers_mut().insert(
+            "allow",
+            axum::http::HeaderValue::from_static(route.method()),
+        );
+        return response;
+    }
     let platform_session_route = crate::platform_sessions::route(&path);
     if let Some(route) = platform_session_route
         && method != route.method()
@@ -461,20 +472,31 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
             })
         }
         Some(connection) if crate::browser_profiles::route(&path).is_some() => {
-            crate::browser_profiles::dispatch(
-                connection,
-                crate::browser_profiles::route(&path).unwrap(),
-                &method,
-                &body,
-                &api.config.browser_profiles,
-                &api.config.packets,
-                Some(crate::browser_profiles::form_service::Services {
-                    answers: &api.config.answers,
-                    resumes: &api.config.resumes,
-                }),
-            )
-            .await
-            .map(|data| OwnerReply {
+            let route = crate::browser_profiles::route(&path).unwrap();
+            let common = if matches!(route, crate::browser_profiles::Route::Native) {
+                crate::owner_commands::dispatch_extension(connection, &body, &api.config).await
+            } else {
+                None
+            };
+            let outcome = match common {
+                Some(result) => result,
+                None => {
+                    crate::browser_profiles::dispatch(
+                        connection,
+                        route,
+                        &method,
+                        &body,
+                        &api.config.browser_profiles,
+                        &api.config.packets,
+                        Some(crate::browser_profiles::form_service::Services {
+                            answers: &api.config.answers,
+                            resumes: &api.config.resumes,
+                        }),
+                    )
+                    .await
+                }
+            };
+            outcome.map(|data| OwnerReply {
                 data,
                 status: StatusCode::OK,
                 etag: None,
@@ -739,6 +761,19 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
                 etag: None,
             })
         }
+        Some(connection) if local_command_route.is_some() => crate::owner_commands::dispatch(
+            connection,
+            local_command_route.unwrap(),
+            &method,
+            &body,
+            &api.config,
+        )
+        .await
+        .map(|data| OwnerReply {
+            data,
+            status: StatusCode::OK,
+            etag: None,
+        }),
         Some(connection) if path == crate::connection_report::PATH => {
             crate::connection_report::dispatch(connection, &method, &body, &api.config)
                 .await

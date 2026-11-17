@@ -7,6 +7,19 @@ use axum::{
 use serde_json::{Value, json};
 
 pub(super) fn profile_failure(error: Failure) -> Response {
+    let command_status = match error.0 {
+        "invalid_local_command" => Some(StatusCode::UNPROCESSABLE_ENTITY),
+        "local_command_method_not_allowed" => Some(StatusCode::METHOD_NOT_ALLOWED),
+        "local_command_write_ack_failed" => Some(StatusCode::CONFLICT),
+        "local_command_database_error"
+        | "local_command_outcome_unknown"
+        | "invalid_local_command_record"
+        | "local_command_result_limit" => Some(StatusCode::SERVICE_UNAVAILABLE),
+        _ => None,
+    };
+    if let Some(status) = command_status {
+        return reply(status, json!({"detail":error.0}));
+    }
     if matches!(
         error.0,
         "connection_report_method_not_allowed"

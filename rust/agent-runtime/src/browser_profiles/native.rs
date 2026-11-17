@@ -70,7 +70,7 @@ pub(super) fn static_read(name: &str) -> Option<Value> {
             json!({"connections":[{"name":"Supabase PostgreSQL","state":"CONNECTED"},{"name":"Local FastAPI","state":"CONNECTED"}],"runtime":"rust","browser_dispatch_available":false}),
         ),
         "get_agent_capabilities" => Some(
-            json!({"operations":{"connect_chrome_profile":"chrome_profile","heartbeat_chrome_profile":"chrome_profile","disconnect_chrome_profile":"chrome_profile","observe_platform_session":"preview_only"},"submissions":false,"email_sending":false,"paid_calls":false}),
+            json!({"operations":{"connect_chrome_profile":"chrome_profile","heartbeat_chrome_profile":"chrome_profile","disconnect_chrome_profile":"chrome_profile","observe_platform_session":"preview_only","preview_application_url":"preview_only","connection_status":"read_only"},"submissions":false,"email_sending":false,"paid_calls":false}),
         ),
         _ => None,
     }
