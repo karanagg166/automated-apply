@@ -2,6 +2,10 @@
 
 The active goal limits delivery to the owner’s laptop. GitHub pushes, pull requests, remote reports, hosted Actions and merges remain suspended until the owner reauthorizes them. Finish source and fixtures, run combined validation, then install and verify locally. See the [completion plan](plans/completion-execution-20261116.md).
 
+Local source `be597e9` adds a read-only Rust cutover command for the saved STOPPED controls and role session counts. The reviewed migration now also checks any saved legacy Naukri preparation control. Both PostgreSQL checks await the combined run. The pooler and rollback inventories still need independent verification. See the [cutover preflight checkpoint](acceptance/rust-cutover-preflight-local-source-20261118.md).
+
+Private continuity snapshot `f2088bb4d15842f7fd547e0ab449eb068ca988fe0995a5d8c194723fba4ef8ad` at `2026-11-17T21:32:46.642997+00:00` preserved six available transcripts from 104 indexed threads. The other 98 transcripts remain missing.
+
 Local source `398e250` adds the reviewed Rust migration rehearsal to the 33-stage combined plan. The private report records starting and ending Git state and identifies a clean commit that passed all stages. Only the plan and source checks have run. See the [local migration rehearsal checkpoint](acceptance/rust-migration-rehearsal-local-source-20261118.md).
 
 Private continuity snapshot `45b2a6502efc77ff4b1ac0e29923351af1cda027c871a940dc3f0968eef67cba` at `2026-11-17T21:28:52.111832+00:00` preserved six available transcripts from 104 indexed threads. The other 98 transcripts remain missing.
