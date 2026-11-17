@@ -1,3 +1,17 @@
+Latest original paid owner-run/result source `3734a202436edcbcae8e44ab59efc9030bcb93c0` couples actual parent,
+original paid child intent and full-cap reservation, with final child/month/profile/
+plan/cooldown ACKs after parent triggers. Local terminal completion shares guarded
+intake, bounded matcher/history suppression and final ranking/input ACKs. Replays never
+renew remote authority; completed reads need no current token/profile. Sixteen new
+PG/loopback declarations UNRUN; host/dashboard and acknowledged-run read recovery
+remain. See [qualified owner paid-run report](acceptance/apify-owner-run-results-source-20261117.md).
+Continue owner paid routes/controls, bounded read recovery, startup/UI and remaining
+agreed source before combined tests. No current tests/build/check/native live/install
+or estimate increase;58/42 and prior455 held. No production/paid/browser operations.
+Private continuity snapshot9d0e203b00d5628300e0b5d3a93d0dfb3ac690e4e5591d886663bd412cb993e3
+at2026-11-17T12:21:52.728728+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest retained Apify intake source `2d8a987fece0257006e250b7981ae8ef1b35ce2d` (batch implementation5498387) shares
 history-preserving job/company/observation writes and closed immutable local receipts.
 Fresh writes bind original run/finding/reservation/configuration/profile/TTL; final ACKs
