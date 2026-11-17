@@ -7,6 +7,20 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest public batch admission source `8cd8e4e707f89804fff60a132b9e09a42ccc40bd`
+commits original UUID/query/source/context/invocation/deadline and shared provider
+windows atomically under the owner fence, independently ACKs both and never reconstructs
+grants on read/replay. Expired lost work remains unknown; missing current configuration
+does not hide saved history. Eight PG declarations are UNRUN.
+See [qualified admission report](acceptance/public-job-admission-source-20261117.md).
+Continue fixed original-grant transport/pagination/dedup/retained findings, separate
+startup/job ingestion, reviewed Apify execution and remaining agreed full source before
+combined gates. No current tests/build/check/native live/install or estimate increase;
+58/42 and prior455 held. Host uninstalled; unused transport fields await the next slice.
+Private continuity snapshot f081a1dbf11810de39a5993c230b5d0a378615cb7e727dd1df87e1adea131a88
+at 2026-11-17T09:01:51.553527+00:00 preserves104 indexed /6 available /98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest public request-plan source `5feb33e9e2b89620e6013b553945d45620587b42`
 binds seven fixed origins, reviewed sorted board/employer snapshots, region/context and
 bounded HN/SmartRecruiters continuation IDs. Three standard declarations are UNRUN.
