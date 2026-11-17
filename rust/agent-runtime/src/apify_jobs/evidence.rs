@@ -56,6 +56,9 @@ impl ActorIdentity {
     pub fn id(&self) -> &str {
         &self.id
     }
+    pub fn selected(&self) -> Value {
+        json!({"id":self.id,"alias":self.alias,"identity_basis":"original_configured_actor_response"})
+    }
     pub(super) fn matches(&self, plan: &Plan) -> Result<()> {
         if self.context != plan.context() {
             Err(Failure("apify_execution_context_changed"))

@@ -147,8 +147,16 @@ pub(super) async fn read_reserved_in(
     if row != *expected
         || row["provider"] != "apify"
         || row["id"] != key(id)
-        || row["state"] != "reserved"
-        || !row["provider_run_id"].is_null()
+        || !matches!(row["state"].as_str(), Some("reserved" | "run_attached"))
+        || row["state"] == "reserved" && !row["provider_run_id"].is_null()
+        || row["state"] == "run_attached"
+            && row["provider_run_id"].as_str().is_none_or(|s| {
+                s.is_empty()
+                    || s.len() > 100
+                    || !s
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+            })
         || !row["reported_actual"].is_null()
     {
         return Err(Failure("apify_original_reservation_changed"));
@@ -170,4 +178,54 @@ pub(super) async fn read_reserved_in(
     Ok(
         json!({"reservation_id":key(id),"month":row["month"],"reserved_usd":amount.decimal(),"accounting":"full_cap_retained","billing_final":false,"record_basis":"original_local_numeric_reservation"}),
     )
+}
+pub(super) async fn attach_in(
+    tx: &mut Transaction<'_, Postgres>,
+    request: Uuid,
+    expected: &Value,
+    run: &Value,
+) -> Result<Value> {
+    read_reserved_in(tx, request, expected).await?;
+    let run_id = run["id"]
+        .as_str()
+        .filter(|s| {
+            !s.is_empty()
+                && s.len() <= 100
+                && s.bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+        })
+        .ok_or_else(invalid)?;
+    if !expected["provider_run_id"].is_null() && expected["provider_run_id"] != run_id {
+        return Err(Failure("apify_run_original_binding_changed"));
+    }
+    let other:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM discovery_budget_reservations WHERE provider='apify' AND provider_run_id=$1 AND id<>$2)").bind(run_id).bind(key(request)).fetch_one(&mut **tx).await.map_err(db)?;
+    if other {
+        return Err(Failure("apify_run_original_binding_changed"));
+    }
+    let mut next = expected.clone();
+    next["provider_run_id"] = json!(run_id);
+    next["state"] = json!("run_attached");
+    if next != *expected {
+        let saved:Option<Value>=sqlx::query_scalar("UPDATE discovery_budget_reservations AS r SET provider_run_id=$2,state='run_attached' WHERE id=$1 AND to_jsonb(r)=$3 RETURNING to_jsonb(r)").bind(key(request)).bind(run_id).bind(expected).fetch_optional(&mut **tx).await.map_err(db)?;
+        if saved.as_ref() != Some(&next) {
+            return Err(ack());
+        }
+    }
+    read_reserved_in(tx, request, &next).await?;
+    Ok(next)
+}
+pub(super) async fn monthly_snapshot_in(
+    tx: &mut Transaction<'_, Postgres>,
+    reservation: &Value,
+) -> Result<(Value, String)> {
+    let month = reservation["month"].as_str().ok_or_else(invalid)?;
+    let row = monthly(tx, month).await?.ok_or_else(invalid)?;
+    let numeric: String = sqlx::query_scalar(
+        "SELECT reserved::text FROM discovery_monthly_budgets WHERE provider='apify' AND month=$1",
+    )
+    .bind(month)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(db)?;
+    Ok((row, numeric))
 }

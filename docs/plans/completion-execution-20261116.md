@@ -1,5 +1,21 @@
 # Complete-source delivery plan — 2026-11-16
 
+Apify fixed transport/checkpoint design2026-11-17: consume only an original opaque
+75-second grant, bind the client credential hash and current saved plan before HTTP,
+and use fixed api.apify.com/v2 targets from the typed planner. Explicit numeric-loopback
+fixture replacement only in testing; disable proxies, cookies, redirects and retries.
+Each response max1MiB/20seconds and aggregate8MiB; no error body/url/token in failures.
+Before billable start, checkpoint selected original actor ID and reviewed exact build/
+schema evidence and durable start intent. After response, commit selected bound run ID
+into the original reservation and journal before any polling/build/dataset follow-up.
+Cancellation/commit ambiguity preserves prior stage and full cap without replay.
+Each status/dataset/abort operation requires its own original durable stage admission;
+GET saved state cannot create or resume an in-memory transport session. Explicit later
+recovery reads only previously acknowledged IDs under a separate bounded read claim,
+never retries a start. Retain selected finding/hash and accounting before local intake;
+no automatic cross-route fallback. HTTP abort is one original bounded best effort with
+durable intent and separate qualified outcome, not independent termination proof.
+
 Apify original USD admission design2026-11-17: use existing NUMERIC(16,6) budget and
 reservation tables, exact decimal/micros conversion, owner-first SERIALIZABLE and no
 new connection/pool. Atomically reserve the entire per-run cap, increment the monthly

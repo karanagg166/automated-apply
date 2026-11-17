@@ -14,7 +14,7 @@ fn invalid() -> Failure {
 fn ack() -> Failure {
     Failure("apify_execution_write_ack_failed")
 }
-fn key(id: Uuid) -> String {
+pub(super) fn key(id: Uuid) -> String {
     format!("apify_job:{}", id.simple())
 }
 pub(super) async fn transaction(c: &mut PgConnection) -> Result<Transaction<'_, Postgres>> {
@@ -33,7 +33,7 @@ async fn clock(tx: &mut Transaction<'_, Postgres>) -> Result<DateTime<Utc>> {
         .map_err(db)
 }
 pub(super) async fn load_in(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> Result<Option<Value>> {
-    let value:Option<Option<Value>>=sqlx::query_scalar("SELECT CASE WHEN octet_length(value::text)<=524288 THEN value ELSE NULL END FROM owner_preferences WHERE key=$1").bind(key(id)).fetch_optional(&mut **tx).await.map_err(db)?;
+    let value:Option<Option<Value>>=sqlx::query_scalar("SELECT CASE WHEN octet_length(value::text)<=9437184 THEN value ELSE NULL END FROM owner_preferences WHERE key=$1").bind(key(id)).fetch_optional(&mut **tx).await.map_err(db)?;
     match value {
         Some(Some(v)) => Ok(Some(v)),
         Some(None) => Err(Failure("apify_original_intent_saved_limit")),
@@ -77,7 +77,16 @@ pub(super) async fn project_in(
     if id.is_nil()
         || journal["schema"] != 1
         || journal["request_id"] != json!(id)
-        || journal["state"] != "dispatch_admitted"
+        || !matches!(
+            journal["state"].as_str(),
+            Some(
+                "dispatch_admitted"
+                    | "operation_admitted"
+                    | "response_retained"
+                    | "finding_retained"
+                    | "failed"
+            )
+        )
         || journal["start_admissions"] != 1
         || journal["request_hash"] != crate::job_sources::scope::request_hash(&request)?
         || journal["request"] != request
@@ -139,9 +148,128 @@ pub(super) async fn project_in(
         return Err(invalid());
     }
     let reservation = budget::read_reserved_in(tx, id, &journal["reservation"]).await?;
-    Ok(
-        json!({"request_id":id,"source":journal["source"],"recorded_state":"dispatch_admitted","status":if now>=expires{"outcome_unknown"}else{"pending"},"started_at":journal["started_at"],"expires_at":journal["expires_at"],"start_admissions":1,"provider_start_attempted":null,"provider_response_retained":false,"run_id":null,"dataset_id":null,"jobs":[],"reservation":reservation,"replay_authorized":false,"account_rotation":false,"application_dispatch":false,"live_verified":false,"evidence_basis":"original_paid_intent_not_provider_response"}),
-    )
+    let operation = journal.get("operation").filter(|v| v.is_object());
+    let (attempts, responses) = if let Some(op) = operation {
+        let seq = op["sequence"]
+            .as_u64()
+            .filter(|n| (1..=12).contains(n))
+            .ok_or_else(invalid)?;
+        if !matches!(
+            op["kind"].as_str(),
+            Some(
+                "actor" | "reviewed_build" | "start" | "status" | "run_build" | "dataset" | "abort"
+            )
+        ) || !matches!(op["state"].as_str(), Some("admitted" | "retained"))
+        {
+            return Err(invalid());
+        }
+        hash(&op["target_hash"])?;
+        let attempts = journal["http_attempts"]
+            .as_u64()
+            .filter(|n| *n <= seq)
+            .ok_or_else(invalid)?;
+        let responses = journal["http_responses"]
+            .as_u64()
+            .filter(|n| *n <= attempts)
+            .ok_or_else(invalid)?;
+        if journal["decoded_bytes"]
+            .as_u64()
+            .is_none_or(|n| n > 8388608)
+        {
+            return Err(invalid());
+        }
+        (Some(attempts), Some(responses))
+    } else {
+        if journal["state"] != "dispatch_admitted" {
+            return Err(invalid());
+        }
+        (None, None)
+    };
+    let start = if journal["start_intent"] == true {
+        match journal["start_attempted"] {
+            Value::Bool(v) => json!(v),
+            Value::Null => Value::Null,
+            _ => return Err(invalid()),
+        }
+    } else if operation.is_some() {
+        json!(false)
+    } else {
+        Value::Null
+    };
+    let selected_run = journal.get("selected_run");
+    if let Some(run) = selected_run {
+        if journal["selected_run_hash"] != crate::python_json::digest(run)
+            || run["id"] != journal["reservation"]["provider_run_id"]
+            || run["billing_final"] != false
+            || run["independent_termination_verified"] != false
+            || run["id"].as_str().is_none_or(|s| {
+                s.is_empty()
+                    || s.len() > 100
+                    || !s
+                        .bytes()
+                        .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
+            })
+        {
+            return Err(invalid());
+        }
+    }
+    let errors = journal.get("failure_codes").cloned().unwrap_or(json!([]));
+    if errors.as_array().is_none_or(|a| {
+        a.len() > 30
+            || a.iter().any(|v| {
+                v.as_str().is_none_or(|s| {
+                    s.len() > 150
+                        || !s
+                            .bytes()
+                            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_')
+                })
+            })
+    }) {
+        return Err(invalid());
+    }
+    let mut out = json!({"request_id":id,"source":journal["source"],"recorded_state":journal["state"],"status":if journal["state"]=="failed" || errors.as_array().is_some_and(|a|!a.is_empty()) || now>=expires{"outcome_unknown"}else{"pending"},"started_at":journal["started_at"],"expires_at":journal["expires_at"],"start_admissions":1,"provider_start_attempted":start,"provider_response_retained":responses.is_some_and(|n|n>0),"provider_http_attempts":attempts,"provider_http_responses":responses,"http_counts_are_minimum":operation.is_some_and(|v|v["state"]=="admitted"),"run_id":selected_run.map(|v|v["id"].clone()),"dataset_id":null,"jobs":[],"errors":errors,"reservation":reservation,"replay_authorized":false,"account_rotation":false,"application_dispatch":false,"live_verified":false,"evidence_basis":"original_paid_intent_and_selected_checkpoints"});
+    if journal["state"] == "finding_retained" {
+        if journal["finding_hash"] != crate::python_json::digest(&journal["finding"])
+            || journal["selected_run"]["status"] != "SUCCEEDED"
+        {
+            return Err(invalid());
+        }
+        let finding = super::finding::project(
+            &journal["finding"],
+            journal["source"].as_str().ok_or_else(invalid)?,
+            query["limit"].as_u64().ok_or_else(invalid)?,
+            now,
+        )?;
+        for job in finding["jobs"].as_array().ok_or_else(invalid)? {
+            if job["data_provenance"]["provider_run_id"] != journal["selected_run"]["id"]
+                || crate::apify_config::safe_actor(
+                    job["data_provenance"]["actor_id"]
+                        .as_str()
+                        .ok_or_else(invalid)?,
+                )? != journal["selected_actor"]["alias"]
+                    .as_str()
+                    .ok_or_else(invalid)?
+                || job["data_provenance"]["actor_build"] != journal["selected_run"]["buildNumber"]
+            {
+                return Err(invalid());
+            }
+        }
+        for field in [
+            "status",
+            "jobs",
+            "rejected_count",
+            "duplicate_count",
+            "observed_at",
+            "batch_complete",
+            "billing_final",
+        ] {
+            out[field] = finding[field].clone();
+        }
+        out["finding_retained"] = json!(true);
+        out["local_intake_complete"] = json!(false);
+        out["evidence_basis"] = json!("retained_selected_apify_dataset_not_local_job_intake");
+    }
+    Ok(out)
 }
 /// Only the original in-memory claim holds this grant; no Clone/Serialize/Debug or rehydrate constructor.
 pub(super) struct Grant {
