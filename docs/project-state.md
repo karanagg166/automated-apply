@@ -7,6 +7,20 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest owner API/dashboard source `39be30083d6840315bbeb3519c43731ae542161e` connects public preview,
+stable keyed POST and UUID PUT/GET plus local-only completion through the existing
+transient slot. Legacy GETs are qualified saved history without native adoption.
+Dashboard retains UUID/source across reload/response loss and uses Web Locks; mount
+reads GET only. Twenty-two new declarations(3 standard/7 PG/12 UI), plus9 existing UI
+updates are UNRUN. HTTP policy copies generated; full native API inventory/types remain
+final-gate work. See [qualified owner dashboard report](acceptance/public-owner-dashboard-source-20261117.md).
+Continue startup job-led orchestration, reviewed Apify execution and remaining agreed
+source before combined gates. No current tests/build/check/native live/install or
+estimate increase;58/42 and prior455 held. New host remains uninstalled.
+Private continuity snapshot fc89296d5b5ca4ccb3bd8b7214e15155f08a90a0e66cb01bcb98f749d0953379
+at2026-11-17T10:51:43.294401+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest owner result source `35a1a302e06cd16bda88e2110d534f7e2b5dfeca` composes original acquisition and
 atomic local employer/job/observation/receipt plus terminal parent/ranking completion.
 Uses existing native matcher and bounded reviewed local history; confirmed prior
