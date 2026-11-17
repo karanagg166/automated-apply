@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from rust.scripts import local_install_plan as install
 from rust.scripts import local_release as release
 from rust.scripts import local_rollback as rollback
 
@@ -165,3 +166,57 @@ def test_rollback_copies_definitions_and_detects_changed_runtime_input(tmp_path)
     copy.write_text("different backup bytes")
     with pytest.raises(release.ReleaseError, match="rollback_definition_copy_mismatch"):
         rollback.verify(backup, compare_installed=False)
+
+
+def test_cutover_plan_keeps_runtime_and_configuration_pinned(tmp_path, monkeypatch):
+    node = tmp_path / "node"
+    runtime = tmp_path / "runtime.env"
+    frontend = tmp_path / "frontend.env"
+    release_dir = tmp_path / "candidate"
+    plan = tmp_path / "plan"
+    plan.mkdir()
+    calls = []
+
+    def check(arguments):
+        calls.append(arguments)
+        if arguments[-1] == "--check-config":
+            return b""
+        (plan / install.NATIVE_CONFIG).write_text("fictional companion config")
+        return json.dumps(
+            {
+                "extension_id": release.STABLE_EXTENSION_ID,
+                "fixture": False,
+                "telegram_enabled": False,
+            }
+        ).encode()
+
+    monkeypatch.setattr(install, "local_check", check)
+    install.render(release_dir, plan, (runtime, frontend), node, 3000)
+    assert calls[0][0] == node
+    daemon = release_dir / "bin/automated-apply-agents"
+    assert calls[1][:4] == (daemon, "prepare-native-config", "--config", runtime)
+    with (plan / "com.automated-apply.rust.plist").open("rb") as file:
+        definition = plistlib.load(file)
+    assert definition["ProgramArguments"] == [
+        str(daemon),
+        "serve",
+        "--config",
+        str(runtime),
+    ]
+    with (plan / "com.automated-apply.frontend.plist").open("rb") as file:
+        dashboard = plistlib.load(file)
+    assert dashboard["ProgramArguments"][0] == str(node)
+    assert dashboard["ProgramArguments"][2:6] == [
+        "--frontend-config",
+        str(frontend),
+        "--runtime-config",
+        str(runtime),
+    ]
+    for browser in ("brave", "edge"):
+        manifest = json.loads(
+            (plan / f"com.automated_apply.{browser}.json").read_text()
+        )
+        assert manifest["allowed_origins"] == [
+            f"chrome-extension://{release.STABLE_EXTENSION_ID}/"
+        ]
+        assert manifest["path"] == str(release_dir / "bin/automated-apply-native")

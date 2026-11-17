@@ -102,6 +102,14 @@ the current launch and browser registration files. Review
 immediately before replacing those files. The rollback inventory also verifies
 the recorded executable, launcher, and configuration references where available.
 
+Use `uv run --no-project python -m rust.scripts.local_install_plan` with the
+exact acceptance run, verified rollback snapshot and two private configuration
+paths to generate an inactive cutover plan. Both prepared LaunchAgents point to
+the verified release. The plan also contains the Brave and Edge native host
+definitions, a private browser companion configuration and an MCP definition.
+The initial cutover keeps the legacy Telegram relay's disabled state. Planning
+does not load service definitions or operate a browser.
+
 The pending owner browser/account step, missing strict worker receipt and per-platform
 live acceptance remain separate gates. Passing a process lease test does not satisfy them.
 

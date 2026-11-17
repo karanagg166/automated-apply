@@ -163,6 +163,22 @@ def tested_candidate(directory):
     return {**record["artifacts"], "commit": commit}
 
 
+def acceptance_candidate(label):
+    if not re.fullmatch(r"[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}", label or ""):
+        raise ReleaseError("exact_local_acceptance_run_required")
+    return tested_candidate(ROOT / ".local/acceptance" / label)
+
+
+def verify_staged(destination, tested):
+    if (
+        destination.is_symlink()
+        or private_json(destination / "release-manifest.json") != tested
+        or inventory(destination, packaged=True)
+        != {key: value for key, value in tested.items() if key != "commit"}
+    ):
+        raise ReleaseError("existing_local_release_preserved")
+
+
 def stage(root, releases, tested):
     commit = tested["commit"]
     expected = dict(tested)
@@ -172,12 +188,7 @@ def stage(root, releases, tested):
     with (releases / ".rust-release.lock").open("a") as lease:
         fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
         if destination.exists() or destination.is_symlink():
-            if (
-                destination.is_symlink()
-                or private_json(destination / "release-manifest.json") != tested
-                or inventory(destination, packaged=True) != expected
-            ):
-                raise ReleaseError("existing_local_release_preserved")
+            verify_staged(destination, tested)
             return
         if inventory(root) != expected:
             raise ReleaseError("build_output_changed_since_acceptance")
@@ -215,11 +226,9 @@ def main():
             ).strip()
             print(json.dumps({"commit": commit, "artifacts": inventory(ROOT)}))
             return
-        if arguments.action != "stage" or not re.fullmatch(
-            r"[0-9]{8}T[0-9]{6}Z-[0-9a-f]{32}", arguments.acceptance_run or ""
-        ):
+        if arguments.action != "stage":
             raise ReleaseError("exact_local_acceptance_run_required")
-        tested = tested_candidate(ROOT / ".local/acceptance" / arguments.acceptance_run)
+        tested = acceptance_candidate(arguments.acceptance_run)
         stage(ROOT, RELEASES, tested)
         print(json.dumps({"staged_commit": tested["commit"], "installed": False}))
     except ReleaseError as error:

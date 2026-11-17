@@ -1,0 +1,199 @@
+"""Prepare private macOS cutover definitions for a verified Rust release."""
+
+import argparse
+import json
+import os
+import plistlib
+import re
+import shutil
+import subprocess
+import tempfile
+from pathlib import Path
+
+from rust.scripts.local_release import (
+    RELEASES,
+    ROOT,
+    STABLE_EXTENSION_ID,
+    ReleaseError,
+    acceptance_candidate,
+    verify_staged,
+)
+from rust.scripts.local_rollback import BACKUPS, path_stamp, verify
+
+PLANS = ROOT / ".local/runtime-support/installation-plans"
+NATIVE_CONFIG = "automated-apply-native.private.env"
+
+
+def launch_definition(label, arguments, release, plan):
+    return {
+        "Label": f"com.automated-apply.{label}",
+        "ProgramArguments": [str(argument) for argument in arguments],
+        "WorkingDirectory": str(release),
+        "RunAtLoad": True,
+        "KeepAlive": {"SuccessfulExit": False},
+        "ThrottleInterval": 30,
+        "ProcessType": "Background",
+        "ExitTimeOut": 45,
+        "StandardOutPath": str(plan / f"{label}.stdout"),
+        "StandardErrorPath": str(plan / f"{label}.stderr"),
+        "Umask": 0o077,
+    }
+
+
+def native_manifest(browser, release):
+    return {
+        "name": f"com.automated_apply.{browser}",
+        "description": "Automated Apply local browser bridge",
+        "path": str(release / "bin/automated-apply-native"),
+        "type": "stdio",
+        "allowed_origins": [f"chrome-extension://{STABLE_EXTENSION_ID}/"],
+    }
+
+
+def local_check(arguments):
+    result = subprocess.run(
+        [str(argument) for argument in arguments],
+        env={"PATH": os.defpath},
+        capture_output=True,
+        check=False,
+        timeout=20,
+    )
+    if result.returncode != 0:
+        # Preserve the fixed error code without exposing any configuration values.
+        token = result.stderr.decode("ascii", "ignore").strip()
+        if re.fullmatch(r"[a-z][a-z_0-9]{2,90}", token):
+            raise ReleaseError(token)
+        raise ReleaseError("local_cutover_configuration_check_failed")
+    return result.stdout
+
+
+def render(release, plan, settings, node, port):
+    runtime, frontend = settings
+    daemon = release / "bin/automated-apply-agents"
+    frontend_args = (
+        node,
+        release / "frontend/run-local-rust.mjs",
+        "--frontend-config",
+        frontend,
+        "--runtime-config",
+        runtime,
+        "--port",
+        port,
+    )
+    local_check((*frontend_args, "--check-config"))
+    result = json.loads(
+        local_check(
+            (
+                daemon,
+                "prepare-native-config",
+                "--config",
+                runtime,
+                "--output-directory",
+                plan,
+            )
+        )
+    )
+    if result != {
+        "extension_id": STABLE_EXTENSION_ID,
+        "fixture": False,
+        "telegram_enabled": False,
+    }:
+        raise ReleaseError("production_native_configuration_required")
+    for data in (
+        launch_definition(
+            "rust", (daemon, "serve", "--config", runtime), release, plan
+        ),
+        launch_definition("frontend", frontend_args, release, plan),
+    ):
+        with (plan / f"{data['Label']}.plist").open("xb") as file:
+            plistlib.dump(data, file)
+        for key in ("StandardOutPath", "StandardErrorPath"):
+            Path(data[key]).touch(exist_ok=False, mode=0o600)
+    for browser in ("brave", "edge"):
+        value = native_manifest(browser, release)
+        write_json(plan / f"{value['name']}.json", value)
+    write_json(
+        plan / "mcp.local.json",
+        {
+            "mcpServers": {
+                "automated-apply": {
+                    "command": str(release / "bin/automated-apply-tools"),
+                    "args": ["--config", str(runtime)],
+                }
+            }
+        },
+    )
+
+
+def write_json(path, value):
+    with path.open("x") as file:
+        json.dump(value, file, indent=2)
+        file.write("\n")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--acceptance-run", required=True)
+    parser.add_argument("--rollback", required=True)
+    parser.add_argument("--runtime-config", type=Path, required=True)
+    parser.add_argument("--frontend-config", type=Path, required=True)
+    parser.add_argument("--port", type=int, default=3000)
+    args = parser.parse_args()
+    os.umask(0o077)
+    try:
+        tested = acceptance_candidate(args.acceptance_run)
+        release = RELEASES / f"rust-{tested['commit']}"
+        verify_staged(release, tested)
+        if not re.fullmatch(r"rust-preinstall-[a-z0-9_]+", args.rollback):
+            raise ReleaseError("exact_rollback_snapshot_required")
+        backup = BACKUPS / args.rollback
+        report = verify(backup, compare_installed=True)
+        if report["missing_references"] != 0:
+            raise ReleaseError("rollback_inputs_incomplete")
+        settings = (args.runtime_config, args.frontend_config)
+        if any(not path.is_absolute() or path.is_symlink() for path in settings):
+            raise ReleaseError("explicit_private_configuration_required")
+        expected = {str(path): path_stamp(path) for path in settings}
+        node = Path(shutil.which("node") or "").resolve(strict=True)
+        if not node.is_file() or not os.access(node, os.X_OK):
+            raise ReleaseError("node_executable_unavailable")
+        PLANS.mkdir(exist_ok=True, parents=True)
+        plan = Path(tempfile.mkdtemp(prefix="rust-plan-", dir=PLANS))
+        render(release, plan, settings, node, args.port)
+        if {str(path): path_stamp(path) for path in settings} != expected:
+            raise ReleaseError("cutover_configuration_changed_during_planning")
+        native = plan / NATIVE_CONFIG
+        write_json(
+            plan / "plan.json",
+            {
+                "commit": tested["commit"],
+                "acceptance_run": args.acceptance_run,
+                "rollback": args.rollback,
+                "configuration": expected,
+                "native_configuration": {
+                    "staged": path_stamp(native),
+                    "candidate_destination": str(release / "bin" / NATIVE_CONFIG),
+                },
+                "activates_services": False,
+            },
+        )
+        print(
+            json.dumps(
+                {"plan": plan.name, "commit": tested["commit"], "activated": False}
+            )
+        )
+    except ReleaseError as error:
+        raise SystemExit(str(error)) from None
+    except (
+        OSError,
+        ValueError,
+        TypeError,
+        KeyError,
+        RuntimeError,
+        subprocess.SubprocessError,
+    ):
+        raise SystemExit("local_cutover_plan_unavailable") from None
+
+
+if __name__ == "__main__":
+    main()

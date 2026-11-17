@@ -41,6 +41,45 @@ fn write(path: &std::path::Path, values: &BTreeMap<String, String>) {
     fs::set_permissions(path, fs::Permissions::from_mode(0o600)).unwrap();
 }
 #[test]
+fn native_companion_uses_the_same_private_socket_and_preserves_an_existing_file() {
+    use automated_apply_agents::native_setup;
+
+    let temporary_root = std::path::Path::new("/tmp").canonicalize().unwrap();
+    let directory = tempfile::tempdir_in(temporary_root).unwrap();
+    fs::set_permissions(directory.path(), fs::Permissions::from_mode(0o700)).unwrap();
+    let runtime = directory.path().join("runtime.env");
+    let socket = directory.path().join("rust.sock");
+    let mut values = fixture();
+    values.extend([
+        (
+            "RUST_AGENT_UNIX_SOCKET".into(),
+            socket.to_str().unwrap().into(),
+        ),
+        ("CHROME_NATIVE_MESSAGING_ENABLED".into(), "true".into()),
+        (
+            "CHROME_EXTENSION_ID".into(),
+            "gdjbmkffcpicbpiikcohlmokkmcpipgp".into(),
+        ),
+    ]);
+    write(&runtime, &values);
+    native_setup::prepare(&runtime, directory.path()).unwrap();
+    let companion = directory.path().join("automated-apply-native.private.env");
+    let saved = fs::read(&companion).unwrap();
+    let native: BTreeMap<_, _> = dotenvy::from_read_iter(saved.as_slice())
+        .collect::<std::result::Result<_, _>>()
+        .unwrap();
+    assert_eq!(native.len(), 5);
+    assert_eq!(native["LOCAL_AGENT_UNIX_SOCKET"], socket.to_str().unwrap());
+    assert_eq!(native["JOB_AGENT_API_TOKEN"], values["JOB_AGENT_API_TOKEN"]);
+    assert_eq!(
+        companion.metadata().unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+    assert!(native_setup::prepare(&runtime, directory.path()).is_err());
+    assert_eq!(fs::read(&companion).unwrap(), saved);
+}
+
+#[test]
 fn exact_fixture_boundary_cannot_be_used_for_another_database_or_listener() {
     let valid = Configuration::from_values(&fixture()).unwrap();
     assert!(valid.is_fixture());

@@ -137,6 +137,7 @@ async function main() {
     options: {
       "frontend-config": { type: "string" },
       "runtime-config": { type: "string" },
+      "check-config": { type: "boolean" },
       port: { type: "string", default: "3000" },
     },
   });
@@ -144,6 +145,7 @@ async function main() {
   checkBundle();
   if (!lstatSync(staticAssets).isDirectory())
     throw new Error("local_frontend_static_assets_unavailable");
+  if (values["check-config"]) return;
   process.umask(0o077);
   for (const key of Object.keys(process.env)) delete process.env[key];
   Object.assign(process.env, selected);
