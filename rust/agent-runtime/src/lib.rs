@@ -19,6 +19,7 @@ pub mod extractive;
 mod local_fallback;
 pub mod people_research;
 pub mod postgres;
+mod rearranger;
 pub mod runner;
 pub mod source_registry;
 

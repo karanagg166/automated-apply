@@ -45,6 +45,7 @@ enum Writer {
     Gemini(crate::gemini::GeminiModel),
     Ollama(crate::ollama::OllamaModel),
     Cli(crate::cli_provider::CliModel),
+    Rearranger(crate::ollama::OllamaModel),
 }
 impl Writer {
     async fn write(
@@ -94,6 +95,16 @@ impl Writer {
                 )
                 .await
             }
+            Self::Rearranger(p) => {
+                p.write_rearranged(
+                    c,
+                    &writing.request.question,
+                    &writing.context,
+                    &writing.instructions,
+                    Some(deadline),
+                )
+                .await
+            }
         }
     }
 }
@@ -122,6 +133,7 @@ impl Settings {
                 Writer::Gemini(model) => model.gate = gate.clone(),
                 Writer::Ollama(model) => model.gate = gate.clone(),
                 Writer::Cli(model) => model.gate = gate.clone(),
+                Writer::Rearranger(model) => model.gate = gate.clone(),
             }
         }
         if let Some(LocalWriter {
@@ -186,8 +198,21 @@ impl Settings {
                 }
             }
         } else if provider == "ollama" {
-            match crate::ollama::OllamaModel::from_values(values, fixture) {
-                Ok(model) => out.writing = Some(Writer::Ollama(model)),
+            let rearrange = !boolean(values, "OLLAMA_ENABLED", false)?
+                && boolean(values, "OLLAMA_GENERATION_AUTHORIZED", false)?;
+            let selected = if rearrange {
+                crate::ollama::OllamaModel::for_rearrangement(values, fixture)
+            } else {
+                crate::ollama::OllamaModel::from_values(values, fixture)
+            };
+            match selected {
+                Ok(model) => {
+                    out.writing = Some(if rearrange {
+                        Writer::Rearranger(model)
+                    } else {
+                        Writer::Ollama(model)
+                    })
+                }
                 Err(error) => out.unavailable = error,
             }
         } else if provider == "agy" {

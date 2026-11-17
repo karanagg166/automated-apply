@@ -19,7 +19,7 @@ async fn ollama_response(
     } else {
         serde_json::from_slice(&raw).unwrap()
     };
-    state.requests.lock().await.push((path.clone(), body));
+    state.requests.lock().await.push((path.clone(), body.clone()));
     match path.as_str() {
         "/api/status" => {
             if state.mode == "cloud" {
@@ -55,7 +55,7 @@ async fn ollama_response(
             }
             axum::Json(json!({"model_info":{"fixture.architecture":"fictional"}})).into_response()
         }
-        "/api/generate" => {
+        "/api/generate" | "/api/chat" => {
             if state.mode == "429" {
                 return axum::http::StatusCode::TOO_MANY_REQUESTS.into_response();
             }
@@ -83,6 +83,14 @@ async fn ollama_response(
             };
             let content = json!({"answer":answer,"evidence_references":[source],"claims":[{"text":answer,"quote":"I built Rust workers.","source":source}],"opportunity_claims":[]});
             let mut value = json!({"model":"fixture:local","done":true,"done_reason":"stop","response":content.to_string(),"prompt_eval_count":100,"eval_count":20});
+            if path=="/api/chat" {
+                let (_,payload)=body["messages"][1]["content"].as_str().unwrap().split_once('\n').unwrap();
+                let selected:Value=serde_json::from_str(payload).unwrap();
+                let mut sentences=selected["permitted_sentences"].as_array().unwrap().iter().map(|row|row[0].as_str().unwrap()).collect::<Vec<_>>();sentences.reverse();
+                let text=if state.mode=="unsupported" {"I invented millions of users.".into()}else{sentences.join(" ")};
+                value.as_object_mut().unwrap().remove("response");
+                value["message"]=json!({"role":"assistant","content":json!({"answer":text}).to_string()});
+            }
             match state.mode {
                 "incomplete" => value["done_reason"] = json!("length"),
                 "wrong_model" => value["model"] = json!("another:local"),

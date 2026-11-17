@@ -47,6 +47,19 @@ fn identifier(value: &str) -> Result<()> {
     Ok(())
 }
 impl OllamaModel {
+    pub(crate) fn for_rearrangement(
+        values: &BTreeMap<String, String>,
+        fixture: bool,
+    ) -> Result<Self> {
+        if values.get("LLM_PROVIDER").map(String::as_str) != Some("ollama")
+            || !boolean(values, "OLLAMA_GENERATION_AUTHORIZED", false)?
+        {
+            return Err(Failure("provider_execution_not_authorized"));
+        }
+        let mut selected = values.clone();
+        selected.insert("OLLAMA_ENABLED".into(), "true".into());
+        Self::from_values(&selected, fixture)
+    }
     pub(crate) fn from_values(values: &BTreeMap<String, String>, fixture: bool) -> Result<Self> {
         if !boolean(values, "OLLAMA_ENABLED", false)? {
             return Err(Failure("provider_execution_not_authorized"));
@@ -158,6 +171,29 @@ impl OllamaModel {
         instructions: &Value,
         deadline: Option<tokio::time::Instant>,
     ) -> WritingAttempt {
+        self.write_mode(connection, question, context, instructions, deadline, false)
+            .await
+    }
+    pub(crate) async fn write_rearranged(
+        &self,
+        connection: &mut PgConnection,
+        question: &str,
+        context: &Value,
+        instructions: &Value,
+        deadline: Option<tokio::time::Instant>,
+    ) -> WritingAttempt {
+        self.write_mode(connection, question, context, instructions, deadline, true)
+            .await
+    }
+    async fn write_mode(
+        &self,
+        connection: &mut PgConnection,
+        question: &str,
+        context: &Value,
+        instructions: &Value,
+        deadline: Option<tokio::time::Instant>,
+        rearrange: bool,
+    ) -> WritingAttempt {
         let mut attempt = WritingAttempt {
             attempted: false,
             content: None,
@@ -168,7 +204,20 @@ impl OllamaModel {
         };
         let mut reserved = None;
         let operation = async {
-            let body = self.body(question, context, instructions)?;
+            let plan = if rearrange {
+                Some(crate::rearranger::Plan::new(
+                    question,
+                    context,
+                    instructions,
+                )?)
+            } else {
+                None
+            };
+            let body = if let Some(plan) = &plan {
+                plan.body(&self.model, self.output, self.input as usize)?
+            } else {
+                self.body(question, context, instructions)?
+            };
             let _permit = self
                 .gate
                 .clone()
@@ -185,23 +234,36 @@ impl OllamaModel {
             tokio::time::timeout(timeout, async {
                 // Only public daemon/model metadata is sent before locality is established.
                 self.local_metadata().await?;
-                let value = read(
-                    self.client
-                        .post(format!("{}/api/generate", self.endpoint))
-                        .header("Content-Type", "application/json")
-                        .header("Accept-Encoding", "identity")
-                        .body(body)
-                        .send()
-                        .await
-                        .map_err(transport)?,
-                )
-                .await?;
+                let response = self
+                    .client
+                    .post(format!(
+                        "{}/api/{}",
+                        self.endpoint,
+                        if rearrange { "chat" } else { "generate" }
+                    ))
+                    .header("Content-Type", "application/json")
+                    .header("Accept-Encoding", "identity")
+                    .body(body)
+                    .send()
+                    .await
+                    .map_err(transport)?;
+                let value = if rearrange {
+                    read_chat(response).await?
+                } else {
+                    read(response).await?
+                };
                 attempt.input = usage_counter(Some(&value), "prompt_eval_count")?;
                 attempt.output = usage_counter(Some(&value), "eval_count")?;
-                if attempt.output.is_some_and(|n| n > self.output) {
+                if attempt.input.is_some_and(|n| n > self.input)
+                    || attempt.output.is_some_and(|n| n > self.output)
+                {
                     return Err(Failure("provider_output_size"));
                 }
-                parse(&value, &self.model)
+                if let Some(plan) = &plan {
+                    parse_chat(&value, &self.model, plan)
+                } else {
+                    parse(&value, &self.model)
+                }
             })
             .await
             .unwrap_or(Err(Failure("timeout")))
@@ -241,7 +303,7 @@ fn remote(v: &Value) -> bool {
         .iter()
         .any(|k| v.get(k).is_some_and(|v| !v.is_null() && v != ""))
 }
-async fn read(response: reqwest::Response) -> Result<Value> {
+fn checked(response: reqwest::Response) -> Result<reqwest::Response> {
     match response.status().as_u16() {
         200 => {}
         300..=399 => return Err(Failure("provider_redirect_denied")),
@@ -256,7 +318,49 @@ async fn read(response: reqwest::Response) -> Result<Value> {
     {
         return Err(Failure("provider_encoding_denied"));
     }
-    bounded_json(response, "connection_error").await
+    Ok(response)
+}
+async fn read(response: reqwest::Response) -> Result<Value> {
+    bounded_json(checked(response)?, "connection_error").await
+}
+async fn read_chat(response: reqwest::Response) -> Result<Value> {
+    let mut response = checked(response)?;
+    if response.content_length().is_some_and(|n| n > 65536) {
+        return Err(Failure("provider_output_size"));
+    }
+    let mut raw = vec![];
+    while let Some(chunk) = response.chunk().await.map_err(transport)? {
+        if raw.len() + chunk.len() > 65536 {
+            return Err(Failure("provider_output_size"));
+        }
+        raw.extend_from_slice(&chunk);
+    }
+    serde_json::from_slice(&raw).map_err(|_| Failure("invalid_provider_response"))
+}
+fn parse_chat(value: &Value, model: &str, plan: &crate::rearranger::Plan) -> Result<ModelAnswer> {
+    if remote(value) {
+        return Err(Failure("local_model_unverified"));
+    }
+    let message = &value["message"];
+    for calls in [&value["tool_calls"], &message["tool_calls"]] {
+        if !calls.is_null() && calls != &json!([]) {
+            return Err(Failure("provider_tool_use_denied"));
+        }
+    }
+    if value["done"] != true
+        || value["model"] != model
+        || value["done_reason"] != "stop"
+        || message["role"] != "assistant"
+    {
+        return Err(Failure("invalid_provider_response"));
+    }
+    let content: Value = serde_json::from_str(
+        message["content"]
+            .as_str()
+            .ok_or(Failure("invalid_structured_response"))?,
+    )
+    .map_err(|_| Failure("invalid_structured_response"))?;
+    plan.accept(&content)
 }
 fn parse(value: &Value, model: &str) -> Result<ModelAnswer> {
     if remote(value) {
@@ -282,6 +386,44 @@ fn parse(value: &Value, model: &str) -> Result<ModelAnswer> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn rearranger_requires_its_explicit_permission_and_selected_local_provider() {
+        let mut values = BTreeMap::from([
+            ("LLM_PROVIDER".into(), "ollama".into()),
+            ("OLLAMA_MODEL".into(), "fixture:local".into()),
+        ]);
+        assert!(OllamaModel::for_rearrangement(&values, false).is_err());
+        values.insert("OLLAMA_GENERATION_AUTHORIZED".into(), "true".into());
+        assert!(OllamaModel::for_rearrangement(&values, false).is_ok());
+        values.insert("LLM_PROVIDER".into(), "cohere".into());
+        assert!(OllamaModel::for_rearrangement(&values, false).is_err());
+    }
+    #[test]
+    fn chat_envelope_requires_original_local_model_assistant_complete_stop_and_no_tools() {
+        let context = json!({"evidence":[{"reference":{"source_type":"verified_project","source_id":"fictional:project:0"},"facts":{"contribution":"I built Rust workers."}}]});
+        let plan = crate::rearranger::Plan::new(
+            "Describe my project",
+            &context,
+            &json!({"max_characters":1000,"max_words":100,"style_instruction":"concise"}),
+        )
+        .unwrap();
+        let base = json!({"model":"fixture:local","done":true,"done_reason":"stop","message":{"role":"assistant","content":json!({"answer":"I built Rust workers."}).to_string()}});
+        assert!(parse_chat(&base, "fixture:local", &plan).is_ok());
+        for (key, value) in [
+            ("model", json!("another")),
+            ("done", json!(false)),
+            ("done_reason", json!("length")),
+            ("tool_calls", json!([{}])),
+            ("remote_host", json!("https://forbidden.invalid")),
+        ] {
+            let mut changed = base.clone();
+            changed[key] = value;
+            assert!(parse_chat(&changed, "fixture:local", &plan).is_err());
+        }
+        let mut changed = base;
+        changed["message"]["role"] = json!("user");
+        assert!(parse_chat(&changed, "fixture:local", &plan).is_err());
+    }
     #[test]
     fn explicit_local_model_names_cannot_route_to_cloud_or_urls() {
         for name in ["qwen3:0.6b", "fixture-model", "local_model.v1"] {

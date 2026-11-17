@@ -3016,6 +3016,7 @@ include!("support/cli_provider_pg.rs");
 include!("support/answer_reuse_pg.rs");
 include!("support/gemini_pg.rs");
 include!("support/ollama_pg.rs");
+include!("support/rearranger_pg.rs");
 include!("support/local_fallback_pg.rs");
 include!("support/notifications_pg.rs");
 include!("support/notification_preferences_pg.rs");

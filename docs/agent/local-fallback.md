@@ -28,7 +28,15 @@ still pass the existing grounding and unchanged candidate/job generation checks,
 saved draft requires review. Questionnaire automation has a separately configured
 Cohere-only writer with fallback disabled; general draft settings do not widen it.
 
-The legacy sentence-only rearranger and its distinct local-answer provenance contract
-remain a separate source task. Generic grounded fallback is not acceptance of that
-contract. Combined fictional provider/PG/deadline and actual daemon checks are pending;
-no local or cloud request was executed to validate this source checkpoint.
+The native sentence-only provider branch now has separate source: with
+`LLM_PROVIDER=ollama`, `OLLAMA_ENABLED=false` and
+`OLLAMA_GENERATION_AUTHORIZED=true`, it uses bounded `/api/chat` with only permitted
+whole sentence variants and an answer-only schema. Existing extractive matching rebuilds
+citations locally and rejects additions, omissions, merges and repeats. The same local
+metadata proof, optional ledger, shared gate and current-context checks remain.
+Generic `OLLAMA_ENABLED=true` drafting stays a distinct branch.
+
+The legacy internal `LocalAnswerEngine` v1 provenance/coalescing contract still needs its
+separate parity integration. Neither provider branch is acceptance of that contract.
+Combined fictional provider/PG/deadline and actual daemon checks are pending; no local
+or cloud request was executed to validate these source checkpoints.
