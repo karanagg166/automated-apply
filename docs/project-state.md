@@ -7,6 +7,21 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest paid local completion source `9977246db53abf0795650b22e6fff3d4b9f1a282`
+checks original input/current configuration/rights/company/finding age before a second
+atomic local transaction. People/contact changes, local receipt and paid final journal
+commit together; failed local work retains the earlier finding without another POST.
+Explicit public_search provenance stays unconfirmed and observation time stays original.
+Changed context is held; completed GETs are selected/read-only. Twelve PG/loopback
+declarations are UNRUN. See [qualified local completion report](acceptance/people-search-completion-source-20261117.md).
+Continue the native UUID owner endpoint/dashboard recovery, startup provider orchestration
+and remaining agreed full source before combined gates. No current tests/build/check/live/
+install or estimate increase; 58/42 and prior 455 held. Full host uninstalled; owner API
+research endpoints are not yet wired, and no actual provider/budget operation occurred.
+Private continuity snapshot 39a3fffeaf3bb04fb1e389bb3f84fb89750839dece496eae1510bfcf6e855856
+at 2026-11-17T00:25:06Z preserves 104 indexed / 6 available / 98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest transport/finding source `5a43ac52f64be2fc667c6b1e0d3c413c92f603bf` consumes
 original search grants through a fixed sensitive-header, no-proxy/retry/redirect POST,
 15-second deadline and 1-MiB stream bound. Selected findings and exact original terminal
