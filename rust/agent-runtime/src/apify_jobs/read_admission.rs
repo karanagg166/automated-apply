@@ -264,7 +264,7 @@ pub async fn admit(
         return Err(Failure("apify_read_prior_intent_missing"));
     }
     if original["state"] == "finding_retained" {
-        let out = json!({"request_id":parent,"read_request_id":id,"recorded_state":"not_needed","finding_retained":true,"provider_calls":0,"provider_start_authorized":false,"replay_authorized":false,"reservation":projection["reservation"],"billing_final":false,"application_dispatch":false,"live_verified":false});
+        let out = json!({"request_id":parent,"read_request_id":id,"recorded_state":"not_needed","status":"not_needed","source":original["source"],"finding_retained":true,"local_merge_available":false,"http_attempts":0,"http_responses":0,"http_counts_are_minimum":false,"read_admissions":0,"read_round_limit":3,"round":0,"provider_abort_authorized":false,"provider_calls":0,"provider_start_authorized":false,"replay_authorized":false,"reservation":projection["reservation"],"billing_final":false,"application_dispatch":false,"live_verified":false});
         tx.commit()
             .await
             .map_err(|_| Failure("apify_read_commit_outcome_unknown"))?;

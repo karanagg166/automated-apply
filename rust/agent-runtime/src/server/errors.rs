@@ -45,6 +45,10 @@ pub(super) fn profile_failure(error: Failure) -> Response {
     }
     if error.0.starts_with("apify_") || error.0.starts_with("invalid_apify_") {
         let status = match error.0 {
+            "apify_read_intent_not_found" => StatusCode::NOT_FOUND,
+            "apify_read_lifetime_limit" | "apify_read_spacing_required" => {
+                StatusCode::TOO_MANY_REQUESTS
+            }
             "apify_metadata_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
             "apify_metadata_access_rate_limited"
             | "apify_metadata_rate_limited"
@@ -61,12 +65,22 @@ pub(super) fn profile_failure(error: Failure) -> Response {
             | "apify_intake_finding_expired"
             | "apify_intake_finding_missing"
             | "apify_owner_child_already_claimed"
+            | "apify_read_request_conflict"
+            | "apify_read_configuration_changed"
+            | "apify_read_original_still_active"
+            | "apify_read_original_expired"
+            | "apify_read_native_owner_required"
+            | "apify_read_original_checkpoint_invalid"
+            | "apify_read_complete_pages_missing"
+            | "apify_read_local_completion_required"
+            | "apify_read_finding_expired"
             | "apify_original_intent_request_conflict"
             | "apify_metadata_inspection_superseded" => StatusCode::CONFLICT,
             "apify_metadata_timeout"
             | "apify_execution_commit_outcome_unknown"
             | "apify_owner_commit_outcome_unknown"
             | "apify_intake_commit_outcome_unknown"
+            | "apify_read_commit_outcome_unknown"
             | "apify_execution_transport_unconfirmed" => StatusCode::GATEWAY_TIMEOUT,
             "apify_actor_inspect_invalid"
             | "apify_actor_id_invalid"

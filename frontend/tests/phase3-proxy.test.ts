@@ -2,7 +2,7 @@
 import { createHash, createHmac } from "node:crypto";
 import { NextRequest } from "next/server";
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
-import { POST, GET } from "@/app/api/backend/[...path]/route";
+import { POST, GET, PUT } from "@/app/api/backend/[...path]/route";
 import { csrfFor, issueSession } from "@/lib/security";
 import { permittedRoute } from "@/lib/gateway";
 const ownerKey = "fictional-phase3-owner-approval-only-for-tests";
@@ -38,6 +38,47 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
+});
+it("allows only keyed acknowledged-read GET/PUT and local completion POST gateway paths", () => {
+  const parent = "10000000-0000-0000-0000-000000000001",
+    read = "20000000-0000-0000-0000-000000000002";
+  const path = `discovery/runs/${parent}/reads/${read}`;
+  expect(permittedRoute(path, "GET")).toBe(true);
+  expect(permittedRoute(path, "PUT")).toBe(true);
+  expect(permittedRoute(path, "POST")).toBe(false);
+  expect(permittedRoute(path, "DELETE")).toBe(false);
+  expect(permittedRoute(`${path}/complete`, "POST")).toBe(true);
+  expect(permittedRoute(`${path}/complete`, "GET")).toBe(false);
+  for (const bad of [
+    `${path}/retry`,
+    `${path}/complete/extra`,
+    `discovery/runs/${parent}/reads/originalRun`,
+  ]) {
+    expect(permittedRoute(bad, "PUT")).toBe(false);
+    expect(permittedRoute(bad, "POST")).toBe(false);
+  }
+});
+it("requires owner CSRF before keyed read PUT and forwards only its empty reviewed body", async () => {
+  const path =
+    "discovery/runs/10000000-0000-0000-0000-000000000001/reads/20000000-0000-0000-0000-000000000002";
+  const fetcher = vi
+    .fn()
+    .mockResolvedValue(
+      new Response("{}", { headers: { "Content-Type": "application/json" } }),
+    );
+  vi.stubGlobal("fetch", fetcher);
+  const denied = request(path, "PUT");
+  denied.headers.delete("x-csrf-token");
+  expect((await PUT(denied, context(path))).status).toBe(403);
+  expect(fetcher).not.toHaveBeenCalled();
+  expect((await PUT(request(path, "PUT"), context(path))).status).toBe(200);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  const [url, options] = fetcher.mock.calls[0];
+  expect(new URL(url).pathname).toBe(`/api/v1/${path}`);
+  expect(Buffer.from(options.body).toString()).toBe("{}");
+  expect((options.headers as Headers).get("Authorization")).toBe(
+    "Bearer fictional-phase3-backend-token",
+  );
 });
 it.each([
   "integrations/gmail/connect/start",

@@ -1,5 +1,20 @@
 # Complete-source delivery plan — 2026-11-16
 
+Acknowledged owner recovery boundary2026-11-17: add GET/PUT UUID resources at
+discovery/runs/{parent}/reads/{read} and empty-body POST .../{read}/complete. Reject
+nil/equal IDs, arbitrary run/dataset/query fields, methods and query strings before
+dispatch; require a retained native paid owner parent rather than adopting legacy or
+public runs. GET reads saved read state; explicit PUT consumes only a separate bounded
+read claim; POST reconstructs saved pages locally and does not dispatch providers or
+rank/apply automatically. Reuse existing owner authentication/CSRF policy, shared
+transient permit, temporary connection and host timeout. Expose original read allowance,
+last read UUID and next read time in the paid parent's closed usage so response-loss
+recovery can recover its original read pointer. Add only the two narrow gateway route
+patterns, generate both policy copies, and defer full inventory/OpenAPI/type gates.
+Use fixed422/409/429/404/timeout errors; saved GET and completed read replay must stay
+available without current credentials/configuration. Durable UI read consent/pointers
+follow before combined tests; no new provider or installation operation now.
+
 Acknowledged read transport detail2026-11-17: consume the separate opaque read claim,
 durably admit status/build/dataset GETs in that order (maximum4), and enforce GET-only
 again in the final transport permit. Original paid Session permits remain separate.

@@ -10,18 +10,22 @@ pub enum Route {
     Runs,
     Run(Uuid),
     Complete(Uuid),
+    Read(Uuid, Uuid),
+    CompleteRead(Uuid, Uuid),
 }
 impl Route {
     pub fn accepts(self, method: &str) -> bool {
         match self {
-            Self::Preview | Self::Runs | Self::Complete(_) => method == "POST",
-            Self::Run(_) => matches!(method, "GET" | "PUT"),
+            Self::Preview | Self::Runs | Self::Complete(_) | Self::CompleteRead(_, _) => {
+                method == "POST"
+            }
+            Self::Run(_) | Self::Read(_, _) => matches!(method, "GET" | "PUT"),
         }
     }
     pub fn allow(self) -> &'static str {
         match self {
-            Self::Preview | Self::Runs | Self::Complete(_) => "POST",
-            Self::Run(_) => "GET, PUT",
+            Self::Preview | Self::Runs | Self::Complete(_) | Self::CompleteRead(_, _) => "POST",
+            Self::Run(_) | Self::Read(_, _) => "GET, PUT",
         }
     }
 }
@@ -31,6 +35,22 @@ pub fn route(path: &str) -> Option<Route> {
         "/api/v1/discovery/runs" => Some(Route::Runs),
         _ => {
             let tail = path.strip_prefix("/api/v1/discovery/runs/")?;
+            if let Some((parent, tail)) = tail.split_once("/reads/") {
+                let parent: Uuid = parent.parse().ok()?;
+                let (read, complete) = tail
+                    .strip_suffix("/complete")
+                    .map(|id| (id, true))
+                    .unwrap_or((tail, false));
+                let read: Uuid = read.parse().ok()?;
+                if parent.is_nil() || read.is_nil() || parent == read {
+                    return None;
+                }
+                return Some(if complete {
+                    Route::CompleteRead(parent, read)
+                } else {
+                    Route::Read(parent, read)
+                });
+            }
             if let Some(id) = tail.strip_suffix("/complete") {
                 id.parse().ok().map(Route::Complete)
             } else {

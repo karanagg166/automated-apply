@@ -29,7 +29,10 @@ pub(super) async fn dispatch(
             Ok(v) => v,
             Err(_) => return profile_failure(Failure("invalid_discovery_run_request")),
         };
-        match if matches!(route, Route::Complete(_)) {
+        match if matches!(
+            route,
+            Route::Complete(_) | Route::Read(_, _) | Route::CompleteRead(_, _)
+        ) {
             if value == json!({}) {
                 Ok(value)
             } else {
@@ -48,6 +51,7 @@ pub(super) async fn dispatch(
     };
     let id = match route {
         Route::Run(id) | Route::Complete(id) => Some(id),
+        Route::Read(parent, _) | Route::CompleteRead(parent, _) => Some(parent),
         Route::Runs => match owner::compatibility_id(input.as_ref().expect("POST input")) {
             Ok(id) => Some(id),
             Err(e) => return profile_failure(e),
@@ -72,6 +76,20 @@ pub(super) async fn dispatch(
             let disabled = crate::apify_jobs::settings::Settings::from_values(&Default::default())?;
             let paid = api.config.apify_jobs.as_ref().unwrap_or(&disabled);
             match route {
+                Route::Read(parent,read) | Route::CompleteRead(parent,read) => {
+                    if !matches!(owner::native_kind(&mut c,parent).await?,owner::NativeKind::Paid){
+                        return Err(Failure("apify_read_native_owner_required"));
+                    }
+                    crate::apify_jobs::runs::read(&mut c,parent).await?;
+                    if method=="GET" {
+                        crate::apify_jobs::read_admission::read(&mut c,parent,read).await
+                    } else if matches!(route,Route::CompleteRead(_,_)) {
+                        crate::apify_jobs::read_controller::finish(&mut c,paid,parent,read).await
+                    } else {
+                        crate::apify_jobs::read_controller::Service{settings:paid,client:&api.config.apify_jobs_client}
+                            .recover(&mut c,parent,read).await
+                    }
+                }
                 Route::Preview => {
                     let input=input.expect("preview input");
                     let mut out=owner::preview(&mut c,&api.config.sources,input.clone()).await?;

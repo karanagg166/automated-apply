@@ -30,6 +30,33 @@ fn owner_discovery_routes_are_closed_and_method_specific() {
     }
 }
 #[test]
+fn acknowledged_read_routes_bind_distinct_nonzero_owner_and_read_uuids_with_no_provider_target_paths()
+ {
+    let parent = Uuid::from_u128(1);
+    let read = Uuid::from_u128(2);
+    let path = format!("/api/v1/discovery/runs/{parent}/reads/{read}");
+    assert_eq!(owner::route(&path), Some(Route::Read(parent, read)));
+    assert_eq!(
+        owner::route(&format!("{path}/complete")),
+        Some(Route::CompleteRead(parent, read))
+    );
+    assert!(Route::Read(parent, read).accepts("GET"));
+    assert!(Route::Read(parent, read).accepts("PUT"));
+    assert!(!Route::Read(parent, read).accepts("POST"));
+    assert_eq!(Route::Read(parent, read).allow(), "GET, PUT");
+    assert!(Route::CompleteRead(parent, read).accepts("POST"));
+    assert!(!Route::CompleteRead(parent, read).accepts("PUT"));
+    for bad in [
+        format!("{path}/retry"),
+        format!("{path}/complete/extra"),
+        format!("/api/v1/discovery/runs/{parent}/reads/{parent}"),
+        format!("/api/v1/discovery/runs/{parent}/reads/{}", Uuid::nil()),
+        format!("/api/v1/discovery/runs/{parent}/reads/originalRun"),
+    ] {
+        assert!(owner::route(&bad).is_none(), "{bad}");
+    }
+}
+#[test]
 fn compatibility_post_requires_stable_key_and_execution_does_not_grant_unsupported_sources() {
     assert_eq!(
         owner::compatibility_id(&json!({})).unwrap_err(),

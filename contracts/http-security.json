@@ -37,6 +37,14 @@
   ],
   "gateway_routes": [
     {
+      "pattern": "^discovery\\/runs\\/[a-f0-9-]{36}\\/reads\\/[a-f0-9-]{36}$",
+      "methods": ["GET", "PUT"]
+    },
+    {
+      "pattern": "^discovery\\/runs\\/[a-f0-9-]{36}\\/reads\\/[a-f0-9-]{36}\\/complete$",
+      "methods": ["POST"]
+    },
+    {
       "pattern": "^integrations\\/gmail\\/local\\/accounts$",
       "methods": ["GET"]
     },
