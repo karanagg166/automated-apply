@@ -1,5 +1,5 @@
 //! Destination identity checks for the expanded platform packet adapters.
-use super::{Destination, Selection, posting_unavailable, public_https};
+use super::{Destination, Policy, Selection, manual_page, posting_unavailable, public_https};
 use crate::{
     Result,
     public_discovery::{self, Platform},
@@ -97,6 +97,64 @@ pub(super) fn portal_listing(source: &str, raw: &str) -> bool {
 
 pub(super) fn hiringcafe_id(raw: &str) -> Option<String> {
     identity("hiringcafe", &exact_https(raw)?)
+}
+
+pub(crate) fn hiringcafe_employer_url(raw: &str) -> Option<String> {
+    exact_https(raw)?;
+    crate::job_urls::ats(Some(raw)).ok().flatten()?;
+    let normalized = crate::job_urls::canonical(raw).ok()?;
+    manual_page(&normalized, &Policy::default())
+}
+
+pub(crate) fn hiringcafe_source_posting(
+    job: &Value,
+    observations: &[(String, String)],
+) -> Option<String> {
+    if job["source_platform"] != "hiringcafe" {
+        return None;
+    }
+    let metadata = &job["discovery_metadata"];
+    let raw = metadata["original_url"].as_str()?;
+    if metadata["source_name"] != "hiringcafe"
+        || metadata["canonical_url"] != job["job_url"]
+        || !observations
+            .iter()
+            .any(|(source, url)| source == "hiringcafe" && url == raw)
+    {
+        return None;
+    }
+    let mut posting = exact_https(raw)?;
+    identity("hiringcafe", &posting)?;
+    posting.set_query(None);
+    posting.set_fragment(None);
+    Some(posting.into())
+}
+
+fn hiringcafe_destination(
+    job: &Value,
+    observations: &[(String, String)],
+    listing: Option<String>,
+) -> Result<(Option<String>, bool, bool)> {
+    let metadata = &job["discovery_metadata"];
+    let manual = job["source_verification_status"] == "requires_review"
+        && metadata["data_provenance"]["import_mode"] == "manual";
+    if !manual || listing.is_none() {
+        return Ok((listing, true, false));
+    }
+    let Some(raw) = job["application_url"].as_str() else {
+        return Ok((listing, true, false));
+    };
+    let Some(employer) = hiringcafe_employer_url(raw) else {
+        return Ok((listing, true, false));
+    };
+    let canonical = crate::job_urls::ats(Some(&employer))?;
+    if metadata["application_url"] != raw
+        || canonical.as_deref() != job["job_url"].as_str()
+        || hiringcafe_source_posting(job, observations) != listing
+    {
+        return Ok((None, false, false));
+    }
+    Ok((Some(employer), true, true))
 }
 
 fn portal_destination(
@@ -200,9 +258,17 @@ pub(super) fn select(
     observations: &[(String, String)],
     now: DateTime<Utc>,
 ) -> Result<Selection> {
-    let (destination, consistent) = match Platform::parse(platform) {
+    let (destination, mut consistent) = match Platform::parse(platform) {
         Ok(feed) => feed_destination(feed, job, observations),
         Err(_) => portal_destination(platform, job, observations),
+    };
+    let (destination, employer_handoff) = if platform == "hiringcafe" {
+        let (destination, bound, employer) =
+            hiringcafe_destination(job, observations, destination)?;
+        consistent &= bound;
+        (destination, employer)
+    } else {
+        (destination, false)
     };
     let expiry = &job["discovery_metadata"]["expires_at"];
     let expired = !expiry.is_null()
@@ -222,6 +288,9 @@ pub(super) fn select(
     let mut warnings = vec![
         "Confirm the vacancy and employer on the provider's listing before applying.".to_owned(),
     ];
+    if employer_handoff {
+        warnings.push("The employer application link was supplied with the reviewed HiringCafe listing. Confirm it opens the same role before submitting.".into());
+    }
     if !consistent {
         warnings.push("Review the saved platform, posting identity and source observation.".into());
     }

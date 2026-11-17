@@ -59,6 +59,15 @@ fn records(input: &Value, now: DateTime<Utc>) -> Result<(Vec<Value>, usize)> {
             continue;
         }
         let mut value = raw.clone();
+        if source == "hiringcafe"
+            && !value["application_url"].is_null()
+            && value["application_url"]
+                .as_str()
+                .and_then(crate::packet_platform::hiringcafe_employer_url)
+                .is_none()
+        {
+            continue;
+        }
         value["source_verification_status"] = json!("requires_review");
         value["is_confirmed_current"] = json!(false);
         value["data_provenance"] = json!({"import_mode":"manual"});

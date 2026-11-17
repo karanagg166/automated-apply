@@ -48,8 +48,19 @@ async fn hiringcafe_import_accepts_attributed_slugs_and_reuses_existing_source_e
     .unwrap();
     assert_eq!(
         prepared.destination.application_url.as_deref(),
-        posting.split_once('?').map(|(link, _)| link)
+        Some(employer)
     );
+    let rejected: Value = import(posting, Some("https://jobs.example.org/fictional-apply"))
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(rejected["counts"]["rejected"], 1);
+    assert_eq!(rejected["counts"]["inserted"], 0);
 
     for alias in [
         "https://hiringcafe.com/job/abc123abc123abcd",

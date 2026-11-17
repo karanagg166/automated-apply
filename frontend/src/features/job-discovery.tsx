@@ -177,7 +177,12 @@ export function JobDiscovery() {
   const [limit, setLimit] = useState(20);
   const [useProfile, setUseProfile] = useState(true);
   const [allowPaid, setAllowPaid] = useState(false);
-  const [listing, setListing] = useState({ url: "", title: "", employer: "" });
+  const [listing, setListing] = useState({
+    url: "",
+    title: "",
+    employer: "",
+    employerUrl: "",
+  });
 
   const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState<string>("");
@@ -240,6 +245,9 @@ export function JobDiscovery() {
               original_url: listing.url.trim(),
               title: listing.title.trim(),
               company_name: listing.employer.trim() || null,
+              ...(selectedSource === "hiringcafe" && listing.employerUrl.trim()
+                ? { application_url: listing.employerUrl.trim() }
+                : {}),
             },
           ]
         : [],
@@ -439,7 +447,7 @@ export function JobDiscovery() {
     setRunResult(null);
     setIdempotencyKey("");
     setAllowPaid(false);
-    setListing({ url: "", title: "", employer: "" });
+    setListing({ url: "", title: "", employer: "", employerUrl: "" });
   };
 
   const isCurrentSourceAvailable = sourceAvailable(currentSourceConfig);
@@ -719,6 +727,27 @@ export function JobDiscovery() {
                       }}
                     />
                   </Field>
+                  {selectedSource === "hiringcafe" && (
+                    <Field
+                      label="Employer application URL (optional)"
+                      hint="Use the link for this role from Greenhouse, Lever, Ashby or SmartRecruiters."
+                    >
+                      <Input
+                        aria-label="Employer application URL"
+                        type="url"
+                        value={listing.employerUrl}
+                        maxLength={2048}
+                        disabled={requestPending || criteriaLocked}
+                        onChange={(event) => {
+                          setListing({
+                            ...listing,
+                            employerUrl: event.target.value,
+                          });
+                          handleCriteriaChange();
+                        }}
+                      />
+                    </Field>
+                  )}
                 </div>
               )}
 

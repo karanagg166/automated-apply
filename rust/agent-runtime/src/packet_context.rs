@@ -364,7 +364,10 @@ pub fn build(input: Value, policy: &Policy, now: DateTime<Utc>) -> Result<Built>
         .into_iter()
         .map(|s| s.trim().to_owned())
         .collect::<Vec<_>>();
-    let snapshot = json!({"preparation_supported":platform.preparation_supported,"platform":platform.platform,"company_id":job["company_id"],"company_name":company.map(|c|trim(&c["name"])).transpose()?.unwrap_or(Value::Null),"job_title":trim(&job["title"])?,"source_platform":trim(&job["source_platform"])?,"original_job_url":trim(&job["job_url"])?,"source_observation_urls":urls,"destination":platform.destination,"candidate":candidate,"professional_links":links,"resume":resume,"match":profile.as_ref().map(|p|discovery(&job,p,company)).transpose()?,"context_digest":digest,"warnings":warnings});
+    let original = packet_platform::hiringcafe_source_posting(&job, &data.observations)
+        .map(Value::String)
+        .unwrap_or(trim(&job["job_url"])?);
+    let snapshot = json!({"preparation_supported":platform.preparation_supported,"platform":platform.platform,"company_id":job["company_id"],"company_name":company.map(|c|trim(&c["name"])).transpose()?.unwrap_or(Value::Null),"job_title":trim(&job["title"])?,"source_platform":trim(&job["source_platform"])?,"original_job_url":original,"source_observation_urls":urls,"destination":platform.destination,"candidate":candidate,"professional_links":links,"resume":resume,"match":profile.as_ref().map(|p|discovery(&job,p,company)).transpose()?,"context_digest":digest,"warnings":warnings});
     validate_snapshot(&snapshot)?;
     Ok(Built {
         job,

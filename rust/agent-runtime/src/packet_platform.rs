@@ -51,6 +51,7 @@ pub(crate) fn portal_listing(source: &str, raw: &str) -> bool {
 pub(crate) fn hiringcafe_id(raw: &str) -> Option<String> {
     expanded::hiringcafe_id(raw)
 }
+pub(crate) use expanded::{hiringcafe_employer_url, hiringcafe_source_posting};
 fn text<'a>(job: &'a Value, key: &str) -> Result<&'a str> {
     job[key]
         .as_str()
