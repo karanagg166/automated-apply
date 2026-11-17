@@ -7,6 +7,19 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest public request-plan source `5feb33e9e2b89620e6013b553945d45620587b42`
+binds seven fixed origins, reviewed sorted board/employer snapshots, region/context and
+bounded HN/SmartRecruiters continuation IDs. Three standard declarations are UNRUN.
+See [qualified target plan report](acceptance/public-job-targets-source-20261117.md).
+One official Arbeitnow public JSON was read through the web research tool; no native
+admission, fixture/runtime run, ingestion or current provider acceptance is inferred.
+Continue durable source-window/original invocation grants, fixed public HTTP/pagination/
+retained findings/startup ingestion, reviewed Apify execution and remaining source before
+combined gates. No current tests/build/check/install or estimate increase;58/42/prior455 held.
+Private continuity snapshot 8b3b345cc4183401eb2a505469d1e8b3d485c0fa21640ccfc3580a64ef9a3ec5
+at2026-11-17T08:56:38.182819+00:00 preserves104 indexed /6 available /98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest seven-provider record source `037a00698bb561788ed471789e3680c38091e14c`
 adds pure Greenhouse/Lever/Ashby/SmartRecruiters/Remotive/Arbeitnow/HN parsers with
 salary/workplace/date/hosted identity rules and bounded selected provenance. Arbitrary
