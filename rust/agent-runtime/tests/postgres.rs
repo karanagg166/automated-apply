@@ -2725,25 +2725,43 @@ async fn human_tool_approval_never_overrides_changed_backend_authority_or_resets
     assert_eq!(lease.run.state, State::WaitingOwner);
 }
 
+#[derive(Default)]
+struct ModelResponseGate {
+    entered: tokio::sync::Notify,
+    release: tokio::sync::Notify,
+}
+
+struct GraphModelFixture {
+    calls: Arc<std::sync::Mutex<Vec<Value>>>,
+    first_response: Option<Arc<ModelResponseGate>>,
+}
+
 async fn graph_model_fixture(
-    axum::extract::State(calls): axum::extract::State<Arc<std::sync::Mutex<Vec<Value>>>>,
+    axum::extract::State(fixture): axum::extract::State<Arc<GraphModelFixture>>,
     axum::Json(body): axum::Json<Value>,
 ) -> axum::Json<Value> {
-    let mut observed = calls.lock().unwrap();
     let planner = body["messages"][0]["content"]
         .as_str()
         .unwrap()
         .starts_with(Role::Discovery.instruction());
-    observed.push(body);
-    let reviews = observed
-        .iter()
-        .filter(|body| {
-            body["messages"][0]["content"]
-                .as_str()
-                .unwrap()
-                .starts_with(Role::Review.instruction())
-        })
-        .count();
+    let (first, reviews) = {
+        let mut observed = fixture.calls.lock().unwrap();
+        observed.push(body);
+        let reviews = observed
+            .iter()
+            .filter(|body| {
+                body["messages"][0]["content"]
+                    .as_str()
+                    .unwrap()
+                    .starts_with(Role::Review.instruction())
+            })
+            .count();
+        (observed.len() == 1, reviews)
+    };
+    if first && let Some(gate) = &fixture.first_response {
+        gate.entered.notify_one();
+        gate.release.notified().await;
+    }
     let decision = if planner {
         json!({"action":"handoff","next":"matching","evidence":[]})
     } else if reviews == 1 {
@@ -2758,26 +2776,36 @@ async fn graph_model_fixture(
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
 async fn actual_cli_model_reviewer_replans_waits_without_recharging_and_requires_human_decision() {
-    exercise_model_roles(false).await;
+    exercise_model_roles(false, false).await;
 }
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
 async fn actual_cli_two_model_agents_plan_review_replan_and_wait_for_human_approval() {
-    exercise_model_roles(true).await;
+    exercise_model_roles(true, false).await;
 }
-async fn exercise_model_roles(dual: bool) {
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn actual_cli_worker_heartbeats_while_the_admitted_model_request_is_pending() {
+    exercise_model_roles(true, true).await;
+}
+
+async fn exercise_model_roles(dual: bool, hold_first_response: bool) {
     use tokio::io::AsyncBufReadExt;
     let mut c = knowledge_fixture().await;
     saved_job(&mut c, 1).await;
     sqlx::query("UPDATE candidate_profiles SET preferences=preferences || '{\"email\":\"privacy-canary@example.invalid\",\"resume_text\":\"private-resume-canary\"}'::jsonb").execute(&mut c).await.unwrap();
     let calls = Arc::new(std::sync::Mutex::new(Vec::<Value>::new()));
+    let gate = hold_first_response.then(|| Arc::new(ModelResponseGate::default()));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let endpoint = format!("http://{}/v2/chat", listener.local_addr().unwrap());
     let stop = CancellationToken::new();
     let shutdown = stop.clone();
     let app = axum::Router::new()
         .route("/v2/chat", axum::routing::post(graph_model_fixture))
-        .with_state(calls.clone());
+        .with_state(Arc::new(GraphModelFixture {
+            calls: calls.clone(),
+            first_response: gate.clone(),
+        }));
     let fake = tokio::spawn(async move {
         axum::serve(listener, app)
             .with_graceful_shutdown(shutdown.cancelled_owned())
@@ -2868,6 +2896,53 @@ async fn exercise_model_roles(dual: bool) {
         .await
         .unwrap();
     let id = created["id"].as_str().unwrap();
+    if let Some(gate) = gate {
+        tokio::time::timeout(Duration::from_secs(8), gate.entered.notified())
+            .await
+            .unwrap();
+        let pending = lifecycle::load(&mut c, id.parse().unwrap()).await.unwrap();
+        assert_eq!(pending.run.state, State::ModelRunning);
+        assert_eq!(pending.run.usage.model_calls, 1);
+        let charged: i32 = sqlx::query_scalar(
+            "SELECT sum(requests)::int FROM llm_monthly_usage WHERE provider='cohere'",
+        )
+        .fetch_one(&mut c)
+        .await
+        .unwrap();
+        assert_eq!(charged, 1);
+        let heartbeat: chrono::DateTime<chrono::Utc> =
+            sqlx::query_scalar("SELECT heartbeat_at FROM rust_agent_control WHERE key='primary'")
+                .fetch_one(&mut c)
+                .await
+                .unwrap();
+        tokio::time::timeout(Duration::from_secs(8), async {
+            loop {
+                let newer: bool = sqlx::query_scalar(
+                    "SELECT heartbeat_at > $1 FROM rust_agent_control WHERE key='primary'",
+                )
+                .bind(heartbeat)
+                .fetch_one(&mut c)
+                .await
+                .unwrap();
+                if newer {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .unwrap();
+        assert_eq!(calls.lock().unwrap().len(), 1);
+        assert_eq!(
+            lifecycle::load(&mut c, id.parse().unwrap())
+                .await
+                .unwrap()
+                .run
+                .state,
+            State::ModelRunning
+        );
+        gate.release.notify_one();
+    }
     let waiting: Value = tokio::time::timeout(Duration::from_secs(25), async {
         let mut saw_wait = false;
         loop {

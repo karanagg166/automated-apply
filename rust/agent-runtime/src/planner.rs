@@ -77,6 +77,23 @@ impl Model for HybridPlanner {
     fn inference_required(&self, role: Role, context: &[Context]) -> bool {
         self.inference_ready(role, context)
     }
+
+    fn prepare(
+        &self,
+        role: Role,
+        context: &[Context],
+        budget: ModelBudget,
+    ) -> Result<Option<crate::provider::DecisionRequest>> {
+        if !self.inference_ready(role, context) {
+            return Ok(None);
+        }
+        let compact = decision_context(context)?;
+        self.reviewer
+            .as_ref()
+            .ok_or(Failure("agent_model_unavailable"))?
+            .prepare_decision(role, &compact, budget)
+            .map(Some)
+    }
     async fn propose(
         &mut self,
         role: Role,
@@ -97,7 +114,7 @@ impl Model for HybridPlanner {
         self.saved.propose(role, context, budget, store).await
     }
 }
-fn model_decision(role: Role, proposal: Proposal) -> Result<Proposal> {
+pub(crate) fn model_decision(role: Role, proposal: Proposal) -> Result<Proposal> {
     let allowed = matches!(
         (role, &proposal),
         (

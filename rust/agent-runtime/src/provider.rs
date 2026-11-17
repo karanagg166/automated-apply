@@ -11,6 +11,68 @@ use serde_json::{Value, json};
 use std::{collections::BTreeMap, sync::Arc, time::Duration};
 use uuid::Uuid;
 
+pub struct DecisionRequest {
+    body: Vec<u8>,
+    model: CohereModel,
+    permit: tokio::sync::OwnedSemaphorePermit,
+    budget: ModelBudget,
+}
+
+pub(crate) struct DecisionDispatch {
+    request: DecisionRequest,
+    month: monthly::Month,
+    deadline: tokio::time::Instant,
+}
+
+pub(crate) struct DecisionResponse {
+    result: Result<CloudResponse>,
+    month: monthly::Month,
+    budget: ModelBudget,
+    _permit: tokio::sync::OwnedSemaphorePermit,
+}
+
+impl DecisionRequest {
+    pub(crate) async fn admit(self, store: &mut Store<'_>) -> Result<DecisionDispatch> {
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(20);
+        let month = monthly::reserve(store.connection, self.model.policy).await?;
+        Ok(DecisionDispatch {
+            request: self,
+            month,
+            deadline,
+        })
+    }
+}
+
+impl DecisionDispatch {
+    pub(crate) async fn send(self) -> DecisionResponse {
+        let DecisionRequest {
+            body,
+            model,
+            permit,
+            budget,
+        } = self.request;
+        let result = model.send_until(body, Some(self.deadline)).await;
+        DecisionResponse {
+            result,
+            month: self.month,
+            budget,
+            _permit: permit,
+        }
+    }
+}
+
+impl DecisionResponse {
+    pub(crate) async fn account(self, store: &mut Store<'_>) -> Result<Proposal> {
+        let Self {
+            result,
+            month,
+            budget,
+            _permit,
+        } = self;
+        account_decision(store, &month, budget, result).await
+    }
+}
+
 #[derive(Clone)]
 pub struct CohereModel {
     key: String,
@@ -141,6 +203,26 @@ impl CohereModel {
             return Err(Failure("input_limit_exceeded"));
         }
         Ok(encoded)
+    }
+
+    pub(crate) fn prepare_decision(
+        &self,
+        role: Role,
+        context: &[Context],
+        budget: ModelBudget,
+    ) -> Result<DecisionRequest> {
+        let body = self.body(role, context, budget)?;
+        let permit = self
+            .gate
+            .clone()
+            .try_acquire_owned()
+            .map_err(|_| Failure("provider_busy"))?;
+        Ok(DecisionRequest {
+            body,
+            model: self.clone(),
+            permit,
+            budget,
+        })
     }
     fn structured_body(
         &self,
@@ -369,22 +451,31 @@ impl Model for CohereModel {
             .map_err(|_| Failure("provider_busy"))?;
         let month = monthly::reserve(store.connection, self.policy).await?;
         let response = self.send(body).await;
-        if matches!(response, Err(Failure("rate_limited"))) {
-            monthly::cooldown(store.connection, &month, 60).await?;
-        }
-        let response = response?;
-        monthly::tokens(store.connection, &month, response.input, response.output).await?;
-        if response
-            .input
-            .is_some_and(|n| n > budget.maximum_input_tokens)
-            || response
-                .output
-                .is_some_and(|n| n > budget.maximum_output_tokens)
-        {
-            return Err(Failure("provider_usage_exceeds_reservation"));
-        }
-        parse_decision(&response.value)
+        account_decision(store, &month, budget, response).await
     }
+}
+
+async fn account_decision(
+    store: &mut Store<'_>,
+    month: &monthly::Month,
+    budget: ModelBudget,
+    result: Result<CloudResponse>,
+) -> Result<Proposal> {
+    if matches!(result, Err(Failure("rate_limited"))) {
+        monthly::cooldown(store.connection, month, 60).await?;
+    }
+    let response = result?;
+    monthly::tokens(store.connection, month, response.input, response.output).await?;
+    if response
+        .input
+        .is_some_and(|n| n > budget.maximum_input_tokens)
+        || response
+            .output
+            .is_some_and(|n| n > budget.maximum_output_tokens)
+    {
+        return Err(Failure("provider_usage_exceeds_reservation"));
+    }
+    parse_decision(&response.value)
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

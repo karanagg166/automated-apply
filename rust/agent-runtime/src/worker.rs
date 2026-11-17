@@ -6,7 +6,8 @@ use crate::{
     knowledge_tools::KnowledgeTools,
     lifecycle::{self, Mode},
     planner::HybridPlanner,
-    postgres::Store,
+    postgres::{Lease, Store},
+    provider::DecisionResponse,
     public_discovery::{self, Batch},
     runner,
 };
@@ -100,9 +101,11 @@ async fn serve_internal(
     let mut last_heartbeat = None;
     let mut last_discovery: Option<tokio::time::Instant> = None;
     let mut discovery = JoinSet::new();
+    let mut decisions = JoinSet::new();
     loop {
         if shutdown.is_cancelled() {
             discovery.shutdown().await;
+            decisions.shutdown().await;
             return quiesce(connection).await;
         }
         if last_heartbeat
@@ -131,6 +134,9 @@ async fn serve_internal(
         }
         if let Some(finished) = discovery.try_join_next() {
             finish_discovery(connection, finished).await?;
+        }
+        if let Some(finished) = decisions.try_join_next() {
+            finish_inference(connection, finished).await?;
         }
         let control = lifecycle::control(connection).await?;
         if control.mode == Mode::Running {
@@ -161,6 +167,8 @@ async fn serve_internal(
                 // Re-read persisted control before taking unrelated work.
                 continue;
             }
+        }
+        if control.mode == Mode::Running && decisions.is_empty() {
             lifecycle::reconcile_known_questions(connection).await?;
             let mut store = Store { connection };
             if let Some(mut lease) = store.claim().await? {
@@ -201,13 +209,20 @@ async fn serve_internal(
                             continue;
                         }
                     };
-                    let id = lease.run.id;
-                    let tick = runner::tick(&mut store, &mut lease, &mut model, &mut tools);
-                    match controlled(tick, id, &mut changes, &shutdown).await {
-                        None
-                        | Some(Ok(()))
-                        | Some(Err(Failure("agent_lease_or_revision_lost"))) => {}
-                        Some(Err(error)) => return Err(error),
+                    let mut decision_changes = changes.resubscribe();
+                    match runner::begin_tick(&mut store, &mut lease, &mut model, &mut tools).await {
+                        Ok(Some(dispatch)) => {
+                            let stop = shutdown.clone();
+                            let id = lease.run.id;
+                            decisions.spawn(async move {
+                                let response =
+                                    controlled(dispatch.send(), id, &mut decision_changes, &stop)
+                                        .await?;
+                                Some((lease, response))
+                            });
+                        }
+                        Ok(None) | Err(Failure("agent_lease_or_revision_lost")) => {}
+                        Err(error) => return Err(error),
                     }
                 } else {
                     lease.run.state = State::WaitingOwner;
@@ -232,10 +247,30 @@ async fn serve_internal(
                     finish_discovery(connection, finished).await?;
                 }
             },
+            finished=decisions.join_next(), if !decisions.is_empty()=>{
+                if let Some(finished)=finished {
+                    finish_inference(connection, finished).await?;
+                }
+            },
             _=tokio::time::sleep(Duration::from_secs(5))=>{},
         }
     }
 }
+async fn finish_inference(
+    connection: &mut PgConnection,
+    finished: std::result::Result<Option<(Lease, DecisionResponse)>, JoinError>,
+) -> Result<()> {
+    let Some((mut lease, response)) = finished.map_err(|_| Failure("agent_model_task_failed"))?
+    else {
+        return Ok(());
+    };
+    let mut store = Store { connection };
+    match runner::finish_decision(&mut store, &mut lease, response).await {
+        Ok(()) | Err(Failure("agent_lease_or_revision_lost")) => Ok(()),
+        Err(error) => Err(error),
+    }
+}
+
 type DiscoveryCompletion = Option<(ScheduledFetch, Result<Batch>)>;
 
 async fn finish_discovery(

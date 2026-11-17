@@ -3,6 +3,7 @@ use crate::{
     contracts::*,
     engine,
     postgres::{Lease, Store},
+    provider::{DecisionDispatch, DecisionRequest, DecisionResponse},
 };
 use std::time::Duration;
 
@@ -14,6 +15,9 @@ pub trait Model {
     }
     fn inference_required(&self, _: Role, _: &[Context]) -> bool {
         true
+    }
+    fn prepare(&self, _: Role, _: &[Context], _: ModelBudget) -> Result<Option<DecisionRequest>> {
+        Ok(None)
     }
     async fn propose(
         &mut self,
@@ -40,6 +44,18 @@ pub async fn tick(
     model: &mut impl Model,
     tools: &mut impl Tools,
 ) -> Result<()> {
+    if let Some(dispatch) = begin_tick(store, lease, model, tools).await? {
+        finish_decision(store, lease, dispatch.send().await).await?;
+    }
+    Ok(())
+}
+
+pub(crate) async fn begin_tick(
+    store: &mut Store<'_>,
+    lease: &mut Lease,
+    model: &mut impl Model,
+    tools: &mut impl Tools,
+) -> Result<Option<DecisionDispatch>> {
     engine::recover(&mut lease.run);
     store.save(lease).await?;
     let review_time = if lease.run.limits.human_review
@@ -60,7 +76,8 @@ pub async fn tick(
             lease.run.diagnostic = Some(error.0.into());
         }
         store.save(lease).await?;
-        return store.release(lease).await;
+        store.release(lease).await?;
+        return Ok(None);
     }
     match lease.run.state {
         State::Ready => {
@@ -70,51 +87,38 @@ pub async fn tick(
                     .ready_at(lease.run.role, &lease.run.context, store)
                     .await?
             {
-                lease.run.graph.not_before = Some(at);
-                lease.run.graph.node = crate::graph::Node::ProviderWait;
-                store.save(lease).await?;
-                return store.release(lease).await;
+                defer(store, lease, at).await?;
+                return Ok(None);
+            }
+            let budget = ModelBudget {
+                maximum_input_tokens: lease.run.limits.max_input_tokens,
+                maximum_output_tokens: lease.run.limits.max_output_tokens,
+            };
+            let prepared = model.prepare(lease.run.role, &lease.run.context, budget);
+            if matches!(prepared, Err(Failure("provider_busy"))) {
+                // Another service acquired the shared permit after the readiness check.
+                let at = clock(store).await?.saturating_add(2);
+                defer(store, lease, at).await?;
+                return Ok(None);
             }
             lease.run.graph.not_before = None;
             if engine::begin_decision(&mut lease.run, inference).is_ok() {
                 store.save(lease).await?;
-                let proposal = tokio::time::timeout(
-                    Duration::from_secs(20),
-                    model.propose(
-                        lease.run.role,
-                        &lease.run.context,
-                        ModelBudget {
-                            maximum_input_tokens: lease.run.limits.max_input_tokens,
-                            maximum_output_tokens: lease.run.limits.max_output_tokens,
-                        },
-                        store,
-                    ),
-                )
-                .await
-                .map_err(|_| Failure("agent_model_timeout"))
-                .and_then(|x| x);
-                match proposal {
-                    Ok(proposal) => {
-                        let reviewed =
-                            if lease.run.limits.human_review && lease.run.role == Role::Execution {
-                                crate::graph::approved(
-                                    &lease.run,
-                                    crate::graph::ApprovalScope::Review,
-                                    clock(store).await?,
-                                )
-                            } else {
-                                false
-                            };
-                        let result = engine::accept_checked(&mut lease.run, proposal, reviewed);
-                        if matches!(result, Err(Failure("human_approval_required"))) {
-                            lease.run.state = State::Ready;
-                        }
-                    }
-                    Err(error) => {
-                        lease.run.state = State::Failed;
-                        lease.run.diagnostic = Some(error.0.into());
-                    }
-                }
+                let proposal = match prepared {
+                    Ok(Some(prepared)) => match prepared.admit(store).await {
+                        Ok(dispatch) => return Ok(Some(dispatch)),
+                        Err(error) => Err(error),
+                    },
+                    Ok(None) => tokio::time::timeout(
+                        Duration::from_secs(20),
+                        model.propose(lease.run.role, &lease.run.context, budget, store),
+                    )
+                    .await
+                    .map_err(|_| Failure("agent_model_timeout"))
+                    .and_then(|result| result),
+                    Err(error) => Err(error),
+                };
+                apply_proposal(store, lease, proposal).await?;
             }
         }
         State::ToolPending => {
@@ -156,7 +160,8 @@ pub async fn tick(
                             lease.run.diagnostic = Some(error.0.into());
                         }
                         store.save(lease).await?;
-                        return store.release(lease).await;
+                        store.release(lease).await?;
+                        return Ok(None);
                     }
                     if let Ok(effect) =
                         engine::begin_tool_approved(&mut lease.run, &authority, human_verified)
@@ -192,6 +197,57 @@ pub async fn tick(
         }
         _ => {}
     }
+    store.save(lease).await?;
+    store.release(lease).await?;
+    Ok(None)
+}
+
+pub(crate) async fn finish_decision(
+    store: &mut Store<'_>,
+    lease: &mut Lease,
+    response: DecisionResponse,
+) -> Result<()> {
+    let proposal = response
+        .account(store)
+        .await
+        .and_then(|proposal| crate::planner::model_decision(lease.run.role, proposal));
+    apply_proposal(store, lease, proposal).await?;
+    store.save(lease).await?;
+    store.release(lease).await
+}
+
+async fn apply_proposal(
+    store: &mut Store<'_>,
+    lease: &mut Lease,
+    proposal: Result<Proposal>,
+) -> Result<()> {
+    match proposal {
+        Ok(proposal) => {
+            let reviewed = if lease.run.limits.human_review && lease.run.role == Role::Execution {
+                crate::graph::approved(
+                    &lease.run,
+                    crate::graph::ApprovalScope::Review,
+                    clock(store).await?,
+                )
+            } else {
+                false
+            };
+            let result = engine::accept_checked(&mut lease.run, proposal, reviewed);
+            if matches!(result, Err(Failure("human_approval_required"))) {
+                lease.run.state = State::Ready;
+            }
+        }
+        Err(error) => {
+            lease.run.state = State::Failed;
+            lease.run.diagnostic = Some(error.0.into());
+        }
+    }
+    Ok(())
+}
+
+async fn defer(store: &mut Store<'_>, lease: &mut Lease, until: i64) -> Result<()> {
+    lease.run.graph.not_before = Some(until);
+    lease.run.graph.node = crate::graph::Node::ProviderWait;
     store.save(lease).await?;
     store.release(lease).await
 }
