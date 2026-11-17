@@ -7,6 +7,19 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest Apify metadata source `e209b23c9f53bbaed10ec9df9a99646abb758af8` adds fixed
+GET-only public actor/store and authenticated account inspection, bounded streaming/time,
+no retry/redirect/proxy, actual frozen DTOs and inert local schema extraction/digests.
+Closed account projection excludes unknown/daily/service blobs and rejects changed cycles.
+Nine standard declarations (five sync/four async; 20 extractor +8 inspect comparisons)
+are UNRUN. See [qualified metadata report](acceptance/apify-metadata-source-20261117.md).
+Continue owner inspection pacing/cache/routes, startup provider orchestration and remaining
+agreed full source before combined gates. No current tests/build/check/live/install or
+estimate increase; 58/42 and prior 455 held. Full host remains uninstalled.
+Private continuity snapshot 2e8e1b1bb128814c0131226a44453908f2ae496a1b62786903719ba4da0b0ec8
+at 2026-11-17T08:19:22.346398+00:00 preserves 104 indexed /6 available /98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest owner/dashboard source `4b2c67632d36171e4c9a2d930605fc216a8cf8ca` connects
 native UUID research PUT/GET/status, unkeyed 428, original company binding, shared transient
 budget and exact BFF policy. Dashboard Web Locks/UUID-only pointers preserve response-loss
