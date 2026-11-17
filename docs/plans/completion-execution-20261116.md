@@ -1,5 +1,20 @@
 # Complete-source delivery plan — 2026-11-16
 
+MCP discovery composition design2026-11-17: add a narrow bridge submodule for source/status,
+actual-query previews, retained job/startup/read UUID reads and explicit local completion.
+Optional original dispatch/read recovery and metadata inspection have separate private
+configuration opt-ins, checked for direct calls as well as discovery. Each original PUT
+requires an explicit true consent field and caller-retained nonnil UUID; read recovery
+uses a distinct read UUID, never actor/run/dataset URL input. Normalize requests against
+existing native contracts, exclude manual imports/alternate idempotency keys, and route
+all work through the same authenticated owner API. No new DB pool/grant/ledger or provider
+client. Use per-operation deadlines covering the configured host budget; ambiguous HTTP
+responses retain caller UUIDs in selected error context with no retry. Describe local
+completion separately from provider recovery, and metadata calls separately from paid
+execution. Add catalog/direct-call, schema/ID/consent/timeout and framed-process fixtures,
+all deferred until the full source gate. Preserve default read availability without paid
+credentials and keep native/live MCP acceptance explicitly false until tested.
+
 Startup durable owner boundary2026-11-17: add UUID PUT to the existing saved-run GET
 and empty-body POST .../complete for job-led native startup parents. Validate normalized
 job-led body/source and IDs before the shared connection slot; legacy keyed POST and

@@ -36,9 +36,42 @@ forwarded TLS headers. Start the host only after its installation prerequisites 
 | `telegram_notify_run` | Optional, when Telegram is configured; one fixed notice per existing run |
 
 Website titles, descriptions and all tool content are untrusted data. A catalog entry
-never grants submission authority. No submit, owner approval, browser navigation, Gmail
-send or paid-provider execution tool is exposed. The existing runtime has separate
+never grants submission authority. No submit, owner approval, browser navigation or Gmail
+send tool is exposed. The existing runtime has separate
 tools whose availability is reported honestly as migrated, disabled or not migrated.
+
+The discovery bridge extension is source only and awaits the combined validation gate.
+Eight additional default tools expose source registries, saved Apify metadata, original
+job/startup/read UUID status and actual-query previews: `discovery_sources`,
+`startup_sources`, `apify_status`, `discovery_run_status`, `startup_discovery_status`,
+`apify_read_status`, `discovery_preview`, `startup_discovery_preview`. Status GETs and
+previews cannot dispatch providers or reserve budget.
+
+Private `RUST_AGENT_MCP_ALLOW_DISCOVERY=true` additionally exposes `discovery_run`,
+`startup_discovery_run`, `apify_read_recover` and the three corresponding `_complete`
+tools (`discovery_complete`, `startup_discovery_complete`, `apify_read_complete`).
+Original PUTs require a caller-retained nonnil `run_id`, `consent:true` and `request`.
+Paid requests also require `request.allow_paid:true` plus existing current saved
+Actor/build/schema review and exact local budgets. No manual imports, alternate keys,
+provider run/dataset targets or URLs are accepted by these tools. Unknown attempts retain
+their UUIDs; use saved status instead of replacing them. Local completion only combines
+retained findings/pages; provider read recovery needs a distinct retained
+`read_request_id` and explicit consent, with the original allowance/spacing still enforced.
+This flag enables discovery actions, not platform application admissions.
+
+Separate `RUST_AGENT_MCP_ALLOW_METADATA_INSPECTION=true` exposes account and allowlisted
+Actor metadata inspection. Both require `consent:true`; they share the host's durable
+pacing and selected cache without enabling an Actor start. Optional group flags are
+checked on direct calls as well as catalog discovery. They default to false and accept
+only literal `true` or `false`.
+
+Per-request deadlines cover the configured discovery host budget plus15 seconds
+(outer plus5), metadata35 seconds (outer40), other requests15 seconds (outer20).
+The two-request MCP limit and host's single long-request slot remain. No redirect,
+proxy, automatic retry, new DB pool or unknown-action replay is added. Error context
+contains only validated original UUIDs, never the search query or credentials.
+The256KiB selected response limit can leave a large saved result available through the
+dashboard/API while MCP reports a bounded response error; it does not undo its reservation.
 
 Telegram reuses the existing Bot API, owner chat/user binding and durable outbox.
 The notification ID is deterministic per run; repeated calls preserve `pending`,

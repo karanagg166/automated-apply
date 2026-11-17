@@ -1,9 +1,13 @@
 async fn unix_http_fixture() -> (BTreeMap<String,String>,tempfile::TempDir,CancellationToken,tokio::task::JoinHandle<()>) {
+    unix_http_fixture_values(BTreeMap::new()).await
+}
+async fn unix_http_fixture_values(custom:BTreeMap<String,String>) -> (BTreeMap<String,String>,tempfile::TempDir,CancellationToken,tokio::task::JoinHandle<()>) {
     use automated_apply_agents::local_socket::{BoundSocket,OwnerPeer};
     let directory=tempfile::tempdir().unwrap();
     std::fs::set_permissions(directory.path(),std::fs::Permissions::from_mode(0o700)).unwrap();
     let path=std::fs::canonicalize(directory.path()).unwrap().join("api.sock");
     let mut values=host_values();
+    values.extend(custom);
     values.insert("API_REQUIRE_TLS".into(),"true".into());
     values.insert("RUST_AGENT_TRUST_LOOPBACK_PROXY".into(),"false".into());
     values.insert("API_ALLOWED_HOSTS".into(),r#"["runtime.example.net"]"#.into());

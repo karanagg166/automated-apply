@@ -14,6 +14,7 @@ use serde_json::{Value, json};
 use std::{path::Path, time::Duration};
 use tokio::sync::Semaphore;
 use uuid::Uuid;
+mod discovery;
 
 pub struct Bridge {
     token: String,
@@ -21,10 +22,24 @@ pub struct Bridge {
     http: reqwest::Client,
     requests: Semaphore,
     telegram: bool,
+    discovery: bool,
+    metadata: bool,
+    discovery_timeout: Duration,
+}
+fn opt_in(value: Option<&String>) -> Result<bool> {
+    match value.map(String::as_str) {
+        None | Some("false") => Ok(false),
+        Some("true") => Ok(true),
+        _ => Err(Failure("invalid_mcp_capability_configuration")),
+    }
 }
 impl Bridge {
     pub fn load(path: &Path) -> Result<Self> {
-        let config = Configuration::from_values(&private_values(path)?)?;
+        let values = private_values(path)?;
+        let config = Configuration::from_values(&values)?;
+        let discovery = opt_in(values.get("RUST_AGENT_MCP_ALLOW_DISCOVERY"))?;
+        let metadata = opt_in(values.get("RUST_AGENT_MCP_ALLOW_METADATA_INSPECTION"))?;
+        let discovery_timeout = Duration::from_secs_f64(config.discovery_timeout_seconds + 15.0);
         if config.listen().port() < 1025 {
             return Err(Failure("invalid_mcp_api_endpoint"));
         }
@@ -50,6 +65,9 @@ impl Bridge {
             http,
             requests: Semaphore::new(2),
             telegram,
+            discovery,
+            metadata,
+            discovery_timeout,
         })
     }
     pub fn catalog(&self) -> Vec<Tool> {
@@ -127,9 +145,13 @@ impl Bridge {
         if self.telegram {
             list.push(definition("telegram_notify_run","Queue one fixed notice per existing run for the paired owner. No recipient or text input.",json!({"type":"object","properties":{"run_id":{"type":"string","format":"uuid"}},"required":["run_id"],"additionalProperties":false}),false))
         }
+        list.extend(discovery::catalog(self.discovery, self.metadata));
         list
     }
     pub async fn call(&self, name: &str, args: Value) -> Result<Value> {
+        if args.to_string().len() > 65536 {
+            return Err(Failure("invalid_tool_arguments"));
+        }
         let _permit = self
             .requests
             .try_acquire()
@@ -137,18 +159,30 @@ impl Bridge {
         if name == "telegram_notify_run" && !self.telegram {
             return Err(Failure("telegram_adapter_not_enabled"));
         }
+        discovery::authorize(name, self.discovery, self.metadata)?;
         let (method, path, body) = operation(name, args)?;
+        let timeout = if discovery::long_running(name) {
+            self.discovery_timeout
+        } else if discovery::metadata(name) {
+            Duration::from_secs(35)
+        } else {
+            Duration::from_secs(15)
+        };
         let mut request = self
             .http
             .request(method, format!("{}{}", self.endpoint, path))
-            .bearer_auth(&self.token);
+            .bearer_auth(&self.token)
+            .timeout(timeout);
         if let Some(body) = body {
             request = request.json(&body)
         }
-        let mut response = request
-            .send()
-            .await
-            .map_err(|_| Failure("mcp_api_unavailable"))?;
+        let mut response = request.send().await.map_err(|_| {
+            Failure(if discovery::mutating(name) {
+                "mcp_outcome_unknown_do_not_replay"
+            } else {
+                "mcp_api_unavailable"
+            })
+        })?;
         if !response.status().is_success() {
             return Err(Failure(match response.status().as_u16() {
                 401 | 403 => "mcp_api_authorization_denied",
@@ -210,6 +244,9 @@ fn decode<T: serde::de::DeserializeOwned>(value: Value) -> Result<T> {
 }
 fn operation(name: &str, args: Value) -> Result<(reqwest::Method, String, Option<Value>)> {
     use reqwest::Method;
+    if let Some(result) = discovery::operation(name, args.clone()) {
+        return result;
+    }
     if matches!(name, "himalayas_ingest" | "we_work_remotely_ingest") {
         let input: crate::feed_ingestion::Input = decode(args)?;
         let platform = if name == "himalayas_ingest" {
@@ -317,16 +354,24 @@ impl ServerHandler for Bridge {
         _: RequestContext<RoleServer>,
     ) -> std::result::Result<CallToolResponse, ErrorData> {
         let args = Value::Object(request.arguments.unwrap_or_default());
-        let result =
-            match tokio::time::timeout(Duration::from_secs(20), self.call(&request.name, args))
-                .await
-            {
-                Ok(Ok(value)) => CallToolResult::structured(value),
-                Ok(Err(error)) => CallToolResult::structured_error(json!({"code":error.0})),
-                Err(_) => CallToolResult::structured_error(
-                    json!({"code":"mcp_outcome_unknown_do_not_replay"}),
-                ),
-            };
+        let retained = discovery::retained(&request.name, &args);
+        let timeout = if discovery::long_running(&request.name) {
+            self.discovery_timeout + Duration::from_secs(5)
+        } else if discovery::metadata(&request.name) {
+            Duration::from_secs(40)
+        } else {
+            Duration::from_secs(20)
+        };
+        let error = |code: &str| {
+            CallToolResult::structured_error(
+                json!({"code":code,"retained_attempt":retained,"automatic_retry":false}),
+            )
+        };
+        let result = match tokio::time::timeout(timeout, self.call(&request.name, args)).await {
+            Ok(Ok(value)) => CallToolResult::structured(value),
+            Ok(Err(failure)) => error(failure.0),
+            Err(_) => error("mcp_outcome_unknown_do_not_replay"),
+        };
         Ok(result.into())
     }
 }
@@ -348,6 +393,18 @@ pub async fn serve(path: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn optional_action_configuration_refuses_ambiguous_values() {
+        assert!(!opt_in(None).unwrap());
+        assert!(!opt_in(Some(&"false".into())).unwrap());
+        assert!(opt_in(Some(&"true".into())).unwrap());
+        for value in ["TRUE", "1", "yes", "", " true", "false\n"] {
+            assert_eq!(
+                opt_in(Some(&value.into())).unwrap_err().0,
+                "invalid_mcp_capability_configuration"
+            );
+        }
+    }
     #[test]
     fn tools_never_accept_urls_recipients_text_or_policy_overrides() {
         for (name, args) in [
