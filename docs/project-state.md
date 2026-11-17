@@ -1,3 +1,16 @@
+LOCAL-ONLY checkpoint `0ff4ad43b4fe811eb6e1e9ced62d458f17522ea4`: closed conversation intent contract/compositional parser,
+128 fictional legacy oracle cases generated and six new standard declarations UNRUN.
+Interpretation proposes previews; unsafe/approval text grants no dispatch. Fixed Unicode/
+regex/defaults/public URL/coherence reused; recursion cap64. Parser not yet wired into
+conversation memory/API/classifier/response dispatch. See [local intent report](acceptance/conversation-intent-local-source-20261117.md).
+NO PUSH/PR/REMOTE PUBLICATION/MERGE under current owner direction; active goal remains local
+completion. Continue conversation memory/owner+Telegram services/tools/platform source,
+then final inventory/contracts/types/fixtures and combined gates. Current source untested/
+uninstalled;58/42/prior455 held. No actual model/provider/browser/production/install.
+Private continuity snapshot51aa65edbba401a41e540276b0cfca26bdd66dcb00390172149628aa582c2bfe
+at2026-11-17T15:35:18.896942+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or missing transcript recovery claim.
+
 CURRENT OWNER DIRECTION2026-11-17: LOCAL COMPLETION ONLY. Owner said “do not push my code on github for now” and “focus on completing this project on my laptop only locally.” No further pushes, PR updates/publication, hosted Actions or merges until reauthorized. Keep local commits/reports/snapshots and continue the saved completion plan locally. Existing published checkpoints are historical; no remote deletion/rewriting requested. Source phase still applies: finish remaining source/fixtures before combined tests/build/check/live/install. Current uncommitted intent parser/schema/128 generated fictional oracle cases must be preserved and completed. Last validated455 are prior only;58/42 held. Active project goal records local-only delivery and existing operational safeguards.
 
 Latest local-answer v1 source `dfb7afdb071a4ddbb8e604e1af02eb70e33b4972` adopts deterministic resolution in native answer
