@@ -7,6 +7,20 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest original owner-run admission source `da0ca27ce351e7f35fe5e22bfa032d78dd594085` couples the actual
+run row, private profile/query scope and original child/source window in one owner-first
+transaction with final independent ACKs. Saved reads/replays never renew authority;
+original acquisition retains findings while SQL local intake remains explicitly pending.
+Shorter configured deadlines cap child lifetime. Twelve PG declarations are UNRUN.
+See [qualified owner-run admission report](acceptance/public-owner-run-admission-source-20261117.md).
+Continue atomic SQL job/company/observation/receipt intake, parent local completion,
+startup/owner dashboard orchestration, reviewed Apify execution and remaining source
+before combined gates. No current tests/build/check/native live/install or estimate
+increase; 58/42 and prior455 held. Full host uninstalled; domain not host-connected.
+Private continuity snapshot 797ace215fc088ca0c6e15c123cb1aa0ad379beb1458599e34c5745b733ee70a
+at 2026-11-17T10:16:53.933988+00:00 preserves104 indexed /6 available /98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest owner-run scope source `1e8734c4e213d9d2feaaa53d8dcb3c92a5bd946b` freezes
 actual RunRequest/defaults/hash, explicit versus effective query expansion and private
 profile UUID/version/content pin. Public scope refuses manual/unsupported records and
