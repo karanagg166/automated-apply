@@ -2,6 +2,10 @@
 
 The active goal limits delivery to the owner’s laptop. GitHub pushes, pull requests, remote reports, hosted Actions and merges remain suspended until the owner reauthorizes them. Finish source and fixtures, run combined validation, then install and verify locally. See the [completion plan](plans/completion-execution-20261116.md).
 
+Local source `67a06d2` links approved HiringCafe imports to supported employer application pages when the saved posting and employer vacancy identities agree. The packet retains the original listing and flags changed employer evidence as stale. One new dashboard case and one PostgreSQL case await the combined run. See the [employer handoff checkpoint](acceptance/hiringcafe-employer-handoff-local-source-20261118.md).
+
+Private continuity snapshot `7ac5e3c6ac244a778f113fac3fbde7198cbbab1f7065d31f8cefae4a2b89cfe2` at `2026-11-17T21:11:57.409968+00:00` preserved six available transcripts from 104 indexed threads. The other 98 transcripts remain missing.
+
 Local source `4161b16` registers HiringCafe's official project MCP and accepts the attributed job links it returns in owner-reviewed imports. Legacy bare-ID and updated-slug links reuse retained posting identity. Two fixtures await the combined run. Recent public MCP research verified the provider link shape. Installed workflow, employer form and receipt acceptance remain pending. See the [HiringCafe checkpoint](acceptance/hiringcafe-connector-local-source-20261118.md).
 
 Private continuity snapshot `f84192786975c6cd4723310151a4d87561c19452cedd172624d035fd306f9211` at `2026-11-17T21:08:27.576890+00:00` preserved six available transcripts from 104 indexed threads. The other 98 transcripts remain missing.
