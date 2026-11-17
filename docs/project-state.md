@@ -1,3 +1,15 @@
+Latest MCP discovery composition source `75b4f9ebad7cf6ea5ae4feb8303c5e1b64464786` adds eight default saved-read/preview,
+six optional original discovery/read/local-completion and two separately optional metadata
+tools through the existing owner API. Direct-call default-off flags, strict consent/
+UUIDs, bounded deadlines and private error context preserve original reservation/recovery
+rules. Nine standard+four PG/framed declarations UNRUN. See [qualified MCP report](acceptance/mcp-discovery-composition-source-20261117.md).
+Continue native provider/CLI/local conversation, remaining tool/platform source, then
+final inventory/contracts/types/fixture alignment and combined tests. Current code is
+untested/uninstalled;58/42/prior455 held. No actual MCP/provider/browser/production/install.
+Private continuity snapshotd4b48e80483409db786c8f05071821b13bfd26ce7d680ffe5dffda46d1873ced
+at2026-11-17T14:44:24.210142+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest durable startup dashboard source `3833f23eb112a8ddc081bb442bf3512eea049529` isolates job-led controls,
 persists UUID/source before PUT, uses GET-only reload and empty local completion,
 locks unresolved criteria and releases only reviewed terminal pointers. Native source/
