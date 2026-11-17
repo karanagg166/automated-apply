@@ -1,3 +1,16 @@
+Latest LOCAL conversation memory source `4ee520509821b39e5aaa8c9a5840fd688b6fcf9b` reuses owner-hash selection key,
+eight-entry/ten-job/ten-minute bounds, exact saved expectations, identity/explicit reset
+and post-trigger ACK. Expired load proposes fresh context without rewriting the saved row;
+malformed/oversized rows refuse overwrite. Four pure+six PG declarations UNRUN. Caller
+binding/rollback remains required; no dispatch composed yet. See [local memory report](acceptance/conversation-memory-local-source-20261117.md).
+LOCAL ONLY: no pushes/PR/publication/hosted Actions/merge. Continue conversation responses/
+operation replay/Telegram binding, remaining tools/platform source, then final inventory/
+contracts/types/fixtures and combined gates.58/42/prior455 held; current source untested/
+uninstalled, no actual production/provider/browser/message/install operation.
+Private continuity snapshotefae55e185b0bd55fdf7558a01898e37b7bf72f516938742e22d33137ac9e3ef
+at2026-11-17T15:42:29.101412+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or missing transcript recovery claim.
+
 LOCAL-ONLY checkpoint `0ff4ad43b4fe811eb6e1e9ced62d458f17522ea4`: closed conversation intent contract/compositional parser,
 128 fictional legacy oracle cases generated and six new standard declarations UNRUN.
 Interpretation proposes previews; unsafe/approval text grants no dispatch. Fixed Unicode/
