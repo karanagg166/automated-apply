@@ -1,5 +1,25 @@
 # Complete-source delivery plan — 2026-11-16
 
+Reviewed Apify execution dependency design2026-11-17: first port pure portal record
+normalization, exact six-decimal local USD accounting, fixed original request targets
+and closed actor/run/build/dataset evidence. No HTTP authority belongs in these helpers.
+Preserve reviewed pinned build/permissions/inclusive account cap and explicit allow_paid;
+retain one configured actor route per original UUID without unknown-start failover.
+Local dataset count/bytes and mapped input limits remain independent from provider
+maxItems billing semantics. Resolve the configured actor's opaque ID through a selected
+original metadata response, bind run actId/buildNumber and returned buildId, then verify
+the original build before dataset use. Require a separate private opaque build ID and
+reviewed schema digest (not a guessed build number as path ID); verify that exact build
+and validate actual bounded actor input with no reference resolution before a start
+target can be constructed. Actor identity/build/input/context remain bound across
+original status/dataset/abort targets. Drop arbitrary vendor/recruiter/private metadata
+and personal founder/profile URLs from generic job retention; professional evidence
+continues through the separately rights-reviewed people workflow. Keep provider costs
+preliminary, no URL bearer tokens, no arbitrary run/dataset targets and no account
+rotation. Follow with atomic full-cap numeric reservation/original intent, fixed transport
+and durable response checkpoints before local ingestion. Lost start responses remain
+unknown without a second POST; cancellation cannot fabricate remote termination or refund.
+
 Startup job-led original composition design2026-11-17: admit a real startup parent,
 private normalized request/filter/profile scope and original native job child in one
 owner-first transaction; deterministic child UUID and legacy-compatible startup_child_
