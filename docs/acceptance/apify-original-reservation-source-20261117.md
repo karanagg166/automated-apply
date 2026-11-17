@@ -1,0 +1,23 @@
+# Original Apify intent and exact USD reservation — source checkpoint2026-11-17
+
+Implementation [0addb65d466628ee3338e2433cf0957791461fc2](https://github.com/karanagg166/automated-apply/commit/0addb65d466628ee3338e2433cf0957791461fc2), branch `feat/rust-agent-runtime`, [PR50](https://github.com/karanagg166/automated-apply/pull/50), base `chore/uv-python-tooling`. Untested, uninstalled source; no paid transport/Actor operation or production acceptance.
+
+Original paid-job admission now atomically reserves the entire exact six-decimal per-run cap in existing discovery_budget_reservations, increments the existing monthly NUMERIC ledger and retains original request/query/profile/configuration/credential context and a75-second nonrenewable invocation. Owner-first SERIALIZABLE uses the existing connection. Final independent reservation/monthly/journal/profile and global cooldown acknowledgements follow all triggers. Exact SQL numeric predicates protect micro-level changes even near NUMERIC(16,6) maximum where JSON float projections can lose precision. No refund/reset or provider-credit inference exists.
+
+Only an opaque original in-memory claim contains the future remote grant. Saved GET/replay validates retained intent/reservation and cannot construct a grant, renew expiry or reserve again; changed original request conflicts. Saved state remains readable without current keys/actor config. Lost/expired original work stays unknown with the full cap retained. Cooldowns from any Apify month block new admissions. Private route selection chooses one reviewed configured route before admission; no fallback follows uncertain dispatch. Native execution requires APIFY_BUILD_REVIEWS entries binding opaque build ID/schema digest; the example map is empty and grants no execution. Credential context is hashed privately, never included in owner output.
+
+| Gate | Result | Exact evidence / limitation |
+| --- | --- | --- |
+| Source integration | PASS(source only) | Private reviewed settings/route selection, exact full-cap ledger, original intent/profile/deadline and independent ACKs plus formatting applied |
+| New standard additions | NOT TESTED |2 declarations: deterministic route/private-context selection and malformed review/route/nonexact money refusal |
+| New dedicated PG additions | NOT TESTED |11 declarations: late global cooldown; expired lost intent; original visibility/replay without config; micro-boundary cap/request conflict; old-month cooldown; dropped journal rollback; late total mutation; profile rollback; missing prerequisites; changed/missing reservation; near-maximum exact one-micro ACK |
+| Current tests/build/check/lint/types | NOT TESTED |New executed tests:0. Full remaining source still precedes combined gates |
+| Actual native/provider/Mac/install | NOT TESTED |No production DB, token file, provider HTTP/Actor/dataset, browser, application or installation operation |
+| Timing/resources | NOT TESTED |Existing transaction/connection/no new pool; bounded source checks only, no measured comparison |
+| Paid execution/result integration | NOT TESTED/incomplete |Transport, durable run/status/dataset checkpoints, selected result ingestion and host routes still follow; unused original-grant fields await those modules |
+
+Fixed codes include apify_original_intent_request_conflict, apify_original_reservation_already_used, apify_execution_budget_exhausted, apify_execution_cooling_down, apify_execution_write_ack_failed, apify_original_reservation_changed, apify_original_reservation_missing and apify_reviewed_execution_route_required. These paths were written but not executed. No raw private log/candidate/credential data is published.
+
+Deferred reproduction: `cargo test --locked -p automated-apply-agents --test apify_job_settings`, dedicated disposable PG harness `cargo test --locked -p automated-apply-agents --test postgres -- --ignored --test-threads=1`, earlier source suites and full `uv run --no-project python scripts/run_acceptance.py` after remaining source. Continue fixed transport, durable run/status/build/dataset checkpoints, full-cap preliminary accounting/result intake, remaining dashboard/runtime/tool/platform source before combined gates.
+
+Last validated `9c4ace570535a5856184775f8045ee89eafdd05f` remains193 standard+262 dedicated native PG=455 distinct passes, not current-source evidence. Estimate stays58%/42%. STOP162, lifetime4/hourly1, three uncertain quarantines, zero strict worker receipts and focus/identity/PDF/filter rules remain unchanged. No hosted Actions, merge, cleanup, sending, paid execution or installation occurred. GitHub connector unavailable during this milestone; installed authenticated CLI is the publication fallback.

@@ -7,6 +7,20 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest original Apify USD source `0addb65d466628ee3338e2433cf0957791461fc2` atomically reserves the full
+exact cap/monthly total and original request/profile/configuration/invocation/deadline.
+Independent ACKs include exact numeric totals and global cooldown after journal triggers.
+Saved replay cannot renew authority/refund and stays readable without current config.
+Two standard+eleven PG declarations are UNRUN; paid transport/result/host integration
+still follows. See [qualified original reservation report](acceptance/apify-original-reservation-source-20261117.md).
+Continue fixed transport/durable run/status/build/dataset checkpoints and local results,
+remaining agreed source before combined gates. No current tests/build/check/provider/
+production/install or estimate increase;58/42/prior455 held. GitHub CLI publication
+fallback is used while connected GitHub tools are unavailable.
+Private continuity snapshot 5cd4176eb7fea341e58165e13123bb3bc6a9da7f3ee9b5aa57ea1b0b34ada980
+at2026-11-17T11:47:41.949266+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest pure paid-discovery source `639e5484060092d4e4279ae44f4d5d688124a674` ports selected portal jobs,
 exact six-decimal USD caps/conservative estimates, fixed official targets and closed
 original actor/run/build evidence. Pinned opaque build/schema/input review precedes
