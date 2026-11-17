@@ -1,5 +1,23 @@
 # Complete-source delivery plan — 2026-11-16
 
+Apify retained local intake design2026-11-17: extract only the provider-independent
+job/company/source-observation batch and closed receipt validator from public intake;
+keep public original-scope/configuration/window guards unchanged. The paid wrapper
+requires its original selected SUCCEEDED run, attached full-cap reservation, finding
+hash and original normalized provenance. Fresh local writes require the same reviewed
+configuration, credential and pinned profile plus a24-hour finding TTL. Owner-first
+SERIALIZABLE, existing intake advisory lock, complete bounded legacy identity inventory,
+fill-only job/history preservation and final full-row ACKs remain shared. Atomically
+save jobs and an immutable private apify_intake receipt bound to original scope,
+configuration, finding, run and reservation hashes. Re-read journal, exact numeric
+monthly total, reservation, profile/configuration and written rows after receipt
+triggers; any mutation rolls back the local transaction without erasing remote evidence.
+Saved local receipt replay is a read independent of current configuration/profile/TTL
+and makes no provider call, refresh or budget release. Keep selected company intelligence
+in source observation provenance as source-reported claims; do not overwrite curated
+company facts or infer verified startup/eligibility evidence. Parent/run finalization,
+owner endpoints and bounded known-run read recovery follow as separate compositions.
+
 Apify fixed transport/checkpoint design2026-11-17: consume only an original opaque
 75-second grant, bind the client credential hash and current saved plan before HTTP,
 and use fixed api.apify.com/v2 targets from the typed planner. Explicit numeric-loopback

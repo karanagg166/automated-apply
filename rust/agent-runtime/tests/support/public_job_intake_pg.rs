@@ -119,7 +119,11 @@ async fn public_intake_now_timestamp_trigger_is_accepted_but_changed_non_timesta
 }
 async fn public_intake_fixture() -> PgConnection {
     let mut c = public_owner_run_fixture().await;
-    sqlx::raw_sql("DROP TABLE IF EXISTS job_source_observations CASCADE;DROP TABLE IF EXISTS jobs CASCADE;DROP TABLE IF EXISTS companies CASCADE;DELETE FROM owner_preferences WHERE starts_with(key,'public_ingest:')").execute(&mut c).await.unwrap();
+    job_intake_tables(&mut c).await;
+    c
+}
+async fn job_intake_tables(c: &mut PgConnection) {
+    sqlx::raw_sql("DROP TABLE IF EXISTS job_source_observations CASCADE;DROP TABLE IF EXISTS jobs CASCADE;DROP TABLE IF EXISTS companies CASCADE;DELETE FROM owner_preferences WHERE starts_with(key,'public_ingest:') OR starts_with(key,'apify_intake:')").execute(&mut *c).await.unwrap();
     let schema = include_str!("../../../../supabase/fresh_public/001_phase1_public.sql");
     for (start, end) in [
         (
@@ -147,11 +151,10 @@ async fn public_intake_fixture() -> PgConnection {
             .unwrap()
             .0;
         sqlx::raw_sql(sqlx::AssertSqlSafe(format!("{start}{segment}")))
-            .execute(&mut c)
+            .execute(&mut *c)
             .await
             .unwrap();
     }
-    c
 }
 async fn public_intake_snapshot(c: &mut PgConnection) -> Value {
     let public = public_owner_run_snapshot(c).await;

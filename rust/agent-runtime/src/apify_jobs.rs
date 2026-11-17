@@ -4,6 +4,7 @@ mod budget;
 pub mod controller;
 pub mod evidence;
 mod finding;
+pub mod intake;
 pub mod money;
 pub mod plan;
 pub mod record;

@@ -4103,3 +4103,4 @@ include!("support/public_job_owner_http_pg.rs");
 include!("support/startup_job_led_pg.rs");
 include!("support/apify_job_admission_pg.rs");
 include!("support/apify_job_transport_pg.rs");
+include!("support/apify_job_intake_pg.rs");

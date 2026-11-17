@@ -120,5 +120,13 @@ pub(super) fn provenance(item: &Value, reason: &str) -> Value {
     let mut v = item["data_provenance"].clone();
     v["deduplication"] = json!(reason);
     v["quality_flags"] = item["quality_flags"].clone();
+    // Selected source claims remain attributable evidence, never curated company facts.
+    if item["data_provenance"]["adapter"] == "ApifyJobAdapter"
+        && item["company_intelligence"]
+            .as_object()
+            .is_some_and(|m| !m.is_empty())
+    {
+        v["company_intelligence"] = item["company_intelligence"].clone();
+    }
     v
 }

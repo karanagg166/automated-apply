@@ -36,6 +36,9 @@ pub(super) fn project(
         .as_u64()
         .filter(|n| *n <= 100)
         .ok_or_else(invalid)?;
+    if jobs.len() as u64 + rejected + duplicates > limit {
+        return Err(invalid());
+    }
     if value["status"]
         != if rejected > 0 {
             "partial"
@@ -92,6 +95,27 @@ pub(super) fn project(
             )
         }) {
             return Err(invalid());
+        }
+        if !intel.is_empty()
+            && (job["company_intelligence"]["source"] != source
+                || job["company_intelligence"]["verification_status"] != "source_reported")
+        {
+            return Err(invalid());
+        }
+        for key in ["stage", "batch", "technologies", "remote_policy"] {
+            if let Some(v) = intel.get(key) {
+                let valid = v.is_null()
+                    || v.as_str().is_some_and(|s| s.chars().count() <= 2000)
+                    || key == "technologies"
+                        && v.as_array().is_some_and(|a| {
+                            a.len() <= 100
+                                && a.iter()
+                                    .all(|v| v.as_str().is_some_and(|s| s.chars().count() <= 200))
+                        });
+                if !valid {
+                    return Err(invalid());
+                }
+            }
         }
         selected.push(job);
     }

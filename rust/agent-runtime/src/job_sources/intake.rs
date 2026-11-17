@@ -37,17 +37,25 @@ fn retained(value: &Value, state: &runs::State, id: Uuid) -> Result<Value> {
     {
         return Err(Failure("public_job_intake_receipt_conflict"));
     }
-    let v = &value["receipt"];
+    receipt(
+        &value["receipt"],
+        &state.child["finding"],
+        id,
+        &state.row["source"],
+    )
+}
+/// Shared closed receipt validation, independent of provider authority and current configuration.
+pub(crate) fn receipt(v: &Value, finding: &Value, id: Uuid, source: &Value) -> Result<Value> {
     if v["request_id"] != json!(id)
         || v["local_intake_complete"] != true
         || v["provider_calls"] != 0
         || v["application_dispatch"] != false
         || v["live_verified"] != false
         || v["rankings_complete"] != false
-        || v["source"] != state.row["source"]
-        || v["observed_at"] != state.child["finding"]["observed_at"]
-        || v["provider_status"] != state.child["finding"]["status"]
-        || v["provider_batch_complete"] != state.child["finding"]["batch_complete"]
+        || v["source"] != *source
+        || v["observed_at"] != finding["observed_at"]
+        || v["provider_status"] != finding["status"]
+        || v["provider_batch_complete"] != finding["batch_complete"]
         || v["evidence_basis"] != "atomic_local_sql_from_original_retained_finding"
         || v["job_ids"]
             .as_array()
@@ -83,13 +91,9 @@ fn retained(value: &Value, state: &runs::State, id: Uuid) -> Result<Value> {
         || n("duplicate") != n("updated")
         || n("discovered") != n("inserted") + n("updated") + n("skipped")
         || v["job_ids"].as_array().ok_or_else(invalid)?.len() as u64 != n("inserted") + n("updated")
-        || n("discovered")
-            != state.child["finding"]["jobs"]
-                .as_array()
-                .ok_or_else(invalid)?
-                .len() as u64
+        || n("discovered") != finding["jobs"].as_array().ok_or_else(invalid)?.len() as u64
         || v["exclusions"].as_array().ok_or_else(invalid)?.len() as u64 != n("skipped")
-        || v["counts"]["rejected"] != state.child["finding"]["rejected_count"]
+        || v["counts"]["rejected"] != finding["rejected_count"]
     {
         return Err(invalid());
     }
@@ -137,14 +141,14 @@ fn retained(value: &Value, state: &runs::State, id: Uuid) -> Result<Value> {
         json!({"request_id":id,"counts":counts,"job_ids":v["job_ids"],"company_ids_by_job":selected,"exclusions":exclusions,"observed_at":v["observed_at"],"ingested_at":v["ingested_at"],"source":v["source"],"provider_status":v["provider_status"],"provider_batch_complete":v["provider_batch_complete"],"local_intake_complete":true,"rankings_complete":false,"provider_calls":0,"application_dispatch":false,"live_verified":false,"evidence_basis":"atomic_local_sql_from_original_retained_finding"}),
     )
 }
-struct Batch {
-    receipt: Value,
+pub(crate) struct Batch {
+    pub(crate) receipt: Value,
     companies: BTreeMap<Uuid, Value>,
     jobs: BTreeMap<Uuid, Value>,
     observations: BTreeMap<Uuid, Value>,
 }
 impl Batch {
-    async fn verify(&self, tx: &mut Transaction<'_, Postgres>) -> Result<()> {
+    pub(crate) async fn verify(&self, tx: &mut Transaction<'_, Postgres>) -> Result<()> {
         for (table, rows) in [
             (Table::Company, &self.companies),
             (Table::Job, &self.jobs),
@@ -159,14 +163,16 @@ impl Batch {
         Ok(())
     }
 }
-async fn batch_in(
+/// The caller must validate its own original authority and supply a closed normalized finding.
+/// This function grants no transport, ranking or application authority.
+pub(crate) async fn batch_in(
     tx: &mut Transaction<'_, Postgres>,
-    state: &runs::State,
+    finding: &Value,
+    explicit: &Value,
+    effective: &Value,
     id: Uuid,
     now: DateTime<Utc>,
 ) -> Result<Batch> {
-    // Consume the same closed, normalized projection used by saved reads, never raw journal extras.
-    let finding = access::visible(&state.child, id, now)?;
     let mut batch = Batch {
         receipt: json!({}),
         companies: BTreeMap::new(),
@@ -177,18 +183,20 @@ async fn batch_in(
         .as_array()
         .filter(|a| a.len() <= 100)
         .ok_or_else(invalid)?;
+    for item in rows {
+        if item["source_name"] != finding["source"]
+            || super::contract::normalize(item.clone(), now)? != *item
+        {
+            return Err(invalid());
+        }
+    }
     let mut inventory = jobs::Inventory::new();
     let mut inserted = 0;
     let mut updated = 0;
     let mut ids = Vec::new();
     let mut excluded = Vec::new();
     for (index, item) in rows.iter().enumerate() {
-        if let Some(code) = super::filters::exclusion(
-            item,
-            &state.journal["scope"]["explicit_query"],
-            &state.journal["scope"]["effective_query"],
-            now,
-        )? {
+        if let Some(code) = super::filters::exclusion(item, explicit, effective, now)? {
             excluded.push(json!({"index":index,"code":code}));
             continue;
         }
@@ -228,7 +236,7 @@ async fn batch_in(
         .iter()
         .map(|(id, job)| (id.to_string(), job["company_id"].clone()))
         .collect::<serde_json::Map<_, _>>();
-    batch.receipt = json!({"request_id":id,"counts":{"discovered":rows.len(),"inserted":inserted,"updated":updated,"duplicate":updated,"rejected":rejected,"skipped":excluded.len(),"failed":0},"job_ids":ids,"company_ids_by_job":companies,"exclusions":excluded,"observed_at":finding["observed_at"],"ingested_at":sql::stamp(tx).await?,"source":state.row["source"],"provider_status":finding["status"],"provider_batch_complete":finding["batch_complete"],"local_intake_complete":true,"rankings_complete":false,"provider_calls":0,"application_dispatch":false,"live_verified":false,"evidence_basis":"atomic_local_sql_from_original_retained_finding"});
+    batch.receipt = json!({"request_id":id,"counts":{"discovered":rows.len(),"inserted":inserted,"updated":updated,"duplicate":updated,"rejected":rejected,"skipped":excluded.len(),"failed":0},"job_ids":ids,"company_ids_by_job":companies,"exclusions":excluded,"observed_at":finding["observed_at"],"ingested_at":sql::stamp(tx).await?,"source":finding["source"],"provider_status":finding["status"],"provider_batch_complete":finding["batch_complete"],"local_intake_complete":true,"rankings_complete":false,"provider_calls":0,"application_dispatch":false,"live_verified":false,"evidence_basis":"atomic_local_sql_from_original_retained_finding"});
     batch.verify(tx).await?;
     Ok(batch)
 }
@@ -335,7 +343,16 @@ pub(super) async fn complete_in(
     .fetch_optional(&mut **tx)
     .await
     .map_err(db)?;
-    let batch = batch_in(tx, state, request, now).await?;
+    let finding = access::visible(&state.child, request, now)?;
+    let batch = batch_in(
+        tx,
+        &finding,
+        &state.journal["scope"]["explicit_query"],
+        &state.journal["scope"]["effective_query"],
+        request,
+        now,
+    )
+    .await?;
     let expected = json!({"schema":1,"request_id":request,"scope_hash":state.journal["scope_hash"],"finding_hash":state.child["finding_hash"],"configuration_hash":state.child["configuration_hash"],"receipt":batch.receipt,"receipt_hash":crate::python_json::digest(&batch.receipt)});
     let saved: Option<Value> = sqlx::query_scalar(
         "INSERT INTO owner_preferences(key,value) VALUES($1,$2) RETURNING value",
