@@ -483,33 +483,24 @@ async fn prepare(
         max_characters: limits.characters,
         max_words: limits.words,
     };
-    let prepared = extractive::prepare(&request.question, &context, instruction)?;
-    if !prepared.missing.is_empty() {
-        result["missing_information"] = json!(prepared.missing);
-        result["source"] = json!("needs_input");
-    } else if let Some(code) = prepared.error {
-        result = failure(category, &request.writing_style, Failure(code));
-        result["source"] = json!("validation_failed");
-    } else {
-        let text = prepared
-            .clauses
-            .iter()
-            .map(|c| c.text.as_str())
-            .collect::<Vec<_>>()
-            .join(" ");
-        let facts: Vec<Fact> = serde_json::from_value(json!(facts))
-            .map_err(|_| Failure("invalid_verified_context"))?;
-        let (content, error) = extractive::match_answer(&text, &prepared, &facts, instruction)?;
-        if let Some(error) = error {
-            result = failure(category, &request.writing_style, Failure(error));
-            result["source"] = json!("validation_failed");
-        } else if let Some(content) = content {
-            result["answer"] = json!(content.answer);
-            result["status"] = json!("draft_ready");
-            result["source"] = json!("deterministic_extractive");
-            result["evidence_references"] = json!(content.evidence_references);
-            result["warnings"] = json!(["Extracted approved facts; review before use."]);
-        }
+    let safe = crate::local_answer::deterministic(
+        &request.question,
+        &context,
+        instruction,
+        if category == "short_text" {
+            crate::local_answer::Route::ApprovedSummary
+        } else {
+            crate::local_answer::Route::Narrative
+        },
+    )?;
+    result["source"] = json!(safe.source);
+    result["status"] = json!(safe.status());
+    result["missing_information"] = json!(safe.missing_information);
+    result["error_code"] = json!(safe.error_code);
+    if let Some(content) = safe.content {
+        result["answer"] = json!(content.answer);
+        result["evidence_references"] = json!(content.evidence_references);
+        result["warnings"] = json!(["Extracted approved facts; review before use."]);
     }
     if !request.rewrite
         || (result["answer"].is_null()

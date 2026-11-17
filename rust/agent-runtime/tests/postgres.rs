@@ -3012,6 +3012,7 @@ include!("support/job_context_pg.rs");
 include!("support/answer_context_pg.rs");
 include!("support/missing_store_pg.rs");
 include!("support/answer_service_pg.rs");
+include!("support/local_answer_pg.rs");
 include!("support/cli_provider_pg.rs");
 include!("support/answer_reuse_pg.rs");
 include!("support/gemini_pg.rs");

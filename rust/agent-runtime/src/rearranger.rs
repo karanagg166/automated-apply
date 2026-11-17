@@ -94,6 +94,9 @@ mod tests {
     }
 }
 impl Plan {
+    pub(crate) fn permitted_payload(&self) -> Value {
+        self.payload.clone()
+    }
     pub(crate) fn new(question: &str, context: &Value, instructions: &Value) -> Result<Self> {
         let characters = instructions["max_characters"]
             .as_u64()
