@@ -9,6 +9,7 @@ use crate::{
     worker::Wake,
 };
 mod accounts;
+mod apify_io;
 mod boundary;
 mod contact_io;
 mod discovery;

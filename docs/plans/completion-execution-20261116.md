@@ -1,5 +1,18 @@
 # Complete-source delivery plan — 2026-11-16
 
+Apify owner inspection design 2026-11-17: retain existing exact owner-only status,
+account-inspect and allowlisted actor-inspect routes. Use the shared transient permit
+and one temporary connection, no new pool. Commit the original 10-second metadata
+access window under owner-first SERIALIZABLE with an independent post-trigger ACK
+before any remote GET; release the transaction across transport. A superseded claim
+cannot overwrite a newer account inspection. Cache only closed account projections
+under a new native key with private credential-context/hash binding; preserve and
+sanitize older legacy cache on read while explicitly qualifying its unknown context.
+Status reads one REPEATABLE READ snapshot for cache and exact local budget without
+provider operations or writes. Local USD reservations are not provider credit. Saved
+actor prerequisites, public default-build metadata and account observations remain
+separate from execution approval. GET never probes; POST inspections remain explicit.
+
 Apify metadata design 2026-11-17: implement a read-only fixed official API client,
 separate from actor execution and connected MCP credentials. Actor/store calls are
 public without an authorization header; only the two account endpoints use the local

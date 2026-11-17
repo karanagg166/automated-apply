@@ -7,6 +7,24 @@ use axum::{
 use serde_json::{Value, json};
 
 pub(super) fn profile_failure(error: Failure) -> Response {
+    if error.0.starts_with("apify_") || error.0.starts_with("invalid_apify_") {
+        let status = match error.0 {
+            "apify_metadata_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
+            "apify_metadata_access_rate_limited" | "apify_metadata_rate_limited" => {
+                StatusCode::TOO_MANY_REQUESTS
+            }
+            "apify_local_token_not_configured"
+            | "apify_metadata_authentication_required"
+            | "apify_actor_metadata_not_allowlisted"
+            | "apify_metadata_inspection_superseded" => StatusCode::CONFLICT,
+            "apify_metadata_timeout" => StatusCode::GATEWAY_TIMEOUT,
+            "apify_actor_inspect_invalid"
+            | "apify_actor_id_invalid"
+            | "apify_metadata_query_invalid" => StatusCode::UNPROCESSABLE_ENTITY,
+            _ => StatusCode::SERVICE_UNAVAILABLE,
+        };
+        return reply(status, json!({"detail":error.0}));
+    }
     if error.0.starts_with("public_research_") || error.0.starts_with("invalid_public_research_") {
         let status = match error.0 {
             "public_research_request_not_found" => StatusCode::NOT_FOUND,

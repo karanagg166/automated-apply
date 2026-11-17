@@ -279,6 +279,33 @@ impl Settings {
         }
         json!({"sources":output,"evidence_basis":"saved_configuration_not_current_provider_probe","provider_calls":0,"writes":0})
     }
+    pub fn apify_settings(&self, now: DateTime<Utc>) -> Value {
+        let sources = self.jobs(now)["sources"]
+            .as_array()
+            .expect("source list")
+            .iter()
+            .filter(|v| v["adapter_type"] == "apify")
+            .cloned()
+            .collect::<Vec<_>>();
+        json!({"provider":"apify","transport":"official_api","local_token_configured":self.apify_token_present,
+            "local_mcp_verified":false,"account_rotation":false,"budget_key":"apify",
+            "monthly_limit_usd":self.monthly,"per_run_cap_usd":self.per_run,
+            "linkedin_collection_enabled":false,"execution_authorized":false,
+            "investigated_actors":crate::apify_metadata::INVESTIGATED_ACTORS,"sources":sources})
+    }
+    pub fn actor_metadata_allowed(&self, actor: &str) -> bool {
+        crate::apify_metadata::INVESTIGATED_ACTORS.contains(&actor)
+            || self
+                .actors
+                .values()
+                .any(|v| v["actor_id"].as_str() == Some(actor))
+            || self
+                .routes
+                .values()
+                .filter_map(Value::as_array)
+                .flatten()
+                .any(|v| v["actor_id"].as_str() == Some(actor))
+    }
     pub fn startups(&self, now: DateTime<Utc>) -> Value {
         let mut output = Vec::new();
         for source in [

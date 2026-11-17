@@ -426,3 +426,51 @@ async fn incomplete_response_retains_fixed_transport_failure_without_retry_or_ra
     );
     task.await.unwrap();
 }
+#[test]
+fn owner_metadata_routes_are_closed_and_preserve_original_methods() {
+    use meta::owner::{Route, route};
+    assert_eq!(
+        route("/api/v1/integrations/providers/apify"),
+        Some(Route::Status)
+    );
+    assert_eq!(
+        route("/api/v1/integrations/providers/apify/inspect"),
+        Some(Route::Account)
+    );
+    assert_eq!(
+        route("/api/v1/integrations/providers/apify/actors/inspect"),
+        Some(Route::Actor)
+    );
+    assert_eq!(Route::Status.method(), "GET");
+    assert_eq!(Route::Account.method(), "POST");
+    assert_eq!(Route::Actor.method(), "POST");
+    for path in [
+        "/api/v1/integrations/providers/apify/runs",
+        "/api/v1/integrations/providers/apify/actors/inspect/",
+        "/api/v1/integrations/providers/apify/inspect?force=true",
+    ] {
+        assert!(route(path).is_none());
+    }
+}
+#[test]
+fn owner_metadata_settings_keep_reviewed_actor_names_private_and_never_authorize_execution() {
+    let settings=automated_apply_agents::source_registry::Settings::from_values(&BTreeMap::from([
+        ("APIFY_API_TOKEN".into(),"PRIVATE_TOKEN_CANARY".into()),
+        ("APIFY_MONTHLY_LIMIT_USD".into(),"10".into()),
+        ("APIFY_SOURCES".into(),json!({"naukri":{"actor_id":"fictional/private-actor-name","fixed_input":{"private":"PRIVATE_INPUT_CANARY"}}}).to_string()),
+        ("APIFY_SOURCE_ROUTES".into(),json!({"instahyre":[{"actor_id":"fictional/private-route-name"}]}).to_string()),
+    ])).unwrap();
+    assert!(settings.actor_metadata_allowed("fictional/private-actor-name"));
+    assert!(settings.actor_metadata_allowed("fictional/private-route-name"));
+    assert!(settings.actor_metadata_allowed(meta::INVESTIGATED_ACTORS[0]));
+    assert!(!settings.actor_metadata_allowed("fictional/not-reviewed"));
+    let status = settings.apify_settings(now());
+    assert_eq!(status["execution_authorized"], false);
+    assert_eq!(status["local_mcp_verified"], false);
+    assert_eq!(status["account_rotation"], false);
+    assert_eq!(status["local_token_configured"], true);
+    assert_eq!(status["sources"].as_array().unwrap().len(), 9);
+    assert!(!status.to_string().contains("CANARY"));
+    assert!(!status.to_string().contains("private-actor-name"));
+    assert!(!status.to_string().contains("private-route-name"));
+}

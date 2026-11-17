@@ -1,4 +1,5 @@
 //! Observed public actor/account metadata. This module cannot execute an actor or read datasets.
+pub mod owner;
 pub mod transport;
 use crate::{Failure, Result};
 use chrono::{DateTime, Utc};

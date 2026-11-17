@@ -6,6 +6,7 @@ use reqwest::{
     header::{AUTHORIZATION, HeaderValue},
 };
 use serde_json::Value;
+use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, time::Duration};
 
 pub struct Client {
@@ -64,6 +65,17 @@ impl Client {
     }
     pub fn token_configured(&self) -> bool {
         self.token.is_some()
+    }
+    pub(super) fn context(&self) -> String {
+        format!(
+            "{:x}",
+            Sha256::digest(
+                self.token
+                    .as_ref()
+                    .map(|v| v.as_bytes())
+                    .unwrap_or_default()
+            )
+        )
     }
     async fn get(
         &self,
