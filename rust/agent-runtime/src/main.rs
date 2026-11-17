@@ -11,6 +11,8 @@ use automated_apply_agents::{
 use std::{path::PathBuf, sync::Arc};
 use tokio_util::sync::CancellationToken;
 
+mod cutover;
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> std::process::ExitCode {
     match run().await {
@@ -23,6 +25,9 @@ async fn main() -> std::process::ExitCode {
 }
 async fn run() -> Result<()> {
     let arguments = std::env::args_os().skip(1).collect::<Vec<_>>();
+    if arguments.len() == 3 && arguments[0] == "cutover-preflight" && arguments[1] == "--config" {
+        return cutover::report(&PathBuf::from(&arguments[2])).await;
+    }
     if arguments.len() == 3 && arguments[0] == "provider-status" && arguments[1] == "--config" {
         let result =
             automated_apply_agents::provider_status::check(&PathBuf::from(&arguments[2])).await?;

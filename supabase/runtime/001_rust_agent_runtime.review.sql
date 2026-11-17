@@ -7,6 +7,8 @@ SET LOCAL search_path = public, pg_catalog;
 SET LOCAL lock_timeout = '2s';
 SET LOCAL statement_timeout = '60s';
 DO $preflight$
+DECLARE
+    legacy_state text;
 BEGIN
     IF current_user <> 'postgres' THEN
         RAISE EXCEPTION 'explicit_owner_migration_connection_required';
@@ -23,6 +25,11 @@ BEGIN
     PERFORM value FROM public.owner_preferences
       WHERE key='application_queue_policy' AND value->>'state'='STOPPED' FOR UPDATE;
     IF NOT FOUND THEN RAISE EXCEPTION 'stopped_application_queue_required'; END IF;
+    SELECT value->>'state' INTO legacy_state FROM public.owner_preferences
+      WHERE key='naukri_automation' FOR UPDATE;
+    IF FOUND AND legacy_state IS DISTINCT FROM 'STOPPED' THEN
+        RAISE EXCEPTION 'stopped_legacy_preparation_required';
+    END IF;
 END $preflight$;
 
 -- Source: rust/agent-runtime/sql/001_runtime.sql

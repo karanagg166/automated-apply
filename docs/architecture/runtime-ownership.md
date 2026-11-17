@@ -70,7 +70,14 @@ No new production worker, role grant, schema migration or runtime installation o
    uncertain jobs; inventory the exact installed releases and rollback references.
 3. Keep the queue STOPPED, quiesce every Python writer, and verify no in-flight unknown
    mutation is retried. Do not reset allowances or replay quarantined jobs.
-4. Verify the target, connection headroom and family lease; install one Rust family.
+4. Rehearse the reviewed schema package in combined validation. The operator package
+   checks the saved STOPPED application queue and any saved legacy preparation control
+   before creating the Rust schema. After the reviewed migration, run the candidate
+   binary's `cutover-preflight --config /absolute/private/runtime.env` command.
+   It uses one read-only database transaction to check target/readiness and STOPPED
+   controls and records sanitized revisions and role session counts. Confirm pooler
+   capacity, retired writer state and the family lease independently before installing
+   one Rust family.
 5. Validate actual account/resume/readiness, focus preservation, restart recovery and
    resource use before enabling authorized work. Roll back failed acceptance.
 

@@ -23,6 +23,8 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 async def verify(port, write_manifest):
+    package_sql = PACKAGE.read_text()
+    assert package_sql == render(), "review_package_source_drift"
     connection = await asyncpg.connect(host="127.0.0.1", port=port,
                                       user="postgres", database="rust_schema_fixture")
     settings = Settings(_env_file=None, ENVIRONMENT="testing", DATABASE_SCHEMA="public", DB_REQUIRE_TLS=False)
@@ -41,20 +43,46 @@ async def verify(port, write_manifest):
 
         await accepted()
         checks.append("existing_catalog_still_accepted")
-        await connection.execute("INSERT INTO public.owner_preferences(key,value)VALUES('application_queue_policy','{\"state\":\"RUNNING\"}')")
-        try:
-            await connection.execute(PACKAGE.read_text())
-        except asyncpg.RaiseError as error:
-            assert str(error) == "stopped_application_queue_required"
-            await connection.execute("ROLLBACK")
-        else:
-            raise AssertionError("running_queue_migration_not_rejected")
-        assert not await connection.fetchval("SELECT to_regclass('public.rust_agent_runs') IS NOT NULL")
+        async def refusal(expected_error):
+            try:
+                await connection.execute(package_sql)
+            except asyncpg.RaiseError as error:
+                assert str(error) == expected_error
+                await connection.execute("ROLLBACK")
+            else:
+                raise AssertionError("unstopped_control_migration_not_rejected")
+            assert not await connection.fetchval(
+                "SELECT to_regclass('public.rust_agent_runs') IS NOT NULL"
+            )
+
+        await connection.execute(
+            """INSERT INTO public.owner_preferences(key,value)
+               VALUES('application_queue_policy','{"state":"RUNNING"}')"""
+        )
+        await refusal("stopped_application_queue_required")
         checks.append("running_queue_refused_without_partial_ddl")
-        await connection.execute("UPDATE public.owner_preferences SET value='{\"state\":\"STOPPED\"}' WHERE key='application_queue_policy'")
-        assert PACKAGE.read_text() == render(), "review_package_source_drift"
-        await connection.execute(PACKAGE.read_text())
+        await connection.execute(
+            """UPDATE public.owner_preferences SET value='{"state":"STOPPED"}'
+               WHERE key='application_queue_policy'"""
+        )
+        for saved in ({"state": "RUNNING"}, {"state": "PAUSED"}, {"revision": 7}):
+            await connection.execute(
+                """INSERT INTO public.owner_preferences(key,value)
+                   VALUES('naukri_automation',$1::jsonb)
+                   ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value""",
+                json.dumps(saved),
+            )
+            await refusal("stopped_legacy_preparation_required")
+        checks.append("unstopped_legacy_preparation_refused_without_partial_ddl")
+        await connection.execute(
+            """UPDATE public.owner_preferences SET value='{"state":"STOPPED","revision":8}'
+               WHERE key='naukri_automation'"""
+        )
+        await connection.execute(package_sql)
         assert await connection.fetchval("SELECT mode FROM public.rust_agent_control") == "STOPPED"
+        assert await connection.fetchval(
+            "SELECT value->>'revision' FROM public.owner_preferences WHERE key='naukri_automation'"
+        ) == "8"
         checks.append("atomic_additive_install_starts_stopped")
 
         actual = await catalog(connection, "public")

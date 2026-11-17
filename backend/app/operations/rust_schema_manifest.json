@@ -106,7 +106,7 @@
     "triggers": {},
     "unsafe_grants": []
   },
-  "package_sha256": "c96c79067fbf0e2e62c36f6139c34818a74f080b0d7ede743b031acccc88e4e1",
+  "package_sha256": "ee2c2f612d4a40bcd66c2e15cd18c487d1a88383f53d54fb3918ab62725b9f42",
   "sources": {
     "rust/agent-runtime/sql/001_runtime.sql": "ac784ecd7367dc298fd7c55462e0ef6b00af2ee8d166d1bccdb67770f82cf468",
     "rust/agent-runtime/sql/002_control.sql": "e58a951bed16efa782dbd0009c51b5420d0872fee08ca2c85f8d7ef717ab71c3",
