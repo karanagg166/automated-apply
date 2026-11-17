@@ -4090,3 +4090,4 @@ include!("support/startup_owner_pg.rs");
 include!("support/people_ingest_pg.rs");
 include!("support/people_search_runs_pg.rs");
 include!("support/people_search_transport_pg.rs");
+include!("support/people_search_completion_pg.rs");

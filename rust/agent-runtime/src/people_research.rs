@@ -1,4 +1,5 @@
 //! Professional evidence only. Search-index candidates never establish identity or mailbox proof.
+pub mod completion;
 pub mod controller;
 mod findings;
 pub mod ingest;

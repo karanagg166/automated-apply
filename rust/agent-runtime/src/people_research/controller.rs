@@ -15,6 +15,24 @@ pub struct Service<'a> {
 }
 impl Service<'_> {
     pub async fn run(&self, c: &mut PgConnection, input: Value, request: Uuid) -> Result<Value> {
+        let finding = self.acquire(c, input, request).await?;
+        if finding["recorded_state"] == "finding_retained"
+            && matches!(
+                finding["provider_status"].as_str(),
+                Some("success" | "partial" | "no_results")
+            )
+        {
+            return super::completion::apply(c, request, self.settings, self.contacts).await;
+        }
+        Ok(finding)
+    }
+    /// Retain the original transport result before local completion. Never fetches result pages.
+    pub async fn acquire(
+        &self,
+        c: &mut PgConnection,
+        input: Value,
+        request: Uuid,
+    ) -> Result<Value> {
         // Preserve omission/default serialization by forwarding the original input to admission.
         let normalized = crate::research_contract::normalize(
             crate::research_contract::Kind::PeopleQuery,

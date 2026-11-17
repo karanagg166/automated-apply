@@ -210,7 +210,15 @@ async fn reconcile(
     let row = qualify_contact(tx, &result, human).await?;
     Ok((result, row))
 }
-fn visible(value: &Value, request: Uuid, now: DateTime<Utc>) -> Result<Value> {
+pub(super) fn visible(
+    value: &Value,
+    request: Uuid,
+    now: DateTime<Utc>,
+    source: &str,
+) -> Result<Value> {
+    if !matches!(source, "manual" | "public_search") {
+        return Err(invalid());
+    }
     let result = value.as_object().ok_or_else(invalid)?;
     if value.to_string().len() > 131072 || value["people"].as_array().is_none_or(|a| a.len() > 20) {
         return Err(invalid());
@@ -228,9 +236,13 @@ fn visible(value: &Value, request: Uuid, now: DateTime<Utc>) -> Result<Value> {
             a.len() <= 20
                 && a.iter().all(|e| {
                     e.as_str().is_some_and(|s| {
-                        s.starts_with("public_research_")
-                            && s.len() <= 100
-                            && s.bytes().all(|b| b.is_ascii_lowercase() || b == b'_')
+                        matches!(
+                            s,
+                            "public_research_official_employer_mismatch"
+                                | "public_research_published_mailbox_mismatch"
+                                | "public_research_identity_requires_review"
+                                | "public_search_record_invalid"
+                        )
                     })
                 })
         })
@@ -273,10 +285,18 @@ fn visible(value: &Value, request: Uuid, now: DateTime<Utc>) -> Result<Value> {
             {
                 return Err(invalid());
             }
+            if source == "public_search"
+                && (p["identity_independently_confirmed"] != false
+                    || p["verification_status"] != "requires_review")
+            {
+                return Err(invalid());
+            }
             people.push(json!({"contact_id":contact,"evidence_url":url,"verification_status":p["verification_status"],"identity_independently_confirmed":p["identity_independently_confirmed"],"email_known":p["email_known"],"suppressed":p["suppressed"]}));
         } else {
             let p = research_contract::normalize(Kind::PublicPerson, p.clone(), now)?;
-            if p["source"] != "manual" || p["verification_status"] != "requires_review" {
+            if p["source"] != source
+                || source == "manual" && p["verification_status"] != "requires_review"
+            {
                 return Err(invalid());
             }
             people.push(p);
@@ -319,18 +339,62 @@ pub async fn manual(
         if old["schema"] != 1 || old["input_hash"] != hash {
             return Err(Failure("public_research_request_conflict"));
         }
-        let result = visible(&old["result"], request, now)?;
+        if old.get("basis").is_some_and(|v| v != "manual") {
+            return Err(Failure("public_research_request_conflict"));
+        }
+        let result = visible(&old["result"], request, now, "manual")?;
         tx.commit().await.map_err(db)?;
         return Ok(result);
     }
+    let result = apply_in(
+        &mut tx,
+        Batch {
+            query,
+            hash,
+            request,
+            at,
+            now,
+            paid: false,
+            permission: None,
+            errors: Vec::new(),
+        },
+        settings,
+    )
+    .await?;
+    tx.commit()
+        .await
+        .map_err(|_| Failure("public_research_commit_outcome_unknown"))?;
+    Ok(result)
+}
+struct Batch {
+    query: Value,
+    hash: String,
+    request: Uuid,
+    at: Value,
+    now: DateTime<Utc>,
+    paid: bool,
+    permission: Option<String>,
+    errors: Vec<&'static str>,
+}
+async fn apply_in(
+    tx: &mut Transaction<'_, Postgres>,
+    batch: Batch,
+    settings: &crate::contacts::Settings,
+) -> Result<Value> {
+    let query = batch.query;
+    let hash = batch.hash;
+    let request = batch.request;
+    let at = batch.at;
+    let now = batch.now;
+    let paid = batch.paid;
     sqlx::query("SELECT pg_advisory_xact_lock(240204)")
-        .execute(&mut *tx)
+        .execute(&mut **tx)
         .await
         .map_err(db)?;
     let official = query["official_people"].as_array().ok_or_else(invalid)?;
     let limit = query["limit"].as_u64().ok_or_else(invalid)? as usize;
     let mut records = Vec::new();
-    let mut errors = Vec::new();
+    let mut errors = batch.errors;
     if !official.is_empty() {
         if query["permission_confirmed"] != true || official.len() > limit {
             return Err(Failure("public_research_official_permission_required"));
@@ -354,7 +418,7 @@ pub async fn manual(
             let company = match company {
                 Some(id) => id,
                 None => {
-                    let id = company_in(&mut tx, &query, &item["evidence_url"]).await?;
+                    let id = company_in(tx, &query, &item["evidence_url"]).await?;
                     company = Some(id);
                     id
                 }
@@ -379,10 +443,10 @@ pub async fn manual(
             };
             let observation = person::normalize(
                 person::Kind::Observation,
-                json!({"full_name":item["full_name"],"email":item["business_email"],"email_publication_url":item["email_publication_url"],"email_status":"unknown","role_title":item["role_title"],"company_domain":domain,"professional_url":item["professional_url"],"permission_evidence_url":item["permission_evidence_url"],"provider_person_id":provider_id,"evidence_url":item["evidence_url"],"source":"official_company","observed_at":item["observed_at"],"evidence_strength":if item["human_confirmed"]==true{"strong"}else{"weak"},"human_confirmed":item["human_confirmed"]}),
+                json!({"full_name":item["full_name"],"email":item["business_email"],"email_publication_url":item["email_publication_url"],"email_status":"unknown","role_title":item["role_title"],"company_domain":domain,"professional_url":item["professional_url"],"permission_evidence_url":item["permission_evidence_url"],"provider_person_id":provider_id,"evidence_url":item["evidence_url"],"source":if paid{"public_search"}else{"official_company"},"observed_at":item["observed_at"],"evidence_strength":if item["human_confirmed"]==true{"strong"}else{"weak"},"human_confirmed":item["human_confirmed"]}),
             )?;
             let (result, row) =
-                reconcile(&mut tx, company, observation, request, index, settings).await?;
+                reconcile(tx, company, observation, request, index, settings).await?;
             if let Some(row) = row {
                 let reviewed =
                     item["human_confirmed"] == true && result["requires_review"] == false;
@@ -399,49 +463,54 @@ pub async fn manual(
             .take(limit)
             .cloned()
             .map(|mut p| {
-                p["source"] = json!("manual");
-                p["verification_status"] = json!("requires_review");
+                if !paid {
+                    p["source"] = json!("manual");
+                    p["verification_status"] = json!("requires_review");
+                }
                 p
             })
             .collect::<Vec<_>>();
         let people = super::rules::unique_people(people, now)?;
         if !people.is_empty() {
-            let company = company_in(&mut tx, &query, &people[0]["evidence_url"]).await?;
-            let mut inventory = people_inventory(&mut tx, company).await?;
+            let company = company_in(tx, &query, &people[0]["evidence_url"]).await?;
+            let mut inventory = people_inventory(tx, company).await?;
             for (index, p) in people.into_iter().enumerate() {
-                let id = public_person(&mut tx, company, &p, &at, &mut inventory).await?;
+                let id = public_person(tx, company, &p, &at, &mut inventory).await?;
                 if let Some(id) = id.filter(|_| {
                     p["name"].as_str().is_some_and(|s| !s.is_empty())
                         && p["role"].as_str().is_some_and(|s| !s.is_empty())
                 }) {
                     let observation = person::normalize(
                         person::Kind::Observation,
-                        json!({"full_name":p["name"],"role_title":p["role"],"company_domain":query["company_domain"],"linkedin_url":p["linkedin_url"],"evidence_url":p["evidence_url"],"source":"manual","discovered_person_id":id,"evidence_strength":"weak","observed_at":at}),
+                        json!({"full_name":p["name"],"role_title":p["role"],"company_domain":query["company_domain"],"linkedin_url":p["linkedin_url"],"evidence_url":p["evidence_url"],"source":if paid{"public_search"}else{"manual"},"permission_evidence_url":batch.permission,"discovered_person_id":id,"evidence_strength":"weak","observed_at":at}),
                     )?;
-                    reconcile(&mut tx, company, observation, request, index, settings).await?;
+                    reconcile(tx, company, observation, request, index, settings).await?;
                 }
                 records.push(p);
             }
         }
     }
     let result = json!({"request_id":request,"company_name":query["company_name"],"status":if !errors.is_empty(){"partial"}else if records.is_empty(){"no_results"}else{"success"},"people":records,"errors":errors,"provider_calls":0,"outbound_messages_sent":0});
-    let expected = json!({"schema":1,"input_hash":hash,"result":result});
-    let saved:Option<Value>=sqlx::query_scalar("INSERT INTO owner_preferences(key,value,created_at,updated_at) VALUES($1,$2,clock_timestamp(),clock_timestamp()) ON CONFLICT DO NOTHING RETURNING value").bind(key(request)).bind(&expected).fetch_optional(&mut *tx).await.map_err(db)?;
+    let expected = json!({"schema":1,"input_hash":hash,"basis":if paid{"public_search"}else{"manual"},"result":result});
+    let saved:Option<Value>=sqlx::query_scalar("INSERT INTO owner_preferences(key,value,created_at,updated_at) VALUES($1,$2,clock_timestamp(),clock_timestamp()) ON CONFLICT DO NOTHING RETURNING value").bind(key(request)).bind(&expected).fetch_optional(&mut **tx).await.map_err(db)?;
     let actual: Option<Value> =
         sqlx::query_scalar("SELECT value FROM owner_preferences WHERE key=$1")
             .bind(key(request))
-            .fetch_optional(&mut *tx)
+            .fetch_optional(&mut **tx)
             .await
             .map_err(db)?;
     if saved.as_ref() != Some(&expected) || actual.as_ref() != Some(&expected) {
         return Err(ack());
     }
-    let result = visible(&expected["result"], request, now)?;
-    tx.commit()
-        .await
-        .map_err(|_| Failure("public_research_commit_outcome_unknown"))?;
+    let result = visible(
+        &expected["result"],
+        request,
+        now,
+        if paid { "public_search" } else { "manual" },
+    )?;
     Ok(result)
 }
+
 pub async fn retained(c: &mut PgConnection, request: Uuid) -> Result<Value> {
     let mut tx = c.begin().await.map_err(db)?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
@@ -454,7 +523,104 @@ pub async fn retained(c: &mut PgConnection, request: Uuid) -> Result<Value> {
         return Err(invalid());
     }
     let at = stamp(&mut tx).await?;
-    let result = visible(&old["result"], request, time(&at)?)?;
+    let result = visible(
+        &old["result"],
+        request,
+        time(&at)?,
+        old["basis"].as_str().unwrap_or("manual"),
+    )?;
     tx.commit().await.map_err(db)?;
     Ok(result)
+}
+pub(super) async fn from_finding_in(
+    tx: &mut Transaction<'_, Postgres>,
+    journal: &Value,
+    request: Uuid,
+    settings: &crate::contacts::Settings,
+    now: DateTime<Utc>,
+) -> Result<Value> {
+    let stored: Option<Value> =
+        sqlx::query_scalar("SELECT value FROM owner_preferences WHERE key=$1")
+            .bind(super::runs::key(request))
+            .fetch_optional(&mut **tx)
+            .await
+            .map_err(db)?;
+    if stored.as_ref() != Some(journal) || journal["state"] != "finding_retained" {
+        return Err(Failure("public_research_finding_context_changed"));
+    }
+    super::findings::selected(journal, now)?;
+    let mut query = research_contract::normalize(Kind::PeopleQuery, journal["input"].clone(), now)?;
+    if query["source"] != "public_search"
+        || !matches!(
+            journal["finding"]["state"].as_str(),
+            Some("success" | "partial" | "no_results")
+        )
+    {
+        return Err(Failure("public_research_successful_finding_required"));
+    }
+    let exists: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM owner_preferences WHERE key=$1)")
+            .bind(key(request))
+            .fetch_one(&mut **tx)
+            .await
+            .map_err(db)?;
+    if exists {
+        return Err(Failure("public_research_local_receipt_conflict"));
+    }
+    let official = query["research_mode"] == "official_company";
+    let people = journal["finding"]["people"]
+        .as_array()
+        .ok_or_else(invalid)?
+        .clone();
+    query[if official {
+        "official_people"
+    } else {
+        "manual_people"
+    }] = json!(people);
+    query["permission_confirmed"] = json!(true);
+    let permission = if official {
+        None
+    } else {
+        journal["retention_permission"].as_str().map(String::from)
+    };
+    let errors = journal["finding"]["errors"]
+        .as_array()
+        .ok_or_else(invalid)?
+        .iter()
+        .map(|_| "public_search_record_invalid")
+        .collect();
+    apply_in(
+        tx,
+        Batch {
+            query,
+            hash: journal["input_hash"].as_str().ok_or_else(invalid)?.into(),
+            request,
+            at: journal["finding_at"].clone(),
+            now,
+            paid: true,
+            permission,
+            errors,
+        },
+        settings,
+    )
+    .await
+}
+pub(super) async fn verify_completed_in(
+    tx: &mut Transaction<'_, Postgres>,
+    request: Uuid,
+    input_hash: &Value,
+    result: &Value,
+) -> Result<()> {
+    let expected =
+        json!({"schema":1,"input_hash":input_hash,"basis":"public_search","result":result});
+    let actual: Option<Value> =
+        sqlx::query_scalar("SELECT value FROM owner_preferences WHERE key=$1")
+            .bind(key(request))
+            .fetch_optional(&mut **tx)
+            .await
+            .map_err(db)?;
+    if actual.as_ref() != Some(&expected) {
+        return Err(ack());
+    }
+    Ok(())
 }

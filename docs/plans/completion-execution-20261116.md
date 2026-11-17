@@ -1,5 +1,16 @@
 # Complete-source delivery plan — 2026-11-16
 
+Paid finding completion design 2026-11-17: use a second owner-first SERIALIZABLE local
+transaction after durable finding retention. Recheck exact original input/configuration,
+current saved rights, company snapshot and a 24-hour finding lifetime. Changed or missing
+context records a qualified held result without requesting the provider again. Valid
+findings reuse the manual identity/ACK machinery with explicit public_search provenance,
+unconfirmed provider identity and original observation time. Commit local receipt, all
+people/contact changes and terminal paid journal atomically; failures retain the prior
+finding. Replay can complete local work from a saved finding but cannot obtain a new
+transport grant. Completed reads return the original selected result without refreshing
+facts or writing. The UUID-only native owner endpoint/dashboard will use this controller.
+
 Search transport/finding design 2026-11-17: consume only the original opaque grant at
 one fixed no-proxy/no-retry/no-redirect Serper endpoint, with sensitive header credentials,
 a 15-second total call and 1-MiB streamed response limit. Loopback substitution is fixture

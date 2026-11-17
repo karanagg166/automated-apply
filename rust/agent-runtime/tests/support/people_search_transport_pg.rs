@@ -97,7 +97,7 @@ async fn people_search_with(
         client: client.as_ref(),
         contacts: &contacts,
     }
-    .run(c, input, Uuid::from_u128(id))
+    .acquire(c, input, Uuid::from_u128(id))
     .await
 }
 fn people_search_no_private(result: &Value) {

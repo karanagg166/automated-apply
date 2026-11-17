@@ -70,7 +70,7 @@ pub fn output(journal: &Value, request: Uuid, now: DateTime<Utc>) -> Result<Valu
         || journal["post_admissions"] != 1
         || !matches!(
             journal["state"].as_str(),
-            Some("dispatch_admitted" | "finding_retained")
+            Some("dispatch_admitted" | "finding_retained" | "completed" | "held")
         )
     {
         return Err(invalid());
@@ -84,11 +84,45 @@ pub fn output(journal: &Value, request: Uuid, now: DateTime<Utc>) -> Result<Valu
         .as_str()
         .filter(|s| s.chars().count() <= 200)
         .ok_or_else(invalid)?;
-    if journal["state"] == "finding_retained" {
+    if matches!(
+        journal["state"].as_str(),
+        Some("finding_retained" | "completed" | "held")
+    ) {
         let finding = super::findings::selected(journal, now)?;
         let mut value = json!({"request_id":request,"company_name":company,"status":if matches!(finding["provider_status"].as_str(),Some("success"|"partial"|"no_results")){"finding_retained"}else{finding["provider_status"].as_str().ok_or_else(invalid)?},"recorded_state":"finding_retained","reserved_local_requests":1,"budget_unit":"search_request","provider_post_admissions":1,"provider_charge_verified":false,"outbound_messages_sent":0,"replay_authorized":false,"evidence_basis":"retained_finding_not_new_execution"});
         for (key, v) in finding.as_object().ok_or_else(invalid)? {
             value[key] = v.clone();
+        }
+        if journal["state"] == "completed" {
+            if journal["result_hash"]
+                != crate::startup_catalog::identity::content_hash(&journal["result"])
+            {
+                return Err(invalid());
+            }
+            let result = super::ingest::visible(&journal["result"], request, now, "public_search")?;
+            for (key, v) in result.as_object().ok_or_else(invalid)? {
+                value[key] = v.clone();
+            }
+            value["recorded_state"] = json!("completed");
+            value["persistence_status"] = json!("imported");
+        } else if journal["state"] == "held" {
+            let reason = journal["held_reason"]
+                .as_str()
+                .filter(|s| {
+                    matches!(
+                        *s,
+                        "public_research_configuration_changed"
+                            | "public_research_company_changed"
+                            | "public_research_company_domain_required"
+                            | "public_research_finding_expired"
+                            | "public_research_current_authorization_required"
+                    )
+                })
+                .ok_or_else(invalid)?;
+            value["status"] = json!("needs_review");
+            value["failure_code"] = json!(reason);
+            value["persistence_status"] = json!("held");
+            value["recorded_state"] = json!("held");
         }
         return Ok(value);
     }
@@ -147,7 +181,7 @@ pub async fn admit(
     .await?;
     let invocation = Uuid::new_v4();
     let deadline = now + chrono::Duration::seconds(30);
-    let journal = json!({"schema":1,"request_id":request,"invocation":invocation,"input_hash":hash,"configuration_hash":settings.context,"company":company,"provider_request":body,"input":input,"state":"dispatch_admitted","post_admissions":1,"reservation_id":reservation.id(),"month":reservation.month(),"reserved_local_requests":1,"budget_unit":"search_request","started_at":at,"expires_at":deadline.to_rfc3339(),"provider_response_retained":false});
+    let journal = json!({"schema":1,"request_id":request,"invocation":invocation,"input_hash":hash,"configuration_hash":settings.context,"retention_permission":settings.permission,"company":company,"provider_request":body,"input":input,"state":"dispatch_admitted","post_admissions":1,"reservation_id":reservation.id(),"month":reservation.month(),"reserved_local_requests":1,"budget_unit":"search_request","started_at":at,"expires_at":deadline.to_rfc3339(),"provider_response_retained":false});
     let saved:Option<Value>=sqlx::query_scalar("INSERT INTO owner_preferences(key,value,created_at,updated_at) VALUES($1,$2,clock_timestamp(),clock_timestamp()) ON CONFLICT DO NOTHING RETURNING value").bind(key(request)).bind(&journal).fetch_optional(&mut *tx).await.map_err(db)?;
     let actual: Option<Value> =
         sqlx::query_scalar("SELECT value FROM owner_preferences WHERE key=$1")
