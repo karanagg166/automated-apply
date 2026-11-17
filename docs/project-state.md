@@ -1,3 +1,18 @@
+Latest acknowledged read-context source `75132e923e22a06788ea8ec59484abb1ebd80680` retains closed original
+run options, requires option/identity stability on later status, restores selected
+actor/run evidence and offers only fixed GET targets. Original75-second expiry,
+24-hour window and fresh successful status gate precede build/dataset targets. Six
+standard declarations are UNRUN; this pure context grants no dispatch. Durable read
+admission/transport/owner controls are still pending.
+See [qualified acknowledged-read context report](acceptance/apify-acknowledged-read-context-source-20261117.md).
+Continue separate bounded read admissions/checkpoints (3 rounds,4GET/45seconds,
+5-minute spacing), original finding CAS and explicit owner recovery, then remaining
+agreed startup/runtime/provider/tool/platform source before combined gates. No current
+tests/build/check/native live/install or percentage increase;58/42 and prior455 held.
+Private continuity snapshot88f48b45aa6b4b15e2a2edf4b8ad8dde98fa3bac14484cf751f627bfbc0f9f02
+at2026-11-17T12:40:53.360117+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest paid dashboard source `ae755950d35e4f1026f2180a9863c331265dc590` adds saved-ready source selection,
 separate paid/run consent, original preview cost/cap/blocker, retained full-cap view
 and native accounting validation. Criteria edits clear consent; reload/unknown-start
