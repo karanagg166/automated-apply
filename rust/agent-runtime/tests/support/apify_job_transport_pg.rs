@@ -4,6 +4,8 @@ use automated_apply_agents::apify_jobs::{
 };
 struct ApifyJobHttp {
     mode: &'static str,
+    recovering: std::sync::atomic::AtomicBool,
+    limit: AtomicUsize,
     started: chrono::DateTime<chrono::Utc>,
     calls: tokio::sync::Mutex<Vec<String>>,
     starts: AtomicUsize,
@@ -16,8 +18,12 @@ fn apify_job_schema() -> Value {
     json!({"type":"object","required":["maxItems"],"additionalProperties":false,"properties":{"maxItems":{"type":"integer","minimum":1,"maximum":100}}})
 }
 fn apify_http_run(status: &str, started: chrono::DateTime<chrono::Utc>) -> Value {
-    let now = chrono::Utc::now();
-    json!({"data":{"id":"originalRun","actId":"originalActor","buildId":"originalBuild","buildNumber":"1.2.3","status":status,"defaultDatasetId":"originalDataset","startedAt":started.to_rfc3339(),"finishedAt":if matches!(status,"SUCCEEDED"|"ABORTED"){json!(now.to_rfc3339())}else{Value::Null},"options":{"build":"1.2.3","timeoutSecs":60,"restartOnError":false,"maxTotalChargeUsd":0.100001,"maxItems":20},"usageTotalUsd":0.01,"meta":{"private":"PRIVATE_APIFY_RUN_CANARY"},"containerUrl":"https://private-fixture.example/never-read"}})
+    json!({"data":{"id":"originalRun","actId":"originalActor","buildId":"originalBuild","buildNumber":"1.2.3","status":status,"defaultDatasetId":"originalDataset","startedAt":started.to_rfc3339(),"finishedAt":if matches!(status,"SUCCEEDED"|"ABORTED"){json!(started.to_rfc3339())}else{Value::Null},"options":{"build":"1.2.3","timeoutSecs":60,"restartOnError":false,"maxTotalChargeUsd":0.100001,"maxItems":20},"usageTotalUsd":0.01,"meta":{"private":"PRIVATE_APIFY_RUN_CANARY"},"containerUrl":"https://private-fixture.example/never-read"}})
+}
+fn apify_fixture_run(f: &ApifyJobHttp, status: &str) -> Value {
+    let mut run = apify_http_run(status, f.started);
+    run["data"]["options"]["maxItems"] = json!(f.limit.load(Ordering::SeqCst));
+    run
 }
 async fn apify_job_response(
     axum::extract::State(f): axum::extract::State<Arc<ApifyJobHttp>>,
@@ -59,7 +65,9 @@ async fn apify_job_response(
     if path == "/v2/actor-builds/originalBuild" {
         assert_eq!(r.method(), "GET");
         assert!(query.is_empty());
-        let schema = if f.mode == "schema_changed" {
+        let schema = if f.mode == "schema_changed"
+            || (f.mode == "read_schema" && f.recovering.load(Ordering::SeqCst))
+        {
             json!({"type":"string"})
         } else {
             apify_job_schema()
@@ -80,7 +88,7 @@ async fn apify_job_response(
         let bytes = axum::body::to_bytes(r.into_body(), 65536).await.unwrap();
         assert_eq!(
             serde_json::from_slice::<Value>(&bytes).unwrap(),
-            json!({"maxItems":20})
+            json!({"maxItems":f.limit.load(Ordering::SeqCst)})
         );
         if f.mode == "rate" {
             return (
@@ -97,13 +105,13 @@ async fn apify_job_response(
             )
                 .into_response();
         }
-        let mut run = apify_http_run(
+        let mut run = apify_fixture_run(
+            &f,
             if matches!(f.mode, "poll" | "stuck") {
                 "RUNNING"
             } else {
                 "SUCCEEDED"
             },
-            f.started,
         );
         if f.mode == "foreign_run" {
             run["data"]["actId"] = json!("otherActor")
@@ -114,27 +122,54 @@ async fn apify_job_response(
         assert_eq!(r.method(), "GET");
         assert!(query.contains("waitForFinish=10"));
         f.statuses.fetch_add(1, Ordering::SeqCst);
-        return axum::Json(apify_http_run(
-            if f.mode == "stuck" {
+        if f.recovering.load(Ordering::SeqCst) && f.mode == "read_hold" {
+            f.entered.notify_one();
+            f.release.notified().await;
+        }
+        if f.recovering.load(Ordering::SeqCst) && f.mode == "read_rate" {
+            return (
+                axum::http::StatusCode::TOO_MANY_REQUESTS,
+                [("retry-after", "3600")],
+                "PRIVATE_READ_RATE_CANARY",
+            )
+                .into_response();
+        }
+        let mut run = apify_fixture_run(
+            &f,
+            if matches!(f.mode, "stuck" | "read_pending") {
                 "RUNNING"
             } else {
                 "SUCCEEDED"
             },
-            f.started,
-        ))
-        .into_response();
+        );
+        if f.mode == "read_foreign" && f.recovering.load(Ordering::SeqCst) {
+            run["data"]["id"] = json!("foreignRun")
+        }
+        return axum::Json(run).into_response();
     }
     if path == "/v2/actor-runs/originalRun/abort" {
         assert_eq!(r.method(), "POST");
         assert!(query.contains("gracefully=false"));
         f.aborts.fetch_add(1, Ordering::SeqCst);
-        return axum::Json(apify_http_run("ABORTED", f.started)).into_response();
+        return axum::Json(apify_fixture_run(&f, "ABORTED")).into_response();
     }
     if path == "/v2/datasets/originalDataset/items" {
         assert_eq!(r.method(), "GET");
         assert!(query.contains("format=json"));
-        assert!(query.contains("offset=0"));
-        assert!(query.contains("limit=20"));
+        let offset = query
+            .split('&')
+            .find_map(|s| s.strip_prefix("offset="))
+            .unwrap()
+            .parse::<usize>()
+            .unwrap();
+        let maximum = f.limit.load(Ordering::SeqCst);
+        assert!(query.contains(&format!("limit={}", 50.min(maximum - offset))));
+        if f.mode.starts_with("read_") && !f.recovering.load(Ordering::SeqCst) {
+            return ([("content-type", "application/json")], "x".repeat(1048577)).into_response();
+        }
+        if f.mode == "read_two_pages" {
+            return axum::Json((offset..offset+if offset==0{50}else{1}).map(|n|json!({"id":format!("fictional_job_{n}"),"url":format!("https://job-fixture.example/{n}"),"companyName":"Fictional Public Employer","title":"Fictional Engineer","description":"Fictional Rust role","location":"Remote"})).collect::<Vec<_>>()).into_response();
+        }
         if f.mode == "oversized" {
             return ([("content-type", "application/json")], "x".repeat(1048577)).into_response();
         }
@@ -168,6 +203,8 @@ async fn apify_job_http(
     let address = listener.local_addr().unwrap();
     let f = Arc::new(ApifyJobHttp {
         mode,
+        recovering: std::sync::atomic::AtomicBool::new(false),
+        limit: AtomicUsize::new(20),
         started: chrono::Utc::now(),
         calls: tokio::sync::Mutex::new(vec![]),
         starts: AtomicUsize::new(0),

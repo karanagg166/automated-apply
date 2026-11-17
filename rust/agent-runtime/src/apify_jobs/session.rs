@@ -269,6 +269,7 @@ impl Session {
         self.journal = next;
         self.pending = true;
         Ok(Permit {
+            read_only: false,
             request: self.grant.id,
             invocation: self.grant.invocation,
             sequence,

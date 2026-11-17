@@ -8,9 +8,8 @@ use super::{
 };
 use crate::{Failure, Result};
 use chrono::Utc;
-use serde_json::{Value, json};
+use serde_json::Value;
 use sqlx::PgConnection;
-use std::collections::{BTreeMap, BTreeSet};
 use uuid::Uuid;
 pub struct Service<'a> {
     pub settings: &'a Settings,
@@ -155,47 +154,24 @@ impl Service<'_> {
             .as_u64()
             .ok_or(Failure("invalid_apify_original_intent"))?;
         let observed = Utc::now();
-        let mut jobs = BTreeMap::<String, Value>::new();
-        let mut conflicts = BTreeSet::<String>::new();
-        let mut rejected = 0_u64;
-        let mut duplicate = 0_u64;
+        let mut selection = super::dataset::Selection::default();
         for offset in (0..limit).step_by(50) {
             let target = session.plan().dataset(run, &build, offset)?;
             let page_limit = 50.min(limit - offset);
-            let page=session.exchange(c,self.client,self.settings,"dataset",target,|plan,body|{
-                let rows=body.as_array().filter(|a|a.len() as u64<=page_limit).ok_or(Failure("apify_dataset_schema_invalid"))?;
-                let mut selected=Vec::new();let mut invalid=0;
-                for row in rows {
-                    match super::record::normalize(plan.portal(),plan.actor["actor_id"].as_str().ok_or(Failure("apify_actor_id_invalid"))?,row,observed){Ok(mut job)=>{
-                        job["data_provenance"]["provider_run_id"]=json!(run.id());job["data_provenance"]["actor_build"]=plan.actor["build"].clone();selected.push(job);
-                    },Err(_)=>invalid+=1}
-                }
-                let page=json!({"offset":offset,"limit":page_limit,"returned":rows.len(),"rejected":invalid,"jobs":selected});Ok((page.clone(),page))
-            }).await?;
-            rejected += page["rejected"]
-                .as_u64()
-                .ok_or(Failure("apify_dataset_schema_invalid"))?;
-            for job in page["jobs"]
-                .as_array()
-                .ok_or(Failure("apify_dataset_schema_invalid"))?
-            {
-                let identity = crate::job_sources::identity::observation_key(job)?;
-                if conflicts.contains(&identity) {
-                    rejected += 1;
-                    continue;
-                }
-                if let Some(previous) = jobs.get(&identity) {
-                    if previous == job {
-                        duplicate += 1
-                    } else {
-                        jobs.remove(&identity);
-                        conflicts.insert(identity);
-                        rejected += 2
-                    }
-                } else {
-                    jobs.insert(identity, job.clone());
-                }
-            }
+            let page = session
+                .exchange(
+                    c,
+                    self.client,
+                    self.settings,
+                    "dataset",
+                    target,
+                    |plan, body| {
+                        let page = super::dataset::page(plan, run.id(), body, offset, observed)?;
+                        Ok((page.clone(), page))
+                    },
+                )
+                .await?;
+            selection.push(&page)?;
             if page["returned"]
                 .as_u64()
                 .ok_or(Failure("apify_dataset_schema_invalid"))?
@@ -204,9 +180,7 @@ impl Service<'_> {
                 break;
             }
         }
-        let rows = jobs.into_values().collect::<Vec<_>>();
-        let at = Utc::now();
-        let finding = json!({"source":session.plan().portal(),"status":if rejected>0{"partial"}else if rows.is_empty(){"no_results"}else{"success"},"jobs":rows,"rejected_count":rejected,"duplicate_count":duplicate,"observed_at":at.to_rfc3339(),"application_dispatch":false,"live_verified":false,"billing_final":false});
+        let finding = selection.finding(session.plan().portal(), Utc::now());
         session.finish_finding(c, finding).await
     }
 }

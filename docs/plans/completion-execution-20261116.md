@@ -1,5 +1,23 @@
 # Complete-source delivery plan — 2026-11-16
 
+Acknowledged read transport detail2026-11-17: consume the separate opaque read claim,
+durably admit status/build/dataset GETs in that order (maximum4), and enforce GET-only
+again in the final transport permit. Original paid Session permits remain separate.
+Before each GET recheck exact original/read rows, credential/current reviewed context,
+full-cap/monthly numeric snapshot, cooldown and45-second deadline. Commit before IO;
+retain only selected typed status/build/page and bounded counts/errors after IO, with
+monotonic cooldown and final ACKs. A pending lost read stays minimum-count/unknown;
+saved replay never rehydrates the claim. Status checkpoints also CAS the original
+selected run so later rounds cannot forget newly acknowledged dataset/terminal/options
+identity; preserve original start intent and original HTTP counters. Successful bounded
+dataset collection retains both selected pages with individual hashes and original
+observation time. Local-only completion reconstructs the full bounded finding, CASes
+it into the original journal and records its read UUID/hash separately. Refuse a fresh
+read round while complete saved pages await local completion. Share pure dataset selection/deduplication with original
+acquisition. Explicit recovery does not start/abort, refund, rotate accounts or apply;
+ordinary owner GET/local-complete remain local. Add controller/transport fixtures after
+source, then owner route/UI pointer source before the final combined gates.
+
 Acknowledged read admission detail2026-11-17: retain the consumed read UUID list,
 last-admitted/next-allowed timestamps and lifetime count inside the original private
 paid journal, initialized at paid intent creation. A separate optional index must not

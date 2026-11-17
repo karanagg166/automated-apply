@@ -229,3 +229,31 @@ pub(super) async fn monthly_snapshot_in(
     .map_err(db)?;
     Ok((row, numeric))
 }
+/// Extend only the original reservation month's cooldown; preserve its exact reserved amount.
+pub(super) async fn cooldown_in(
+    tx: &mut Transaction<'_, Postgres>,
+    reservation: &Value,
+    previous: &(Value, String),
+    until: DateTime<Utc>,
+) -> Result<(Value, String)> {
+    if monthly_snapshot_in(tx, reservation).await? != *previous {
+        return Err(ack());
+    }
+    let mut expected = previous.0.clone();
+    let at: Value = sqlx::query_scalar(
+        "SELECT to_jsonb(GREATEST(($1::jsonb->>'cooldown_until')::timestamptz,$2::timestamptz))",
+    )
+    .bind(&previous.0)
+    .bind(until)
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(db)?;
+    expected["cooldown_until"] = at;
+    let saved:Option<Value>=sqlx::query_scalar("UPDATE discovery_monthly_budgets AS b SET cooldown_until=GREATEST(cooldown_until,$2) WHERE provider='apify' AND month=$1 AND to_jsonb(b)=$3 AND reserved=$4::numeric RETURNING to_jsonb(b)")
+        .bind(reservation["month"].as_str()).bind(until).bind(&previous.0).bind(&previous.1).fetch_optional(&mut **tx).await.map_err(db)?;
+    let result = (expected, previous.1.clone());
+    if saved.as_ref() != Some(&result.0) || monthly_snapshot_in(tx, reservation).await? != result {
+        return Err(ack());
+    }
+    Ok(result)
+}

@@ -156,8 +156,22 @@ fn visible(
                 })
         })
         .ok_or_else(invalid)?;
+    if j["state"] == "finding_retained"
+        && (original["state"] != "finding_retained"
+            || j["finding_hash"] != original["finding_hash"]
+            || original["read_finding"]["schema"] != 1
+            || original["read_finding"]["read_request_id"] != json!(id)
+            || original["read_finding"]["finding_hash"] != j["finding_hash"])
+    {
+        return Err(invalid());
+    }
+    let local_merge = original["read_observation"]["read_request_id"] == json!(id)
+        && super::read_finding::project(original, j, now)?.is_some_and(|finding| {
+            crate::job_sources::access::time(&finding["observed_at"])
+                .is_ok_and(|at| now - at <= chrono::Duration::hours(24))
+        });
     Ok(
-        json!({"request_id":parent,"read_request_id":id,"source":j["source"],"round":ordinal+1,"read_round_limit":3,"read_admissions":1,"recorded_state":j["state"],"status":if j["state"]=="finding_retained"{"finding_retained"}else if now>=expires || !errors.is_empty() || j["operation"]["state"]=="admitted"{"outcome_unknown"}else{"pending"},"run_id":j["run_id"],"admitted_at":j["admitted_at"],"expires_at":j["expires_at"],"http_attempts":attempts,"http_responses":responses,"http_counts_are_minimum":j["operation"]["state"]=="admitted","errors":errors,"finding_retained":j["state"]=="finding_retained","reservation":reservation,"billing_final":false,"provider_start_authorized":false,"provider_abort_authorized":false,"replay_authorized":false,"application_dispatch":false,"live_verified":false,"evidence_basis":"separate_original_acknowledged_run_read_intent"}),
+        json!({"request_id":parent,"read_request_id":id,"source":j["source"],"round":ordinal+1,"read_round_limit":3,"read_admissions":1,"recorded_state":j["state"],"status":if j["state"]=="finding_retained"{"finding_retained"}else if now>=expires || !errors.is_empty() || j["operation"]["state"]=="admitted"{"outcome_unknown"}else{"pending"},"run_id":j["run_id"],"provider_status":j["selected_run"]["status"],"termination_observed":j["selected_run"]["termination_observed"],"independent_termination_verified":false,"admitted_at":j["admitted_at"],"expires_at":j["expires_at"],"http_attempts":attempts,"http_responses":responses,"http_counts_are_minimum":j["operation"]["state"]=="admitted","errors":errors,"finding_retained":j["state"]=="finding_retained","local_merge_available":local_merge,"reservation":reservation,"billing_final":false,"provider_start_authorized":false,"provider_abort_authorized":false,"replay_authorized":false,"application_dispatch":false,"live_verified":false,"evidence_basis":"separate_original_acknowledged_run_read_intent"}),
     )
 }
 async fn originals_in(
@@ -197,7 +211,7 @@ pub struct Claim {
     pub(super) context: Option<ReadContext>,
     pub(super) invocation: Uuid,
     pub(super) expires: DateTime<Utc>,
-    monthly: (Value, String),
+    pub(super) monthly: (Value, String),
 }
 impl Claim {
     pub fn read_request_id(&self) -> Uuid {
@@ -255,6 +269,14 @@ pub async fn admit(
             .await
             .map_err(|_| Failure("apify_read_commit_outcome_unknown"))?;
         return Ok(Admission::Retained(out));
+    }
+    if let Some(previous) = prior.last() {
+        let index = prior.len() - 1;
+        if visible(previous, &original, index, now, &projection["reservation"])?["local_merge_available"]
+            == true
+        {
+            return Err(Failure("apify_read_local_completion_required"));
+        }
     }
     if allowed.ids.len() >= 3 {
         return Err(Failure("apify_read_lifetime_limit"));
@@ -323,15 +345,16 @@ pub(super) async fn assert_original_in(
     settings: &Settings,
     claim: &Claim,
 ) -> Result<()> {
-    if admission::load_in(tx, claim.parent).await?.as_ref() != Some(&claim.original)
-        || load_in(tx, claim.id).await?.as_ref() != Some(&claim.journal)
-        || budget::monthly_snapshot_in(tx, &claim.original["reservation"]).await? != claim.monthly
-    {
-        return Err(ack());
-    }
     let now = clock(tx).await?;
-    let projected = admission::project_in(tx, &claim.original, claim.parent, now).await?;
-    originals_in(tx, &claim.original, now, &projected["reservation"]).await?;
+    verify_saved_in(
+        tx,
+        claim,
+        &claim.journal,
+        &claim.original,
+        &claim.monthly,
+        now,
+    )
+    .await?;
     let plan = settings.plan(
         claim.original["source"].as_str().ok_or_else(invalid)?,
         claim.original["effective_query"].clone(),
@@ -350,24 +373,53 @@ pub(super) async fn assert_original_in(
     }
     Ok(())
 }
+/// Response retention may finish after the dispatch deadline or install a cooldown; it cannot dispatch.
+pub(super) async fn verify_saved_in(
+    tx: &mut Transaction<'_, Postgres>,
+    claim: &Claim,
+    read: &Value,
+    original: &Value,
+    monthly: &(Value, String),
+    now: DateTime<Utc>,
+) -> Result<()> {
+    if admission::load_in(tx, claim.parent).await?.as_ref() != Some(original)
+        || load_in(tx, claim.id).await?.as_ref() != Some(read)
+        || budget::monthly_snapshot_in(tx, &original["reservation"]).await? != *monthly
+    {
+        return Err(ack());
+    }
+    let projected = admission::project_in(tx, original, claim.parent, now).await?;
+    originals_in(tx, original, now, &projected["reservation"]).await?;
+    Ok(())
+}
 pub async fn read(c: &mut PgConnection, parent: Uuid, id: Uuid) -> Result<Value> {
     let mut tx = c.begin().await.map_err(db)?;
     sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         .execute(&mut *tx)
         .await
         .map_err(db)?;
-    let original = admission::load_in(&mut tx, parent)
+    let now = clock(&mut tx).await?;
+    let out = read_in(&mut tx, parent, id, now).await?;
+    tx.commit().await.map_err(db)?;
+    Ok(out)
+}
+pub(super) async fn read_in(
+    tx: &mut Transaction<'_, Postgres>,
+    parent: Uuid,
+    id: Uuid,
+    now: DateTime<Utc>,
+) -> Result<Value> {
+    let original = admission::load_in(tx, parent)
         .await?
         .ok_or(Failure("apify_original_intent_not_found"))?;
-    let now = clock(&mut tx).await?;
-    let projection = admission::project_in(&mut tx, &original, parent, now).await?;
+    let projection = admission::project_in(tx, &original, parent, now).await?;
     let allowed = allowance(&original)?;
     let ordinal = allowed
         .ids
         .iter()
         .position(|v| *v == id)
         .ok_or(Failure("apify_read_intent_not_found"))?;
-    let rows = originals_in(&mut tx, &original, now, &projection["reservation"]).await?;
+    let rows = originals_in(tx, &original, now, &projection["reservation"]).await?;
     let out = visible(
         &rows[ordinal],
         &original,
@@ -375,6 +427,5 @@ pub async fn read(c: &mut PgConnection, parent: Uuid, id: Uuid) -> Result<Value>
         now,
         &projection["reservation"],
     )?;
-    tx.commit().await.map_err(db)?;
     Ok(out)
 }

@@ -2,6 +2,7 @@
 pub mod admission;
 mod budget;
 pub mod controller;
+mod dataset;
 pub mod evidence;
 mod finding;
 pub mod intake;
@@ -9,6 +10,9 @@ pub mod money;
 pub mod plan;
 pub mod read_admission;
 pub mod read_context;
+pub mod read_controller;
+mod read_finding;
+mod read_session;
 pub mod record;
 pub mod runs;
 mod session;

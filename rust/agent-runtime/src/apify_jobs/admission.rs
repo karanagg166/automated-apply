@@ -231,6 +231,7 @@ pub(super) async fn project_in(
     let mut out = json!({"request_id":id,"source":journal["source"],"recorded_state":journal["state"],"status":if journal["state"]=="failed" || errors.as_array().is_some_and(|a|!a.is_empty()) || now>=expires{"outcome_unknown"}else{"pending"},"started_at":journal["started_at"],"expires_at":journal["expires_at"],"start_admissions":1,"provider_start_attempted":start,"provider_response_retained":responses.is_some_and(|n|n>0),"provider_http_attempts":attempts,"provider_http_responses":responses,"http_counts_are_minimum":operation.is_some_and(|v|v["state"]=="admitted"),"run_id":selected_run.map(|v|v["id"].clone()),"dataset_id":null,"jobs":[],"errors":errors,"reservation":reservation,"replay_authorized":false,"account_rotation":false,"application_dispatch":false,"live_verified":false,"evidence_basis":"original_paid_intent_and_selected_checkpoints"});
     out["read_rounds_admitted"] = json!(reads.ids.len());
     out["read_round_limit"] = json!(3);
+    out["last_read_request_id"] = json!(reads.ids.last());
     out["read_next_allowed_at"] = json!(reads.next.map(|at| at.to_rfc3339()));
     if journal["state"] == "finding_retained" {
         if journal["finding_hash"] != crate::python_json::digest(&journal["finding"])

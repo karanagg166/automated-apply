@@ -18,6 +18,9 @@ pub struct ReadTarget {
     target: Target,
 }
 impl ReadTarget {
+    pub(super) fn into_target(self) -> Target {
+        self.target
+    }
     pub fn method(&self) -> &str {
         self.target.method()
     }
@@ -32,6 +35,12 @@ fn invalid() -> Failure {
     Failure("apify_read_original_checkpoint_invalid")
 }
 impl ReadContext {
+    pub(super) fn plan(&self) -> &Plan {
+        &self.plan
+    }
+    pub(super) fn succeeded(&self) -> bool {
+        self.status_observed && self.run.succeeded()
+    }
     /// The durable caller must separately validate the original SQL journal and reservation.
     /// Passing these pure checks cannot dispatch even one GET.
     pub fn from_retained(plan: Plan, journal: &Value, now: DateTime<Utc>) -> Result<Self> {
