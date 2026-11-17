@@ -26,6 +26,19 @@ pub struct Settings {
     provider: &'static str,
     model: Option<String>,
     unavailable: Failure,
+    fallback_policy: crate::local_fallback::Policy,
+    fallback: Option<LocalWriter>,
+}
+struct LocalWriter {
+    writer: Result<crate::ollama::OllamaModel>,
+    model: String,
+}
+struct Generation {
+    call: crate::provider::WritingAttempt,
+    provider: &'static str,
+    model: Option<String>,
+    primary_attempted: bool,
+    fallback: bool,
 }
 enum Writer {
     Cohere(CohereModel),
@@ -33,20 +46,89 @@ enum Writer {
     Ollama(crate::ollama::OllamaModel),
     Cli(crate::cli_provider::CliModel),
 }
+impl Writer {
+    async fn write(
+        &self,
+        c: &mut PgConnection,
+        writing: &Writing,
+        deadline: tokio::time::Instant,
+    ) -> crate::provider::WritingAttempt {
+        match self {
+            Self::Cohere(p) => {
+                p.write_answer_until(
+                    c,
+                    &writing.request.question,
+                    &writing.context,
+                    &writing.instructions,
+                    Some(deadline),
+                )
+                .await
+            }
+            Self::Gemini(p) => {
+                p.write_answer(
+                    c,
+                    &writing.request.question,
+                    &writing.context,
+                    &writing.instructions,
+                    Some(deadline),
+                )
+                .await
+            }
+            Self::Ollama(p) => {
+                p.write_answer(
+                    c,
+                    &writing.request.question,
+                    &writing.context,
+                    &writing.instructions,
+                    Some(deadline),
+                )
+                .await
+            }
+            Self::Cli(p) => {
+                p.write_answer(
+                    c,
+                    &writing.request.question,
+                    &writing.context,
+                    &writing.instructions,
+                    Some(deadline),
+                )
+                .await
+            }
+        }
+    }
+}
+fn unavailable_attempt(error: Failure) -> crate::provider::WritingAttempt {
+    crate::provider::WritingAttempt {
+        attempted: false,
+        content: None,
+        error: Some(error),
+        input: None,
+        output: None,
+        retry_after: None,
+    }
+}
 impl Settings {
     /// The questionnaire runner may use only the separately authorized Cohere writer for narratives.
     pub(crate) fn questionnaire_cohere_ready(&self) -> bool {
-        self.provider == "cohere" && matches!(self.writing.as_ref(), Some(Writer::Cohere(_)))
+        self.provider == "cohere"
+            && self.fallback.is_none()
+            && matches!(self.writing.as_ref(), Some(Writer::Cohere(_)))
     }
 
     pub(crate) fn share_gate(&mut self, gate: std::sync::Arc<tokio::sync::Semaphore>) {
         if let Some(model) = &mut self.writing {
             match model {
-                Writer::Cohere(model) => model.share_gate(gate),
-                Writer::Gemini(model) => model.gate = gate,
-                Writer::Ollama(model) => model.gate = gate,
-                Writer::Cli(model) => model.gate = gate,
+                Writer::Cohere(model) => model.share_gate(gate.clone()),
+                Writer::Gemini(model) => model.gate = gate.clone(),
+                Writer::Ollama(model) => model.gate = gate.clone(),
+                Writer::Cli(model) => model.gate = gate.clone(),
             }
+        }
+        if let Some(LocalWriter {
+            writer: Ok(model), ..
+        }) = &mut self.fallback
+        {
+            model.gate = gate;
         }
     }
     pub fn from_values(
@@ -80,7 +162,18 @@ impl Settings {
             provider,
             model,
             unavailable: Failure("llm_not_configured"),
+            fallback_policy: crate::local_fallback::Policy::from_values(values, provider)?,
+            fallback: None,
         };
+        if out.fallback_policy.enabled {
+            out.fallback = Some(LocalWriter {
+                writer: crate::ollama::OllamaModel::from_values(values, fixture),
+                model: values
+                    .get("OLLAMA_MODEL")
+                    .expect("enabled local model")
+                    .clone(),
+            });
+        }
         if provider == "cohere" && out.model.is_some() {
             if !boolean(values, "COHERE_ENABLED", false)? {
                 out.unavailable = Failure("provider_permission_required");
@@ -109,6 +202,52 @@ impl Settings {
             }
         }
         Ok(out)
+    }
+    async fn write(&self, c: &mut PgConnection, writing: &Writing) -> Generation {
+        let (primary_deadline, original_deadline) = self.fallback_policy.deadlines();
+        let primary = match &self.writing {
+            Some(writer) => writer.write(c, writing, primary_deadline).await,
+            None => unavailable_attempt(self.unavailable),
+        };
+        let eligible = primary.error.is_some_and(crate::local_fallback::permitted);
+        let primary_attempted = primary.attempted;
+        if eligible {
+            if let Some(local) = &self.fallback {
+                // A spent/unknown ledger is never cancelled or refunded to make room.
+                let call = if let Err(error) = crate::local_fallback::remaining(original_deadline) {
+                    unavailable_attempt(error)
+                } else {
+                    match &local.writer {
+                        Ok(writer) => {
+                            writer
+                                .write_answer(
+                                    c,
+                                    &writing.request.question,
+                                    &writing.context,
+                                    &writing.instructions,
+                                    Some(original_deadline),
+                                )
+                                .await
+                        }
+                        Err(error) => unavailable_attempt(*error),
+                    }
+                };
+                return Generation {
+                    call,
+                    provider: "ollama",
+                    model: Some(local.model.clone()),
+                    primary_attempted,
+                    fallback: true,
+                };
+            }
+        }
+        Generation {
+            call: primary,
+            provider: self.provider,
+            model: self.model.clone(),
+            primary_attempted: false,
+            fallback: false,
+        }
     }
 }
 fn db(error: sqlx::Error) -> Failure {
@@ -472,64 +611,17 @@ pub async fn generate(
     // No profile/evidence locks or read transaction survive a provider wait.
     tx.commit().await.map_err(db)?;
     let mut result = answer_contract::result(writing.category, &writing.request.writing_style);
-    result["provider"] = json!(settings.provider);
-    result["model"] = json!(settings.model);
-    let Some(provider) = &settings.writing else {
-        result["status"] = json!("provider_unavailable");
-        result["error_code"] = json!(settings.unavailable.0);
-        if matches!(
-            settings.unavailable.0,
-            "llm_not_configured" | "unsupported_provider"
-        ) {
-            result["missing_information"] = json!([
-                "Enable a configured local Ollama model or an independently authorized remote provider to generate narrative drafts"
-            ]);
+    let selected = settings.write(connection, &writing).await;
+    result["provider"] = json!(selected.provider);
+    result["model"] = json!(selected.model);
+    if selected.fallback {
+        result["warnings"].as_array_mut().expect("warnings").push(json!("The primary provider was unavailable; an explicitly enabled local Ollama fallback was selected."));
+        if selected.primary_attempted {
+            result["warnings"].as_array_mut().expect("warnings").push(json!("The primary request reservation remains consumed; usage describes only the selected local attempt."));
         }
-        return Ok(result);
-    };
-    let call = match provider {
-        Writer::Cohere(provider) => {
-            provider
-                .write_answer(
-                    connection,
-                    &writing.request.question,
-                    &writing.context,
-                    &writing.instructions,
-                )
-                .await
-        }
-        Writer::Gemini(provider) => {
-            provider
-                .write_answer(
-                    connection,
-                    &writing.request.question,
-                    &writing.context,
-                    &writing.instructions,
-                )
-                .await
-        }
-        Writer::Ollama(provider) => {
-            provider
-                .write_answer(
-                    connection,
-                    &writing.request.question,
-                    &writing.context,
-                    &writing.instructions,
-                )
-                .await
-        }
-        Writer::Cli(provider) => {
-            provider
-                .write_answer(
-                    connection,
-                    &writing.request.question,
-                    &writing.context,
-                    &writing.instructions,
-                )
-                .await
-        }
-    };
-    result["used_llm"] = json!(call.attempted);
+    }
+    let call = selected.call;
+    result["used_llm"] = json!(call.attempted || selected.primary_attempted);
     if call.input.is_some() || call.output.is_some() || call.content.is_some() {
         result["usage"] = json!({"input_tokens":call.input,"output_tokens":call.output});
     }
@@ -540,6 +632,11 @@ pub async fn generate(
             "provider_unavailable"
         });
         result["error_code"] = json!(error.0);
+        if matches!(error.0, "llm_not_configured" | "unsupported_provider") {
+            result["missing_information"] = json!([
+                "Enable a configured local Ollama model or an independently authorized remote provider to generate narrative drafts"
+            ]);
+        }
         if let Some(seconds) = call.retry_after {
             result["retry_after_seconds"] = json!(seconds as f64);
         }
@@ -585,9 +682,9 @@ pub async fn generate(
         result["status"] = json!("draft_ready");
         result["answer"] = json!(content.answer);
         result["evidence_references"] = json!(content.evidence_references);
-        result["warnings"] = json!([
+        result["warnings"].as_array_mut().expect("warnings").push(json!(
             "Factual checks are conservative safeguards, not verification; review every narrative claim"
-        ]);
+        ));
     }
     let result = finish(&mut tx, &writing.request, result, false).await?;
     tx.commit().await.map_err(db)?;

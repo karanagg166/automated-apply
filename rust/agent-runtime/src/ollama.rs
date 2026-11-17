@@ -156,6 +156,7 @@ impl OllamaModel {
         question: &str,
         context: &Value,
         instructions: &Value,
+        deadline: Option<tokio::time::Instant>,
     ) -> WritingAttempt {
         let mut attempt = WritingAttempt {
             attempted: false,
@@ -176,7 +177,12 @@ impl OllamaModel {
             let key = monthly::reserve_ollama(connection, self.requests).await?;
             reserved = Some(key);
             attempt.attempted = true;
-            tokio::time::timeout(self.timeout, async {
+            let timeout = deadline
+                .map(crate::local_fallback::remaining)
+                .transpose()?
+                .unwrap_or(self.timeout)
+                .min(self.timeout);
+            tokio::time::timeout(timeout, async {
                 // Only public daemon/model metadata is sent before locality is established.
                 self.local_metadata().await?;
                 let value = read(

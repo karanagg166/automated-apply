@@ -16,6 +16,7 @@ pub mod contracts;
 pub mod engine;
 pub mod evidence_retrieval;
 pub mod extractive;
+mod local_fallback;
 pub mod people_research;
 pub mod postgres;
 pub mod runner;

@@ -142,6 +142,7 @@ impl GeminiModel {
         question: &str,
         context: &Value,
         instructions: &Value,
+        deadline: Option<tokio::time::Instant>,
     ) -> WritingAttempt {
         let mut attempt = WritingAttempt {
             attempted: false,
@@ -160,12 +161,15 @@ impl GeminiModel {
                 .map_err(|_| Failure("provider_busy"))?;
             let month = monthly::reserve_gemini(connection, self.requests, self.approved).await?;
             attempt.attempted = true;
-            let response = self
+            let request = self
                 .client
                 .post(&self.endpoint)
                 .header("x-goog-api-key", &self.key)
                 .header("Content-Type", "application/json")
-                .body(body)
+                .body(body);
+            let deadline =
+                deadline.map(|d| d.min(tokio::time::Instant::now() + Duration::from_secs(30)));
+            let response = crate::local_fallback::request(request, deadline)?
                 .send()
                 .await
                 .map_err(|e| {

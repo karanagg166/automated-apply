@@ -106,7 +106,7 @@ async fn framed_mcp_discovery_preserves_missing_original_uuid_and_never_dispatch
         let response:Value=serde_json::from_str(&raw).unwrap();assert_eq!(response["id"],expected);
         match expected {
             1=>{input.write_all(b"{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}\n").await.unwrap();},
-            2=>assert!(response["result"]["isError"]!=true),
+            2=>{assert!(response["result"]["isError"]!=true);assert!(response["result"]["structuredContent"]["sources"].is_array());},
             3=>{assert_eq!(response["result"]["isError"],true);assert_eq!(response["result"]["structuredContent"]["retained_attempt"]["run_id"],json!(id));assert_eq!(response["result"]["structuredContent"]["automatic_retry"],false);},
             4=>assert!(response["error"].is_object() || response["result"]["isError"]==true),
             _=>unreachable!(),

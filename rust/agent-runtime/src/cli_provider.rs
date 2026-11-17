@@ -47,6 +47,7 @@ impl CliModel {
         question: &str,
         context: &serde_json::Value,
         instructions: &serde_json::Value,
+        original_deadline: Option<Instant>,
     ) -> WritingAttempt {
         let mut attempt = WritingAttempt {
             attempted: false,
@@ -76,7 +77,10 @@ impl CliModel {
             let month = monthly::reserve_cli(connection, self.requests).await?;
             attempt.attempted = true;
             reservation = Some(month);
-            let deadline = Instant::now() + self.timeout + Duration::from_secs(5);
+            let local_deadline = Instant::now() + self.timeout + Duration::from_secs(5);
+            let deadline = original_deadline
+                .map(|d| d.min(local_deadline))
+                .unwrap_or(local_deadline);
             let scratch = settings::scratch(self)?;
             settings::write_schema(&scratch.join("answer.schema.json"))?;
             process::discover(self, deadline.saturating_duration_since(Instant::now())).await?;

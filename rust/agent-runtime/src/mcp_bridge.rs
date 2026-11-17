@@ -203,7 +203,16 @@ impl Bridge {
             }
             bytes.extend_from_slice(&chunk);
         }
-        serde_json::from_slice(&bytes).map_err(|_| Failure("mcp_response_invalid"))
+        let value: Value =
+            serde_json::from_slice(&bytes).map_err(|_| Failure("mcp_response_invalid"))?;
+        if matches!(name, "discovery_sources" | "startup_sources") {
+            if !value.is_array() {
+                return Err(Failure("mcp_response_invalid"));
+            }
+            Ok(json!({"sources":value,"provider_calls":0,"writes":0,"application_dispatch":false}))
+        } else {
+            Ok(value)
+        }
     }
 }
 fn definition(name: &'static str, description: &'static str, schema: Value, read: bool) -> Tool {

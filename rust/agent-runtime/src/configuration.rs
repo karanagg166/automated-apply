@@ -268,6 +268,7 @@ impl Configuration {
         {
             let mut selected = values.clone();
             selected.insert("LLM_PROVIDER".into(), "cohere".into());
+            selected.insert("LLM_LOCAL_FALLBACK_ENABLED".into(), "false".into());
             Some(crate::answer_service::Settings::from_values(
                 &selected,
                 fixture,
@@ -547,6 +548,28 @@ mod questionnaire_tests {
                 "http://127.0.0.1:54321/v2/chat".into(),
             ),
         ])
+    }
+    #[test]
+    fn general_local_fallback_never_enters_the_cohere_only_questionnaire_writer() {
+        let mut v = values();
+        for (key, value) in [
+            ("COHERE_ENABLED", "true"),
+            ("COHERE_CANDIDATE_DATA_AUTHORIZED", "true"),
+            ("LLM_LOCAL_FALLBACK_ENABLED", "true"),
+            ("OLLAMA_ENABLED", "true"),
+            ("OLLAMA_MODEL", "fixture:local"),
+            ("RUST_OLLAMA_FIXTURE_ENDPOINT", "http://127.0.0.1:54321"),
+        ] {
+            v.insert(key.into(), value.into());
+        }
+        let config = Configuration::from_values(&v).unwrap();
+        assert!(
+            config
+                .questionnaire_answers
+                .as_ref()
+                .unwrap()
+                .questionnaire_cohere_ready()
+        );
     }
     #[test]
     fn questionnaire_cohere_scope_requires_both_saved_enable_and_candidate_consent_without_replacing_default_writer()

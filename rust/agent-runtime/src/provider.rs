@@ -172,6 +172,17 @@ impl CohereModel {
         context: &Value,
         instructions: &Value,
     ) -> WritingAttempt {
+        self.write_answer_until(connection, question, context, instructions, None)
+            .await
+    }
+    pub(crate) async fn write_answer_until(
+        &self,
+        connection: &mut sqlx::PgConnection,
+        question: &str,
+        context: &Value,
+        instructions: &Value,
+        deadline: Option<tokio::time::Instant>,
+    ) -> WritingAttempt {
         let mut attempt = WritingAttempt {
             attempted: false,
             content: None,
@@ -198,7 +209,7 @@ impl CohereModel {
                 .map_err(|_| Failure("provider_busy"))?;
             let month = monthly::reserve(connection, self.policy).await?;
             attempt.attempted = true;
-            let response = self.send(body).await;
+            let response = self.send_until(body, deadline).await;
             if matches!(response, Err(Failure("rate_limited"))) {
                 monthly::cooldown(connection, &month, 60).await?;
             }
@@ -235,13 +246,23 @@ impl CohereModel {
         attempt
     }
     async fn send(&self, encoded: Vec<u8>) -> Result<CloudResponse> {
-        let response = self
+        self.send_until(encoded, None).await
+    }
+    async fn send_until(
+        &self,
+        encoded: Vec<u8>,
+        deadline: Option<tokio::time::Instant>,
+    ) -> Result<CloudResponse> {
+        let request = self
             .client
             .post(&self.endpoint)
             .bearer_auth(&self.key)
             .header("Content-Type", "application/json")
             .header("X-Client-Name", "automated-apply-evaluation")
-            .body(encoded)
+            .body(encoded);
+        let deadline =
+            deadline.map(|d| d.min(tokio::time::Instant::now() + Duration::from_secs(18)));
+        let response = crate::local_fallback::request(request, deadline)?
             .send()
             .await
             .map_err(|_| Failure("cohere_transport_error"))?;
