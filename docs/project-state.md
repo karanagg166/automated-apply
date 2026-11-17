@@ -1,3 +1,17 @@
+Latest paid dashboard source `ae755950d35e4f1026f2180a9863c331265dc590` adds saved-ready source selection,
+separate paid/run consent, original preview cost/cap/blocker, retained full-cap view
+and native accounting validation. Criteria edits clear consent; reload/unknown-start
+pointers persist and retained findings complete locally without another PUT. Four
+component+three helper+one browser declaration are UNRUN; no new browser/screenshot.
+See [qualified paid dashboard report](acceptance/paid-discovery-dashboard-source-20261117.md).
+Continue bounded acknowledged-run read recovery, startup/UI and remaining agreed
+runtime/provider/tool/platform source before combined tests. No current tests/build/
+check/native live/install or percentage increase;58/42 and prior455 held. No actual
+production/paid/browser operations.
+Private continuity snapshotdcf334582ca2cc3d3e4df1ae5b27e30379333d5c22b7db2225207a43dff2e730
+at2026-11-17T12:33:01.705127+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest reviewed paid owner HTTP source `c9ab52784201505cf755805ea91bae4cd876cb2d` (implementation3c233ac) extends
 existing authenticated discovery routes with separate paid original-key namespace,
 saved native-kind reads/local completion, preview cost/cap/blocker and native registry
