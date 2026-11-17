@@ -95,6 +95,29 @@ impl Regex {
                     .map(|found| text[offsets[found.start()]..offsets[found.end()]].into())
             }))
     }
+    pub fn first_groups(&self, text: &str) -> Result<Option<Vec<Option<Match>>>> {
+        let (input, offsets) = projected(text, self.insensitive);
+        self.regex
+            .captures(&input)
+            .map_err(|_| Failure("grounding_pattern_limit"))
+            .map(|groups| {
+                groups.map(|groups| {
+                    (0..groups.len())
+                        .map(|index| {
+                            groups.get(index).map(|found| {
+                                let start = offsets[found.start()];
+                                let end = offsets[found.end()];
+                                Match {
+                                    start,
+                                    end,
+                                    text: text[start..end].into(),
+                                }
+                            })
+                        })
+                        .collect()
+                })
+            })
+    }
     pub fn split<'a>(&self, text: &'a str) -> Result<Vec<&'a str>> {
         let mut result = Vec::new();
         let mut start = 0;

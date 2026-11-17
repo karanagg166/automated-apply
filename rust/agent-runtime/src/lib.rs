@@ -13,6 +13,7 @@ pub mod apify_metadata;
 mod cli_provider;
 pub mod context_contract;
 pub mod contracts;
+pub mod conversation;
 pub mod engine;
 pub mod evidence_retrieval;
 pub mod extractive;
