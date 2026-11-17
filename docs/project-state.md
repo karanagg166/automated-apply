@@ -7,6 +7,21 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest owner-run scope source `1e8734c4e213d9d2feaaa53d8dcb3c92a5bd946b` freezes
+actual RunRequest/defaults/hash, explicit versus effective query expansion and private
+profile UUID/version/content pin. Public scope refuses manual/unsupported records and
+copies no raw candidate facts into plans. Four standard declarations (72 actual
+comparisons plus pin/size/privacy guards) are UNRUN.
+See [qualified owner-run scope report](acceptance/public-owner-run-scope-source-20261117.md).
+Continue parent/child original scope admission, atomic SQL job/company/observation/
+receipt intake with current context/TTL/history preservation, startup orchestration,
+owner dashboard, reviewed Apify execution and remaining agreed source before combined
+gates. No current tests/build/check/native live/install or estimate increase; 58/42
+and prior455 held. Full host uninstalled; new domain source is not host connected.
+Private continuity snapshot f0c7456b621a084b5418e52ead4ab6437f18e53d718987fe96651be2c709a1c8
+at 2026-11-17T09:50:07.192024+00:00 preserves104 indexed /6 available /98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest local intake rules source `a1da12b32e5bb7131782baed958c84fc46b20f4f`
 ports actual source/board/ID/URL keys, conservative content identity and explicit versus
 profile-expanded discovery filtering. Unknown evidence stays visible without becoming
