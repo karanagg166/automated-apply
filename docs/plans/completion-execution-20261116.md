@@ -1,5 +1,16 @@
 # Complete-source delivery plan — 2026-11-16
 
+Public request planning design 2026-11-17: enumerate only seven fixed source origins
+and reviewed configured board IDs, with query/page/record bounds from the actual DTO.
+Construct SmartRecruiters details from validated posting IDs and HN comment requests
+from validated original story IDs; never follow provider ref/pagination/result URLs.
+Use deterministic sorted configured board order in the native request snapshot (a
+documented difference from legacy JSON insertion order); include the exact order/region
+and employer binding in future original admission hashes. This pure planner returns
+closed GET targets, not a transport grant. Then compose durable owner-first source
+window admission, nonrenewable original invocation, fixed no-proxy/retry/redirect GETs,
+bounded complete pagination and retained findings before separate local ingestion.
+
 Public provider parsing design 2026-11-17: port the seven existing public adapters'
 record parsers over the actual normalized job contract, without transport authority.
 Preserve operator board/employer attribution, exact hosted posting/application identity,

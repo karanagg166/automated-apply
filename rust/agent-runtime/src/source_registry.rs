@@ -26,6 +26,7 @@ const PUBLIC: &[&str] = &[
 ];
 pub struct Settings {
     boards: BTreeMap<String, Value>,
+    lever_region: String,
     actors: Map<String, Value>,
     routes: Map<String, Value>,
     apify_token_present: bool,
@@ -108,6 +109,10 @@ impl Settings {
             .transpose()?;
         Ok(Self {
             boards,
+            lever_region: values
+                .get("LEVER_REGION")
+                .cloned()
+                .unwrap_or_else(|| "global".into()),
             actors,
             routes,
             apify_token_present: present("APIFY_API_TOKEN"),
@@ -278,6 +283,12 @@ impl Settings {
             output.push(row);
         }
         json!({"sources":output,"evidence_basis":"saved_configuration_not_current_provider_probe","provider_calls":0,"writes":0})
+    }
+    pub(crate) fn public_boards(&self, source: &str) -> Option<&Value> {
+        self.boards.get(source)
+    }
+    pub(crate) fn lever_region(&self) -> &str {
+        &self.lever_region
     }
     pub fn apify_settings(&self, now: DateTime<Utc>) -> Value {
         let sources = self.jobs(now)["sources"]

@@ -93,6 +93,17 @@ resolve; the already-open official page references resolved successfully.
 
 # Apify metadata follow-up — 2026-11-17
 
+Public transport follow-up 2026-11-17: [SmartRecruiters endpoints](https://developers.smartrecruiters.com/docs/endpoints)
+document public active posting lists/detail; authenticated/internal posting access is
+outside this adapter. [Remotive's primary README](https://github.com/remotive-com/remote-jobs-api/blob/main/README.md)
+advises at most four reads daily; retain the existing six-hour source window and source
+attribution. The [HN API documentation page](https://hn.algolia.com/api) was accessible
+only as a JavaScript shell, so no additional schema assurance is inferred. A web research
+open of Arbeitnow's official public endpoint returned a current JSON sample. That was one
+public read through the research tool, without runtime admission, local ingestion,
+credentials or owner data. It is not native adapter/live operational acceptance. Further
+source work uses fictional fixtures; no additional live feed probe is part of this phase.
+
 Public ATS follow-up: primary [Greenhouse Job Board API](https://docs.greenhouse.io/job-board),
 [Lever public posting fields](https://github.com/lever/postings-api/blob/master/README.md)
 and [Ashby public posting API](https://developers.ashbyhq.com/docs/public-job-posting-api)
