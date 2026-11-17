@@ -91,3 +91,17 @@ from mailbox verification and current-employer/profile reconciliation. No provid
 was made during this research. Initial URL-based documentation click IDs failed to
 resolve; the already-open official page references resolved successfully.
 
+# Apify metadata follow-up — 2026-11-17
+
+Primary references: [account limits](https://docs.apify.com/api/v2/users-me-limits-get)
+and [monthly usage](https://docs.apify.com/api/v2/users-me-usage-monthly-get).
+The documented limits envelope contains monthlyUsageCycle, numeric limits and current
+usage; monthly usage has usageCycle, service/daily breakdowns and two numeric aggregate
+credit totals. The native projection keeps only documented numeric fields and cycle
+timestamps. Credits, local reservations and the provider's spending ceiling remain
+separate; these reads do not authorize runs. Existing actual provider source defines
+the actor/public OpenAPI path and selected store metadata. Pure oracle fixtures will
+compare the actual schema extractor and Python sorted-JSON digest; bounded loopback
+fixtures will exercise transport without actual account requests. These are research
+findings and deferred fixture declarations, not live acceptance.
+

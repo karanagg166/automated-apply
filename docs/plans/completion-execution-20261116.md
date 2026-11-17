@@ -1,5 +1,20 @@
 # Complete-source delivery plan — 2026-11-16
 
+Apify metadata design 2026-11-17: implement a read-only fixed official API client,
+separate from actor execution and connected MCP credentials. Actor/store calls are
+public without an authorization header; only the two account endpoints use the local
+sensitive bearer header. No arbitrary URL/path, proxy, retry, redirect, run, dataset or
+POST operation is exposed. Bound each streamed JSON response to 1 MiB, each composite
+inspection to 20 seconds and each request to 15 seconds. Fixture origin substitution
+requires explicit fixture mode and exact numeric loopback. Freeze the actual actor
+metadata/inspect DTOs. Extract only a unique POST input schema with local component
+references; never resolve external references or execute defaults. Preserve the legacy
+sorted Python JSON schema digest. Account output deliberately narrows legacy arbitrary
+payloads to documented numeric limits/current/totals and validated cycle timestamps;
+unknown fields and daily/service blobs cannot expose account PII. Treat this as observed
+metadata, never current credit entitlement, pinned-build review or dispatch authority.
+Follow with owner-fenced pacing/cache and owner routes before actor execution work.
+
 Research owner/dashboard design 2026-11-17: add native-only UUID PUT/GET request paths
 and pure saved configuration status. Reject unkeyed legacy native search POST before any
 database/provider operation. Share the existing transient permit, owner boundary and one

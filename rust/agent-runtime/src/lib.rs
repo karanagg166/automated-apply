@@ -8,6 +8,7 @@ pub mod answer_reuse;
 pub mod answer_service;
 pub mod answer_store;
 pub mod apify_config;
+pub mod apify_metadata;
 pub mod context_contract;
 pub mod contracts;
 pub mod engine;

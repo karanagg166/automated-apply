@@ -1,0 +1,76 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "actor_id": {
+      "title": "Actor Id",
+      "type": "string"
+    },
+    "collection_status": {
+      "const": "disabled_pending_review",
+      "default": "disabled_pending_review",
+      "title": "Collection Status",
+      "type": "string"
+    },
+    "input_schema": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Input Schema"
+    },
+    "observed_at": {
+      "format": "date-time",
+      "title": "Observed At",
+      "type": "string"
+    },
+    "pricing": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Pricing",
+      "type": "array"
+    },
+    "schema_digest": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Schema Digest"
+    },
+    "source_url": {
+      "title": "Source Url",
+      "type": "string"
+    },
+    "title": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Title"
+    }
+  },
+  "required": [
+    "actor_id",
+    "observed_at",
+    "source_url"
+  ],
+  "title": "ActorMetadata",
+  "type": "object"
+}
