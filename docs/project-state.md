@@ -7,6 +7,20 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest original Apify transport source `f729b4fdf6dee414ef0cd4b5e85dc8ca3a1427e1` checkpoints every fixed
+operation, selected run/reservation attachment, bounded polling/build/dataset findings
+and qualified original abort before separate local intake. Replays cannot reconstruct
+sessions/start again; uncertain counters are minimum observed values and full caps stay
+retained. One standard+eleven PG/HTTP declarations are UNRUN.
+See [qualified original Apify transport report](acceptance/apify-original-transport-source-20261117.md).
+Continue guarded paid finding-to-job local SQL/receipt/parent integration, owner routes/
+dashboard, bounded known-run recovery and remaining source before combined gates.
+No current tests/build/check/provider/production/install or estimate increase;58/42/
+prior455 held. New native host uninstalled; paid local intake explicitly incomplete.
+Private continuity snapshot 101d07e529c66a888dd0a74ec954dbf637757a62ee7b10bcacdbfaa6a2bd00dd
+at2026-11-17T12:00:31.789635+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest original Apify USD source `0addb65d466628ee3338e2433cf0957791461fc2` atomically reserves the full
 exact cap/monthly total and original request/profile/configuration/invocation/deadline.
 Independent ACKs include exact numeric totals and global cooldown after journal triggers.
