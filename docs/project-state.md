@@ -2,6 +2,10 @@
 
 The active goal limits delivery to the owner’s laptop. GitHub pushes, pull requests, remote reports, hosted Actions and merges remain suspended until the owner reauthorizes them. Finish source and fixtures, run combined validation, then install and verify locally. See the [completion plan](plans/completion-execution-20261116.md).
 
+Local source `5d47c49` ties Rust release staging to the checksums of a clean combined run and retains separate Brave and Edge packages. The 36-stage plan adds the optimized build and checksum inventory. A private rollback snapshot preserved nine installed definitions and verified 16 referenced paths. Release build, staging and restore acceptance remain pending. See the [local release checkpoint](acceptance/rust-release-package-local-source-20261118.md).
+
+Private continuity snapshot `e5a45cf1da7108d3c942f60a826d94a367e9c9ab6c6905fc285868160ed9852c` at `2026-11-17T21:57:27.290496+00:00` preserved six available transcripts from 104 indexed threads. The other 98 transcripts remain missing.
+
 Local source `23ceb62` adds a Node launcher for the dashboard's standalone Rust release and a fixture for both authenticated dashboard API routes through one private Unix socket. The combined plan now has 35 stages. A passive launchd inventory confirmed that the installed API, execution service and dashboard still use Python launchers. The new dashboard launch fixture awaits the combined run. See the [dashboard cutover checkpoint](acceptance/frontend-rust-cutover-local-source-20261118.md).
 
 Private continuity snapshot `9d057f2fb134e05fef9562adec41ca4aba5200603a636a2040240672c3ccdb12` at `2026-11-17T21:37:39.916304+00:00` preserved six available transcripts from 104 indexed threads. The other 98 transcripts remain missing.
