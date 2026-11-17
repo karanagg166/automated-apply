@@ -7,6 +7,18 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest paid research admission source `b8b83b7577271a572408cfdcb213cc20efedf215`
+adds saved credential/rights/domain/paid gates, original UUID intents/30-second opaque
+grants and exact local search-request reservations. Replays/GET cannot rebuild grants;
+expired unresolved reads stay unknown. Manual/paid mode changes conflict. Shared ledger
+uses a separate serper/people_ namespace and post-trigger acknowledgments, never a
+provider credit/dollar claim. Two standard and nine PG declarations are UNRUN.
+See [qualified original research admission report](acceptance/people-search-admission-source-20261117.md).
+Continue fixed Serper transport, retained parsed findings, conservative local completion,
+native UUID owner endpoint/dashboard recovery and remaining agreed full source before
+combined gates. No current tests/build/check/live/install or estimate increase; 58/42 and
+prior 455 held. Full host uninstalled; no actual provider/budget operation occurred.
+
 Latest manual people source `4418abc52f8ef78d4387c87bc3898b4a64195d9e` adds atomic
 UUID receipts/public-person/contact ingestion, exact replay, domain/rights/identity
 guards and retained privacy. Existing confirmed rows, suppression/corrections/review
