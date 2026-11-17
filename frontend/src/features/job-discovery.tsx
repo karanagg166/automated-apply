@@ -24,6 +24,16 @@ import {
   type DiscoveryAttempt,
 } from "./job-discovery-attempt";
 import {
+  inspectDiscoveryRead,
+  paidDiscoverySource,
+  prepareNextDiscoveryRead,
+  readDiscoveryReadAttempt,
+  recoverDiscoveryRead,
+  type DiscoveryReadAttempt,
+  type DiscoveryReadResult,
+  type DiscoveryReadState,
+} from "./job-discovery-read-attempt";
+import {
   Badge,
   Button,
   ErrorState,
@@ -163,6 +173,13 @@ export function JobDiscovery() {
   const [attempt, setAttempt] = useState<DiscoveryAttempt | null>(null);
   const [attemptLoaded, setAttemptLoaded] = useState(false);
   const [attemptError, setAttemptError] = useState<unknown>(null);
+  const [readAttempt, setReadAttempt] = useState<DiscoveryReadAttempt | null>(
+    null,
+  );
+  const [readResult, setReadResult] = useState<DiscoveryReadResult | null>(
+    null,
+  );
+  const [readConsent, setReadConsent] = useState(false);
 
   const sourcesQuery = useQuery({
     queryKey: ["discovery-sources"],
@@ -236,11 +253,56 @@ export function JobDiscovery() {
     },
   });
 
+  const applyReadState = (data: DiscoveryReadState) => {
+    setRunResult(data.run);
+    setReadAttempt(data.attempt);
+    setReadResult(data.read);
+    setAttempt(readDiscoveryAttempt());
+    setSelectedSource(data.run.source);
+    client.invalidateQueries({ queryKey: ["jobs"] });
+  };
+  const inspectReadMutation = useMutation({
+    mutationFn: inspectDiscoveryRead,
+    onSuccess: applyReadState,
+  });
+  const recoverReadMutation = useMutation({
+    mutationFn: (mayRead: boolean) => recoverDiscoveryRead(mayRead),
+    onSuccess: applyReadState,
+    onSettled: () => {
+      setReadConsent(false);
+      try {
+        setReadAttempt(readDiscoveryReadAttempt());
+      } catch (error) {
+        setAttemptError(error);
+      }
+    },
+  });
+  const nextReadMutation = useMutation({
+    mutationFn: prepareNextDiscoveryRead,
+    onSuccess: (pointer) => {
+      setReadAttempt(pointer);
+      setReadResult(null);
+      setReadConsent(false);
+      inspectReadMutation.reset();
+      recoverReadMutation.reset();
+    },
+  });
   const inspectMutation = useMutation({
     mutationFn: inspectDiscovery,
     onSuccess: (data) => {
       setRunResult(data);
       client.invalidateQueries({ queryKey: ["jobs"] });
+      try {
+        if (
+          paidDiscoverySource(data.source) &&
+          data.original_scope_available === true &&
+          (readDiscoveryReadAttempt() ||
+            typeof data.usage.last_read_request_id === "string")
+        )
+          inspectReadMutation.mutate();
+      } catch (error) {
+        setAttemptError(error);
+      }
     },
   });
 
@@ -248,11 +310,16 @@ export function JobDiscovery() {
     !attemptLoaded ||
     previewMutation.isPending ||
     executeMutation.isPending ||
-    inspectMutation.isPending;
+    inspectMutation.isPending ||
+    inspectReadMutation.isPending ||
+    recoverReadMutation.isPending ||
+    nextReadMutation.isPending;
   const savedAdmissionMissing =
     inspectMutation.error instanceof ApiError &&
     inspectMutation.error.status === 404;
-  const criteriaLocked = Boolean(attempt && !savedAdmissionMissing);
+  const criteriaLocked =
+    Boolean(attempt && !savedAdmissionMissing) ||
+    Boolean(!attempt && readAttempt);
   const terminalReviewed =
     runResult?.local_intake_complete === true &&
     runResult.rankings_complete === true &&
@@ -260,10 +327,14 @@ export function JobDiscovery() {
   useEffect(() => {
     try {
       const saved = readDiscoveryAttempt();
+      const savedRead = readDiscoveryReadAttempt();
+      setReadAttempt(savedRead);
       setAttempt(saved);
       if (saved) {
         setSelectedSource(saved.source);
         inspectMutation.mutate();
+      } else if (savedRead) {
+        inspectReadMutation.mutate();
       }
     } catch (error) {
       setAttemptError(error);
@@ -310,6 +381,10 @@ export function JobDiscovery() {
 
   const handleReset = async () => {
     try {
+      if (!attempt && readAttempt)
+        throw new Error(
+          "Recover the linked original search before clearing its saved read.",
+        );
       if (attempt) {
         if (!runResult)
           throw new Error(
@@ -322,6 +397,12 @@ export function JobDiscovery() {
       return;
     }
     setAttempt(null);
+    setReadAttempt(null);
+    setReadResult(null);
+    setReadConsent(false);
+    inspectReadMutation.reset();
+    recoverReadMutation.reset();
+    nextReadMutation.reset();
     setAttemptError(null);
     inspectMutation.reset();
     previewMutation.reset();
@@ -333,6 +414,35 @@ export function JobDiscovery() {
   };
 
   const isCurrentSourceAvailable = sourceAvailable(currentSourceConfig);
+  const nativePaid = Boolean(
+    runResult?.original_scope_available === true &&
+    paidDiscoverySource(runResult.source),
+  );
+  const acknowledged = Boolean(
+    runResult &&
+    typeof runResult.provider_run_id === "string" &&
+    /^[A-Za-z0-9_-]{1,100}$/.test(runResult.provider_run_id),
+  );
+  const needsRead =
+    nativePaid &&
+    !terminalReviewed &&
+    runResult?.usage.finding_retained !== true;
+  const nextReadAt =
+    typeof runResult?.usage.read_next_allowed_at === "string"
+      ? runResult.usage.read_next_allowed_at
+      : null;
+  const mayPrepareNext = Boolean(
+    readResult &&
+    !readResult.finding_retained &&
+    !readResult.local_merge_available &&
+    readResult.expires_at &&
+    Date.parse(readResult.expires_at) <= Date.now() &&
+    nextReadAt &&
+    Number.isFinite(Date.parse(nextReadAt)) &&
+    Date.parse(nextReadAt) <= Date.now() &&
+    typeof runResult?.usage.read_rounds_admitted === "number" &&
+    runResult.usage.read_rounds_admitted < 3,
+  );
 
   return (
     <div className="detail-grid">
@@ -347,6 +457,26 @@ export function JobDiscovery() {
             search plan first, then explicitly run discovery to ingest listings.
           </p>
           {attemptError != null && <ErrorState error={attemptError} />}
+          {inspectReadMutation.isError && (
+            <ErrorState error={inspectReadMutation.error} />
+          )}
+          {recoverReadMutation.isError && (
+            <ErrorState error={recoverReadMutation.error} />
+          )}
+          {nextReadMutation.isError && (
+            <ErrorState error={nextReadMutation.error} />
+          )}
+          {readAttempt && !runResult && (
+            <Notice>
+              A saved read is retained with its original search.
+              <Button
+                disabled={requestPending}
+                onClick={() => inspectReadMutation.mutate()}
+              >
+                Refresh saved read
+              </Button>
+            </Notice>
+          )}
           {attempt && (
             <Notice>
               A saved search is retained for recovery. Refresh its result or
@@ -384,7 +514,9 @@ export function JobDiscovery() {
               >
                 <Select
                   aria-label="Discovery source provider"
-                  disabled={requestPending || Boolean(attempt)}
+                  disabled={
+                    requestPending || Boolean(attempt) || Boolean(readAttempt)
+                  }
                   value={selectedSource}
                   onChange={(e) => {
                     setSelectedSource(e.target.value);
@@ -899,6 +1031,112 @@ export function JobDiscovery() {
                   Start new search
                 </Button>
               </div>
+            </div>
+          )}
+          {(needsRead || readResult) && (
+            <div
+              className="evidence-item stack"
+              aria-label="Acknowledged run read recovery"
+            >
+              <strong>Read recovery</strong>
+              {readResult && (
+                <Notice>
+                  Read round {readResult.round}/3: {readable(readResult.status)}
+                  . Observed requests: {readResult.http_attempts}; responses:{" "}
+                  {readResult.http_responses}.
+                  {readResult.http_counts_are_minimum &&
+                    " These are minimum counts; the last read outcome is uncertain."}
+                  {readResult.provider_status && (
+                    <span>
+                      {" "}
+                      Provider status: {readable(readResult.provider_status)}.
+                    </span>
+                  )}
+                </Notice>
+              )}
+              {needsRead && !acknowledged && (
+                <Notice>
+                  The original paid start has no acknowledged run. Its full
+                  reservation stays held; another start is not authorized
+                  through recovery.
+                </Notice>
+              )}
+              {needsRead && acknowledged && (
+                <>
+                  <p className="muted">
+                    Read the original acknowledged run without starting or
+                    aborting an actor. Each of three read rounds permits up to
+                    four requests within 45 seconds, with five minutes between
+                    rounds.
+                  </p>
+                  <Button
+                    disabled={requestPending}
+                    onClick={() => inspectReadMutation.mutate()}
+                  >
+                    Refresh saved read
+                  </Button>
+                  {readResult?.local_merge_available &&
+                    !readResult.finding_retained && (
+                      <Button
+                        disabled={requestPending}
+                        onClick={() => recoverReadMutation.mutate(false)}
+                      >
+                        Complete saved read pages
+                      </Button>
+                    )}
+                  {!readResult && (
+                    <>
+                      <label className="check-label">
+                        <input
+                          type="checkbox"
+                          aria-label="Allow bounded acknowledged run read"
+                          checked={readConsent}
+                          disabled={
+                            requestPending ||
+                            paidPlan(currentSourceConfig)?.ready !== true
+                          }
+                          onChange={(event) =>
+                            setReadConsent(event.target.checked)
+                          }
+                        />
+                        Allow a bounded read of this acknowledged run.
+                      </label>
+                      <Button
+                        disabled={
+                          requestPending ||
+                          !readConsent ||
+                          paidPlan(currentSourceConfig)?.ready !== true
+                        }
+                        onClick={() => recoverReadMutation.mutate(true)}
+                      >
+                        Read acknowledged run
+                      </Button>
+                    </>
+                  )}
+                  {readResult &&
+                    !readResult.local_merge_available &&
+                    !readResult.finding_retained && (
+                      <>
+                        {nextReadAt &&
+                          Number.isFinite(Date.parse(nextReadAt)) && (
+                            <p className="muted">
+                              Next read can be prepared after{" "}
+                              {new Date(nextReadAt).toLocaleString()} when
+                              allowance remains.
+                            </p>
+                          )}
+                        <Button
+                          disabled={requestPending || !mayPrepareNext}
+                          onClick={() =>
+                            nextReadMutation.mutate(readResult.read_request_id)
+                          }
+                        >
+                          Review result and prepare next read
+                        </Button>
+                      </>
+                    )}
+                </>
+              )}
             </div>
           )}
         </div>

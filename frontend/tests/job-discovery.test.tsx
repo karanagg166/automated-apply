@@ -356,6 +356,168 @@ describe("JobDiscovery", () => {
       "naukri",
     );
   });
+  it("offers bounded acknowledged read only after separate consent and retains the original search pointer", async () => {
+    paidSources();
+    const readId = "40000000-0000-0000-0000-000000000004";
+    vi.mocked(crypto.randomUUID).mockReturnValue(readId);
+    localStorage.setItem(
+      "job-discovery-attempt:v1",
+      JSON.stringify({ requestId: mockRunSuccess.id, source: "naukri" }),
+    );
+    const pending = {
+      ...mockRunSuccess,
+      source: "naukri",
+      status: "recovery_required",
+      provider_run_id: "originalRun",
+      finished_at: null,
+      local_intake_complete: false,
+      rankings_complete: false,
+      original_scope_available: true,
+      billing_final: false,
+      reservation: {
+        reserved_usd: "0.100001",
+        accounting: "full_cap_retained",
+        billing_final: false,
+      },
+      usage: { finding_retained: false },
+    };
+    runReply = async (path, options) =>
+      path.includes("/reads/")
+        ? {
+            request_id: pending.id,
+            read_request_id: readId,
+            source: "naukri",
+            recorded_state: "response_retained",
+            status: "pending",
+            finding_retained: false,
+            local_merge_available: false,
+            read_round_limit: 3,
+            read_admissions: 1,
+            round: 1,
+            http_attempts: 1,
+            http_responses: 1,
+            http_counts_are_minimum: false,
+            errors: [],
+            admitted_at: "2026-11-17T00:00:00Z",
+            expires_at: "2026-11-17T00:00:45Z",
+            billing_final: false,
+            provider_start_authorized: false,
+            provider_abort_authorized: false,
+            replay_authorized: false,
+            application_dispatch: false,
+            live_verified: false,
+            reservation: pending.reservation,
+          }
+        : pending;
+    const user = userEvent.setup();
+    mount();
+    const readButton = await screen.findByRole("button", {
+      name: "Read acknowledged run",
+    });
+    expect(readButton).toBeDisabled();
+    expect(
+      vi.mocked(api).mock.calls.every(([, options]) => !options?.method),
+    ).toBe(true);
+    await user.click(
+      screen.getByRole("checkbox", {
+        name: "Allow bounded acknowledged run read",
+      }),
+    );
+    await user.click(readButton);
+    await waitFor(() =>
+      expect(
+        vi
+          .mocked(api)
+          .mock.calls.filter(([, options]) => options?.method === "PUT"),
+      ).toHaveLength(1),
+    );
+    const put = vi
+      .mocked(api)
+      .mock.calls.find(([, options]) => options?.method === "PUT");
+    expect(put?.[0]).toBe(
+      `discovery/runs/${mockRunSuccess.id}/reads/${readId}`,
+    );
+    expect(put?.[1]?.body).toBe("{}");
+    expect(localStorage.getItem("job-discovery-attempt:v1")).toContain(
+      mockRunSuccess.id,
+    );
+    expect(JSON.parse(localStorage.getItem("job-discovery-read:v1")!)).toEqual({
+      requestId: mockRunSuccess.id,
+      readId,
+    });
+  });
+  it("reloads a saved read with GET-only inspection and does not equate an uncertain read with a terminal discovery", async () => {
+    paidSources();
+    const readId = "40000000-0000-0000-0000-000000000004";
+    localStorage.setItem(
+      "job-discovery-attempt:v1",
+      JSON.stringify({ requestId: mockRunSuccess.id, source: "naukri" }),
+    );
+    localStorage.setItem(
+      "job-discovery-read:v1",
+      JSON.stringify({ requestId: mockRunSuccess.id, readId }),
+    );
+    const pending = {
+      ...mockRunSuccess,
+      source: "naukri",
+      provider_run_id: "originalRun",
+      status: "recovery_required",
+      finished_at: null,
+      local_intake_complete: false,
+      rankings_complete: false,
+      original_scope_available: true,
+      billing_final: false,
+      reservation: {
+        reserved_usd: "0.100001",
+        accounting: "full_cap_retained",
+        billing_final: false,
+      },
+      usage: {
+        finding_retained: false,
+        read_rounds_admitted: 1,
+        last_read_request_id: readId,
+      },
+    };
+    runReply = async (path) =>
+      path.includes("/reads/")
+        ? {
+            request_id: pending.id,
+            read_request_id: readId,
+            source: "naukri",
+            recorded_state: "operation_admitted",
+            status: "outcome_unknown",
+            finding_retained: false,
+            local_merge_available: false,
+            read_round_limit: 3,
+            read_admissions: 1,
+            round: 1,
+            http_attempts: 0,
+            http_responses: 0,
+            http_counts_are_minimum: true,
+            errors: [],
+            admitted_at: "2026-11-17T00:00:00Z",
+            expires_at: "2026-11-17T00:00:45Z",
+            billing_final: false,
+            provider_start_authorized: false,
+            provider_abort_authorized: false,
+            replay_authorized: false,
+            application_dispatch: false,
+            live_verified: false,
+            reservation: pending.reservation,
+          }
+        : pending;
+    mount();
+    await screen.findByText(/minimum counts/);
+    expect(
+      vi.mocked(api).mock.calls.every(([, options]) => !options?.method),
+    ).toBe(true);
+    expect(
+      screen.getByRole("button", { name: "Start new search" }),
+    ).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: "Read acknowledged run" }),
+    ).not.toBeInTheDocument();
+  });
 
   it("recovers a persisted completed search on reload using GET only and releases criteria after terminal review", async () => {
     localStorage.setItem(

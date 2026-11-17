@@ -32,14 +32,16 @@ export function readDiscoveryAttempt(): DiscoveryAttempt | null {
     throw reviewError();
   return value;
 }
-async function locked<T>(operation: () => Promise<T>): Promise<T> {
+export async function withDiscoveryAttemptLock<T>(
+  operation: () => Promise<T>,
+): Promise<T> {
   if (!navigator.locks?.request)
     throw new Error(
       "Use a current Brave, Edge or Safari browser to recover discovery safely.",
     );
   return navigator.locks.request(storageKey, operation);
 }
-function validate(
+export function validateDiscoveryRun(
   value: JobDiscoveryRun,
   attempt: DiscoveryAttempt,
 ): JobDiscoveryRun {
@@ -105,7 +107,7 @@ function validate(
       throw reviewError();
   }
   if (
-    complete(value) &&
+    discoveryComplete(value) &&
     ((value.counts.inserted ?? 0) + (value.counts.updated ?? 0) !==
       value.job_ids.length ||
       (value.counts.discovered ?? 0) !==
@@ -114,7 +116,7 @@ function validate(
     throw reviewError();
   return value;
 }
-function complete(value: JobDiscoveryRun): boolean {
+export function discoveryComplete(value: JobDiscoveryRun): boolean {
   return (
     value.local_intake_complete === true &&
     value.rankings_complete === true &&
@@ -123,11 +125,14 @@ function complete(value: JobDiscoveryRun): boolean {
   );
 }
 async function get(attempt: DiscoveryAttempt): Promise<JobDiscoveryRun> {
-  return validate(await api<JobDiscoveryRun>(path(attempt.requestId)), attempt);
+  return validateDiscoveryRun(
+    await api<JobDiscoveryRun>(path(attempt.requestId)),
+    attempt,
+  );
 }
 /** Explicit saved GET only; mounting/reloading a page cannot create provider or local completion work. */
 export async function inspectDiscovery(): Promise<JobDiscoveryRun> {
-  return locked(async () => {
+  return withDiscoveryAttemptLock(async () => {
     const attempt = readDiscoveryAttempt();
     if (!attempt) throw reviewError();
     return get(attempt);
@@ -138,7 +143,7 @@ export async function recoverDiscovery(
   input: Record<string, unknown>,
   mayStart = false,
 ): Promise<JobDiscoveryRun> {
-  return locked(async () => {
+  return withDiscoveryAttemptLock(async () => {
     let attempt = readDiscoveryAttempt();
     if (!attempt) {
       if (
@@ -158,9 +163,9 @@ export async function recoverDiscovery(
         if (!(error instanceof ApiError) || error.status !== 404) throw error;
       }
       if (saved) {
-        if (complete(saved) || saved.usage?.finding_retained !== true)
+        if (discoveryComplete(saved) || saved.usage?.finding_retained !== true)
           return saved;
-        return validate(
+        return validateDiscoveryRun(
           await api<JobDiscoveryRun>(`${path(attempt.requestId)}/complete`, {
             method: "POST",
             body: JSON.stringify({}),
@@ -173,7 +178,7 @@ export async function recoverDiscovery(
           "The original search has no saved admission yet. Review and authorize that same source before retrying.",
         );
     }
-    return validate(
+    return validateDiscoveryRun(
       await api<JobDiscoveryRun>(path(attempt.requestId), {
         method: "PUT",
         body: JSON.stringify(input),
@@ -185,16 +190,33 @@ export async function recoverDiscovery(
 export async function prepareNewDiscovery(
   reviewedRequest: string,
 ): Promise<void> {
-  await locked(async () => {
+  await withDiscoveryAttemptLock(async () => {
     const attempt = readDiscoveryAttempt();
     if (!attempt || attempt.requestId !== reviewedRequest) throw reviewError();
     const saved = await get(attempt);
     if (
-      !complete(saved) ||
+      !discoveryComplete(saved) ||
       readDiscoveryAttempt()?.requestId !== attempt.requestId
     )
       throw reviewError();
     // Removes only the reviewed browser pointer. Database history and original source admission remain intact.
+    const rawRead = localStorage.getItem("job-discovery-read:v1");
+    if (rawRead) {
+      let read: { requestId?: unknown; readId?: unknown };
+      try {
+        read = JSON.parse(rawRead);
+      } catch {
+        throw reviewError();
+      }
+      if (
+        !read ||
+        read.requestId !== attempt.requestId ||
+        typeof read.readId !== "string" ||
+        !uuid.test(read.readId)
+      )
+        throw reviewError();
+      localStorage.removeItem("job-discovery-read:v1");
+    }
     localStorage.removeItem(storageKey);
   });
 }

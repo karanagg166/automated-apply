@@ -1,5 +1,21 @@
 # Complete-source delivery plan — 2026-11-16
 
+Acknowledged read dashboard design2026-11-17: keep a separate local pointer containing
+only parent/read UUIDs under the original discovery Web Lock. Save before explicit
+empty keyed PUT; mounting/inspection performs saved GETs only. Require separate owner
+consent for every new read round; never recover an unknown paid start without an
+acknowledged run ID. Reuse retained read GET or local-complete pages, then original
+local discovery completion, without another provider call. Validate read IDs/source,
+3-round/4GET bounds, minimum counts and full-cap preliminary accounting. Adopt the
+server's last read UUID when its browser pointer is missing; never generate a fresh
+round from a lost response. After an explicit review of an expired/spaced-out read
+with no complete pages/finding and allowance remaining, prepare a new UUID pointer
+without dispatch; require fresh read consent before PUT. Original completed-result
+review may clear only linked browser pointers, preserving all server history/budgets.
+Keep expired/unknown pending pointers on errors, configuration changes and reload.
+Expose saved refresh, local page completion and new bounded reads as separate actions;
+provider start/abort, application work, profile facts and billing finality are absent.
+
 Acknowledged owner recovery boundary2026-11-17: add GET/PUT UUID resources at
 discovery/runs/{parent}/reads/{read} and empty-body POST .../{read}/complete. Reject
 nil/equal IDs, arbitrary run/dataset/query fields, methods and query strings before
