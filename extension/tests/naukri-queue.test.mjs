@@ -249,6 +249,49 @@ test("owner adoption of a parked form is durable after service-worker reconstruc
   assert.equal(f.calls.filter(([name]) => name === "inspect").length, before);
   assert.equal(f.calls.filter(([name]) => name === "close").length, 0);
 });
+test("questionnaire completion accepts only a same-document read-only Applied observation", async () => {
+  const f = fixture();
+  f.queue.assertInactive = async () => ({ active: false, url });
+  const chatbot = {
+    kind: "questionnaire_drawer_closed",
+    document_id: "known-chatbot",
+  };
+  const work = {
+    operation: "inspect_questionnaire",
+    ownedTabId: 44,
+    url,
+    execution: { completion_document_id: chatbot.document_id },
+  };
+  const applied = {
+    kind: "execution_observation",
+    observed_url: url,
+    execution: { state: "APPLIED" },
+  };
+  let browserDocument = "original-browser-document";
+  f.api.scripting.executeScript = async (request) => {
+    assert.equal(request.func.name, "executeNaukri");
+    assert.deepEqual(request.target, { tabId: 44, frameIds: [0] });
+    assert.equal(request.args[0].operation, "inspect_application");
+    assert.equal(request.args[0].questionnaire_completion, true);
+    return [{ documentId: browserDocument, result: applied }];
+  };
+  const inspect = () =>
+    f.queue.inspectQuestionnaireCompletion(
+      work,
+      { window_id: 10 },
+      chatbot,
+      "original-browser-document",
+    );
+  assert.deepEqual(await inspect(), {
+    ...applied,
+    document_id: chatbot.document_id,
+  });
+  browserDocument = "another-browser-document";
+  assert.equal(await inspect(), null);
+  browserDocument = "original-browser-document";
+  applied.execution.state = "NOT_APPLIED";
+  assert.equal(await inspect(), null);
+});
 test("trusted maintenance opens only one own inactive setup tab and admits no job", async () => {
   const maintenance = {
     kind: "open_extension_manager",

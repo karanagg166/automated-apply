@@ -162,6 +162,21 @@ export async function naukriChatbot(request) {
     };
   };
   try {
+    if (
+      request.operation === "inspect" &&
+      request.completion_document_id === state.documentId
+    ) {
+      safe();
+      if (
+        ![...document.querySelectorAll(".chatbot_DrawerContentWrapper")].some(
+          visible,
+        )
+      )
+        return {
+          kind: "questionnaire_drawer_closed",
+          document_id: state.documentId,
+        };
+    }
     const current = await snapshot();
     const observation = {
       kind: "questionnaire",

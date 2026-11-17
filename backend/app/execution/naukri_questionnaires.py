@@ -170,6 +170,31 @@ async def context(session, value, settings, *, writing=False):
     return packet, profile
 
 
+def completion_document(value):
+    document = value.get("questionnaire_document_id")
+    steps = value.get("questionnaire_steps")
+    binding = value.get("binding") or {}
+    form_binding = value.get("form_binding") or {}
+    if (
+        value["operation"] == "inspect_questionnaire"
+        and value.get("form_pending") is True
+        and value.get("form_loss_observation") is None
+        and all(
+            binding.get(key) is not None and binding[key] == form_binding.get(key)
+            for key in ("profile_binding_id", "browser_session_id", "window_id", "tab_id")
+        )
+        and type(steps) is int and 1 <= steps <= 20
+        and value.get("document_id")
+        and isinstance(document, str)
+    ):
+        try:
+            if UUID(document).int != 0:
+                return document
+        except ValueError:
+            pass
+    return None
+
+
 def descriptor(value):
     result = {
         "expected_account_sha256": value.get("account_sha256"),
@@ -178,6 +203,8 @@ def descriptor(value):
         "expected_title": value.get("title"),
         "expected_company": value.get("company"),
     }
+    if document := completion_document(value):
+        result["completion_document_id"] = document
     if value["operation"] == "answer_questionnaire":
         step = value["questionnaire"]
         result["questionnaire"] = {
@@ -266,6 +293,25 @@ async def receive(session, value, report, settings):
     ):
         raise ToolDenied("questionnaire_job_context_changed")
     if op == "inspect_questionnaire":
+        if report.kind == "execution_observation":
+            document = completion_document(value)
+            provider = report.execution
+            if (
+                document is None or report.document_id != document or provider is None
+                or provider.state != "APPLIED" or provider.document_id != value["document_id"]
+                or provider.account_sha256 != value["account_sha256"]
+                or provider.title != value["title"] or provider.company != value["company"]
+            ):
+                raise ToolDenied("questionnaire_completion_observation_mismatch")
+            value["questionnaire_completion_observation"] = {
+                "document_id": document, "listing_document_id": provider.document_id,
+                "evidence_sha256": provider.evidence_sha256, "observed_at": now.isoformat(),
+            }
+            value.update(
+                stage="VERIFYING", status="queued", operation="reconcile_application",
+                reason="questionnaire_applied_status_history_required",
+            )
+            return
         step = report.questionnaire
         if report.kind != "questionnaire" or not step:
             raise ToolDenied("questionnaire_observation_required")

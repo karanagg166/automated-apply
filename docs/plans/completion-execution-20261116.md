@@ -814,6 +814,8 @@ until STOP-only whole-family cutover is ready. This plan supplements the existin
 
 For new Naukri worker receipts, retain the exact browser Apply acknowledgment with its admitted action, original document and account. Require the acknowledgment to precede both independent history observations. An admitted action with no acknowledgment can still be reconciled without replay, but the resulting history cannot enable recurring AUTOMATIC. Prior manual packet evidence stays immutable and prevents attribution of that packet to the worker. Keep legacy receipt history readable.
 
+After an acknowledged Naukri questionnaire answer, inspect the retained original document for a closed drawer and a positive Applied status. Reuse the existing account and listing observer. Match both isolated-world document identity and browser document identity. A positive result schedules independent history reads and carries no submission receipt. The worker keeps the original tab and quota history through verification. An unrecognized drawer, changed document, account mismatch or absent Applied marker retains the existing uncertainty path.
+
 ## Scope
 
 - In: complete native runtime/API/worker/CLI parity; agent tools and dashboard controls;

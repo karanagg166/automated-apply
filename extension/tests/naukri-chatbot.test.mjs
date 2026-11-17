@@ -273,6 +273,29 @@ test("ambiguous provider drawers cannot be used", async () => {
   }
 });
 
+test("only the retained original document can report that its drawer closed", async () => {
+  const f = await fixture();
+  try {
+    const step = await f.run();
+    f.w.document.querySelector(".chatbot_DrawerContentWrapper").remove();
+    assert.equal((await f.run()).reason, "questionnaire_drawer_unrecognized");
+    assert.equal(
+      (await f.run({ completion_document_id: "different-document" })).reason,
+      "questionnaire_drawer_unrecognized",
+    );
+    const completion = { completion_document_id: step.document_id };
+    assert.deepEqual(await f.run(completion), {
+      kind: "questionnaire_drawer_closed",
+      document_id: step.document_id,
+    });
+    f.adopt();
+    assert.equal((await f.run(completion)).reason, "owner_tab_active");
+    assert.equal(f.counts().clicks, 0);
+  } finally {
+    f.close();
+  }
+});
+
 async function radioFixture(mode = "save") {
   const f = await fixture({
     question: "Are you willing to attend in-person interview?",

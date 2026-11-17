@@ -30,3 +30,50 @@ async fn execution_questionnaire_rechecks_canonical_pdf_before_recording_even_a_
 async fn execution_questionnaire_event_ack_failure_rolls_back_original_step_and_work_revision(){
     let(mut c,work,resumes)=questionnaire_fixture().await;let before=browser_snapshot(&mut c).await;sqlx::raw_sql("CREATE FUNCTION fixture_questionnaire_event_drop() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF starts_with(NEW.key,'apply_event:') THEN RETURN NULL; END IF; RETURN NEW; END $$;CREATE TRIGGER fixture_questionnaire_event_drop BEFORE INSERT ON owner_preferences FOR EACH ROW EXECUTE FUNCTION fixture_questionnaire_event_drop()").execute(&mut c).await.unwrap();assert_eq!(questionnaire_observe(&mut c,&work,questionnaire_report(&work,"What is your full name?"),&resumes).await.unwrap_err(),Failure("execution_write_ack_failed"));assert_eq!(browser_snapshot(&mut c).await,before);sqlx::raw_sql("DROP TRIGGER fixture_questionnaire_event_drop ON owner_preferences;DROP FUNCTION fixture_questionnaire_event_drop()").execute(&mut c).await.unwrap();
 }
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn execution_applied_questionnaire_switches_to_history_only_with_both_original_documents() {
+    let (mut c, mut work, resumes) = questionnaire_fixture().await;
+    let key = format!("apply_work:{}", work["id"].as_str().unwrap());
+    let chatbot = "33333333-3333-4333-8333-333333333333";
+    let listing = "fictional-original-listing-document";
+    work["form_pending"] = json!(true);
+    work["questionnaire_steps"] = json!(1);
+    work["questionnaire_document_id"] = json!(chatbot);
+    work["document_id"] = json!(listing);
+    browser_save(&mut c, &key, work.clone()).await;
+    let before = browser_snapshot(&mut c).await;
+    let report = json!({
+        "kind":"execution_observation","document_id":chatbot,
+        "observed_url":work["url"],"requisition":work["requisition"],
+        "execution":{"state":"APPLIED","document_id":listing,"account_sha256":work["account_sha256"],
+            "evidence_sha256":"e".repeat(64),"title":work["title"],"company":work["company"]}
+    });
+    let mut wrong = report.clone();
+    wrong["execution"]["document_id"] = json!("fictional-replacement-listing");
+    assert_eq!(
+        questionnaire_observe(&mut c, &work, wrong, &resumes)
+            .await
+            .unwrap_err(),
+        Failure("questionnaire_completion_observation_mismatch")
+    );
+    assert_eq!(browser_snapshot(&mut c).await, before);
+    let observed = questionnaire_observe(&mut c, &work, report, &resumes)
+        .await
+        .unwrap();
+    assert_eq!(observed["stage"], "VERIFYING");
+    assert_eq!(observed["operation"], "reconcile_application");
+    assert_eq!(
+        observed["questionnaire_completion_observation"]["document_id"],
+        chatbot
+    );
+    assert_eq!(observed["admitted_actions"], work["admitted_actions"]);
+    assert_eq!(observed["form_pending"], true);
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("SELECT count(*) FROM application_submission_evidence")
+            .fetch_one(&mut c)
+            .await
+            .unwrap(),
+        0
+    );
+}

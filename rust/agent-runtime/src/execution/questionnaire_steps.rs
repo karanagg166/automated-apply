@@ -70,10 +70,37 @@ pub fn reuse_key(work: &Value, step: &Value) -> String {
 }
 pub fn descriptor(work: &Value) -> Value {
     let mut value = json!({"expected_account_sha256":work["account_sha256"],"expected_resume_sha256":work["upload_preflight"]["sha256"],"account_observation":submission::account_observation(work),"expected_title":work["title"],"expected_company":work["company"]});
+    if let Some(document) = completion_document(work) {
+        value["completion_document_id"] = json!(document);
+    }
     if work["operation"] == "answer_questionnaire" && work["status"] == "executing" {
         value["questionnaire"] = json!({"document_id":work["questionnaire"]["document_id"],"step_sha256":work["questionnaire"]["step_sha256"],"answer":work["questionnaire_answer"]["answer"],"permit_expires_at":work["permit_expires_at"]});
     }
     value
+}
+
+fn completion_document(work: &Value) -> Option<&str> {
+    let document = work["questionnaire_document_id"].as_str()?;
+    (work["operation"] == "inspect_questionnaire"
+        && work["form_pending"] == true
+        && work["form_loss_observation"].is_null()
+        && work["form_binding"].is_object()
+        && [
+            "profile_binding_id",
+            "browser_session_id",
+            "window_id",
+            "tab_id",
+        ]
+        .iter()
+        .all(|key| {
+            !work["binding"][*key].is_null() && work["binding"][*key] == work["form_binding"][*key]
+        })
+        && work["questionnaire_steps"]
+            .as_u64()
+            .is_some_and(|n| (1..=20).contains(&n))
+        && !work["document_id"].is_null()
+        && document.parse::<uuid::Uuid>().is_ok_and(|id| !id.is_nil()))
+    .then_some(document)
 }
 /// Pure post-context transition, consuming an already validated native report. No authority checks here.
 pub fn transition(work: &mut Value, report: &Value, now: DateTime<Utc>) -> Result<()> {
@@ -154,6 +181,27 @@ pub fn transition(work: &mut Value, report: &Value, now: DateTime<Utc>) -> Resul
         return Ok(());
     }
     if operation == "inspect_questionnaire" {
+        if report["kind"] == "execution_observation" {
+            let provider = &report["execution"];
+            if completion_document(work).is_none_or(|document| report["document_id"] != document)
+                || provider["state"] != "APPLIED"
+                || provider["document_id"] != work["document_id"]
+                || provider["account_sha256"] != work["account_sha256"]
+                || provider["title"] != work["title"]
+                || provider["company"] != work["company"]
+            {
+                return Err(Failure("questionnaire_completion_observation_mismatch"));
+            }
+            work["questionnaire_completion_observation"] = json!({
+                "document_id": report["document_id"], "listing_document_id": provider["document_id"],
+                "evidence_sha256": provider["evidence_sha256"], "observed_at": stamp(now),
+            });
+            work["stage"] = json!("VERIFYING");
+            work["status"] = json!("queued");
+            work["operation"] = json!("reconcile_application");
+            work["reason"] = json!("questionnaire_applied_status_history_required");
+            return Ok(());
+        }
         let step = &report["questionnaire"];
         if report["kind"] != "questionnaire" || !step.is_object() {
             return Err(Failure("questionnaire_observation_required"));

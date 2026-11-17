@@ -941,11 +941,25 @@ export class NaukriQueue {
                     : "inspect",
                 url: work.url,
                 requisition: work.requisition,
+                completion_document_id: work.execution?.completion_document_id,
                 ...work.execution?.questionnaire,
               },
             ],
           });
           observed = r.length === 1 && r[0].result;
+          if (observed?.kind === "questionnaire_drawer_closed") {
+            observed = await this.inspectQuestionnaireCompletion(
+              work,
+              context,
+              observed,
+              r[0].documentId,
+            );
+            if (observed) break;
+            observed = {
+              kind: "needs_input",
+              reason: "questionnaire_drawer_unrecognized",
+            };
+          }
           if (
             work.operation !== "inspect_questionnaire" ||
             ![
@@ -984,6 +998,36 @@ export class NaukriQueue {
       if (!finished.continue) return work;
     }
     throw Error("questionnaire_step_limit_reached");
+  }
+  async inspectQuestionnaireCompletion(work, context, observation, documentId) {
+    if (
+      work.operation !== "inspect_questionnaire" ||
+      !documentId ||
+      observation.document_id !== work.execution?.completion_document_id
+    )
+      return null;
+    await this.assertInactive(work, context);
+    const reports = await this.api.scripting.executeScript({
+      target: { tabId: work.ownedTabId, frameIds: [0] },
+      world: "ISOLATED",
+      func: executeNaukri,
+      args: [
+        {
+          ...work,
+          operation: "inspect_application",
+          questionnaire_completion: true,
+        },
+      ],
+    });
+    const [result] = reports;
+    if (
+      reports.length !== 1 ||
+      result.documentId !== documentId ||
+      result.result?.kind !== "execution_observation" ||
+      result.result.execution?.state !== "APPLIED"
+    )
+      return null;
+    return { ...result.result, document_id: observation.document_id };
   }
   async execute(initial, context) {
     let work = initial;

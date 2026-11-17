@@ -48,12 +48,23 @@ pub(super) fn dispatch_bound(work: &Value, first: &Value) -> bool {
         return false;
     };
     let proof = &work["apply_dispatch_observation"];
+    let completion = &work["questionnaire_completion_observation"];
     let completed_path = proof["state"] == "CLICKED"
         || proof["state"] == "QUESTIONNAIRE"
             && work["questionnaire_steps"]
                 .as_u64()
                 .is_some_and(|n| (1..=20).contains(&n))
-            && work["form_loss_observation"].is_null();
+            && work["form_loss_observation"].is_null()
+            && uuid(&completion["document_id"])
+            && completion["document_id"] == work["questionnaire_document_id"]
+            && completion["listing_document_id"] == proof["document_id"]
+            && sha(&completion["evidence_sha256"])
+            && date(&proof["observed_at"])
+                .zip(date(&completion["observed_at"]))
+                .zip(date(&first["observed_at"]))
+                .is_some_and(|((apply, completed), history)| {
+                    apply < completed && completed < history
+                });
     completed_path
         && proof["admission_id"] == admission["id"]
         && sha(&proof["account_sha256"])

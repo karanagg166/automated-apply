@@ -745,6 +745,13 @@ export async function executeNaukri(work) {
     }
     if (work.operation === "inspect_application") {
       const s = await snapshot();
+      if (
+        work.questionnaire_completion === true &&
+        [...document.querySelectorAll(".chatbot_DrawerContentWrapper")].some(
+          visible,
+        )
+      )
+        throw Error("questionnaire_drawer_still_open");
       if (s.applied)
         return await result("APPLIED", { title: s.title, company: s.company });
       state.seal = s;
