@@ -1,5 +1,18 @@
 # Complete-source delivery plan — 2026-11-16
 
+Apify original USD admission design2026-11-17: use existing NUMERIC(16,6) budget and
+reservation tables, exact decimal/micros conversion, owner-first SERIALIZABLE and no
+new connection/pool. Atomically reserve the entire per-run cap, increment the monthly
+total, retain its original opaque invocation/profile/source/query/build context and
+nonrenewable deadline, then independently ACK reservation/month/journal after triggers.
+No grant comes from saved replay or a public reservation reader. Same UUID with changed
+body/context conflicts; a previously admitted unknown start keeps its full allowance.
+Check all Apify cooldown months before new reservation. Saved original requests remain
+readable without current credentials/configuration. No refund/reset, no provider-credit
+claim, no cross-route fallback/account rotation. Provider attachment and selected status
+checkpoints will update only the original reservation/run binding, leave monthly totals
+unchanged and keep cost preliminary; failed local transactions preserve earlier intent.
+
 Reviewed Apify execution dependency design2026-11-17: first port pure portal record
 normalization, exact six-decimal local USD accounting, fixed original request targets
 and closed actor/run/build/dataset evidence. No HTTP authority belongs in these helpers.
