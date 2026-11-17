@@ -4105,3 +4105,4 @@ include!("support/apify_job_admission_pg.rs");
 include!("support/apify_job_transport_pg.rs");
 include!("support/apify_job_intake_pg.rs");
 include!("support/apify_job_runs_pg.rs");
+include!("support/apify_job_owner_http_pg.rs");
