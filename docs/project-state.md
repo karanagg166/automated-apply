@@ -7,6 +7,22 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest owner/dashboard source `4b2c67632d36171e4c9a2d930605fc216a8cf8ca` connects
+native UUID research PUT/GET/status, unkeyed 428, original company binding, shared transient
+budget and exact BFF policy. Dashboard Web Locks/UUID-only pointers preserve response-loss
+recovery; new paid work needs fresh explicit approval if no durable admission exists.
+Only retained findings can retry local completion. New searches need reviewed terminal
+GET and exact pointer comparison. UI qualifies held/unknown results without raw JSON.
+One Rust standard, six PG/HTTP, fourteen frontend unit and one browser declarations are
+UNRUN. See [qualified owner/dashboard report](acceptance/people-research-owner-dashboard-source-20261117.md).
+Continue startup job-led/provider orchestration, Apify runtime and remaining dashboard/
+registry/provider/CLI/conversation/eight-platform full source before combined gates.
+No current tests/build/check/live/install or estimate increase; 58/42 and prior 455 held.
+Full host uninstalled; no actual provider/budget operation or owner browser action occurred.
+Private continuity snapshot 59d8b1a6bf8ad734d06f19ad93a4c816c96c733326b1dc7581f1b1776f37b767
+at 2026-11-17T00:36:43Z preserves 104 indexed / 6 available / 98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest paid local completion source `9977246db53abf0795650b22e6fff3d4b9f1a282`
 checks original input/current configuration/rights/company/finding age before a second
 atomic local transaction. People/contact changes, local receipt and paid final journal
