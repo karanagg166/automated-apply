@@ -1,3 +1,15 @@
+Latest explicit CLI writer source `9608a0ab85deed11b7bac56e3d86cd69170d86f0` reuses AGY monthly counts/shared provider
+gate and answer grounding/stamps. Exact private profiles, trusted workspace/no-overage
+settings, fixed argv/selected environment, pre-prompt empty-tool init, bounded frames/
+pipes/deadline and owned-group cleanup are source only. Twelve standard+five PG declarations
+UNRUN. Literal legacy profile frozen; no-import exporter check deferred. See [qualified CLI report](acceptance/cli-answer-writer-source-20261117.md).
+Continue local fallback/rearranger/conversation, remaining tools/platform source, then
+final inventory/contracts/types/fixture alignment and combined tests. Current code untested/
+uninstalled;58/42/prior455 held. No installed CLI/model/provider/private-owner-policy/live operation.
+Private continuity snapshot03211d39d7e8050e83d5ea94dd5a2aac9cbdc676cda9e187c640679f6b522047
+at2026-11-17T14:59:44.964385+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or missing transcript recovery claim.
+
 Latest MCP discovery composition source `75b4f9ebad7cf6ea5ae4feb8303c5e1b64464786` adds eight default saved-read/preview,
 six optional original discovery/read/local-completion and two separately optional metadata
 tools through the existing owner API. Direct-call default-off flags, strict consent/
