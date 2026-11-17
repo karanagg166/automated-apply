@@ -33,6 +33,7 @@ pub(super) fn profile_route(path: &str) -> bool {
         || crate::companies::route(path).is_some()
         || crate::startup_catalog::detail::route(path).is_some()
         || crate::startup_catalog::owner::route(path).is_some()
+        || crate::people_research::owner::route(path).is_some()
         || crate::startup_catalog::search::route(path).is_some()
         || crate::startup_catalog::shortlist::route(path).is_some()
         || crate::outreach::history::route(path).is_some()

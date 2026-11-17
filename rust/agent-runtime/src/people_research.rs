@@ -3,6 +3,7 @@ pub mod completion;
 pub mod controller;
 mod findings;
 pub mod ingest;
+pub mod owner;
 pub mod rules;
 pub mod runs;
 pub mod settings;

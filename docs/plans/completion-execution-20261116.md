@@ -1,5 +1,17 @@
 # Complete-source delivery plan — 2026-11-16
 
+Research owner/dashboard design 2026-11-17: add native-only UUID PUT/GET request paths
+and pure saved configuration status. Reject unkeyed legacy native search POST before any
+database/provider operation. Share the existing transient permit, owner boundary and one
+temporary connection; no added pool/process. Keep the existing PeopleQuery unchanged.
+The dashboard persists only company/request UUIDs before PUT, reads a saved request first,
+reuses the same ID after response loss and never falls back to the legacy paid POST.
+Only a retained successful finding may retry local completion. Unknown/held requests keep
+their pointer. Preparing a new search requires explicit review, a fresh terminal GET and
+exact pointer comparison; retain the old database history. Show results/status in ordinary
+product language without raw runtime JSON or claims of completion for held/unknown work.
+Extend the shared BFF policy only for these exact paths and retain CSRF/session checks.
+
 Paid finding completion design 2026-11-17: use a second owner-first SERIALIZABLE local
 transaction after durable finding retention. Recheck exact original input/configuration,
 current saved rights, company snapshot and a 24-hour finding lifetime. Changed or missing

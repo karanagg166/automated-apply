@@ -21,6 +21,12 @@ import type { Startup } from "./startups";
 import { ContactReview, type ContactDetail } from "./contact-review";
 import { recoverLocalDraft } from "./outreach-draft-attempt";
 import {
+  readResearchAttempt,
+  recoverResearch,
+  prepareNewResearch,
+  type ResearchAttempt,
+} from "./people-research-attempt";
+import {
   clearReviewedLookupAttempt,
   readLookupAttempt,
   runLookupAttempt,
@@ -84,6 +90,21 @@ export function CompanyPeople({
   );
   const [lookupStorageError, setLookupStorageError] = useState<unknown>(null);
   const [lookupHistoryReviewed, setLookupHistoryReviewed] = useState(false);
+  const [researchAttempt, setResearchAttempt] =
+    useState<ResearchAttempt | null>(null);
+  const [researchStorageError, setResearchStorageError] =
+    useState<unknown>(null);
+  const [researchHistoryReviewed, setResearchHistoryReviewed] = useState(false);
+  useEffect(() => {
+    setResearchConsent(false);
+    setResearchHistoryReviewed(false);
+    setResearchStorageError(null);
+    try {
+      setResearchAttempt(readResearchAttempt(companyId));
+    } catch (error) {
+      setResearchStorageError(error);
+    }
+  }, [companyId]);
   useEffect(() => {
     try {
       const attempt = readLookupAttempt(companyId);
@@ -154,21 +175,51 @@ export function CompanyPeople({
     onSuccess: (d) => router.push(`/outreach/${d.id}`),
   });
   const research = useMutation({
+    retry: false,
     mutationFn: () =>
-      post<Record<string, unknown>>("discovery/people/search", {
-        company_name: companyName,
-        company_domain: domain || undefined,
-        roles: ["founder", "cto", "engineering manager", "recruiter"],
-        source: "public_search",
-        research_mode: "official_company",
-        permission_confirmed: true,
-        allow_paid: true,
-        limit: 5,
-      }),
+      recoverResearch(
+        companyId,
+        {
+          company_name: companyName,
+          company_domain: domain || undefined,
+          roles: ["founder", "cto", "engineering manager", "recruiter"],
+          source: "public_search",
+          research_mode: "official_company",
+          permission_confirmed: true,
+          allow_paid: true,
+          limit: 5,
+        },
+        researchConsent,
+      ),
     onSuccess: () => {
       client.invalidateQueries({ queryKey: ["people", companyId] });
       client.invalidateQueries({ queryKey: ["contacts", companyId] });
       setResearchConsent(false);
+      setResearchHistoryReviewed(false);
+    },
+    onSettled: () => {
+      try {
+        setResearchAttempt(readResearchAttempt(companyId));
+      } catch (error) {
+        setResearchStorageError(error);
+      }
+    },
+  });
+  const newResearch = useMutation({
+    retry: false,
+    mutationFn: () => prepareNewResearch(companyId, researchAttempt!.requestId),
+    onSuccess: () => {
+      setResearchAttempt(null);
+      setResearchHistoryReviewed(false);
+      setResearchConsent(false);
+      research.reset();
+    },
+    onSettled: () => {
+      try {
+        setResearchAttempt(readResearchAttempt(companyId));
+      } catch (error) {
+        setResearchStorageError(error);
+      }
     },
   });
   const matchesRole = (title?: string | null) => {
@@ -444,9 +495,9 @@ export function CompanyPeople({
       <details className="spaced">
         <summary>Review an optional founder / leader research plan</summary>
         <Notice>
-          Search independently authorized company sources with Serper, limited
-          to 5 results. This may cost credits. The backend must have rights,
-          credentials and budget configured. No LinkedIn profiles are fetched.
+          Research independently authorized company sources with Serper, limited
+          to 5 results and the configured request allowance. Provider charges
+          may apply. No LinkedIn profiles are fetched.
         </Notice>
         <label className="check-label">
           <input
@@ -459,21 +510,65 @@ export function CompanyPeople({
         </label>
         <Button
           className="spaced"
-          disabled={!researchConsent}
+          disabled={
+            (!researchAttempt && !researchConsent) ||
+            researchStorageError != null ||
+            newResearch.isPending
+          }
           busy={research.isPending}
           onClick={() => research.mutate()}
         >
           <Search size={13} />
-          Run approved research
+          {researchAttempt ? "Recover saved research" : "Run approved research"}
         </Button>
+        {researchStorageError != null && (
+          <ErrorState error={researchStorageError} />
+        )}
         {research.isError && <ErrorState error={research.error} />}{" "}
-        {research.data && (
-          <Notice>
-            Research completed. Review the actual result before relying on it.
-            <pre className="source-text">
-              {JSON.stringify(research.data, null, 2)}
-            </pre>
-          </Notice>
+        {research.data &&
+          research.data.request_id === researchAttempt?.requestId && (
+            <Notice>
+              {research.data.persistence_status === "imported"
+                ? "Research results are saved. Review the people and their supporting evidence."
+                : research.data.persistence_status === "held"
+                  ? "Saved results need review before they can be added to this company."
+                  : research.data.status === "outcome_unknown"
+                    ? "The search result is uncertain. Its allowance remains reserved; recover its saved status before starting another search."
+                    : research.data.status === "rate_limited"
+                      ? "The provider asked to pause. Review this result before preparing another search."
+                      : research.data.status === "authentication_required"
+                        ? "The provider needs account access or configuration before research can continue."
+                        : research.data.recorded_state === "finding_retained"
+                          ? "The search result is saved. Recover it to finish saving eligible evidence without another search."
+                          : "This request is recorded. Recover its saved status before starting another search."}
+              <p>
+                {research.data.people.length} professional result(s) retained.
+              </p>
+            </Notice>
+          )}
+        {researchAttempt && (
+          <>
+            <label className="check-label">
+              <input
+                type="checkbox"
+                checked={researchHistoryReviewed}
+                onChange={(e) => setResearchHistoryReviewed(e.target.checked)}
+              />
+              I reviewed the saved research result.
+            </label>
+            <Button
+              disabled={
+                !researchHistoryReviewed ||
+                research.isPending ||
+                researchStorageError != null
+              }
+              busy={newResearch.isPending}
+              onClick={() => newResearch.mutate()}
+            >
+              Prepare a new search
+            </Button>
+            {newResearch.isError && <ErrorState error={newResearch.error} />}
+          </>
         )}
       </details>
       <Modal

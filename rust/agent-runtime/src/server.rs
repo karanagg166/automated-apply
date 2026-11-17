@@ -19,6 +19,7 @@ mod gmail_legacy_io;
 mod gmail_workspace_io;
 mod outreach_io;
 mod owner_http;
+mod people_research_io;
 mod startup_io;
 use boundary::*;
 use document_io::{ResumeIo, generation_dispatch, resume_io_dispatch};

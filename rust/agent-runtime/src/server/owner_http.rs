@@ -327,6 +327,10 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     if let Some(route) = crate::startup_catalog::owner::route(&path) {
         return startup_io::dispatch(&api, route, &method, packet_query.as_deref(), &body).await;
     }
+    if let Some(route) = crate::people_research::owner::route(&path) {
+        return people_research_io::dispatch(&api, route, &method, packet_query.as_deref(), &body)
+            .await;
+    }
     if let Some(company) = crate::contacts::enrichment::io_route(&path) {
         return contact_io::dispatch(&api, company, &method, packet_query.as_deref(), &body).await;
     }

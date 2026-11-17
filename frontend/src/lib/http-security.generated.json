@@ -559,6 +559,14 @@
     {
       "pattern": "^operations\\/status$",
       "methods": ["GET"]
+    },
+    {
+      "pattern": "^rust-agent\\/research\\/people\\/status$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^rust-agent\\/research\\/people\\/requests\\/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+      "methods": ["GET", "PUT"]
     }
   ]
 }

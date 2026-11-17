@@ -312,7 +312,7 @@ impl Settings {
         output.push(json!({"provider":"manual","modes":["company_first"],"availability":"manual_import_only","configured":true,"authorized":false,"pricing":"free","permission_basis":"per_import_rights_confirmation_and_evidence_required","native_execution_implemented":true,"live_verified":false,"dispatch_authorized":false}));
         let configured = self.search_enabled && self.search_key_present;
         let authorized = self.search_rights_reviewed && self.search_permission_present;
-        output.push(json!({"provider":"public_search","modes":["professional_research"],"availability":if configured && authorized{"available"}else{"configuration_required"},"configured":configured,"authorized":authorized,"pricing":"paid","permission_basis":"third_party_retention_rights_required","native_execution_implemented":false,"live_verified":false,"dispatch_authorized":false}));
+        output.push(json!({"provider":"public_search","modes":["professional_research"],"availability":if configured && authorized{"available"}else{"configuration_required"},"configured":configured,"authorized":authorized,"pricing":"paid","permission_basis":"third_party_retention_rights_required","native_execution_implemented":true,"live_verified":false,"dispatch_authorized":false}));
         json!({"sources":output,"evidence_basis":"saved_configuration_not_current_provider_probe","provider_calls":0,"writes":0})
     }
     pub fn startup(&self, source: &str, now: DateTime<Utc>) -> Result<Value> {

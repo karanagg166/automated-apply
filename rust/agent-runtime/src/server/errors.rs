@@ -7,6 +7,29 @@ use axum::{
 use serde_json::{Value, json};
 
 pub(super) fn profile_failure(error: Failure) -> Response {
+    if error.0.starts_with("public_research_") || error.0.starts_with("invalid_public_research_") {
+        let status = match error.0 {
+            "public_research_request_not_found" => StatusCode::NOT_FOUND,
+            "public_research_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
+            "public_research_request_id_required" => StatusCode::PRECONDITION_REQUIRED,
+            "public_research_request_conflict"
+            | "public_research_finding_context_changed"
+            | "public_research_local_receipt_conflict" => StatusCode::CONFLICT,
+            "public_research_outcome_unknown" => StatusCode::GATEWAY_TIMEOUT,
+            "invalid_public_research_query"
+            | "public_research_direct_collection_unavailable"
+            | "public_research_disabled"
+            | "public_research_local_key_required"
+            | "public_research_permission_required"
+            | "public_research_paid_opt_in_required"
+            | "public_research_profile_retention_not_authorized"
+            | "public_research_official_domain_not_authorized"
+            | "public_research_company_domain_required" => StatusCode::UNPROCESSABLE_ENTITY,
+            "public_research_local_request_limit_exhausted" => StatusCode::TOO_MANY_REQUESTS,
+            _ => StatusCode::SERVICE_UNAVAILABLE,
+        };
+        return reply(status, json!({"detail":error.0}));
+    }
     if error.0 == "invalid_research_contract" {
         return reply(StatusCode::UNPROCESSABLE_ENTITY, json!({"detail":error.0}));
     }
@@ -83,6 +106,9 @@ pub(super) fn profile_failure(error: Failure) -> Response {
             "contact_review_version_conflict" => StatusCode::PRECONDITION_FAILED,
             "contact_affiliation_mailbox_review_required" => StatusCode::CONFLICT,
             "contact_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
+            "contact_provider_budget_exhausted" | "contact_provider_cooling_down" => {
+                StatusCode::TOO_MANY_REQUESTS
+            }
             _ => StatusCode::SERVICE_UNAVAILABLE,
         };
         return reply(status, json!({"detail":error.0}));

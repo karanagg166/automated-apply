@@ -89,7 +89,7 @@ pub fn output(journal: &Value, request: Uuid, now: DateTime<Utc>) -> Result<Valu
         Some("finding_retained" | "completed" | "held")
     ) {
         let finding = super::findings::selected(journal, now)?;
-        let mut value = json!({"request_id":request,"company_name":company,"status":if matches!(finding["provider_status"].as_str(),Some("success"|"partial"|"no_results")){"finding_retained"}else{finding["provider_status"].as_str().ok_or_else(invalid)?},"recorded_state":"finding_retained","reserved_local_requests":1,"budget_unit":"search_request","provider_post_admissions":1,"provider_charge_verified":false,"outbound_messages_sent":0,"replay_authorized":false,"evidence_basis":"retained_finding_not_new_execution"});
+        let mut value = json!({"request_id":request,"company_name":company,"company_id":journal["company"]["id"].as_str().and_then(|s|s.parse::<Uuid>().ok()),"status":if matches!(finding["provider_status"].as_str(),Some("success"|"partial"|"no_results")){"finding_retained"}else{finding["provider_status"].as_str().ok_or_else(invalid)?},"recorded_state":"finding_retained","reserved_local_requests":1,"budget_unit":"search_request","provider_post_admissions":1,"provider_charge_verified":false,"outbound_messages_sent":0,"replay_authorized":false,"evidence_basis":"retained_finding_not_new_execution"});
         for (key, v) in finding.as_object().ok_or_else(invalid)? {
             value[key] = v.clone();
         }
@@ -127,7 +127,7 @@ pub fn output(journal: &Value, request: Uuid, now: DateTime<Utc>) -> Result<Valu
         return Ok(value);
     }
     Ok(
-        json!({"request_id":request,"company_name":company,"status":if now>expires{"outcome_unknown"}else{"running"},"recorded_state":"dispatch_admitted","people":[],"errors":if now>expires{vec!["public_research_original_dispatch_unconfirmed"]}else{vec![]},"reserved_local_requests":1,"budget_unit":"search_request","provider_post_admissions":1,"provider_response_retained":false,"provider_charge_verified":false,"outbound_messages_sent":0,"replay_authorized":false,"evidence_basis":"retained_intent_not_new_execution"}),
+        json!({"request_id":request,"company_name":company,"company_id":journal["company"]["id"].as_str().and_then(|s|s.parse::<Uuid>().ok()),"status":if now>expires{"outcome_unknown"}else{"running"},"recorded_state":"dispatch_admitted","people":[],"errors":if now>expires{vec!["public_research_original_dispatch_unconfirmed"]}else{vec![]},"reserved_local_requests":1,"budget_unit":"search_request","provider_post_admissions":1,"provider_response_retained":false,"provider_charge_verified":false,"outbound_messages_sent":0,"replay_authorized":false,"evidence_basis":"retained_intent_not_new_execution"}),
     )
 }
 pub async fn admit(

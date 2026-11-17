@@ -17,6 +17,15 @@ endpoint/header contract as existing source compatibility; do not claim current 
 credit, retention entitlement or live endpoint verification from the marketing page.
 No account/provider execution was performed by this research.
 
+Dashboard recovery follow-up, 2026-11-17: [Mozilla Web Locks documentation](https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API)
+describes same-origin coordination across tabs and release when the callback completes;
+its [primary compatibility data](https://raw.githubusercontent.com/mdn/browser-compat-data/main/api/LockManager.json)
+records Safari support from 15.4 and Edge support through the Chromium mapping. Recovery
+helpers use this browser lock while updating UUID-only pointers and refuse mutation
+before network work if unavailable. This is source design evidence, not a live test of
+the owner's browser. A missing durable admission still requires fresh explicit approval
+before a paid PUT; recovering an already saved finding only completes local work.
+
 | Subject | Primary reference | Consequence for this implementation |
 | --- | --- | --- |
 | Native framing/origin | [Chromium native messaging](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging) | UTF-8 JSON uses32-bit native-endian length framing; host responses cap1MiB. Caller origin and allowed extension identity must be validated; application limits remain stricter |
