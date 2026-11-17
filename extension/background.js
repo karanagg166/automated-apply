@@ -130,10 +130,17 @@ export async function observeSession(tab) {
 }
 async function performObserveSession(tab) {
   let result;
-  if (!portalHost(tab?.url) || !Number.isInteger(tab?.id)) {
+  if (!portalHost(tab?.url) || !Number.isInteger(tab?.id) || tab.incognito) {
     result = { ok: false, error_code: "unsupported_portal_page" };
   } else {
     try {
+      const binding = await profileContext(chrome).catch(() => null);
+      const scope =
+        binding &&
+        binding.window_id === tab.windowId &&
+        Number.isInteger(tab.windowId)
+          ? binding
+          : null;
       const observations = await chrome.scripting.executeScript({
         target: { tabId: tab.id, frameIds: [0] },
         world: "ISOLATED",
@@ -143,7 +150,12 @@ async function performObserveSession(tab) {
         active: true,
         currentWindow: true,
       });
-      if (current?.id !== tab.id || current?.url !== tab.url)
+      if (
+        current?.id !== tab.id ||
+        current?.url !== tab.url ||
+        current.windowId !== tab.windowId ||
+        current.incognito
+      )
         throw new Error("page changed");
       if (
         !Array.isArray(observations) ||
@@ -159,8 +171,9 @@ async function performObserveSession(tab) {
         version: 1,
         request_id: crypto.randomUUID(),
         command: "observe_platform_session",
-        url: url.origin + url.pathname,
+        url: url.origin + "/",
         observation: observations[0].result,
+        ...scope,
       };
       let timer;
       try {

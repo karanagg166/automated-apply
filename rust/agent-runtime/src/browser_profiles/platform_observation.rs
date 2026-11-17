@@ -2,6 +2,7 @@
 use super::*;
 
 type Operation = (String, String, String, Option<Value>);
+const CONTEXT_CHANGED: Failure = Failure("portal_browser_context_changed");
 
 async fn existing(tx: &mut Transaction<'_, Postgres>, key: &str) -> Result<Option<Operation>> {
     sqlx::query_as(
@@ -54,18 +55,56 @@ pub(super) async fn dispatch(
     let key = format!("{actor}:{}", command.request_id);
     let name = command.name();
     let hash = &command.payload_hash;
+    let scoped = [
+        "profile_binding_id",
+        "profile_secret",
+        "browser_session_id",
+        "window_id",
+    ]
+    .iter()
+    .any(|field| !command.value[*field].is_null());
     if let Some((old_actor, old_name, old_hash, previous)) = existing(tx, &key).await? {
         if old_actor != actor || old_name != name || &old_hash != hash {
             let mut result = native::result(command, Err(Failure("request_id_conflict")));
             result["capability"] = json!("denied");
             return Ok(result);
         }
+        // The canonical hash redacts SecretStr. Replay still requires the binding credential.
+        if scoped {
+            match native::authenticate(tx, command).await {
+                Ok(_) => {}
+                Err(Failure("PROFILE_OFFLINE")) => {
+                    return Ok(native::result(command, Err(CONTEXT_CHANGED)));
+                }
+                Err(error) => return Err(error),
+            }
+        }
         return replay(command, previous.ok_or_else(invalid)?);
     }
+    let scope = if scoped {
+        let profile = match commands::read_profile(tx, command, now).await {
+            Ok(profile) if profile["window_id"] == command.value["window_id"] => profile,
+            Ok(_)
+            | Err(Failure(
+                "PROFILE_OFFLINE" | "PROFILE_NOT_SELECTED" | "PROFILE_SESSION_CHANGED",
+            )) => {
+                return Ok(native::result(command, Err(CONTEXT_CHANGED)));
+            }
+            Err(error) => return Err(error),
+        };
+        let selected = selection(tx).await?;
+        Some(crate::platform_sessions::browser_scope(
+            &profile,
+            &selected["version"],
+        ))
+    } else {
+        None
+    };
     let (observation, result) = match crate::platform_sessions::observe(
         tx,
         command.value["url"].as_str(),
         command.value["observation"].as_str(),
+        scope,
         now,
     )
     .await

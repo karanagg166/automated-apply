@@ -8,32 +8,38 @@ const PATH: &str = "/api/v1/local-agent/platforms";
 struct Portal {
     code: &'static str,
     name: &'static str,
+    domain: &'static str,
     login_url: &'static str,
 }
 static PORTALS: [Portal; 5] = [
     Portal {
         code: "naukri",
         name: "Naukri",
+        domain: "naukri.com",
         login_url: "https://www.naukri.com/nlogin/login",
     },
     Portal {
         code: "wellfound",
         name: "Wellfound",
+        domain: "wellfound.com",
         login_url: "https://wellfound.com/login",
     },
     Portal {
         code: "instahyre",
         name: "Instahyre",
+        domain: "instahyre.com",
         login_url: "https://www.instahyre.com/login/",
     },
     Portal {
         code: "work_at_a_startup",
         name: "YC Work at a Startup",
+        domain: "workatastartup.com",
         login_url: "https://account.ycombinator.com/magic?continue=https%3A%2F%2Fwww.workatastartup.com%2F",
     },
     Portal {
         code: "internshala",
         name: "Internshala",
+        domain: "internshala.com",
         login_url: "https://internshala.com/login/",
     },
 ];
@@ -118,31 +124,102 @@ fn evidence(value: &Value) -> Result<&str> {
     }
 }
 
+pub(crate) fn browser_scope(profile: &Value, selection_version: &Value) -> Value {
+    json!({
+        "profile_binding_id": profile["id"],
+        "profile_version": profile["version"],
+        "browser_session_id": profile["browser_session_id"],
+        "window_id": profile["window_id"],
+        "selection_version": selection_version,
+    })
+}
+
+fn session_evidence(
+    value: &Value,
+    profile: Option<&Value>,
+    now: DateTime<Utc>,
+) -> Result<Option<&'static str>> {
+    if value["browser_scope"].is_null() {
+        return Ok((evidence(value)? == "extension_gesture_dom_indicator").then_some("unscoped"));
+    }
+    let time = timestamp(value, "last_verification_time")?;
+    let fresh = time
+        .as_str()
+        .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
+        .is_some_and(|time| {
+            let age = now - time.with_timezone(&Utc);
+            age >= chrono::Duration::zero() && age < chrono::Duration::minutes(30)
+        });
+    if let Some(profile) = profile
+        && fresh
+        && value["browser_scope"] == browser_scope(profile, &profile["selection_version"])
+        && crate::browser_profiles::online(profile, now)?
+    {
+        return Ok(Some("current_selected_profile"));
+    }
+    Ok(Some("stale_selected_profile"))
+}
+
 pub(crate) async fn listing(connection: &mut PgConnection) -> Result<Vec<Value>> {
     let keys: Vec<_> = PORTALS
         .iter()
         .map(|portal| format!("portal_{}", portal.code))
         .collect();
-    let saved: Vec<(String, Option<Value>)> = sqlx::query_as(
-        "SELECT key, CASE WHEN octet_length(value::text) <= 8192 THEN value END
-         FROM owner_preferences WHERE key=ANY($1)",
+    let saved: Vec<(String, Option<Value>, Option<Value>, DateTime<Utc>)> = sqlx::query_as(
+        "SELECT p.key, CASE WHEN octet_length(p.value::text) <= 8192 THEN p.value END,
+            CASE WHEN p.value ? 'browser_scope' AND profile.value->'id'=selected.value->'profile_binding_id'
+              AND (fixed.key IS NULL OR fixed.value->'profile_binding_id'=profile.value->'id')
+            THEN jsonb_build_object(
+                'id',profile.value->'id','version',profile.value->'version',
+                'browser_session_id',profile.value->'browser_session_id','window_id',profile.value->'window_id',
+                'connected',profile.value->'connected','last_heartbeat',profile.value->'last_heartbeat',
+                'selection_version',selected.value->'version')
+            END, statement_timestamp()
+         FROM owner_preferences p
+         LEFT JOIN owner_preferences selected ON selected.key='chr_selection'
+         LEFT JOIN owner_preferences fixed ON fixed.key='chr_fixed_profile'
+         LEFT JOIN owner_preferences profile ON profile.key='chr_prof:'||(selected.value->>'profile_binding_id')
+         WHERE p.key=ANY($1)",
     )
     .bind(&keys)
     .fetch_all(connection)
     .await
     .map_err(db)?;
-    PORTALS.iter().zip(keys).map(|(portal, key)| {
-        let value = match saved.iter().find(|(saved_key, _)| saved_key == &key) {
-            Some((_, Some(value))) if value.is_object() => value,
-            Some(_) => return Err(invalid()),
-            None => &Value::Null,
-        };
-        Ok(json!({"platform":portal.code,"name":portal.name,"login_url":portal.login_url,
-            "state":state(value)?,"last_verification_time":timestamp(value,"last_verification_time")?,
-            "evidence_type":evidence(value)?,"identity_verified":false,"api_connected":false,
+    PORTALS
+        .iter()
+        .zip(keys)
+        .map(|(portal, key)| {
+            let (value, session_evidence) =
+                match saved.iter().find(|(saved_key, ..)| saved_key == &key) {
+                    Some((_, Some(value), profile, now)) if value.is_object() => {
+                        (value, session_evidence(value, profile.as_ref(), *now)?)
+                    }
+                    Some(_) => return Err(invalid()),
+                    None => (&Value::Null, None),
+                };
+            let accepted = value["manual_capability_accepted"] == true;
+            let saved_state = state(value)?;
+            let state = if saved_state == "browser_session_observed"
+                && session_evidence == Some("stale_selected_profile")
+            {
+                if accepted {
+                    "manual_only"
+                } else {
+                    "owner_action_required"
+                }
+            } else {
+                saved_state
+            };
+            Ok(
+                json!({"platform":portal.code,"name":portal.name,"login_url":portal.login_url,
+            "state":state,"last_verification_time":timestamp(value,"last_verification_time")?,
+            "evidence_type":evidence(value)?,"session_evidence":session_evidence,
+            "identity_verified":false,"api_connected":false,
             "capabilities":["manual_handoff","url_preview","gesture_session_observation"],
-            "submission":"unsupported","owner_acceptance_required":value["manual_capability_accepted"] != true}))
-    }).collect()
+            "submission":"unsupported","owner_acceptance_required":!accepted}),
+            )
+        })
+        .collect()
 }
 
 async fn saved(connection: &mut PgConnection, key: &str, lock: bool) -> Result<Option<Value>> {
@@ -199,11 +276,16 @@ pub(crate) fn observation_payload(value: &Value) -> Result<Value> {
     {
         return Err(invalid());
     }
-    Ok(
-        json!({"platform":platform.code,"observation":indicator,"state":state(value)?,
+    let mut result = json!({"platform":platform.code,"observation":indicator,"state":state(value)?,
         "last_verification_time":time,"manual_capability_accepted":value["manual_capability_accepted"],
-        "evidence_type":"extension_gesture_dom_indicator","identity_verified":false,"api_connected":false,"submitted":false}),
-    )
+        "evidence_type":"extension_gesture_dom_indicator","identity_verified":false,"api_connected":false,"submitted":false});
+    if let Some(scoped) = value.get("selected_profile_observation") {
+        if scoped != true {
+            return Err(invalid());
+        }
+        result["selected_profile_observation"] = json!(true);
+    }
+    Ok(result)
 }
 
 async fn save(
@@ -240,14 +322,20 @@ pub(crate) async fn observe(
     tx: &mut Transaction<'_, Postgres>,
     url: Option<&str>,
     indicator: Option<&str>,
+    scope: Option<Value>,
     now: DateTime<Utc>,
 ) -> Result<(String, Value, Value)> {
     let unsupported = Failure("unsupported_platform_observation");
     let url = url
         .and_then(crate::resources::public_https)
         .ok_or(unsupported)?;
-    let platform = crate::browser_profiles::commands::page_kind(&url)?;
-    let portal = portal(platform).ok_or(unsupported)?;
+    let parsed = reqwest::Url::parse(&url).map_err(|_| unsupported)?;
+    let host = parsed.host_str().ok_or(unsupported)?;
+    let host = host.strip_prefix("www.").unwrap_or(host);
+    let portal = PORTALS
+        .iter()
+        .find(|portal| portal.domain == host)
+        .ok_or(unsupported)?;
     let indicator = indicator
         .filter(|indicator| {
             matches!(
@@ -258,10 +346,14 @@ pub(crate) async fn observe(
         .ok_or(unsupported)?;
     let key = format!("portal_{}", portal.code);
     let old = saved(tx, &key, true).await?;
-    let value = observation(old.as_ref(), indicator, now);
-    save(tx, &key, old.as_ref(), &value).await?;
+    let mut value = observation(old.as_ref(), indicator, now);
     let mut result = value.clone();
-    result["platform"] = json!(platform);
+    if let Some(scope) = scope {
+        value["browser_scope"] = scope;
+        result["selected_profile_observation"] = json!(true);
+    }
+    save(tx, &key, old.as_ref(), &value).await?;
+    result["platform"] = json!(portal.code);
     result["api_connected"] = json!(false);
     result["identity_verified"] = json!(false);
     result["submitted"] = json!(false);

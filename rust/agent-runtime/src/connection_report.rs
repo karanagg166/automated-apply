@@ -212,15 +212,21 @@ async fn report(connection: &mut PgConnection, config: &Configuration) -> Result
 
     for portal in crate::platform_sessions::listing(connection).await? {
         let time = stored_time(&portal["last_verification_time"]);
+        let evidence_type = match portal["session_evidence"].as_str() {
+            Some("current_selected_profile") => "selected_browser_portal_observation",
+            Some("stale_selected_profile") => "stale_browser_portal_observation",
+            Some("unscoped") => "unscoped_browser_portal_observation",
+            _ => portal["evidence_type"].as_str().unwrap_or("none"),
+        };
         let mut row = Row::new(
             portal["name"].as_str().unwrap_or_default(),
             "platforms",
             time.is_some(),
-            "Sign in in your browser, then use Check this portal session in the extension.",
+            "Select the connected browser profile, sign in in its connected window, then use Check this portal session in the extension.",
         );
         row.evidence(
             portal["state"].as_str().unwrap_or("owner_action_required"),
-            portal["evidence_type"].as_str().unwrap_or("none"),
+            evidence_type,
             time,
         );
         row.identity_verification = "account_identity_unverified";

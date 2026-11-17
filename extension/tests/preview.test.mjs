@@ -379,10 +379,11 @@ test("observation sends only a fixed indicator and redacted page URL, and coales
   chrome.tabs = { query: async () => [tab] };
   chrome.runtime.sendNativeMessage = async (_host, command) => {
     nativeCalls += 1;
-    assert.equal(command.url, "https://www.naukri.com/mnjuser/profile");
+    assert.equal(command.url, "https://www.naukri.com/");
     assert.equal(command.command, "observe_platform_session");
     assert.equal(command.observation, "signed_in_indicator");
     assert.equal(command.title, undefined);
+    assert.equal(command.profile_secret, undefined);
     return {
       version: 1,
       request_id: command.request_id,
@@ -401,6 +402,70 @@ test("observation sends only a fixed indicator and redacted page URL, and coales
     assert.equal(nativeCalls, 1);
   } finally {
     chrome.runtime.sendNativeMessage = original;
+  }
+});
+test("portal observation sends scope only from the connected ordinary window", async () => {
+  const original = {
+    localGet: chrome.storage.local.get,
+    sessionGet: chrome.storage.session.get,
+    send: chrome.runtime.sendNativeMessage,
+  };
+  const profile = {
+    connected: true,
+    windowId: 4,
+    id: crypto.randomUUID(),
+    secret: "f".repeat(64),
+  };
+  const session = crypto.randomUUID();
+  const requests = [];
+  const tab = {
+    id: 9,
+    windowId: 4,
+    url: "https://www.instahyre.com/account?token=fixture",
+  };
+  chrome.storage.local.get = async () => ({
+    connectedChromeProfileV1: profile,
+  });
+  chrome.storage.session.get = async () => ({
+    applicationBrowserSessionV1: session,
+  });
+  chrome.scripting = {
+    executeScript: async () => [{ result: "signed_in_indicator" }],
+  };
+  chrome.tabs = { query: async () => [tab] };
+  chrome.runtime.sendNativeMessage = async (_host, request) => {
+    requests.push(request);
+    return {
+      version: 1,
+      request_id: request.request_id,
+      ok: true,
+      data: { api_connected: false, identity_verified: false },
+    };
+  };
+  try {
+    assert.equal((await observeSession(tab)).ok, true);
+    assert.equal(requests[0].profile_binding_id, profile.id);
+    assert.equal(requests[0].profile_secret, profile.secret);
+    assert.equal(requests[0].browser_session_id, session);
+    assert.equal(requests[0].window_id, 4);
+    assert.equal(requests[0].url, "https://www.instahyre.com/");
+    assert.doesNotMatch(
+      JSON.stringify(stored.lastObservation),
+      new RegExp(profile.secret),
+    );
+    tab.windowId = 5;
+    assert.equal((await observeSession(tab)).ok, true);
+    assert.equal(requests[1].profile_binding_id, undefined);
+    tab.incognito = true;
+    assert.equal(
+      (await observeSession(tab)).error_code,
+      "unsupported_portal_page",
+    );
+    assert.equal(requests.length, 2);
+  } finally {
+    chrome.storage.local.get = original.localGet;
+    chrome.storage.session.get = original.sessionGet;
+    chrome.runtime.sendNativeMessage = original.send;
   }
 });
 test("observation preserves backend_offline and native host error codes", async () => {

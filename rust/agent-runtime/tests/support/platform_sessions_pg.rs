@@ -70,6 +70,7 @@ async fn portal_owner_manual_observation_and_forget_route_preserve_gesture_repla
         .find(|row| row["platform"] == "instahyre")
         .unwrap();
     assert_eq!(row["state"], "browser_session_observed");
+    assert_eq!(row["session_evidence"], "unscoped");
     assert_eq!(row["submission"], "unsupported");
     assert_eq!(row["owner_acceptance_required"], false);
     assert_eq!(
@@ -134,6 +135,143 @@ async fn portal_owner_manual_observation_and_forget_route_preserve_gesture_repla
     assert_eq!(saved, vec![observed]);
     assert!(!saved[0].to_string().contains("private-path-canary"));
     assert!(!saved[0].to_string().contains("PORTAL_CANARY"));
+    stop.cancel();
+    service.await.unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn portal_observation_scope_expires_and_replay_requires_the_original_credential() {
+    let mut c = browser_fixture().await;
+    let context = browser_context();
+    browser_connect(&mut c, &context).await;
+    let mut request = context.clone();
+    request["request_id"] = json!(Uuid::new_v4());
+    request["command"] = json!("observe_platform_session");
+    request["url"] = json!("https://www.instahyre.com/");
+    request["observation"] = json!("signed_in_indicator");
+    let rejected = browser_call(&mut c, BrowserRoute::Native, request.clone())
+        .await
+        .unwrap();
+    assert_eq!(rejected["error_code"], "portal_browser_context_changed");
+    browser_call(
+        &mut c,
+        BrowserRoute::Select,
+        json!({
+            "expected_version": 0, "profile_binding_id": context["profile_binding_id"],
+        }),
+    )
+    .await
+    .unwrap();
+    let mut other_window = request.clone();
+    other_window["window_id"] = json!(11);
+    let rejected = browser_call(&mut c, BrowserRoute::Native, other_window)
+        .await
+        .unwrap();
+    assert_eq!(rejected["error_code"], "portal_browser_context_changed");
+    let observed = browser_call(&mut c, BrowserRoute::Native, request.clone())
+        .await
+        .unwrap();
+    assert_eq!(observed["ok"], true);
+    assert_eq!(observed["data"]["selected_profile_observation"], true);
+    assert_eq!(observed["data"]["identity_verified"], false);
+    assert_eq!(observed["data"]["submitted"], false);
+    let mut impostor = request.clone();
+    impostor["profile_secret"] = json!("e".repeat(64));
+    let rejected = browser_call(&mut c, BrowserRoute::Native, impostor)
+        .await
+        .unwrap();
+    assert_eq!(rejected["error_code"], "portal_browser_context_changed");
+
+    let (base, stop, service) = http_fixture_values(browser_values()).await;
+    let client = client();
+    let list = || {
+        client
+            .get(format!("{base}/api/v1/local-agent/platforms"))
+            .bearer_auth(HOST_TOKEN)
+    };
+    let instahyre = |list: Vec<Value>| {
+        list.into_iter()
+            .find(|row| row["platform"] == "instahyre")
+            .unwrap()
+    };
+    let current = instahyre(
+        list()
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+            .unwrap()
+            .json()
+            .await
+            .unwrap(),
+    );
+    assert_eq!(current["session_evidence"], "current_selected_profile");
+    assert_eq!(current["state"], "browser_session_observed");
+    assert_eq!(current["identity_verified"], false);
+    assert_eq!(current["submission"], "unsupported");
+    assert!(current.get("browser_scope").is_none());
+    assert!(observed["data"].get("browser_scope").is_none());
+    assert!(
+        !current
+            .to_string()
+            .contains(context["profile_binding_id"].as_str().unwrap())
+    );
+
+    let original = browser_pref(&mut c, "portal_instahyre").await;
+    let mut expired = original.clone();
+    expired["last_verification_time"] = json!("2000-01-01T00:00:00Z");
+    browser_save(&mut c, "portal_instahyre", expired).await;
+    let stale = instahyre(
+        list()
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+            .unwrap()
+            .json()
+            .await
+            .unwrap(),
+    );
+    assert_eq!(stale["session_evidence"], "stale_selected_profile");
+    assert_eq!(stale["state"], "owner_action_required");
+    browser_save(&mut c, "portal_instahyre", original.clone()).await;
+    browser_call(
+        &mut c,
+        BrowserRoute::Select,
+        json!({
+            "expected_version": 1, "profile_binding_id": null,
+        }),
+    )
+    .await
+    .unwrap();
+    browser_call(
+        &mut c,
+        BrowserRoute::Select,
+        json!({
+            "expected_version": 2, "profile_binding_id": context["profile_binding_id"],
+        }),
+    )
+    .await
+    .unwrap();
+    let stale = instahyre(
+        list()
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+            .unwrap()
+            .json()
+            .await
+            .unwrap(),
+    );
+    assert_eq!(stale["session_evidence"], "stale_selected_profile");
+    assert_eq!(stale["state"], "owner_action_required");
+    let replay = browser_call(&mut c, BrowserRoute::Native, request)
+        .await
+        .unwrap();
+    assert_eq!(replay, observed);
+    assert_eq!(browser_pref(&mut c, "portal_instahyre").await, original);
     stop.cancel();
     service.await.unwrap();
 }
