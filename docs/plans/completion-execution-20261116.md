@@ -1,5 +1,16 @@
 # Complete-source delivery plan — 2026-11-16
 
+Public owner-run scope design 2026-11-17: freeze the actual RunRequest and original
+request hash (excluding the compatibility idempotency field). Preserve use_profile,
+explicit versus effective query, and actual title/location/remote/employment expansion
+before any parent/child admission. Public-source planning rejects manual records and
+unsupported sources without network authority. A private canonical profile UUID/version/
+content-hash pin binds every saved fact while exposing only query terms/version in future
+preview; no raw candidate/contact/resume data is copied into provider plans. Disabled or
+absent profiles remain distinct, and changed profile/context must hold later local intake.
+This dependency precedes SQL job intake so recovery cannot silently change filters or
+inherit a new profile while completing an original retained provider observation.
+
 Public local-intake dependency design 2026-11-17: first freeze actual source/board/ID
 and canonical URL observation keys, conservative company/domain/location/content identity
 and explicit discovery-query filters. Profile-expanded provider terms must remain distinct
