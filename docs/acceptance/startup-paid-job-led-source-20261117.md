@@ -1,0 +1,24 @@
+# Startup parent with original paid job child — source checkpoint2026-11-17
+
+Implementation [8a465ecce61e4fe09b0932040a64a96ddf009e31](https://github.com/karanagg166/automated-apply/commit/8a465ecce61e4fe09b0932040a64a96ddf009e31), branch `feat/rust-agent-runtime`, [PR50](https://github.com/karanagg166/automated-apply/pull/50), base `chore/uv-python-tooling`. Untested/uninstalled source; no actual paid/startup provider, production SQL, browser or Mac acceptance.
+
+Existing startup job-led orchestration now shares a typed public/paid original child adapter. Wellfound and Work at a Startup use the original paid job-run lifecycle; the seven public sources retain their existing path. Startup parent, actual paid job parent, original paid intent and exact full-cap reservation admit atomically. Deterministic child UUID/request hash/query/profile pins and compatibility keys remain bound; post-startup-trigger nested ACKs include original child/reservation, exact monthly total, configuration/profile/cooldown and deadline. Saved standalone/legacy intents cannot become fresh child authority.
+
+Original opaque acquisition remains provider-specific. Replays can only read the original child or finish retained local findings. Startup catalog results reuse frozen job-to-company receipt attribution and original filters/profile/current configuration. Company source claims remain unverified; curated stage/size/YC evidence is not promoted. Finalization repeats selected catalog and attribution checks, rechecks nested child and exact paid monthly snapshot after terminal triggers, and preserves separately completed child facts if parent finalization fails. Completed parent reads/replays need no current paid credentials/profile. Closed child output exposes selected provider run/reservation/read metadata for separately authorized acknowledged-read recovery through the job flow. Host keyed startup POST now selects this paid composition; native implementation readiness remains separate from live verification.
+
+| Gate | Status | Evidence |
+| --- | --- | --- |
+| Source/formatting | PASS(source only) | Typed child adapter, atomic nested paid admission, shared company attribution/catalog finalization, exact month ACK, saved reads and existing keyed owner POST |
+| New standard declaration | NOT TESTED |1: paid startup child retains explicit opt-in, deterministic child identity, original query and profile choice |
+| New PG/loopback/HTTP declarations | NOT TESTED |8: original result/replay; late admission month mutation; dropped parent/all nested rollback; unknown child/no restart; completed saved replay without current credentials/profile; terminal month mutation/local recovery; keyed owner HTTP; separate full-cap and source-claim qualifications within these cases |
+| Existing fixture update | NOT TESTED |Earlier unsupported-provider HTTP case uses still-unported Himalayas instead of newly implemented paid Work at a Startup |
+| Current tests/build/check/lint/types | NOT TESTED |New executed tests0; remaining agreed source precedes combined gates |
+| Actual provider/Mac/browser/install | NOT TESTED |No real token file, provider/startup operation, production SQL, browser or installation operation |
+| Timing/resources | NOT TESTED |Existing owner connection/shared child lifecycle; no pool added, no measured comparison |
+| Startup UUID/local-complete API/durable dashboard | NOT TESTED/incomplete |Next source; individual platform discovery/application acceptance remains separate |
+
+Fixed codes include startup_job_led_child_already_claimed, startup_job_led_profile_changed, startup_job_led_company_attribution_changed, startup_run_write_ack_failed and apify_execution_write_ack_failed. All declared failures are unexecuted fixtures; no raw private log is published. Full paid reservations remain preliminary and held; no Apply quota or first-receipt gate changes.
+
+Deferred reproduction: `cargo test --locked -p automated-apply-agents --test startup_job_led`; dedicated PostgreSQL harness `cargo test --locked -p automated-apply-agents --test postgres startup_paid -- --ignored --test-threads=1`. Include public startup/job owner/intake/ranking, paid lifecycle and source-registry regressions in the final combined gate. Fixture success will not establish actual paid provider or platform acceptance.
+
+Last validated checkpoint remains9c4ace570535a5856184775f8045ee89eafdd05f:193 standard Rust+262 dedicated PG=455 distinct passes; those results do not validate this head. Estimate held58%/42%. Last observed queue STOPPED162, lifetime4/hour1, three uncertain jobs quarantined, one eligible fourth admission, strict worker receipts0. Identity/PDF/filter/focus constraints remain. No hosted Actions, merge, cleanup, sending/application, paid provider or installed-service operation.

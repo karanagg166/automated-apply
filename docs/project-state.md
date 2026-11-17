@@ -1,3 +1,17 @@
+Latest startup paid-child source `8a465ecce61e4fe09b0932040a64a96ddf009e31` composes Wellfound/Work at a Startup
+through typed original paid job children, admitting parent/child/intent/reservation
+atomically. Nested admission ACKs and final exact monthly snapshot accompany existing
+profile/configuration/frozen company attribution/catalog checks. Replay never acquires
+another provider grant and completed reads need no current token/profile. One standard+
+eight PG/loopback declarations UNRUN. See [qualified startup paid-child report](acceptance/startup-paid-job-led-source-20261117.md).
+Continue startup UUID PUT/local completion/durable dashboard and remaining agreed
+runtime/provider/tool/platform source before combined gates. No current tests/build/
+check/native live/install or percentage increase;58/42/prior455 held. No actual
+provider/recovery/production/browser operations.
+Private continuity snapshotacf85c442029c7d9015d575582e1c9ed543c0238e56a23362201209af1edc78e
+at2026-11-17T14:22:22.824556+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest durable acknowledged-read dashboard source `bcc1b182e2d32810dfd12d637b02e6030e6a3742` retains opaque
 parent/read UUIDs under original Web Lock, requires separate new-read consent and
 uses GET-only saved inspection/restoration. Complete pages finish locally, then the
