@@ -2,6 +2,10 @@
 
 The active goal limits delivery to the owner’s laptop. GitHub pushes, pull requests, remote reports, hosted Actions and merges remain suspended until the owner reauthorizes them. Finish source and fixtures, run combined validation, then install and verify locally. See the [completion plan](plans/completion-execution-20261116.md).
 
+Local source `4161b16` registers HiringCafe's official project MCP and accepts the attributed job links it returns in owner-reviewed imports. Legacy bare-ID and updated-slug links reuse retained posting identity. Two fixtures await the combined run. Recent public MCP research verified the provider link shape. Installed workflow, employer form and receipt acceptance remain pending. See the [HiringCafe checkpoint](acceptance/hiringcafe-connector-local-source-20261118.md).
+
+Private continuity snapshot `f84192786975c6cd4723310151a4d87561c19452cedd172624d035fd306f9211` at `2026-11-17T21:08:27.576890+00:00` preserved six available transcripts from 104 indexed threads. The other 98 transcripts remain missing.
+
 Local source `b74e107` keeps worker scheduling available during the configured Cohere planner's HTTP wait. Run and monthly provider reservations commit before the request. One new actual-process PostgreSQL fixture awaits the combined run. The estimate remains 58% complete. See the [model worker checkpoint](acceptance/model-worker-local-source-20261118.md).
 
 Private continuity snapshot `4f5a1334608ff278c39f284ce427dadc4db7cdbfbfa3c9542cb71fff6b70f836` at `2026-11-17T20:58:44.624861+00:00` preserved six available transcripts from 104 indexed threads. The other 98 transcripts remain missing.
