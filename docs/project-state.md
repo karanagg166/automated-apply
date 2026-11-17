@@ -7,6 +7,20 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest startup job-led source `586690b648a296fb8c759e1427083f25237f2872` admits real parent/original job
+child atomically, rechecks nested scope/window/profile after parent triggers and keeps
+lost invocations nonrenewable. Local company results bind original job-to-company IDs,
+original filters/profile/context and a second selected-catalog ACK. Failed startup
+finalization preserves completed child data for local-only recovery. One standard and
+ten PG declarations plus2 existing fixture updates are UNRUN.
+See [qualified startup job-led report](acceptance/startup-job-led-source-20261117.md).
+Continue reviewed Apify execution/budget/dataset lifecycle, startup/dashboard recovery
+and remaining agreed runtime/provider/tool/platform source before combined gates.
+No current tests/build/check/native live/install or estimate increase;58/42/prior455 held.
+Private continuity snapshot 409ab6d517f29d752d2f74cc7e7d243d3a71826b7308bea13b4934a1b6ec9f5f
+at2026-11-17T11:03:20.359526+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest owner API/dashboard source `39be30083d6840315bbeb3519c43731ae542161e` connects public preview,
 stable keyed POST and UUID PUT/GET plus local-only completion through the existing
 transient slot. Legacy GETs are qualified saved history without native adoption.
