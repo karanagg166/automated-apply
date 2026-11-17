@@ -1,5 +1,18 @@
 # Complete-source delivery plan — 2026-11-16
 
+Professional manual ingestion design 2026-11-17: commit one UUID-scoped local import
+receipt and all candidate/contact changes atomically under owner-first SERIALIZABLE
+and the existing ingestion fence. Complete replay returns the original result without
+refreshing evidence; a changed request conflicts. Nonempty imports require an explicit
+normalized company domain, since display name alone cannot establish employer identity.
+Preserve human-confirmed public-person rows and canonical company facts. Manual public
+URLs stay unverified; official evidence requires explicit rights confirmation, exact
+company/publication domain and independently confirmed owner facts. Reuse existing
+contact identity/suppression reconciliation with stable per-item receipts. Weak evidence
+must keep identity review required; existing suppression/corrections/review conflicts
+cannot be cleared by import. Verify complete rows after triggers and roll back the whole
+batch on any ACK failure. No provider calls or email sends accompany local imports.
+
 Public research rules design 2026-11-17: first port the existing search-index query,
 fixed role aliases, Unicode word/case/name rules and selected professional evidence
 projection. Never fetch result URLs or retain raw search/vendor snippets. Deduplicate

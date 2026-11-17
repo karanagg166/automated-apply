@@ -64,7 +64,13 @@ pub fn identity_keys(
 }
 async fn evidence(tx: &mut Transaction<'_, Postgres>, expected: &Value) -> Result<()> {
     let saved:Option<Value>=sqlx::query_scalar("INSERT INTO contact_evidence(id,contact_id,company_id,source,evidence_type,evidence_url,observed_role,observed_company,provider_verification_claim,strength,collected_at,expires_at,provenance,user_confirmed) SELECT x.id,x.contact_id,x.company_id,x.source,x.evidence_type,x.evidence_url,x.observed_role,x.observed_company,x.provider_verification_claim,x.strength,x.collected_at,x.expires_at,x.provenance,x.user_confirmed FROM jsonb_populate_record(NULL::contact_evidence,$1) x RETURNING to_jsonb(contact_evidence)").bind(expected).fetch_optional(&mut **tx).await.map_err(db)?;
-    if saved.as_ref() != Some(expected) {
+    let retained: Option<Value> =
+        sqlx::query_scalar("SELECT to_jsonb(e) FROM contact_evidence e WHERE id=$1")
+            .bind(id(expected, "id")?)
+            .fetch_optional(&mut **tx)
+            .await
+            .map_err(db)?;
+    if saved.as_ref() != Some(expected) || retained.as_ref() != Some(expected) {
         return Err(ack());
     }
     Ok(())
@@ -84,7 +90,13 @@ async fn receipt(
 ) -> Result<Value> {
     let expected = json!({"schema_version":1,"input_sha256":input_hash,"result":result});
     let saved:Option<Value>=sqlx::query_scalar("INSERT INTO owner_preferences(key,value,created_at,updated_at) VALUES($1,$2,clock_timestamp(),clock_timestamp()) ON CONFLICT DO NOTHING RETURNING value").bind(key).bind(&expected).fetch_optional(&mut **tx).await.map_err(db)?;
-    if saved.as_ref() != Some(&expected) {
+    let retained: Option<Value> =
+        sqlx::query_scalar("SELECT value FROM owner_preferences WHERE key=$1")
+            .bind(key)
+            .fetch_optional(&mut **tx)
+            .await
+            .map_err(db)?;
+    if saved.as_ref() != Some(&expected) || retained.as_ref() != Some(&expected) {
         return Err(ack());
     }
     Ok(expected["result"].clone())
@@ -95,6 +107,19 @@ async fn update(tx: &mut Transaction<'_, Postgres>, before: &Value, after: &Valu
     }
     let actual:Option<Value>=sqlx::query_scalar("UPDATE contacts c SET role_title=$3::jsonb->>'role_title',linkedin_url=$3::jsonb->>'linkedin_url',email=$3::jsonb->>'email',email_status=$3::jsonb->>'email_status',enrichment_source=$3::jsonb->>'enrichment_source',metadata=$3::jsonb->'metadata',last_checked_at=($3::jsonb->>'last_checked_at')::timestamptz,updated_at=($3::jsonb->>'updated_at')::timestamptz WHERE c.id=$1 AND to_jsonb(c)=$2::jsonb RETURNING to_jsonb(c)").bind(id(before,"id")?).bind(before).bind(after).fetch_optional(&mut **tx).await.map_err(db)?;
     if actual.as_ref() != Some(after) {
+        return Err(ack());
+    }
+    verify_contact(tx, after).await?;
+    Ok(())
+}
+async fn verify_contact(tx: &mut Transaction<'_, Postgres>, expected: &Value) -> Result<()> {
+    let actual: Option<Value> =
+        sqlx::query_scalar("SELECT to_jsonb(c) FROM contacts c WHERE id=$1")
+            .bind(id(expected, "id")?)
+            .fetch_optional(&mut **tx)
+            .await
+            .map_err(db)?;
+    if actual.as_ref() != Some(expected) {
         return Err(ack());
     }
     Ok(())
@@ -293,6 +318,7 @@ pub async fn reconcile_in(
     let expires = stamp(tx, checked + chrono::Duration::days(settings.cache_days)).await?;
     let evidence_id = Uuid::new_v4();
     if mismatch {
+        let mut reviewed = Vec::new();
         for contact in records
             .iter()
             .filter(|c| matched.contains(&id(c, "id").unwrap_or(Uuid::nil())))
@@ -304,8 +330,12 @@ pub async fn reconcile_in(
             after["metadata"]["identity_review_required"] = json!(true);
             after["updated_at"] = at.clone();
             update(tx, contact, &after).await?;
+            reviewed.push(after);
         }
         evidence(tx,&json!({"id":evidence_id,"company_id":company_id,"contact_id":null,"source":source,"evidence_type":"identity_conflict","evidence_url":observation["evidence_url"].as_str().or_else(||observation["linkedin_url"].as_str()),"observed_role":observation["role_title"],"observed_company":observation["company_domain"],"provider_verification_claim":observation["provider_verification_claim"],"strength":"weak","collected_at":collected,"expires_at":expires,"user_confirmed":observation["human_confirmed"],"provenance":{"requires_review":true,"contact_ids":matched,"full_name":observation["full_name"],"email":email,"receipt_id":receipt_id}})).await?;
+        for expected in &reviewed {
+            verify_contact(tx, expected).await?;
+        }
         return receipt(tx,&receipt_key,&input_hash,json!({"contact_id":null,"created":false,"conflicts":["identity_conflict"],"requires_review":true,"evidence_id":evidence_id,"outbound_messages_sent":0})).await;
     }
     let existing = matched
@@ -419,6 +449,7 @@ pub async fn reconcile_in(
         if actual.as_ref() != Some(&after) {
             return Err(ack());
         }
+        verify_contact(tx, &after).await?;
     } else {
         update(tx, &before, &after).await?;
     }
@@ -435,11 +466,18 @@ pub async fn reconcile_in(
         let map_id = Uuid::new_v4();
         let expected = json!({"id":map_id,"company_id":company_id,"contact_id":contact_id,"namespace":namespace,"identity_key":key,"discovered_person_id":observation["discovered_person_id"]});
         let actual:Option<Value>=sqlx::query_scalar("INSERT INTO contact_identities(id,company_id,contact_id,namespace,identity_key,discovered_person_id) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT DO NOTHING RETURNING to_jsonb(contact_identities)").bind(map_id).bind(company_id).bind(contact_id).bind(namespace).bind(key).bind(observation["discovered_person_id"].as_str().and_then(|s|s.parse::<Uuid>().ok())).fetch_optional(&mut **tx).await.map_err(db)?;
-        if actual.as_ref() != Some(&expected) {
+        let retained: Option<Value> =
+            sqlx::query_scalar("SELECT to_jsonb(i) FROM contact_identities i WHERE id=$1")
+                .bind(map_id)
+                .fetch_optional(&mut **tx)
+                .await
+                .map_err(db)?;
+        if actual.as_ref() != Some(&expected) || retained.as_ref() != Some(&expected) {
             return Err(ack());
         }
     }
     evidence(tx,&json!({"id":evidence_id,"company_id":company_id,"contact_id":if kind=="person_specific"{Some(contact_id)}else{None},"source":source,"evidence_type":if kind=="person_specific"{"professional_observation"}else{"company_business_inbox"},"evidence_url":observation["evidence_url"].as_str().or_else(||observation["linkedin_url"].as_str()),"observed_role":observation["role_title"],"observed_company":company["domain"],"provider_verification_claim":observation["provider_verification_claim"],"strength":strength,"collected_at":collected,"expires_at":expires,"user_confirmed":observation["human_confirmed"],"provenance":{"permission_evidence_url":observation["permission_evidence_url"],"professional_url":observation["professional_url"],"email":email,"email_kind":kind,"email_status":observation["email_status"],"conflicts":issues,"provider_person_id":observation["provider_person_id"],"discovered_person_id":observation["discovered_person_id"],"receipt_id":receipt_id}})).await?;
+    verify_contact(tx, &after).await?;
     receipt(tx,&receipt_key,&input_hash,json!({"contact_id":contact_id,"created":created,"conflicts":issues,"requires_review":after["metadata"]["identity_review_required"],"evidence_id":evidence_id,"outbound_messages_sent":0})).await
 }
 pub async fn reconcile(

@@ -258,7 +258,7 @@ pub async fn dispatch(
     } else {
         let (table, order, projection, key) = if matches!(route, Route::People(_)) {
             (
-                "discovered_people",
+                "discovered_company_people",
                 "observed_at DESC,id",
                 "jsonb_build_object('name',name,'role',role,'linkedin_url',linkedin_url,'evidence_url',evidence_url,'source',source,'observed_at',observed_at,'verification_status',verification_status,'evidence',jsonb_build_object('text',evidence::jsonb->'text'))",
                 "people",

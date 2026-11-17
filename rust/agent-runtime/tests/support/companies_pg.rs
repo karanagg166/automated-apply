@@ -2,9 +2,23 @@
 use automated_apply_agents::companies as saved_companies;
 async fn companies_fixture() -> (PgConnection, Uuid, Uuid) {
     let (mut c, company, job) = contacts_fixture().await;
-    sqlx::raw_sql("DROP TABLE IF EXISTS discovered_people,company_source_observations CASCADE;CREATE TABLE discovered_people(id uuid PRIMARY KEY,company_id uuid NOT NULL,name text,role text,linkedin_url text,evidence_url text,source text,observed_at timestamptz,verification_status text,evidence jsonb NOT NULL DEFAULT '{}');CREATE TABLE company_source_observations(id uuid PRIMARY KEY,company_id uuid NOT NULL,run_id uuid,source text NOT NULL,identity_key text NOT NULL,content_hash text NOT NULL,source_url text NOT NULL,observed_at timestamptz NOT NULL,attributes jsonb NOT NULL DEFAULT '{}',verification_status text NOT NULL)").execute(&mut c).await.unwrap();
+    sqlx::raw_sql("DROP TABLE IF EXISTS discovered_company_people,company_source_observations CASCADE;CREATE TABLE company_source_observations(id uuid PRIMARY KEY,company_id uuid NOT NULL,run_id uuid,source text NOT NULL,identity_key text NOT NULL,content_hash text NOT NULL,source_url text NOT NULL,observed_at timestamptz NOT NULL,attributes jsonb NOT NULL DEFAULT '{}',verification_status text NOT NULL)").execute(&mut c).await.unwrap();
+    let schema = include_str!("../../../../supabase/fresh_public/001_phase1_public.sql");
+    let table = schema
+        .split("CREATE TABLE IF NOT EXISTS public.discovered_company_people (")
+        .nth(1)
+        .unwrap()
+        .split("CREATE INDEX IF NOT EXISTS idx_people_company")
+        .next()
+        .unwrap();
+    sqlx::raw_sql(sqlx::AssertSqlSafe(format!(
+        "CREATE TABLE IF NOT EXISTS public.discovered_company_people ({table}"
+    )))
+    .execute(&mut c)
+    .await
+    .unwrap();
     for (n, days) in [(1, -1.0), (2, -200.0), (3, 2.0)] {
-        sqlx::query("INSERT INTO discovered_people(id,company_id,name,role,linkedin_url,evidence_url,source,observed_at,verification_status,evidence) VALUES($1,$2,$3,'CTO',$4,'https://contact-fixture.example/team','public_search',clock_timestamp()+($5::double precision*interval '1 day'),'human_confirmed','{\"text\":\"Saved fictional professional finding\",\"phone\":\"PRIVATE_SAVED_PHONE_CANARY\",\"token\":\"PRIVATE_SAVED_TOKEN_CANARY\"}')").bind(Uuid::from_u128(990000+n)).bind(company).bind(format!("Fictional Professional {n}")).bind(format!("https://www.linkedin.com/in/fictional-professional-{n}")).bind(days).execute(&mut c).await.unwrap();
+        sqlx::query("INSERT INTO discovered_company_people(id,company_id,name,role,linkedin_url,evidence_url,source,observed_at,verification_status,evidence) VALUES($1,$2,$3,'CTO',$4,'https://contact-fixture.example/team','public_search',clock_timestamp()+($5::double precision*interval '1 day'),'human_confirmed','{\"text\":\"Saved fictional professional finding\",\"phone\":\"PRIVATE_SAVED_PHONE_CANARY\",\"token\":\"PRIVATE_SAVED_TOKEN_CANARY\"}')").bind(Uuid::from_u128(990000+n)).bind(company).bind(format!("Fictional Professional {n}")).bind(format!("https://www.linkedin.com/in/fictional-professional-{n}")).bind(days).execute(&mut c).await.unwrap();
     }
     for (n, days) in [(1, -1.0), (2, -200.0), (3, 2.0)] {
         sqlx::query("INSERT INTO company_source_observations(id,company_id,source,identity_key,content_hash,source_url,observed_at,attributes,verification_status) VALUES($1,$2,'manual',$3,'fictional_content','https://contact-fixture.example/about',clock_timestamp()+($4::double precision*interval '1 day'),'{\"employee_count\":12,\"team_size_band\":\"11-50\",\"industry\":\"Developer tools\",\"technology_stack\":[\"Rust\"],\"private_billing_key\":\"PRIVATE_BILLING_CANARY\",\"raw_vendor\":\"PRIVATE_COMPANY_VENDOR_CANARY\"}','source_reported')").bind(Uuid::from_u128(991000+n)).bind(company).bind(format!("fictional-{n}")).bind(days).execute(&mut c).await.unwrap();
@@ -38,7 +52,7 @@ async fn company_saved_call(
     .await
 }
 async fn companies_snapshot(c: &mut PgConnection) -> Value {
-    sqlx::query_scalar("SELECT jsonb_build_object('companies',(SELECT jsonb_agg(to_jsonb(c) ORDER BY id) FROM companies c),'people',(SELECT jsonb_agg(to_jsonb(p) ORDER BY id) FROM discovered_people p),'observations',(SELECT jsonb_agg(to_jsonb(o) ORDER BY id) FROM company_source_observations o),'jobs',(SELECT jsonb_agg(to_jsonb(j) ORDER BY id) FROM jobs j))").fetch_one(c).await.unwrap()
+    sqlx::query_scalar("SELECT jsonb_build_object('companies',(SELECT jsonb_agg(to_jsonb(c) ORDER BY id) FROM companies c),'people',(SELECT jsonb_agg(to_jsonb(p) ORDER BY id) FROM discovered_company_people p),'observations',(SELECT jsonb_agg(to_jsonb(o) ORDER BY id) FROM company_source_observations o),'jobs',(SELECT jsonb_agg(to_jsonb(j) ORDER BY id) FROM jobs j))").fetch_one(c).await.unwrap()
 }
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
@@ -106,7 +120,7 @@ async fn company_saved_stable_paging_keeps_the_full_total_and_never_loads_other_
     let (mut c, company, _) = companies_fixture().await;
     let foreign = Uuid::from_u128(992001);
     sqlx::query("INSERT INTO companies(id,name,domain) VALUES($1,'Other fictional employer','other-fixture.example')").bind(foreign).execute(&mut c).await.unwrap();
-    sqlx::query("INSERT INTO discovered_people(id,company_id,name,role,linkedin_url,evidence_url,source,observed_at,verification_status,evidence) VALUES($1,$2,'PRIVATE_FOREIGN_PERSON_CANARY','CTO','https://linkedin.com/in/foreign-fictional','https://other-fixture.example/team','manual',clock_timestamp(),'requires_review','{}')").bind(Uuid::from_u128(992002)).bind(foreign).execute(&mut c).await.unwrap();
+    sqlx::query("INSERT INTO discovered_company_people(id,company_id,name,role,linkedin_url,evidence_url,source,observed_at,verification_status,evidence) VALUES($1,$2,'PRIVATE_FOREIGN_PERSON_CANARY','CTO','https://linkedin.com/in/foreign-fictional','https://other-fixture.example/team','manual',clock_timestamp(),'requires_review','{}')").bind(Uuid::from_u128(992002)).bind(foreign).execute(&mut c).await.unwrap();
     for kind in ["people", "evidence"] {
         let all = company_saved_call(&mut c, company, kind, None)
             .await
@@ -191,7 +205,7 @@ async fn company_saved_missing_employer_is_distinct_from_missing_or_malformed_sa
             .unwrap_err(),
         Failure("invalid_company_saved_record")
     );
-    sqlx::query("DROP TABLE discovered_people")
+    sqlx::query("DROP TABLE discovered_company_people")
         .execute(&mut c)
         .await
         .unwrap();
