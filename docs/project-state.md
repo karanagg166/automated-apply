@@ -7,6 +7,21 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest manual people source `4418abc52f8ef78d4387c87bc3898b4a64195d9e` adds atomic
+UUID receipts/public-person/contact ingestion, exact replay, domain/rights/identity
+guards and retained privacy. Existing confirmed rows, suppression/corrections/review
+conflicts remain protected. Shared identity writes now reread after triggers. The saved
+company reader's earlier incorrect `discovered_people` table reference is corrected to
+actual `discovered_company_people`, whose fixture now uses the migration definition.
+Fourteen PG declarations are UNRUN. See [qualified manual people report](acceptance/people-manual-ingestion-source-20261117.md).
+Continue original paid research admissions/retained findings/owner controller, durable
+dashboard recovery and remaining agreed full source before combined gates. No current
+tests/build/check/live/install or estimate increase; 58/42 and prior 455 held. Full host
+uninstalled; this manual domain service has not yet been wired to its owner API.
+Private continuity snapshot 49edfdf7a380ea1b0445557348c90a03d5f4dade07b263145a1d0158cc01242b
+at 2026-11-16T23:53:52Z preserves 104 indexed / 6 available / 98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest public research rules source `3834099421594938700bd132812f29b4df92579c`
 ports actual search-index queries, fixed role aliases, Unicode/name/word rules, exact
 official company attribution and canonical URL/name ambiguity handling. Raw snippets
