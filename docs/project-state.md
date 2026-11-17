@@ -2,6 +2,10 @@
 
 The active goal limits delivery to the owner’s laptop. GitHub pushes, pull requests, remote reports, hosted Actions and merges remain suspended until the owner reauthorizes them. Finish source and fixtures, run combined validation, then install and verify locally. See the [completion plan](plans/completion-execution-20261116.md).
 
+The latest local source `efb52e0` and `3da66f2` adds the dashboard platform policy, versioned history, manual portal controls and native gesture observations. The four new disposable PostgreSQL fixtures are awaiting the combined run. Next, connect the dashboard status report to the saved portal projection and reconcile the remaining owner command and history routes. See the [platform controls checkpoint](acceptance/platform-controls-local-source-20261118.md).
+
+The private continuity snapshot `1d5081c80a7ba88f85f6247d0bbeb33d3e096e46e3c8f31a01862dc01f3abc5a` at `2026-11-17T20:00:37.840534+00:00` indexed 104 threads and preserved the six available transcripts. The other 98 transcripts remain missing.
+
 The latest source commits `86d438f` and `d7fddf9` port cached filters, route dashboard search preferences to the Rust service, and wire private Telegram saved-job search, selection rechecks and packet preparation. The four new native fixtures are awaiting the combined run. The estimate remains 58% complete based on the last validated baseline. Next, finish the remaining tool and platform source and inventory all test gates. See the [local source report](acceptance/conversation-saved-jobs-local-source-20261118.md).
 
 The private continuity snapshot `1495f77a45289a8500da9e4d95d675510701f66031c39dc5af2c29619311332d` at `2026-11-17T19:49:46.904063+00:00` indexed 104 threads and preserved the six transcripts present locally. The other 98 transcripts remain missing.
