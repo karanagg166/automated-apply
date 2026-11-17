@@ -45,6 +45,9 @@ pub fn capabilities() -> Value {
 pub(crate) fn requires_manual_handoff(source: &str) -> bool {
     expanded::SOURCES.contains(&source)
 }
+pub(crate) fn portal_listing(source: &str, raw: &str) -> bool {
+    expanded::portal_listing(source, raw)
+}
 fn text<'a>(job: &'a Value, key: &str) -> Result<&'a str> {
     job[key]
         .as_str()

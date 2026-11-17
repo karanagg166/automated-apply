@@ -24,7 +24,7 @@ fn timeout(value: f64) -> Result<()> {
         Err(invalid())
     }
 }
-async fn row_in(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> Result<Option<Value>> {
+pub(super) async fn row_in(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> Result<Option<Value>> {
     let value:Option<Option<Value>>=sqlx::query_scalar("SELECT CASE WHEN octet_length(to_jsonb(r)::text)<=4194304 THEN to_jsonb(r) ELSE NULL END FROM discovery_runs r WHERE id=$1").bind(id).fetch_optional(&mut **tx).await.map_err(db)?;
     match value {
         Some(Some(v)) => Ok(Some(v)),

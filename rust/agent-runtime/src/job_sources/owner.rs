@@ -67,6 +67,10 @@ pub fn execution_request(raw: Value) -> Result<Value> {
     let source = value["source"]
         .as_str()
         .ok_or(Failure("invalid_discovery_run_request"))?;
+    if super::manual::supports(source) {
+        super::manual::validate(&value)?;
+        return Ok(value);
+    }
     if crate::source_registry::APIFY_PORTALS.contains(&source) {
         if value["manual_jobs"]
             .as_array()
@@ -92,13 +96,14 @@ pub fn compatibility_id(request: &Value) -> Result<Uuid> {
         .as_str()
         .filter(|s| !s.is_empty())
         .ok_or(Failure("discovery_run_idempotency_key_required"))?;
+    let source = request["source"].as_str().unwrap_or("");
     Ok(Uuid::new_v5(
         &Uuid::NAMESPACE_URL,
         format!(
             "automated-apply:{}-discovery:{key}",
-            if crate::source_registry::APIFY_PORTALS
-                .contains(&request["source"].as_str().unwrap_or(""))
-            {
+            if super::manual::supports(source) {
+                "manual"
+            } else if crate::source_registry::APIFY_PORTALS.contains(&source) {
                 "apify"
             } else {
                 "public"
@@ -109,6 +114,12 @@ pub fn compatibility_id(request: &Value) -> Result<Uuid> {
 }
 pub async fn preview(c: &mut PgConnection, settings: &Settings, raw: Value) -> Result<Value> {
     let input = request(raw)?;
+    let manual = input["source"]
+        .as_str()
+        .is_some_and(super::manual::supports);
+    if manual {
+        super::manual::validate(&input)?;
+    }
     let source = settings.job(
         input["source"]
             .as_str()
@@ -126,7 +137,10 @@ pub async fn preview(c: &mut PgConnection, settings: &Settings, raw: Value) -> R
     let profile =
         crate::startup_catalog::detail::profile_in(&mut tx, input["use_profile"] == true).await?;
     let query = super::scope::effective_query(&input["query"], profile.as_ref())?;
-    let out = json!({"source":source,"query":query,"explicit_query":input["query"],"profile_version":profile.as_ref().map(|p|p["version"].clone()),"jobs":[],"provider_calls":0,"writes":0,"estimated_usd":if source["pricing"]=="free"{json!(0)}else{Value::Null},"estimate_only":true,"message":"Planning only; no providers called and no jobs or runs written","dispatch_authorized":false,"live_verified":false});
+    let mut out = json!({"source":source,"query":query,"explicit_query":input["query"],"profile_version":profile.as_ref().map(|p|p["version"].clone()),"jobs":[],"provider_calls":0,"writes":0,"estimated_usd":if source["pricing"]=="free"{json!(0)}else{Value::Null},"estimate_only":true,"message":if manual {"Review these import settings, then save the supplied listings for review."} else {"Planning only; no providers called and no jobs or runs written"},"dispatch_authorized":false,"live_verified":false});
+    if manual {
+        out["manual_import"] = super::manual::preview_counts(&input, Utc::now())?;
+    }
     tx.commit()
         .await
         .map_err(|_| Failure("discovery_run_database_error"))?;
@@ -137,6 +151,7 @@ pub async fn read(c: &mut PgConnection, id: Uuid) -> Result<Value> {
     match native_kind(c, id).await? {
         NativeKind::Paid => return crate::apify_jobs::runs::read(c, id).await,
         NativeKind::Public => return super::runs::read(c, id).await,
+        NativeKind::Manual => return super::manual::read(c, id).await,
         NativeKind::Legacy => {}
     }
     match super::runs::read(c, id).await {
@@ -163,6 +178,7 @@ async fn legacy(c: &mut PgConnection, id: Uuid) -> Result<Value> {
             .bind(vec![
                 format!("job_run:{}", id.simple()),
                 format!("apify_owner:{}", id.simple()),
+                super::manual::key(id),
             ])
             .fetch_one(&mut *tx)
             .await
@@ -223,6 +239,7 @@ async fn legacy(c: &mut PgConnection, id: Uuid) -> Result<Value> {
 pub(crate) enum NativeKind {
     Public,
     Paid,
+    Manual,
     Legacy,
 }
 /// Original private keys select a native implementation; a legacy row never grants adoption.
@@ -240,6 +257,7 @@ pub(crate) async fn native_kind(c: &mut PgConnection, id: Uuid) -> Result<Native
             .bind(vec![
                 format!("job_run:{}", id.simple()),
                 format!("apify_owner:{}", id.simple()),
+                super::manual::key(id),
             ])
             .fetch_all(&mut *tx)
             .await
@@ -247,6 +265,7 @@ pub(crate) async fn native_kind(c: &mut PgConnection, id: Uuid) -> Result<Native
     let kind = match kinds.as_slice() {
         [] => NativeKind::Legacy,
         [key] if key.starts_with("job_run:") => NativeKind::Public,
+        [key] if key.starts_with("manual_run:") => NativeKind::Manual,
         [_] => NativeKind::Paid,
         _ => return Err(Failure("discovery_run_original_scope_ambiguous")),
     };

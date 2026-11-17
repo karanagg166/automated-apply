@@ -83,6 +83,7 @@ export type JobDiscoveryPreview = {
   estimate_only: boolean;
   message: string;
   paid_execution?: PaidPlan;
+  manual_import?: { valid_records: number; rejected_records: number };
 };
 
 type PaidPlan = {
@@ -138,7 +139,17 @@ function generateIdempotencyKey(): string {
   return `job_disc_${uuid}`.slice(0, 50);
 }
 
+function manualImportAvailable(source: SourceConfig | undefined): boolean {
+  return Boolean(
+    source?.enabled &&
+    source.adapter_type === "manual" &&
+    source.owner_run_supported === true &&
+    source.operations.includes("manual_import"),
+  );
+}
+
 function sourceAvailable(source: SourceConfig | undefined): boolean {
+  if (manualImportAvailable(source)) return true;
   return Boolean(
     source?.enabled &&
     source.owner_run_supported !== false &&
@@ -166,6 +177,7 @@ export function JobDiscovery() {
   const [limit, setLimit] = useState(20);
   const [useProfile, setUseProfile] = useState(true);
   const [allowPaid, setAllowPaid] = useState(false);
+  const [listing, setListing] = useState({ url: "", title: "", employer: "" });
 
   const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState<string>("");
@@ -203,6 +215,8 @@ export function JobDiscovery() {
   const allSources = sourcesQuery.data?.sources || [];
   const currentSourceConfig = allSources.find((s) => s.id === selectedSource);
   const paidSource = currentSourceConfig?.adapter_type === "apify";
+  const manualSource = manualImportAvailable(currentSourceConfig);
+  const listingReady = listing.title.trim() && listing.url.trim();
 
   const runPayload = {
     source: selectedSource,
@@ -218,7 +232,17 @@ export function JobDiscovery() {
     idempotency_key: idempotencyKey || null,
     allow_paid: paidSource && allowPaid,
     use_profile: useProfile,
-    manual_jobs: [],
+    manual_jobs:
+      manualSource && listingReady
+        ? [
+            {
+              source_name: selectedSource,
+              original_url: listing.url.trim(),
+              title: listing.title.trim(),
+              company_name: listing.employer.trim() || null,
+            },
+          ]
+        : [],
   };
 
   const previewMutation = useMutation({
@@ -355,6 +379,7 @@ export function JobDiscovery() {
   };
 
   const handlePreview = () => {
+    if (manualSource && !listingReady) return;
     const key = idempotencyKey || generateIdempotencyKey();
     if (!idempotencyKey) {
       setIdempotencyKey(key);
@@ -368,6 +393,9 @@ export function JobDiscovery() {
     if (
       !idempotencyKey ||
       !consentConfirmed ||
+      (manualSource && !listingReady) ||
+      (manualSource &&
+        previewMutation.data?.manual_import?.valid_records !== 1) ||
       (paidSource &&
         (!allowPaid || previewMutation.data?.paid_execution?.ready !== true))
     )
@@ -411,6 +439,7 @@ export function JobDiscovery() {
     setRunResult(null);
     setIdempotencyKey("");
     setAllowPaid(false);
+    setListing({ url: "", title: "", employer: "" });
   };
 
   const isCurrentSourceAvailable = sourceAvailable(currentSourceConfig);
@@ -525,12 +554,22 @@ export function JobDiscovery() {
                 >
                   <optgroup label="Available Free Providers">
                     {allSources
-                      .filter((s) => sourceAvailable(s) && s.pricing === "free")
+                      .filter(
+                        (s) =>
+                          sourceAvailable(s) && s.adapter_type === "direct_api",
+                      )
                       .map((s) => (
                         <option key={s.id} value={s.id}>
                           {s.display_name} (Free · Available)
                         </option>
                       ))}
+                  </optgroup>
+                  <optgroup label="Import a saved listing">
+                    {allSources.filter(manualImportAvailable).map((source) => (
+                      <option key={source.id} value={source.id}>
+                        {source.display_name}
+                      </option>
+                    ))}
                   </optgroup>
                   <optgroup label="Reviewed paid providers">
                     {allSources
@@ -609,7 +648,11 @@ export function JobDiscovery() {
                     {readable(currentSourceConfig.availability)}
                   </Badge>
                   <Badge>{readable(currentSourceConfig.adapter_type)}</Badge>
-                  <Badge>Read-only discovery</Badge>
+                  <Badge>
+                    {manualSource
+                      ? "Owner-supplied listing"
+                      : "Read-only discovery"}
+                  </Badge>
                 </div>
               )}
 
@@ -621,6 +664,54 @@ export function JobDiscovery() {
                     discovery from {currentSourceConfig.display_name}.
                   </Notice>
                 )}
+
+              {manualSource && (
+                <div className="stack">
+                  <Field
+                    label="Listing URL"
+                    hint="Use the HTTPS address of the job listing you reviewed."
+                  >
+                    <Input
+                      aria-label="Listing URL"
+                      type="url"
+                      value={listing.url}
+                      maxLength={2048}
+                      disabled={requestPending || criteriaLocked}
+                      onChange={(event) => {
+                        setListing({ ...listing, url: event.target.value });
+                        handleCriteriaChange();
+                      }}
+                    />
+                  </Field>
+                  <Field label="Listing title">
+                    <Input
+                      aria-label="Listing title"
+                      value={listing.title}
+                      maxLength={255}
+                      disabled={requestPending || criteriaLocked}
+                      onChange={(event) => {
+                        setListing({ ...listing, title: event.target.value });
+                        handleCriteriaChange();
+                      }}
+                    />
+                  </Field>
+                  <Field label="Employer (optional)">
+                    <Input
+                      aria-label="Employer"
+                      value={listing.employer}
+                      maxLength={255}
+                      disabled={requestPending || criteriaLocked}
+                      onChange={(event) => {
+                        setListing({
+                          ...listing,
+                          employer: event.target.value,
+                        });
+                        handleCriteriaChange();
+                      }}
+                    />
+                  </Field>
+                </div>
+              )}
 
               <Field
                 label="Role / Technology keywords"
@@ -736,6 +827,7 @@ export function JobDiscovery() {
                 busy={previewMutation.isPending}
                 disabled={
                   !isCurrentSourceAvailable ||
+                  (manualSource && !listingReady) ||
                   (paidSource && !allowPaid) ||
                   requestPending ||
                   criteriaLocked ||
@@ -743,7 +835,9 @@ export function JobDiscovery() {
                 }
               >
                 <Search size={14} />
-                Preview discovery plan
+                {manualSource
+                  ? "Preview listing import"
+                  : "Preview discovery plan"}
               </Button>
             </>
           )}
@@ -762,6 +856,11 @@ export function JobDiscovery() {
                 <FileSearch size={16} className="muted" />
               </div>
               <p>{previewMutation.data.message}</p>
+              {previewMutation.data.manual_import?.rejected_records ? (
+                <Notice>
+                  Check the listing URL and title for this source.
+                </Notice>
+              ) : null}
               <ul className="meta-list">
                 <li>
                   <strong>Provider:</strong>{" "}
@@ -831,8 +930,9 @@ export function JobDiscovery() {
 
               <Notice>
                 Preview performs no external network calls or database writes.
-                Executing discovery calls the upstream provider, extracts job
-                postings, and stores new records locally.
+                {manualSource
+                  ? "Imported listings are saved for review."
+                  : "Executing discovery calls the upstream provider, extracts job postings, and stores new records locally."}
               </Notice>
 
               <label className="check-label" htmlFor={consentId}>
@@ -842,8 +942,14 @@ export function JobDiscovery() {
                   checked={consentConfirmed}
                   onChange={(e) => setConsentConfirmed(e.target.checked)}
                 />
-                Run this approved job discovery on{" "}
-                {previewMutation.data.source.display_name} now.
+                {manualSource ? (
+                  "Approve saving this listing."
+                ) : (
+                  <>
+                    Run this approved job discovery on{" "}
+                    {previewMutation.data.source.display_name} now.
+                  </>
+                )}
               </label>
 
               <div className="actions">
@@ -852,6 +958,9 @@ export function JobDiscovery() {
                   disabled={
                     !consentConfirmed ||
                     requestPending ||
+                    (manualSource &&
+                      previewMutation.data.manual_import?.valid_records !==
+                        1) ||
                     (paidSource &&
                       (!allowPaid ||
                         previewMutation.data?.paid_execution?.ready !== true))
@@ -859,7 +968,9 @@ export function JobDiscovery() {
                   busy={executeMutation.isPending}
                   onClick={handleExecute}
                 >
-                  Run approved discovery
+                  {manualSource
+                    ? "Save approved listing"
+                    : "Run approved discovery"}
                   <ArrowUpRight size={14} />
                 </Button>
                 <Button

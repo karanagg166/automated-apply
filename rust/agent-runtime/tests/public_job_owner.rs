@@ -77,12 +77,24 @@ fn compatibility_post_requires_stable_key_and_execution_does_not_grant_unsupport
         owner::compatibility_id(&a).unwrap(),
         owner::compatibility_id(&b).unwrap()
     );
-    for source in ["manual", "apify", "himalayas"] {
+    for source in ["apify", "himalayas"] {
         assert_eq!(
             owner::execution_request(json!({"source":source})).unwrap_err(),
             Failure("discovery_source_execution_not_implemented")
         );
     }
+    let manual = owner::execution_request(
+        json!({"source":"internshala","idempotency_key":"fictional_original"}),
+    )
+    .unwrap();
+    assert_eq!(
+        owner::compatibility_id(&manual).unwrap(),
+        Uuid::new_v5(
+            &Uuid::NAMESPACE_URL,
+            b"automated-apply:manual-discovery:fictional_original",
+        )
+    );
+    assert!(owner::execution_request(json!({"source":"hiringcafe","allow_paid":true})).is_err());
 }
 #[test]
 fn paid_owner_requests_use_separate_compatibility_namespace_without_granting_paid_authority() {

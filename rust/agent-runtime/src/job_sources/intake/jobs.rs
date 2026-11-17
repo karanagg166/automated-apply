@@ -76,7 +76,10 @@ pub(super) async fn resolve(
     // Complete URL identity is required even if an indexed match exists: a legacy alias may conflict.
     ids.extend(inventory.legacy(tx, url).await?);
     if let Some(prior) = &prior {
-        if canonical(prior["original_url"].as_str().ok_or_else(invalid)?)? != url {
+        let old_original = canonical(prior["original_url"].as_str().ok_or_else(invalid)?)?;
+        let new_original = canonical(item["original_url"].as_str().ok_or_else(invalid)?)?;
+        // An ATS identity can be the job's canonical key while the observation retains the portal URL.
+        if old_original != url && old_original != new_original {
             return Err(Failure("public_job_source_url_identity_conflict"));
         }
         ids.push(id(&prior["job_id"])?);
@@ -158,10 +161,10 @@ fn salary(item: &Value) -> Option<String> {
 pub(super) async fn save(
     tx: &mut Transaction<'_, Postgres>,
     item: &Value,
-    company: Uuid,
+    company: Option<Uuid>,
     before: Option<Value>,
 ) -> Result<(Value, bool)> {
-    let content = super::super::identity::content_identity(item, Some(company))?;
+    let content = super::super::identity::content_identity(item, company)?;
     let stamp = sql::stamp(tx).await?;
     if let Some(before) = before {
         if !before["company_id"].is_null() && before["company_id"] != json!(company) {

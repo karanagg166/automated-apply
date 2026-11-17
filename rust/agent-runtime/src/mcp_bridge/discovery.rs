@@ -311,6 +311,12 @@ fn input(mut value: Value, startup: bool, execute: bool) -> Result<Value> {
             Utc::now(),
         )
     } else if execute {
+        if value["source"]
+            .as_str()
+            .is_some_and(crate::job_sources::manual::supports)
+        {
+            return Err(Failure("invalid_tool_arguments"));
+        }
         crate::job_sources::owner::execution_request(value)
     } else {
         crate::job_sources::owner::request(value)

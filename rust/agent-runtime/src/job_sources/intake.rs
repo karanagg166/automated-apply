@@ -214,7 +214,7 @@ pub(crate) async fn batch_in(
                 reason = "content_identity";
             }
         }
-        let (job, created) = jobs::save(tx, item, company_id, prior).await?;
+        let (job, created) = jobs::save(tx, item, Some(company_id), prior).await?;
         let job_id = id_from(&job["id"])?;
         let observation = observations::save(tx, item, job_id, observation, reason).await?;
         inventory.remember(item["canonical_url"].as_str().ok_or_else(invalid)?, job_id);
@@ -242,6 +242,70 @@ pub(crate) async fn batch_in(
 }
 fn id_from(v: &Value) -> Result<Uuid> {
     id(v)
+}
+
+pub(super) async fn manual_in(
+    tx: &mut Transaction<'_, Postgres>,
+    rows: &[Value],
+    explicit: &Value,
+    effective: &Value,
+    now: DateTime<Utc>,
+    rejected: usize,
+) -> Result<Batch> {
+    let mut batch = Batch {
+        receipt: json!({}),
+        companies: BTreeMap::new(),
+        jobs: BTreeMap::new(),
+        observations: BTreeMap::new(),
+    };
+    let mut inventory = jobs::Inventory::new();
+    let mut ids = Vec::new();
+    let (mut inserted, mut duplicate, mut skipped) = (0, 0, 0);
+    for item in rows {
+        if item["source_verification_status"] != "requires_review"
+            || item["is_confirmed_current"] != false
+            || item["data_provenance"] != json!({"import_mode":"manual"})
+        {
+            return Err(invalid());
+        }
+        if super::filters::exclusion(item, explicit, effective, now)?.is_some() {
+            skipped += 1;
+            continue;
+        }
+        let (prior, observation, reason) = jobs::resolve(tx, &mut inventory, item).await?;
+        let company = if prior.is_none() && !item["company_name"].is_null() {
+            let row = company::resolve(tx, item, None).await?;
+            let id = id_from(&row["id"])?;
+            batch.companies.insert(id, row);
+            Some(id)
+        } else {
+            None
+        };
+        let job = if let Some(prior) = prior {
+            duplicate += 1;
+            prior
+        } else {
+            inserted += 1;
+            jobs::save(tx, item, company, None).await?.0
+        };
+        let job_id = id_from(&job["id"])?;
+        let saved_observation = if let Some(row) = observation {
+            row
+        } else {
+            observations::save(tx, item, job_id, None, reason).await?
+        };
+        inventory.remember(item["canonical_url"].as_str().ok_or_else(invalid)?, job_id);
+        batch.jobs.insert(job_id, job);
+        batch
+            .observations
+            .insert(id_from(&saved_observation["id"])?, saved_observation);
+        ids.push(job_id);
+    }
+    // Existing discovery clients count reused identities under updated/duplicate.
+    batch.receipt = json!({"job_ids":ids,"counts":{"discovered":rows.len(),"inserted":inserted,
+        "updated":duplicate,"duplicate":duplicate,"rejected":rejected,"failed":0,"skipped":skipped}});
+    batch.verify(tx).await?;
+    Ok(batch)
 }
 pub(super) async fn context_in(
     tx: &mut Transaction<'_, Postgres>,

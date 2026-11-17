@@ -4109,6 +4109,7 @@ include!("support/public_job_access_pg.rs");
 include!("support/public_job_transport_pg.rs");
 include!("support/public_job_transport_extra_pg.rs");
 include!("support/public_job_owner_runs_pg.rs");
+include!("support/manual_job_import_pg.rs");
 include!("support/public_job_intake_pg.rs");
 include!("support/public_job_result_pg.rs");
 include!("support/public_job_owner_http_pg.rs");

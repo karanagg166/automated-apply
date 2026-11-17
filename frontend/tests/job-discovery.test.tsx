@@ -817,7 +817,86 @@ describe("JobDiscovery", () => {
       ).toBeInTheDocument();
     });
   });
-  it("keeps disabled direct APIs and manual import sources unavailable", async () => {
+  it("previews an owner-supplied listing and saves it only after review", async () => {
+    const source = {
+      ...mockSources.sources[0],
+      id: "internshala",
+      display_name: "Internshala",
+      adapter_type: "manual",
+      operations: ["manual_import"],
+      availability: "manual_import_only",
+      owner_run_supported: true,
+    };
+    vi.mocked(api).mockResolvedValueOnce({
+      sources: [mockSources.sources[0], source],
+    });
+    vi.mocked(post).mockResolvedValueOnce({
+      ...mockPreview,
+      source,
+      estimated_usd: 0,
+      manual_import: { valid_records: 1, rejected_records: 0 },
+    });
+    runReply = async () => ({
+      ...mockRunSuccess,
+      source: "internshala",
+      counts: { discovered: 1, inserted: 1 },
+      job_ids: [mockRunSuccess.id],
+    });
+    const user = userEvent.setup();
+    mount();
+    await user.selectOptions(
+      await screen.findByRole("combobox", {
+        name: "Discovery source provider",
+      }),
+      "internshala",
+    );
+    const preview = screen.getByRole("button", {
+      name: "Preview listing import",
+    });
+    expect(preview).toBeDisabled();
+    const url = "https://internshala.com/internship/detail/fictional1750000000";
+    await user.type(screen.getByRole("textbox", { name: "Listing URL" }), url);
+    await user.type(
+      screen.getByRole("textbox", { name: "Listing title" }),
+      "Fictional internship",
+    );
+    const records = [
+      {
+        source_name: "internshala",
+        original_url: url,
+        title: "Fictional internship",
+        company_name: null,
+      },
+    ];
+    await user.click(preview);
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        "discovery/preview",
+        expect.objectContaining({ manual_jobs: records, allow_paid: false }),
+      ),
+    );
+    const save = await screen.findByRole("button", {
+      name: "Save approved listing",
+    });
+    expect(save).toBeDisabled();
+    await user.click(
+      screen.getByRole("checkbox", { name: "Approve saving this listing." }),
+    );
+    await user.click(save);
+    await waitFor(() =>
+      expect(api).toHaveBeenCalledWith(
+        `discovery/runs/${mockRunSuccess.id}`,
+        expect.objectContaining({ method: "PUT", body: expect.any(String) }),
+      ),
+    );
+    const sent = vi
+      .mocked(api)
+      .mock.calls.find(([, options]) => options?.method === "PUT")?.[1];
+    expect(JSON.parse(String(sent?.body)).manual_jobs).toEqual(records);
+    expect(localStorage.getItem("job-discovery-attempt:v1")).not.toContain(url);
+  });
+
+  it("keeps disabled direct APIs and unimplemented manual sources unavailable", async () => {
     vi.mocked(api).mockResolvedValueOnce({
       sources: [
         { ...mockSources.sources[0], enabled: false },

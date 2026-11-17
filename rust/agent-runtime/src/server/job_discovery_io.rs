@@ -104,10 +104,14 @@ pub(super) async fn dispatch(
                 Route::Run(id) if method == "GET" => owner::read(&mut c, id).await,
                 Route::Complete(id) => match owner::native_kind(&mut c,id).await? {
                     owner::NativeKind::Paid=>crate::apify_jobs::runs::finish(&mut c,paid,id).await,
+                    owner::NativeKind::Manual=>crate::job_sources::manual::read(&mut c,id).await,
                     _=>runs::finish(&mut c,&api.config.sources,id).await,
                 },
                 _ => {
                     let input=input.expect("run input");
+                    if input["source"].as_str().is_some_and(crate::job_sources::manual::supports) {
+                        return crate::job_sources::manual::run(&mut c,input,id.expect("run id")).await;
+                    }
                     if crate::source_registry::APIFY_PORTALS.contains(&input["source"].as_str().unwrap_or("")) {
                         return crate::apify_jobs::runs::Service{settings:paid,client:&api.config.apify_jobs_client}
                             .run(&mut c,input,id.expect("run id")).await;

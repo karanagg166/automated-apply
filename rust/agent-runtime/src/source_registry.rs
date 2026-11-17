@@ -207,6 +207,10 @@ impl Settings {
         for (source, reason) in [
             ("internshala", None),
             (
+                "hiringcafe",
+                Some("Import an owner-reviewed HiringCafe listing"),
+            ),
+            (
                 "simplify",
                 Some("No job-seeker collection authorization verified"),
             ),
@@ -231,6 +235,8 @@ impl Settings {
                 false,
             );
             row["operations"] = json!(["manual_import"]);
+            row["native_execution_implemented"] = json!(true);
+            row["owner_run_supported"] = json!(true);
             output.push(row);
         }
         let mut manual = source_row(
@@ -243,6 +249,8 @@ impl Settings {
             false,
         );
         manual["operations"] = json!(["manual_import"]);
+        manual["native_execution_implemented"] = json!(true);
+        manual["owner_run_supported"] = json!(true);
         output.push(manual);
         let mut linkedin = source_row(
             "linkedin",
@@ -419,6 +427,7 @@ fn source_row(
         "gmail_alert" => "Gmail alerts (legacy parser)".into(),
         "company_careers" => "Company career page".into(),
         "manual" => "Manual import".into(),
+        "hiringcafe" => "HiringCafe".into(),
         "linkedin" => "LinkedIn".into(),
         "apify" => "Apify (select a platform)".into(),
         "we_work_remotely" => "We Work Remotely".into(),

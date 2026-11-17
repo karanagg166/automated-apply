@@ -89,6 +89,7 @@ pub(super) fn profile_failure(error: Failure) -> Response {
             "discovery_run_outcome_unknown" => StatusCode::GATEWAY_TIMEOUT,
             "invalid_discovery_query"
             | "invalid_discovery_run_request"
+            | "invalid_discovery_manual_request"
             | "public_job_manual_source_required"
             | "public_job_source_unknown"
             | "discovery_source_unknown" => StatusCode::UNPROCESSABLE_ENTITY,

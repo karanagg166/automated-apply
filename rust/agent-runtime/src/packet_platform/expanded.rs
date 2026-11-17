@@ -82,22 +82,46 @@ fn identity(platform: &str, url: &Url) -> Option<String> {
     }
 }
 
+pub(super) fn portal_listing(source: &str, raw: &str) -> bool {
+    exact_https(raw)
+        .and_then(|url| identity(source, &url))
+        .is_some()
+}
+
 fn portal_destination(
     platform: &str,
     job: &Value,
     observations: &[(String, String)],
 ) -> (Option<String>, bool) {
-    let Some(mut posting) = job["job_url"].as_str().and_then(exact_https) else {
-        return (None, false);
-    };
-    let Some(posting_id) = identity(platform, &posting) else {
-        return (None, false);
-    };
-    let meta_source = &job["discovery_metadata"]["source_name"];
+    let metadata = &job["discovery_metadata"];
+    let meta_source = &metadata["source_name"];
     if !meta_source.is_null() && meta_source != platform {
         return (None, false);
     }
-    let observed = job["source_verification_status"] == "observed"
+    let portal_url = |raw: &str| {
+        let url = exact_https(raw)?;
+        let id = identity(platform, &url)?;
+        Some((url, id))
+    };
+    let portal = job["job_url"].as_str().and_then(portal_url).or_else(|| {
+        let original = metadata["original_url"].as_str()?;
+        if meta_source != platform
+            || metadata["canonical_url"] != job["job_url"]
+            || !observations
+                .iter()
+                .any(|(source, url)| source == platform && url == original)
+        {
+            return None;
+        }
+        portal_url(original)
+    });
+    let Some((mut posting, posting_id)) = portal else {
+        return (None, false);
+    };
+    let may_use_observation = job["source_verification_status"] == "observed"
+        || job["source_verification_status"] == "requires_review"
+            && metadata["data_provenance"]["import_mode"] == "manual";
+    let observed = may_use_observation
         && observations.iter().any(|(source, url)| {
             source == platform
                 && exact_https(url)
