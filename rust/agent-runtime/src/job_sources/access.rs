@@ -33,7 +33,7 @@ pub(super) async fn transaction(c: &mut PgConnection) -> Result<Transaction<'_, 
     crate::execution::lock_owner_in(&mut tx).await?;
     Ok(tx)
 }
-async fn load_in(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> Result<Option<Value>> {
+pub(super) async fn load_in(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> Result<Option<Value>> {
     let value:Option<Option<Value>>=sqlx::query_scalar("SELECT CASE WHEN octet_length(value::text)<=9437184 THEN value ELSE NULL END FROM owner_preferences WHERE key=$1").bind(key(id)).fetch_optional(&mut **tx).await.map_err(db)?;
     match value {
         Some(Some(v)) => Ok(Some(v)),
@@ -69,7 +69,10 @@ pub fn visible(journal: &Value, id: Uuid, now: DateTime<Utc>) -> Result<Value> {
     if journal["schema"] != 1
         || journal["request_id"] != json!(id)
         || journal["batch_admissions"] != 1
-        || journal["state"] != "dispatch_admitted"
+        || !matches!(
+            journal["state"].as_str(),
+            Some("dispatch_admitted" | "finding_retained")
+        )
     {
         return Err(invalid());
     }
@@ -95,6 +98,26 @@ pub fn visible(journal: &Value, id: Uuid, now: DateTime<Utc>) -> Result<Value> {
             .is_none_or(|s| s.len() != 64 || !s.bytes().all(|b| b.is_ascii_hexdigit()))
     {
         return Err(invalid());
+    }
+    if journal["state"] == "finding_retained" {
+        if journal["finding_hash"] != crate::python_json::digest(&journal["finding"]) {
+            return Err(invalid());
+        }
+        let mut out = super::findings::project(&journal["finding"], source, &query, now)?;
+        out["request_id"] = json!(id);
+        out["query"] = query;
+        out["recorded_state"] = json!("finding_retained");
+        out["batch_admissions"] = json!(1);
+        out["provider_response_retained"] = json!(
+            out["provider_responses_observed"]
+                .as_u64()
+                .is_some_and(|n| n > 0)
+        );
+        out["finding_retained"] = json!(true);
+        out["replay_authorized"] = json!(false);
+        out["writes_to_job_queue"] = json!(0);
+        out["evidence_basis"] = json!("retained_public_discovery_finding");
+        return Ok(out);
     }
     Ok(
         json!({"request_id":id,"source":source.name(),"query":query,"recorded_state":"dispatch_admitted","status":if now>=expires{"outcome_unknown"}else{"pending"},"batch_admissions":1,"provider_http_calls":null,"provider_response_retained":false,"started_at":journal["started_at"],"expires_at":journal["expires_at"],"replay_authorized":false,"writes_to_job_queue":0,"application_dispatch":false,"live_verified":false,"evidence_basis":"original_batch_admission_not_provider_response"}),

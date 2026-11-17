@@ -4094,3 +4094,5 @@ include!("support/people_search_completion_pg.rs");
 include!("support/people_research_owner_pg.rs");
 include!("support/apify_metadata_pg.rs");
 include!("support/public_job_access_pg.rs");
+include!("support/public_job_transport_pg.rs");
+include!("support/public_job_transport_extra_pg.rs");

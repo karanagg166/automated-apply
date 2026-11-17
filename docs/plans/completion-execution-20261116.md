@@ -1,5 +1,23 @@
 # Complete-source delivery plan — 2026-11-16
 
+Public batch transport design 2026-11-17: consume the original opaque grant exactly
+once through fixed GET plans, sensitive data never in diagnostics. Disable redirects,
+environment proxies and automatic retry. Bound each JSON response to 8 MiB, total decoded
+bytes to 32 MiB, the retained normalized batch to 8 MiB, individual calls to 15 seconds,
+batch lifetime to the original 75-second deadline and requests to configured boards plus
+at most 100 details and two HN calls. Fixture substitution is explicit numeric loopback
+only. Sequential board pagination uses the frozen native order; Ashby removes unlisted
+postings before slicing; SmartRecruiters checks exact offset/limit/count before fixed
+detail reads; HN selects one original hiring story and only its top-level comments.
+Do not follow upstream links or refill a page after malformed records. Compare duplicate
+raw hashes in memory, omit raw input from retention and quarantine all conflicting
+identities rather than retain an arbitrary first candidate. Preserve partial findings
+and distinguish local HTTP attempts, observed responses and complete traversal. Rate
+responses extend the shared source cooldown monotonically, including HTTP-date values;
+unrepresentable delays require review and a far-future hold. Retain selected finding/hash
+and original terminal journal atomically before separate job/company ingestion. GET or
+saved replay never repeats provider work; cancellation keeps original admission unknown.
+
 Public batch admission design 2026-11-17: under owner-first SERIALIZABLE, bind an
 original request UUID to normalized source/query, exact private source snapshot/context,
 single in-memory invocation and 75-second deadline. Commit the shared provider access

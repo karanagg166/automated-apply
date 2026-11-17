@@ -207,3 +207,28 @@ fn source_context_binds_sorted_employer_identity_and_effective_region_without_pr
         assert_eq!(Source::parse(source.name()).unwrap(), source);
     }
 }
+#[test]
+fn public_transport_fixture_origin_is_explicit_numeric_loopback_and_forbidden_in_production() {
+    use automated_apply_agents::job_sources::transport::Client;
+    assert!(Client::from_values(&BTreeMap::new(), false).is_ok());
+    for url in [
+        "https://private-fixture.example/",
+        "http://localhost:3000/",
+        "http://127.0.0.1:80/",
+        "http://127.0.0.1:4000/path",
+        "http://127.0.0.1:4000/?key=private",
+        "http://owner:secret@127.0.0.1:4000/",
+        "http://[::1]:4000/",
+        "http://127.0.0.1:4000/#part",
+    ] {
+        let values = BTreeMap::from([("RUST_PUBLIC_JOBS_FIXTURE_ORIGIN".into(), url.into())]);
+        assert!(Client::from_values(&values, true).is_err());
+        assert!(Client::from_values(&values, false).is_err());
+    }
+    let values = BTreeMap::from([(
+        "RUST_PUBLIC_JOBS_FIXTURE_ORIGIN".into(),
+        "http://127.0.0.1:4000/".into(),
+    )]);
+    assert!(Client::from_values(&values, false).is_err());
+    assert!(Client::from_values(&values, true).is_ok());
+}
