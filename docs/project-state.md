@@ -1,3 +1,17 @@
+Latest durable acknowledged-read dashboard source `bcc1b182e2d32810dfd12d637b02e6030e6a3742` retains opaque
+parent/read UUIDs under original Web Lock, requires separate new-read consent and
+uses GET-only saved inspection/restoration. Complete pages finish locally, then the
+original job result; reviewed expired reads may prepare another UUID without dispatch.
+Unknown starts/reads and corrupt accounting preserve pointers. Ten helper+two component+
+one browser declarations are UNRUN. See [qualified read-dashboard report](acceptance/apify-acknowledged-read-dashboard-source-20261117.md).
+Continue remaining startup job-led/paid orchestration and durable UI, then remaining
+agreed runtime/provider/tool/platform source before combined gates. No current tests/
+build/check/native live/install or percentage increase;58/42 and prior455 held. No
+actual provider/recovery/production/browser operations.
+Private continuity snapshot96b4d108ae0844c580989a3e7adb219d6ae03327bf05dc7ffb9eb14f31c3f8ec
+at2026-11-17T14:17:20.608594+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest explicit owner read-resource source `f67fc0233f86c8725f07eb9df7ec2655827e68eb` exposes distinct parent/
 read UUID GET/PUT and empty local-complete POST. Requires retained native paid parent;
 GET stays saved-only, PUT can consume only bounded GET authority and POST only combines
