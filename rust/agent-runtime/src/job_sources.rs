@@ -7,6 +7,7 @@ mod findings;
 pub mod identity;
 pub mod intake;
 pub mod plan;
+mod ranking;
 pub mod records;
 pub mod rules;
 pub mod runs;

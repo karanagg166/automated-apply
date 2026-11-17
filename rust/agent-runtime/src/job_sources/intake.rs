@@ -213,7 +213,7 @@ async fn batch_in(
 fn id_from(v: &Value) -> Result<Uuid> {
     id(v)
 }
-async fn context_in(
+pub(super) async fn context_in(
     tx: &mut Transaction<'_, Postgres>,
     state: &runs::State,
     settings: &Settings,
@@ -246,8 +246,109 @@ async fn context_in(
     }
     Ok(())
 }
+pub(super) struct Completion {
+    pub(super) receipt: Value,
+    journal: Value,
+    batch: Option<Batch>,
+    pace: Option<Option<Value>>,
+}
+impl Completion {
+    pub(super) async fn verify_in(
+        &self,
+        tx: &mut Transaction<'_, Postgres>,
+        state: &runs::State,
+        settings: &Settings,
+        request: Uuid,
+        now: DateTime<Utc>,
+    ) -> Result<()> {
+        if saved_in(tx, request).await?.as_ref() != Some(&self.journal)
+            || retained(&self.journal, state, request)? != self.receipt
+        {
+            return Err(ack());
+        }
+        if let Some(batch) = &self.batch {
+            batch.verify(tx).await?;
+            context_in(tx, state, settings, now).await?;
+        }
+        if let Some(pace) = &self.pace {
+            let after: Option<Value> = sqlx::query_scalar(
+                "SELECT to_jsonb(next_allowed_at) FROM provider_access_windows WHERE provider=$1",
+            )
+            .bind(state.row["source"].as_str())
+            .fetch_optional(&mut **tx)
+            .await
+            .map_err(db)?;
+            if &after != pace {
+                return Err(ack());
+            }
+        }
+        Ok(())
+    }
+}
+pub(super) async fn complete_in(
+    tx: &mut Transaction<'_, Postgres>,
+    state: &runs::State,
+    settings: &Settings,
+    request: Uuid,
+    now: DateTime<Utc>,
+) -> Result<Completion> {
+    access::visible(&state.child, request, now)?;
+    if let Some(saved) = saved_in(tx, request).await? {
+        return Ok(Completion {
+            receipt: retained(&saved, state, request)?,
+            journal: saved,
+            batch: None,
+            pace: None,
+        });
+    }
+    context_in(tx, state, settings, now).await?;
+    sqlx::query("SELECT pg_advisory_xact_lock(240204)")
+        .execute(&mut **tx)
+        .await
+        .map_err(db)?;
+    let pace: Option<Value> = sqlx::query_scalar(
+        "SELECT to_jsonb(next_allowed_at) FROM provider_access_windows WHERE provider=$1",
+    )
+    .bind(state.row["source"].as_str())
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(db)?;
+    let batch = batch_in(tx, state, request, now).await?;
+    let expected = json!({"schema":1,"request_id":request,"scope_hash":state.journal["scope_hash"],"finding_hash":state.child["finding_hash"],"configuration_hash":state.child["configuration_hash"],"receipt":batch.receipt,"receipt_hash":crate::python_json::digest(&batch.receipt)});
+    let saved: Option<Value> = sqlx::query_scalar(
+        "INSERT INTO owner_preferences(key,value) VALUES($1,$2) RETURNING value",
+    )
+    .bind(key(request))
+    .bind(&expected)
+    .fetch_optional(&mut **tx)
+    .await
+    .map_err(db)?;
+    if saved.as_ref() != Some(&expected) {
+        return Err(ack());
+    }
+    let completion = Completion {
+        receipt: retained(&expected, state, request)?,
+        journal: expected,
+        batch: Some(batch),
+        pace: Some(pace),
+    };
+    completion
+        .verify_in(tx, state, settings, request, now)
+        .await?;
+    Ok(completion)
+}
+pub(super) async fn read_in(
+    tx: &mut Transaction<'_, Postgres>,
+    state: &runs::State,
+    request: Uuid,
+) -> Result<Option<Value>> {
+    saved_in(tx, request)
+        .await?
+        .map(|v| retained(&v, state, request))
+        .transpose()
+}
 /// Retry completes only local SQL over the original finding; completed replay returns its immutable receipt.
-/// Parent rankings/finalization are deliberately separate and cannot be inferred from this receipt.
+/// Parent rankings/finalization are separate and cannot be inferred from this receipt.
 pub async fn ingest_retained(
     c: &mut PgConnection,
     settings: &Settings,
@@ -259,66 +360,22 @@ pub async fn ingest_retained(
         .fetch_one(&mut *tx)
         .await
         .map_err(db)?;
-    access::visible(&state.child, request, now)?;
-    if let Some(saved) = saved_in(&mut tx, request).await? {
-        let out = retained(&saved, &state, request)?;
-        tx.commit()
-            .await
-            .map_err(|_| Failure("public_job_intake_commit_outcome_unknown"))?;
-        return Ok(out);
-    }
-    context_in(&mut tx, &state, settings, now).await?;
-    sqlx::query("SELECT pg_advisory_xact_lock(240204)")
-        .execute(&mut *tx)
-        .await
-        .map_err(db)?;
-    let pace: Option<Value> = sqlx::query_scalar(
-        "SELECT to_jsonb(next_allowed_at) FROM provider_access_windows WHERE provider=$1",
-    )
-    .bind(state.row["source"].as_str())
-    .fetch_optional(&mut *tx)
-    .await
-    .map_err(db)?;
-    let batch = batch_in(&mut tx, &state, request, now).await?;
-    let expected = json!({"schema":1,"request_id":request,"scope_hash":state.journal["scope_hash"],"finding_hash":state.child["finding_hash"],"configuration_hash":state.child["configuration_hash"],"receipt":batch.receipt,"receipt_hash":crate::python_json::digest(&batch.receipt)});
-    let saved: Option<Value> = sqlx::query_scalar(
-        "INSERT INTO owner_preferences(key,value) VALUES($1,$2) RETURNING value",
-    )
-    .bind(key(request))
-    .bind(&expected)
-    .fetch_optional(&mut *tx)
-    .await
-    .map_err(db)?;
-    if saved.as_ref() != Some(&expected)
-        || saved_in(&mut tx, request).await?.as_ref() != Some(&expected)
-    {
-        return Err(ack());
-    }
-    batch.verify(&mut tx).await?;
+    let completion = complete_in(&mut tx, &state, settings, request, now).await?;
     let after = runs::state_in(&mut tx, request).await?;
     if after.row != state.row || after.journal != state.journal || after.child != state.child {
-        return Err(ack());
-    }
-    let after_pace: Option<Value> = sqlx::query_scalar(
-        "SELECT to_jsonb(next_allowed_at) FROM provider_access_windows WHERE provider=$1",
-    )
-    .bind(state.row["source"].as_str())
-    .fetch_optional(&mut *tx)
-    .await
-    .map_err(db)?;
-    if after_pace != pace {
         return Err(ack());
     }
     let end: DateTime<Utc> = sqlx::query_scalar("SELECT clock_timestamp()")
         .fetch_one(&mut *tx)
         .await
         .map_err(db)?;
-    context_in(&mut tx, &state, settings, end).await?;
-    let out = retained(&expected, &state, request)?;
+    completion
+        .verify_in(&mut tx, &state, settings, request, end)
+        .await?;
     tx.commit()
         .await
         .map_err(|_| Failure("public_job_intake_commit_outcome_unknown"))?;
-    Ok(out)
+    Ok(completion.receipt)
 }
 /// Read only the retained local receipt. Current configuration/profile is not substituted for original scope.
 pub async fn read(c: &mut PgConnection, request: Uuid) -> Result<Option<Value>> {

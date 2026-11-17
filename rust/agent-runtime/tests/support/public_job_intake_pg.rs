@@ -260,8 +260,8 @@ async fn public_intake_actual_schema_receipt_and_replay_preserve_original_freshn
         public_owner_runs::read(&mut c, Uuid::from_u128(65001))
             .await
             .unwrap()["local_intake_complete"],
-        false,
-        "parent finalization remains a separate source slice"
+        true,
+        "parent displays its saved local receipt while rankings remain pending"
     );
 }
 #[tokio::test(flavor = "current_thread")]

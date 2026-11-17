@@ -8,8 +8,15 @@ pub(crate) async fn load_in(
     tx: &mut Transaction<'_, Postgres>,
     now: DateTime<Utc>,
 ) -> Result<Vec<Value>> {
-    let rows:Vec<Value>=sqlx::query_scalar("SELECT value FROM owner_preferences WHERE starts_with(key,'gmail_application:') ORDER BY key LIMIT 5001").fetch_all(&mut **tx).await.map_err(db)?;
+    let rows:Vec<Option<Value>>=sqlx::query_scalar("SELECT CASE WHEN bytes<=262144 AND sum(bytes) OVER()<=8388608 THEN value ELSE NULL END FROM (SELECT key,value,octet_length(value::text) AS bytes FROM owner_preferences WHERE starts_with(key,'gmail_application:') ORDER BY key LIMIT 5001) bounded ORDER BY key").fetch_all(&mut **tx).await.map_err(db)?;
     if rows.len() > 5000 {
+        return Err(Failure("gmail_history_limit_reached"));
+    }
+    let rows = rows
+        .into_iter()
+        .map(|v| v.ok_or(Failure("gmail_history_limit_reached")))
+        .collect::<Result<Vec<_>>>()?;
+    if rows.iter().map(|v| v.to_string().len()).sum::<usize>() > 8 * 1024 * 1024 {
         return Err(Failure("gmail_history_limit_reached"));
     }
     rows.into_iter()

@@ -1,5 +1,5 @@
-//! Actual owner discovery run + original child admission. Acquisition never completes local job intake.
-use super::{access, plan::Source, scope, transport::Client};
+//! Original owner discovery admission, retained acquisition and local-only atomic result completion.
+use super::{access, intake, plan::Source, ranking, scope, transport::Client};
 use crate::{Failure, Result, source_registry::Settings};
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
@@ -44,6 +44,7 @@ pub(super) struct State {
     pub(super) row: Value,
     pub(super) journal: Value,
     pub(super) child: Value,
+    intake: Option<Value>,
 }
 pub(super) async fn state_in(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> Result<State> {
     let row = row_in(tx, id)
@@ -53,12 +54,12 @@ pub(super) async fn state_in(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> Re
     if journal["schema"] != 1
         || journal["request_id"] != json!(id)
         || journal["child_id"] != json!(id)
-        || journal["state"] != "admitted"
+        || !matches!(journal["state"].as_str(), Some("admitted" | "completed"))
         || journal["row"] != row
         || journal["scope_hash"] != crate::python_json::digest(&journal["scope"])
         || journal["scope"]["request_hash"] != row["request_hash"]
         || journal["scope"]["source"] != row["source"]
-        || row["status"] != "running"
+        || journal["state"] == "admitted" && row["status"] != "running"
     {
         return Err(invalid());
     }
@@ -79,25 +80,116 @@ pub(super) async fn state_in(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> Re
     {
         return Err(invalid());
     }
-    Ok(State {
+    let mut state = State {
         row,
         journal,
         child,
-    })
+        intake: None,
+    };
+    state.intake = intake::read_in(tx, &state, id).await?;
+    if state.journal["state"] == "completed" {
+        let receipt = state
+            .intake
+            .as_ref()
+            .ok_or(Failure("discovery_run_intake_receipt_missing"))?;
+        let expected = terminal_status(&receipt)?;
+        if state.row["status"] != expected
+            || state.row["counts"] != receipt["counts"]
+            || state.row["query_summary"]["job_ids"] != receipt["job_ids"]
+            || state.journal["local_receipt_hash"] != crate::python_json::digest(&receipt)
+            || state.journal["rankings_hash"] != crate::python_json::digest(&state.row["rankings"])
+            || state.row["provider_run_id"] != Value::Null
+            || access::time(&state.row["finished_at"])? < access::time(&receipt["ingested_at"])?
+        {
+            return Err(invalid());
+        }
+        ranking::project(
+            &state.row["rankings"],
+            &receipt,
+            &state.journal["scope"]["profile_pin"]["version"],
+        )?;
+    }
+    Ok(state)
+}
+fn terminal_status(receipt: &Value) -> Result<&str> {
+    let source = receipt["provider_status"].as_str().ok_or_else(invalid)?;
+    Ok(
+        if source == "success"
+            && receipt["counts"]["discovered"]
+                .as_u64()
+                .is_some_and(|n| n > 0)
+            && receipt["job_ids"].as_array().is_some_and(|a| a.is_empty())
+        {
+            "no_results"
+        } else {
+            source
+        },
+    )
 }
 fn output(state: &State, id: Uuid, now: DateTime<Utc>) -> Result<Value> {
     let child = access::visible(&state.child, id, now)?;
+    if state.journal["state"] == "completed" {
+        let receipt = state.intake.as_ref().ok_or_else(invalid)?;
+        if access::time(&state.row["finished_at"])? > now {
+            return Err(invalid());
+        }
+        let suppressed = state.row["usage"]["suppressed_prior_history"]
+            .as_u64()
+            .filter(|v| *v <= 100)
+            .ok_or_else(invalid)?;
+        let count = state.row["rankings"].as_array().ok_or_else(invalid)?.len();
+        let original_profile = !state.journal["scope"]["profile_pin"].is_null();
+        let unique = receipt["job_ids"]
+            .as_array()
+            .ok_or_else(invalid)?
+            .iter()
+            .filter_map(Value::as_str)
+            .collect::<std::collections::BTreeSet<_>>()
+            .len();
+        if original_profile {
+            if count + suppressed as usize != unique
+                || state.journal["history_hash"]
+                    .as_str()
+                    .is_none_or(|s| s.len() != 64 || !s.bytes().all(|b| b.is_ascii_hexdigit()))
+            {
+                return Err(invalid());
+            }
+        } else if count != 0 || suppressed != 0 || !state.journal["history_hash"].is_null() {
+            return Err(invalid());
+        }
+        if state.row["usage"]["stage"] != "completed"
+            || state.row["usage"]["ranking_count"] != json!(count)
+        {
+            return Err(invalid());
+        }
+        let rankings = ranking::project(
+            &state.row["rankings"],
+            receipt,
+            &state.journal["scope"]["profile_pin"]["version"],
+        )?;
+        if state.row["errors"] != child["errors"] {
+            return Err(invalid());
+        }
+        return Ok(
+            json!({"id":id,"source":state.row["source"],"status":state.row["status"],"counts":receipt["counts"],"errors":child["errors"],"started_at":state.row["started_at"],"finished_at":state.row["finished_at"],"provider_run_id":null,"rankings":rankings,"job_ids":receipt["job_ids"],"profile_version":state.journal["scope"]["profile_pin"]["version"],"usage":{"stage":"completed","provider_status":receipt["provider_status"],"provider_http_attempts":child["provider_http_attempts"],"provider_responses_observed":child["provider_responses_observed"],"provider_batch_complete":receipt["provider_batch_complete"],"finding_retained":true,"ranking_count":count,"suppressed_prior_history":suppressed,"replay_authorized":false},"local_intake_complete":true,"rankings_complete":true,"application_dispatch":false,"live_verified":false,"evidence_basis":"original_retained_finding_and_atomic_local_result"}),
+        );
+    }
     let started = access::time(&state.row["started_at"])?;
     let deadline = state.journal["timeout_seconds"]
         .as_f64()
         .ok_or_else(invalid)?
         + 120.0;
     let expired = (now - started).num_milliseconds() as f64 > deadline * 1000.0;
+    if let Some(receipt) = &state.intake {
+        return Ok(
+            json!({"id":id,"source":state.row["source"],"status":if expired{"recovery_required"}else{"running"},"counts":receipt["counts"],"errors":child["errors"],"started_at":state.row["started_at"],"finished_at":null,"provider_run_id":null,"rankings":[],"job_ids":receipt["job_ids"],"profile_version":state.journal["scope"]["profile_pin"]["version"],"usage":{"stage":"rankings_pending","provider_status":child["status"],"provider_http_attempts":child["provider_http_attempts"],"provider_responses_observed":child["provider_responses_observed"],"finding_retained":true,"replay_authorized":false},"local_intake_complete":true,"rankings_complete":false,"application_dispatch":false,"live_verified":false,"evidence_basis":"original_owner_run_and_retained_local_receipt"}),
+        );
+    }
     let finding = child["recorded_state"] == "finding_retained";
     let count = child["jobs"].as_array().map_or(0, Vec::len);
     let errors = child.get("errors").cloned().unwrap_or(json!([]));
     Ok(
-        json!({"id":id,"source":state.row["source"],"status":if expired{"recovery_required"}else{"running"},"counts":{"discovered":count,"inserted":0,"updated":0,"duplicate":0,"rejected":child["rejected_count"].as_u64().unwrap_or(0),"failed":0,"skipped":child["rejected_count"].as_u64().unwrap_or(0)},"errors":errors,"started_at":state.row["started_at"],"finished_at":null,"provider_run_id":null,"rankings":[],"job_ids":[],"profile_version":state.journal["scope"]["profile_pin"]["version"],"usage":{"stage":if finding{"local_intake_pending"}else{"provider_pending_or_unknown"},"provider_status":child["status"],"provider_http_attempts":child["provider_http_attempts"],"provider_responses_observed":child["provider_responses_observed"],"finding_retained":finding,"replay_authorized":false},"local_intake_complete":false,"application_dispatch":false,"live_verified":false,"evidence_basis":"original_owner_run_and_retained_child_state"}),
+        json!({"id":id,"source":state.row["source"],"status":if expired{"recovery_required"}else{"running"},"counts":{"discovered":count,"inserted":0,"updated":0,"duplicate":0,"rejected":child["rejected_count"].as_u64().unwrap_or(0),"failed":0,"skipped":child["rejected_count"].as_u64().unwrap_or(0)},"errors":errors,"started_at":state.row["started_at"],"finished_at":null,"provider_run_id":null,"rankings":[],"job_ids":[],"profile_version":state.journal["scope"]["profile_pin"]["version"],"usage":{"stage":if finding{"local_intake_pending"}else{"provider_pending_or_unknown"},"provider_status":child["status"],"provider_http_attempts":child["provider_http_attempts"],"provider_responses_observed":child["provider_responses_observed"],"finding_retained":finding,"replay_authorized":false},"local_intake_complete":false,"rankings_complete":false,"application_dispatch":false,"live_verified":false,"evidence_basis":"original_owner_run_and_retained_child_state"}),
     )
 }
 pub struct Claim {
@@ -231,12 +323,91 @@ pub async fn read(c: &mut PgConnection, id: Uuid) -> Result<Value> {
     tx.commit().await.map_err(db)?;
     Ok(out)
 }
+/// Finish retained observations using local SQL only. Original HTTP admission is never renewed.
+pub async fn finish(c: &mut PgConnection, settings: &Settings, id: Uuid) -> Result<Value> {
+    let mut tx = access::transaction(c).await?;
+    let state = state_in(&mut tx, id).await?;
+    let now: DateTime<Utc> = sqlx::query_scalar("SELECT clock_timestamp()")
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(db)?;
+    if state.journal["state"] == "completed" {
+        let out = output(&state, id, now)?;
+        tx.commit()
+            .await
+            .map_err(|_| Failure("discovery_run_commit_outcome_unknown"))?;
+        return Ok(out);
+    }
+    intake::context_in(&mut tx, &state, settings, now).await?;
+    let completion = intake::complete_in(&mut tx, &state, settings, id, now).await?;
+    let profile = crate::startup_catalog::detail::profile_in(
+        &mut tx,
+        state.journal["scope"]["use_profile"] == true,
+    )
+    .await?;
+    if scope::profile_pin(profile.as_ref())? != state.journal["scope"]["profile_pin"] {
+        return Err(Failure("public_job_intake_profile_changed"));
+    }
+    let ranked = ranking::rank_in(&mut tx, &completion.receipt, profile.as_ref(), now).await?;
+    let stamp: Value = sqlx::query_scalar("SELECT to_jsonb(clock_timestamp())")
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(db)?;
+    let mut expected = state.row.clone();
+    expected["query_summary"]["job_ids"] = completion.receipt["job_ids"].clone();
+    expected["counts"] = completion.receipt["counts"].clone();
+    expected["rankings"] = ranked.entries.clone();
+    expected["status"] = json!(terminal_status(&completion.receipt)?);
+    expected["finished_at"] = stamp;
+    expected["errors"] = state.child["finding"]["errors"].clone();
+    expected["usage"] = json!({"stage":"completed","provider_http_attempts":state.child["finding"]["provider_http_attempts"],"provider_responses_observed":state.child["finding"]["provider_responses_observed"],"ranking_count":ranked.entries.as_array().ok_or_else(invalid)?.len(),"suppressed_prior_history":ranked.suppressed});
+    let saved:Option<Value>=sqlx::query_scalar("UPDATE discovery_runs AS r SET query_summary=$2->'query_summary',status=$2->>'status',counts=$2->'counts',rankings=$2->'rankings',errors=$2->'errors',finished_at=($2->>'finished_at')::timestamptz,usage=$2->'usage' WHERE id=$1 RETURNING to_jsonb(r)").bind(id).bind(&expected).fetch_optional(&mut *tx).await.map_err(db)?;
+    if saved.as_ref() != Some(&expected) || row_in(&mut tx, id).await?.as_ref() != Some(&expected) {
+        return Err(ack());
+    }
+    let mut journal = state.journal.clone();
+    journal["state"] = json!("completed");
+    journal["row"] = expected.clone();
+    journal["local_receipt_hash"] = json!(crate::python_json::digest(&completion.receipt));
+    journal["rankings_hash"] = json!(crate::python_json::digest(&ranked.entries));
+    journal["history_hash"] = ranked.history_hash.clone();
+    let saved:Option<Value>=sqlx::query_scalar("UPDATE owner_preferences SET value=$2,updated_at=clock_timestamp() WHERE key=$1 AND value=$3 RETURNING value").bind(key(id)).bind(&journal).bind(&state.journal).fetch_optional(&mut *tx).await.map_err(db)?;
+    if saved.as_ref() != Some(&journal)
+        || journal_in(&mut tx, id).await? != journal
+        || row_in(&mut tx, id).await?.as_ref() != Some(&expected)
+    {
+        return Err(ack());
+    }
+    let after = state_in(&mut tx, id).await?;
+    if after.child != state.child || after.journal != journal || after.row != expected {
+        return Err(ack());
+    }
+    let end: DateTime<Utc> = sqlx::query_scalar("SELECT clock_timestamp()")
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(db)?;
+    completion
+        .verify_in(&mut tx, &after, settings, id, end)
+        .await?;
+    intake::context_in(&mut tx, &after, settings, end).await?;
+    ranked.verify_in(&mut tx).await?;
+    let out = output(&after, id, end)?;
+    tx.commit()
+        .await
+        .map_err(|_| Failure("discovery_run_commit_outcome_unknown"))?;
+    Ok(out)
+}
 pub struct Service<'a> {
     pub settings: &'a Settings,
     pub client: &'a Client,
     pub timeout_seconds: f64,
 }
 impl Service<'_> {
+    /// Compose original-only acquisition and atomic local result completion. A replay can only recover local work.
+    pub async fn run(&self, c: &mut PgConnection, input: Value, id: Uuid) -> Result<Value> {
+        self.acquire(c, input, id).await?;
+        finish(c, self.settings, id).await
+    }
     pub async fn acquire(&self, c: &mut PgConnection, input: Value, id: Uuid) -> Result<Value> {
         match admit(c, self.settings, input, id, self.timeout_seconds).await? {
             Admission::Retained(v) => Ok(v),

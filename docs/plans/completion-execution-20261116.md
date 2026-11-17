@@ -1,5 +1,19 @@
 # Complete-source delivery plan — 2026-11-16
 
+Owner public result finalization design2026-11-17: share transaction-local intake and
+its deferred full-row acknowledgements so a fresh owner completion commits employer/
+job/observation/local receipt, saved relevance rankings and terminal actual parent row/
+journal together. Existing separately completed local receipts remain immutable local
+recovery inputs; changed context/profile/expired findings hold pending finalization.
+Use the existing pure domain discovery matcher, current original-pinned profile and
+bounded reviewed local mailbox history, omitting confirmed prior applications from
+rankings without rewriting their application facts. Deduplicate saved IDs and sort
+score descending then UUID. Disabled profile use yields empty completed rankings and
+must not query profile/history. Terminal reads/replays project original counts/IDs/
+rankings and never refresh facts, consult current profile or reconstruct HTTP authority.
+Keep low-level acquisition distinct from the composed owner run; cancellation leaves
+durable admission/finding/local receipt for local-only recovery, never another GET.
+
 Atomic SQL public intake design 2026-11-17: use transaction-local helpers over the
 actual companies/jobs/job_source_observations schema, owner fence then advisory240204.
 Read exact source observation and canonical URL identity before employer names; build
