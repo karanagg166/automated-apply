@@ -392,6 +392,16 @@ impl Settings {
             .cloned()
             .ok_or(Failure("startup_source_unknown"))
     }
+    pub fn paid_preview(
+        &self,
+        source: &str,
+        query: Value,
+        allow_paid: bool,
+        now: DateTime<Utc>,
+    ) -> Value {
+        self.apify_execution.as_ref().map(|s|s.preview(source,query,allow_paid,now))
+            .unwrap_or_else(||json!({"ready":false,"blocker":"apify_execution_configuration_invalid","provider_calls":0,"writes":0,"dispatch_authorized":false,"live_verified":false}))
+    }
 }
 fn source_row(
     id: &str,

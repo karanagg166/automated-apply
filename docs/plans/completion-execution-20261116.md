@@ -1,5 +1,20 @@
 # Complete-source delivery plan — 2026-11-16
 
+Startup durable owner boundary2026-11-17: add UUID PUT to the existing saved-run GET
+and empty-body POST .../complete for job-led native startup parents. Validate normalized
+job-led body/source and IDs before the shared connection slot; legacy keyed POST and
+manual company-first path stay compatible. Saved GET never dispatches; explicit local
+completion inspects the original child and completes retained finding/jobs/company
+results only, preserving unknown remote states. Reject manual PUT adoption. Preview
+reports effective provider query separately from company filters, native readiness and
+selected actual-query paid estimate/caps/blocker without provider/budget/owner writes.
+Gateway adds only UUID PUT and narrow complete POST. Then replace the old startup
+component's unretained POST state with isolated durable UUID/source metadata, Web Locks,
+GET-only mount/recovery and reviewed pointer release. Paid new runs need separate opt-in
+and ready preview consent; unknown paid child recovery remains explicit in job discovery
+using its original child UUID, never replayed by startup local completion. Keep manual
+company-first imports outside new job-led controls and preserve unsupported-source gates.
+
 Paid startup composition2026-11-17: share the existing job-led startup parent and
 catalog-result path using a typed public/paid child adapter, limited to startup's
 already supported Wellfound and Work at a Startup paid sources. Admit the actual

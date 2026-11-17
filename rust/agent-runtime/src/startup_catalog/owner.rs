@@ -14,12 +14,27 @@ pub enum Route {
     Preview,
     Runs,
     Run(Uuid),
+    Complete(Uuid),
 }
 impl Route {
     pub fn method(self) -> &'static str {
         match self {
-            Self::Preview | Self::Runs => "POST",
+            Self::Preview | Self::Runs | Self::Complete(_) => "POST",
             _ => "GET",
+        }
+    }
+    pub fn accepts(self, method: &str) -> bool {
+        if matches!(self, Self::Run(_)) {
+            matches!(method, "GET" | "PUT")
+        } else {
+            method == self.method()
+        }
+    }
+    pub fn allow(self) -> &'static str {
+        if matches!(self, Self::Run(_)) {
+            "GET, PUT"
+        } else {
+            self.method()
         }
     }
 }
@@ -29,10 +44,22 @@ pub fn route(path: &str) -> Option<Route> {
         "/api/v1/discovery/sources" => Some(Route::JobSources),
         "/api/v1/startups/discovery/preview" => Some(Route::Preview),
         "/api/v1/startups/discovery/runs" => Some(Route::Runs),
-        _ => path
-            .strip_prefix("/api/v1/startups/discovery/runs/")
-            .and_then(|s| s.parse().ok())
-            .map(Route::Run),
+        _ => {
+            let tail = path.strip_prefix("/api/v1/startups/discovery/runs/")?;
+            let (raw, complete) = tail
+                .strip_suffix("/complete")
+                .map(|id| (id, true))
+                .unwrap_or((tail, false));
+            let id: Uuid = raw.parse().ok()?;
+            if id.is_nil() {
+                return None;
+            }
+            Some(if complete {
+                Route::Complete(id)
+            } else {
+                Route::Run(id)
+            })
+        }
     }
 }
 pub async fn preview(
@@ -76,7 +103,32 @@ pub async fn preview(
                     .unwrap_or(json!([]))
             })
     };
-    let result = json!({"source":source,"mode":input["mode"],"filters":input["filters"],"profile_version":profile.as_ref().map(|p|p["version"].clone()),"effective_roles":effective("roles","target_titles"),"effective_locations":effective("locations","preferred_locations"),"provider_calls":0,"writes":0,"company_first_available":source["modes"].as_array().is_some_and(|a|a.contains(&input["mode"])),"message":"Company-first collection requires a permission-confirmed import; no directory crawl is available","live_verified":false,"dispatch_authorized":false});
+    let mut result = json!({"source":source,"mode":input["mode"],"filters":input["filters"],"profile_version":profile.as_ref().map(|p|p["version"].clone()),"effective_roles":effective("roles","target_titles"),"effective_locations":effective("locations","preferred_locations"),"provider_calls":0,"writes":0,"company_first_available":source["modes"].as_array().is_some_and(|a|a.contains(&input["mode"])),"message":"Company-first collection requires a permission-confirmed import; no directory crawl is available","live_verified":false,"dispatch_authorized":false});
+    if input["mode"] == "job_led" {
+        let query = crate::job_sources::scope::effective_query(&input["query"], profile.as_ref())?;
+        result["query"] = query.clone();
+        result["job_led_available"] = json!(
+            source["native_execution_implemented"] == true
+                && source["configured"] == true
+                && source["authorized"] == true
+        );
+        result["message"] = json!(
+            "Planning only; no provider calls, budget reservation or saved records. Company filters apply to retained job-to-company evidence; unknown company facts remain unknown."
+        );
+        if source["pricing"] == "paid" {
+            let paid = settings.paid_preview(
+                input["source"]
+                    .as_str()
+                    .ok_or(Failure("invalid_startup_contract"))?,
+                query,
+                input["allow_paid"] == true,
+                now,
+            );
+            result["job_led_available"] =
+                json!(result["job_led_available"] == true && paid["ready"] == true);
+            result["paid_execution"] = paid;
+        }
+    }
     tx.commit()
         .await
         .map_err(|_| Failure("startup_catalog_database_error"))?;

@@ -37,3 +37,26 @@ fn paid_startup_child_preserves_explicit_paid_optin_and_deterministic_job_scope(
         assert_eq!(child["idempotency_key"], format!("startup_child_{id}"));
     }
 }
+#[test]
+fn startup_uuid_owner_routes_separate_saved_get_original_put_and_local_complete_post() {
+    use automated_apply_agents::startup_catalog::owner::{self, Route};
+    let id = Uuid::from_u128(1);
+    let root = format!("/api/v1/startups/discovery/runs/{id}");
+    assert_eq!(owner::route(&root), Some(Route::Run(id)));
+    assert!(Route::Run(id).accepts("GET"));
+    assert!(Route::Run(id).accepts("PUT"));
+    assert!(!Route::Run(id).accepts("POST"));
+    assert_eq!(
+        owner::route(&format!("{root}/complete")),
+        Some(Route::Complete(id))
+    );
+    assert!(Route::Complete(id).accepts("POST"));
+    assert!(!Route::Complete(id).accepts("GET"));
+    for bad in [
+        format!("{root}/retry"),
+        format!("{root}/complete/extra"),
+        format!("/api/v1/startups/discovery/runs/{}", Uuid::nil()),
+    ] {
+        assert!(owner::route(&bad).is_none());
+    }
+}

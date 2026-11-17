@@ -8,15 +8,14 @@ pub(super) async fn dispatch(
     query: Option<&str>,
     body: &[u8],
 ) -> Response {
-    if method != route.method() {
+    if !route.accepts(method) {
         let mut response = reply(
             StatusCode::METHOD_NOT_ALLOWED,
             json!({"detail":"startup_catalog_method_not_allowed"}),
         );
-        response.headers_mut().insert(
-            "allow",
-            axum::http::HeaderValue::from_static(route.method()),
-        );
+        response
+            .headers_mut()
+            .insert("allow", axum::http::HeaderValue::from_static(route.allow()));
         return response;
     }
     if query.is_some() || method == "GET" && !body.is_empty() {
@@ -34,10 +33,46 @@ pub(super) async fn dispatch(
         }
         _ => {}
     }
-    let input = if method == "POST" {
-        match serde_json::from_slice::<Value>(body) {
-            Ok(v) => Some(v),
+    let input = if matches!(method, "POST" | "PUT") {
+        let raw = match serde_json::from_slice::<Value>(body) {
+            Ok(v) => v,
             Err(_) => return profile_failure(Failure("invalid_startup_contract")),
+        };
+        if matches!(route, Route::Complete(_)) {
+            if raw != json!({}) {
+                return profile_failure(Failure("invalid_startup_query"));
+            }
+            Some(raw)
+        } else {
+            match crate::research_contract::normalize(
+                crate::research_contract::Kind::StartupRun,
+                raw,
+                chrono::Utc::now(),
+            ) {
+                Ok(v) => {
+                    if method == "PUT" && v["mode"] != "job_led" {
+                        return profile_failure(Failure(
+                            "startup_provider_orchestration_not_implemented",
+                        ));
+                    }
+                    if v["mode"] == "job_led"
+                        && crate::job_sources::plan::Source::parse(
+                            v["source"].as_str().unwrap_or(""),
+                        )
+                        .is_err()
+                        && !matches!(
+                            v["source"].as_str(),
+                            Some("wellfound" | "work_at_a_startup")
+                        )
+                    {
+                        return profile_failure(Failure(
+                            "startup_provider_orchestration_not_implemented",
+                        ));
+                    }
+                    Some(v)
+                }
+                Err(e) => return profile_failure(e),
+            }
         }
     } else {
         None
@@ -65,7 +100,7 @@ pub(super) async fn dispatch(
                     )
                     .await
                 }
-                Route::Run(id) => {
+                Route::Run(id) if method == "GET" => {
                     crate::startup_catalog::runs::read(
                         &mut c,
                         id,
@@ -73,7 +108,17 @@ pub(super) async fn dispatch(
                     )
                     .await
                 }
-                Route::Runs => {
+                Route::Complete(id) => {
+                    crate::startup_catalog::job_led::complete(
+                        &mut c,
+                        id,
+                        &api.config.sources,
+                        api.config.apify_jobs.as_ref(),
+                        &api.config.contacts,
+                    )
+                    .await
+                }
+                Route::Runs | Route::Run(_) => {
                     let raw = input.unwrap();
                     let value = crate::research_contract::normalize(
                         crate::research_contract::Kind::StartupRun,
@@ -87,7 +132,10 @@ pub(super) async fn dispatch(
                         chrono::Utc::now(),
                     )?;
                     if value["mode"] == "job_led" {
-                        let id = crate::startup_catalog::job_led::request_id(&value)?;
+                        let id = match route {
+                            Route::Run(id) => id,
+                            _ => crate::startup_catalog::job_led::request_id(&value)?,
+                        };
                         return crate::startup_catalog::job_led::Service {
                             sources: &api.config.sources,
                             client: &api.config.public_jobs,

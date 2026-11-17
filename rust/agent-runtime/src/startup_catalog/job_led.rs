@@ -476,6 +476,31 @@ pub struct Service<'a> {
     pub contacts: &'a crate::contacts::Settings,
     pub timeout_seconds: f64,
 }
+/// Recover only original retained child/local results. No provider client or new admission exists here.
+pub async fn complete(
+    c: &mut PgConnection,
+    id: Uuid,
+    sources: &Settings,
+    paid: Option<&crate::apify_jobs::settings::Settings>,
+    contacts: &crate::contacts::Settings,
+) -> Result<Value> {
+    let mut tx = c.begin().await.map_err(db)?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+    let at = now(&mut tx).await?;
+    let state = load_state(&mut tx, id, at).await?;
+    let selected = output(&state, at)?;
+    let source = state.journal["input"]["source"].clone();
+    tx.commit().await.map_err(db)?;
+    if selected["local_intake_complete"] == true || state.child["usage"]["finding_retained"] != true
+    {
+        return Ok(selected);
+    }
+    child::finish(c, sources, paid, &source, child_id(id)).await?;
+    finish_with_paid(c, id, sources, paid, contacts).await
+}
 impl Service<'_> {
     pub async fn run(&self, c: &mut PgConnection, raw: Value, id: Uuid) -> Result<Value> {
         self.run_with_paid(c, raw, id, None, None).await
