@@ -5,6 +5,7 @@ pub mod controller;
 pub mod filters;
 mod findings;
 pub mod identity;
+pub mod intake;
 pub mod plan;
 pub mod records;
 pub mod rules;

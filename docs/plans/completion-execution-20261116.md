@@ -1,5 +1,23 @@
 # Complete-source delivery plan — 2026-11-16
 
+Atomic SQL public intake design 2026-11-17: use transaction-local helpers over the
+actual companies/jobs/job_source_observations schema, owner fence then advisory240204.
+Read exact source observation and canonical URL identity before employer names; build
+one complete id/URL-only legacy inventory bounded to10000 rows when needed. Ambiguous
+exact identities or changed employer/source identity hold the whole local transaction,
+leaving the separately retained finding intact. Resolve company domain then unique
+lowercase name, explicitly flag unresolved ambiguous names, and never overwrite known
+company facts. Preserve full existing job rows, application decisions and primary links;
+fill only missing evidence, refresh only same-primary experience ranges, and keep newer
+source provenance when an older observation arrives. Coerce expected numeric/timestamp/
+array patches with actual PostgreSQL row types before independent post-trigger ACKs.
+Updated-at trigger timestamps may lie between transaction start and final clock time.
+Retain final full-row expectations for a coupled reread after parent/receipt writes.
+Parent local completion checks original finding hash,24-hour TTL, current source context
+and canonical profile pin, then commits jobs/observations/immutable receipt/terminal
+parent together. Saved completed replay returns the original receipt without new local
+freshness or provider authority. Context changes and uncertain HTTP never repeat GETs.
+
 Public owner-run admission design 2026-11-17: atomically create the original actual
 discovery_runs row, private owner/profile/query scope and original child public batch/
 source window under one owner-first SERIALIZABLE transaction. Reuse a transaction-local
