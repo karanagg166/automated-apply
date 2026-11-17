@@ -4066,6 +4066,7 @@ include!("support/platform_policy_pg.rs");
 include!("support/platform_sessions_pg.rs");
 include!("support/connection_report_pg.rs");
 include!("support/owner_commands_pg.rs");
+include!("support/expanded_packet_platform_pg.rs");
 include!("support/telegram_reconciliation_pg.rs");
 include!("support/gmail_history_pg.rs");
 include!("support/gmail_accounts_pg.rs");

@@ -123,7 +123,7 @@ fn optional(value: &Value, max: usize) -> Result<Option<String>> {
         text(value, max).map(Some)
     }
 }
-fn source_url(platform: Platform, s: &str) -> Result<String> {
+pub(crate) fn source_url(platform: Platform, s: &str) -> Result<String> {
     if s.bytes()
         .any(|b| b.is_ascii_control() || b.is_ascii_whitespace())
     {

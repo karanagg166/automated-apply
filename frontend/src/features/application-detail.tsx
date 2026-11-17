@@ -293,6 +293,12 @@ export function ApplicationDetail({ id }: { id: string }) {
   if (packet.isPending) return <Skeleton />;
   if (packet.isError) return <ErrorState error={packet.error} />;
   const p = packet.data;
+  const feedName =
+    p?.snapshot.source_platform === "himalayas"
+      ? "Himalayas"
+      : p?.snapshot.source_platform === "we_work_remotely"
+        ? "We Work Remotely"
+        : null;
   const terminal = [
     "user_reported_submitted",
     "provider_confirmed_submitted",
@@ -628,7 +634,11 @@ export function ApplicationDetail({ id }: { id: string }) {
             <div>
               <h3>Application destination</h3>
               <p>
-                {p.snapshot.destination.application_url ? (
+                {feedName && p.readiness.stale ? (
+                  <span className="muted">
+                    Refresh the packet to review the current link.
+                  </span>
+                ) : p.snapshot.destination.application_url ? (
                   <External href={p.snapshot.destination.application_url}>
                     {p.snapshot.destination.application_url}
                   </External>
@@ -674,7 +684,7 @@ export function ApplicationDetail({ id }: { id: string }) {
                   {" "}
                   ·{" "}
                   <External href={p.snapshot.original_job_url}>
-                    Original posting
+                    {feedName ? `View on ${feedName}` : "Original posting"}
                   </External>
                 </span>
               )}

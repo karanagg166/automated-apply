@@ -199,7 +199,7 @@ pub fn build(input: Value, policy: &Policy, now: DateTime<Utc>) -> Result<Built>
             Value::Null
         };
     }
-    let platform = packet_platform::select(&job, &data.observations, policy, now.date_naive())?;
+    let platform = packet_platform::select_at(&job, &data.observations, policy, now)?;
     let mut links = Map::new();
     if let Some(profile) = &original_profile {
         for (key, attr) in [
@@ -318,6 +318,21 @@ pub fn build(input: Value, policy: &Policy, now: DateTime<Utc>) -> Result<Built>
     material.insert("resources".into(), json!(resource_stamps));
     material.insert("evidence".into(), json!(evidence));
     material.insert("observations".into(), json!(observations));
+    if platform
+        .platform
+        .is_some_and(packet_platform::requires_manual_handoff)
+    {
+        material.insert(
+            "platform_destination".into(),
+            json!([
+                platform.platform,
+                platform.destination.application_url,
+                platform.destination.valid,
+                platform.destination.source_confidence,
+                platform.destination.kind
+            ]),
+        );
+    }
     if job["source_platform"] == "naukri" {
         material.insert("naukri_listing_review".into(),json!({"observed_criteria":metadata,"posting_unavailable":packet_platform::posting_unavailable(&job,now.date_naive())?}));
     }

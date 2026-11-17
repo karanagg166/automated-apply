@@ -28,7 +28,7 @@ async fn packet_flow_http_previews_creates_replays_reads_lists_and_events_with_a
     let (url,stop,server)=http_fixture().await;
     let http=client();
     let platforms=http.get(format!("{url}/api/v1/applications/platforms")).bearer_auth(HOST_TOKEN).send().await.unwrap();assert_eq!(platforms.status(),200);
-    let caps:Value=platforms.json().await.unwrap();assert_eq!(caps.as_array().unwrap().len(),10);assert!(caps.as_array().unwrap().iter().all(|c|c["live_verified"]==false));
+    let caps:Value=platforms.json().await.unwrap();assert_eq!(caps.as_array().unwrap().len(),17);assert!(caps.as_array().unwrap().iter().all(|c|c["live_verified"]==false));
     let preview_url=format!("{url}/api/v1/jobs/{job}/application-preview");
     let preview=http.post(&preview_url).bearer_auth(HOST_TOKEN).json(&json!({})).send().await.unwrap();let status=preview.status();let preview:Value=preview.json().await.unwrap();assert_eq!(status,200,"{preview}");
     assert_eq!(preview["fields"].as_array().unwrap().len(),7);assert_eq!(preview["readiness"]["stale"],false);

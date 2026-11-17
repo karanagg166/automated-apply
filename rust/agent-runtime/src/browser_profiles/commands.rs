@@ -332,6 +332,15 @@ async fn context_in(
     };
     let row:Option<(Value,Option<Value>,Value,Option<Value>)>=sqlx::query_as("SELECT to_jsonb(p),to_jsonb(c),to_jsonb(j),(SELECT value FROM owner_preferences WHERE key='phase1_profile_confirmation') FROM application_packets p JOIN jobs j ON j.id=p.job_id LEFT JOIN candidate_profiles c ON c.singleton_key='primary' WHERE p.id=$1").bind(application).fetch_optional(&mut **tx).await.map_err(db)?;
     let (stored, profile, job, confirmation) = row.ok_or(Failure("packet_not_found"))?;
+    if job["source_platform"]
+        .as_str()
+        .is_some_and(crate::packet_platform::requires_manual_handoff)
+        || packet["snapshot"]["platform"]
+            .as_str()
+            .is_some_and(crate::packet_platform::requires_manual_handoff)
+    {
+        return Err(Failure("unsupported_form_adapter"));
+    }
     let profile = profile.ok_or(Failure("stale_or_unreviewed_candidate_context"))?;
     let confirmation = confirmation.unwrap_or(Value::Null);
     if confirmation["profile_id"] != profile["id"]

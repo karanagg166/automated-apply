@@ -1,11 +1,12 @@
 //! Saved destination preparation only. Recognizing an ATS grants no browser or submission rights.
 use crate::{Failure, Result, resources::public_https};
 use automated_apply_domain::text::{folded, lowered};
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use regex::Regex;
 use serde::Serialize;
 use serde_json::{Value, json};
 use std::sync::LazyLock;
+mod expanded;
 
 #[derive(Default)]
 pub struct Policy {
@@ -39,7 +40,10 @@ const SOURCES: &[&str] = &[
     "smartrecruiters",
 ];
 pub fn capabilities() -> Value {
-    json!(SOURCES.iter().map(|p|json!({"platform":p,"job_discovery":"configured_source_dependent","application_preparation":"supported","resume_selection":"supported","screening_answer_generation":"supported","browser_autofill":if matches!(*p,"manual_browser"|"naukri") {"assisted_native_fields"} else {"not_implemented"},"automated_submission":"not_authorized_or_verified","manual_handoff":"supported","submission_mode":"manual_handoff","live_verified":false})).collect::<Vec<_>>())
+    json!(SOURCES.iter().chain(expanded::SOURCES).map(|p|json!({"platform":p,"job_discovery":"configured_source_dependent","application_preparation":"supported","resume_selection":"supported","screening_answer_generation":"supported","browser_autofill":if matches!(*p,"manual_browser"|"naukri") {"assisted_native_fields"} else {"not_implemented"},"automated_submission":"not_authorized_or_verified","manual_handoff":"supported","submission_mode":"manual_handoff","live_verified":false})).collect::<Vec<_>>())
+}
+pub(crate) fn requires_manual_handoff(source: &str) -> bool {
+    expanded::SOURCES.contains(&source)
 }
 fn text<'a>(job: &'a Value, key: &str) -> Result<&'a str> {
     job[key]
@@ -271,7 +275,23 @@ pub fn select(
     policy: &Policy,
     today: NaiveDate,
 ) -> Result<Selection> {
+    select_at(
+        job,
+        observations,
+        policy,
+        today.and_time(chrono::NaiveTime::MIN).and_utc(),
+    )
+}
+pub fn select_at(
+    job: &Value,
+    observations: &[(String, String)],
+    policy: &Policy,
+    now: DateTime<Utc>,
+) -> Result<Selection> {
     let source = text(job, "source_platform")?;
+    if let Some(platform) = expanded::SOURCES.iter().copied().find(|p| *p == source) {
+        return expanded::select(platform, job, observations, now);
+    }
     let original = job["job_url"].as_str().and_then(public_https);
     let application = job["application_url"].as_str().and_then(public_https);
     let observed = observations
@@ -323,7 +343,7 @@ pub fn select(
                     }
                 });
             let url = raw.as_deref().and_then(public_https);
-            let unavailable = posting_unavailable(job, today)?;
+            let unavailable = posting_unavailable(job, now.date_naive())?;
             Destination {
                 kind: if unavailable || url.is_none() && raw.is_some() {
                     "expired_or_invalid"
