@@ -2,6 +2,10 @@
 
 The active goal limits delivery to the owner’s laptop. GitHub pushes, pull requests, remote reports, hosted Actions and merges remain suspended until the owner reauthorizes them. Finish source and fixtures, run combined validation, then install and verify locally. See the [completion plan](plans/completion-execution-20261116.md).
 
+The latest local source `8e946a2` adds packet preparation for Instahyre, Wellfound, YC Work at a Startup, Internshala, HiringCafe, Himalayas and We Work Remotely. Feed preparation keeps the exact link and the original provider attribution. Four standard fixtures and one disposable PostgreSQL fixture await the combined run. The estimate remains 58% complete. Continue the remaining platform discovery and account adapters. See the [expanded packet checkpoint](acceptance/expanded-packets-local-source-20261118.md).
+
+The private continuity snapshot `5f8b663bb2aef82e2f248aed9ec4eb5a9ab84b984ef50fcb30bccbafa9912e07` at `2026-11-17T20:28:41.971019+00:00` indexed 104 threads and preserved the six available transcripts. The other 98 transcripts remain missing.
+
 The latest local source `437e7a1` serves owner commands, operation history, and authenticated extension preview and connection commands. Two new disposable PostgreSQL fixtures await the combined run. The estimate remains at 58% complete. Next, fix the platform packet selection gap and implement the remaining adapters. See the [owner command checkpoint](acceptance/owner-commands-local-source-20261118.md).
 
 The private continuity snapshot `acf57ec4fe8ed4ab543bfb682faf519796b0cfec62d78425e59c1f2ab10c63d3` at `2026-11-17T20:19:12.340320+00:00` indexed 104 threads and preserved the six available transcripts. The other 98 transcripts remain missing.
