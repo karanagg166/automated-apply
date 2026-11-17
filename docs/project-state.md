@@ -1,3 +1,15 @@
+Latest approved-sentence provider source `065bf87f9dd77917141e06651165380bddbffe72` restores the separate explicit
+OLLAMA_GENERATION_AUTHORIZED branch, bounded local chat with permitted variants only,
+local reconstruction/coverage and shared metadata/ledger/gate/deadline/context fences.
+Six standard+four PG declarations UNRUN. Generic drafting remains distinct; internal
+LocalAnswerEngine v1 provenance/coalescing still requires parity integration. See [qualified sentence report](acceptance/sentence-rearranger-source-20261117.md).
+Continue internal local engine/conversation/tools/platform source, then final inventory/
+contracts/types/fixture alignment and combined gates. Current source untested/uninstalled;
+58/42/prior455 held; no actual daemon/provider/production/browser/install operation.
+Private continuity snapshot1b38c9b138890ea888012c65461662ac3a7451cd093f6fbfcf0709228060243d
+at2026-11-17T15:15:00.343183+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or missing transcript recovery claim.
+
 Latest local fallback source `7c20bb796d9e3b02dd5cd50fd7b5959ea6c5f99f` preserves original primary/local consumed ledgers,
 actual selected model/usage, shared transport deadline and unsafe/unknown failure stops.
 Cloud deadlines keep per-provider caps and never cancel ledger COMMITs. Questionnaire
