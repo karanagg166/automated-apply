@@ -1,3 +1,17 @@
+Latest retained Apify intake source `2d8a987fece0257006e250b7981ae8ef1b35ce2d` (batch implementation5498387) shares
+history-preserving job/company/observation writes and closed immutable local receipts.
+Fresh writes bind original run/finding/reservation/configuration/profile/TTL; final ACKs
+check all rows and exact monthly numeric totals after receipt triggers. Saved replay
+has no current credential/context or remote authority; source claims do not promote
+curated facts. Eighteen new PG/loopback declarations are UNRUN; parent/owner/UI and
+acknowledged-run read recovery follow. See [qualified paid intake report](acceptance/apify-local-job-intake-source-20261117.md).
+Continue paid original owner-run/ranking/host integration and remaining agreed source
+before combined tests. No current tests/build/check/native live/install or percentage
+increase;58/42 and previous455 held; no production/paid/browser operations.
+Private continuity snapshot90aa8c9d706586ddbf9d4cde10649071de0be01f2885a6eca30a4596b6135a54
+at2026-11-17T12:13:27.863155+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 # Project resume record
 
 Read this file, `AGENTS.md`, the ownership registry and the current branch diff before
