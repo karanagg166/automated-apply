@@ -24,6 +24,7 @@ mod invalidation;
 mod native;
 pub mod native_contract;
 mod naukri;
+mod platform_observation;
 mod status;
 mod storage;
 pub mod tasks;

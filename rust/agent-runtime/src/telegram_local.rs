@@ -125,17 +125,8 @@ pub(crate) async fn connections_in(
     )
     .await?;
     rows.push(json!({"name":"Selected browser","state":profiles.lines().next().unwrap_or("PROFILE_OFFLINE"),"evidence":"saved_profile_heartbeat","last_verification_time":null}));
-    let portals:Vec<(String,Value)>=sqlx::query_as("SELECT key,jsonb_build_object('state',value->'state','last_verification_time',value->'last_verification_time') FROM owner_preferences WHERE key IN ('portal_naukri','portal_instahyre','portal_wellfound','portal_work_at_a_startup','portal_internshala') ORDER BY key").fetch_all(&mut **tx).await.map_err(db)?;
-    for (platform, name) in [
-        ("naukri", "Naukri"),
-        ("instahyre", "Instahyre"),
-        ("wellfound", "Wellfound"),
-        ("work_at_a_startup", "YC Work at a Startup"),
-        ("internshala", "Internshala"),
-    ] {
-        let key = format!("portal_{platform}");
-        let value = portals.iter().find(|(k, _)| k == &key).map(|(_, v)| v);
-        rows.push(json!({"name":name,"state":value.and_then(|v|v["state"].as_str()).unwrap_or("owner_action_required"),"evidence":"saved_indicator_only_identity_unverified","last_verification_time":value.and_then(|v|v.get("last_verification_time"))}));
+    for portal in crate::platform_sessions::listing(tx).await? {
+        rows.push(json!({"name":portal["name"],"state":portal["state"],"evidence":"saved_indicator_only_identity_unverified","last_verification_time":portal["last_verification_time"]}));
     }
     Ok(json!({"connections":rows,"provider_checks_executed":false,"submitted":false}))
 }

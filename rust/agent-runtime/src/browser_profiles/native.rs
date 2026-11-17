@@ -34,6 +34,8 @@ pub(super) fn result(command: &Command, result: Result<Value>) -> Value {
         "naukri_queue_status" | "naukri_queue_control"
     ) {
         "naukri_queue_controls"
+    } else if command.name() == "observe_platform_session" {
+        "preview_only"
     } else if naukri::supports(command.name()) {
         "naukri_background_read"
     } else if matches!(
@@ -68,7 +70,7 @@ pub(super) fn static_read(name: &str) -> Option<Value> {
             json!({"connections":[{"name":"Supabase PostgreSQL","state":"CONNECTED"},{"name":"Local FastAPI","state":"CONNECTED"}],"runtime":"rust","browser_dispatch_available":false}),
         ),
         "get_agent_capabilities" => Some(
-            json!({"operations":{"connect_chrome_profile":"chrome_profile","heartbeat_chrome_profile":"chrome_profile","disconnect_chrome_profile":"chrome_profile"},"submissions":false,"email_sending":false,"paid_calls":false}),
+            json!({"operations":{"connect_chrome_profile":"chrome_profile","heartbeat_chrome_profile":"chrome_profile","disconnect_chrome_profile":"chrome_profile","observe_platform_session":"preview_only"},"submissions":false,"email_sending":false,"paid_calls":false}),
         ),
         _ => None,
     }
@@ -104,6 +106,9 @@ pub(super) async fn dispatch(
     forms: Option<form_service::Services<'_>>,
     now: DateTime<Utc>,
 ) -> Result<Value> {
+    if command.name() == "observe_platform_session" {
+        return super::platform_observation::dispatch(tx, command, settings, now).await;
+    }
     let outcome = execute(tx, command, settings, packets, forms, now).await;
     match outcome {
         Err(e)

@@ -21,6 +21,7 @@ pub mod local_answer;
 mod local_fallback;
 pub mod people_research;
 mod platform_policy;
+mod platform_sessions;
 pub mod postgres;
 mod rearranger;
 pub mod runner;

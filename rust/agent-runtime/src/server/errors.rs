@@ -28,6 +28,19 @@ pub(super) fn profile_failure(error: Failure) -> Response {
         }
         return response;
     }
+    let portal_status = match error.0 {
+        "platform_session_method_not_allowed" => Some(StatusCode::METHOD_NOT_ALLOWED),
+        "unsupported_platform" => Some(StatusCode::NOT_FOUND),
+        "invalid_platform_session_request" => Some(StatusCode::UNPROCESSABLE_ENTITY),
+        "platform_session_write_ack_failed" => Some(StatusCode::CONFLICT),
+        "platform_session_database_error"
+        | "invalid_saved_platform_session"
+        | "platform_session_outcome_unknown" => Some(StatusCode::SERVICE_UNAVAILABLE),
+        _ => None,
+    };
+    if let Some(status) = portal_status {
+        return reply(status, json!({"detail": error.0}));
+    }
     if error.0.starts_with("public_job_")
         || error.0.starts_with("discovery_run_")
         || error.0.starts_with("invalid_discovery_")

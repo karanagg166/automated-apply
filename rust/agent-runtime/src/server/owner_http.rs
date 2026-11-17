@@ -21,6 +21,17 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     }
     let method = request.method().as_str().to_owned();
     let path = request.uri().path().to_owned();
+    let platform_session_route = crate::platform_sessions::route(&path);
+    if let Some(route) = platform_session_route
+        && method != route.method()
+    {
+        let mut response = fail(Failure("platform_session_method_not_allowed"));
+        response.headers_mut().insert(
+            "allow",
+            axum::http::HeaderValue::from_static(route.method()),
+        );
+        return response;
+    }
     let startup_allow = crate::startup_catalog::search::route(&path)
         .map(|r| {
             if matches!(r, crate::startup_catalog::search::Route::Search) {
@@ -737,6 +748,18 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
                     etag: None,
                 })
         }
+        Some(connection) if platform_session_route.is_some() => crate::platform_sessions::dispatch(
+            connection,
+            platform_session_route.unwrap(),
+            &method,
+            &body,
+        )
+        .await
+        .map(|data| OwnerReply {
+            data,
+            status: StatusCode::OK,
+            etag: None,
+        }),
         Some(connection) if crate::packet_service::route(&path).is_some() => {
             crate::packet_service::dispatch(
                 connection,
