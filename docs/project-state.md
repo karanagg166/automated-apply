@@ -7,6 +7,20 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest public transport/finding source `bf03a79cec97f33f9850f4210bafef2993094623`
+consumes original grants through fixed no-proxy/cookie/auth/retry/redirect GETs and
+bounded complete/partial traversal. Conflicting identities are removed, incomplete
+cursors suppressed and final provisional cursors cleared. Selected findings/terminal
+journal and monotonic rate windows commit before separate local ingestion. One standard
+and twelve PG/loopback declarations are UNRUN. See [qualified transport report](acceptance/public-job-transport-source-20261117.md).
+Continue guarded job/company/startup ingestion, owner discovery/dashboard recovery,
+startup job-led orchestration, reviewed Apify execution and remaining agreed full source
+before combined gates. No current tests/build/check/native live/install or estimate
+increase; 58/42 and prior455 held. Domain controller has no owner-host route yet.
+Private continuity snapshot 937a91c46aac8684a4c1213487ade36fca3ed98b9826f8c25bc52b99f267c831
+at 2026-11-17T09:28:09.031178+00:00 preserves104 indexed /6 available /98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest public batch admission source `8cd8e4e707f89804fff60a132b9e09a42ccc40bd`
 commits original UUID/query/source/context/invocation/deadline and shared provider
 windows atomically under the owner fence, independently ACKs both and never reconstructs
