@@ -1061,13 +1061,11 @@ guaranteed by planning; code review and this evidence gate determine correctness
 
 ## Progress reporting
 
-The old55% number was a rough engineering estimate, not measured production acceptance.
-After three published native browser lifecycle/broker/task milestones, report approximately
-58% complete /42% remaining on the same rough basis. This is a judgment estimate, not route
-coverage or a conversion from test counts. Hold it while new code is untested. Announce
-meaningful increases in commentary with the completed capability and evidence; track source
-implemented, fixture verified, installed and live accepted separately. Reserve100% for all
-agreed deliverables and applicable final gates; do not claim external availability forever.
+The earlier 55% and 58% estimates were engineering judgments from earlier milestones.
+Now that the current branch has a [combined validation baseline](../acceptance/local-combined-baseline-20261118.md),
+report the exact outcomes at each gate and the capabilities verified on the laptop.
+Track each deliverable through source implementation, fixture verification, installation,
+and live acceptance. Reserve 100% for all agreed deliverables and applicable final gates.
 
 ## External gates retained
 

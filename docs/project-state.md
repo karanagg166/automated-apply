@@ -2,6 +2,10 @@
 
 The active goal limits delivery to the owner’s laptop. GitHub pushes, pull requests, remote reports, hosted Actions and merges remain suspended until the owner reauthorizes them. Finish source and fixtures, run combined validation, then install and verify locally. See the [completion plan](plans/completion-execution-20261116.md).
 
+The first 36-stage combined run at `8d0bc72` passed 10 stages and stopped at Rust compilation. Local repair `615f981` restored compilation and ran the Rust workspace tests. The result was 403 passing, 24 failing and 1,079 ignored. The first run left 25 stages untested. Continue targeted repairs from the private logs before the next combined run. The offline cutover planner is implemented. Installation and live verification remain pending. Report actual gate outcomes in place of the older rough estimate. See the [combined validation baseline](acceptance/local-combined-baseline-20261118.md).
+
+Private continuity snapshot `df649153ddf8004fbebdd23b1d8e3a74a36e7816e420d3c0d5f6f13715c58cfa` at `2026-11-17T22:03:58.751943+00:00` preserved six available transcripts from 104 indexed threads. The other 98 transcripts remain missing.
+
 Local source `5d47c49` ties Rust release staging to the checksums of a clean combined run and retains separate Brave and Edge packages. The 36-stage plan adds the optimized build and checksum inventory. A private rollback snapshot preserved nine installed definitions and verified 16 referenced paths. Release build, staging and restore acceptance remain pending. See the [local release checkpoint](acceptance/rust-release-package-local-source-20261118.md).
 
 Private continuity snapshot `e5a45cf1da7108d3c942f60a826d94a367e9c9ab6c6905fc285868160ed9852c` at `2026-11-17T21:57:27.290496+00:00` preserved six available transcripts from 104 indexed threads. The other 98 transcripts remain missing.
