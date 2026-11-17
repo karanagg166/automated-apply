@@ -7,6 +7,19 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest seven-provider record source `037a00698bb561788ed471789e3680c38091e14c`
+adds pure Greenhouse/Lever/Ashby/SmartRecruiters/Remotive/Arbeitnow/HN parsers with
+salary/workplace/date/hosted identity rules and bounded selected provenance. Arbitrary
+vendor/source_fields are omitted; malformed IDs/structures fail conservatively.
+Five standard declarations (216 actual comparisons plus bounds) are UNRUN.
+See [qualified record parser report](acceptance/public-job-records-source-20261117.md).
+Continue fixed-host public transport/pagination/pacing and startup job-led ingestion,
+reviewed Apify execution and remaining agreed source before combined gates. No current
+tests/build/check/live/install or estimate increase; 58/42 and prior455 held. Host uninstalled.
+Private continuity snapshot 2bc82b0b8b48f01e7b197c3b36b88263b1528342d3c919105a1a79d3204f7af4
+at 2026-11-17T08:49:56.809412+00:00 preserves104 indexed /6 available /98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest public job/query contract source `e4da98431b9471ef0e95b586589f1e37df6eaf74`
 freezes actual DTOs and ports pure defaults/coercion, strict experience/salary evidence,
 UTC dates, ATS canonical identity, unknown-company/remote rules and payload limits.
