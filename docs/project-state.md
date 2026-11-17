@@ -2,6 +2,10 @@
 
 The active goal limits delivery to the owner’s laptop. GitHub pushes, pull requests, remote reports, hosted Actions and merges remain suspended until the owner reauthorizes them. Finish source and fixtures, run combined validation, then install and verify locally. See the [completion plan](plans/completion-execution-20261116.md).
 
+Local source `b74e107` keeps worker scheduling available during the configured Cohere planner's HTTP wait. Run and monthly provider reservations commit before the request. One new actual-process PostgreSQL fixture awaits the combined run. The estimate remains 58% complete. See the [model worker checkpoint](acceptance/model-worker-local-source-20261118.md).
+
+Private continuity snapshot `4f5a1334608ff278c39f284ce427dadc4db7cdbfbfa3c9542cb71fff6b70f836` at `2026-11-17T20:58:44.624861+00:00` preserved six available transcripts from 104 indexed threads. The other 98 transcripts remain missing.
+
 Local source `adca6e9` separates scheduled feed HTTPS work from the application worker's PostgreSQL connection. Intake now checks both saved control revisions and can reuse a valid cache after Resume. One new PostgreSQL fixture and the existing worker cancellation cases await the combined run. The estimate remains 58% complete. See the [scheduled feed worker checkpoint](acceptance/scheduled-feed-worker-local-source-20261118.md).
 
 Private continuity snapshot `12c3c6e6397d38a89f87593cc9334a7188409724a00864616beaaf89d3f43fe1` at `2026-11-17T20:53:37.041840+00:00` preserved six available transcripts from 104 indexed threads. The other 98 transcripts remain missing.
