@@ -1034,7 +1034,7 @@ stage isolation. Do not run it now or operate the owner's browser to execute fix
 | --- | --- |
 | Static contracts | HTTP security drift, schema/OpenAPI/frontend/native DTO parity, native route coverage, manual-only hosted workflows, secret-free artifacts |
 | Rust unit/oracles | One full locked workspace run including form policy/projection/receipt, quota, broker, provider/MCP/native/document protocols |
-| Database integration | One complete disposable native PostgreSQL run: production-equivalent guards, CAS/concurrency, real locks, role/schema checks, rollback/unknown commit, crash/restart/no replay |
+| Database integration | Disposable PostgreSQL tests for guards, concurrency, locks, rollback, crash and replay. Rehearse the reviewed migration in a separate disposable cluster and verify its catalog and grants against the pinned manifest. |
 | Legacy parity | Python unit + PostgreSQL fixture integration using uv and isolated config; no real candidate DB or optional paid provider |
 | UI/build | Frontend unit/typecheck/format/production build and generated API drift |
 | Browser fixtures | Isolated headless Brave journeys for extension/native/task/form/Naukri queue; Edge build/fixture where available; frontend auth/review/control/accessibility journeys; no personal profiles |
@@ -1049,6 +1049,10 @@ Verify selecting the connected browser, reading STOPPED status, refusing Start w
 commands disabled, and saving a scoped portal observation. Keep the existing legacy
 browser tests and database-only harness. This fixture cannot establish live focus,
 applicant identity, or provider submission.
+
+Use the combined report's starting and ending Git commit and cleanliness for the
+installation review. The report records a clean-commit fixture pass only when
+every stage passed and both observations match a clean commit.
 
 Only the final combined gate establishes current full-source test results. If an actual
 failure requires a fix, run the affected regression and repeat integration checks needed

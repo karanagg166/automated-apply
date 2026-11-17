@@ -82,6 +82,10 @@ STAGES = (
         "rust-postgres",
         (*PYTHON, "-m", "rust.scripts.run_postgres_tests", "--with-browser"),
     ),
+    (
+        "rust-migration-catalog",
+        (*PYTHON, "-m", "rust.scripts.verify_live_migration"),
+    ),
     ("frontend-e2e", (*PYTHON, "scripts/run_fixture_stage.py", "frontend-ui")),
     (
         "frontend-browser-e2e",
@@ -202,10 +206,26 @@ def coordinated_run(command, **kwargs):
         return bounded_run(command, **kwargs)
 
 
-def run_stages(stages, output, invoke=bounded_run):
+def read_source_stamp():
+    def git(*args):
+        return subprocess.check_output(
+            ["git", *args], cwd=ROOT, stderr=subprocess.DEVNULL, timeout=10
+        ).strip()
+
+    try:
+        return {
+            "commit": git("rev-parse", "--verify", "HEAD").decode("ascii"),
+            "clean": not git("status", "--porcelain=v1", "--untracked-files=normal"),
+        }
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def run_stages(stages, output, invoke=bounded_run, *, capture_source=None):
     """Stop at first failure and distinguish unexecuted stages from passing ones."""
     rows = []
     failed = False
+    source_before = capture_source() if capture_source else None
     for name, command in stages:
         row = {"name": name, "status": "NOT TESTED"}
         if not failed:
@@ -235,14 +255,25 @@ def run_stages(stages, output, invoke=bounded_run):
             )
             failed = code != 0
         rows.append(row)
+        done = len(rows) == len(stages)
+        source_after = capture_source() if done and capture_source else None
         report = {
             "scope": "local_fixture_acceptance_not_live_platform_acceptance",
-            "stages": rows,
+            "source_before": source_before,
+            "source_after": source_after,
+            "clean_commit_fixture_pass": (
+                done
+                and not failed
+                and source_before is not None
+                and source_before == source_after
+                and source_before["clean"]
+            ),
+            "stages": rows
+            + [
+                {"name": pending, "status": "NOT TESTED"}
+                for pending, _ in stages[len(rows) :]
+            ],
         }
-        report["stages"] = rows + [
-            {"name": pending, "status": "NOT TESTED"}
-            for pending, _ in stages[len(rows) :]
-        ]
         path = output / "results.json"
         temporary = output / "results.pending.json"
         temporary.write_text(json.dumps(report, indent=2) + "\n")
@@ -287,7 +318,9 @@ def main():
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             raise SystemExit("local_heavy_test_lock_busy") from None
-        if not run_stages(STAGES, output, invoke=coordinated_run):
+        if not run_stages(
+            STAGES, output, invoke=coordinated_run, capture_source=read_source_stamp
+        ):
             raise SystemExit(1)
 
 

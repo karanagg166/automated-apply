@@ -19,8 +19,55 @@ spec.loader.exec_module(runner)
 
 def test_final_postgres_gate_includes_native_browser_after_brave_build():
     stages = dict(runner.STAGES)
-    assert list(stages).index("extension-brave-final") < list(stages).index("rust-postgres")
+    assert list(stages).index("extension-brave-final") < list(stages).index(
+        "rust-postgres"
+    )
     assert stages["rust-postgres"][-1] == "--with-browser"
+
+
+def test_combined_gate_rehearses_the_reviewed_schema_with_no_manifest_write():
+    stages = dict(runner.STAGES)
+    assert stages["rust-migration-catalog"][-2:] == (
+        "-m",
+        "rust.scripts.verify_live_migration",
+    )
+
+
+@pytest.mark.parametrize(
+    ("dirty_at_start", "dirty_at_end", "changed_commit", "exit_code", "clean_pass"),
+    [
+        (False, False, False, 0, True),
+        (True, True, False, 0, False),
+        (False, True, False, 0, False),
+        (False, False, True, 0, False),
+        (False, False, False, 7, False),
+    ],
+)
+def test_final_report_identifies_only_a_clean_commit_fixture_pass(
+    tmp_path, dirty_at_start, dirty_at_end, changed_commit, exit_code, clean_pass
+):
+    before = {"commit": "1" * 40, "clean": not dirty_at_start}
+    after = {"commit": ("2" if changed_commit else "1") * 40, "clean": not dirty_at_end}
+    stamps = iter((before, after))
+
+    def invoke(command, **_kwargs):
+        if command == ["first"]:
+            return SimpleNamespace(returncode=0)
+        intermediate = json.loads((tmp_path / "results.json").read_text())
+        assert not intermediate["clean_commit_fixture_pass"]
+        assert intermediate["source_after"] is None
+        return SimpleNamespace(returncode=exit_code)
+
+    assert runner.run_stages(
+        (("one", ("first",)), ("two", ("second",))),
+        tmp_path,
+        invoke,
+        capture_source=lambda: next(stamps),
+    ) is (exit_code == 0)
+    report = json.loads((tmp_path / "results.json").read_text())
+    assert report["source_before"] == before
+    assert report["source_after"] == after
+    assert report["clean_commit_fixture_pass"] is clean_pass
 
 
 def test_first_failure_stops_later_stages_and_persists_truthful_results(tmp_path):
