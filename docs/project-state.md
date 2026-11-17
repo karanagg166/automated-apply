@@ -1,3 +1,16 @@
+Latest local-answer v1 source `dfb7afdb071a4ddbb8e604e1af02eb70e33b4972` adopts deterministic resolution in native answer
+preparation and adds immutable provenance plus transient max8 rewrite flights in the library.
+Only network-only callbacks may be cancelled; production service configures none here.
+One waiter cancellation preserves others; last nonce-bound waiter removes/aborts its flight.
+Seven standard+two PG declarations UNRUN. General CLI/sentence branches are explicit native
+extensions of legacy service refusals, with all flags and Cohere-only questionnaire retained.
+See [qualified local v1 report](acceptance/local-answer-v1-source-20261117.md). Continue conversation/tools/platform source,
+then final inventory/contracts/types/fixtures and combined/live gates. Current source
+untested/uninstalled;58/42/prior455 held; no actual model/provider/production/install.
+Private continuity snapshot40839f0fa7bfdcc8de89000b22cc8310a8544e490266f74f5dbc59d65288a4f5
+at2026-11-17T15:24:32.867543+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or missing transcript recovery claim.
+
 Latest approved-sentence provider source `065bf87f9dd77917141e06651165380bddbffe72` restores the separate explicit
 OLLAMA_GENERATION_AUTHORIZED branch, bounded local chat with permitted variants only,
 local reconstruction/coverage and shared metadata/ledger/gate/deadline/context fences.
