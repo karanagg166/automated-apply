@@ -57,6 +57,8 @@ pub(super) struct Grant {
     pub(super) context: String,
     pub(super) body: Value,
     pub(super) deadline: DateTime<Utc>,
+    pub(super) input: Value,
+    pub(super) permission: Option<String>,
 }
 pub enum Admission {
     Retained(Value),
@@ -66,7 +68,10 @@ pub fn output(journal: &Value, request: Uuid, now: DateTime<Utc>) -> Result<Valu
     if journal["schema"] != 1
         || journal["request_id"] != json!(request)
         || journal["post_admissions"] != 1
-        || journal["state"] != "dispatch_admitted"
+        || !matches!(
+            journal["state"].as_str(),
+            Some("dispatch_admitted" | "finding_retained")
+        )
     {
         return Err(invalid());
     }
@@ -79,6 +84,14 @@ pub fn output(journal: &Value, request: Uuid, now: DateTime<Utc>) -> Result<Valu
         .as_str()
         .filter(|s| s.chars().count() <= 200)
         .ok_or_else(invalid)?;
+    if journal["state"] == "finding_retained" {
+        let finding = super::findings::selected(journal, now)?;
+        let mut value = json!({"request_id":request,"company_name":company,"status":if matches!(finding["provider_status"].as_str(),Some("success"|"partial"|"no_results")){"finding_retained"}else{finding["provider_status"].as_str().ok_or_else(invalid)?},"recorded_state":"finding_retained","reserved_local_requests":1,"budget_unit":"search_request","provider_post_admissions":1,"provider_charge_verified":false,"outbound_messages_sent":0,"replay_authorized":false,"evidence_basis":"retained_finding_not_new_execution"});
+        for (key, v) in finding.as_object().ok_or_else(invalid)? {
+            value[key] = v.clone();
+        }
+        return Ok(value);
+    }
     Ok(
         json!({"request_id":request,"company_name":company,"status":if now>expires{"outcome_unknown"}else{"running"},"recorded_state":"dispatch_admitted","people":[],"errors":if now>expires{vec!["public_research_original_dispatch_unconfirmed"]}else{vec![]},"reserved_local_requests":1,"budget_unit":"search_request","provider_post_admissions":1,"provider_response_retained":false,"provider_charge_verified":false,"outbound_messages_sent":0,"replay_authorized":false,"evidence_basis":"retained_intent_not_new_execution"}),
     )
@@ -149,6 +162,14 @@ pub async fn admit(
     tx.commit()
         .await
         .map_err(|_| Failure("public_research_commit_outcome_unknown"))?;
+    let permission = if input["research_mode"] == "official_company" {
+        input["company_domain"]
+            .as_str()
+            .and_then(|d| settings.domains.get(d))
+            .cloned()
+    } else {
+        settings.permission.clone()
+    };
     Ok(Admission::Original(Box::new(Claim {
         id: request,
         journal,
@@ -159,6 +180,8 @@ pub async fn admit(
             context: settings.context.clone(),
             body,
             deadline,
+            input,
+            permission,
         }),
     })))
 }

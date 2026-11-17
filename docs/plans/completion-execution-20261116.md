@@ -1,5 +1,17 @@
 # Complete-source delivery plan — 2026-11-16
 
+Search transport/finding design 2026-11-17: consume only the original opaque grant at
+one fixed no-proxy/no-retry/no-redirect Serper endpoint, with sensitive header credentials,
+a 15-second total call and 1-MiB streamed response limit. Loopback substitution is fixture
+only. Parse only selected public/official professional results; never request result URLs.
+Retain the qualified transport finding and exact original reservation terminal state in
+one owner transaction before local persistence. Rate responses set monotonic cooldown;
+transport loss retains unknown charge and the entire local allowance. Recording does not
+depend on current settings or employer still matching, since lost evidence must survive
+those changes; later local completion checks them. GET/replay cannot reconstruct grants.
+Saved finding output excludes raw snippets, provider diagnostics and permission URLs.
+No current provider credit/balance/charge or operational installation is inferred.
+
 Paid professional search admission design 2026-11-17: the native owner endpoint will
 use a UUID in its path so existing legacy POST handlers cannot silently ignore a new
 idempotency header and bill again. Keep actual PeopleQuery unchanged. Before one fixed

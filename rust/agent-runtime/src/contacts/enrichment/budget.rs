@@ -213,6 +213,8 @@ pub(crate) async fn finish_in(
     if before["provider"] != reservation.provider
         || before["month"] != reservation.month
         || before["amount_exact"] != true
+        || serde_json::from_value::<DateTime<Utc>>(before["created_at"].clone()).ok()
+            != Some(reservation.created_at)
     {
         return Err(invalid_budget());
     }

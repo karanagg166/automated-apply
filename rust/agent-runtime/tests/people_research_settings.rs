@@ -113,3 +113,31 @@ fn paid_search_private_settings_reject_nonfinite_limits_unsafe_rights_and_unboun
     assert_eq!(defaults["enabled"], false);
     assert_eq!(defaults["monthly_local_request_limit"], 100);
 }
+#[test]
+fn search_transport_fixture_endpoint_is_explicit_loopback_only_and_cannot_be_selected_in_production()
+ {
+    use automated_apply_agents::people_research::transport::Client;
+    let mut v = values();
+    v.insert(
+        "RUST_PEOPLE_SEARCH_FIXTURE_ENDPOINT".into(),
+        "http://127.0.0.1:17231/search".into(),
+    );
+    assert!(Client::from_values(&v, false).is_err());
+    assert!(Client::from_values(&v, true).unwrap().is_some());
+    for endpoint in [
+        "https://provider-fixture.example/search",
+        "http://localhost:17231/search",
+        "http://127.0.0.1/search",
+        "http://127.0.0.1:80/search",
+        "http://127.0.0.1:17231/other",
+        "http://user:password@127.0.0.1:17231/search",
+        "http://127.0.0.1:17231/search?token=fictional",
+        "http://127.0.0.1:17231/search#private",
+    ] {
+        v.insert(
+            "RUST_PEOPLE_SEARCH_FIXTURE_ENDPOINT".into(),
+            endpoint.into(),
+        );
+        assert!(Client::from_values(&v, true).is_err());
+    }
+}
