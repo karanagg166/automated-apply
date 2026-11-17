@@ -13,12 +13,13 @@ pub enum Command {
     Connections,
     Jobs,
     Preview(String),
+    Conversation(Box<crate::conversation::intent::Intent>),
     Reset,
     Help,
 }
 impl Command {
     pub fn mutates(&self) -> bool {
-        matches!(self, Self::Preview(_) | Self::Reset)
+        matches!(self, Self::Preview(_) | Self::Reset | Self::Conversation(_))
     }
     fn operation(&self) -> &'static str {
         match self {
@@ -26,10 +27,17 @@ impl Command {
             Self::Connections => "connection_status",
             Self::Jobs => "get_discovery_status",
             Self::Preview(_) => "preview_application_url",
-            Self::Reset => "conversation",
+            Self::Reset | Self::Conversation(_) => "conversation",
             Self::Help => unreachable!(),
         }
     }
+}
+pub(crate) fn natural(text: &str) -> Option<Command> {
+    if text.trim_start().starts_with('/') || text.len() > 8192 {
+        return None;
+    }
+    let intent = crate::conversation::intent::deterministic(text);
+    (intent.category != "UNKNOWN").then(|| Command::Conversation(Box::new(intent)))
 }
 pub fn parse(text: &str, bot: &str) -> Option<Command> {
     let mut words = text
@@ -91,7 +99,7 @@ async fn put(tx: &mut Transaction<'_, Postgres>, key: &str, value: &Value) -> Re
     }
     Ok(())
 }
-async fn connections_in(
+pub(crate) async fn connections_in(
     tx: &mut Transaction<'_, Postgres>,
     config: &Configuration,
     now: DateTime<Utc>,
@@ -191,6 +199,9 @@ async fn execute_in(
                 json!({"url":url,"platform":platform,"policy":{"preference":preference,"preview_allowed":true,"submission_allowed":false,"email_send_allowed":false,"paid_calls_allowed":false,"capability":"url_preview","reason":"phase1_preview_only"},"status":"preview_saved","page_inspected":false,"submitted":false}),
             )
         }
+        Command::Conversation(intent) => {
+            crate::conversation::reply::respond(tx, config, owner, (**intent).clone(), now).await
+        }
         Command::Reset => {
             let memory = json!({"conversation_id":Uuid::new_v4(),"history":[],"job_ids":[],"selected_job_id":null,"project_id":null,"clarification":null,"expires_at":now+Duration::minutes(10)});
             put(tx, &context_key(owner), &memory).await?;
@@ -210,7 +221,9 @@ fn reply(command: &Command, result: &Value) -> Result<String> {
         ));
     }
     Ok(match command {
-        Command::Reset => data["reply"].as_str().ok_or_else(invalid)?.into(),
+        Command::Reset | Command::Conversation(_) => {
+            data["reply"].as_str().ok_or_else(invalid)?.into()
+        }
         Command::Preview(_) => format!(
             "URL preview saved ({}). No application submitted. Reference: {}",
             data["platform"].as_str().ok_or_else(invalid)?,
@@ -292,6 +305,9 @@ pub(crate) async fn dispatch_in(
     if matches!(command, Command::Reset) {
         body["intent"] = json!({"category":"RESET_CONTEXT"});
     }
+    if let Command::Conversation(intent) = command {
+        body["intent"] = serde_json::to_value(intent).map_err(|_| invalid())?;
+    }
     let (_, hash) = crate::browser_profiles::native_contract::parse(
         &serde_json::to_vec(&body).map_err(|_| invalid())?,
     )?;
@@ -324,6 +340,20 @@ pub(crate) async fn dispatch_in(
         }
         return reply(command, &result).map(bounded);
     }
+    if matches!(command, Command::Conversation(_)) {
+        let recent: i64 = sqlx::query_scalar(
+            "SELECT count(*) FROM (SELECT 1 FROM agent_operations
+             WHERE actor = $1 AND created_at > clock_timestamp() - interval '1 minute'
+             LIMIT 20) recent",
+        )
+        .bind(format!("telegram:{owner}"))
+        .fetch_one(&mut **tx)
+        .await
+        .map_err(db)?;
+        if recent >= 20 {
+            return Ok("Too many requests. Please wait one minute.".into());
+        }
+    }
     let now: DateTime<Utc> = sqlx::query_scalar("SELECT clock_timestamp()")
         .fetch_one(&mut **tx)
         .await
@@ -339,7 +369,17 @@ pub(crate) async fn dispatch_in(
                 .rollback()
                 .await
                 .map_err(|_| Failure("telegram_local_rollback_unconfirmed"))?;
-            if error.0 == "connection_disabled" {
+            if error.0 == "connection_disabled"
+                || matches!(command, Command::Conversation(_))
+                    && matches!(
+                        error.0,
+                        "conversation_memory_review_required"
+                            | "conversation_memory_saved_limit"
+                            | "invalid_saved_conversation_preferences"
+                            | "invalid_conversation_preview_policy"
+                            | "project_conversation_fact_review_required"
+                    )
+            {
                 Err(error)
             } else {
                 return Err(error);

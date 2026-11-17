@@ -34,7 +34,7 @@ pub fn normalize(mut input: Value) -> Result<Value> {
     }
     for key in ["require_known_properties", "duplicate_prevention"] {
         if let Some(value) = fields.get(key) {
-            if value != true && value.as_u64() != Some(1) {
+            if value != true && value.as_f64() != Some(1.0) {
                 return Err(invalid());
             }
         }
@@ -68,4 +68,80 @@ pub fn normalize(mut input: Value) -> Result<Value> {
         return Err(invalid());
     }
     Ok(value)
+}
+
+pub(crate) const PATH: &str = "/api/v1/local-agent/search-preferences";
+
+async fn saved(connection: &mut sqlx::PgConnection) -> Result<Option<Value>> {
+    let row: Option<Option<Value>> = sqlx::query_scalar(
+        "SELECT CASE WHEN octet_length(value::text) <= 65536 THEN value END
+         FROM owner_preferences WHERE key = 'agent_search_preferences'",
+    )
+    .fetch_optional(connection)
+    .await
+    .map_err(|_| Failure("profile_database_error"))?;
+    row.map(|value| value.ok_or(Failure("invalid_saved_conversation_preferences")))
+        .transpose()
+}
+
+pub(crate) async fn effective(connection: &mut sqlx::PgConnection) -> Result<Value> {
+    let profile: Option<Value> = sqlx::query_scalar(
+        "SELECT preferences FROM candidate_profiles WHERE singleton_key = 'primary'",
+    )
+    .fetch_optional(&mut *connection)
+    .await
+    .map_err(|_| Failure("profile_database_error"))?;
+    let mut fields = serde_json::Map::new();
+    for values in [profile, saved(connection).await?].into_iter().flatten() {
+        fields.extend(
+            values
+                .as_object()
+                .ok_or(Failure("invalid_saved_conversation_preferences"))?
+                .clone(),
+        );
+    }
+    normalize(Value::Object(fields)).map_err(|_| Failure("invalid_saved_conversation_preferences"))
+}
+
+pub(crate) async fn dispatch(
+    connection: &mut sqlx::PgConnection,
+    method: &str,
+    query: Option<&str>,
+    body: &[u8],
+) -> Result<Value> {
+    use sqlx::Connection;
+    if query.is_some() {
+        return Err(invalid());
+    }
+    match method {
+        "GET" if body.is_empty() => {
+            normalize(saved(connection).await?.unwrap_or_else(|| json!({})))
+                .map_err(|_| Failure("invalid_saved_conversation_preferences"))
+        }
+        "PUT" => {
+            let value = normalize(serde_json::from_slice(body).map_err(|_| invalid())?)?;
+            let mut tx = connection
+                .begin()
+                .await
+                .map_err(|_| Failure("profile_database_error"))?;
+            crate::execution::lock_owner_in(&mut tx).await?;
+            let stored: Option<Value> = sqlx::query_scalar(
+                "INSERT INTO owner_preferences(key, value) VALUES ('agent_search_preferences', $1)
+                 ON CONFLICT(key) DO UPDATE SET value = EXCLUDED.value, updated_at = clock_timestamp()
+                 RETURNING value",
+            ).bind(&value).fetch_optional(&mut *tx).await.map_err(|_| Failure("profile_database_error"))?;
+            if stored.as_ref() != Some(&value) || saved(&mut tx).await?.as_ref() != Some(&value) {
+                tx.rollback()
+                    .await
+                    .map_err(|_| Failure("profile_database_error"))?;
+                return Err(Failure("conversation_preferences_write_ack_failed"));
+            }
+            tx.commit()
+                .await
+                .map_err(|_| Failure("conversation_preferences_outcome_unknown"))?;
+            Ok(value)
+        }
+        "GET" => Err(invalid()),
+        _ => Err(Failure("conversation_preferences_method_not_allowed")),
+    }
 }

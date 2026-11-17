@@ -689,7 +689,14 @@ pub(super) fn failure(error: Failure) -> Response {
         | "packet_handoff_incomplete"
         | "packet_execution_binding_conflict" => StatusCode::CONFLICT,
         "invalid_packet_notice_state" => StatusCode::SERVICE_UNAVAILABLE,
-        "invalid_notification_preferences" => StatusCode::UNPROCESSABLE_ENTITY,
+        "invalid_notification_preferences" | "invalid_conversation_preferences" => {
+            StatusCode::UNPROCESSABLE_ENTITY
+        }
+        "invalid_saved_conversation_preferences" | "conversation_preferences_outcome_unknown" => {
+            StatusCode::SERVICE_UNAVAILABLE
+        }
+        "conversation_preferences_write_ack_failed" => StatusCode::CONFLICT,
+        "conversation_preferences_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
         "invalid_saved_notification_preferences" | "notification_preferences_outcome_unknown" => {
             StatusCode::SERVICE_UNAVAILABLE
         }

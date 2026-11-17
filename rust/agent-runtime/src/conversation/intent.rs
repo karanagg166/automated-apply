@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 use std::sync::LazyLock;
 use uuid::Uuid;
 mod parser;
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Intent {
     pub category: String,
