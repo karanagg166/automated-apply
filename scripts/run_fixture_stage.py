@@ -20,6 +20,7 @@ COMMANDS = {
         "--durations=12",
     ),
     "frontend-ui": ("pnpm", "-C", "frontend", "e2e"),
+    "frontend-cutover": ("node", "--test", "frontend/tests/local-rust-launch.mjs"),
     "frontend-browser": ("pnpm", "-C", "frontend", "e2e:browser"),
     "frontend-extension": (
         "pnpm",

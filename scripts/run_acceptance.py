@@ -74,6 +74,14 @@ STAGES = (
     ("frontend-types", ("pnpm", "-C", "frontend", "typecheck")),
     ("frontend-format", ("pnpm", "-C", "frontend", "format:check")),
     ("frontend-build", ("pnpm", "-C", "frontend", "build")),
+    (
+        "frontend-cutover-bundle",
+        ("node", "frontend/run-local-rust.mjs", "--prepare-build"),
+    ),
+    (
+        "frontend-cutover-e2e",
+        (*PYTHON, "scripts/run_fixture_stage.py", "frontend-cutover"),
+    ),
     ("extension-tests", ("pnpm", "-C", "extension", "test")),
     ("extension-brave", ("pnpm", "-C", "extension", "build", "--browser=brave")),
     ("extension-edge", ("pnpm", "-C", "extension", "build", "--browser=edge")),

@@ -81,6 +81,15 @@ No new production worker, role grant, schema migration or runtime installation o
 5. Validate actual account/resume/readiness, focus preservation, restart recovery and
    resource use before enabling authorized work. Roll back failed acceptance.
 
+The local dashboard candidate uses `node frontend/run-local-rust.mjs
+--frontend-config /absolute/private/frontend.env --runtime-config
+/absolute/private/runtime.env --port 3000` in its launch definition. The Node
+process serves the prepared standalone build directly. It keeps the dashboard's
+existing owner login configuration and takes its API token, socket and optional
+approval key from the same private file as the Rust host. Both dashboard API
+routes use that socket. The combined runner prepares standalone static assets
+at build time and checks both authenticated routes through a fictional socket.
+
 The pending owner browser/account step, missing strict worker receipt and per-platform
 live acceptance remain separate gates. Passing a process lease test does not satisfy them.
 
