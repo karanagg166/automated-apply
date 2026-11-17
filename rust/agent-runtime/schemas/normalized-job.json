@@ -1,0 +1,385 @@
+{
+  "properties": {
+    "application_url": {
+      "anyOf": [
+        {
+          "maxLength": 2048,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Application Url"
+    },
+    "canonical_url": {
+      "anyOf": [
+        {
+          "maxLength": 2048,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Canonical Url"
+    },
+    "company_domain": {
+      "anyOf": [
+        {
+          "maxLength": 255,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Company Domain"
+    },
+    "company_intelligence": {
+      "additionalProperties": true,
+      "title": "Company Intelligence",
+      "type": "object"
+    },
+    "company_name": {
+      "anyOf": [
+        {
+          "maxLength": 255,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Company Name"
+    },
+    "country": {
+      "anyOf": [
+        {
+          "maxLength": 100,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Country"
+    },
+    "data_provenance": {
+      "additionalProperties": true,
+      "title": "Data Provenance",
+      "type": "object"
+    },
+    "date_posted": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Date Posted"
+    },
+    "description": {
+      "anyOf": [
+        {
+          "maxLength": 200000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Description"
+    },
+    "employment_type": {
+      "anyOf": [
+        {
+          "maxLength": 50,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Employment Type"
+    },
+    "equity": {
+      "anyOf": [
+        {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Equity"
+    },
+    "experience_level": {
+      "anyOf": [
+        {
+          "maxLength": 50,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Experience Level"
+    },
+    "experience_max_years": {
+      "anyOf": [
+        {
+          "maximum": 60,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Experience Max Years"
+    },
+    "experience_min_years": {
+      "anyOf": [
+        {
+          "maximum": 60,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Experience Min Years"
+    },
+    "first_observed_date": {
+      "format": "date-time",
+      "title": "First Observed Date",
+      "type": "string"
+    },
+    "is_confirmed_current": {
+      "default": false,
+      "title": "Is Confirmed Current",
+      "type": "boolean"
+    },
+    "is_remote": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Is Remote"
+    },
+    "last_observed_date": {
+      "format": "date-time",
+      "title": "Last Observed Date",
+      "type": "string"
+    },
+    "location": {
+      "anyOf": [
+        {
+          "maxLength": 255,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Location"
+    },
+    "original_url": {
+      "maxLength": 2048,
+      "title": "Original Url",
+      "type": "string"
+    },
+    "quality_flags": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 50,
+      "title": "Quality Flags",
+      "type": "array"
+    },
+    "region": {
+      "anyOf": [
+        {
+          "maxLength": 100,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Region"
+    },
+    "remote_type": {
+      "default": "unknown",
+      "enum": [
+        "remote",
+        "hybrid",
+        "onsite",
+        "unknown"
+      ],
+      "title": "Remote Type",
+      "type": "string"
+    },
+    "retrieved_at": {
+      "format": "date-time",
+      "title": "Retrieved At",
+      "type": "string"
+    },
+    "salary_currency": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Salary Currency"
+    },
+    "salary_max": {
+      "anyOf": [
+        {
+          "maximum": 1000000000000.0,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Salary Max"
+    },
+    "salary_min": {
+      "anyOf": [
+        {
+          "maximum": 1000000000000.0,
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Salary Min"
+    },
+    "salary_period": {
+      "anyOf": [
+        {
+          "enum": [
+            "hour",
+            "day",
+            "week",
+            "month",
+            "year"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Salary Period"
+    },
+    "salary_raw": {
+      "anyOf": [
+        {
+          "maxLength": 1000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Salary Raw"
+    },
+    "skills_preferred": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 100,
+      "title": "Skills Preferred",
+      "type": "array"
+    },
+    "skills_required": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 100,
+      "title": "Skills Required",
+      "type": "array"
+    },
+    "source_job_id": {
+      "anyOf": [
+        {
+          "maxLength": 255,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source Job Id"
+    },
+    "source_name": {
+      "maxLength": 100,
+      "minLength": 1,
+      "title": "Source Name",
+      "type": "string"
+    },
+    "source_verification_status": {
+      "default": "observed",
+      "enum": [
+        "observed",
+        "source_reported",
+        "verified",
+        "requires_review"
+      ],
+      "title": "Source Verification Status",
+      "type": "string"
+    },
+    "title": {
+      "maxLength": 255,
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_name",
+    "original_url",
+    "title"
+  ],
+  "title": "NormalizedJob",
+  "type": "object"
+}

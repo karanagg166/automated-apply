@@ -93,6 +93,14 @@ resolve; the already-open official page references resolved successfully.
 
 # Apify metadata follow-up — 2026-11-17
 
+Public ATS follow-up: primary [Greenhouse Job Board API](https://docs.greenhouse.io/job-board),
+[Lever public posting fields](https://github.com/lever/postings-api/blob/master/README.md)
+and [Ashby public posting API](https://developers.ashbyhq.com/docs/public-job-posting-api)
+confirm documented public board reads and provider-specific workplace/compensation fields.
+Keep source attribution, configured employer identity and observed publication evidence
+separate; Lever's feed cannot establish a posting date and Ashby isRemote includes hybrid.
+No application API or owner browser was called during this research.
+
 Primary references: [account limits](https://docs.apify.com/api/v2/users-me-limits-get)
 and [monthly usage](https://docs.apify.com/api/v2/users-me-usage-monthly-get).
 The documented limits envelope contains monthlyUsageCycle, numeric limits and current

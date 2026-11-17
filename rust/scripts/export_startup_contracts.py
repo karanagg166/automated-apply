@@ -24,7 +24,8 @@ def models():
     load(scope, "backend/app/services/startup_discovery/schemas.py", {"Band", "Hiring", "Key", "CompanyObservation", "StartupFilters", "StartupRunRequest", "ShortlistInput", "StartupAttributes", "HiringEvidence", "SizeEvidence", "StartupRead", "StartupSearchRead"})
     return {"startup-filters": scope["StartupFilters"], "startup-shortlist": scope["ShortlistInput"],
             "startup-read": scope["StartupRead"], "startup-search": scope["StartupSearchRead"],
-            "company-observation":scope["CompanyObservation"],"startup-run-request":scope["StartupRunRequest"]}
+            "company-observation":scope["CompanyObservation"],"startup-run-request":scope["StartupRunRequest"],
+            "normalized-job":scope["NormalizedJob"],"discovery-query":scope["DiscoveryQuery"]}
 
 
 def main():

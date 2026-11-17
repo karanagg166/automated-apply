@@ -1,5 +1,15 @@
 # Complete-source delivery plan — 2026-11-16
 
+Public job contract design 2026-11-17: freeze the actual NormalizedJob and DiscoveryQuery
+before porting the seven legacy public providers. Preserve defaults, whitespace/type
+coercion, strict experience evidence, bounded finite pay, explicit UTC observation
+timestamps, ATS identity override rules, unknown company flags and tri-state remote
+evidence. Arbitrary source fields confer no verification/application authority. Retain
+the actual 256-KiB serialized record cap and bounded query pagination. Compare actual
+Pydantic DTOs with pinned fictional observation times through AST/pure contract loading;
+do not import application configuration or provider clients. Then compose provider-specific
+normalizers, fixed-host GET transport, durable source pacing and startup job-led ingestion.
+
 Apify owner inspection design 2026-11-17: retain existing exact owner-only status,
 account-inspect and allowlisted actor-inspect routes. Use the shared transient permit
 and one temporary connection, no new pool. Commit the original 10-second metadata
