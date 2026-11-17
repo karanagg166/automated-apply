@@ -1,3 +1,19 @@
+Latest GET-only acknowledged-read lifecycle source `ed77d2e3b74a207c1aba83b1aeb5cf56435f9cec` consumes separate
+read claims, admits4GET/45seconds with durable checkpoints, preserves original paid
+start/HTTP evidence and CASes new selected run status. All selected pages/hash/time
+survive failed finalization; local-only finish reconstructs the full finding without
+new provider reads/time refresh and blocks unnecessary fresh rounds. Shared dataset
+selection and monotonic cooldown are in source. One standard+twelve PG declarations
+are UNRUN. See [qualified read transport report](acceptance/apify-acknowledged-read-transport-source-20261117.md).
+Continue explicit keyed owner recovery GET/PUT/local-complete and durable dashboard
+read pointer, then remaining agreed startup/runtime/provider/tool/platform source
+before combined gates. Ordinary GET/local-complete cannot dispatch recovery yet.
+No current tests/build/check/native live/install or percentage increase;58/42 and
+prior455 held. No actual recovery/paid/production/browser operations.
+Private continuity snapshot003bf3cba32c0ca053733c69f5092868045ff8b848642d997416bc6429fd3d2f
+at2026-11-17T13:13:28.387663+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest separate acknowledged-read admission source `86831f52e3adedf60630160148229e3cfb17dbe9` binds read UUID,
 original journal lifetime allowance (3 rounds),4GET/45seconds,5-minute spacing and exact
 reservation/month/context/cooldown ACKs. Replay cannot renew; deleted prior read records
