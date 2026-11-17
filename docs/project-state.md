@@ -1,3 +1,17 @@
+Latest durable startup owner source `dcbaadf48ea8271377e653f67a4aac62d256b5f7` adds UUID PUT and empty local
+completion POST alongside saved GET. Body/source/method checks precede the existing
+request slot; local completion cannot dispatch providers and unknown child stays
+saved. Preview separates effective provider query/company filters and actual paid
+query caps/readiness. HTTP policy copies generated. One standard+five PG/HTTP+one
+gateway declarations UNRUN. See [qualified startup UUID report](acceptance/startup-uuid-owner-source-20261117.md).
+Continue startup durable dashboard/consent/recovery and remaining agreed runtime/
+provider/tool/platform source before combined tests. Full API inventory/types pending.
+No current tests/build/check/native live/install or estimate increase;58/42/prior455
+held; no actual provider/recovery/production/browser operations.
+Private continuity snapshot7941f92ae7633dcd9dad5e4d2e99a4a1b6e0d3b3501d95de55c6883073255d97
+at2026-11-17T14:25:57.389096+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest startup paid-child source `8a465ecce61e4fe09b0932040a64a96ddf009e31` composes Wellfound/Work at a Startup
 through typed original paid job children, admitting parent/child/intent/reservation
 atomically. Nested admission ACKs and final exact monthly snapshot accompany existing
