@@ -118,29 +118,39 @@ pub async fn update(c: &mut PgConnection, update: Update) -> Result<Policy> {
 pub trait Provider {
     async fn fetch(&mut self, platform: Platform) -> Result<Batch>;
 }
-pub struct PublicProvider;
-impl Provider for PublicProvider {
-    async fn fetch(&mut self, p: Platform) -> Result<Batch> {
-        public_discovery::fetch(p).await
-    }
-}
-async fn authorized(c: &mut PgConnection, revision: i32, p: Platform) -> Result<bool> {
+async fn authorized(
+    c: &mut PgConnection,
+    revision: i32,
+    control_revision: i64,
+    p: Platform,
+) -> Result<bool> {
     let current = policy(c).await?;
-    Ok(lifecycle::control(c).await?.mode == Mode::Running
+    let control = lifecycle::control(c).await?;
+    Ok(control.mode == Mode::Running
+        && control.revision == control_revision
         && current.revision == revision
         && current
             .enabled
             .iter()
             .any(|enabled| enabled.name() == p.name()))
 }
-/// One bounded operation. Cancellation leaves consumed reservations/cooldowns intact.
-pub async fn tick(c: &mut PgConnection, provider: &mut impl Provider) -> Result<()> {
-    if lifecycle::control(c).await?.mode != Mode::Running {
-        return Ok(());
+pub struct ScheduledFetch {
+    pub(crate) platform: Platform,
+    token: Uuid,
+    record: Value,
+    revision: i32,
+    control_revision: i64,
+}
+
+/// Reserve one fetch before any network work. A cached batch can be ingested here.
+pub async fn begin(c: &mut PgConnection) -> Result<Option<ScheduledFetch>> {
+    let control = lifecycle::control(c).await?;
+    if control.mode != Mode::Running {
+        return Ok(None);
     }
     let config = policy(c).await?;
     if config.enabled.is_empty() {
-        return Ok(());
+        return Ok(None);
     }
     let last: Option<Value> = sqlx::query_scalar(
         "SELECT value FROM owner_preferences WHERE key='public_feed_schedule_cursor'",
@@ -185,8 +195,8 @@ pub async fn tick(c: &mut PgConnection, provider: &mut impl Provider) -> Result<
                 }
             }
         }
-        if !authorized(c, config.revision, platform).await? {
-            return Ok(());
+        if !authorized(c, config.revision, control.revision, platform).await? {
+            return Ok(None);
         }
         // Rotate before dispatch, so one invalid/failed source cannot starve the other.
         let cursor = json!({"platform":platform,"checked_at":chrono::Utc::now().timestamp()});
@@ -194,47 +204,79 @@ pub async fn tick(c: &mut PgConnection, provider: &mut impl Provider) -> Result<
         if saved != Some(cursor) {
             return Err(Failure("discovery_schedule_write_ack_failed"));
         }
-        let token = match public_discovery::reserve(c, platform, 20).await {
+        match public_discovery::reserve(c, platform, 20).await {
             Ok(Reservation::Cached(value)) => {
-                serde_json::from_value(value["batch_token"].clone()).map_err(|_| invalid())?
+                let token =
+                    serde_json::from_value(value["batch_token"].clone()).map_err(|_| invalid())?;
+                ingest(c, platform, token, config.revision, control.revision).await?;
+                return Ok(None);
             }
             Ok(Reservation::Fetch { token, record }) => {
-                if !authorized(c, config.revision, platform).await? {
-                    return Ok(());
+                if !authorized(c, config.revision, control.revision, platform).await? {
+                    return Ok(None);
                 }
-                let result = provider.fetch(platform).await;
-                let saved = public_discovery::finish(c, platform, token, record, result, 20).await;
-                match saved {
-                    Ok(_) => token,
-                    Err(e)
-                        if matches!(
-                            e.0,
-                            "public_feed_database_error" | "public_feed_commit_outcome_unknown"
-                        ) =>
-                    {
-                        return Err(e);
-                    }
-                    Err(error) => {
-                        record_status(c, Some(error)).await?;
-                        return Ok(());
-                    }
-                }
+                return Ok(Some(ScheduledFetch {
+                    platform,
+                    token,
+                    record,
+                    revision: config.revision,
+                    control_revision: control.revision,
+                }));
             }
             Err(Failure("public_feed_cooldown")) => continue,
             Err(e) => return Err(e),
-        };
-        if authorized(c, config.revision, platform).await? {
-            // Ingestion failures remain explicit and are never retried within this tick.
-            feed_ingestion::ingest_scheduled(
-                c,
-                platform,
-                feed_ingestion::Input { batch_token: token },
-                config.revision,
-            )
-            .await?;
         }
-        record_status(c, None).await?;
-        return Ok(());
     }
-    Ok(())
+    Ok(None)
+}
+
+async fn ingest(
+    c: &mut PgConnection,
+    platform: Platform,
+    token: Uuid,
+    revision: i32,
+    control_revision: i64,
+) -> Result<()> {
+    // The intake transaction holds both revisions through commit.
+    match feed_ingestion::ingest_scheduled(
+        c,
+        platform,
+        feed_ingestion::Input { batch_token: token },
+        revision,
+        control_revision,
+    )
+    .await
+    {
+        Ok(_) => record_status(c, None).await,
+        Err(Failure("discovery_schedule_changed")) => Ok(()),
+        Err(error) => Err(error),
+    }
+}
+
+pub async fn complete(
+    c: &mut PgConnection,
+    fetch: ScheduledFetch,
+    result: Result<Batch>,
+) -> Result<()> {
+    let ScheduledFetch {
+        platform,
+        token,
+        record,
+        revision,
+        control_revision,
+    } = fetch;
+    match public_discovery::finish(c, platform, token, record, result, 20).await {
+        Ok(_) => ingest(c, platform, token, revision, control_revision).await,
+        Err(error) if crate::recovery::database_failure(error) => Err(error),
+        Err(error) => record_status(c, Some(error)).await,
+    }
+}
+
+/// The same three phases with an injected provider for a single schedule cycle.
+pub async fn tick(c: &mut PgConnection, provider: &mut impl Provider) -> Result<()> {
+    let Some(fetch) = begin(c).await? else {
+        return Ok(());
+    };
+    let result = provider.fetch(fetch.platform).await;
+    complete(c, fetch, result).await
 }

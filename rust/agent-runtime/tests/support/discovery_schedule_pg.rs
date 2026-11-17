@@ -63,6 +63,62 @@ async fn discovery_schedule_stop_during_fetch_preserves_cache_and_defers_ingesti
     discovery_schedule::tick(&mut c,&mut StopDuringFetch).await.unwrap();assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM job_source_observations").fetch_one(&mut c).await.unwrap(),0);
     sqlx::query("UPDATE rust_agent_control SET mode='RUNNING'").execute(&mut c).await.unwrap();let mut provider=FeedProvider{calls:0,fail:false};discovery_schedule::tick(&mut c,&mut provider).await.unwrap();assert_eq!(provider.calls,0);assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM job_source_observations").fetch_one(&mut c).await.unwrap(),1);
 }
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn discovery_schedule_fetch_releases_the_connection_and_fences_a_stop_resume_round_trip() {
+    use automated_apply_agents::{discovery_schedule, lifecycle, public_discovery};
+    let (mut c, _) = ingestion_fixture().await;
+    sqlx::query("DELETE FROM owner_preferences WHERE key='public_feed:himalayas'")
+        .execute(&mut c)
+        .await
+        .unwrap();
+    enable_schedule(&mut c, json!(["himalayas"])).await;
+    let before = lifecycle::control(&mut c).await.unwrap();
+    let pending = discovery_schedule::begin(&mut c).await.unwrap().unwrap();
+    assert_eq!(
+        browser_pref(&mut c, "public_feed:himalayas").await["state"],
+        "fetching"
+    );
+    lifecycle::heartbeat(&mut c).await.unwrap();
+    assert!(lifecycle::control(&mut c).await.unwrap().worker_online);
+    // The pending fetch owns no connection or transaction. A second tick
+    // sees the reservation cooldown and cannot admit the same request.
+    assert!(discovery_schedule::begin(&mut c).await.unwrap().is_none());
+    lifecycle::set_control(&mut c, before.revision, lifecycle::Mode::Stopped)
+        .await
+        .unwrap();
+    lifecycle::set_control(&mut c, before.revision + 1, lifecycle::Mode::Running)
+        .await
+        .unwrap();
+    let fixture = public_discovery::himalayas(
+        br#"{"jobs":[{"guid":"interleaved-fixture","title":"Engineer","applicationLink":"https://himalayas.app/jobs/interleaved-fixture"}]}"#,
+    );
+    discovery_schedule::complete(&mut c, pending, fixture)
+        .await
+        .unwrap();
+    assert_eq!(
+        browser_pref(&mut c, "public_feed:himalayas").await["state"],
+        "completed"
+    );
+    let saved: i64 = sqlx::query_scalar("SELECT count(*) FROM job_source_observations")
+        .fetch_one(&mut c)
+        .await
+        .unwrap();
+    assert_eq!(saved, 0);
+    let mut provider = FeedProvider {
+        calls: 0,
+        fail: false,
+    };
+    discovery_schedule::tick(&mut c, &mut provider)
+        .await
+        .unwrap();
+    assert_eq!(provider.calls, 0);
+    let saved: i64 = sqlx::query_scalar("SELECT count(*) FROM job_source_observations")
+        .fetch_one(&mut c)
+        .await
+        .unwrap();
+    assert_eq!(saved, 1);
+}
 #[tokio::test(flavor="current_thread")]
 #[ignore="requires dedicated disposable PostgreSQL harness"]
 async fn discovery_schedule_owner_http_updates_are_authenticated_revisioned_and_never_start_application_work(){
@@ -77,13 +133,14 @@ async fn discovery_schedule_owner_http_updates_are_authenticated_revisioned_and_
 #[tokio::test(flavor="current_thread")]
 #[ignore="requires dedicated disposable PostgreSQL harness"]
 async fn discovery_schedule_intake_transaction_independently_fences_stopped_or_revised_authority(){
-    use automated_apply_agents::{discovery_schedule,feed_ingestion,public_discovery::Platform};
+    use automated_apply_agents::{discovery_schedule,feed_ingestion,lifecycle,public_discovery::Platform};
     let (mut c,t)=ingestion_fixture().await;enable_schedule(&mut c,json!(["himalayas"])).await;
+    let control = lifecycle::control(&mut c).await.unwrap().revision;
     sqlx::query("UPDATE rust_agent_control SET mode='STOPPED'").execute(&mut c).await.unwrap();
-    assert_eq!(feed_ingestion::ingest_scheduled(&mut c,Platform::Himalayas,feed_ingestion::Input{batch_token:t},1).await.unwrap_err().0,"discovery_schedule_changed");
+    assert_eq!(feed_ingestion::ingest_scheduled(&mut c,Platform::Himalayas,feed_ingestion::Input{batch_token:t},1,control).await.unwrap_err().0,"discovery_schedule_changed");
     sqlx::query("UPDATE rust_agent_control SET mode='RUNNING'").execute(&mut c).await.unwrap();
     let update=discovery_schedule::request(br#"{"expected_revision":1,"enabled":[]}"#).unwrap();discovery_schedule::update(&mut c,update).await.unwrap();
-    assert_eq!(feed_ingestion::ingest_scheduled(&mut c,Platform::Himalayas,feed_ingestion::Input{batch_token:t},1).await.unwrap_err().0,"discovery_schedule_changed");
+    assert_eq!(feed_ingestion::ingest_scheduled(&mut c,Platform::Himalayas,feed_ingestion::Input{batch_token:t},1,control).await.unwrap_err().0,"discovery_schedule_changed");
     assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM job_source_observations").fetch_one(&mut c).await.unwrap(),0);
 }
 #[tokio::test(flavor="current_thread")]

@@ -2,15 +2,18 @@
 use crate::{
     Failure, Result,
     contracts::State,
+    discovery_schedule::{self, ScheduledFetch},
     knowledge_tools::KnowledgeTools,
     lifecycle::{self, Mode},
     planner::HybridPlanner,
     postgres::Store,
+    public_discovery::{self, Batch},
     runner,
 };
 use sqlx::PgConnection;
 use std::{sync::Arc, time::Duration};
 use tokio::sync::{Notify, broadcast};
+use tokio::task::{JoinError, JoinSet};
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
@@ -96,8 +99,10 @@ async fn serve_internal(
     let mut changes = wake.changed.subscribe();
     let mut last_heartbeat = None;
     let mut last_discovery: Option<tokio::time::Instant> = None;
+    let mut discovery = JoinSet::new();
     loop {
         if shutdown.is_cancelled() {
+            discovery.shutdown().await;
             return quiesce(connection).await;
         }
         if last_heartbeat
@@ -124,19 +129,36 @@ async fn serve_internal(
                 }
             }
         }
+        if let Some(finished) = discovery.try_join_next() {
+            finish_discovery(connection, finished).await?;
+        }
         let control = lifecycle::control(connection).await?;
         if control.mode == Mode::Running {
-            if last_discovery.is_none_or(|at| at.elapsed() >= Duration::from_secs(30)) {
+            if discovery.is_empty()
+                && last_discovery.is_none_or(|at| at.elapsed() >= Duration::from_secs(30))
+            {
                 last_discovery = Some(tokio::time::Instant::now());
-                let mut provider = crate::discovery_schedule::PublicProvider;
-                let work = crate::discovery_schedule::tick(connection, &mut provider);
-                if let Err(error) = controlled(work, Uuid::nil(), &mut changes, &shutdown).await {
-                    if crate::recovery::database_failure(error) {
-                        return Err(error);
+                // Subscribe before reserving so a simultaneous global control change
+                // also cancels the network-only task. Reservation/commit are never cancelled.
+                let mut feed_changes = changes.resubscribe();
+                match discovery_schedule::begin(connection).await {
+                    Ok(Some(fetch)) => {
+                        let stop = shutdown.clone();
+                        discovery.spawn(async move {
+                            let result = controlled(
+                                public_discovery::fetch(fetch.platform),
+                                Uuid::nil(),
+                                &mut feed_changes,
+                                &stop,
+                            )
+                            .await?;
+                            Some((fetch, result))
+                        });
                     }
-                    crate::discovery_schedule::record_status(connection, Some(error)).await?;
+                    Ok(None) => {}
+                    Err(error) => record_discovery_error(connection, error).await?,
                 }
-                // Re-read persisted control after any cancellation/owner change.
+                // Re-read persisted control before taking unrelated work.
                 continue;
             }
             lifecycle::reconcile_known_questions(connection).await?;
@@ -182,8 +204,10 @@ async fn serve_internal(
                     let id = lease.run.id;
                     let tick = runner::tick(&mut store, &mut lease, &mut model, &mut tools);
                     match controlled(tick, id, &mut changes, &shutdown).await {
-                        Ok(_) | Err(Failure("agent_lease_or_revision_lost")) => {}
-                        Err(error) => return Err(error),
+                        None
+                        | Some(Ok(()))
+                        | Some(Err(Failure("agent_lease_or_revision_lost"))) => {}
+                        Some(Err(error)) => return Err(error),
                     }
                 } else {
                     lease.run.state = State::WaitingOwner;
@@ -203,26 +227,55 @@ async fn serve_internal(
             _=shutdown.cancelled()=>{},
             _=changes.recv()=>{},
             _=wake.work.notified()=>{last_application_tick=None;},
+            finished=discovery.join_next(), if !discovery.is_empty()=>{
+                if let Some(finished)=finished {
+                    finish_discovery(connection, finished).await?;
+                }
+            },
             _=tokio::time::sleep(Duration::from_secs(5))=>{},
         }
     }
 }
-async fn controlled(
-    future: impl std::future::Future<Output = Result<()>>,
+type DiscoveryCompletion = Option<(ScheduledFetch, Result<Batch>)>;
+
+async fn finish_discovery(
+    connection: &mut PgConnection,
+    finished: std::result::Result<DiscoveryCompletion, JoinError>,
+) -> Result<()> {
+    let result = match finished {
+        Ok(Some((fetch, result))) => discovery_schedule::complete(connection, fetch, result).await,
+        Ok(None) => Ok(()),
+        Err(_) => Err(Failure("public_feed_fetch_task_failed")),
+    };
+    match result {
+        Ok(()) => Ok(()),
+        Err(error) => record_discovery_error(connection, error).await,
+    }
+}
+
+async fn record_discovery_error(connection: &mut PgConnection, error: Failure) -> Result<()> {
+    if crate::recovery::database_failure(error) {
+        return Err(error);
+    }
+    discovery_schedule::record_status(connection, Some(error)).await
+}
+
+async fn controlled<T>(
+    future: impl std::future::Future<Output = T>,
     id: Uuid,
     changes: &mut broadcast::Receiver<Option<Uuid>>,
     shutdown: &CancellationToken,
-) -> Result<bool> {
+) -> Option<T> {
     tokio::pin!(future);
     loop {
         tokio::select! {
             biased;
-            _=shutdown.cancelled()=>return Ok(false),
+            _=shutdown.cancelled()=>return None,
             change=changes.recv()=>match change {
                 Ok(Some(other)) if other!=id=>continue,
-                _=>return Ok(false),
+                _=>return None,
             },
-            result=&mut future=>return result.map(|()|true),
+            result=&mut future=>return Some(result),
         }
     }
 }
@@ -255,7 +308,6 @@ mod tests {
         let job = async {
             ready.notify_one();
             finish.notified().await;
-            Ok(())
         };
         let owner = async {
             ready.notified().await;
@@ -264,7 +316,7 @@ mod tests {
             finish.notify_one();
         };
         let (result, ()) = tokio::join!(controlled(job, id, &mut changes, &stop), owner);
-        assert_eq!(result, Ok(true));
+        assert_eq!(result, Some(()));
     }
     #[tokio::test(flavor = "current_thread")]
     async fn global_and_matching_run_controls_cancel_an_inflight_wait() {
@@ -279,8 +331,8 @@ mod tests {
                 wake.run_changed(id);
             }
             assert_eq!(
-                controlled(std::future::pending(), id, &mut changes, &stop).await,
-                Ok(false)
+                controlled(std::future::pending::<()>(), id, &mut changes, &stop).await,
+                None
             );
         }
     }

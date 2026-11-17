@@ -34,15 +34,22 @@ pub async fn ingest_scheduled(
     c: &mut PgConnection,
     platform: Platform,
     input: Input,
-    revision: i32,
+    schedule_revision: i32,
+    control_revision: i64,
 ) -> Result<Value> {
-    ingest_in(c, platform, input, Some(revision)).await
+    ingest_in(
+        c,
+        platform,
+        input,
+        Some((schedule_revision, control_revision)),
+    )
+    .await
 }
 async fn ingest_in(
     c: &mut PgConnection,
     platform: Platform,
     input: Input,
-    schedule_revision: Option<i32>,
+    schedule_authority: Option<(i32, i64)>,
 ) -> Result<Value> {
     let mut tx = c.begin().await.map_err(db)?;
     // Same transaction-scoped identity lock as legacy ingestion, never a second pool.
@@ -55,14 +62,15 @@ async fn ingest_in(
         platform.name(),
         input.batch_token
     );
-    if let Some(expected) = schedule_revision {
+    if let Some((expected_schedule, expected_control)) = schedule_authority {
         // Hold authority through commit: STOP/disable wins before admission or
         // waits for the already admitted intake transaction to finish.
-        let mode: Option<String> =
-            sqlx::query_scalar("SELECT mode FROM rust_agent_control WHERE key='primary' FOR SHARE")
-                .fetch_optional(&mut *tx)
-                .await
-                .map_err(db)?;
+        let control: Option<(String, i64)> = sqlx::query_as(
+            "SELECT mode,revision FROM rust_agent_control WHERE key='primary' FOR SHARE",
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(db)?;
         let value: Option<Value> = sqlx::query_scalar(
             "SELECT value FROM owner_preferences WHERE key='public_feed_schedule' FOR SHARE",
         )
@@ -72,8 +80,9 @@ async fn ingest_in(
         let policy: crate::discovery_schedule::Policy =
             serde_json::from_value(value.ok_or(Failure("discovery_schedule_changed"))?)
                 .map_err(|_| Failure("discovery_schedule_changed"))?;
-        if mode.as_deref() != Some("RUNNING")
-            || policy.revision != expected
+        if !control
+            .is_some_and(|(mode, revision)| mode == "RUNNING" && revision == expected_control)
+            || policy.revision != expected_schedule
             || !policy.enabled.iter().any(|p| p.name() == platform.name())
         {
             return Err(Failure("discovery_schedule_changed"));
