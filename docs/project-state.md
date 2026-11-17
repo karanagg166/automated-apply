@@ -2,6 +2,10 @@
 
 The active goal limits delivery to the owner’s laptop. GitHub pushes, pull requests, remote reports, hosted Actions and merges remain suspended until the owner reauthorizes them. Finish source and fixtures, run combined validation, then install and verify locally. See the [completion plan](plans/completion-execution-20261116.md).
 
+Local source `51a20ee` binds new portal observations to the selected ordinary browser session and marks stale and legacy unscoped evidence in Connections. One PostgreSQL and one extension fixture await the combined run. Applicant identity and submission still require provider-specific evidence. The estimate remains 58% complete. See the [portal observation checkpoint](acceptance/portal-observation-scope-local-source-20261118.md).
+
+Private continuity snapshot `37d6a08edaf5c39f39b392d3e1235863a069da8dd5acd62bc81a7daa3c9ee532` at `2026-11-17T20:47:42.446946+00:00` preserved six available transcripts from 104 indexed threads. The other 98 transcripts remain missing.
+
 The latest local source `60d05a6` restores owner-approved listing imports in the Rust service and dashboard, including Internshala and HiringCafe. Two disposable PostgreSQL fixtures and one frontend fixture await the combined run. The estimate remains 58% complete. Continue platform account evidence and authorized discovery adapters. See the [manual discovery checkpoint](acceptance/manual-listing-import-local-source-20261118.md).
 
 The private continuity snapshot `4ee5aa4d185fe8b02c04f9338d0234036f7237a53c01472ddbb782c2160301a2` at `2026-11-17T20:40:03.634655+00:00` preserved the six locally available transcripts from 104 indexed threads. The remaining 98 transcripts were missing.
