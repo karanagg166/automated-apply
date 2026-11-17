@@ -1,3 +1,17 @@
+Latest reviewed paid owner HTTP source `c9ab52784201505cf755805ea91bae4cd876cb2d` (implementation3c233ac) extends
+existing authenticated discovery routes with separate paid original-key namespace,
+saved native-kind reads/local completion, preview cost/cap/blocker and native registry
+readiness. Legacy availability stays separate; invalid optional paid settings do not
+hide public or saved terminal routes. One standard+seven PG/HTTP declarations and3
+existing fixture updates are UNRUN. See [qualified paid HTTP report](acceptance/apify-owner-http-source-20261117.md).
+Continue explicit paid dashboard consent/accounting, bounded acknowledged-run recovery,
+startup/UI and remaining agreed source before combined gates. Full native inventory/
+types still pending. No current tests/build/check/native live/install or estimate
+increase;58/42 and prior455 held; no production/paid/browser operations.
+Private continuity snapshot4f157e591d2e303d6b444f75a4fb2fa57a17419f66ca73e8949e6a9aa77ae196
+at2026-11-17T12:28:12.143034+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest original paid owner-run/result source `3734a202436edcbcae8e44ab59efc9030bcb93c0` couples actual parent,
 original paid child intent and full-cap reservation, with final child/month/profile/
 plan/cooldown ACKs after parent triggers. Local terminal completion shares guarded
