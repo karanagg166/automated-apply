@@ -1,3 +1,17 @@
+Latest separate acknowledged-read admission source `86831f52e3adedf60630160148229e3cfb17dbe9` binds read UUID,
+original journal lifetime allowance (3 rounds),4GET/45seconds,5-minute spacing and exact
+reservation/month/context/cooldown ACKs. Replay cannot renew; deleted prior read records
+cannot reset admissions. Status observation needs no current profile, while local
+intake still requires its original pin. Eight PG/loopback declarations are UNRUN.
+See [qualified read-admission report](acceptance/apify-acknowledged-read-admission-source-20261117.md).
+Continue GET-only recovery operation checkpoints/transport, original finding CAS,
+explicit owner recovery and durable UI, then remaining agreed source before combined
+gates. No current tests/build/check/native live/install or estimate increase;58/42
+and prior455 held. No actual recovery/paid/production/browser operations.
+Private continuity snapshot1bad4b8cbd8ba0d8eab406f79b2189a681a81e7ecfda576c5e6661f229258687
+at2026-11-17T12:50:00.814163+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest acknowledged read-context source `75132e923e22a06788ea8ec59484abb1ebd80680` retains closed original
 run options, requires option/identity stability on later status, restores selected
 actor/run evidence and offers only fixed GET targets. Original75-second expiry,
