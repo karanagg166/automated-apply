@@ -7,6 +7,20 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest owner result source `35a1a302e06cd16bda88e2110d534f7e2b5dfeca` composes original acquisition and
+atomic local employer/job/observation/receipt plus terminal parent/ranking completion.
+Uses existing native matcher and bounded reviewed local history; confirmed prior
+applications are omitted from rankings without rewriting decisions. Completed replay
+returns original result; pending parents expose saved local receipts honestly. Eleven
+new PG declarations and one earlier assertion update are UNRUN.
+See [qualified owner results report](acceptance/public-owner-results-source-20261117.md).
+Continue owner discovery API/dashboard recovery, startup child orchestration, reviewed
+Apify execution and remaining agreed source before combined gates. No current tests/
+build/check/native live/install or estimate increase;58/42 and prior455 held.
+Private continuity snapshot a7fc2d7ac445c064caf57489aa6f74eb4c6636d79ccc5ab61c9560c2c08c7176
+at2026-11-17T10:37:55.610440+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest local SQL intake source `92c43479d35d3b449193e78dd26f2a1b49bf4865` validates original finding/scope,
 current configuration/profile and24-hour TTL before owner-fenced atomic employer/job/
 source-observation/immutable receipt writes. Complete bounded legacy URL identity,
