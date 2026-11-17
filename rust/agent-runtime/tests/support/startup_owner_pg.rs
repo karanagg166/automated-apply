@@ -336,7 +336,7 @@ async fn startup_owner_http_contract_conflicts_and_unported_provider_runs_do_not
             .status(),
         422
     );
-    assert_eq!(http.post(&root).bearer_auth(HOST_TOKEN).json(&json!({"idempotency_key":"fictional_unported","source":"hacker_news","mode":"job_led"})).send().await.unwrap().status(),501);
+    assert_eq!(http.post(&root).bearer_auth(HOST_TOKEN).json(&json!({"idempotency_key":"fictional_unported","source":"work_at_a_startup","mode":"job_led"})).send().await.unwrap().status(),501);
     assert_eq!(
         http.post(&root)
             .bearer_auth(HOST_TOKEN)

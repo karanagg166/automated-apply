@@ -93,6 +93,11 @@ pub(super) fn profile_failure(error: Failure) -> Response {
             "startup_run_idempotency_conflict" | "startup_run_invocation_conflict" => {
                 StatusCode::CONFLICT
             }
+            "startup_job_led_child_already_claimed"
+            | "startup_job_led_profile_changed"
+            | "startup_job_led_configuration_changed"
+            | "startup_job_led_company_attribution_changed"
+            | "startup_job_led_child_incomplete" => StatusCode::CONFLICT,
             "startup_provider_orchestration_not_implemented" => StatusCode::NOT_IMPLEMENTED,
             "startup_source_unknown" | "startup_run_idempotency_key_required" => {
                 StatusCode::UNPROCESSABLE_ENTITY

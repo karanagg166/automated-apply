@@ -4100,3 +4100,4 @@ include!("support/public_job_owner_runs_pg.rs");
 include!("support/public_job_intake_pg.rs");
 include!("support/public_job_result_pg.rs");
 include!("support/public_job_owner_http_pg.rs");
+include!("support/startup_job_led_pg.rs");

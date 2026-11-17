@@ -328,8 +328,12 @@ pub async fn read(c: &mut PgConnection, id: Uuid, timeout: f64) -> Result<Value>
         .execute(&mut *tx)
         .await
         .map_err(db)?;
-    let row:Option<Value>=sqlx::query_scalar("SELECT CASE WHEN octet_length(to_jsonb(r)::text)<=4194304 THEN to_jsonb(r) ELSE NULL END FROM discovery_runs r WHERE id=$1 AND starts_with(source,'startup_')").bind(id).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(Failure("startup_catalog_run_not_found"))?;
     let at = clock(&mut tx).await?;
+    if let Some(value) = super::job_led::read_in(&mut tx, id, time(&at)?).await? {
+        tx.commit().await.map_err(db)?;
+        return Ok(value);
+    }
+    let row:Option<Value>=sqlx::query_scalar("SELECT CASE WHEN octet_length(to_jsonb(r)::text)<=4194304 THEN to_jsonb(r) ELSE NULL END FROM discovery_runs r WHERE id=$1 AND starts_with(source,'startup_')").bind(id).fetch_optional(&mut *tx).await.map_err(db)?.ok_or(Failure("startup_catalog_run_not_found"))?;
     let result = output(&row.ok_or_else(invalid)?, time(&at)?, timeout)?;
     tx.commit().await.map_err(db)?;
     Ok(result)

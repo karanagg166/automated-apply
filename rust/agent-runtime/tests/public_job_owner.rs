@@ -82,6 +82,6 @@ fn metadata_distinguishes_native_public_owner_runs_from_existing_feed_and_startu
     );
     assert_eq!(
         settings.startup("arbeitnow", now).unwrap()["native_execution_implemented"],
-        false
+        true
     );
 }

@@ -115,9 +115,26 @@ fn retained(value: &Value, state: &runs::State, id: Uuid) -> Result<Value> {
             .ok_or_else(invalid)?;
         exclusions.push(json!({"index":index,"code":code}));
     }
+    let unique = v["job_ids"]
+        .as_array()
+        .ok_or_else(invalid)?
+        .iter()
+        .map(|v| v.as_str().ok_or_else(invalid))
+        .collect::<Result<std::collections::BTreeSet<_>>>()?;
+    let companies = v["company_ids_by_job"]
+        .as_object()
+        .filter(|m| m.len() == unique.len() && m.len() <= 100)
+        .ok_or_else(invalid)?;
+    let mut selected = json!({});
+    for (job, company) in companies {
+        if !unique.contains(job.as_str()) || sql::id(&json!(job)).is_err() {
+            return Err(invalid());
+        }
+        selected[job] = json!(sql::id(company)?);
+    }
     // Closed projection prevents extra private journal fields from reaching owner responses.
     Ok(
-        json!({"request_id":id,"counts":counts,"job_ids":v["job_ids"],"exclusions":exclusions,"observed_at":v["observed_at"],"ingested_at":v["ingested_at"],"source":v["source"],"provider_status":v["provider_status"],"provider_batch_complete":v["provider_batch_complete"],"local_intake_complete":true,"rankings_complete":false,"provider_calls":0,"application_dispatch":false,"live_verified":false,"evidence_basis":"atomic_local_sql_from_original_retained_finding"}),
+        json!({"request_id":id,"counts":counts,"job_ids":v["job_ids"],"company_ids_by_job":selected,"exclusions":exclusions,"observed_at":v["observed_at"],"ingested_at":v["ingested_at"],"source":v["source"],"provider_status":v["provider_status"],"provider_batch_complete":v["provider_batch_complete"],"local_intake_complete":true,"rankings_complete":false,"provider_calls":0,"application_dispatch":false,"live_verified":false,"evidence_basis":"atomic_local_sql_from_original_retained_finding"}),
     )
 }
 struct Batch {
@@ -206,7 +223,12 @@ async fn batch_in(
         ids.push(job_id);
     }
     let rejected = finding["rejected_count"].as_u64().ok_or_else(invalid)?;
-    batch.receipt = json!({"request_id":id,"counts":{"discovered":rows.len(),"inserted":inserted,"updated":updated,"duplicate":updated,"rejected":rejected,"skipped":excluded.len(),"failed":0},"job_ids":ids,"exclusions":excluded,"observed_at":finding["observed_at"],"ingested_at":sql::stamp(tx).await?,"source":state.row["source"],"provider_status":finding["status"],"provider_batch_complete":finding["batch_complete"],"local_intake_complete":true,"rankings_complete":false,"provider_calls":0,"application_dispatch":false,"live_verified":false,"evidence_basis":"atomic_local_sql_from_original_retained_finding"});
+    let companies = batch
+        .jobs
+        .iter()
+        .map(|(id, job)| (id.to_string(), job["company_id"].clone()))
+        .collect::<serde_json::Map<_, _>>();
+    batch.receipt = json!({"request_id":id,"counts":{"discovered":rows.len(),"inserted":inserted,"updated":updated,"duplicate":updated,"rejected":rejected,"skipped":excluded.len(),"failed":0},"job_ids":ids,"company_ids_by_job":companies,"exclusions":excluded,"observed_at":finding["observed_at"],"ingested_at":sql::stamp(tx).await?,"source":state.row["source"],"provider_status":finding["status"],"provider_batch_complete":finding["batch_complete"],"local_intake_complete":true,"rankings_complete":false,"provider_calls":0,"application_dispatch":false,"live_verified":false,"evidence_basis":"atomic_local_sql_from_original_retained_finding"});
     batch.verify(tx).await?;
     Ok(batch)
 }

@@ -1,5 +1,21 @@
 # Complete-source delivery plan — 2026-11-16
 
+Startup job-led original composition design2026-11-17: admit a real startup parent,
+private normalized request/filter/profile scope and original native job child in one
+owner-first transaction; deterministic child UUID and legacy-compatible startup_child_
+key bind the original child. Final ACKs follow parent triggers and recheck child row,
+journal, profile and source window before commit. Share transaction-local native job
+admission and opaque original acquisition; never reconstruct or replace a lost child
+invocation. Startup replay/GET are saved reads, while explicit local recovery may finish
+retained child observations and then the parent without provider replay. Extend local
+job receipts with closed opaque job-to-company IDs so owner edits cannot silently
+rebind original startup attribution. Compose the existing saved startup catalog only
+for those original company IDs, with current pinned profile and original filters;
+unknown size/competency remains unknown. Parent terminal row/journal/shortlist snapshot
+commit together; repeat the bounded selected-company snapshot after terminal triggers
+at the same observation time to detect late changes. No new directory crawl, source
+pacing reset, application authority, subscription purchase or live acceptance inference.
+
 Public discovery owner boundary design2026-11-17: expose original preview/run/read paths
 plus UUID GET/PUT run resources through existing owner authentication, CSRF gateway,
 single shared transient permit and one temporary connection. Validate requests before

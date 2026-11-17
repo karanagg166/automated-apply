@@ -17,7 +17,7 @@ fn ack() -> Failure {
 pub(super) fn key(id: Uuid) -> String {
     format!("public_jobs:{}", id.simple())
 }
-pub(super) fn time(value: &Value) -> Result<DateTime<Utc>> {
+pub(crate) fn time(value: &Value) -> Result<DateTime<Utc>> {
     value
         .as_str()
         .and_then(|s| DateTime::parse_from_rfc3339(s).ok())

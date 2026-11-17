@@ -349,7 +349,7 @@ impl Settings {
                 "we_work_remotely" => 1800,
                 _ => 60,
             };
-            output.push(json!({"provider":source,"modes":["job_led"],"availability":if configured{"available"}else{"configuration_required"},"pricing":"free","configured":configured,"authorized":true,"permission_basis":"documented_public_read_api","minimum_interval_seconds":interval,"native_execution_implemented":false,"live_verified":false,"dispatch_authorized":false}));
+            output.push(json!({"provider":source,"modes":["job_led"],"availability":if configured{"available"}else{"configuration_required"},"pricing":"free","configured":configured,"authorized":true,"permission_basis":"documented_public_read_api","minimum_interval_seconds":interval,"native_execution_implemented":crate::job_sources::plan::Source::parse(source).is_ok(),"live_verified":false,"dispatch_authorized":false}));
         }
         for source in ["wellfound", "work_at_a_startup"] {
             let configured = self.actor_ready(source, now);

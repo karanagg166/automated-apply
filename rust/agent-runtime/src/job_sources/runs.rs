@@ -194,6 +194,7 @@ fn output(state: &State, id: Uuid, now: DateTime<Utc>) -> Result<Value> {
 }
 pub struct Claim {
     id: Uuid,
+    journal: Value,
     child: Option<Box<access::Claim>>,
 }
 impl Claim {
@@ -214,6 +215,29 @@ pub async fn admit(
 ) -> Result<Admission> {
     timeout(deadline)?;
     let request = scope::normalize(input)?;
+    Source::parse(request["source"].as_str().ok_or_else(invalid)?)?;
+    if request["manual_jobs"]
+        .as_array()
+        .is_none_or(|a| !a.is_empty())
+    {
+        return Err(Failure("public_job_manual_source_required"));
+    }
+    let mut tx = access::transaction(c).await?;
+    let result = admit_in(&mut tx, settings, request, id, deadline).await?;
+    tx.commit()
+        .await
+        .map_err(|_| Failure("discovery_run_commit_outcome_unknown"))?;
+    Ok(result)
+}
+pub(crate) async fn admit_in(
+    tx: &mut Transaction<'_, Postgres>,
+    settings: &Settings,
+    input: Value,
+    id: Uuid,
+    deadline: f64,
+) -> Result<Admission> {
+    timeout(deadline)?;
+    let request = scope::normalize(input)?;
     let hash = scope::request_hash(&request)?;
     let source = Source::parse(request["source"].as_str().ok_or_else(invalid)?)?;
     if request["manual_jobs"]
@@ -222,20 +246,16 @@ pub async fn admit(
     {
         return Err(Failure("public_job_manual_source_required"));
     }
-    let mut tx = access::transaction(c).await?;
     let now: DateTime<Utc> = sqlx::query_scalar("SELECT clock_timestamp()")
-        .fetch_one(&mut *tx)
+        .fetch_one(&mut **tx)
         .await
         .map_err(db)?;
-    if let Some(row) = row_in(&mut tx, id).await? {
+    if let Some(row) = row_in(tx, id).await? {
         if row["request_hash"] != hash {
             return Err(Failure("discovery_run_request_conflict"));
         }
-        let state = state_in(&mut tx, id).await?;
+        let state = state_in(tx, id).await?;
         let out = output(&state, id, now)?;
-        tx.commit()
-            .await
-            .map_err(|_| Failure("discovery_run_commit_outcome_unknown"))?;
         return Ok(Admission::Retained(out));
     }
     let compat = request["idempotency_key"]
@@ -245,17 +265,17 @@ pub async fn admit(
     let exists: bool =
         sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM discovery_runs WHERE idempotency_key=$1)")
             .bind(&compat)
-            .fetch_one(&mut *tx)
+            .fetch_one(&mut **tx)
             .await
             .map_err(db)?;
     if exists {
         return Err(Failure("discovery_run_compatibility_key_conflict"));
     }
     let profile =
-        crate::startup_catalog::detail::profile_in(&mut tx, request["use_profile"] == true).await?;
+        crate::startup_catalog::detail::profile_in(tx, request["use_profile"] == true).await?;
     let plan = scope::build(request.clone(), profile.as_ref())?;
     let child = match access::admit_in(
-        &mut tx,
+        tx,
         settings,
         source,
         plan["effective_query"].clone(),
@@ -268,12 +288,12 @@ pub async fn admit(
         _ => return Err(Failure("discovery_run_source_id_already_claimed")),
     };
     let stamp: Value = sqlx::query_scalar("SELECT to_jsonb(clock_timestamp())")
-        .fetch_one(&mut *tx)
+        .fetch_one(&mut **tx)
         .await
         .map_err(db)?;
     let summary = json!({"explicit_query":plan["explicit_query"],"effective_query":plan["effective_query"],"profile_version":plan["profile_pin"]["version"],"job_ids":[],"native_request_id":id});
     let expected = json!({"id":id,"source":source.name(),"request_hash":hash,"query_summary":summary,"status":"running","rankings":[],"counts":{},"errors":[],"started_at":stamp,"finished_at":null,"provider_run_id":null,"usage":{"stage":"original_admission","provider_http_attempts":null},"idempotency_key":compat});
-    let saved:Option<Value>=sqlx::query_scalar("INSERT INTO discovery_runs AS r(id,source,request_hash,query_summary,status,rankings,counts,errors,started_at,finished_at,provider_run_id,usage,idempotency_key) SELECT $1,$2->>'source',$2->>'request_hash',$2->'query_summary','running','[]','{}','[]',($2->>'started_at')::timestamptz,NULL,NULL,$2->'usage',$2->>'idempotency_key' RETURNING to_jsonb(r)").bind(id).bind(&expected).fetch_optional(&mut *tx).await.map_err(db)?;
+    let saved:Option<Value>=sqlx::query_scalar("INSERT INTO discovery_runs AS r(id,source,request_hash,query_summary,status,rankings,counts,errors,started_at,finished_at,provider_run_id,usage,idempotency_key) SELECT $1,$2->>'source',$2->>'request_hash',$2->'query_summary','running','[]','{}','[]',($2->>'started_at')::timestamptz,NULL,NULL,$2->'usage',$2->>'idempotency_key' RETURNING to_jsonb(r)").bind(id).bind(&expected).fetch_optional(&mut **tx).await.map_err(db)?;
     if saved.as_ref() != Some(&expected) {
         return Err(ack());
     }
@@ -283,28 +303,26 @@ pub async fn admit(
     )
     .bind(key(id))
     .bind(&journal)
-    .fetch_optional(&mut *tx)
+    .fetch_optional(&mut **tx)
     .await
     .map_err(db)?;
     if saved.as_ref() != Some(&journal)
-        || journal_in(&mut tx, id).await? != journal
-        || row_in(&mut tx, id).await?.as_ref() != Some(&expected)
+        || journal_in(tx, id).await? != journal
+        || row_in(tx, id).await?.as_ref() != Some(&expected)
     {
         return Err(ack());
     }
-    access::assert_original_in(&mut tx, &child).await?;
+    access::assert_original_in(tx, &child).await?;
     let profile_now =
-        crate::startup_catalog::detail::profile_in(&mut tx, request["use_profile"] == true).await?;
+        crate::startup_catalog::detail::profile_in(tx, request["use_profile"] == true).await?;
     if scope::profile_pin(profile_now.as_ref())? != journal["scope"]["profile_pin"] {
         return Err(ack());
     }
-    let state = state_in(&mut tx, id).await?;
+    let state = state_in(tx, id).await?;
     output(&state, id, now.max(access::time(&expected["started_at"])?))?;
-    tx.commit()
-        .await
-        .map_err(|_| Failure("discovery_run_commit_outcome_unknown"))?;
     Ok(Admission::Original(Box::new(Claim {
         id,
+        journal,
         child: Some(child),
     })))
 }
@@ -411,14 +429,55 @@ impl Service<'_> {
     pub async fn acquire(&self, c: &mut PgConnection, input: Value, id: Uuid) -> Result<Value> {
         match admit(c, self.settings, input, id, self.timeout_seconds).await? {
             Admission::Retained(v) => Ok(v),
-            Admission::Original(mut claim) => {
-                let child = claim
-                    .child
-                    .take()
-                    .ok_or(Failure("discovery_run_original_child_missing"))?;
-                super::controller::acquire_original(c, self.client, *child).await?;
-                read(c, claim.id).await
-            }
+            Admission::Original(claim) => acquire_original(c, self.client, *claim).await,
         }
     }
+}
+
+pub(crate) async fn assert_original_in(
+    tx: &mut Transaction<'_, Postgres>,
+    claim: &Claim,
+) -> Result<()> {
+    let state = state_in(tx, claim.id).await?;
+    if state.journal != claim.journal {
+        return Err(ack());
+    }
+    access::assert_original_in(tx, claim.child.as_ref().ok_or_else(ack)?).await?;
+    let profile = crate::startup_catalog::detail::profile_in(
+        tx,
+        state.journal["scope"]["use_profile"] == true,
+    )
+    .await?;
+    if scope::profile_pin(profile.as_ref())? != state.journal["scope"]["profile_pin"] {
+        return Err(ack());
+    }
+    Ok(())
+}
+pub(crate) async fn scope_in(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> Result<Value> {
+    Ok(state_in(tx, id).await?.journal["scope"].clone())
+}
+pub(crate) async fn read_in(
+    tx: &mut Transaction<'_, Postgres>,
+    id: Uuid,
+    now: DateTime<Utc>,
+) -> Result<Value> {
+    output(&state_in(tx, id).await?, id, now)
+}
+pub(crate) async fn local_receipt_in(
+    tx: &mut Transaction<'_, Postgres>,
+    id: Uuid,
+) -> Result<Option<Value>> {
+    Ok(state_in(tx, id).await?.intake)
+}
+pub(crate) async fn acquire_original(
+    c: &mut PgConnection,
+    client: &Client,
+    mut claim: Claim,
+) -> Result<Value> {
+    let child = claim
+        .child
+        .take()
+        .ok_or(Failure("discovery_run_original_child_missing"))?;
+    super::controller::acquire_original(c, client, *child).await?;
+    read(c, claim.id).await
 }

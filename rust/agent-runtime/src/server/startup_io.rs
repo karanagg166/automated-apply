@@ -86,6 +86,17 @@ pub(super) async fn dispatch(
                             .ok_or(Failure("invalid_startup_contract"))?,
                         chrono::Utc::now(),
                     )?;
+                    if value["mode"] == "job_led" {
+                        let id = crate::startup_catalog::job_led::request_id(&value)?;
+                        return crate::startup_catalog::job_led::Service {
+                            sources: &api.config.sources,
+                            client: &api.config.public_jobs,
+                            contacts: &api.config.contacts,
+                            timeout_seconds: api.config.discovery_timeout_seconds,
+                        }
+                        .run(&mut c, raw, id)
+                        .await;
+                    }
                     if value["source"] != "manual" || value["mode"] != "company_first" {
                         return Err(Failure("startup_provider_orchestration_not_implemented"));
                     }
