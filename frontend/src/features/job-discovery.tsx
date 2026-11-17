@@ -72,7 +72,22 @@ export type JobDiscoveryPreview = {
   estimated_usd: number | null;
   estimate_only: boolean;
   message: string;
+  paid_execution?: PaidPlan;
 };
+
+type PaidPlan = {
+  ready: boolean;
+  blocker?: string | null;
+  run_cap_usd?: string;
+  monthly_limit_usd?: string;
+  estimated_usd?: string | null;
+};
+function paidPlan(source: SourceConfig | undefined): PaidPlan | undefined {
+  const value = source?.configuration.native_execution;
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as PaidPlan)
+    : undefined;
+}
 
 export type JobDiscoveryRun = {
   id: string;
@@ -96,6 +111,13 @@ export type JobDiscoveryRun = {
   job_ids: string[];
   local_intake_complete?: boolean | null;
   rankings_complete?: boolean | null;
+  original_scope_available?: boolean;
+  billing_final?: boolean;
+  reservation?: {
+    reserved_usd: string;
+    accounting: string;
+    billing_final: boolean;
+  };
 };
 
 function generateIdempotencyKey(): string {
@@ -110,8 +132,11 @@ function sourceAvailable(source: SourceConfig | undefined): boolean {
   return Boolean(
     source?.enabled &&
     source.owner_run_supported !== false &&
-    source.pricing === "free" &&
-    source.adapter_type === "direct_api" &&
+    ((source.pricing === "free" && source.adapter_type === "direct_api") ||
+      (source.pricing === "paid" &&
+        source.adapter_type === "apify" &&
+        source.owner_run_supported === true &&
+        paidPlan(source)?.ready === true)) &&
     source.read_only &&
     source.operations.includes("jobs") &&
     source.availability === "available",
@@ -130,6 +155,7 @@ export function JobDiscovery() {
   >("any");
   const [limit, setLimit] = useState(20);
   const [useProfile, setUseProfile] = useState(true);
+  const [allowPaid, setAllowPaid] = useState(false);
 
   const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState<string>("");
@@ -157,6 +183,10 @@ export function JobDiscovery() {
     .map((l) => l.trim())
     .filter(Boolean);
 
+  const allSources = sourcesQuery.data?.sources || [];
+  const currentSourceConfig = allSources.find((s) => s.id === selectedSource);
+  const paidSource = currentSourceConfig?.adapter_type === "apify";
+
   const runPayload = {
     source: selectedSource,
     query: {
@@ -169,7 +199,7 @@ export function JobDiscovery() {
       max_age_days: null,
     },
     idempotency_key: idempotencyKey || null,
-    allow_paid: false,
+    allow_paid: paidSource && allowPaid,
     use_profile: useProfile,
     manual_jobs: [],
   };
@@ -243,7 +273,8 @@ export function JobDiscovery() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleCriteriaChange = () => {
+  const handleCriteriaChange = (clearPaid = true) => {
+    if (clearPaid) setAllowPaid(false);
     if (!attempt) inspectMutation.reset();
     previewMutation.reset();
     executeMutation.reset();
@@ -263,7 +294,13 @@ export function JobDiscovery() {
   };
 
   const handleExecute = () => {
-    if (!idempotencyKey || !consentConfirmed) return;
+    if (
+      !idempotencyKey ||
+      !consentConfirmed ||
+      (paidSource &&
+        (!allowPaid || previewMutation.data?.paid_execution?.ready !== true))
+    )
+      return;
     executeMutation.mutate(true);
   };
 
@@ -292,10 +329,8 @@ export function JobDiscovery() {
     setConsentConfirmed(false);
     setRunResult(null);
     setIdempotencyKey("");
+    setAllowPaid(false);
   };
-
-  const allSources = sourcesQuery.data?.sources || [];
-  const currentSourceConfig = allSources.find((s) => s.id === selectedSource);
 
   const isCurrentSourceAvailable = sourceAvailable(currentSourceConfig);
 
@@ -308,9 +343,8 @@ export function JobDiscovery() {
         </div>
         <div className="panel-body stack">
           <p className="muted">
-            Search genuine job listings from legitimately free public APIs.
-            Preview the search plan first, then explicitly run discovery to
-            ingest listings.
+            Search public job feeds and configured paid providers. Preview the
+            search plan first, then explicitly run discovery to ingest listings.
           </p>
           {attemptError != null && <ErrorState error={attemptError} />}
           {attempt && (
@@ -346,7 +380,7 @@ export function JobDiscovery() {
             <>
               <Field
                 label="Discovery source provider"
-                hint="Free public providers are selectable. Paid and unconfigured providers remain disabled."
+                hint="Public feeds and reviewed paid sources are selectable when ready."
               >
                 <Select
                   aria-label="Discovery source provider"
@@ -358,11 +392,24 @@ export function JobDiscovery() {
                   }}
                 >
                   <optgroup label="Available Free Providers">
-                    {allSources.filter(sourceAvailable).map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.display_name} (Free · Available)
-                      </option>
-                    ))}
+                    {allSources
+                      .filter((s) => sourceAvailable(s) && s.pricing === "free")
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.display_name} (Free · Available)
+                        </option>
+                      ))}
+                  </optgroup>
+                  <optgroup label="Reviewed paid providers">
+                    {allSources
+                      .filter(
+                        (s) => sourceAvailable(s) && s.adapter_type === "apify",
+                      )
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.display_name} (Paid · Reviewed)
+                        </option>
+                      ))}
                   </optgroup>
                   <optgroup label="Configuration Required">
                     {allSources
@@ -377,11 +424,13 @@ export function JobDiscovery() {
                         </option>
                       ))}
                   </optgroup>
-                  <optgroup label="Paid / Apify Providers (Disabled)">
+                  <optgroup label="Paid providers requiring setup">
                     {allSources
                       .filter(
                         (s) =>
-                          s.pricing !== "free" || s.adapter_type === "apify",
+                          (s.pricing !== "free" ||
+                            s.adapter_type === "apify") &&
+                          !sourceAvailable(s),
                       )
                       .map((s) => (
                         <option key={s.id} value={s.id} disabled>
@@ -525,11 +574,37 @@ export function JobDiscovery() {
                 Incorporate target preferences from saved profile
               </label>
 
+              {paidSource && (
+                <label className="check-label">
+                  <input
+                    type="checkbox"
+                    aria-label="Allow this paid discovery"
+                    disabled={requestPending || criteriaLocked}
+                    checked={allowPaid}
+                    onChange={(e) => {
+                      handleCriteriaChange(false);
+                      setAllowPaid(e.target.checked);
+                    }}
+                  />
+                  Authorize this paid discovery using the saved run and monthly
+                  limits.
+                  {paidPlan(currentSourceConfig)?.run_cap_usd && (
+                    <span>
+                      {" "}
+                      Run cap: ${paidPlan(currentSourceConfig)?.run_cap_usd};
+                      monthly limit: $
+                      {paidPlan(currentSourceConfig)?.monthly_limit_usd}.
+                    </span>
+                  )}
+                </label>
+              )}
+
               <Button
                 onClick={handlePreview}
                 busy={previewMutation.isPending}
                 disabled={
                   !isCurrentSourceAvailable ||
+                  (paidSource && !allowPaid) ||
                   requestPending ||
                   criteriaLocked ||
                   attemptError != null
@@ -587,13 +662,40 @@ export function JobDiscovery() {
                   <strong>Estimated cost:</strong>{" "}
                   {previewMutation.data.estimated_usd !== null
                     ? `$${previewMutation.data.estimated_usd.toFixed(2)}`
-                    : "Free ($0.00)"}
+                    : previewMutation.data.source.pricing === "free"
+                      ? "Free ($0.00)"
+                      : "Unavailable; review the saved paid limits"}
                 </li>
                 <li>
                   <strong>Provider calls in preview:</strong>{" "}
                   {previewMutation.data.provider_calls}
                 </li>
               </ul>
+
+              {previewMutation.data.paid_execution && (
+                <Notice>
+                  Run cap: $
+                  {previewMutation.data.paid_execution.run_cap_usd ??
+                    "unavailable"}
+                  ; monthly limit: $
+                  {previewMutation.data.paid_execution.monthly_limit_usd ??
+                    "unavailable"}
+                  .
+                  {previewMutation.data.paid_execution.ready !== true && (
+                    <span>
+                      {" "}
+                      Paid discovery is blocked:{" "}
+                      {readable(
+                        previewMutation.data.paid_execution.blocker ??
+                          "configuration required",
+                      )}
+                      .
+                    </span>
+                  )}
+                  The full cap stays reserved after an uncertain start. Final
+                  provider billing is not verified.
+                </Notice>
+              )}
 
               <Notice>
                 Preview performs no external network calls or database writes.
@@ -615,7 +717,13 @@ export function JobDiscovery() {
               <div className="actions">
                 <Button
                   variant="primary"
-                  disabled={!consentConfirmed || requestPending}
+                  disabled={
+                    !consentConfirmed ||
+                    requestPending ||
+                    (paidSource &&
+                      (!allowPaid ||
+                        previewMutation.data?.paid_execution?.ready !== true))
+                  }
                   busy={executeMutation.isPending}
                   onClick={handleExecute}
                 >
@@ -758,6 +866,14 @@ export function JobDiscovery() {
                 </div>
               )}
 
+              {runResult.reservation && (
+                <Notice>
+                  Retained reservation: ${runResult.reservation.reserved_usd}.
+                  The full cap remains reserved; final provider billing is not
+                  verified.
+                </Notice>
+              )}
+
               {inspectMutation.isError && (
                 <ErrorState error={inspectMutation.error} />
               )}
@@ -818,11 +934,12 @@ export function JobDiscovery() {
             </p>
           </div>
           <div className="detail-section">
-            <h3>Paid portals remain gated</h3>
+            <h3>Paid discovery limits</h3>
             <p>
-              Scrapers and paid portals (Naukri, Indeed, Glassdoor) require
-              independent API tokens, explicit budget opt-in, and compliance
-              review.
+              Paid sources require a configured token, reviewed actor and build,
+              saved spending limits and explicit opt-in. An uncertain start
+              keeps its reservation and cannot be started again through
+              recovery.
             </p>
             <div className="spaced">
               <Link className="external" href="/connections">

@@ -119,6 +119,37 @@ const mockRunSuccess = {
 };
 
 let runReply: (path: string, options?: RequestInit) => Promise<unknown>;
+const readyPaidSource = {
+  ...mockSources.sources[3],
+  enabled: true,
+  availability: "available" as const,
+  owner_run_supported: true,
+  configuration: {
+    native_execution: {
+      ready: true,
+      run_cap_usd: "0.100001",
+      monthly_limit_usd: "2.000001",
+    },
+  },
+};
+function paidSources() {
+  vi.mocked(api).mockImplementation(async (path, options) => {
+    if (path === "discovery/sources")
+      return { sources: [...mockSources.sources.slice(0, 3), readyPaidSource] };
+    if (path.startsWith("discovery/runs/")) return runReply(path, options);
+    throw new Error(`Unhandled api path: ${path}`);
+  });
+}
+const paidPreview = {
+  ...mockPreview,
+  source: readyPaidSource,
+  estimated_usd: 0.02,
+  paid_execution: {
+    ready: true,
+    run_cap_usd: "0.100001",
+    monthly_limit_usd: "2.000001",
+  },
+};
 function mount() {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -161,6 +192,169 @@ describe("JobDiscovery", () => {
       if (path.startsWith("discovery/runs/")) return runReply(path, options);
       throw new Error(`Unhandled api path: ${path}`);
     });
+  });
+
+  it("requires separate paid opt-in then reviewed run consent and shows full retained reservation", async () => {
+    paidSources();
+    vi.mocked(post).mockResolvedValueOnce(paidPreview);
+    const paidResult = {
+      ...mockRunSuccess,
+      source: "naukri",
+      original_scope_available: true,
+      billing_final: false,
+      reservation: {
+        reserved_usd: "0.100001",
+        accounting: "full_cap_retained",
+        billing_final: false,
+      },
+    };
+    runReply = async () => paidResult;
+    const user = userEvent.setup();
+    mount();
+    const provider = await screen.findByRole("combobox", {
+      name: "Discovery source provider",
+    });
+    await user.selectOptions(provider, "naukri");
+    expect(
+      screen.getByRole("button", { name: /Preview discovery plan/ }),
+    ).toBeDisabled();
+    await user.click(
+      screen.getByRole("checkbox", { name: "Allow this paid discovery" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /Preview discovery plan/ }),
+    );
+    expect(
+      await screen.findByRole("button", { name: /Run approved discovery/ }),
+    ).toBeDisabled();
+    expect(vi.mocked(post).mock.calls[0][1]).toMatchObject({
+      source: "naukri",
+      allow_paid: true,
+    });
+    await user.click(
+      screen.getByRole("checkbox", { name: /Run this approved/ }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /Run approved discovery/ }),
+    );
+    expect(
+      await screen.findByText(/Retained reservation: \$0.100001/),
+    ).toBeInTheDocument();
+    const put = vi
+      .mocked(api)
+      .mock.calls.find(([, options]) => options?.method === "PUT");
+    expect(JSON.parse(put![1]!.body as string)).toMatchObject({
+      source: "naukri",
+      allow_paid: true,
+    });
+    expect(localStorage.getItem("job-discovery-attempt:v1")).not.toContain(
+      "0.100001",
+    );
+  });
+  it("clears paid consent and the reviewed preview when search criteria change", async () => {
+    paidSources();
+    vi.mocked(post).mockResolvedValueOnce(paidPreview);
+    const user = userEvent.setup();
+    mount();
+    await user.selectOptions(
+      await screen.findByRole("combobox", {
+        name: "Discovery source provider",
+      }),
+      "naukri",
+    );
+    const paid = screen.getByRole("checkbox", {
+      name: "Allow this paid discovery",
+    });
+    await user.click(paid);
+    await user.click(
+      screen.getByRole("button", { name: /Preview discovery plan/ }),
+    );
+    await screen.findByRole("button", { name: /Run approved discovery/ });
+    await user.type(
+      screen.getByRole("textbox", { name: "Role or technology keywords" }),
+      "Rust",
+    );
+    expect(paid).not.toBeChecked();
+    expect(
+      screen.queryByRole("button", { name: /Run approved discovery/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Preview discovery plan/ }),
+    ).toBeDisabled();
+    expect(
+      vi
+        .mocked(api)
+        .mock.calls.every(([, options]) => options?.method !== "PUT"),
+    ).toBe(true);
+  });
+  it("keeps execution disabled for a blocked paid preview and never labels an unknown estimate free", async () => {
+    paidSources();
+    vi.mocked(post).mockResolvedValueOnce({
+      ...paidPreview,
+      estimated_usd: null,
+      paid_execution: {
+        ...paidPreview.paid_execution,
+        ready: false,
+        blocker: "apify_estimate_exceeds_reserved_cap",
+      },
+    });
+    const user = userEvent.setup();
+    mount();
+    await user.selectOptions(
+      await screen.findByRole("combobox", {
+        name: "Discovery source provider",
+      }),
+      "naukri",
+    );
+    await user.click(
+      screen.getByRole("checkbox", { name: "Allow this paid discovery" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: /Preview discovery plan/ }),
+    );
+    await screen.findByText(/Unavailable; review the saved paid limits/);
+    await user.click(
+      screen.getByRole("checkbox", { name: /Run this approved/ }),
+    );
+    expect(
+      screen.getByRole("button", { name: /Run approved discovery/ }),
+    ).toBeDisabled();
+    expect(screen.queryByText("Free ($0.00)")).not.toBeInTheDocument();
+  });
+  it("reloads a paid unknown start with GET only and keeps new search disabled", async () => {
+    paidSources();
+    localStorage.setItem(
+      "job-discovery-attempt:v1",
+      JSON.stringify({ requestId: mockRunSuccess.id, source: "naukri" }),
+    );
+    runReply = async () => ({
+      ...mockRunSuccess,
+      source: "naukri",
+      status: "recovery_required",
+      finished_at: null,
+      local_intake_complete: false,
+      rankings_complete: false,
+      usage: { finding_retained: false },
+      original_scope_available: true,
+      billing_final: false,
+      reservation: {
+        reserved_usd: "0.100001",
+        accounting: "full_cap_retained",
+        billing_final: false,
+      },
+    });
+    mount();
+    await screen.findByText(/Retained reservation: \$0.100001/);
+    expect(
+      screen.getByRole("button", { name: "Start new search" }),
+    ).toBeDisabled();
+    expect(post).not.toHaveBeenCalled();
+    expect(
+      vi.mocked(api).mock.calls.every(([, options]) => !options?.method),
+    ).toBe(true);
+    expect(localStorage.getItem("job-discovery-attempt:v1")).toContain(
+      "naukri",
+    );
   });
 
   it("recovers a persisted completed search on reload using GET only and releases criteria after terminal review", async () => {

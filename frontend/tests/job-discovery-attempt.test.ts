@@ -68,6 +68,104 @@ afterEach(() => {
   Reflect.deleteProperty(navigator, "locks");
 });
 describe("durable job discovery", () => {
+  it("recovers a native paid result using saved GET and local completion without renewed paid opt-in or PUT", async () => {
+    localStorage.setItem(
+      key,
+      JSON.stringify({ requestId: request, source: "naukri" }),
+    );
+    const paid = {
+      ...completed(),
+      source: "naukri",
+      original_scope_available: true,
+      billing_final: false,
+      reservation: {
+        reserved_usd: "0.100001",
+        accounting: "full_cap_retained",
+        billing_final: false,
+      },
+    };
+    vi.mocked(api).mockResolvedValueOnce({
+      ...paid,
+      status: "running",
+      finished_at: null,
+      rankings_complete: false,
+      local_intake_complete: false,
+    });
+    vi.mocked(api).mockResolvedValueOnce(paid);
+    expect(
+      await recoverDiscovery({ source: "naukri", allow_paid: false }),
+    ).toEqual(paid);
+    expect(api).toHaveBeenNthCalledWith(1, path);
+    expect(api).toHaveBeenNthCalledWith(2, `${path}/complete`, {
+      method: "POST",
+      body: "{}",
+    });
+    expect(
+      vi
+        .mocked(api)
+        .mock.calls.every(([, options]) => options?.method !== "PUT"),
+    ).toBe(true);
+    expect(readDiscoveryAttempt()?.source).toBe("naukri");
+  });
+  it("keeps an unknown paid start on GET only and preserves its pointer and full reservation", async () => {
+    localStorage.setItem(
+      key,
+      JSON.stringify({ requestId: request, source: "naukri" }),
+    );
+    const paid = {
+      ...pending(),
+      source: "naukri",
+      original_scope_available: true,
+      billing_final: false,
+      reservation: {
+        reserved_usd: "0.100001",
+        accounting: "full_cap_retained",
+        billing_final: false,
+      },
+    };
+    vi.mocked(api).mockResolvedValue(paid);
+    expect(
+      await recoverDiscovery({ source: "naukri", allow_paid: true }, true),
+    ).toEqual(paid);
+    expect(api).toHaveBeenCalledExactlyOnceWith(path);
+    await expect(prepareNewDiscovery(request)).rejects.toThrow();
+    expect(readDiscoveryAttempt()?.requestId).toBe(request);
+  });
+  it("refuses native paid results with missing, final, refunded or invalid reservations before pointer release", async () => {
+    localStorage.setItem(
+      key,
+      JSON.stringify({ requestId: request, source: "naukri" }),
+    );
+    const base = {
+      ...completed(),
+      source: "naukri",
+      original_scope_available: true,
+      billing_final: false,
+      reservation: {
+        reserved_usd: "0.100001",
+        accounting: "full_cap_retained",
+        billing_final: false,
+      },
+    };
+    for (const corrupt of [
+      { ...base, reservation: undefined },
+      { ...base, billing_final: true },
+      { ...base, reservation: { ...base.reservation, accounting: "refunded" } },
+      { ...base, reservation: { ...base.reservation, reserved_usd: "NaN" } },
+      {
+        ...base,
+        reservation: { ...base.reservation, reserved_usd: "100.000001" },
+      },
+      {
+        ...base,
+        reservation: { ...base.reservation, reserved_usd: "0.000000" },
+      },
+    ]) {
+      vi.mocked(api).mockResolvedValue(corrupt);
+      await expect(prepareNewDiscovery(request)).rejects.toThrow();
+      expect(readDiscoveryAttempt()?.source).toBe("naukri");
+    }
+  });
   it("persists only request UUID and source before original approved PUT", async () => {
     vi.mocked(api).mockImplementation(async () => {
       expect(readDiscoveryAttempt()).toEqual({

@@ -76,6 +76,35 @@ function validate(
       throw reviewError();
   }
   if (
+    [
+      "naukri",
+      "instahyre",
+      "wellfound",
+      "work_at_a_startup",
+      "cutshort",
+      "hirist",
+      "foundit",
+      "indeed",
+      "glassdoor",
+    ].includes(attempt.source) &&
+    value.original_scope_available !== false
+  ) {
+    const reservation = value.reservation;
+    if (
+      value.original_scope_available !== true ||
+      value.billing_final !== false ||
+      !reservation ||
+      Array.isArray(reservation) ||
+      reservation.billing_final !== false ||
+      reservation.accounting !== "full_cap_retained" ||
+      typeof reservation.reserved_usd !== "string" ||
+      !/^\d{1,10}\.\d{6}$/.test(reservation.reserved_usd) ||
+      Number(reservation.reserved_usd) <= 0 ||
+      Number(reservation.reserved_usd) > 100
+    )
+      throw reviewError();
+  }
+  if (
     complete(value) &&
     ((value.counts.inserted ?? 0) + (value.counts.updated ?? 0) !==
       value.job_ids.length ||

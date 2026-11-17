@@ -1,5 +1,18 @@
 # Complete-source delivery plan — 2026-11-16
 
+Paid dashboard design2026-11-17: select only saved-ready native paid sources; keep
+unconfigured/legacy-only sources disabled. Require a separate explicit allow_paid
+checkbox before preview and the existing reviewed-run consent after a ready preview.
+Changing criteria clears both paid and run consent; recovering a retained finding uses
+only GET/empty local complete and needs no renewed paid start consent. Persist only
+the existing opaque UUID/source pointer across response loss or reload. Show exact
+saved run/month caps, selected estimate/blocker and retained full-cap reservation with
+preliminary billing; unknown paid estimates must never appear free. Validate native
+paid result reservation shape before allowing terminal review/pointer release. Keep
+saved result refresh separate from acquisition, avoid on-mount dispatch, and retain
+all unknown-start pointers. Add UI/helper fixtures now; actual UI/type/browser gates
+remain deferred with the final combined test run.
+
 Paid owner boundary design2026-11-17: extend existing authenticated discovery UUID
 PUT/keyed POST and local-only complete routes to configured Apify sources, using the
 same transient semaphore/temporary connection. Validate source/body before acquiring
