@@ -1,5 +1,23 @@
 # Complete-source delivery plan — 2026-11-16
 
+Acknowledged Apify read recovery design2026-11-17: preserve closed acknowledged run
+options in original checkpoints and add pure selected actor/run restoration with
+round-trip validation. A separate ReadContext may construct only fixed GET status,
+original build and original dataset targets; it cannot construct a paid start/abort,
+reservation or dispatch permit. Require the original intent expired (75seconds), no
+retained finding, same reviewed configuration/query/credential, attached acknowledged
+run identity and24-hour recovery window. A fresh status must succeed before build/
+dataset use; changed actor/build/run/start/cap/dataset/terminal status must refuse.
+Next implement separate owner-fenced read admissions (maximum3 rounds, maximum4GETs/
+45seconds per round,5-minute spacing, provider cooldown), durable per-read checkpoints,
+lost-read minimum counts and no renewed original grant. Unknown starts without an
+acknowledged run stay held; no guessing/latest-run search. Final selected finding CAS
+preserves original start/HTTP evidence and retained budget, then existing local finish
+rechecks current pinned profile/context. Read results remain preliminary billing and
+qualified termination observations, with no independent termination or refund claim.
+Owner GET stays saved-only; an explicit separate read-recovery action follows the
+durable read lifecycle, never automatic retry through local-complete or ordinary PUT.
+
 Paid dashboard design2026-11-17: select only saved-ready native paid sources; keep
 unconfigured/legacy-only sources disabled. Require a separate explicit allow_paid
 checkbox before preview and the existing reviewed-run consent after a ready preview.

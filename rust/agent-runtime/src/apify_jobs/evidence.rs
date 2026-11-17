@@ -35,6 +35,18 @@ pub struct ActorIdentity {
     context: String,
 }
 impl ActorIdentity {
+    pub(super) fn retained(plan: &Plan, selected: &Value) -> Result<Self> {
+        let alias = selected["alias"].as_str().ok_or_else(invalid)?;
+        let (username, name) = alias.split_once('~').ok_or_else(invalid)?;
+        let identity = Self::parse(
+            plan,
+            &json!({"data":{"id":selected["id"],"username":username,"name":name}}),
+        )?;
+        if identity.selected() != *selected {
+            return Err(invalid());
+        }
+        Ok(identity)
+    }
     pub fn parse(plan: &Plan, value: &Value) -> Result<Self> {
         bounded(value)?;
         let data = &value["data"];
@@ -83,6 +95,7 @@ pub struct Run {
     cost: Value,
     context: String,
     provider_cap: Usd,
+    acknowledged_options: Value,
 }
 impl Run {
     pub fn parse(
@@ -183,6 +196,7 @@ impl Run {
             cost,
             context: plan.context().into(),
             provider_cap,
+            acknowledged_options: json!({"build":options["build"],"timeoutSecs":options["timeoutSecs"],"restartOnError":false,"maxTotalChargeUsd":options["maxTotalChargeUsd"],"maxItems":options["maxItems"]}),
         };
         if status == "SUCCEEDED" && (out.dataset.is_none() || out.finished.is_none()) {
             return Err(invalid());
@@ -195,6 +209,7 @@ impl Run {
                 || out.build_number != previous.build_number
                 || out.started != previous.started
                 || out.provider_cap != previous.provider_cap
+                || out.acknowledged_options != previous.acknowledged_options
                 || previous.finished.is_some() && out.finished != previous.finished
                 || previous.dataset.is_some() && out.dataset != previous.dataset
                 || previous.terminal() && out.status != previous.status
@@ -206,6 +221,22 @@ impl Run {
     }
     pub fn id(&self) -> &str {
         &self.id
+    }
+    /// Restore only selected original evidence. This does not acknowledge a new provider operation.
+    pub(super) fn retained(
+        plan: &Plan,
+        identity: &ActorIdentity,
+        selected: &Value,
+        admitted: DateTime<Utc>,
+        now: DateTime<Utc>,
+    ) -> Result<Self> {
+        let mut data = selected.clone();
+        data["options"] = selected["acknowledged_options"].clone();
+        let run = Self::parse(plan, identity, &json!({"data":data}), None, admitted, now)?;
+        if run.selected() != *selected {
+            return Err(invalid());
+        }
+        Ok(run)
     }
     pub fn build_id(&self) -> &str {
         &self.build_id
@@ -230,7 +261,7 @@ impl Run {
         }
     }
     pub fn selected(&self) -> Value {
-        json!({"id":self.id,"actId":self.actor,"buildId":self.build_id,"buildNumber":self.build_number,"status":self.status,"defaultDatasetId":self.dataset,"startedAt":self.started.to_rfc3339(),"finishedAt":self.finished.map(|v|v.to_rfc3339()),"usageTotalUsd":self.cost,"provider_cap_usd":self.provider_cap.decimal(),"billing_final":false,"termination_observed":self.terminal(),"independent_termination_verified":false})
+        json!({"id":self.id,"actId":self.actor,"buildId":self.build_id,"buildNumber":self.build_number,"status":self.status,"defaultDatasetId":self.dataset,"startedAt":self.started.to_rfc3339(),"finishedAt":self.finished.map(|v|v.to_rfc3339()),"usageTotalUsd":self.cost,"provider_cap_usd":self.provider_cap.decimal(),"acknowledged_options":self.acknowledged_options,"billing_final":false,"termination_observed":self.terminal(),"independent_termination_verified":false})
     }
 }
 pub struct VerifiedBuild {

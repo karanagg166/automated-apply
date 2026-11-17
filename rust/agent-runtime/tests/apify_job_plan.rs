@@ -1,4 +1,5 @@
 //! Deferred pure original actor/build/run targets and selected evidence. No transport or budget mutation.
+use automated_apply_agents::apify_jobs::read_context::ReadContext;
 use automated_apply_agents::{
     Failure,
     apify_jobs::{
@@ -9,6 +10,188 @@ use automated_apply_agents::{
 };
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+fn checkpoint(status: &str) -> Value {
+    let plan = plan();
+    let identity = identity(&plan);
+    let run = Run::parse(&plan, &identity, &run_payload(status), None, now(), now()).unwrap();
+    json!({"schema":1,"request_id":"10000000-0000-0000-0000-000000000001","state":"failed","start_intent":true,"start_attempted":true,
+        "configuration_hash":plan.context(),"source":"naukri","effective_query":automated_apply_agents::job_sources::contract::query(json!({"limit":100})).unwrap(),
+        "started_at":now().to_rfc3339(),"expires_at":(now()+chrono::Duration::seconds(75)).to_rfc3339(),
+        "selected_actor":identity.selected(),"selected_run":run.selected(),"selected_run_hash":automated_apply_agents::python_json::digest(&run.selected()),
+        "reservation":{"provider":"apify","state":"run_attached","provider_run_id":"originalRun"}})
+}
+fn read_now() -> chrono::DateTime<chrono::Utc> {
+    now() + chrono::Duration::seconds(80)
+}
+#[test]
+fn selected_original_options_round_trip_into_pure_get_context_without_new_start_or_private_metadata()
+ {
+    let saved = checkpoint("RUNNING");
+    let context = ReadContext::from_retained(plan(), &saved, read_now()).unwrap();
+    assert_eq!(context.run_id(), "originalRun");
+    assert_eq!(context.selected_run(), saved["selected_run"]);
+    assert_eq!(
+        context.selected_run()["acknowledged_options"],
+        run_payload("RUNNING")["data"]["options"]
+    );
+    assert!(!context.selected_run().to_string().contains("CANARY"));
+    let target = context.status_target().unwrap();
+    assert_eq!(target.method(), "GET");
+    assert_eq!(target.path(), "actor-runs/originalRun");
+    assert!(
+        target
+            .query()
+            .contains(&("waitForFinish".into(), "10".into()))
+    );
+    assert!(context.build_target().is_err());
+}
+#[test]
+fn pure_read_context_requires_expired_original_intent_and_refuses_stale_or_missing_acknowledged_run()
+ {
+    let saved = checkpoint("RUNNING");
+    assert_eq!(
+        ReadContext::from_retained(plan(), &saved, now() + chrono::Duration::seconds(74))
+            .err()
+            .unwrap(),
+        Failure("apify_read_original_still_active")
+    );
+    assert!(
+        ReadContext::from_retained(plan(), &saved, now() + chrono::Duration::seconds(75)).is_ok()
+    );
+    assert_eq!(
+        ReadContext::from_retained(plan(), &saved, now() + chrono::Duration::hours(25))
+            .err()
+            .unwrap(),
+        Failure("apify_read_original_expired")
+    );
+    for field in ["selected_run", "selected_actor", "selected_run_hash"] {
+        let mut missing = saved.clone();
+        missing.as_object_mut().unwrap().remove(field);
+        assert!(
+            ReadContext::from_retained(plan(), &missing, read_now()).is_err(),
+            "{field}"
+        );
+    }
+}
+#[test]
+fn pure_read_context_refuses_changed_original_source_query_scope_run_attachment_or_start_evidence()
+{
+    for (pointer, value) in [
+        ("/source", json!("instahyre")),
+        ("/configuration_hash", json!("a".repeat(64))),
+        ("/effective_query/limit", json!(10)),
+        ("/reservation/provider_run_id", json!("foreignRun")),
+        ("/reservation/state", json!("reserved")),
+        ("/start_attempted", Value::Null),
+        ("/start_intent", json!(false)),
+        ("/state", json!("finding_retained")),
+        ("/request_id", json!("00000000-0000-0000-0000-000000000000")),
+    ] {
+        let mut saved = checkpoint("RUNNING");
+        *saved.pointer_mut(pointer).unwrap() = value;
+        assert!(
+            ReadContext::from_retained(plan(), &saved, read_now()).is_err(),
+            "{pointer}"
+        );
+    }
+}
+#[test]
+fn pure_read_context_refuses_hash_consistent_but_promoted_or_invalid_selected_options_and_identity()
+{
+    for (pointer, value) in [
+        ("/selected_run/billing_final", json!(true)),
+        (
+            "/selected_run/independent_termination_verified",
+            json!(true),
+        ),
+        (
+            "/selected_run/acknowledged_options/restartOnError",
+            json!(true),
+        ),
+        ("/selected_run/acknowledged_options/timeoutSecs", json!(61)),
+        ("/selected_run/acknowledged_options/maxItems", json!(101)),
+        (
+            "/selected_actor/identity_basis",
+            json!("guessed_latest_run"),
+        ),
+        ("/selected_actor/id", json!("foreignActor")),
+    ] {
+        let mut saved = checkpoint("RUNNING");
+        *saved.pointer_mut(pointer).unwrap() = value;
+        saved["selected_run_hash"] = json!(automated_apply_agents::python_json::digest(
+            &saved["selected_run"]
+        ));
+        assert!(
+            ReadContext::from_retained(plan(), &saved, read_now()).is_err(),
+            "{pointer}"
+        );
+    }
+}
+#[test]
+fn read_status_preserves_original_run_actor_build_start_cap_dataset_and_acknowledged_options() {
+    for (field, value) in [
+        ("id", json!("foreignRun")),
+        ("actId", json!("foreignActor")),
+        ("buildId", json!("foreignBuild")),
+        (
+            "startedAt",
+            json!((now() + chrono::Duration::seconds(1)).to_rfc3339()),
+        ),
+        ("defaultDatasetId", json!("foreignDataset")),
+    ] {
+        let mut context =
+            ReadContext::from_retained(plan(), &checkpoint("RUNNING"), read_now()).unwrap();
+        let before = context.selected_run();
+        let mut body = run_payload("SUCCEEDED");
+        body["data"][field] = value;
+        assert!(context.accept_status(&body, read_now()).is_err(), "{field}");
+        assert_eq!(context.selected_run(), before);
+    }
+    for (field, value) in [
+        ("maxTotalChargeUsd", json!(0.5)),
+        ("timeoutSecs", json!(30)),
+        ("maxItems", json!(50)),
+    ] {
+        let mut context =
+            ReadContext::from_retained(plan(), &checkpoint("RUNNING"), read_now()).unwrap();
+        let before = context.selected_run();
+        let mut body = run_payload("SUCCEEDED");
+        body["data"]["options"][field] = value;
+        assert!(context.accept_status(&body, read_now()).is_err(), "{field}");
+        assert_eq!(context.selected_run(), before);
+    }
+}
+#[test]
+fn read_build_and_dataset_targets_require_fresh_success_original_build_and_bounded_offsets() {
+    let mut context =
+        ReadContext::from_retained(plan(), &checkpoint("SUCCEEDED"), read_now()).unwrap();
+    assert!(context.build_target().is_err());
+    context
+        .accept_status(&run_payload("SUCCEEDED"), read_now())
+        .unwrap();
+    assert_eq!(context.build_target().unwrap().method(), "GET");
+    assert_eq!(
+        context.build_target().unwrap().path(),
+        "actor-builds/originalBuild"
+    );
+    let mut foreign = build_payload(&schema());
+    foreign["data"]["actId"] = json!("foreignActor");
+    assert!(context.accept_build(&foreign).is_err());
+    let build = context.accept_build(&build_payload(&schema())).unwrap();
+    for offset in [0, 50] {
+        let target = context.dataset_target(&build, offset).unwrap();
+        assert_eq!(target.method(), "GET");
+        assert_eq!(target.path(), "datasets/originalDataset/items");
+    }
+    for offset in [1, 100, 5000] {
+        assert!(context.dataset_target(&build, offset).is_err());
+    }
+    assert!(
+        context
+            .accept_status(&run_payload("RUNNING"), read_now())
+            .is_err()
+    );
+}
 fn now() -> chrono::DateTime<chrono::Utc> {
     chrono::DateTime::parse_from_rfc3339("2026-11-17T00:00:00Z")
         .unwrap()
