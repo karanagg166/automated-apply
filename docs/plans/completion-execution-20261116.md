@@ -1,5 +1,18 @@
 # Complete-source delivery plan — 2026-11-16
 
+Acknowledged read admission detail2026-11-17: retain the consumed read UUID list,
+last-admitted/next-allowed timestamps and lifetime count inside the original private
+paid journal, initialized at paid intent creation. A separate optional index must not
+reset allowances. Each new explicit read UUID appends once under owner-first SERIALIZABLE
+and creates its immutable private read intent in the same transaction; replay returns
+saved state without context renewal. Require all prior referenced read records to exist
+and remain bound to parent/scope/reservation/run. Refuse missing or malformed allowance,
+unknown start, active original, changed reviewed configuration/credential, global
+cooldown, active/too-recent prior read or more than3 lifetime rounds. Bind the opaque
+claim to the exact updated original journal/read row, exact monthly snapshot and one
+45-second deadline, with final independent ACKs after all triggers. Current profile is
+not required for read-only status observation; local intake still requires its pin.
+
 Acknowledged Apify read recovery design2026-11-17: preserve closed acknowledged run
 options in original checkpoints and add pure selected actor/run restoration with
 round-trip validation. A separate ReadContext may construct only fixed GET status,

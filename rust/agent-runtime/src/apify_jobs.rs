@@ -7,6 +7,7 @@ mod finding;
 pub mod intake;
 pub mod money;
 pub mod plan;
+pub mod read_admission;
 pub mod read_context;
 pub mod record;
 pub mod runs;

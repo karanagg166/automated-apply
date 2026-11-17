@@ -103,6 +103,7 @@ pub(super) async fn project_in(
     }
     hash(&journal["credential_context"])?;
     hash(&journal["configuration_hash"])?;
+    let reads = super::read_admission::allowance(journal)?;
     if journal["scope_hash"]
         != crate::python_json::digest(
             &json!({"request_hash":journal["request_hash"],"effective_query":query,"profile_pin":journal["profile_pin"],"configuration_hash":journal["configuration_hash"],"credential_context":journal["credential_context"]}),
@@ -228,6 +229,9 @@ pub(super) async fn project_in(
         return Err(invalid());
     }
     let mut out = json!({"request_id":id,"source":journal["source"],"recorded_state":journal["state"],"status":if journal["state"]=="failed" || errors.as_array().is_some_and(|a|!a.is_empty()) || now>=expires{"outcome_unknown"}else{"pending"},"started_at":journal["started_at"],"expires_at":journal["expires_at"],"start_admissions":1,"provider_start_attempted":start,"provider_response_retained":responses.is_some_and(|n|n>0),"provider_http_attempts":attempts,"provider_http_responses":responses,"http_counts_are_minimum":operation.is_some_and(|v|v["state"]=="admitted"),"run_id":selected_run.map(|v|v["id"].clone()),"dataset_id":null,"jobs":[],"errors":errors,"reservation":reservation,"replay_authorized":false,"account_rotation":false,"application_dispatch":false,"live_verified":false,"evidence_basis":"original_paid_intent_and_selected_checkpoints"});
+    out["read_rounds_admitted"] = json!(reads.ids.len());
+    out["read_round_limit"] = json!(3);
+    out["read_next_allowed_at"] = json!(reads.next.map(|at| at.to_rfc3339()));
     if journal["state"] == "finding_retained" {
         if journal["finding_hash"] != crate::python_json::digest(&journal["finding"])
             || journal["selected_run"]["status"] != "SUCCEEDED"
@@ -336,7 +340,7 @@ pub(super) async fn admit_in(
     let scope = json!({"request_hash":input_hash,"effective_query":query,"profile_pin":pin,"configuration_hash":plan.context(),"credential_context":credential});
     let invocation = Uuid::new_v4();
     let expires = now + chrono::Duration::seconds(75);
-    let journal = json!({"schema":1,"request_id":id,"source":source,"state":"dispatch_admitted","start_admissions":1,"request":input,"request_hash":input_hash,"effective_query":query,"profile_pin":pin,"configuration_hash":plan.context(),"credential_context":credential,"scope_hash":crate::python_json::digest(&scope),"invocation_id":invocation,"started_at":now.to_rfc3339(),"expires_at":expires.to_rfc3339(),"reservation":reservation.row});
+    let journal = json!({"schema":1,"request_id":id,"source":source,"state":"dispatch_admitted","start_admissions":1,"request":input,"request_hash":input_hash,"effective_query":query,"profile_pin":pin,"configuration_hash":plan.context(),"credential_context":credential,"scope_hash":crate::python_json::digest(&scope),"invocation_id":invocation,"started_at":now.to_rfc3339(),"expires_at":expires.to_rfc3339(),"reservation":reservation.row,"read_recovery":{"schema":1,"requests":[],"last_admitted_at":null,"next_allowed_at":null}});
     if journal.to_string().len() > 524288 {
         return Err(Failure("apify_original_intent_saved_limit"));
     }
