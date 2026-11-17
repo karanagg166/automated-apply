@@ -7,6 +7,18 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest public job/query contract source `e4da98431b9471ef0e95b586589f1e37df6eaf74`
+freezes actual DTOs and ports pure defaults/coercion, strict experience/salary evidence,
+UTC dates, ATS canonical identity, unknown-company/remote rules and payload limits.
+Three standard declarations (70 actual job +30 query comparisons plus bounds) are UNRUN.
+See [qualified public job contract report](acceptance/public-job-contracts-source-20261117.md).
+Continue seven provider normalizers/fixed GETs/pacing/startup orchestration, reviewed
+Apify execution and remaining agreed full source before combined gates. No current
+tests/build/check/live/install or estimate increase; 58/42 and prior 455 held.
+Private continuity snapshot 0620df52ebdf3d4198d6971759da0acbde01f4228e8c3c54968b19d36ea6db2c
+at 2026-11-17T08:35:36.360424+00:00 preserves 104 indexed /6 available /98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest owner Apify metadata source `27050a09624bbf4a7d8f3a7b3177a3327a9cd842` wires
 the original three owner routes through the existing transient permit. Owner-first
 durable ten-second pacing precedes GETs; cache completion rejects superseded claims.
