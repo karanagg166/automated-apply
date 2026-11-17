@@ -2,6 +2,10 @@
 
 The active goal limits delivery to the owner’s laptop. GitHub pushes, pull requests, remote reports, hosted Actions and merges remain suspended until the owner reauthorizes them. Finish source and fixtures, run combined validation, then install and verify locally. See the [completion plan](plans/completion-execution-20261116.md).
 
+The latest local source `8d6acf3` serves the dashboard's connections route with a read-only evidence snapshot. It includes version-bound profile and local PDF checks, saved portal and Gmail evidence, Telegram binding evidence and optional private CLI/MCP receipts. Two disposable PostgreSQL fixtures await the combined run. The estimate remains 58% complete. Next, port the owner command and history routes and reconcile platform adapter coverage. See the [connection report checkpoint](acceptance/connection-report-local-source-20261118.md).
+
+The private continuity snapshot `e288216fc222d13d6b5d86799fce42c05acb2bf79ca2c9a500220d74db6b13b4` at `2026-11-17T20:11:36.071986+00:00` indexed 104 threads and preserved the six transcripts available locally. The other 98 transcripts remain missing.
+
 The latest local source `efb52e0` and `3da66f2` adds the dashboard platform policy, versioned history, manual portal controls and native gesture observations. The four new disposable PostgreSQL fixtures are awaiting the combined run. Next, connect the dashboard status report to the saved portal projection and reconcile the remaining owner command and history routes. See the [platform controls checkpoint](acceptance/platform-controls-local-source-20261118.md).
 
 The private continuity snapshot `1d5081c80a7ba88f85f6247d0bbeb33d3e096e46e3c8f31a01862dc01f3abc5a` at `2026-11-17T20:00:37.840534+00:00` indexed 104 threads and preserved the six available transcripts. The other 98 transcripts remain missing.
