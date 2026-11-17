@@ -7,6 +7,20 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest pure paid-discovery source `639e5484060092d4e4279ae44f4d5d688124a674` ports selected portal jobs,
+exact six-decimal USD caps/conservative estimates, fixed official targets and closed
+original actor/run/build evidence. Pinned opaque build/schema/input review precedes
+start construction; personal founder/profile URLs and private metadata are excluded.
+Eight standard declarations(49 actual/decimal comparisons plus guards) are UNRUN.
+See [qualified Apify job plan report](acceptance/apify-job-plans-source-20261117.md).
+Continue durable exact USD reservation/original intent, fixed transport/checkpoints,
+dataset/result intake, startup/dashboard recovery and remaining agreed source before
+combined gates. No current tests/build/check/provider/production/install or estimate
+increase;58/42/prior455 held. Pure plans grant no authority; paid host remains unported.
+Private continuity snapshot 51c5fa0b9556722981a39ada6b0dcecf71db2e6fac779e60cf349105fa80ab8a
+at2026-11-17T11:22:33.745132+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest startup job-led source `586690b648a296fb8c759e1427083f25237f2872` admits real parent/original job
 child atomically, rechecks nested scope/window/profile after parent triggers and keeps
 lost invocations nonrenewable. Local company results bind original job-to-company IDs,
