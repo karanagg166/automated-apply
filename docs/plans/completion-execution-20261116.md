@@ -1,5 +1,17 @@
 # Complete-source delivery plan — 2026-11-16
 
+Public batch admission design 2026-11-17: under owner-first SERIALIZABLE, bind an
+original request UUID to normalized source/query, exact private source snapshot/context,
+single in-memory invocation and 75-second deadline. Commit the shared provider access
+window (Remotive six hours, other public providers sixty seconds) and private original
+journal together; independently reread both after triggers. Only that original returned
+opaque grant may enter the subsequent GET batch. Replays and saved reads cannot create
+a grant, extend expiry, reset pacing or import jobs. Same UUID with changed source/query
+conflicts, while old requests remain readable even if present configuration is missing.
+Commit ambiguity/lost invocation remains qualified pending/unknown without replay.
+Do not hold a database transaction across transport or equate batch admission with a
+provider HTTP response, live vacancy, identity verification or application authority.
+
 Public request planning design 2026-11-17: enumerate only seven fixed source origins
 and reviewed configured board IDs, with query/page/record bounds from the actual DTO.
 Construct SmartRecruiters details from validated posting IDs and HN comment requests
