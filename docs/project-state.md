@@ -7,6 +7,19 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest owner Apify metadata source `27050a09624bbf4a7d8f3a7b3177a3327a9cd842` wires
+the original three owner routes through the existing transient permit. Owner-first
+durable ten-second pacing precedes GETs; cache completion rejects superseded claims.
+Native credential/content-bound cache and legacy projection keep saved status read-only,
+private and qualified. Two standard and eight PG/HTTP declarations are UNRUN.
+See [qualified owner metadata report](acceptance/apify-owner-metadata-source-20261117.md).
+Continue reviewed actor execution lifecycle, public job providers/startup orchestration
+and remaining agreed full source before combined gates. No current tests/build/check/
+live/install or estimate increase; 58/42 and prior 455 held. Full host uninstalled.
+Private continuity snapshot 580c633335a7682b651ee5da51b649ef3ee9416d02806099dfbee2c795518f29
+at 2026-11-17T08:28:54.727225+00:00 preserves 104 indexed /6 available /98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest Apify metadata source `e209b23c9f53bbaed10ec9df9a99646abb758af8` adds fixed
 GET-only public actor/store and authenticated account inspection, bounded streaming/time,
 no retry/redirect/proxy, actual frozen DTOs and inert local schema extraction/digests.
