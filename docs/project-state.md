@@ -1,3 +1,15 @@
+Latest LOCAL approved-project conversation source `3ef9dd7f05affc0d8b774819fdfa6ae36bc944ac` projects only current
+revision/configuration/ID-bound approvable facts, preserving priority/rank/names/topic/
+personal/relevance and pinned evidence with bounded reviewable compaction.192 fictional
+legacy reference cases generated;3 native declarations UNRUN. Snapshot helper only;
+conversation transport composition is next. See [local project conversation report](acceptance/project-conversation-local-source-20261117.md).
+Continue cached search/preferences and native response/replay wiring, then remaining tools/
+platforms and final source inventory/contracts/types/fixtures before combined tests/live.
+Current source untested/uninstalled;58/42/prior455 held; LOCAL ONLY, no remote publication.
+Private continuity snapshotabf49edcda016ca91a02a7cb34e362eccb3b863abd01ea0f67fdc035cdc6df2d
+at2026-11-17T15:48:08.595156+00:00 preserves104 indexed/6 available/98 missing transcripts.
+No account/session ownership rewrite or missing transcript recovery claim.
+
 Latest LOCAL conversation memory source `4ee520509821b39e5aaa8c9a5840fd688b6fcf9b` reuses owner-hash selection key,
 eight-entry/ten-job/ten-minute bounds, exact saved expectations, identity/explicit reset
 and post-trigger ACK. Expired load proposes fresh context without rewriting the saved row;
