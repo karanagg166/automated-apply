@@ -41,6 +41,13 @@ fn numbered_slug(value: &str) -> Option<&str> {
     }
     number(value).then_some(value)
 }
+fn hiringcafe_segment(segment: &str) -> Option<&str> {
+    if ascii_id(segment, 16, 16) {
+        return Some(segment);
+    }
+    let (title, id) = segment.rsplit_once('-')?;
+    (segment.len() <= 255 && slug(title) && ascii_id(id, 16, 16)).then_some(id)
+}
 fn portal_host(platform: &str, host: &str) -> bool {
     let bare = host.strip_prefix("www.").unwrap_or(host);
     match platform {
@@ -77,7 +84,7 @@ fn identity(platform: &str, url: &Url) -> Option<String> {
         ("internshala", [kind @ ("job" | "internship"), "detail", listing]) if slug(listing) => {
             Some(format!("{kind}/{listing}"))
         }
-        ("hiringcafe", ["job", id]) if ascii_id(id, 16, 16) => Some((*id).into()),
+        ("hiringcafe", ["job", segment]) => hiringcafe_segment(segment).map(str::to_owned),
         _ => None,
     }
 }
@@ -86,6 +93,10 @@ pub(super) fn portal_listing(source: &str, raw: &str) -> bool {
     exact_https(raw)
         .and_then(|url| identity(source, &url))
         .is_some()
+}
+
+pub(super) fn hiringcafe_id(raw: &str) -> Option<String> {
+    identity("hiringcafe", &exact_https(raw)?)
 }
 
 fn portal_destination(

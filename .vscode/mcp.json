@@ -1,5 +1,9 @@
 {
   "servers": {
+    "hiringcafe": {
+      "type": "http",
+      "url": "https://hiringcafe.com/api/mcp"
+    },
     "himalayas": {
       "type": "http",
       "url": "https://mcp.himalayas.app/mcp"

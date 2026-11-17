@@ -667,6 +667,15 @@ export function JobDiscovery() {
 
               {manualSource && (
                 <div className="stack">
+                  {selectedSource === "hiringcafe" && (
+                    <a
+                      href="https://hiringcafe.com/jobs"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Browse HiringCafe listings
+                    </a>
+                  )}
                   <Field
                     label="Listing URL"
                     hint="Use the HTTPS address of the job listing you reviewed."

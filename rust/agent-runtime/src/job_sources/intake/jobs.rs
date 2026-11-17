@@ -25,7 +25,7 @@ impl Inventory {
                     return Err(Failure("public_job_legacy_identity_inventory_limit"));
                 }
                 // Malformed legacy URLs are not evidence for a merge and remain untouched.
-                if let Ok(key) = canonical(&raw) {
+                if let Ok(key) = identity_url(&raw) {
                     urls.entry(key).or_default().insert(id);
                 }
             }
@@ -40,7 +40,9 @@ impl Inventory {
     }
     pub(super) fn remember(&mut self, url: &str, id: Uuid) {
         if let Some(map) = self.urls.as_mut() {
-            map.entry(url.to_owned()).or_default().insert(id);
+            map.entry(hiringcafe_key(url).unwrap_or_else(|| url.to_owned()))
+                .or_default()
+                .insert(id);
         }
     }
 }
@@ -50,13 +52,60 @@ fn canonical(raw: &str) -> Result<String> {
         None => crate::job_urls::canonical(raw),
     }
 }
+fn identity_url(raw: &str) -> Result<String> {
+    match hiringcafe_key(raw) {
+        Some(key) => Ok(key),
+        None => canonical(raw),
+    }
+}
+fn hiringcafe_key(raw: &str) -> Option<String> {
+    crate::packet_platform::hiringcafe_id(raw).map(|id| format!("hiringcafe:{id}"))
+}
+
+async fn hiringcafe_aliases(
+    tx: &mut Transaction<'_, Postgres>,
+    posting_id: &str,
+) -> Result<Vec<Uuid>> {
+    // Include old URL-derived observation keys and jobs whose canonical key is an ATS URL.
+    let rows: Vec<(Uuid, String)> = sqlx::query_as(
+        "SELECT id,original_url FROM job_source_observations WHERE source='hiringcafe'
+         AND right(rtrim(split_part(split_part(original_url,'#',1),'?',1),'/'),16)=$1
+         ORDER BY id LIMIT 101",
+    )
+    .bind(posting_id)
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(db)?;
+    if rows.len() > 100 {
+        return Err(Failure("public_job_source_identity_ambiguous"));
+    }
+    Ok(rows
+        .into_iter()
+        .filter_map(|(id, url)| {
+            (crate::packet_platform::hiringcafe_id(&url).as_deref() == Some(posting_id))
+                .then_some(id)
+        })
+        .collect())
+}
+
 pub(super) async fn resolve(
     tx: &mut Transaction<'_, Postgres>,
     inventory: &mut Inventory,
     item: &Value,
 ) -> Result<(Option<Value>, Option<Value>, &'static str)> {
     let observation = super::super::identity::observation_key(item)?;
-    let rows:Vec<Uuid>=sqlx::query_scalar("SELECT id FROM job_source_observations WHERE source=$1 AND identity_key=$2 ORDER BY id LIMIT 2").bind(item["source_name"].as_str()).bind(observation).fetch_all(&mut **tx).await.map_err(db)?;
+    let mut rows:Vec<Uuid>=sqlx::query_scalar("SELECT id FROM job_source_observations WHERE source=$1 AND identity_key=$2 ORDER BY id LIMIT 2").bind(item["source_name"].as_str()).bind(observation).fetch_all(&mut **tx).await.map_err(db)?;
+    let incoming = item["original_url"].as_str().ok_or_else(invalid)?;
+    let hiringcafe = if item["source_name"] == "hiringcafe" {
+        crate::packet_platform::hiringcafe_id(incoming)
+    } else {
+        None
+    };
+    if let Some(posting_id) = hiringcafe.as_deref() {
+        rows.extend(hiringcafe_aliases(tx, posting_id).await?);
+        rows.sort_unstable();
+        rows.dedup();
+    }
     if rows.len() > 1 {
         return Err(Failure("public_job_source_identity_ambiguous"));
     }
@@ -74,14 +123,20 @@ pub(super) async fn resolve(
     .await
     .map_err(db)?;
     // Complete URL identity is required even if an indexed match exists: a legacy alias may conflict.
-    ids.extend(inventory.legacy(tx, url).await?);
+    let url_identity = hiringcafe_key(url).unwrap_or_else(|| url.to_owned());
+    ids.extend(inventory.legacy(tx, &url_identity).await?);
+    let mut portal_only_alias = false;
     if let Some(prior) = &prior {
-        let old_original = canonical(prior["original_url"].as_str().ok_or_else(invalid)?)?;
-        let new_original = canonical(item["original_url"].as_str().ok_or_else(invalid)?)?;
+        let old_original = identity_url(prior["original_url"].as_str().ok_or_else(invalid)?)?;
+        let new_original = identity_url(incoming)?;
         // An ATS identity can be the job's canonical key while the observation retains the portal URL.
-        if old_original != url && old_original != new_original {
+        if old_original != url_identity && old_original != new_original {
             return Err(Failure("public_job_source_url_identity_conflict"));
         }
+        portal_only_alias = hiringcafe.is_some()
+            && item["data_provenance"]["import_mode"] == "manual"
+            && old_original == new_original
+            && new_original == url_identity;
         ids.push(id(&prior["job_id"])?);
     }
     ids.sort();
@@ -95,8 +150,25 @@ pub(super) async fn resolve(
         None
     };
     if let Some(job) = &job {
-        if !sql::empty(&job["canonical_key"]) && job["canonical_key"] != url {
-            return Err(Failure("public_job_source_url_identity_conflict"));
+        let saved = &job["canonical_key"];
+        if !sql::empty(saved) && *saved != url {
+            let same_alias = hiringcafe.is_some()
+                && saved.as_str().and_then(hiringcafe_key).as_deref()
+                    == Some(url_identity.as_str());
+            let metadata = &job["discovery_metadata"];
+            let preserved_ats = portal_only_alias
+                && metadata["source_name"] == "hiringcafe"
+                && metadata["canonical_url"] == *saved
+                && metadata["original_url"]
+                    .as_str()
+                    .and_then(hiringcafe_key)
+                    .as_deref()
+                    == Some(url_identity.as_str())
+                && crate::job_urls::ats(job["application_url"].as_str())?.as_deref()
+                    == saved.as_str();
+            if !same_alias && !preserved_ats {
+                return Err(Failure("public_job_source_url_identity_conflict"));
+            }
         }
     }
     let reason = if prior.is_some() {

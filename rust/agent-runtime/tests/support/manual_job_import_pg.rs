@@ -1,5 +1,101 @@
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn hiringcafe_import_accepts_attributed_slugs_and_reuses_existing_source_evidence() {
+    let mut c = public_intake_fixture().await;
+    let (base, stop, server) = http_fixture().await;
+    let client = client();
+    let posting = "https://hiringcafe.com/job/rust-engineer-fictional-abc123abc123abcd?utm_source=claude&utm_medium=mcp";
+    let employer = "https://jobs.lever.co/fictional/12345678-1234-4234-8234-123456789012/apply";
+    let import = |url: &str, application: Option<&str>| {
+        let route = format!("{base}/api/v1/discovery/runs/{}", Uuid::new_v4());
+        client.put(route).bearer_auth(HOST_TOKEN).json(&json!({
+            "source":"hiringcafe","use_profile":false,"manual_jobs":[{
+                "source_name":"hiringcafe","title":"Fictional Rust engineer","original_url":url,
+                "application_url":application
+            }]
+        }))
+    };
+    let first: Value = import(posting, Some(employer))
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(first["counts"]["inserted"], 1);
+    let id: Uuid = first["job_ids"][0].as_str().unwrap().parse().unwrap();
+    let job: Value = sqlx::query_scalar("SELECT to_jsonb(j) FROM jobs j WHERE id=$1")
+        .bind(id)
+        .fetch_one(&mut c)
+        .await
+        .unwrap();
+    assert_eq!(job["application_url"], employer);
+    let original: Vec<(String, String)> =
+        sqlx::query_as("SELECT source,original_url FROM job_source_observations WHERE job_id=$1")
+            .bind(id)
+            .fetch_all(&mut c)
+            .await
+            .unwrap();
+    assert_eq!(original, vec![("hiringcafe".into(), posting.into())]);
+    let prepared = automated_apply_agents::packet_platform::select_at(
+        &job,
+        &original,
+        &Default::default(),
+        chrono::Utc::now(),
+    )
+    .unwrap();
+    assert_eq!(
+        prepared.destination.application_url.as_deref(),
+        posting.split_once('?').map(|(link, _)| link)
+    );
+
+    for alias in [
+        "https://hiringcafe.com/job/abc123abc123abcd",
+        "https://www.hiringcafe.com/job/updated-title-abc123abc123abcd",
+    ] {
+        let reused: Value = import(alias, None)
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(reused["counts"]["duplicate"], 1);
+        assert_eq!(reused["job_ids"], json!([id]));
+    }
+    let conflict = import(
+        "https://hiringcafe.com/job/new-title-abc123abc123abcd",
+        Some("https://jobs.lever.co/different/12345678-1234-4234-8234-123456789012/apply"),
+    )
+    .send()
+    .await
+    .unwrap();
+    assert!(!conflict.status().is_success());
+    assert_eq!(
+        sqlx::query_scalar::<_, Value>("SELECT to_jsonb(j) FROM jobs j WHERE id=$1")
+            .bind(id)
+            .fetch_one(&mut c)
+            .await
+            .unwrap(),
+        job
+    );
+    let retained: Vec<(String, String)> =
+        sqlx::query_as("SELECT source,original_url FROM job_source_observations WHERE job_id=$1")
+            .bind(id)
+            .fetch_all(&mut c)
+            .await
+            .unwrap();
+    assert_eq!(retained, original);
+    stop.cancel();
+    server.await.unwrap();
+}
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
 async fn manual_platform_discovery_saves_review_evidence_and_replays_without_mutating_duplicates() {
     let mut c = public_intake_fixture().await;
     let (base, stop, server) = http_fixture().await;

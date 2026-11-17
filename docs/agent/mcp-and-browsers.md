@@ -95,6 +95,16 @@ does not expose actor execution. Existing approved actor/run/dataset controls an
 provider budgets remain necessary for application discovery through Apify. MCP config
 changes may require a fresh client session before its catalog is visible.
 
+## HiringCafe
+
+The project VS Code and shared MCP configurations register HiringCafe's official
+Streamable HTTP connector at `https://hiringcafe.com/api/mcp`. Use its public
+`search_jobs` and `get_job_details` tools for conversational searches, then
+review the posting and import its listing URL in the dashboard's HiringCafe
+source. Public search needs no account. The connector documents rate limits and
+separate approval for account reads. Employer applications are handled outside
+the connector. [HiringCafe connector documentation](https://hiringcafe.com/documentation/hiringcafe-claude-connector)
+
 ## Browsers
 
 New browser-assistant defaults use `BROWSER_CHANNEL=brave`. `msedge` selects installed

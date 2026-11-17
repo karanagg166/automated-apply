@@ -48,6 +48,9 @@ pub(crate) fn requires_manual_handoff(source: &str) -> bool {
 pub(crate) fn portal_listing(source: &str, raw: &str) -> bool {
     expanded::portal_listing(source, raw)
 }
+pub(crate) fn hiringcafe_id(raw: &str) -> Option<String> {
+    expanded::hiringcafe_id(raw)
+}
 fn text<'a>(job: &'a Value, key: &str) -> Result<&'a str> {
     job[key]
         .as_str()

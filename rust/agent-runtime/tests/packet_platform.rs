@@ -149,6 +149,35 @@ fn expanded_postings_require_the_saved_platform_identity_and_current_status() {
 }
 
 #[test]
+fn hiringcafe_connector_slug_links_bind_by_the_full_posting_id() {
+    let now = "2026-11-18T12:00:00Z".parse().unwrap();
+    let canonical = "https://hiringcafe.com/job/rust-engineer-fictional-abc123abc123abcd";
+    let observed = format!("{canonical}?utm_source=claude&utm_medium=mcp");
+    let mut job = json!({
+        "source_platform":"hiringcafe","job_url":canonical,"status":"discovered",
+        "source_verification_status":"requires_review",
+        "discovery_metadata":{"source_name":"hiringcafe","data_provenance":{"import_mode":"manual"}}
+    });
+    let evidence = [("hiringcafe".into(), observed)];
+    let select =
+        |job: &Value| packet_platform::select_at(job, &evidence, &Policy::default(), now).unwrap();
+    assert_eq!(
+        select(&job).destination.application_url.as_deref(),
+        Some(canonical)
+    );
+    job["application_url"] = json!("https://hiringcafe.com/job/fresh-slug-abc123abc123abcd");
+    assert!(select(&job).destination.valid);
+    for mismatch in [
+        "https://hiringcafe.com/job/other-abc123abc123abce",
+        "https://hiringcafe.com/job/path%2Fother-abc123abc123abcd",
+        "https://hiringcafe.com/jobs/not-a-listing-abc123abc123abcd",
+    ] {
+        job["application_url"] = json!(mismatch);
+        assert!(!select(&job).destination.valid, "{mismatch}");
+    }
+}
+
+#[test]
 fn public_feed_handoff_preserves_exact_attribution_and_application_links() {
     let now = "2026-11-18T12:00:00Z".parse().unwrap();
     for (platform, canonical, raw) in [
