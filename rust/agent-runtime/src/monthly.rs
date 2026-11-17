@@ -38,12 +38,14 @@ pub struct Month(String, Provider);
 enum Provider {
     Cohere,
     Gemini,
+    Agy,
 }
 impl Provider {
     fn name(self) -> &'static str {
         match self {
             Self::Cohere => "cohere",
             Self::Gemini => "gemini",
+            Self::Agy => "agy",
         }
     }
 }
@@ -64,6 +66,15 @@ pub async fn reserve_gemini(
         return Err(Failure("monthly_request_limit"));
     }
     reserve_capped(connection, Provider::Gemini, maximum as i32, 0.0).await
+}
+pub(crate) async fn reserve_cli(connection: &mut PgConnection, configured: u32) -> Result<Month> {
+    if configured == 0 {
+        return Err(Failure("monthly_request_limit"));
+    }
+    if configured > 10000 {
+        return Err(Failure("invalid_provider_budget"));
+    }
+    reserve_capped(connection, Provider::Agy, configured as i32, 0.0).await
 }
 pub(crate) async fn gemini_retry_after(connection: &mut PgConnection) -> Result<Option<u32>> {
     let seconds: Option<i64> = sqlx::query_scalar("SELECT CEIL(EXTRACT(EPOCH FROM (MAX(cooldown_until)-clock_timestamp())))::bigint FROM llm_monthly_usage WHERE provider='gemini' AND cooldown_until>clock_timestamp()")

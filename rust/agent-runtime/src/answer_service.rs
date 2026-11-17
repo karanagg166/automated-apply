@@ -31,6 +31,7 @@ enum Writer {
     Cohere(CohereModel),
     Gemini(crate::gemini::GeminiModel),
     Ollama(crate::ollama::OllamaModel),
+    Cli(crate::cli_provider::CliModel),
 }
 impl Settings {
     /// The questionnaire runner may use only the separately authorized Cohere writer for narratives.
@@ -44,6 +45,7 @@ impl Settings {
                 Writer::Cohere(model) => model.share_gate(gate),
                 Writer::Gemini(model) => model.gate = gate,
                 Writer::Ollama(model) => model.gate = gate,
+                Writer::Cli(model) => model.gate = gate,
             }
         }
     }
@@ -96,7 +98,10 @@ impl Settings {
                 Err(error) => out.unavailable = error,
             }
         } else if provider == "agy" {
-            out.unavailable = Failure("provider_execution_not_authorized");
+            match crate::cli_provider::CliModel::from_values(values, fixture) {
+                Ok(model) => out.writing = Some(Writer::Cli(model)),
+                Err(error) => out.unavailable = error,
+            }
         } else if provider == "gemini" {
             match crate::gemini::GeminiModel::from_values(values, fixture) {
                 Ok(model) => out.writing = Some(Writer::Gemini(model)),
@@ -504,6 +509,16 @@ pub async fn generate(
                 .await
         }
         Writer::Ollama(provider) => {
+            provider
+                .write_answer(
+                    connection,
+                    &writing.request.question,
+                    &writing.context,
+                    &writing.instructions,
+                )
+                .await
+        }
+        Writer::Cli(provider) => {
             provider
                 .write_answer(
                     connection,

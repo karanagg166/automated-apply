@@ -1,5 +1,7 @@
 # Complete-source delivery plan — 2026-11-16
 
+CLI writer source design2026-11-17: port legacy AGY with fixed argv and cleared environment, exact frozen no-tools primary-agent profile, existing owner-trusted private runtime workspace, no-overage settings and explicit enabled/quota/model selection. Do not create owner trust/authentication, change shared settings or inherit provider credentials. Use existing llm_monthly_usage provider=agy with one durable request before process work; no automatic retry/refund. Keep schema/log artifacts private and bounded, outside development/release source. Verify metadata/tool-free init before writing a candidate prompt. Parse every stdout frame including final unterminated data, refuse advertised/called tools/subagents, require exactly one successful one-turn result and selected usage. Bound stdout/stderr64KiB each, enforce an absolute deadline, kill/reap the owned process group on failure/cancellation, and preserve only fixed errors. Integrate the same grounding/context generation checks in answer_service; keep questionnaire Cohere-only and no implicit CLI selection. Add fictional process/protocol/PG regression source before combined tests. Local fallback/rearranger follows this primary writer boundary separately.
+
 MCP discovery composition design2026-11-17: add a narrow bridge submodule for source/status,
 actual-query previews, retained job/startup/read UUID reads and explicit local completion.
 Optional original dispatch/read recovery and metadata inspection have separate private
