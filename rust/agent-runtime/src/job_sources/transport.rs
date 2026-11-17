@@ -46,6 +46,10 @@ struct Work {
 }
 impl Work {
     fn push(&mut self, board: &str, raw: &Value, parsed: Result<Value>) -> Result<()> {
+        if Instant::now() >= self.deadline {
+            self.state = "outcome_unknown";
+            return Err(Failure("public_job_batch_timeout"));
+        }
         let job = match parsed {
             Ok(v) => v,
             Err(_) => {
@@ -516,7 +520,12 @@ impl Client {
                     .unwrap_or_default()
                     .min(Duration::from_secs(75));
             match tokio::time::timeout_at(work.deadline, self.collect(plan, &mut work)).await {
-                Ok(Ok(())) => true,
+                Ok(Ok(())) if Instant::now() < work.deadline => true,
+                Ok(Ok(())) => {
+                    work.state = "outcome_unknown";
+                    work.errors.insert("public_job_batch_timeout");
+                    false
+                }
                 Ok(Err(e)) => {
                     work.errors.insert(e.0);
                     false

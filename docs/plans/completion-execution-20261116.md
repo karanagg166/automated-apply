@@ -1,5 +1,16 @@
 # Complete-source delivery plan — 2026-11-16
 
+Public owner-run admission design 2026-11-17: atomically create the original actual
+discovery_runs row, private owner/profile/query scope and original child public batch/
+source window under one owner-first SERIALIZABLE transaction. Reuse a transaction-local
+child admission helper, with final independent ACKs after all parent writes/triggers.
+Use the requested native UUID as the real run ID and a bounded fallback compatibility
+key; never attach a preexisting unscoped child, rewrite a legacy run or steal a reused
+compatibility key. Replay validates original request hash and returns retained state
+without refreshing profile/config, expiry or network authority. Only the returned
+in-memory original claim can acquire its child observation; source and parent metadata
+must remain readable without dispatch and cannot claim local job intake is complete.
+
 Public owner-run scope design 2026-11-17: freeze the actual RunRequest and original
 request hash (excluding the compatibility idempotency field). Preserve use_profile,
 explicit versus effective query, and actual title/location/remote/employment expansion

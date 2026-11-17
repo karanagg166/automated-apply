@@ -8,5 +8,6 @@ pub mod identity;
 pub mod plan;
 pub mod records;
 pub mod rules;
+pub mod runs;
 pub mod scope;
 pub mod transport;

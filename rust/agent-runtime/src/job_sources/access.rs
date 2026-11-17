@@ -90,7 +90,8 @@ pub fn visible(journal: &Value, id: Uuid, now: DateTime<Utc>) -> Result<Value> {
         .and_then(|s| s.parse::<Uuid>().ok())
         .ok_or_else(invalid)?;
     if started > now
-        || expires != started + chrono::Duration::seconds(75)
+        || expires <= started
+        || expires > started + chrono::Duration::seconds(75)
         || access != started + chrono::Duration::seconds(source.interval_seconds())
         || invocation.is_nil()
         || journal["configuration_hash"]
@@ -131,25 +132,42 @@ pub async fn admit(
     id: Uuid,
 ) -> Result<Admission> {
     let query = super::contract::query(query)?;
-    let hash = request_hash(source, &query);
     let mut tx = transaction(c).await?;
+    let admission = admit_in(&mut tx, settings, source, query, id, None).await?;
+    tx.commit()
+        .await
+        .map_err(|_| Failure("public_job_commit_outcome_unknown"))?;
+    Ok(admission)
+}
+pub(super) async fn admit_in(
+    tx: &mut Transaction<'_, Postgres>,
+    settings: &Settings,
+    source: Source,
+    query: Value,
+    id: Uuid,
+    expires_cap: Option<DateTime<Utc>>,
+) -> Result<Admission> {
+    let query = super::contract::query(query)?;
+    let hash = request_hash(source, &query);
     let now: DateTime<Utc> = sqlx::query_scalar("SELECT clock_timestamp()")
-        .fetch_one(&mut *tx)
+        .fetch_one(&mut **tx)
         .await
         .map_err(db)?;
-    if let Some(saved) = load_in(&mut tx, id).await? {
+    if let Some(saved) = load_in(tx, id).await? {
         if saved["input_hash"] != hash {
             return Err(Failure("public_job_request_conflict"));
         }
         let out = visible(&saved, id, now)?;
-        tx.commit()
-            .await
-            .map_err(|_| Failure("public_job_commit_outcome_unknown"))?;
         return Ok(Admission::Retained(out));
     }
     let snapshot = Snapshot::build(settings, source, query.clone())?;
+    let expires = (now + chrono::Duration::seconds(75))
+        .min(expires_cap.unwrap_or(now + chrono::Duration::seconds(75)));
+    if expires <= now {
+        return Err(Failure("public_job_original_grant_expired"));
+    }
     let next = now + chrono::Duration::seconds(source.interval_seconds());
-    let saved:Option<DateTime<Utc>>=sqlx::query_scalar("INSERT INTO provider_access_windows(provider,next_allowed_at) VALUES($1,$2) ON CONFLICT(provider) DO UPDATE SET next_allowed_at=EXCLUDED.next_allowed_at WHERE provider_access_windows.next_allowed_at<=$3 RETURNING next_allowed_at").bind(source.name()).bind(next).bind(now).fetch_optional(&mut *tx).await.map_err(db)?;
+    let saved:Option<DateTime<Utc>>=sqlx::query_scalar("INSERT INTO provider_access_windows(provider,next_allowed_at) VALUES($1,$2) ON CONFLICT(provider) DO UPDATE SET next_allowed_at=EXCLUDED.next_allowed_at WHERE provider_access_windows.next_allowed_at<=$3 RETURNING next_allowed_at").bind(source.name()).bind(next).bind(now).fetch_optional(&mut **tx).await.map_err(db)?;
     if saved.is_none() {
         return Err(Failure("public_job_source_rate_limited"));
     }
@@ -157,7 +175,6 @@ pub async fn admit(
         return Err(ack());
     }
     let invocation = Uuid::new_v4();
-    let expires = now + chrono::Duration::seconds(75);
     let journal = json!({"schema":1,"request_id":id,"source":source.name(),"query":query,"input_hash":hash,"configuration_hash":snapshot.context(),"invocation_id":invocation,"state":"dispatch_admitted","batch_admissions":1,"started_at":now.to_rfc3339(),"expires_at":expires.to_rfc3339(),"access_window_until":next.to_rfc3339()});
     visible(&journal, id, now)?;
     let saved: Option<Value> = sqlx::query_scalar(
@@ -165,7 +182,7 @@ pub async fn admit(
     )
     .bind(key(id))
     .bind(&journal)
-    .fetch_optional(&mut *tx)
+    .fetch_optional(&mut **tx)
     .await
     .map_err(db)?;
     if saved.as_ref() != Some(&journal) {
@@ -174,15 +191,12 @@ pub async fn admit(
     let pace: Option<DateTime<Utc>> =
         sqlx::query_scalar("SELECT next_allowed_at FROM provider_access_windows WHERE provider=$1")
             .bind(source.name())
-            .fetch_optional(&mut *tx)
+            .fetch_optional(&mut **tx)
             .await
             .map_err(db)?;
-    if pace != Some(next) || load_in(&mut tx, id).await?.as_ref() != Some(&journal) {
+    if pace != Some(next) || load_in(tx, id).await?.as_ref() != Some(&journal) {
         return Err(ack());
     }
-    tx.commit()
-        .await
-        .map_err(|_| Failure("public_job_commit_outcome_unknown"))?;
     Ok(Admission::Original(Box::new(Claim {
         id,
         journal,
@@ -193,6 +207,24 @@ pub async fn admit(
             expires,
         }),
     })))
+}
+pub(super) async fn assert_original_in(
+    tx: &mut Transaction<'_, Postgres>,
+    claim: &Claim,
+) -> Result<()> {
+    if claim.grant.is_none() || load_in(tx, claim.id).await?.as_ref() != Some(&claim.journal) {
+        return Err(ack());
+    }
+    let next: Option<DateTime<Utc>> =
+        sqlx::query_scalar("SELECT next_allowed_at FROM provider_access_windows WHERE provider=$1")
+            .bind(claim.journal["source"].as_str().ok_or_else(invalid)?)
+            .fetch_optional(&mut **tx)
+            .await
+            .map_err(db)?;
+    if next != Some(time(&claim.journal["access_window_until"])?) {
+        return Err(ack());
+    }
+    Ok(())
 }
 pub async fn read(c: &mut PgConnection, id: Uuid) -> Result<Value> {
     let mut tx = c.begin().await.map_err(db)?;

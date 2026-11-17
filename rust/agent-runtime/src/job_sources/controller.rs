@@ -22,17 +22,22 @@ impl Service<'_> {
     ) -> Result<Value> {
         match access::admit(c, self.settings, source, query, id).await? {
             Admission::Retained(v) => Ok(v),
-            Admission::Original(mut claim) => {
-                let grant = claim
-                    .grant
-                    .take()
-                    .ok_or(Failure("public_job_original_grant_missing"))?;
-                let outcome = self.client.execute(grant).await;
-                super::findings::retain(c, *claim, outcome).await
-            }
+            Admission::Original(claim) => acquire_original(c, self.client, *claim).await,
         }
     }
     pub async fn read(&self, c: &mut PgConnection, id: Uuid) -> Result<Value> {
         access::read(c, id).await
     }
+}
+pub(super) async fn acquire_original(
+    c: &mut PgConnection,
+    client: &Client,
+    mut claim: access::Claim,
+) -> Result<Value> {
+    let grant = claim
+        .grant
+        .take()
+        .ok_or(Failure("public_job_original_grant_missing"))?;
+    let outcome = client.execute(grant).await;
+    super::findings::retain(c, claim, outcome).await
 }
