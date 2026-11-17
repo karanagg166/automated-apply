@@ -7,6 +7,21 @@ online PostgreSQL database. A missing Codex sidebar entry does not establish del
 
 ## Current work
 
+Latest transport/finding source `5a43ac52f64be2fc667c6b1e0d3c413c92f603bf` consumes
+original search grants through a fixed sensitive-header, no-proxy/retry/redirect POST,
+15-second deadline and 1-MiB stream bound. Selected findings and exact original terminal
+budget evidence commit before local persistence. GET/replay cannot renew authority;
+response loss remains unknown and rate responses set cooldown. One standard and nine
+PG/loopback declarations are UNRUN. See [qualified search transport report](acceptance/people-search-transport-source-20261117.md).
+Continue paid finding-to-contact completion with current input/settings/company guards,
+native UUID owner endpoint/dashboard recovery and remaining agreed full source before
+combined gates. Paid controller results currently explicitly say not_imported; host routes
+are not yet wired. No current tests/build/check/live/install or estimate increase; 58/42
+and prior 455 held. Full host uninstalled; no actual provider/budget operation occurred.
+Private continuity snapshot aed8565adcb1e0b9ac4af60989308444ee24c60d845525855766aa3c1222ad0e
+at 2026-11-17T00:14:30Z preserves 104 indexed / 6 available / 98 missing transcripts.
+No account/session ownership rewrite or unavailable transcript recovery claim.
+
 Latest paid research admission source `b8b83b7577271a572408cfdcb213cc20efedf215`
 adds saved credential/rights/domain/paid gates, original UUID intents/30-second opaque
 grants and exact local search-request reservations. Replays/GET cannot rebuild grants;
