@@ -304,6 +304,15 @@ pub async fn manual(
         return Err(Failure("public_research_manual_import_required"));
     }
     let hash = crate::startup_catalog::identity::content_hash(&query);
+    let paid: bool =
+        sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM owner_preferences WHERE key=$1)")
+            .bind(super::runs::key(request))
+            .fetch_one(&mut *tx)
+            .await
+            .map_err(db)?;
+    if paid {
+        return Err(Failure("public_research_request_conflict"));
+    }
     let old:Option<Option<Value>>=sqlx::query_scalar("SELECT CASE WHEN octet_length(value::text)<=262144 THEN value ELSE NULL END FROM owner_preferences WHERE key=$1 FOR UPDATE").bind(key(request)).fetch_optional(&mut *tx).await.map_err(db)?;
     if let Some(old) = old {
         let old = old.ok_or_else(invalid)?;

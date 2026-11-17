@@ -1,5 +1,20 @@
 # Complete-source delivery plan — 2026-11-16
 
+Paid professional search admission design 2026-11-17: the native owner endpoint will
+use a UUID in its path so existing legacy POST handlers cannot silently ignore a new
+idempotency header and bill again. Keep actual PeopleQuery unchanged. Before one fixed
+Serper POST, commit the exact input/configuration/company snapshot, private single-use
+grant, original deadline and one locally capped search-request reservation under the
+owner fence. Reuse the existing numeric budget/cooldown tables with a separate serper /
+people_ namespace; local units are requests, never a claim of current provider credits
+or dollars. Require local credentials, explicit paid opt-in, rights/permission evidence,
+profile-result retention or exact official-domain rights. Replay/GET returns retained
+state without rebuilding a grant, refreshing deadlines or refunding uncertain cost.
+Then retain only parsed professional findings before separate local ingestion. Original
+input/settings/company changes hold results; a saved finding may support a reviewed
+local completion without authorizing a new provider request. No raw snippets, arbitrary
+result URL reads, credentials in output, retries, redirects or fallback paid calls.
+
 Professional manual ingestion design 2026-11-17: commit one UUID-scoped local import
 receipt and all candidate/contact changes atomically under owner-first SERIALIZABLE
 and the existing ingestion fence. Complete replay returns the original result without

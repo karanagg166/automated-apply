@@ -7,15 +7,19 @@ fn invalid_budget() -> Failure {
     Failure("invalid_contact_budget")
 }
 fn valid_provider(provider: &str) -> Result<()> {
-    if matches!(provider, "apollo" | "signalhire") {
+    if matches!(provider, "apollo" | "signalhire" | "serper") {
         Ok(())
     } else {
         Err(invalid_budget())
     }
 }
-fn valid_id(id: &str) -> Result<()> {
+fn valid_id(provider: &str, id: &str) -> Result<()> {
     if id.len() <= 100
-        && id.starts_with("contact_")
+        && id.starts_with(if provider == "serper" {
+            "people_"
+        } else {
+            "contact_"
+        })
         && id
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-'))
@@ -51,6 +55,9 @@ pub struct Reservation {
     provider: String,
     month: String,
     amount: i64,
+    monthly_reserved: String,
+    created_at: DateTime<Utc>,
+    cooldown: Option<DateTime<Utc>>,
 }
 impl Reservation {
     pub fn id(&self) -> &str {
@@ -79,7 +86,7 @@ pub async fn reserve(
     Ok(reservation)
 }
 /// Caller holds the shared owner fence in a SERIALIZABLE transaction.
-pub(super) async fn reserve_in(
+pub(crate) async fn reserve_in(
     tx: &mut Transaction<'_, Postgres>,
     provider: &str,
     id: &str,
@@ -87,7 +94,7 @@ pub(super) async fn reserve_in(
     maximum: i64,
 ) -> Result<Reservation> {
     valid_provider(provider)?;
-    valid_id(id)?;
+    valid_id(provider, id)?;
     if !(1..=100).contains(&amount) || maximum < amount || maximum > 9_999_999_999 {
         return Err(invalid_budget());
     }
@@ -116,6 +123,8 @@ pub(super) async fn reserve_in(
             return Err(Failure("contact_provider_budget_exhausted"));
         }
     }
+    let old_total = previous.as_ref().map(|v| v.0.clone()).unwrap_or("0".into());
+    let expected_cooldown = previous.as_ref().and_then(|v| v.3);
     let written:Option<Value>=sqlx::query_scalar("INSERT INTO discovery_budget_reservations(id,provider,month,reserved,provider_run_id,reported_actual,state,created_at) VALUES($1,$2,$3,$4::numeric,NULL,NULL,'reserved',$5) ON CONFLICT(id) DO NOTHING RETURNING jsonb_build_object('id',id,'provider',provider,'month',month,'amount_exact',reserved=$4::numeric,'provider_run_id',provider_run_id,'reported_actual',reported_actual,'state',state,'created_at_exact',created_at=$5)").bind(id).bind(provider).bind(&month).bind(amount.to_string()).bind(now).fetch_optional(&mut **tx).await.map_err(db)?;
     if written
         != Some(
@@ -132,12 +141,31 @@ pub(super) async fn reserve_in(
     if accepted != Some(true) {
         return Err(ack());
     }
-    Ok(Reservation {
+    let (total,correct):(String,bool)=sqlx::query_as("SELECT reserved::text,reserved=round($3::numeric+$4::numeric,6) AND cooldown_until IS NOT DISTINCT FROM $5 FROM discovery_monthly_budgets WHERE provider=$1 AND month=$2").bind(provider).bind(&month).bind(old_total).bind(amount.to_string()).bind(expected_cooldown).fetch_one(&mut **tx).await.map_err(db)?;
+    if !correct {
+        return Err(ack());
+    }
+    let reservation = Reservation {
         id: id.into(),
         provider: provider.into(),
         month,
         amount,
-    })
+        monthly_reserved: total,
+        created_at: now,
+        cooldown: expected_cooldown,
+    };
+    assert_reserved_in(tx, &reservation).await?;
+    Ok(reservation)
+}
+pub(crate) async fn assert_reserved_in(
+    tx: &mut Transaction<'_, Postgres>,
+    reservation: &Reservation,
+) -> Result<()> {
+    let correct:Option<bool>=sqlx::query_scalar("SELECT r.provider=$2 AND r.month=$3 AND r.reserved=$4::numeric AND r.provider_run_id IS NULL AND r.reported_actual IS NULL AND r.state='reserved' AND r.created_at=$5 AND b.reserved=$6::numeric AND b.cooldown_until IS NOT DISTINCT FROM $7 FROM discovery_budget_reservations r JOIN discovery_monthly_budgets b ON b.provider=r.provider AND b.month=r.month WHERE r.id=$1").bind(&reservation.id).bind(&reservation.provider).bind(&reservation.month).bind(reservation.amount.to_string()).bind(reservation.created_at).bind(&reservation.monthly_reserved).bind(reservation.cooldown).fetch_optional(&mut **tx).await.map_err(db)?;
+    if correct != Some(true) {
+        return Err(ack());
+    }
+    Ok(())
 }
 fn terminal(state: &str) -> bool {
     matches!(
@@ -167,7 +195,7 @@ pub async fn finish(
     commit(tx).await?;
     Ok(finding)
 }
-pub(super) async fn finish_in(
+pub(crate) async fn finish_in(
     tx: &mut Transaction<'_, Postgres>,
     reservation: &Reservation,
     state: &str,
@@ -208,7 +236,8 @@ pub(super) async fn finish_in(
     expected["provider_run_id"] = json!(provider_run);
     expected["reported_actual"] = json!(actual_text);
     let saved:Option<Value>=sqlx::query_scalar("UPDATE discovery_budget_reservations SET state=$2,reported_actual=$3::numeric,provider_run_id=$4 WHERE id=$1 AND state='reserved' RETURNING jsonb_build_object('id',id,'provider',provider,'month',month,'amount_exact',reserved=$5::numeric,'provider_run_id',provider_run_id,'reported_actual',reported_actual::text,'state',state,'created_at',created_at)").bind(&reservation.id).bind(state).bind(actual.map(|n|n.to_string())).bind(provider_run).bind(reservation.amount.to_string()).fetch_optional(&mut **tx).await.map_err(db)?;
-    if saved.as_ref() != Some(&expected) {
+    let actual:Option<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',id,'provider',provider,'month',month,'amount_exact',reserved=$2::numeric,'provider_run_id',provider_run_id,'reported_actual',reported_actual::text,'state',state,'created_at',created_at) FROM discovery_budget_reservations WHERE id=$1").bind(&reservation.id).bind(reservation.amount.to_string()).fetch_optional(&mut **tx).await.map_err(db)?;
+    if saved.as_ref() != Some(&expected) || actual.as_ref() != Some(&expected) {
         return Err(ack());
     }
     Ok(
@@ -222,7 +251,7 @@ pub async fn cooldown(c: &mut PgConnection, provider: &str, seconds: i64) -> Res
     commit(tx).await?;
     Ok(finding)
 }
-pub(super) async fn cooldown_in(
+pub(crate) async fn cooldown_in(
     tx: &mut Transaction<'_, Postgres>,
     provider: &str,
     seconds: i64,

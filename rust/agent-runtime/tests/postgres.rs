@@ -4088,3 +4088,4 @@ include!("support/startup_identity_pg.rs");
 include!("support/startup_runs_pg.rs");
 include!("support/startup_owner_pg.rs");
 include!("support/people_ingest_pg.rs");
+include!("support/people_search_runs_pg.rs");
