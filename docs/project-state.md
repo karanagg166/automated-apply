@@ -1,3 +1,11 @@
+## Current local work, 2026-11-18
+
+The active goal limits delivery to the owner’s laptop. GitHub pushes, pull requests, remote reports, hosted Actions and merges remain suspended until the owner reauthorizes them. Finish source and fixtures, run combined validation, then install and verify locally. See the [completion plan](plans/completion-execution-20261116.md).
+
+The latest source commits `86d438f` and `d7fddf9` port cached filters, route dashboard search preferences to the Rust service, and wire private Telegram saved-job search, selection rechecks and packet preparation. The four new native fixtures are awaiting the combined run. The estimate remains 58% complete based on the last validated baseline. Next, finish the remaining tool and platform source and inventory all test gates. See the [local source report](acceptance/conversation-saved-jobs-local-source-20261118.md).
+
+The private continuity snapshot `1495f77a45289a8500da9e4d95d675510701f66031c39dc5af2c29619311332d` at `2026-11-17T19:49:46.904063+00:00` indexed 104 threads and preserved the six transcripts present locally. The other 98 transcripts remain missing.
+
 Latest LOCAL approved-project conversation source `3ef9dd7f05affc0d8b774819fdfa6ae36bc944ac` projects only current
 revision/configuration/ID-bound approvable facts, preserving priority/rank/names/topic/
 personal/relevance and pinned evidence with bounded reviewable compaction.192 fictional
