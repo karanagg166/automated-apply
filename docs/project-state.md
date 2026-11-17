@@ -2,6 +2,10 @@
 
 The active goal limits delivery to the owner’s laptop. GitHub pushes, pull requests, remote reports, hosted Actions and merges remain suspended until the owner reauthorizes them. Finish source and fixtures, run combined validation, then install and verify locally. See the [completion plan](plans/completion-execution-20261116.md).
 
+The latest local source `60d05a6` restores owner-approved listing imports in the Rust service and dashboard, including Internshala and HiringCafe. Two disposable PostgreSQL fixtures and one frontend fixture await the combined run. The estimate remains 58% complete. Continue platform account evidence and authorized discovery adapters. See the [manual discovery checkpoint](acceptance/manual-listing-import-local-source-20261118.md).
+
+The private continuity snapshot `4ee5aa4d185fe8b02c04f9338d0234036f7237a53c01472ddbb782c2160301a2` at `2026-11-17T20:40:03.634655+00:00` preserved the six locally available transcripts from 104 indexed threads. The remaining 98 transcripts were missing.
+
 The latest local source `8e946a2` adds packet preparation for Instahyre, Wellfound, YC Work at a Startup, Internshala, HiringCafe, Himalayas and We Work Remotely. Feed preparation keeps the exact link and the original provider attribution. Four standard fixtures and one disposable PostgreSQL fixture await the combined run. The estimate remains 58% complete. Continue the remaining platform discovery and account adapters. See the [expanded packet checkpoint](acceptance/expanded-packets-local-source-20261118.md).
 
 The private continuity snapshot `5f8b663bb2aef82e2f248aed9ec4eb5a9ab84b984ef50fcb30bccbafa9912e07` at `2026-11-17T20:28:41.971019+00:00` indexed 104 threads and preserved the six available transcripts. The other 98 transcripts remain missing.
