@@ -6,7 +6,10 @@ from uuid import UUID
 
 from fastapi.routing import APIRoute, iter_route_contexts
 
-from backend.app.browser.owner_approval import require_owner_approval
+from backend.app.browser.owner_approval import (
+    require_owner_approval,
+    verify_owner_approval,
+)
 from backend.app.core.http_policy import maximum_body_bytes, requires_owner_approval
 from backend.app.main import app
 
@@ -31,8 +34,11 @@ def test_registered_owner_approval_dependencies_match_shared_contract():
         sample = context.path
         for parameter in route.param_convertors:
             sample = sample.replace("{" + parameter + "}", str(UUID(int=1)))
+        # Browser routes verify the signature as a dependency, then claim the
+        # nonce inside the browser operation's database transaction.
         guarded = any(
-            d.call is require_owner_approval for d in route.dependant.dependencies
+            d.call in (require_owner_approval, verify_owner_approval)
+            for d in route.dependant.dependencies
         )
         for method in route.methods:
             assert requires_owner_approval(sample, method) == guarded, (

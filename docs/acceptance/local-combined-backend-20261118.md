@@ -22,3 +22,11 @@ The PostgreSQL browser tests then uncovered a one-connection deadlock. Signed br
 | Complete clean-commit validation and cutover | NOT TESTED | The focused runs cover the repaired paths. The combined run and installed operational evidence remain required. |
 
 Private combined evidence is under `.local/acceptance/20261118T091356Z-03149b5fab764dfbbab4decf4caa34f6/`.
+
+## Clean rerun at `8cf1537`
+
+The run passed 12 stages. The backend stage reported 3,426 passes, five failures and one skip in 879.86 seconds. Both source stamps identify the same clean commit. All 21 failures from the previous run cleared. The remaining 23 stages were pending after the backend failure.
+
+One failing audit expected the old owner-approval dependency name. It now checks both the legacy approval dependency and the browser signature verifier against the same eight-route policy. The other four failures came from disposable reliability cases that connected as a restricted role without its own password, or replaced the fixture administrator's password with a placeholder. Those cases now use authenticated test connections and retain the same tested connection ceilings.
+
+All 14 tests in the two affected modules passed on a fresh disposable PostgreSQL cluster. The source changes in this checkpoint are test-only. The complete release gate, local installation and live acceptance still need their own results. Private evidence is under `.local/acceptance/20261118T095126Z-0d6e7fd19a0346b492d64d0962ed1f58/`.

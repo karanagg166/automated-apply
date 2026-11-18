@@ -3,6 +3,7 @@
 import asyncio
 import json
 import os
+import secrets
 import time
 from contextlib import AsyncExitStack, asynccontextmanager, suppress
 from datetime import datetime, timedelta, timezone
@@ -34,9 +35,15 @@ async def postgres():
     admin = await asyncpg.connect(url)
     database = "reliability_test_" + uuid4().hex[:16]
     role = "reliability_role_" + uuid4().hex[:16]
+    password = secrets.token_hex(24)
     await admin.execute(f'CREATE DATABASE "{database}"')
-    await admin.execute(f'CREATE ROLE "{role}" LOGIN CONNECTION LIMIT 2')
-    child_url = urlunsplit(target._replace(path="/" + database))
+    await admin.execute(
+        f'CREATE ROLE "{role}" LOGIN CONNECTION LIMIT 2 PASSWORD \'{password}\''
+    )
+    child = target._replace(path="/" + database)
+    child_url = urlunsplit(child)
+    host = target.netloc.rsplit("@", 1)[-1]
+    role_url = urlunsplit(child._replace(netloc=f"{role}:{password}@{host}"))
     engine = create_async_engine(child_url.replace("postgresql://", "postgresql+asyncpg://", 1),
                                  poolclass=TimedAsyncAdaptedQueuePool,
                                  pool_size=1, max_overflow=0, pool_pre_ping=True,
@@ -44,7 +51,7 @@ async def postgres():
     try:
         async with engine.begin() as connection:
             await connection.run_sync(Base.metadata.create_all)
-        yield admin, child_url, role, engine
+        yield admin, child_url, role_url, engine
     finally:
         await engine.dispose()
         await admin.execute(f'DROP DATABASE "{database}" WITH (FORCE)')
@@ -135,10 +142,8 @@ async def _status(factory):
 
 
 @asynccontextmanager
-async def limited_connection(url, role):
-    target = urlsplit(url)
-    connection = await asyncpg.connect(host=target.hostname, port=target.port,
-                                       user=role, database=target.path[1:])
+async def limited_connection(role_url):
+    connection = await asyncpg.connect(role_url)
     try:
         yield connection
     finally:
@@ -147,13 +152,13 @@ async def limited_connection(url, role):
 
 @pytest.mark.asyncio
 async def test_actual_connection_limit_rejects_then_recovers_without_budget_increase(postgres):
-    _, url, role, _ = postgres
-    async with limited_connection(url, role), limited_connection(url, role):
+    _, _, role_url, _ = postgres
+    async with limited_connection(role_url), limited_connection(role_url):
         with pytest.raises(asyncpg.TooManyConnectionsError) as failure:
-            async with limited_connection(url, role):
+            async with limited_connection(role_url):
                 pytest.fail("Connection limit was not enforced")
         assert database_failure_code(failure.value) == "connection_limit"
-    async with limited_connection(url, role) as connection:
+    async with limited_connection(role_url) as connection:
         assert await connection.fetchval("SELECT 1") == 1
 
 
@@ -213,9 +218,9 @@ async def test_concurrent_claims_restart_stop_and_unknown_dispatch_remain_fenced
 async def test_readiness_detects_real_database_outage_and_recovers(postgres, async_client, monkeypatch):
     import backend.app.main as main
 
-    admin, url, role, _ = postgres
-    target = urlsplit(url)
-    config_url = f"postgresql+asyncpg://{role}:fictional@{target.hostname}:{target.port}{target.path}"
+    admin, _, role_url, _ = postgres
+    role = urlsplit(role_url).username
+    config_url = role_url.replace("postgresql://", "postgresql+asyncpg://", 1)
     engine = create_async_engine(config_url, pool_size=1, max_overflow=0, pool_pre_ping=True)
     config = Settings(_env_file=None, ENVIRONMENT="testing", DATABASE_SCHEMA="public",
                       DATABASE_URL=config_url, DB_REQUIRE_TLS=False, DB_REMOTE_ONLY=False)
@@ -241,7 +246,7 @@ async def test_readiness_live_query_is_not_queued_behind_command_transaction(pos
     from backend.app.operations.health import database_connectivity
 
     _, _, _, base_engine = postgres
-    config_url = base_engine.url.set(password="fictional").render_as_string(hide_password=False)
+    config_url = base_engine.url.render_as_string(hide_password=False)
     engine = create_async_engine(config_url, pool_size=1, max_overflow=0)
     config = Settings(_env_file=None, ENVIRONMENT="testing", DATABASE_SCHEMA="public",
                       DATABASE_URL=config_url, DB_REQUIRE_TLS=False, DB_REMOTE_ONLY=False)
@@ -276,22 +281,22 @@ async def test_readiness_live_query_is_not_queued_behind_command_transaction(pos
 
 @pytest.mark.asyncio
 async def test_four_runtime_pools_and_one_operator_fit_five_slot_role_budget(postgres):
-    admin, url, role, _ = postgres
+    admin, _, role_url, _ = postgres
+    role = urlsplit(role_url).username
     await admin.execute(f'ALTER ROLE "{role}" CONNECTION LIMIT 5')
-    target = urlsplit(url)
-    config_url = f"postgresql+asyncpg://{role}:fictional@{target.hostname}:{target.port}{target.path}"
+    config_url = role_url.replace("postgresql://", "postgresql+asyncpg://", 1)
     pools = [create_async_engine(config_url, pool_size=1, max_overflow=0) for _ in range(4)]
     try:
         async with AsyncExitStack() as stack:
             for engine in pools:
                 connection = await stack.enter_async_context(engine.connect())
                 assert await connection.scalar(text("SELECT 1")) == 1
-            async with limited_connection(url, role) as operator:
+            async with limited_connection(role_url) as operator:
                 assert await operator.fetchval("SELECT 1") == 1
                 with pytest.raises(asyncpg.TooManyConnectionsError):
-                    async with limited_connection(url, role):
+                    async with limited_connection(role_url):
                         pytest.fail("Sixth connection bypassed the fixed role budget")
-            async with limited_connection(url, role) as operator:
+            async with limited_connection(role_url) as operator:
                 assert await operator.fetchval("SELECT 1") == 1
         assert all(engine.pool.checkedout() == 0 for engine in pools)
     finally:
