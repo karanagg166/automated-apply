@@ -29,12 +29,15 @@ async function assistant(action, extra = {}) {
     task_id: selectedTask?.id,
     ...extra,
   });
-  if (!result?.ok)
-    throw Error(
+  if (!result?.ok) {
+    const error = Error(
       codePattern.test(result?.error_code)
         ? result.error_code
         : "assistant_unavailable",
     );
+    error.manual_reason = result?.manual_reason;
+    throw error;
+  }
   if (result.task) renderTask(result.task);
   return result;
 }
@@ -294,6 +297,13 @@ async function run(action, extra = {}) {
     }
     return result;
   } catch (error) {
+    if (action === "prepare" || action === "fill") {
+      resetReview();
+      plan = null;
+      text("#form-plan", "");
+      $("#approved-fields")?.replaceChildren();
+      $("#missing-answers")?.replaceChildren();
+    }
     status(formErrorMessage(error));
     text(
       "#connection-status",
@@ -391,6 +401,7 @@ click("#fill-form", async () => {
   disable("#fill-form", true);
   await run("fill", {
     interaction_authorized: $("#allow-interactions")?.checked === true,
+    field_ids: approvedFieldIds,
   });
 });
 click("#ask-telegram", () => run("ask"));

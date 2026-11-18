@@ -382,6 +382,36 @@ test("expired remote command cannot open or inspect any tab", async () => {
   );
 });
 
+test("remote open creates an inactive tab and reuses it without focusing its window", async () => {
+  const f = fixture();
+  const coordinator = new TaskCoordinator(f.api);
+  const create = f.api.tabs.create;
+  const created = [];
+  f.api.tabs.create = async (options) => {
+    created.push(options);
+    return create(options);
+  };
+  f.api.windows.update = f.api.tabs.update = async () => {
+    throw Error("remote_open_must_not_change_focus");
+  };
+  const message = {
+    action: "open",
+    application_id: app,
+    expected_task_version: f.task.version,
+    expected_packet_revision: f.task.packet_revision,
+    expected_destination: url,
+    remote_command: true,
+    remote_expires_at: new Date(Date.now() + 120000).toISOString(),
+  };
+  const opened = await coordinator.dispatch(message);
+  const reused = await coordinator.dispatch({
+    ...message,
+    expected_task_version: opened.task.version,
+  });
+  assert.deepEqual(created, [{ url, active: false, windowId: 10 }]);
+  assert.equal(reused.task.tab_id, opened.task.tab_id);
+});
+
 test("revoked origin permission blocks remote preparation before any DOM read", async () => {
   const f = fixture(),
     coordinator = new TaskCoordinator(f.api);

@@ -309,7 +309,7 @@ export class ChromeProfileConnection {
       } catch (error) {
         await this.ack(
           command,
-          /permission_required|revision_conflict|context_stale|PROFILE_|command_expired|paused_or_cancelled|unsupported_application_form/.test(
+          /permission_required|revision_conflict|context_stale|PROFILE_|command_expired|paused_or_cancelled|unsupported_application_form|application_tab_is_active/.test(
             error.message,
           )
             ? "failed"

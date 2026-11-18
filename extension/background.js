@@ -305,7 +305,16 @@ chrome.runtime.onMessage.addListener((message, sender, reply) => {
         const code = /^[A-Za-z][A-Za-z0-9_]{1,63}$/.test(error.message)
           ? error.message
           : "assistant_unavailable";
-        reply({ ok: false, error_code: code });
+        const manualReason =
+          code === "unsupported_application_form" &&
+          [
+            "cross_origin_frame",
+            "sensitive_control",
+            "security_challenge",
+          ].includes(error.manual_reason)
+            ? { manual_reason: error.manual_reason }
+            : {};
+        reply({ ok: false, error_code: code, ...manualReason });
       });
     return true;
   }

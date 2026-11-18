@@ -242,6 +242,8 @@ export class TaskCoordinator {
       !(await this.api.permissions.contains({ origins: [url.origin + "/*"] }))
     )
       throw Error("application_origin_permission_required");
+    if (message.remote_command && tab.active)
+      throw Error("application_tab_is_active");
     freshCommand();
     return tab;
   }
@@ -339,9 +341,18 @@ export class TaskCoordinator {
           const existing = await this.api.tabs.get(binding.tabId);
           if (existing.url === binding.url && existing.incognito !== true) {
             freshCommand();
-            await this.api.windows.update(existing.windowId, { focused: true });
-            await auditTab(this.api, "activation_requested", { id: binding.tabId, windowId: existing.windowId }, "automated_apply");
-            await this.api.tabs.update(binding.tabId, { active: true });
+            if (!message.remote_command) {
+              await this.api.windows.update(existing.windowId, {
+                focused: true,
+              });
+              await auditTab(
+                this.api,
+                "activation_requested",
+                { id: binding.tabId, windowId: existing.windowId },
+                "automated_apply",
+              );
+              await this.api.tabs.update(binding.tabId, { active: true });
+            }
             if (binding.windowId !== existing.windowId) {
               const task = await this.update(binding.id, "bind", {
                 ...(message.remote_command
@@ -366,14 +377,17 @@ export class TaskCoordinator {
         throw Error("unsupported_application_page_required");
       await this.profiles.verify();
       const windowId = await this.profiles.window();
-      await this.api.windows.update(windowId, { focused: true });
+      if (!message.remote_command)
+        await this.api.windows.update(windowId, { focused: true });
       freshCommand();
       const tab = await this.api.tabs.create({
         url: url.href,
-        active: true,
+        active: !message.remote_command,
         windowId,
       });
       await auditTab(this.api, "created_result", tab, "automated_apply");
+      if (message.remote_command && tab.active)
+        throw Error("application_tab_unexpectedly_active");
       // Bind after the requested navigation completes. Loading events for this
       // newly created, not-yet-bound tab cannot be mistaken for a later refresh.
       const deadline = Date.now() + 12000;
