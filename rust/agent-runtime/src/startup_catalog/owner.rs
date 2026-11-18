@@ -82,7 +82,7 @@ pub async fn preview(
             .map_err(|_| Failure("startup_catalog_database_error"))?;
     let now =
         DateTime::<Utc>::from_timestamp(now, 0).ok_or(Failure("invalid_startup_catalog_record"))?;
-    let input = research_contract::normalize(Kind::StartupRun, input, now)?;
+    let input = research_contract::normalize(Kind::StartupKeyed, input, now)?;
     let source = settings.startup(
         input["source"]
             .as_str()

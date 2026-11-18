@@ -274,7 +274,7 @@ fn fill(root: &Value, schema: &Value, name: Option<&str>, value: &mut Value) -> 
                     } else {
                         chrono::SecondsFormat::Micros
                     },
-                    false
+                    true
                 ));
             }
         }

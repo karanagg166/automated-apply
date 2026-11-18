@@ -13,17 +13,30 @@ fn now() -> chrono::DateTime<chrono::Utc> {
 }
 fn oracle(cases: Value) -> Value {
     let script = r#"import ast,asyncio,json,runpy,sys,types
-from datetime import datetime,timezone
 from enum import StrEnum
 from types import SimpleNamespace
+from urllib.parse import unquote,urlsplit,urlunsplit
+import re
+from datetime import datetime,timezone
 module=runpy.run_path('rust/scripts/export_people_contracts.py');models=module['models']();load=module['load'];root=module['ROOT']
+services=types.ModuleType('backend.app.services');services.__path__=[];sys.modules[services.__name__]=services
+people_package=types.ModuleType('backend.app.services.people_discovery');people_package.__path__=[];sys.modules[people_package.__name__]=people_package
+startup_package=types.ModuleType('backend.app.services.startup_discovery');startup_package.__path__=[];sys.modules[startup_package.__name__]=startup_package
+models_package=types.ModuleType('backend.app.models');models_package.__path__=[];sys.modules[models_package.__name__]=models_package
 scope={'__name__':'actual_pure_search','PublicPerson':models['public-person'],'StrEnum':StrEnum,'httpx':SimpleNamespace(HTTPError=RuntimeError)}
 load(scope,'backend/app/schemas/discovery.py',{'DiscoveryStatus','DiscoveryError'});scope['Status']=scope['DiscoveryStatus']
 load(scope,'backend/app/services/people_discovery/public_search.py',{'ROLE_PATTERNS'})
 tree=ast.parse((root/'backend/app/services/people_discovery/public_search.py').read_text());cls=next(n for n in tree.body if isinstance(n,ast.ClassDef));cls.body=[n for n in cls.body if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef)) and n.name in {'__init__','search','search_official'}];exec(compile(ast.Module(body=[cls],type_ignores=[]),'actual_pure_search','exec'),scope)
 base=types.ModuleType('backend.app.services.people_discovery.base');base.OfficialPersonEvidence=models['official-person-evidence'];sys.modules[base.__name__]=base
+normalizer=types.ModuleType('backend.app.services.people_discovery.normalizer')
+normalizer.__dict__.update(re=re,unquote=unquote,urlsplit=urlsplit,urlunsplit=urlunsplit,canonical_job_url=runpy.run_path('backend/app/core/job_urls.py')['canonical_job_url'])
+load(normalizer.__dict__,'backend/app/services/people_discovery/normalizer.py',{'normalize_linkedin_url','mark_ambiguities'})
+sys.modules[normalizer.__name__]=normalizer
+scope['mark_ambiguities']=normalizer.mark_ambiguities
 clock=types.ModuleType('backend.app.models.discovery');clock.now=lambda:datetime(2026,11,15,12,tzinfo=timezone.utc);sys.modules[clock.__name__]=clock
-load(scope,'backend/app/services/people_discovery/normalizer.py',{'mark_ambiguities'})
+startup=types.ModuleType('backend.app.services.startup_discovery.schemas')
+startup.CompanyObservation=runpy.run_path('rust/scripts/export_startup_contracts.py')['models']()['company-observation']
+sys.modules[startup.__name__]=startup
 async def main():
  out=[]
  for row in json.load(sys.stdin):

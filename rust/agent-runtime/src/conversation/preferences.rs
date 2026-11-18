@@ -43,8 +43,10 @@ pub fn normalize(mut input: Value) -> Result<Value> {
         }
     }
     let c = contract();
-    let value =
+    let mut value =
         crate::profile_contract::normalize_shape(&c.schema, input).map_err(|_| invalid())?;
+    let threshold = value["relevance_threshold"].as_f64().ok_or_else(invalid)?;
+    value["relevance_threshold"] = json!(threshold);
     if !c.validator.is_valid(&value) {
         return Err(invalid());
     }

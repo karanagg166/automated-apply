@@ -29,7 +29,6 @@ pub fn normalize(mut value: Value) -> Result<Value> {
     }
     let contract = contract();
     let fields = value.as_object_mut().ok_or_else(invalid)?;
-    let start_submitted = fields.contains_key("estimated_start_usd");
     for (key, p) in contract.schema["properties"]
         .as_object()
         .expect("actor properties")
@@ -63,9 +62,6 @@ pub fn normalize(mut value: Value) -> Result<Value> {
         }
     }
     for key in ["estimated_per_item_usd", "estimated_start_usd"] {
-        if key == "estimated_start_usd" && !start_submitted {
-            continue;
-        }
         if let Some(v) = fields.get_mut(key) {
             *v = crate::profile_contract::number(
                 &json!({"type":"number","minimum":0,"maximum":100}),

@@ -87,7 +87,7 @@ pub fn normalize(value: Value, now: DateTime<Utc>) -> Result<Value> {
             .contains(&key.as_str())
         {
             if let Value::String(s) = value {
-                *s = s.trim_matches(crate::context_contract::python_space).into();
+                *s = s.trim().into();
             }
         }
     }
@@ -95,7 +95,7 @@ pub fn normalize(value: Value, now: DateTime<Utc>) -> Result<Value> {
         if let Some(Value::Array(items)) = fields.get_mut(key) {
             for value in items {
                 if let Value::String(s) = value {
-                    *s = s.trim_matches(crate::context_contract::python_space).into();
+                    *s = s.trim().into();
                 }
             }
         }
@@ -279,7 +279,7 @@ pub fn query(mut value: Value) -> Result<Value> {
         if let Some(Value::Array(a)) = fields.get_mut(key) {
             for v in a {
                 if let Value::String(s) = v {
-                    *s = s.trim_matches(crate::context_contract::python_space).into();
+                    *s = s.trim().into();
                 }
             }
         }

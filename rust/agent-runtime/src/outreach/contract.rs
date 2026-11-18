@@ -64,9 +64,7 @@ pub fn normalize(kind: Kind, mut value: Value) -> Result<Value> {
         "body",
     ] {
         if let Some(Value::String(s)) = object.get_mut(key) {
-            *s = s
-                .trim_matches(crate::context_contract::python_space)
-                .to_owned();
+            *s = s.trim().to_owned();
         }
     }
     if let Some(v) = object.get_mut("use_llm") {
@@ -84,7 +82,10 @@ pub fn normalize(kind: Kind, mut value: Value) -> Result<Value> {
         }
     }
     if let Some(Value::String(s)) = object.get_mut("recipient_email") {
-        *s = crate::profile_contract::email(s).map_err(|_| invalid_input())?;
+        if s.contains(['\r', '\n']) {
+            return Err(invalid_input());
+        }
+        *s = crate::profile_contract::email(s.trim()).map_err(|_| invalid_input())?;
     }
     if matches!(kind, Kind::Edit) {
         if original.iter().all(|k| k == "expected_revision")

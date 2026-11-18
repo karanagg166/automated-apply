@@ -10,6 +10,7 @@ pub enum Kind {
     PeopleQuery,
     CompanyObservation,
     StartupRun,
+    StartupKeyed,
 }
 struct Contract {
     schema: Value,
@@ -17,7 +18,9 @@ struct Contract {
 }
 fn contract(kind: Kind) -> &'static Contract {
     fn build(raw: &str) -> Contract {
-        let schema: Value = serde_json::from_str(raw).expect("frozen research contract");
+        compile(serde_json::from_str(raw).expect("frozen research contract"))
+    }
+    fn compile(schema: Value) -> Contract {
         let validator = jsonschema::draft202012::options()
             .should_validate_formats(false)
             .build(&schema)
@@ -34,12 +37,21 @@ fn contract(kind: Kind) -> &'static Contract {
         LazyLock::new(|| build(include_str!("../schemas/company-observation.json")));
     static RUN: LazyLock<Contract> =
         LazyLock::new(|| build(include_str!("../schemas/startup-run-request.json")));
+    static KEYED: LazyLock<Contract> = LazyLock::new(|| {
+        let mut schema = RUN.schema.clone();
+        schema["required"]
+            .as_array_mut()
+            .expect("startup required fields")
+            .retain(|field| field != "idempotency_key");
+        compile(schema)
+    });
     match kind {
         Kind::PublicPerson => &PUBLIC,
         Kind::OfficialPerson => &OFFICIAL,
         Kind::PeopleQuery => &PEOPLE,
         Kind::CompanyObservation => &COMPANY,
         Kind::StartupRun => &RUN,
+        Kind::StartupKeyed => &KEYED,
     }
 }
 fn invalid() -> Failure {
@@ -90,9 +102,9 @@ fn actual_time(value: &mut Value, now: DateTime<Utc>) -> Result<()> {
 }
 fn trim(value: &mut Value) {
     if let Value::String(s) = value {
-        *s = s
-            .trim_matches(crate::context_contract::python_space)
-            .to_owned();
+        // Pydantic's str_strip_whitespace follows Unicode whitespace.  Its
+        // behavior deliberately preserves ASCII information separators.
+        *s = s.trim().to_owned();
     }
 }
 fn boolean(fields: &mut serde_json::Map<String, Value>, keys: &[&str]) -> Result<()> {
@@ -308,7 +320,7 @@ pub fn normalize(kind: Kind, mut value: Value, now: DateTime<Utc>) -> Result<Val
                 return Err(invalid());
             }
         }
-        Kind::StartupRun => {
+        Kind::StartupRun | Kind::StartupKeyed => {
             fields.entry("companies").or_insert(json!([]));
             fields.entry("query").or_insert(json!({}));
             fields.entry("filters").or_insert(json!({}));

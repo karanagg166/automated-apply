@@ -79,6 +79,10 @@ fn request_schema(startup: bool) -> Value {
             "mode".into(),
             json!({"type":"string","const":"job_led","default":"job_led"}),
         );
+        schema["required"]
+            .as_array_mut()
+            .expect("startup required fields")
+            .retain(|field| field != "idempotency_key");
     } else {
         properties.remove("manual_jobs");
     }
@@ -306,7 +310,7 @@ fn input(mut value: Value, startup: bool, execute: bool) -> Result<Value> {
             return Err(Failure("invalid_tool_arguments"));
         }
         crate::research_contract::normalize(
-            crate::research_contract::Kind::StartupRun,
+            crate::research_contract::Kind::StartupKeyed,
             value,
             Utc::now(),
         )

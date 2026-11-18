@@ -132,10 +132,11 @@ print(json.dumps(out))"#;
 #[test]
 fn metadata_projections_bound_actor_store_and_inspection_without_unknown_fields() {
     assert_eq!(
-        meta::inspect_request(&json!({"actor_id":" \u{001c}fictional/public-jobs\n"})).unwrap(),
+        meta::inspect_request(&json!({"actor_id":" fictional/public-jobs\n"})).unwrap(),
         "fictional/public-jobs"
     );
     for value in [
+        json!({"actor_id":" \u{001c}fictional/public-jobs\n"}),
         json!({"actor_id":"fictional/job","extra":true}),
         json!({"actor_id":"../private"}),
         json!({"actor_id":1}),

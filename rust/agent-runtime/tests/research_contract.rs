@@ -262,8 +262,22 @@ fn research_inputs_match_actual_company_people_and_startup_defaults_urls_timesta
         }
         cases.push((Kind::StartupRun, "startup-run-request", v));
     }
-    let script = r#"import json,runpy,sys
+    let script = r#"import json,runpy,sys,types
+services=types.ModuleType('backend.app.services');services.__path__=[];sys.modules[services.__name__]=services
+people_package=types.ModuleType('backend.app.services.people_discovery');people_package.__path__=[];sys.modules[people_package.__name__]=people_package
+startup_package=types.ModuleType('backend.app.services.startup_discovery');startup_package.__path__=[];sys.modules[startup_package.__name__]=startup_package
+name='backend.app.services.startup_discovery.normalizer'
+module=types.ModuleType(name)
+module.size_band=runpy.run_path('backend/app/services/startup_discovery/normalizer.py')['size_band']
+sys.modules[name]=module
+name='backend.app.services.people_discovery.normalizer'
+module=types.ModuleType(name)
+module.normalize_linkedin_url=runpy.run_path('backend/app/services/people_discovery/normalizer.py')['normalize_linkedin_url']
+sys.modules[name]=module
 models=runpy.run_path('rust/scripts/export_people_contracts.py')['models']();models.update(runpy.run_path('rust/scripts/export_startup_contracts.py')['models']());out=[]
+startup=types.ModuleType('backend.app.services.startup_discovery.schemas')
+startup.CompanyObservation=models['company-observation']
+sys.modules[startup.__name__]=startup
 for row in json.load(sys.stdin):
  try:out.append({'ok':True,'value':models[row['name']].model_validate(row['value']).model_dump(mode='json')})
  except (ValueError,TypeError):out.append({'ok':False})

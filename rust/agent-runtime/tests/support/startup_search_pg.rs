@@ -281,7 +281,7 @@ async fn startup_catalog_missing_query_contract_boundaries_fail_before_shortlist
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
 async fn startup_search_shortlist_owner_http_auth_and_methods_grant_no_submission_authority() {
-    let (mut c, company, _) = startup_detail_fixture().await;
+    let (_c, company, _) = startup_detail_fixture().await;
     let (url, stop, task) = http_fixture_values(host_values()).await;
     let http = client();
     let search = format!("{url}/api/v1/startups/search");

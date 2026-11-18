@@ -49,13 +49,6 @@ impl Process {
                 Ok(())
             });
         }
-        // POSIX umask is async-signal-safe; the parent settings remain untouched.
-        unsafe {
-            command.pre_exec(|| {
-                libc::umask(0o077);
-                Ok(())
-            });
-        }
         let child = command.spawn().map_err(|_| Failure("cli_unavailable"))?;
         let group = child
             .id()
@@ -222,7 +215,7 @@ pub(super) async fn generate(
         let (stream, stderr, (), status) = tokio::try_join!(
             frames(stdout, model, ready, sent),
             bounded(stderr),
-            async {
+            async move {
                 if wait.await.is_err() {
                     return Ok(());
                 }
@@ -235,7 +228,10 @@ pub(super) async fn generate(
                 stdin
                     .shutdown()
                     .await
-                    .map_err(|_| Failure("cli_transport_error"))
+                    .map_err(|_| Failure("cli_transport_error"))?;
+                // The provider may wait for EOF before it emits its final frame.
+                drop(stdin);
+                Ok(())
             },
             async {
                 process

@@ -1,12 +1,14 @@
 """Tests for direct job source API adapters."""
 
-import pytest
 import httpx
+import pytest
+
+from backend.app.schemas.discovery import DiscoveryQuery
 from backend.app.services.job_sources.direct_api import (
-    GreenhouseAdapter,
-    RemotiveAdapter,
     ArbeitnowAdapter,
+    GreenhouseAdapter,
     HackerNewsHiringAdapter,
+    RemotiveAdapter,
 )
 
 
@@ -42,6 +44,33 @@ async def test_greenhouse_adapter_parsing():
         assert job.is_remote is True
         assert job.is_confirmed_current is True
         assert "GreenhouseAdapter" in job.data_provenance["adapter"]
+
+
+@pytest.mark.asyncio
+async def test_greenhouse_missing_id_is_rejected_without_creating_a_none_identity():
+    mock_payload = {
+        "jobs": [
+            {
+                "id": None,
+                "title": "Malformed role",
+                "absolute_url": "https://job-boards.greenhouse.io/testcompany/jobs/malformed",
+            },
+            {
+                "id": 12345,
+                "title": "Valid role",
+                "absolute_url": "https://job-boards.greenhouse.io/testcompany/jobs/12345",
+            },
+        ]
+    }
+    transport = httpx.MockTransport(lambda req: httpx.Response(200, json=mock_payload))
+    async with httpx.AsyncClient(transport=transport) as client:
+        result = await GreenhouseAdapter(
+            board_token="testcompany", company_name="Testcompany", http_client=client
+        ).discover(DiscoveryQuery())
+
+    assert result.status == "partial"
+    assert result.rejected_count == 1
+    assert [job.source_job_id for job in result.jobs] == ["12345"]
 
 
 @pytest.mark.asyncio

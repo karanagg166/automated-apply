@@ -109,7 +109,7 @@ fn native_command_defaults_masked_secret_models_dates_numbers_and_raw_dictionary
         cases.push(format!(r#"{{"command":"finish_naukri_work","request_id":"{REQUEST}","work_report":{{"kind":"execution_observation","execution":{{"state":"PROFILE_OBSERVED","document_id":"fictional-document","evidence_sha256":"{}","account_sha256":"{}","profile_fields":{{{fields}}}}}}}}}"#,"a".repeat(64),"b".repeat(64)));
     }
     let expected = python(&cases);
-    assert_eq!(expected.len(), 18);
+    assert_eq!(expected.len(), cases.len());
     for (index, raw) in cases.iter().enumerate() {
         assert_eq!(
             payload_hash(raw.as_bytes()).unwrap(),
@@ -122,7 +122,8 @@ fn native_command_defaults_masked_secret_models_dates_numbers_and_raw_dictionary
         "SecretStr serialization masks either input secret"
     );
     assert_ne!(
-        expected[16], expected[17],
+        expected[expected.len() - 2],
+        expected[expected.len() - 1],
         "opaque dict insertion order is retained by the legacy recipe"
     );
 }

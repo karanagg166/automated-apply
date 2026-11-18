@@ -18,9 +18,7 @@ pub fn normalize(mut value: Value) -> Result<Value> {
     let fields = value.as_object_mut().ok_or_else(invalid)?;
     for key in ["full_name", "role_title"] {
         if let Some(Value::String(text)) = fields.get_mut(key) {
-            *text = text
-                .trim_matches(crate::context_contract::python_space)
-                .to_owned();
+            *text = text.trim().to_owned();
         }
     }
     for key in ["company_id", "verification_evidence_id"] {

@@ -857,6 +857,19 @@ Private inventory `.local/completion-route-inventory.json` contains source paths
 
 ## Ordered actions
 
+Keep the current Rust candidate and installed Python rollback pair while proving
+the first supervised Naukri receipt. Use targeted Rust tests or frontend type
+checks for repairs, then run the full local release gate. Keep compatibility
+where it protects retained state, request identities and API behavior.
+
+Use the existing isolated Brave fixture path to evaluate unattended browser
+work without involving personal profiles. The first receipt still needs the
+existing focus, identity, resume, quota and independent history checks. Keep
+other providers within their approved discovery and assisted handoff paths
+until their submission flows have their own evidence. Evaluate relational
+queue storage and bounded connection pooling after collecting baseline lock
+and STOP latency measurements.
+
 - [x] Inventory the saved plan, current branch, ownership, runtime boundaries and remaining
   route declarations; preserve in-progress form code and published rollback evidence.
 - [x] Research protocol, source attribution, transaction and permission boundaries; record

@@ -143,10 +143,9 @@ fn reviewed_actor_dto_matches_actual_defaults_pinned_build_public_urls_and_numer
         };
         assert_eq!(got, *want, "actor DTO {i}");
         if i == 0 || i == 21 {
-            assert_eq!(
+            assert!(
                 got["value"]["estimated_start_usd"].is_f64(),
-                i == 21,
-                "omitted default retains integer; explicit input coerces float"
+                "the saved default and explicit estimate use the same float representation"
             );
         }
     }

@@ -73,13 +73,20 @@ fn owner_import_normalization_matches_actual_models_and_does_not_infer_provider_
         "http://127.0.0.1/private"
     ]);
     let script = r#"
-import json,sys
+import json,re,runpy,sys
+from urllib.parse import urlsplit,urlunsplit
+from pydantic import TypeAdapter,ValidationError
 from backend.app.execution.contracts import ImportBatch
-from backend.app.execution.naukri import normalize
 from backend.app.core.job_urls import canonical_job_url,ats_job_url
+from backend.app.core.urls import PublicHTTPSURL
+from backend.app.schemas.normalized_job import NormalizedJob
+load=runpy.run_path('rust/scripts/export_execution_contracts.py')['load']
+scope=dict(re=re,urlsplit=urlsplit,urlunsplit=urlunsplit,TypeAdapter=TypeAdapter,ValidationError=ValidationError,PublicHTTPSURL=PublicHTTPSURL,NormalizedJob=NormalizedJob)
+load(scope,'backend/app/services/applications/platforms/base.py',{'safe_url'})
+load(scope,'backend/app/execution/naukri.py',{'normalize','normalized_url'})
 raw=json.load(sys.stdin);out={'items':[],'urls':[]}
 for value in raw['items']:
- try:out['items'].append(normalize(ImportBatch.model_validate({'jobs':[value]}).jobs[0]).model_dump(mode='json'))
+ try:out['items'].append(scope['normalize'](ImportBatch.model_validate({'jobs':[value]}).jobs[0]).model_dump(mode='json'))
  except ValueError:out['items'].append(None)
 for url in raw['urls']:
  try:out['urls'].append([canonical_job_url(url),ats_job_url(url)])

@@ -10,10 +10,12 @@ async fn startup_uuid_owner_public_put_get_and_empty_complete_use_original_child
     let http = client();
     let id = Uuid::from_u128(81001);
     let path = format!("{url}/api/v1/startups/discovery/runs/{id}");
+    let mut keyed_input = startup_job_input();
+    keyed_input.as_object_mut().unwrap().remove("idempotency_key");
     let response = http
         .put(&path)
         .bearer_auth(HOST_TOKEN)
-        .json(&startup_job_input())
+        .json(&keyed_input)
         .send()
         .await
         .unwrap();

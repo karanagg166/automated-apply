@@ -43,7 +43,7 @@ pub fn request_id(input: &Value) -> Result<Uuid> {
     ))
 }
 fn input(raw: Value, now: DateTime<Utc>) -> Result<Value> {
-    let v = research_contract::normalize(Kind::StartupRun, raw, now)?;
+    let v = research_contract::normalize(Kind::StartupKeyed, raw, now)?;
     if v["mode"] != "job_led"
         || (!child::paid(&v["source"])
             && Source::parse(v["source"].as_str().ok_or_else(invalid)?).is_err())

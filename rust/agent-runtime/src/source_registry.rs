@@ -428,6 +428,7 @@ fn source_row(
         "company_careers" => "Company career page".into(),
         "manual" => "Manual import".into(),
         "hiringcafe" => "HiringCafe".into(),
+        "simplify" => "Simplify Jobs".into(),
         "linkedin" => "LinkedIn".into(),
         "apify" => "Apify (select a platform)".into(),
         "we_work_remotely" => "We Work Remotely".into(),

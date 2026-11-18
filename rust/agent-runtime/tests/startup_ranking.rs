@@ -111,20 +111,35 @@ fn startup_relevance_matches_actual_weight_reasons_unknowns_profile_version_and_
         );
         cases.push(json!({"company":c,"jobs":jobs,"attributes":attrs,"size":size,"hiring":hiring,"contacts":contacts,"profile":p,"filters":filters}));
     }
-    let script = r#"import json,runpy,sys
+    let script = r#"import ast,html,json,re,runpy,sys,types,uuid
+from datetime import datetime,timezone
 from types import SimpleNamespace as NS
-parity=runpy.run_path('rust/scripts/matching_parity.py');scope={'__name__':'startup_rank_fixture','JobDiscoveryMatcher':parity['JobDiscoveryMatcher']};runpy.run_path('rust/scripts/export_execution_contracts.py')['load'](scope,'backend/app/services/startup_discovery/ranking.py',{'rank_startup'})
+from uuid import UUID
+from pydantic import BaseModel,Field
+from backend.app.schemas.candidate_profile import CandidateProfileRead
+runtime=runpy.run_path('rust/scripts/export_execution_contracts.py');root=runtime['ROOT'];load=runtime['load']
+services=types.ModuleType('backend.app.services');services.__path__=[];sys.modules[services.__name__]=services
+integrations=types.ModuleType('backend.app.integrations');integrations.__path__=[];sys.modules[integrations.__name__]=integrations
+gmail=types.ModuleType('backend.app.integrations.gmail');gmail.__path__=[];sys.modules[gmail.__name__]=gmail
+history=types.ModuleType('backend.app.integrations.gmail.history');history.previously_applied=lambda job,company,history:False;sys.modules[history.__name__]=history
+app={'__name__':'startup_rank_application_assistant','BaseModel':BaseModel,'Field':Field,'html':html,'re':re,'uuid':uuid,'Job':object}
+load(app,'backend/app/services/application_assistant.py',{'skill_key','title_key','CandidateProfile','JobMatchResult'})
+tree=ast.parse((root/'backend/app/services/application_assistant.py').read_text());cls=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='ApplicationAssistant');cls.body=[n for n in cls.body if isinstance(n,ast.FunctionDef) and n.name=='calculate_match'];exec(compile(ast.Module(body=[cls],type_ignores=[]),'startup_rank_application_assistant','exec'),app);app['ApplicationAssistant'].__init__=lambda self,session:None
+application=types.ModuleType('backend.app.services.application_assistant');application.ApplicationAssistant=app['ApplicationAssistant'];application.CandidateProfile=app['CandidateProfile'];sys.modules[application.__name__]=application
+matcher={'__name__':'startup_rank_matcher','BaseModel':BaseModel,'Field':Field,'ApplicationAssistant':app['ApplicationAssistant'],'CandidateProfile':app['CandidateProfile']};load(matcher,'backend/app/services/job_discovery_matcher.py',{'SKILL_GAP_FACTOR','DiscoveryMatch','JobDiscoveryMatcher'})
+matcher_module=types.ModuleType('backend.app.services.job_discovery_matcher');matcher_module.JobDiscoveryMatcher=matcher['JobDiscoveryMatcher'];sys.modules[matcher_module.__name__]=matcher_module
+scope={'__name__':'startup_rank_fixture','JobDiscoveryMatcher':matcher['JobDiscoveryMatcher']};load(scope,'backend/app/services/startup_discovery/ranking.py',{'rank_startup'})
+def profile_from(data):
+ return CandidateProfileRead(id=UUID(int=2),singleton_key='primary',full_name='Fictional Candidate',email='fixture@example.com',created_at=datetime(2026,11,17,tzinfo=timezone.utc),updated_at=datetime(2026,11,17,tzinfo=timezone.utc),**data)
+def job_from(data):
+ raw={'description':None,'location':None,'is_remote':False,'experience_level':None,'employment_type':None,'salary_min':None,'salary_max':None,'salary_currency':None,'salary_period':None,'date_posted':None,**data,'id':UUID(int=1),'job_url':'https://boards.greenhouse.io/fictional/jobs/123456','application_url':None}
+ return NS(**raw)
 out=[]
 for case in json.load(sys.stdin):
- data=case['profile'];company=case['company'];meta=company.get('metadata_',{}).get('startup_discovery',{});flat={'name':company['name'],'domain':company.get('domain'),'startup_stage':meta.get('stage'),'startup_source':meta.get('source')}
- profile=None;jobs=[]
- for j in case['jobs'] or [{}]:
-  raw=dict(data or {'verified_skills':[],'preferences':{}});raw.pop('version',None)
-  job,base,p,employer,history=parity['prepare']({'job':{'title':'Fictional role','skills_required':[],'remote_type':'unknown',**j},'profile':raw,'company':flat})
-  if case['jobs']:jobs.append(job)
-  if data:profile=p
+ data=case['profile'];company=case['company'];meta=company.get('metadata_',{}).get('startup_discovery',{});employer=NS(name=company['name'],domain=company.get('domain'),metadata_={'startup_discovery':{'stage':meta.get('stage'),'source':meta.get('source')}})
+ profile=profile_from(data) if data else None;jobs=[job_from(j) for j in case['jobs']]
  result=scope['rank_startup'](None,employer,jobs,case['attributes'],case['size'],case['hiring'],case['contacts'],profile,NS(**case['filters']));out.append(result)
-assert 'backend.app.core.config' not in sys.modules;print(json.dumps(out))
+assert 'backend.app.core.config' not in sys.modules;assert 'backend.app.services.credit_manager' not in sys.modules;print(json.dumps(out))
 "#;
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let mut c = Command::new(root.join(".venv/bin/python"))

@@ -37,7 +37,11 @@ fn startup_original_request_hash_matches_actual_claim_expression_and_excludes_on
         };
         cases.push(v);
     }
-    let script = r#"import ast,hashlib,json,runpy,sys
+    let script = r#"import ast,hashlib,json,runpy,sys,types
+name='backend.app.services.startup_discovery.normalizer'
+module=types.ModuleType(name)
+module.size_band=runpy.run_path('backend/app/services/startup_discovery/normalizer.py')['size_band']
+sys.modules[name]=module
 model=runpy.run_path('rust/scripts/export_startup_contracts.py')['models']()['startup-run-request'];tree=ast.parse(open('backend/app/services/job_discovery_service.py').read());service=next(n for n in tree.body if isinstance(n,ast.ClassDef) and n.name=='JobDiscoveryService');claim=next(n for n in service.body if isinstance(n,ast.AsyncFunctionDef) and n.name=='claim');assignment=next(n for n in claim.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='fingerprint' for t in n.targets));code=compile(ast.Module(body=[assignment],type_ignores=[]),'actual_run_claim_hash','exec');out=[]
 for v in json.load(sys.stdin):
  request=model.model_validate(v);request=request.model_copy(update={'source':'startup_'+request.source});scope={'hashlib':hashlib,'json':json,'request':request};exec(code,scope);out.append(scope['fingerprint'])

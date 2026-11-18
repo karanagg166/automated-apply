@@ -121,7 +121,10 @@ pub(super) async fn dispatch(
                 Route::Runs | Route::Run(_) => {
                     let raw = input.unwrap();
                     let value = crate::research_contract::normalize(
-                        crate::research_contract::Kind::StartupRun,
+                        match route {
+                            Route::Run(_) => crate::research_contract::Kind::StartupKeyed,
+                            _ => crate::research_contract::Kind::StartupRun,
+                        },
                         raw.clone(),
                         chrono::Utc::now(),
                     )?;
@@ -151,7 +154,10 @@ pub(super) async fn dispatch(
                         )
                         .await;
                     }
-                    if value["source"] != "manual" || value["mode"] != "company_first" {
+                    if matches!(route, Route::Run(_))
+                        || value["source"] != "manual"
+                        || value["mode"] != "company_first"
+                    {
                         return Err(Failure("startup_provider_orchestration_not_implemented"));
                     }
                     crate::startup_catalog::runs::run_manual(

@@ -26,8 +26,7 @@ pub fn inspect_request(value: &Value) -> Result<&str> {
         .get("actor_id")
         .and_then(Value::as_str)
         .ok_or(Failure("apify_actor_inspect_invalid"))?;
-    let actor =
-        actor.trim_matches(|c: char| c.is_whitespace() || matches!(c, '\u{001c}'..='\u{001f}'));
+    let actor = actor.trim();
     crate::apify_config::safe_actor(actor)?;
     Ok(actor)
 }

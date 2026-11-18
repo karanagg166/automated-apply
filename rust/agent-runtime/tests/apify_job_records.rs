@@ -23,12 +23,13 @@ class Clock(datetime):
  @classmethod
  def now(cls,tz=None):return datetime(2026,11,17,tzinfo=timezone.utc)
 m=runpy.run_path('rust/scripts/export_execution_contracts.py');root=m['ROOT']
-s=dict(__name__='fictional_apify_record',re=re,math=math,json=json,datetime=Clock,timedelta=timedelta,timezone=timezone,Any=Any,Literal=Literal,BaseModel=BaseModel,ConfigDict=ConfigDict,Field=Field,field_validator=field_validator,model_validator=model_validator,ats_job_url=ats_job_url,canonical_job_url=canonical_job_url)
+s=dict(__name__='fictional_apify_record',re=re,math=math,json=json,datetime=datetime,timedelta=timedelta,timezone=timezone,Any=Any,Literal=Literal,BaseModel=BaseModel,ConfigDict=ConfigDict,Field=Field,field_validator=field_validator,model_validator=model_validator,ats_job_url=ats_job_url,canonical_job_url=canonical_job_url)
 m['load'](s,'backend/app/schemas/normalized_job.py',{'NormalizedJob'})
 m['load'](s,'backend/app/services/job_sources/normalization.py',{'parse_date','remote_policy','employment','salary_fields'})
 m['load'](s,'backend/app/services/job_sources/apify_adapter.py',{'ACTOR_CATALOG'})
 cls=next(n for n in ast.parse((root/'backend/app/services/job_sources/apify_adapter.py').read_text()).body if isinstance(n,ast.ClassDef) and n.name=='ApifyJobAdapter')
 method=next(n for n in cls.body if isinstance(n,ast.FunctionDef) and n.name=='normalize_portal_record');exec(compile(ast.Module(body=[method],type_ignores=[]),'actual_apify_job_record','exec'),s)
+s['datetime']=Clock
 subject=type('ApifyJobAdapter',(),{})();subject.configuration={'actor_id':'fictional/public-jobs'}
 out=[]
 for c in json.load(sys.stdin):

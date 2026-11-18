@@ -243,9 +243,16 @@ class GreenhouseAdapter(DirectAdapter):
 
                 def parse(item):
                     location = (item.get("location") or {}).get("name")
+                    source_id = item.get("id")
+                    if (
+                        isinstance(source_id, bool)
+                        or not isinstance(source_id, (str, int))
+                        or not str(source_id).strip()
+                    ):
+                        raise ValueError("Greenhouse record requires a non-empty scalar id")
                     return NormalizedJob(
                         source_name=self.source_name,
-                        source_job_id=str(item["id"]),
+                        source_job_id=str(source_id),
                         original_url=item["absolute_url"],
                         application_url=item["absolute_url"],
                         company_name=item.get("company_name") or company,
@@ -312,9 +319,16 @@ class RemotiveAdapter(DirectAdapter):
 
             def parse(item):
                 raw = item.get("salary") or None
+                source_id = item.get("id")
+                if (
+                    isinstance(source_id, bool)
+                    or not isinstance(source_id, (str, int))
+                    or not str(source_id).strip()
+                ):
+                    raise ValueError("Remotive record requires a non-empty scalar id")
                 return NormalizedJob(
                     source_name=self.source_name,
-                    source_job_id=str(item["id"]),
+                    source_job_id=str(source_id),
                     original_url=item["url"],
                     company_name=item.get("company_name"),
                     title=item["title"],
