@@ -253,9 +253,7 @@ it("keeps supported identity evidence separate from a provider-reported mailbox"
   expect(
     screen.queryByText("Verified using authorized method"),
   ).not.toBeInTheDocument();
-  expect(
-    screen.getByText("Provider reported mailbox"),
-  ).toBeInTheDocument();
+  expect(screen.getByText("Provider reported mailbox")).toBeInTheDocument();
 });
 
 it("separates published source support from actual mailbox verification", async () => {

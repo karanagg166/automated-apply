@@ -30,3 +30,9 @@ The run passed 12 stages. The backend stage reported 3,426 passes, five failures
 One failing audit expected the old owner-approval dependency name. It now checks both the legacy approval dependency and the browser signature verifier against the same eight-route policy. The other four failures came from disposable reliability cases that connected as a restricted role without its own password, or replaced the fixture administrator's password with a placeholder. Those cases now use authenticated test connections and retain the same tested connection ceilings.
 
 All 14 tests in the two affected modules passed on a fresh disposable PostgreSQL cluster. The source changes in this checkpoint are test-only. The complete release gate, local installation and live acceptance still need their own results. Private evidence is under `.local/acceptance/20261118T095126Z-0d6e7fd19a0346b492d64d0962ed1f58/`.
+
+## Full backend pass at `667290a`
+
+The next clean run passed 13 stages, including backend with 3,431 passes and one skip in 809.44 seconds. Frontend unit tests had 409 passes and four failures. The failures were three case-sensitive matches for rendered startup labels and one recovery fixture that reported more HTTP responses than attempts. The focused rerun passed all 14 tests in the two affected files. Frontend formatting passed after correcting the single reported test file.
+
+The runner now accepts `--run --keep-going` to collect independent results in the same run. Stages that need an artifact record their unmet prerequisites. Release staging still requires all 36 stages to pass against one unchanged clean commit. The runner and release tests passed all 26 cases. The full frontend suite, remaining combined stages and installed verification still require their own results. Private evidence is under `.local/acceptance/20261118T100901Z-d50debea1f5245aba07a87cdab7d38d0/`.

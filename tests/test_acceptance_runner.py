@@ -43,8 +43,9 @@ def test_combined_gate_rehearses_the_reviewed_schema_with_no_manifest_write():
         (False, False, False, 7, False),
     ],
 )
+@pytest.mark.parametrize("keep_going", [False, True])
 def test_final_report_identifies_only_a_clean_commit_fixture_pass(
-    tmp_path, dirty_at_start, dirty_at_end, changed_commit, exit_code, clean_pass
+    tmp_path, dirty_at_start, dirty_at_end, changed_commit, exit_code, clean_pass, keep_going
 ):
     before = {"commit": "1" * 40, "clean": not dirty_at_start}
     after = {"commit": ("2" if changed_commit else "1") * 40, "clean": not dirty_at_end}
@@ -63,6 +64,7 @@ def test_final_report_identifies_only_a_clean_commit_fixture_pass(
         tmp_path,
         invoke,
         capture_source=lambda: next(stamps),
+        keep_going=keep_going,
     ) is (exit_code == 0)
     report = json.loads((tmp_path / "results.json").read_text())
     assert report["source_before"] == before
@@ -103,6 +105,38 @@ def test_unavailable_command_fails_without_leaking_exception_details(tmp_path):
     report = (tmp_path / "results.json").read_text()
     assert "fictional-secret-canary" not in report
     assert json.loads(report)["stages"][0]["exit_code"] == 127
+
+
+def test_keep_going_runs_independent_stages_and_skips_failed_artifact_dependencies(
+    tmp_path,
+):
+    calls = []
+    source = {"commit": "1" * 40, "clean": True}
+
+    def invoke(command, **_kwargs):
+        calls.append(command)
+        return SimpleNamespace(returncode=7 if command == ["build"] else 0)
+
+    assert not runner.run_stages(
+        (
+            ("frontend-build", ("build",)),
+            ("frontend-cutover-bundle", ("bundle",)),
+            ("frontend-cutover-e2e", ("e2e",)),
+            ("extension-tests", ("independent",)),
+        ),
+        tmp_path,
+        invoke,
+        capture_source=lambda: source,
+        keep_going=True,
+    )
+    assert calls == [["build"], ["independent"]]
+    report = json.loads((tmp_path / "results.json").read_text())
+    assert report["source_after"] == source
+    assert not report["clean_commit_fixture_pass"]
+    rows = report["stages"]
+    assert [row["status"] for row in rows] == ["FAIL", "NOT TESTED", "NOT TESTED", "PASS"]
+    assert rows[1]["unmet_prerequisites"] == ["frontend-build"]
+    assert rows[2]["unmet_prerequisites"] == ["frontend-cutover-bundle"]
 
 
 def test_timeout_is_a_failure_and_never_replays_or_runs_the_next_stage(tmp_path):

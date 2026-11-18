@@ -134,7 +134,7 @@ it("offers implemented sources only and requires reviewed preview before origina
   vi.mocked(post).mockResolvedValueOnce(preview);
   mount();
   expect(
-    await screen.findByRole("option", { name: /Himalayas/ }),
+    await screen.findByRole("option", { name: /himalayas/i }),
   ).toBeDisabled();
   await user.click(
     screen.getByRole("button", { name: "Preview startup discovery" }),
@@ -150,7 +150,7 @@ it("offers implemented sources only and requires reviewed preview before origina
   await user.click(
     screen.getByRole("button", { name: "Run approved startup discovery" }),
   );
-  await screen.findByText("Run result: Success");
+  await screen.findByText(/^run result: success$/i);
   expect(
     vi
       .mocked(api)
@@ -167,7 +167,7 @@ it("reloads an uncertain startup through GET only and locks criteria and new sea
   );
   reply = async () => pending;
   mount();
-  await screen.findByText("Run result: Recovery required");
+  await screen.findByText(/^run result: recovery required$/i);
   expect(
     screen.getByRole("textbox", { name: "Startup role keywords" }),
   ).toBeDisabled();
@@ -247,7 +247,7 @@ it("recovers retained startup observations with empty local complete and clears 
       name: "Complete saved startup search",
     }),
   );
-  await screen.findByText("Run result: Success");
+  await screen.findByText(/^run result: success$/i);
   expect(localStorage.getItem("startup-discovery-attempt:v1")).not.toBeNull();
   await user.click(
     screen.getByRole("button", {

@@ -133,6 +133,7 @@ it("unknown read outcome and same-key recovery return saved state without anothe
     status: "outcome_unknown",
     http_counts_are_minimum: true,
     http_attempts: 0,
+    http_responses: 0,
   };
   vi.mocked(api).mockImplementation(async (target) =>
     target === base ? owner() : reply,
@@ -243,6 +244,7 @@ it("corrupt response identity/accounting/counts cannot release its saved pointer
     { ...saved(), source: "instahyre" },
     { ...saved(), billing_final: true },
     { ...saved(), http_attempts: 5 },
+    { ...saved(), http_attempts: 0, http_responses: 1 },
   ]) {
     vi.mocked(api).mockImplementation(async (target) =>
       target === base ? owner() : corrupt,

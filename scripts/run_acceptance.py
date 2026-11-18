@@ -138,6 +138,22 @@ STAGES = (
     ),
     ("release-artifacts", (*PYTHON, "-m", "rust.scripts.local_release", "inventory")),
 )
+PREREQUISITES = {
+    "frontend-cutover-bundle": ("frontend-build",),
+    "frontend-cutover-e2e": ("frontend-cutover-bundle",),
+    "rust-postgres": ("extension-brave-final",),
+    "frontend-e2e": ("frontend-build",),
+    "frontend-browser-e2e": ("frontend-build",),
+    "frontend-extension-e2e": ("frontend-build",),
+    "frontend-naukri-e2e": ("frontend-build",),
+    "extension-browser-e2e": ("extension-brave-final",),
+    "release-artifacts": (
+        "rust-release-build",
+        "frontend-cutover-bundle",
+        "extension-edge",
+        "extension-brave-final",
+    ),
+}
 
 
 def process_inventory():
@@ -244,14 +260,22 @@ def read_source_stamp():
         return None
 
 
-def run_stages(stages, output, invoke=bounded_run, *, capture_source=None):
-    """Stop at first failure and distinguish unexecuted stages from passing ones."""
+def run_stages(
+    stages, output, invoke=bounded_run, *, capture_source=None, keep_going=False
+):
+    """Record all outcomes, optionally checking independent stages after failure."""
     rows = []
+    passed = set()
     failed = False
     source_before = capture_source() if capture_source else None
     for name, command in stages:
         row = {"name": name, "status": "NOT TESTED"}
-        if not failed:
+        prerequisites = PREREQUISITES.get(name, ()) if keep_going else ()
+        unmet = [dependency for dependency in prerequisites if dependency not in passed]
+        if unmet:
+            row["unmet_prerequisites"] = unmet
+            failed = True
+        else:
             started = datetime.now(timezone.utc)
             with (output / (name + ".private.log")).open("xb") as log:
                 os.chmod(log.name, 0o600)
@@ -276,9 +300,13 @@ def run_stages(stages, output, invoke=bounded_run, *, capture_source=None):
                     (datetime.now(timezone.utc) - started).total_seconds(), 3
                 ),
             )
-            failed = code != 0
+            if code == 0:
+                passed.add(name)
+            else:
+                failed = True
         rows.append(row)
-        done = failed or len(rows) == len(stages)
+        stop = failed and not keep_going
+        done = stop or len(rows) == len(stages)
         source_after = capture_source() if done and capture_source else None
         report = {
             "scope": "local_fixture_acceptance_not_live_platform_acceptance",
@@ -303,7 +331,7 @@ def run_stages(stages, output, invoke=bounded_run, *, capture_source=None):
         temporary.chmod(0o600)
         temporary.replace(path)
         print(json.dumps(row), flush=True)
-        if failed:
+        if stop:
             break
     return not failed
 
@@ -313,7 +341,14 @@ def main():
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--plan", action="store_true")
     mode.add_argument("--run", action="store_true")
+    parser.add_argument(
+        "--keep-going",
+        action="store_true",
+        help="After a failure, run stages whose artifact prerequisites passed",
+    )
     args = parser.parse_args()
+    if args.keep_going and not args.run:
+        parser.error("--keep-going requires --run")
     if args.plan:
         print(
             json.dumps(
@@ -344,7 +379,11 @@ def main():
         except BlockingIOError:
             raise SystemExit("local_heavy_test_lock_busy") from None
         if not run_stages(
-            STAGES, output, invoke=coordinated_run, capture_source=read_source_stamp
+            STAGES,
+            output,
+            invoke=coordinated_run,
+            capture_source=read_source_stamp,
+            keep_going=args.keep_going,
         ):
             raise SystemExit(1)
 
