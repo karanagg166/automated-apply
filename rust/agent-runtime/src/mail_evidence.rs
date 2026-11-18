@@ -93,12 +93,11 @@ fn html(input: &str, links: &mut Vec<String>) -> Result<String> {
                         return Err(Failure("gmail_mime_limits"));
                     }
                     // HTML self-closing syntax does not make script/style content safe.
+                    // The default emitter already records the emitted start tag.
                     hidden.push(name.to_vec());
                     if name == b"script" {
-                        tokenizer.set_last_start_tag(Some("script"));
                         tokenizer.set_state(State::ScriptData);
                     } else if name == b"style" {
-                        tokenizer.set_last_start_tag(Some("style"));
                         tokenizer.set_state(State::RawText);
                     }
                 } else if name == b"a"

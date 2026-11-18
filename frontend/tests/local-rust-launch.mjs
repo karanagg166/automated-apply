@@ -146,7 +146,11 @@ test(
       assert.equal(observed.length, 2);
       await close(upstream);
       assert.equal((await send("/api/backend/profile")).status, 504);
-      assert.equal((await send("/api/workflow/control")).status, 502);
+      const disconnected = await send("/api/workflow/control");
+      assert.equal(disconnected.status, 503);
+      assert.deepEqual(await disconnected.json(), {
+        error: "workflow_unavailable",
+      });
       assert.equal(tcpRequests, 0);
     } finally {
       if (child && child.exitCode === null && child.signalCode === null) {
