@@ -623,6 +623,8 @@ backend/venv/bin/python -m backend.scripts.browser_assistant cancel_application 
 
 For an active command, use its `expected_revision` from `get_browser_operation`;
 when that value is null, use the reported packet revision.
+When the active command has a pinned revision, the status response uses that
+revision without acquiring a database connection.
 The cancellation CLI retrieves and binds the active operation ID itself. It cannot
 cancel a newer operation with a stale revision/ID. Idle cancellation uses the current
 packet revision. Operation status exposes command IDs and flags, without private answers.

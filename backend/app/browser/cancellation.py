@@ -12,10 +12,17 @@ from backend.app.services.applications.service import ApplicationPacketService
 
 async def cancel(session, packet_id, data):
     service = ApplicationPacketService(session)
-    # A plain MVCC read must not wait behind the running command's row lock.
-    packet = await service.repo.get(packet_id)
-    revision = packet.revision
-    await session.rollback()
+    revision = None
+    if data.operation_id is None:
+        if browser.operations.public(packet_id):
+            raise HTTPException(
+                409, "Inspect the active operation ID before cancelling it"
+            )
+        packet = await service.repo.get(packet_id)
+        revision = packet.revision
+        await session.rollback()
+    # A named operation can be fenced before touching the database. Its command
+    # may be holding the only connection until browser I/O stops.
     ticket, interrupted = browser.operations.request_stop(
         packet_id, data.operation_id, data.expected_revision, revision
     )

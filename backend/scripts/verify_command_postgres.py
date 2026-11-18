@@ -191,7 +191,10 @@ async def verify(url):
         browser_settings = settings.model_copy(update={"BROWSER_FILL_ENABLED":True,"BROWSER_AUTOMATION_ENABLED":True})
         async with factory() as session:
             saved_job = await session.get(Job,job_id)
-            saved_job.application_url = "https://jobs.lever.co/fictional-owner/fictional-job"
+            destination = "https://jobs.lever.co/fictional-owner/fictional-job"
+            saved_job.source_platform = "manual_browser"
+            saved_job.job_url = destination
+            saved_job.application_url = destination
             await session.commit()
             # Refresh the fixture's packet snapshot after changing the saved destination.
             from backend.app.services.applications.service import (
@@ -206,9 +209,13 @@ async def verify(url):
             command.approval = Approval(expected_revision=command.revision,nonce=command.approval_nonce,scope="fill",platforms=["employer_forms"],maximum_applications=1)
             row,_ = await store.load(session,command.id)
             store.save(row,command)
-            first = await browser_queue.enqueue(session,browser_settings,command,saved_job)
+            first = await browser_queue.enqueue(
+                session, browser_settings, command, saved_job, executor="isolated_browser"
+            )
             await session.commit()
-            duplicate_job = await browser_queue.enqueue(session,browser_settings,command,saved_job)
+            duplicate_job = await browser_queue.enqueue(
+                session, browser_settings, command, saved_job, executor="isolated_browser"
+            )
             assert first["browser_job"] == duplicate_job["browser_job"]
             await session.commit()
         async def browser_claim():

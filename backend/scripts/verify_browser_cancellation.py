@@ -159,6 +159,7 @@ async def verify(client, packet, settings, writes, employer, *, after_dispatch=F
             route + "/open",
             json={
                 "expected_revision": current["revision"],
+                "executor": "isolated_browser",
                 "approve_dedicated_profile": True,
                 "confirm_destination_permission": True,
             },
@@ -392,6 +393,7 @@ async def verify(client, packet, settings, writes, employer, *, after_dispatch=F
             target + "/open",
             json={
                 "expected_revision": other["revision"],
+                "executor": "isolated_browser",
                 "approve_dedicated_profile": True,
                 "confirm_destination_permission": True,
             },

@@ -43,6 +43,7 @@ export async function nativePostgresFixture(python) {
       url.protocol !== "postgresql:" ||
       url.hostname !== "127.0.0.1" ||
       url.username !== "postgres" ||
+      !/^[A-Za-z0-9_-]{43}$/.test(url.password) ||
       url.pathname !== "/candidate_profile_test" ||
       !url.port ||
       Number(url.port) < 1025 ||
@@ -66,7 +67,21 @@ export async function nativePostgresFixture(python) {
         throw new Error("fixture_postgres_query_invalid");
       const result = spawnSync(
         "/opt/homebrew/opt/postgresql@17/bin/psql",
-        [value.database_url, "-X", "-v", "ON_ERROR_STOP=1", "-Atc", query],
+        [
+          "-h",
+          url.hostname,
+          "-p",
+          url.port,
+          "-U",
+          url.username,
+          "-d",
+          url.pathname.slice(1),
+          "-X",
+          "-v",
+          "ON_ERROR_STOP=1",
+          "-Atc",
+          query,
+        ],
         {
           encoding: "utf8",
           env: {
@@ -74,6 +89,7 @@ export async function nativePostgresFixture(python) {
             HOME: process.env.HOME,
             LANG: "C",
             LC_ALL: "C",
+            PGPASSWORD: url.password,
             PGPASSFILE: "/dev/null",
             PGSERVICEFILE: "/dev/null",
           },

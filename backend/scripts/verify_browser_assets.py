@@ -36,6 +36,7 @@ async def verify(client, packet, settings, reads, writes):
     assert policy["origins"] == settings.BROWSER_ASSET_ORIGINS
     body = {
         "expected_revision": packet["revision"],
+        "executor": "isolated_browser",
         "approve_dedicated_profile": True,
         "confirm_destination_permission": True,
     }

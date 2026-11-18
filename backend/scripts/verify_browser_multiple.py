@@ -40,6 +40,7 @@ async def verify(
             route + "/open",
             json={
                 "expected_revision": packet["revision"],
+                "executor": "isolated_browser",
                 "approve_dedicated_profile": True,
                 "confirm_destination_permission": True,
             },

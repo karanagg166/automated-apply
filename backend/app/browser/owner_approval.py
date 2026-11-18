@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import re
 import time
+from dataclasses import dataclass
 
 from fastapi import Depends, HTTPException, Request
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -27,9 +28,30 @@ def approval_header(key, path, body, *, nonce, timestamp):
     return f"v1:{timestamp}:{nonce}:{signature}"
 
 
-async def require_owner_approval(
-    request: Request, session: AsyncSession = Depends(get_db_session)
-):
+@dataclass(frozen=True)
+class VerifiedOwnerApproval:
+    nonce: str
+    operation: str
+
+    async def claim(self, session: AsyncSession) -> None:
+        insert = (
+            pg_insert
+            if session.get_bind().dialect.name == "postgresql"
+            else sqlite_insert
+        )
+        claimed = await session.scalar(
+            insert(OwnerPreference)
+            .values(key="owner-proof:" + self.nonce, value={"operation": self.operation})
+            .on_conflict_do_nothing()
+            .returning(OwnerPreference.key)
+        )
+        if not claimed:
+            raise HTTPException(
+                403, "Owner approval was already used; review again in the dashboard"
+            )
+
+
+async def verify_owner_approval(request: Request) -> VerifiedOwnerApproval:
     key = get_settings().BROWSER_OWNER_APPROVAL_KEY
     if not key:
         raise HTTPException(
@@ -51,16 +73,11 @@ async def require_owner_approval(
     )
     if not hmac.compare_digest(expected, supplied):
         raise HTTPException(403, "Owner approval does not match this exact operation")
-    insert = (
-        pg_insert if session.get_bind().dialect.name == "postgresql" else sqlite_insert
-    )
-    claimed = await session.scalar(
-        insert(OwnerPreference)
-        .values(key="owner-proof:" + match[2], value={"operation": request.url.path})
-        .on_conflict_do_nothing()
-        .returning(OwnerPreference.key)
-    )
-    if not claimed:
-        raise HTTPException(
-            403, "Owner approval was already used; review again in the dashboard"
-        )
+    return VerifiedOwnerApproval(match[2], request.url.path)
+
+
+async def require_owner_approval(
+    request: Request, session: AsyncSession = Depends(get_db_session)
+):
+    approval = await verify_owner_approval(request)
+    await approval.claim(session)

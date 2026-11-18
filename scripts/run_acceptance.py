@@ -278,7 +278,7 @@ def run_stages(stages, output, invoke=bounded_run, *, capture_source=None):
             )
             failed = code != 0
         rows.append(row)
-        done = len(rows) == len(stages)
+        done = failed or len(rows) == len(stages)
         source_after = capture_source() if done and capture_source else None
         report = {
             "scope": "local_fixture_acceptance_not_live_platform_acceptance",
@@ -303,6 +303,8 @@ def run_stages(stages, output, invoke=bounded_run, *, capture_source=None):
         temporary.chmod(0o600)
         temporary.replace(path)
         print(json.dumps(row), flush=True)
+        if failed:
+            break
     return not failed
 
 

@@ -4,6 +4,7 @@ import importlib.util
 import subprocess
 from pathlib import Path
 from types import SimpleNamespace
+from urllib.parse import urlsplit
 
 import pytest
 
@@ -25,14 +26,26 @@ def setup_fake_cluster(tmp_path, monkeypatch, *, stopped=True):
     monkeypatch.setattr(fixture, "POSTGRES_BIN", binary)
     monkeypatch.setattr(fixture.tempfile, "mkdtemp", lambda **_kwargs: str(base))
     calls = []
+    fixture_password = None
 
     def invoke(command, **kwargs):
+        nonlocal fixture_password
         calls.append(command)
         assert "DATABASE_URL" not in kwargs["env"]
         assert "PGHOST" not in kwargs["env"]
         assert kwargs["env"]["PGPASSFILE"] == "/dev/null"
         if Path(command[0]).name == "initdb":
+            assert "--auth=scram-sha-256" in command
+            password_file = Path(command[command.index("--pwfile") + 1])
+            assert password_file.parent == base
+            assert password_file.stat().st_mode & 0o077 == 0
+            fixture_password = password_file.read_text().strip()
+            assert len(fixture_password) >= 32
             (base / "data").mkdir()
+        if Path(command[0]).name == "createdb":
+            assert kwargs["env"]["PGPASSWORD"] == fixture_password
+        else:
+            assert "PGPASSWORD" not in kwargs["env"]
         if command[-1] in {"stop", "status"} and not stopped:
             return SimpleNamespace(returncode=4)
         return SimpleNamespace(returncode=0)
@@ -49,8 +62,12 @@ def test_owned_cluster_stops_and_is_removed_when_fixture_body_fails(
     base, calls = setup_fake_cluster(tmp_path, monkeypatch)
     with pytest.raises(ValueError, match="fictional body failure"):
         with fixture.native_postgres() as url:
-            assert url.startswith("postgresql://postgres@127.0.0.1:")
-            assert url.endswith("/candidate_profile_test")
+            target = urlsplit(url)
+            assert target.scheme == "postgresql"
+            assert target.username == "postgres"
+            assert target.password and len(target.password) >= 32
+            assert target.hostname == "127.0.0.1"
+            assert target.path == "/candidate_profile_test"
             assert base.stat().st_mode & 0o077 == 0
             raise ValueError("fictional body failure")
     assert calls[-1][-1] == "stop"
@@ -93,6 +110,7 @@ def test_fixture_environment_drops_ambient_keys_and_python_injection(monkeypatch
         "PYTHONPATH",
         "PYTHONSTARTUP",
         "PGOPTIONS",
+        "PGPASSWORD",
     ):
         monkeypatch.setenv(name, "fictional-canary-must-not-forward")
     environment = fixture.fixture_environment()

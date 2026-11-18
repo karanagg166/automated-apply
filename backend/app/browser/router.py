@@ -1,6 +1,7 @@
 """Integrated owner-reviewed browser workflows with separate route and approval boundaries."""
 
 import asyncio
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -26,7 +27,10 @@ from backend.app.browser.contracts import (
 from backend.app.browser.extension_tasks import ExtensionTask, TaskControl
 from backend.app.browser.navigation import ResumePage
 from backend.app.browser.opportunity import ReviewOpportunity
-from backend.app.browser.owner_approval import require_owner_approval
+from backend.app.browser.owner_approval import (
+    VerifiedOwnerApproval,
+    verify_owner_approval,
+)
 from backend.app.browser.runner import browser
 from backend.app.browser.service import FormService, analyze, fill, prepare, status
 from backend.app.browser.steps import AdvanceStep
@@ -45,6 +49,8 @@ from backend.app.dashboard.router import OwnerRoute
 from backend.app.db.session import get_db_session
 from backend.app.schemas.applications import RevisionInput
 from backend.app.services.applications.service import ApplicationPacketService
+
+BrowserOwnerApproval = Annotated[VerifiedOwnerApproval, Depends(verify_owner_approval)]
 
 router = APIRouter(
     prefix="/api/v1/browser", tags=["Browser forms"], route_class=OwnerRoute
@@ -338,15 +344,17 @@ async def preview_current_page(
             ) from None
 
 
-@assistant_router.post(
-    "/{packet_id}/resume-page", dependencies=[Depends(require_owner_approval)]
-)
+@assistant_router.post("/{packet_id}/resume-page")
 async def resume_current_page(
-    packet_id: UUID, data: ResumePage, session: AsyncSession = Depends(get_db_session, scope="function")
+    packet_id: UUID,
+    data: ResumePage,
+    approval: BrowserOwnerApproval,
+    session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
     from backend.app.browser.navigation import resume
 
     async with browser.operations.run(packet_id, "resume_page", data.expected_revision):
+        await approval.claim(session)
         try:
             async with asyncio.timeout(45):
                 return await resume(session, packet_id, data)
@@ -379,17 +387,19 @@ async def preview_step(
             ) from None
 
 
-@assistant_router.post(
-    "/{packet_id}/advance-step", dependencies=[Depends(require_owner_approval)]
-)
+@assistant_router.post("/{packet_id}/advance-step")
 async def advance_application_step(
-    packet_id: UUID, data: AdvanceStep, session: AsyncSession = Depends(get_db_session, scope="function")
+    packet_id: UUID,
+    data: AdvanceStep,
+    approval: BrowserOwnerApproval,
+    session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
     from backend.app.browser.steps import advance
 
     async with browser.operations.run(
         packet_id, "advance_step", data.expected_revision
     ):
+        await approval.claim(session)
         try:
             async with asyncio.timeout(35):
                 return await advance(session, packet_id, data)
@@ -419,13 +429,11 @@ async def preview_opportunity(
             ) from None
 
 
-@assistant_router.post(
-    "/{packet_id}/company-source-preview",
-    dependencies=[Depends(require_owner_approval)],
-)
+@assistant_router.post("/{packet_id}/company-source-preview")
 async def preview_company_source(
     packet_id: UUID,
     data: ReadCompanySource,
+    approval: BrowserOwnerApproval,
     session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
     from backend.app.browser.company_source import preview
@@ -433,6 +441,7 @@ async def preview_company_source(
     async with browser.operations.run(
         packet_id, "company_source_preview", data.expected_revision
     ):
+        await approval.claim(session)
         try:
             async with asyncio.timeout(30):
                 return await preview(session, packet_id, data)
@@ -442,12 +451,11 @@ async def preview_company_source(
             ) from None
 
 
-@assistant_router.post(
-    "/{packet_id}/opportunity-approve", dependencies=[Depends(require_owner_approval)]
-)
+@assistant_router.post("/{packet_id}/opportunity-approve")
 async def approve_opportunity(
     packet_id: UUID,
     data: ReviewOpportunity,
+    approval: BrowserOwnerApproval,
     session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
     from backend.app.browser.opportunity import approve
@@ -455,6 +463,7 @@ async def approve_opportunity(
     async with browser.operations.run(
         packet_id, "opportunity_approve", data.expected_revision
     ):
+        await approval.claim(session)
         try:
             async with asyncio.timeout(20):
                 result = await approve(session, packet_id, data)
@@ -486,10 +495,16 @@ async def get_application_status(
 async def get_browser_operation(
     packet_id: UUID, session: AsyncSession = Depends(get_db_session, scope="function")
 ):
-    packet = await ApplicationPacketService(session).repo.get(packet_id)
+    active = browser.operations.public(packet_id)
+    # A running command can hold the only connection. Its pinned revision is
+    # sufficient to identify it for cancellation.
+    revision = active["expected_revision"] if active else None
+    if revision is None:
+        packet = await ApplicationPacketService(session).repo.get(packet_id)
+        revision = packet.revision
     return {
-        "packet_revision": packet.revision,
-        "active_operation": browser.operations.public(packet_id),
+        "packet_revision": revision,
+        "active_operation": active,
         "cancellation_pending": str(packet_id) in browser.operations.stopping,
     }
 
@@ -615,12 +630,11 @@ async def submission_preview(
         )
 
 
-@assistant_router.post(
-    "/{packet_id}/authorize-submission", dependencies=[Depends(require_owner_approval)]
-)
+@assistant_router.post("/{packet_id}/authorize-submission")
 async def authorize_submission(
     packet_id: UUID,
     data: SubmissionAuthorization,
+    approval: BrowserOwnerApproval,
     session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
     from backend.app.browser.submissions import authorize
@@ -628,6 +642,7 @@ async def authorize_submission(
     async with browser.operations.run(
         packet_id, "authorize_submission", data.expected_revision
     ):
+        await approval.claim(session)
         result = await authorize(session, packet_id, data)
         await session.commit()
         return result
@@ -655,15 +670,15 @@ async def recover_submission(
         return await recover(session, packet_id)
 
 
-@assistant_router.post(
-    "/{packet_id}/consent", dependencies=[Depends(require_owner_approval)]
-)
+@assistant_router.post("/{packet_id}/consent")
 async def owner_consent(
     packet_id: UUID,
     data: ConsentAction,
+    approval: BrowserOwnerApproval,
     session: AsyncSession = Depends(get_db_session, scope="function"),
 ):
     from backend.app.browser.submissions import set_consent
 
     async with browser.operations.run(packet_id, "consent", data.expected_revision):
+        await approval.claim(session)
         return await set_consent(session, packet_id, data)

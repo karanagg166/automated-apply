@@ -1,6 +1,7 @@
 """Owned, native PostgreSQL 17 cluster for fictional local acceptance only."""
 
 import os
+import secrets
 import shutil
 import signal
 import socket
@@ -36,6 +37,7 @@ def native_postgres():
     base = Path(tempfile.mkdtemp(prefix="automated-apply-fictional-pg-"))
     base.chmod(0o700)
     data = base / "data"
+    password = secrets.token_urlsafe(32)
     environment = fixture_environment()
     attempted = False
     stopped = True
@@ -49,29 +51,36 @@ def native_postgres():
             log_path = Path(log.name)
             log_path.chmod(0o600)
 
-            def run(arguments):
+            def run(arguments, *, authenticated=False):
                 subprocess.run(
                     arguments,
-                    env=environment,
+                    env={**environment, "PGPASSWORD": password}
+                    if authenticated
+                    else environment,
                     stdout=log,
                     stderr=log,
                     check=True,
                     timeout=30,
                 )
 
-            run(
-                [
-                    str(binary / "initdb"),
-                    "-D",
-                    str(data),
-                    "-U",
-                    "postgres",
-                    "--no-locale",
-                    "-E",
-                    "UTF8",
-                    "--auth=trust",
-                ]
-            )
+            with tempfile.NamedTemporaryFile(mode="w", dir=base) as password_file:
+                password_file.write(password + "\n")
+                password_file.flush()
+                run(
+                    [
+                        str(binary / "initdb"),
+                        "-D",
+                        str(data),
+                        "-U",
+                        "postgres",
+                        "--no-locale",
+                        "-E",
+                        "UTF8",
+                        "--auth=scram-sha-256",
+                        "--pwfile",
+                        password_file.name,
+                    ]
+                )
             with socket.socket() as listener:
                 listener.bind(("127.0.0.1", 0))
                 port = listener.getsockname()[1]
@@ -106,9 +115,10 @@ def native_postgres():
                     "-U",
                     "postgres",
                     "candidate_profile_test",
-                ]
+                ],
+                authenticated=True,
             )
-        yield f"postgresql://postgres@127.0.0.1:{port}/candidate_profile_test"
+        yield f"postgresql://postgres:{password}@127.0.0.1:{port}/candidate_profile_test"
     finally:
         # Keep the parent's timeout cleanup window long enough for this shutdown.
         signal.signal(signal.SIGTERM, signal.SIG_IGN)

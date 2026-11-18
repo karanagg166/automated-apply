@@ -171,6 +171,8 @@ async def run(
                 DATABASE_SCHEMA="job_agent",
                 LOG_LEVEL="WARNING",
                 DATABASE_URL=child.replace("postgresql://", "postgresql+asyncpg://", 1),
+                DB_POOL_SIZE=1,
+                DB_MAX_OVERFLOW=0,
                 SECRET_KEY="fictional-browser-demo-only",  # pragma: allowlist secret — fictional local test value
                 JOB_AGENT_API_TOKEN="fictional-browser-demo-owner-token",
                 BROWSER_ASSISTANT_ENABLED=True,
@@ -179,7 +181,9 @@ async def run(
                 BROWSER_ALLOWED_ORIGINS=[employer],
                 BROWSER_ASSET_ORIGINS=[asset_host] if asset_host else [],
                 BROWSER_PROFILE_ROOT=str(Path(directory).resolve() / "profiles"),
-                BROWSER_CHANNEL="chromium",
+                BROWSER_CHANNEL=os.environ.get(
+                    "AUTOMATED_APPLY_TEST_BROWSER", "chromium"
+                ),
                 BROWSER_HEADLESS=True,
                 MULTI_SELECT_FIELDS_ENABLED=bool(serve or multiple_demo),
                 RESUME_ENCRYPTION_KEY=Fernet.generate_key().decode(),
@@ -241,7 +245,9 @@ async def run(
                 )
                 from backend.tests.opportunity_fakes import OpportunityFixtureProvider
 
-                def fictional_application_service(session=Depends(get_db_session)):
+                def fictional_application_service(
+                    session=Depends(get_db_session, scope="function"),
+                ):
                     return ApplicationPacketService(
                         session,
                         ApplicationAnswerService(
@@ -256,6 +262,7 @@ async def run(
                             OpportunityFixtureProvider(
                                 separator="\n\n" if multiline_answer else " "
                             ),
+                            owns_read_transaction=True,
                         ),
                     )
 
@@ -675,6 +682,7 @@ async def run(
                         route + "/open",
                         json={
                             "expected_revision": packet["revision"],
+                            "executor": "isolated_browser",
                             "approve_dedicated_profile": True,
                             "confirm_destination_permission": True,
                         },
