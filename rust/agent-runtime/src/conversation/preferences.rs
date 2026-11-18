@@ -27,16 +27,18 @@ pub fn normalize(mut input: Value) -> Result<Value> {
         return Err(invalid());
     }
     let fields = input.as_object_mut().ok_or_else(invalid)?;
-    for key in ["saved_jobs_only"] {
+    {
+        let key = "saved_jobs_only";
         if let Some(value) = fields.get_mut(key) {
             *value = crate::resource_contract::boolean(value).map_err(|_| invalid())?;
         }
     }
     for key in ["require_known_properties", "duplicate_prevention"] {
-        if let Some(value) = fields.get(key) {
-            if value != true && value.as_f64() != Some(1.0) {
-                return Err(invalid());
-            }
+        if let Some(value) = fields.get(key)
+            && value != true
+            && value.as_f64() != Some(1.0)
+        {
+            return Err(invalid());
         }
         if fields.contains_key(key) {
             fields.insert(key.into(), json!(true));
@@ -55,10 +57,10 @@ pub fn normalize(mut input: Value) -> Result<Value> {
         ("minimum_salary", "maximum_salary"),
         ("minimum_employees", "maximum_employees"),
     ] {
-        if let (Some(a), Some(b)) = (value[low].as_f64(), value[high].as_f64()) {
-            if a > b {
-                return Err(invalid());
-            }
+        if let (Some(a), Some(b)) = (value[low].as_f64(), value[high].as_f64())
+            && a > b
+        {
+            return Err(invalid());
         }
     }
     if value["source_platforms"].as_array().is_none_or(|a| {

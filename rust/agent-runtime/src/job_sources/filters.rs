@@ -19,14 +19,12 @@ pub fn exclusion(
     let explicit = super::contract::query(explicit.clone())?;
     let effective = super::contract::query(effective.clone())?;
     let item = super::contract::normalize(item.clone(), now)?;
-    if let Some(days) = effective["max_age_days"].as_i64() {
-        if let Some(at) = crate::packet_record::expiry(&item["date_posted"])
+    if let Some(days) = effective["max_age_days"].as_i64()
+        && let Some(at) = crate::packet_record::expiry(&item["date_posted"])
             .map_err(|_| Failure("invalid_normalized_job"))?
-        {
-            if at < now - chrono::Duration::days(days) {
-                return Ok(Some("published_before_query_window"));
-            }
-        }
+        && at < now - chrono::Duration::days(days)
+    {
+        return Ok(Some("published_before_query_window"));
     }
     let keywords = words(&explicit, "keywords")?;
     let text = automated_apply_domain::text::folded(&format!(
@@ -53,18 +51,19 @@ pub fn exclusion(
         }
     }
     let employment = words(&explicit, "employment_types")?;
-    if let Some(value) = item["employment_type"].as_str().filter(|s| !s.is_empty()) {
-        if !employment.is_empty() && !employment.contains(&value) {
-            return Ok(Some("explicit_employment_mismatch"));
-        }
+    if let Some(value) = item["employment_type"].as_str().filter(|s| !s.is_empty())
+        && !employment.is_empty()
+        && !employment.contains(&value)
+    {
+        return Ok(Some("explicit_employment_mismatch"));
     }
     if let Some(remote) = explicit["remote_preference"]
         .as_str()
         .filter(|s| *s != "any")
+        && item["remote_type"] != "unknown"
+        && item["remote_type"] != remote
     {
-        if item["remote_type"] != "unknown" && item["remote_type"] != remote {
-            return Ok(Some("explicit_remote_mismatch"));
-        }
+        return Ok(Some("explicit_remote_mismatch"));
     }
     Ok(None)
 }

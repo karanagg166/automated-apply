@@ -36,5 +36,19 @@ async fn execution_listing_failed_source_ack_rolls_back_company_job_work_and_eve
 #[ignore="requires dedicated disposable PostgreSQL harness"]
 async fn execution_listing_transport_retries_are_bounded_and_never_retry_a_spent_or_packet_bound_form(){
     let(mut c,work)=listing_fixture().await;
-    for kind in ["retry","exhausted","spent","packet"]{let mut value=work.clone();if kind=="exhausted"{value["transport_retry_count"]=json!(3);}if kind=="spent"{value["admitted_actions"]=json!([{"fingerprint":"apply:spent"}]);}if kind=="packet"{value["packet_id"]=json!(Uuid::new_v4());}browser_save(&mut c,&format!("apply_work:{}",work["id"].as_str().unwrap()),value.clone()).await;let result=listing_observe(&mut c,&value,json!({"kind":"failed","reason":"backend_timeout"})).await.unwrap();assert_eq!(result["status"],if kind=="retry"{"queued"}else{"waiting"});assert_eq!(result["admitted_actions"],value["admitted_actions"]);assert_eq!(result["packet_id"],value["packet_id"]);}
+    for kind in ["retry","exhausted","spent","packet"]{
+        let mut value=work.clone();
+        match kind {
+            "exhausted"=>value["transport_retry_count"]=json!(3),
+            "spent"=>value["admitted_actions"]=json!([{"fingerprint":"apply:spent"}]),
+            "packet"=>value["packet_id"]=json!(Uuid::new_v4()),
+            "retry"=>{},
+            _=>unreachable!(),
+        }
+        browser_save(&mut c,&format!("apply_work:{}",work["id"].as_str().unwrap()),value.clone()).await;
+        let result=listing_observe(&mut c,&value,json!({"kind":"failed","reason":"backend_timeout"})).await.unwrap();
+        assert_eq!(result["status"],if kind=="retry"{"queued"}else{"waiting"});
+        assert_eq!(result["admitted_actions"],value["admitted_actions"]);
+        assert_eq!(result["packet_id"],value["packet_id"]);
+    }
 }

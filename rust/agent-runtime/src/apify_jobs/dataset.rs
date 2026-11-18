@@ -14,7 +14,7 @@ pub(super) fn page(
     let limit = plan.query["limit"]
         .as_u64()
         .ok_or(Failure("invalid_apify_original_intent"))?;
-    if offset >= limit || offset % 50 != 0 {
+    if offset >= limit || !offset.is_multiple_of(50) {
         return Err(Failure("apify_dataset_target_denied"));
     }
     let max = 50.min(limit - offset);

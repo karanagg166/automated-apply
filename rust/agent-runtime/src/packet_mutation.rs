@@ -93,6 +93,12 @@ pub(crate) struct Claim {
     pub prior_fields: Vec<Value>,
     pub normalized: Vec<Value>,
 }
+pub(crate) struct RunOptions<'a> {
+    pub settings: &'a Settings,
+    pub answers: &'a answer_service::Settings,
+    pub now: DateTime<Utc>,
+    pub metadata: Option<&'a Value>,
+}
 pub(crate) async fn locked_in(
     tx: &mut Transaction<'_, Postgres>,
     packet: Uuid,
@@ -164,7 +170,19 @@ pub(crate) async fn run_in(
     answers: &answer_service::Settings,
     now: DateTime<Utc>,
 ) -> Result<Value> {
-    run_with_answer_metadata_in(tx, packet, input, field, settings, answers, now, None).await
+    run_with_answer_metadata_in(
+        tx,
+        packet,
+        input,
+        field,
+        RunOptions {
+            settings,
+            answers,
+            now,
+            metadata: None,
+        },
+    )
+    .await
 }
 /// Owner-question provenance is included in the same guarded field update as
 /// the answer, so the database advances answer_revision exactly once.
@@ -173,13 +191,16 @@ pub(crate) async fn run_with_answer_metadata_in(
     packet: Uuid,
     input: &Input,
     field: Option<Uuid>,
-    settings: &Settings,
-    answers: &answer_service::Settings,
-    now: DateTime<Utc>,
-    metadata: Option<&Value>,
+    options: RunOptions<'_>,
 ) -> Result<Value> {
-    if let Some(metadata) = metadata {
-        if !matches!(input, Input::Answer { .. })
+    let RunOptions {
+        settings,
+        answers,
+        now,
+        metadata,
+    } = options;
+    if let Some(metadata) = metadata
+        && (!matches!(input, Input::Answer { .. })
             || metadata.as_object().is_none_or(|o| {
                 o.keys().any(|k| {
                     !matches!(
@@ -190,10 +211,9 @@ pub(crate) async fn run_with_answer_metadata_in(
                             | "telegram_owner_update"
                     )
                 })
-            })
-        {
-            return Err(Failure("invalid_packet_edit_request"));
-        }
+            }))
+    {
+        return Err(Failure("invalid_packet_edit_request"));
     }
     if matches!(
         input,

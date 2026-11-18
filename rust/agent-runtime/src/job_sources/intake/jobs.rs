@@ -216,7 +216,7 @@ fn salary(item: &Value) -> Option<String> {
             for (i, c) in chars.iter().enumerate() {
                 out.push(*c);
                 let left = chars.len() - i - 1;
-                if left > 0 && left % 3 == 0 && *c != '-' {
+                if left > 0 && left.is_multiple_of(3) && *c != '-' {
                     out.push(',');
                 }
             }

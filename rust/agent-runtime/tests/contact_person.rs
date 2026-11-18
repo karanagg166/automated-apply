@@ -343,10 +343,10 @@ print(json.dumps(out))
         };
         assert_eq!(got, *want, "case {index}");
         assert!(!got.to_string().contains("PRIVATE_"));
-        if let Some(v) = got["value"].as_object() {
-            if !v["email"].is_null() {
-                assert_eq!(v["email_status"], "provider_reported");
-            }
+        if let Some(v) = got["value"].as_object()
+            && !v["email"].is_null()
+        {
+            assert_eq!(v["email_status"], "provider_reported");
         }
     }
     let mut redacted = base.clone();

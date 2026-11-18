@@ -37,7 +37,7 @@ fn stamp(at: DateTime<Utc>) -> String {
         false,
     )
 }
-fn text<'a>(v: &'a Value, max: usize) -> Result<&'a str> {
+fn text(v: &Value, max: usize) -> Result<&str> {
     v.as_str().filter(|s| s.len() <= max).ok_or_else(invalid)
 }
 fn current(at: DateTime<Utc>, now: DateTime<Utc>, days: i64) -> bool {

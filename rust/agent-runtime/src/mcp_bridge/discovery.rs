@@ -51,10 +51,10 @@ fn request_schema(startup: bool) -> Value {
     fn references(value: &mut Value) {
         match value {
             Value::Object(map) => {
-                if let Some(Value::String(reference)) = map.get_mut("$ref") {
-                    if let Some(tail) = reference.strip_prefix("#/$defs/") {
-                        *reference = format!("#/properties/request/$defs/{tail}");
-                    }
+                if let Some(Value::String(reference)) = map.get_mut("$ref")
+                    && let Some(tail) = reference.strip_prefix("#/$defs/")
+                {
+                    *reference = format!("#/properties/request/$defs/{tail}");
                 }
                 for item in map.values_mut() {
                     references(item);

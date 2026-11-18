@@ -777,8 +777,10 @@ async fn gmail_local_mailbox_callback_rechecks_outreach_identity_after_exchange_
     let (mut c, _, _) = workspace_fixture().await;
     let mut other = connection().await;
     let settings = mailbox_settings();
-    let mut google = MailboxGoogle::default();
-    google.held_exchange = true;
+    let google = MailboxGoogle {
+        held_exchange: true,
+        ..Default::default()
+    };
     let service = Service {
         settings: &settings,
         provider: &google,

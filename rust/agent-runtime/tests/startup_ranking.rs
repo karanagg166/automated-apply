@@ -97,16 +97,16 @@ fn startup_relevance_matches_actual_weight_reasons_unknowns_profile_version_and_
         }
         let filters = contract::normalize(Kind::Filters, filters).unwrap();
         native.push(
-            ranking::rank(
-                &c,
-                &jobs,
-                &attrs,
-                &size,
-                &hiring,
-                &contacts,
-                if p.is_null() { None } else { Some(&p) },
-                &filters,
-            )
+            ranking::rank(ranking::RankInput {
+                company: &c,
+                jobs: &jobs,
+                attributes: &attrs,
+                size: &size,
+                hiring: &hiring,
+                contacts: &contacts,
+                profile: if p.is_null() { None } else { Some(&p) },
+                filters: &filters,
+            })
             .unwrap(),
         );
         cases.push(json!({"company":c,"jobs":jobs,"attributes":attrs,"size":size,"hiring":hiring,"contacts":contacts,"profile":p,"filters":filters}));
@@ -173,21 +173,31 @@ fn startup_relevance_refuses_unbounded_inputs_and_never_promotes_a_score_to_auth
     let attrs = json!({});
     let size = json!({"team_size_band":"unknown","team_size_evidence_status":"team_size_unknown"});
     let hiring = json!({"hiring_status":"hiring_unknown"});
-    let result = ranking::rank(&c, &[], &attrs, &size, &hiring, &[], None, &filters).unwrap();
+    let result = ranking::rank(ranking::RankInput {
+        company: &c,
+        jobs: &[],
+        attributes: &attrs,
+        size: &size,
+        hiring: &hiring,
+        contacts: &[],
+        profile: None,
+        filters: &filters,
+    })
+    .unwrap();
     assert_eq!(result["score_kind"], "relevance_not_probability");
     assert!(result.get("application_allowed").is_none());
     assert!(result.get("email_send_ready").is_none());
     assert!(
-        ranking::rank(
-            &c,
-            &vec![json!({}); 501],
-            &attrs,
-            &size,
-            &hiring,
-            &[],
-            None,
-            &filters
-        )
+        ranking::rank(ranking::RankInput {
+            company: &c,
+            jobs: &vec![json!({}); 501],
+            attributes: &attrs,
+            size: &size,
+            hiring: &hiring,
+            contacts: &[],
+            profile: None,
+            filters: &filters,
+        })
         .is_err()
     );
 }

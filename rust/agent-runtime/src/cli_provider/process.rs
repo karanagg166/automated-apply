@@ -130,10 +130,10 @@ async fn frames<R: AsyncRead + Unpin>(
             }
         }
     }
-    if !pending.iter().all(u8::is_ascii_whitespace) {
-        if parser.frame(&pending, sent.load(Ordering::Acquire))? {
-            return Err(Failure("provider_init_unverified"));
-        }
+    if !pending.iter().all(u8::is_ascii_whitespace)
+        && parser.frame(&pending, sent.load(Ordering::Acquire))?
+    {
+        return Err(Failure("provider_init_unverified"));
     }
     Ok(parser)
 }

@@ -371,7 +371,7 @@ pub fn hacker_news(
     tokenizer.set_state(html5gum::State::RcData);
     let mut text = String::new();
     let mut count = 0usize;
-    while let Some(token) = tokenizer.next() {
+    for token in tokenizer {
         count += 1;
         if count > 100000 {
             return Err(invalid());

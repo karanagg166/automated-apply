@@ -93,13 +93,13 @@ pub fn normalize(kind: Kind, mut value: Value) -> Result<Value> {
             ("page", 1, 250),
             ("limit", 1, 100),
         ] {
-            if let Some(v) = fields.get_mut(key) {
-                if !v.is_null() {
-                    *v = json!(
-                        crate::profile_contract::pagination_integer(v.clone(), min, max)
-                            .map_err(|_| invalid())?
-                    );
-                }
+            if let Some(v) = fields.get_mut(key)
+                && !v.is_null()
+            {
+                *v = json!(
+                    crate::profile_contract::pagination_integer(v.clone(), min, max)
+                        .map_err(|_| invalid())?
+                );
             }
         }
         if let Some(v) = fields.get_mut("minimum_score") {
@@ -109,10 +109,10 @@ pub fn normalize(kind: Kind, mut value: Value) -> Result<Value> {
             )
             .map_err(|_| invalid())?;
         }
-        if let Some(v) = fields.get_mut("observed_after") {
-            if !v.is_null() {
-                *v = crate::packet_record::timestamp(v, false).map_err(|_| invalid())?;
-            }
+        if let Some(v) = fields.get_mut("observed_after")
+            && !v.is_null()
+        {
+            *v = crate::packet_record::timestamp(v, false).map_err(|_| invalid())?;
         }
         if fields
             .get("min_employees")

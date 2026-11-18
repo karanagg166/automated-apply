@@ -155,10 +155,10 @@ pub async fn collect(
         if let Some(id) = finding["contact_id"]
             .as_str()
             .and_then(|s| s.parse::<Uuid>().ok())
+            && selected.len() < maximum
+            && !selected.contains(&id)
         {
-            if selected.len() < maximum && !selected.contains(&id) {
-                selected.push(id);
-            }
+            selected.push(id);
         }
         commit(tx).await?;
     }

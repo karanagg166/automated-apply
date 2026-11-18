@@ -198,8 +198,8 @@ pub(super) async fn project_in(
         Value::Null
     };
     let selected_run = journal.get("selected_run");
-    if let Some(run) = selected_run {
-        if journal["selected_run_hash"] != crate::python_json::digest(run)
+    if let Some(run) = selected_run
+        && (journal["selected_run_hash"] != crate::python_json::digest(run)
             || run["id"] != journal["reservation"]["provider_run_id"]
             || run["billing_final"] != false
             || run["independent_termination_verified"] != false
@@ -209,10 +209,9 @@ pub(super) async fn project_in(
                     || !s
                         .bytes()
                         .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-')
-            })
-        {
-            return Err(invalid());
-        }
+            }))
+    {
+        return Err(invalid());
     }
     let errors = journal.get("failure_codes").cloned().unwrap_or(json!([]));
     if errors.as_array().is_none_or(|a| {

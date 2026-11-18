@@ -140,13 +140,13 @@ fn query(mut value: Value) -> Result<Value> {
         ("limit", 1, 100),
         ("max_age_days", 1, 3650),
     ] {
-        if let Some(v) = fields.get_mut(key) {
-            if !v.is_null() {
-                *v = json!(
-                    crate::profile_contract::pagination_integer(v.clone(), min, max)
-                        .map_err(|_| invalid())?
-                );
-            }
+        if let Some(v) = fields.get_mut(key)
+            && !v.is_null()
+        {
+            *v = json!(
+                crate::profile_contract::pagination_integer(v.clone(), min, max)
+                    .map_err(|_| invalid())?
+            );
         }
     }
     Ok(value)
@@ -197,13 +197,13 @@ pub fn normalize(kind: Kind, mut value: Value, now: DateTime<Utc>) -> Result<Val
                     public_url(v)?;
                 }
             }
-            if let Some(v) = fields.get_mut("business_email") {
-                if !v.is_null() {
-                    *v = json!(
-                        crate::profile_contract::email(v.as_str().ok_or_else(invalid)?)
-                            .map_err(|_| invalid())?
-                    );
-                }
+            if let Some(v) = fields.get_mut("business_email")
+                && !v.is_null()
+            {
+                *v = json!(
+                    crate::profile_contract::email(v.as_str().ok_or_else(invalid)?)
+                        .map_err(|_| invalid())?
+                );
             }
             if let Some(v) = fields.get_mut("observed_at") {
                 actual_time(v, now)?;
@@ -286,13 +286,13 @@ pub fn normalize(kind: Kind, mut value: Value, now: DateTime<Utc>) -> Result<Val
                 actual_time(v, now)?;
             }
             boolean(fields, &["historical", "authoritative_statement"])?;
-            if let Some(v) = fields.get_mut("founding_year") {
-                if !v.is_null() {
-                    *v = json!(
-                        crate::profile_contract::pagination_integer(v.clone(), 1800, 2100)
-                            .map_err(|_| invalid())?
-                    );
-                }
+            if let Some(v) = fields.get_mut("founding_year")
+                && !v.is_null()
+            {
+                *v = json!(
+                    crate::profile_contract::pagination_integer(v.clone(), 1800, 2100)
+                        .map_err(|_| invalid())?
+                );
             }
             if let Some(count) = fields.get("employee_count").filter(|v| !v.is_null()) {
                 let count = count

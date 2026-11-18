@@ -92,11 +92,11 @@ pub(super) async fn state_in(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> Re
             .intake
             .as_ref()
             .ok_or(Failure("discovery_run_intake_receipt_missing"))?;
-        let expected = terminal_status(&receipt)?;
+        let expected = terminal_status(receipt)?;
         if state.row["status"] != expected
             || state.row["counts"] != receipt["counts"]
             || state.row["query_summary"]["job_ids"] != receipt["job_ids"]
-            || state.journal["local_receipt_hash"] != crate::python_json::digest(&receipt)
+            || state.journal["local_receipt_hash"] != crate::python_json::digest(receipt)
             || state.journal["rankings_hash"] != crate::python_json::digest(&state.row["rankings"])
             || state.row["provider_run_id"] != Value::Null
             || access::time(&state.row["finished_at"])? < access::time(&receipt["ingested_at"])?
@@ -105,7 +105,7 @@ pub(super) async fn state_in(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> Re
         }
         ranking::project(
             &state.row["rankings"],
-            &receipt,
+            receipt,
             &state.journal["scope"]["profile_pin"]["version"],
         )?;
     }

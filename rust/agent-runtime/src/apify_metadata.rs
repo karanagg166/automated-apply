@@ -39,10 +39,10 @@ pub fn input_schema(document: &Value) -> Result<Option<Value>> {
     let mut candidates = Vec::new();
     for path in paths.values() {
         let schema = path.pointer("/post/requestBody/content/application~1json/schema");
-        if let Some(schema) = schema.filter(|s| s.is_object()) {
-            if !candidates.contains(&schema) {
-                candidates.push(schema);
-            }
+        if let Some(schema) = schema.filter(|s| s.is_object())
+            && !candidates.contains(&schema)
+        {
+            candidates.push(schema);
         }
     }
     if candidates.len() != 1 {

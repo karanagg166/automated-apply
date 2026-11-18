@@ -97,14 +97,14 @@ pub fn normalize(kind: Kind, mut value: Value) -> Result<Value> {
                 .map_err(|_| invalid_person())?
         );
     }
-    if let Some(v) = fields.get_mut("linkedin_url") {
-        if let Some(raw) = v.as_str() {
-            *v = if raw.is_empty() {
-                Value::Null
-            } else {
-                json!(lookups::linkedin(raw).ok_or_else(invalid_person)?)
-            };
-        }
+    if let Some(v) = fields.get_mut("linkedin_url")
+        && let Some(raw) = v.as_str()
+    {
+        *v = if raw.is_empty() {
+            Value::Null
+        } else {
+            json!(lookups::linkedin(raw).ok_or_else(invalid_person)?)
+        };
     }
     for key in [
         "email_publication_url",
@@ -112,16 +112,16 @@ pub fn normalize(kind: Kind, mut value: Value) -> Result<Value> {
         "permission_evidence_url",
         "evidence_url",
     ] {
-        if let Some(v) = fields.get_mut(key) {
-            if let Some(raw) = v.as_str() {
-                *v = json!(crate::resources::public_https(raw).ok_or_else(invalid_person)?);
-            }
+        if let Some(v) = fields.get_mut(key)
+            && let Some(raw) = v.as_str()
+        {
+            *v = json!(crate::resources::public_https(raw).ok_or_else(invalid_person)?);
         }
     }
-    if let Some(v) = fields.get_mut("observed_at") {
-        if !v.is_null() {
-            *v = crate::packet_record::timestamp(v, false).map_err(|_| invalid_person())?;
-        }
+    if let Some(v) = fields.get_mut("observed_at")
+        && !v.is_null()
+    {
+        *v = crate::packet_record::timestamp(v, false).map_err(|_| invalid_person())?;
     }
     if let Some(roles) = fields.get_mut("target_roles").and_then(Value::as_array_mut) {
         for role in roles {
@@ -259,13 +259,13 @@ pub fn signalhire(candidate: &Value, request: &Value) -> Result<Option<Value>> {
     let contacts = array(candidate, "contacts", 1000)?;
     let mut addresses = BTreeMap::new();
     for entry in contacts {
-        if entry["type"] == "email" && entry["subType"] == "work" {
-            if let Some(email) = entry["value"]
+        if entry["type"] == "email"
+            && entry["subType"] == "work"
+            && let Some(email) = entry["value"]
                 .as_str()
                 .and_then(|s| rules::business_email(s, &domain))
-            {
-                addresses.entry(email).or_insert(entry);
-            }
+        {
+            addresses.entry(email).or_insert(entry);
         }
     }
     if addresses.len() > 1 {

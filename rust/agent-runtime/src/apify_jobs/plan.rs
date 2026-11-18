@@ -234,7 +234,7 @@ impl Plan {
         let max = self.query["limit"]
             .as_u64()
             .ok_or(Failure("invalid_apify_actor_configuration"))?;
-        if !run.succeeded() || offset >= max || offset % 50 != 0 {
+        if !run.succeeded() || offset >= max || !offset.is_multiple_of(50) {
             return Err(Failure("apify_dataset_target_denied"));
         }
         Ok(Target {

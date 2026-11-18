@@ -209,23 +209,22 @@ impl<P: Provider> Service<'_, P> {
         } else {
             format!("pending:{}", id.simple())
         };
-        if let Some(input) = input["expected_email"].as_str() {
-            if automated_apply_domain::text::folded(input) != expected {
-                return Err(Failure("expected_account_mismatch"));
-            }
+        if let Some(input) = input["expected_email"].as_str()
+            && automated_apply_domain::text::folded(input) != expected
+        {
+            return Err(Failure("expected_account_mismatch"));
         }
         if !expected.starts_with("pending:") && !self.settings.allows(&expected) {
             return Err(Failure("gmail_account_not_authorized"));
         }
-        if let Some(current) = &account {
-            if current["status"] != "disconnected"
-                && current["status"] != "reauthorization_required"
-                && !(body
-                    && current["status"] == "connected"
-                    && scopes(current)? == crate::google_oauth::scopes(GrantMode::Metadata))
-            {
-                return Err(Failure("disconnect_before_reconnecting"));
-            }
+        if let Some(current) = &account
+            && current["status"] != "disconnected"
+            && current["status"] != "reauthorization_required"
+            && !(body
+                && current["status"] == "connected"
+                && scopes(current)? == crate::google_oauth::scopes(GrantMode::Metadata))
+        {
+            return Err(Failure("disconnect_before_reconnecting"));
         }
         if account.is_none() {
             let saved:Option<Value>=sqlx::query_scalar("INSERT INTO gmail_read_accounts(id,provider,google_subject,account_email,status,token_generation,granted_scopes,connected_at) VALUES($1,'gmail','',$2,'disconnected',1,'[]',clock_timestamp()) RETURNING jsonb_build_object('id',id,'google_subject',google_subject,'account_email',account_email,'status',status,'token_generation',token_generation)").bind(id).bind(&expected).fetch_optional(&mut *tx).await.map_err(db)?;

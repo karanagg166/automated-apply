@@ -192,11 +192,11 @@ impl Route<'_> {
         }
     }
     pub fn allow(self) -> &'static str {
-        if matches!(self, Self::Account | Self::AccountApproval) {
-            "GET, PUT"
-        } else if matches!(
+        if matches!(
             self,
-            Self::Owner(owner_routes::Route::Summary | owner_routes::Route::Configuration)
+            Self::Account
+                | Self::AccountApproval
+                | Self::Owner(owner_routes::Route::Summary | owner_routes::Route::Configuration)
         ) {
             "GET, PUT"
         } else {

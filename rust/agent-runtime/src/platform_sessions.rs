@@ -44,6 +44,8 @@ static PORTALS: [Portal; 5] = [
     },
 ];
 
+type SavedPortalSession = (String, Option<Value>, Option<Value>, DateTime<Utc>);
+
 #[derive(Clone, Copy)]
 pub(crate) enum Route<'a> {
     List,
@@ -165,7 +167,7 @@ pub(crate) async fn listing(connection: &mut PgConnection) -> Result<Vec<Value>>
         .iter()
         .map(|portal| format!("portal_{}", portal.code))
         .collect();
-    let saved: Vec<(String, Option<Value>, Option<Value>, DateTime<Utc>)> = sqlx::query_as(
+    let saved: Vec<SavedPortalSession> = sqlx::query_as(
         "SELECT p.key, CASE WHEN octet_length(p.value::text) <= 8192 THEN p.value END,
             CASE WHEN p.value ? 'browser_scope' AND profile.value->'id'=selected.value->'profile_binding_id'
               AND (fixed.key IS NULL OR fixed.value->'profile_binding_id'=profile.value->'id')

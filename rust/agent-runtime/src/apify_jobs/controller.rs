@@ -80,25 +80,26 @@ impl Service<'_> {
         if let Err(error) = result {
             let _ = session.note_failure(c, error).await;
         }
-        if result.is_err() && !run.terminal() {
-            if let Ok(target) = session.plan().abort(&run) {
-                // A single admitted abort is best effort; original deadline/cap remain the fallback.
-                let _ = session
-                    .exchange(
-                        c,
-                        self.client,
-                        self.settings,
-                        "abort",
-                        target,
-                        |plan, body| {
-                            let observed =
-                                Run::parse(plan, &actor, body, Some(&run), admitted, Utc::now())?;
-                            let selected = observed.selected();
-                            Ok((observed, selected))
-                        },
-                    )
-                    .await;
-            }
+        if result.is_err()
+            && !run.terminal()
+            && let Ok(target) = session.plan().abort(&run)
+        {
+            // A single admitted abort is best effort; original deadline/cap remain the fallback.
+            let _ = session
+                .exchange(
+                    c,
+                    self.client,
+                    self.settings,
+                    "abort",
+                    target,
+                    |plan, body| {
+                        let observed =
+                            Run::parse(plan, &actor, body, Some(&run), admitted, Utc::now())?;
+                        let selected = observed.selected();
+                        Ok((observed, selected))
+                    },
+                )
+                .await;
         }
         result?;
         admission::read(c, id).await

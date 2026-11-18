@@ -169,10 +169,10 @@ impl Drop for Waiter {
             return;
         };
         entry.waiters -= 1;
-        if entry.waiters == 0 {
-            if let Some(entry) = flights.remove(&self.key) {
-                entry.abort.abort();
-            }
+        if entry.waiters == 0
+            && let Some(entry) = flights.remove(&self.key)
+        {
+            entry.abort.abort();
         }
     }
 }

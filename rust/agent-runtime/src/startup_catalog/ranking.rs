@@ -22,16 +22,27 @@ fn labels(value: &Value) -> Result<Vec<String>> {
         })
         .collect()
 }
-pub fn rank(
-    company: &Value,
-    jobs: &[Value],
-    attributes: &Value,
-    size: &Value,
-    hiring: &Value,
-    contacts: &[Value],
-    profile: Option<&Value>,
-    filters: &Value,
-) -> Result<Value> {
+pub struct RankInput<'a> {
+    pub company: &'a Value,
+    pub jobs: &'a [Value],
+    pub attributes: &'a Value,
+    pub size: &'a Value,
+    pub hiring: &'a Value,
+    pub contacts: &'a [Value],
+    pub profile: Option<&'a Value>,
+    pub filters: &'a Value,
+}
+pub fn rank(input: RankInput<'_>) -> Result<Value> {
+    let RankInput {
+        company,
+        jobs,
+        attributes,
+        size,
+        hiring,
+        contacts,
+        profile,
+        filters,
+    } = input;
     if jobs.len() > 500
         || contacts.len() > 100
         || !attributes.is_object()
@@ -208,14 +219,13 @@ pub fn rank(
         score += 5.0;
         reasons.push("Location or remote evidence matches saved/requested preferences; work eligibility requires review".to_owned());
     }
-    if let Some(p) = &parsed {
-        if attributes["stage"]
+    if let Some(p) = &parsed
+        && attributes["stage"]
             .as_str()
             .is_some_and(|stage| p.preferences.company_stages.iter().any(|s| s == stage))
-        {
-            score += 3.0;
-            reasons.push("Reported stage matches saved preferences".to_owned());
-        }
+    {
+        score += 3.0;
+        reasons.push("Reported stage matches saved preferences".to_owned());
     }
     if contacts.iter().any(|c| {
         c["confidence"] == "supported"
@@ -236,12 +246,12 @@ pub fn rank(
             }
         }
     }
-    if let Some(p) = &parsed {
-        if p.preferences.excluded_companies.iter().any(|value| {
+    if let Some(p) = &parsed
+        && p.preferences.excluded_companies.iter().any(|value| {
             folded(value) == folded(name) || domain.is_some_and(|d| folded(value) == folded(d))
-        }) {
-            excluded.push("Company excluded by saved preferences".to_owned());
-        }
+        })
+    {
+        excluded.push("Company excluded by saved preferences".to_owned());
     }
     let version = profile.map(|p| p["version"].clone()).unwrap_or(Value::Null);
     if profile.is_some()

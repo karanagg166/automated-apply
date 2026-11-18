@@ -248,14 +248,12 @@ pub async fn reconcile_in(
         .iter()
         .next()
         .and_then(|id| records.iter().find(|r| self::id(r, "id") == Ok(*id)))
+        && !truth(existing, "do_not_contact")
+        && !truth(existing, "human_corrected")
+        && folded(existing["full_name"].as_str().ok_or_else(invalid)?)
+            != folded(observation["full_name"].as_str().ok_or_else(invalid)?)
     {
-        if !truth(existing, "do_not_contact")
-            && !truth(existing, "human_corrected")
-            && folded(existing["full_name"].as_str().ok_or_else(invalid)?)
-                != folded(observation["full_name"].as_str().ok_or_else(invalid)?)
-        {
-            mismatch = true;
-        }
+        mismatch = true;
     }
     let mut strength = if matched.is_empty() {
         observation["evidence_strength"]
@@ -265,37 +263,38 @@ pub async fn reconcile_in(
     } else {
         "strong".into()
     };
-    if !mismatch && matched.is_empty() {
-        if let Some(url) = observation["evidence_url"].as_str() {
-            let supports:Vec<Uuid>=sqlx::query_scalar("SELECT DISTINCT contact_id FROM contact_evidence WHERE company_id=$1 AND contact_id IS NOT NULL AND evidence_url=$2 AND user_confirmed=true AND expires_at>$3 AND collected_at<=$3 ORDER BY contact_id LIMIT 1001").bind(company_id).bind(url).bind(now).fetch_all(&mut **tx).await.map_err(db)?;
-            if supports.len() > 1000 {
-                return Err(Failure("contact_identity_inventory_requires_review"));
-            }
-            let supported = records
-                .iter()
-                .filter(|c| {
-                    supports.contains(&id(c, "id").unwrap_or(Uuid::nil()))
-                        && folded(c["full_name"].as_str().unwrap_or(""))
-                            == folded(observation["full_name"].as_str().unwrap_or(""))
-                        && folded(c["role_title"].as_str().unwrap_or(""))
-                            == folded(observation["role_title"].as_str().unwrap_or(""))
-                        && !(observation["linkedin_url"].as_str().is_some()
-                            && c["linkedin_url"]
-                                .as_str()
-                                .and_then(lookups::linkedin)
-                                .is_some_and(|p| {
-                                    Some(p.as_str()) != observation["linkedin_url"].as_str()
-                                }))
-                })
-                .collect::<Vec<_>>();
-            if supported.len() == 1 {
-                matched.insert(id(supported[0], "id")?);
-                strength = "moderate".into();
-            } else if supported.len() > 1 {
-                mismatch = true;
-                for c in supported {
-                    matched.insert(id(c, "id")?);
-                }
+    if !mismatch
+        && matched.is_empty()
+        && let Some(url) = observation["evidence_url"].as_str()
+    {
+        let supports:Vec<Uuid>=sqlx::query_scalar("SELECT DISTINCT contact_id FROM contact_evidence WHERE company_id=$1 AND contact_id IS NOT NULL AND evidence_url=$2 AND user_confirmed=true AND expires_at>$3 AND collected_at<=$3 ORDER BY contact_id LIMIT 1001").bind(company_id).bind(url).bind(now).fetch_all(&mut **tx).await.map_err(db)?;
+        if supports.len() > 1000 {
+            return Err(Failure("contact_identity_inventory_requires_review"));
+        }
+        let supported = records
+            .iter()
+            .filter(|c| {
+                supports.contains(&id(c, "id").unwrap_or(Uuid::nil()))
+                    && folded(c["full_name"].as_str().unwrap_or(""))
+                        == folded(observation["full_name"].as_str().unwrap_or(""))
+                    && folded(c["role_title"].as_str().unwrap_or(""))
+                        == folded(observation["role_title"].as_str().unwrap_or(""))
+                    && !(observation["linkedin_url"].as_str().is_some()
+                        && c["linkedin_url"]
+                            .as_str()
+                            .and_then(lookups::linkedin)
+                            .is_some_and(|p| {
+                                Some(p.as_str()) != observation["linkedin_url"].as_str()
+                            }))
+            })
+            .collect::<Vec<_>>();
+        if supported.len() == 1 {
+            matched.insert(id(supported[0], "id")?);
+            strength = "moderate".into();
+        } else if supported.len() > 1 {
+            mismatch = true;
+            for c in supported {
+                matched.insert(id(c, "id")?);
             }
         }
     }
@@ -420,20 +419,18 @@ pub async fn reconcile_in(
         && source == "official_company"
         && observation["human_confirmed"] == true
         && issues.is_empty()
+        && let Some(url) = observation["email_publication_url"].as_str()
     {
-        if let Some(url) = observation["email_publication_url"].as_str() {
-            let host = reqwest::Url::parse(url)
-                .ok()
-                .and_then(|u| u.host_str().map(str::to_owned));
-            if host.as_deref().is_some_and(|h| {
-                domain.as_deref() == Some(h)
-                    || domain.as_ref().is_some_and(|d| h == format!("www.{d}"))
-            }) {
-                after["metadata"]["email_publication_url"] = json!(url);
-                after["metadata"]["email_publication_confirmed"] = json!(true);
-                after["metadata"]["email_publication_digest"] =
-                    json!(hash(email.as_deref().unwrap_or("")));
-            }
+        let host = reqwest::Url::parse(url)
+            .ok()
+            .and_then(|u| u.host_str().map(str::to_owned));
+        if host.as_deref().is_some_and(|h| {
+            domain.as_deref() == Some(h) || domain.as_ref().is_some_and(|d| h == format!("www.{d}"))
+        }) {
+            after["metadata"]["email_publication_url"] = json!(url);
+            after["metadata"]["email_publication_confirmed"] = json!(true);
+            after["metadata"]["email_publication_digest"] =
+                json!(hash(email.as_deref().unwrap_or("")));
         }
     }
     after["metadata"]["evidence_strength"] = json!(strength);

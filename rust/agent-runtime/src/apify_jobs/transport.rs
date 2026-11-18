@@ -39,56 +39,6 @@ pub(super) struct Outcome {
 fn invalid() -> Failure {
     Failure("invalid_apify_execution_transport")
 }
-
-#[cfg(test)]
-mod read_permit_tests {
-    use super::*;
-    use crate::apify_jobs::{
-        evidence::{ActorIdentity, Run},
-        money::Usd,
-        plan::{BuildReview, Plan, Policy},
-    };
-    use serde_json::json;
-    use std::collections::BTreeMap;
-    #[tokio::test(flavor = "current_thread")]
-    async fn read_only_transport_permit_refuses_even_a_bound_original_abort_target_before_any_http()
-    {
-        let now = Utc::now();
-        let plan=Plan::build("naukri",json!({"actor_id":"fictional/public-jobs","build":"1.2.3","enabled":true,"reviewed":true,"review_expires_at":(now+chrono::Duration::hours(1)).to_rfc3339(),"platform_usage_included":true,"account_spending_limit_verified":true,"schema_evidence_url":"https://actor-fixture.example/schema","pricing_evidence_url":"https://actor-fixture.example/pricing","permission_evidence_url":"https://actor-fixture.example/permission","pricing_model":"PAY_PER_EVENT","estimated_per_item_usd":0.001,"field_map":{"limit":"maxItems"}}),json!({"limit":20}),Policy{monthly:Usd::parse("2").unwrap(),cap:Usd::parse("0.100001").unwrap(),allow_paid:true,credential_present:true,reviewed_build:BuildReview::parse(&json!({"build_id":"originalBuild","schema_digest":"a".repeat(64)})).unwrap()},now).unwrap();
-        let actor = ActorIdentity::parse(
-            &plan,
-            &json!({"data":{"id":"originalActor","username":"fictional","name":"public-jobs"}}),
-        )
-        .unwrap();
-        let run=Run::parse(&plan,&actor,&json!({"data":{"id":"originalRun","actId":"originalActor","buildId":"originalBuild","buildNumber":"1.2.3","status":"RUNNING","defaultDatasetId":"originalDataset","startedAt":now.to_rfc3339(),"finishedAt":null,"options":{"build":"1.2.3","timeoutSecs":60,"restartOnError":false,"maxTotalChargeUsd":0.100001,"maxItems":20}}}),None,now,now).unwrap();
-        let values = BTreeMap::from([
-            (
-                "APIFY_API_TOKEN".into(),
-                "PRIVATE_FICTIONAL_READ_TOKEN_CANARY".into(),
-            ),
-            (
-                "RUST_APIFY_EXECUTION_FIXTURE_ORIGIN".into(),
-                "http://127.0.0.1:65530/v2/".into(),
-            ),
-        ]);
-        let client = Client::from_values(&values, true).unwrap();
-        let outcome = client
-            .execute(Permit {
-                request: Uuid::from_u128(1),
-                invocation: Uuid::from_u128(2),
-                sequence: 1,
-                target: plan.abort(&run).unwrap(),
-                credential_context: client.context.clone().unwrap(),
-                expires: now + chrono::Duration::seconds(45),
-                read_only: true,
-            })
-            .await;
-        assert_eq!(outcome.code, Some("apify_execution_target_denied"));
-        assert!(!outcome.attempted);
-        assert!(!outcome.response_observed);
-        assert!(outcome.body.is_none());
-    }
-}
 impl Client {
     pub fn from_values(values: &BTreeMap<String, String>, fixture: bool) -> Result<Self> {
         let configured = values.get("RUST_APIFY_EXECUTION_FIXTURE_ORIGIN");
@@ -236,7 +186,7 @@ impl Client {
                     let until = raw
                         .and_then(|s| s.parse::<i64>().ok())
                         .filter(|n| *n >= 0)
-                        .and_then(|n| chrono::Duration::try_seconds(n))
+                        .and_then(chrono::Duration::try_seconds)
                         .and_then(|d| now.checked_add_signed(d))
                         .or_else(|| {
                             raw.and_then(|s| DateTime::parse_from_rfc2822(s).ok())
@@ -301,5 +251,55 @@ impl Client {
             outcome.body = None;
         }
         outcome
+    }
+}
+
+#[cfg(test)]
+mod read_permit_tests {
+    use super::*;
+    use crate::apify_jobs::{
+        evidence::{ActorIdentity, Run},
+        money::Usd,
+        plan::{BuildReview, Plan, Policy},
+    };
+    use serde_json::json;
+    use std::collections::BTreeMap;
+    #[tokio::test(flavor = "current_thread")]
+    async fn read_only_transport_permit_refuses_even_a_bound_original_abort_target_before_any_http()
+    {
+        let now = Utc::now();
+        let plan=Plan::build("naukri",json!({"actor_id":"fictional/public-jobs","build":"1.2.3","enabled":true,"reviewed":true,"review_expires_at":(now+chrono::Duration::hours(1)).to_rfc3339(),"platform_usage_included":true,"account_spending_limit_verified":true,"schema_evidence_url":"https://actor-fixture.example/schema","pricing_evidence_url":"https://actor-fixture.example/pricing","permission_evidence_url":"https://actor-fixture.example/permission","pricing_model":"PAY_PER_EVENT","estimated_per_item_usd":0.001,"field_map":{"limit":"maxItems"}}),json!({"limit":20}),Policy{monthly:Usd::parse("2").unwrap(),cap:Usd::parse("0.100001").unwrap(),allow_paid:true,credential_present:true,reviewed_build:BuildReview::parse(&json!({"build_id":"originalBuild","schema_digest":"a".repeat(64)})).unwrap()},now).unwrap();
+        let actor = ActorIdentity::parse(
+            &plan,
+            &json!({"data":{"id":"originalActor","username":"fictional","name":"public-jobs"}}),
+        )
+        .unwrap();
+        let run=Run::parse(&plan,&actor,&json!({"data":{"id":"originalRun","actId":"originalActor","buildId":"originalBuild","buildNumber":"1.2.3","status":"RUNNING","defaultDatasetId":"originalDataset","startedAt":now.to_rfc3339(),"finishedAt":null,"options":{"build":"1.2.3","timeoutSecs":60,"restartOnError":false,"maxTotalChargeUsd":0.100001,"maxItems":20}}}),None,now,now).unwrap();
+        let values = BTreeMap::from([
+            (
+                "APIFY_API_TOKEN".into(),
+                "PRIVATE_FICTIONAL_READ_TOKEN_CANARY".into(),
+            ),
+            (
+                "RUST_APIFY_EXECUTION_FIXTURE_ORIGIN".into(),
+                "http://127.0.0.1:65530/v2/".into(),
+            ),
+        ]);
+        let client = Client::from_values(&values, true).unwrap();
+        let outcome = client
+            .execute(Permit {
+                request: Uuid::from_u128(1),
+                invocation: Uuid::from_u128(2),
+                sequence: 1,
+                target: plan.abort(&run).unwrap(),
+                credential_context: client.context.clone().unwrap(),
+                expires: now + chrono::Duration::seconds(45),
+                read_only: true,
+            })
+            .await;
+        assert_eq!(outcome.code, Some("apify_execution_target_denied"));
+        assert!(!outcome.attempted);
+        assert!(!outcome.response_observed);
+        assert!(outcome.body.is_none());
     }
 }

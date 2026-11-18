@@ -82,11 +82,11 @@ impl Work {
             if prior != &hash || index.is_none() {
                 self.rejected += 1;
                 self.errors.insert("public_job_inconsistent_duplicate");
-                if let Some(index) = index.take() {
-                    if let Some(prior) = self.jobs[index].take() {
-                        self.retained = self.retained.saturating_sub(prior.to_string().len());
-                        self.rejected += 1;
-                    }
+                if let Some(index) = index.take()
+                    && let Some(prior) = self.jobs[index].take()
+                {
+                    self.retained = self.retained.saturating_sub(prior.to_string().len());
+                    self.rejected += 1;
                 }
             }
             return Ok(());
@@ -382,14 +382,12 @@ impl Client {
                         work.rejected += 1;
                         work.duplicates += 1;
                         work.errors.insert("public_job_inconsistent_duplicate");
-                        if let Some((_, entry)) = work.seen.get_mut(&format!("{board}\0{id}")) {
-                            if let Some(index) = entry.take() {
-                                if let Some(prior) = work.jobs[index].take() {
-                                    work.retained =
-                                        work.retained.saturating_sub(prior.to_string().len());
-                                    work.rejected += 1;
-                                }
-                            }
+                        if let Some((_, entry)) = work.seen.get_mut(&format!("{board}\0{id}"))
+                            && let Some(index) = entry.take()
+                            && let Some(prior) = work.jobs[index].take()
+                        {
+                            work.retained = work.retained.saturating_sub(prior.to_string().len());
+                            work.rejected += 1;
                         }
                         continue;
                     }

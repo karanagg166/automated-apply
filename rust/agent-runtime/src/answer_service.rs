@@ -236,35 +236,33 @@ impl Settings {
         };
         let eligible = primary.error.is_some_and(crate::local_fallback::permitted);
         let primary_attempted = primary.attempted;
-        if eligible {
-            if let Some(local) = &self.fallback {
-                // A spent/unknown ledger is never cancelled or refunded to make room.
-                let call = if let Err(error) = crate::local_fallback::remaining(original_deadline) {
-                    unavailable_attempt(error)
-                } else {
-                    match &local.writer {
-                        Ok(writer) => {
-                            writer
-                                .write_answer(
-                                    c,
-                                    &writing.request.question,
-                                    &writing.context,
-                                    &writing.instructions,
-                                    Some(original_deadline),
-                                )
-                                .await
-                        }
-                        Err(error) => unavailable_attempt(*error),
+        if eligible && let Some(local) = &self.fallback {
+            // A spent/unknown ledger is never cancelled or refunded to make room.
+            let call = if let Err(error) = crate::local_fallback::remaining(original_deadline) {
+                unavailable_attempt(error)
+            } else {
+                match &local.writer {
+                    Ok(writer) => {
+                        writer
+                            .write_answer(
+                                c,
+                                &writing.request.question,
+                                &writing.context,
+                                &writing.instructions,
+                                Some(original_deadline),
+                            )
+                            .await
                     }
-                };
-                return Generation {
-                    call,
-                    provider: "ollama",
-                    model: Some(local.model.clone()),
-                    primary_attempted,
-                    fallback: true,
-                };
-            }
+                    Err(error) => unavailable_attempt(*error),
+                }
+            };
+            return Generation {
+                call,
+                provider: "ollama",
+                model: Some(local.model.clone()),
+                primary_attempted,
+                fallback: true,
+            };
         }
         Generation {
             call: primary,

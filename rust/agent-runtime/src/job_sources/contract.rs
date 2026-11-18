@@ -85,10 +85,9 @@ pub fn normalize(value: Value, now: DateTime<Utc>) -> Result<Value> {
                 "source_verification_status",
             ]
             .contains(&key.as_str())
+            && let Value::String(s) = value
         {
-            if let Value::String(s) = value {
-                *s = s.trim().into();
-            }
+            *s = s.trim().into();
         }
     }
     for key in ["skills_required", "skills_preferred", "quality_flags"] {
@@ -101,10 +100,10 @@ pub fn normalize(value: Value, now: DateTime<Utc>) -> Result<Value> {
         }
     }
     for key in ["is_remote", "is_confirmed_current"] {
-        if let Some(v) = fields.get_mut(key) {
-            if !v.is_null() {
-                *v = crate::resource_contract::boolean(v).map_err(|_| invalid())?;
-            }
+        if let Some(v) = fields.get_mut(key)
+            && !v.is_null()
+        {
+            *v = crate::resource_contract::boolean(v).map_err(|_| invalid())?;
         }
     }
     if fields
@@ -119,18 +118,18 @@ pub fn normalize(value: Value, now: DateTime<Utc>) -> Result<Value> {
         "salary_min",
         "salary_max",
     ] {
-        if let Some(v) = fields.get_mut(key) {
-            if !v.is_null() {
-                let experience = key.starts_with("experience_");
-                if experience && !v.is_number() {
-                    return Err(invalid());
-                }
-                *v = crate::profile_contract::number(
-                    &json!({"type":"number","minimum":0,"maximum":if experience{60.0}else{1e12}}),
-                    v.clone(),
-                )
-                .map_err(|_| invalid())?;
+        if let Some(v) = fields.get_mut(key)
+            && !v.is_null()
+        {
+            let experience = key.starts_with("experience_");
+            if experience && !v.is_number() {
+                return Err(invalid());
             }
+            *v = crate::profile_contract::number(
+                &json!({"type":"number","minimum":0,"maximum":if experience{60.0}else{1e12}}),
+                v.clone(),
+            )
+            .map_err(|_| invalid())?;
         }
     }
     for key in [
@@ -139,10 +138,10 @@ pub fn normalize(value: Value, now: DateTime<Utc>) -> Result<Value> {
         "last_observed_date",
         "retrieved_at",
     ] {
-        if let Some(v) = fields.get_mut(key) {
-            if !v.is_null() {
-                *v = stamp(v, now)?;
-            }
+        if let Some(v) = fields.get_mut(key)
+            && !v.is_null()
+        {
+            *v = stamp(v, now)?;
         }
     }
     if let Some(Value::String(host)) = fields.get_mut("company_domain") {
@@ -289,13 +288,13 @@ pub fn query(mut value: Value) -> Result<Value> {
         ("limit", 1, 100),
         ("max_age_days", 1, 3650),
     ] {
-        if let Some(v) = fields.get_mut(key) {
-            if !v.is_null() {
-                *v = json!(
-                    crate::profile_contract::pagination_integer(v.clone(), min, max)
-                        .map_err(|_| Failure("invalid_discovery_query"))?
-                );
-            }
+        if let Some(v) = fields.get_mut(key)
+            && !v.is_null()
+        {
+            *v = json!(
+                crate::profile_contract::pagination_integer(v.clone(), min, max)
+                    .map_err(|_| Failure("invalid_discovery_query"))?
+            );
         }
     }
     if !QUERY.validator.is_valid(&value) {

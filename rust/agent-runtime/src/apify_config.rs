@@ -70,10 +70,10 @@ pub fn normalize(mut value: Value) -> Result<Value> {
             .map_err(|_| invalid())?;
         }
     }
-    if let Some(v) = fields.get_mut("review_expires_at") {
-        if !v.is_null() {
-            *v = crate::packet_record::timestamp(v, false).map_err(|_| invalid())?;
-        }
+    if let Some(v) = fields.get_mut("review_expires_at")
+        && !v.is_null()
+    {
+        *v = crate::packet_record::timestamp(v, false).map_err(|_| invalid())?;
     }
     if !contract.validator.is_valid(&value) {
         return Err(invalid());

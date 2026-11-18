@@ -134,17 +134,16 @@ fn public_preview(value: Value) -> Result<Value> {
             return Err(invalid());
         }
     }
-    if let Some(usage) = provider.get("usage") {
-        if !usage.is_null()
-            && !usage.as_object().is_some_and(|o| {
-                o.keys()
-                    .all(|k| matches!(k.as_str(), "input_tokens" | "output_tokens"))
-                    && o.values()
-                        .all(|v| v.as_u64().is_some_and(|n| n <= 1_000_000_000))
-            })
-        {
-            return Err(invalid());
-        }
+    if let Some(usage) = provider.get("usage")
+        && !usage.is_null()
+        && !usage.as_object().is_some_and(|o| {
+            o.keys()
+                .all(|k| matches!(k.as_str(), "input_tokens" | "output_tokens"))
+                && o.values()
+                    .all(|v| v.as_u64().is_some_and(|n| n <= 1_000_000_000))
+        })
+    {
+        return Err(invalid());
     }
     Ok(value)
 }
@@ -301,25 +300,24 @@ impl Service<'_> {
         );
         let hash = drafts::request_hash(&input, "rest");
         let mut tx = drafts::begin(c).await?;
-        if action == Action::Create {
-            if let Some(id) = sqlx::query_scalar::<_, Uuid>(
+        if action == Action::Create
+            && let Some(id) = sqlx::query_scalar::<_, Uuid>(
                 "SELECT id FROM outreach_logs WHERE idempotency_key=$1",
             )
             .bind(request)
             .fetch_optional(&mut *tx)
             .await
             .map_err(db)?
-            {
-                let row = drafts::get_in(&mut tx, id, true).await?;
-                if row["request_hash"] != hash {
-                    return Err(Failure("outreach_idempotency_key_conflict"));
-                }
-                let result = drafts::read_in(&mut tx, &row, self.contacts).await?;
-                tx.commit()
-                    .await
-                    .map_err(|_| Failure("outreach_commit_outcome_unknown"))?;
-                return Ok(Admission::Retained(result));
+        {
+            let row = drafts::get_in(&mut tx, id, true).await?;
+            if row["request_hash"] != hash {
+                return Err(Failure("outreach_idempotency_key_conflict"));
             }
+            let result = drafts::read_in(&mut tx, &row, self.contacts).await?;
+            tx.commit()
+                .await
+                .map_err(|_| Failure("outreach_commit_outcome_unknown"))?;
+            return Ok(Admission::Retained(result));
         }
         if let Some(record) = journal_in(&mut tx, &key).await? {
             if record["schema"] != 1

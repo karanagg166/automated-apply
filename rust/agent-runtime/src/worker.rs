@@ -139,34 +139,33 @@ async fn serve_internal(
             finish_inference(connection, finished).await?;
         }
         let control = lifecycle::control(connection).await?;
-        if control.mode == Mode::Running {
-            if discovery.is_empty()
-                && last_discovery.is_none_or(|at| at.elapsed() >= Duration::from_secs(30))
-            {
-                last_discovery = Some(tokio::time::Instant::now());
-                // Subscribe before reserving so a simultaneous global control change
-                // also cancels the network-only task. Reservation/commit are never cancelled.
-                let mut feed_changes = changes.resubscribe();
-                match discovery_schedule::begin(connection).await {
-                    Ok(Some(fetch)) => {
-                        let stop = shutdown.clone();
-                        discovery.spawn(async move {
-                            let result = controlled(
-                                public_discovery::fetch(fetch.platform),
-                                Uuid::nil(),
-                                &mut feed_changes,
-                                &stop,
-                            )
-                            .await?;
-                            Some((fetch, result))
-                        });
-                    }
-                    Ok(None) => {}
-                    Err(error) => record_discovery_error(connection, error).await?,
+        if control.mode == Mode::Running
+            && discovery.is_empty()
+            && last_discovery.is_none_or(|at| at.elapsed() >= Duration::from_secs(30))
+        {
+            last_discovery = Some(tokio::time::Instant::now());
+            // Subscribe before reserving so a simultaneous global control change
+            // also cancels the network-only task. Reservation/commit are never cancelled.
+            let mut feed_changes = changes.resubscribe();
+            match discovery_schedule::begin(connection).await {
+                Ok(Some(fetch)) => {
+                    let stop = shutdown.clone();
+                    discovery.spawn(async move {
+                        let result = controlled(
+                            public_discovery::fetch(fetch.platform),
+                            Uuid::nil(),
+                            &mut feed_changes,
+                            &stop,
+                        )
+                        .await?;
+                        Some((fetch, result))
+                    });
                 }
-                // Re-read persisted control before taking unrelated work.
-                continue;
+                Ok(None) => {}
+                Err(error) => record_discovery_error(connection, error).await?,
             }
+            // Re-read persisted control before taking unrelated work.
+            continue;
         }
         if control.mode == Mode::Running && decisions.is_empty() {
             lifecycle::reconcile_known_questions(connection).await?;

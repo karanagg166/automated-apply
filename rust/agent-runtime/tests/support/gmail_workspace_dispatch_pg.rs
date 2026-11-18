@@ -330,8 +330,10 @@ async fn gmail_workspace_reconciliation_has_three_nonrefundable_read_admissions_
 async fn gmail_workspace_cancelled_post_preserves_original_lease_and_reconciles_only_after_expiry()
 {
     let (mut c, settings, google, draft) = workspace_dispatch_fixture().await;
-    let mut client = DraftWriteClient::default();
-    client.hold_post = true;
+    let client = DraftWriteClient {
+        hold_post: true,
+        ..Default::default()
+    };
     {
         let operation = workspace_send_fixture(&mut c, &settings, &google, &draft, &client);
         tokio::pin!(operation);
@@ -365,8 +367,10 @@ async fn gmail_workspace_readback_releases_owner_lock_and_rejects_account_or_pro
     for cause in ["account", "profile"] {
         let (mut c, settings, google, draft) = workspace_dispatch_fixture().await;
         let mut other = connection().await;
-        let mut client = DraftWriteClient::default();
-        client.hold_get = true;
+        let client = DraftWriteClient {
+            hold_get: true,
+            ..Default::default()
+        };
         let operation = workspace_send_fixture(&mut c, &settings, &google, &draft, &client);
         let competing = async {
             client.entered.notified().await;
@@ -404,8 +408,10 @@ async fn gmail_workspace_readback_releases_owner_lock_and_rejects_account_or_pro
 async fn gmail_workspace_late_failed_post_does_not_erase_newer_verified_reconciliation() {
     let (mut c, settings, google, draft) = workspace_dispatch_fixture().await;
     let mut other = connection().await;
-    let mut client = DraftWriteClient::default();
-    client.hold_post = true;
+    let client = DraftWriteClient {
+        hold_post: true,
+        ..Default::default()
+    };
     client.fail_post.set(true);
     let operation = workspace_send_fixture(&mut c, &settings, &google, &draft, &client);
     let competing = async {
@@ -583,8 +589,10 @@ async fn gmail_workspace_local_label_with_retained_spent_intent_or_provider_id_c
 async fn gmail_workspace_cancelled_read_keeps_lease_and_spent_read_count_then_uses_a_new_bounded_get()
  {
     let (mut c, settings, google, draft) = workspace_dispatch_fixture().await;
-    let mut client = DraftWriteClient::default();
-    client.hold_get = true;
+    let mut client = DraftWriteClient {
+        hold_get: true,
+        ..Default::default()
+    };
     {
         let operation = workspace_send_fixture(&mut c, &settings, &google, &draft, &client);
         tokio::pin!(operation);

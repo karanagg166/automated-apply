@@ -197,19 +197,19 @@ impl Context {
         } else {
             vec![]
         };
-        if facts.is_empty() {
-            if let Some(id) = profile_id {
-                let selected = crate::answer_context::relevant_evidence(tx, id, &query).await?;
-                facts = crate::evidence_retrieval::retrieve(
-                    &profile,
-                    &selected,
-                    &query,
-                    "project_explanation",
-                )?
-                .into_iter()
-                .map(|f| serde_json::to_value(f).map_err(|_| invalid()))
-                .collect::<Result<Vec<_>>>()?;
-            }
+        if facts.is_empty()
+            && let Some(id) = profile_id
+        {
+            let selected = crate::answer_context::relevant_evidence(tx, id, &query).await?;
+            facts = crate::evidence_retrieval::retrieve(
+                &profile,
+                &selected,
+                &query,
+                "project_explanation",
+            )?
+            .into_iter()
+            .map(|f| serde_json::to_value(f).map_err(|_| invalid()))
+            .collect::<Result<Vec<_>>>()?;
         }
         let mut blockers = vec![];
         let mut warnings = vec![];
@@ -287,10 +287,10 @@ impl Context {
         }
         let mut links = Vec::new();
         for key in ["github_url", "linkedin_url", "portfolio_url"] {
-            if let Some(link) = public_link(&profile[key]) {
-                if !links.contains(&link) {
-                    links.push(link);
-                }
+            if let Some(link) = public_link(&profile[key])
+                && !links.contains(&link)
+            {
+                links.push(link);
             }
         }
         let primary = resources
@@ -303,10 +303,10 @@ impl Context {
             .collect::<Vec<_>>();
         if primary.len() > 1 {
             blockers.push("primary_public_resume_ambiguous");
-        } else if let Some(link) = primary.first().and_then(|r| public_link(&r["url"])) {
-            if !links.contains(&link) {
-                links.push(link);
-            }
+        } else if let Some(link) = primary.first().and_then(|r| public_link(&r["url"]))
+            && !links.contains(&link)
+        {
+            links.push(link);
         }
         let snapshot = json!({"schema":"native_outreach_context_v1","profile":profile,"profile_confirmation":confirmation,"facts":facts,"candidate_evidence":evidence,"candidate_resources":resources,"links":links,"contact":contact,"contact_evidence":contact_evidence,"company":company,"job":job.as_ref().map(|(j,_)|j),"job_digest":job.as_ref().map(|(_,d)|d),"project_context_digest":projects.digest()});
         if snapshot.to_string().len() > 16 * 1024 * 1024 {

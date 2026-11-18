@@ -456,10 +456,10 @@ pub async fn finish_with_paid(
     }
     let end = now(&mut tx).await?;
     let after = load_state(&mut tx, id, end).await?;
-    if let Some(ledger) = paid_ledger {
-        if crate::apify_jobs::runs::ledger_in(&mut tx, child_id(id)).await? != ledger {
-            return Err(ack());
-        }
+    if let Some(ledger) = paid_ledger
+        && crate::apify_jobs::runs::ledger_in(&mut tx, child_id(id)).await? != ledger
+    {
+        return Err(ack());
     }
     if after.child != state.child || after.journal != closed || after.row != expected {
         return Err(ack());

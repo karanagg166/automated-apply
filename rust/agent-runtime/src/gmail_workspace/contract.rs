@@ -54,10 +54,10 @@ fn coerce(schema: &Value, value: &mut Value) -> Result<()> {
         Some("object") => {
             let body = value.as_object_mut().ok_or_else(invalid)?;
             for (key, child) in schema["properties"].as_object().ok_or_else(invalid)? {
-                if !body.contains_key(key) {
-                    if let Some(default) = child.get("default") {
-                        body.insert(key.clone(), default.clone());
-                    }
+                if !body.contains_key(key)
+                    && let Some(default) = child.get("default")
+                {
+                    body.insert(key.clone(), default.clone());
                 }
                 if let Some(value) = body.get_mut(key) {
                     coerce(child, value)?;

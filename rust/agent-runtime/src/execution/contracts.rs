@@ -309,15 +309,14 @@ fn fill(root: &Value, schema: &Value, name: Option<&str>, value: &mut Value) -> 
             }
         }
     }
-    if name == Some("QueuePolicy") {
-        if value["platforms"].get("naukri").is_none()
+    if name == Some("QueuePolicy")
+        && (value["platforms"].get("naukri").is_none()
             || value["day_timezone"]
                 .as_str()
                 .and_then(|s| s.parse::<chrono_tz::Tz>().ok())
-                .is_none()
-        {
-            return Err(invalid());
-        }
+                .is_none())
+    {
+        return Err(invalid());
     }
     Ok(())
 }

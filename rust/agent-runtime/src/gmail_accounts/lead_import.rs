@@ -89,26 +89,25 @@ async fn company(tx: &mut Transaction<'_, Postgres>, item: &Value) -> Result<Opt
     } else {
         None
     };
-    if let Some(row) = candidate {
-        if (domain.is_none() || row["domain"].is_null() || row["domain"].as_str() == domain)
-            && !(domain.is_some() && row["metadata"]["identity_review_required"] == true)
-        {
-            let identity = id(&row["id"])?;
-            if let Some(domain) = domain.filter(|_| row["domain"].is_null()) {
-                let ack: Option<Uuid> = sqlx::query_scalar(
-                    "UPDATE companies SET domain=$2 WHERE id=$1 AND domain IS NULL RETURNING id",
-                )
-                .bind(identity)
-                .bind(domain)
-                .fetch_optional(&mut **tx)
-                .await
-                .map_err(db)?;
-                if ack != Some(identity) {
-                    return Err(Failure("gmail_read_write_ack_failed"));
-                }
+    if let Some(row) = candidate
+        && (domain.is_none() || row["domain"].is_null() || row["domain"].as_str() == domain)
+        && !(domain.is_some() && row["metadata"]["identity_review_required"] == true)
+    {
+        let identity = id(&row["id"])?;
+        if let Some(domain) = domain.filter(|_| row["domain"].is_null()) {
+            let ack: Option<Uuid> = sqlx::query_scalar(
+                "UPDATE companies SET domain=$2 WHERE id=$1 AND domain IS NULL RETURNING id",
+            )
+            .bind(identity)
+            .bind(domain)
+            .fetch_optional(&mut **tx)
+            .await
+            .map_err(db)?;
+            if ack != Some(identity) {
+                return Err(Failure("gmail_read_write_ack_failed"));
             }
-            return Ok(Some(identity));
         }
+        return Ok(Some(identity));
     }
     let identity = Uuid::new_v4();
     let metadata = if ambiguous && domain.is_none() {
@@ -210,10 +209,11 @@ async fn save(
     } else {
         company(tx, item).await?
     };
-    if let (Some(existing), Some(company)) = (&existing, company) {
-        if !existing["company_id"].is_null() && existing["company_id"] != json!(company) {
-            return Err(conflict());
-        }
+    if let (Some(existing), Some(company)) = (&existing, company)
+        && !existing["company_id"].is_null()
+        && existing["company_id"] != json!(company)
+    {
+        return Err(conflict());
     }
     let created = existing.is_none();
     let identity = if let Some(existing) = &existing {
@@ -283,22 +283,20 @@ async fn save(
         }
     }
     let mut possible = Vec::new();
-    if created {
-        if let Some(company) = company {
-            let candidates: Vec<(Uuid, String)> = sqlx::query_as(
-                "SELECT id,title FROM jobs WHERE company_id=$1 AND id!=$2 ORDER BY id LIMIT 500",
-            )
-            .bind(company)
-            .bind(identity)
-            .fetch_all(&mut **tx)
-            .await
-            .map_err(db)?;
-            for (id, title) in candidates {
-                if hint_label(&title) == hint_label(item["title"].as_str().unwrap()) {
-                    possible.push(id.to_string());
-                    if possible.len() == 20 {
-                        break;
-                    }
+    if created && let Some(company) = company {
+        let candidates: Vec<(Uuid, String)> = sqlx::query_as(
+            "SELECT id,title FROM jobs WHERE company_id=$1 AND id!=$2 ORDER BY id LIMIT 500",
+        )
+        .bind(company)
+        .bind(identity)
+        .fetch_all(&mut **tx)
+        .await
+        .map_err(db)?;
+        for (id, title) in candidates {
+            if hint_label(&title) == hint_label(item["title"].as_str().unwrap()) {
+                possible.push(id.to_string());
+                if possible.len() == 20 {
+                    break;
                 }
             }
         }

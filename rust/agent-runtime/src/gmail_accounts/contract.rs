@@ -87,10 +87,8 @@ fn normalize_value(schema: &Value, value: &mut Value) -> Result<()> {
             *value =
                 crate::profile_contract::number(schema, value.clone()).map_err(|_| invalid())?;
         }
-        Some("boolean") => {
-            if !value.is_boolean() {
-                return Err(invalid());
-            }
+        Some("boolean") if !value.is_boolean() => {
+            return Err(invalid());
         }
         _ => {}
     }

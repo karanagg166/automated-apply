@@ -134,10 +134,10 @@ fn normalize(schema: &Value, value: &mut Value) -> Result<()> {
         (schema["properties"].as_object(), value.as_object_mut())
     {
         for (key, schema) in properties {
-            if !object.contains_key(key) {
-                if let Some(default) = schema.get("default") {
-                    object.insert(key.clone(), default.clone());
-                }
+            if !object.contains_key(key)
+                && let Some(default) = schema.get("default")
+            {
+                object.insert(key.clone(), default.clone());
             }
         }
     }
@@ -227,13 +227,12 @@ fn validate_model(model: Option<&str>, value: &mut Value) -> Result<()> {
             }
             value["skills"] = json!(skills);
             let now: DateTime<Utc> = std::time::SystemTime::now().into();
-            if let Some(posted) = value["posted_at"].as_str() {
-                if DateTime::parse_from_rfc3339(posted).map_err(|_| request_error())?
+            if let Some(posted) = value["posted_at"].as_str()
+                && (DateTime::parse_from_rfc3339(posted).map_err(|_| request_error())?
                     > now + chrono::Duration::minutes(5)
-                    || !value["posted_date"].is_null()
-                {
-                    return Err(request_error());
-                }
+                    || !value["posted_date"].is_null())
+            {
+                return Err(request_error());
             }
             if let Some(posted) = value["posted_date"].as_str()
                 && chrono::NaiveDate::parse_from_str(posted, "%Y-%m-%d")

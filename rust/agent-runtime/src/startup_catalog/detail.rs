@@ -157,15 +157,15 @@ pub(crate) async fn snapshot_in(
         .iter()
         .map(|v| v.as_str().map(String::from).ok_or_else(invalid))
         .collect::<Result<Vec<_>>>()?;
-    if roles.is_empty() {
-        if let Some(profile) = profile {
-            roles = profile["preferences"]["target_titles"]
-                .as_array()
-                .ok_or_else(invalid)?
-                .iter()
-                .map(|v| v.as_str().map(String::from).ok_or_else(invalid))
-                .collect::<Result<Vec<_>>>()?;
-        }
+    if roles.is_empty()
+        && let Some(profile) = profile
+    {
+        roles = profile["preferences"]["target_titles"]
+            .as_array()
+            .ok_or_else(invalid)?
+            .iter()
+            .map(|v| v.as_str().map(String::from).ok_or_else(invalid))
+            .collect::<Result<Vec<_>>>()?;
     }
     let relevant = jobs
         .iter()
@@ -186,16 +186,16 @@ pub(crate) async fn snapshot_in(
     } else {
         vec![]
     };
-    let rank = ranking::rank(
-        &company,
-        &relevant,
-        &attributes,
-        &size,
-        &hiring,
-        &supported,
+    let rank = ranking::rank(ranking::RankInput {
+        company: &company,
+        jobs: &relevant,
+        attributes: &attributes,
+        size: &size,
+        hiring: &hiring,
+        contacts: &supported,
         profile,
         filters,
-    )?;
+    })?;
     let review = crate::contacts::rules::truthy(&company["metadata_"]["identity_review_required"]);
     let mut result = json!({"company_id":id,"company_name":company["name"],"company_domain":company["domain"],"attributes":attributes,"identity_review_required":review,"current_job_count":fresh.len(),"available_evidence_count":observations.len(),"shortlisted":false,"evidence_basis":"saved_local_records","live_verified":false,"profile_basis":"saved_profile_not_application_authority"});
     for value in [&size, &hiring, &rank, &counts] {

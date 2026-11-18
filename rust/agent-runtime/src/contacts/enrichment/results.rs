@@ -299,15 +299,14 @@ pub async fn ingest(
             return Err(error);
         }
     }
-    if held.is_none() {
-        if let Some(id) = claim.request()["person_id"]
+    if held.is_none()
+        && let Some(id) = claim.request()["person_id"]
             .as_str()
             .and_then(|s| s.parse::<Uuid>().ok())
-        {
-            let version:Option<String>=sqlx::query_scalar("SELECT xmin::text||':'||extract(epoch from updated_at)::text FROM contacts WHERE id=$1 AND company_id=$2 FOR UPDATE").bind(id).bind(run.company()).fetch_optional(&mut *tx).await.map_err(db)?;
-            if version.as_deref() != Some(claim.target_version()) {
-                held = Some("contact_result_target_changed_requires_review");
-            }
+    {
+        let version:Option<String>=sqlx::query_scalar("SELECT xmin::text||':'||extract(epoch from updated_at)::text FROM contacts WHERE id=$1 AND company_id=$2 FOR UPDATE").bind(id).bind(run.company()).fetch_optional(&mut *tx).await.map_err(db)?;
+        if version.as_deref() != Some(claim.target_version()) {
+            held = Some("contact_result_target_changed_requires_review");
         }
     }
     let observations = result["outcome"]["observations"]

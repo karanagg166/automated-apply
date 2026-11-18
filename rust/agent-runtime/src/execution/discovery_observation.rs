@@ -103,7 +103,7 @@ pub(crate) async fn receive_in(
         return Ok(());
     }
     let req = work["requisition"].as_str().ok_or_else(invalid)?.to_owned();
-    if intake::protected_in(tx, &[req.clone()])
+    if intake::protected_in(tx, std::slice::from_ref(&req))
         .await?
         .contains(&req)
     {

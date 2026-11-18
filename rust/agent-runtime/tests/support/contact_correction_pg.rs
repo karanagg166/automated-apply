@@ -216,15 +216,14 @@ async fn contact_correction_current_exact_mailbox_evidence_is_required_and_prese
             .unwrap(),
         before
     );
-    assert_eq!(
+    assert!(
         sqlx::query_scalar::<_, bool>(
             "SELECT last_verified_at=last_reviewed_at AND human_corrected FROM contacts WHERE id=$1"
         )
         .bind(Uuid::from_u128(502))
         .fetch_one(&mut c)
         .await
-        .unwrap(),
-        true
+        .unwrap()
     );
 }
 #[tokio::test(flavor = "current_thread")]

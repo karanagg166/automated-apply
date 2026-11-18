@@ -45,10 +45,10 @@ pub fn size_allowed(size: &Value, filters: &Value) -> Result<bool> {
     if name != "unknown" && range.is_none() {
         return Err(Failure("invalid_startup_size_record"));
     }
-    if let Some(min) = filters["min_employees"].as_i64() {
-        if count.or(range.map(|r| r.0)).is_none_or(|n| n < min) {
-            return Ok(false);
-        }
+    if let Some(min) = filters["min_employees"].as_i64()
+        && count.or(range.map(|r| r.0)).is_none_or(|n| n < min)
+    {
+        return Ok(false);
     }
     if name == "unknown" {
         return Ok(filters["include_unknown_size"] == true);

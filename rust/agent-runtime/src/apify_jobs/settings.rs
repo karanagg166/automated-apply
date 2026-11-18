@@ -134,7 +134,7 @@ impl Settings {
         for actor in candidates {
             let review = if let Some(actor_id) = actor["actor_id"].as_str() {
                 self.reviews
-                    .get(&format!("{portal}:{actor_id}"))
+                    .get(format!("{portal}:{actor_id}"))
                     .or_else(|| self.reviews.get(portal))
             } else {
                 None

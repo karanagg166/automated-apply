@@ -85,14 +85,14 @@ pub(super) async fn search(
     prepare: bool,
     now: DateTime<Utc>,
 ) -> Result<Search> {
-    if ids.is_none() {
-        if let Some(candidates) = disambiguate_company(tx, intent).await? {
-            return Ok(Search {
-                jobs: vec![],
-                limited: false,
-                clarification: Some(candidates),
-            });
-        }
+    if ids.is_none()
+        && let Some(candidates) = disambiguate_company(tx, intent).await?
+    {
+        return Ok(Search {
+            jobs: vec![],
+            limited: false,
+            clarification: Some(candidates),
+        });
     }
     let preferences = preferences::effective(tx).await?;
     let policy = policy(tx).await?;

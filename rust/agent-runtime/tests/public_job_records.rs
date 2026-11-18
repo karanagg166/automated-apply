@@ -403,9 +403,7 @@ fn seven_actual_provider_parsers_match_eighty_four_selected_records_without_raw_
                     v["private_token"] = json!("PRIVATE_PROVIDER_TOKEN_CANARY");
                 }
                 11 => {
-                    if source == "ashby" {
-                        v.as_object_mut().unwrap().remove("workplaceType");
-                    } else if source == "lever" {
+                    if matches!(source, "ashby" | "lever") {
                         v.as_object_mut().unwrap().remove("workplaceType");
                     } else if source == "smartrecruiters" {
                         v["jobAd"]["sections"]["additionalInformation"] =

@@ -113,11 +113,11 @@ impl CliModel {
             Err(error) => {
                 if error.0 == "rate_limited" {
                     attempt.retry_after = Some(60);
-                    if let Some(month) = reservation.as_ref() {
-                        if let Err(failure) = monthly::cooldown(connection, month, 60).await {
-                            attempt.error = Some(failure);
-                            return attempt;
-                        }
+                    if let Some(month) = reservation.as_ref()
+                        && let Err(failure) = monthly::cooldown(connection, month, 60).await
+                    {
+                        attempt.error = Some(failure);
+                        return attempt;
                     }
                 } else if error.0 == "provider_busy" {
                     attempt.retry_after = Some(1);

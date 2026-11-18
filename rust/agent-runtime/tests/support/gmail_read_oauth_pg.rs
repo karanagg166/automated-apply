@@ -787,9 +787,10 @@ async fn read_google_http_grant(mode:GrantMode,email:&'static str) -> (
         extract::{Request, State},
         response::IntoResponse,
     };
+    type GoogleHttpState = (Arc<std::sync::Mutex<Vec<String>>>, GrantMode, &'static str);
     let calls = Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
     async fn handle(
-        State((calls,mode,email)): State<(Arc<std::sync::Mutex<Vec<String>>>,GrantMode,&'static str)>,
+        State((calls,mode,email)): State<GoogleHttpState>,
         request: Request,
     ) -> axum::response::Response {
         let method = request.method().to_string();

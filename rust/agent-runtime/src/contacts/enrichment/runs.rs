@@ -311,13 +311,12 @@ pub async fn finish(
             && !rules::truthy(&contact["email"])
             && contact["do_not_contact"] == false
             && !rules::truthy(&contact["metadata_"]["identity_review_required"])
+            && let Some(domain) = domain.as_deref()
         {
-            if let Some(domain) = domain.as_deref() {
-                let name = contact["full_name"].as_str().ok_or_else(invalid)?;
-                let (first, last) = name.split_once(' ').unwrap_or((name, ""));
-                let candidates = candidates::generate(first, last, domain, None)?;
-                research.push(json!({"contact_id":contact["id"],"candidates":candidates.into_iter().take(6).collect::<Vec<_>>()}));
-            }
+            let name = contact["full_name"].as_str().ok_or_else(invalid)?;
+            let (first, last) = name.split_once(' ').unwrap_or((name, ""));
+            let candidates = candidates::generate(first, last, domain, None)?;
+            research.push(json!({"contact_id":contact["id"],"candidates":candidates.into_iter().take(6).collect::<Vec<_>>()}));
         }
     }
     if unknown {

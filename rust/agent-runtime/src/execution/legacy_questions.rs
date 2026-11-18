@@ -270,10 +270,12 @@ pub(super) async fn answer_origin_in(
             answer: effective.to_owned(),
         },
         Some(field_id),
-        services.packets,
-        services.answers,
-        now,
-        Some(&metadata),
+        packet_mutation::RunOptions {
+            settings: services.packets,
+            answers: services.answers,
+            now,
+            metadata: Some(&metadata),
+        },
     )
     .await?;
     let field = updated["fields"]
@@ -462,10 +464,12 @@ pub(super) async fn reuse_in(
             answer: question["answer"].as_str().ok_or_else(invalid)?.into(),
         },
         Some(field_id),
-        services.packets,
-        services.answers,
-        now,
-        Some(&metadata),
+        packet_mutation::RunOptions {
+            settings: services.packets,
+            answers: services.answers,
+            now,
+            metadata: Some(&metadata),
+        },
     )
     .await?;
     packet_service::read_locked_in(tx, packet_id, services.packets, now).await

@@ -129,10 +129,10 @@ pub(super) async fn status_in(
             }
         }
     }
-    if let Some(blocked) = value["blocked_reason"].as_str() {
-        if !blockers.iter().any(|s| s == blocked) {
-            blockers.insert(0, blocked.to_owned());
-        }
+    if let Some(blocked) = value["blocked_reason"].as_str()
+        && !blockers.iter().any(|s| s == blocked)
+    {
+        blockers.insert(0, blocked.to_owned());
     }
     let mut gmail = Vec::new();
     for slot in 1..=config.map_or(0, |c| c.mailboxes.configured_slots()) {

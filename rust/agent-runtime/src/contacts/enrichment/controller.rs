@@ -125,10 +125,9 @@ impl Service<'_> {
             if let Some(id) = finding["contact_id"]
                 .as_str()
                 .and_then(|s| s.parse::<Uuid>().ok())
+                && !contacts.contains(&id)
             {
-                if !contacts.contains(&id) {
-                    contacts.push(id);
-                }
+                contacts.push(id);
             }
         }
         let error = if ingested["held_reason"].is_null() {
@@ -201,10 +200,10 @@ impl Service<'_> {
                         .call(c, &run, name, lookups::Target::Contact(contact), deadline)
                         .await?;
                     previous_fallback = finding.fallback;
-                    if let Some(error) = finding.error {
-                        if error != "contact_lookup_not_needed" {
-                            errors.push(error);
-                        }
+                    if let Some(error) = finding.error
+                        && error != "contact_lookup_not_needed"
+                    {
+                        errors.push(error);
                     }
                     if matches!(
                         finding.state,

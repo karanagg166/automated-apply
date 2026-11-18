@@ -140,7 +140,7 @@ print(json.dumps(out))
             for row in got["sources"].as_array().unwrap() {
                 assert_eq!(row["live_verified"], false);
                 assert_eq!(row["dispatch_authorized"], false);
-                assert_eq!(row["read_only"].as_bool().unwrap_or(true), true);
+                assert!(row["read_only"].as_bool().unwrap_or(true));
             }
             for secret in [
                 "PRIVATE_KEY_CANARY",

@@ -236,10 +236,10 @@ async fn watch_in(tx: &mut Transaction<'_, Postgres>, now: DateTime<Utc>) -> Res
     if config["mode"] != "WATCH_AND_NOTIFY" {
         return Ok(false);
     }
-    if let Some(marker) = get(tx, "exec_watch:naukri").await? {
-        if timestamp(&marker["next_at"])? > now {
-            return Ok(false);
-        }
+    if let Some(marker) = get(tx, "exec_watch:naukri").await?
+        && timestamp(&marker["next_at"])? > now
+    {
+        return Ok(false);
     }
     put(tx,"exec_watch:naukri",&json!({"next_at":stamp(now+chrono::Duration::seconds(config["interval_seconds"].as_i64().ok_or_else(invalid)?)),"heartbeat_at":stamp(now)})).await?;
     let profile = match crate::profile_store::get(tx).await {
