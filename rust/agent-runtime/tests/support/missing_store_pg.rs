@@ -132,3 +132,35 @@ async fn missing_approval_rechecks_proof_route_and_age_at_transaction_claim() {
     let wrong=missing_proof("/api/v1/another/approve",body.as_bytes(),&Uuid::new_v4().simple().to_string());assert_eq!(store::approve(&mut c,id,contract::normalize_approve(input).unwrap(),wrong).await.err(),Some(Failure("owner_approval_operation_mismatch")));
     assert_eq!(store::read(&mut c,id).await.unwrap(),edited);assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM owner_preferences WHERE starts_with(key,'owner-proof:')").fetch_one(&mut c).await.unwrap(),0);
 }
+#[tokio::test(flavor="current_thread")]
+#[ignore="requires dedicated disposable PostgreSQL harness"]
+async fn missing_input_reads_legacy_long_job_description_in_batch_while_keeping_write_bound() {
+    use automated_apply_agents::{answer_context::Stamp, answer_contract, missing_store as store, python_json};
+    let mut c=missing_fixture().await;
+    store::create(&mut c,missing_create("Preferred work schedule?")).await.unwrap();
+    let long_desc="Fictional long job description sentence. ".repeat(300).trim().to_owned();
+    assert!(long_desc.chars().count()>11_000);
+    let stamp=Stamp::load(&mut c,&answer_contract::normalize(json!({"question":"Why this legacy role?"})).unwrap()).await.unwrap();
+    let digest=python_json::digest(&json!({"sources":stamp.generation(),"company_name":Value::Null,"job_description":long_desc}));
+    let id="0123456789abcdef0123456789abcdef";
+    let key=format!("needs_input:{id}");
+    let row=json!({"id":id,"candidate_profile_id":profile_pin().id,"question":"Why this legacy role?","question_category":"motivation","job_id":null,"company_name":null,"job_description":long_desc,"packet_id":null,"missing_information":["Approved motivation statement"],"reason":"No approved evidence supports an answer","required_input_type":"evidence","created_at":"2026-10-29T10:23:07.261178+00:00","status":"needs_input","version":1,"profile_version":4,"context_digest":digest,"answer":null,"evidence_note":"","draft_id":null});
+    sqlx::query("INSERT INTO owner_preferences(key,value) VALUES($1,$2)").bind(&key).bind(&row).execute(&mut c).await.unwrap();
+    let (url,stop,server)=http_fixture().await;
+    let http=client();
+    let root=format!("{url}/api/v1/application-answers/missing");
+    let listed:Value=http.get(&root).bearer_auth(HOST_TOKEN).send().await.unwrap().error_for_status().unwrap().json().await.unwrap();
+    let legacy=listed["requests"].as_array().unwrap().iter().find(|r|r["id"]==id).unwrap().clone();
+    assert_eq!(listed["requests"].as_array().unwrap().len(),2);
+    assert_eq!(legacy["stale"],false);
+    assert_eq!(legacy["effective_status"],"needs_input");
+    let single:Value=http.get(format!("{root}/{id}")).bearer_auth(HOST_TOKEN).send().await.unwrap().error_for_status().unwrap().json().await.unwrap();
+    assert_eq!(single,legacy);
+    assert_eq!(http.post(&root).bearer_auth(HOST_TOKEN).json(&json!({"question":"Why this legacy role?","job_description":long_desc,"missing_fact":"Provide motivation"})).send().await.unwrap().status(),422);
+    sqlx::query("UPDATE candidate_profiles SET version=5 WHERE singleton_key='primary'").execute(&mut c).await.unwrap();
+    let listed_stale:Value=http.get(&root).bearer_auth(HOST_TOKEN).send().await.unwrap().error_for_status().unwrap().json().await.unwrap();
+    assert_eq!(listed_stale["requests"].as_array().unwrap().iter().find(|r|r["id"]==id).unwrap()["stale"],true);
+    let single_stale:Value=http.get(format!("{root}/{id}")).bearer_auth(HOST_TOKEN).send().await.unwrap().error_for_status().unwrap().json().await.unwrap();
+    assert_eq!(single_stale["stale"],true);
+    stop.cancel();server.await.unwrap();
+}

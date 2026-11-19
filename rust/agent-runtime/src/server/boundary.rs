@@ -17,6 +17,8 @@ pub(super) fn saved_match_route(path: &str) -> Option<&str> {
 }
 pub(super) fn profile_route(path: &str) -> bool {
     path == "/api/v1/profile"
+        || path == "/api/v1/dashboard/runtime"
+        || path == "/api/v1/dashboard/overview"
         || saved_match_route(path).is_some()
         || path == "/api/v1/local-agent/profile-confirmation"
         || path == crate::conversation::preferences::PATH
@@ -200,6 +202,8 @@ pub(super) fn selected_resource(
         || crate::gmail_accounts::route(path).is_some()
         || crate::execution::route(path).is_some()
         || path == crate::notification_preferences::PATH
+        || path == "/api/v1/dashboard/runtime"
+        || path == "/api/v1/dashboard/overview"
         || crate::packet_service::route(path).is_some()
         || crate::packet_generation::route(path).is_some()
         || (saved_match_route(path).is_some() && method == "GET")

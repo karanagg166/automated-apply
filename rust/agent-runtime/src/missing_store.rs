@@ -3,7 +3,7 @@
 use crate::{
     Failure, Result,
     answer_context::Stamp,
-    answer_contract::{self, Generate},
+    answer_contract::Generate,
     missing_contract::{self, Approve, Create, Edit},
     owner_proof::Proof,
     profile_store, question_classifier,
@@ -139,8 +139,33 @@ fn validate(raw: Value, id: &str, profile: Uuid) -> Result<Stored> {
     request(&data)?;
     Ok(Stored { raw, data })
 }
+fn bounded_text(value: &str, max: usize) -> Result<String> {
+    let text = value.trim();
+    if text.is_empty() || text.chars().count() > max {
+        return Err(invalid());
+    }
+    Ok(text.to_owned())
+}
 fn request(data: &Record) -> Result<Generate> {
-    answer_contract::normalize(json!({"question":data.question,"job_id":data.job_id,"company_name":data.company_name,"job_description":data.job_description})).map_err(|_|invalid())
+    Ok(Generate {
+        question: bounded_text(&data.question, 2000)?,
+        writing_style: "professional".into(),
+        job_id: data.job_id,
+        company_name: data
+            .company_name
+            .as_deref()
+            .map(|s| bounded_text(s, 200))
+            .transpose()?,
+        job_description: data
+            .job_description
+            .as_deref()
+            .map(|s| bounded_text(s, 200_000))
+            .transpose()?,
+        max_characters: 1500,
+        max_words: None,
+        save_draft: false,
+        rewrite: false,
+    })
 }
 async fn begin(
     connection: &mut PgConnection,
@@ -184,8 +209,7 @@ async fn row(
     let raw:Option<Value>=sqlx::query_scalar(if lock {"SELECT value FROM owner_preferences WHERE key=$1 AND value->>'candidate_profile_id'=$2 FOR UPDATE"} else {"SELECT value FROM owner_preferences WHERE key=$1 AND value->>'candidate_profile_id'=$2"}).bind(key).bind(profile.to_string()).fetch_optional(&mut **tx).await.map_err(db)?;
     validate(raw.ok_or(Failure("missing_input_not_found"))?, id, profile)
 }
-async fn view(tx: &mut Transaction<'_, Postgres>, stored: Stored) -> Result<Value> {
-    let stamp = Stamp::load_in(tx, &request(&stored.data)?).await?;
+fn format_view(stored: Stored, stamp: &Stamp) -> Result<Value> {
     let stale = stored.data.context_digest != stamp.missing();
     let effective = if stale && stored.data.status == "approved" {
         "review_required"
@@ -210,6 +234,10 @@ async fn view(tx: &mut Transaction<'_, Postgres>, stored: Stored) -> Result<Valu
     ));
     Ok(value)
 }
+async fn view(tx: &mut Transaction<'_, Postgres>, stored: Stored) -> Result<Value> {
+    let stamp = Stamp::load_in(tx, &request(&stored.data)?).await?;
+    format_view(stored, &stamp)
+}
 async fn clock(tx: &mut Transaction<'_, Postgres>) -> Result<String> {
     sqlx::query_scalar("SELECT to_char(clock_timestamp() AT TIME ZONE 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US')||'+00:00'").fetch_one(&mut **tx).await.map_err(db)
 }
@@ -233,12 +261,21 @@ pub async fn list(connection: &mut PgConnection, offset: i64, limit: i64) -> Res
     let mut tx = begin(connection, true).await?;
     let profile = primary(&mut tx, false).await?;
     let rows:Vec<Value>=sqlx::query_scalar("SELECT value FROM owner_preferences WHERE starts_with(key,'needs_input:') AND value->>'candidate_profile_id'=$1 ORDER BY created_at DESC,key OFFSET $2 LIMIT $3").bind(profile.to_string()).bind(offset).bind(limit).fetch_all(&mut *tx).await.map_err(db)?;
-    let mut requests = vec![];
+    let mut items = Vec::with_capacity(rows.len());
+    let mut reqs = Vec::with_capacity(rows.len());
     for raw in rows {
         let id = raw["id"].as_str().ok_or_else(invalid)?.to_owned();
         key(&id)?;
-        requests.push(view(&mut tx, validate(raw, &id, profile)?).await?);
+        let stored = validate(raw, &id, profile)?;
+        reqs.push(request(&stored.data)?);
+        items.push(stored);
     }
+    let stamps = Stamp::load_batch_in(&mut tx, &reqs).await?;
+    let requests = items
+        .into_iter()
+        .zip(stamps.iter())
+        .map(|(stored, stamp)| format_view(stored, stamp))
+        .collect::<Result<Vec<_>>>()?;
     tx.commit().await.map_err(db)?;
     Ok(json!({"requests":requests,"offset":offset,"limit":limit}))
 }

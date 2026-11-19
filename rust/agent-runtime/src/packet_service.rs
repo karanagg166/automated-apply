@@ -270,11 +270,6 @@ async fn read_context_in(
     } else {
         packet_context::load_in(tx, id(&raw["job_id"])?, selected, &settings.policy, now).await?
     };
-    let stale = current.snapshot["context_digest"] != snapshot["context_digest"]
-        || current
-            .profile
-            .as_ref()
-            .is_none_or(|p| p["id"] != raw["candidate_profile_id"]);
     let fields: Vec<Value> = sqlx::query_scalar(
         "SELECT to_jsonb(f) FROM application_packet_fields f WHERE packet_id=$1 ORDER BY position",
     )
@@ -282,10 +277,6 @@ async fn read_context_in(
     .fetch_all(&mut **tx)
     .await
     .map_err(db)?;
-    let fields = fields
-        .into_iter()
-        .map(|f| packet_record::normalize(Kind::Field, f))
-        .collect::<Result<Vec<_>>>()?;
     let submitted: bool = sqlx::query_scalar(
         "SELECT EXISTS(SELECT 1 FROM application_submission_evidence WHERE packet_id=$1)",
     )
@@ -293,6 +284,32 @@ async fn read_context_in(
     .fetch_one(&mut **tx)
     .await
     .map_err(db)?;
+    assemble_read(
+        raw,
+        snapshot,
+        current,
+        fields,
+        submitted,
+        if lock_context { Utc::now() } else { now },
+    )
+}
+fn assemble_read(
+    raw: Value,
+    snapshot: Value,
+    current: packet_context::Built,
+    fields: Vec<Value>,
+    submitted: bool,
+    now: DateTime<Utc>,
+) -> Result<Value> {
+    let stale = current.snapshot["context_digest"] != snapshot["context_digest"]
+        || current
+            .profile
+            .as_ref()
+            .is_none_or(|p| p["id"] != raw["candidate_profile_id"]);
+    let fields = fields
+        .into_iter()
+        .map(|f| packet_record::normalize(Kind::Field, f))
+        .collect::<Result<Vec<_>>>()?;
     let lifecycle = raw["lifecycle_state"].as_str().ok_or_else(invalid)?;
     let ready = readiness(
         &snapshot,
@@ -304,7 +321,7 @@ async fn read_context_in(
             submitted,
         },
         lifecycle,
-        if lock_context { Utc::now() } else { now },
+        now,
     )?;
     let mut result = json!({"snapshot":snapshot,"fields":fields,"readiness":ready,"submission_mode":"manual_handoff","review_status":if stale{"stale"}else if raw["approved_revision"].as_i64().is_some_and(|v|v!=0){"approved"}else if lifecycle=="reviewed"{"reviewed"}else{"pending"}});
     for key in [
@@ -328,6 +345,72 @@ async fn read_context_in(
         result[key] = packet_record::timestamp(&result[key], true)?;
     }
     Ok(result)
+}
+async fn list_in(
+    tx: &mut Transaction<'_, Postgres>,
+    page: &Page,
+    settings: &Settings,
+    now: DateTime<Utc>,
+) -> Result<Value> {
+    let rows: Vec<Value> = sqlx::query_scalar(
+        "SELECT to_jsonb(p) FROM application_packets p WHERE ($1::text IS NULL OR platform=$1) AND ($2::uuid IS NULL OR job_id=$2) AND ($3::text IS NULL OR lifecycle_state=$3) ORDER BY created_at DESC,id LIMIT $4 OFFSET $5 FOR SHARE",
+    )
+    .bind(&page.platform)
+    .bind(page.job)
+    .bind(&page.status)
+    .bind(page.limit)
+    .bind(page.offset)
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(db)?;
+    if rows.is_empty() {
+        return Ok(json!({"packets":[],"offset":page.offset,"limit":page.limit}));
+    }
+    let mut entries = Vec::with_capacity(rows.len());
+    let mut items = Vec::with_capacity(rows.len());
+    let mut packet_ids = Vec::with_capacity(rows.len());
+    for raw in rows {
+        let packet_id = id(&raw["id"])?;
+        let job_id = id(&raw["job_id"])?;
+        let snapshot = packet_record::normalize(Kind::Snapshot, raw["snapshot"].clone())?;
+        let selected = raw["resume_resource_id"]
+            .as_str()
+            .map(|s| s.parse().map_err(|_| invalid()))
+            .transpose()?;
+        packet_ids.push(packet_id);
+        items.push((job_id, selected));
+        entries.push((packet_id, raw, snapshot));
+    }
+    let contexts = packet_context::load_batch_in(tx, &items, &settings.policy, now).await?;
+    let field_rows: Vec<(Uuid, Value)> = sqlx::query_as(
+        "SELECT packet_id,to_jsonb(f) FROM application_packet_fields f WHERE packet_id=ANY($1) ORDER BY packet_id,position",
+    )
+    .bind(&packet_ids)
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(db)?;
+    let mut fields_by_packet: std::collections::HashMap<Uuid, Vec<Value>> =
+        std::collections::HashMap::new();
+    for (packet_id, field) in field_rows {
+        fields_by_packet.entry(packet_id).or_default().push(field);
+    }
+    let submitted_ids: Vec<Uuid> = sqlx::query_scalar(
+        "SELECT DISTINCT packet_id FROM application_submission_evidence WHERE packet_id=ANY($1)",
+    )
+    .bind(&packet_ids)
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(db)?;
+    let submitted_set: std::collections::HashSet<Uuid> = submitted_ids.into_iter().collect();
+    let mut packets = Vec::with_capacity(entries.len());
+    for ((packet_id, raw, snapshot), current) in entries.into_iter().zip(contexts) {
+        let fields = fields_by_packet.remove(&packet_id).unwrap_or_default();
+        let submitted = submitted_set.contains(&packet_id);
+        packets.push(assemble_read(
+            raw, snapshot, current, fields, submitted, now,
+        )?);
+    }
+    Ok(json!({"packets":packets,"offset":page.offset,"limit":page.limit}))
 }
 fn validate_read(value: &Value) -> Result<()> {
     static VALIDATOR: std::sync::LazyLock<jsonschema::Validator> = std::sync::LazyLock::new(|| {
@@ -701,12 +784,7 @@ pub async fn dispatch(
                 let rows:Vec<Value>=sqlx::query_scalar("SELECT to_jsonb(e) FROM application_events e WHERE packet_id=$1 ORDER BY packet_revision,created_at,id LIMIT $2 OFFSET $3").bind(packet).bind(page.limit).bind(page.offset).fetch_all(&mut *tx).await.map_err(db)?;
                 Ok(json!(rows.into_iter().map(|e|packet_record::normalize(Kind::Event,e)).collect::<Result<Vec<_>>>()?))
             },
-            Route::List=>{
-                let ids:Vec<Uuid>=sqlx::query_scalar("SELECT id FROM application_packets WHERE ($1::text IS NULL OR platform=$1) AND ($2::uuid IS NULL OR job_id=$2) AND ($3::text IS NULL OR lifecycle_state=$3) ORDER BY created_at DESC,id LIMIT $4 OFFSET $5").bind(&page.platform).bind(page.job).bind(&page.status).bind(page.limit).bind(page.offset).fetch_all(&mut *tx).await.map_err(db)?;
-                let mut packets=Vec::with_capacity(ids.len());
-                for id in ids {packets.push(read_in(&mut tx,id,settings,now).await?);}
-                Ok(json!({"packets":packets,"offset":page.offset,"limit":page.limit}))
-            },
+            Route::List => list_in(&mut tx, &page, settings, now).await,
             Route::Platforms=>unreachable!(),
         }}.await;
         match result {

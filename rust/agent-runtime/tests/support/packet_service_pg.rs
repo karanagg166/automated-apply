@@ -165,3 +165,44 @@ async fn packet_flow_conflicting_race_preserves_one_winner_and_a_single_creation
     assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM application_events").fetch_one(&mut c).await.unwrap(),1);
     assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM application_packet_fields").fetch_one(&mut c).await.unwrap(),7);
 }
+
+#[tokio::test(flavor="current_thread")]
+#[ignore="requires dedicated disposable PostgreSQL harness"]
+async fn packet_flow_batched_list_matches_individual_reads_before_and_after_profile_drift(){
+    let (mut c,job1)=packet_service_fixture().await;
+    let company2=Uuid::new_v4();
+    sqlx::query("INSERT INTO companies(id,name,domain,metadata) VALUES($1,'Fictional Second Employer','second.fixture.example','{}')").bind(company2).execute(&mut c).await.unwrap();
+    let job2=Uuid::new_v4();
+    sqlx::query("INSERT INTO jobs(id,company_id,title,job_url,source_platform) VALUES($1,$2,'Second fictional Rust role','https://www.naukri.com/job-listings-fictional-223456789012','naukri')").bind(job2).bind(company2).execute(&mut c).await.unwrap();
+    sqlx::query("INSERT INTO job_source_observations(id,job_id,source,original_url) VALUES($1,$2,'naukri','https://www.naukri.com/job-listings-fictional-223456789012')").bind(Uuid::new_v4()).bind(job2).execute(&mut c).await.unwrap();
+    let job3=Uuid::new_v4();
+    sqlx::query("INSERT INTO jobs(id,title,job_url,source_platform) VALUES($1,'Third fictional Rust role','https://www.naukri.com/job-listings-fictional-323456789012','naukri')").bind(job3).execute(&mut c).await.unwrap();
+
+    let (url,stop,server)=http_fixture().await;
+    let http=client();
+    for (idx,(job,questions)) in [(job1,json!([{"question":"Preferred interview time?"}])),(job2,json!([{"question":"Describe a project"}])),(job3,json!([]))].into_iter().enumerate() {
+        let create=http.post(format!("{url}/api/v1/jobs/{job}/application-packets")).bearer_auth(HOST_TOKEN).json(&json!({"idempotency_key":format!("fictional-batch-list-{idx}"),"questions":questions})).send().await.unwrap();
+        assert_eq!(create.status(),201);
+    }
+    let list_url=format!("{url}/api/v1/application-packets?limit=25");
+    let listed:Value=http.get(&list_url).bearer_auth(HOST_TOKEN).send().await.unwrap().error_for_status().unwrap().json().await.unwrap();
+    let packets=listed["packets"].as_array().unwrap();
+    assert_eq!(packets.len(),3);
+    for packet in packets {
+        let pid=packet["id"].as_str().unwrap();
+        let single:Value=http.get(format!("{url}/api/v1/application-packets/{pid}")).bearer_auth(HOST_TOKEN).send().await.unwrap().error_for_status().unwrap().json().await.unwrap();
+        assert_eq!(packet,&single);
+    }
+    sqlx::query("UPDATE candidate_profiles SET full_name='Updated fictional owner name' WHERE singleton_key='primary'").execute(&mut c).await.unwrap();
+    let listed_stale:Value=http.get(&list_url).bearer_auth(HOST_TOKEN).send().await.unwrap().error_for_status().unwrap().json().await.unwrap();
+    let stale_packets=listed_stale["packets"].as_array().unwrap();
+    assert_eq!(stale_packets.len(),3);
+    for packet in stale_packets {
+        assert_eq!(packet["readiness"]["stale"],true);
+        assert_eq!(packet["review_status"],"stale");
+        let pid=packet["id"].as_str().unwrap();
+        let single:Value=http.get(format!("{url}/api/v1/application-packets/{pid}")).bearer_auth(HOST_TOKEN).send().await.unwrap().error_for_status().unwrap().json().await.unwrap();
+        assert_eq!(packet,&single);
+    }
+    stop.cancel();server.await.unwrap();
+}

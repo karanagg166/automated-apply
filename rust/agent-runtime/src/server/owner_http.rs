@@ -433,6 +433,21 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
             Err(_) => fail(Failure("private_resume_not_found")),
         };
     }
+    if path == "/api/v1/dashboard/runtime" {
+        if method != "GET" {
+            return fail(Failure("resource_read_method_not_allowed"));
+        }
+        if packet_query.is_some() || !body.is_empty() {
+            return fail(Failure("invalid_dashboard_request"));
+        }
+        return reply(
+            StatusCode::OK,
+            json!({
+                "demo_mode": false,
+                "external_notifications_enabled": false,
+            }),
+        );
+    }
     let mut state = api.connection.lock().await;
     if state.value.is_none() {
         if !state.backoff.remaining().is_zero() {
@@ -1042,6 +1057,19 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
                 Err(Failure("invalid_job_id"))
             }
         }
+        Some(connection) if path == "/api/v1/dashboard/overview" => {
+            if method != "GET" {
+                Err(Failure("resource_read_method_not_allowed"))
+            } else if packet_query.is_some() || !body.is_empty() {
+                Err(Failure("invalid_dashboard_request"))
+            } else {
+                dashboard_overview(connection).await.map(|data| OwnerReply {
+                    data,
+                    status: StatusCode::OK,
+                    etag: None,
+                })
+            }
+        }
         Some(connection) => dispatch(&api, connection, &method, &path, &body)
             .await
             .map(|data| OwnerReply {
@@ -1091,4 +1119,52 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
         }
         Err(error) => fail(error),
     }
+}
+
+async fn dashboard_overview(connection: &mut PgConnection) -> Result<Value> {
+    let db = |_| Failure("profile_database_error");
+    let mut tx = connection.begin().await.map_err(db)?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        .execute(&mut *tx)
+        .await
+        .map_err(db)?;
+    let result: Value = sqlx::query_scalar(
+        "SELECT jsonb_build_object(
+            'startups_discovered', (SELECT count(*) FROM companies),
+            'saved_jobs', (SELECT count(*) FROM jobs),
+            'relevant_jobs', (SELECT count(*) FROM jobs WHERE match_score >= 70),
+            'not_yet_applied', (
+                SELECT count(*) FROM jobs j
+                WHERE j.status <> 'applied'
+                  AND NOT EXISTS (
+                      SELECT 1 FROM application_packets p
+                      WHERE p.job_id = j.id
+                        AND p.lifecycle_state IN ('user_reported_submitted', 'provider_confirmed_submitted')
+                  )
+            ),
+            'shortlisted', (SELECT count(*) FROM startup_shortlist_entries),
+            'applications_prepared', (SELECT count(*) FROM application_packets),
+            'applications_reported_submitted', (
+                SELECT count(*) FROM application_packets
+                WHERE lifecycle_state = 'user_reported_submitted'
+            ),
+            'applications_provider_confirmed', (
+                SELECT count(*) FROM application_packets
+                WHERE lifecycle_state = 'provider_confirmed_submitted'
+            ),
+            'approved_gmail_messages', (
+                SELECT count(*) FROM outreach_logs
+                WHERE approval_status = 'approved'
+            ),
+            'outstanding_reviews', (
+                SELECT count(*) FROM application_packets
+                WHERE lifecycle_state IN ('needs_input', 'ready_for_review', 'preparing')
+            )
+        )",
+    )
+    .fetch_one(&mut *tx)
+    .await
+    .map_err(db)?;
+    tx.commit().await.map_err(db)?;
+    Ok(result)
 }

@@ -119,7 +119,10 @@ fn evidence(value: &Value) -> Result<&str> {
             .filter(|s| {
                 matches!(
                     *s,
-                    "none" | "metadata_forgotten" | "extension_gesture_dom_indicator"
+                    "none"
+                        | "metadata_forgotten"
+                        | "extension_gesture_dom_indicator"
+                        | "owner_authorized_browser_dom_indicator"
                 )
             })
             .ok_or_else(invalid),
@@ -142,7 +145,11 @@ fn session_evidence(
     now: DateTime<Utc>,
 ) -> Result<Option<&'static str>> {
     if value["browser_scope"].is_null() {
-        return Ok((evidence(value)? == "extension_gesture_dom_indicator").then_some("unscoped"));
+        return Ok(matches!(
+            evidence(value)?,
+            "extension_gesture_dom_indicator" | "owner_authorized_browser_dom_indicator"
+        )
+        .then_some("unscoped"));
     }
     let time = timestamp(value, "last_verification_time")?;
     let fresh = time

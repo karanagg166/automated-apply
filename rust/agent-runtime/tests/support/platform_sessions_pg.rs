@@ -314,3 +314,106 @@ async fn portal_observation_rolls_back_when_replay_record_changes_its_saved_evid
     sqlx::raw_sql("DROP TRIGGER fixture_portal_replay_drift ON agent_operations; DROP FUNCTION fixture_portal_replay_drift()")
         .execute(&mut c).await.unwrap();
 }
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn portal_legacy_owner_authorized_evidence_reads_and_transitions_cleanly() {
+    let (mut c, values, _raw) = private_resume_fixture().await;
+    sqlx::raw_sql(
+        "ALTER TABLE owner_preferences ADD COLUMN IF NOT EXISTS created_at timestamptz NOT NULL DEFAULT clock_timestamp()",
+    )
+    .execute(&mut c)
+    .await
+    .unwrap();
+    browser_save(
+        &mut c,
+        "portal_instahyre",
+        json!({
+            "state": "browser_session_observed",
+            "last_verification_time": "2026-10-25T20:56:07.603445+00:00",
+            "evidence_type": "owner_authorized_browser_dom_indicator",
+            "manual_capability_accepted": true,
+        }),
+    )
+    .await;
+    let (base, stop, service) = http_fixture_values(values).await;
+    let client = client();
+
+    let platforms: Vec<Value> = client
+        .get(format!("{base}/api/v1/local-agent/platforms"))
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let instahyre = platforms
+        .iter()
+        .find(|row| row["platform"] == "instahyre")
+        .unwrap();
+    assert_eq!(instahyre["state"], "browser_session_observed");
+    assert_eq!(
+        instahyre["evidence_type"],
+        "owner_authorized_browser_dom_indicator"
+    );
+    assert_eq!(instahyre["session_evidence"], "unscoped");
+    assert_eq!(instahyre["owner_acceptance_required"], false);
+
+    let connections: Vec<Value> = client
+        .get(format!("{base}/api/v1/local-agent/connections"))
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let conn_row = connections
+        .iter()
+        .find(|row| row["name"] == "Instahyre")
+        .unwrap();
+    assert_eq!(conn_row["state"], "browser_session_observed");
+    assert_eq!(
+        conn_row["actual_evidence_type"],
+        "unscoped_browser_portal_observation"
+    );
+
+    let accepted: Value = client
+        .post(format!(
+            "{base}/api/v1/local-agent/platforms/instahyre/accept-manual"
+        ))
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(accepted["state"], "browser_session_observed");
+    assert_eq!(accepted["manual_capability_accepted"], true);
+
+    let forgotten: Value = client
+        .delete(format!("{base}/api/v1/local-agent/platforms/instahyre"))
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(forgotten["state"], "owner_action_required");
+    assert_eq!(forgotten["evidence_type"], "metadata_forgotten");
+    assert_eq!(forgotten["manual_capability_accepted"], false);
+
+    stop.cancel();
+    service.await.unwrap();
+}

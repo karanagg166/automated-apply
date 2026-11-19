@@ -601,6 +601,7 @@ pub(super) fn profile_failure(error: Failure) -> Response {
         "job_shortlist_conflict" => "This job has already progressed beyond shortlisting",
         "job_shortlist_write_conflict" => "Job update was not saved; reload before shortlisting",
         "invalid_job_page" => "Invalid request",
+        "invalid_dashboard_request" => "Dashboard request is invalid",
         "invalid_notification_id" | "invalid_notification_record" => "Notification data is invalid",
         "invalid_notification_page" => "Supply offset 0..100000 once; page size is fixed at 50",
         "pdf_content_type_required" => "Use application/pdf",
@@ -894,6 +895,7 @@ pub(super) fn failure(error: Failure) -> Response {
         | "resource_inventory_limit"
         | "invalid_job_id"
         | "invalid_job_page"
+        | "invalid_dashboard_request"
         | "invalid_saved_job_record"
         | "invalid_match_result"
         | "profile_version_syntax"

@@ -9,6 +9,7 @@ use crate::{
 };
 use serde_json::{Value, json};
 use sqlx::{Connection, PgConnection, Postgres, Transaction};
+use std::collections::HashMap;
 use uuid::Uuid;
 
 pub struct Stamp {
@@ -41,6 +42,30 @@ impl Stamp {
     pub(crate) fn job(&self) -> Option<&str> {
         self.job.as_deref()
     }
+    fn build(
+        id: Uuid,
+        profile_version: i32,
+        career: &Value,
+        evidence: &str,
+        projects: &[Value],
+        job: Option<String>,
+        request: &Generate,
+    ) -> Self {
+        let generation = crate::python_json::digest(
+            &json!({"profile":career,"profile_id":id,"profile_version":profile_version,"evidence":evidence,"projects":projects,"job":job}),
+        );
+        let missing = crate::python_json::digest(
+            &json!({"sources":generation,"company_name":request.company_name,"job_description":request.job_description}),
+        );
+        Self {
+            profile_id: id,
+            profile_version,
+            generation,
+            missing,
+            evidence: evidence.to_owned(),
+            job,
+        }
+    }
     pub async fn load(connection: &mut PgConnection, request: &Generate) -> Result<Self> {
         let mut tx = connection.begin().await.map_err(db)?;
         sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
@@ -52,6 +77,13 @@ impl Stamp {
         Ok(stamp)
     }
     pub async fn load_in(tx: &mut Transaction<'_, Postgres>, request: &Generate) -> Result<Self> {
+        let mut stamps = Self::load_batch_in(tx, std::slice::from_ref(request)).await?;
+        Ok(stamps.pop().expect("single request stamp"))
+    }
+    pub(crate) async fn load_batch_in(
+        tx: &mut Transaction<'_, Postgres>,
+        requests: &[Generate],
+    ) -> Result<Vec<Self>> {
         let isolation: String =
             sqlx::query_scalar("SELECT current_setting('transaction_isolation')")
                 .fetch_one(&mut **tx)
@@ -60,22 +92,29 @@ impl Stamp {
         if !matches!(isolation.as_str(), "repeatable read" | "serializable") {
             return Err(Failure("answer_context_snapshot_required"));
         }
+        if requests.is_empty() {
+            return Ok(vec![]);
+        }
         let profile = profile_store::get(tx).await?;
         let id = profile.value["id"]
             .as_str()
             .and_then(|s| s.parse::<Uuid>().ok())
             .ok_or(Failure("invalid_profile_record"))?;
-        let job = if let Some(job_id) = request.job_id {
-            // Fingerprints also serve historical missing-input reads. A deleted or
-            // corrected job must make that approval stale, without hiding the request.
-            // Generation validates the incoming description/company separately.
-            Reviewed::load_in(tx, job_id)
-                .await?
-                .map(|job| job.digest())
-                .transpose()?
-        } else {
-            None
-        };
+        let mut jobs: HashMap<Uuid, Option<String>> = HashMap::new();
+        for request in requests {
+            if let Some(job_id) = request.job_id
+                && !jobs.contains_key(&job_id)
+            {
+                // Fingerprints also serve historical missing-input reads. A deleted or
+                // corrected job must make that approval stale, without hiding the request.
+                // Generation validates the incoming description/company separately.
+                let digest = Reviewed::load_in(tx, job_id)
+                    .await?
+                    .map(|job| job.digest())
+                    .transpose()?;
+                jobs.insert(job_id, digest);
+            }
+        }
         // Include unconfirmed rows too: editing/confirmation changes must invalidate approvals.
         let evidence:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_array(id,title,content,project,user_confirmed) FROM candidate_evidence WHERE candidate_profile_id=$1 ORDER BY id LIMIT 10001").bind(id).fetch_all(&mut **tx).await.map_err(db)?;
         if evidence.len() > 10000 {
@@ -84,22 +123,26 @@ impl Stamp {
         let evidence = crate::python_json::digest(
             &json!({"profile_id":id,"version":profile.version,"evidence":evidence}),
         );
-        let category = question_classifier::classify(&request.question).question_type;
-        let projects = if matches!(category, "project_explanation" | "technical_experience") {
+        let categories = requests
+            .iter()
+            .map(|r| question_classifier::classify(&r.question).question_type)
+            .collect::<Vec<_>>();
+        let needs_projects = categories
+            .iter()
+            .any(|c| matches!(*c, "project_explanation" | "technical_experience"));
+        let snapshot = if needs_projects {
             let available: bool =
                 sqlx::query_scalar("SELECT to_regclass('owner_preferences') IS NOT NULL")
                     .fetch_one(&mut **tx)
                     .await
                     .map_err(db)?;
             if available {
-                project_context::Snapshot::load_in(tx)
-                    .await?
-                    .answer_evidence(&request.question, category)?
+                Some(project_context::Snapshot::load_in(tx).await?)
             } else {
-                vec![]
+                None
             }
         } else {
-            vec![]
+            None
         };
         let mut career = profile.value;
         for meta in ["id", "singleton_key", "version", "created_at", "updated_at"] {
@@ -108,20 +151,32 @@ impl Stamp {
                 .ok_or(Failure("invalid_profile_record"))?
                 .remove(meta);
         }
-        let generation = crate::python_json::digest(
-            &json!({"profile":career,"profile_id":id,"profile_version":profile.version,"evidence":evidence,"projects":projects,"job":job}),
-        );
-        let missing = crate::python_json::digest(
-            &json!({"sources":generation,"company_name":request.company_name,"job_description":request.job_description}),
-        );
-        Ok(Self {
-            profile_id: id,
-            profile_version: profile.version,
-            generation,
-            missing,
-            evidence,
-            job,
-        })
+        requests
+            .iter()
+            .zip(categories)
+            .map(|(request, category)| {
+                let projects = match &snapshot {
+                    Some(snap)
+                        if matches!(category, "project_explanation" | "technical_experience") =>
+                    {
+                        snap.answer_evidence(&request.question, category)?
+                    }
+                    _ => vec![],
+                };
+                let job = request
+                    .job_id
+                    .and_then(|job_id| jobs.get(&job_id).cloned().flatten());
+                Ok(Self::build(
+                    id,
+                    profile.version,
+                    &career,
+                    &evidence,
+                    &projects,
+                    job,
+                    request,
+                ))
+            })
+            .collect()
     }
 }
 /// Rank the entire confirmed inventory before bounding candidates, matching the existing SQL.

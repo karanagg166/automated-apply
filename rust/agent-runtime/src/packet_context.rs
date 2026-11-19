@@ -12,7 +12,10 @@ use chrono::{DateTime, NaiveDate, NaiveDateTime, SecondsFormat, Timelike, Utc};
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
 use sqlx::{Postgres, Transaction};
-use std::{collections::BTreeSet, sync::LazyLock};
+use std::{
+    collections::{BTreeSet, HashMap},
+    sync::LazyLock,
+};
 use uuid::Uuid;
 
 #[derive(Deserialize)]
@@ -434,6 +437,137 @@ pub async fn load_in(
         return Err(Failure("packet_context_snapshot_required"));
     }
     load_material_in(tx, id, selected, policy, now).await
+}
+/// Batch preload from the caller's existing repeatable-read transaction for list reads.
+pub(crate) async fn load_batch_in(
+    tx: &mut Transaction<'_, Postgres>,
+    items: &[(Uuid, Option<Uuid>)],
+    policy: &Policy,
+    now: DateTime<Utc>,
+) -> Result<Vec<Built>> {
+    let isolation: String = sqlx::query_scalar("SELECT current_setting('transaction_isolation')")
+        .fetch_one(&mut **tx)
+        .await
+        .map_err(db)?;
+    if !matches!(isolation.as_str(), "repeatable read" | "serializable") {
+        return Err(Failure("packet_context_snapshot_required"));
+    }
+    if items.is_empty() {
+        return Ok(vec![]);
+    }
+    let unique_jobs = items
+        .iter()
+        .map(|(job, _)| *job)
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect::<Vec<_>>();
+    let job_rows:Vec<(Uuid,Value)>=sqlx::query_as("SELECT id,jsonb_build_object('id',id,'company_id',company_id,'title',title,'source_platform',source_platform,'job_url',job_url,'application_url',application_url,'description',description,'skills_required',skills_required,'location',location,'remote_type',remote_type,'is_remote',is_remote,'employment_type',employment_type,'experience_level',experience_level,'salary_min',salary_min::text,'salary_max',salary_max::text,'salary_currency',salary_currency,'salary_period',salary_period,'source_verification_status',source_verification_status,'status',status,'discovery_metadata',discovery_metadata,'date_posted',date_posted,'last_observed_at',last_observed_at) FROM jobs WHERE id=ANY($1)").bind(&unique_jobs).fetch_all(&mut **tx).await.map_err(db)?;
+    let jobs_by_id: HashMap<Uuid, Value> = job_rows.into_iter().collect();
+    for job_id in &unique_jobs {
+        if !jobs_by_id.contains_key(job_id) {
+            return Err(Failure("packet_job_not_found"));
+        }
+    }
+    let profile = match crate::profile_store::get(tx).await {
+        Ok(saved) => Some(saved.value),
+        Err(Failure("profile_not_found")) => None,
+        Err(error) => return Err(error),
+    };
+    let mut company_ids = BTreeSet::new();
+    for job in jobs_by_id.values() {
+        if !job["company_id"].is_null() {
+            company_ids.insert(uuid(&job["company_id"])?);
+        }
+    }
+    let unique_companies: Vec<Uuid> = company_ids.into_iter().collect();
+    let companies_by_id: HashMap<Uuid, Value> = if unique_companies.is_empty() {
+        HashMap::new()
+    } else {
+        sqlx::query_as::<_, (Uuid, Value)>(
+            "SELECT id,jsonb_build_object('id',id,'name',name,'domain',domain,'metadata_',metadata) FROM companies WHERE id=ANY($1)",
+        )
+        .bind(&unique_companies)
+        .fetch_all(&mut **tx)
+        .await
+        .map_err(db)?
+        .into_iter()
+        .collect()
+    };
+    let job_strs: Vec<String> = unique_jobs.iter().map(Uuid::to_string).collect();
+    let (resources, evidence, revision_rows) = if let Some(profile) = &profile {
+        let owner = uuid(&profile["id"])?;
+        let resources:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('id',id,'resource_type',resource_type,'label',label,'url',url,'is_primary',is_primary,'user_confirmed',user_confirmed,'source_type',source_type,'updated_at',updated_at) FROM candidate_resources WHERE candidate_profile_id=$1 ORDER BY id LIMIT 10001").bind(owner).fetch_all(&mut **tx).await.map_err(db)?;
+        let evidence:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_array(id,updated_at,user_confirmed) FROM candidate_evidence WHERE candidate_profile_id=$1 ORDER BY id LIMIT 10001").bind(owner).fetch_all(&mut **tx).await.map_err(db)?;
+        let available: bool =
+            sqlx::query_scalar("SELECT to_regclass('owner_preferences') IS NOT NULL")
+                .fetch_one(&mut **tx)
+                .await
+                .map_err(db)?;
+        let revision_rows: Vec<(Option<String>, Value)> = if available {
+            let rows:Vec<(Option<String>,Value)>=sqlx::query_as("SELECT value->>'job_id',jsonb_build_array(key,value->'version',value->'status',value->'context_digest') FROM owner_preferences WHERE starts_with(key,'needs_input:') AND value->>'candidate_profile_id'=$1 AND (value->>'ever_approved')::boolean IS TRUE AND (value->>'job_id' IS NULL OR value->>'job_id'=ANY($2)) ORDER BY key LIMIT 100001").bind(owner.to_string()).bind(&job_strs).fetch_all(&mut **tx).await.map_err(db)?;
+            if rows.len() > 100000 {
+                return Err(Failure("packet_context_inventory_limit"));
+            }
+            rows
+        } else {
+            vec![]
+        };
+        (resources, evidence, revision_rows)
+    } else {
+        (vec![], vec![], vec![])
+    };
+    let obs_rows:Vec<(Uuid,String,String)>=sqlx::query_as("SELECT job_id,source,original_url FROM job_source_observations WHERE job_id=ANY($1) ORDER BY job_id,source,original_url LIMIT 100001").bind(&unique_jobs).fetch_all(&mut **tx).await.map_err(db)?;
+    if obs_rows.len() > 100000 {
+        return Err(Failure("packet_context_inventory_limit"));
+    }
+    let mut obs_by_job: HashMap<Uuid, Vec<(String, String)>> = HashMap::new();
+    for (job_id, source, original_url) in obs_rows {
+        let entry = obs_by_job.entry(job_id).or_default();
+        if entry.len() < 10001 {
+            entry.push((source, original_url));
+        }
+    }
+    items
+        .iter()
+        .map(|(job_id, selected)| {
+            let job = jobs_by_id
+                .get(job_id)
+                .ok_or(Failure("packet_job_not_found"))?;
+            let company = job["company_id"]
+                .as_str()
+                .and_then(|s| s.parse::<Uuid>().ok())
+                .and_then(|cid| companies_by_id.get(&cid))
+                .cloned();
+            let job_str = job_id.to_string();
+            let revisions: Vec<Value> = if profile.is_some() {
+                revision_rows
+                    .iter()
+                    .filter(|(row_job, _)| {
+                        row_job.is_none() || row_job.as_deref() == Some(&job_str)
+                    })
+                    .take(10001)
+                    .map(|(_, v)| v.clone())
+                    .collect()
+            } else {
+                vec![]
+            };
+            let observations = obs_by_job.get(job_id).cloned().unwrap_or_default();
+            build(
+                json!({
+                    "job": job,
+                    "profile": profile,
+                    "company": company,
+                    "resources": resources,
+                    "evidence": evidence,
+                    "observations": observations,
+                    "revisions": revisions,
+                    "selected": selected,
+                }),
+                policy,
+                now,
+            )
+        })
+        .collect()
 }
 /// For review/handoff, acquire all legacy material locks and load immediately in the
 /// same exclusive borrow. READ COMMITTED then observes STOP/preferences after the owner fence.
