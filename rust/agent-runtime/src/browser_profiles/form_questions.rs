@@ -322,16 +322,40 @@ pub(super) async fn ask(
         provenance["form_semantic_key"] = control["semantic_key"].clone();
         provenance["form_page_step"] = control["page_step"].clone();
         provenance["form_section"] = control["section"].clone();
-        let ack: Option<Value> = sqlx::query_scalar(
-            "UPDATE application_packet_fields SET provenance=$2 WHERE id=$1 RETURNING provenance",
-        )
-        .bind(id)
-        .bind(&provenance)
-        .fetch_optional(&mut **tx)
-        .await
-        .map_err(db)?;
-        if ack.as_ref() != Some(&provenance) {
-            return Err(Failure("packet_write_ack_failed"));
+        if provenance != field["provenance"] {
+            let packet_id = string(&packet, "id")?.parse().map_err(|_| invalid())?;
+            let revision = number(&packet, "revision")?
+                .try_into()
+                .map_err(|_| invalid())?;
+            let claim =
+                crate::packet_mutation::locked_in(tx, packet_id, revision, true, packets).await?;
+            let at = storage::now(tx).await?;
+            // The field trigger increments the parent revision when edited outside
+            // a packet amendment. Archive the current revision before that edit.
+            crate::packet_archive::advance_in(tx, &claim.raw, &claim.prior_fields, revision, at)
+                .await?;
+            let ack: Option<Value> = sqlx::query_scalar(
+                "UPDATE application_packet_fields SET provenance=$2 WHERE id=$1 AND packet_id=$3 RETURNING provenance",
+            )
+            .bind(id)
+            .bind(&provenance)
+            .bind(packet_id)
+            .fetch_optional(&mut **tx)
+            .await
+            .map_err(db)?;
+            if ack.as_ref() != Some(&provenance) {
+                return Err(Failure("packet_write_ack_failed"));
+            }
+            packet = crate::packet_mutation::finish_in(
+                tx,
+                packet_id,
+                &packet["snapshot"],
+                &claim.raw,
+                "answer_edited",
+                packets,
+                at,
+            )
+            .await?;
         }
         requested.push((id, control.clone()));
     }

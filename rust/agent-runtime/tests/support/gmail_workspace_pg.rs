@@ -1,9 +1,8 @@
 // Deferred local workspace fixtures. No real account/profile/mail/draft is used.
 use automated_apply_agents::gmail_workspace;
 async fn workspace_fixture() -> (PgConnection, Uuid, Uuid) {
-    let (c, one, two) = gmail_read_fixture().await;
-    drop(c);
     let (mut c, _) = listing_fixture().await;
+    let (one, two) = seed_gmail_read_accounts(&mut c).await;
     for (slot, id) in [("read_1", one), ("read_2", two)] {
         browser_save(
             &mut c,
@@ -420,7 +419,7 @@ async fn gmail_workspace_http_keeps_auth_strict_draft_validation_and_known_metho
             .await
             .unwrap()
             .status(),
-        422
+        400
     );
     stop.cancel();
     task.await.unwrap();

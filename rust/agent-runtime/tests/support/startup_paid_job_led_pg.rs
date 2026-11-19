@@ -36,7 +36,7 @@ fn startup_paid_input() -> Value {
 }
 async fn startup_paid_snapshot(c: &mut PgConnection) -> Value {
     let jobs = apify_owner_snapshot(c).await;
-    let startup:Value=sqlx::query_scalar("SELECT jsonb_agg(to_jsonb(p) ORDER BY key) FROM owner_preferences p WHERE starts_with(key,'startup_job:')").fetch_one(c).await.unwrap();
+    let startup:Value=sqlx::query_scalar("SELECT coalesce(jsonb_agg(to_jsonb(p) ORDER BY key),'[]'::jsonb) FROM owner_preferences p WHERE starts_with(key,'startup_job:')").fetch_one(c).await.unwrap();
     json!({"jobs":jobs,"startup":startup})
 }
 async fn startup_paid_run(

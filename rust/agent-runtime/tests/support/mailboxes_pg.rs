@@ -115,8 +115,8 @@ fn mailbox_store() -> TokenStore {
 }
 async fn mailbox_fixture() -> PgConnection {
     let mut c = knowledge_fixture().await;
-    // Production ORM timestamp columns have no database defaults.
-    sqlx::raw_sql("ALTER TABLE owner_preferences ADD COLUMN created_at timestamptz, ADD COLUMN updated_at timestamptz;UPDATE owner_preferences SET created_at=clock_timestamp(),updated_at=clock_timestamp();ALTER TABLE owner_preferences ALTER COLUMN created_at SET NOT NULL,ALTER COLUMN updated_at SET NOT NULL").execute(&mut c).await.unwrap();
+    // Also accept installations created by the legacy ORM without database defaults.
+    sqlx::raw_sql("ALTER TABLE owner_preferences ALTER COLUMN created_at DROP DEFAULT, ALTER COLUMN updated_at DROP DEFAULT").execute(&mut c).await.unwrap();
     c
 }
 async fn mailbox_row(c: &mut PgConnection, slot: &str) -> Value {

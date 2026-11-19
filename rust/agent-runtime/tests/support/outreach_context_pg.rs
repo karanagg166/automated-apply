@@ -9,6 +9,11 @@ async fn outreach_context_fixture() -> (PgConnection, Uuid) {
         .execute(&mut c)
         .await
         .unwrap();
+    // The inherited listing fixture includes a packet pinned to its resume.
+    sqlx::query("TRUNCATE application_events, application_packet_fields, application_submission_evidence, application_packets")
+        .execute(&mut c)
+        .await
+        .unwrap();
     sqlx::query("DELETE FROM candidate_resources")
         .execute(&mut c)
         .await

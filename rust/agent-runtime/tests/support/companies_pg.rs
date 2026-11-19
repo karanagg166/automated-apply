@@ -315,7 +315,7 @@ async fn company_saved_owner_http_routes_require_owner_auth_and_keep_unsupported
                 .await
                 .unwrap()
                 .status(),
-            422
+            400
         );
     }
     assert_eq!(companies_snapshot(&mut c).await, before);

@@ -307,7 +307,7 @@ async fn outreach_history_owner_http_authentication_and_method_errors_preserve_s
             .await
             .unwrap()
             .status(),
-        422
+        400
     );
     assert_eq!(
         http.post(format!(

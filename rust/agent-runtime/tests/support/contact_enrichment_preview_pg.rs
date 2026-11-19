@@ -363,7 +363,7 @@ async fn contact_enrichment_owner_http_preview_requires_auth_and_rejects_invalid
             .await
             .unwrap()
             .status(),
-        422
+        400
     );
     assert_eq!(
         http.post(&endpoint)

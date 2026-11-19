@@ -232,7 +232,7 @@ impl<P: Provider> Service<'_, P> {
         }
         let current = account.as_ref().unwrap();
         let next = generation(current)?.checked_add(1).ok_or_else(invalid)?;
-        let changed:Option<i64>=sqlx::query_scalar("UPDATE gmail_read_accounts SET token_generation=$2,updated_at=clock_timestamp() WHERE id=$1 AND token_generation=$3 RETURNING token_generation").bind(id).bind(next).bind(generation(current)?).fetch_optional(&mut *tx).await.map_err(db)?;
+        let changed:Option<i64>=sqlx::query_scalar("UPDATE gmail_read_accounts SET token_generation=$2,updated_at=clock_timestamp() WHERE id=$1 AND token_generation=$3 RETURNING token_generation::bigint").bind(id).bind(next).bind(generation(current)?).fetch_optional(&mut *tx).await.map_err(db)?;
         if changed != Some(next) {
             return Err(Failure("gmail_read_write_ack_failed"));
         }
@@ -356,7 +356,7 @@ impl<P: Provider> Service<'_, P> {
             return Err(Failure("gmail_account_already_connected"));
         }
         let next = generation(&account)?.checked_add(1).ok_or_else(invalid)?;
-        let saved:Option<i64>=sqlx::query_scalar("UPDATE gmail_read_accounts SET google_subject=$2,account_email=$3,encrypted_refresh_token=$4,encrypted_access_token=$5,encryption_key_id=$6,granted_scopes=$7,status='connected',connected_at=clock_timestamp(),last_verified_at=clock_timestamp(),token_expires_at=clock_timestamp()+($8::double precision*interval '1 second'),disconnected_at=NULL,token_generation=$9,updated_at=clock_timestamp() WHERE id=$1 AND token_generation=$10 RETURNING token_generation").bind(id).bind(&subject).bind(&email).bind(store.encrypt(&json!(refresh),&format!("{id}:refresh"))?).bind(store.encrypt(&json!(tokens.access()),&format!("{id}:access"))?).bind(store.active_id()).bind(json!(granted)).bind(tokens.expires_in() as f64).bind(next).bind(generation(&account)?).fetch_optional(&mut *tx).await.map_err(db)?;
+        let saved:Option<i64>=sqlx::query_scalar("UPDATE gmail_read_accounts SET google_subject=$2,account_email=$3,encrypted_refresh_token=$4,encrypted_access_token=$5,encryption_key_id=$6,granted_scopes=$7,status='connected',connected_at=clock_timestamp(),last_verified_at=clock_timestamp(),token_expires_at=clock_timestamp()+($8::double precision*interval '1 second'),disconnected_at=NULL,token_generation=$9,updated_at=clock_timestamp() WHERE id=$1 AND token_generation=$10 RETURNING token_generation::bigint").bind(id).bind(&subject).bind(&email).bind(store.encrypt(&json!(refresh),&format!("{id}:refresh"))?).bind(store.encrypt(&json!(tokens.access()),&format!("{id}:access"))?).bind(store.active_id()).bind(json!(granted)).bind(tokens.expires_in() as f64).bind(next).bind(generation(&account)?).fetch_optional(&mut *tx).await.map_err(db)?;
         if saved != Some(next) {
             return Err(Failure("gmail_read_write_ack_failed"));
         }

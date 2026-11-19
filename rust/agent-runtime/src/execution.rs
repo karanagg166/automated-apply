@@ -277,17 +277,21 @@ pub async fn dispatch_body_configured(
     };
     let mut tx = c.begin().await.map_err(storage::db)?;
     let result = async {
+        let isolation = match route {
+            // The owner fence serializes queue control changes. Read the
+            // revision committed by a preceding owner transaction after waiting.
+            Route::Control => "SET TRANSACTION ISOLATION LEVEL READ COMMITTED",
+            _ if route.method() == "GET" => {
+                "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"
+            }
+            _ => "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE",
+        };
+        sqlx::query(isolation)
+            .execute(&mut *tx)
+            .await
+            .map_err(storage::db)?;
         if route.method() != "GET" {
-            sqlx::query("SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
-                .execute(&mut *tx)
-                .await
-                .map_err(storage::db)?;
             storage::lock(&mut tx).await?;
-        } else {
-            sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
-                .execute(&mut *tx)
-                .await
-                .map_err(storage::db)?;
         }
         match route {
             Route::Owner(owner) => {

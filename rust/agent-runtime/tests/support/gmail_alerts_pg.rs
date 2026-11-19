@@ -89,7 +89,7 @@ async fn alert_fixture() -> PgConnection {
         json!({"state":"RUNNING","revision":3,"policy":null}),
     )
     .await;
-    browser_save(&mut c, "exec_config:naukri", json!({"mode":"REVIEW"})).await;
+    browser_save(&mut c, "exec_config:naukri", json!({"mode":"ON_DEMAND"})).await;
     let settings = alert_settings();
     let google = MailboxGoogle::default();
     Service {
@@ -383,7 +383,9 @@ async fn gmail_alert_changed_authority_during_body_read_blocks_publication_and_h
         reader.hold_body = true;
         let operation = alert_poll(&mut c, &reader, None);
         let competing = async {
-            reader.entered.notified().await;
+            tokio::time::timeout(Duration::from_secs(10), reader.entered.notified())
+                .await
+                .expect("fixture transport did not reach the body read");
             let mut tx = other.begin().await.unwrap();
             sqlx::query("SELECT key FROM owner_preferences WHERE key='agent_conversation:primary' FOR UPDATE NOWAIT").execute(&mut *tx).await.unwrap();
             tx.commit().await.unwrap();

@@ -26,7 +26,16 @@ async fn connection() -> PgConnection {
 }
 async fn setup() -> PgConnection {
     let mut c = connection().await;
-    sqlx::raw_sql("DROP TABLE IF EXISTS rust_agent_control_events; DROP TABLE IF EXISTS rust_agent_control; DROP TABLE IF EXISTS rust_agent_events; DROP TABLE IF EXISTS rust_agent_runs; DROP TABLE IF EXISTS llm_monthly_usage;")
+    // Each serial test gets a clean schema. Its observers and subprocesses can
+    // still reconnect to the same database until the next test starts.
+    let disposable: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname=current_database() AND shobj_description(oid,'pg_database')='automated_apply_disposable_rust_fixture')",
+    )
+    .fetch_one(&mut c)
+    .await
+    .unwrap();
+    assert!(disposable, "fixture harness database marker required");
+    sqlx::raw_sql("DROP SCHEMA public CASCADE; CREATE SCHEMA public;")
         .execute(&mut c)
         .await
         .unwrap();
@@ -1443,7 +1452,7 @@ async fn committed_stop_remains_responsive_during_a_blocked_model_call() {
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
 async fn control_and_audit_tables_reject_a_public_client_even_with_select_granted() {
     let mut c = setup().await;
-    sqlx::raw_sql("DO $body$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='rust_fixture_client')THEN CREATE ROLE rust_fixture_client; END IF; END $body$; GRANT SELECT ON rust_agent_control,rust_agent_control_events TO rust_fixture_client; SET ROLE rust_fixture_client;").execute(&mut c).await.unwrap();
+    sqlx::raw_sql("DO $body$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='rust_fixture_client')THEN CREATE ROLE rust_fixture_client; END IF; END $body$; GRANT USAGE ON SCHEMA public TO rust_fixture_client; GRANT SELECT ON rust_agent_control,rust_agent_control_events TO rust_fixture_client; SET ROLE rust_fixture_client;").execute(&mut c).await.unwrap();
     for query in [
         "SELECT count(*) FROM rust_agent_control",
         "SELECT count(*) FROM rust_agent_control_events",
@@ -3878,9 +3887,7 @@ async fn saved_profile_match_keeps_unknown_experience_and_preserves_lookup_error
 }
 
 async fn confirmation_fixture() -> PgConnection {
-    let mut c = knowledge_fixture().await;
-    sqlx::raw_sql("ALTER TABLE owner_preferences ADD COLUMN created_at timestamptz NOT NULL DEFAULT clock_timestamp(),ADD COLUMN updated_at timestamptz NOT NULL DEFAULT clock_timestamp()").execute(&mut c).await.unwrap();
-    c
+    knowledge_fixture().await
 }
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]

@@ -158,7 +158,11 @@ async fn initial_in(
         if remote {
             initial.prepared = Some(prepared);
         } else {
-            let result = answer_service::form_in(tx, request, services.answers).await?;
+            let packet_id = initial.work["packet_id"]
+                .as_str()
+                .and_then(|id| id.parse::<Uuid>().ok())
+                .ok_or_else(invalid)?;
+            let result = answer_service::form_in(tx, request, services.answers, packet_id).await?;
             initial.field = Some(packet_fields::resolved(
                 prepared,
                 &result,

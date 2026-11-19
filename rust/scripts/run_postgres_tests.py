@@ -12,7 +12,8 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--filter", help="Run matching Rust test names in the disposable fixture")
+    parser.add_argument("--filter", action="append", default=[], help="Run matching Rust test names in the disposable fixture (repeatable)")
+    parser.add_argument("--nocapture", action="store_true", help="Stream fixture diagnostics as tests run")
     parser.add_argument(
         "--with-browser",
         action="store_true",
@@ -48,15 +49,15 @@ def main():
             start_attempted = True
             subprocess.run([str(binary / "pg_ctl"), "-D", str(data), "-l", str(base / "postgres.log"), "-w", "-t", "15", "-o", options, "start"], env=environment, stdout=log, stderr=log, check=True)
             stopped = False
-            subprocess.run([str(binary / "createdb"), "-h", "127.0.0.1", "-p", str(port), "-U", "rust_agent_fixture", "rust_agent_fixture"], env=environment, stdout=log, stderr=log, check=True)
+            subprocess.run([str(binary / "createdb"), "-h", "127.0.0.1", "-p", str(port), "-U", "rust_agent_fixture", "rust_agent_fixture", "automated_apply_disposable_rust_fixture"], env=environment, stdout=log, stderr=log, check=True)
         test_env = {**environment, "RUST_AGENT_TEST_DATABASE_URL": f"postgresql://rust_agent_fixture@127.0.0.1:{port}/rust_agent_fixture"}
         arguments = ["cargo", "test", "--locked", "--workspace", "--test", "postgres"]
-        if args.filter:
-            arguments.append(args.filter)
         flags = ["--ignored", "--test-threads=1"]
+        if args.nocapture:
+            flags.append("--nocapture")
         if not args.with_browser:
             flags.extend(["--skip", "native_brave_extension_fixture"])
-        subprocess.run([*arguments, "--", *flags], env=test_env, cwd=ROOT, check=True)
+        subprocess.run([*arguments, "--", *flags, *args.filter], env=test_env, cwd=ROOT, check=True)
     finally:
         if start_attempted:
             result = subprocess.run([str(binary / "pg_ctl"), "-D", str(data), "-w", "-t", "15", "-m", "fast", "stop"], env=environment, capture_output=True)

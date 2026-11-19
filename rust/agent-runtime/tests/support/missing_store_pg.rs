@@ -16,7 +16,6 @@ fn missing_proof(path: &str, body: &[u8], nonce: &str) -> automated_apply_agents
 }
 async fn missing_fixture() -> PgConnection {
     let mut c = resource_fixture().await;
-    sqlx::raw_sql("ALTER TABLE owner_preferences ADD COLUMN created_at timestamptz NOT NULL DEFAULT clock_timestamp(), ADD COLUMN updated_at timestamptz NOT NULL DEFAULT clock_timestamp()").execute(&mut c).await.unwrap();
     sqlx::raw_sql(include_str!("../fixtures/drafts.sql")).execute(&mut c).await.unwrap();
     c
 }

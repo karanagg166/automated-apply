@@ -196,7 +196,7 @@ async fn apify_owner_dropped_parent_insert_rolls_back_original_budget_and_preven
         apify_owner_acquire(&mut c, &v, 72009, false)
             .await
             .unwrap_err(),
-        Failure("apify_owner_write_ack_failed")
+        Failure("apify_owner_run_write_ack_failed")
     );
     assert_eq!(apify_owner_snapshot(&mut c).await, before);
     assert_eq!(f.calls.lock().await.len(), 0);
@@ -298,7 +298,7 @@ async fn apify_owner_local_only_completion_reuses_prior_receipt_after_failed_par
     let before = apify_owner_snapshot(&mut c).await;
     assert_eq!(
         apify_owner_finish(&mut c, &v, id).await.unwrap_err(),
-        Failure("apify_owner_write_ack_failed")
+        Failure("apify_owner_run_write_ack_failed")
     );
     assert_eq!(apify_owner_snapshot(&mut c).await, before);
     sqlx::raw_sql("DROP TRIGGER fixture_apify_finish_drop ON discovery_runs;DROP FUNCTION fixture_apify_finish_drop()").execute(&mut c).await.unwrap();
@@ -422,7 +422,7 @@ async fn apify_owner_terminal_journal_trigger_cannot_silently_rewrite_saved_pare
     let before = apify_owner_snapshot(&mut c).await;
     assert_eq!(
         apify_owner_finish(&mut c, &v, id).await.unwrap_err(),
-        Failure("apify_owner_write_ack_failed")
+        Failure("apify_owner_run_write_ack_failed")
     );
     assert_eq!(apify_owner_snapshot(&mut c).await, before);
     sqlx::raw_sql("DROP TRIGGER fixture_apify_finish_parent ON owner_preferences;DROP FUNCTION fixture_apify_finish_parent()").execute(&mut c).await.unwrap();

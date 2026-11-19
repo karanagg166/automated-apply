@@ -510,6 +510,7 @@ async fn gmail_workspace_actual_owner_http_creates_and_independently_reads_only_
     browser_save(&mut c, "gmail_drafts:account", account).await;
     let mut values = host_values();
     values.extend(draft_account_values());
+    values.insert("RUST_GOOGLE_FIXTURE_ENDPOINT".into(), endpoint.clone());
     values.insert("RUST_GMAIL_FIXTURE_ENDPOINT".into(), endpoint);
     values.insert("GMAIL_CLIENT_ID".into(), "fictional-client".into());
     values.insert(

@@ -34,7 +34,7 @@ async fn apify_owner_http_preview_is_read_only_without_owner_lock_or_provider_ca
     assert_eq!(preview["paid_execution"]["ready"], true);
     assert_eq!(preview["paid_execution"]["run_cap_usd"], "0.100001");
     assert_eq!(preview["paid_execution"]["monthly_limit_usd"], "2.000001");
-    assert_eq!(preview["paid_execution"]["estimated_usd"], "0.020000");
+    assert_eq!(preview["paid_execution"]["estimated_usd"], json!(0.02));
     assert_eq!(preview["dispatch_authorized"], false);
     assert_eq!(f.calls.lock().await.len(), 0);
     assert!(!preview.to_string().contains("CANARY"));

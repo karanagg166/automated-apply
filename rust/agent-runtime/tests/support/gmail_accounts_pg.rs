@@ -4,16 +4,20 @@ fn gmail_read_settings() -> automated_apply_agents::gmail_accounts::Settings {
 }
 async fn gmail_read_fixture() -> (PgConnection, Uuid, Uuid) {
     let mut c = browser_fixture().await;
-    sqlx::raw_sql("CREATE TABLE IF NOT EXISTS gmail_read_accounts(id uuid PRIMARY KEY,provider varchar(30) NOT NULL DEFAULT 'gmail',google_subject varchar(255) NOT NULL,account_email varchar(254) NOT NULL UNIQUE,encrypted_refresh_token text,encrypted_access_token text,encryption_key_id varchar(64),granted_scopes json NOT NULL DEFAULT '[]',status varchar(30) NOT NULL DEFAULT 'disconnected',token_generation integer NOT NULL DEFAULT 1,token_expires_at timestamptz,connected_at timestamptz NOT NULL DEFAULT clock_timestamp(),last_verified_at timestamptz,last_refresh_at timestamptz,disconnected_at timestamptz,created_at timestamptz NOT NULL DEFAULT clock_timestamp(),updated_at timestamptz NOT NULL DEFAULT clock_timestamp()); CREATE TABLE IF NOT EXISTS gmail_read_oauth_states(state_hash varchar(64) PRIMARY KEY,provider varchar(30) NOT NULL DEFAULT 'gmail',actor_id varchar(64) NOT NULL,browser_hash varchar(64) NOT NULL,expected_email varchar(254) NOT NULL,connection_generation integer NOT NULL,encrypted_verifier text,encryption_key_id varchar(64) NOT NULL,redirect_uri varchar(2048) NOT NULL,expires_at timestamptz NOT NULL,created_at timestamptz NOT NULL,consumed_at timestamptz,authorization_mode varchar(20) NOT NULL,expected_subject varchar(255));DELETE FROM gmail_read_oauth_states;DELETE FROM gmail_read_accounts").execute(&mut c).await.unwrap();
+    let (one, two) = seed_gmail_read_accounts(&mut c).await;
+    (c, one, two)
+}
+async fn seed_gmail_read_accounts(c: &mut PgConnection) -> (Uuid, Uuid) {
+    sqlx::raw_sql("CREATE TABLE IF NOT EXISTS gmail_read_accounts(id uuid PRIMARY KEY,provider varchar(30) NOT NULL DEFAULT 'gmail',google_subject varchar(255) NOT NULL,account_email varchar(254) NOT NULL UNIQUE,encrypted_refresh_token text,encrypted_access_token text,encryption_key_id varchar(64),granted_scopes json NOT NULL DEFAULT '[]',status varchar(30) NOT NULL DEFAULT 'disconnected',token_generation integer NOT NULL DEFAULT 1,token_expires_at timestamptz,connected_at timestamptz NOT NULL DEFAULT clock_timestamp(),last_verified_at timestamptz,last_refresh_at timestamptz,disconnected_at timestamptz,created_at timestamptz NOT NULL DEFAULT clock_timestamp(),updated_at timestamptz NOT NULL DEFAULT clock_timestamp()); CREATE TABLE IF NOT EXISTS gmail_read_oauth_states(state_hash varchar(64) PRIMARY KEY,provider varchar(30) NOT NULL DEFAULT 'gmail',actor_id varchar(64) NOT NULL,browser_hash varchar(64) NOT NULL,expected_email varchar(254) NOT NULL,connection_generation integer NOT NULL,encrypted_verifier text,encryption_key_id varchar(64) NOT NULL,redirect_uri varchar(2048) NOT NULL,expires_at timestamptz NOT NULL,created_at timestamptz NOT NULL,consumed_at timestamptz,authorization_mode varchar(20) NOT NULL,expected_subject varchar(255));DELETE FROM gmail_read_oauth_states;DELETE FROM gmail_read_accounts").execute(&mut *c).await.unwrap();
     let one = Uuid::from_u128(101);
     let two = Uuid::from_u128(102);
     for (id, email, mode) in [
         (one, "fixture@example.com", GrantMode::Metadata),
         (two, "other@example.com", GrantMode::Read),
     ] {
-        sqlx::query("INSERT INTO gmail_read_accounts(id,google_subject,account_email,granted_scopes,status,last_verified_at,encrypted_access_token,encrypted_refresh_token,encryption_key_id) VALUES($1,$2,$3,$4,'connected',clock_timestamp(),'PRIVATE_ACCESS_ENVELOPE_CANARY','PRIVATE_REFRESH_ENVELOPE_CANARY','fixture')").bind(id).bind(format!("subject-{id}")).bind(email).bind(json!(scopes(mode))).execute(&mut c).await.unwrap();
+        sqlx::query("INSERT INTO gmail_read_accounts(id,google_subject,account_email,granted_scopes,status,last_verified_at,encrypted_access_token,encrypted_refresh_token,encryption_key_id) VALUES($1,$2,$3,$4,'connected',clock_timestamp(),'PRIVATE_ACCESS_ENVELOPE_CANARY','PRIVATE_REFRESH_ENVELOPE_CANARY','fixture')").bind(id).bind(format!("subject-{id}")).bind(email).bind(json!(scopes(mode))).execute(&mut *c).await.unwrap();
     }
-    (c, one, two)
+    (one, two)
 }
 fn gmail_read_path(id: Uuid, action: &str) -> String {
     format!(

@@ -222,21 +222,22 @@ pub(super) async fn inspect(
                 false,
             )?;
             let built = if let Some(request) = prepared.resolution.as_ref() {
-                let result =
-                    crate::answer_service::form_in(tx, request.clone(), services.answers).await?;
+                let result = crate::answer_service::form_in(
+                    tx,
+                    request.clone(),
+                    services.answers,
+                    application,
+                )
+                .await?;
                 packet_fields::resolved(prepared, &result, &profile)?
             } else {
                 prepared.field
             };
             if let Some(id) = built["provenance"]["missing_input_id"].as_str() {
                 let key = format!("needs_input:{id}");
-                if let Some(mut missing) = get(tx, &key).await? {
+                if let Some(missing) = get(tx, &key).await? {
                     action["missing_input_id"] = json!(id);
                     action["missing_input_version"] = missing["version"].clone();
-                    if missing["packet_id"].is_null() {
-                        missing["packet_id"] = json!(application);
-                        put(tx, &key, &missing).await?;
-                    }
                 }
             }
             if built["validation_status"] == "draft_ready"

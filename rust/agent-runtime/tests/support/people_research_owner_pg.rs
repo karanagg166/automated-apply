@@ -199,7 +199,7 @@ async fn people_research_owner_auth_methods_queries_and_body_caps_refuse_before_
             .await
             .unwrap()
             .status(),
-        422
+        400
     );
     assert_eq!(
         http.put(&path)

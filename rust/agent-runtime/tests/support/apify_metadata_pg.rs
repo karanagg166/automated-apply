@@ -393,7 +393,7 @@ async fn apify_metadata_owner_http_preserves_auth_methods_body_bounds_and_saved_
             .await
             .unwrap()
             .status(),
-        422
+        400
     );
     assert_eq!(
         http.post(format!("{base}/actors/inspect"))

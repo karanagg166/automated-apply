@@ -172,7 +172,7 @@ async fn apify_read_http_auth_methods_queries_and_arbitrary_provider_fields_cann
             .await
             .unwrap()
             .status(),
-        422
+        400
     );
     for body in [
         json!({"run_id":"foreignRun"}),

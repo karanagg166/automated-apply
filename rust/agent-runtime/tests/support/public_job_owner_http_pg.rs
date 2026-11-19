@@ -255,7 +255,7 @@ async fn public_owner_auth_methods_queries_unsupported_sources_and_missing_keys_
             .await
             .unwrap()
             .status(),
-        422
+        400
     );
     assert_eq!(
         http.delete(&path)

@@ -547,6 +547,7 @@ async fn finish(
     request: &Generate,
     mut result: Value,
     preserve_rollback: bool,
+    packet_id: Option<Uuid>,
 ) -> Result<Value> {
     if request.save_draft
         && result["status"] == "draft_ready"
@@ -579,7 +580,7 @@ async fn finish(
     {
         let input = missing_contract::Create {
             request: request.clone(),
-            packet_id: None,
+            packet_id,
             missing_fact: result["missing_information"]
                 .as_array()
                 .and_then(|v| v.first())
@@ -616,7 +617,7 @@ pub async fn generate(
     let mut tx = begin(connection).await?;
     let writing = match prepare(&mut tx, request, settings).await? {
         Prepared::Ready { request, result } => {
-            let result = finish(&mut tx, &request, result, false).await?;
+            let result = finish(&mut tx, &request, result, false, None).await?;
             tx.commit().await.map_err(db)?;
             return Ok(result);
         }
@@ -700,7 +701,7 @@ pub async fn generate(
             "Factual checks are conservative safeguards, not verification; review every narrative claim"
         ));
     }
-    let result = finish(&mut tx, &writing.request, result, false).await?;
+    let result = finish(&mut tx, &writing.request, result, false, None).await?;
     tx.commit().await.map_err(db)?;
     Ok(result)
 }
@@ -726,7 +727,7 @@ pub(crate) async fn factual_in(
         return Err(Failure("packet_explicit_generation_required"));
     }
     match prepare(tx, request, settings).await? {
-        Prepared::Ready { request, result } => finish(tx, &request, result, true).await,
+        Prepared::Ready { request, result } => finish(tx, &request, result, true, None).await,
         Prepared::Writing(_) => Err(Failure("packet_explicit_generation_required")),
     }
 }
@@ -736,12 +737,15 @@ pub(crate) async fn form_in(
     tx: &mut Transaction<'_, Postgres>,
     request: Generate,
     settings: &Settings,
+    packet_id: Uuid,
 ) -> Result<Value> {
     if request.rewrite {
         return Err(Failure("form_rewrite_not_authorized"));
     }
     match prepare(tx, request, settings).await? {
-        Prepared::Ready { request, result } => finish(tx, &request, result, true).await,
+        Prepared::Ready { request, result } => {
+            finish(tx, &request, result, true, Some(packet_id)).await
+        }
         Prepared::Writing(_) => Err(Failure("form_rewrite_not_authorized")),
     }
 }

@@ -134,7 +134,7 @@ async fn gmail_legacy_owner_http_status_and_historical_send_refusals_ignore_old_
             .await
             .unwrap()
             .status(),
-        422
+        400
     );
     let mut lock = c.begin().await.unwrap();
     sqlx::query("LOCK TABLE connected_accounts IN ACCESS EXCLUSIVE MODE")

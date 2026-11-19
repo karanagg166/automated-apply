@@ -1,8 +1,7 @@
 // Deferred selected Gmail lead intake: local identity/ACK/history only, no URL/provider request.
 async fn gmail_lead_fixture() -> (PgConnection, Uuid, Uuid) {
-    let (c, one, two) = gmail_read_fixture().await;
-    drop(c);
     let (mut c, _) = listing_fixture().await;
+    let (one, two) = seed_gmail_read_accounts(&mut c).await;
     let id = "a".repeat(32);
     gmail_read_seed_evidence(
         &mut c,

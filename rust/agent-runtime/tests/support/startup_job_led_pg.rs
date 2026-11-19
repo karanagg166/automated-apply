@@ -60,7 +60,7 @@ fn startup_job_input() -> Value {
 }
 async fn startup_job_snapshot(c: &mut PgConnection) -> Value {
     let base = public_intake_snapshot(c).await;
-    let startup:Value=sqlx::query_scalar("SELECT jsonb_agg(jsonb_build_object('key',key,'value',value) ORDER BY key) FROM owner_preferences WHERE starts_with(key,'startup_job:')").fetch_one(c).await.unwrap();
+    let startup:Value=sqlx::query_scalar("SELECT coalesce(jsonb_agg(jsonb_build_object('key',key,'value',value) ORDER BY key),'[]'::jsonb) FROM owner_preferences WHERE starts_with(key,'startup_job:')").fetch_one(c).await.unwrap();
     json!({"base":base,"startup":startup})
 }
 #[tokio::test(flavor = "current_thread")]

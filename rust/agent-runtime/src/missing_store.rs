@@ -279,6 +279,33 @@ pub(crate) async fn ensure_retryable_in(
         }
     }
     let key = missing_contract::key_for(profile, &input.request, input.packet_id);
+    if input.packet_id.is_some() {
+        // Older form inspections added the packet ID after deriving an unscoped
+        // key. Retain that review link only when its full saved binding matches.
+        let legacy_key = missing_contract::key_for(profile, &input.request, None);
+        let legacy: Option<Value> = sqlx::query_scalar(
+            "SELECT value FROM owner_preferences WHERE key=$1 AND value->>'packet_id'=$2 AND NOT EXISTS (SELECT 1 FROM owner_preferences WHERE key=$3)",
+        )
+        .bind(&legacy_key)
+        .bind(input.packet_id.map(|id| id.to_string()))
+        .bind(&key)
+        .fetch_optional(&mut **tx)
+        .await
+        .map_err(db)?;
+        if let Some(legacy) = legacy {
+            let legacy_id = legacy_key.trim_start_matches("needs_input:");
+            let saved = validate(legacy, legacy_id, profile)?;
+            if !missing_contract::matches_context(
+                &saved.raw,
+                profile,
+                &input.request,
+                input.packet_id,
+            ) {
+                return Err(Failure("missing_input_identity_collision"));
+            }
+            return Ok(legacy_id.to_owned());
+        }
+    }
     let id = key.trim_start_matches("needs_input:").to_owned();
     let value = json!({"id":id,"candidate_profile_id":profile,"question":input.request.question,"question_category":question_classifier::classify(&input.request.question).question_type,"job_id":input.request.job_id,"company_name":input.request.company_name,"job_description":input.request.job_description,"packet_id":input.packet_id,"missing_information":[input.missing_fact],"reason":input.reason,"required_input_type":input.required_input_type,"created_at":clock(tx).await?,"status":"needs_input","version":1,"profile_version":stamp.profile_version(),"context_digest":stamp.missing(),"answer":null,"evidence_note":"","draft_id":null});
     sqlx::query("INSERT INTO owner_preferences(key,value,created_at,updated_at) VALUES($1,$2,clock_timestamp(),clock_timestamp()) ON CONFLICT(key) DO NOTHING").bind(key).bind(value).execute(&mut **tx).await.map_err(|error| {

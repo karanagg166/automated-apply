@@ -1,11 +1,14 @@
 -- Fictional data only; the harness rejects every nonfixture database URL.
-DROP TABLE IF EXISTS application_events,application_submission_evidence,application_packet_fields,application_packets,candidate_resources,candidate_evidence,job_source_observations,jobs,companies,candidate_profiles,owner_preferences;
 CREATE TABLE candidate_profiles (
     id uuid PRIMARY KEY,singleton_key text UNIQUE NOT NULL,version integer NOT NULL,
     verified_skills jsonb NOT NULL,verified_experience_years double precision,preferences jsonb NOT NULL,
     full_name text,email text,phone text
 );
-CREATE TABLE owner_preferences(key text PRIMARY KEY,value jsonb NOT NULL);
+CREATE TABLE owner_preferences(
+    key text PRIMARY KEY,value jsonb NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+    updated_at timestamptz NOT NULL DEFAULT clock_timestamp()
+);
 CREATE TABLE companies(id uuid PRIMARY KEY,name text NOT NULL,domain text,metadata jsonb NOT NULL DEFAULT '{}');
 CREATE TABLE jobs (
     id uuid PRIMARY KEY,company_id uuid,title text NOT NULL,job_url text NOT NULL,

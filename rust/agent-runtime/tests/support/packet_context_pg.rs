@@ -1,6 +1,6 @@
 async fn packet_material_fixture()->PgConnection {
     let mut c=resource_fixture().await;
-    sqlx::raw_sql("ALTER TABLE jobs ADD COLUMN last_observed_at timestamptz; DROP TABLE IF EXISTS job_source_observations; CREATE TABLE job_source_observations(id uuid PRIMARY KEY,job_id uuid NOT NULL,source text NOT NULL,original_url text NOT NULL)").execute(&mut c).await.unwrap();
+    sqlx::raw_sql("ALTER TABLE jobs ADD COLUMN last_observed_at timestamptz; DROP TABLE IF EXISTS job_source_observations; CREATE TABLE job_source_observations(id uuid PRIMARY KEY,job_id uuid NOT NULL,source varchar(100) NOT NULL,original_url text NOT NULL)").execute(&mut c).await.unwrap();
     c
 }
 async fn seed_packet_material(c:&mut PgConnection,raw:&Value) {

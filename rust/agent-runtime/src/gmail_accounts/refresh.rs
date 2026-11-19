@@ -105,7 +105,7 @@ impl<P: Provider> Service<'_, P> {
                 unknown["state"] = json!("outcome_unknown");
                 unknown["reason"] = json!("abandoned_refresh_requires_reauthorization");
                 put(&mut tx, key, &unknown).await?;
-                let ack:Option<i64>=sqlx::query_scalar("UPDATE gmail_read_accounts SET status='reauthorization_required',encrypted_access_token=NULL,updated_at=clock_timestamp() WHERE id=$1 AND token_generation=$2 RETURNING token_generation").bind(id).bind(generation).fetch_optional(&mut *tx).await.map_err(db)?;
+                let ack:Option<i64>=sqlx::query_scalar("UPDATE gmail_read_accounts SET status='reauthorization_required',encrypted_access_token=NULL,updated_at=clock_timestamp() WHERE id=$1 AND token_generation=$2 RETURNING token_generation::bigint").bind(id).bind(generation).fetch_optional(&mut *tx).await.map_err(db)?;
                 if ack != Some(generation) {
                     return Err(Failure("gmail_read_write_ack_failed"));
                 }
@@ -176,7 +176,7 @@ impl<P: Provider> Service<'_, P> {
                 retained["state"] = json!("outcome_unknown");
                 retained["reason"] = json!(error.0);
                 put(&mut tx, &key, &retained).await?;
-                let ack:Option<i64>=sqlx::query_scalar("UPDATE gmail_read_accounts SET status='reauthorization_required',encrypted_access_token=NULL,updated_at=clock_timestamp() WHERE id=$1 AND token_generation=$2 RETURNING token_generation").bind(id).bind(generation).fetch_optional(&mut *tx).await.map_err(db)?;
+                let ack:Option<i64>=sqlx::query_scalar("UPDATE gmail_read_accounts SET status='reauthorization_required',encrypted_access_token=NULL,updated_at=clock_timestamp() WHERE id=$1 AND token_generation=$2 RETURNING token_generation::bigint").bind(id).bind(generation).fetch_optional(&mut *tx).await.map_err(db)?;
                 if ack != Some(generation) {
                     return Err(Failure("gmail_read_write_ack_failed"));
                 }
@@ -185,7 +185,7 @@ impl<P: Provider> Service<'_, P> {
             }
         };
         let next = generation.checked_add(1).ok_or_else(invalid)?;
-        let saved:Option<i64>=sqlx::query_scalar("UPDATE gmail_read_accounts SET encrypted_access_token=$3,encrypted_refresh_token=$4,encryption_key_id=$5,token_generation=$6,token_expires_at=clock_timestamp()+($7::double precision*interval '1 second'),last_refresh_at=clock_timestamp(),last_verified_at=clock_timestamp(),updated_at=clock_timestamp() WHERE id=$1 AND token_generation=$2 AND status='connected' RETURNING token_generation").bind(id).bind(generation).bind(store.encrypt(&json!(tokens.access()),&format!("{id}:access"))?).bind(store.encrypt(&json!(tokens.refresh().unwrap_or(&refresh)),&format!("{id}:refresh"))?).bind(store.active_id()).bind(next).bind(tokens.expires_in() as f64).fetch_optional(&mut *tx).await.map_err(db)?;
+        let saved:Option<i64>=sqlx::query_scalar("UPDATE gmail_read_accounts SET encrypted_access_token=$3,encrypted_refresh_token=$4,encryption_key_id=$5,token_generation=$6,token_expires_at=clock_timestamp()+($7::double precision*interval '1 second'),last_refresh_at=clock_timestamp(),last_verified_at=clock_timestamp(),updated_at=clock_timestamp() WHERE id=$1 AND token_generation=$2 AND status='connected' RETURNING token_generation::bigint").bind(id).bind(generation).bind(store.encrypt(&json!(tokens.access()),&format!("{id}:access"))?).bind(store.encrypt(&json!(tokens.refresh().unwrap_or(&refresh)),&format!("{id}:refresh"))?).bind(store.active_id()).bind(next).bind(tokens.expires_in() as f64).fetch_optional(&mut *tx).await.map_err(db)?;
         if saved != Some(next) {
             return Err(Failure("gmail_read_write_ack_failed"));
         }
@@ -216,7 +216,7 @@ impl<P: Provider> Service<'_, P> {
         {
             return Err(Failure("gmail_read_account_context_changed"));
         }
-        let ack:Option<i64>=sqlx::query_scalar("UPDATE gmail_read_accounts SET last_verified_at=clock_timestamp(),updated_at=clock_timestamp() WHERE id=$1 AND token_generation=$2 AND status='connected' RETURNING token_generation").bind(id).bind(expected).fetch_optional(&mut *tx).await.map_err(db)?;
+        let ack:Option<i64>=sqlx::query_scalar("UPDATE gmail_read_accounts SET last_verified_at=clock_timestamp(),updated_at=clock_timestamp() WHERE id=$1 AND token_generation=$2 AND status='connected' RETURNING token_generation::bigint").bind(id).bind(expected).fetch_optional(&mut *tx).await.map_err(db)?;
         if ack != Some(expected) {
             return Err(Failure("gmail_read_write_ack_failed"));
         }
@@ -234,7 +234,7 @@ impl<P: Provider> Service<'_, P> {
             .store
             .as_ref()
             .and_then(|store| decrypt(store, &account, id, "refresh").ok());
-        let ack:Option<i64>=sqlx::query_scalar("UPDATE gmail_read_accounts SET encrypted_refresh_token=NULL,encrypted_access_token=NULL,encryption_key_id=NULL,status='disconnected',disconnected_at=clock_timestamp(),token_generation=$3,updated_at=clock_timestamp() WHERE id=$1 AND token_generation=$2 RETURNING token_generation").bind(id).bind(generation).bind(next).fetch_optional(&mut *tx).await.map_err(db)?;
+        let ack:Option<i64>=sqlx::query_scalar("UPDATE gmail_read_accounts SET encrypted_refresh_token=NULL,encrypted_access_token=NULL,encryption_key_id=NULL,status='disconnected',disconnected_at=clock_timestamp(),token_generation=$3,updated_at=clock_timestamp() WHERE id=$1 AND token_generation=$2 RETURNING token_generation::bigint").bind(id).bind(generation).bind(next).fetch_optional(&mut *tx).await.map_err(db)?;
         if ack != Some(next) {
             return Err(Failure("gmail_read_write_ack_failed"));
         }

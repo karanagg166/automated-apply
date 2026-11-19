@@ -461,7 +461,7 @@ pub(crate) async fn observed_question_in(
         false,
     )?;
     let field = if let Some(request) = prepared.resolution.as_ref() {
-        let result = answer_service::form_in(tx, request.clone(), answers).await?;
+        let result = answer_service::form_in(tx, request.clone(), answers, packet).await?;
         packet_fields::resolved(prepared, &result, profile)?
     } else {
         prepared.field

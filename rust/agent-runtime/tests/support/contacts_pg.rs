@@ -406,7 +406,7 @@ async fn contacts_owner_http_auth_methods_and_query_bounds_precede_data_projecti
                 .await
                 .unwrap()
                 .status(),
-            422
+            400
         );
     }
     let response = http

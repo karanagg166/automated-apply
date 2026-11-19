@@ -3,7 +3,6 @@ fn packet_settings()->automated_apply_agents::packet_service::Settings {
 }
 async fn packet_service_fixture()->(PgConnection,Uuid) {
     let mut c=packet_material_fixture().await;
-    sqlx::raw_sql("ALTER TABLE owner_preferences ADD COLUMN created_at timestamptz NOT NULL DEFAULT clock_timestamp(), ADD COLUMN updated_at timestamptz NOT NULL DEFAULT clock_timestamp()").execute(&mut c).await.unwrap();
     sqlx::raw_sql(include_str!("../fixtures/drafts.sql")).execute(&mut c).await.unwrap();
     let corpus:Value=serde_json::from_str(include_str!("../fixtures/packet-context-corpus.json")).unwrap();
     seed_packet_material(&mut c,&corpus["records"][0]).await;

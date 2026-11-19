@@ -563,7 +563,7 @@ async fn outreach_controller_owner_http_preview_create_and_recovery_share_auth_a
             .await
             .unwrap()
             .status(),
-        422
+        400
     );
     let mut writer = input.clone();
     writer["use_llm"] = json!(true);

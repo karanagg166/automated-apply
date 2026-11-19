@@ -114,7 +114,7 @@ async fn startup_owner_preview_explicit_preferences_and_no_profile_are_distinct_
         .unwrap();
     assert_eq!(p["profile_version"], Value::Null);
     assert_eq!(p["effective_roles"], json!([]));
-    sqlx::query("DELETE FROM candidate_profiles")
+    sqlx::query("TRUNCATE candidate_profiles, candidate_evidence, candidate_resources, application_packets, application_packet_fields, application_submission_evidence, application_events")
         .execute(&mut c)
         .await
         .unwrap();
@@ -221,7 +221,7 @@ async fn startup_owner_source_http_requires_owner_auth_and_excludes_private_conf
                 .await
                 .unwrap()
                 .status(),
-            422
+            400
         );
     }
     assert_eq!(browser_snapshot(&mut c).await, before);

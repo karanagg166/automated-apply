@@ -1,7 +1,7 @@
 // Existing encryption/HTTP contract, entirely fictional PDF bytes and local PostgreSQL.
 async fn private_resume_fixture() -> (PgConnection, BTreeMap<String, String>, Vec<u8>) {
     let mut c = resource_fixture().await;
-    sqlx::raw_sql("DROP TABLE IF EXISTS drive_resume_versions; DROP TABLE IF EXISTS private_resumes; CREATE TABLE private_resumes(id uuid PRIMARY KEY,label varchar(200) NOT NULL,ciphertext bytea NOT NULL,sha256 varchar(64) NOT NULL,confirmed bool NOT NULL DEFAULT false,resource_id uuid,created_at timestamptz NOT NULL DEFAULT clock_timestamp(),updated_at timestamptz NOT NULL DEFAULT clock_timestamp()); CREATE TABLE drive_resume_versions(id uuid PRIMARY KEY,private_resume_id uuid UNIQUE); ALTER TABLE owner_preferences ADD COLUMN updated_at timestamptz NOT NULL DEFAULT clock_timestamp();")
+    sqlx::raw_sql("DROP TABLE IF EXISTS drive_resume_versions; DROP TABLE IF EXISTS private_resumes; CREATE TABLE private_resumes(id uuid PRIMARY KEY,label varchar(200) NOT NULL,ciphertext bytea NOT NULL,sha256 varchar(64) NOT NULL,confirmed bool NOT NULL DEFAULT false,resource_id uuid,created_at timestamptz NOT NULL DEFAULT clock_timestamp(),updated_at timestamptz NOT NULL DEFAULT clock_timestamp()); CREATE TABLE drive_resume_versions(id uuid PRIMARY KEY,private_resume_id uuid UNIQUE);")
         .execute(&mut c).await.unwrap();
     let corpus: Value = serde_json::from_str(include_str!("../../../document-worker/tests/fixtures/pdf-corpus.json")).unwrap();
     let raw = serde_json::from_value(corpus["pdfs"].as_array().unwrap().iter().find(|v| v["name"]=="text").unwrap()["bytes"].clone()).unwrap();

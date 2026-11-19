@@ -44,11 +44,12 @@ pub(super) async fn dispatch(
             }
             Some(raw)
         } else {
-            match crate::research_contract::normalize(
-                crate::research_contract::Kind::StartupRun,
-                raw,
-                chrono::Utc::now(),
-            ) {
+            let contract = if matches!(route, Route::Preview | Route::Run(_)) {
+                crate::research_contract::Kind::StartupKeyed
+            } else {
+                crate::research_contract::Kind::StartupRun
+            };
+            match crate::research_contract::normalize(contract, raw, chrono::Utc::now()) {
                 Ok(v) => {
                     if method == "PUT" && v["mode"] != "job_led" {
                         return profile_failure(Failure(

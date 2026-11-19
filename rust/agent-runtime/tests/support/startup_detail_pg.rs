@@ -281,7 +281,7 @@ async fn startup_detail_owner_http_uses_saved_contract_and_refuses_auth_method_a
             .await
             .unwrap()
             .status(),
-        422
+        400
     );
     assert_eq!(companies_snapshot(&mut c).await, before);
     stop.cancel();

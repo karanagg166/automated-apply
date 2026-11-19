@@ -378,7 +378,7 @@ async fn contact_owner_http_enrichment_is_authenticated_and_repeated_idempotency
             .await
             .unwrap()
             .status(),
-        422
+        400
     );
     stop.cancel();
     task.await.unwrap();
