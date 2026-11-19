@@ -1,5 +1,6 @@
 import { nativePostgresFixture } from "./native-postgres-fixture.mjs";
 import {
+  enableFixtureExtensionDeveloperMode,
   fixtureExecutable,
   copyNativeFixtureExtension,
   fixtureEngine,
@@ -327,7 +328,7 @@ async function main() {
     execution_model: {
       real_browser_and_runtime: [
         "Selected Brave/Edge launched headlessly with --load-extension and isolated profile",
-        "MV3 background service worker install, chrome://extensions reload, CDP stopAllWorkers suspension/recovery, and browser restart",
+        "MV3 background service worker install, runtime reload, CDP stopAllWorkers suspension/recovery, and browser restart",
         "Real Chrome Native Messaging over OS stdio pipes to backend.app.local_agent.native_host",
         "Real loopback FastAPI service and owned native PostgreSQL 17 cluster on a temporary loopback port",
         "Real DOM clicks on #check in settings.html and #repair, #preview, #observe in popup.html",
@@ -523,6 +524,7 @@ async function main() {
         ],
       });
       report.browser_version = await context.browser().version();
+      await enableFixtureExtensionDeveloperMode(context);
       const worker =
         context.serviceWorkers().find((w) => w.url().includes(EXPECTED_ID)) ||
         (await context.waitForEvent("serviceworker", { timeout: 15000 }));
@@ -663,7 +665,7 @@ async function main() {
     const popupPage = await context.newPage();
     await popupPage.goto(`chrome-extension://${EXPECTED_ID}/popup.html`);
     await popupPage
-      .getByText("Connection and URL preview", { exact: true })
+      .getByText("Connection tools", { exact: true })
       .click();
 
     const runPreviewOnPage = async (url) => {
@@ -688,7 +690,7 @@ async function main() {
     assert.equal(ordinaryRes.data.submitted, false);
     assert.equal(ordinaryRes.data.page_inspected, false);
     await expect(popupPage.locator("#status")).toContainText(
-      "URL preview saved. Use Prepare answers to answer the form. No application submitted.",
+      "URL preview saved. Prepare Answers to inspect the form. No application submitted.",
     );
     report.cases_passed.push("5_ordinary_https_page_preview");
 
@@ -908,7 +910,7 @@ async function main() {
     await cdp.send("ServiceWorker.stopAllWorkers");
     await popupPage.reload();
     await popupPage
-      .getByText("Connection and URL preview", { exact: true })
+      .getByText("Connection tools", { exact: true })
       .click();
     await popupPage.locator("#repair").click();
     await expect(popupPage.locator("#menu-status")).toContainText(
@@ -961,7 +963,7 @@ async function main() {
     );
     assert.equal(recoveredPreview.ok, true);
     await expect(popupPage.locator("#status")).toContainText(
-      "URL preview saved. Use Prepare answers to answer the form. No application submitted.",
+      "URL preview saved. Prepare Answers to inspect the form. No application submitted.",
     );
     report.cases_passed.push("14_backend_recovery");
 
@@ -1133,7 +1135,7 @@ async function main() {
     );
     assert.equal(malformedFrame.error_code, "native_invalid_message");
     const oversizedHeader = Buffer.alloc(4);
-    oversizedHeader.writeUInt32LE(16385, 0);
+    oversizedHeader.writeUInt32LE(0xffffffff, 0);
     const oversizedFrame = await runFrameProbe(
       python,
       activeEnvPath,
@@ -1194,26 +1196,38 @@ async function main() {
     assert.equal(restoredHostPreview.ok, true);
     report.cases_passed.push("22_missing_native_messaging_host");
 
-    // CASE 1 (reload in chrome://extensions UI): Extension install and reload
-    const mgmtPage = await context.newPage();
-    await mgmtPage.goto("chrome://extensions");
-    const devSwitch = mgmtPage.getByRole("switch", {
-      name: "Developer mode",
-      exact: true,
+    // CASE 1: Reload from the isolated extension itself and observe its new worker.
+    const originalWorker = context
+      .serviceWorkers()
+      .find((candidate) => candidate.url().includes(EXPECTED_ID));
+    assert.ok(originalWorker, "fixture extension worker is running before reload");
+    const manifestFile = join(distDir, "manifest.json");
+    const currentManifest = JSON.parse(readFileSync(manifestFile, "utf8"));
+    const versionParts = currentManifest.version.split(".").map(Number);
+    versionParts[versionParts.length - 1] += 1;
+    const reloadedVersion = versionParts.join(".");
+    writeFileSync(
+      manifestFile,
+      JSON.stringify({ ...currentManifest, version: reloadedVersion }),
+    );
+    const replaced = context.waitForEvent("serviceworker", {
+      predicate: (candidate) =>
+        candidate !== originalWorker && candidate.url().includes(EXPECTED_ID),
+      timeout: 15000,
     });
-    if (!(await devSwitch.isChecked())) await devSwitch.click();
-    await mgmtPage.getByRole("button", { name: "Reload", exact: true }).click();
-    await new Promise((r) => setTimeout(r, 800));
-    await mgmtPage.close();
-
+    [, worker] = await Promise.all([
+      popupPage.evaluate(() => setTimeout(() => chrome.runtime.reload(), 50)),
+      replaced,
+    ]);
+    assert.equal(
+      await worker.evaluate(() => chrome.runtime.getManifest().version),
+      reloadedVersion,
+    );
     const wakePopup = await context.newPage();
     await wakePopup.goto(`chrome-extension://${EXPECTED_ID}/popup.html`);
     await expect(wakePopup.locator("#menu-status")).toContainText(
       "Right-click menu registered for HTTPS pages.",
     );
-    worker =
-      context.serviceWorkers().find((w) => w.url().includes(EXPECTED_ID)) ||
-      (await context.waitForEvent("serviceworker", { timeout: 10000 }));
     const afterReloadPreview = await wakePopup.evaluate(async () => {
       const mod = await import(chrome.runtime.getURL("preview.js"));
       return await mod.preview({

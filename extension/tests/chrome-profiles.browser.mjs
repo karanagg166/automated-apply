@@ -7,9 +7,10 @@ import {
 // Explicit isolated test only: two real MV3 profiles, Python native host, FastAPI,
 // disposable PostgreSQL 17. No installed Chrome profile or private env is touched.
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { execFileSync, spawn } from "node:child_process";
+import { createHash, randomUUID, X509Certificate } from "node:crypto";
 import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
+import { createServer as createHttpsServer } from "node:https";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createServer } from "node:net";
@@ -31,6 +32,7 @@ const contexts = [];
 let apiProcess,
   apiLog = "",
   postgres,
+  employer,
   nonGet = 0;
 const env = {
   PATH: process.env.PATH,
@@ -48,6 +50,30 @@ async function freePort() {
 }
 const quote = (value) => "'" + value.replaceAll("'", "'\\''") + "'";
 try {
+  const keyFile = join(temp, "fictional-employer.key");
+  const certFile = join(temp, "fictional-employer.pem");
+  execFileSync("openssl", [
+    "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1",
+    "-subj", "/CN=jobs.lever.co", "-keyout", keyFile, "-out", certFile,
+  ], { stdio: "ignore" });
+  const [key, cert] = await Promise.all([readFile(keyFile), readFile(certFile)]);
+  const certificatePin = createHash("sha256")
+    .update(new X509Certificate(cert).publicKey.export({ type: "spki", format: "der" }))
+    .digest("base64");
+  employer = createHttpsServer({ key, cert }, (request, response) => {
+    if (request.method !== "GET") {
+      nonGet++;
+      response.writeHead(405).end();
+      return;
+    }
+    response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    response.end('<!doctype html><title>Fictional profile job</title><h1>Fictional Employer</h1><form><label>Full name<input id="name" required></label><label>Email<input id="email" type="email" required></label><label>Portfolio<input id="manual" value="owner-manual"></label><button type="submit">Submit</button></form><script>window.submits=0;document.querySelector("form").addEventListener("submit",e=>{e.preventDefault();window.submits++});</script>');
+  });
+  await new Promise((resolve, reject) => {
+    employer.once("error", reject);
+    employer.listen(0, "127.0.0.1", resolve);
+  });
+  const employerPort = employer.address().port;
   postgres = await nativePostgresFixture(python);
   const apiPort = await freePort();
   const endpoint = `http://127.0.0.1:${apiPort}`;
@@ -176,17 +202,12 @@ try {
       args: [
         `--disable-extensions-except=${extension}`,
         `--load-extension=${extension}`,
-        "--host-resolver-rules=MAP jobs.lever.co ~NOTFOUND",
+        `--host-resolver-rules=MAP jobs.lever.co 127.0.0.1:${employerPort}, MAP * ~NOTFOUND, EXCLUDE 127.0.0.1`,
+        `--ignore-certificate-errors-spki-list=${certificatePin}`,
+        "--no-proxy-server",
       ],
     });
     contexts.push(context);
-    await context.route("https://jobs.lever.co/**", (route) => {
-      if (route.request().method() !== "GET") nonGet++;
-      return route.fulfill({
-        contentType: "text/html",
-        body: '<!doctype html><title>Fictional profile job</title><h1>Fictional Employer</h1><form><label>Full name<input id="name" required></label><label>Email<input id="email" type="email" required></label><label>Portfolio<input id="manual" value="owner-manual"></label><button type="submit">Submit</button></form><script>window.submits=0;document.querySelector("form").addEventListener("submit",e=>{e.preventDefault();window.submits++});</script>',
-      });
-    });
     const page = await context.newPage();
     await page.goto(`chrome-extension://${extensionId}/settings.html`);
     if (!reconnect) {
@@ -265,6 +286,21 @@ try {
         JSON.stringify(observed) +
         apiLog.slice(-1500),
     );
+  }
+  async function openedApplication(profile, task) {
+    assert.equal(task.current_url, url);
+    const worker = await profile.getWorker();
+    const tab = await worker.evaluate(async (id) => {
+      const { active, windowId, url } = await chrome.tabs.get(id);
+      return { active, windowId, url };
+    }, task.tab_id);
+    assert.deepEqual(tab, { active: false, windowId: task.window_id, url });
+    await expect
+      .poll(() => profile.context.pages().map((page) => page.url()))
+      .toContain(url);
+    const page = profile.context.pages().find((page) => page.url() === url);
+    await page.waitForLoadState("domcontentloaded");
+    return page;
   }
   const personal = await launch("Personal Chrome"),
     jobs = await launch("Job applications");
@@ -348,10 +384,8 @@ try {
     const opened = await enqueue("open", jobs);
     await tick(personal);
     await tick(jobs);
-    const application = jobs.context.pages().find((page) => page.url() === url);
-    assert.ok(application, "selected job profile opened the exact application");
-    await application.waitForLoadState("domcontentloaded");
     const bound = await api(`browser/extension-tasks/application/${packet.id}`);
+    const application = await openedApplication(jobs, bound);
     assert.equal(bound.profile_binding_id, jobs.identity.id);
     assert.equal(bound.browser_session_id, jobs.identity.sessionId);
     assert.equal(bound.packet_revision, packet.revision);
@@ -500,12 +534,8 @@ try {
       (value) => value.id === first.command.id,
     );
     assert.equal(completed?.state, "completed", completed?.error_code);
-    let application = personal.context
-      .pages()
-      .find((page) => page.url() === url);
-    assert.ok(application, "the selected fixture profile opened the job");
-    await application.waitForLoadState("domcontentloaded");
     let task = await api(`browser/extension-tasks/application/${packet.id}`);
+    const application = await openedApplication(personal, task);
     assert.equal(task.profile_binding_id, personal.identity.id);
     assert.equal(task.browser_session_id, personal.identity.sessionId);
     assert.ok(
@@ -645,6 +675,7 @@ try {
     assert.equal(task.browser_session_id, jobs.identity.sessionId);
     await cdp.detach();
     // Browser restart preserves binding UUID, rotates browser session and clears plans.
+    const beforeRestart = await api("browser/chrome-profiles");
     await jobs.context.close();
     const restarted = await launch("Job applications", true);
     await tick(restarted);
@@ -654,9 +685,18 @@ try {
     assert.equal(task.state, "PAUSED");
     assert.equal(task.tab_id, null);
     assert.equal(task.plan_id, null);
-    assert.equal(
-      restarted.context.pages().some((page) => page.url() === url),
-      false,
+    const restartedWorker = await restarted.getWorker();
+    const matchingTabs = await restartedWorker.evaluate(async (url) => {
+      const tabs = await chrome.tabs.query({});
+      return tabs.filter((tab) => tab.url === url || tab.pendingUrl === url).length;
+    }, url);
+    // Brave can restore one pre-existing tab. The extension must not add a
+    // duplicate or bind a restored document without a fresh owner action.
+    assert.ok(matchingTabs <= 1);
+    const afterRestart = await api("browser/chrome-profiles");
+    assert.deepEqual(
+      afterRestart.commands.map(({ id, state }) => ({ id, state })),
+      beforeRestart.commands.map(({ id, state }) => ({ id, state })),
     );
     // Expire the heartbeat in the disposable DB to demonstrate honest offline handling.
     const pg =
@@ -691,6 +731,8 @@ try {
   }
 } finally {
   await Promise.allSettled(contexts.map((context) => context.close()));
+  if (employer?.listening)
+    await new Promise((resolve) => employer.close(resolve));
   if (apiProcess && apiProcess.exitCode === null) {
     apiProcess.kill("SIGTERM");
     await new Promise((resolve) => apiProcess.once("exit", resolve));

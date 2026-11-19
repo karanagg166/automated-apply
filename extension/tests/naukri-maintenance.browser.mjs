@@ -1,9 +1,11 @@
-import { fixtureExecutable } from "./browser-fixture-engine.mjs";
+import {
+  enableFixtureExtensionDeveloperMode,
+  fixtureExecutable,
+} from "./browser-fixture-engine.mjs";
 // Actual isolated extension reload; fictional native status, no owner Chrome.
 import assert from "node:assert/strict";
 import {
   cpSync,
-  mkdirSync,
   mkdtempSync,
   readFileSync,
   writeFileSync,
@@ -51,13 +53,6 @@ globalThis.snapshot=async()=>({windows:(await chrome.windows.getAll({windowTypes
 globalThis.prepare=async()=>{await ready;const second=await chrome.windows.create({url:'about:blank',focused:false});await chrome.storage.local.set({connectedChromeProfileV1:{connected:true,id:'fixture-profile',secret:'fictional-only',windowId:second.id}});const setup=await chrome.tabs.create({url:chrome.runtime.getURL('settings.html'),windowId:second.id,active:false});await chrome.storage.session.set({naukriProfileSetupTabV1:{status:'opened',tab_id:setup.id,window_id:second.id,ownerAdopted:false,profile_binding_id:'fixture-profile',browser_session_id:'fixture-session'}});return {setupId:setup.id,url:setup.url,before:await snapshot()};};
 `,
 );
-// Ordinary developer mode is required for unpacked-extension reloads. Configure
-// only this new fictional browser profile, never an installed owner profile.
-mkdirSync(join(root, "profile", "Default"), { recursive: true });
-writeFileSync(
-  join(root, "profile", "Default", "Preferences"),
-  JSON.stringify({ extensions: { ui: { developer_mode: false } } }),
-);
 const child = spawn(
   fixtureExecutable(chromium),
   [
@@ -95,29 +90,12 @@ try {
   });
   browser = await chromium.connectOverCDP(endpoint, { noDefaults: true });
   const context = browser.contexts()[0];
+  await enableFixtureExtensionDeveloperMode(context);
   let externalRequests = 0;
   await context.route(/^https?:/, (route) => {
     externalRequests++;
     return route.abort();
   });
-  const fixtureManager = await context.newPage();
-  await fixtureManager.goto("chrome://extensions/");
-  await fixtureManager.waitForFunction(
-    () =>
-      !!document
-        .querySelector("extensions-manager")
-        ?.shadowRoot?.querySelector("extensions-toolbar")
-        ?.shadowRoot?.querySelector("#devMode"),
-  );
-  await fixtureManager.evaluate(() => {
-    const toggle = document
-      .querySelector("extensions-manager")
-      .shadowRoot.querySelector("extensions-toolbar")
-      .shadowRoot.querySelector("#devMode");
-    if (toggle.disabled) throw Error("fixture_developer_mode_unavailable");
-    if (!toggle.checked) toggle.click();
-  });
-  await fixtureManager.close();
   const worker =
     context.serviceWorkers().find((w) => w.url().endsWith("/fixture.js")) ||
     (await context.waitForEvent("serviceworker", {

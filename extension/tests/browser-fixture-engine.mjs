@@ -27,6 +27,21 @@ export function fixtureExecutable(_chromium = null) {
   return executable;
 }
 
+export async function enableFixtureExtensionDeveloperMode(context) {
+  const page = await context.newPage();
+  try {
+    await page.goto("chrome://extensions/");
+    const enabled = await page.evaluate(async () => {
+      const settings = chrome.developerPrivate;
+      await settings.updateProfileConfiguration({ inDeveloperMode: true });
+      return (await settings.getProfileConfiguration()).inDeveloperMode;
+    });
+    if (!enabled) throw new Error("fixture_extension_developer_mode_unavailable");
+  } finally {
+    await page.close();
+  }
+}
+
 export function fixtureNativeHost(extension) {
   const metadata = JSON.parse(
     readFileSync(join(extension, "build-info.json"), "utf8"),
