@@ -36,3 +36,39 @@ All 14 tests in the two affected modules passed on a fresh disposable PostgreSQL
 The next clean run passed 13 stages, including backend with 3,431 passes and one skip in 809.44 seconds. Frontend unit tests had 409 passes and four failures. The failures were three case-sensitive matches for rendered startup labels and one recovery fixture that reported more HTTP responses than attempts. The focused rerun passed all 14 tests in the two affected files. Frontend formatting passed after correcting the single reported test file.
 
 The runner now accepts `--run --keep-going` to collect independent results in the same run. Stages that need an artifact record their unmet prerequisites. Release staging still requires all 36 stages to pass against one unchanged clean commit. The runner and release tests passed all 26 cases. The full frontend suite, remaining combined stages and installed verification still require their own results. Private evidence is under `.local/acceptance/20261118T100901Z-d50debea1f5245aba07a87cdab7d38d0/`.
+
+## Full result collection at `9e3956c`
+
+The clean run completed with 23 passing stages, six failures and seven unmet prerequisites. Backend recorded 3,431 passes and one skip. Frontend unit tests passed all 413 cases and the extension unit suite passed all 405 cases. Private evidence is under `.local/acceptance/20261118T132944Z-388d39744f6046eb80df433f6ccf0c39/`.
+
+| Check | Status | Evidence |
+| --- | --- | --- |
+| Optimized Rust build, dashboard build and private-socket launch | PASS | Verified on the repair included in `2dbf61f`. The dashboard launch fixture passed one case. The optimized Rust workspace build took 8 minutes 1 second. |
+| Native PostgreSQL baseline | FAIL | Fixture isolation and timestamp repairs raised the run from 188 to 939 passes out of 1,079. The remaining 140 failures were measured before the subsequent Gmail and form changes. |
+| Gmail, questionnaire and browser form repair batch | FAIL | The next targeted run passed 146 of 154 cases. Eight failures remained at that source checkpoint, including four form cases and the native Brave smoke test. |
+| Backend browser fixture | PASS | The stage passed 47 of 48 cases. The remaining MV3 denial case passed separately after selecting isolated Brave and verifying an actual permission denial. |
+| Greenhouse preview and extension focus regression | PASS | The isolated popup fixture passed. The task coordinator suite passed all 34 tests, including an inactive tab open and reuse without a focus request. |
+| Remaining clean release and local operational acceptance | NOT TESTED | Release staging requires a passing rerun at one clean commit. The authorized Naukri submission and independent strict receipt remain pending. |
+
+Next.js moved from 16.4.2 to 16.4.5, which resolves the original build's security stop. The missing-socket fixture now checks for the established 503 response and confirms zero TCP fallback requests. [Next.js 16.4.5 release](https://github.com/vercel/next.js/releases/tag/v16.4.5)
+
+An older Brave fixture reached the installed API because Brave resolved the native manifest through the macOS Chrome registry. It registered one unselected profile labeled `Fictional profile`. A versioned local owner request disconnected that exact profile. A fresh read verified that the record remained, the saved selection was identical, and the other connection states matched. The fixed fixtures use unique host names and an isolated Foundation home so Brave resolves each test manifest within its fixture directory. [Brave native host registry implementation](https://github.com/brave/brave-core/blob/master/app/brave_main_delegate.cc)
+
+## Follow-up on 2026-11-19
+
+| Check | Status | Evidence |
+| --- | --- | --- |
+| Dedicated Rust PostgreSQL | FAIL | 1,037 passed and 42 failed in 393.21 seconds. All 16 browser form cases, the isolated Brave/Rust native bridge and the Gmail draft-only workflow passed. At `e7c0f79`, 31 of the original 42 failures cleared. Of the remaining 11, nine cleared in the next focused branch run, including explicit Gmail reauthorization after an uncertain refresh. |
+| Dedicated browser dashboard | PASS | All 31 tests passed in 1.9 minutes on isolated Brave and disposable PostgreSQL. This includes 12 dedicated assistant cases and the Gmail draft and history workflow. |
+| Naukri dashboard | PASS | Both fictional cases passed. They exercise versioned preparation controls, explicit browser selection and a factual answer form when delivery is uncertain. |
+| Browser profile and native messaging | PASS | Two isolated Brave profiles passed authentication, selected-profile-only delivery, background tab reuse, verified field filling, worker restart, browser restart and offline refusal. Zero employer writes or submissions. The isolated MV3/Python native host passed seven cases, and the real FastAPI/PostgreSQL stack passed one retained field receipt. |
+| Owner dashboard and paginated reads | PASS | The Python discovery API passed 21 tests. All eight owner journeys passed in 51.7 seconds, including manual submission reporting as a separate owner claim and draft-only Gmail restrictions. Six Rust PostgreSQL HTTP tests passed in 1.03 seconds, including the last two cases from the earlier targeted run and the filtered contact, company, startup and outreach lists. |
+| Local release and Naukri application | NOT TESTED | The installed service remains on its existing release. The current fixture and live acceptance gates are still open. |
+
+Private evidence for these checkpoints is in `.local/rust-postgres-verified-repairs.2t3pgg`, `.local/rust-final-failure-recheck.XnokNL`, `.local/rust-owner-flow-recheck.d6C9H3`, `.local/frontend-release-browser.XOuM9x` and `.local/extension-browser-recheck.cVrYrZ`.
+
+Local source `aa82936` restores the UUID discovery entry point on the installed-runtime family and forwards approved Rust GET query parameters to the domain validators. A changed discovery request for the same UUID is refused before provider dispatch. The separate Brave preparation fixture verified that preparing a bound job leaves an unrelated foreground tab and window unchanged. These results use fictional records. Private evidence is in `.local/rust-http-query-recheck.AyBSuB`, `.local/browser-owner-journeys-recheck.2bF5jY` and `.local/brave-profile-prepare-recheck.TRCLE2`.
+
+Local source `6cc1edb` updates the isolated Brave fixtures. The extension suite passed 25 of 26 fixture programs, including 44 Naukri execution cases and 32 queue cases. Its only failure was an unpacked-extension reload. The separate maintenance retest passed after enabling and checking Developer mode through the browser's own profile API in the disposable profile. The legacy native messaging suite passed 23 cases on Brave 157.0.8103.79, including a reload of an updated fixture manifest and stable-ID restart. It recorded zero form submissions and zero form POSTs. Production browser profile settings were untouched. [Chromium profile configuration API](https://chromium.googlesource.com/chromium/src/%2B/refs/heads/main/chrome/common/extensions/api/developer_private.webidl)
+
+Private evidence for the two reload checks is in `.local/brave-maintenance-recheck.wbOC21` and `.local/brave-legacy-stack-recheck.XWHZBb`. The final 36-stage run will verify the integrated source and archived release inputs together.
