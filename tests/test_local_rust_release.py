@@ -175,6 +175,7 @@ def test_cutover_plan_keeps_runtime_and_configuration_pinned(tmp_path, monkeypat
     release_dir = tmp_path / "candidate"
     plan = tmp_path / "plan"
     plan.mkdir()
+    logs = tmp_path / "logs"
     calls = []
 
     def check(arguments):
@@ -191,7 +192,7 @@ def test_cutover_plan_keeps_runtime_and_configuration_pinned(tmp_path, monkeypat
         ).encode()
 
     monkeypatch.setattr(install, "local_check", check)
-    install.render(release_dir, plan, (runtime, frontend), node, 3000)
+    install.render(release_dir, plan, (runtime, frontend), node, 3000, logs=logs)
     assert calls[0][0] == node
     daemon = release_dir / "bin/automated-apply-agents"
     assert calls[1][:4] == (daemon, "prepare-native-config", "--config", runtime)
@@ -203,6 +204,8 @@ def test_cutover_plan_keeps_runtime_and_configuration_pinned(tmp_path, monkeypat
         "--config",
         str(runtime),
     ]
+    assert definition["StandardOutPath"] == str(logs / "rust.out.log")
+    assert definition["StandardErrorPath"] == str(logs / "rust.err.log")
     with (plan / "com.automated-apply.frontend.plist").open("rb") as file:
         dashboard = plistlib.load(file)
     assert dashboard["ProgramArguments"][0] == str(node)
@@ -212,6 +215,17 @@ def test_cutover_plan_keeps_runtime_and_configuration_pinned(tmp_path, monkeypat
         "--runtime-config",
         str(runtime),
     ]
+    assert dashboard["StandardOutPath"] == str(logs / "frontend.out.log")
+    assert dashboard["StandardErrorPath"] == str(logs / "frontend.err.log")
+    for filename in ("rust.out.log", "rust.err.log", "frontend.out.log", "frontend.err.log"):
+        log_path = logs / filename
+        assert log_path.is_file()
+        assert log_path.stat().st_mode & 0o777 == 0o600
+        assert install.prepare_private_log(logs, filename) == log_path
+    symlink_log = logs / "symlink.out.log"
+    symlink_log.symlink_to(logs / "rust.out.log")
+    with pytest.raises(release.ReleaseError, match="private_log_path_unavailable"):
+        install.prepare_private_log(logs, "symlink.out.log")
     for browser in ("brave", "edge"):
         manifest = json.loads(
             (plan / f"com.automated_apply.{browser}.json").read_text()

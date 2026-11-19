@@ -6,6 +6,7 @@ import os
 import plistlib
 import re
 import shutil
+import stat
 import subprocess
 import tempfile
 from pathlib import Path
@@ -21,10 +22,44 @@ from rust.scripts.local_release import (
 from rust.scripts.local_rollback import BACKUPS, path_stamp, verify
 
 PLANS = ROOT / ".local/runtime-support/installation-plans"
+LOGS = Path.home() / "Library/Logs/Automated Apply"
 NATIVE_CONFIG = "automated-apply-native.private.env"
 
 
-def launch_definition(label, arguments, release, plan):
+def prepare_private_log(logs_dir, filename):
+    try:
+        logs = Path(logs_dir)
+        if not logs.is_absolute() or logs.is_symlink():
+            raise ReleaseError("private_log_path_unavailable")
+        if logs.exists():
+            info = logs.lstat()
+            if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
+                raise ReleaseError("private_log_path_unavailable")
+        else:
+            logs.mkdir(mode=0o700, parents=True, exist_ok=True)
+        logs.chmod(0o700)
+        path = logs / filename
+        flags = os.O_WRONLY | os.O_CREAT | os.O_APPEND | os.O_NOFOLLOW | os.O_NONBLOCK
+        fd = os.open(path, flags, 0o600)
+        try:
+            info = os.fstat(fd)
+            if (
+                not stat.S_ISREG(info.st_mode)
+                or info.st_uid != os.getuid()
+                or info.st_nlink != 1
+            ):
+                raise ReleaseError("private_log_path_unavailable")
+            os.fchmod(fd, 0o600)
+        finally:
+            os.close(fd)
+        return path
+    except ReleaseError:
+        raise
+    except OSError:
+        raise ReleaseError("private_log_path_unavailable") from None
+
+
+def launch_definition(label, arguments, release, logs_dir):
     return {
         "Label": f"com.automated-apply.{label}",
         "ProgramArguments": [str(argument) for argument in arguments],
@@ -34,8 +69,8 @@ def launch_definition(label, arguments, release, plan):
         "ThrottleInterval": 30,
         "ProcessType": "Background",
         "ExitTimeOut": 45,
-        "StandardOutPath": str(plan / f"{label}.stdout"),
-        "StandardErrorPath": str(plan / f"{label}.stderr"),
+        "StandardOutPath": str(logs_dir / f"{label}.out.log"),
+        "StandardErrorPath": str(logs_dir / f"{label}.err.log"),
         "Umask": 0o077,
     }
 
@@ -67,8 +102,9 @@ def local_check(arguments):
     return result.stdout
 
 
-def render(release, plan, settings, node, port):
+def render(release, plan, settings, node, port, logs=None):
     runtime, frontend = settings
+    logs_dir = Path(logs) if logs is not None else LOGS
     daemon = release / "bin/automated-apply-agents"
     frontend_args = (
         node,
@@ -99,16 +135,15 @@ def render(release, plan, settings, node, port):
         "telegram_enabled": False,
     }:
         raise ReleaseError("production_native_configuration_required")
-    for data in (
-        launch_definition(
-            "rust", (daemon, "serve", "--config", runtime), release, plan
-        ),
-        launch_definition("frontend", frontend_args, release, plan),
+    for label, arguments in (
+        ("rust", (daemon, "serve", "--config", runtime)),
+        ("frontend", frontend_args),
     ):
+        prepare_private_log(logs_dir, f"{label}.out.log")
+        prepare_private_log(logs_dir, f"{label}.err.log")
+        data = launch_definition(label, arguments, release, logs_dir)
         with (plan / f"{data['Label']}.plist").open("xb") as file:
             plistlib.dump(data, file)
-        for key in ("StandardOutPath", "StandardErrorPath"):
-            Path(data[key]).touch(exist_ok=False, mode=0o600)
     for browser in ("brave", "edge"):
         value = native_manifest(browser, release)
         write_json(plan / f"{value['name']}.json", value)
@@ -159,7 +194,7 @@ def main():
             raise ReleaseError("node_executable_unavailable")
         PLANS.mkdir(exist_ok=True, parents=True)
         plan = Path(tempfile.mkdtemp(prefix="rust-plan-", dir=PLANS))
-        render(release, plan, settings, node, args.port)
+        render(release, plan, settings, node, args.port, logs=LOGS)
         if {str(path): path_stamp(path) for path in settings} != expected:
             raise ReleaseError("cutover_configuration_changed_during_planning")
         native = plan / NATIVE_CONFIG
@@ -169,6 +204,7 @@ def main():
                 "commit": tested["commit"],
                 "acceptance_run": args.acceptance_run,
                 "rollback": args.rollback,
+                "logs_directory": str(LOGS),
                 "configuration": expected,
                 "native_configuration": {
                     "staged": path_stamp(native),
