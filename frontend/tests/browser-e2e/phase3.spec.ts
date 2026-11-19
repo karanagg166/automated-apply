@@ -126,7 +126,7 @@ test("two Gmail accounts keep evidence isolated, require reviewed import, and re
   } = manifest();
   await login(page);
   await page.goto("/connections");
-  await page.getByRole("tab", { name: "Connected Gmail accounts" }).click();
+  await page.getByRole("tab", { name: "Gmail history and drafts" }).click();
   const firstEvidence = page.getByRole("region", {
     name: "Evidence from first-fixture@example.com",
   });
@@ -441,6 +441,9 @@ test("extension reports field as unsupported or needing input, dashboard shows c
   );
   await login(page);
   await page.goto(`/applications/${packet_id}`);
+  await page
+    .getByLabel("Application browser", { exact: true })
+    .selectOption("isolated");
   await expect(
     page.getByRole("heading", { name: "Local browser assistant" }),
   ).toBeVisible();
@@ -461,7 +464,11 @@ test("extension reports field as unsupported or needing input, dashboard shows c
     const refreshedPacket = await response.json();
     expect(refreshedPacket.revision).toBeGreaterThan(1);
     await expect(
-      page.getByText(new RegExp(`Revision ${refreshedPacket.revision}\\b`)),
+      page.getByText(
+        new RegExp(
+          `^Saved application ID:.*Revision ${refreshedPacket.revision}\\b`,
+        ),
+      ),
     ).toBeVisible();
   }
 

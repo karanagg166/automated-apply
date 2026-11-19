@@ -33,19 +33,26 @@ test("Naukri imports a fictional posting and controls one durable intent without
     .getByRole("button", { name: "Prepare selected job" })
     .last()
     .click();
-  await expect(page.getByText("DISCOVERED", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "pause", exact: true }).last().click();
-  await expect(page.getByText("PAUSED", { exact: true })).toBeVisible();
-  await page
+  const preparation = page.getByRole("region", { name: "Naukri preparation" });
+  await expect(
+    preparation.getByText("DISCOVERED", { exact: true }),
+  ).toBeVisible();
+  await preparation.getByRole("button", { name: "pause", exact: true }).click();
+  await expect(preparation.getByText("PAUSED", { exact: true })).toBeVisible();
+  await preparation
     .getByRole("button", { name: "resume", exact: true })
     .last()
     .click();
-  await expect(page.getByText("DISCOVERED", { exact: true })).toBeVisible();
-  await page
+  await expect(
+    preparation.getByText("DISCOVERED", { exact: true }),
+  ).toBeVisible();
+  await preparation
     .getByRole("button", { name: "cancel", exact: true })
     .last()
     .click();
-  await expect(page.getByText("FAILED FINAL", { exact: true })).toBeVisible();
+  await expect(
+    preparation.getByText("FAILED FINAL", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByText(/Submission remains manual/)).toBeVisible();
   // The shared fixture deliberately starts unconfirmed. Explicitly review only
   // this fictional profile through the authenticated owner gateway.
@@ -99,11 +106,17 @@ test("Naukri imports a fictional posting and controls one durable intent without
     page.getByRole("button", { name: "START AUTOMATION" }),
   ).toBeEnabled();
   await page.getByRole("button", { name: "START AUTOMATION" }).click();
-  await expect(page.getByText(/Persisted state:/)).toContainText("RUNNING");
+  await expect(preparation.getByText(/Persisted state:/)).toContainText(
+    "RUNNING",
+  );
   await page.reload();
-  await expect(page.getByText(/Persisted state:/)).toContainText("RUNNING");
+  await expect(preparation.getByText(/Persisted state:/)).toContainText(
+    "RUNNING",
+  );
   await page.getByRole("button", { name: "STOP AUTOMATION" }).click();
-  await expect(page.getByText(/Persisted state:/)).toContainText("STOPPED");
+  await expect(preparation.getByText(/Persisted state:/)).toContainText(
+    "STOPPED",
+  );
   await page.screenshot({
     path: "test-results-browser/naukri-fictional.png",
     fullPage: true,

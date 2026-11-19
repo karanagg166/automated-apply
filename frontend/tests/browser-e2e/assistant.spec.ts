@@ -22,6 +22,9 @@ async function loginOwner(page: Page) {
 
 async function approveBrowser(page: Page) {
   await page
+    .getByLabel("Application browser", { exact: true })
+    .selectOption("isolated");
+  await page
     .getByLabel("I approve a dedicated browser profile", { exact: false })
     .check();
   await page
@@ -93,6 +96,12 @@ test("owner dashboard analyzes and fills using real FastAPI, PostgreSQL and a de
   ).toBe(401);
   await loginOwner(page);
   await page.goto(`/applications/${packet_id}`);
+  await expect(
+    page.getByLabel("Application browser", { exact: true }),
+  ).toHaveValue("extension");
+  await page
+    .getByLabel("Application browser", { exact: true })
+    .selectOption("isolated");
   await expect(
     page.getByRole("heading", { name: "Local browser assistant" }),
   ).toBeVisible();
@@ -221,6 +230,9 @@ test("owner authorizes a mock application and sees the independently verified re
     page.getByText("Verified mock receipt: MOCK-", { exact: false }),
   ).toBeVisible();
   await page.reload();
+  await page
+    .getByLabel("Application browser", { exact: true })
+    .selectOption("isolated");
   await page.getByRole("button", { name: "Get status" }).click();
   await expect(
     page.getByRole("status").filter({ hasText: "Mock submission: verified" }),
@@ -693,6 +705,9 @@ test("owner generates a grounded company answer and completes one authorized moc
     page.getByRole("status").filter({ hasText: "Mock submission: verified" }),
   ).toBeVisible({ timeout: 45000 });
   await page.reload();
+  await page
+    .getByLabel("Application browser", { exact: true })
+    .selectOption("isolated");
   await page.getByRole("button", { name: "Get status" }).click();
   await expect(
     page.getByText("Verified mock receipt: MOCK-", { exact: false }),
@@ -735,6 +750,9 @@ test("owner approves public asset origins before inspecting and filling an exter
   );
   await loginOwner(page);
   await page.goto(`/applications/${asset_packet_id}`);
+  await page
+    .getByLabel("Application browser", { exact: true })
+    .selectOption("isolated");
   await page
     .getByLabel("I approve a dedicated browser profile", { exact: false })
     .check();

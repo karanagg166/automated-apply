@@ -25,7 +25,7 @@ test("three-account workspace persists reviewed history and local drafts with ev
   await page.getByRole("button", { name: "Enter workspace" }).click();
   await expect(page).toHaveURL("/");
   await page.goto("/connections");
-  await page.getByRole("tab", { name: "Connected Gmail accounts" }).click();
+  await page.getByRole("tab", { name: "Gmail history and drafts" }).click();
   const first = page.getByRole("article").filter({
     has: page.getByRole("heading", { name: "Account 1 · Read only" }),
   });

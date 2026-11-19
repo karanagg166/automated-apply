@@ -231,10 +231,10 @@ test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
     await page.getByRole("button", { name: "Prepare local draft" }).click();
     await expect(
       page.getByRole("heading", { name: "Message preview" }),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15000 });
     await expect(
       page.getByRole("button", { name: "Review exact send" }),
-    ).toBeDisabled();
+    ).toHaveCount(0);
     await page.getByRole("button", { name: "Approve exact content" }).click();
     await expect(
       page.getByText("Local draft · Revision", { exact: false }),

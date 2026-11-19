@@ -1,4 +1,3 @@
-import { mkdir } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 import { login } from "./owner-session";
 
@@ -14,6 +13,11 @@ test("Naukri review keeps unknown fit, uncertain delivery and versioned controls
       "/api/backend/",
       "",
     );
+    if (path === "execution/queue")
+      return route.fulfill({
+        status: 503,
+        json: { detail: "Queue fixture unavailable" },
+      });
     let data: unknown = [];
     if (path === "integrations") data = { connectors: [] };
     else if (path === "dashboard/runtime") data = { demo_mode: true };
@@ -115,7 +119,13 @@ test("Naukri review keeps unknown fit, uncertain delivery and versioned controls
   ).toBeVisible();
   await expect(
     panel.getByRole("button", { name: "Submit Answer from Dashboard" }),
-  ).toHaveCount(0);
+  ).toBeDisabled();
+  await panel
+    .getByLabel("Your verified answer")
+    .fill("Fictional notice period");
+  await expect(
+    panel.getByRole("button", { name: "Submit Answer from Dashboard" }),
+  ).toBeEnabled();
   await panel.getByRole("button", { name: "pause", exact: true }).click();
   await expect(panel.getByText("PAUSED", { exact: true })).toBeVisible();
   await panel.getByRole("button", { name: "resume", exact: true }).click();
@@ -127,9 +137,8 @@ test("Naukri review keeps unknown fit, uncertain delivery and versioned controls
     { action: "resume", expected_revision: 2 },
     { action: "cancel", expected_revision: 3 },
   ]);
-  await mkdir("../docs/phase53/screenshots", { recursive: true });
   await panel.screenshot({
-    path: "../docs/phase53/screenshots/naukri-review-fictional.png",
+    path: test.info().outputPath("naukri-review-fictional.png"),
   });
 });
 
@@ -217,8 +226,7 @@ test("two connected Chrome profiles require explicit selection and show offline 
     panel.getByRole("button", { name: "Use Personal Chrome (fictional)" }),
   ).toBeEnabled();
   expect(mutations).toHaveLength(1);
-  await mkdir("../docs/phase53/screenshots", { recursive: true });
   await panel.screenshot({
-    path: "../docs/phase53/screenshots/chrome-profiles-fictional.png",
+    path: test.info().outputPath("chrome-profiles-fictional.png"),
   });
 });

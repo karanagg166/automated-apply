@@ -1,5 +1,3 @@
-import { mkdir } from "node:fs/promises";
-import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
 const packetId = "11111111-1111-4111-8111-111111111111";
@@ -173,17 +171,15 @@ test("shows challenge and packet context, preserves a versioned pause and preven
   await expect(
     assistant.getByText("Assisted fill: disabled for this task"),
   ).toBeVisible();
-  const screenshotDir = resolve("../docs/phase52/screenshots");
-  await mkdir(screenshotDir, { recursive: true });
   await assistant.screenshot({
-    path: resolve(screenshotDir, "extension-dashboard-challenge-fictional.png"),
+    path: test.info().outputPath("extension-dashboard-challenge-fictional.png"),
   });
   await expect(page.getByText("Evidence & Provenance")).toBeVisible();
   await expect(
     page.getByRole("textbox", { name: "Reviewable answer" }),
   ).toHaveValue("alex@example.com");
   await page.screenshot({
-    path: resolve(screenshotDir, "extension-field-review-fictional.png"),
+    path: test.info().outputPath("extension-field-review-fictional.png"),
     fullPage: true,
   });
   await assistant.getByRole("button", { name: "Pause", exact: true }).click();
@@ -197,7 +193,7 @@ test("shows challenge and packet context, preserves a versioned pause and preven
     assistant.getByRole("button", { name: "Resume", exact: true }),
   ).toBeDisabled();
   await assistant.screenshot({
-    path: resolve(screenshotDir, "extension-dashboard-stale-fictional.png"),
+    path: test.info().outputPath("extension-dashboard-stale-fictional.png"),
   });
   expect(controls).toEqual([{ action: "pause", expected_version: 7 }]);
   await expect(

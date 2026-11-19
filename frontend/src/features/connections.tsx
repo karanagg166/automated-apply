@@ -1,4 +1,5 @@
 "use client";
+import { GmailWorkspace } from "@/features/gmail-workspace";
 import { LocalConnections } from "@/features/local-connections";
 import { LocalMailboxes } from "@/features/local-mailboxes";
 import { useState } from "react";
@@ -62,7 +63,9 @@ type Enricher = {
 };
 export function Connections() {
   const client = useQueryClient(),
-    [tab, setTab] = useState<"connectors" | "mailboxes">("connectors"),
+    [tab, setTab] = useState<"connectors" | "mailboxes" | "gmail-history">(
+      "connectors",
+    ),
     [detail, setDetail] = useState<string | null>(null),
     [email, setEmail] = useState(""),
     [mode, setMode] = useState("metadata"),
@@ -144,9 +147,20 @@ export function Connections() {
         >
           Connected Gmail accounts
         </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === "gmail-history"}
+          className={tab === "gmail-history" ? "selected" : ""}
+          onClick={() => setTab("gmail-history")}
+        >
+          Gmail history and drafts
+        </button>
       </div>
       {tab === "mailboxes" ? (
         <LocalMailboxes />
+      ) : tab === "gmail-history" ? (
+        <GmailWorkspace />
       ) : (
         <>
           <LocalConnections />

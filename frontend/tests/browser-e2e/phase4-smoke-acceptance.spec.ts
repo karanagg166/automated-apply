@@ -115,7 +115,7 @@ test.describe("Phase 4 Dashboard Complete Acceptance Smoke Suite", () => {
     ).toBeVisible();
 
     // Verify search by title
-    const searchInput = page.getByLabel("Job title");
+    const searchInput = page.getByLabel("Job title", { exact: true });
     await searchInput.fill("Principal Infrastructure");
     await expect(
       page.getByText("Principal Infrastructure Engineer (Smoke)"),
@@ -253,9 +253,9 @@ test.describe("Phase 4 Dashboard Complete Acceptance Smoke Suite", () => {
       }),
     ).toBeVisible();
 
-    // Switch to Connected Gmail accounts tab
+    // Open the workspace for saved evidence and drafts.
     const mailboxesTab = page.getByRole("tab", {
-      name: "Connected Gmail accounts",
+      name: "Gmail history and drafts",
     });
     await expect(mailboxesTab).toBeVisible();
     await mailboxesTab.click();
@@ -366,6 +366,9 @@ test.describe("Phase 4 Dashboard Complete Acceptance Smoke Suite", () => {
 
     await loginOwner(page);
     await page.goto(`/applications/${packetId}`);
+    await page
+      .getByLabel("Application browser", { exact: true })
+      .selectOption("isolated");
 
     // Verify Universal Form Assistant Card
     const detector = page.getByLabel("Universal Form Assistant Detection");

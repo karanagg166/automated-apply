@@ -1,4 +1,3 @@
-import { mkdir } from "node:fs/promises";
 import { expect, test } from "@playwright/test";
 import { login } from "./owner-session";
 
@@ -208,8 +207,7 @@ test("background queue policy, ledger filters and revocable controls", async ({
       /Installed live and locked-screen acceptance is still pending/,
     ),
   ).toBeVisible();
-  await mkdir("../docs/acceptance/screenshots", { recursive: true });
   await panel.screenshot({
-    path: "../docs/acceptance/screenshots/naukri-direct-apply-candidate-fictional.png",
+    path: test.info().outputPath("naukri-direct-apply-candidate-fictional.png"),
   });
 });

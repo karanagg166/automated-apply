@@ -59,7 +59,7 @@ test("combined dashboard filters country and publication evidence before paginat
   expect((await replay.json()).id).toBe(run.id);
   await login(page);
   await page.goto("/jobs");
-  await page.getByLabel("Job title").fill("Phase4 Contract");
+  await page.getByLabel("Job title", { exact: true }).fill("Phase4 Contract");
   await expect(page.getByText("Page 1 of 2")).toBeVisible();
   // The India record was inserted first and is outside the newest 20 records.
   await expect(

@@ -90,7 +90,7 @@ test.describe.serial("Phase 2 Job Discovery Dashboard", () => {
     await expect(appliedTab).toBeVisible();
 
     // Verify filter fields
-    await expect(page.getByLabel("Job title")).toBeVisible();
+    await expect(page.getByLabel("Job title", { exact: true })).toBeVisible();
     await expect(page.getByLabel("Job location")).toBeVisible();
     await expect(page.getByLabel("Job skill")).toBeVisible();
     await expect(page.getByLabel("Source platform")).toBeVisible();
@@ -125,8 +125,9 @@ test.describe.serial("Phase 2 Job Discovery Dashboard", () => {
       .check();
     const execution = page.waitForResponse(
       (response) =>
-        response.url().endsWith("/api/backend/discovery/runs") &&
-        response.request().method() === "POST",
+        /\/api\/backend\/discovery\/runs\/[a-f0-9-]{36}$/.test(
+          response.url(),
+        ) && response.request().method() === "PUT",
     );
     await page.getByRole("button", { name: "Run approved discovery" }).click();
     const run = await (await execution).json();
