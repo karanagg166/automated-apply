@@ -106,12 +106,12 @@
     "triggers": {},
     "unsafe_grants": []
   },
-  "package_sha256": "ee2c2f612d4a40bcd66c2e15cd18c487d1a88383f53d54fb3918ab62725b9f42",
+  "package_sha256": "9ddab3b3ff3db54d215f240e9656096356e058f00a48f08160397bc4dc82c969",
   "sources": {
     "rust/agent-runtime/sql/001_runtime.sql": "ac784ecd7367dc298fd7c55462e0ef6b00af2ee8d166d1bccdb67770f82cf468",
     "rust/agent-runtime/sql/002_control.sql": "e58a951bed16efa782dbd0009c51b5420d0872fee08ca2c85f8d7ef717ab71c3",
     "rust/agent-runtime/sql/003_telegram.sql": "5658b3efe10c2a508754d21f4c3246e08a09d898ce6a083321fc6a0f5ac9b2b0",
     "rust/agent-runtime/sql/004_graph.sql": "8e6f1b6ffc32a480e65461816cb46f896b4888708393b0e1bfcd1ec1efcf5eb3",
-    "rust/agent-runtime/sql/005_backend_access.sql": "30038c0ac7fc3c436d168e5084d054b00c3d75c37cb622445c148136162ab8fe"
+    "rust/agent-runtime/sql/005_backend_access.sql": "fb94a5469ea4c45d4cb084a0838aee757c9ad8b9b51e1c9eb8262f5804375773"
   }
 }

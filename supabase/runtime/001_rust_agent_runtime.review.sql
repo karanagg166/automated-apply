@@ -162,6 +162,7 @@ ALTER TABLE rust_agent_events ADD COLUMN approval_required boolean NOT NULL DEFA
 DO $access$
 DECLARE table_name text;
 BEGIN
+    GRANT CREATE ON SCHEMA public TO job_agent_owner;
     FOREACH table_name IN ARRAY ARRAY[
         'rust_agent_runs','rust_agent_events','rust_agent_control',
         'rust_agent_control_events','rust_telegram_runtime','rust_telegram_outbox'
@@ -177,6 +178,7 @@ BEGIN
             EXECUTE format('GRANT SELECT,INSERT,UPDATE ON public.%I TO job_agent_runtime',table_name);
         END IF;
     END LOOP;
+    REVOKE CREATE ON SCHEMA public FROM job_agent_owner;
 END $access$;
 
 COMMIT;

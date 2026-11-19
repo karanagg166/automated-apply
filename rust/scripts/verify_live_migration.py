@@ -26,15 +26,24 @@ async def verify(port, write_manifest):
     package_sql = PACKAGE.read_text()
     assert package_sql == render(), "review_package_source_drift"
     connection = await asyncpg.connect(host="127.0.0.1", port=port,
-                                      user="postgres", database="rust_schema_fixture")
+                                      user="bootstrap_admin", database="rust_schema_fixture")
+    owner = None
     settings = Settings(_env_file=None, ENVIRONMENT="testing", DATABASE_SCHEMA="public", DB_REQUIRE_TLS=False)
     checks = []
     try:
-        await connection.execute("CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;")
-        await connection.execute((ROOT / "supabase/fresh_public/001_phase1_public.sql").read_text())
+        await connection.execute(
+            "CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role; "
+            "CREATE ROLE postgres LOGIN NOSUPERUSER CREATEDB CREATEROLE BYPASSRLS; "
+            "ALTER DATABASE rust_schema_fixture OWNER TO postgres; "
+            "GRANT USAGE ON SCHEMA public TO postgres;"
+        )
+        owner = await asyncpg.connect(host="127.0.0.1", port=port,
+                                      user="postgres", database="rust_schema_fixture")
+        assert not await owner.fetchval("SELECT rolsuper FROM pg_roles WHERE rolname='postgres'")
+        await owner.execute((ROOT / "supabase/fresh_public/001_phase1_public.sql").read_text())
         baseline = json.loads((ROOT / "supabase/fresh_public/manifest.json").read_text())
         for followup in baseline.get("followups", []):
-            await connection.execute((ROOT / "supabase/fresh_public" / followup["file"]).read_text())
+            await owner.execute((ROOT / "supabase/fresh_public" / followup["file"]).read_text())
 
         async def accepted():
             async with connection.transaction():
@@ -45,28 +54,28 @@ async def verify(port, write_manifest):
         checks.append("existing_catalog_still_accepted")
         async def refusal(expected_error):
             try:
-                await connection.execute(package_sql)
+                await owner.execute(package_sql)
             except asyncpg.RaiseError as error:
                 assert str(error) == expected_error
-                await connection.execute("ROLLBACK")
+                await owner.execute("ROLLBACK")
             else:
                 raise AssertionError("unstopped_control_migration_not_rejected")
-            assert not await connection.fetchval(
+            assert not await owner.fetchval(
                 "SELECT to_regclass('public.rust_agent_runs') IS NOT NULL"
             )
 
-        await connection.execute(
+        await owner.execute(
             """INSERT INTO public.owner_preferences(key,value)
                VALUES('application_queue_policy','{"state":"RUNNING"}')"""
         )
         await refusal("stopped_application_queue_required")
         checks.append("running_queue_refused_without_partial_ddl")
-        await connection.execute(
+        await owner.execute(
             """UPDATE public.owner_preferences SET value='{"state":"STOPPED"}'
                WHERE key='application_queue_policy'"""
         )
         for saved in ({"state": "RUNNING"}, {"state": "PAUSED"}, {"revision": 7}):
-            await connection.execute(
+            await owner.execute(
                 """INSERT INTO public.owner_preferences(key,value)
                    VALUES('naukri_automation',$1::jsonb)
                    ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value""",
@@ -74,13 +83,17 @@ async def verify(port, write_manifest):
             )
             await refusal("stopped_legacy_preparation_required")
         checks.append("unstopped_legacy_preparation_refused_without_partial_ddl")
-        await connection.execute(
+        await owner.execute(
             """UPDATE public.owner_preferences SET value='{"state":"STOPPED","revision":8}'
                WHERE key='naukri_automation'"""
         )
-        await connection.execute(package_sql)
-        assert await connection.fetchval("SELECT mode FROM public.rust_agent_control") == "STOPPED"
-        assert await connection.fetchval(
+        await owner.execute(package_sql)
+        assert not await owner.fetchval(
+            "SELECT has_schema_privilege('job_agent_owner', 'public', 'CREATE')"
+        )
+        checks.append("non_superuser_owner_schema_create_revoked")
+        assert await owner.fetchval("SELECT mode FROM public.rust_agent_control") == "STOPPED"
+        assert await owner.fetchval(
             "SELECT value->>'revision' FROM public.owner_preferences WHERE key='naukri_automation'"
         ) == "8"
         checks.append("atomic_additive_install_starts_stopped")
@@ -151,6 +164,8 @@ async def verify(port, write_manifest):
         print(json.dumps({"fixture_only": True, "checks_passed": len(checks), "checks": checks,
                           "owner_database_accessed": False, "package_sha256": expected["package_sha256"]}))
     finally:
+        if owner is not None:
+            await owner.close()
         await connection.close()
 
 
@@ -165,13 +180,13 @@ def main():
     started = False
     try:
         with (root / "setup.log").open("wb") as log:
-            subprocess.run([str(binary / "initdb"), "-D", str(root / "data"), "-U", "postgres", "--no-locale", "-E", "UTF8", "--auth=trust"], env=environment, stdout=log, stderr=log, check=True)
+            subprocess.run([str(binary / "initdb"), "-D", str(root / "data"), "-U", "bootstrap_admin", "--no-locale", "-E", "UTF8", "--auth=trust"], env=environment, stdout=log, stderr=log, check=True)
             with socket.socket() as listener:
                 listener.bind(("127.0.0.1", 0))
                 port = listener.getsockname()[1]
             started = True
             subprocess.run([str(binary / "pg_ctl"), "-D", str(root / "data"), "-l", str(root / "postgres.log"), "-w", "-t", "15", "-o", f"-h 127.0.0.1 -p {port} -k {root} -c max_connections=8 -c shared_buffers=16MB", "start"], env=environment, stdout=log, stderr=log, check=True)
-            subprocess.run([str(binary / "createdb"), "-h", "127.0.0.1", "-p", str(port), "-U", "postgres", "rust_schema_fixture"], env=environment, stdout=log, stderr=log, check=True)
+            subprocess.run([str(binary / "createdb"), "-h", "127.0.0.1", "-p", str(port), "-U", "bootstrap_admin", "rust_schema_fixture"], env=environment, stdout=log, stderr=log, check=True)
         asyncio.run(verify(port, args.write_manifest))
     finally:
         stopped = not started or subprocess.run([str(binary / "pg_ctl"), "-D", str(root / "data"), "-w", "-t", "15", "-m", "fast", "stop"], env=environment, capture_output=True).returncode == 0
