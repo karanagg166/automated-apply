@@ -1,12 +1,13 @@
 import {
   fixtureExecutable,
-  fixtureNativeHost,
+  copyNativeFixtureExtension,
+  nativeFixtureRegistry,
 } from "./browser-fixture-engine.mjs";
 // Isolated real MV3 worker -> real Python native host -> fictional HTTP backend.
 // Backend database/state contracts are tested separately; this does not claim DB E2E.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { mkdtemp, cp, writeFile, readFile, rm, mkdir } from "node:fs/promises";
+import { mkdtemp, writeFile, readFile, rm, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { chromium } from "../../frontend/node_modules/@playwright/test/index.mjs";
@@ -64,6 +65,7 @@ const server = createServer(async (req, res) => {
         job_title: "Fictional Engineer",
         packet_revision: 1,
         profile_version: 1,
+        profile_binding_id: command.profile_binding_id,
         target_url: url,
         current_url: url,
         browser_session_id: command.browser_session_id,
@@ -82,6 +84,7 @@ const server = createServer(async (req, res) => {
         task.network_guard_active = command.task_event === "guard_installed";
       } else if (command.task_event === "bind") {
         task.tab_id = command.tab_id;
+        task.window_id = command.window_id;
         task.state = "PACKET_READY";
       } else if (command.task_event === "recover") {
         task.tab_id = null;
@@ -165,8 +168,10 @@ const temp = await mkdtemp(join(tmpdir(), "automated-apply-phase52-native-"));
 const quote = (value) => "'" + value.replaceAll("'", "'\\''") + "'";
 try {
   const extension = join(temp, "extension");
-  await cp(join(root, "extension/dist"), extension, { recursive: true });
-  const nativeHost = fixtureNativeHost(extension);
+  const nativeHost = copyNativeFixtureExtension(
+    join(root, "extension/dist"),
+    extension,
+  );
   const manifest = JSON.parse(
     await readFile(join(extension, "manifest.json"), "utf8"),
   );
@@ -198,12 +203,13 @@ try {
     `#!/bin/sh\ncd ${quote(root)} || exit 1\nexec ${quote(python)} -m backend.app.local_agent.native_host ${quote(config)} "$@"\n`,
     { mode: 0o700 },
   );
-  await mkdir(join(profile, "NativeMessagingHosts"), {
+  const registry = nativeFixtureRegistry(profile);
+  await mkdir(registry.directory, {
     recursive: true,
     mode: 0o700,
   });
   await writeFile(
-    join(profile, `NativeMessagingHosts/${nativeHost}.json`),
+    join(registry.directory, `${nativeHost}.json`),
     JSON.stringify({
       name: nativeHost,
       description: "Fictional Phase52 isolated native acceptance",
@@ -216,6 +222,7 @@ try {
   async function launch() {
     browserContext = await chromium.launchPersistentContext(profile, {
       executablePath: fixtureExecutable(chromium),
+      env: registry.env,
       headless: true,
       args: [
         `--disable-extensions-except=${extension}`,
@@ -300,6 +307,7 @@ try {
   const filled = await send("fill", {
     task_id: taskId,
     interaction_authorized: true,
+    field_ids: prepared.plan.actions.map((action) => action.field_id),
   });
   assert.equal(filled.ok, true, JSON.stringify(filled));
   assert.equal(filled.result.results[0].status, "filled");

@@ -1,13 +1,14 @@
 import { nativePostgresFixture } from "./native-postgres-fixture.mjs";
 import {
   fixtureExecutable,
-  fixtureNativeHost,
+  copyNativeFixtureExtension,
+  nativeFixtureRegistry,
 } from "./browser-fixture-engine.mjs";
 // Real Chrome/MV3/native/FastAPI/SQL stack. All employer data and DB are fictional.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
-import { mkdtemp, mkdir, writeFile, readFile, cp, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, writeFile, readFile, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { chromium } from "../../frontend/node_modules/@playwright/test/index.mjs";
@@ -95,8 +96,10 @@ try {
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   assert.equal(ready, true, logs);
-  await cp(join(root, "extension/dist"), extension, { recursive: true });
-  const nativeHost = fixtureNativeHost(extension);
+  const nativeHost = copyNativeFixtureExtension(
+    join(root, "extension/dist"),
+    extension,
+  );
   const manifest = JSON.parse(
     await readFile(join(extension, "manifest.json"), "utf8"),
   );
@@ -107,12 +110,13 @@ try {
     `#!/bin/sh\ncd ${quote(root)} || exit 1\nexec ${quote(python)} -m backend.app.local_agent.native_host ${quote(config)} "$@"\n`,
     { mode: 0o700 },
   );
-  await mkdir(join(profile, "NativeMessagingHosts"), {
+  const registry = nativeFixtureRegistry(profile);
+  await mkdir(registry.directory, {
     recursive: true,
     mode: 0o700,
   });
   await writeFile(
-    join(profile, `NativeMessagingHosts/${nativeHost}.json`),
+    join(registry.directory, `${nativeHost}.json`),
     JSON.stringify({
       name: nativeHost,
       description: "Fictional complete stack",
@@ -124,6 +128,7 @@ try {
   );
   context = await chromium.launchPersistentContext(profile, {
     executablePath: fixtureExecutable(chromium),
+    env: registry.env,
     headless: true,
     args: [
       `--disable-extensions-except=${extension}`,
@@ -140,6 +145,28 @@ try {
   });
   const popup = await context.newPage();
   await popup.goto(`chrome-extension://${id}/popup.html`);
+  const connected = await popup.evaluate(() =>
+    chrome.runtime.sendMessage({
+      command: "chrome_profile",
+      action: "connect",
+      label: "Fictional isolated stack",
+    }),
+  );
+  assert.equal(connected.ok, true, connected.error_code);
+  const profilesUrl = `http://127.0.0.1:${port}/api/v1/browser/chrome-profiles`;
+  const headers = { Authorization: "Bearer fictional-stack-owner-token" };
+  const profilesResponse = await fetch(profilesUrl, { headers });
+  assert.equal(profilesResponse.status, 200);
+  const profiles = await profilesResponse.json();
+  const selection = await fetch(`${profilesUrl}/select`, {
+    method: "POST",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      expected_version: profiles.selection.version,
+      profile_binding_id: connected.id,
+    }),
+  });
+  assert.equal(selection.status, 200);
   const employer = await context.newPage();
   await employer.goto(url);
   await employer.bringToFront();

@@ -1,22 +1,14 @@
 // Run only under the disposable Rust PostgreSQL harness.
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
-import {
-  cp,
-  mkdir,
-  mkdtemp,
-  readFile,
-  readdir,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "../../frontend/node_modules/@playwright/test/index.mjs";
 import {
   fixtureExecutable,
-  fixtureNativeHost,
+  copyNativeFixtureExtension,
+  nativeFixtureRegistry,
 } from "./browser-fixture-engine.mjs";
 
 const [base, binary] = process.argv.slice(2);
@@ -33,19 +25,10 @@ let browser;
 try {
   const profile = join(directory, "profile");
   const extension = join(directory, "extension");
-  await cp(fileURLToPath(new URL("../dist", import.meta.url)), extension, {
-    recursive: true,
-  });
-  const originalHost = fixtureNativeHost(extension);
-  // A unique host name makes fallback to any installed native host impossible.
-  const host = `com.automated_apply.fixture_${randomUUID().replaceAll("-", "")}`;
-  for (const file of await readdir(extension)) {
-    if (!file.endsWith(".js")) continue;
-    const path = join(extension, file);
-    const source = await readFile(path, "utf8");
-    if (source.includes(originalHost))
-      await writeFile(path, source.replaceAll(originalHost, host));
-  }
+  const host = copyNativeFixtureExtension(
+    fileURLToPath(new URL("../dist", import.meta.url)),
+    extension,
+  );
   const manifestPath = join(extension, "manifest.json");
   const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
   manifest.host_permissions = ["https://www.naukri.com/*"];
@@ -63,7 +46,8 @@ try {
   );
   const bridge = join(directory, "automated-apply-native");
   await cp(binary, bridge);
-  const hosts = join(profile, "NativeMessagingHosts");
+  const registry = nativeFixtureRegistry(profile);
+  const hosts = registry.directory;
   await mkdir(hosts, { recursive: true, mode: 0o700 });
   await writeFile(
     join(hosts, `${host}.json`),
@@ -78,6 +62,7 @@ try {
   );
   browser = await chromium.launchPersistentContext(profile, {
     executablePath,
+    env: registry.env,
     headless: true,
     timeout: 20_000,
     args: [
@@ -113,6 +98,18 @@ try {
   };
   const popup = await browser.newPage();
   await popup.goto(`${origin}popup.html`);
+  const nativeHealth = await popup.evaluate(async (fixtureHost) => {
+    try {
+      return await chrome.runtime.sendNativeMessage(fixtureHost, {
+        version: 1,
+        request_id: crypto.randomUUID(),
+        command: "health",
+      });
+    } catch (error) {
+      return { ok: false, error_code: error.message };
+    }
+  }, host);
+  assert.equal(nativeHealth.ok, true, nativeHealth.error_code);
   const send = (message) =>
     popup.evaluate((input) => chrome.runtime.sendMessage(input), message);
   const connect = await send({

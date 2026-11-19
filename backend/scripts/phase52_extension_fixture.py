@@ -2,6 +2,7 @@
 
 import argparse
 import asyncio
+import re
 import sys
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -23,9 +24,11 @@ def main():
     postgres = settings.DATABASE_URL.startswith("postgresql+asyncpg://")
     if postgres:
         target = urlsplit(settings.DATABASE_URL)
-        if (target.hostname != "127.0.0.1" or target.port in {None, 5432, 54322}
+        if (target.hostname != "127.0.0.1" or (target.port or 0) <= 1024
+                or target.port in {5432, 54322}
                 or target.path != "/candidate_profile_test" or target.username != "postgres"
-                or target.password != "fictional_stack_only" or target.query
+                or not re.fullmatch(r"[A-Za-z0-9_-]{43}", target.password or "")
+                or target.query or target.fragment
                 or settings.DATABASE_SCHEMA != "job_agent"):
             raise SystemExit("disposable_loopback_postgresql_required")
     else:

@@ -1,8 +1,9 @@
 import { nativePostgresFixture } from "./native-postgres-fixture.mjs";
 import {
   fixtureExecutable,
-  fixtureNativeHost,
+  copyNativeFixtureExtension,
   fixtureEngine,
+  nativeFixtureRegistry,
 } from "./browser-fixture-engine.mjs";
 // Real isolated Brave/Edge + Native Messaging Host + FastAPI + native PostgreSQL 17 E2E suite.
 // Coordinates via macOS fcntl.flock on /tmp/automated-apply-heavy-tests.lock.
@@ -281,16 +282,15 @@ async function main() {
     0,
     `extension build failed: ${buildRun.stderr}`,
   );
-  const distDir = join(extensionRoot, "dist");
+  const builtExtension = join(extensionRoot, "dist");
   const manifest = JSON.parse(
-    readFileSync(join(distDir, "manifest.json"), "utf8"),
+    readFileSync(join(builtExtension, "manifest.json"), "utf8"),
   );
   assert.equal(
     manifest.version,
     JSON.parse(readFileSync(join(extensionRoot, "manifest.json"), "utf8"))
       .version,
   );
-  const nativeHost = fixtureNativeHost(distDir);
   const keyHash = createHash("sha256")
     .update(Buffer.from(manifest.key, "base64"))
     .digest("hex")
@@ -373,6 +373,8 @@ async function main() {
   };
 
   try {
+    const distDir = join(baseDir, "extension");
+    const nativeHost = copyNativeFixtureExtension(builtExtension, distDir);
     postgres = await nativePostgresFixture(python);
     pgPort = postgres.port;
     report.disposable_pg_port = pgPort;
@@ -476,7 +478,8 @@ async function main() {
 
     // Set up Chrome profile and native messaging host manifest
     const profileDir = join(baseDir, "chrome-profile");
-    const hostsDir = join(profileDir, "NativeMessagingHosts");
+    const registry = nativeFixtureRegistry(profileDir);
+    const hostsDir = registry.directory;
     mkdirSync(hostsDir, { recursive: true, mode: 0o700 });
     const wrapperPath = join(baseDir, "native-host");
     const hostManifestPath = join(hostsDir, `${nativeHost}.json`);
@@ -510,10 +513,13 @@ async function main() {
     const launchChrome = async (extPath = distDir) => {
       context = await chromium.launchPersistentContext(profileDir, {
         executablePath: fixtureExecutable(chromium),
+        env: registry.env,
         headless: true,
+        timeout: 30_000,
         args: [
           `--disable-extensions-except=${extPath}`,
           `--load-extension=${extPath}`,
+          "--host-resolver-rules=MAP * ~NOTFOUND",
         ],
       });
       report.browser_version = await context.browser().version();
@@ -626,25 +632,19 @@ async function main() {
       `Active endpoint: http://127.0.0.1:${apiPort}`,
       { timeout: 45000 },
     );
-    const capabilitiesCheck = await settingsPage.evaluate(async () => {
-      const cap = await chrome.runtime.sendNativeMessage(
-        "com.automated_apply.agent",
-        {
-          version: 1,
-          request_id: crypto.randomUUID(),
-          command: "get_agent_capabilities",
-        },
-      );
-      const conn = await chrome.runtime.sendNativeMessage(
-        "com.automated_apply.agent",
-        {
-          version: 1,
-          request_id: crypto.randomUUID(),
-          command: "connection_status",
-        },
-      );
+    const capabilitiesCheck = await settingsPage.evaluate(async (host) => {
+      const cap = await chrome.runtime.sendNativeMessage(host, {
+        version: 1,
+        request_id: crypto.randomUUID(),
+        command: "get_agent_capabilities",
+      });
+      const conn = await chrome.runtime.sendNativeMessage(host, {
+        version: 1,
+        request_id: crypto.randomUUID(),
+        command: "connection_status",
+      });
       return { cap, conn };
-    });
+    }, nativeHost);
     assert.equal(capabilitiesCheck.cap.ok, true);
     assert.equal(capabilitiesCheck.cap.data.submissions, false);
     assert.equal(capabilitiesCheck.cap.data.email_sending, false);

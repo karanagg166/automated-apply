@@ -34,6 +34,7 @@ const cases = [
 if (process.argv.length !== 2)
   throw new Error("fixture_suite_does_not_accept_extra_commands");
 const engine = fixtureEngine();
+let failed = false;
 for (const name of cases) {
   console.log(JSON.stringify({ fixture: name, engine, status: "RUNNING" }));
   const path = fileURLToPath(new URL(`./${name}.browser.mjs`, import.meta.url));
@@ -44,7 +45,9 @@ for (const name of cases) {
   });
   if (child.error || child.signal || child.status !== 0) {
     console.log(JSON.stringify({ fixture: name, engine, status: "FAIL" }));
-    process.exit(1);
+    failed = true;
+  } else {
+    console.log(JSON.stringify({ fixture: name, engine, status: "PASS" }));
   }
-  console.log(JSON.stringify({ fixture: name, engine, status: "PASS" }));
 }
+process.exitCode = failed ? 1 : 0;

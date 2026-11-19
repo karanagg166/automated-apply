@@ -25,6 +25,8 @@ from backend.app.models.application_packet import (
 )
 from backend.tests.submission_fixtures import OWNER, approval, candidate
 
+pytestmark = pytest.mark.usefixtures("isolated_browser_campaign_executor")
+
 # Captured before conftest's blanket HTTP denial; the fixture permits only its exact server.
 REAL_HTTP = httpx.AsyncHTTPTransport.handle_async_request
 

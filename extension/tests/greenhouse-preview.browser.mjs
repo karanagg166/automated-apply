@@ -1,9 +1,11 @@
 import { fixtureExecutable } from "./browser-fixture-engine.mjs";
-// One fictional Greenhouse journey: real Chromium + inspector/bridge/popup,
-// bounded fake native transport; no installed extension, live site or owner data.
+// Fictional Greenhouse form with the real popup and inspector, using a fixture worker.
 import assert from "node:assert/strict";
-import { readFile, mkdir } from "node:fs/promises";
-import { chromium } from "../../frontend/node_modules/@playwright/test/index.mjs";
+import { readFile } from "node:fs/promises";
+import {
+  chromium,
+  expect,
+} from "../../frontend/node_modules/@playwright/test/index.mjs";
 import { formDOM } from "../form-dom.js";
 
 const application = "11111111-1111-4111-8111-111111111111";
@@ -17,7 +19,11 @@ try {
     viewport: { width: 600, height: 1000 },
   });
   const requests = [],
-    nativeCalls = [];
+    workerCalls = [];
+  let showFictionalChallenge = true;
+  const fictionalChallenge = `
+    <div data-sitekey=fictional><p>Fictional security widget</p></div>
+    <button id=finish-fictional type=button onclick="document.querySelector('[data-sitekey]').remove();this.remove()">Complete fictional check</button>`;
   const approved = new Map([
     ["Email", "alex@example.org"],
     ["Country", "Country 125"],
@@ -25,7 +31,6 @@ try {
     ["Available start date", "2026-11-01"],
     ["End month", "2026-12"],
     ["Industry", "Software"],
-    ["Full name", "Alex Example"],
   ]);
   const html = `<h1>Fictional Greenhouse application</h1>
     <form action="/never-submit" method="post">
@@ -43,8 +48,7 @@ try {
     <label>Gender<select><option value="">Select</option><option>Woman</option><option>Man</option></select></label>
     <label>Declaration<input type=checkbox>I agree to the privacy policy</label>
     <label>Upload resume<input type=file></label>
-    <div data-sitekey=fictional><p>Fictional security widget (no CAPTCHA service)</p></div>
-    <button id=finish-fictional type=button onclick="document.querySelector('[data-sitekey]').remove();this.remove()">Complete fictional check</button>
+    ${fictionalChallenge}
     <button type=submit>Submit application</button></form>
     <script>window.events=[];for(const kind of ['input','change','submit'])document.addEventListener(kind,()=>window.events.push(kind));</script>`;
   await context.route("**/*", async (route) => {
@@ -54,7 +58,12 @@ try {
     });
     const target = new URL(route.request().url());
     if (target.href === url)
-      return route.fulfill({ contentType: "text/html", body: html });
+      return route.fulfill({
+        contentType: "text/html",
+        body: showFictionalChallenge
+          ? html
+          : html.replace(fictionalChallenge, ""),
+      });
     if (
       target.hostname === "extension.fixture" &&
       /^\/[a-z-]+\.(html|js|css)$/.test(target.pathname)
@@ -75,24 +84,43 @@ try {
   const form = await context.newPage();
   await form.goto(url);
   const popup = await context.newPage();
+  const task = {
+    id: application,
+    application_id: application,
+    packet_revision: 3,
+    profile_version: 2,
+    target_url: url,
+    current_url: url,
+    tab_id: 1,
+    state: "PACKET_READY",
+  };
   let lastPlan;
-  await popup.exposeFunction("fixtureScript", (req) =>
-    form.evaluate(formDOM, req),
-  );
-  await popup.exposeFunction("fixtureNative", (req) => {
-    nativeCalls.push(req);
-    if (["inspect_form", "prepare_form_answers"].includes(req.command)) {
+  await popup.exposeFunction("fixtureWorker", async (req) => {
+    if (req.command === "naukri_queue")
+      return {
+        ok: true,
+        queue: { state: "STOPPED", revision: 1, total: 0, counts: {} },
+      };
+    assert.equal(req.command, "application_assistant");
+    if (req.action === "list") return { ok: true, tasks: [task] };
+    workerCalls.push(req);
+    if (req.action === "prepare") {
+      const inspection = await form.evaluate(formDOM, {
+        operation: "inspect",
+        only_empty: true,
+      });
       lastPlan = {
         id: crypto.randomUUID(),
         application_id: application,
         packet_revision: 3,
         target_url: url,
-        inspection: req.inspection,
+        inspection,
+        security_status: inspection.security_status,
+        manual_reason: inspection.manual_reason,
+        unsupported_controls: inspection.unsupported_controls,
         expires_at: "2099-01-01T00:00:00Z",
-        state:
-          req.inspection.state === "manual_required" ? "read_only" : "preview",
-        approved_fields: [],
-        actions: req.inspection.fields.map((f) => ({
+        state: inspection.state === "manual_required" ? "read_only" : "preview",
+        actions: inspection.fields.map((f) => ({
           field_id: f.field_id,
           kind: f.kind,
           value: approved.get(f.label) || null,
@@ -103,88 +131,79 @@ try {
             : [],
         })),
       };
-    } else if (req.command === "authorize_form") {
-      assert.equal(lastPlan.state, "preview");
-      assert.ok(
-        req.field_ids.every((id) =>
-          lastPlan.actions.some(
-            (a) => a.field_id === id && !a.preview_only && !a.needs_input,
-          ),
-        ),
-      );
-      lastPlan.state = "consumed";
-      lastPlan.approved_fields = req.field_ids;
-    } else assert.equal(req.command, "record_form_fill");
-    return {
-      version: 1,
-      request_id: req.request_id,
-      ok: true,
-      data: { submitted: false, plan: lastPlan },
+      return { ok: true, task, plan: lastPlan };
+    }
+    assert.equal(req.action, "fill");
+    assert.equal(req.task_id, task.id);
+    assert.equal(lastPlan.state, "preview");
+    const actions = lastPlan.actions.filter((a) =>
+      req.field_ids.includes(a.field_id),
+    );
+    assert.equal(actions.length, req.field_ids.length);
+    assert.ok(actions.every((a) => !a.preview_only && !a.needs_input));
+    assert.equal(req.interaction_authorized, false);
+    const result = await form.evaluate(formDOM, {
+      operation: "fill",
+      document_id: lastPlan.inspection.document_id,
+      actions,
+      only_empty: true,
+    });
+    return { ok: true, task, result };
+  });
+  await popup.addInitScript(() => {
+    window.chrome = {
+      permissions: { contains: async () => true },
+      runtime: {
+        sendMessage: async (req) => window.fixtureWorker(req),
+      },
+      storage: {
+        session: { get: async () => ({}) },
+        onChanged: { addListener() {} },
+      },
     };
   });
-  await popup.addInitScript(
-    ({ url }) => {
-      window.chrome = {
-        tabs: { query: async () => [{ id: 1, url }] },
-        scripting: {
-          executeScript: async (req) => [
-            { result: await window.fixtureScript(req.args[0]) },
-          ],
-        },
-        runtime: {
-          sendNativeMessage: async (_host, req) => window.fixtureNative(req),
-        },
-        storage: {
-          session: { get: async () => ({}) },
-          onChanged: { addListener() {} },
-        },
-      };
-    },
-    { url },
-  );
   await popup.goto("https://extension.fixture/popup.html");
+  await popup.locator("#prepare-answers").click();
   await popup
-    .locator("details")
-    .filter({ hasText: "Use an existing saved application" })
-    .locator("summary")
-    .click();
-  await popup.locator("#application-id").fill(application);
-  await popup.locator("#inspect-form").click();
-  await popup
-    .getByText("Read-only answers prepared.", { exact: false })
+    .getByText("Read-only preview generated.", { exact: false })
     .waitFor();
   assert.equal(await popup.locator("#fill-form").isDisabled(), true);
   const preview = await popup.locator("#form-plan").textContent();
-  assert.match(preview, /completion is unverified/);
+  assert.match(preview, /if the widget remains unverified/);
   assert.match(preview, /alex@example.org/);
   assert.match(preview, /Country 125/);
   assert.equal((preview.match(/Start year/g) || []).length, 2);
   assert.match(preview, /Employer 1/);
   assert.match(preview, /Employer 2/);
   assert.match(preview, /Sensitive self-identification/);
+  assert.doesNotMatch(preview, /\b(?:Woman|Man)\b/);
   assert.equal(
-    nativeCalls.some((c) => c.command === "authorize_form"),
+    workerCalls.some((c) => c.action === "fill"),
     false,
   );
   assert.deepEqual(await form.evaluate(() => window.events), []);
-  const screenshot = new URL(
-    "../../docs/screenshots/razorpay-fictional-preview.png",
-    import.meta.url,
-  );
-  await mkdir(new URL("../../docs/screenshots/", import.meta.url), {
-    recursive: true,
-  });
-  await popup.screenshot({ path: screenshot.pathname, fullPage: true });
-
-  // This is a fixture button, not a real challenge. The old plan stays blocked.
+  const screenshot = process.env.AUTOMATED_APPLY_FIXTURE_SCREENSHOT_PATH;
+  if (screenshot) await popup.screenshot({ path: screenshot, fullPage: true });
+  // A DOM change is insufficient to establish that the challenge is complete.
   await form.locator("#finish-fictional").click();
   assert.equal(await popup.locator("#fill-form").isDisabled(), true);
+  await popup.locator("#prepare-answers").click();
+  await expect(popup.locator("#challenge-status")).toHaveText("UNKNOWN");
+  await expect(popup.locator("#fill-form")).toBeDisabled();
   const oldDocument = lastPlan.inspection.document_id;
-  await popup.locator("#inspect-form").click();
-  await popup.getByText("5 answers ready.", { exact: false }).waitFor();
+  showFictionalChallenge = false;
+  await form.reload();
+  await popup.locator("#prepare-answers").click();
+  await expect(popup.locator("#answer-status")).toContainText(
+    "5 answers prepared.",
+  );
   assert.notEqual(lastPlan.inspection.document_id, oldDocument);
+  assert.equal(await popup.locator("#fill-form").isDisabled(), true);
+  await popup.locator("#review-answers").click();
   await popup.locator("#fill-form").click();
-  await popup.getByText("5 fields filled.", { exact: false }).waitFor();
+  await popup
+    .getByText("5 fields verified by value readback", { exact: false })
+    .waitFor();
   assert.equal(
     await form.locator("input[type=email]").inputValue(),
     "alex@example.org",
@@ -205,12 +224,9 @@ try {
   assert.equal(await form.locator("[type=checkbox]").isChecked(), false);
   assert.deepEqual(await form.evaluate(() => window.events), []);
   assert.ok(requests.every((r) => r.method === "GET"));
-  assert.equal(
-    nativeCalls.filter((c) => c.command === "authorize_form").length,
-    1,
-  );
+  assert.equal(workerCalls.filter((c) => c.action === "fill").length, 1);
   console.log(
-    "PASS: fictional Greenhouse Chromium preview, manual security handoff, fresh review, exact native choices/date/month, preservation and no submission",
+    "PASS: fictional Greenhouse preview, manual security handoff, fresh review, exact choices/date/month, preservation and no submission",
   );
 } finally {
   await browser.close();

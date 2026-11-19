@@ -226,6 +226,20 @@ async def application_target(db_session, phase2_profile):
 
 
 @pytest.fixture
+def isolated_browser_campaign_executor(monkeypatch):
+    """Wire campaign tests to their dedicated driver, never the owner's profile."""
+    from backend.app.browser import queue
+
+    enqueue = queue.enqueue
+
+    async def enqueue_isolated(*args, **kwargs):
+        kwargs.setdefault("executor", "isolated_browser")
+        return await enqueue(*args, **kwargs)
+
+    monkeypatch.setattr(queue, "enqueue", enqueue_isolated)
+
+
+@pytest.fixture
 def packet_service(db_session, phase2_settings):
     from backend.app.services.application_answer_service import ApplicationAnswerService
     from backend.app.services.applications.service import ApplicationPacketService

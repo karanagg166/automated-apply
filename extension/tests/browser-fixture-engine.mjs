@@ -1,5 +1,12 @@
 // Isolated, headless fixture selection. Never attach to a personal browser profile.
-import { existsSync, readFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import {
+  cpSync,
+  existsSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 
 export function fixtureEngine() {
@@ -32,4 +39,42 @@ export function fixtureNativeHost(extension) {
   )
     throw new Error("fixture_extension_browser_build_mismatch");
   return name;
+}
+
+export function copyNativeFixtureExtension(source, destination) {
+  const configuredHost = fixtureNativeHost(source);
+  const fixtureHost = `com.automated_apply.fixture_${randomUUID().replaceAll("-", "")}`;
+  cpSync(source, destination, {
+    recursive: true,
+    force: false,
+    errorOnExist: true,
+  });
+  for (const file of readdirSync(destination)) {
+    if (!/\.(?:js|html)$/.test(file)) continue;
+    const path = join(destination, file);
+    const contents = readFileSync(path, "utf8");
+    if (contents.includes(configuredHost))
+      writeFileSync(path, contents.replaceAll(configuredHost, fixtureHost));
+  }
+  return fixtureHost;
+}
+
+export function nativeFixtureRegistry(profile, environment = process.env) {
+  if (process.platform === "darwin" && fixtureEngine() === "brave") {
+    // Brave resolves the macOS Application Support directory independently of
+    // --user-data-dir. Give this child process its own Foundation home.
+    const fixtureHome = join(profile, "fixture-home");
+    return {
+      directory: join(
+        fixtureHome,
+        "Library",
+        "Application Support",
+        "Google",
+        "Chrome",
+        "NativeMessagingHosts",
+      ),
+      env: { ...environment, CFFIXED_USER_HOME: fixtureHome },
+    };
+  }
+  return { directory: join(profile, "NativeMessagingHosts"), env: environment };
 }

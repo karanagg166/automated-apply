@@ -214,13 +214,8 @@ try {
     await page.locator("#challenge-status").innerText(),
     /WIDGET_PRESENT_UNVERIFIED/,
   );
-  await page.screenshot({
-    path: new URL(
-      "../../docs/phase52/screenshots/extension-popup-fictional.png",
-      import.meta.url,
-    ).pathname,
-    fullPage: true,
-  });
+  const screenshot = process.env.AUTOMATED_APPLY_FIXTURE_SCREENSHOT_PATH;
+  if (screenshot) await page.screenshot({ path: screenshot, fullPage: true });
   await page.locator("#cancel-form").click();
   assert.match(await page.locator("#answer-status").innerText(), /cancelled/);
   assert.equal(

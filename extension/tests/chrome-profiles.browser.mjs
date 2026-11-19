@@ -1,19 +1,23 @@
 import { nativePostgresFixture } from "./native-postgres-fixture.mjs";
 import {
   fixtureExecutable,
-  fixtureNativeHost,
+  copyNativeFixtureExtension,
+  nativeFixtureRegistry,
 } from "./browser-fixture-engine.mjs";
 // Explicit isolated test only: two real MV3 profiles, Python native host, FastAPI,
 // disposable PostgreSQL 17. No installed Chrome profile or private env is touched.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, mkdir, cp, readFile, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { createServer } from "node:net";
 import { setTimeout as delay } from "node:timers/promises";
-import { chromium } from "../../frontend/node_modules/@playwright/test/index.mjs";
+import {
+  chromium,
+  expect,
+} from "../../frontend/node_modules/@playwright/test/index.mjs";
 const root = resolve(new URL("../../", import.meta.url).pathname);
 const python = process.env.PYTHON;
 const prepareOnly = process.argv.includes("--prepare-only");
@@ -134,8 +138,10 @@ try {
     401,
   );
   const extension = join(temp, "extension");
-  await cp(join(root, "extension/dist"), extension, { recursive: true });
-  const nativeHost = fixtureNativeHost(extension);
+  const nativeHost = copyNativeFixtureExtension(
+    join(root, "extension/dist"),
+    extension,
+  );
   const manifest = JSON.parse(
     await readFile(join(extension, "manifest.json"), "utf8"),
   );
@@ -150,9 +156,10 @@ try {
   );
   async function launch(name, reconnect = false) {
     const path = join(temp, name);
-    await mkdir(join(path, "NativeMessagingHosts"), { recursive: true });
+    const registry = nativeFixtureRegistry(path, env);
+    await mkdir(registry.directory, { recursive: true, mode: 0o700 });
     await writeFile(
-      join(path, `NativeMessagingHosts/${nativeHost}.json`),
+      join(registry.directory, `${nativeHost}.json`),
       JSON.stringify({
         name: nativeHost,
         description: "Fictional isolated profile test",
@@ -164,8 +171,8 @@ try {
     );
     const context = await chromium.launchPersistentContext(path, {
       executablePath: fixtureExecutable(chromium),
+      env: registry.env,
       headless: true,
-      env,
       args: [
         `--disable-extensions-except=${extension}`,
         `--load-extension=${extension}`,
@@ -185,10 +192,8 @@ try {
     if (!reconnect) {
       await page.locator("#profile-label").fill(name);
       await page.locator("#profile-connect").click();
-      await page.waitForFunction(() =>
-        document
-          .querySelector("#profile-status")
-          .textContent.includes("select in dashboard"),
+      await expect(page.locator("#profile-status")).toContainText(
+        "select in dashboard",
       );
     }
     let worker =
@@ -491,10 +496,14 @@ try {
       false,
     );
     await tick(personal);
+    const completed = (await api("browser/chrome-profiles")).commands.find(
+      (value) => value.id === first.command.id,
+    );
+    assert.equal(completed?.state, "completed", completed?.error_code);
     let application = personal.context
       .pages()
       .find((page) => page.url() === url);
-    assert.ok(application, "only selected personal profile opened the job");
+    assert.ok(application, "the selected fixture profile opened the job");
     await application.waitForLoadState("domcontentloaded");
     let task = await api(`browser/extension-tasks/application/${packet.id}`);
     assert.equal(task.profile_binding_id, personal.identity.id);

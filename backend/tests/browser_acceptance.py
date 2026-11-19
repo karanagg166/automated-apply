@@ -26,8 +26,10 @@ from backend.app.local_agent.profile_confirmation import confirm_profile
 from backend.app.models.job import Job
 from backend.tests.test_browser_forms import config
 
+pytestmark = pytest.mark.usefixtures("isolated_browser_campaign_executor")
+
 PAGES = {
-    "/ordinary": '<form><label>Name<input required></label><label>Email<input type="email" required></label><button>Submit application</button></form>',
+    "/ordinary": '<form><label>Full name<input required></label><label>Email<input type="email" required></label><button>Submit application</button></form>',
     "/google-like": '<main role="form"><label>Full name<input required></label><label>Email<input type="email"></label><button type="button" role="button">Submit</button></main>',
     "/multi": '<form><div id="one"><label>Full name<input required></label><button type="button" onclick="one.hidden=true;two.hidden=false">Next</button></div><div id="two" hidden><label>Email<input type="email" required></label><button>Apply</button></div></form>',
     "/upload": '<form><label>Full name<input></label><label>Upload resume<input type="file" required accept=".pdf"></label><button>Submit</button></form>',
