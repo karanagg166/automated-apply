@@ -295,7 +295,7 @@ load(scope,'backend/app/services/outreach_drafting.py',{'fingerprint','line','Ou
 models=runpy.run_path('rust/scripts/export_outreach_contracts.py')['models']();v=json.load(sys.stdin);r=v['records'];p=v['profile'];project=p['projects'][0]
 context={'profile':NS(**p),'contact':NS(**r['contact']),'company':NS(**(r['company']|{'metadata_':r['company']['metadata']})),'job':NS(**r['job']),'facts':[{'reference':{'source_type':'verified_project','source_id':p['id']+':project:0'},'facts':project,'score':2}],'links':{'github_url':p['github_url']},'blockers':[],'warnings':['provider_reported_email_is_not_verified'],'snapshot':{'contact_evidence':[{'id':e['id']} for e in r['evidence']]}}
 service=object.__new__(scope['OutreachDraftingService'])
-async def saved(*args):return context
+async def saved(*args):return dict(context,warnings=list(context['warnings']))
 service.context=saved
 async def main():return [await service.preview(models['outreach-input'].model_validate(row)) for row in v['requests']]
 result=asyncio.run(main());assert 'backend.app.core.config' not in sys.modules;print(json.dumps(result))

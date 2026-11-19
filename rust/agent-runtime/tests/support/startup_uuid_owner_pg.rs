@@ -235,7 +235,7 @@ async fn startup_uuid_preview_reports_actual_paid_query_estimate_and_pinned_prov
         .await
         .unwrap();
     assert_eq!(result["query"]["limit"], 50);
-    assert_eq!(result["paid_execution"]["estimated_usd"], "0.050000");
+    assert_eq!(result["paid_execution"]["estimated_usd"], json!(0.05));
     assert_eq!(result["paid_execution"]["run_cap_usd"], "0.100001");
     assert_eq!(result["provider_calls"], 0);
     assert_eq!(result["writes"], 0);

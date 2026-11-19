@@ -406,7 +406,7 @@ async fn contacts_owner_http_auth_methods_and_query_bounds_precede_data_projecti
                 .await
                 .unwrap()
                 .status(),
-            400
+            422
         );
     }
     let response = http
@@ -415,8 +415,9 @@ async fn contacts_owner_http_auth_methods_and_query_bounds_precede_data_projecti
         .send()
         .await
         .unwrap();
-    assert_eq!(response.status(), 200);
+    let status = response.status();
     let value: Value = response.json().await.unwrap();
+    assert_eq!(status, 200, "{value}");
     assert_eq!(value["contacts"].as_array().unwrap().len(), 1);
     assert_eq!(value["total"], 4);
     stop.cancel();

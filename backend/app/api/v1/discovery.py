@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -80,6 +80,21 @@ async def read_run(run_id: UUID, session: AsyncSession = Depends(get_db_session)
     if run is None:
         raise HTTPException(404, "Discovery run not found")
     return run_output(run)
+
+
+@router.put("/discovery/runs/{run_id}")
+async def start_owner_run(
+    run_id: UUID,
+    request: RunRequest,
+    http_request: Request,
+    session: AsyncSession = Depends(get_db_session),
+):
+    if run_id.int == 0 or http_request.url.query:
+        raise HTTPException(400, "Invalid discovery run identifier or query")
+    try:
+        return await service(session).run(request, owner_run_id=run_id)
+    except IdempotencyConflict as exc:
+        raise HTTPException(409, str(exc)) from None
 
 
 @router.get("/jobs/search")

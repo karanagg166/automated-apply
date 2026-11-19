@@ -291,7 +291,7 @@ async fn company_saved_owner_http_routes_require_owner_auth_and_keep_unsupported
             403
         );
         assert_eq!(
-            http.get(&endpoint)
+            http.get(format!("{endpoint}?limit=1"))
                 .bearer_auth(HOST_TOKEN)
                 .send()
                 .await
@@ -315,7 +315,7 @@ async fn company_saved_owner_http_routes_require_owner_auth_and_keep_unsupported
                 .await
                 .unwrap()
                 .status(),
-            400
+            422
         );
     }
     assert_eq!(companies_snapshot(&mut c).await, before);

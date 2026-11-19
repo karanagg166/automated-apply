@@ -287,6 +287,15 @@ async fn startup_search_shortlist_owner_http_auth_and_methods_grant_no_submissio
     let search = format!("{url}/api/v1/startups/search");
     assert_eq!(http.get(&search).send().await.unwrap().status(), 401);
     assert_eq!(
+        http.get(format!("{search}?limit=1"))
+            .bearer_auth(HOST_TOKEN)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        200
+    );
+    assert_eq!(
         http.post(&search)
             .bearer_auth(HOST_TOKEN)
             .header("x-agent-client", "extension")

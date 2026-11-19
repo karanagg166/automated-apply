@@ -367,7 +367,7 @@ async fn startup_owner_http_contract_conflicts_and_unported_provider_runs_do_not
         404
     );
     assert_eq!(
-        http.post(format!("{root}/{}", Uuid::nil()))
+        http.post(format!("{root}/{}", Uuid::from_u128(1)))
             .bearer_auth(HOST_TOKEN)
             .json(&json!({}))
             .send()
@@ -425,7 +425,7 @@ async fn startup_owner_preview_http_rejects_queries_methods_and_oversized_input_
             .await
             .unwrap()
             .status(),
-        422
+        400
     );
     assert_eq!(
         http.post(&path)

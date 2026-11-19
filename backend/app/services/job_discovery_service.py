@@ -42,13 +42,17 @@ def iso_utc(value):
     ).isoformat()
 
 
+def _owner_run_key(run_id: uuid.UUID) -> str:
+    return f"owner_discovery_{run_id.hex}"
+
+
 def run_output(run, settings=None):
     settings = settings or get_settings()
     started = datetime.fromisoformat(iso_utc(run.started_at))
     expired = run.status == "running" and started < datetime.now(
         timezone.utc
     ) - timedelta(seconds=settings.DISCOVERY_TIMEOUT_SECONDS + 120)
-    return {
+    output = {
         "id": str(run.id),
         "source": run.source,
         "status": "recovery_required" if expired else run.status,
@@ -65,6 +69,14 @@ def run_output(run, settings=None):
         "rankings": run.rankings,
         "job_ids": (run.query_summary or {}).get("job_ids", []),
     }
+    if run.idempotency_key == _owner_run_key(run.id):
+        local_complete = run.finished_at is not None
+        output.update(
+            local_intake_complete=local_complete,
+            rankings_complete=local_complete,
+            original_scope_available=False,
+        )
+    return output
 
 
 def build_query(query, profile):
@@ -87,14 +99,17 @@ class JobDiscoveryService:
         self.settings = settings or get_settings()
         self.budget = DiscoveryBudget(factory)
 
-    async def claim(self, request, timings=None):
+    async def claim(self, request, timings=None, *, owner_run_id: uuid.UUID | None = None):
         fingerprint = hashlib.sha256(
             json.dumps(
                 request.model_dump(mode="json", exclude={"idempotency_key"}),
                 sort_keys=True,
             ).encode()
         ).hexdigest()
-        run_id = uuid.uuid4()
+        run_id = owner_run_id if owner_run_id is not None else uuid.uuid4()
+        request_key = (
+            _owner_run_key(run_id) if owner_run_id is not None else request.idempotency_key
+        )
         async with self.factory() as session:
             if timings is not None:
                 checkout = perf_counter()
@@ -105,7 +120,7 @@ class JobDiscoveryService:
                 source=request.source,
                 request_hash=fingerprint,
                 query_summary=request.query.model_dump(mode="json"),
-                idempotency_key=request.idempotency_key,
+                idempotency_key=request_key,
                 status="running",
             )
             inserted = (
@@ -116,10 +131,14 @@ class JobDiscoveryService:
             if inserted is None:
                 existing = await session.scalar(
                     select(DiscoveryRun).where(
-                        DiscoveryRun.idempotency_key == request.idempotency_key
+                        DiscoveryRun.idempotency_key == request_key
                     )
                 )
-                if existing.request_hash != fingerprint:
+                if (
+                    existing is None
+                    or (owner_run_id is not None and existing.id != owner_run_id)
+                    or existing.request_hash != fingerprint
+                ):
                     raise IdempotencyConflict(
                         "Idempotency key was used with a different request"
                     )
@@ -161,7 +180,7 @@ class JobDiscoveryService:
             "message": "Planning only; no providers called and no jobs or runs written",
         }
 
-    async def run(self, request):
+    async def run(self, request, *, owner_run_id: uuid.UUID | None = None):
         started = perf_counter()
         timings = {}
         config = resolve_source(request.source, self.settings)
@@ -173,7 +192,7 @@ class JobDiscoveryService:
             raise ValueError("Manual records require a manual import source")
         if len(request.manual_jobs) > request.query.limit:
             raise ValueError("Manual records exceed the query result cap")
-        run_id, claimed = await self.claim(request, timings)
+        run_id, claimed = await self.claim(request, timings, owner_run_id=owner_run_id)
         timings["claim"] = round(perf_counter() - started - timings.get("claim_checkout", 0), 6)
         if not claimed:
             return run_output(run_id, self.settings)

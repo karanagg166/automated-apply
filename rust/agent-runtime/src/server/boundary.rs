@@ -206,6 +206,17 @@ pub(super) fn selected_resource(
     {
         return Ok(None);
     }
+    if method == "GET"
+        && (crate::contacts::route(path).is_some()
+            || crate::companies::route(path).is_some()
+            || crate::startup_catalog::search::route(path).is_some()
+            || matches!(
+                path,
+                crate::outreach::drafts::PATH | crate::outreach::history::PATH
+            ))
+    {
+        return Ok(None);
+    }
     if path != "/api/v1/rust-agent/resume-selection" || method != "GET" {
         return Err(Failure("query_parameters_not_supported"));
     }

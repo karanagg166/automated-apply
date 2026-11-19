@@ -283,7 +283,7 @@ async fn outreach_history_owner_http_authentication_and_method_errors_preserve_s
         403
     );
     assert_eq!(
-        http.get(&path)
+        http.get(format!("{path}?limit=1"))
             .bearer_auth(HOST_TOKEN)
             .send()
             .await
@@ -307,7 +307,7 @@ async fn outreach_history_owner_http_authentication_and_method_errors_preserve_s
             .await
             .unwrap()
             .status(),
-        400
+        422
     );
     assert_eq!(
         http.post(format!(

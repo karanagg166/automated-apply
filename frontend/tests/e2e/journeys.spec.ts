@@ -139,7 +139,7 @@ test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
       .getByRole("checkbox", { name: "Confirm GeeksforGeeks (GitHub README)" })
       .uncheck();
     await page.screenshot({
-      path: "../reports/phase7-onboarding.png",
+      path: test.info().outputPath("phase7-onboarding.png"),
       fullPage: true,
     });
     await page.getByRole("button", { name: "Continue", exact: true }).click();
@@ -209,7 +209,7 @@ test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
       page.getByText("Fictional Solo Systems", { exact: true }),
     ).not.toBeVisible();
     await page.screenshot({
-      path: "../reports/phase7-startups-desktop.png",
+      path: test.info().outputPath("phase7-startups-desktop.png"),
       fullPage: true,
     });
     await page
@@ -264,8 +264,8 @@ test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
       .getByRole("button", { name: "Save answer", exact: true })
       .click();
     await expect(
-      question.getByText("draft ready", { exact: true }),
-    ).toBeVisible();
+      question.getByRole("checkbox", { name: "I reviewed this exact answer" }),
+    ).toBeEnabled();
     await question
       .getByRole("checkbox", { name: "I reviewed this exact answer" })
       .check();
@@ -300,8 +300,8 @@ test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
       .getByRole("button", { name: "Save answer", exact: true })
       .click();
     await expect(
-      choice.getByText("draft ready", { exact: true }),
-    ).toBeVisible();
+      choice.getByRole("checkbox", { name: "I reviewed this exact answer" }),
+    ).toBeEnabled();
     await choice.getByLabel("I reviewed this exact answer").check();
     // Adding a question revises the packet; review the original answer again.
     await question.getByLabel("I reviewed this exact answer").check();
@@ -336,7 +336,7 @@ test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
       page.getByText("Ready for manual handoff", { exact: true }),
     ).toBeVisible();
     await page.screenshot({
-      path: "../reports/phase7-application-review.png",
+      path: test.info().outputPath("phase7-application-review.png"),
       fullPage: true,
     });
     await page
@@ -355,11 +355,11 @@ test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
     ).toBeVisible();
     await page.goto("/jobs");
     await expect(
-      page.getByRole("button", { name: "Prepare application" }),
+      page.getByRole("button", { name: "Prepare application", exact: true }),
     ).toHaveCount(3);
     await page.getByRole("button", { name: "Applied", exact: true }).click();
     await expect(
-      page.getByRole("button", { name: "Prepare application" }),
+      page.getByRole("button", { name: "Prepare application", exact: true }),
     ).toHaveCount(1);
   });
   test("saves notification preferences, shows truthful accounts and keeps Gmail disabled", async ({
@@ -399,10 +399,7 @@ test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
     await page.getByRole("button", { name: "Close dialog" }).click();
     await page.goto("/outreach");
     await expect(
-      page.getByText(
-        "Secondary Gmail authorization and an exact-content confirmation",
-        { exact: false },
-      ),
+      page.getByRole("status").filter({ hasText: "Sending is disabled." }),
     ).toBeVisible();
   });
   test("desktop and mobile layouts, dark theme, accessibility and client-secret boundary", async ({
@@ -439,7 +436,7 @@ test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
       })),
     ).toEqual([]);
     await page.screenshot({
-      path: "../reports/phase7-startups-dark.png",
+      path: test.info().outputPath("phase7-startups-dark.png"),
       fullPage: true,
     });
     await page.setViewportSize({ width: 390, height: 844 });
@@ -458,7 +455,7 @@ test.describe.serial("Actual FastAPI with isolated fictional fixtures", () => {
       )
       .toBeLessThanOrEqual(0);
     await page.screenshot({
-      path: "../reports/phase7-startups-mobile.png",
+      path: test.info().outputPath("phase7-startups-mobile.png"),
       fullPage: true,
     });
     await page.getByRole("button", { name: "Open navigation" }).click();

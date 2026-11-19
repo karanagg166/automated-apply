@@ -130,7 +130,9 @@ test.describe.serial("Phase 2 Job Discovery Dashboard", () => {
         ) && response.request().method() === "PUT",
     );
     await page.getByRole("button", { name: "Run approved discovery" }).click();
-    const run = await (await execution).json();
+    const executed = await execution;
+    expect(executed.ok()).toBeTruthy();
+    const run = await executed.json();
     // The actual fixture backend denies every outbound provider request. It must
     // persist an honest failure, never invent a vacancy or a successful ingestion.
     expect(run.status).toBe("failed");

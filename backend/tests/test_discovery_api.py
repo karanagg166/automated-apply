@@ -23,6 +23,7 @@ def headers(monkeypatch):
         ("GET", "/api/v1/discovery/sources"),
         ("POST", "/api/v1/discovery/preview"),
         ("POST", "/api/v1/discovery/runs"),
+        ("PUT", "/api/v1/discovery/runs/" + str(uuid.uuid4())),
         ("GET", "/api/v1/discovery/runs/" + str(uuid.uuid4())),
         ("GET", "/api/v1/jobs/search"),
         ("POST", "/api/v1/discovery/people/search"),
@@ -63,6 +64,30 @@ async def test_preview_no_network_no_writes_no_secrets(
     )
     assert await db_session.scalar(select(func.count()).select_from(DiscoveryRun)) == 0
     assert await db_session.scalar(select(func.count()).select_from(Job)) == 0
+
+
+@pytest.mark.asyncio
+async def test_owner_discovery_uuid_replays_only_the_original_scope(async_client, headers):
+    run_id = uuid.uuid4()
+    path = f"/api/v1/discovery/runs/{run_id}"
+    payload = {"source": "manual", "use_profile": False}
+    assert (
+        await async_client.put(f"{path}?dispatch=true", headers=headers, json=payload)
+    ).status_code == 400
+    assert (await async_client.get(path, headers=headers)).status_code == 404
+
+    response = await async_client.put(path, headers=headers, json=payload)
+    assert response.status_code == 200, response.text
+    outcome = response.json()
+    assert outcome["id"] == str(run_id)
+    assert outcome["local_intake_complete"] and outcome["rankings_complete"]
+    replay = await async_client.put(path, headers=headers, json=payload)
+    assert replay.json() == outcome
+    assert (await async_client.get(path, headers=headers)).json() == outcome
+    changed = await async_client.put(
+        path, headers=headers, json={**payload, "use_profile": True}
+    )
+    assert changed.status_code == 409
 
 
 @pytest.mark.asyncio

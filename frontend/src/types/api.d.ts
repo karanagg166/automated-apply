@@ -1405,7 +1405,8 @@ export interface paths {
     };
     /** Read Run */
     get: operations["read_run_api_v1_discovery_runs__run_id__get"];
-    put?: never;
+    /** Start Owner Run */
+    put: operations["start_owner_run_api_v1_discovery_runs__run_id__put"];
     post?: never;
     delete?: never;
     options?: never;
@@ -12884,6 +12885,41 @@ export interface operations {
       cookie?: never;
     };
     requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  start_owner_run_api_v1_discovery_runs__run_id__put: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RunRequest"];
+      };
+    };
     responses: {
       /** @description Successful Response */
       200: {

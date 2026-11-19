@@ -291,7 +291,7 @@ async fn manual_import_receipt_trigger_drift_rolls_back_listing_and_run() {
     assert_eq!(response.status(), 503);
     assert_eq!(
         response.json::<Value>().await.unwrap()["detail"],
-        "public_job_write_ack_failed"
+        "public_job_intake_write_ack_failed"
     );
     for table in ["jobs", "discovery_runs", "job_source_observations"] {
         assert_eq!(

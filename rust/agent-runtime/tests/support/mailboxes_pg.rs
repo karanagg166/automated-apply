@@ -638,14 +638,14 @@ async fn mailbox_suppressed_and_deferred_writes_never_acknowledge_or_dispatch_ex
         provider: &google,
     };
     let browser = mailboxes::browser_nonce();
-    sqlx::raw_sql("CREATE FUNCTION fixture_mailbox_suppress() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$;CREATE TRIGGER fixture_mailbox_suppress BEFORE INSERT ON owner_preferences FOR EACH ROW EXECUTE FUNCTION fixture_mailbox_suppress()").execute(&mut c).await.unwrap();
+    sqlx::raw_sql("CREATE FUNCTION fixture_mailbox_suppress() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$;CREATE TRIGGER fixture_mailbox_suppress BEFORE INSERT ON owner_preferences FOR EACH ROW WHEN (starts_with(NEW.key,'gm54_')) EXECUTE FUNCTION fixture_mailbox_suppress()").execute(&mut c).await.unwrap();
     assert_eq!(
         svc.start(&mut c, Slot::One, mailbox_consent(), &browser)
             .await
             .err(),
         Some(Failure("gmail_account_write_ack_failed"))
     );
-    sqlx::raw_sql("DROP TRIGGER fixture_mailbox_suppress ON owner_preferences;CREATE FUNCTION fixture_mailbox_deferred() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'private fixture failure'; END $$;CREATE CONSTRAINT TRIGGER fixture_mailbox_deferred AFTER INSERT ON owner_preferences DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION fixture_mailbox_deferred()").execute(&mut c).await.unwrap();
+    sqlx::raw_sql("DROP TRIGGER fixture_mailbox_suppress ON owner_preferences;CREATE FUNCTION fixture_mailbox_deferred() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'private fixture failure'; END $$;CREATE CONSTRAINT TRIGGER fixture_mailbox_deferred AFTER INSERT ON owner_preferences DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN (starts_with(NEW.key,'gm54_')) EXECUTE FUNCTION fixture_mailbox_deferred()").execute(&mut c).await.unwrap();
     assert_eq!(
         svc.start(&mut c, Slot::One, mailbox_consent(), &browser)
             .await
@@ -886,7 +886,7 @@ async fn mailbox_actual_http_consent_cookie_callback_verify_disconnect_without_o
 }
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
-async fn mailbox_superseded_refresh_cannot_clear_a_newer_success_after_lease_expiry() {
+async fn mailbox_expired_refresh_is_not_replayed_and_cannot_clear_explicit_reauthorization() {
     let mut c = mailbox_fixture().await;
     mailbox_seed(&mut c, true).await;
     let mut other = connection().await;
@@ -911,17 +911,42 @@ async fn mailbox_superseded_refresh_cannot_clear_a_newer_success_after_lease_exp
         old.entered.notified().await;
         sqlx::query("UPDATE owner_preferences SET value=jsonb_set(value,'{refresh_lease_until}',to_jsonb('2020-01-01T00:00:00+00:00'::text)) WHERE key='gm54_account:1'").execute(&mut other).await.unwrap();
         assert_eq!(
-            new_svc.access(&mut other, Slot::One).await.unwrap().token(),
-            "fictional-refreshed-access"
+            new_svc.access(&mut other, Slot::One).await.err(),
+            Some(Failure("gmail_refresh_unavailable"))
         );
+        assert_eq!(newer.refreshes.get(), 0);
+        let browser = mailboxes::browser_nonce();
+        let start = new_svc
+            .start(&mut other, Slot::One, mailbox_consent(), &browser)
+            .await
+            .unwrap();
+        new_svc
+            .callback(
+                &mut other,
+                &mailbox_state(&start),
+                &browser,
+                newer.redirect_uri(),
+                Some("code"),
+                None,
+            )
+            .await
+            .unwrap();
+        assert_eq!(newer.exchanges.get(), 1);
         old.release.notify_one();
     };
     let (result, ()) = tokio::join!(access, competing);
-    assert_eq!(result.err().map(|e| e.0), Some("gmail_refresh_superseded"));
+    assert_eq!(result.err(), Some(Failure("gmail_account_changed")));
     let row = mailbox_row(&mut c, "1").await;
     assert_eq!(row["status"], "connected");
     assert!(row["access"].is_string());
     assert!(row.get("refresh_lease").is_none());
+    let retained: Value = sqlx::query_scalar(
+        "SELECT value FROM owner_preferences WHERE starts_with(key,'gm54_rfr:')",
+    )
+    .fetch_one(&mut c)
+    .await
+    .unwrap();
+    assert_eq!(retained["state"], "outcome_unknown");
 }
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]

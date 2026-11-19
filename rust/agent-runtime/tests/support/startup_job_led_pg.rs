@@ -157,10 +157,16 @@ async fn startup_job_cannot_attach_a_preexisting_unscoped_native_job_child_or_ch
     let mut c = startup_job_fixture().await;
     let id = Uuid::from_u128(68004);
     let input = startup_job_input();
+    let normalized = automated_apply_agents::research_contract::normalize(
+        automated_apply_agents::research_contract::Kind::StartupKeyed,
+        input.clone(),
+        chrono::Utc::now(),
+    )
+    .unwrap();
     public_owner_runs::admit(
         &mut c,
         &public_job_settings(),
-        startup_job_led::child_input(&input, id).unwrap(),
+        startup_job_led::child_input(&normalized, id).unwrap(),
         startup_job_led::child_id(id),
         90.0,
     )

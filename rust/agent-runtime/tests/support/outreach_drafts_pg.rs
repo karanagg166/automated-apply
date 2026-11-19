@@ -290,7 +290,7 @@ async fn outreach_drafts_complete_update_ack_detects_before_and_after_trigger_co
         let trigger = if timing == "BEFORE" {
             "NEW.resume_version='fictional-corruption'; RETURN NEW;"
         } else {
-            "IF pg_trigger_depth()=1 THEN UPDATE outreach_logs SET resume_version='fictional-corruption' WHERE id=NEW.id; END IF; RETURN NEW;"
+            "IF pg_trigger_depth()=1 THEN UPDATE outreach_logs SET resume_version='fictional-corruption', approval_status='pending_approval', approved_at=NULL, approval_hash=NULL, approved_revision=NULL WHERE id=NEW.id; END IF; RETURN NEW;"
         };
         let sql = format!(
             "CREATE FUNCTION fixture_outreach_corrupt() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN {trigger} END $$;CREATE TRIGGER fixture_outreach_corrupt {timing} UPDATE ON outreach_logs FOR EACH ROW EXECUTE FUNCTION fixture_outreach_corrupt()"
@@ -303,7 +303,8 @@ async fn outreach_drafts_complete_update_ack_detects_before_and_after_trigger_co
             outreach_draft_call(&mut c, id, "/approve", Some(json!({"expected_revision":1})))
                 .await
                 .unwrap_err(),
-            Failure("outreach_write_ack_failed")
+            Failure("outreach_write_ack_failed"),
+            "{timing} trigger"
         );
         assert_eq!(outreach_snapshot(&mut c).await, before);
         sqlx::raw_sql("DROP TRIGGER fixture_outreach_corrupt ON outreach_logs;DROP FUNCTION fixture_outreach_corrupt()").execute(&mut c).await.unwrap();
@@ -435,6 +436,16 @@ async fn outreach_drafts_owner_http_validates_auth_revision_contract_and_current
         "{url}/api/v1/outreach/drafts/{}",
         created["id"].as_str().unwrap()
     );
+    let page = http
+        .get(format!("{url}/api/v1/outreach/drafts?limit=1"))
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(page.status(), 200);
+    let page: Value = page.json().await.unwrap();
+    assert_eq!(page["limit"], 1);
+    assert_eq!(page["drafts"][0]["id"], created["id"]);
     assert_eq!(http.get(&path).send().await.unwrap().status(), 401);
     assert_eq!(
         http.get(&path)
