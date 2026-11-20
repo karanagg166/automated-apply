@@ -99,6 +99,15 @@ async fn dashboard_legacy_and_jobs_search_enforce_boundaries_and_match_saved_sta
     .await
     .unwrap();
 
+    let description = "Fictional Rust evidence and excluded phrase canary";
+    sqlx::query("UPDATE jobs SET description=$2, match_explanation='saved explanation', discovery_metadata=discovery_metadata||$3 WHERE id=$1")
+        .bind(job_rust)
+        .bind(description)
+        .bind(json!({"region":"South Asia","skills_preferred":["PostgreSQL"],"equity":true,"quality_flags":["has_salary"]}))
+        .execute(&mut c)
+        .await
+        .unwrap();
+
     let (url, stop, server) = http_fixture().await;
     let http = client();
 
@@ -134,6 +143,66 @@ async fn dashboard_legacy_and_jobs_search_enforce_boundaries_and_match_saved_sta
     assert_eq!(search["jobs"][0]["id"], json!(job_rust.to_string()));
     assert_eq!(search["jobs"][0]["experience_fit"], "within_published_range");
     assert_eq!(search["jobs"][0]["source_observations"].as_array().map(Vec::len), Some(1));
+
+    let page = |number| {
+        http.get(format!(
+            "{url}/api/v1/jobs/search?application_status=not_applied&country=in&exclude_preferences=false&page={number}&limit=1"
+        ))
+        .bearer_auth(HOST_TOKEN)
+    };
+    let first: Value = page(1)
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let second: Value = page(2)
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(first["total"], 2);
+    assert_eq!(second["total"], 2);
+    assert_eq!(second["jobs"][0]["id"], json!(job_other));
+    assert_eq!(second["jobs"][0]["skills_preferred"], json!([]));
+    assert_eq!(second["jobs"][0]["quality_flags"], json!([]));
+    let job = &first["jobs"][0];
+    assert_eq!(job["id"], json!(job_rust));
+    assert_eq!(job["description"], description);
+    assert_eq!(job["match_explanation"], "saved explanation");
+    assert_eq!(job["country"], "India");
+    assert_eq!(job["region"], "South Asia");
+    assert_eq!(job["skills_preferred"], json!(["PostgreSQL"]));
+    assert_eq!(job["equity"], true);
+    assert_eq!(job["quality_flags"], json!(["has_salary"]));
+    assert!(job["match"].is_null());
+    assert_eq!(job["description"], search["jobs"][0]["description"]);
+    assert_eq!(job["source_observations"], search["jobs"][0]["source_observations"]);
+
+    sqlx::query("UPDATE candidate_profiles SET preferences=preferences||$1 WHERE singleton_key='primary'")
+        .bind(json!({"excluded_keywords":["excluded phrase canary"]}))
+        .execute(&mut c)
+        .await
+        .unwrap();
+    let filtered: Value = http
+        .get(format!("{url}/api/v1/jobs/search?application_status=not_applied&role=Rust&rank=true&exclude_preferences=true"))
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(filtered["total"], 0);
 
     assert_eq!(
         http.get(format!("{url}/api/v1/jobs/search?sort=invalid"))

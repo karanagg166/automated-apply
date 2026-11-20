@@ -519,9 +519,8 @@ async fn search_in(
                 'experience_level', j.experience_level,
                 'salary_range', j.salary_range,
                 'skills_required', coalesce(j.skills_required, ARRAY[]::text[]),
-                'description', j.description,
+                'description', CASE WHEN $9::boolean THEN j.description END,
                 'match_score', j.match_score::double precision,
-                'match_explanation', j.match_explanation,
                 'status', j.status,
                 'date_posted', j.date_posted,
                 'created_at', j.created_at,
@@ -536,7 +535,11 @@ async fn search_in(
                 'first_observed_at', j.first_observed_at,
                 'last_observed_at', j.last_observed_at,
                 'source_verification_status', j.source_verification_status,
-                'discovery_metadata', coalesce(j.discovery_metadata::jsonb, '{}'::jsonb)
+                'discovery_metadata', jsonb_build_object(
+                    'country', j.discovery_metadata::jsonb -> 'country',
+                    'experience_min_years', j.discovery_metadata::jsonb -> 'experience_min_years',
+                    'experience_max_years', j.discovery_metadata::jsonb -> 'experience_max_years'
+                )
             ) AS job,
             CASE WHEN c.id IS NOT NULL THEN jsonb_build_object(
                 'id', c.id,
@@ -567,6 +570,7 @@ async fn search_in(
     .bind(exp_lower.as_deref())
     .bind(published_after)
     .bind(observed_after)
+    .bind(parsed_profile.is_some())
     .fetch_all(&mut **tx)
     .await
     .map_err(db)?;
@@ -750,7 +754,6 @@ async fn search_in(
             None
         };
 
-        let meta = job["discovery_metadata"].clone();
         if let Some(obj) = job.as_object_mut() {
             obj.remove("discovery_metadata");
             for key in [
@@ -801,32 +804,6 @@ async fn search_in(
                     .cloned()
                     .unwrap_or_else(|| json!({})),
             );
-            obj.insert(
-                "country".into(),
-                meta.get("country").cloned().unwrap_or(Value::Null),
-            );
-            obj.insert(
-                "region".into(),
-                meta.get("region").cloned().unwrap_or(Value::Null),
-            );
-            obj.insert(
-                "skills_preferred".into(),
-                meta.get("skills_preferred")
-                    .filter(|v| v.is_array())
-                    .cloned()
-                    .unwrap_or_else(|| json!([])),
-            );
-            obj.insert(
-                "equity".into(),
-                meta.get("equity").cloned().unwrap_or(Value::Null),
-            );
-            obj.insert(
-                "quality_flags".into(),
-                meta.get("quality_flags")
-                    .filter(|v| v.is_array())
-                    .cloned()
-                    .unwrap_or_else(|| json!([])),
-            );
             obj.insert("match".into(), match_result.unwrap_or(Value::Null));
             obj.insert("source_observations".into(), json!([]));
         }
@@ -856,6 +833,7 @@ async fn search_in(
         .filter_map(|j| j["id"].as_str().and_then(|s| s.parse::<Uuid>().ok()))
         .collect();
     if !selected_ids.is_empty() {
+        fill_search_page(tx, &mut selected, &selected_ids).await?;
         let obs_rows: Vec<(Uuid, Value)> = sqlx::query_as(
             "WITH ranked AS (
                 SELECT job_id,
@@ -898,6 +876,41 @@ async fn search_in(
         "jobs": selected,
     }))
 }
+// Preserve the search DTO without pulling large display fields for unreturned jobs.
+async fn fill_search_page(
+    tx: &mut Transaction<'_, Postgres>,
+    selected: &mut [Value],
+    ids: &[Uuid],
+) -> Result<()> {
+    let rows: Vec<(Uuid, Value)> = sqlx::query_as(
+        "SELECT id, jsonb_build_object(
+            'description', description,
+            'match_explanation', match_explanation,
+            'country', discovery_metadata::jsonb -> 'country',
+            'region', discovery_metadata::jsonb -> 'region',
+            'equity', discovery_metadata::jsonb -> 'equity',
+            'skills_preferred', CASE WHEN jsonb_typeof(discovery_metadata::jsonb -> 'skills_preferred') = 'array'
+                THEN discovery_metadata::jsonb -> 'skills_preferred' ELSE '[]'::jsonb END,
+            'quality_flags', CASE WHEN jsonb_typeof(discovery_metadata::jsonb -> 'quality_flags') = 'array'
+                THEN discovery_metadata::jsonb -> 'quality_flags' ELSE '[]'::jsonb END
+        ) FROM jobs WHERE id = ANY($1)",
+    )
+    .bind(ids)
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(db)?;
+    let mut payloads: HashMap<Uuid, Value> = rows.into_iter().collect();
+    for (item, id) in selected.iter_mut().zip(ids) {
+        let Some(Value::Object(payload)) = payloads.remove(id) else {
+            return Err(Failure("invalid_catalog_job_record"));
+        };
+        item.as_object_mut()
+            .ok_or(Failure("invalid_catalog_job_record"))?
+            .extend(payload);
+    }
+    Ok(())
+}
+
 async fn shortlist(connection: &mut PgConnection, id: Uuid) -> Result<Value> {
     let mut tx = connection.begin().await.map_err(db)?;
     let state: Option<String> =
