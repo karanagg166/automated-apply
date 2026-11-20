@@ -273,14 +273,18 @@ impl Snapshot {
     }
 }
 pub fn approvable(fact: &Value) -> Result<bool> {
+    Ok(!fact["evidence"].as_array().ok_or_else(invalid)?.is_empty()
+        && fact["verification"] != "inferred"
+        && (fact["personal_claim"] != true || fact["verification"] == "owner_supplied")
+        && !suspicious_text(fact["text"].as_str().ok_or_else(invalid)?)?)
+}
+
+fn suspicious_text(text: &str) -> Result<bool> {
     static SUSPICIOUS: LazyLock<Regex> = LazyLock::new(|| {
         Regex::new(
             r"(?s)ignore.{0,60}(?:instruction|prompt)|system\s+(?:prompt|message)|(?:run|execute)\s+(?:shell|command|sql)|(?:reveal|print|export).{0,30}(?:token|password|secret)|(?:sk-[A-Za-z0-9_-]{12,}|sbp_[A-Za-z0-9_-]{12,}|\d{6,}:[A-Za-z0-9_-]{20,})",
             true,
         )
     });
-    Ok(!fact["evidence"].as_array().ok_or_else(invalid)?.is_empty()
-        && fact["verification"] != "inferred"
-        && (fact["personal_claim"] != true || fact["verification"] == "owner_supplied")
-        && !SUSPICIOUS.is_match(fact["text"].as_str().ok_or_else(invalid)?)?)
+    SUSPICIOUS.is_match(text)
 }

@@ -20,7 +20,28 @@ pub(super) fn profile_failure(error: Failure) -> Response {
         | "inferred_or_unevidenced_claim_cannot_be_approved"
         | "project_changed_rebuild_and_review"
         | "project_history_archive_required"
+        | "project_audit_archive_required"
+        | "project_name_and_repository_required"
+        | "project_template_root_required"
+        | "repository_not_authorized_or_unavailable"
+        | "repository_origin_mismatch"
+        | "repository_revision_invalid"
+        | "repository_read_failed_or_too_large"
+        | "repository_read_timeout"
         | "project_conversation_fact_review_required" => Some(StatusCode::CONFLICT),
+        "project_not_found" => Some(StatusCode::NOT_FOUND),
+        "unsafe_context_path"
+        | "context_file_unreadable"
+        | "context_file_missing_or_too_large"
+        | "invalid_context_yaml"
+        | "yaml_aliases_not_supported"
+        | "context_yaml_too_complex"
+        | "project_frontmatter_required"
+        | "invalid_project_context"
+        | "project_template_name_mismatch"
+        | "invalid_project_references"
+        | "unsafe_or_invalid_owner_claim"
+        | "invalid_project_source_evidence" => Some(StatusCode::UNPROCESSABLE_ENTITY),
         "invalid_saved_project_context" => Some(StatusCode::SERVICE_UNAVAILABLE),
         _ => None,
     };

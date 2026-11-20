@@ -1,6 +1,30 @@
 //! One shared transient connection for bounded inference or private document IO.
 use super::*;
 
+pub(super) async fn project_build_dispatch(
+    api: &Api,
+    project_id: &str,
+    body: &[u8],
+    query: Option<&str>,
+) -> Response {
+    use crate::project_context::dashboard::builder;
+
+    let input = match builder::Input::parse(body, query) {
+        Ok(input) => input,
+        Err(error) => return profile_failure(error),
+    };
+    let Ok(_permit) = api.long_request.try_acquire() else {
+        return reply(
+            StatusCode::TOO_MANY_REQUESTS,
+            json!({"detail":"A bounded background request is already running"}),
+        );
+    };
+    match builder::execute(&api.config, project_id, input).await {
+        Ok(data) => reply(StatusCode::OK, data),
+        Err(error) => profile_failure(error),
+    }
+}
+
 pub(super) async fn generation_dispatch(
     api: &Api,
     body: &[u8],

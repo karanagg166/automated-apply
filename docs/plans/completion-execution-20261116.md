@@ -880,6 +880,17 @@ answer that cites only the current approval. The project build path needs its
 own authorized checkout and template-file readers before it can produce new
 candidate evidence.
 
+Implement the candidate-context Build action in the owner API. Read templates
+relative to an explicit `CANDIDATE_CONTEXT_ROOT`, walking directory descriptors
+without following symlinks. Read repository files from one Git commit in an
+explicit `CANDIDATE_PROJECT_CHECKOUTS` mapping. Use only bounded local Git reads
+and verify the configured origin before reading blobs. Build a pending candidate
+with file digests and provenance outside the database transaction. Recheck the
+configuration and project records under the owner fence before writing. Keep
+prior approvals and preserve the current revision when only unrelated Git files
+change. Test document and Git candidates, retries, evidence drift, denied paths
+and the Build-to-review flow against disposable data. [Git environment controls](https://git-scm.com/docs/git#_environment_variables) · [Directory-relative opens](https://docs.rs/rustix/1.1.6/rustix/fs/fn.openat.html) · [YAML parser events](https://docs.rs/yaml-rust2/0.13.0/yaml_rust2/parser/enum.Event.html)
+
 Keep the current Rust candidate and installed Python rollback pair while proving
 the first supervised Naukri receipt. Use targeted Rust tests or frontend type
 checks for repairs, then run the full local release gate. Keep compatibility

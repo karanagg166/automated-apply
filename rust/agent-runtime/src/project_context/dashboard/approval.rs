@@ -121,7 +121,7 @@ pub(super) async fn approve(
     Ok(approved)
 }
 
-fn contexts(facts: &[&Value]) -> Value {
+pub(super) fn contexts(facts: &[&Value]) -> Value {
     use super::super::conversation::compact;
 
     let text = |topics: &[&str]| {

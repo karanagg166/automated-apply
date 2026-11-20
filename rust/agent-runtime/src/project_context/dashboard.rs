@@ -1,5 +1,6 @@
 //! Owner dashboard routes over the existing candidate-context preference records.
 mod approval;
+pub(crate) mod builder;
 
 use super::{CONFIGURATION_KEY, Snapshot, configuration_record, invalid, key};
 use crate::{
@@ -21,20 +22,23 @@ pub(crate) enum Route<'a> {
     Projects,
     Project(&'a str),
     Approve(&'a str),
+    Build(&'a str),
     Answer,
 }
 
 impl Route<'_> {
     pub(crate) fn allows(self, method: &str) -> bool {
-        method == "GET" && !matches!(self, Self::Approve(_))
-            || method == "PUT" && matches!(self, Self::Configuration)
-            || method == "POST" && matches!(self, Self::Approve(_))
+        match self {
+            Self::Configuration => matches!(method, "GET" | "PUT"),
+            Self::Approve(_) | Self::Build(_) => method == "POST",
+            _ => method == "GET",
+        }
     }
 
     pub(crate) fn allow(self) -> &'static str {
         match self {
             Self::Configuration => "GET, PUT",
-            Self::Approve(_) => "POST",
+            Self::Approve(_) | Self::Build(_) => "POST",
             _ => "GET",
         }
     }
@@ -59,6 +63,7 @@ pub(crate) fn route(path: &str) -> Option<Route<'_>> {
             match action {
                 "" if project == id => Some(Route::Project(id)),
                 "approve" => Some(Route::Approve(id)),
+                "build" => Some(Route::Build(id)),
                 _ => None,
             }
         }

@@ -403,6 +403,9 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     if let Some(route) = crate::mailboxes::routes::route(&path) {
         return accounts::dispatch(&api, route, &method, &body).await;
     }
+    if let Some(crate::project_context::dashboard::Route::Build(id)) = candidate_context {
+        return document_io::project_build_dispatch(&api, id, &body, packet_query.as_deref()).await;
+    }
     if path == "/api/v1/rust-agent/discovery/schedule" {
         return discovery::schedule(&api, &method, &body).await;
     }

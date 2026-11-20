@@ -102,6 +102,14 @@ recovers only an exact owned stale socket after connection refusal while holding
 locks; active/uncertain sockets, files and symlinks are refused. Shutdown removes only its
 unchanged socket inode. These ephemeral socket operations never clean runtime data/history.
 
+To build project evidence, set `CANDIDATE_CONTEXT_ROOT` to the absolute directory
+containing `candidate_context/` in the private Rust runtime config. Set
+`CANDIDATE_PROJECT_CHECKOUTS` to a JSON object whose keys are exact HTTPS GitHub
+repository URLs and whose values are absolute canonical paths to their local
+checkouts. The Build action reads templates, declared dependencies and pinned
+Git blobs. It creates evidence for owner review. It never downloads repository
+objects or executes project code.
+
 The IPC listener shares the existing API state, request limits and database connection;
 it creates no pool or writer family. Native IPC transport parity does not implement the
 still-unported Chrome command dispatcher. Do not point the installed extension at the Rust
