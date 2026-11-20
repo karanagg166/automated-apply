@@ -1,4 +1,6 @@
-## Current local work, 2026-11-20
+## Current local work, 2026-11-21
+
+Source `265de1925bd94abeaad03e07cdf3f681b7c98cfb` restores six saved campaign, submission and browser review reads on Rust. The Agent page now links to the native workflow and distinguishes its worker from legacy campaign execution. One disposable PostgreSQL HTTP regression, 18 focused frontend cases, TypeScript, strict Clippy and contract drift checks passed. The installed `d7d0484` release remains in place during the 24-hour observation. All 47 samples checked through `2026-11-20T19:08:17Z` were healthy, and an independent read matched the previous queue, reservations and quarantine state. The dedicated Brave profile remains windowless. See the [saved review report](acceptance/legacy-review-dashboard-20261121.md).
 
 Source `56317e0512d4650be9b6922c9a3ec312288f56a3` restores the Rust dashboard Build action for authorized local templates and pinned Git checkouts. It builds pending evidence and rechecks configuration and project revisions before saving. Three disposable PostgreSQL HTTP fixtures and strict Clippy passed, including a concurrent configuration change while the build waited to save. The installed release still needs configured sources and the next combined gate before live Build verification. Eleven unlocked readiness observations on the installed release were healthy through `2026-11-20T17:19:19Z`. See the [project evidence build report](acceptance/candidate-context-build-20261120.md).
 
