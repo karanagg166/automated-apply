@@ -901,6 +901,13 @@ Keep Python's executable legacy controls on its compatibility path. Campaign
 intake and cancellation, fixture submission actions and the isolated-browser
 executor remain separate ports with their own authority and receipt tests.
 
+Connect the native Agent page to the deterministic saved-data conversation.
+Use an authenticated dashboard selection with its own expiry and history.
+Commit selection, any packet draft and the immutable command receipt in one
+transaction. Verify exact request replay, rollback if the receipt is lost
+before commit, and unchanged Telegram and submission state. Preserve the
+legacy campaign controls on the Python compatibility path.
+
 Connect both dashboard URL forms to native packet preparation. Validate the
 destination with the existing manual-page policy and require the saved job to
 match the requested company, role and destination. Save a new owner-selected
