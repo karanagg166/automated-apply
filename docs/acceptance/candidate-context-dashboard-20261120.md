@@ -1,5 +1,7 @@
 # Native candidate context dashboard, 2026-11-20
 
+Follow-up source and tests now cover the Build action. [Native project evidence build report](candidate-context-build-20261120.md)
+
 Source `26b555f7cb78661aeeb6af622ac523db6b235859` on `feat/rust-agent-runtime` restores six candidate-context operations in the Rust owner API. The source uses the existing configuration and project records, frozen validation schemas and approved-answer generator. Configuration saves retain revision checks and content hashes. Project approval requires explicit confirmation and accepts only evidence from the current candidate revision. A changed project configuration makes an earlier approval ineligible for new answers and preserves its saved history.
 
 | Check | Result | Evidence |
