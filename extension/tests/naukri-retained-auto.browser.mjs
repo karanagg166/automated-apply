@@ -11,7 +11,7 @@ import {
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { chromium } from "../../frontend/node_modules/@playwright/test/index.mjs";
+import { chromium, expect } from "../../frontend/node_modules/@playwright/test/index.mjs";
 const root = mkdtempSync(join(tmpdir(), "automated-apply-retained-alarm-"));
 for (const name of [
   "naukri-retained.js",
@@ -172,16 +172,24 @@ try {
     if (i === 100) throw Error("settings_unavailable");
     if (!page) await new Promise((r) => setTimeout(r, 50));
   }
-  await page.waitForFunction(() => globalThis.fixturePageReady, null, {
-    timeout: 10000,
-  });
-  await page.waitForFunction(
-    async () =>
-      ((await chrome.storage.session.get("fixtureRunTotal")).fixtureRunTotal ||
-        0) >= 2,
-    null,
-    { timeout: 45000 },
-  );
+  // Poll from the driver because the settings tab stays inactive.
+  await expect
+    .poll(() => page.evaluate(() => globalThis.fixturePageReady === true), {
+      timeout: 10000,
+      message: "inactive settings page initializes",
+    })
+    .toBe(true);
+  await expect
+    .poll(
+      () =>
+        page.evaluate(
+          async () =>
+            (await chrome.storage.session.get("fixtureRunTotal"))
+              .fixtureRunTotal || 0,
+        ),
+      { timeout: 45000, message: "retained alarm runs in the inactive tab" },
+    )
+    .toBeGreaterThanOrEqual(2);
   const before = await page.evaluate(async () => ({
     count: (await chrome.storage.session.get("fixtureRunTotal"))
       .fixtureRunTotal,
@@ -195,9 +203,12 @@ try {
   assert.equal(before.active, false);
   assert.equal(before.form, 1);
   await page.reload();
-  await page.waitForFunction(() => globalThis.fixturePageReady, null, {
-    timeout: 10000,
-  });
+  await expect
+    .poll(() => page.evaluate(() => globalThis.fixturePageReady === true), {
+      timeout: 10000,
+      message: "reloaded inactive settings page initializes",
+    })
+    .toBe(true);
   const after = await page.evaluate(async () => ({
     count: (await chrome.storage.session.get("fixtureRunTotal"))
       .fixtureRunTotal,
