@@ -180,6 +180,13 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
         }
     }
     let packet_query = request.uri().query().map(str::to_owned);
+    if matches!(
+        local_command_route,
+        Some(crate::owner_commands::Route::Dashboard)
+    ) && packet_query.is_some()
+    {
+        return fail(Failure("invalid_local_command"));
+    }
     if method == "PATCH" && crate::contacts::route(&path).is_some() && packet_query.is_some() {
         return fail(Failure("invalid_contact_query"));
     }

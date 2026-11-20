@@ -4150,6 +4150,7 @@ include!("support/native_brave_stack_pg.rs");
 include!("support/cutover_pg.rs");
 include!("support/connection_report_pg.rs");
 include!("support/owner_commands_pg.rs");
+include!("support/dashboard_commands_pg.rs");
 include!("support/expanded_packet_platform_pg.rs");
 include!("support/telegram_reconciliation_pg.rs");
 include!("support/gmail_history_pg.rs");

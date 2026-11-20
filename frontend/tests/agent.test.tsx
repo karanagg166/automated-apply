@@ -154,3 +154,36 @@ it("opens the native workflow and displays retained campaigns without legacy wri
   ).toBeNull();
   expect(post).not.toHaveBeenCalled();
 });
+
+it("runs a native command with stable retry identity and links the draft for review", async () => {
+  const packet = "20000000-0000-4000-8000-000000000005";
+  vi.mocked(post)
+    .mockRejectedValueOnce(new ApiError(504, "Response lost"))
+    .mockResolvedValueOnce({
+      data: { reply: "Application prepared for review.", packet_id: packet },
+    })
+    .mockResolvedValueOnce({ data: { reply: "Selection cleared." } });
+  mount(true);
+  const owner = userEvent.setup();
+  const text = screen.getByLabelText("Command");
+  const run = screen.getByRole("button", { name: "Run local command" });
+  await owner.type(text, "Prepare selected job");
+  await owner.click(run);
+  await screen.findByText("Response lost");
+  await owner.click(run);
+  const review = await screen.findByRole("link", {
+    name: "Review application draft",
+  });
+  expect(review).toHaveAttribute("href", `/applications/${packet}`);
+  expect(screen.getByText("Application prepared for review.")).toBeVisible();
+  const attempts = vi.mocked(post).mock.calls;
+  expect(attempts[0]).toEqual(attempts[1]);
+  expect(attempts[0][0]).toBe("agent/commands");
+  await owner.type(text, "/reset");
+  await owner.click(run);
+  expect(await screen.findByText("Selection cleared.")).toBeVisible();
+  expect(attempts[2][1]).not.toEqual(attempts[0][1]);
+  expect(
+    screen.queryByRole("link", { name: "Review application draft" }),
+  ).toBeNull();
+});

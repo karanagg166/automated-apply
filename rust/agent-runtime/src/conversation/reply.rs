@@ -1,4 +1,4 @@
-//! Compose private Telegram turns over saved state and existing packet preparation.
+//! Compose owner turns over saved state and existing packet preparation.
 use super::{
     intent::{self, Intent},
     jobs, memory,
@@ -402,11 +402,11 @@ async fn follow(
 pub(crate) async fn respond(
     tx: &mut Transaction<'_, Postgres>,
     config: &Configuration,
-    owner: i64,
+    scope: memory::Scope,
     intent: Intent,
     now: DateTime<Utc>,
 ) -> Result<Value> {
-    let mut loaded = memory::load_in(tx, owner).await?;
+    let mut loaded = memory::load_scope_in(tx, scope).await?;
     if intent.category == "RESET_CONTEXT" {
         memory::reset_in(tx, &mut loaded).await?;
         return Ok(message(

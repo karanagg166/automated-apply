@@ -62,8 +62,17 @@ pub(super) fn profile_failure(error: Failure) -> Response {
     let command_status = match error.0 {
         "invalid_local_command" => Some(StatusCode::UNPROCESSABLE_ENTITY),
         "local_command_method_not_allowed" => Some(StatusCode::METHOD_NOT_ALLOWED),
-        "local_command_write_ack_failed" => Some(StatusCode::CONFLICT),
+        "local_command_write_ack_failed"
+        | "dashboard_command_retry"
+        | "request_id_conflict"
+        | "conversation_memory_write_ack_failed"
+        | "conversation_memory_changed"
+        | "conversation_memory_review_required" => Some(StatusCode::CONFLICT),
         "local_command_database_error"
+        | "conversation_jobs_database_error"
+        | "conversation_operation_database_error"
+        | "conversation_memory_database_error"
+        | "conversation_memory_saved_limit"
         | "local_command_outcome_unknown"
         | "invalid_local_command_record"
         | "local_command_result_limit" => Some(StatusCode::SERVICE_UNAVAILABLE),

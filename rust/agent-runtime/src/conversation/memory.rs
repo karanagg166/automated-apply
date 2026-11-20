@@ -163,12 +163,25 @@ async fn now(tx: &mut Transaction<'_, Postgres>) -> Result<DateTime<Utc>> {
         .await
         .map_err(db)
 }
+pub(crate) enum Scope {
+    Dashboard,
+    Telegram(i64),
+}
+
 pub async fn load_in(tx: &mut Transaction<'_, Postgres>, owner: i64) -> Result<Loaded> {
-    if owner <= 0 {
-        return Err(Failure("conversation_owner_binding_required"));
-    }
+    load_scope_in(tx, Scope::Telegram(owner)).await
+}
+
+pub(crate) async fn load_scope_in(
+    tx: &mut Transaction<'_, Postgres>,
+    scope: Scope,
+) -> Result<Loaded> {
+    let key = match scope {
+        Scope::Dashboard => "dashboard_conversation:primary".into(),
+        Scope::Telegram(owner) if owner > 0 => crate::telegram_local::context_key(owner),
+        Scope::Telegram(_) => return Err(Failure("conversation_owner_binding_required")),
+    };
     crate::execution::lock_owner_in(tx).await?;
-    let key = crate::telegram_local::context_key(owner);
     let saved = raw(tx, &key).await?;
     let now = now(tx).await?;
     let value = if let Some(saved) = &saved {

@@ -159,7 +159,8 @@ async fn execute_in(
         }
         Command::Preview(url) => crate::owner_commands::preview_application_url(tx, url).await,
         Command::Conversation(intent) => {
-            crate::conversation::reply::respond(tx, config, owner, (**intent).clone(), now).await
+            use crate::conversation::{memory::Scope, reply};
+            reply::respond(tx, config, Scope::Telegram(owner), (**intent).clone(), now).await
         }
         Command::Reset => {
             let memory = json!({"conversation_id":Uuid::new_v4(),"history":[],"job_ids":[],"selected_job_id":null,"project_id":null,"clarification":null,"expires_at":now+Duration::minutes(10)});

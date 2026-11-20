@@ -18,6 +18,7 @@ import { BrowserPlans } from "./browser-plans";
 import { SubmissionReview } from "./submission-review";
 
 type Campaign = Schema<"Campaign">;
+type DashboardReply = { data: { reply: string; packet_id?: string } };
 type Status = {
   worker_ready: boolean;
   native_worker_online?: boolean;
@@ -49,16 +50,19 @@ export function Agent({ nativeRuntime = false }: { nativeRuntime?: boolean }) {
     client.invalidateQueries({ queryKey: ["agent-status"] });
   };
   const send = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       // Preserve intake identity across a lost response. A new text creates a new command.
       if (!request.current || request.current.text !== text)
         request.current = { text, request_id: crypto.randomUUID() };
-      return post<Campaign>("agent/commands", request.current);
+      if (nativeRuntime)
+        return post<DashboardReply>("agent/commands", request.current);
+      await post<Campaign>("agent/commands", request.current);
+      return null;
     },
     onSuccess: () => {
       setText("");
       request.current = null;
-      refresh();
+      if (!nativeRuntime) refresh();
     },
   });
   const cancel = useMutation({
@@ -151,35 +155,50 @@ export function Agent({ nativeRuntime = false }: { nativeRuntime?: boolean }) {
         </p>
         {status.error && <ErrorState error={status.error} />}
       </section>
-      {!nativeRuntime && (
-        <form
-          className="panel panel-body stack"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (text.trim()) send.mutate();
-          }}
+      <form
+        className="panel panel-body stack"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (text.trim() && !send.isPending) send.mutate();
+        }}
+      >
+        <Field
+          label="Command"
+          hint={
+            nativeRuntime
+              ? "Search saved jobs, choose a result by number, or prepare a draft for review."
+              : "Try: Find backend jobs in India. Then: Only show startups. Prepare applications for the first three."
+          }
         >
-          <Field
-            label="Command"
-            hint="Try: Find backend jobs in India. Then: Only show startups. Prepare applications for the first three."
-          >
-            <Input
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-              maxLength={2000}
-              required
-              placeholder="Find backend jobs in India"
-            />
-          </Field>
-          <Button
-            type="submit"
-            variant="primary"
-            busy={send.isPending}
-            disabled={!text.trim()}
-          >
-            Send command
-          </Button>
-        </form>
+          <Input
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            maxLength={2000}
+            required
+            disabled={send.isPending}
+            placeholder="Find backend jobs in India"
+          />
+        </Field>
+        <Button
+          type="submit"
+          variant="primary"
+          busy={send.isPending}
+          disabled={!text.trim()}
+        >
+          {nativeRuntime ? "Run local command" : "Send command"}
+        </Button>
+      </form>
+      {nativeRuntime && send.data && (
+        <section className="panel panel-body stack" aria-label="Command result">
+          <p role="status" style={{ whiteSpace: "pre-line" }}>
+            {send.data.data.reply}
+          </p>
+          {send.data.data.packet_id && (
+            <Link href={`/applications/${send.data.data.packet_id}`}>
+              Review application draft
+            </Link>
+          )}
+        </section>
       )}
       {(send.error || cancel.error || approve.error) && (
         <ErrorState error={send.error || cancel.error || approve.error} />

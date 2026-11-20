@@ -1,4 +1,5 @@
 //! Local owner commands and limited extension previews over the existing receipt ledger.
+mod dashboard;
 mod history;
 use crate::{Failure, Result, configuration::Configuration};
 use serde::Deserialize;
@@ -9,18 +10,20 @@ use uuid::Uuid;
 #[derive(Clone, Copy)]
 pub(crate) enum Route {
     Command,
+    Dashboard,
     History,
 }
 impl Route {
     pub(crate) fn method(self) -> &'static str {
         match self {
-            Self::Command => "POST",
+            Self::Command | Self::Dashboard => "POST",
             Self::History => "GET",
         }
     }
 }
 pub(crate) fn route(path: &str) -> Option<Route> {
     match path {
+        "/api/v1/agent/commands" => Some(Route::Dashboard),
         "/api/v1/local-agent/commands" => Some(Route::Command),
         "/api/v1/local-agent/history" => Some(Route::History),
         _ => None,
@@ -71,6 +74,7 @@ pub(crate) async fn dispatch(
     }
     match route {
         Route::Command => record(connection, &Command::parse(body)?, "owner:primary", config).await,
+        Route::Dashboard => dashboard::dispatch(connection, body, config).await,
         Route::History if body.is_empty() => history::listing(connection).await,
         Route::History => Err(invalid()),
     }
