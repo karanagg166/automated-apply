@@ -165,6 +165,14 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
         Ok(page) => page,
         Err(error) => return fail(error),
     };
+    let job_search = if path == crate::job_catalog::SEARCH && method == "GET" {
+        match crate::job_catalog::SearchQuery::parse(request.uri().query()) {
+            Ok(query) => Some(query),
+            Err(error) => return fail(error),
+        }
+    } else {
+        None
+    };
     let pdf_upload = path == "/api/v1/dashboard/resumes" && method == "POST";
     let label = if pdf_upload {
         match resume_label(request.uri().query()) {
@@ -449,6 +457,7 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
         );
     }
     let mut state = api.connection.lock().await;
+    state.revalidate().await;
     if state.value.is_none() {
         if !state.backoff.remaining().is_zero() {
             return fail(Failure("agent_database_reconnecting"));
@@ -841,13 +850,47 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
             })
         }
         Some(connection) if crate::job_catalog::route(&path).is_some() => {
-            crate::job_catalog::dispatch(connection, &method, &path, &job_page)
+            if matches!(
+                crate::job_catalog::route(&path),
+                Some(crate::job_catalog::Route::Search)
+            ) && method == "GET"
+            {
+                crate::job_catalog::search(
+                    connection,
+                    job_search.as_ref().expect("parsed jobs search query"),
+                    &api.config,
+                )
                 .await
                 .map(|data| OwnerReply {
                     data,
                     status: StatusCode::OK,
                     etag: None,
                 })
+            } else {
+                crate::job_catalog::dispatch(connection, &method, &path, &job_page)
+                    .await
+                    .map(|data| OwnerReply {
+                        data,
+                        status: StatusCode::OK,
+                        etag: None,
+                    })
+            }
+        }
+        Some(connection) if crate::dashboard_legacy::route(&path).is_some() => {
+            crate::dashboard_legacy::dispatch(
+                connection,
+                crate::dashboard_legacy::route(&path).unwrap(),
+                &method,
+                packet_query.as_deref(),
+                &body,
+                &api.config,
+            )
+            .await
+            .map(|data| OwnerReply {
+                data,
+                status: StatusCode::OK,
+                etag: None,
+            })
         }
         Some(connection) if crate::notifications::route(&path).is_some() => {
             crate::notifications::dispatch(connection, &method, &path, page.0)
@@ -1083,10 +1126,11 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     // retaining this connection idle. This prevents cross-request lock retention.
     if result.is_err()
         && let Some(connection) = state.value.as_mut()
-        && connection.ping().await.is_err()
+        && recovery::alive(connection).await.is_err()
     {
         result = Err(Failure("profile_database_error"));
     }
+    state.last_used = tokio::time::Instant::now();
     if result
         .as_ref()
         .err()

@@ -920,7 +920,11 @@ impl Relay {
         backoff: &mut crate::recovery::Backoff,
     ) -> Result<()> {
         loop {
-            let wait = remaining(&mut self.connection).await?;
+            let wait = crate::recovery::bounded(
+                crate::recovery::DATABASE_STALL,
+                remaining(&mut self.connection),
+            )
+            .await?;
             if !wait.is_zero() {
                 tokio::select! {biased;_=shutdown.cancelled()=>return Ok(()),_=tokio::time::sleep(wait)=>{}}
             }

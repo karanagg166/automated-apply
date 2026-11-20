@@ -15,6 +15,7 @@ mod connection_report;
 pub mod context_contract;
 pub mod contracts;
 pub mod conversation;
+mod dashboard_legacy;
 pub mod engine;
 pub mod evidence_retrieval;
 pub mod extractive;

@@ -19,6 +19,7 @@ pub(super) fn profile_route(path: &str) -> bool {
     path == "/api/v1/profile"
         || path == "/api/v1/dashboard/runtime"
         || path == "/api/v1/dashboard/overview"
+        || crate::dashboard_legacy::route(path).is_some()
         || saved_match_route(path).is_some()
         || path == "/api/v1/local-agent/profile-confirmation"
         || path == crate::conversation::preferences::PATH

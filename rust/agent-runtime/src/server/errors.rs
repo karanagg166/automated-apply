@@ -679,6 +679,20 @@ pub(super) fn profile_failure(error: Failure) -> Response {
         "owner_client_required" => "owner_ui_required",
         "job_not_found" => "Job not found",
         "invalid_job_id" => "Invalid job ID",
+        "invalid_job_search" => "Invalid job search parameters",
+        "job_search_filter_limit" => {
+            "Narrow filters to at most 5000 jobs for deterministic ranking"
+        }
+        "profile_required_for_ranking" => "Save a candidate profile before requesting ranking",
+        "approved_experience_required" => {
+            "Approve current factual experience before filtering experience fit"
+        }
+        "invalid_dashboard_preset" => "Dashboard filter preset is invalid",
+        "dashboard_preset_limit" => "At most 20 filter presets",
+        "dashboard_database_error" => "Dashboard database unavailable",
+        "dashboard_write_ack_failed" | "dashboard_commit_outcome_unknown" => {
+            "Dashboard update was not confirmed; reload before retrying"
+        }
         "profile_not_found" => "No candidate profile saved",
         "profile_version_required" => "Supply If-Match with the current profile version",
         "profile_version_conflict" => "Profile version changed; retrieve it before retrying",
@@ -694,7 +708,8 @@ pub(super) fn profile_failure(error: Failure) -> Response {
         | "saved_match_method_not_allowed"
         | "resource_list_method_not_allowed"
         | "evidence_patch_method_not_allowed"
-        | "resource_read_method_not_allowed" => "Method Not Allowed",
+        | "resource_read_method_not_allowed"
+        | "dashboard_method_not_allowed" => "Method Not Allowed",
         "missing_item_method_not_allowed" => "Method Not Allowed",
         "profile_database_error" | "agent_database_reconnecting" | "agent_database_unavailable" => {
             "Profile database unavailable; retrieve the current profile before retrying"
@@ -736,6 +751,11 @@ pub(super) fn profile_failure(error: Failure) -> Response {
         response
             .headers_mut()
             .insert("allow", "GET, PATCH".parse().unwrap());
+    }
+    if error.0 == "dashboard_method_not_allowed" {
+        response
+            .headers_mut()
+            .insert("allow", "GET, POST".parse().unwrap());
     }
     response
 }
@@ -895,7 +915,11 @@ pub(super) fn failure(error: Failure) -> Response {
         | "resource_inventory_limit"
         | "invalid_job_id"
         | "invalid_job_page"
+        | "invalid_job_search"
+        | "job_search_filter_limit"
         | "invalid_dashboard_request"
+        | "invalid_dashboard_preset"
+        | "dashboard_preset_limit"
         | "invalid_saved_job_record"
         | "invalid_match_result"
         | "profile_version_syntax"
@@ -904,6 +928,7 @@ pub(super) fn failure(error: Failure) -> Response {
         | "invalid_profile_record"
         | "invalid_profile_version"
         | "fictional_or_placeholder_profile_rejected" => StatusCode::UNPROCESSABLE_ENTITY,
+        "dashboard_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
         "agent_approval_not_pending"
         | "agent_approval_expired"
         | "agent_approval_context_changed"
@@ -916,6 +941,9 @@ pub(super) fn failure(error: Failure) -> Response {
         | "owner_fact_not_confirmed"
         | "verified_profile_context_changed"
         | "verified_profile_identity_changed"
+        | "profile_required_for_ranking"
+        | "approved_experience_required"
+        | "dashboard_write_ack_failed"
         | "agent_reconciliation_required"
         | "invalid_agent_control" => StatusCode::CONFLICT,
         "profile_database_error"
@@ -924,6 +952,8 @@ pub(super) fn failure(error: Failure) -> Response {
         | "database_host_unavailable"
         | "verified_context_database_error"
         | "saved_jobs_database_error"
+        | "dashboard_database_error"
+        | "dashboard_commit_outcome_unknown"
         | "application_history_database_error"
         | "owner_fact_database_error"
         | "agent_database_error"

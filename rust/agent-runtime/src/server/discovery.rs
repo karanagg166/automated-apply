@@ -14,6 +14,7 @@ pub(super) async fn ingest(api: &Api, platform: &str, body: &[u8]) -> Response {
         Err(e) => return reply(StatusCode::UNPROCESSABLE_ENTITY, json!({"error":e.0})),
     };
     let mut state = api.connection.lock().await;
+    state.revalidate().await;
     let Some(connection) = state.value.as_mut() else {
         return reply(
             StatusCode::SERVICE_UNAVAILABLE,
@@ -78,6 +79,7 @@ pub(super) async fn dispatch(api: &Api, platform: &str, body: &[u8]) -> Response
     };
     let reserved = {
         let mut state = api.connection.lock().await;
+        state.revalidate().await;
         if state.value.is_none() {
             if !state.backoff.remaining().is_zero() {
                 return fail(Failure("agent_database_reconnecting"));
@@ -120,6 +122,7 @@ pub(super) async fn dispatch(api: &Api, platform: &str, body: &[u8]) -> Response
     // No database connection mutex or transaction is held across provider IO.
     let fetched = public_discovery::fetch(platform).await;
     let mut state = api.connection.lock().await;
+    state.revalidate().await;
     let Some(connection) = state.value.as_mut() else {
         return fail(Failure("agent_database_reconnecting"));
     };
@@ -158,6 +161,7 @@ pub(super) async fn schedule(api: &Api, method: &str, body: &[u8]) -> Response {
         None
     };
     let mut state = api.connection.lock().await;
+    state.revalidate().await;
     let Some(c) = state.value.as_mut() else {
         return reply(
             StatusCode::SERVICE_UNAVAILABLE,

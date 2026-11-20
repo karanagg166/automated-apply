@@ -111,7 +111,11 @@ async fn serve_internal(
         if last_heartbeat
             .is_none_or(|last: tokio::time::Instant| last.elapsed() >= Duration::from_secs(5))
         {
-            lifecycle::heartbeat(connection).await?;
+            crate::recovery::bounded(
+                crate::recovery::DATABASE_STALL,
+                lifecycle::heartbeat(connection),
+            )
+            .await?;
             last_heartbeat = Some(tokio::time::Instant::now());
         }
         if let Some(config) = config

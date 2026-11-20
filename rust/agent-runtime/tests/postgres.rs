@@ -4209,3 +4209,4 @@ include!("support/apify_read_owner_http_pg.rs");
 include!("support/startup_paid_job_led_pg.rs");
 include!("support/startup_uuid_owner_pg.rs");
 include!("support/dashboard_overview_pg.rs");
+include!("support/dashboard_legacy_pg.rs");

@@ -55,6 +55,8 @@ pub(crate) fn database_failure(error: Failure) -> bool {
             | "owner_fact_database_error"
             | "verified_context_database_error"
             | "saved_jobs_database_error"
+            | "dashboard_database_error"
+            | "dashboard_commit_outcome_unknown"
             | "application_history_database_error"
             | "agent_database_unavailable"
             | "agent_schema_unavailable"
@@ -63,6 +65,30 @@ pub(crate) fn database_failure(error: Failure) -> bool {
 }
 pub(crate) async fn close(connection: PgConnection) {
     let _ = tokio::time::timeout(Duration::from_secs(2), connection.close()).await;
+}
+/// Idle reuse threshold and bound for a retained connection's liveness probe.
+pub(crate) const IDLE_PROBE_AFTER: Duration = Duration::from_secs(10);
+pub(crate) const DATABASE_STALL: Duration = Duration::from_secs(15);
+/// Bound a database step so a half-open socket (for example after the laptop's
+/// network address changes) becomes a reconnectable failure instead of an
+/// unbounded hang that holds the shared connection lock.
+pub(crate) async fn bounded<T>(
+    limit: Duration,
+    step: impl std::future::Future<Output = Result<T>>,
+) -> Result<T> {
+    tokio::time::timeout(limit, step)
+        .await
+        .map_err(|_| Failure("agent_database_unavailable"))?
+}
+/// Cheap bounded round trip before reusing an idle retained connection.
+pub(crate) async fn alive(connection: &mut PgConnection) -> Result<()> {
+    bounded(DATABASE_STALL, async {
+        connection
+            .ping()
+            .await
+            .map_err(|_| Failure("agent_database_unavailable"))
+    })
+    .await
 }
 /// Replace a lost execution connection in place. No extra pool, quota reset, migration
 /// or tool/model replay; fresh claims still wait for durable lease expiry and recovery.
@@ -119,5 +145,40 @@ pub async fn supervise(
             }
             Err(error) => return Err(error),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn stalled_database_step_becomes_reconnectable_failure() {
+        let started = Instant::now();
+        let result: Result<()> = bounded(Duration::from_millis(25), std::future::pending()).await;
+        assert_eq!(result, Err(Failure("agent_database_unavailable")));
+        assert!(database_failure(result.unwrap_err()));
+        assert!(started.elapsed() < Duration::from_secs(2));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn completed_database_step_passes_through_unchanged() {
+        assert_eq!(
+            bounded(Duration::from_secs(1), async { Ok(7) }).await,
+            Ok(7)
+        );
+        assert_eq!(
+            bounded::<()>(Duration::from_secs(1), async {
+                Err(Failure("execution_database_error"))
+            })
+            .await,
+            Err(Failure("execution_database_error"))
+        );
+    }
+
+    #[test]
+    fn idle_probe_precedes_stall_bound() {
+        assert!(IDLE_PROBE_AFTER < DATABASE_STALL);
+        assert!(DATABASE_STALL <= Duration::from_secs(30));
     }
 }

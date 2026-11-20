@@ -56,6 +56,23 @@ pub struct Api {
 struct ControlConnection {
     value: Option<PgConnection>,
     backoff: Backoff,
+    /// Last completed use; an idle connection is liveness-probed before reuse.
+    last_used: tokio::time::Instant,
+}
+impl ControlConnection {
+    /// A retained connection can silently become half-open while idle (sleep, Wi-Fi
+    /// or IPv6 prefix change). Probe it with a bound before reuse and drop it on
+    /// failure, so one dead socket cannot hang every database route indefinitely.
+    async fn revalidate(&mut self) {
+        if self.last_used.elapsed() >= recovery::IDLE_PROBE_AFTER
+            && let Some(connection) = self.value.as_mut()
+            && recovery::alive(connection).await.is_err()
+            && let Some(connection) = self.value.take()
+        {
+            recovery::close(connection).await;
+        }
+        self.last_used = tokio::time::Instant::now();
+    }
 }
 impl Api {
     pub fn new(config: Arc<Configuration>, connection: PgConnection, wake: Wake) -> Arc<Self> {
@@ -64,6 +81,7 @@ impl Api {
             connection: Mutex::new(ControlConnection {
                 value: Some(connection),
                 backoff: Backoff::default(),
+                last_used: tokio::time::Instant::now(),
             }),
             wake,
             requests: Semaphore::new(8),
@@ -80,7 +98,9 @@ pub fn router(api: Arc<Api>) -> Router {
 pub async fn quiesce(api: &Api) -> Result<()> {
     let mut state = api.connection.lock().await;
     if let Some(connection) = state.value.as_mut()
-        && pause(connection).await.is_ok()
+        && recovery::bounded(recovery::DATABASE_STALL, pause(connection))
+            .await
+            .is_ok()
     {
         return Ok(());
     }
