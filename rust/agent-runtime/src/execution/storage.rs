@@ -51,25 +51,31 @@ pub(super) async fn now(tx: &mut Transaction<'_, Postgres>) -> Result<DateTime<U
     timestamp(&value)
 }
 pub(super) async fn lock(tx: &mut Transaction<'_, Postgres>) -> Result<()> {
+    lock_with_error(tx, db).await
+}
+pub(super) async fn lock_with_error(
+    tx: &mut Transaction<'_, Postgres>,
+    map_db: fn(sqlx::Error) -> Failure,
+) -> Result<()> {
     let existing: Option<String> = sqlx::query_scalar(
         "SELECT key FROM owner_preferences WHERE key='agent_conversation:primary' FOR UPDATE",
     )
     .fetch_optional(&mut **tx)
     .await
-    .map_err(db)?;
+    .map_err(map_db)?;
     if existing.is_none() {
-        sqlx::query("INSERT INTO owner_preferences(key,value,created_at,updated_at) VALUES('agent_conversation:primary','{}',clock_timestamp(),clock_timestamp()) ON CONFLICT(key) DO NOTHING").execute(&mut **tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO owner_preferences(key,value,created_at,updated_at) VALUES('agent_conversation:primary','{}',clock_timestamp(),clock_timestamp()) ON CONFLICT(key) DO NOTHING").execute(&mut **tx).await.map_err(map_db)?;
         let found: Option<String> = sqlx::query_scalar(
             "SELECT key FROM owner_preferences WHERE key='agent_conversation:primary' FOR UPDATE",
         )
         .fetch_optional(&mut **tx)
         .await
-        .map_err(db)?;
+        .map_err(map_db)?;
         if found.is_none() {
             return Err(Failure("execution_write_ack_failed"));
         }
     }
-    if !crate::owner_fence::advance_in(tx).await.map_err(db)? {
+    if !crate::owner_fence::advance_in(tx).await.map_err(map_db)? {
         return Err(Failure("execution_write_ack_failed"));
     }
     Ok(())

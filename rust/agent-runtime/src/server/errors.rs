@@ -544,6 +544,11 @@ pub(super) fn profile_failure(error: Failure) -> Response {
         }
         "notification_preferences_method_not_allowed" => "Method Not Allowed",
         "packet_not_found" => "Application packet not found",
+        "invalid_packet_intake" => "Enter the company and role from the posting",
+        "invalid_packet_intake_destination" => "Enter a supported official application URL",
+        "packet_intake_context_conflict" => {
+            "The saved job or application destination conflicts with this request. Review the existing job or packet."
+        }
         "invalid_packet_tracking_request" => "Submission or tracking request is invalid",
         "packet_submission_already_reported" => {
             "Submission was already reported; reload application history"
@@ -858,11 +863,14 @@ pub(super) fn failure(error: Failure) -> Response {
         | "packet_answer_invalid" => StatusCode::UNPROCESSABLE_ENTITY,
         "packet_method_not_allowed" => StatusCode::METHOD_NOT_ALLOWED,
         "packet_idempotency_conflict"
+        | "packet_intake_context_conflict"
         | "packet_storage_conflict"
         | "packet_serialization_rollback" => StatusCode::CONFLICT,
         "packet_profile_required"
         | "packet_multi_select_unavailable"
         | "invalid_packet_preparation"
+        | "invalid_packet_intake"
+        | "invalid_packet_intake_destination"
         | "invalid_packet_page"
         | "invalid_packet_id" => StatusCode::UNPROCESSABLE_ENTITY,
         "packet_database_error"

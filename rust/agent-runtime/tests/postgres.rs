@@ -4212,3 +4212,4 @@ include!("support/dashboard_overview_pg.rs");
 include!("support/dashboard_legacy_pg.rs");
 include!("support/dashboard_candidate_context_pg.rs");
 include!("support/legacy_review_pg.rs");
+include!("support/packet_intake_pg.rs");

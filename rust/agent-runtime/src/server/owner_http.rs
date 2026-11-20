@@ -21,6 +21,17 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     }
     let method = request.method().as_str().to_owned();
     let path = request.uri().path().to_owned();
+    if matches!(
+        crate::packet_service::route(&path),
+        Some(crate::packet_service::Route::Intake)
+    ) && method != "POST"
+    {
+        let mut response = fail(Failure("packet_method_not_allowed"));
+        response
+            .headers_mut()
+            .insert("allow", axum::http::HeaderValue::from_static("POST"));
+        return response;
+    }
     let legacy_review = crate::legacy_review::route(&path);
     if legacy_review.is_some() && method != "GET" {
         return fail(Failure("resource_read_method_not_allowed"));

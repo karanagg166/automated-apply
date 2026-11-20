@@ -1,4 +1,5 @@
 //! Saved packet preparation/inspection. No browser, model dispatch, approval or submission.
+mod intake;
 use crate::{
     Failure, Result, answer_service, packet_context,
     packet_contract::{self, Prepare},
@@ -537,10 +538,12 @@ async fn replay(
 }
 
 pub const LIST: &str = "/api/v1/application-packets";
+const INTAKE: &str = "/api/v1/application-packets/intake";
 pub enum Route<'a> {
     Platforms,
     Preview(&'a str),
     Create(&'a str),
+    Intake,
     List,
     Read(&'a str),
     Readiness(&'a str),
@@ -559,6 +562,9 @@ pub fn route(path: &str) -> Option<Route<'_>> {
     if path == LIST {
         return Some(Route::List);
     }
+    if matches!(path, INTAKE | "/api/v1/browser-applications") {
+        return Some(Route::Intake);
+    }
     if let Some(tail) = path.strip_prefix("/api/v1/jobs/") {
         let (id, action) = tail.split_once('/')?;
         if id.is_empty() {
@@ -572,7 +578,6 @@ pub fn route(path: &str) -> Option<Route<'_>> {
     }
     let tail = path.strip_prefix("/api/v1/application-packets/")?;
     let (id, action) = tail.split_once('/').unwrap_or((tail, ""));
-    // The separately implemented intake route must never be treated as a packet UUID.
     if id.is_empty() || id == "intake" {
         return None;
     }
@@ -684,7 +689,7 @@ pub async fn dispatch(
     let post = matches!(route, Route::Preview(_) | Route::Create(_));
     let method_ok = match route {
         Route::Read(_) => matches!(method, "GET" | "PATCH"),
-        Route::Questions(_) => method == "POST",
+        Route::Questions(_) | Route::Intake => method == "POST",
         Route::Review(_) => method == "POST",
         Route::Submission(_) => method == "POST",
         Route::Tracking(_) => method == "PATCH",
@@ -694,6 +699,14 @@ pub async fn dispatch(
     if !method_ok {
         return Err(Failure("packet_method_not_allowed"));
     }
+    let intake = if matches!(route, Route::Intake) {
+        if query.is_some() {
+            return Err(Failure("invalid_packet_intake"));
+        }
+        Some(intake::Intake::parse(body, &settings.policy)?)
+    } else {
+        None
+    };
     let request = if post {
         Some(packet_contract::normalize(
             serde_json::from_slice(body).map_err(|_| Failure("invalid_packet_preparation"))?,
@@ -768,6 +781,7 @@ pub async fn dispatch(
         let result=async {match route {
             Route::Preview(job)=>preview_in(&mut tx,parse_id(job)?,request.as_ref().unwrap(),settings,answers,now).await,
             Route::Create(job)=>create_in(&mut tx,parse_id(job)?,request.as_ref().unwrap(),settings,answers,now).await,
+            Route::Intake=>intake::prepare_in(&mut tx,intake.as_ref().unwrap(),settings,answers,now).await,
             Route::Read(packet) if method=="PATCH"=>crate::packet_mutation::run_in(&mut tx,parse_id(packet)?,edit.as_ref().unwrap(),None,settings,answers,now).await,
             Route::Read(packet)=>read_in(&mut tx,parse_id(packet)?,settings,now).await,
             Route::Questions(packet)=>crate::packet_mutation::run_in(&mut tx,parse_id(packet)?,edit.as_ref().unwrap(),None,settings,answers,now).await,
@@ -792,7 +806,7 @@ pub async fn dispatch(
                 tx.commit()
                     .await
                     .map_err(|_| Failure("packet_commit_outcome_unknown"))?;
-                return Ok((value, matches!(route, Route::Create(_))));
+                return Ok((value, matches!(route, Route::Create(_)) || path == INTAKE));
             }
             Err(error) => {
                 tx.rollback().await.map_err(db)?;

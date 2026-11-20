@@ -1,9 +1,15 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api, post, type Schema } from "@/lib/api";
-import { BrowserAssistant } from "@/features/browser-assistant";
+import { BrowserAssistant, BrowserIntake } from "@/features/browser-assistant";
 
 vi.mock("@/lib/api", async (original) => ({
   ...(await original<typeof import("@/lib/api")>()),
@@ -58,6 +64,46 @@ const fictionalPacket: Schema<"PacketRead"> = {
     context_digest: "digest-1",
   },
 };
+
+it("retries the same pasted application with its original key and rotates it after an edit", async () => {
+  vi.clearAllMocks();
+  vi.mocked(post)
+    .mockRejectedValueOnce(new Error("Response lost"))
+    .mockResolvedValue(fictionalPacket);
+  render(<BrowserIntake nativeRuntime />);
+  const fill = (name: string, value: string) =>
+    fireEvent.change(screen.getByRole("textbox", { name }), {
+      target: { value },
+    });
+  fill("Application URL", " https://jobs.lever.co/fictional/engineer/apply ");
+  fill("Company", " Fictional employer ");
+  fill("Job title", " Platform Engineer ");
+  const button = screen.getByRole("button", { name: "Prepare application" });
+  await userEvent.click(button);
+  await screen.findByText("Response lost");
+  await userEvent.click(button);
+  await screen.findByRole("link", { name: "Open application assistant" });
+  expect(vi.mocked(post).mock.calls[0]).toEqual(vi.mocked(post).mock.calls[1]);
+  expect(vi.mocked(post).mock.calls[1]).toEqual([
+    "browser-applications",
+    expect.objectContaining({
+      application_url: "https://jobs.lever.co/fictional/engineer/apply",
+      company_name: "Fictional employer",
+      job_title: "Platform Engineer",
+    }),
+  ]);
+  fill("Job title", "Staff Platform Engineer");
+  await userEvent.click(button);
+  await waitFor(() => expect(post).toHaveBeenCalledTimes(3));
+  const [, first] = vi.mocked(post).mock.calls[0];
+  const [, changed] = vi.mocked(post).mock.calls[2];
+  expect(changed).toEqual(
+    expect.objectContaining({ job_title: "Staff Platform Engineer" }),
+  );
+  expect((changed as { idempotency_key: string }).idempotency_key).not.toBe(
+    (first as { idempotency_key: string }).idempotency_key,
+  );
+});
 
 const fictionalStatusConnected = {
   packet: fictionalPacket,

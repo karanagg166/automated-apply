@@ -901,6 +901,14 @@ Keep Python's executable legacy controls on its compatibility path. Campaign
 intake and cancellation, fixture submission actions and the isolated-browser
 executor remain separate ports with their own authority and receipt tests.
 
+Connect both dashboard URL forms to native packet preparation. Validate the
+destination with the existing manual-page policy and require the saved job to
+match the requested company, role and destination. Save a new owner-selected
+job and its packet in the same transaction. Reuse the packet request key on
+retry and preserve existing source evidence, submissions and application limits.
+Test the two entry points, duplicate intake, conflicting saved data and
+rollback with the disposable PostgreSQL harness.
+
 Keep the current Rust candidate and installed Python rollback pair while proving
 the first supervised Naukri receipt. Use targeted Rust tests or frontend type
 checks for repairs, then run the full local release gate. Keep compatibility

@@ -50,7 +50,7 @@ export default async function Page({
     case "people":
       return <People />;
     case "applications":
-      return <Applications />;
+      return <Applications nativeRuntime={nativeRuntime} />;
     case "needs-input":
       return <UnansweredQuestionsQueue initialRequestId={initialRequestId} />;
     case "outreach":

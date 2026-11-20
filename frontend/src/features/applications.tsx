@@ -21,7 +21,11 @@ export {
 } from "./application-field-review";
 export { pipelineColumn } from "./application-pipeline";
 type Packet = Schema<"PacketRead">;
-export function Applications() {
+export function Applications({
+  nativeRuntime = false,
+}: {
+  nativeRuntime?: boolean;
+}) {
   const [view, setView] = useState("board"),
     [offset, setOffset] = useState(0);
   const query = useQuery({
@@ -75,7 +79,7 @@ export function Applications() {
           </div>
         }
       />
-      <BrowserIntake />
+      <BrowserIntake nativeRuntime={nativeRuntime} />
       {query.isPending ? (
         <Skeleton />
       ) : query.isError ? (

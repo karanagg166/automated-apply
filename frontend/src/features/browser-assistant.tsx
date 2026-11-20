@@ -108,24 +108,40 @@ const closedPackets = new Set<Schema<"PacketRead">["lifecycle_state"]>([
   "abandoned",
 ]);
 
-export function BrowserIntake() {
+export function BrowserIntake({
+  nativeRuntime = false,
+}: {
+  nativeRuntime?: boolean;
+}) {
   const [url, setUrl] = useState("");
   const [company, setCompany] = useState("");
   const [title, setTitle] = useState("");
   const [packet, setPacket] = useState<Schema<"PacketRead"> | null>(null);
   const [error, setError] = useState<Error | null>(null);
   const [busy, setBusy] = useState(false);
-  const [requestKey] = useState(() => crypto.randomUUID());
+  const request = useRef<{ identity: string; key: string } | null>(null);
   async function prepare() {
     setBusy(true);
     setError(null);
     try {
+      const application_url = url.trim();
+      const company_name = company.trim();
+      const job_title = title.trim();
+      const identity = JSON.stringify([
+        application_url,
+        company_name,
+        job_title,
+      ]);
+      if (request.current?.identity !== identity) {
+        request.current = { identity, key: crypto.randomUUID() };
+        setPacket(null);
+      }
       setPacket(
         await post<Schema<"PacketRead">>("browser-applications", {
-          application_url: url,
-          company_name: company,
-          job_title: title,
-          idempotency_key: requestKey,
+          application_url,
+          company_name,
+          job_title,
+          idempotency_key: request.current.key,
         }),
       );
     } catch (e) {
@@ -138,20 +154,35 @@ export function BrowserIntake() {
     <section className="panel panel-body">
       <h2>Employer application URL</h2>
       <p>
-        Prepare a packet using your saved facts. Use your selected connected
-        Chrome profile. Isolated browser testing requires a separate explicit
-        choice. Destinations require permission.
+        {nativeRuntime
+          ? "Prepare a draft from an official job posting using your saved facts. Open the application assistant to review it."
+          : "Prepare a packet using your saved facts. Use your selected connected Chrome profile. Isolated browser testing requires a separate explicit choice. Destinations require permission."}
       </p>
       <Field label="Application URL">
-        <Input value={url} onChange={(e) => setUrl(e.target.value)} />
+        <Input
+          disabled={busy}
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+        />
       </Field>
       <Field label="Company">
-        <Input value={company} onChange={(e) => setCompany(e.target.value)} />
+        <Input
+          disabled={busy}
+          value={company}
+          onChange={(e) => setCompany(e.target.value)}
+        />
       </Field>
       <Field label="Job title">
-        <Input value={title} onChange={(e) => setTitle(e.target.value)} />
+        <Input
+          disabled={busy}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
       </Field>
-      <Button disabled={busy || !url || !company || !title} onClick={prepare}>
+      <Button
+        disabled={busy || !url.trim() || !company.trim() || !title.trim()}
+        onClick={prepare}
+      >
         Prepare application
       </Button>
       {error && <ErrorState error={error} />}

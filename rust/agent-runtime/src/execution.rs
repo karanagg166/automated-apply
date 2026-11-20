@@ -63,6 +63,12 @@ use sqlx::{Connection, PgConnection};
 pub(crate) async fn lock_owner_in(tx: &mut sqlx::Transaction<'_, sqlx::Postgres>) -> Result<()> {
     storage::lock(tx).await
 }
+pub(crate) async fn lock_owner_with_error_in(
+    tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
+    map_db: fn(sqlx::Error) -> Failure,
+) -> Result<()> {
+    storage::lock_with_error(tx, map_db).await
+}
 pub(crate) async fn preparation_authority_in(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
 ) -> Result<Value> {
