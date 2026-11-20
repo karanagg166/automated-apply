@@ -133,6 +133,10 @@ test(
       for (const [path, forwarded] of [
         ["/api/backend/profile", "/api/v1/profile"],
         ["/api/workflow/control", "/api/v1/rust-agent/control"],
+        [
+          "/api/workflow/discovery/schedule",
+          "/api/v1/rust-agent/discovery/schedule",
+        ],
       ]) {
         const response = await send(path);
         assert.equal(response.status, 200);
@@ -143,7 +147,10 @@ test(
           `Bearer ${token}`,
         ]);
       }
-      assert.equal(observed.length, 2);
+      const discover = await send("/discover");
+      assert.equal(discover.status, 200);
+      assert.match(await discover.text(), /Find remote jobs/);
+      assert.equal(observed.length, 3);
       await close(upstream);
       assert.equal((await send("/api/backend/profile")).status, 504);
       const disconnected = await send("/api/workflow/control");

@@ -857,6 +857,18 @@ Private inventory `.local/completion-route-inventory.json` contains source paths
 
 ## Ordered actions
 
+The installed Gemini update is `d7d0484`. Its seven new reads passed, and a
+follow-up on the Mac identified eight other legacy reads returning HTTP 404.
+See the [local runtime update](../acceptance/local-rust-recovery-20261120.md).
+Repair the first visible failure on Discover using the existing Rust discovery
+schedule and public feed controls through `/api/workflow`. Choose this panel
+from the server's Rust socket configuration. Keep the Python automation panel
+for the earlier runtime. Reuse one authenticated workflow HTTP client for both
+Discover and Workflow. Verify that each mode shows its own controls and that a
+Rust Discover page load sends a schedule read with no mutations. Finish the
+other legacy route work as a separate batch after confirming the existing
+Rust contracts for candidate context, campaign history and browser review.
+
 Keep the current Rust candidate and installed Python rollback pair while proving
 the first supervised Naukri receipt. Use targeted Rust tests or frontend type
 checks for repairs, then run the full local release gate. Keep compatibility

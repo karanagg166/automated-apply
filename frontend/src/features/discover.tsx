@@ -5,10 +5,12 @@ import { Automation } from "@/features/automation";
 import { JobDiscovery } from "@/features/job-discovery";
 import { SearchPreferencesEditor } from "@/features/search-preferences";
 import { ApifySourceManagement } from "@/features/apify-sources";
+import { PublicDiscovery } from "@/features/public-discovery";
 import { PageTitle } from "@/components/ui";
+import { workflowApi } from "@/lib/workflow-api";
 import { StartupDiscovery } from "./startup-discovery";
 
-export function Discover() {
+export function Discover({ nativeRuntime }: { nativeRuntime: boolean }) {
   const [tab, setTab] = useState<"jobs" | "startups" | "apify">("jobs");
 
   return (
@@ -86,7 +88,13 @@ export function Discover() {
         </div>
       )}
 
-      <Automation />
+      {nativeRuntime ? (
+        <div className="panel panel-body stack">
+          <PublicDiscovery request={workflowApi} />
+        </div>
+      ) : (
+        <Automation />
+      )}
     </>
   );
 }

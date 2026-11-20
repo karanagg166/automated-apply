@@ -23,7 +23,15 @@ Branch `feat/rust-agent-runtime` now runs Gemini's `d7d04845d290a205aeffcfebcbc2
 | 24-hour runtime observation | IN PROGRESS | Private sampling began at `2026-11-20T16:39:45Z`. The first unlocked sample had HTTP 200 from health, readiness, control and dashboard. Locked and elapsed 24-hour evidence is pending. |
 | Additional live portals and browsers | NOT TESTED | Instahyre was checked through saved-data MCP only. Edge was packaged. The other live portal and browser workflows still require their own acceptance. |
 
-The project continues with native dashboard route coverage, the dedicated Brave sign-in and the first strict Naukri worker receipt. Other portal submissions follow their own acceptance after Naukri. The account-independent continuity backup retains nine available transcripts out of 107 indexed. No alternate file or snapshot matched the other 98 threads in the inspected local Codex transcript roots and private backup.
+Gemini used a second installation plan and a restart check on the same release. Both installed LaunchAgent files matched both plans byte for byte. The observer recorded the changed PIDs and healthy samples after the restarts. The follow-up also found that the local Gmail mailbox needs reauthorization. [Gemini's verification](local-rust-cutover-20261120.md#upgrade-update--d7d04845d290a205aeffcfebcbc2b0a517b072d0-2026-11-20-2214-ist)
+
+An additional owner-only preflight read returned an approved saved Naukri account binding and a confirmed local profile. The API still marks live profile sync unaccepted. The native discovery schedule returned HTTP 200 with zero sources enabled. No preparation or application was started.
+
+## Discover page follow-up
+
+The next source revision connects the Discover page to the existing Rust public feed discovery and schedule controls. The runtime selection uses server-side socket configuration. The Python compatibility deployment retains its original automation panel. Both Rust entry points use the same authenticated workflow HTTP client. Twelve focused frontend tests, the production build, TypeScript and the private-socket launch fixture passed. The latter verified the rendered Discover page and that schedule requests use the configured Unix socket. This follow-up awaits the next combined source gate and local installation. The currently installed launch definitions still point to `d7d0484`.
+
+The project continues with the remaining native dashboard coverage, the dedicated Brave sign-in and the first strict Naukri worker receipt. Other portal submissions follow their own acceptance after Naukri. The account-independent continuity backup retains nine available transcripts out of 107 indexed. No alternate file or snapshot matched the other 98 threads in the inspected local Codex transcript roots and private backup.
 
 ```sh
 uv run --no-project python scripts/run_acceptance.py --run --keep-going

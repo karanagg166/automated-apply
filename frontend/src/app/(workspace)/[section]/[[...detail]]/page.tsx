@@ -44,7 +44,9 @@ export default async function Page({
     case "jobs":
       return <Jobs />;
     case "discover":
-      return <Discover />;
+      return (
+        <Discover nativeRuntime={Boolean(process.env.RUST_AGENT_UNIX_SOCKET)} />
+      );
     case "people":
       return <People />;
     case "applications":
