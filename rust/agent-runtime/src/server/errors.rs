@@ -10,9 +10,9 @@ pub(super) fn profile_failure(error: Failure) -> Response {
     let review_status = match error.0 {
         "campaign_not_found" => Some(StatusCode::NOT_FOUND),
         "invalid_legacy_review_request" => Some(StatusCode::UNPROCESSABLE_ENTITY),
-        "invalid_saved_legacy_review" | "saved_legacy_review_limit" => {
-            Some(StatusCode::SERVICE_UNAVAILABLE)
-        }
+        "invalid_saved_legacy_review"
+        | "saved_legacy_review_limit"
+        | "invalid_saved_discovery_automation" => Some(StatusCode::SERVICE_UNAVAILABLE),
         _ => None,
     };
     if let Some(status) = review_status {

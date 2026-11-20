@@ -218,6 +218,14 @@ pub(super) fn selected_resource(
             || crate::companies::route(path).is_some()
             || crate::startup_catalog::search::route(path).is_some()
             || matches!(
+                crate::dashboard_legacy::route(path),
+                Some(
+                    crate::dashboard_legacy::Route::Automation
+                        | crate::dashboard_legacy::Route::AutomationHistory
+                        | crate::dashboard_legacy::Route::AutomationMatches
+                )
+            )
+            || matches!(
                 crate::project_context::dashboard::route(path),
                 Some(crate::project_context::dashboard::Route::Answer)
             )

@@ -1,5 +1,6 @@
 //! Owner-authenticated legacy dashboard, integration registry, preset, and browser asset policy reads.
 //! No provider IO, browser takeover, application admission, or secret exposure occurs here.
+mod automation;
 use crate::{
     Failure, Result,
     configuration::{Configuration, boolean},
@@ -23,6 +24,9 @@ const RESTRICTED_ASSET_HOSTS: &[&str] = &[
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Route {
+    Automation,
+    AutomationHistory,
+    AutomationMatches,
     Connections,
     Manifest,
     Presets,
@@ -33,6 +37,9 @@ pub(crate) enum Route {
 
 pub(crate) fn route(path: &str) -> Option<Route> {
     match path {
+        "/api/v1/dashboard/automation" => Some(Route::Automation),
+        "/api/v1/dashboard/automation/history" => Some(Route::AutomationHistory),
+        "/api/v1/dashboard/automation/matches" => Some(Route::AutomationMatches),
         "/api/v1/dashboard/connections" => Some(Route::Connections),
         "/api/v1/dashboard/onboarding/manifest" => Some(Route::Manifest),
         "/api/v1/dashboard/presets" => Some(Route::Presets),
@@ -770,7 +777,9 @@ pub(crate) async fn dispatch(
             "resource_read_method_not_allowed"
         }));
     }
-    if query.is_some() || (method == "GET" && !body.is_empty()) {
+    if (query.is_some() && route != Route::AutomationHistory)
+        || (method == "GET" && !body.is_empty())
+    {
         return Err(Failure("invalid_dashboard_request"));
     }
     match route {
@@ -778,7 +787,12 @@ pub(crate) async fn dispatch(
         Route::Connections => Ok(dashboard_connections(config)),
         Route::BrowserAssetPolicy => Ok(browser_policy(&config.dashboard_legacy)),
         Route::Presets if method == "POST" => save_preset(connection, body).await,
-        Route::Presets | Route::StartupIntegrationsStatus | Route::Integrations => {
+        Route::Presets
+        | Route::StartupIntegrationsStatus
+        | Route::Integrations
+        | Route::Automation
+        | Route::AutomationHistory
+        | Route::AutomationMatches => {
             let mut tx = connection.begin().await.map_err(db)?;
             sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
                 .execute(&mut *tx)
@@ -792,6 +806,9 @@ pub(crate) async fn dispatch(
                 Route::Presets => get_presets(&mut tx).await?,
                 Route::StartupIntegrationsStatus => startup_status_in(&mut tx, config, now).await?,
                 Route::Integrations => integrations_in(&mut tx, config, now).await?,
+                Route::Automation => automation::status(&mut tx, config, now).await?,
+                Route::AutomationHistory => automation::history(&mut tx, query).await?,
+                Route::AutomationMatches => automation::matches(&mut tx).await?,
                 _ => unreachable!(),
             };
             tx.commit().await.map_err(db)?;
