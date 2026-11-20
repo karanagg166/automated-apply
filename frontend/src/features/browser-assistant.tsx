@@ -168,8 +168,9 @@ export function BrowserAssistant(props: {
   packet: Schema<"PacketRead">;
   hasUnsavedAnswers?: boolean;
   onRefresh?: () => void;
+  nativeRuntime?: boolean;
 }) {
-  // Deliberately not persisted: returning to an application always defaults to Chrome.
+  // Returning to an application defaults to the connected browser.
   const [mode, setMode] = useState<"extension" | "isolated">("extension");
   return (
     <>
@@ -182,11 +183,19 @@ export function BrowserAssistant(props: {
               setMode(event.target.value as "extension" | "isolated")
             }
           >
-            <option value="extension">Use connected Chrome extension</option>
-            <option value="isolated">Use isolated automation browser</option>
+            <option value="extension">
+              {props.nativeRuntime
+                ? "Use connected browser extension"
+                : "Use connected Chrome extension"}
+            </option>
+            <option value="isolated">
+              {props.nativeRuntime
+                ? "Saved isolated browser history"
+                : "Use isolated automation browser"}
+            </option>
           </select>
         </Field>
-        {mode === "isolated" && (
+        {mode === "isolated" && !props.nativeRuntime && (
           <Notice>
             Isolated testing opens a separate dedicated browser profile. It does
             not reuse your personal Chrome session. Existing Chrome tasks remain
@@ -200,10 +209,52 @@ export function BrowserAssistant(props: {
           packet={props.packet}
           hasUnsavedAnswers={props.hasUnsavedAnswers}
         />
+      ) : props.nativeRuntime ? (
+        <SavedBrowserReview id={props.packet.id} />
       ) : (
         <IsolatedBrowserAssistant {...props} />
       )}
     </>
+  );
+}
+
+function SavedBrowserReview({ id }: { id: string }) {
+  const review = useQuery({
+    queryKey: ["saved-browser-review", id],
+    queryFn: () => api<BrowserStatus>(`browser-applications/${id}`),
+  });
+  const data = review.data;
+  return (
+    <section
+      className="panel panel-body stack"
+      aria-label="Saved isolated browser history"
+    >
+      <h2>Saved browser review</h2>
+      {review.isPending && <p role="status">Loading saved review…</p>}
+      {review.error && <ErrorState error={review.error} />}
+      {data && (
+        <>
+          <p>
+            Packet revision {data.packet.revision} ·{" "}
+            {readable(data.packet.lifecycle_state)}
+          </p>
+          {data.analysis ? (
+            <>
+              <p>
+                {readable(data.analysis.diagnostic)} ·{" "}
+                {data.analysis.fields?.length ?? 0} saved fields
+              </p>
+              {(data.analysis.warnings ?? []).map((warning) => (
+                <p key={warning}>{warning}</p>
+              ))}
+            </>
+          ) : (
+            <p>No isolated browser review is saved for this packet.</p>
+          )}
+          {data.recovery && <Notice>{data.recovery}</Notice>}
+        </>
+      )}
+    </section>
   );
 }
 

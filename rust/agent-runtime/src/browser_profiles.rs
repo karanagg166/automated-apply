@@ -530,6 +530,13 @@ async fn disconnect(
     }
     Ok(json!({"disconnected":true,"submitted":false}))
 }
+pub(crate) async fn saved_dashboard_status(
+    tx: &mut Transaction<'_, Postgres>,
+    settings: &Settings,
+) -> Result<Value> {
+    Ok(status::snapshot(tx, settings).await?.data)
+}
+
 async fn listing(
     tx: &mut Transaction<'_, Postgres>,
     settings: &Settings,

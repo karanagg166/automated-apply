@@ -20,15 +20,17 @@ import { SubmissionReview } from "./submission-review";
 type Campaign = Schema<"Campaign">;
 type Status = {
   worker_ready: boolean;
+  native_worker_online?: boolean;
+  native_worker_mode?: string;
   browser_worker_ready?: boolean;
   state: string;
-  local_requests_remaining: number;
+  local_requests_remaining: number | null;
   owner_text_authorized: boolean;
   candidate_data_authorized: boolean;
 };
 const terminal = ["completed", "partially_completed", "failed", "cancelled"];
 
-export function Agent() {
+export function Agent({ nativeRuntime = false }: { nativeRuntime?: boolean }) {
   const client = useQueryClient();
   const [text, setText] = useState("");
   const request = useRef<{ text: string; request_id: string } | null>(null);
@@ -87,37 +89,58 @@ export function Agent() {
       <div className="page-heading">
         <div>
           <h1>Agent</h1>
-          <p>
-            Find jobs and prepare application drafts through the same workspace
-            as Telegram.
-          </p>
+          {nativeRuntime ? (
+            <Link className="button primary" href="/workflow">
+              Open agent workflow
+            </Link>
+          ) : (
+            <p>
+              Find jobs and prepare application drafts through the same
+              workspace as Telegram.
+            </p>
+          )}
         </div>
       </div>
       <BrowserPlans />
-      <SubmissionReview />
-      <Notice>
-        Live employer submission is disabled. Fixture submissions require exact
-        approval in Submission review. No emails are sent.
-      </Notice>
+      <SubmissionReview historyOnly={nativeRuntime} />
+      {!nativeRuntime && (
+        <Notice>
+          Fixture submissions require exact approval in Submission review.
+        </Notice>
+      )}
       <section
         className="panel panel-body stack"
         aria-label="Agent availability"
       >
-        <Badge tone={status.data?.worker_ready ? "green" : "amber"}>
-          {status.data?.worker_ready
-            ? "Command worker available"
-            : "Pending · command worker unavailable"}
-        </Badge>
+        {nativeRuntime ? (
+          <Badge tone={status.data?.native_worker_online ? "green" : "amber"}>
+            {status.data?.native_worker_online
+              ? `Workflow worker online · ${status.data.native_worker_mode?.toLowerCase() || "mode unknown"}`
+              : "Workflow worker unavailable"}
+          </Badge>
+        ) : (
+          <Badge tone={status.data?.worker_ready ? "green" : "amber"}>
+            {status.data?.worker_ready
+              ? "Command worker available"
+              : "Pending · command worker unavailable"}
+          </Badge>
+        )}
         <Badge tone={status.data?.browser_worker_ready ? "green" : "amber"}>
           {status.data?.browser_worker_ready
-            ? "Chrome worker available"
-            : "Chrome worker unavailable"}
+            ? nativeRuntime
+              ? "Connected browser worker available"
+              : "Chrome worker available"
+            : nativeRuntime
+              ? "Connected browser worker unavailable"
+              : "Chrome worker unavailable"}
         </Badge>
         <p>
           Cohere: {readable(status.data?.state)}.{" "}
-          {status.data
+          {typeof status.data?.local_requests_remaining === "number"
             ? `${status.data.local_requests_remaining} local requests remaining.`
-            : "Checking local limits…"}{" "}
+            : status.data
+              ? "Local request limit unavailable."
+              : "Checking local limits…"}{" "}
           Provider account quota is unverified.
         </p>
         <p>
@@ -126,40 +149,44 @@ export function Agent() {
           data consent:{" "}
           {status.data?.candidate_data_authorized ? "enabled" : "off"}.
         </p>
+        {status.error && <ErrorState error={status.error} />}
       </section>
-      <form
-        className="panel panel-body stack"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (text.trim()) send.mutate();
-        }}
-      >
-        <Field
-          label="Command"
-          hint="Try: Find backend jobs in India. Then: Only show startups. Prepare applications for the first three."
+      {!nativeRuntime && (
+        <form
+          className="panel panel-body stack"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (text.trim()) send.mutate();
+          }}
         >
-          <Input
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            maxLength={2000}
-            required
-            placeholder="Find backend jobs in India"
-          />
-        </Field>
-        <Button
-          type="submit"
-          variant="primary"
-          busy={send.isPending}
-          disabled={!text.trim()}
-        >
-          Send command
-        </Button>
-      </form>
+          <Field
+            label="Command"
+            hint="Try: Find backend jobs in India. Then: Only show startups. Prepare applications for the first three."
+          >
+            <Input
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              maxLength={2000}
+              required
+              placeholder="Find backend jobs in India"
+            />
+          </Field>
+          <Button
+            type="submit"
+            variant="primary"
+            busy={send.isPending}
+            disabled={!text.trim()}
+          >
+            Send command
+          </Button>
+        </form>
+      )}
       {(send.error || cancel.error || approve.error) && (
         <ErrorState error={send.error || cancel.error || approve.error} />
       )}
       {history.isLoading && <Skeleton />}
       {history.error && <ErrorState error={history.error} />}
+      {nativeRuntime && <h2>Saved campaign history</h2>}
       {history.data?.length === 0 && <p>No campaigns yet.</p>}
       {history.data?.map((campaign) => (
         <article className="panel panel-body stack" key={campaign.id}>
@@ -216,7 +243,7 @@ export function Agent() {
               </div>
             );
           })}
-          {campaign.state === "awaiting_approval" && (
+          {!nativeRuntime && campaign.state === "awaiting_approval" && (
             <Button
               busy={approve.isPending}
               onClick={() => approve.mutate(campaign)}
@@ -224,7 +251,7 @@ export function Agent() {
               Approve {campaign.plan.selected_jobs?.length} local drafts only
             </Button>
           )}
-          {!terminal.includes(campaign.state) && (
+          {!nativeRuntime && !terminal.includes(campaign.state) && (
             <Button
               variant="danger"
               busy={cancel.isPending}

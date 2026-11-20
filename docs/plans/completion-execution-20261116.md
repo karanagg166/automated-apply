@@ -891,6 +891,16 @@ prior approvals and preserve the current revision when only unrelated Git files
 change. Test document and Git candidates, retries, evidence drift, denied paths
 and the Build-to-review flow against disposable data. [Git environment controls](https://git-scm.com/docs/git#_environment_variables) · [Directory-relative opens](https://docs.rs/rustix/1.1.6/rustix/fs/fn.openat.html) · [YAML parser events](https://docs.rs/yaml-rust2/0.13.0/yaml_rust2/parser/enum.Event.html)
 
+Restore the saved campaign and submission histories, the agent status and the
+saved packet browser status and operation checkpoint. Use the existing saved
+DTOs, packet read service and browser profile snapshot. Return saved history
+through a repeatable read transaction and keep native worker status distinct
+from the legacy command worker. The Rust dashboard should open the current
+workflow and connected-browser controls through their existing entry points.
+Keep Python's executable legacy controls on its compatibility path. Campaign
+intake and cancellation, fixture submission actions and the isolated-browser
+executor remain separate ports with their own authority and receipt tests.
+
 Keep the current Rust candidate and installed Python rollback pair while proving
 the first supervised Naukri receipt. Use targeted Rust tests or frontend type
 checks for repairs, then run the full local release gate. Keep compatibility

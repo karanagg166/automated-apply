@@ -86,6 +86,7 @@ pub mod google_oauth;
 pub mod graph;
 pub mod grounding;
 pub mod http_policy;
+pub(crate) mod legacy_review;
 pub mod lifecycle;
 pub mod link_resolver;
 pub mod local_socket;

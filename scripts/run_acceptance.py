@@ -38,6 +38,10 @@ STAGES = (
         "contact-contracts",
         (*PYTHON, "-m", "rust.scripts.export_contact_contracts", "--check"),
     ),
+    (
+        "review-contracts",
+        (*PYTHON, "-m", "rust.scripts.export_review_contracts"),
+    ),
     ("rust-format", ("cargo", "fmt", "--all", "--", "--check")),
     (
         "outreach-contracts",

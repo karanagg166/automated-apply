@@ -44,7 +44,11 @@ const labels: Record<string, string> = {
   manual_required: "Manual action required",
   failed: "Failed",
 };
-export function SubmissionReview() {
+export function SubmissionReview({
+  historyOnly = false,
+}: {
+  historyOnly?: boolean;
+}) {
   const client = useQueryClient();
   const [reviewed, setReviewed] = useState<Record<string, string>>({});
   const items = useQuery({
@@ -84,16 +88,22 @@ export function SubmissionReview() {
   });
   return (
     <section className="stack" aria-labelledby="submission-review-title">
-      <h2 id="submission-review-title">Submission review</h2>
-      <Notice>
-        Submission requires your review and exact approval for each application.
-        This release supports controlled localhost fixtures only. Real employer
-        submission is unavailable. An uncertain result requires receipt
-        verification before any further action.
-      </Notice>
-      <Button onClick={() => stop.mutate()} disabled={stop.isPending}>
-        Stop the remaining submissions
-      </Button>
+      <h2 id="submission-review-title">
+        {historyOnly ? "Saved submission history" : "Submission review"}
+      </h2>
+      {!historyOnly && (
+        <>
+          <Notice>
+            Submission requires your review and exact approval for each
+            application. This release supports controlled localhost fixtures
+            only. Real employer submission is unavailable. An uncertain result
+            requires receipt verification before any further action.
+          </Notice>
+          <Button onClick={() => stop.mutate()} disabled={stop.isPending}>
+            Stop the remaining submissions
+          </Button>
+        </>
+      )}
       {[items, approve, execute, reconcile, stop].map(
         (r, i) => r.isError && <ErrorState key={i} error={r.error} />,
       )}
@@ -102,7 +112,11 @@ export function SubmissionReview() {
           <h3>
             {s.employer} — {s.job_title}
           </h3>
-          <p role="status">{labels[s.state] || s.state}</p>
+          <p role="status">
+            {s.state === "submitted" && !s.evidence
+              ? "Saved as submitted · receipt unavailable"
+              : labels[s.state] || s.state}
+          </p>
           <p>Selected application: {s.application_id}</p>
           <p>Job: {s.job_id}</p>
           <p>Destination: {s.origin}</p>
@@ -119,62 +133,68 @@ export function SubmissionReview() {
             <p>Filled document: {s.document_digest}</p>
           </details>
           <p>Approval expires {new Date(s.expires_at).toLocaleString()}</p>
-          {s.state === "awaiting_submission_approval" && !s.authorization && (
-            <>
-              <label>
-                <input
-                  type="checkbox"
-                  checked={reviewed[s.application_id] === s.review_digest}
-                  onChange={(e) =>
-                    setReviewed({
-                      ...reviewed,
-                      [s.application_id]: e.target.checked
-                        ? s.review_digest
-                        : "",
-                    })
+          {!historyOnly &&
+            s.state === "awaiting_submission_approval" &&
+            !s.authorization && (
+              <>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={reviewed[s.application_id] === s.review_digest}
+                    onChange={(e) =>
+                      setReviewed({
+                        ...reviewed,
+                        [s.application_id]: e.target.checked
+                          ? s.review_digest
+                          : "",
+                      })
+                    }
+                  />{" "}
+                  I reviewed the filled values, narratives, resume, employer and
+                  exact destination for application {s.application_id}.
+                </label>
+                <Button
+                  disabled={
+                    approve.isPending ||
+                    reviewed[s.application_id] !== s.review_digest ||
+                    Date.parse(s.expires_at) <= Date.now()
                   }
-                />{" "}
-                I reviewed the filled values, narratives, resume, employer and
-                exact destination for application {s.application_id}.
-              </label>
+                  onClick={() => approve.mutate(s)}
+                >
+                  Authorize this one application
+                </Button>
+              </>
+            )}
+          {!historyOnly &&
+            s.state === "awaiting_submission_approval" &&
+            !!s.authorization && (
               <Button
                 disabled={
-                  approve.isPending ||
-                  reviewed[s.application_id] !== s.review_digest ||
+                  execute.isPending ||
+                  s.released ||
                   Date.parse(s.expires_at) <= Date.now()
                 }
-                onClick={() => approve.mutate(s)}
+                onClick={() => execute.mutate(s)}
               >
-                Authorize this one application
+                {s.released
+                  ? "Waiting for browser worker"
+                  : "Submit this approved application"}
               </Button>
-            </>
-          )}
-          {s.state === "awaiting_submission_approval" && !!s.authorization && (
-            <Button
-              disabled={
-                execute.isPending ||
-                s.released ||
-                Date.parse(s.expires_at) <= Date.now()
-              }
-              onClick={() => execute.mutate(s)}
-            >
-              {s.released
-                ? "Waiting for browser worker"
-                : "Submit this approved application"}
-            </Button>
-          )}
+            )}
           {s.state === "submission_uncertain" && (
             <>
               <Notice>
                 Do not submit again. The employer may already have received this
                 application. Check read-only evidence or verify manually.
               </Notice>
-              <Button
-                disabled={reconcile.isPending}
-                onClick={() => reconcile.mutate(s)}
-              >
-                Check receipt without resubmitting
-              </Button>
+              {!historyOnly && (
+                <Button
+                  disabled={reconcile.isPending}
+                  onClick={() => reconcile.mutate(s)}
+                >
+                  Check receipt without resubmitting
+                </Button>
+              )}
             </>
           )}
           {s.evidence && (

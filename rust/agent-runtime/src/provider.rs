@@ -96,6 +96,22 @@ fn number(values: &BTreeMap<String, String>, key: &str, default: u32) -> Result<
         })
         .unwrap_or(Ok(default))
 }
+
+pub(crate) fn billing_policy(values: &BTreeMap<String, String>) -> Result<MonthlyPolicy> {
+    let policy = MonthlyPolicy {
+        requests: number(values, "LLM_MONTHLY_MAX_REQUESTS", 200)?,
+        cohere_requests: number(values, "COHERE_MONTHLY_MAX_REQUESTS", 100)?,
+        cohere_tokens: number(values, "COHERE_MONTHLY_MAX_TOKENS", 500000)?,
+        reserved_input_bytes: number(values, "LLM_MAX_INPUT_CHARS", 16000)?,
+        reserved_output_tokens: number(values, "LLM_MAX_OUTPUT_TOKENS", 1000)?,
+    };
+    if !(1000..=64000).contains(&policy.reserved_input_bytes)
+        || !(64..=8192).contains(&policy.reserved_output_tokens)
+    {
+        return Err(Failure("invalid_provider_configuration"));
+    }
+    Ok(policy)
+}
 impl CohereModel {
     pub(crate) fn share_gate(&mut self, gate: Arc<tokio::sync::Semaphore>) {
         self.gate = gate;
@@ -163,18 +179,7 @@ impl CohereModel {
         if !["command-a-plus-05-2026", "command-a-03-2025"].contains(&model) {
             return Err(Failure("model_unavailable"));
         }
-        let policy = MonthlyPolicy {
-            requests: number(values, "LLM_MONTHLY_MAX_REQUESTS", 200)?,
-            cohere_requests: number(values, "COHERE_MONTHLY_MAX_REQUESTS", 100)?,
-            cohere_tokens: number(values, "COHERE_MONTHLY_MAX_TOKENS", 500000)?,
-            reserved_input_bytes: number(values, "LLM_MAX_INPUT_CHARS", 16000)?,
-            reserved_output_tokens: number(values, "LLM_MAX_OUTPUT_TOKENS", 1000)?,
-        };
-        if !(1000..=64000).contains(&policy.reserved_input_bytes)
-            || !(64..=8192).contains(&policy.reserved_output_tokens)
-        {
-            return Err(Failure("invalid_provider_configuration"));
-        }
+        let policy = billing_policy(values)?;
         policy.maximum()?;
         let client = reqwest::Client::builder()
             .no_proxy()

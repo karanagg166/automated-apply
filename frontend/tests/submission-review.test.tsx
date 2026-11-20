@@ -34,7 +34,8 @@ const submission = {
   released: false,
   evidence: null,
 };
-function mount(data = submission) {
+function mount(data = submission, historyOnly = false) {
+  vi.clearAllMocks();
   vi.mocked(api).mockResolvedValue([data]);
   vi.mocked(post).mockResolvedValue({});
   return render(
@@ -43,10 +44,23 @@ function mount(data = submission) {
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <SubmissionReview />
+      <SubmissionReview historyOnly={historyOnly} />
     </QueryClientProvider>,
   );
 }
+it("shows retained uncertain evidence without exposing fixture write controls on Rust", async () => {
+  mount({ ...submission, state: "submission_uncertain" }, true);
+  expect(
+    await screen.findByRole("heading", { name: "Saved submission history" }),
+  ).toBeVisible();
+  expect(await screen.findByText("Submission uncertain")).toBeVisible();
+  expect(
+    screen.queryByRole("button", {
+      name: /check receipt|stop the remaining|authorize|submit this/i,
+    }),
+  ).toBeNull();
+  expect(post).not.toHaveBeenCalled();
+});
 it("requires exact reviewed employer, URL and application selection before authorization", async () => {
   mount();
   const authorize = await screen.findByRole("button", {

@@ -1,0 +1,703 @@
+{
+  "$defs": {
+    "Approval": {
+      "additionalProperties": false,
+      "properties": {
+        "expected_revision": {
+          "minimum": 1,
+          "title": "Expected Revision",
+          "type": "integer"
+        },
+        "maximum_applications": {
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Maximum Applications",
+          "type": "integer"
+        },
+        "nonce": {
+          "format": "uuid",
+          "title": "Nonce",
+          "type": "string"
+        },
+        "platforms": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "title": "Platforms",
+          "type": "array"
+        },
+        "scope": {
+          "enum": [
+            "prepare",
+            "fill",
+            "submit"
+          ],
+          "title": "Scope",
+          "type": "string"
+        }
+      },
+      "required": [
+        "expected_revision",
+        "nonce",
+        "scope",
+        "platforms",
+        "maximum_applications"
+      ],
+      "title": "Approval",
+      "type": "object"
+    },
+    "Filters": {
+      "additionalProperties": false,
+      "properties": {
+        "exclude_applied": {
+          "default": true,
+          "title": "Exclude Applied",
+          "type": "boolean"
+        },
+        "exclude_internships": {
+          "default": false,
+          "title": "Exclude Internships",
+          "type": "boolean"
+        },
+        "limit": {
+          "default": 10,
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "location": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Location"
+        },
+        "maximum_employees": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum Employees"
+        },
+        "maximum_experience": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Maximum Experience"
+        },
+        "minimum_employees": {
+          "anyOf": [
+            {
+              "maximum": 10000000,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum Employees"
+        },
+        "minimum_experience": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum Experience"
+        },
+        "minimum_salary": {
+          "anyOf": [
+            {
+              "maximum": 1000000000000.0,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Minimum Salary"
+        },
+        "remote": {
+          "anyOf": [
+            {
+              "enum": [
+                "remote",
+                "hybrid",
+                "onsite",
+                "any"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Remote"
+        },
+        "role": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Role"
+        },
+        "salary_currency": {
+          "anyOf": [
+            {
+              "maxLength": 10,
+              "minLength": 3,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Salary Currency"
+        },
+        "salary_period": {
+          "anyOf": [
+            {
+              "enum": [
+                "year",
+                "month",
+                "hour"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Salary Period"
+        },
+        "skills": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Skills",
+          "type": "array"
+        },
+        "source": {
+          "default": "cached",
+          "enum": [
+            "cached",
+            "greenhouse",
+            "arbeitnow",
+            "remotive",
+            "hacker_news",
+            "naukri",
+            "wellfound",
+            "instahyre",
+            "work_at_a_startup",
+            "internshala"
+          ],
+          "title": "Source",
+          "type": "string"
+        },
+        "startup": {
+          "default": false,
+          "title": "Startup",
+          "type": "boolean"
+        }
+      },
+      "title": "Filters",
+      "type": "object"
+    },
+    "Plan": {
+      "additionalProperties": false,
+      "properties": {
+        "actions": {
+          "items": {
+            "$ref": "#/$defs/ToolCall"
+          },
+          "maxItems": 16,
+          "title": "Actions",
+          "type": "array"
+        },
+        "confirmation_required": {
+          "default": true,
+          "title": "Confirmation Required",
+          "type": "boolean"
+        },
+        "filters": {
+          "$ref": "#/$defs/Filters"
+        },
+        "intent": {
+          "enum": [
+            "search",
+            "filter",
+            "apply",
+            "status",
+            "cancel",
+            "approve",
+            "select_project",
+            "fill",
+            "inspect",
+            "submission_status",
+            "submit_approved",
+            "stop_submissions",
+            "clarify"
+          ],
+          "title": "Intent",
+          "type": "string"
+        },
+        "max_steps": {
+          "default": 16,
+          "maximum": 16,
+          "minimum": 1,
+          "title": "Max Steps",
+          "type": "integer"
+        },
+        "max_tokens": {
+          "default": 4000,
+          "maximum": 4000,
+          "minimum": 1,
+          "title": "Max Tokens",
+          "type": "integer"
+        },
+        "max_tool_calls": {
+          "default": 16,
+          "maximum": 16,
+          "minimum": 1,
+          "title": "Max Tool Calls",
+          "type": "integer"
+        },
+        "missing_information": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 5,
+          "title": "Missing Information",
+          "type": "array"
+        },
+        "selected_jobs": {
+          "items": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Selected Jobs",
+          "type": "array"
+        }
+      },
+      "required": [
+        "intent",
+        "filters"
+      ],
+      "title": "Plan",
+      "type": "object"
+    },
+    "ToolCall": {
+      "additionalProperties": false,
+      "properties": {
+        "arguments": {
+          "additionalProperties": true,
+          "title": "Arguments",
+          "type": "object"
+        },
+        "name": {
+          "enum": [
+            "search_jobs",
+            "filter_jobs",
+            "rank_jobs",
+            "get_candidate_profile",
+            "get_approved_project_context",
+            "get_canonical_resume",
+            "get_application_history",
+            "prepare_application",
+            "generate_grounded_answer",
+            "preview_application",
+            "fill_application",
+            "inspect_application",
+            "submit_application",
+            "get_campaign_status",
+            "cancel_campaign",
+            "find_founder_profiles",
+            "create_outreach_draft"
+          ],
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "ToolCall",
+      "type": "object"
+    },
+    "Understanding": {
+      "additionalProperties": false,
+      "properties": {
+        "campaign_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Campaign Id"
+        },
+        "fill_prepared": {
+          "default": false,
+          "title": "Fill Prepared",
+          "type": "boolean"
+        },
+        "filters": {
+          "$ref": "#/$defs/Filters"
+        },
+        "intent": {
+          "enum": [
+            "search",
+            "filter",
+            "apply",
+            "status",
+            "cancel",
+            "approve",
+            "select_project",
+            "fill",
+            "inspect",
+            "submission_status",
+            "submit_approved",
+            "stop_submissions",
+            "clarify"
+          ],
+          "title": "Intent",
+          "type": "string"
+        },
+        "missing_information": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 5,
+          "title": "Missing Information",
+          "type": "array"
+        },
+        "positions": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 10,
+          "title": "Positions",
+          "type": "array"
+        },
+        "prepare_count": {
+          "default": 0,
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Prepare Count",
+          "type": "integer"
+        },
+        "project": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Project"
+        }
+      },
+      "required": [
+        "intent"
+      ],
+      "title": "Understanding",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "actor": {
+      "default": "owner:primary",
+      "title": "Actor",
+      "type": "string"
+    },
+    "applications": {
+      "additionalProperties": true,
+      "title": "Applications",
+      "type": "object"
+    },
+    "approval": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Approval"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "approval_nonce": {
+      "format": "uuid",
+      "title": "Approval Nonce",
+      "type": "string"
+    },
+    "attempts": {
+      "default": 0,
+      "title": "Attempts",
+      "type": "integer"
+    },
+    "available_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Available At"
+    },
+    "candidate_ids": {
+      "items": {
+        "format": "uuid",
+        "type": "string"
+      },
+      "maxItems": 100,
+      "title": "Candidate Ids",
+      "type": "array"
+    },
+    "created_at": {
+      "title": "Created At",
+      "type": "string"
+    },
+    "diagnostic": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Diagnostic"
+    },
+    "fence": {
+      "default": 0,
+      "title": "Fence",
+      "type": "integer"
+    },
+    "heartbeat_at": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Heartbeat At"
+    },
+    "history": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "maxItems": 100,
+      "title": "History",
+      "type": "array"
+    },
+    "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+    },
+    "lease_until": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Lease Until"
+    },
+    "message": {
+      "default": "",
+      "maxLength": 2000,
+      "title": "Message",
+      "type": "string"
+    },
+    "next_step": {
+      "default": 0,
+      "title": "Next Step",
+      "type": "integer"
+    },
+    "owner": {
+      "const": "primary",
+      "default": "primary",
+      "title": "Owner",
+      "type": "string"
+    },
+    "plan": {
+      "$ref": "#/$defs/Plan"
+    },
+    "planned": {
+      "default": false,
+      "title": "Planned",
+      "type": "boolean"
+    },
+    "ranked_jobs": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "maxItems": 10,
+      "title": "Ranked Jobs",
+      "type": "array"
+    },
+    "reply": {
+      "default": "Accepted; pending worker execution. Zero submissions were made.",
+      "title": "Reply",
+      "type": "string"
+    },
+    "results": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "maxItems": 100,
+      "title": "Results",
+      "type": "array"
+    },
+    "revision": {
+      "default": 1,
+      "title": "Revision",
+      "type": "integer"
+    },
+    "selected_project": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Selected Project"
+    },
+    "state": {
+      "default": "created",
+      "enum": [
+        "created",
+        "planned",
+        "awaiting_approval",
+        "queued",
+        "running",
+        "waiting_browser",
+        "completed",
+        "partially_completed",
+        "failed",
+        "cancelled"
+      ],
+      "title": "State",
+      "type": "string"
+    },
+    "telegram_update_id": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Telegram Update Id"
+    },
+    "tokens_used": {
+      "default": 0,
+      "title": "Tokens Used",
+      "type": "integer"
+    },
+    "tool_calls": {
+      "default": 0,
+      "title": "Tool Calls",
+      "type": "integer"
+    },
+    "understanding": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Understanding"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "updated_at": {
+      "title": "Updated At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "id",
+    "plan",
+    "created_at",
+    "updated_at"
+  ],
+  "title": "Campaign",
+  "type": "object"
+}

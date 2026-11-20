@@ -10,7 +10,7 @@ vi.mock("@/lib/api", async (original) => ({
   api: vi.fn(),
   post: vi.fn(),
 }));
-function mount() {
+function mount(nativeRuntime = false) {
   return render(
     <QueryClientProvider
       client={
@@ -22,7 +22,7 @@ function mount() {
         })
       }
     >
-      <Agent />
+      <Agent nativeRuntime={nativeRuntime} />
     </QueryClientProvider>,
   );
 }
@@ -119,4 +119,38 @@ it("distinguishes the available command worker from the unavailable Chrome worke
   mount();
   expect(await screen.findByText("Command worker available")).toBeVisible();
   expect(screen.getByText("Chrome worker unavailable")).toBeVisible();
+});
+
+it("opens the native workflow and displays retained campaigns without legacy write controls", async () => {
+  vi.mocked(api).mockImplementation(async (path) => {
+    if (path === "agent/status")
+      return { native_worker_online: true, native_worker_mode: "STOPPED" };
+    if (path === "agent/campaigns")
+      return [
+        {
+          id: "fixture",
+          message: "Fictional saved campaign",
+          state: "awaiting_approval",
+          plan: {},
+          reply: "Saved review.",
+        },
+      ];
+    return [];
+  });
+  mount(true);
+  expect(
+    await screen.findByRole("link", { name: "Open agent workflow" }),
+  ).toHaveAttribute("href", "/workflow");
+  expect(
+    await screen.findByText("Workflow worker online · stopped"),
+  ).toBeVisible();
+  expect(
+    await screen.findByRole("heading", { name: "Fictional saved campaign" }),
+  ).toBeVisible();
+  expect(
+    screen.queryByRole("button", {
+      name: /approve|cancel campaign|send command/i,
+    }),
+  ).toBeNull();
+  expect(post).not.toHaveBeenCalled();
 });

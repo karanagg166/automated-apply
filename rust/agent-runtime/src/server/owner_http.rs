@@ -21,6 +21,10 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     }
     let method = request.method().as_str().to_owned();
     let path = request.uri().path().to_owned();
+    let legacy_review = crate::legacy_review::route(&path);
+    if legacy_review.is_some() && method != "GET" {
+        return fail(Failure("resource_read_method_not_allowed"));
+    }
     let candidate_context = crate::project_context::dashboard::route(&path);
     if let Some(route) = candidate_context
         && !route.allows(&method)
@@ -907,6 +911,19 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
                 status: StatusCode::OK,
                 etag: None,
             })
+        }
+        Some(connection) if legacy_review.is_some() => {
+            if packet_query.is_some() || !body.is_empty() {
+                Err(Failure("invalid_legacy_review_request"))
+            } else {
+                crate::legacy_review::dispatch(connection, legacy_review.unwrap(), &api.config)
+                    .await
+                    .map(|data| OwnerReply {
+                        data,
+                        status: StatusCode::OK,
+                        etag: None,
+                    })
+            }
         }
         Some(connection) if candidate_context.is_some() => {
             crate::project_context::dashboard::dispatch(

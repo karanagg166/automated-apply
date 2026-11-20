@@ -55,6 +55,7 @@ pub struct Configuration {
     pub(crate) contact_enrichment: crate::contacts::enrichment::Settings,
     pub(crate) connection_settings: crate::connection_report::Settings,
     pub(crate) dashboard_legacy: crate::dashboard_legacy::Settings,
+    pub(crate) legacy_review: crate::legacy_review::Settings,
     pub(crate) project_sources: crate::project_context::dashboard::builder::Settings,
     pub(crate) contact_providers: crate::contacts::enrichment::providers::Clients,
     pub(crate) apollo_eligibility: crate::contacts::enrichment::capabilities::Eligibility,
@@ -327,6 +328,7 @@ impl Configuration {
             contact_enrichment: crate::contacts::enrichment::Settings::from_values(values)?,
             connection_settings: crate::connection_report::Settings::from_values(values),
             dashboard_legacy: crate::dashboard_legacy::Settings::from_values(values, fixture)?,
+            legacy_review: crate::legacy_review::Settings::from_values(values),
             project_sources: crate::project_context::dashboard::builder::Settings::from_values(
                 values,
             )?,

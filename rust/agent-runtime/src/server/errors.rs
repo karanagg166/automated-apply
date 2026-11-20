@@ -7,6 +7,17 @@ use axum::{
 use serde_json::{Value, json};
 
 pub(super) fn profile_failure(error: Failure) -> Response {
+    let review_status = match error.0 {
+        "campaign_not_found" => Some(StatusCode::NOT_FOUND),
+        "invalid_legacy_review_request" => Some(StatusCode::UNPROCESSABLE_ENTITY),
+        "invalid_saved_legacy_review" | "saved_legacy_review_limit" => {
+            Some(StatusCode::SERVICE_UNAVAILABLE)
+        }
+        _ => None,
+    };
+    if let Some(status) = review_status {
+        return reply(status, json!({"detail":error.0}));
+    }
     let context_status = match error.0 {
         "invalid_project_context_request" | "invalid_project_context_answer_query" => {
             Some(StatusCode::UNPROCESSABLE_ENTITY)

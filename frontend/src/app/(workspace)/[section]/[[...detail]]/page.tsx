@@ -21,6 +21,7 @@ export default async function Page({
   searchParams?: Promise<{ missing_input?: string; question_id?: string }>;
 }) {
   const { section, detail } = await params;
+  const nativeRuntime = Boolean(process.env.RUST_AGENT_UNIX_SOCKET);
   const sp = await searchParams;
   const rawId = sp?.missing_input || sp?.question_id;
   const initialRequestId =
@@ -30,7 +31,8 @@ export default async function Page({
   if (detail?.length) {
     if (detail.length !== 1 || !/^[-a-f0-9]{36}$/.test(detail[0])) notFound();
     if (section === "startups") return <CompanyDetail id={detail[0]} />;
-    if (section === "applications") return <ApplicationDetail id={detail[0]} />;
+    if (section === "applications")
+      return <ApplicationDetail id={detail[0]} nativeRuntime={nativeRuntime} />;
     if (section === "outreach") return <OutreachDetail id={detail[0]} />;
     notFound();
   }
@@ -38,15 +40,13 @@ export default async function Page({
     case "naukri":
       return <Naukri />;
     case "agent":
-      return <Agent />;
+      return <Agent nativeRuntime={nativeRuntime} />;
     case "startups":
       return <StartupExplorer />;
     case "jobs":
       return <Jobs />;
     case "discover":
-      return (
-        <Discover nativeRuntime={Boolean(process.env.RUST_AGENT_UNIX_SOCKET)} />
-      );
+      return <Discover nativeRuntime={nativeRuntime} />;
     case "people":
       return <People />;
     case "applications":

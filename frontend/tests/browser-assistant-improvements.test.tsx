@@ -132,7 +132,7 @@ const fictionalStatusConnected = {
   },
 };
 
-function mount(packet = fictionalPacket) {
+function mount(packet = fictionalPacket, nativeRuntime = false) {
   const client = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
@@ -141,7 +141,7 @@ function mount(packet = fictionalPacket) {
   });
   const mounted = render(
     <QueryClientProvider client={client}>
-      <BrowserAssistant packet={packet} />
+      <BrowserAssistant packet={packet} nativeRuntime={nativeRuntime} />
     </QueryClientProvider>,
   );
   fireEvent.change(screen.getByLabelText("Application browser"), {
@@ -149,6 +149,29 @@ function mount(packet = fictionalPacket) {
   });
   return mounted;
 }
+
+it("loads a saved isolated review through the native read route", async () => {
+  vi.clearAllMocks();
+  vi.mocked(api).mockResolvedValue({
+    ...fictionalStatusConnected,
+    connected: false,
+    recovery:
+      "Check the saved submission receipt before taking further action.",
+  });
+  mount(fictionalPacket, true);
+  expect(
+    await screen.findByRole("heading", { name: "Saved browser review" }),
+  ).toBeVisible();
+  expect(await screen.findByText(/saved fields/)).toBeVisible();
+  expect(screen.getByText(/Check the saved submission receipt/)).toBeVisible();
+  expect(vi.mocked(api)).toHaveBeenCalledWith(
+    `browser-applications/${fictionalPacket.id}`,
+  );
+  expect(
+    screen.queryByRole("button", { name: "Open dedicated browser" }),
+  ).toBeNull();
+  expect(post).not.toHaveBeenCalled();
+});
 
 describe("Browser Assistant UI Improvements", () => {
   beforeEach(() => {

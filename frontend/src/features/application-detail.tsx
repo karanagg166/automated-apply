@@ -84,7 +84,13 @@ const QUESTION_TEMPLATES = [
   },
 ] as const;
 
-export function ApplicationDetail({ id }: { id: string }) {
+export function ApplicationDetail({
+  id,
+  nativeRuntime = false,
+}: {
+  id: string;
+  nativeRuntime?: boolean;
+}) {
   const [dirtyFields, setDirtyFields] = useState<string[]>([]);
   const onDirty = useCallback((fieldId: string, dirty: boolean) => {
     setDirtyFields((current) =>
@@ -776,6 +782,7 @@ export function ApplicationDetail({ id }: { id: string }) {
       />
       <BrowserAssistant
         packet={p}
+        nativeRuntime={nativeRuntime}
         hasUnsavedAnswers={dirtyFields.length > 0}
         onRefresh={() => refresh.mutate()}
       />
