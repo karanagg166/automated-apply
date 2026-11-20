@@ -1,7 +1,12 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { beforeEach, expect, it, vi } from "vitest";
+import {
+  defaultScheduler,
+  QueryClient,
+  QueryClientProvider,
+  notifyManager,
+} from "@tanstack/react-query";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api, post } from "@/lib/api";
 import {
   ConnectedEmails,
@@ -69,7 +74,12 @@ function mount() {
     </QueryClientProvider>,
   );
 }
+afterEach(() => {
+  notifyManager.setScheduler(defaultScheduler);
+});
 beforeEach(() => {
+  // Flush mock query notifications without relying on a background timer.
+  notifyManager.setScheduler(queueMicrotask);
   vi.clearAllMocks();
   vi.mocked(api).mockImplementation(async (path) => {
     if (path.startsWith("jobs/search")) return { total: 0, jobs: [] } as any;
