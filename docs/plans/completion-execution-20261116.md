@@ -916,6 +916,13 @@ retry and preserve existing source evidence, submissions and application limits.
 Test the two entry points, duplicate intake, conflicting saved data and
 rollback with the disposable PostgreSQL harness.
 
+Paginate the saved Jobs search before loading full display details. Keep
+the fields required for filtering and ranking in the first projection.
+Read the selected descriptions and display metadata in the same repeatable
+read snapshot. Compare both the normal page and ranked search against saved
+status, exclusions, source observations and the previous response fields.
+Measure the exact normal Jobs request after the reviewed local installation.
+
 Keep the current Rust candidate and installed Python rollback pair while proving
 the first supervised Naukri receipt. Use targeted Rust tests or frontend type
 checks for repairs, then run the full local release gate. Keep compatibility
