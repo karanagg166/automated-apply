@@ -4,7 +4,7 @@ use crate::{Failure, Result, context_contract::python_space, legacy_regex::Regex
 use automated_apply_domain::text::folded;
 use serde_json::{Value, json};
 use std::{collections::BTreeSet, sync::LazyLock};
-fn compact(text: &str, words: usize, characters: usize) -> String {
+pub(super) fn compact(text: &str, words: usize, characters: usize) -> String {
     let value = text
         .split(python_space)
         .filter(|s| !s.is_empty())

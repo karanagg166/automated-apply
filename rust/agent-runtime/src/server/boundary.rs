@@ -20,6 +20,7 @@ pub(super) fn profile_route(path: &str) -> bool {
         || path == "/api/v1/dashboard/runtime"
         || path == "/api/v1/dashboard/overview"
         || crate::dashboard_legacy::route(path).is_some()
+        || crate::project_context::dashboard::route(path).is_some()
         || saved_match_route(path).is_some()
         || path == "/api/v1/local-agent/profile-confirmation"
         || path == crate::conversation::preferences::PATH
@@ -215,6 +216,10 @@ pub(super) fn selected_resource(
         && (crate::contacts::route(path).is_some()
             || crate::companies::route(path).is_some()
             || crate::startup_catalog::search::route(path).is_some()
+            || matches!(
+                crate::project_context::dashboard::route(path),
+                Some(crate::project_context::dashboard::Route::Answer)
+            )
             || matches!(
                 path,
                 crate::outreach::drafts::PATH | crate::outreach::history::PATH

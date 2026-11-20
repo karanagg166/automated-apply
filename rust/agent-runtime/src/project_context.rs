@@ -1,5 +1,6 @@
 //! Approved project evidence loaded from one read snapshot; no scanning or approval side effects.
 mod conversation;
+pub(crate) mod dashboard;
 use crate::{
     Failure, Result,
     context_contract::{self, Kind, python_space},
@@ -9,6 +10,8 @@ use automated_apply_domain::text::folded;
 use serde_json::{Map, Value, json};
 use sqlx::{Connection, PgConnection, Postgres, Transaction};
 use std::{collections::HashSet, sync::LazyLock};
+
+const CONFIGURATION_KEY: &str = "candidate_configuration_v1";
 
 pub struct Snapshot {
     configuration: Value,
@@ -47,19 +50,15 @@ fn key(project: &Value) -> Result<String> {
         id
     ))
 }
-fn config(records: &Map<String, Value>) -> Result<Value> {
+fn configuration_record(saved: Option<Value>) -> Result<Value> {
     context_contract::normalize(
         Kind::Configuration,
-        records
-            .get("candidate_configuration_v1")
-            .filter(|v| truth(v))
-            .cloned()
-            .unwrap_or(json!({})),
+        saved.filter(truth).unwrap_or(json!({})),
     )
 }
 impl Snapshot {
     pub fn from_records(records: &Map<String, Value>) -> Result<Self> {
-        let configuration = config(records)?;
+        let configuration = configuration_record(records.get(CONFIGURATION_KEY).cloned())?;
         let mut knowledge = Vec::new();
         for project in configuration["configuration"]["projects"]
             .as_array()
@@ -103,17 +102,13 @@ impl Snapshot {
         if !matches!(isolation.as_str(), "repeatable read" | "serializable") {
             return Err(Failure("project_context_snapshot_required"));
         }
-        let value: Option<Value> = sqlx::query_scalar(
-            "SELECT value FROM owner_preferences WHERE key='candidate_configuration_v1'",
-        )
-        .fetch_optional(&mut **tx)
-        .await
-        .map_err(db)?;
-        let mut records = Map::new();
-        if let Some(value) = value {
-            records.insert("candidate_configuration_v1".into(), value);
-        }
-        let configuration = config(&records)?;
+        let value: Option<Value> =
+            sqlx::query_scalar("SELECT value FROM owner_preferences WHERE key=$1")
+                .bind(CONFIGURATION_KEY)
+                .fetch_optional(&mut **tx)
+                .await
+                .map_err(db)?;
+        let configuration = configuration_record(value.clone())?;
         let keys = configuration["configuration"]["projects"]
             .as_array()
             .ok_or_else(invalid)?
@@ -126,7 +121,10 @@ impl Snapshot {
                 .fetch_all(&mut **tx)
                 .await
                 .map_err(db)?;
-        records.extend(rows);
+        let mut records = rows.into_iter().collect::<Map<_, _>>();
+        if let Some(value) = value {
+            records.insert(CONFIGURATION_KEY.into(), value);
+        }
         Self::from_records(&records)
     }
     /// Bind the complete local evidence state, including URL/hash metadata kept out of prompts.

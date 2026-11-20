@@ -869,6 +869,17 @@ Rust Discover page load sends a schedule read with no mutations. Finish the
 other legacy route work as a separate batch after confirming the existing
 Rust contracts for candidate context, campaign history and browser review.
 
+Restore candidate-context setup and review against the existing preference
+records. Reuse the frozen configuration and knowledge schemas and the native
+approved-answer generator. Use the owner fence and an exact comparison with
+the previous record for configuration saves and project approvals. Preserve
+revision checks, approval history and content digests. Verify these routes
+with an authenticated disposable PostgreSQL fixture, including a stale
+configuration, a rejected inferred fact, a successful owner approval and an
+answer that cites only the current approval. The project build path needs its
+own authorized checkout and template-file readers before it can produce new
+candidate evidence.
+
 Keep the current Rust candidate and installed Python rollback pair while proving
 the first supervised Naukri receipt. Use targeted Rust tests or frontend type
 checks for repairs, then run the full local release gate. Keep compatibility

@@ -7,6 +7,26 @@ use axum::{
 use serde_json::{Value, json};
 
 pub(super) fn profile_failure(error: Failure) -> Response {
+    let context_status = match error.0 {
+        "invalid_project_context_request" | "invalid_project_context_answer_query" => {
+            Some(StatusCode::UNPROCESSABLE_ENTITY)
+        }
+        "configuration_changed_reload"
+        | "configuration_audit_archive_required"
+        | "concurrent_record_change_reload"
+        | "drive_oauth_deferred_use_manual_pdf_upload"
+        | "explicit_owner_review_required"
+        | "fact_selection_not_in_current_revision"
+        | "inferred_or_unevidenced_claim_cannot_be_approved"
+        | "project_changed_rebuild_and_review"
+        | "project_history_archive_required"
+        | "project_conversation_fact_review_required" => Some(StatusCode::CONFLICT),
+        "invalid_saved_project_context" => Some(StatusCode::SERVICE_UNAVAILABLE),
+        _ => None,
+    };
+    if let Some(status) = context_status {
+        return reply(status, json!({"detail":error.0}));
+    }
     let command_status = match error.0 {
         "invalid_local_command" => Some(StatusCode::UNPROCESSABLE_ENTITY),
         "local_command_method_not_allowed" => Some(StatusCode::METHOD_NOT_ALLOWED),

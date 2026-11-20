@@ -21,6 +21,19 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     }
     let method = request.method().as_str().to_owned();
     let path = request.uri().path().to_owned();
+    let candidate_context = crate::project_context::dashboard::route(&path);
+    if let Some(route) = candidate_context
+        && !route.allows(&method)
+    {
+        let mut response = reply(
+            StatusCode::METHOD_NOT_ALLOWED,
+            json!({"detail":"project_context_method_not_allowed"}),
+        );
+        response
+            .headers_mut()
+            .insert("allow", axum::http::HeaderValue::from_static(route.allow()));
+        return response;
+    }
     let local_command_route = crate::owner_commands::route(&path);
     if let Some(route) = local_command_route
         && method != route.method()
@@ -884,6 +897,21 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
                 packet_query.as_deref(),
                 &body,
                 &api.config,
+            )
+            .await
+            .map(|data| OwnerReply {
+                data,
+                status: StatusCode::OK,
+                etag: None,
+            })
+        }
+        Some(connection) if candidate_context.is_some() => {
+            crate::project_context::dashboard::dispatch(
+                connection,
+                candidate_context.unwrap(),
+                &method,
+                packet_query.as_deref(),
+                &body,
             )
             .await
             .map(|data| OwnerReply {
