@@ -141,11 +141,36 @@ Read-only inspection of `luvdmwnlwaqgvfwlmlom` after the `74a7f25` cutover confi
 | Live DB data, policy, quota, and quarantine preservation | **PASS** | Exact match with pre-DDL snapshot: `3,018` jobs, `35` packets, `STOPPED` rev `162`, `naukri_automation STOPPED` rev `100`, `rust_agent_control STOPPED` rev `1`, cap `4` / hourly `1`, `3` reservations, `3` `unknown` quarantined jobs, `2 <= 5` DB sessions. |
 | LaunchAgent restart recovery & focus preservation | **PASS** | `launchctl kickstart -k` on `rust` and `frontend` recovered to `200` with `focus --compare` `PASS`. |
 | Passive Brave native bridge binary handoff | **PASS** (bridge) / **BLOCKED** (window) | Brave spawned `rust-74a7f25.../bin/automated-apply-native` passively; Brave remains windowless (`0` page targets, `window_id: null`). |
-| Unported legacy dashboard endpoints in Rust | **NOT TESTED / UNPORTED** | `dashboard/presets`, `dashboard/connections`, `dashboard/onboarding/manifest`, `dashboard/candidate-context/*`, `dashboard/automation`, `integrations`, `jobs/search`, `browser/submissions`, `browser-applications/*`, `agent/status`, `agent/campaigns` return `404`/`422` on Rust and remain unported. |
-| Live Naukri 4th supervised submission & first strict worker receipt | **BLOCKED** | Blocked on windowless Brave automation profile (`0` page targets) and owner sign-in in a visible Brave window (automatic `chrome.windows.create` is suspended per `AGENTS.md`). |
+| Unported secondary legacy dashboard endpoints in Rust | **PARTIALLY PORTED** | `jobs/search`, `integrations`, `startups/integrations/status`, `dashboard/connections`, `dashboard/onboarding/manifest`, `dashboard/presets`, and `browser-applications/policy` ported & live-verified `200` on `d7d0484`; secondary legacy tabs (`dashboard/candidate-context/*`, `dashboard/automation`, `browser/submissions`, `agent/status`, `agent/campaigns`) remain unported. |
+| Live Naukri 4th supervised submission & first strict worker receipt | **BLOCKED** | Blocked on windowless Brave automation profile (`0` page targets, `PROFILE_OFFLINE`) and owner sign-in in a visible Brave window (automatic `chrome.windows.create` is suspended per `AGENTS.md`); Gmail local read-account `gm54_account:1` also reports `reauthorization_required`. |
 | Recurring Naukri `AUTOMATIC` mode | **BLOCKED** | Blocked on the first strict worker receipt prerequisite. |
 | Instahyre, Wellfound, YC Work at a Startup, Internshala live submission adapters | **BLOCKED / NOT TESTED** | Packet preparation, manual handoff, and session observation are active; live automated submission adapters remain queued behind Naukri's first strict receipt. |
-| 24-hour awake/locked runtime soak on `rust-74a7f25` | **IN PROGRESS** | Installed `rust-74a7f25` is running cleanly under LaunchAgents; the 24-hour observation window has started and has not yet elapsed. |
+| 24-hour awake/locked runtime soak | **IN PROGRESS** | `rust-74a7f25` ran >10h cleanly before surfacing the IPv6 prefix-change half-open socket stall (fixed in `d7d0484`); fresh 24-hour observation window active on `rust-d7d0484` (`com.automated-apply.rust` PID `95162` at `8,976 KB` RSS + `com.automated-apply.frontend` PID `95164` at `8,000 KB` RSS). |
+
+---
+
+## Upgrade Update — `d7d04845d290a205aeffcfebcbc2b0a517b072d0` (2026-11-20 22:14 IST)
+
+Live soak probing after a host IPv6 prefix rotation (`af98` -> `a3dd`) caught retained PostgreSQL connections in `ControlConnection`, worker heartbeats, and the Telegram loop hanging indefinitely without timing out. Local commit [`d7d0484`](file:///Users/karanagg/Desktop/Projects/automated-apply/.git) fixes this resilience gap and ports the primary dashboard/search routes:
+
+1. **Bounded database recovery (`recovery.rs`, `server.rs`, `server/owner_http.rs`, `server/discovery.rs`, `worker.rs`, `telegram.rs`)**:
+   - Added `IDLE_PROBE_AFTER` (`10s`), `DATABASE_STALL` (`15s`), `recovery::bounded`, `recovery::alive`, and `ControlConnection::revalidate()` so half-open sockets fail cleanly and reconnect automatically.
+   - Added 3 unit tests in `recovery::tests`.
+2. **Primary dashboard & jobs search parity (`job_catalog.rs`, `dashboard_legacy.rs`, `server/{boundary,owner_http,errors}.rs`)**:
+   - Added `GET /api/v1/jobs/search` (filtering, `discovery_match`, `experience_fit`, packet status, and top-20 `job_source_observations`), `GET /api/v1/integrations`, `GET /api/v1/startups/integrations/status`, `GET /api/v1/dashboard/connections`, `GET /api/v1/dashboard/onboarding/manifest`, `GET/POST /api/v1/dashboard/presets`, and `GET /api/v1/browser-applications/policy`.
+   - Added 5 unit tests and 1 disposable PostgreSQL loopback HTTP test (`dashboard_legacy_and_jobs_search_enforce_boundaries_and_match_saved_state`).
+
+### Clean Combined Acceptance (`20261120T154756Z-1d1a335a7ed94992abaf1bd1da2f61b0`) & Cutover Evidence
+
+- **Combined gate**: `36 / 36 PASS` in `2812.558s` (`rust-tests`: `435 passed, 0 failed, 1,084 ignored`; `rust-postgres`: `1,084 passed, 0 failed`; `rust-migration-catalog`: `12/12`; `backend`: `3,433 passed, 1 skipped`; `frontend-tests`: `57 files, 413 passed`; `extension-tests`: `406 passed`; all browser E2E, guards, and tooling gates passed).
+- **Staged release**: `.local/runtime-support/releases/rust-d7d04845d290a205aeffcfebcbc2b0a517b072d0` (`bin/automated-apply-agents` SHA-256 `834d32c355a28f83f8852d491bcaeea8e2b4bc4611404648b825698db18ba385`, `27,731,664` bytes; `frontend/.next/standalone` SHA-256 `d726530c4437758a9ecc0fe4933f6ba32ba9bd15e0f006a6b8468bef9b4e54a3`).
+- **Pre-upgrade rollback backup**: `rust-preinstall-x0qzcb28` verified (`9` definitions, `20` references checked, `0` missing), alongside retained `rust-preinstall-248445k7` and `rust-preinstall-jrnecug8`.
+- **Follow-up plan & verification (`22:14 IST`, `d7d0484`)**: See also [local-rust-recovery-20261120.md](local-rust-recovery-20261120.md) (`rust-plan-pl_ecsw6`, rollback `rust-preinstall-d1s1mcdl`, 24h observation started `2026-11-20T16:39:45Z`). Subsequent local plan `rust-plan-ig3p5ouo` (pre-upgrade rollback `rust-preinstall-x0qzcb28`) independently verified `launchctl bootstrap` and `launchctl kickstart -k` on `com.automated-apply.rust` (PID `95162`, `8,976 KB` RSS) and `com.automated-apply.frontend` (PID `95164`, `8,000 KB` RSS), recovering `/ready = 200` and `/login = 200` in `< 1s` (`RESTART_READY_AT_TRY=2`) with `scripts/macos_focus_snapshot.py --compare` returning `PASS` (`foreground_unchanged: true`, `window_order_unchanged: true`).
+- **Live route & boundary verification (`36 / 36` `HTTP 200`)**:
+  - Boundaries: TCP plaintext `426`, wrong Host `403`, unauth `401`, Next.js unauth `401`.
+  - Newly ported routes live: `dashboard/connections` (`200`, `29.9ms`, `providers=4`), `dashboard/onboarding/manifest` (`200`, `0.4ms`, `resources=17`), `dashboard/presets` (`200`, `presets=1`), `integrations` (`200`, `connectors=10, providers=14`), `startups/integrations/status` (`200`, `providers=14, ttl=24`), `browser-applications/policy` (`200`, `digest_len=64`), `jobs/search` matched (`200`, `total=1131`) & unfiltered (`200`, `total=3018`), plus all 28 previously verified routes (`200`).
+  - Live `cutover-preflight` confirmed `other_visible_role_sessions = 2 <= 5`, `queue_revision = 162` (`STOPPED`), `legacy_preparation_revision = 100` (`STOPPED`), `rust_control = STOPPED rev 1`, `worker_online = true`.
+  - Live Gmail/browser diagnostics: legacy `connected_accounts` reports `status: "connected", authorization_state: "compose_authorized"`; local read-mailbox slot `1` (`gm54_account:1`) reports `reauthorization_required`; `chrome-profiles` shows selected profile `PROFILE_OFFLINE` and dedicated Brave (`127.0.0.1:55599`) windowless (`0` page targets).
 
 ---
 
