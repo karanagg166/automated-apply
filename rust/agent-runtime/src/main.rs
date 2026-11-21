@@ -25,14 +25,15 @@ async fn main() -> std::process::ExitCode {
 }
 async fn run() -> Result<()> {
     let arguments = std::env::args_os().skip(1).collect::<Vec<_>>();
-    if arguments.len() == 5
+    if (arguments.len() == 5 || (arguments.len() == 6 && arguments[5] == "--allow-telegram"))
         && arguments[0] == "prepare-native-config"
         && arguments[1] == "--config"
         && arguments[3] == "--output-directory"
     {
-        return automated_apply_agents::native_setup::prepare(
+        return automated_apply_agents::native_setup::prepare_with_options(
             &PathBuf::from(&arguments[2]),
             &PathBuf::from(&arguments[4]),
+            arguments.len() == 6,
         );
     }
     if arguments.len() == 3 && arguments[0] == "cutover-preflight" && arguments[1] == "--config" {

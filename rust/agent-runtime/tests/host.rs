@@ -80,6 +80,61 @@ fn native_companion_uses_the_same_private_socket_and_preserves_an_existing_file(
 }
 
 #[test]
+fn native_companion_requires_explicit_allow_telegram_flag() {
+    use automated_apply_agents::native_setup;
+
+    let temporary_root = std::path::Path::new("/tmp").canonicalize().unwrap();
+    let directory = tempfile::tempdir_in(temporary_root).unwrap();
+    fs::set_permissions(directory.path(), fs::Permissions::from_mode(0o700)).unwrap();
+    let runtime = directory.path().join("runtime.env");
+    let socket = directory.path().join("rust.sock");
+    let mut values = fixture();
+    values.extend([
+        (
+            "RUST_AGENT_UNIX_SOCKET".into(),
+            socket.to_str().unwrap().into(),
+        ),
+        ("CHROME_NATIVE_MESSAGING_ENABLED".into(), "true".into()),
+        (
+            "CHROME_EXTENSION_ID".into(),
+            "gdjbmkffcpicbpiikcohlmokkmcpipgp".into(),
+        ),
+        ("RUST_TELEGRAM_ENABLED".into(), "true".into()),
+        (
+            "TELEGRAM_BOT_TOKEN".into(),
+            "123:abcdefghijklmnopqrstuvwx".into(),
+        ),
+        ("TELEGRAM_OWNER_USER_ID".into(), "11".into()),
+        ("TELEGRAM_OWNER_CHAT_ID".into(), "22".into()),
+        (
+            "RUST_TELEGRAM_FIXTURE_ENDPOINT".into(),
+            "http://127.0.0.1:54321".into(),
+        ),
+    ]);
+    write(&runtime, &values);
+    let companion = directory.path().join("automated-apply-native.private.env");
+    assert_eq!(
+        native_setup::prepare(&runtime, directory.path())
+            .err()
+            .map(|e| e.0),
+        Some("initial_cutover_requires_telegram_disabled")
+    );
+    assert!(!companion.exists());
+
+    native_setup::prepare_with_options(&runtime, directory.path(), true).unwrap();
+    let saved = fs::read_to_string(&companion).unwrap();
+    let native: BTreeMap<_, _> = dotenvy::from_read_iter(saved.as_bytes())
+        .collect::<std::result::Result<_, _>>()
+        .unwrap();
+    assert_eq!(native.len(), 5);
+    assert!(!saved.contains("TELEGRAM_BOT_TOKEN"));
+    assert_eq!(
+        companion.metadata().unwrap().permissions().mode() & 0o777,
+        0o600
+    );
+}
+
+#[test]
 fn exact_fixture_boundary_cannot_be_used_for_another_database_or_listener() {
     let valid = Configuration::from_values(&fixture()).unwrap();
     assert!(valid.is_fixture());

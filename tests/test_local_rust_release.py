@@ -195,7 +195,8 @@ def test_cutover_plan_keeps_runtime_and_configuration_pinned(tmp_path, monkeypat
     install.render(release_dir, plan, (runtime, frontend), node, 3000, logs=logs)
     assert calls[0][0] == node
     daemon = release_dir / "bin/automated-apply-agents"
-    assert calls[1][:4] == (daemon, "prepare-native-config", "--config", runtime)
+    assert calls[1] == (daemon, "prepare-native-config", "--config", runtime, "--output-directory", plan)
+    assert "--allow-telegram" not in calls[1]
     with (plan / "com.automated-apply.rust.plist").open("rb") as file:
         definition = plistlib.load(file)
     assert definition["ProgramArguments"] == [
@@ -275,8 +276,10 @@ def test_cutover_plan_allows_telegram_when_legacy_plist_absent(tmp_path, monkeyp
     launch_agents = tmp_path / "LaunchAgents"
     launch_agents.mkdir()
     (launch_agents / "com.automated-apply.telegram.plist.disabled").write_text("disabled")
+    calls = []
 
     def check(arguments):
+        calls.append(arguments)
         if arguments[-1] == "--check-config":
             return b""
         (plan / install.NATIVE_CONFIG).write_text("fictional companion config")
@@ -301,6 +304,16 @@ def test_cutover_plan_allows_telegram_when_legacy_plist_absent(tmp_path, monkeyp
             launch_agents_dir=launch_agents,
         )
         is True
+    )
+    daemon = release_dir / "bin/automated-apply-agents"
+    assert calls[1] == (
+        daemon,
+        "prepare-native-config",
+        "--config",
+        runtime,
+        "--output-directory",
+        plan,
+        "--allow-telegram",
     )
 
 

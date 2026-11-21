@@ -127,18 +127,16 @@ def render(
         port,
     )
     local_check((*frontend_args, "--check-config"))
-    result = json.loads(
-        local_check(
-            (
-                daemon,
-                "prepare-native-config",
-                "--config",
-                runtime,
-                "--output-directory",
-                plan,
-            )
-        )
+    native_args = (
+        daemon,
+        "prepare-native-config",
+        "--config",
+        runtime,
+        "--output-directory",
+        plan,
+        *(("--allow-telegram",) if allow_telegram else ()),
     )
+    result = json.loads(local_check(native_args))
     if (
         result.get("extension_id") != STABLE_EXTENSION_ID
         or result.get("fixture") is not False

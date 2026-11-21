@@ -10,9 +10,13 @@ use std::{
 const CONFIG_FILE: &str = "automated-apply-native.private.env";
 
 pub fn prepare(config_path: &Path, output: &Path) -> Result<()> {
+    prepare_with_options(config_path, output, false)
+}
+
+pub fn prepare_with_options(config_path: &Path, output: &Path, allow_telegram: bool) -> Result<()> {
     let config = Configuration::load(config_path)?;
-    // The live legacy Telegram poller is off for the initial laptop cutover.
-    if config.telegram_enabled() {
+    // The live legacy Telegram poller is off for the initial laptop cutover unless opted in.
+    if config.telegram_enabled() && !allow_telegram {
         return Err(Failure("initial_cutover_requires_telegram_disabled"));
     }
     let id = config
@@ -67,7 +71,7 @@ pub fn prepare(config_path: &Path, output: &Path) -> Result<()> {
         serde_json::json!({
             "extension_id": id,
             "fixture": config.is_fixture(),
-            "telegram_enabled": false,
+            "telegram_enabled": config.telegram_enabled(),
         })
     );
     Ok(())
