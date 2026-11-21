@@ -231,8 +231,8 @@ pub(crate) async fn search_in(
     now: DateTime<Utc>,
     scope: Option<&[Uuid]>,
 ) -> Result<Value> {
-    let ids:Vec<Uuid>=sqlx::query_scalar("SELECT c.id FROM companies c WHERE ($3::uuid[] IS NULL OR c.id=ANY($3)) AND (NOT $1 OR EXISTS(SELECT 1 FROM startup_shortlist_entries s WHERE s.company_id=c.id)) AND ($2::text IS NULL OR EXISTS(SELECT 1 FROM company_source_observations o WHERE o.company_id=c.id AND o.source=$2) OR EXISTS(SELECT 1 FROM jobs j WHERE j.company_id=c.id AND j.source_platform=$2)) ORDER BY c.id LIMIT 501").bind(shortlisted).bind(filters["source"].as_str()).bind(scope.map(|ids|ids.to_vec())).fetch_all(&mut **tx).await.map_err(db)?;
-    if ids.len() > 500 {
+    let ids:Vec<Uuid>=sqlx::query_scalar("SELECT c.id FROM companies c WHERE ($3::uuid[] IS NULL OR c.id=ANY($3)) AND (NOT $1 OR EXISTS(SELECT 1 FROM startup_shortlist_entries s WHERE s.company_id=c.id)) AND ($2::text IS NULL OR EXISTS(SELECT 1 FROM company_source_observations o WHERE o.company_id=c.id AND o.source=$2) OR EXISTS(SELECT 1 FROM jobs j WHERE j.company_id=c.id AND j.source_platform=$2)) ORDER BY c.id LIMIT 5001").bind(shortlisted).bind(filters["source"].as_str()).bind(scope.map(|ids|ids.to_vec())).fetch_all(&mut **tx).await.map_err(db)?;
+    if ids.len() > 5000 {
         return Err(Failure("startup_catalog_company_limit"));
     }
     let packet_rows:Vec<Value>=sqlx::query_scalar("SELECT jsonb_build_object('job_id',p.job_id,'lifecycle_state',p.lifecycle_state,'tracking_state',p.tracking_state) FROM application_packets p JOIN jobs j ON j.id=p.job_id WHERE j.company_id=ANY($1) ORDER BY p.job_id,p.id LIMIT 10001").bind(&ids).fetch_all(&mut **tx).await.map_err(db)?;
@@ -247,21 +247,23 @@ pub(crate) async fn search_in(
     let profile = detail::profile_in(tx, filters["use_profile"] == true).await?;
     let mut items = Vec::new();
     let (mut bytes, mut jobs_count) = (0_usize, 0_usize);
-    for id in ids {
-        let snapshot =
-            detail::snapshot_in(tx, id, filters, profile.as_ref(), settings, now).await?;
-        jobs_count += snapshot.jobs.len();
-        if jobs_count > 10000 {
-            return Err(Failure("startup_catalog_job_limit"));
-        }
-        let mut item = snapshot.public;
-        if allowed(&item, &snapshot.jobs, &packets, filters)? {
-            item["application_history"]=json!(snapshot.jobs.iter().map(|j|{let p=packets.get(j["id"].as_str().unwrap_or(""));json!({"job_id":j["id"],"title":j["title"],"status":j["status"],"lifecycle_state":p.and_then(|rows|rows.first()).map(|v|v["lifecycle_state"].clone()),"packet_states":p.map(|rows|rows.iter().map(|v|json!({"lifecycle_state":v["lifecycle_state"],"tracking_state":v["tracking_state"]})).collect::<Vec<_>>()).unwrap_or_default()})}).collect::<Vec<_>>());
-            bytes += item.to_string().len();
-            if bytes > 16 * 1024 * 1024 {
-                return Err(Failure("startup_catalog_projection_limit"));
+    for batch in ids.chunks(100) {
+        for snapshot in
+            detail::snapshots_in(tx, batch, filters, profile.as_ref(), settings, now).await?
+        {
+            jobs_count += snapshot.jobs.len();
+            if jobs_count > 10000 {
+                return Err(Failure("startup_catalog_job_limit"));
             }
-            items.push(item);
+            let mut item = snapshot.public;
+            if allowed(&item, &snapshot.jobs, &packets, filters)? {
+                item["application_history"]=json!(snapshot.jobs.iter().map(|j|{let p=packets.get(j["id"].as_str().unwrap_or(""));json!({"job_id":j["id"],"title":j["title"],"status":j["status"],"lifecycle_state":p.and_then(|rows|rows.first()).map(|v|v["lifecycle_state"].clone()),"packet_states":p.map(|rows|rows.iter().map(|v|json!({"lifecycle_state":v["lifecycle_state"],"tracking_state":v["tracking_state"]})).collect::<Vec<_>>()).unwrap_or_default()})}).collect::<Vec<_>>());
+                bytes += item.to_string().len();
+                if bytes > 16 * 1024 * 1024 {
+                    return Err(Failure("startup_catalog_projection_limit"));
+                }
+                items.push(item);
+            }
         }
     }
     items.sort_by(|a, b| {

@@ -238,9 +238,34 @@ async fn list(
         .collect::<Result<Vec<_>>>()?;
     Ok(json!({"contacts":contacts,"total":count,"offset":page.offset,"limit":page.limit}))
 }
-/// Complete bounded counters for the saved company catalog, without contact PII in its response.
-pub(crate) async fn startup_counts_in(
+/// Load the same bounded contact inventory for a batch of saved companies.
+pub(crate) async fn startup_contact_rows_in(
     tx: &mut Transaction<'_, Postgres>,
+    ids: &[Uuid],
+) -> Result<BTreeMap<Uuid, Vec<Value>>> {
+    let rows: Vec<(Uuid, Value)> = sqlx::query_as(sqlx::AssertSqlSafe(format!(
+        "SELECT selected.id, item.payload
+         FROM unnest($1::uuid[]) AS selected(id)
+         CROSS JOIN LATERAL (
+             SELECT {CONTACT} AS payload FROM contacts c
+             WHERE c.company_id = selected.id ORDER BY c.id LIMIT 10001
+         ) AS item"
+    )))
+    .bind(ids)
+    .bind(json!({}))
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(db)?;
+    let mut grouped = BTreeMap::<Uuid, Vec<Value>>::new();
+    for (id, value) in rows {
+        grouped.entry(id).or_default().push(value);
+    }
+    Ok(grouped)
+}
+
+/// Complete bounded counters without contact PII in the catalog response.
+pub(crate) fn startup_counts(
+    rows: Vec<Value>,
     employer: &Value,
     size: &Value,
     settings: &Settings,
@@ -251,14 +276,6 @@ pub(crate) async fn startup_counts_in(
         .and_then(|s| s.parse::<Uuid>().ok())
         .ok_or_else(invalid)?;
     let company = json!({"id":id,"name":employer["name"],"domain":employer["domain"],"metadata_":{"employee_count":size["employee_count"],"_verified_team_size_band":size["team_size_band"]}});
-    let rows: Vec<Value> = sqlx::query_scalar(sqlx::AssertSqlSafe(format!(
-        "SELECT {CONTACT} FROM contacts c WHERE c.company_id=$1 ORDER BY c.id LIMIT 10001"
-    )))
-    .bind(id)
-    .bind(json!({}))
-    .fetch_all(&mut **tx)
-    .await
-    .map_err(db)?;
     if rows.len() > 10000
         || rows.iter().map(|v| v.to_string().len()).sum::<usize>() > 8 * 1024 * 1024
     {

@@ -415,23 +415,49 @@ async fn startup_shortlist_concurrent_saves_keep_one_original_snapshot_and_never
 }
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
-async fn startup_search_company_limit_requires_narrower_source_without_silently_truncating_the_total()
- {
+async fn startup_search_pages_the_full_catalog_and_preserves_narrowed_searches() {
     let (mut c, _, _) = startup_detail_fixture().await;
-    sqlx::query("INSERT INTO companies(id,name,domain) SELECT md5('fictional-startup-company-'||n)::uuid,'Fictional bounded company '||n,'company-'||n||'.fixture.example' FROM generate_series(1,501) n").execute(&mut c).await.unwrap();
-    assert_eq!(
-        startup_search_call(&mut c, json!({"use_profile":false,"max_employees":null}))
-            .await
-            .unwrap_err(),
-        Failure("startup_catalog_company_limit")
-    );
+    sqlx::query("INSERT INTO companies(id,name,domain) SELECT md5('fictional-startup-company-'||n)::uuid,'Fictional bounded company '||n,'company-'||n||'.fixture.example' FROM generate_series(1,1221) n").execute(&mut c).await.unwrap();
+    let second = startup_search_call(
+        &mut c,
+        json!({"use_profile":false,"max_employees":null,"limit":20,"page":2}),
+    )
+    .await
+    .unwrap();
+    let first = startup_search_call(
+        &mut c,
+        json!({"use_profile":false,"max_employees":null,"limit":20,"page":1}),
+    )
+    .await
+    .unwrap();
+    let first_page = first["startups"].as_array().unwrap();
+    let second_page = second["startups"].as_array().unwrap();
+    assert_eq!(first["total"], json!(1222));
+    assert_eq!(second["total"], first["total"]);
+    assert_eq!(first_page.len(), 20);
+    assert_eq!(second_page.len(), 20);
+    assert!(second_page.iter().all(|item| !first_page
+        .iter()
+        .any(|other| item["company_id"] == other["company_id"])));
     let narrow = startup_search_call(
         &mut c,
         json!({"use_profile":false,"max_employees":null,"source":"manual"}),
     )
     .await
     .unwrap();
-    assert!(narrow["total"].as_u64().unwrap() <= 500);
+    assert_eq!(narrow["total"], json!(1));
+}
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn startup_search_company_limit_rejects_an_oversized_catalog_without_truncation() {
+    let (mut c, _, _) = startup_detail_fixture().await;
+    sqlx::query("INSERT INTO companies(id,name,domain) SELECT md5('fictional-startup-company-limit-'||n)::uuid,'Fictional bounded company '||n,'company-'||n||'.fixture.example' FROM generate_series(1,5000) n").execute(&mut c).await.unwrap();
+    assert_eq!(
+        startup_search_call(&mut c, json!({"use_profile":false,"max_employees":null}))
+            .await
+            .unwrap_err(),
+        Failure("startup_catalog_company_limit")
+    );
 }
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]

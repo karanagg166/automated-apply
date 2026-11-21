@@ -7,6 +7,7 @@ use crate::{Failure, Result};
 use chrono::{DateTime, Utc};
 use serde_json::{Value, json};
 use sqlx::{Connection, PgConnection, Postgres, Transaction};
+use std::collections::BTreeMap;
 use uuid::Uuid;
 fn db(_: sqlx::Error) -> Failure {
     Failure("startup_catalog_database_error")
@@ -72,39 +73,163 @@ pub(crate) async fn snapshot_in(
     settings: &crate::contacts::Settings,
     now: DateTime<Utc>,
 ) -> Result<Snapshot> {
-    let company:Option<Value>=sqlx::query_scalar("SELECT CASE WHEN octet_length(metadata::text)<=524288 THEN jsonb_build_object('id',id,'name',name,'domain',domain,'metadata_',metadata) ELSE NULL END FROM companies WHERE id=$1").bind(id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(Failure("startup_catalog_not_found"))?;
-    let company = company.ok_or_else(invalid)?;
+    snapshots_in(tx, &[id], filters, profile, settings, now)
+        .await?
+        .into_iter()
+        .next()
+        .ok_or(Failure("startup_catalog_not_found"))
+}
+
+struct SavedInventory {
+    id: Uuid,
+    company: Value,
+    observations: Vec<Value>,
+    jobs: Vec<Value>,
+    board_rows: Vec<Value>,
+    contacts: Vec<Value>,
+    shortlisted: bool,
+}
+
+fn group_rows(rows: Vec<(Uuid, Option<Value>)>) -> BTreeMap<Uuid, Vec<Option<Value>>> {
+    let mut grouped = BTreeMap::<Uuid, Vec<Option<Value>>>::new();
+    for (id, value) in rows {
+        grouped.entry(id).or_default().push(value);
+    }
+    grouped
+}
+
+pub(crate) async fn snapshots_in(
+    tx: &mut Transaction<'_, Postgres>,
+    ids: &[Uuid],
+    filters: &Value,
+    profile: Option<&Value>,
+    settings: &crate::contacts::Settings,
+    now: DateTime<Utc>,
+) -> Result<Vec<Snapshot>> {
+    let companies: Vec<(Uuid, Option<Value>, bool)> = sqlx::query_as(
+        "SELECT c.id,
+                CASE WHEN octet_length(c.metadata::text) <= 524288
+                     THEN jsonb_build_object('id',c.id,'name',c.name,'domain',c.domain,'metadata_',c.metadata)
+                 END,
+                 EXISTS(SELECT 1 FROM startup_shortlist_entries WHERE company_id = c.id)
+         FROM companies c WHERE c.id = ANY($1) ORDER BY c.id",
+    )
+    .bind(ids)
+    .fetch_all(&mut **tx)
+    .await
+    .map_err(db)?;
+    let mut observations = group_rows(
+        sqlx::query_as(
+            "SELECT selected.id, item.payload FROM unnest($1::uuid[]) AS selected(id)
+             CROSS JOIN LATERAL (
+                 SELECT CASE WHEN octet_length(to_jsonb(o)::text) <= 262144
+                             THEN to_jsonb(o) END AS payload
+                 FROM company_source_observations o WHERE o.company_id = selected.id
+                 ORDER BY o.observed_at DESC, o.id LIMIT 1001
+             ) AS item",
+        )
+        .bind(ids)
+        .fetch_all(&mut **tx)
+        .await
+        .map_err(db)?,
+    );
+    // Retain only the listing claims that participate in the saved ranking.
+    let mut jobs = group_rows(
+        sqlx::query_as(
+            "SELECT selected.id, CASE WHEN octet_length(item.payload::text) <= 2097152 THEN item.payload END
+             FROM unnest($1::uuid[]) AS selected(id)
+             CROSS JOIN LATERAL (
+                SELECT jsonb_build_object('id',id,'company_id',company_id,'title',title,'description',description,'job_url',job_url,'source_platform',source_platform,'source_verification_status',source_verification_status,'skills_required',skills_required,'location',location,'is_remote',is_remote,'remote_type',remote_type,'experience_level',experience_level,'employment_type',employment_type,'salary_min',salary_min,'salary_max',salary_max,'salary_currency',salary_currency,'salary_period',salary_period,'date_posted',date_posted,'last_observed_at',last_observed_at,'status',status,'discovery_metadata',jsonb_build_object('date_expires',discovery_metadata::jsonb->'date_expires','expires_at',discovery_metadata::jsonb->'expires_at','is_expired',discovery_metadata::jsonb->'is_expired','listing_status',discovery_metadata::jsonb->'listing_status','is_confirmed_current',discovery_metadata::jsonb->'is_confirmed_current')) AS payload, last_observed_at, id
+                FROM jobs WHERE company_id = selected.id
+                ORDER BY last_observed_at DESC NULLS LAST, id LIMIT 501
+             ) AS item
+             ORDER BY selected.id, item.last_observed_at DESC NULLS LAST, item.id",
+        )
+        .bind(ids)
+        .fetch_all(&mut **tx)
+        .await
+        .map_err(db)?,
+    );
+    let mut board_rows = group_rows(
+        sqlx::query_as(
+            "SELECT selected.id, item.payload FROM unnest($1::uuid[]) AS selected(id)
+             CROSS JOIN LATERAL (
+                SELECT jsonb_build_object('job_id',o.job_id,'source',o.source,
+                       'last_observed_at',o.last_observed_at,'verification_status',o.verification_status) AS payload,
+                       o.last_observed_at, o.id
+                FROM job_source_observations o JOIN jobs j ON j.id = o.job_id
+                WHERE j.company_id = selected.id
+                ORDER BY o.last_observed_at DESC, o.id LIMIT 2001
+             ) AS item
+             ORDER BY selected.id, item.last_observed_at DESC, item.id",
+        )
+        .bind(ids)
+        .fetch_all(&mut **tx)
+        .await
+        .map_err(db)?,
+    );
+    let mut contacts = crate::contacts::startup_contact_rows_in(tx, ids).await?;
+    companies
+        .into_iter()
+        .map(|(id, company, shortlisted)| {
+            let company = company.ok_or_else(invalid)?;
+            let observations = inventory(observations.remove(&id).unwrap_or_default(), 1000)?;
+            let jobs = inventory(jobs.remove(&id).unwrap_or_default(), 500)?;
+            let board_rows = inventory(board_rows.remove(&id).unwrap_or_default(), 2000)?;
+            build_snapshot(
+                SavedInventory {
+                    id,
+                    company,
+                    observations,
+                    jobs,
+                    board_rows,
+                    shortlisted,
+                    contacts: contacts.remove(&id).unwrap_or_default(),
+                },
+                filters,
+                profile,
+                settings,
+                now,
+            )
+        })
+        .collect()
+}
+
+fn build_snapshot(
+    saved: SavedInventory,
+    filters: &Value,
+    profile: Option<&Value>,
+    settings: &crate::contacts::Settings,
+    now: DateTime<Utc>,
+) -> Result<Snapshot> {
+    let SavedInventory {
+        id,
+        company,
+        observations,
+        jobs,
+        board_rows,
+        contacts,
+        shortlisted,
+    } = saved;
     if !company["metadata_"].is_object() {
         return Err(invalid());
     }
-    let observations:Vec<Option<Value>>=sqlx::query_scalar("SELECT CASE WHEN octet_length(to_jsonb(o)::text)<=262144 THEN to_jsonb(o) ELSE NULL END FROM company_source_observations o WHERE company_id=$1 ORDER BY observed_at DESC,id LIMIT 1001").bind(id).fetch_all(&mut **tx).await.map_err(db)?;
-    let observations = inventory(observations, 1000)?;
     for observation in &observations {
         crate::companies::observation(observation.clone(), now)?;
     }
-    // Only expiry/current-listing claims enter this private job snapshot, never arbitrary payloads.
-    let jobs:Vec<Option<Value>>=sqlx::query_scalar("WITH selected AS (SELECT jsonb_build_object('id',id,'company_id',company_id,'title',title,'description',description,'job_url',job_url,'source_platform',source_platform,'source_verification_status',source_verification_status,'skills_required',skills_required,'location',location,'is_remote',is_remote,'remote_type',remote_type,'experience_level',experience_level,'employment_type',employment_type,'salary_min',salary_min,'salary_max',salary_max,'salary_currency',salary_currency,'salary_period',salary_period,'date_posted',date_posted,'last_observed_at',last_observed_at,'status',status,'discovery_metadata',jsonb_build_object('date_expires',discovery_metadata::jsonb->'date_expires','expires_at',discovery_metadata::jsonb->'expires_at','is_expired',discovery_metadata::jsonb->'is_expired','listing_status',discovery_metadata::jsonb->'listing_status','is_confirmed_current',discovery_metadata::jsonb->'is_confirmed_current')) AS value,last_observed_at,id FROM jobs WHERE company_id=$1 ORDER BY last_observed_at DESC NULLS LAST,id LIMIT 501) SELECT CASE WHEN octet_length(value::text)<=2097152 THEN value ELSE NULL END FROM selected ORDER BY last_observed_at DESC NULLS LAST,id").bind(id).fetch_all(&mut **tx).await.map_err(db)?;
-    let jobs = inventory(jobs, 500)?;
     for job in &jobs {
         if job["job_url"]
             .as_str()
             .and_then(crate::resources::public_https)
             .is_none()
+            || job["id"]
+                .as_str()
+                .and_then(|id| id.parse::<Uuid>().ok())
+                .is_none()
         {
             return Err(invalid());
         }
     }
-    let ids = jobs
-        .iter()
-        .map(|j| {
-            j["id"]
-                .as_str()
-                .and_then(|s| s.parse::<Uuid>().ok())
-                .ok_or_else(invalid)
-        })
-        .collect::<Result<Vec<_>>>()?;
-    let board_rows:Vec<Option<Value>>=sqlx::query_scalar("SELECT jsonb_build_object('job_id',job_id,'source',source,'last_observed_at',last_observed_at,'verification_status',verification_status) FROM job_source_observations WHERE job_id=ANY($1) ORDER BY last_observed_at DESC,id LIMIT 2001").bind(&ids).fetch_all(&mut **tx).await.map_err(db)?;
-    let board_rows = inventory(board_rows, 2000)?;
     let mut attributes = json!({});
     let mut ordered = observations
         .iter()
@@ -143,7 +268,7 @@ pub(crate) async fn snapshot_in(
         now,
         filters["freshness_days"].as_i64().ok_or_else(invalid)?,
     )?;
-    let counts = crate::contacts::startup_counts_in(tx, &company, &size, settings, now).await?;
+    let counts = crate::contacts::startup_counts(contacts, &company, &size, settings, now)?;
     let fresh = hiring["hiring_evidence"]
         .as_array()
         .ok_or_else(invalid)?
@@ -237,13 +362,6 @@ pub(crate) async fn snapshot_in(
     }
     result["sources"] = json!(sources);
     result["next_steps"] = json!({"jobs":format!("/api/v1/startups/{id}/jobs"),"contacts":format!("/api/v1/companies/{id}/contacts"),"contact_enrichment_preview":format!("/api/v1/companies/{id}/contacts/preview"),"outreach":"/api/v1/outreach/drafts","application_preview_template":"/api/v1/jobs/{job_id}/application-preview"});
-    let shortlisted: bool = sqlx::query_scalar(
-        "SELECT EXISTS(SELECT 1 FROM startup_shortlist_entries WHERE company_id=$1)",
-    )
-    .bind(id)
-    .fetch_one(&mut **tx)
-    .await
-    .map_err(db)?;
     result["shortlisted"] = json!(shortlisted);
     Ok(Snapshot {
         public: result,

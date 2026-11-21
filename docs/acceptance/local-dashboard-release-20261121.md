@@ -1,5 +1,42 @@
 # Local dashboard release validation
 
+AGY completed the clean local release gate on `c4329d178c513ba1e24da975aba1e02353c043c9`
+and installed that release through plan `rust-plan-r6kp4_kd` on the owner's Mac.
+Run `20261121T091756Z-270fdc49c59e4b1d99e07caea2114e8e` passed all 37
+stages in 2,124.961 seconds. The suites included 435 Rust workspace tests,
+1,091 Rust PostgreSQL tests, 3,433 Python tests with one skipped, 420 frontend
+tests, 406 extension tests, and 48 backend browser cases. AGY observed preserved
+foreground and window order during activation and restart.
+
+| Installed release check | Result | Evidence |
+| --- | --- | --- |
+| Exact artifact and rollback | PASS | The installed artifact matched the clean gate's checksums. Rollback `rust-preinstall-buvft9x6` retained nine definitions and twenty references, with zero missing references. |
+| Default Jobs page | PASS | HTTP 200 in 3.918 seconds, with 20 saved jobs on the first page and 3,017 eligible records from 3,018 saved jobs. The earlier release exceeded 25 seconds on the same request. |
+| Dashboard routes and local auth | PASS | All ten owner dashboard reads returned HTTP 200. The three restored Automation reads took 2.162, 1.222 and 0.989 seconds. Unauthenticated readiness and dashboard proxy requests returned HTTP 401. |
+| Retained runtime state | PASS | All 19 retained fields matched the previous snapshot, including the profile, resume references and submission evidence fingerprints. Three uncertain jobs and three reservations remain. The queue is STOPPED at revision 162. |
+| Installed MCP | PASS | The catalog exposed 25 tools. Runtime status, browser readiness, both saved-job tools, Telegram status and Apify status answered. Telegram is disabled. Apify has no live verification in this read. |
+| Runtime observation | IN PROGRESS | A read-only 24-hour observation started at 10:52 UTC. The initial readiness sample returned four HTTP 200 responses with both services loaded. |
+| Naukri and updated Brave extension | BLOCKED | The selected Brave profile had an extension worker and zero page targets. The new native host is registered under the same extension ID. An owner launcher passed its release, loopback, STOP and no-existing-tabs checks. A visible sign-in is required. |
+
+The owner can open the dedicated Naukri profile from
+`.local/browser-profiles/open-brave-naukri-automation.command`. This launcher
+uses the installed extension and retires only the verified windowless instance.
+The owner's ordinary sign-in enables the next account and resume readback.
+
+## Startup catalog
+
+AGY identified the default startup search's 500-company limit. A read-only
+production inventory counted 1,222 companies and 3,016 associated jobs. The
+follow-up code reads saved company, job, observation and contact data in
+bounded batches in one database snapshot. It retains the existing filters,
+ranking and complete result count before pagination. A disposable PostgreSQL
+fixture returned two distinct pages and a total of 1,222 companies, preserved
+source narrowing, and rejected a catalog above the new 5,000-company bound.
+All 73 startup PostgreSQL cases passed. The live service still runs
+`c4329d1` while the follow-up awaits combined validation.
+
+## Earlier release evidence
+
 The clean checkout at `e84bf06d4514dfb1ce0fdcaf9154420482051370` passed
 all 37 local fixture stages in 2,833.159 seconds. The run retained the
 same clean Git SHA from start to finish. The exact run ID is
