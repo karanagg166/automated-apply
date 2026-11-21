@@ -59,3 +59,23 @@ from the confirmed local profile. The education editor uses a month-and-year
 picker. The saved education gives a year, and the canonical PDF did not
 provide an unambiguous month for that institution. These checks preserved
 macOS foreground and window order.
+
+The saved selection is version 3 and is enforced by the fixed legacy Chrome
+pin. The approved Naukri account is revision 1 and matches the owner-selected
+address. It still points to the pinned Chrome binding. The fixed pin blocks
+selection of the connected dedicated Brave profile. The only retained
+nonterminal extension task is paused by global STOP and has no plan. There
+are zero active commands and form plans.
+
+The official inactive login page still offers password recovery, mobile OTP,
+and Google sign-in. Its email recovery link is the same route already tried.
+A recipient- and sender-domain-matched Apple Mail check found zero recovery
+messages from Naukri in the preceding 48 hours. The existing request remains
+recorded. [Naukri’s account support form](https://w5.naukri.com/fdbck/main/feedback.php)
+
+After sign-in, verify the account and canonical resume in the dedicated Brave
+profile. The fixed-profile replacement must preserve the previous mapping and
+paused task, revoke old authority under the owner lock, and keep both queues
+stopped. After changing the fixed pin and selection, use the normal account
+approval flow to bind the independently verified account to the new profile.
+See the [fixed profile procedure](../phase54/local-mail-and-fixed-profile.md#fixed-chrome-identity).

@@ -95,6 +95,11 @@ does not expose actor execution. Existing approved actor/run/dataset controls an
 provider budgets remain necessary for application discovery through Apify. MCP config
 changes may require a fresh client session before its catalog is visible.
 
+A live public `search-apify-docs` call from the project laptop succeeded in
+3.868 seconds, including initialization and tool listing. The catalog
+contained the same four public tools. The call used the official public
+endpoint and requested documentation without starting an actor.
+
 ## HiringCafe
 
 The project VS Code and shared MCP configurations register HiringCafe's official
@@ -104,6 +109,12 @@ review the posting and import its listing URL in the dashboard's HiringCafe
 source. Public search needs no account. The connector documents rate limits and
 separate approval for account reads. Employer applications are handled outside
 the connector. [HiringCafe connector documentation](https://hiringcafe.com/documentation/hiringcafe-claude-connector)
+
+A live public `search_jobs` call from the laptop returned a successful
+response in 1.886 seconds, including initialization and tool listing.
+The catalog showed two public tools. The request used the provider's
+`search` argument and a limit of two. The signed-in tracker and employer
+handoff still need their own live verification.
 
 ## Browsers
 
