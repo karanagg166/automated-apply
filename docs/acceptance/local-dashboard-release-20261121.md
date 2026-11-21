@@ -76,6 +76,29 @@ two jobs. Himalayas returned two attributed jobs. We Work Remotely
 returned a retained attempt error. The feed request was left for
 reconciliation. Both probes used only feed discovery.
 
+## Desktop access before cutover
+
+The local access launcher in
+`.local/runtime-recovery-20261120.RyE1Do/check-catalog-desktop-access.command`
+prepares four one-shot LaunchAgents for the current and staged releases.
+They use the exact installed or staged working directories and reviewed
+configuration. The two Rust commands run read-only PostgreSQL checks for
+STOPPED controls and the connection budget. The two dashboard commands
+validate local configuration and the built bundle, then exit. The live
+application LaunchAgents and their files stay untouched during the probe.
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Release, rollback, probe definitions | PASS | The launcher’s `--check` mode verified the exact staged artifact inventory, restored rollback inventory, configuration stamps and four LaunchAgent plists. The existing frontend configuration path resolves through the recorded Application Support alias to its private file. |
+| One-shot launchd path | PASS | A system no-op ran once, exited zero and was unloaded under a separate label. macOS foreground and window order matched before and after. |
+| Four exact commands launched directly | PASS | Current Rust and dashboard checks took 4.687 and 0.295 seconds. Staged Rust and dashboard checks took 4.882 and 0.141 seconds. Both read-only database checks returned STOPPED revisions 162 and 100 and a connection limit of five. |
+| Exact commands under launchd | PENDING | The owner can run the launcher while present to respond to the macOS Desktop Folder prompt. The result needs a separate check before service activation. |
+
+A successful probe establishes that the one-shot commands can run through
+launchd. Persistent activation still needs its own readiness, focus, startup
+catalog, policy, and retained application-state checks. The current dashboard
+continues to serve from the two locally launched `c4329d1` processes.
+
 ## Earlier release evidence
 
 The clean checkout at `e84bf06d4514dfb1ce0fdcaf9154420482051370` passed

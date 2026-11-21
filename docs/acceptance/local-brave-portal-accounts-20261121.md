@@ -36,3 +36,11 @@ foreground and window order matched before and after. The session remains
 the verified handoff. For Wellfound, local Keychain comparison matched the
 latest owner choice against the credential saved for the password change
 confirmed by the provider's email.
+
+The dedicated Brave automation profile and its saved runtime binding agree on
+their browser session. The runtime reports that binding as `CONNECTED`.
+The dashboard selection points to a different binding that reports
+`PROFILE_OFFLINE`. The dedicated profile has commands disabled. Its one
+inactive Naukri tab still shows the official sign-in form with the selected
+email filled. The next acceptance check needs the signed-in account and
+resume identity before using the live binding for supervised execution.
