@@ -24,6 +24,7 @@ mod invalidation;
 mod native;
 pub mod native_contract;
 mod naukri;
+pub mod pin_replacement;
 mod platform_observation;
 mod status;
 mod storage;
@@ -512,6 +513,20 @@ async fn disconnect(
     version: i64,
     now: DateTime<Utc>,
 ) -> Result<Value> {
+    disable_binding(tx, identity, version).await?;
+    invalidation::invalidate(tx, &json!(identity), "profile_disconnected", now).await?;
+    let selected = selection(tx).await?;
+    if selected["profile_binding_id"] == json!(identity) {
+        select(tx, number(&selected, "version")?, None, now).await?;
+    }
+    Ok(json!({"disconnected":true,"submitted":false}))
+}
+
+async fn disable_binding(
+    tx: &mut Transaction<'_, Postgres>,
+    identity: Uuid,
+    version: i64,
+) -> Result<()> {
     let key = format!("chr_prof:{identity}");
     let mut row = get(tx, &key)
         .await?
@@ -522,13 +537,7 @@ async fn disconnect(
     row["connected"] = json!(false);
     row["commands_enabled"] = json!(false);
     row["version"] = json!(version.checked_add(1).ok_or_else(invalid)?);
-    put(tx, &key, &row).await?;
-    invalidation::invalidate(tx, &json!(identity), "profile_disconnected", now).await?;
-    let selected = selection(tx).await?;
-    if selected["profile_binding_id"] == json!(identity) {
-        select(tx, number(&selected, "version")?, None, now).await?;
-    }
-    Ok(json!({"disconnected":true,"submitted":false}))
+    put(tx, &key, &row).await
 }
 pub(crate) async fn saved_dashboard_status(
     tx: &mut Transaction<'_, Postgres>,

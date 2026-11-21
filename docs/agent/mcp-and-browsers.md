@@ -132,6 +132,34 @@ Safari. Its live transport and complete OS focus acceptance remain blocked pendi
 appropriate implementation. Do not start Safari automation or navigate browser settings
 to work around the owner's focus constraint.
 
+### Replace a fixed Chrome profile with Brave
+
+The local `automated-apply-agents replace-fixed-brave-profile` command uses
+the existing owner lock and fixed-profile selector. Run it with
+`--config` and `--review` pointing to absolute owner-private files.
+The default command previews the replacement. The same review with
+`--apply` archives the old pin, disconnects the old binding, and selects
+the confirmed Brave binding in one transaction.
+
+Prepare the review from the current dashboard revisions and a fresh
+independent check of the signed-in Naukri account and downloaded resume
+bytes in the dedicated Brave profile. The review contains the old and new
+binding UUIDs, selection revision, both browser profile versions, new
+browser session UUID and window ID, current approved Naukri account
+revision, confirmed candidate version, account and PDF SHA-256 values,
+evidence SHA-256, observation timestamp, canonical private Brave profile
+directory, and explicit owner confirmation. Keep the review local at mode
+0600. The database checks the saved account and confirmed resume hashes and
+rejects changed versions, expired observations, and active work. See the
+[review JSON field names](../../rust/agent-runtime/src/browser_profiles/pin_replacement.rs).
+
+The replacement keeps the legacy mapping in the private owner store and
+leaves both application queues and the Rust coordinator stopped. It leaves
+Naukri's existing account approval bound to the former profile. Use the
+ordinary owner account approval on the newly selected profile after
+confirming its live identity. The supervised attempt still requires the
+current browser, account, resume, job and quota checks.
+
 Reproduce the real Brave/fictional-page checks without a personal profile:
 
 ```sh

@@ -38,6 +38,18 @@ async fn run() -> Result<()> {
     if arguments.len() == 3 && arguments[0] == "cutover-preflight" && arguments[1] == "--config" {
         return cutover::report(&PathBuf::from(&arguments[2])).await;
     }
+    if (arguments.len() == 5 || arguments.len() == 6 && arguments[5] == "--apply")
+        && arguments[0] == "replace-fixed-brave-profile"
+        && arguments[1] == "--config"
+        && arguments[3] == "--review"
+    {
+        return automated_apply_agents::browser_profiles::pin_replacement::run(
+            &PathBuf::from(&arguments[2]),
+            &PathBuf::from(&arguments[4]),
+            arguments.len() == 6,
+        )
+        .await;
+    }
     if arguments.len() == 3 && arguments[0] == "provider-status" && arguments[1] == "--config" {
         let result =
             automated_apply_agents::provider_status::check(&PathBuf::from(&arguments[2])).await?;

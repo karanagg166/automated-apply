@@ -79,3 +79,13 @@ paused task, revoke old authority under the owner lock, and keep both queues
 stopped. After changing the fixed pin and selection, use the normal account
 approval flow to bind the independently verified account to the new profile.
 See the [fixed profile procedure](../phase54/local-mail-and-fixed-profile.md#fixed-chrome-identity).
+
+The new local Brave pin maintenance command now has a read-only preview
+and an explicit apply mode. Six focused disposable PostgreSQL checks passed.
+They covered the replacement and existing select and disconnect behavior,
+preservation of STOP, the paused task and unknown application evidence,
+refusal of stale account or resume evidence and active work, rollback after
+a failed selection write, and one winner for concurrent attempts. The
+local binary also rejected an invalid review file before connecting to
+PostgreSQL. Live pin replacement still needs the signed-in Brave review
+and separate approval of the account on the new binding.
