@@ -10,7 +10,7 @@ The candidate editor still reports required profile fields.
 | Portal | State | Evidence |
 | --- | --- | --- |
 | Wellfound | Session verified | Recovery email arrived in Apple Mail. The exact account matched its settings after Brave reopened. The canonical resume appeared after a fresh navigation. |
-| Naukri | Owner session pending | The authorized account binding exists. Live access showed a browser challenge. |
+| Naukri | Owner sign-in pending | The dedicated Brave window opened with the owner's approval. The loaded extension matched all 26 files in the accepted bundle and retained permission for the official Naukri origin. Email recovery returned HTTP 403, and the ordinary Google sign-in path reported a block. The Naukri password form is open with the chosen email entered. |
 | Instahyre | Owner session pending | The mailbox contains a prior welcome message. Live access showed a browser challenge. |
 | YC Work at a Startup | Verification pending | The provider accepted the original sign-in link request. The separate official candidate signup recorded one action, with its outcome still unknown. |
 | Internshala | Owner session pending | The portal exposed its sign-in form and a browser challenge. |

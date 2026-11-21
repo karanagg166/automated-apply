@@ -32,8 +32,22 @@ bounded batches in one database snapshot. It retains the existing filters,
 ranking and complete result count before pagination. A disposable PostgreSQL
 fixture returned two distinct pages and a total of 1,222 companies, preserved
 source narrowing, and rejected a catalog above the new 5,000-company bound.
-All 73 startup PostgreSQL cases passed. The live service still runs
-`c4329d1` while the follow-up awaits combined validation.
+All 73 startup PostgreSQL cases passed.
+
+The exact clean `502d5e589a0dc84321c095173b7034479dbffafe` run
+`20261121T110324Z-e57eaa833c2347d886401e7c4f213e8e` passed all 37 stages
+in 2,678.151 seconds, including 1,092 Rust PostgreSQL tests. The candidate
+is staged under `rust-plan-e8gqumqz`. Native and dashboard startup timed out
+on two cutovers. The second attempt captured the Rust process waiting in the
+system loader and a matching macOS Desktop-folder consent request for its
+executable. A restart of the candidate process also stayed unready. The
+rollback restored nine exact definitions and twenty references from
+`rust-preinstall-m4v4yhix`. The restored LaunchAgents also timed out on the
+second attempt. The previous release `c4329d1` then recovered through its
+ordinary local service commands under a temporary supervisor. Runtime health,
+readiness, STOP control, and dashboard login returned HTTP 200. All 19
+retained state comparisons matched. Persistent LaunchAgent startup for the
+candidate and live startup catalog pages remain pending.
 
 ## Earlier release evidence
 
