@@ -71,6 +71,11 @@ adapter reads returned empty lists. The tools for external submissions,
 email sending, Telegram delivery, paid Apify actions and discovery
 execution were absent from this installation's catalog.
 
+The narrower public-feed probes used the installed MCP with a limit of
+two jobs. Himalayas returned two attributed jobs. We Work Remotely
+returned a retained attempt error. The feed request was left for
+reconciliation. Both probes used only feed discovery.
+
 ## Earlier release evidence
 
 The clean checkout at `e84bf06d4514dfb1ce0fdcaf9154420482051370` passed
