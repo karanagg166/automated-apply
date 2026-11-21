@@ -62,6 +62,15 @@ start time and stops if either process changes. Its first sample returned
 HTTP 200 for health, readiness, control and dashboard login. The full
 24-hour observation is in progress.
 
+The installed `c4329d1` owner MCP also returned all 25 catalog entries and
+answered 15 of 15 live local saved-data reads. These covered all eight
+saved-job adapters, runtime and browser status, application history,
+Telegram and Apify status, and both discovery-source inventories.
+Naukri returned two saved entries in the bounded read. The other seven
+adapter reads returned empty lists. The tools for external submissions,
+email sending, Telegram delivery, paid Apify actions and discovery
+execution were absent from this installation's catalog.
+
 ## Earlier release evidence
 
 The clean checkout at `e84bf06d4514dfb1ce0fdcaf9154420482051370` passed

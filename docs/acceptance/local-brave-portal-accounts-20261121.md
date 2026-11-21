@@ -15,7 +15,7 @@ The candidate editor still reports required profile fields.
 | YC Work at a Startup | Account unverified | The provider accepted the original sign-in link request. The separate candidate signup recorded one action with an unknown outcome. The existing-account check returned to the new-account flow. |
 | Internshala | Email recovery unverified | The candidate recovery endpoint responded HTTP 200. No matching recovery message reached Apple Mail during the observed checks. |
 | HiringCafe | Dashboard access blocked | The official combined form triggered an authenticated verification email. The retained browser session reported the chosen verified email, and the tracker returned HTTP 403. |
-| Himalayas | Outcome unknown | A single signup intent is retained. A separate sign-in check returned credentials unaccepted. |
+| Himalayas | Signup blocked | The official email recovery form reported no account for the selected address. The signup button stayed disabled after all four fields passed browser validation. The earlier signup intent remains in history. The latest check stopped before submission. |
 | We Work Remotely | Owner session pending | The official registration route returned HTTP 403. |
 
 The readiness record in `.local/browser-profiles/portal-status.private.json`
@@ -29,7 +29,10 @@ snapshots matched foreground app and window order across the Wellfound recovery 
 
 The Instahyre working sign-in is usable in Brave. A separate password
 change through its verified account settings stopped when macOS Keychain
-declined unattended readback of the existing credential. The separate
-recovery route was unavailable during the follow-up. The session remains
-the verified handoff. The requested shared password is confirmed for
-Wellfound through the provider's email receipt.
+declined unattended readback of the existing credential. The official
+recovery route did not expose its form in the inactive dedicated tab.
+The exact signed-in account still matched after this check, and macOS
+foreground and window order matched before and after. The session remains
+the verified handoff. For Wellfound, local Keychain comparison matched the
+latest owner choice against the credential saved for the password change
+confirmed by the provider's email.
