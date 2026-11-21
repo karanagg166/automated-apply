@@ -234,3 +234,109 @@ def test_cutover_plan_keeps_runtime_and_configuration_pinned(tmp_path, monkeypat
             f"chrome-extension://{release.STABLE_EXTENSION_ID}/"
         ]
         assert manifest["path"] == str(release_dir / "bin/automated-apply-native")
+
+
+def test_cutover_plan_rejects_telegram_by_default(tmp_path, monkeypatch):
+    node = tmp_path / "node"
+    runtime = tmp_path / "runtime.env"
+    frontend = tmp_path / "frontend.env"
+    release_dir = tmp_path / "candidate"
+    plan = tmp_path / "plan"
+    plan.mkdir()
+    logs = tmp_path / "logs"
+
+    def check(arguments):
+        if arguments[-1] == "--check-config":
+            return b""
+        (plan / install.NATIVE_CONFIG).write_text("fictional companion config")
+        return json.dumps(
+            {
+                "extension_id": release.STABLE_EXTENSION_ID,
+                "fixture": False,
+                "telegram_enabled": True,
+            }
+        ).encode()
+
+    monkeypatch.setattr(install, "local_check", check)
+    with pytest.raises(
+        release.ReleaseError, match="production_native_configuration_required"
+    ):
+        install.render(release_dir, plan, (runtime, frontend), node, 3000, logs=logs)
+
+
+def test_cutover_plan_allows_telegram_when_legacy_plist_absent(tmp_path, monkeypatch):
+    node = tmp_path / "node"
+    runtime = tmp_path / "runtime.env"
+    frontend = tmp_path / "frontend.env"
+    release_dir = tmp_path / "candidate"
+    plan = tmp_path / "plan"
+    plan.mkdir()
+    logs = tmp_path / "logs"
+    launch_agents = tmp_path / "LaunchAgents"
+    launch_agents.mkdir()
+    (launch_agents / "com.automated-apply.telegram.plist.disabled").write_text("disabled")
+
+    def check(arguments):
+        if arguments[-1] == "--check-config":
+            return b""
+        (plan / install.NATIVE_CONFIG).write_text("fictional companion config")
+        return json.dumps(
+            {
+                "extension_id": release.STABLE_EXTENSION_ID,
+                "fixture": False,
+                "telegram_enabled": True,
+            }
+        ).encode()
+
+    monkeypatch.setattr(install, "local_check", check)
+    assert (
+        install.render(
+            release_dir,
+            plan,
+            (runtime, frontend),
+            node,
+            3000,
+            logs=logs,
+            allow_telegram=True,
+            launch_agents_dir=launch_agents,
+        )
+        is True
+    )
+
+
+def test_cutover_plan_rejects_telegram_when_legacy_plist_active(tmp_path, monkeypatch):
+    node = tmp_path / "node"
+    runtime = tmp_path / "runtime.env"
+    frontend = tmp_path / "frontend.env"
+    release_dir = tmp_path / "candidate"
+    plan = tmp_path / "plan"
+    plan.mkdir()
+    logs = tmp_path / "logs"
+    launch_agents = tmp_path / "LaunchAgents"
+    launch_agents.mkdir()
+    (launch_agents / "com.automated-apply.telegram.plist").write_text("active")
+
+    def check(arguments):
+        if arguments[-1] == "--check-config":
+            return b""
+        (plan / install.NATIVE_CONFIG).write_text("fictional companion config")
+        return json.dumps(
+            {
+                "extension_id": release.STABLE_EXTENSION_ID,
+                "fixture": False,
+                "telegram_enabled": True,
+            }
+        ).encode()
+
+    monkeypatch.setattr(install, "local_check", check)
+    with pytest.raises(release.ReleaseError, match="legacy_telegram_service_active"):
+        install.render(
+            release_dir,
+            plan,
+            (runtime, frontend),
+            node,
+            3000,
+            logs=logs,
+            allow_telegram=True,
+            launch_agents_dir=launch_agents,
+        )

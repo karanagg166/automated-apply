@@ -102,7 +102,17 @@ def local_check(arguments):
     return result.stdout
 
 
-def render(release, plan, settings, node, port, logs=None):
+def render(
+    release,
+    plan,
+    settings,
+    node,
+    port,
+    logs=None,
+    *,
+    allow_telegram=False,
+    launch_agents_dir=None,
+):
     runtime, frontend = settings
     logs_dir = Path(logs) if logs is not None else LOGS
     daemon = release / "bin/automated-apply-agents"
@@ -129,12 +139,23 @@ def render(release, plan, settings, node, port, logs=None):
             )
         )
     )
-    if result != {
-        "extension_id": STABLE_EXTENSION_ID,
-        "fixture": False,
-        "telegram_enabled": False,
-    }:
+    if (
+        result.get("extension_id") != STABLE_EXTENSION_ID
+        or result.get("fixture") is not False
+        or not isinstance(result.get("telegram_enabled"), bool)
+        or (not allow_telegram and result["telegram_enabled"])
+    ):
         raise ReleaseError("production_native_configuration_required")
+    telegram_enabled = result["telegram_enabled"]
+    if telegram_enabled:
+        agents_dir = (
+            Path(launch_agents_dir)
+            if launch_agents_dir is not None
+            else Path.home() / "Library/LaunchAgents"
+        )
+        legacy_telegram = agents_dir / "com.automated-apply.telegram.plist"
+        if legacy_telegram.exists() or legacy_telegram.is_symlink():
+            raise ReleaseError("legacy_telegram_service_active")
     for label, arguments in (
         ("rust", (daemon, "serve", "--config", runtime)),
         ("frontend", frontend_args),
@@ -158,6 +179,7 @@ def render(release, plan, settings, node, port, logs=None):
             }
         },
     )
+    return telegram_enabled
 
 
 def write_json(path, value):
@@ -173,6 +195,7 @@ def main():
     parser.add_argument("--runtime-config", type=Path, required=True)
     parser.add_argument("--frontend-config", type=Path, required=True)
     parser.add_argument("--port", type=int, default=3000)
+    parser.add_argument("--allow-telegram", action="store_true", default=False)
     args = parser.parse_args()
     os.umask(0o077)
     try:
@@ -194,7 +217,17 @@ def main():
             raise ReleaseError("node_executable_unavailable")
         PLANS.mkdir(exist_ok=True, parents=True)
         plan = Path(tempfile.mkdtemp(prefix="rust-plan-", dir=PLANS))
-        render(release, plan, settings, node, args.port, logs=LOGS)
+        telegram_enabled = bool(
+            render(
+                release,
+                plan,
+                settings,
+                node,
+                args.port,
+                logs=LOGS,
+                allow_telegram=args.allow_telegram,
+            )
+        )
         if {str(path): path_stamp(path) for path in settings} != expected:
             raise ReleaseError("cutover_configuration_changed_during_planning")
         native = plan / NATIVE_CONFIG
@@ -210,6 +243,7 @@ def main():
                     "staged": path_stamp(native),
                     "candidate_destination": str(release / "bin" / NATIVE_CONFIG),
                 },
+                "telegram_enabled": telegram_enabled,
                 "activates_services": False,
             },
         )
