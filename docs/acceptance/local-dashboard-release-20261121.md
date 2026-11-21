@@ -46,8 +46,21 @@ rollback restored nine exact definitions and twenty references from
 second attempt. The previous release `c4329d1` then recovered through its
 ordinary local service commands under a temporary supervisor. Runtime health,
 readiness, STOP control, and dashboard login returned HTTP 200. All 19
-retained state comparisons matched. Persistent LaunchAgent startup for the
-candidate and live startup catalog pages remain pending.
+retained state comparisons matched.
+
+A local probe linked against the optimized `502d5e5` library and called
+the startup search handler with its default dashboard filters. It used one
+live PostgreSQL connection with read-only transactions enforced. The probe
+returned two distinct 12-company pages, both reporting 1,221 eligible
+companies. It measured 16.015 seconds for page one and 10.968 seconds for
+page two. The probe used the query handler directly. Persistent LaunchAgent
+startup and HTTP verification through the installed dashboard remain pending.
+
+Observation resumed on the two verified `c4329d1` processes under their
+temporary local launch. The observer checks each process's release path and
+start time and stops if either process changes. Its first sample returned
+HTTP 200 for health, readiness, control and dashboard login. The full
+24-hour observation is in progress.
 
 ## Earlier release evidence
 
