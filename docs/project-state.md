@@ -1,5 +1,7 @@
 ## Current local work, 2026-11-21
 
+Instahyre was recovered with its authenticated email and signed in within the existing dedicated Brave automation profile. Candidate account settings showed the owner-selected address after reload. Wellfound also restored its previous session in the separate dedicated portal profile. The private AGY handoff now identifies both sessions. Naukri remains blocked on email-only sign-in. See the [Brave account report](acceptance/local-brave-portal-accounts-20261121.md).
+
 Source `502d5e5` passed all 37 combined stages and staged the catalog release. macOS requested Desktop-folder consent for the new service binary, and both local cutovers timed out. The verified previous release `c4329d1` is online under a temporary local supervisor, with all four readiness checks passing and all 19 retained state checks matching. Persistent launch and live startup catalog verification await the Mac prompt. See the [startup catalog report](acceptance/local-dashboard-release-20261121.md#startup-catalog).
 
 The dedicated Brave window is open with the verified extension, and the Naukri login form has the owner-selected email entered. Naukri's email recovery returned HTTP 403. Google also blocked the sign-in attempt. The selected browser binding and Naukri account identity still need live confirmation after the owner enters their credentials. The queue remains STOPPED with three quarantines and one supervised admission remaining. See the [Brave account report](acceptance/local-brave-portal-accounts-20261121.md).
