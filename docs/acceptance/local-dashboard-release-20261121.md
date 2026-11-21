@@ -99,6 +99,16 @@ launchd. Persistent activation still needs its own readiness, focus, startup
 catalog, policy, and retained application-state checks. The current dashboard
 continues to serve from the two locally launched `c4329d1` processes.
 
+The local installer now accepts the verified pair of direct baseline process
+IDs during the reviewed handoff. Its no-activation check passed against the
+two running processes, the exact staged release, and rollback
+`rust-preinstall-m4v4yhix`. Both services own their exact loopback listeners.
+An OrbStack wildcard also occupies port 3000. Readiness requires the exact
+loopback owner to be the expected process, and the OrbStack process stays
+outside the handoff. Six focused guard checks covered ambiguous or absent
+loopback ownership, a changed process identity, and the required access
+result. Actual activation and restoration on this path remain pending.
+
 ## Earlier release evidence
 
 The clean checkout at `e84bf06d4514dfb1ce0fdcaf9154420482051370` passed

@@ -44,3 +44,18 @@ The dashboard selection points to a different binding that reports
 inactive Naukri tab still shows the official sign-in form with the selected
 email filled. The next acceptance check needs the signed-in account and
 resume identity before using the live binding for supervised execution.
+
+The saved Naukri Jobs search returned zero matches in 2.738 seconds for
+published dates within 14 days and a minimum match score of 50. That read
+covered the saved inventory. Once the owner signs in, fresh discovery and
+listing inspection are still needed to find an eligible vacancy.
+
+Wellfound's account settings confirmed the selected sign-in email. Its
+display name differs from the confirmed local profile name and was preserved.
+One admission to add the missing LinkedIn URL recorded an unknown outcome.
+A new browser read found the field empty, and the save intent remains open
+for reconciliation. The current location is empty on the portal and absent
+from the confirmed local profile. The education editor uses a month-and-year
+picker. The saved education gives a year, and the canonical PDF did not
+provide an unambiguous month for that institution. These checks preserved
+macOS foreground and window order.
