@@ -251,9 +251,7 @@ impl Tools for FictionalTools {
         Ok(Authority {
             prepare: true,
             inactive_owned_browser: true,
-            fill: false,
-            telegram_paired: false,
-            requires_human_approval: false,
+            ..Authority::default()
         })
     }
     async fn execute(&mut self, effect: &Effect, _: &mut Store<'_>) -> Result<Observation> {
@@ -532,6 +530,7 @@ async fn knowledge_fixture() -> PgConnection {
         .unwrap();
     let _: Value = sqlx::query_scalar(include_str!("../sql/saved_naukri.sql"))
         .bind("naukri")
+        .bind(Option::<Uuid>::None)
         .fetch_one(&mut c)
         .await
         .expect("fictional source SQL contract");
@@ -2527,6 +2526,159 @@ async fn review_checkpoint(c: &mut PgConnection) -> lifecycle::Stored {
     );
     saved
 }
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn graph_owner_intake_prepares_one_cross_source_draft_for_review() {
+    use automated_apply_agents::{planner::HybridPlanner, telegram::RuntimeTools};
+
+    let (mut c, job) = packet_service_fixture().await;
+    sqlx::query("UPDATE jobs SET source_platform='greenhouse',job_url='https://boards.greenhouse.io/fictional/jobs/123' WHERE id=$1")
+        .bind(job)
+        .execute(&mut c)
+        .await
+        .unwrap();
+    sqlx::query("UPDATE owner_preferences SET value=(SELECT jsonb_build_object('profile_id',id,'profile_version',version,'confirmed_at','2026-11-16T00:00:00Z') FROM candidate_profiles WHERE singleton_key='primary') WHERE key='phase1_profile_confirmation'")
+        .execute(&mut c)
+        .await
+        .unwrap();
+    let profile = knowledge::reviewed_profile(&mut c)
+        .await
+        .unwrap()
+        .unwrap()
+        .pin;
+    let (url, stop, service) = http_fixture().await;
+    let http = client();
+    let route = format!("{url}/api/v1/rust-agent/runs");
+    let (packet_settings, answer_settings) = (packet_settings(), answer_settings());
+    let mut packet_id = Value::Null;
+
+    for expected_creation in [true, false] {
+        let key = Uuid::new_v4();
+        let request = json!({"request_id":key,"prepare_packet":true});
+        let created: Value = http
+            .post(&route)
+            .bearer_auth(HOST_TOKEN)
+            .json(&request)
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(created["prepare_packet"], true);
+        assert_eq!(created["limits"]["human_review"], true);
+        assert_eq!(created["model_policy"]["provider"], "deterministic");
+        let id: Uuid = created["id"].as_str().unwrap().parse().unwrap();
+        let repeated: Value = http
+            .post(&route)
+            .bearer_auth(HOST_TOKEN)
+            .json(&request)
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        assert_eq!(repeated["id"], json!(id));
+        let conflict = http
+            .post(&route)
+            .bearer_auth(HOST_TOKEN)
+            .json(&json!({"request_id":key}))
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(conflict.status(), 409);
+
+        let policy = lifecycle::load(&mut c, id).await.unwrap().run.model_policy;
+        let mut planner = HybridPlanner::for_run(policy.as_ref(), None, false)
+            .unwrap()
+            .with_packet_preparation(true);
+        let mut tools = RuntimeTools::new(
+            KnowledgeTools {
+                profile: profile.clone(),
+            },
+            None,
+            id,
+        )
+        .with_packets(&packet_settings, &answer_settings);
+        for _ in 0..30 {
+            let mut store = Store { connection: &mut c };
+            let Some(mut lease) = store.claim().await.unwrap() else {
+                break;
+            };
+            assert_eq!(lease.run.id, id);
+            tick(&mut store, &mut lease, &mut planner, &mut tools)
+                .await
+                .unwrap();
+            if lease.run.state == State::WaitingApproval {
+                break;
+            }
+        }
+        let saved = lifecycle::load(&mut c, id).await.unwrap();
+        assert_eq!(
+            saved.run.state,
+            State::WaitingApproval,
+            "{:?}",
+            saved.run.diagnostic
+        );
+        assert_eq!(saved.run.usage.model_calls, 0);
+        let preview: Value = http
+            .get(format!("{route}/{id}/plan"))
+            .bearer_auth(HOST_TOKEN)
+            .send()
+            .await
+            .unwrap()
+            .error_for_status()
+            .unwrap()
+            .json()
+            .await
+            .unwrap();
+        let results = preview["prepared_results"].as_array().unwrap();
+        let prepared = results
+            .iter()
+            .find(|r| r["tool"] == "prepare_application")
+            .unwrap();
+        let inspected = results
+            .iter()
+            .find(|r| r["tool"] == "inspect_application")
+            .unwrap();
+        assert_eq!(prepared["data"]["created"], expected_creation);
+        assert_eq!(inspected["data"]["job_id"], json!(job));
+        assert_eq!(inspected["data"]["lifecycle_state"], "created");
+        assert_eq!(
+            inspected["data"]["packet_id"],
+            prepared["data"]["packet_id"]
+        );
+        assert!(inspected["data"]["fields"].is_null());
+        assert!(inspected["data"]["snapshot"].is_null());
+        assert_eq!(preview["approval_grants_submission"], false);
+        if expected_creation {
+            packet_id = inspected["data"]["packet_id"].clone();
+            assert!(packet_id.as_str().unwrap().parse::<Uuid>().is_ok());
+        } else {
+            assert_eq!(packet_id, inspected["data"]["packet_id"]);
+        }
+    }
+
+    let retained: (i64, i64, i64, i64) = sqlx::query_as(
+        "SELECT (SELECT count(*) FROM application_packets),
+                (SELECT count(*) FROM application_events),
+                (SELECT count(*) FROM application_submission_evidence),
+                (SELECT count(*) FROM owner_preferences WHERE starts_with(key,'chr_cmd:') OR starts_with(key,'apply_budget:'))",
+    )
+    .fetch_one(&mut c)
+    .await
+    .unwrap();
+    assert_eq!(retained, (1, 1, 0, 0));
+    stop.cancel();
+    service.await.unwrap();
+}
+
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
 async fn graph_http_approval_requires_exact_revision_and_review_then_resumes_without_new_authority()

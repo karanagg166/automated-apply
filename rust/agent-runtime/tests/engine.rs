@@ -292,6 +292,7 @@ fn authority_cannot_be_granted_by_a_model_or_reviewer() {
     assert_eq!(
         Authority {
             prepare: true,
+            inspect_saved_packet: true,
             inactive_owned_browser: true,
             fill: true,
             telegram_paired: true,

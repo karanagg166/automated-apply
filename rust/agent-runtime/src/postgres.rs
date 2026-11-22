@@ -14,7 +14,7 @@ pub struct Store<'a> {
 impl Store<'_> {
     pub async fn create(&mut self, run: &Run) -> Result<Uuid> {
         let value = serde_json::to_value(run).map_err(|_| Failure("invalid_agent_record"))?;
-        let row=sqlx::query("INSERT INTO rust_agent_runs (id,request_key,run) VALUES ($1,$2,$3) ON CONFLICT (request_key) DO UPDATE SET request_key=EXCLUDED.request_key WHERE ('{\"human_review\":false,\"replans\":2}'::jsonb || (rust_agent_runs.run->'limits'))=('{\"human_review\":false,\"replans\":2}'::jsonb || (EXCLUDED.run->'limits')) AND COALESCE(rust_agent_runs.run->'model_policy','null'::jsonb)=COALESCE(EXCLUDED.run->'model_policy','null'::jsonb) AND COALESCE(rust_agent_runs.run->'profile','null'::jsonb)=COALESCE(EXCLUDED.run->'profile','null'::jsonb) RETURNING id")
+        let row=sqlx::query("INSERT INTO rust_agent_runs (id,request_key,run) VALUES ($1,$2,$3) ON CONFLICT (request_key) DO UPDATE SET request_key=EXCLUDED.request_key WHERE ('{\"human_review\":false,\"replans\":2}'::jsonb || (rust_agent_runs.run->'limits'))=('{\"human_review\":false,\"replans\":2}'::jsonb || (EXCLUDED.run->'limits')) AND COALESCE(rust_agent_runs.run->'model_policy','null'::jsonb)=COALESCE(EXCLUDED.run->'model_policy','null'::jsonb) AND COALESCE(rust_agent_runs.run->'profile','null'::jsonb)=COALESCE(EXCLUDED.run->'profile','null'::jsonb) AND COALESCE(rust_agent_runs.run->'prepare_packet','false'::jsonb)=COALESCE(EXCLUDED.run->'prepare_packet','false'::jsonb) RETURNING id")
             .bind(run.id).bind(run.request_key).bind(value).fetch_optional(&mut *self.connection).await.map_err(db_failure)?.ok_or(Failure("agent_request_key_conflict"))?;
         row.try_get("id").map_err(db_failure)
     }

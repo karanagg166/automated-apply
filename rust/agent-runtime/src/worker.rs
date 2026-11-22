@@ -213,17 +213,21 @@ async fn serve_internal(
                 // Intake always supplies a confirmed pin. Legacy/malformed unpinned work
                 // is stopped as a factual question before any tool can run.
                 if let Some(profile) = lease.run.profile.clone() {
-                    let mut tools = crate::telegram::RuntimeTools {
-                        knowledge: KnowledgeTools { profile },
-                        telegram: telegram.clone(),
-                        run_id: lease.run.id,
-                    };
+                    let prepare_packet = lease.run.prepare_packet;
+                    let mut tools = crate::telegram::RuntimeTools::new(
+                        KnowledgeTools { profile },
+                        telegram.clone(),
+                        lease.run.id,
+                    );
+                    if prepare_packet && let Some(config) = config {
+                        tools = tools.with_packets(&config.packets, &config.answers);
+                    }
                     let mut model = match HybridPlanner::for_run(
                         lease.run.model_policy.as_ref(),
                         models.as_ref(),
-                        telegram.is_some(),
+                        telegram.is_some() && !prepare_packet,
                     ) {
-                        Ok(model) => model,
+                        Ok(model) => model.with_packet_preparation(prepare_packet),
                         Err(error) => {
                             // Restore configuration, then explicitly resume. Never silently
                             // downgrade a pinned model role or replay an uncertain effect.

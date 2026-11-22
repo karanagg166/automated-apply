@@ -102,7 +102,7 @@ pub async fn rank_saved_naukri(
     expected: &ProfilePin,
     limit: usize,
 ) -> Result<RankedSavedJobs> {
-    rank(connection, expected, Some("naukri"), limit).await
+    rank(connection, expected, Some("naukri"), None, limit).await
 }
 
 pub async fn rank_saved_jobs(
@@ -110,13 +110,25 @@ pub async fn rank_saved_jobs(
     expected: &ProfilePin,
     limit: usize,
 ) -> Result<RankedSavedJobs> {
-    rank(connection, expected, None, limit).await
+    rank(connection, expected, None, None, limit).await
+}
+
+pub(crate) async fn job_still_rankable(
+    connection: &mut PgConnection,
+    expected: &ProfilePin,
+    job: Uuid,
+) -> Result<bool> {
+    Ok(!rank(connection, expected, None, Some(job), 1)
+        .await?
+        .jobs
+        .is_empty())
 }
 
 async fn rank(
     connection: &mut PgConnection,
     expected: &ProfilePin,
     platform: Option<&str>,
+    job: Option<Uuid>,
     limit: usize,
 ) -> Result<RankedSavedJobs> {
     if !(1..=10).contains(&limit) {
@@ -125,6 +137,7 @@ async fn rank(
     // Confirmation, saved jobs and all replay fences share one statement/snapshot/round trip.
     let value: Value = sqlx::query_scalar(include_str!("../sql/saved_naukri.sql"))
         .bind(platform)
+        .bind(job)
         .fetch_one(&mut *connection)
         .await
         .map_err(|_| Failure("saved_jobs_database_error"))?;

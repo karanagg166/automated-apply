@@ -787,18 +787,52 @@ pub async fn enqueue(
     }
     Ok(())
 }
-/// Compose actual read tools with a bound notification queue; no model-supplied text or chat.
-pub struct RuntimeTools {
+/// Compose the durable workflow tools for one pinned run.
+pub struct RuntimeTools<'a> {
     pub knowledge: KnowledgeTools,
     pub telegram: Option<Settings>,
     pub run_id: Uuid,
+    packets: Option<crate::execution::graph_packets::PacketTools<'a>>,
 }
-impl Tools for RuntimeTools {
+impl<'a> RuntimeTools<'a> {
+    pub fn new(knowledge: KnowledgeTools, telegram: Option<Settings>, run_id: Uuid) -> Self {
+        Self {
+            knowledge,
+            telegram,
+            run_id,
+            packets: None,
+        }
+    }
+
+    pub fn with_packets(
+        mut self,
+        packets: &'a crate::packet_service::Settings,
+        answers: &'a crate::answer_service::Settings,
+    ) -> Self {
+        self.packets = Some(crate::execution::graph_packets::PacketTools { packets, answers });
+        self
+    }
+}
+impl Tools for RuntimeTools<'_> {
     async fn authority(
         &mut self,
         call: &crate::contracts::ToolCall,
         store: &mut Store<'_>,
     ) -> Result<Authority> {
+        if self.packets.is_some()
+            && matches!(
+                call.name,
+                ToolName::PrepareApplication | ToolName::InspectApplication
+            )
+        {
+            let current = crate::knowledge::reviewed_profile(store.connection)
+                .await?
+                .ok_or(Failure("profile_review_required"))?;
+            if current.pin != self.knowledge.profile {
+                return Err(Failure("verified_profile_context_changed"));
+            }
+            return crate::execution::graph_packets::authority(call);
+        }
         if call.name == ToolName::NotifyTelegram {
             let settings = self
                 .telegram
@@ -813,6 +847,20 @@ impl Tools for RuntimeTools {
         self.knowledge.authority(call, store).await
     }
     async fn execute(&mut self, effect: &Effect, store: &mut Store<'_>) -> Result<Observation> {
+        if matches!(
+            effect.call.name,
+            ToolName::PrepareApplication | ToolName::InspectApplication
+        ) && let Some(packets) = &self.packets
+        {
+            return packets
+                .run(
+                    store.connection,
+                    self.run_id,
+                    &self.knowledge.profile,
+                    effect,
+                )
+                .await;
+        }
         if effect.call.name == ToolName::NotifyTelegram {
             let settings = self
                 .telegram

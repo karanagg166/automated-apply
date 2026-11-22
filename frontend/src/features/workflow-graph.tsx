@@ -72,6 +72,17 @@ export function ReviewCheckpoint({
   const pending = plan.graph.approvals.find(
     (item) => item.status === "pending",
   );
+  const preparation = plan.prepared_results.find(
+    (result) => result.tool === "prepare_application",
+  );
+  const inspection = plan.prepared_results.find(
+    (result) => result.tool === "inspect_application",
+  );
+  const inspected = inspection?.data;
+  const packetId =
+    inspected && typeof inspected === "object" && "packet_id" in inspected
+      ? inspected.packet_id
+      : null;
   useEffect(() => setReviewed(false), [plan.revision, pending?.id]);
   return (
     <section style={box} aria-label="Prepared plan and human decision">
@@ -84,6 +95,14 @@ export function ReviewCheckpoint({
       {plan.prepared_results.length === 0 && (
         <p>Tools have not produced reviewable results yet.</p>
       )}
+      {typeof packetId === "string" &&
+        /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(packetId) && (
+          <p>
+            <Link href={`/applications/${packetId}`}>
+              Open application draft
+            </Link>
+          </p>
+        )}
       {plan.prepared_results.map((result, index) => (
         <details key={`${result.tool}-${index}`}>
           <summary>
@@ -141,13 +160,15 @@ export function ReviewCheckpoint({
             >
               Approve checkpoint
             </button>
-            <button
-              className="button secondary"
-              disabled={busy}
-              onClick={() => decide(pending.id, "request_changes")}
-            >
-              Request changes
-            </button>
+            {!preparation && (
+              <button
+                className="button secondary"
+                disabled={busy}
+                onClick={() => decide(pending.id, "request_changes")}
+              >
+                Request changes
+              </button>
+            )}
             <button
               className="button danger"
               disabled={busy}
@@ -173,6 +194,12 @@ export function WorkflowGraph() {
     [busy, setBusy] = useState(false),
     [stage, setStage] = useState("planning");
   const run = runs.find((item) => item.id === selected);
+  const canPrepareDraft = ["prepare_application", "inspect_application"].every(
+    (name) =>
+      capabilities?.tools?.some(
+        (tool) => tool.name === name && tool.status === "available",
+      ),
+  );
   async function refresh(id = selected) {
     const [listing, mode, features] = await Promise.all([
       workflowApi<{ runs: WorkflowRun[] }>("runs"),
@@ -203,6 +230,17 @@ export function WorkflowGraph() {
       setBusy(false);
     }
   }
+  function createReview(preparePacket: boolean) {
+    if (!capabilities) return;
+    return mutate(async () => {
+      const created = await workflowApi<WorkflowRun>("runs", "POST", {
+        request_id: crypto.randomUUID(),
+        limits: { ...capabilities.recommended_limits, human_review: true },
+        ...(preparePacket ? { prepare_packet: true } : {}),
+      });
+      return created.id;
+    });
+  }
   return (
     <div style={{ maxWidth: 1120, margin: "0 auto", padding: 24 }}>
       <h1>Agent workflow</h1>
@@ -211,8 +249,9 @@ export function WorkflowGraph() {
         the plan, tool results and human checkpoints.
       </p>
       <p role="status">
-        Saved job review is available. Browser and application dispatch are
-        still awaiting Rust migration and live validation.
+        {canPrepareDraft
+          ? "Create a saved job review or prepare one draft in Applications."
+          : "Saved job review is available."}
       </p>
       {error && <p role="alert">{error}</p>}
       <PublicDiscovery request={workflowApi} />
@@ -249,21 +288,19 @@ export function WorkflowGraph() {
           <button
             className="button secondary"
             disabled={busy || !capabilities}
-            onClick={() =>
-              void mutate(async () => {
-                const created = await workflowApi<WorkflowRun>("runs", "POST", {
-                  request_id: crypto.randomUUID(),
-                  limits: {
-                    ...capabilities!.recommended_limits,
-                    human_review: true,
-                  },
-                });
-                return created.id;
-              })
-            }
+            onClick={() => void createReview(false)}
           >
             Create review with approval
           </button>
+          {canPrepareDraft && (
+            <button
+              className="button secondary"
+              disabled={busy}
+              onClick={() => void createReview(true)}
+            >
+              Prepare draft and review
+            </button>
+          )}
           <button
             className="button secondary"
             disabled={busy}

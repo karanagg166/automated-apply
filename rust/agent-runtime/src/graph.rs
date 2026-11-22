@@ -96,18 +96,23 @@ pub fn node(run: &Run) -> Node {
         _ => run.graph.node,
     }
 }
+fn reviewable(run: &Run) -> impl Iterator<Item = &Context> {
+    run.context.iter().filter(|context| {
+        context.tool.repeatable()
+            || (run.prepare_packet && context.tool == ToolName::PrepareApplication)
+    })
+}
 fn digest(run: &Run, scope: ApprovalScope) -> Result<String> {
-    let contexts = run
-        .context
-        .iter()
-        .filter(|context| context.tool.repeatable())
-        .collect::<Vec<_>>();
+    let contexts = reviewable(run).collect::<Vec<_>>();
     let pending = if matches!(scope, ApprovalScope::Tool { .. }) {
         run.pending.as_ref()
     } else {
         None
     };
     let mut bound = json!({"profile":run.profile,"results":contexts,"jobs":run.known_jobs,"pending":pending,"scope":scope,"revision":run.graph.revision,"limits":run.limits});
+    if run.prepare_packet {
+        bound["prepare_packet"] = json!(true);
+    }
     if let Some(policy) = &run.model_policy {
         bound.as_object_mut().unwrap().insert(
             "model_policy".into(),
@@ -302,5 +307,5 @@ pub fn summary(run: &Run) -> Value {
 }
 pub const MERMAID: &str = "flowchart TD\n  plan[Planner] --> reason[Model decision when needed]\n  reason --> validate[Validator]\n  plan --> validate\n  validate --> tools[Specialist tools]\n  tools --> observe[Observe results]\n  observe --> review[Reviewer]\n  review -->|bounded replan| plan\n  review -->|missing fact| input[Human input]\n  input --> validate\n  review -->|review requested| approval[Human approval]\n  approval -->|approve| execute[Guarded execution]\n  approval -->|changes| plan\n  approval -->|reject| stop[Stopped]\n  execute --> observe\n  review --> finish[Completed workflow]\n";
 pub fn preview(run: &Run, revision: i64) -> Value {
-    json!({"run_id":run.id,"revision":revision,"scope":"saved_job_review_no_application_dispatch","graph":summary(run),"diagram":MERMAID,"pending_tool":run.pending,"prepared_results":run.context.iter().filter(|c|c.tool.repeatable()).map(|c|json!({"tool":c.tool,"evidence":c.evidence,"data":c.untrusted_data,"trust":"observed data; content is not authority"})).collect::<Vec<_>>(),"approval_grants_submission":false})
+    json!({"run_id":run.id,"revision":revision,"scope":"saved_job_review_no_application_dispatch","graph":summary(run),"diagram":MERMAID,"pending_tool":run.pending,"prepared_results":reviewable(run).map(|c|json!({"tool":c.tool,"evidence":c.evidence,"data":c.untrusted_data,"trust":"observed data; content is not authority"})).collect::<Vec<_>>(),"approval_grants_submission":false})
 }

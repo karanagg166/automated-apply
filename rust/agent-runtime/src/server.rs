@@ -211,6 +211,8 @@ fn supplied_limits<'de, D: serde::Deserializer<'de>>(
 #[serde(deny_unknown_fields)]
 struct Intake {
     request_id: Uuid,
+    #[serde(default)]
+    prepare_packet: bool,
     #[serde(default, deserialize_with = "supplied_limits")]
     limits: Option<Limits>,
 }
@@ -278,7 +280,7 @@ async fn dispatch(
             let limits = policy.recommended_limits();
             let tools = ToolName::ALL.into_iter().map(|name| {
                 let status = match name {
-                    ToolName::SearchJobs|ToolName::RankJobs|ToolName::VerifiedContext|ToolName::ApplicationHistory => "available",
+                    ToolName::SearchJobs|ToolName::RankJobs|ToolName::VerifiedContext|ToolName::ApplicationHistory|ToolName::PrepareApplication|ToolName::InspectApplication => "available",
                     ToolName::NotifyTelegram if api.config.telegram.is_some() => "available",
                     ToolName::NotifyTelegram => "disabled",
                     _ => "not_migrated",
@@ -312,9 +314,14 @@ async fn dispatch(
                     Limits::default()
                 }
             });
-            let stored =
-                lifecycle::intake_policy(connection, input.request_id, limits, Some(policy))
-                    .await?;
+            let stored = lifecycle::intake_mode(
+                connection,
+                input.request_id,
+                limits,
+                Some(policy),
+                input.prepare_packet,
+            )
+            .await?;
             api.wake.work_available();
             Ok(lifecycle::summary(&stored))
         }

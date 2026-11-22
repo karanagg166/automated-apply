@@ -13,7 +13,8 @@ WITH verified AS (
             substring(regexp_replace(j.job_url,'[?#].*$','','') from '-([0-9]{10,20})/?$')
         END AS requisition
     FROM jobs j CROSS JOIN verified
-    WHERE ($1::text IS NULL OR j.source_platform=$1) AND j.status<>'archived'
+    WHERE ($1::text IS NULL OR j.source_platform=$1)
+        AND ($2::uuid IS NULL OR j.id=$2) AND j.status<>'archived'
 ), submitted AS MATERIALIZED (
     SELECT j.id,j.source_platform,
         NULLIF(regexp_replace(j.job_url,'[?#].*$','',''),'') AS job_link,

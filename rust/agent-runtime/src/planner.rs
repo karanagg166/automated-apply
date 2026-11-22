@@ -8,6 +8,7 @@ pub struct HybridPlanner {
     saved: SavedReviewPlanner,
     reviewer: Option<crate::provider::CohereModel>,
     pub(crate) roles: Vec<Role>,
+    prepare_packet: bool,
 }
 impl HybridPlanner {
     pub fn for_run(
@@ -36,7 +37,13 @@ impl HybridPlanner {
             saved: SavedReviewPlanner { notify },
             reviewer: configured.map(|models| models.client.clone()),
             roles,
+            prepare_packet: false,
         })
+    }
+
+    pub fn with_packet_preparation(mut self, enabled: bool) -> Self {
+        self.prepare_packet = enabled;
+        self
     }
     fn inference_ready(&self, role: Role, context: &[Context]) -> bool {
         if self.reviewer.is_none() || !self.roles.contains(&role) {
@@ -101,6 +108,11 @@ impl Model for HybridPlanner {
         budget: ModelBudget,
         store: &mut Store<'_>,
     ) -> Result<Proposal> {
+        if self.prepare_packet
+            && let Some(call) = packet_action(role, context)
+        {
+            return Ok(Proposal::Tool { call });
+        }
         if self.inference_ready(role, context) {
             let compact = decision_context(context)?;
             let proposal = self
@@ -113,6 +125,42 @@ impl Model for HybridPlanner {
         }
         self.saved.propose(role, context, budget, store).await
     }
+}
+
+fn packet_action(role: Role, context: &[Context]) -> Option<ToolCall> {
+    let has = |name| context.iter().any(|entry| entry.tool == name);
+    let (name, source, candidate) = match role {
+        Role::Answers if has(ToolName::VerifiedContext) && !has(ToolName::PrepareApplication) => {
+            let ranked = context
+                .iter()
+                .rev()
+                .find(|entry| entry.tool == ToolName::RankJobs)?;
+            (
+                ToolName::PrepareApplication,
+                ranked,
+                &ranked.untrusted_data["jobs"][0]["job_id"],
+            )
+        }
+        Role::Review if has(ToolName::ApplicationHistory) && !has(ToolName::InspectApplication) => {
+            let packet = context
+                .iter()
+                .rev()
+                .find(|entry| entry.tool == ToolName::PrepareApplication)?;
+            packet.untrusted_data["packet_id"].as_str()?;
+            (
+                ToolName::InspectApplication,
+                packet,
+                &packet.untrusted_data["job_id"],
+            )
+        }
+        _ => return None,
+    };
+    let job = candidate.as_str()?.parse().ok()?;
+    source.evidence.contains(&job).then(|| ToolCall {
+        name,
+        job_id: Some(job),
+        evidence: vec![job],
+    })
 }
 pub(crate) fn model_decision(role: Role, proposal: Proposal) -> Result<Proposal> {
     let allowed = matches!(

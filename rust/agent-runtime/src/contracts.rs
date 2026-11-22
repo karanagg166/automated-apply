@@ -268,6 +268,8 @@ pub struct Run {
     #[serde(default)]
     pub model_policy: Option<crate::model_policy::Policy>,
     #[serde(default)]
+    pub prepare_packet: bool,
+    #[serde(default)]
     pub graph: crate::graph::Checkpoint,
     pub id: Uuid,
     pub request_key: Uuid,
@@ -296,6 +298,7 @@ impl Run {
         Ok(Self {
             graph: crate::graph::Checkpoint::default(),
             model_policy: None,
+            prepare_packet: false,
             id: Uuid::new_v4(),
             request_key,
             role: Role::Discovery,
@@ -321,6 +324,7 @@ impl Run {
 pub struct Authority {
     pub requires_human_approval: bool,
     pub prepare: bool,
+    pub inspect_saved_packet: bool,
     pub inactive_owned_browser: bool,
     pub fill: bool,
     pub telegram_paired: bool,
@@ -332,9 +336,12 @@ impl Authority {
             ToolName::PrepareApplication if !self.prepare => {
                 Err(Failure("owner_preparation_authority_required"))
             }
-            ToolName::OpenBrowser | ToolName::InspectApplication
-                if !self.inactive_owned_browser =>
+            ToolName::InspectApplication
+                if !self.inspect_saved_packet && !self.inactive_owned_browser =>
             {
+                Err(Failure("inactive_owned_tab_required"))
+            }
+            ToolName::OpenBrowser if !self.inactive_owned_browser => {
                 Err(Failure("inactive_owned_tab_required"))
             }
             ToolName::FillApplication if !self.fill || !self.inactive_owned_browser => {
