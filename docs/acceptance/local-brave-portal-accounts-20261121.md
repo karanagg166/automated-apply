@@ -1,5 +1,34 @@
 # Local Brave portal account acceptance
 
+## November 22 profile follow-up
+
+The saved Wellfound account still matches the owner's sign-in address. An
+independent browser visit showed the owner-confirmed current city and
+Software Engineer as the primary role. The education editor retained the
+confirmed graduation month and bachelor-level degree. The canonical resume
+was already verified. After an independent read, the profile showed Frontend
+Engineer, Backend Engineer, Full-Stack Engineer and DevOps as additional
+roles. The new biography and job-search statement both survived reload.
+The experience picker retained the confirmed range of less than one year.
+Five profile skills were verified after reload. The other three selected
+skills were unconfirmed on readback.
+Wellfound still showed its profile completion prompt.
+
+Instahyre retained the student-or-fresher choice and all 20 skills after a
+reload. Its preferences form returned HTTP 200 after saving the confirmed
+city, salary floor and the available domestic, international and remote
+choices. The next screen shows the previously saved education and asks for
+internship companies. The previous current-employer prompt is no longer on
+that screen. Both portal updates preserved macOS foreground and window order.
+
+The private portal record contains the exact owner-confirmed preferences
+for AGY. The account count remains two of eight. The Naukri tab still shows
+sign-in in the dedicated Brave profile. Email recovery returned HTTP 403,
+and the matched inbox check found no recovery email. The application queue
+is stopped.
+
+## Earlier account setup
+
 Two of eight portal sessions have been verified in the dedicated Brave profiles.
 Wellfound restored the owner-selected account from disk after Brave closed and
 reopened. The Keychain holds the new password. The resume page showed the

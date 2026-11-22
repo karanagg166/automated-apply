@@ -1,5 +1,28 @@
 # Local dashboard release validation
 
+## November 22 public-feed release follow-up
+
+The clean combined run `20261122T115033Z-f6870d23db26458e817c3096dee1edfc`
+passed all 37 stages on `4dab75e736fa229ac8a138bac2933b204bf82941`.
+The stage durations totaled 2,764.526 seconds. Coverage included 1,096 Rust
+PostgreSQL cases, 3,433 backend tests with one skip, 48 backend browser cases,
+the Brave extension stack, and checks on the optimized release artifacts.
+The commit shortens public-feed ingestion ledger keys to fit the live column.
+
+| Local check | Result | Evidence |
+| --- | --- | --- |
+| Exact immutable release | PASS | `rust-plan-lhj2z6tk` staged the accepted release using the existing config and verified rollback inventory `rust-preinstall-pqbxseh3`. |
+| First cutover | Rolled back | Candidate readiness and retained data passed. The foreground app and window order matched. The screen reading changed from unknown to unlocked, so the installer restored `12666f3` and verified its health and retained state. |
+| Direct-process cutover retry | PASS | The preflight required two matching, known screen observations. Runtime, readiness, control, Telegram status and dashboard returned HTTP 200. The worker was online at STOPPED. All retained checks matched. |
+| Live Himalayas MCP discovery and ingest | PASS | Twenty public jobs inserted, zero duplicates and zero expired. The saved Himalayas count increased from zero to 20. All other retained checks matched, including the STOPPED application queue, three reservations, three uncertain jobs, confirmed profile and resume. |
+| Live deterministic saved review and Telegram | PASS | The original verification wait expired. A read-only reconciliation found the same run completed with ten decisions, five tool calls, zero model calls, zero reserved tokens and one Telegram Bot API receipt. The coordinator returned to STOPPED. Protected state matched and zero job applications were dispatched. |
+| Local runtime observer | Running | The initial sample passed after the review. The observer checks the active process identities and readiness and records local observations for 24 hours. |
+| LaunchAgent access | Pending owner run | The updated Desktop-access launcher validated both exact staged definitions. The live services are running as local direct processes. |
+
+The ready `4dab75e` sample recorded 5,232 KiB of Rust RSS and 3,840 KiB of
+dashboard RSS. The last ready `12666f3` sample recorded 8,752 KiB and 2,848
+KiB. The samples were taken at different uptimes.
+
 ## Clean `--allow-telegram` release `ccdf57e` and live direct cutover (2026-11-22)
 
 Local commits `db3d582` and `ccdf57e` wired explicit `--allow-telegram` opt-in across `rust/agent-runtime` (`prepare-native-config`, retaining `initial_cutover_requires_telegram_disabled` by default) and `rust/scripts/local_install_plan.py` (verifying `com.automated-apply.telegram.plist` is absent). Pre-commit checks passed (`cargo fmt --all -- --check`, `13/13` `host` tests, `cargo clippy --workspace --all-targets -- -D warnings`, `9/9` release Python tests, and `ruff`).

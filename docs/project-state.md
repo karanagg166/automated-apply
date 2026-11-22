@@ -1,4 +1,23 @@
-## Current local work, 2026-11-22
+## Latest local acceptance, 2026-11-22
+
+The clean combined gate passed all 37 stages at `4dab75e`. The exact release
+is running locally with the worker online and the application queue stopped.
+The installed MCP saved 20 Himalayas jobs. One deterministic saved-review
+run completed with zero model calls and one verified Telegram delivery.
+The coordinator is back at STOPPED. The three Naukri quarantines, three
+reservations, confirmed profile and resume checks matched their retained
+state. The launchd Desktop-access report is still pending. See the
+[local release report](acceptance/local-dashboard-release-20261121.md#november-22-public-feed-release-follow-up).
+
+Two of eight portal sessions are verified. Wellfound retained the confirmed
+city, role preferences, biography and education. Instahyre retained the
+fresher choice and accepted the confirmed salary and location preferences.
+Its education screen asks for internship companies. The private portal handoff records the source
+and exact preferences. Naukri remains at email-only sign-in, so the fourth
+supervised attempt and the first strict receipt are still pending. See the
+[portal report](acceptance/local-brave-portal-accounts-20261121.md#november-22-profile-follow-up).
+
+## Earlier local work, 2026-11-22
 
 Local `--allow-telegram` support (`db3d582`, `ccdf57e`) is committed locally on `feat/rust-agent-runtime` (ownership transferred in `.git/automated-apply/worktree-ownership.json` after Codex paused; `.worktrees/antigravity-completion-20261121` retained cleanly awaiting separate cleanup approval). Clean combined acceptance run `20261121T224854Z-8a683d7e5bf443449a2520fbbbd86306` on `ccdf57ed7b8ffd36ed1075903579cc86ed9f4192` passed **all `37 / 37` stages** in `2,230.467s` (following an interrupted `35/37` run and a `36/37` transient Brave launch flake that passed `12/12` in isolation) and staged immutable release `rust-ccdf57e`. Guarded direct-process cutover then upgraded live local services from `c4329d1` to `ccdf57e` (`PID 75651` rust / `75728` next-server / `75892` direct observer, rollback `rust-preinstall-pqbxseh3`, cutover plan `rust-plan-gtu8r87i` with `--allow-telegram`), keeping `~/Library/LaunchAgents/*.plist` untouched (`rust-preinstall-m4v4yhix` preserved) while macOS Desktop-Folder consent remains pending. Verified live: macOS focus `PASS`, `check-retained.py --cutover-fingerprints` `changed_checks: []` (`3,036` jobs, `35` packets, `STOPPED` rev `162`/`100`/`1`), live Telegram (`enabled: true`, `bot_id: 8842646800`, `live_poll` `last_poll_at: 2026-11-21T23:54:31Z`), batched Startup Explorer HTTP `200` on `total: 1,239` companies (`28.839s` / `18.232s`), all `21` owner API endpoints `200` + `401` auth boundaries, `26`-tool local MCP (`telegram_notify_run` included), and Hacker News local completion (`+18` jobs -> `9` fresh 14-day / score ≥ 50 matches; `remotive` `429`, `arbeitnow` `503` retained). On Instahyre (`brave-automation`), verified `20` skills, Step 2 preferences, education `5693636`, and canonical v5 PDF `4826702` (`cfc0d859...`, `100,198` bytes) with macOS focus `PASS`, paused honestly on Step 3 required current-employment input. Remaining owner/OS gates: Naukri visible sign-in for Brave pin migration (`063e153`) and 4th supervised receipt, interactive macOS Desktop consent (`check-catalog-desktop-access.command`), truthful personal facts (Instahyre current employment, Wellfound location & graduation month), and anti-bot/CAPTCHA-blocked portals. See [the dashboard release report](acceptance/local-dashboard-release-20261121.md) and [the Brave portal report](acceptance/local-brave-portal-accounts-20261121.md).
 
