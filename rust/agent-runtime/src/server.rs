@@ -127,31 +127,34 @@ async fn pause(connection: &mut PgConnection) -> Result<()> {
 }
 
 pub async fn readiness(connection: &mut PgConnection, config: &Configuration) -> Result<()> {
-    let row=sqlx::query("SELECT current_database() AS database,current_schema() AS schema,current_user AS role,to_regclass('rust_agent_runs') IS NOT NULL AND to_regclass('rust_agent_events') IS NOT NULL AND to_regclass('rust_agent_control_events') IS NOT NULL AND to_regclass('candidate_profiles') IS NOT NULL AND to_regclass('owner_preferences') IS NOT NULL AND to_regclass('jobs') IS NOT NULL AND to_regclass('companies') IS NOT NULL AND to_regclass('application_packets') IS NOT NULL AS tables")
-        .fetch_one(&mut *connection).await.map_err(|_|Failure("agent_schema_unavailable"))?;
-    if row.get::<String, _>("database") != config.database
-        || row.get::<Option<String>, _>("schema").as_deref() != Some(config.schema.as_str())
-        || row.get::<String, _>("role") != config.role
-        || !row.get::<bool, _>("tables")
-    {
-        return Err(Failure("agent_database_target_mismatch"));
-    }
-    sqlx::query("SELECT decision_calls FROM rust_agent_events LIMIT 0")
+    recovery::bounded(recovery::DATABASE_STALL, async {
+        let row=sqlx::query("SELECT current_database() AS database,current_schema() AS schema,current_user AS role,to_regclass('rust_agent_runs') IS NOT NULL AND to_regclass('rust_agent_events') IS NOT NULL AND to_regclass('rust_agent_control_events') IS NOT NULL AND to_regclass('candidate_profiles') IS NOT NULL AND to_regclass('owner_preferences') IS NOT NULL AND to_regclass('jobs') IS NOT NULL AND to_regclass('companies') IS NOT NULL AND to_regclass('application_packets') IS NOT NULL AS tables")
+            .fetch_one(&mut *connection).await.map_err(|_|Failure("agent_schema_unavailable"))?;
+        if row.get::<String, _>("database") != config.database
+            || row.get::<Option<String>, _>("schema").as_deref() != Some(config.schema.as_str())
+            || row.get::<String, _>("role") != config.role
+            || !row.get::<bool, _>("tables")
+        {
+            return Err(Failure("agent_database_target_mismatch"));
+        }
+        sqlx::query("SELECT decision_calls FROM rust_agent_events LIMIT 0")
+            .execute(&mut *connection)
+            .await
+            .map_err(|_| Failure("agent_schema_unavailable"))?;
+        sqlx::query("SELECT question_checked_at FROM rust_agent_runs LIMIT 0")
+            .execute(&mut *connection)
+            .await
+            .map_err(|_| Failure("agent_schema_unavailable"))?;
+        lifecycle::control(&mut *connection).await?;
+        sqlx::query(
+            "SELECT graph_node,graph_iteration,approval_required FROM rust_agent_events LIMIT 0",
+        )
         .execute(&mut *connection)
         .await
         .map_err(|_| Failure("agent_schema_unavailable"))?;
-    sqlx::query("SELECT question_checked_at FROM rust_agent_runs LIMIT 0")
-        .execute(&mut *connection)
-        .await
-        .map_err(|_| Failure("agent_schema_unavailable"))?;
-    lifecycle::control(connection).await?;
-    sqlx::query(
-        "SELECT graph_node,graph_iteration,approval_required FROM rust_agent_events LIMIT 0",
-    )
-    .execute(&mut *connection)
+        Ok(())
+    })
     .await
-    .map_err(|_| Failure("agent_schema_unavailable"))?;
-    Ok(())
 }
 struct OwnerReply {
     data: Value,

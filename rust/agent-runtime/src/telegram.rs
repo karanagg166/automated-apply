@@ -928,13 +928,18 @@ impl Relay {
             if !wait.is_zero() {
                 tokio::select! {biased;_=shutdown.cancelled()=>return Ok(()),_=tokio::time::sleep(wait)=>{}}
             }
-            let offset: i64 = sqlx::query_scalar(
-                "SELECT next_update_id FROM agent_telegram_state WHERE key='primary'",
-            )
-            .fetch_one(&mut self.connection)
-            .await
-            .map_err(db)?;
-            let pending:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM rust_telegram_outbox WHERE state='pending' AND binding=$1) OR EXISTS(SELECT 1 FROM owner_preferences WHERE starts_with(key,'exec_q:') AND value->>'state'='pending' AND value->>'delivery_error' IS DISTINCT FROM 'telegram_question_too_long_manual_required' AND CASE WHEN pg_input_is_valid(value->>'expires_at','timestamp with time zone') THEN (value->>'expires_at')::timestamptz>clock_timestamp() ELSE true END)").bind(self.bot.settings.binding()).fetch_one(&mut self.connection).await.map_err(db)?;
+            let (offset, pending) =
+                crate::recovery::bounded(crate::recovery::DATABASE_STALL, async {
+                    let offset: i64 = sqlx::query_scalar(
+                        "SELECT next_update_id FROM agent_telegram_state WHERE key='primary'",
+                    )
+                    .fetch_one(&mut self.connection)
+                    .await
+                    .map_err(db)?;
+                    let pending:bool=sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM rust_telegram_outbox WHERE state='pending' AND binding=$1) OR EXISTS(SELECT 1 FROM owner_preferences WHERE starts_with(key,'exec_q:') AND value->>'state'='pending' AND value->>'delivery_error' IS DISTINCT FROM 'telegram_question_too_long_manual_required' AND CASE WHEN pg_input_is_valid(value->>'expires_at','timestamp with time zone') THEN (value->>'expires_at')::timestamptz>clock_timestamp() ELSE true END)").bind(self.bot.settings.binding()).fetch_one(&mut self.connection).await.map_err(db)?;
+                    Ok((offset, pending))
+                })
+                .await?;
             let updates = self.bot.updates(offset, pending).await;
             let updates = match updates {
                 Ok(updates) => updates,
@@ -942,51 +947,78 @@ impl Relay {
             };
             let mut empty = updates.is_empty();
             for update in updates {
-                receive_configured(
-                    &mut self.connection,
-                    &self.bot.settings,
-                    &self.identity,
-                    &update,
-                    wake,
-                    Some(config),
+                crate::recovery::bounded(
+                    crate::recovery::DATABASE_BATCH_STALL,
+                    receive_configured(
+                        &mut self.connection,
+                        &self.bot.settings,
+                        &self.identity,
+                        &update,
+                        wake,
+                        Some(config),
+                    ),
                 )
                 .await?;
             }
-            sqlx::query("UPDATE agent_telegram_state SET last_poll_at=clock_timestamp(),last_error=NULL WHERE key='primary'").execute(&mut self.connection).await.map_err(db)?;
-            if let Some(question) = crate::execution::telegram_questions::claim(
-                &mut self.connection,
-                &self.bot.settings,
-                config,
+            crate::recovery::bounded(crate::recovery::DATABASE_STALL, async {
+                sqlx::query("UPDATE agent_telegram_state SET last_poll_at=clock_timestamp(),last_error=NULL WHERE key='primary'").execute(&mut self.connection).await.map_err(db)
+            })
+            .await?;
+            if let Some(question) = crate::recovery::bounded(
+                crate::recovery::DATABASE_STALL,
+                crate::execution::telegram_questions::claim(
+                    &mut self.connection,
+                    &self.bot.settings,
+                    config,
+                ),
             )
             .await?
             {
                 let result = self.bot.send_question(&question.text).await;
                 match result {
                     Ok(message) => {
-                        crate::execution::telegram_questions::finish(
-                            &mut self.connection,
-                            &self.bot.settings,
-                            &question,
-                            message,
+                        crate::recovery::bounded(
+                            crate::recovery::DATABASE_STALL,
+                            crate::execution::telegram_questions::finish(
+                                &mut self.connection,
+                                &self.bot.settings,
+                                &question,
+                                message,
+                            ),
                         )
                         .await?;
-                        cooldown(&mut self.connection, Duration::from_secs(1)).await?;
+                        crate::recovery::bounded(
+                            crate::recovery::DATABASE_STALL,
+                            cooldown(&mut self.connection, Duration::from_secs(1)),
+                        )
+                        .await?;
                     }
                     Err(error) => return self.transport_error(error).await,
                 }
                 backoff.reset();
                 empty = false;
-                let wait = remaining(&mut self.connection).await?;
+                let wait = crate::recovery::bounded(
+                    crate::recovery::DATABASE_STALL,
+                    remaining(&mut self.connection),
+                )
+                .await?;
                 if !wait.is_zero() {
                     tokio::select! {biased;_=shutdown.cancelled()=>return Ok(()),_=tokio::time::sleep(wait)=>{}}
                 }
             }
 
-            if let Some(delivery) = claim_delivery(&mut self.connection, &self.bot.settings).await?
+            if let Some(delivery) = crate::recovery::bounded(
+                crate::recovery::DATABASE_STALL,
+                claim_delivery(&mut self.connection, &self.bot.settings),
+            )
+            .await?
             {
                 let result = self.bot.send_text(&delivery.text).await;
-                finish_delivery(&mut self.connection, &self.bot.settings, &delivery, result)
-                    .await?;
+                crate::recovery::bounded(
+                    crate::recovery::DATABASE_STALL,
+                    finish_delivery(&mut self.connection, &self.bot.settings, &delivery, result),
+                )
+                .await?;
                 if let Err(error) = result {
                     return self.transport_error(error).await;
                 }
@@ -997,14 +1029,18 @@ impl Relay {
         }
     }
     async fn transport_error(&mut self, error: Error) -> Result<()> {
-        if error.code == "telegram_rate_limited" {
-            cooldown(&mut self.connection, error.retry_after).await?;
-        }
-        sqlx::query("UPDATE agent_telegram_state SET last_error=$1 WHERE key='primary'")
-            .bind(error.code)
-            .execute(&mut self.connection)
-            .await
-            .map_err(db)?;
+        crate::recovery::bounded(crate::recovery::DATABASE_STALL, async {
+            if error.code == "telegram_rate_limited" {
+                cooldown(&mut self.connection, error.retry_after).await?;
+            }
+            sqlx::query("UPDATE agent_telegram_state SET last_error=$1 WHERE key='primary'")
+                .bind(error.code)
+                .execute(&mut self.connection)
+                .await
+                .map_err(db)?;
+            Ok(())
+        })
+        .await?;
         Err(Failure(error.code))
     }
     pub async fn run(
@@ -1029,8 +1065,11 @@ impl Relay {
                         let next = tokio::select! {biased;_=shutdown.cancelled()=>return Ok(()),next=config.connect_telegram()=>next};
                         match next {
                             Ok(mut next) => {
-                                match initialize(&mut next, &self.bot.settings, &self.identity)
-                                    .await
+                                match crate::recovery::bounded(
+                                    crate::recovery::DATABASE_STALL,
+                                    initialize(&mut next, &self.bot.settings, &self.identity),
+                                )
+                                .await
                                 {
                                     Ok(()) => {
                                         self.connection = next;

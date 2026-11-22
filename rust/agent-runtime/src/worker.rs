@@ -106,7 +106,8 @@ async fn serve_internal(
         if shutdown.is_cancelled() {
             discovery.shutdown().await;
             decisions.shutdown().await;
-            return quiesce(connection).await;
+            return crate::recovery::bounded(crate::recovery::DATABASE_STALL, quiesce(connection))
+                .await;
         }
         if last_heartbeat
             .is_none_or(|last: tokio::time::Instant| last.elapsed() >= Duration::from_secs(5))
@@ -122,15 +123,23 @@ async fn serve_internal(
             && last_application_tick.is_none_or(|at| at.elapsed() >= Duration::from_secs(5))
         {
             last_application_tick = Some(tokio::time::Instant::now());
-            match crate::execution::schedule::tick(connection, config).await {
+            match crate::recovery::bounded(
+                crate::recovery::DATABASE_BATCH_STALL,
+                crate::execution::schedule::tick(connection, config),
+            )
+            .await
+            {
                 Ok(_) => {}
                 Err(error) if crate::recovery::database_failure(error) => return Err(error),
                 Err(error) => {
-                    crate::execution::schedule::record(
-                        connection,
-                        "apply_schedule:naukri",
-                        Some(error),
-                        None,
+                    crate::recovery::bounded(
+                        crate::recovery::DATABASE_STALL,
+                        crate::execution::schedule::record(
+                            connection,
+                            "apply_schedule:naukri",
+                            Some(error),
+                            None,
+                        ),
                     )
                     .await?;
                 }
@@ -142,7 +151,11 @@ async fn serve_internal(
         if let Some(finished) = decisions.try_join_next() {
             finish_inference(connection, finished).await?;
         }
-        let control = lifecycle::control(connection).await?;
+        let control = crate::recovery::bounded(
+            crate::recovery::DATABASE_STALL,
+            lifecycle::control(connection),
+        )
+        .await?;
         if control.mode == Mode::Running
             && discovery.is_empty()
             && last_discovery.is_none_or(|at| at.elapsed() >= Duration::from_secs(30))
@@ -151,7 +164,12 @@ async fn serve_internal(
             // Subscribe before reserving so a simultaneous global control change
             // also cancels the network-only task. Reservation/commit are never cancelled.
             let mut feed_changes = changes.resubscribe();
-            match discovery_schedule::begin(connection).await {
+            match crate::recovery::bounded(
+                crate::recovery::DATABASE_BATCH_STALL,
+                discovery_schedule::begin(connection),
+            )
+            .await
+            {
                 Ok(Some(fetch)) => {
                     let stop = shutdown.clone();
                     discovery.spawn(async move {
@@ -172,9 +190,15 @@ async fn serve_internal(
             continue;
         }
         if control.mode == Mode::Running && decisions.is_empty() {
-            lifecycle::reconcile_known_questions(connection).await?;
+            crate::recovery::bounded(
+                crate::recovery::DATABASE_STALL,
+                lifecycle::reconcile_known_questions(connection),
+            )
+            .await?;
             let mut store = Store { connection };
-            if let Some(mut lease) = store.claim().await? {
+            if let Some(mut lease) =
+                crate::recovery::bounded(crate::recovery::DATABASE_STALL, store.claim()).await?
+            {
                 // Old notifications are hints. Every tick checks the persisted lease
                 // before dispatch, so a control committed during claim is still fenced.
                 for _ in 0..65 {
@@ -207,13 +231,26 @@ async fn serve_internal(
                             if lease.run.state == State::Paused {
                                 lease.run.diagnostic = Some(error.0.into());
                             }
-                            store.save(&mut lease).await?;
-                            store.release(&lease).await?;
+                            crate::recovery::bounded(
+                                crate::recovery::DATABASE_STALL,
+                                store.save(&mut lease),
+                            )
+                            .await?;
+                            crate::recovery::bounded(
+                                crate::recovery::DATABASE_STALL,
+                                store.release(&lease),
+                            )
+                            .await?;
                             continue;
                         }
                     };
                     let mut decision_changes = changes.resubscribe();
-                    match runner::begin_tick(&mut store, &mut lease, &mut model, &mut tools).await {
+                    match crate::recovery::bounded(
+                        crate::recovery::DATABASE_BATCH_STALL,
+                        runner::begin_tick(&mut store, &mut lease, &mut model, &mut tools),
+                    )
+                    .await
+                    {
                         Ok(Some(dispatch)) => {
                             let stop = shutdown.clone();
                             let id = lease.run.id;
@@ -232,8 +269,16 @@ async fn serve_internal(
                     lease.run.diagnostic = Some("profile_review_required".into());
                     lease.run.question =
                         Some(crate::questions::Question::new("profile_review_required")?);
-                    store.save(&mut lease).await?;
-                    store.release(&lease).await?;
+                    crate::recovery::bounded(
+                        crate::recovery::DATABASE_STALL,
+                        store.save(&mut lease),
+                    )
+                    .await?;
+                    crate::recovery::bounded(
+                        crate::recovery::DATABASE_STALL,
+                        store.release(&lease),
+                    )
+                    .await?;
                 }
                 // Yield at every boundary; a busy backlog must not starve owner controls.
                 tokio::task::yield_now().await;
@@ -268,7 +313,12 @@ async fn finish_inference(
         return Ok(());
     };
     let mut store = Store { connection };
-    match runner::finish_decision(&mut store, &mut lease, response).await {
+    match crate::recovery::bounded(
+        crate::recovery::DATABASE_STALL,
+        runner::finish_decision(&mut store, &mut lease, response),
+    )
+    .await
+    {
         Ok(()) | Err(Failure("agent_lease_or_revision_lost")) => Ok(()),
         Err(error) => Err(error),
     }
@@ -281,7 +331,13 @@ async fn finish_discovery(
     finished: std::result::Result<DiscoveryCompletion, JoinError>,
 ) -> Result<()> {
     let result = match finished {
-        Ok(Some((fetch, result))) => discovery_schedule::complete(connection, fetch, result).await,
+        Ok(Some((fetch, result))) => {
+            crate::recovery::bounded(
+                crate::recovery::DATABASE_BATCH_STALL,
+                discovery_schedule::complete(connection, fetch, result),
+            )
+            .await
+        }
         Ok(None) => Ok(()),
         Err(_) => Err(Failure("public_feed_fetch_task_failed")),
     };
@@ -295,7 +351,11 @@ async fn record_discovery_error(connection: &mut PgConnection, error: Failure) -
     if crate::recovery::database_failure(error) {
         return Err(error);
     }
-    discovery_schedule::record_status(connection, Some(error)).await
+    crate::recovery::bounded(
+        crate::recovery::DATABASE_STALL,
+        discovery_schedule::record_status(connection, Some(error)),
+    )
+    .await
 }
 
 async fn controlled<T>(

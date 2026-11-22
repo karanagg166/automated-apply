@@ -33,6 +33,21 @@ fn opt_in(value: Option<&String>) -> Result<bool> {
         _ => Err(Failure("invalid_mcp_capability_configuration")),
     }
 }
+fn public_feed_ingest(name: &str) -> bool {
+    matches!(name, "himalayas_ingest" | "we_work_remotely_ingest")
+}
+fn request_timeout(name: &str, discovery_timeout: Duration) -> Duration {
+    if discovery::long_running(name) || public_feed_ingest(name) {
+        discovery_timeout
+    } else if discovery::metadata(name) {
+        Duration::from_secs(35)
+    } else {
+        Duration::from_secs(15)
+    }
+}
+fn tool_timeout(name: &str, discovery_timeout: Duration) -> Duration {
+    request_timeout(name, discovery_timeout) + Duration::from_secs(5)
+}
 impl Bridge {
     pub fn load(path: &Path) -> Result<Self> {
         let values = private_values(path)?;
@@ -161,13 +176,7 @@ impl Bridge {
         }
         discovery::authorize(name, self.discovery, self.metadata)?;
         let (method, path, body) = operation(name, args)?;
-        let timeout = if discovery::long_running(name) {
-            self.discovery_timeout
-        } else if discovery::metadata(name) {
-            Duration::from_secs(35)
-        } else {
-            Duration::from_secs(15)
-        };
+        let timeout = request_timeout(name, self.discovery_timeout);
         let mut request = self
             .http
             .request(method, format!("{}{}", self.endpoint, path))
@@ -177,7 +186,7 @@ impl Bridge {
             request = request.json(&body)
         }
         let mut response = request.send().await.map_err(|_| {
-            Failure(if discovery::mutating(name) {
+            Failure(if discovery::mutating(name) || public_feed_ingest(name) {
                 "mcp_outcome_unknown_do_not_replay"
             } else {
                 "mcp_api_unavailable"
@@ -371,13 +380,7 @@ impl ServerHandler for Bridge {
     ) -> std::result::Result<CallToolResponse, ErrorData> {
         let args = Value::Object(request.arguments.unwrap_or_default());
         let retained = discovery::retained(&request.name, &args);
-        let timeout = if discovery::long_running(&request.name) {
-            self.discovery_timeout + Duration::from_secs(5)
-        } else if discovery::metadata(&request.name) {
-            Duration::from_secs(40)
-        } else {
-            Duration::from_secs(20)
-        };
+        let timeout = tool_timeout(&request.name, self.discovery_timeout);
         let error = |code: &str| {
             CallToolResult::structured_error(
                 json!({"code":code,"retained_attempt":retained,"automatic_retry":false}),
@@ -441,5 +444,33 @@ mod tests {
         assert_eq!(body, Some(json!({"limit":20})));
         let (_, _, body) = operation("match_saved_job", json!({"job_id":Uuid::new_v4()})).unwrap();
         assert_eq!(body, Some(json!({})));
+    }
+    #[test]
+    fn public_feed_ingest_uses_long_running_timeout_without_discovery_gate() {
+        let discovery_timeout = Duration::from_secs(105);
+        for name in ["himalayas_ingest", "we_work_remotely_ingest"] {
+            assert!(discovery::authorize(name, false, false).is_ok());
+            assert_eq!(request_timeout(name, discovery_timeout), discovery_timeout);
+            assert_eq!(
+                tool_timeout(name, discovery_timeout),
+                Duration::from_secs(110)
+            );
+        }
+        assert_eq!(
+            request_timeout("apify_inspect_account", discovery_timeout),
+            Duration::from_secs(35)
+        );
+        assert_eq!(
+            tool_timeout("apify_inspect_account", discovery_timeout),
+            Duration::from_secs(40)
+        );
+        assert_eq!(
+            request_timeout("runtime_status", discovery_timeout),
+            Duration::from_secs(15)
+        );
+        assert_eq!(
+            tool_timeout("runtime_status", discovery_timeout),
+            Duration::from_secs(20)
+        );
     }
 }

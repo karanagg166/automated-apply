@@ -58,6 +58,9 @@ pub(crate) fn database_failure(error: Failure) -> bool {
             | "dashboard_database_error"
             | "dashboard_commit_outcome_unknown"
             | "application_history_database_error"
+            | "gmail_history_database_error"
+            | "gmail_history_commit_outcome_unknown"
+            | "gmail_history_rollback_unconfirmed"
             | "agent_database_unavailable"
             | "agent_schema_unavailable"
             | "database_host_unavailable"
@@ -69,6 +72,7 @@ pub(crate) async fn close(connection: PgConnection) {
 /// Idle reuse threshold and bound for a retained connection's liveness probe.
 pub(crate) const IDLE_PROBE_AFTER: Duration = Duration::from_secs(10);
 pub(crate) const DATABASE_STALL: Duration = Duration::from_secs(15);
+pub(crate) const DATABASE_BATCH_STALL: Duration = Duration::from_secs(90);
 /// Bound a database step so a half-open socket (for example after the laptop's
 /// network address changes) becomes a reconnectable failure instead of an
 /// unbounded hang that holds the shared connection lock.
@@ -109,7 +113,9 @@ pub async fn supervise(
             let next = tokio::select! {biased;_=shutdown.cancelled()=>return Ok(()),result=config.connect(true)=>result};
             match next {
                 Ok(mut next) => {
-                    if let Err(error) = server::readiness(&mut next, config).await {
+                    if let Err(error) =
+                        bounded(DATABASE_STALL, server::readiness(&mut next, config)).await
+                    {
                         close(next).await;
                         if !database_failure(error) {
                             return Err(error);
@@ -180,5 +186,18 @@ mod tests {
     fn idle_probe_precedes_stall_bound() {
         assert!(IDLE_PROBE_AFTER < DATABASE_STALL);
         assert!(DATABASE_STALL <= Duration::from_secs(30));
+        assert!(DATABASE_STALL < DATABASE_BATCH_STALL);
+        assert!(DATABASE_BATCH_STALL <= Duration::from_secs(120));
+    }
+
+    #[test]
+    fn database_failure_classifies_gmail_history_failures() {
+        for code in [
+            "gmail_history_database_error",
+            "gmail_history_commit_outcome_unknown",
+            "gmail_history_rollback_unconfirmed",
+        ] {
+            assert!(database_failure(Failure(code)));
+        }
     }
 }
