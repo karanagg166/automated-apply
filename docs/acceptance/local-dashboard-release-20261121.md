@@ -18,6 +18,7 @@ The commit shortens public-feed ingestion ledger keys to fit the live column.
 | Live deterministic saved review and Telegram | PASS | The original verification wait expired. A read-only reconciliation found the same run completed with ten decisions, five tool calls, zero model calls, zero reserved tokens and one Telegram Bot API receipt. The coordinator returned to STOPPED. Protected state matched and zero job applications were dispatched. |
 | Local runtime observer | Running | The initial sample passed after the review. The observer checks the active process identities and readiness and records local observations for 24 hours. |
 | LaunchAgent access | Pending owner run | The updated Desktop-access launcher validated both exact staged definitions. The live services are running as local direct processes. |
+| LaunchAgent adoption preflight | PASS | The installer accepted the exact live direct processes as the rollback baseline for the same release. The private-socket and loopback readiness check returned three HTTP 200 responses and confirmed both listener owners. No LaunchAgent definitions were replaced. |
 
 The ready `4dab75e` sample recorded 5,232 KiB of Rust RSS and 3,840 KiB of
 dashboard RSS. The last ready `12666f3` sample recorded 8,752 KiB and 2,848

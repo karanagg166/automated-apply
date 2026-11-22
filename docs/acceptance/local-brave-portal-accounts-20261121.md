@@ -13,6 +13,9 @@ The experience picker retained the confirmed range of less than one year.
 Five profile skills were verified after reload. The other three selected
 skills were unconfirmed on readback.
 Wellfound still showed its profile completion prompt.
+Both the profile editor and the overview showed the same prompt. The editor
+did not mark a field as required or invalid. The portfolio summary save
+remains unconfirmed on the independent read.
 
 Instahyre retained the student-or-fresher choice and all 20 skills after a
 reload. Its preferences form returned HTTP 200 after saving the confirmed
