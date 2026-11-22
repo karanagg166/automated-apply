@@ -1,5 +1,12 @@
 const host = "com.automated_apply.agent";
 const ERROR_CODE_PATTERN = /^[a-z][a-z0-9_]{1,63}$/;
+export const PORTAL_DOMAINS = Object.freeze([
+  "naukri.com",
+  "wellfound.com",
+  "instahyre.com",
+  "workatastartup.com",
+  "internshala.com",
+]);
 let nativeTimeoutMs = 45000;
 export function setNativeTimeoutForTesting(ms) {
   nativeTimeoutMs = Number.isFinite(ms) && ms > 0 ? ms : 45000;

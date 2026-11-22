@@ -1,7 +1,11 @@
 "use client";
 import { useEffect, useState } from "react";
-import { ArrowUpRight, Fingerprint, LockKeyhole } from "lucide-react";
-import { Button, Field, Input } from "@/components/ui";
+import {
+  ArrowUpRight,
+  Fingerprint,
+  LoaderCircle,
+  LockKeyhole,
+} from "lucide-react";
 export default function Login() {
   const [error, setError] = useState(""),
     [busy, setBusy] = useState(false);
@@ -64,8 +68,11 @@ export default function Login() {
             }
           }}
         >
-          <Field label="Owner passphrase">
-            <Input
+          <div className="field">
+            <label htmlFor="owner-passphrase">Owner passphrase</label>
+            <input
+              className="input"
+              id="owner-passphrase"
               name="password"
               type="password"
               autoComplete="current-password"
@@ -74,16 +81,23 @@ export default function Login() {
               autoFocus
               disabled={!ready}
             />
-          </Field>
+          </div>
           {error && (
             <p role="alert" className="form-error">
               {error}
             </p>
           )}
-          <Button type="submit" variant="primary" busy={busy} disabled={!ready}>
+          <button
+            type="submit"
+            className="button primary"
+            disabled={!ready || busy}
+          >
+            {busy && (
+              <LoaderCircle size={15} className="spin" aria-hidden="true" />
+            )}
             Enter workspace
             <ArrowUpRight size={17} />
-          </Button>
+          </button>
         </form>
         <p className="private-note">
           <LockKeyhole size={14} /> Single owner. Private by default.

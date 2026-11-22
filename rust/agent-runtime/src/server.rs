@@ -73,6 +73,45 @@ impl ControlConnection {
         }
         self.last_used = tokio::time::Instant::now();
     }
+
+    async fn ready(&mut self, config: &Configuration) -> Result<&mut PgConnection> {
+        self.revalidate().await;
+        if self.value.is_none() {
+            if !self.backoff.remaining().is_zero() {
+                return Err(Failure("agent_database_reconnecting"));
+            }
+            let mut connection = match config.connect(false).await {
+                Ok(connection) => connection,
+                Err(error) => {
+                    self.backoff.failed();
+                    return Err(error);
+                }
+            };
+            if let Err(error) = readiness(&mut connection, config).await {
+                recovery::close(connection).await;
+                self.backoff.failed();
+                return Err(error);
+            }
+            self.value = Some(connection);
+        }
+        self.value
+            .as_mut()
+            .ok_or(Failure("agent_database_unavailable"))
+    }
+
+    async fn finish<T>(&mut self, result: &Result<T>) {
+        self.last_used = tokio::time::Instant::now();
+        if let Err(error) = result
+            && recovery::database_failure(*error)
+        {
+            if let Some(connection) = self.value.take() {
+                recovery::close(connection).await;
+            }
+            self.backoff.failed();
+        } else if result.is_ok() {
+            self.backoff.reset();
+        }
+    }
 }
 impl Api {
     pub fn new(config: Arc<Configuration>, connection: PgConnection, wake: Wake) -> Arc<Self> {

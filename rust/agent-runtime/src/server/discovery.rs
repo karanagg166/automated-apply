@@ -1,8 +1,12 @@
 //! Public feed IO releases the control connection while waiting on the provider.
-use super::{Api, readiness, reply};
-use crate::{Failure, recovery};
+use super::{Api, reply};
+use crate::Failure;
 use axum::{http::StatusCode, response::Response};
 use serde_json::json;
+
+fn unavailable(error: Failure) -> Response {
+    reply(StatusCode::SERVICE_UNAVAILABLE, json!({"error":error.0}))
+}
 
 pub(super) async fn ingest(api: &Api, platform: &str, body: &[u8]) -> Response {
     let platform = match crate::public_discovery::Platform::parse(platform) {
@@ -14,25 +18,12 @@ pub(super) async fn ingest(api: &Api, platform: &str, body: &[u8]) -> Response {
         Err(e) => return reply(StatusCode::UNPROCESSABLE_ENTITY, json!({"error":e.0})),
     };
     let mut state = api.connection.lock().await;
-    state.revalidate().await;
-    let Some(connection) = state.value.as_mut() else {
-        return reply(
-            StatusCode::SERVICE_UNAVAILABLE,
-            json!({"error":"agent_database_reconnecting"}),
-        );
+    let connection = match state.ready(&api.config).await {
+        Ok(connection) => connection,
+        Err(error) => return unavailable(error),
     };
     let result = crate::feed_ingestion::ingest(connection, platform, input).await;
-    if result.as_ref().is_err_and(|e| {
-        matches!(
-            e.0,
-            "public_feed_database_error" | "public_feed_commit_outcome_unknown"
-        )
-    }) {
-        if let Some(c) = state.value.take() {
-            recovery::close(c).await;
-        }
-        state.backoff.failed();
-    }
+    state.finish(&result).await;
     match result {
         Ok(value) => reply(StatusCode::OK, value),
         Err(e) => reply(
@@ -79,39 +70,12 @@ pub(super) async fn dispatch(api: &Api, platform: &str, body: &[u8]) -> Response
     };
     let reserved = {
         let mut state = api.connection.lock().await;
-        state.revalidate().await;
-        if state.value.is_none() {
-            if !state.backoff.remaining().is_zero() {
-                return fail(Failure("agent_database_reconnecting"));
-            }
-            match api.config.connect(false).await {
-                Ok(mut connection) => {
-                    if let Err(error) = readiness(&mut connection, &api.config).await {
-                        recovery::close(connection).await;
-                        state.backoff.failed();
-                        return fail(error);
-                    }
-                    state.value = Some(connection);
-                }
-                Err(error) => {
-                    state.backoff.failed();
-                    return fail(error);
-                }
-            }
-        }
-        let result =
-            public_discovery::reserve(state.value.as_mut().unwrap(), platform, input.limit).await;
-        if result.as_ref().is_err_and(|e| {
-            matches!(
-                e.0,
-                "public_feed_commit_outcome_unknown" | "public_feed_database_error"
-            )
-        }) {
-            if let Some(connection) = state.value.take() {
-                recovery::close(connection).await;
-            }
-            state.backoff.failed();
-        }
+        let connection = match state.ready(&api.config).await {
+            Ok(connection) => connection,
+            Err(error) => return fail(error),
+        };
+        let result = public_discovery::reserve(connection, platform, input.limit).await;
+        state.finish(&result).await;
         result
     };
     let (token, record) = match reserved {
@@ -122,23 +86,13 @@ pub(super) async fn dispatch(api: &Api, platform: &str, body: &[u8]) -> Response
     // No database connection mutex or transaction is held across provider IO.
     let fetched = public_discovery::fetch(platform).await;
     let mut state = api.connection.lock().await;
-    state.revalidate().await;
-    let Some(connection) = state.value.as_mut() else {
-        return fail(Failure("agent_database_reconnecting"));
+    let connection = match state.ready(&api.config).await {
+        Ok(connection) => connection,
+        Err(error) => return fail(error),
     };
     let result =
         public_discovery::finish(connection, platform, token, record, fetched, input.limit).await;
-    if result.as_ref().is_err_and(|e| {
-        matches!(
-            e.0,
-            "public_feed_commit_outcome_unknown" | "public_feed_database_error"
-        )
-    }) {
-        if let Some(connection) = state.value.take() {
-            recovery::close(connection).await;
-        }
-        state.backoff.failed();
-    }
+    state.finish(&result).await;
     match result {
         Ok(data) => reply(StatusCode::OK, data),
         Err(error) => fail(error),
@@ -161,12 +115,9 @@ pub(super) async fn schedule(api: &Api, method: &str, body: &[u8]) -> Response {
         None
     };
     let mut state = api.connection.lock().await;
-    state.revalidate().await;
-    let Some(c) = state.value.as_mut() else {
-        return reply(
-            StatusCode::SERVICE_UNAVAILABLE,
-            json!({"error":"agent_database_reconnecting"}),
-        );
+    let c = match state.ready(&api.config).await {
+        Ok(connection) => connection,
+        Err(error) => return unavailable(error),
     };
     let result = if let Some(update) = update {
         match crate::discovery_schedule::update(c, update).await {
@@ -176,15 +127,7 @@ pub(super) async fn schedule(api: &Api, method: &str, body: &[u8]) -> Response {
     } else {
         crate::discovery_schedule::status(c).await
     };
-    if result
-        .as_ref()
-        .is_err_and(|e| crate::recovery::database_failure(*e))
-    {
-        if let Some(c) = state.value.take() {
-            recovery::close(c).await;
-        }
-        state.backoff.failed();
-    }
+    state.finish(&result).await;
     match result {
         Ok(policy) => {
             if method == "PUT" {

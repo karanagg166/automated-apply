@@ -495,25 +495,8 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
         );
     }
     let mut state = api.connection.lock().await;
-    state.revalidate().await;
-    if state.value.is_none() {
-        if !state.backoff.remaining().is_zero() {
-            return fail(Failure("agent_database_reconnecting"));
-        }
-        match api.config.connect(false).await {
-            Ok(mut connection) => {
-                if let Err(error) = readiness(&mut connection, &api.config).await {
-                    recovery::close(connection).await;
-                    state.backoff.failed();
-                    return fail(error);
-                }
-                state.value = Some(connection);
-            }
-            Err(error) => {
-                state.backoff.failed();
-                return fail(error);
-            }
-        }
+    if let Err(error) = state.ready(&api.config).await {
+        return fail(error);
     }
     let mut result = match state.value.as_mut() {
         Some(connection) if crate::execution::route(&path).is_some() => {
@@ -1196,19 +1179,7 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
     {
         result = Err(Failure("profile_database_error"));
     }
-    state.last_used = tokio::time::Instant::now();
-    if result
-        .as_ref()
-        .err()
-        .is_some_and(|error| recovery::database_failure(*error))
-    {
-        if let Some(connection) = state.value.take() {
-            recovery::close(connection).await;
-        }
-        state.backoff.failed();
-    } else if result.is_ok() {
-        state.backoff.reset();
-    }
+    state.finish(&result).await;
     if method != "GET"
         && result.as_ref().is_ok_and(|r| r.data["ok"] != false)
         && (crate::execution::route(&path).is_some()

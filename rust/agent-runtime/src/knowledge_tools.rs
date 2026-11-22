@@ -32,9 +32,20 @@ impl Tools for KnowledgeTools {
     }
     async fn execute(&mut self, effect: &Effect, store: &mut Store<'_>) -> Result<Observation> {
         match effect.call.name {
-            ToolName::SearchJobs | ToolName::RankJobs => {
-                let saved =
-                    knowledge::rank_saved_naukri(store.connection, &self.profile, 10).await?;
+            ToolName::SearchJobs => {
+                let references =
+                    knowledge::search_saved_jobs(store.connection, &self.profile).await?;
+                let jobs = references.iter().map(|job| job.job_id).collect::<Vec<_>>();
+                let mut evidence = jobs.clone();
+                evidence.push(self.profile.id);
+                Ok(Observation {
+                    evidence,
+                    jobs,
+                    data: json!({"profile":self.profile,"jobs":references,"scope":"saved_references_pending_ranking_and_history_review"}),
+                })
+            }
+            ToolName::RankJobs => {
+                let saved = knowledge::rank_saved_jobs(store.connection, &self.profile, 10).await?;
                 let jobs = saved.jobs.iter().map(|j| j.job_id).collect::<Vec<_>>();
                 let mut evidence = jobs.clone();
                 evidence.push(self.profile.id);

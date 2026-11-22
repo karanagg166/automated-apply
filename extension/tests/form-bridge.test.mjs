@@ -221,8 +221,14 @@ test("navigation after filling records manual handoff instead of a completed pag
 test("manual bridge rejects bad IDs and restricted pages before native dispatch", async () => {
   setup();
   await assert.rejects(inspectForm("invented"), /application_id_required/);
-  tab = { id: 7, url: "chrome://settings" };
-  await assert.rejects(inspectForm(app), /supported_application_page_required/);
+  for (const url of [
+    "chrome://settings",
+    "https://workatastartup.com/application",
+    "https://www.workatastartup.com/jobs/fictional",
+  ]) {
+    tab = { id: 7, url };
+    await assert.rejects(inspectForm(app), /supported_application_page_required/);
+  }
   assert.equal(calls.length, 0);
 });
 test("native correlation mismatch cannot yield executable mappings", async () => {

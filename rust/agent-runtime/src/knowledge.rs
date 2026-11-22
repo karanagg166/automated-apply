@@ -1,4 +1,4 @@
-//! Read-only projections of existing reviewed profile and saved Naukri evidence.
+//! Read-only projections of existing reviewed profile and saved job evidence.
 //! No mailbox contents, resume decryption or application authority crosses this boundary.
 use crate::{Failure, Result};
 use automated_apply_domain::matching::{
@@ -30,21 +30,28 @@ pub struct ReviewedProfile {
 struct SavedRecord {
     pub id: Uuid,
     pub company_id: Option<Uuid>,
+    pub source_platform: String,
     pub listing: Listing,
     pub company: Option<Company>,
-    pub blocked: bool,
     pub source_verification_status: String,
 }
 #[derive(Deserialize)]
 struct RankingSnapshot {
     profile: Option<Value>,
     jobs: Vec<Value>,
+    excluded_prior_or_unknown: usize,
+}
+#[derive(Serialize, sqlx::FromRow)]
+pub struct SavedReference {
+    pub job_id: Uuid,
+    pub source_platform: String,
 }
 #[derive(Serialize)]
 pub struct RankedJob {
     pub job_id: Uuid,
     pub company_id: Option<Uuid>,
     pub title: String,
+    pub source_platform: String,
     pub source_verification_status: String,
     pub ranking: DiscoveryMatch,
 }
@@ -95,11 +102,29 @@ pub async fn rank_saved_naukri(
     expected: &ProfilePin,
     limit: usize,
 ) -> Result<RankedSavedJobs> {
+    rank(connection, expected, Some("naukri"), limit).await
+}
+
+pub async fn rank_saved_jobs(
+    connection: &mut PgConnection,
+    expected: &ProfilePin,
+    limit: usize,
+) -> Result<RankedSavedJobs> {
+    rank(connection, expected, None, limit).await
+}
+
+async fn rank(
+    connection: &mut PgConnection,
+    expected: &ProfilePin,
+    platform: Option<&str>,
+    limit: usize,
+) -> Result<RankedSavedJobs> {
     if !(1..=10).contains(&limit) {
         return Err(Failure("invalid_saved_result_limit"));
     }
     // Confirmation, saved jobs and all replay fences share one statement/snapshot/round trip.
     let value: Value = sqlx::query_scalar(include_str!("../sql/saved_naukri.sql"))
+        .bind(platform)
         .fetch_one(&mut *connection)
         .await
         .map_err(|_| Failure("saved_jobs_database_error"))?;
@@ -116,8 +141,7 @@ pub async fn rank_saved_naukri(
     if &profile.pin != expected {
         return Err(Failure("verified_profile_context_changed"));
     }
-    let scanned = snapshot.jobs.len();
-    let mut excluded = 0;
+    let scanned = snapshot.jobs.len() + snapshot.excluded_prior_or_unknown;
     let mut jobs = Vec::new();
     for value in snapshot.jobs {
         if serde_json::to_vec(&value)
@@ -129,10 +153,6 @@ pub async fn rank_saved_naukri(
         }
         let row: SavedRecord =
             serde_json::from_value(value).map_err(|_| Failure("invalid_saved_job"))?;
-        if row.blocked {
-            excluded += 1;
-            continue;
-        }
         let ranking = discovery_match(&row.listing, &profile.facts, row.company.as_ref(), false);
         if !ranking.exclusion_reasons.is_empty() {
             continue;
@@ -141,6 +161,7 @@ pub async fn rank_saved_naukri(
             job_id: row.id,
             company_id: row.company_id,
             title: row.listing.title,
+            source_platform: row.source_platform,
             source_verification_status: row.source_verification_status,
             ranking,
         });
@@ -155,10 +176,49 @@ pub async fn rank_saved_naukri(
     Ok(RankedSavedJobs {
         profile: profile.pin,
         scanned,
-        excluded_prior_or_unknown: excluded,
+        excluded_prior_or_unknown: snapshot.excluded_prior_or_unknown,
         jobs,
-        scope: "saved_naukri_ranking_preview_not_application_admission",
+        scope: if platform.is_some() {
+            "saved_naukri_ranking_preview_not_application_admission"
+        } else {
+            "saved_jobs_ranking_preview_not_application_admission"
+        },
     })
+}
+
+pub async fn search_saved_jobs(
+    connection: &mut PgConnection,
+    expected: &ProfilePin,
+) -> Result<Vec<SavedReference>> {
+    use sqlx::Connection;
+    let mut tx = connection
+        .begin()
+        .await
+        .map_err(|_| Failure("saved_jobs_database_error"))?;
+    sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+        .execute(&mut *tx)
+        .await
+        .map_err(|_| Failure("saved_jobs_database_error"))?;
+    let profile = reviewed_profile(&mut tx)
+        .await?
+        .ok_or(Failure("profile_review_required"))?;
+    if &profile.pin != expected {
+        return Err(Failure("verified_profile_context_changed"));
+    }
+    let jobs = sqlx::query_as::<_, SavedReference>(
+        "SELECT id AS job_id,source_platform FROM (
+            SELECT id,source_platform,created_at,
+                row_number() OVER (PARTITION BY source_platform ORDER BY created_at DESC,id) AS source_position
+            FROM jobs WHERE status NOT IN ('archived','applied','submitted')
+        ) saved ORDER BY source_position,created_at DESC,id LIMIT 10",
+    )
+    .fetch_all(&mut *tx)
+    .await
+    .map_err(|_| Failure("saved_jobs_database_error"))?;
+    tx.commit()
+        .await
+        .map_err(|_| Failure("saved_jobs_database_error"))?;
+    Ok(jobs)
 }
 
 pub async fn application_history(

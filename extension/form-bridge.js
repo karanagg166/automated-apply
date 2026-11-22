@@ -1,7 +1,7 @@
 import { profileContext } from "./chrome-profile.js";
 import { naukriFormUrl } from "./naukri.js";
 import { formDOM } from "./form-dom.js";
-import { supportedUrl } from "./preview.js";
+import { PORTAL_DOMAINS, supportedUrl } from "./preview.js";
 const host = "com.automated_apply.agent";
 const ERROR_CODE_PATTERN = /^[A-Za-z][A-Za-z0-9_]{1,63}$/;
 let current;
@@ -14,10 +14,7 @@ function permittedFormUrl(value) {
   return ![
     "simplify.jobs",
     "linkedin.com",
-    "naukri.com",
-    "wellfound.com",
-    "instahyre.com",
-    "internshala.com",
+    ...PORTAL_DOMAINS,
     "accounts.google.com",
     "mail.google.com",
   ].some((domain) => host === domain || host.endsWith("." + domain));

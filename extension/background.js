@@ -14,6 +14,7 @@ import {
   supportedUrl,
   normalizePreviewUrl,
   nativeErrorCode,
+  PORTAL_DOMAINS,
   setNativeTimeoutForTesting,
 } from "./preview.js";
 import { sessionIndicator } from "./session-indicator.js";
@@ -105,13 +106,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 export function portalHost(value) {
   if (!supportedUrl(value)) return false;
   const hostname = new URL(value).hostname.toLowerCase();
-  return [
-    "naukri.com",
-    "wellfound.com",
-    "instahyre.com",
-    "workatastartup.com",
-    "internshala.com",
-  ].some((domain) => hostname === domain || hostname === `www.${domain}`);
+  return PORTAL_DOMAINS.some(
+    (domain) => hostname === domain || hostname === `www.${domain}`,
+  );
 }
 const activeObservations = new Map();
 // Executes only after a popup button gesture, in the isolated world of the top frame.

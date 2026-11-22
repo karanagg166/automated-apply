@@ -531,6 +531,7 @@ async fn knowledge_fixture() -> PgConnection {
         .await
         .unwrap();
     let _: Value = sqlx::query_scalar(include_str!("../sql/saved_naukri.sql"))
+        .bind("naukri")
         .fetch_one(&mut c)
         .await
         .expect("fictional source SQL contract");
@@ -647,7 +648,7 @@ async fn knowledge_replay_fences_cover_unknown_packets_damaged_receipts_and_admi
 }
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
-async fn knowledge_same_requisition_and_company_history_fence_distinct_saved_ids() {
+async fn knowledge_excludes_requisition_aliases_but_keeps_distinct_roles_at_the_same_company() {
     let mut c = knowledge_fixture().await;
     let first = saved_job(&mut c, 1).await;
     let second = saved_job(&mut c, 2).await;
@@ -671,8 +672,90 @@ async fn knowledge_same_requisition_and_company_history_fence_distinct_saved_ids
     let result = knowledge::rank_saved_naukri(&mut c, &profile_pin(), 10)
         .await
         .unwrap();
-    assert_eq!(result.jobs.len(), 0);
-    assert_eq!(result.excluded_prior_or_unknown, 4);
+    assert_eq!(result.jobs.len(), 1);
+    assert_eq!(result.jobs[0].job_id, third);
+    assert_eq!(result.excluded_prior_or_unknown, 3);
+}
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn knowledge_reads_multiple_sources_after_filtering_recent_blocked_jobs() {
+    let mut c = knowledge_fixture().await;
+    let older = saved_job(&mut c, 1).await;
+    sqlx::query("UPDATE jobs SET created_at=clock_timestamp()-interval '1 day' WHERE id=$1")
+        .bind(older)
+        .execute(&mut c)
+        .await
+        .unwrap();
+    sqlx::raw_sql(
+        "INSERT INTO jobs(id,title,job_url,status)
+         SELECT (lpad(to_hex(i),32,'0'))::uuid,'Recently applied role',
+                'https://www.naukri.com/job-listings-fixture-'||lpad(i::text,12,'0'),'applied'
+         FROM generate_series(2000,2104) i;
+         INSERT INTO jobs(id,title,job_url,source_platform) VALUES
+         ('00000000-0000-0000-0000-000000000ff1','Rust Developer','https://himalayas.app/jobs/fixture','himalayas'),
+         ('00000000-0000-0000-0000-000000000ff2','Rust Developer','https://weworkremotely.com/remote-jobs/fixture','we_work_remotely')",
+    )
+    .execute(&mut c)
+    .await
+    .unwrap();
+    let search = knowledge::search_saved_jobs(&mut c, &profile_pin())
+        .await
+        .unwrap();
+    assert_eq!(search.len(), 3);
+    let ranked = knowledge::rank_saved_jobs(&mut c, &profile_pin(), 10)
+        .await
+        .unwrap();
+    assert_eq!(ranked.excluded_prior_or_unknown, 105);
+    assert_eq!(ranked.jobs.len(), 3);
+    assert!(ranked.jobs.iter().any(|job| job.job_id == older));
+    for platform in ["himalayas", "we_work_remotely"] {
+        assert!(search.iter().any(|job| job.source_platform == platform));
+        assert!(
+            ranked
+                .jobs
+                .iter()
+                .any(|job| job.source_platform == platform)
+        );
+    }
+    let narrow = knowledge::rank_saved_naukri(&mut c, &profile_pin(), 10)
+        .await
+        .unwrap();
+    assert_eq!(narrow.jobs.len(), 1);
+    assert_eq!(narrow.jobs[0].job_id, older);
+}
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn knowledge_mailbox_fence_compares_offsets_and_keeps_malformed_exact_evidence() {
+    let mut c = knowledge_fixture().await;
+    let current = saved_job(&mut c, 1).await;
+    let expired = saved_job(&mut c, 2).await;
+    let malformed = saved_job(&mut c, 3).await;
+    sqlx::query(
+        "INSERT INTO owner_preferences(key,value)
+         SELECT 'gmail_application:'||suffix,jsonb_build_object(
+             'confirmed_application',true,'job_url',j.job_url,'expires_at',expiry)
+         FROM (VALUES
+           ($1::uuid,'future',to_char((statement_timestamp() AT TIME ZONE 'UTC')-interval '11 hours',
+                'YYYY-MM-DD\"T\"HH24:MI:SS.US')||'-12:00'),
+           ($2::uuid,'expired',to_char((statement_timestamp() AT TIME ZONE 'UTC')+interval '13 hours',
+                'YYYY-MM-DD\"T\"HH24:MI:SS.US')||'+14:00'),
+           ($3::uuid,'malformed','2026-99-99T00:00:00Z')
+         ) AS evidence(id,suffix,expiry) JOIN jobs j ON j.id=evidence.id",
+    )
+    .bind(current)
+    .bind(expired)
+    .bind(malformed)
+    .execute(&mut c)
+    .await
+    .unwrap();
+    let result = knowledge::rank_saved_jobs(&mut c, &profile_pin(), 10)
+        .await
+        .unwrap();
+    assert_eq!(result.excluded_prior_or_unknown, 2);
+    assert_eq!(result.jobs.len(), 1);
+    assert_eq!(result.jobs[0].job_id, expired);
 }
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
@@ -1953,6 +2036,13 @@ async fn owner_api_reconnects_without_replaying_the_failed_control_request() {
         "agent_database_reconnecting"
     );
     tokio::time::sleep(Duration::from_millis(1100)).await;
+    let discovery = http
+        .get(format!("{url}/api/v1/rust-agent/discovery/schedule"))
+        .bearer_auth(HOST_TOKEN)
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(discovery.status(), 200);
     let recovered = http
         .get(format!("{url}/api/v1/rust-agent/control"))
         .bearer_auth(HOST_TOKEN)
