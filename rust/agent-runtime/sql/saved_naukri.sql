@@ -26,8 +26,25 @@ WITH verified AS (
             'user_reported_submitted','provider_confirmed_submitted','submitting','submission_unknown'
         )
     )
+), submitted_links AS (
+    SELECT job_link AS url FROM submitted WHERE job_link IS NOT NULL
+    UNION
+    SELECT application_link AS url FROM submitted WHERE application_link IS NOT NULL
+), receipt_requisitions AS (
+    SELECT substring(key from ':(\d{10,20})$') AS requisition FROM owner_preferences
+    WHERE starts_with(key,'naukri_receipt:') OR starts_with(key,'naukri_worker_receipt:')
+), retained_work AS MATERIALIZED (
+    SELECT p.value->>'job_id' AS job_id,p.value->>'requisition' AS requisition
+    FROM owner_preferences p WHERE starts_with(p.key,'apply_work:')
+        AND (p.value->>'stage' IN ('APPLYING','QUESTIONS','RESUME_ATTACHMENT','VERIFYING','SUBMISSION_UNKNOWN','SUBMITTED_CONFIRMED','SUBMITTED_RECORDED')
+            OR p.value->>'status'='unknown'
+            OR COALESCE(p.value->'form_loss_observation','null'::jsonb)<>'null'::jsonb
+            OR COALESCE(p.value->'admitted_actions','[]'::jsonb)<>'[]'::jsonb)
 ), mailbox_history AS MATERIALIZED (
-    SELECT p.value FROM owner_preferences p
+    SELECT NULLIF(regexp_replace(p.value->>'job_url','[?#].*$','',''),'') AS job_link,
+        CASE WHEN NULLIF(p.value->>'job_url','') IS NULL THEN lower(trim(p.value->>'company')) END AS company,
+        CASE WHEN NULLIF(p.value->>'job_url','') IS NULL THEN lower(trim(p.value->>'role')) END AS role
+    FROM owner_preferences p
     WHERE starts_with(p.key,'gmail_application:')
         AND p.value->'confirmed_application'='true'::jsonb
         AND COALESCE(p.value->'deleted','false'::jsonb)<>'true'::jsonb
@@ -37,26 +54,18 @@ WITH verified AS (
             ELSE true END
 ), classified AS MATERIALIZED (
     SELECT j.id,j.source_platform,j.created_at,(
-        COALESCE(j.discovery_metadata->'data_provenance'->>'posting_status'='already_applied',false) OR
-        EXISTS (SELECT 1 FROM submitted prior WHERE prior.id=j.id
-            OR prior.job_link IN (j.job_link,j.application_link)
-            OR prior.application_link IN (j.job_link,j.application_link)
-            OR (prior.source_platform=j.source_platform AND prior.requisition=j.requisition)) OR
-        EXISTS (SELECT 1 FROM owner_preferences p WHERE j.requisition IS NOT NULL AND p.key IN (
-            'naukri_receipt:'||j.requisition,'naukri_worker_receipt:'||j.requisition
-        )) OR
-        EXISTS (SELECT 1 FROM owner_preferences p WHERE starts_with(p.key,'apply_work:')
-            AND (p.value->>'job_id'=j.id::text OR (j.requisition IS NOT NULL AND p.value->>'requisition'=j.requisition))
-            AND (p.value->>'stage' IN ('APPLYING','QUESTIONS','RESUME_ATTACHMENT','VERIFYING','SUBMISSION_UNKNOWN','SUBMITTED_CONFIRMED','SUBMITTED_RECORDED')
-                OR p.value->>'status'='unknown'
-                OR COALESCE(p.value->'form_loss_observation','null'::jsonb)<>'null'::jsonb
-                OR COALESCE(p.value->'admitted_actions','[]'::jsonb)<>'[]'::jsonb)) OR
-        EXISTS (SELECT 1 FROM mailbox_history p WHERE
-            regexp_replace(p.value->>'job_url','[?#].*$','','') IN (j.job_link,j.application_link)
-            OR (NULLIF(p.value->>'job_url','') IS NULL AND lower(trim(p.value->>'company'))=lower(trim(c.name))
-                AND lower(trim(p.value->>'role'))=lower(trim(j.title)))
-        )
-    ) AS blocked
+        j.discovery_metadata->'data_provenance'->>'posting_status'='already_applied' OR
+        j.id IN (SELECT id FROM submitted) OR
+        j.job_link IN (SELECT url FROM submitted_links) OR
+        j.application_link IN (SELECT url FROM submitted_links) OR
+        j.requisition IN (SELECT requisition FROM submitted) OR
+        j.requisition IN (SELECT requisition FROM receipt_requisitions) OR
+        j.id::text IN (SELECT job_id FROM retained_work) OR
+        j.requisition IN (SELECT requisition FROM retained_work) OR
+        j.job_link IN (SELECT job_link FROM mailbox_history) OR
+        j.application_link IN (SELECT job_link FROM mailbox_history) OR
+        (lower(trim(c.name)),lower(trim(j.title))) IN (SELECT company,role FROM mailbox_history)
+    ) IS TRUE AS blocked
     FROM saved j LEFT JOIN companies c ON c.id=j.company_id
 ), eligible AS (
     SELECT id,created_at,row_number() OVER (PARTITION BY source_platform ORDER BY created_at DESC,id) AS source_position
