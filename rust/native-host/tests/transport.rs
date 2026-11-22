@@ -379,7 +379,10 @@ fn direct_native_executable_launch_uses_private_adjacent_configuration_and_origi
             .spawn()
             .unwrap();
         let mut stdin = child.stdin.take().unwrap();
-        write_frame(&mut stdin, &json!({"command":"health"})).unwrap();
+        // A denied origin exits before reading a frame and may close the pipe immediately.
+        if origin == ORIGIN {
+            write_frame(&mut stdin, &json!({"command":"health"})).unwrap();
+        }
         drop(stdin);
         let output = child.wait_with_output().unwrap();
         assert!(output.stderr.is_empty());
