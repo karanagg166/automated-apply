@@ -1,5 +1,16 @@
 import { test, expect } from "@playwright/test";
 
+test("private workspace serves crawler rules without a session", async ({
+  request,
+}) => {
+  const response = await request.get("/robots.txt", { maxRedirects: 0 });
+  expect(response.status()).toBe(200);
+  expect(response.headers()["content-type"]).toContain("text/plain");
+  expect((await response.text()).trim()).toBe("User-Agent: *\nDisallow: /");
+  expect(response.headers()["x-content-type-options"]).toBe("nosniff");
+  expect(response.headers()["x-powered-by"]).toBeUndefined();
+});
+
 test("login remains safe when browser scripts are unavailable", async ({
   browser,
 }) => {
