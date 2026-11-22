@@ -41,7 +41,7 @@ struct RankingSnapshot {
     jobs: Vec<Value>,
     excluded_prior_or_unknown: usize,
 }
-#[derive(Serialize, sqlx::FromRow)]
+#[derive(Serialize)]
 pub struct SavedReference {
     pub job_id: Uuid,
     pub source_platform: String,
@@ -205,7 +205,7 @@ pub async fn search_saved_jobs(
     if &profile.pin != expected {
         return Err(Failure("verified_profile_context_changed"));
     }
-    let jobs = sqlx::query_as::<_, SavedReference>(
+    let jobs = sqlx::query_as::<_, (Uuid, String)>(
         "SELECT id AS job_id,source_platform FROM (
             SELECT id,source_platform,created_at,
                 row_number() OVER (PARTITION BY source_platform ORDER BY created_at DESC,id) AS source_position
@@ -218,7 +218,13 @@ pub async fn search_saved_jobs(
     tx.commit()
         .await
         .map_err(|_| Failure("saved_jobs_database_error"))?;
-    Ok(jobs)
+    Ok(jobs
+        .into_iter()
+        .map(|(job_id, source_platform)| SavedReference {
+            job_id,
+            source_platform,
+        })
+        .collect())
 }
 
 pub async fn application_history(
