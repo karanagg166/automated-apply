@@ -8,6 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 export function fixtureEngine() {
   const engine = process.env.AUTOMATED_APPLY_TEST_BROWSER || "brave";
@@ -25,6 +26,11 @@ export function fixtureExecutable(_chromium = null) {
   if (!executable || !existsSync(executable))
     throw new Error("fixture_browser_unavailable_no_fallback");
   return executable;
+}
+
+export function fixtureBundle() {
+  const directory = fixtureEngine() === "edge" ? "dist-edge" : "dist";
+  return fileURLToPath(new URL(`../${directory}`, import.meta.url));
 }
 
 export async function enableFixtureExtensionDeveloperMode(context) {

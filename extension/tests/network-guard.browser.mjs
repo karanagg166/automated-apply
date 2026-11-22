@@ -1,13 +1,12 @@
-import { fixtureExecutable } from "./browser-fixture-engine.mjs";
+import { fixtureBundle, fixtureExecutable } from "./browser-fixture-engine.mjs";
 // Real MV3 DNR against a real loopback fictional employer HTTP server.
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { mkdtemp, cp, readFile, writeFile, rm } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { chromium } from "../../frontend/node_modules/@playwright/test/index.mjs";
-const root = resolve(new URL("../../", import.meta.url).pathname),
-  id = "gdjbmkffcpicbpiikcohlmokkmcpipgp";
+const id = "gdjbmkffcpicbpiikcohlmokkmcpipgp";
 const requests = [];
 let context;
 const server = createServer((req, res) => {
@@ -22,7 +21,7 @@ const origin = `http://127.0.0.1:${server.address().port}`;
 const temp = await mkdtemp(join(tmpdir(), "automated-apply-phase52-guard-"));
 try {
   const extension = join(temp, "extension");
-  await cp(join(root, "extension/dist"), extension, { recursive: true });
+  await cp(fixtureBundle(), extension, { recursive: true });
   const manifest = JSON.parse(
     await readFile(join(extension, "manifest.json"), "utf8"),
   );

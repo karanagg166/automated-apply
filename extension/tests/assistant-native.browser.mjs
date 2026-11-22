@@ -1,5 +1,6 @@
 import {
   fixtureExecutable,
+  fixtureBundle,
   copyNativeFixtureExtension,
   nativeFixtureRegistry,
 } from "./browser-fixture-engine.mjs";
@@ -169,7 +170,7 @@ const quote = (value) => "'" + value.replaceAll("'", "'\\''") + "'";
 try {
   const extension = join(temp, "extension");
   const nativeHost = copyNativeFixtureExtension(
-    join(root, "extension/dist"),
+    fixtureBundle(),
     extension,
   );
   const manifest = JSON.parse(

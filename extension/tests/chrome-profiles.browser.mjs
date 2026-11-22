@@ -1,6 +1,7 @@
 import { nativePostgresFixture } from "./native-postgres-fixture.mjs";
 import {
   fixtureExecutable,
+  fixtureBundle,
   copyNativeFixtureExtension,
   nativeFixtureRegistry,
 } from "./browser-fixture-engine.mjs";
@@ -165,7 +166,7 @@ try {
   );
   const extension = join(temp, "extension");
   const nativeHost = copyNativeFixtureExtension(
-    join(root, "extension/dist"),
+    fixtureBundle(),
     extension,
   );
   const manifest = JSON.parse(

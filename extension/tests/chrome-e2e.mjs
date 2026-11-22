@@ -4,6 +4,7 @@ import {
   fixtureExecutable,
   copyNativeFixtureExtension,
   fixtureEngine,
+  fixtureBundle,
   nativeFixtureRegistry,
 } from "./browser-fixture-engine.mjs";
 // Real isolated Brave/Edge + Native Messaging Host + FastAPI + native PostgreSQL 17 E2E suite.
@@ -272,10 +273,12 @@ async function main() {
   const { chromium, expect } = await loadPlaywright();
   const python = findPython();
 
-  // Step 0: Build unpacked extension into extension/dist
+  const engine = fixtureEngine();
+  const buildArguments = ["build.mjs", `--browser=${engine}`];
+  if (engine === "edge") buildArguments.push("--output=dist-edge");
   const buildRun = spawnSync(
     "node",
-    ["build.mjs", `--browser=${fixtureEngine()}`],
+    buildArguments,
     { cwd: extensionRoot, encoding: "utf8" },
   );
   assert.equal(
@@ -283,7 +286,7 @@ async function main() {
     0,
     `extension build failed: ${buildRun.stderr}`,
   );
-  const builtExtension = join(extensionRoot, "dist");
+  const builtExtension = fixtureBundle();
   const manifest = JSON.parse(
     readFileSync(join(builtExtension, "manifest.json"), "utf8"),
   );
