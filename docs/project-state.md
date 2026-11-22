@@ -2,8 +2,9 @@
 
 The clean combined gate passed all 37 stages at `4dab75e`. The exact release
 is running locally with the worker online and the application queue stopped.
-The installed MCP saved 20 Himalayas jobs. One deterministic saved-review
-run completed with zero model calls and one verified Telegram delivery.
+The installed MCP saved 20 Himalayas jobs and 20 We Work Remotely jobs. All
+eight saved-job MCP tools returned their platform responses. One deterministic
+saved-review run completed with zero model calls and one verified Telegram delivery.
 The coordinator is back at STOPPED. The three Naukri quarantines, three
 reservations, confirmed profile and resume checks matched their retained
 state. The launchd Desktop-access report is still pending. See the

@@ -67,6 +67,10 @@ The candidate editor still reports required profile fields.
 | Himalayas | Signup blocked | The official email recovery form reported no account for the selected address. The signup button stayed disabled after all four fields passed browser validation. The earlier signup intent remains in history. The latest check stopped before submission. |
 | We Work Remotely | Owner session pending | The official registration route returned HTTP 403. |
 
+The installed We Work Remotely MCP successfully collected and saved 20 jobs
+from the attributed public RSS feed. The portal account remains pending.
+[Official RSS feed](https://weworkremotely.com/remote-job-rss-feed)
+
 The readiness record in `.local/browser-profiles/portal-status.private.json`
 is available to AGY as local evidence. It records the last check for each
 portal. Instahyre is in `.local/browser-profiles/brave-automation`. Wellfound
