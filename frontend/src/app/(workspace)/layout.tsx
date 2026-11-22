@@ -1,6 +1,7 @@
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { SESSION_COOKIE, validSession, configuration } from "@/lib/security";
+import { Providers } from "@/components/providers";
 import { Shell } from "@/components/shell";
 export const dynamic = "force-dynamic";
 export default async function Workspace({
@@ -13,5 +14,9 @@ export default async function Workspace({
   const config = configuration();
   if ((await headers()).get("host") !== new URL(config.origin).host)
     redirect("/login");
-  return <Shell>{children}</Shell>;
+  return (
+    <Providers>
+      <Shell>{children}</Shell>
+    </Providers>
+  );
 }

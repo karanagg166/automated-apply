@@ -1399,6 +1399,9 @@ tr:hover td {
 .login-story h1 span {
   color: #617653;
 }
+.dark .login-story h1 span {
+  color: #b7cfaa;
+}
 .login-story > div > p {
   max-width: 360px;
   font-size: 14px;

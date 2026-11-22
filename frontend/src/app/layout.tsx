@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Providers } from "@/components/providers";
+import { ThemeProvider } from "next-themes";
 import "./globals.css";
 export const metadata: Metadata = {
   title: "Automated Apply · Your next chapter",
@@ -10,7 +10,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <Providers>{children}</Providers>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        >
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );
