@@ -7,6 +7,7 @@ use crate::{
     runner::Tools,
 };
 use serde_json::json;
+use uuid::Uuid;
 
 pub struct KnowledgeTools {
     pub profile: ProfilePin,
@@ -31,10 +32,20 @@ impl Tools for KnowledgeTools {
         Ok(Authority::default())
     }
     async fn execute(&mut self, effect: &Effect, store: &mut Store<'_>) -> Result<Observation> {
+        self.execute_scoped(effect, store, None).await
+    }
+}
+impl KnowledgeTools {
+    pub(crate) async fn execute_scoped(
+        &self,
+        effect: &Effect,
+        store: &mut Store<'_>,
+        target: Option<Uuid>,
+    ) -> Result<Observation> {
         match effect.call.name {
             ToolName::SearchJobs => {
                 let references =
-                    knowledge::search_saved_jobs(store.connection, &self.profile).await?;
+                    knowledge::search_scoped_jobs(store.connection, &self.profile, target).await?;
                 let jobs = references.iter().map(|job| job.job_id).collect::<Vec<_>>();
                 let mut evidence = jobs.clone();
                 evidence.push(self.profile.id);
@@ -45,7 +56,11 @@ impl Tools for KnowledgeTools {
                 })
             }
             ToolName::RankJobs => {
-                let saved = knowledge::rank_saved_jobs(store.connection, &self.profile, 10).await?;
+                let saved = if let Some(job) = target {
+                    knowledge::rank_selected_job(store.connection, &self.profile, job).await?
+                } else {
+                    knowledge::rank_saved_jobs(store.connection, &self.profile, 10).await?
+                };
                 let jobs = saved.jobs.iter().map(|j| j.job_id).collect::<Vec<_>>();
                 let mut evidence = jobs.clone();
                 evidence.push(self.profile.id);

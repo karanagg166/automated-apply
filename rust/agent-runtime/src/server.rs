@@ -213,6 +213,7 @@ struct Intake {
     request_id: Uuid,
     #[serde(default)]
     prepare_packet: bool,
+    target_job_id: Option<Uuid>,
     #[serde(default, deserialize_with = "supplied_limits")]
     limits: Option<Limits>,
 }
@@ -289,7 +290,7 @@ async fn dispatch(
                 json!({"name":name,"description":name.description(),"roles":roles,"repeatable":name.repeatable(),"status":status})
             }).collect::<Vec<_>>();
             Ok(
-                json!({"model_roles":policy.roles(),"model_policy":policy,"tools":tools,"review_model":api.config.review_model(),"recommended_limits":limits,"application_dispatch":false,"graph":crate::graph::MERMAID,"human_decisions":["approve","reject","request_changes"]}),
+                json!({"model_roles":policy.roles(),"model_policy":policy,"tools":tools,"review_model":api.config.review_model(),"recommended_limits":limits,"application_dispatch":false,"targeted_packet_review":true,"graph":crate::graph::MERMAID,"human_decisions":["approve","reject","request_changes"]}),
             )
         }
         ("PUT", ["api", "v1", "rust-agent", "control"]) => {
@@ -320,6 +321,7 @@ async fn dispatch(
                 limits,
                 Some(policy),
                 input.prepare_packet,
+                input.target_job_id,
             )
             .await?;
             api.wake.work_available();

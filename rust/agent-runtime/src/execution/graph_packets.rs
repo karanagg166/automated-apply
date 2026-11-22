@@ -14,6 +14,7 @@ use uuid::Uuid;
 pub struct PacketTools<'a> {
     pub packets: &'a packet_service::Settings,
     pub answers: &'a answer_service::Settings,
+    pub target_job_id: Option<Uuid>,
 }
 
 pub(crate) fn authority(call: &ToolCall) -> Result<Authority> {
@@ -58,10 +59,9 @@ async fn scoped_run(
                 && pending.call.name == effect.call.name
                 && pending.call.job_id == effect.call.job_id
         })
-        && effect
-            .call
-            .job_id
-            .is_some_and(|job| run.known_jobs.contains(&job));
+        && effect.call.job_id.is_some_and(|job| {
+            run.known_jobs.contains(&job) && run.target_job_id.is_none_or(|target| job == target)
+        });
     if !allowed || crate::lifecycle::control(tx).await?.mode != crate::lifecycle::Mode::Running {
         return Err(Failure("owner_preparation_authority_required"));
     }

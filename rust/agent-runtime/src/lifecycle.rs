@@ -246,7 +246,7 @@ pub async fn intake_policy(
     limits: Limits,
     policy: Option<crate::model_policy::Policy>,
 ) -> Result<Stored> {
-    intake_mode(connection, request_key, limits, policy, false).await
+    intake_mode(connection, request_key, limits, policy, false, None).await
 }
 
 pub(crate) async fn intake_mode(
@@ -255,7 +255,11 @@ pub(crate) async fn intake_mode(
     mut limits: Limits,
     policy: Option<crate::model_policy::Policy>,
     prepare_packet: bool,
+    target_job_id: Option<Uuid>,
 ) -> Result<Stored> {
+    if target_job_id.is_some_and(|job| !prepare_packet || job.is_nil()) {
+        return Err(Failure("invalid_job_id"));
+    }
     if let Some(policy) = &policy {
         policy.validate()?;
     }
@@ -264,6 +268,7 @@ pub(crate) async fn intake_mode(
     }
     let mut run = Run::new(request_key, limits)?;
     run.prepare_packet = prepare_packet;
+    run.target_job_id = target_job_id;
     run.model_policy = if prepare_packet {
         Some(crate::model_policy::Policy::Deterministic {})
     } else {
@@ -280,7 +285,7 @@ pub(crate) async fn intake_mode(
     load(connection, id).await
 }
 pub fn summary(stored: &Stored) -> Value {
-    json!({"id":stored.run.id,"revision":stored.revision,"state":stored.run.state,"role":stored.run.role,"usage":stored.run.usage,"limits":stored.run.limits,"profile":stored.run.profile,"diagnostic":stored.run.diagnostic,"known_jobs":stored.run.known_jobs,"question":questions::public_question(&stored.run,stored.revision),"graph":crate::graph::summary(&stored.run),"model_policy":stored.run.model_policy,"prepare_packet":stored.run.prepare_packet,"scope":"saved_job_review_no_application_dispatch"})
+    json!({"id":stored.run.id,"revision":stored.revision,"state":stored.run.state,"role":stored.run.role,"usage":stored.run.usage,"limits":stored.run.limits,"profile":stored.run.profile,"diagnostic":stored.run.diagnostic,"known_jobs":stored.run.known_jobs,"question":questions::public_question(&stored.run,stored.revision),"graph":crate::graph::summary(&stored.run),"model_policy":stored.run.model_policy,"prepare_packet":stored.run.prepare_packet,"target_job_id":stored.run.target_job_id,"scope":"saved_job_review_no_application_dispatch"})
 }
 pub async fn listing(connection: &mut PgConnection) -> Result<Vec<Value>> {
     let rows=sqlx::query("SELECT run,revision FROM rust_agent_runs WHERE owner='primary' ORDER BY created_at DESC,id LIMIT 50").fetch_all(connection).await.map_err(db)?;

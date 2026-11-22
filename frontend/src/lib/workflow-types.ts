@@ -16,6 +16,7 @@ export interface Graph {
 }
 export interface WorkflowRun {
   id: string;
+  target_job_id?: string | null;
   revision: number;
   state: string;
   role: string;
@@ -30,6 +31,7 @@ export interface WorkflowRun {
 }
 export interface WorkflowPlan {
   run_id: string;
+  target_job_id?: string | null;
   revision: number;
   graph: Graph;
   pending_tool: unknown;
@@ -51,6 +53,7 @@ export interface WorkflowCapabilities {
   model_roles?: string[];
   recommended_limits: Record<string, number | boolean>;
   application_dispatch: boolean;
+  targeted_packet_review?: boolean;
   tools?: Array<{
     name: string;
     description: string;

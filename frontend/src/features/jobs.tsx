@@ -609,6 +609,12 @@ export function JobPreviewModal({
         <div className="actions split">
           <div className="actions">
             <PrepareButton jobId={job.id} />
+            <Link
+              className="button secondary"
+              href={`/workflow?job=${encodeURIComponent(job.id)}`}
+            >
+              Review this job with the agent
+            </Link>
             {onShortlist && (
               <Button
                 disabled={job.status === "shortlisted" || shortlistPending}

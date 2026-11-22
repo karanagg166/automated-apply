@@ -95,6 +95,9 @@ export function ReviewCheckpoint({
       {plan.prepared_results.length === 0 && (
         <p>Tools have not produced reviewable results yet.</p>
       )}
+      {plan.target_job_id && pending && !inspection && (
+        <p>This saved job is unavailable for draft preparation.</p>
+      )}
       {typeof packetId === "string" &&
         /^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(packetId) && (
           <p>
@@ -182,7 +185,7 @@ export function ReviewCheckpoint({
     </section>
   );
 }
-export function WorkflowGraph() {
+export function WorkflowGraph({ targetJobId }: { targetJobId?: string }) {
   const [runs, setRuns] = useState<WorkflowRun[]>([]),
     [selected, setSelected] = useState("");
   const [plan, setPlan] = useState<WorkflowPlan | null>(null),
@@ -194,12 +197,13 @@ export function WorkflowGraph() {
     [busy, setBusy] = useState(false),
     [stage, setStage] = useState("planning");
   const run = runs.find((item) => item.id === selected);
-  const canPrepareDraft = ["prepare_application", "inspect_application"].every(
-    (name) =>
+  const canPrepareDraft =
+    (!targetJobId || capabilities?.targeted_packet_review === true) &&
+    ["prepare_application", "inspect_application"].every((name) =>
       capabilities?.tools?.some(
         (tool) => tool.name === name && tool.status === "available",
       ),
-  );
+    );
   async function refresh(id = selected) {
     const [listing, mode, features] = await Promise.all([
       workflowApi<{ runs: WorkflowRun[] }>("runs"),
@@ -231,12 +235,13 @@ export function WorkflowGraph() {
     }
   }
   function createReview(preparePacket: boolean) {
-    if (!capabilities) return;
+    if (!capabilities || (preparePacket && !canPrepareDraft)) return;
     return mutate(async () => {
       const created = await workflowApi<WorkflowRun>("runs", "POST", {
         request_id: crypto.randomUUID(),
         limits: { ...capabilities.recommended_limits, human_review: true },
         ...(preparePacket ? { prepare_packet: true } : {}),
+        ...(preparePacket && targetJobId ? { target_job_id: targetJobId } : {}),
       });
       return created.id;
     });
@@ -249,9 +254,13 @@ export function WorkflowGraph() {
         the plan, tool results and human checkpoints.
       </p>
       <p role="status">
-        {canPrepareDraft
-          ? "Create a saved job review or prepare one draft in Applications."
-          : "Saved job review is available."}
+        {targetJobId && canPrepareDraft
+          ? "Prepare and review a draft for the saved job you selected."
+          : targetJobId && capabilities
+            ? "Reviewing a selected job requires a runtime update."
+            : canPrepareDraft
+              ? "Create a saved job review or prepare one draft in Applications."
+              : "Saved job review is available."}
       </p>
       {error && <p role="alert">{error}</p>}
       <PublicDiscovery request={workflowApi} />
@@ -298,7 +307,9 @@ export function WorkflowGraph() {
               disabled={busy}
               onClick={() => void createReview(true)}
             >
-              Prepare draft and review
+              {targetJobId
+                ? "Prepare draft for this job"
+                : "Prepare draft and review"}
             </button>
           )}
           <button

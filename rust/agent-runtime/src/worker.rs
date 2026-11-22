@@ -220,7 +220,11 @@ async fn serve_internal(
                         lease.run.id,
                     );
                     if prepare_packet && let Some(config) = config {
-                        tools = tools.with_packets(&config.packets, &config.answers);
+                        tools = tools.with_packets(
+                            &config.packets,
+                            &config.answers,
+                            lease.run.target_job_id,
+                        );
                     }
                     let mut model = match HybridPlanner::for_run(
                         lease.run.model_policy.as_ref(),

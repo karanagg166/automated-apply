@@ -269,6 +269,8 @@ pub struct Run {
     pub model_policy: Option<crate::model_policy::Policy>,
     #[serde(default)]
     pub prepare_packet: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_job_id: Option<Uuid>,
     #[serde(default)]
     pub graph: crate::graph::Checkpoint,
     pub id: Uuid,
@@ -299,6 +301,7 @@ impl Run {
             graph: crate::graph::Checkpoint::default(),
             model_policy: None,
             prepare_packet: false,
+            target_job_id: None,
             id: Uuid::new_v4(),
             request_key,
             role: Role::Discovery,

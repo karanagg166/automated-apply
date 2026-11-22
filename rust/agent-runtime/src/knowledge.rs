@@ -118,10 +118,18 @@ pub(crate) async fn job_still_rankable(
     expected: &ProfilePin,
     job: Uuid,
 ) -> Result<bool> {
-    Ok(!rank(connection, expected, None, Some(job), 1)
+    Ok(!rank_selected_job(connection, expected, job)
         .await?
         .jobs
         .is_empty())
+}
+
+pub(crate) async fn rank_selected_job(
+    connection: &mut PgConnection,
+    expected: &ProfilePin,
+    job: Uuid,
+) -> Result<RankedSavedJobs> {
+    rank(connection, expected, None, Some(job), 1).await
 }
 
 async fn rank(
@@ -203,6 +211,14 @@ pub async fn search_saved_jobs(
     connection: &mut PgConnection,
     expected: &ProfilePin,
 ) -> Result<Vec<SavedReference>> {
+    search_scoped_jobs(connection, expected, None).await
+}
+
+pub(crate) async fn search_scoped_jobs(
+    connection: &mut PgConnection,
+    expected: &ProfilePin,
+    target: Option<Uuid>,
+) -> Result<Vec<SavedReference>> {
     use sqlx::Connection;
     let mut tx = connection
         .begin()
@@ -223,8 +239,10 @@ pub async fn search_saved_jobs(
             SELECT id,source_platform,created_at,
                 row_number() OVER (PARTITION BY source_platform ORDER BY created_at DESC,id) AS source_position
             FROM jobs WHERE status NOT IN ('archived','applied','submitted')
+                AND ($1::uuid IS NULL OR (id=$1 AND status<>'rejected'))
         ) saved ORDER BY source_position,created_at DESC,id LIMIT 10",
     )
+    .bind(target)
     .fetch_all(&mut *tx)
     .await
     .map_err(|_| Failure("saved_jobs_database_error"))?;

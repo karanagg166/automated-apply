@@ -808,8 +808,13 @@ impl<'a> RuntimeTools<'a> {
         mut self,
         packets: &'a crate::packet_service::Settings,
         answers: &'a crate::answer_service::Settings,
+        target_job_id: Option<Uuid>,
     ) -> Self {
-        self.packets = Some(crate::execution::graph_packets::PacketTools { packets, answers });
+        self.packets = Some(crate::execution::graph_packets::PacketTools {
+            packets,
+            answers,
+            target_job_id,
+        });
         self
     }
 }
@@ -879,7 +884,13 @@ impl Tools for RuntimeTools<'_> {
                 data: json!({"notification_id":effect.id,"delivery_state":"pending","scope":"owner_notification_queued_not_sent"}),
             });
         }
-        self.knowledge.execute(effect, store).await
+        self.knowledge
+            .execute_scoped(
+                effect,
+                store,
+                self.packets.as_ref().and_then(|p| p.target_job_id),
+            )
+            .await
     }
 }
 fn db(_: sqlx::Error) -> Failure {

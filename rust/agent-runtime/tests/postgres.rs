@@ -2527,11 +2527,53 @@ async fn review_checkpoint(c: &mut PgConnection) -> lifecycle::Stored {
     saved
 }
 
+async fn draft_checkpoint(
+    c: &mut PgConnection,
+    id: Uuid,
+    profile: &ProfilePin,
+) -> lifecycle::Stored {
+    use automated_apply_agents::{planner::HybridPlanner, telegram::RuntimeTools};
+
+    let saved = lifecycle::load(c, id).await.unwrap();
+    let mut planner = HybridPlanner::for_run(saved.run.model_policy.as_ref(), None, false)
+        .unwrap()
+        .with_packet_preparation(true);
+    let (packets, answers) = (packet_settings(), answer_settings());
+    let mut tools = RuntimeTools::new(
+        KnowledgeTools {
+            profile: profile.clone(),
+        },
+        None,
+        id,
+    )
+    .with_packets(&packets, &answers, saved.run.target_job_id);
+    for _ in 0..30 {
+        let mut store = Store { connection: c };
+        let Some(mut lease) = store.claim().await.unwrap() else {
+            break;
+        };
+        assert_eq!(lease.run.id, id);
+        tick(&mut store, &mut lease, &mut planner, &mut tools)
+            .await
+            .unwrap();
+        if lease.run.state == State::WaitingApproval {
+            break;
+        }
+    }
+    let saved = lifecycle::load(c, id).await.unwrap();
+    assert_eq!(
+        saved.run.state,
+        State::WaitingApproval,
+        "{:?}",
+        saved.run.diagnostic
+    );
+    assert_eq!(saved.run.usage.model_calls, 0);
+    saved
+}
+
 #[tokio::test(flavor = "current_thread")]
 #[ignore = "requires dedicated disposable PostgreSQL harness"]
 async fn graph_owner_intake_prepares_one_cross_source_draft_for_review() {
-    use automated_apply_agents::{planner::HybridPlanner, telegram::RuntimeTools};
-
     let (mut c, job) = packet_service_fixture().await;
     sqlx::query("UPDATE jobs SET source_platform='greenhouse',job_url='https://boards.greenhouse.io/fictional/jobs/123' WHERE id=$1")
         .bind(job)
@@ -2550,7 +2592,6 @@ async fn graph_owner_intake_prepares_one_cross_source_draft_for_review() {
     let (url, stop, service) = http_fixture().await;
     let http = client();
     let route = format!("{url}/api/v1/rust-agent/runs");
-    let (packet_settings, answer_settings) = (packet_settings(), answer_settings());
     let mut packet_id = Value::Null;
 
     for expected_creation in [true, false] {
@@ -2594,39 +2635,7 @@ async fn graph_owner_intake_prepares_one_cross_source_draft_for_review() {
             .unwrap();
         assert_eq!(conflict.status(), 409);
 
-        let policy = lifecycle::load(&mut c, id).await.unwrap().run.model_policy;
-        let mut planner = HybridPlanner::for_run(policy.as_ref(), None, false)
-            .unwrap()
-            .with_packet_preparation(true);
-        let mut tools = RuntimeTools::new(
-            KnowledgeTools {
-                profile: profile.clone(),
-            },
-            None,
-            id,
-        )
-        .with_packets(&packet_settings, &answer_settings);
-        for _ in 0..30 {
-            let mut store = Store { connection: &mut c };
-            let Some(mut lease) = store.claim().await.unwrap() else {
-                break;
-            };
-            assert_eq!(lease.run.id, id);
-            tick(&mut store, &mut lease, &mut planner, &mut tools)
-                .await
-                .unwrap();
-            if lease.run.state == State::WaitingApproval {
-                break;
-            }
-        }
-        let saved = lifecycle::load(&mut c, id).await.unwrap();
-        assert_eq!(
-            saved.run.state,
-            State::WaitingApproval,
-            "{:?}",
-            saved.run.diagnostic
-        );
-        assert_eq!(saved.run.usage.model_calls, 0);
+        draft_checkpoint(&mut c, id, &profile).await;
         let preview: Value = http
             .get(format!("{route}/{id}/plan"))
             .bearer_auth(HOST_TOKEN)
@@ -2665,16 +2674,85 @@ async fn graph_owner_intake_prepares_one_cross_source_draft_for_review() {
         }
     }
 
-    let retained: (i64, i64, i64, i64) = sqlx::query_as(
-        "SELECT (SELECT count(*) FROM application_packets),
+    let protections = "SELECT (SELECT count(*) FROM application_packets),
                 (SELECT count(*) FROM application_events),
                 (SELECT count(*) FROM application_submission_evidence),
-                (SELECT count(*) FROM owner_preferences WHERE starts_with(key,'chr_cmd:') OR starts_with(key,'apply_budget:'))",
-    )
-    .fetch_one(&mut c)
-    .await
-    .unwrap();
+                (SELECT count(*) FROM owner_preferences WHERE starts_with(key,'chr_cmd:') OR starts_with(key,'apply_budget:'))";
+    let retained: (i64, i64, i64, i64) =
+        sqlx::query_as(protections).fetch_one(&mut c).await.unwrap();
     assert_eq!(retained, (1, 1, 0, 0));
+
+    let different_job = saved_job(&mut c, 928).await;
+    let key = Uuid::new_v4();
+    let selected = json!({"request_id":key,"prepare_packet":true,"target_job_id":different_job});
+    let response: Value = http
+        .post(&route)
+        .bearer_auth(HOST_TOKEN)
+        .json(&selected)
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(response["target_job_id"], json!(different_job));
+    let id = response["id"].as_str().unwrap().parse().unwrap();
+    let mut changed = selected.clone();
+    changed["target_job_id"] = json!(job);
+    assert_eq!(
+        http.post(&route)
+            .bearer_auth(HOST_TOKEN)
+            .json(&changed)
+            .send()
+            .await
+            .unwrap()
+            .status(),
+        409
+    );
+    let saved = draft_checkpoint(&mut c, id, &profile).await;
+    assert_eq!(saved.run.known_jobs, vec![different_job]);
+    let preview = graph::preview(&saved.run, saved.revision);
+    assert_eq!(preview["target_job_id"], json!(different_job));
+    let results = preview["prepared_results"].as_array().unwrap();
+    let prepared = results
+        .iter()
+        .find(|result| result["tool"] == "prepare_application")
+        .unwrap();
+    assert_eq!(prepared["data"]["job_id"], json!(different_job));
+    assert_eq!(prepared["data"]["created"], true);
+    assert_ne!(prepared["data"]["packet_id"], packet_id);
+
+    let unavailable = Uuid::new_v4();
+    let response: Value = http
+        .post(&route)
+        .bearer_auth(HOST_TOKEN)
+        .json(
+            &json!({"request_id":Uuid::new_v4(),"prepare_packet":true,"target_job_id":unavailable}),
+        )
+        .send()
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    let saved = draft_checkpoint(
+        &mut c,
+        response["id"].as_str().unwrap().parse().unwrap(),
+        &profile,
+    )
+    .await;
+    assert!(saved.run.known_jobs.is_empty());
+    assert!(!saved.run.context.iter().any(|c| matches!(
+        c.tool,
+        ToolName::PrepareApplication | ToolName::InspectApplication
+    )));
+    let retained: (i64, i64, i64, i64) =
+        sqlx::query_as(protections).fetch_one(&mut c).await.unwrap();
+    assert_eq!(retained, (2, 2, 0, 0));
     stop.cancel();
     service.await.unwrap();
 }

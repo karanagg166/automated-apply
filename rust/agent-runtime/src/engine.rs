@@ -207,10 +207,10 @@ pub fn finish_tool(run: &mut Run, id: Uuid, result: Result<Observation>) -> Resu
                 return Err(Failure("agent_evidence_limit"));
             }
             if observation.jobs.len() > 10
-                || observation
-                    .jobs
-                    .iter()
-                    .any(|id| !observation.evidence.contains(id))
+                || observation.jobs.iter().any(|id| {
+                    !observation.evidence.contains(id)
+                        || run.target_job_id.is_some_and(|target| *id != target)
+                })
             {
                 return Err(invalid_observation(run, "invalid_observed_job_binding"));
             }

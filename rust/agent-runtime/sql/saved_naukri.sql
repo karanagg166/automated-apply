@@ -14,7 +14,7 @@ WITH verified AS (
         END AS requisition
     FROM jobs j CROSS JOIN verified
     WHERE ($1::text IS NULL OR j.source_platform=$1)
-        AND ($2::uuid IS NULL OR j.id=$2) AND j.status<>'archived'
+        AND ($2::uuid IS NULL OR (j.id=$2 AND j.status<>'rejected')) AND j.status<>'archived'
 ), submitted AS MATERIALIZED (
     SELECT j.id,j.source_platform,
         NULLIF(regexp_replace(j.job_url,'[?#].*$','',''),'') AS job_link,
