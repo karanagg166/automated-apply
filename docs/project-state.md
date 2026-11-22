@@ -1,9 +1,33 @@
 ## Latest local acceptance, 2026-11-23
 
+Release `1302a549cc2658a2b8d60046012ccbd5a26d5f29` is the active local
+runtime and dashboard under `rust-plan-h0penzuv`. Exact clean run
+`20261122T220420Z-75cdd24b26ce42ed9be4e97348200220` passed all 37 stages.
+The owner-selected **Prepare draft and review** workflow reached its live
+approval checkpoint using an existing Greenhouse packet. The PostgreSQL
+fixture also proved first-time draft creation. Both controls returned to
+`STOPPED`, and retained data and focus checks passed. See the
+[workflow draft acceptance report](acceptance/local-workflow-draft-20261123.md).
+
+The dedicated Brave profile still needs one visible Naukri tab. The saved
+catalog contains 908 unapplied Naukri listings with recent browser-recorded
+calendar dates. Two sampled listings met the saved score and skill checks
+and are ready for independent live revalidation. Three of eight portal
+sign-ins have been verified. The fourth supervised Naukri attempt, the
+first strict worker receipt, and the launchd Desktop access check remain
+pending.
+
+Nine full Codex transcripts remain in the private continuity backup. A
+verified private export added 347 user prompts across 91 older threads.
+Seven missing indexed threads had no local prompt record. The backup job
+continues on its five-minute schedule.
+
+## Previous local acceptance, 2026-11-23
+
 Clean run `20261122T205620Z-b724480d1bfe4ff1be2885424fb5f6c7` passed all
 37 stages at `e04e8ac1b8bad0298a867a31dcb41bb5a3ae9ed4`. The exact release
-is running locally under direct-process plan `rust-plan-f096rp_a`. The
-worker and dashboard are healthy with both controls stopped. The cutover
+ran locally under direct-process plan `rust-plan-f096rp_a`. The
+worker and dashboard were healthy with both controls stopped. The cutover
 matched the retained data and focus fingerprints. Discovery reconnects its
 retained connection, saved review ranks eligible jobs across platforms, and
 the extension protects YC pages from generic form filling. Login-specific
@@ -14,8 +38,8 @@ Three of eight portal sign-ins have been verified. Naukri accepted the
 owner-provided SMS code and its signed-in email and canonical PDF matched.
 Instahyre completed onboarding and showed its opportunities page. Wellfound
 has a verified account session. The dedicated Naukri profile is now windowless
-and needs one visible tab for fresh live readback. There were zero unapplied
-Naukri jobs posted within the last 14 days in the saved catalog. The first
+and needs one visible tab for fresh live readback. The timestamp-only check
+found zero unapplied Naukri rows with exact recent posting times. The first
 strict worker receipt and the one available supervised admission remain
 pending. Inspect and reuse existing tabs before starting a browser. The
 manual portal launcher opens at most one portal and refuses duplicate
@@ -23,8 +47,8 @@ launches against a running profile.
 
 The previous release saved 20 Himalayas and 20 We Work Remotely jobs and
 completed a deterministic saved review with one confirmed Telegram notice.
-The current runtime exposes the saved-review tools. Application-action
-adapters, live multi-platform receipts, and verified launchd reboot
+That runtime exposed the saved-review tools. Browser execution adapters,
+live multi-platform receipts, and verified launchd reboot
 persistence remain part of completion. See the
 [previous release report](acceptance/local-dashboard-release-20261121.md#november-22-public-feed-release-follow-up).
 

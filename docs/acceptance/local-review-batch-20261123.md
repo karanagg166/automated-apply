@@ -1,7 +1,7 @@
 # Local review fixes and release acceptance
 
 The `feat/rust-agent-runtime` release `e04e8ac1b8bad0298a867a31dcb41bb5a3ae9ed4`
-is running on the owner’s Mac. The local installer switched the direct
+ran on the owner’s Mac. The local installer switched the direct
 runtime and dashboard from `4dab75e` under plan `rust-plan-f096rp_a`. The
 reviewed rollback is `rust-preinstall-pqbxseh3`. The running processes were
 identified as `81154` and `81155` and the replacement observer recorded its
@@ -34,7 +34,7 @@ first sample as process `81331`.
 | Live saved catalog read | PASS | A read-only execution of the final ranking SQL returned 100 candidates across 10 saved sources in 2.79 seconds. No admissions were created. |
 | Mobile performance target | FAIL | One headless Edge Lighthouse sample against the running local `/login` measured performance 80, accessibility 100, best practices 100, LCP 776 ms, CLS 0, and total blocking time 876 ms. Login-specific chunks fell from 23,041 to 7,851 gzip bytes against staged `12923ba`. |
 | Reboot persistence | PENDING | The active release uses direct local processes. The exact launchd Desktop access probe still needs operator confirmation. |
-| First supervised Naukri receipt | BLOCKED | The dedicated profile had zero open tabs at readback. The live saved Naukri catalog had zero unapplied postings from the previous 14 days. Fresh identity, resume, focus, matching, and strict worker receipt evidence remain required. |
+| First supervised Naukri receipt | BLOCKED | The dedicated profile had zero open tabs at readback. The catalog check found zero recent exact posting timestamps. The follow-up [workflow acceptance](local-workflow-draft-20261123.md) includes calendar-date evidence. Fresh identity, resume, focus, matching, and strict worker receipt evidence remain required. |
 | Multi-platform application dispatch | NOT TESTED | The saved review graph reads and ranks multiple sources. Its application-action adapters and live provider receipts remain open acceptance work. |
 
 The first review run failed to compile because it used an unavailable SQLx
