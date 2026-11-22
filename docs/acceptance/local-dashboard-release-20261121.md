@@ -27,6 +27,32 @@ The ready `4dab75e` sample recorded 5,232 KiB of Rust RSS and 3,840 KiB of
 dashboard RSS. The last ready `12666f3` sample recorded 8,752 KiB and 2,848
 KiB. The samples were taken at different uptimes.
 
+## Microsoft Edge browser fixtures
+
+Microsoft Edge Stable `158.0.4370.33` is installed on the Mac. The installer
+matched the SHA-256 published by Microsoft's release API and Apple's Gatekeeper
+accepted the extracted app as notarized by Microsoft. The tests used isolated
+headless profiles and disposable data. [Microsoft's release endpoint documentation](https://learn.microsoft.com/en-us/mem/configmgr/core/plan-design/network/internet-endpoints)
+
+| Check | Result | Evidence |
+| --- | --- | --- |
+| Original 26-program Edge browser run | 23 PASS, 3 FAIL | Three native cases loaded the Brave bundle and failed the existing browser identity check. This run took 498.914 seconds. |
+| Shared fixture bundle selection at `dcea3aed1646e2f895390d4dde823325cd137dc3` | PASS | Edge now reads `dist-edge`, and Brave reads `dist`. The end-to-end build uses the corresponding output. Both builds and all 406 extension unit tests passed. |
+| Affected Edge and Brave cases | 10 PASS | Five cases per browser passed, including all three original setup failures, the network guard and the complete native FastAPI/PostgreSQL stack. The 21 correlated native stack checks passed per browser. |
+| macOS focus observations | Partial | Both snapshots matched in two Edge and all five Brave reruns. Three Edge reruns observed a foreground change, and one also observed a window-order change. The before-and-after checks do not identify the cause. Live focus acceptance for Edge is open. |
+| Live Edge portal and submission | NOT TESTED | The live runtime still selects Brave. The Edge cases used fictional accounts, forms and employer data. |
+
+Reproduce the Edge fixture batch from the local checkout with
+`pnpm -C extension build --browser=edge --output=dist-edge` followed by
+`AUTOMATED_APPLY_TEST_BROWSER=edge node extension/tests/run-browser-fixtures.mjs`
+in the sanitized fixture environment. The combined 37-stage result above
+belongs to the earlier installed release.
+
+The Naukri owner launcher also verified one existing dedicated Brave tab.
+Its check selects the release from the installed native definitions and
+matching local acceptance evidence. The owner launcher can identify an
+existing tab while leaving its window, selection and contents in place.
+
 ## Clean `--allow-telegram` release `ccdf57e` and live direct cutover (2026-11-22)
 
 Local commits `db3d582` and `ccdf57e` wired explicit `--allow-telegram` opt-in across `rust/agent-runtime` (`prepare-native-config`, retaining `initial_cutover_requires_telegram_disabled` by default) and `rust/scripts/local_install_plan.py` (verifying `com.automated-apply.telegram.plist` is absent). Pre-commit checks passed (`cargo fmt --all -- --check`, `13/13` `host` tests, `cargo clippy --workspace --all-targets -- -D warnings`, `9/9` release Python tests, and `ruff`).
