@@ -10,10 +10,11 @@ state. The launchd Desktop-access report is still pending. See the
 [local release report](acceptance/local-dashboard-release-20261121.md#november-22-public-feed-release-follow-up).
 
 Two of eight portal sessions are verified. Wellfound retained the confirmed
-city, role preferences, biography and education. Instahyre retained the
-fresher choice and accepted the confirmed salary and location preferences.
-Its education screen asks for internship companies. The private portal handoff records the source
-and exact preferences. Naukri remains at email-only sign-in, so the fourth
+city, role preferences, biography and education. Instahyre accepted the
+fresher choice, salary and location preferences, portfolio-backed internship
+and final profile fields. It advanced to mobile verification. AGY can reuse
+the owner-confirmed facts from the private `portal_candidate_facts_v1`
+database record. Naukri remains at email-only sign-in, so the fourth
 supervised attempt and the first strict receipt are still pending. See the
 [portal report](acceptance/local-brave-portal-accounts-20261121.md#november-22-profile-follow-up).
 

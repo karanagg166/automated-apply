@@ -17,9 +17,26 @@ Wellfound still showed its profile completion prompt.
 Instahyre retained the student-or-fresher choice and all 20 skills after a
 reload. Its preferences form returned HTTP 200 after saving the confirmed
 city, salary floor and the available domestic, international and remote
-choices. The next screen shows the previously saved education and asks for
-internship companies. The previous current-employer prompt is no longer on
-that screen. Both portal updates preserved macOS foreground and window order.
+choices. The owner's linked portfolio identifies a completed internship.
+Instahyre accepted that company with HTTP 202 and retained the education
+step. The final form accepted the owner's confirmed contact and gender,
+preserved the uploaded resume and selected visibility, and sent a mobile
+verification code. The authenticated verification page shows the matching
+owner mobile. The initial final-form request returned HTTP 400 and explicitly
+identified both missing fields. macOS foreground and window order matched
+through the accepted follow-up. [Portfolio work experience](https://portfolio-kappa-bay-76.vercel.app/#experience)
+
+LinkedIn returned HTTP 999 through its public page and the dedicated Brave
+profile. The portfolio supplied the internship company and dates. The
+verified candidate profile records the other work role without classifying
+it as an internship.
+
+The owner's confirmed portal facts are stored in the restricted
+`owner_preferences` record `portal_candidate_facts_v1`. AGY can retrieve
+the latest owner-confirmed contact, onboarding and work preferences from
+that record. The saved resume keeps its original confirmation binding.
+The mobile verification code is transient and is kept out of the facts
+record.
 
 The private portal record contains the exact owner-confirmed preferences
 for AGY. The account count remains two of eight. The Naukri tab still shows
