@@ -53,6 +53,45 @@ Its check selects the release from the installed native definitions and
 matching local acceptance evidence. The owner launcher can identify an
 existing tab while leaving its window, selection and contents in place.
 
+## Private login and production performance checks
+
+The installed `4dab75e` release returned HTTP 200 from the Rust health and
+dashboard login routes. The ten-second, 20-connection loopback load samples
+had zero non-2xx responses, errors or timeouts. The health route averaged
+70,069 requests per second with 1 ms p99 latency. The login route averaged
+4,429 requests per second with 19 ms p99 latency. These samples cover public
+loopback routes and make no claim about database-backed throughput.
+
+Source `e01661413d969339b2e20f74e9b8ffe14eff4511` adds `/robots.txt`, improves
+dark-theme headline contrast, and loads query and tooltip providers in the
+authenticated workspace. Two Playwright cases and the isolated standalone
+production readback passed. Anonymous workspace access still redirects to
+sign-in. The crawler policy disallows all routes and keeps private pages out
+of search. Both local builds sent the four expected security headers and
+omitted `X-Powered-By`.
+
+| Lighthouse result | Installed mobile | Candidate mobile | Installed desktop | Candidate desktop |
+| --- | ---: | ---: | ---: | ---: |
+| Performance | 91 | 81 | 100 | 100 |
+| Accessibility | 96 | 100 | 96 | 100 |
+| Best practices | 100 | 100 | 100 | 100 |
+| SEO | 54 | 63 | 54 | 63 |
+| Largest Contentful Paint | 979 ms | 795 ms | 312 ms | 289 ms |
+| Cumulative Layout Shift | 0 | 0 | 0 | 0 |
+| Total Blocking Time | 371 ms | 782 ms | 9.5 ms | 15.5 ms |
+
+The mobile sample transferred 23,116 fewer script bytes in the candidate.
+Mobile performance and Total Blocking Time missed their targets in both
+samples. Lighthouse's crawlability item remains disabled by the app's private
+indexing policy. Comparison settings used Edge headlessly with `pnpm dlx
+lighthouse` against loopback production builds.
+
+Combined run `20261122T151318Z-43524e2717764e5680344f100936ac76` recorded a
+native transport fixture failure. The test could attempt to send a frame
+after the rejected origin had already closed its input. The narrow test fix
+at `be4fe0aef8cb06ba605e4fa174c9cc6aed8c6bf5` passed all 16 transport cases.
+New release installation awaits the clean combined gate.
+
 ## Clean `--allow-telegram` release `ccdf57e` and live direct cutover (2026-11-22)
 
 Local commits `db3d582` and `ccdf57e` wired explicit `--allow-telegram` opt-in across `rust/agent-runtime` (`prepare-native-config`, retaining `initial_cutover_requires_telegram_disabled` by default) and `rust/scripts/local_install_plan.py` (verifying `com.automated-apply.telegram.plist` is absent). Pre-commit checks passed (`cargo fmt --all -- --check`, `13/13` `host` tests, `cargo clippy --workspace --all-targets -- -D warnings`, `9/9` release Python tests, and `ruff`).
