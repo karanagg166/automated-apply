@@ -23,6 +23,13 @@ pub fn route(path: &str) -> Option<&str> {
         .strip_suffix("/ingest")
         .filter(|s| !s.is_empty() && !s.contains('/'))
 }
+pub(crate) fn ledger_key(platform: Platform, batch_token: Uuid) -> String {
+    let tag = match platform {
+        Platform::Himalayas => "h",
+        Platform::WeWorkRemotely => "w",
+    };
+    format!("feed_in:{tag}:{}", batch_token.simple())
+}
 fn db(_: sqlx::Error) -> Failure {
     Failure("public_feed_database_error")
 }
@@ -57,11 +64,7 @@ async fn ingest_in(
         .execute(&mut *tx)
         .await
         .map_err(db)?;
-    let ledger = format!(
-        "public_feed_ingest:{}:{}",
-        platform.name(),
-        input.batch_token
-    );
+    let ledger = ledger_key(platform, input.batch_token);
     if let Some((expected_schedule, expected_control)) = schedule_authority {
         // Hold authority through commit: STOP/disable wins before admission or
         // waits for the already admitted intake transaction to finish.
@@ -211,4 +214,21 @@ async fn ingest_in(
         .await
         .map_err(|_| Failure("public_feed_commit_outcome_unknown"))?;
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ledger_keys_fit_production_varchar_50_and_distinguish_platforms() {
+        let token = Uuid::new_v4();
+        let himalayas = ledger_key(Platform::Himalayas, token);
+        let wwr = ledger_key(Platform::WeWorkRemotely, token);
+        assert!(himalayas.starts_with("feed_in:"));
+        assert!(wwr.starts_with("feed_in:"));
+        assert!(himalayas.len() <= 50, "len={}", himalayas.len());
+        assert!(wwr.len() <= 50, "len={}", wwr.len());
+        assert_ne!(himalayas, wwr);
+    }
 }

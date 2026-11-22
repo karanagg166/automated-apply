@@ -1,6 +1,6 @@
 async fn ingestion_fixture()->(PgConnection,Uuid) {
     let (mut c,_)=packet_service_fixture().await;
-    sqlx::raw_sql("ALTER TABLE jobs ADD COLUMN canonical_key text UNIQUE; DROP TABLE job_source_observations").execute(&mut c).await.unwrap();
+    sqlx::raw_sql("ALTER TABLE owner_preferences ALTER COLUMN key TYPE VARCHAR(50); ALTER TABLE jobs ADD COLUMN canonical_key text UNIQUE; DROP TABLE job_source_observations").execute(&mut c).await.unwrap();
     let source=include_str!("../../../../supabase/fresh_public/001_phase1_public.sql");
     let table=source.split("CREATE TABLE IF NOT EXISTS public.job_source_observations (").nth(1).unwrap().split("CREATE INDEX IF NOT EXISTS idx_observation_job").next().unwrap();
     sqlx::raw_sql(sqlx::AssertSqlSafe(format!("CREATE TABLE IF NOT EXISTS public.job_source_observations ({table}"))).execute(&mut c).await.unwrap();
@@ -34,7 +34,7 @@ async fn feed_intake_suppressed_observation_rolls_back_new_job_and_receipt(){
     sqlx::raw_sql("CREATE FUNCTION intake_suppress() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NULL; END $$; CREATE TRIGGER intake_suppress BEFORE INSERT ON job_source_observations FOR EACH ROW EXECUTE FUNCTION intake_suppress()").execute(&mut c).await.unwrap();
     assert_eq!(intake(&mut c,t).await.unwrap_err().0,"feed_ingestion_write_ack_failed");
     assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM jobs").fetch_one(&mut c).await.unwrap(),count);
-    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM owner_preferences WHERE starts_with(key,'public_feed_ingest:')").fetch_one(&mut c).await.unwrap(),0);
+    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM owner_preferences WHERE starts_with(key,'feed_in:')").fetch_one(&mut c).await.unwrap(),0);
     sqlx::raw_sql("DROP TRIGGER intake_suppress ON job_source_observations; DROP FUNCTION intake_suppress()").execute(&mut c).await.unwrap();
 }
 #[tokio::test(flavor="current_thread")]
@@ -42,7 +42,7 @@ async fn feed_intake_suppressed_observation_rolls_back_new_job_and_receipt(){
 async fn feed_intake_concurrent_calls_commit_one_job_and_one_ledger(){
     let (mut a,t)=ingestion_fixture().await;let mut b=connection().await;
     let (left,right)=tokio::join!(intake(&mut a,t),intake(&mut b,t));assert_eq!(left.unwrap(),right.unwrap());
-    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM owner_preferences WHERE starts_with(key,'public_feed_ingest:')").fetch_one(&mut a).await.unwrap(),1);
+    assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM owner_preferences WHERE starts_with(key,'feed_in:')").fetch_one(&mut a).await.unwrap(),1);
 }
 #[tokio::test(flavor="current_thread")]
 #[ignore="requires dedicated disposable PostgreSQL harness"]

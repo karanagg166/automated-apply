@@ -186,7 +186,7 @@ pub async fn begin(c: &mut PgConnection) -> Result<Option<ScheduledFetch>> {
                 let consumed: bool = sqlx::query_scalar(
                     "SELECT EXISTS(SELECT 1 FROM owner_preferences WHERE key=$1)",
                 )
-                .bind(format!("public_feed_ingest:{}:{token}", platform.name()))
+                .bind(feed_ingestion::ledger_key(platform, token))
                 .fetch_one(&mut *c)
                 .await
                 .map_err(db)?;
