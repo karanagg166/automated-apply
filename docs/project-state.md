@@ -1,36 +1,32 @@
-## Latest local acceptance, 2026-11-22
+## Latest local acceptance, 2026-11-23
 
-The clean combined gate passed all 37 stages at `4dab75e`. The exact release
-is running locally with the worker online and the application queue stopped.
-The installed MCP saved 20 Himalayas jobs and 20 We Work Remotely jobs. All
-eight saved-job MCP tools returned their platform responses. One deterministic
-saved-review run completed with zero model calls and one verified Telegram delivery.
-The coordinator is back at STOPPED. The three Naukri quarantines, three
-reservations, confirmed profile and resume checks matched their retained
-state. The launchd Desktop-access report is still pending. See the
-[local release report](acceptance/local-dashboard-release-20261121.md#november-22-public-feed-release-follow-up).
+Clean run `20261122T205620Z-b724480d1bfe4ff1be2885424fb5f6c7` passed all
+37 stages at `e04e8ac1b8bad0298a867a31dcb41bb5a3ae9ed4`. The exact release
+is running locally under direct-process plan `rust-plan-f096rp_a`. The
+worker and dashboard are healthy with both controls stopped. The cutover
+matched the retained data and focus fingerprints. Discovery reconnects its
+retained connection, saved review ranks eligible jobs across platforms, and
+the extension protects YC pages from generic form filling. Login-specific
+gzip bytes fell by about 66%. The mobile performance sample still missed its
+target. See the [review batch acceptance report](acceptance/local-review-batch-20261123.md).
 
-Two of eight portal sessions are verified. Wellfound retained the confirmed
-city, role preferences, biography and education. Instahyre accepted the
-fresher choice, salary and location preferences, portfolio-backed internship
-and final profile fields. It advanced to mobile verification. AGY can reuse
-the owner-confirmed facts from the private `portal_candidate_facts_v1`
-database record. Naukri remains at email-only sign-in, so the fourth
-supervised attempt and the first strict receipt are still pending. See the
-[portal report](acceptance/local-brave-portal-accounts-20261121.md#november-22-profile-follow-up).
+Three of eight portal sign-ins have been verified. Naukri accepted the
+owner-provided SMS code and its signed-in email and canonical PDF matched.
+Instahyre completed onboarding and showed its opportunities page. Wellfound
+has a verified account session. The dedicated Naukri profile is now windowless
+and needs one visible tab for fresh live readback. There were zero unapplied
+Naukri jobs posted within the last 14 days in the saved catalog. The first
+strict worker receipt and the one available supervised admission remain
+pending. Inspect and reuse existing tabs before starting a browser. The
+manual portal launcher opens at most one portal and refuses duplicate
+launches against a running profile.
 
-Microsoft Edge is installed and its five affected browser fixtures passed
-after correcting the fixture bundle selection. All five Brave regression
-cases passed. Several Edge focus comparisons changed, so Edge live focus
-and portal acceptance are still open. The active release continues on Brave.
-See the [Edge fixture report](acceptance/local-dashboard-release-20261121.md#microsoft-edge-browser-fixtures).
-
-The next dashboard build serves a private crawler policy, passes the login
-and crawler Playwright checks, and scored 100 for accessibility in both
-local Lighthouse samples. Mobile performance remains below target. The
-first combined candidate run exposed a native transport test race, and the
-repaired transport suite passed all 16 cases. The installed release remains
-`4dab75e`. See the [production measurements](acceptance/local-dashboard-release-20261121.md#private-login-and-production-performance-checks).
+The previous release saved 20 Himalayas and 20 We Work Remotely jobs and
+completed a deterministic saved review with one confirmed Telegram notice.
+The current runtime exposes the saved-review tools. Application-action
+adapters, live multi-platform receipts, and verified launchd reboot
+persistence remain part of completion. See the
+[previous release report](acceptance/local-dashboard-release-20261121.md#november-22-public-feed-release-follow-up).
 
 ## Earlier local work, 2026-11-22
 
