@@ -42,6 +42,122 @@ async fn naukri_native_supervised_saved_listing_precedes_due_profile_and_search_
     .unwrap();
     assert_eq!(reserved, 0);
 }
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn naukri_native_supervised_100_plus_scope_claims_only_its_listing_and_stop_clears_it() {
+    let (mut connection, binding, _) = sync_fixture(json!(["summary"])).await;
+    let mut config = browser_pref(&mut connection, "application_queue_policy").await;
+    config["state"] = json!("STOPPED");
+    config["policy"]["global_limits"]["applicant_limit"] = json!(1000);
+    config["policy"]["global_limits"]["unknown_applicants"] = json!("needs_review");
+    let setting = &mut config["policy"]["platforms"]["naukri"];
+    setting["mode"] = json!("SUPERVISED");
+    setting["owner_submission_authorized"] = json!(true);
+    setting["sources"] = json!(["saved_verified_job", "naukri_ui_search"]);
+    setting["hourly_submission_cap"] = json!(1);
+    setting["supervised_submission_cap"] = json!(1);
+    browser_save(&mut connection, "application_queue_policy", config.clone()).await;
+    sqlx::query("UPDATE rust_agent_control SET mode='STOPPED'")
+        .execute(&mut connection)
+        .await
+        .unwrap();
+    browser_save(
+        &mut connection,
+        "chr_fixed_profile",
+        json!({
+            "profile_binding_id":binding["profile_binding_id"],"browser":"brave",
+            "verified_via":"owner_reviewed_dedicated_brave_profile"
+        }),
+    )
+    .await;
+
+    let mut listings = Vec::new();
+    for url in [
+        "https://www.naukri.com/job-listings-fictional-backend-engineer-0123456789",
+        "https://www.naukri.com/job-listings-fictional-backend-engineer-1123456789",
+    ] {
+        listings.push(
+            automated_apply_agents::execution::queue::enqueue(
+                &mut connection,
+                url,
+                "saved_verified_job",
+                None,
+            )
+            .await
+            .unwrap(),
+        );
+    }
+    let directory = tempfile::tempdir().unwrap();
+    std::fs::set_permissions(directory.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+    let path = directory.path().join("runtime.env");
+    std::fs::write(
+        &path,
+        browser_values().iter().map(|(key, value)| format!("{key}='{value}'\n")).collect::<String>(),
+    )
+    .unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    let launch = |revision: i64| {
+        let path = &path;
+        let url = listings[1]["url"].as_str().unwrap();
+        async move {
+            tokio::time::timeout(
+                Duration::from_secs(10),
+                tokio::process::Command::new(env!("CARGO_BIN_EXE_automated-apply-agents"))
+                    .args(["start-supervised-naukri-listing", "--config"])
+                    .arg(path)
+                    .args(["--queue-revision", &revision.to_string(), "--listing", url])
+                    .env_clear()
+                    .kill_on_drop(true)
+                    .output(),
+            )
+            .await
+            .unwrap()
+            .unwrap()
+        }
+    };
+    let revision = config["revision"].as_i64().unwrap();
+    let stale = launch(revision - 1).await;
+    assert!(!stale.status.success());
+    assert_eq!(String::from_utf8_lossy(&stale.stderr).trim(), "queue_policy_revision_conflict");
+    let started = launch(revision).await;
+    assert!(started.status.success(), "{}", String::from_utf8_lossy(&started.stderr));
+    let started: Value = serde_json::from_slice(&started.stdout).unwrap();
+    assert_eq!(started["scope"]["work_id"], listings[1]["id"]);
+    assert_eq!(started["application_dispatched"], false);
+    let context = native_queue_context(&json!({"binding": binding}));
+    let resumes = sync_resume_settings();
+    let result = native_queue_call(&mut connection, &context, "poll_naukri_work", json!({}), &resumes)
+        .await
+        .unwrap();
+    assert_eq!(result["data"]["work"]["id"], listings[1]["id"], "{result}");
+    assert_eq!(result["data"]["work"]["operation"], "inspect_job");
+    let unrelated_key = format!("apply_work:{}", listings[0]["id"].as_str().unwrap());
+    assert_eq!(browser_pref(&mut connection, &unrelated_key).await, listings[0]);
+    let stopped = native_queue_call(
+        &mut connection,
+        &context,
+        "naukri_queue_control",
+        json!({"queue_action":"stop","expected_queue_revision":started["revision"]}),
+        &resumes,
+    )
+    .await
+    .unwrap();
+    assert_eq!(stopped["data"]["queue"]["state"], "STOPPED", "{stopped}");
+    let saved = browser_pref(&mut connection, "application_queue_policy").await;
+    assert!(saved.get("supervised_100_plus").is_none());
+    assert_eq!(saved["policy"], config["policy"]);
+    let stale = native_queue_call(
+        &mut connection,
+        &context,
+        "bind_naukri_work",
+        native_queue_step(&result["data"]["work"]),
+        &resumes,
+    )
+    .await
+    .unwrap();
+    assert_eq!(stale["error_code"], "queue_lease_lost");
+}
 async fn native_queue_call(c:&mut PgConnection,context:&Value,name:&str,extra:Value,resumes:&automated_apply_agents::private_resume::Settings)->Result<Value>{let mut command=context.clone();command["command"]=json!(name);command["request_id"]=json!(Uuid::new_v4());for(k,v)in extra.as_object().unwrap(){command[k]=v.clone();}let settings=browser_profiles::Settings::from_values(&browser_values()).unwrap();let answers=answer_settings();browser_profiles::dispatch(c,BrowserRoute::Native,"POST",command.to_string().as_bytes(),&settings,&packet_settings(),Some(browser_profiles::form_service::Services{answers:&answers,resumes})).await}
 fn native_queue_step(work:&Value)->Value{json!({"work_id":work["id"],"expected_work_revision":work["revision"],"work_lease_token":work["lease_token"],"tab_id":50})}
 async fn native_queue_fixture()->(PgConnection,Value,Value){let(mut c,inspection)=listing_fixture().await;execution_mutate(&mut c,automated_apply_agents::execution::Route::SyncPolicy,json!({"expected_revision":1,"policy":{"enabled":false}})).await.unwrap();let context=native_queue_context(&inspection);let mut queued=inspection.clone();queued["status"]=json!("queued");queued["lease_token"]=Value::Null;queued["lease_until"]=Value::Null;queued["binding"]=Value::Null;browser_save(&mut c,&format!("apply_work:{}",inspection["id"].as_str().unwrap()),queued).await;(c,context,inspection)}

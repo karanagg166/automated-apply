@@ -38,7 +38,10 @@ async fn run_in(tx: &mut Transaction<'_, Postgres>, now: DateTime<Utc>) -> Resul
     }
     let config = queue_control::configuration(tx).await?;
     let setting = &config["policy"]["platforms"]["naukri"];
-    if config["state"] != "RUNNING" || setting["enabled"] != true {
+    if config["state"] != "RUNNING"
+        || setting["enabled"] != true
+        || super::supervised_listing::scoped(&config)
+    {
         return Ok(false);
     }
     let profile = match preflight::profile_in(tx, &json!({})).await {

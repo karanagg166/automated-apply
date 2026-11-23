@@ -270,10 +270,10 @@ pub(crate) async fn poll_in(
         if work.is_none() && supervised {
             work = claim_application_read(tx, binding, now).await?;
         }
-        if work.is_none() {
+        if work.is_none() && !super::supervised_listing::scoped(&config) {
             work = profile_sync_work::work_in(tx, binding, services.resumes, now).await?;
         }
-        if work.is_none() {
+        if work.is_none() && !super::supervised_listing::scoped(&config) {
             work = search::work_in(tx, binding, now).await?;
         }
         if work.is_none() && !supervised {

@@ -6,6 +6,24 @@ use serde_json::{Value, json};
 use sqlx::{Postgres, Transaction};
 use uuid::Uuid;
 
+pub(super) async fn totals_in(
+    tx: &mut Transaction<'_, Postgres>,
+    platform: &str,
+    now: DateTime<Utc>,
+) -> Result<Value> {
+    let totals: Value =
+        sqlx::query_scalar(include_str!("../../sql/execution_admission_totals.sql"))
+            .bind(platform)
+            .bind(now)
+            .fetch_one(&mut **tx)
+            .await
+            .map_err(db)?;
+    if totals["invalid"] != false {
+        return Err(Failure("admission_history_requires_reconciliation"));
+    }
+    Ok(totals)
+}
+
 pub(crate) async fn reserve_in(
     tx: &mut Transaction<'_, Postgres>,
     work: &Value,
@@ -18,16 +36,7 @@ pub(crate) async fn reserve_in(
         .ok_or_else(invalid)?;
     let platform = work["platform"].as_str().ok_or_else(invalid)?;
     let setting = &policy["platforms"][platform];
-    let totals: Value =
-        sqlx::query_scalar(include_str!("../../sql/execution_admission_totals.sql"))
-            .bind(platform)
-            .bind(now)
-            .fetch_one(&mut **tx)
-            .await
-            .map_err(db)?;
-    if totals["invalid"] != false {
-        return Err(Failure("admission_history_requires_reconciliation"));
-    }
+    let totals = totals_in(tx, platform, now).await?;
     let count = |key: &str| totals[key].as_i64().filter(|n| *n >= 0).ok_or_else(invalid);
     if setting["mode"] == "SUPERVISED"
         && work["operation"] == "apply"

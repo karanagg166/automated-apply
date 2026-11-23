@@ -4,6 +4,7 @@ use super::{
     contracts::{self, Kind},
     fences, queue_status,
     storage::*,
+    supervised_listing,
 };
 use crate::{Failure, Result};
 use chrono::{DateTime, Utc};
@@ -43,6 +44,7 @@ pub(super) async fn configure(
     if current["state"] == "RUNNING" {
         current["state"] = json!("PAUSED");
     }
+    supervised_listing::clear(&mut current)?;
     current["policy"] = data["policy"].clone();
     put(tx, "application_queue_policy", &current).await?;
     if before["unknown_applicants"] == "needs_review"
@@ -74,23 +76,10 @@ pub(super) async fn control(
         .as_str()
         .ok_or(Failure("invalid_execution_contract"))?;
     let state = if action == "start" {
-        let config = contracts::normalize(
-            Kind::Configuration,
-            get(tx, "exec_config:naukri").await?.unwrap_or(json!({})),
-        )
-        .map_err(|_| invalid())?;
-        if config["mode"] == "OFF" {
-            return Err(Failure("execution_mode_off"));
+        if supervised_listing::scoped(&current) {
+            return Err(Failure("stop_supervised_listing_before_start"));
         }
-        if !current["policy"]["platforms"]
-            .as_object()
-            .ok_or_else(invalid)?
-            .values()
-            .any(|p| p["enabled"] == true)
-        {
-            return Err(Failure("enabled_platform_required"));
-        }
-        automatic::require_policy(tx, &current["policy"], now).await?;
+        require_start(tx, &current, now).await?;
         fences::resume_queue(tx, now).await?;
         "RUNNING"
     } else {
@@ -115,8 +104,33 @@ pub(super) async fn control(
         }
         state
     };
+    supervised_listing::clear(&mut current)?;
     current["state"] = json!(state);
     current["revision"] = json!(next(&current)?);
     put(tx, "application_queue_policy", &current).await?;
     Ok(current)
+}
+
+pub(super) async fn require_start(
+    tx: &mut Transaction<'_, Postgres>,
+    current: &Value,
+    now: DateTime<Utc>,
+) -> Result<()> {
+    let config = contracts::normalize(
+        Kind::Configuration,
+        get(tx, "exec_config:naukri").await?.unwrap_or(json!({})),
+    )
+    .map_err(|_| invalid())?;
+    if config["mode"] == "OFF" {
+        return Err(Failure("execution_mode_off"));
+    }
+    if !current["policy"]["platforms"]
+        .as_object()
+        .ok_or_else(invalid)?
+        .values()
+        .any(|p| p["enabled"] == true)
+    {
+        return Err(Failure("enabled_platform_required"));
+    }
+    automatic::require_policy(tx, &current["policy"], now).await
 }

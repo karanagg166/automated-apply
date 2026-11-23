@@ -70,7 +70,7 @@ pub(crate) async fn prepare_in(
     let setting = &config["policy"]["platforms"]["naukri"];
     let automatic = matches!(setting["mode"].as_str(), Some("AUTOMATIC" | "SUPERVISED"))
         && setting["owner_submission_authorized"] == true;
-    if automatic {
+    if automatic && !super::supervised_listing::scoped(&config) {
         let waiting:Option<(String,Value)>=sqlx::query_as("SELECT key,value FROM owner_preferences WHERE starts_with(key,'apply_work:') AND value->>'platform'='naukri' AND value->>'stage'='READY_TO_APPLY' AND value->>'status'='waiting' AND value->'admitted_actions'='[]'::jsonb ORDER BY created_at,key LIMIT 1").fetch_optional(&mut **tx).await.map_err(db)?;
         if let Some((key, mut work)) = waiting {
             work["operation"] = json!("prepare");
@@ -96,7 +96,7 @@ pub(crate) async fn prepare_in(
         let job_id=work["job_id"].as_str().and_then(|s|s.parse::<Uuid>().ok()).ok_or(Failure("prior_application_or_unknown_submission_no_replay"))?;
         let job:Value=sqlx::query_scalar("SELECT to_jsonb(j) FROM jobs j WHERE id=$1").bind(job_id).fetch_optional(&mut **tx).await.map_err(db)?.ok_or(Failure("prior_application_or_unknown_submission_no_replay"))?;
         if history::previously_applied_in(tx,&job).await?{return Err(Failure("prior_application_or_unknown_submission_no_replay"));}
-        let profile=preflight::eligible_in(tx,&mut work,&config["policy"],&job,now).await?;
+        let profile=preflight::eligible_in(tx,&mut work,&config,&job,now).await?;
         work["stage"]=json!("ELIGIBLE");work["profile_version"]=profile["version"].clone();work["revision"]=json!(next(&work)?);events::queue(tx,&work,"eligibility_verified",now).await?;
         work["stage"]=json!("PREPARING");work["revision"]=json!(next(&work)?);events::queue(tx,&work,"preparing",now).await?;
         let candidate=profile["id"].as_str().and_then(|s|s.parse::<Uuid>().ok()).ok_or_else(invalid)?;
@@ -162,7 +162,7 @@ pub async fn prepare_one(c: &mut PgConnection, services: Services<'_>) -> Result
 
 pub(crate) async fn seed_in(tx: &mut Transaction<'_, Postgres>, now: DateTime<Utc>) -> Result<u64> {
     let config = queue_control::configuration(tx).await?;
-    if !ready(&config) {
+    if !ready(&config) || super::supervised_listing::scoped(&config) {
         return Ok(0);
     }
     let sources = config["policy"]["platforms"]["naukri"]["sources"]

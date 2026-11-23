@@ -41,7 +41,7 @@ pub(crate) async fn profile_in(tx: &mut Transaction<'_, Postgres>, work: &Value)
 pub(crate) async fn eligible_in(
     tx: &mut Transaction<'_, Postgres>,
     work: &mut Value,
-    policy: &Value,
+    config: &Value,
     job: &Value,
     now: DateTime<Utc>,
 ) -> Result<Value> {
@@ -55,7 +55,8 @@ pub(crate) async fn eligible_in(
             .ok_or_else(invalid)?;
         sqlx::query_scalar("SELECT jsonb_set(to_jsonb(c),'{metadata_}',coalesce(c.metadata,'{}'::jsonb)) FROM companies c WHERE id=$1").bind(id).fetch_optional(&mut **tx).await.map_err(db)?
     };
-    eligibility::check(work, policy, job.clone(), company, &profile, now)?;
+    let policy = super::supervised_listing::policy_for_work(config, work, now)?;
+    eligibility::check(work, &policy, job.clone(), company, &profile, now)?;
     Ok(profile)
 }
 pub(crate) fn account_current(work: &Value, now: DateTime<Utc>) -> bool {
@@ -151,7 +152,7 @@ pub(crate) async fn pdf_in(
 pub(crate) async fn write_in(
     tx: &mut Transaction<'_, Postgres>,
     work: &mut Value,
-    policy: &Value,
+    config: &Value,
     packets: &packet_service::Settings,
     resumes: &private_resume::Settings,
     now: DateTime<Utc>,
@@ -181,7 +182,7 @@ pub(crate) async fn write_in(
     {
         return Err(Failure("queue_job_identity_changed"));
     }
-    let profile = eligible_in(tx, work, policy, &job, now).await?;
+    let profile = eligible_in(tx, work, config, &job, now).await?;
     let checked = timestamp(&work["facts"]["prior_status_checked_at"]);
     if checked.is_err()
         || checked.is_ok_and(|at| at > now || now - at > chrono::Duration::minutes(2))
@@ -321,7 +322,8 @@ pub(crate) async fn admitted_apply_in(
         return Err(Failure("queue_job_identity_changed"));
     }
     let config = queue_control::configuration(tx).await?;
-    eligible_in(tx, work, &config["policy"], &job, now).await?;
+    super::supervised_listing::require_write(&config, work, now)?;
+    eligible_in(tx, work, &config, &job, now).await?;
     let pdf = pdf_in(tx, &packet, resumes, now).await?;
     if pdf["state"] != "PDF_VERIFIED_LOCAL" || pdf["sha256"] != work["upload_preflight"]["sha256"] {
         return Err(Failure("canonical_pdf_unavailable_or_invalid"));

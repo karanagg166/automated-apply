@@ -91,11 +91,16 @@ pub(crate) async fn receive_in(
         work[key] = observed[key].clone();
     }
     let config = queue_control::configuration(tx).await?;
-    if let Some(reason) = filters::listing_exclusion(
-        &work["facts"],
-        &contracts::limits(&config["policy"], "naukri")?,
-        now,
-    )? {
+    if super::supervised_listing::scoped(&config)
+        && !super::supervised_listing::allows_applicants(work)
+    {
+        eligibility::hold(work, "applicant_count_requires_review");
+        return Ok(());
+    }
+    let policy = super::supervised_listing::policy_for_work(&config, work, now)?;
+    if let Some(reason) =
+        filters::listing_exclusion(&work["facts"], &contracts::limits(&policy, "naukri")?, now)?
+    {
         eligibility::hold(work, reason);
         if reason == "applicant_count_requires_review" {
             super::applicant_notices::required_in(tx, &config["policy"]).await?;
@@ -139,7 +144,7 @@ pub(crate) async fn receive_in(
         return Ok(());
     }
     work["job_id"] = job["id"].clone();
-    match preflight::eligible_in(tx, work, &config["policy"], &job, now).await {
+    match preflight::eligible_in(tx, work, &config, &job, now).await {
         Ok(profile) => {
             work["stage"] = json!("ELIGIBLE");
             work["operation"] = json!("prepare");

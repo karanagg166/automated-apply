@@ -132,7 +132,8 @@ pub(crate) async fn claim_in(
     };
     rows.sort_by_key(|(_, v, created)| filters::inspection_order(v, *created, years, now));
     for (key, mut work, _) in rows {
-        if work["status"] != "queued"
+        if !super::supervised_listing::permits_work(&current, &work, now)
+            || work["status"] != "queued"
             || work["stage"]
                 .as_str()
                 .is_some_and(|s| filters::TERMINAL.contains(&s))

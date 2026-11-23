@@ -100,7 +100,7 @@ pub(crate) async fn check_in(
     {
         return Err(Failure("questionnaire_job_context_changed"));
     }
-    let profile = preflight::eligible_in(tx, work, &config["policy"], &job, now).await?;
+    let profile = preflight::eligible_in(tx, work, &config, &job, now).await?;
     let checked = preflight::pdf_in(tx, &packet, resumes, now).await?;
     if checked["state"] != "PDF_VERIFIED_LOCAL"
         || checked["sha256"] != work["upload_preflight"]["sha256"]

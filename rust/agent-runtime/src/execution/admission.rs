@@ -62,6 +62,7 @@ pub(crate) async fn admit_in(
     super::read_bounds::admit(&mut work)?;
     let mut initial_packet = None;
     if writing {
+        super::supervised_listing::require_write(&config, &work, initial_now)?;
         if matches!(preference, "manual_only" | "draft_only") {
             return Err(Failure("platform_policy_requires_manual_review"));
         }
@@ -118,7 +119,7 @@ pub(crate) async fn admit_in(
             let (packet, pdf) = preflight::write_in(
                 tx,
                 &mut work,
-                policy,
+                &config,
                 services.packets,
                 services.resumes,
                 checked_at,
@@ -131,6 +132,7 @@ pub(crate) async fn admit_in(
         budgets::reserve_in(tx, &work, policy, quota_at).await?;
         // Time is rechecked after proof/history/locking costs, before saving any admission.
         let at = now(tx).await?;
+        super::supervised_listing::require_write(&config, &work, at)?;
         queue::leased_in(
             tx,
             request.identity,

@@ -54,6 +54,7 @@ pub(crate) mod schedule;
 pub mod search;
 mod storage;
 pub mod submission;
+pub mod supervised_listing;
 pub mod telegram_commands;
 pub(crate) mod telegram_questions;
 pub mod telegram_reconciliation;
@@ -90,6 +91,7 @@ pub fn denial(error: Failure) -> bool {
         error.0,
         "queue_policy_revision_conflict"
             | "enabled_platform_required"
+            | "stop_supervised_listing_before_start"
             | "automatic_first_verified_worker_receipt_required"
             | "approved_naukri_account_binding_required"
             | "naukri_account_binding_context_changed"

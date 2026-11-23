@@ -217,7 +217,13 @@ pub(crate) async fn receive_in(
             .map_err(db)?
             .ok_or(Failure("queue_job_identity_changed"))?;
         let config = queue_control::configuration(tx).await?;
-        preflight::eligible_in(tx, work, &config["policy"], &job, now).await?;
+        if super::supervised_listing::scoped(&config)
+            && !super::supervised_listing::allows_applicants(work)
+        {
+            super::eligibility::hold(work, "applicant_count_requires_review");
+            return Ok(false);
+        }
+        preflight::eligible_in(tx, work, &config, &job, now).await?;
         work["operation"] = json!("apply");
         work["status"] = json!("leased");
         work["stage"] = json!("READY_TO_APPLY");

@@ -39,6 +39,26 @@ async fn run() -> Result<()> {
     if arguments.len() == 3 && arguments[0] == "cutover-preflight" && arguments[1] == "--config" {
         return cutover::report(&PathBuf::from(&arguments[2])).await;
     }
+    if arguments.len() == 7
+        && arguments[0] == "start-supervised-naukri-listing"
+        && arguments[1] == "--config"
+        && arguments[3] == "--queue-revision"
+        && arguments[5] == "--listing"
+    {
+        let invalid = Failure("invalid_supervised_listing_scope");
+        let revision = arguments[4]
+            .to_str()
+            .and_then(|value| value.parse::<i64>().ok())
+            .filter(|revision| *revision >= 0)
+            .ok_or(invalid)?;
+        let listing = arguments[6].to_str().ok_or(invalid)?;
+        return automated_apply_agents::execution::supervised_listing::start(
+            &PathBuf::from(&arguments[2]),
+            revision,
+            listing,
+        )
+        .await;
+    }
     if (arguments.len() == 5 || arguments.len() == 6 && arguments[5] == "--apply")
         && arguments[0] == "replace-fixed-brave-profile"
         && arguments[1] == "--config"
