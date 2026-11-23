@@ -16,7 +16,12 @@ fingerprints. Runtime readiness recovered after PostgreSQL rejected new
 connections. A fresh live read used the existing authenticated runtime
 connection and reused the dedicated Brave tab. Eight further listings showed
 `100+` without an upper bound. None of the additional searches or paused
-queue checks found a new candidate that cleared the applicant rule. See the
+queue checks found a new candidate that cleared the applicant rule. The next
+guarded adoption passed focus and retained-data verification and left both
+LaunchAgents running the exact release. All ten dashboard reads, Jobs, and
+Startup Explorer returned HTTP 200. Both definitions are configured to start
+at login. A separate login or reboot was not exercised. The selected Brave
+profile is connected and account-bound. See the
 [supervised queue acceptance report](acceptance/local-supervised-priority-20261123.md).
 
 ## Previous local Naukri draft acceptance, 2026-11-23
