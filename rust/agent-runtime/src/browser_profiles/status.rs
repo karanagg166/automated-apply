@@ -1,5 +1,67 @@
 //! Ordinary dashboard polling never takes the execution owner lock.
 use super::*;
+use crate::browser_inventory::Browser;
+
+pub(crate) async fn tool_readiness(
+    connection: &mut PgConnection,
+    browser: Browser,
+    settings: &Settings,
+) -> Result<Value> {
+    let mut inventory = browser.inventory();
+    if browser != Browser::Brave || inventory["installed"] != true {
+        return Ok(inventory);
+    }
+    let saved: Value = sqlx::query_scalar(include_str!("../../sql/browser_tool_readiness.sql"))
+        .fetch_one(connection)
+        .await
+        .map_err(db)?;
+    describe_native_profile(
+        &mut inventory,
+        &saved,
+        settings.native_enabled && settings.commands_enabled,
+    )?;
+    Ok(inventory)
+}
+
+fn describe_native_profile(
+    inventory: &mut Value,
+    saved: &Value,
+    channel_enabled: bool,
+) -> Result<()> {
+    let selection = &saved["selection"]["profile_binding_id"];
+    let pin = &saved["pin"];
+    let profile = &saved["profile"];
+    if !selection
+        .as_str()
+        .is_some_and(|id| id.parse::<Uuid>().is_ok())
+        || pin["profile_binding_id"] != *selection
+        || pin["browser"] != "brave"
+        || pin["verified_via"] != "owner_reviewed_dedicated_brave_profile"
+        || profile["id"] != *selection
+    {
+        return Ok(());
+    }
+    let connected = online(profile, timestamp(&saved["at"])?)?;
+    let account = &saved["account"];
+    let account_bound = account["profile_binding_id"] == *selection && account["approved"] == true;
+    let commands_enabled = channel_enabled && profile["commands_enabled"] == true;
+    inventory["native_profile"] = json!({
+        "connected": connected,
+        "account_bound": account_bound,
+        "commands_enabled": commands_enabled,
+    });
+    inventory["blocker"] = json!(if !connected {
+        "selected_browser_profile_offline"
+    } else if !account_bound {
+        "naukri_account_binding_required"
+    } else if !commands_enabled {
+        "selected_browser_profile_commands_disabled"
+    } else {
+        "fresh_browser_operation_validation_required"
+    });
+    Ok(())
+}
+
 pub(super) struct Snapshot {
     pub data: Value,
     pub offline: Vec<Value>,
@@ -55,4 +117,71 @@ pub(super) async fn snapshot(
         expired,
         now,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const BINDING: &str = "98cf4ce0-519a-48f5-a490-a161a400e523";
+
+    fn saved() -> Value {
+        json!({
+            "at": "2026-11-23T12:00:00Z",
+            "selection": {"profile_binding_id": BINDING},
+            "pin": {"profile_binding_id": BINDING, "browser": "brave",
+                    "verified_via": "owner_reviewed_dedicated_brave_profile"},
+            "profile": {"id": BINDING, "connected": true, "commands_enabled": true,
+                        "window_id": 7, "last_heartbeat": "2026-11-23T11:59:50Z"},
+            "account": {"profile_binding_id": BINDING, "approved": true, "account_sha256": "private"},
+        })
+    }
+
+    #[test]
+    fn tool_readiness_reports_bound_profile_without_granting_dispatch() {
+        let mut inventory = Browser::Brave.inventory();
+        describe_native_profile(&mut inventory, &saved(), false).unwrap();
+        assert_eq!(
+            inventory["blocker"],
+            "selected_browser_profile_commands_disabled"
+        );
+        assert_eq!(
+            inventory["native_profile"],
+            json!({"connected":true,"account_bound":true,"commands_enabled":false})
+        );
+        describe_native_profile(&mut inventory, &saved(), true).unwrap();
+        assert_eq!(
+            inventory["blocker"],
+            "fresh_browser_operation_validation_required"
+        );
+        assert_eq!(inventory["native_profile"]["commands_enabled"], true);
+        assert_eq!(inventory["application_dispatch"], false);
+        assert_eq!(inventory["ready"], false);
+        assert!(!inventory.to_string().contains(BINDING));
+        assert!(!inventory.to_string().contains("private"));
+    }
+
+    #[test]
+    fn tool_readiness_requires_matching_account_and_current_browser() {
+        let mut inventory = Browser::Brave.inventory();
+        let mut evidence = saved();
+        evidence["account"]["profile_binding_id"] = json!(Uuid::nil());
+        describe_native_profile(&mut inventory, &evidence, true).unwrap();
+        assert_eq!(inventory["blocker"], "naukri_account_binding_required");
+        assert_eq!(inventory["native_profile"]["account_bound"], false);
+        evidence["profile"]["last_heartbeat"] = json!("2026-11-23T11:58:20Z");
+        describe_native_profile(&mut inventory, &evidence, true).unwrap();
+        assert_eq!(inventory["blocker"], "selected_browser_profile_offline");
+        assert_eq!(inventory["native_profile"]["connected"], false);
+    }
+
+    #[test]
+    fn tool_readiness_does_not_claim_another_browsers_pin() {
+        let mut inventory = Browser::Brave.inventory();
+        let before = inventory.clone();
+        let mut evidence = saved();
+        evidence["pin"]["browser"] = json!("chrome");
+        describe_native_profile(&mut inventory, &evidence, true).unwrap();
+        assert_eq!(inventory, before);
+    }
 }

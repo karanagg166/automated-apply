@@ -18,7 +18,14 @@ pub async fn route(
     body: &[u8],
 ) -> Option<Result<Value>> {
     Some(match (method, parts) {
-        ("GET", ["api", "v1", "rust-agent", "browser"]) => Ok(config.browser.inventory()),
+        ("GET", ["api", "v1", "rust-agent", "browser"]) => {
+            crate::browser_profiles::tool_readiness(
+                connection,
+                config.browser,
+                &config.browser_profiles,
+            )
+            .await
+        }
         (
             "POST",
             [

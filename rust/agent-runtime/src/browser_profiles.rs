@@ -27,6 +27,7 @@ mod naukri;
 pub mod pin_replacement;
 mod platform_observation;
 mod status;
+pub(crate) use status::tool_readiness;
 mod storage;
 pub mod tasks;
 pub mod telegram_commands;
