@@ -1,5 +1,47 @@
 // Actual native DTO/selected-profile broker fixtures; no browser/provider side effects.
 fn native_queue_context(work:&Value)->Value{json!({"profile_binding_id":work["binding"]["profile_binding_id"],"profile_secret":"f".repeat(64),"browser_session_id":work["binding"]["browser_session_id"],"window_id":work["binding"]["window_id"]})}
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn naukri_native_supervised_saved_listing_precedes_due_profile_and_search_reads() {
+    let (mut connection, binding, _) = sync_fixture(json!(["summary"])).await;
+    let mut config = browser_pref(&mut connection, "application_queue_policy").await;
+    let setting = &mut config["policy"]["platforms"]["naukri"];
+    setting["mode"] = json!("SUPERVISED");
+    setting["owner_submission_authorized"] = json!(true);
+    setting["sources"] = json!(["saved_verified_job", "naukri_ui_search"]);
+    browser_save(&mut connection, "application_queue_policy", config).await;
+
+    let listing = automated_apply_agents::execution::queue::enqueue(
+        &mut connection,
+        "https://www.naukri.com/job-listings-fictional-backend-engineer-0123456789",
+        "saved_verified_job",
+        None,
+    )
+    .await
+    .unwrap();
+    let context = native_queue_context(&json!({"binding": binding}));
+    let poll = native_queue_call(
+        &mut connection,
+        &context,
+        "poll_naukri_work",
+        json!({}),
+        &sync_resume_settings(),
+    )
+    .await
+    .unwrap();
+    let work = &poll["data"]["work"];
+    assert_eq!(work["id"], listing["id"], "{poll}");
+    assert_eq!(work["operation"], "inspect_job");
+    assert_eq!(poll["data"]["submitted"], false);
+    let reserved: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM owner_preferences WHERE starts_with(key, 'apply_budget:')",
+    )
+    .fetch_one(&mut connection)
+    .await
+    .unwrap();
+    assert_eq!(reserved, 0);
+}
 async fn native_queue_call(c:&mut PgConnection,context:&Value,name:&str,extra:Value,resumes:&automated_apply_agents::private_resume::Settings)->Result<Value>{let mut command=context.clone();command["command"]=json!(name);command["request_id"]=json!(Uuid::new_v4());for(k,v)in extra.as_object().unwrap(){command[k]=v.clone();}let settings=browser_profiles::Settings::from_values(&browser_values()).unwrap();let answers=answer_settings();browser_profiles::dispatch(c,BrowserRoute::Native,"POST",command.to_string().as_bytes(),&settings,&packet_settings(),Some(browser_profiles::form_service::Services{answers:&answers,resumes})).await}
 fn native_queue_step(work:&Value)->Value{json!({"work_id":work["id"],"expected_work_revision":work["revision"],"work_lease_token":work["lease_token"],"tab_id":50})}
 async fn native_queue_fixture()->(PgConnection,Value,Value){let(mut c,inspection)=listing_fixture().await;execution_mutate(&mut c,automated_apply_agents::execution::Route::SyncPolicy,json!({"expected_revision":1,"policy":{"enabled":false}})).await.unwrap();let context=native_queue_context(&inspection);let mut queued=inspection.clone();queued["status"]=json!("queued");queued["lease_token"]=Value::Null;queued["lease_until"]=Value::Null;queued["binding"]=Value::Null;browser_save(&mut c,&format!("apply_work:{}",inspection["id"].as_str().unwrap()),queued).await;(c,context,inspection)}

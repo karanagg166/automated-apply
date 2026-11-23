@@ -253,6 +253,9 @@ pub(crate) async fn poll_in(
     let busy = busy_in(tx, now).await?;
     let mut work = None;
     if !busy {
+        let naukri = &config["policy"]["platforms"]["naukri"];
+        let supervised =
+            naukri["mode"] == "SUPERVISED" && naukri["owner_submission_authorized"] == true;
         submission::recover_unknown_in(tx, services.telegram, now).await?;
         work = queue::claim_in(
             tx,
@@ -262,34 +265,49 @@ pub(crate) async fn poll_in(
             now,
         )
         .await?;
+        // A supervised session should service its existing application work
+        // before routine profile and search leases take the only browser lane.
+        if work.is_none() && supervised {
+            work = claim_application_read(tx, binding, now).await?;
+        }
         if work.is_none() {
             work = profile_sync_work::work_in(tx, binding, services.resumes, now).await?;
         }
         if work.is_none() {
             work = search::work_in(tx, binding, now).await?;
         }
-        if work.is_none() {
-            let mut ops = submission::READS.to_vec();
-            ops.push("inspect_job");
-            work = queue::claim_in(tx, "naukri", binding, Some(&ops), now).await?;
-            if let Some(value) = &mut work
-                && value["operation"] == "reconcile_application"
-                && !preflight::account_current(value, now)
-            {
-                value["operation"] = json!("verify_account");
-                value["revision"] = json!(next(value)?);
-                put(
-                    tx,
-                    &format!("apply_work:{}", value["id"].as_str().ok_or_else(invalid)?),
-                    value,
-                )
-                .await?;
-            }
+        if work.is_none() && !supervised {
+            work = claim_application_read(tx, binding, now).await?;
         }
     }
     put(tx,"apply_consumer:naukri",&json!({"last_poll_at":stamp(now),"profile_binding_id":binding["profile_binding_id"],"busy":busy,"capability":"ordinary_ui_direct_apply_candidate"})).await?;
     response(work.as_ref(), None)
 }
+
+async fn claim_application_read(
+    tx: &mut Transaction<'_, Postgres>,
+    binding: &Value,
+    now: DateTime<Utc>,
+) -> Result<Option<Value>> {
+    let mut operations = submission::READS.to_vec();
+    operations.push("inspect_job");
+    let mut work = queue::claim_in(tx, "naukri", binding, Some(&operations), now).await?;
+    if let Some(value) = &mut work
+        && value["operation"] == "reconcile_application"
+        && !preflight::account_current(value, now)
+    {
+        value["operation"] = json!("verify_account");
+        value["revision"] = json!(next(value)?);
+        put(
+            tx,
+            &format!("apply_work:{}", value["id"].as_str().ok_or_else(invalid)?),
+            value,
+        )
+        .await?;
+    }
+    Ok(work)
+}
+
 async fn load_in(tx: &mut Transaction<'_, Postgres>, id: Uuid) -> Result<(String, Value)> {
     for key in [profile_sync_work::WORK, search::WORK] {
         if let Some(work) = get(tx, key).await?

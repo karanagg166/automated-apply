@@ -15,6 +15,15 @@ owner separately approved the account link. The first supervised worker
 receipt remains pending. Three prior admissions remain quarantined and one
 supervised attempt is available. See the [Brave and draft acceptance report](acceptance/local-naukri-brave-and-draft-20261123.md).
 
+Two subsequent supervised windows ended at STOP revisions 164 and 166 before
+any Apply admission. The candidate with score 59.13 and applicant upper bound
+41 stayed queued while routine work used the browser lane. Three historical
+quarantines and reservations remain. The locally installed account link was
+retained and the existing Brave tab returned to the Naukri profile. Readiness
+candidate `50e5d47` reached 36 of 37 checks. A browser fixture GET failed with
+`ERR_NETWORK_IO_SUSPENDED`, and the release was held. The follow-up prioritizes
+application reads in supervised mode and awaits a new exact local gate.
+
 ## Previous selected-job acceptance, 2026-11-23
 
 Release `85aa361af99636f18f6bc67cd0719b5b58224ca1` preceded the current local

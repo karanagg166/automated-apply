@@ -28,3 +28,32 @@ git diff --check
 
 Raw account, packet, verification, and browser evidence is retained in ignored
 local storage. This report and the implementation remain local.
+
+## Supervised queue follow-up
+
+Fresh Naukri discovery found a saved Backend Developer listing with a 59.13
+profile preview score, 11 verified skill matches, and an applicant upper bound
+of 41. The installed worker still has to verify the live listing and complete
+its account, résumé, and submission checks.
+
+Two supervised windows returned to `STOPPED` at revisions 164 and 166 with
+zero Apply admissions. The three historical reservations and quarantines
+were read back after both windows. The existing Brave tab was returned to the
+signed-in profile and temporary browser commands were disabled. The Mac
+locked again during the second window. Runtime data showed routine profile
+and search leases in the browser lane while the saved job remained queued.
+
+Readiness source `50e5d47b00e9f96bace97d044e3f4ae20ea01555` finished with 36 of
+37 acceptance stages passing. The browser fixture failed after Chromium
+reported `ERR_NETWORK_IO_SUSPENDED` for its application list GET. The retained
+trace showed successful packet detail and refresh requests before that failure.
+The exact-build installer refused the release, so `0e095bd` remains live.
+
+The follow-up scheduler change gives existing application reads priority in
+owner-authorized `SUPERVISED` mode. Retained questionnaire work still goes
+first. Profile sync and search remain available when the application lane has
+no work. The full local gate and live receipt remain pending.
+
+The 13 focused native PostgreSQL cases passed, including the new scheduling
+regression, original-tab and quarantine preservation, and the first strict
+receipt check for automatic mode.
