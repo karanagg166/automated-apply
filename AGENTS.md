@@ -3,6 +3,9 @@
 ## Current owner direction: local completion only (2026-11-17)
 - The owner explicitly instructed: “do not push my code on github for now” and “focus on completing this project on my laptop only locally.” This supersedes the mandatory GitHub milestone publication/push/PR-update directions below until the owner reauthorizes publication. Do not push, update/create PRs, publish reports remotely, run hosted Actions or merge. Continue implementation, local commits, local acceptance reports, continuity snapshots, combined validation and authorized local installation/operational acceptance. Existing data, focus, submission, identity/resume and provider safeguards remain.
 
+## Current Brave tab direction (2026-11-23)
+- The owner authorizes direct control of tabs and windows in the dedicated project Brave profile. Inventory open tabs before opening a portal and reuse its existing tab when available. This supersedes the prior owner-tab focus restriction for deliberate operation of that dedicated profile. The background worker still requires its trusted tab ownership and inactivity checks, and the project retains its other profile, identity, résumé, quota, receipt, and provider safeguards.
+
 ## Current additional Naukri allowance
 - Owner fourth supervised validation authorization (2026-11-15): the owner replied “u have full access nah for naukri don't worry” to the explicit lifetime3→4 question. This authorizes exactly one additional eligible attempt, retaining hourly1, current filters, identity/resume checks and all three uncertain jobs quarantined. Do not infer a fifth attempt, refund an old admission or enable recurring AUTOMATIC without its first strict worker receipt.
 

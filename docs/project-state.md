@@ -1,6 +1,23 @@
 ## Latest local acceptance, 2026-11-23
 
-Release `85aa361af99636f18f6bc67cd0719b5b58224ca1` is the active local
+Release `0e095bda4702d9b15d7c81b3545d4302c081c188` is the active local
+runtime and dashboard under `rust-plan-iix3gl7r`. The clean fixture run
+`20261123T104844Z-5fbd175c23f94a5889f9a9fe37ed8a47` passed all 37 stages.
+The live selected Naukri run created one new packet and reached its approval
+checkpoint with zero model calls. A transient 503 interrupted the original
+verification. Independent database and API readback verified the exact run,
+packet, and retained state, and revision-checked recovery returned the
+coordinator to `STOPPED`. The application queue stayed `STOPPED`.
+
+The signed-in Naukri account and uploaded canonical résumé were verified
+in the existing dedicated Brave tab. The fixed browser was migrated and the
+owner separately approved the account link. The first supervised worker
+receipt remains pending. Three prior admissions remain quarantined and one
+supervised attempt is available. See the [Brave and draft acceptance report](acceptance/local-naukri-brave-and-draft-20261123.md).
+
+## Previous selected-job acceptance, 2026-11-23
+
+Release `85aa361af99636f18f6bc67cd0719b5b58224ca1` preceded the current local
 runtime and dashboard. Powered run
 `20261123T092437Z-5a176413d76149a09e9584f90548b80a` passed all 37 stages.
 The guarded switch under `rust-plan-b4d8atfr` passed after the owner
@@ -10,9 +27,8 @@ zero committed packets by its effect key or for the selected job. The
 original run remains recorded. The coordinator and application queue are
 stopped. See the [selected-job acceptance report](acceptance/local-targeted-workflow-20261123.md).
 
-The dedicated Brave profile had zero Naukri tabs in the post-installation
-check. Its account, resume, listing, and first supervised receipt still
-require fresh live evidence.
+The dedicated Brave profile had zero Naukri tabs at that post-installation
+check. The later browser and account verification is recorded above.
 
 ## Previous local workflow acceptance, 2026-11-23
 
