@@ -69,8 +69,27 @@ pub(crate) async fn add_field_in(
     position: usize,
     field: &Value,
 ) -> Result<()> {
-    let inserted:Option<Uuid>=sqlx::query_scalar("INSERT INTO application_packet_fields(id,packet_id,position,question,category,field_type,required,max_characters,max_words,constraints,options,writing_style,proposed_answer,human_answer,provenance,validation_status,review_status,requires_review,missing_information,answer_revision) SELECT f.id,$1,$2,f.question,f.category,f.field_type,f.required,f.max_characters,f.max_words,f.constraints,f.options,f.writing_style,f.proposed_answer,f.human_answer,f.provenance,f.validation_status,f.review_status,f.requires_review,f.missing_information,f.answer_revision FROM jsonb_populate_record(NULL::application_packet_fields,$3) f RETURNING id").bind(packet).bind(position as i32).bind(field).fetch_optional(&mut **tx).await.map_err(packet_service::db)?;
-    if inserted != Some(packet_service::id(&field["id"])?) {
+    add_fields_in(tx, packet, position, std::slice::from_ref(field)).await
+}
+pub(crate) async fn add_fields_in(
+    tx: &mut Transaction<'_, Postgres>,
+    packet: Uuid,
+    position: usize,
+    fields: &[Value],
+) -> Result<()> {
+    let mut expected = fields
+        .iter()
+        .map(|field| packet_service::id(&field["id"]))
+        .collect::<Result<Vec<_>>>()?;
+    let mut inserted: Vec<Uuid> = sqlx::query_scalar("INSERT INTO application_packet_fields(id,packet_id,position,question,category,field_type,required,max_characters,max_words,constraints,options,writing_style,proposed_answer,human_answer,provenance,validation_status,review_status,requires_review,missing_information,answer_revision)
+        SELECT f.id,$1,$2+(entry.ordinality-1)::int,f.question,f.category,f.field_type,f.required,f.max_characters,f.max_words,f.constraints,f.options,f.writing_style,f.proposed_answer,f.human_answer,f.provenance,f.validation_status,f.review_status,f.requires_review,f.missing_information,f.answer_revision
+        FROM jsonb_array_elements($3) WITH ORDINALITY AS entry(value,ordinality)
+        CROSS JOIN LATERAL jsonb_populate_record(NULL::application_packet_fields,entry.value) f
+        ORDER BY entry.ordinality RETURNING id")
+        .bind(packet).bind(position as i32).bind(json!(fields)).fetch_all(&mut **tx).await.map_err(packet_service::db)?;
+    expected.sort_unstable();
+    inserted.sort_unstable();
+    if inserted != expected {
         return Err(Failure("packet_write_ack_failed"));
     }
     Ok(())

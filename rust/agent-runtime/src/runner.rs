@@ -37,7 +37,7 @@ pub trait Tools {
 }
 
 /// A bounded single tick; persistence precedes every model/tool call.
-/// Fresh lease duration is90s and each external wait is20s, including authority checks.
+/// Fresh lease duration is 90s. External waits and authority checks use 20s.
 pub async fn tick(
     store: &mut Store<'_>,
     lease: &mut Lease,
@@ -167,13 +167,19 @@ pub(crate) async fn begin_tick(
                         engine::begin_tool_approved(&mut lease.run, &authority, human_verified)
                     {
                         store.save(lease).await?; // Fence checked immediately before external dispatch.
-                        let result = tokio::time::timeout(
-                            Duration::from_secs(20),
-                            tools.execute(&effect, store),
-                        )
-                        .await
-                        .map_err(|_| Failure("agent_tool_timeout"))
-                        .and_then(|x| x);
+                        // A deterministic local draft assembles several records in one database
+                        // transaction. Its separate budget leaves room to persist the result.
+                        let timeout = if lease.run.prepare_packet
+                            && effect.call.name == crate::contracts::ToolName::PrepareApplication
+                        {
+                            Duration::from_secs(40)
+                        } else {
+                            Duration::from_secs(20)
+                        };
+                        let result = tokio::time::timeout(timeout, tools.execute(&effect, store))
+                            .await
+                            .map_err(|_| Failure("agent_tool_timeout"))
+                            .and_then(|x| x);
                         let _ = engine::finish_tool(&mut lease.run, effect.id, result);
                     }
                 }

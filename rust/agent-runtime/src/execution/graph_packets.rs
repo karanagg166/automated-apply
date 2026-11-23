@@ -110,7 +110,7 @@ impl PacketTools<'_> {
                     (packet_service::read_locked_in(&mut tx, id, self.packets, now).await?, false)
                 } else {
                     let request = packet_contract::normalize(json!({"idempotency_key":format!("graph_{}",effect.id.simple())}), true)?;
-                    (packet_service::create_locked_in(&mut tx, job, &request, self.packets, self.answers, now).await?, true)
+                    (packet_service::create_graph_draft_in(&mut tx, job, &request, self.packets, self.answers, now).await?, true)
                 }
             } else {
                 let id = run.context.iter().rev()

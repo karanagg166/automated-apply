@@ -2723,6 +2723,28 @@ async fn graph_owner_intake_prepares_one_cross_source_draft_for_review() {
     assert_eq!(prepared["data"]["job_id"], json!(different_job));
     assert_eq!(prepared["data"]["created"], true);
     assert_ne!(prepared["data"]["packet_id"], packet_id);
+    let inspected = results
+        .iter()
+        .find(|result| result["tool"] == "inspect_application")
+        .unwrap();
+    assert_eq!(
+        inspected["data"]["packet_id"],
+        prepared["data"]["packet_id"]
+    );
+    assert!(inspected["data"]["stale"].is_boolean());
+    let created_packet: Uuid = prepared["data"]["packet_id"]
+        .as_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    let positions: Vec<i32> = sqlx::query_scalar(
+        "SELECT position FROM application_packet_fields WHERE packet_id=$1 ORDER BY position",
+    )
+    .bind(created_packet)
+    .fetch_all(&mut c)
+    .await
+    .unwrap();
+    assert_eq!(positions, (0..7).collect::<Vec<_>>());
 
     let unavailable = Uuid::new_v4();
     let response: Value = http

@@ -436,7 +436,16 @@ pub(crate) async fn create_in(
     answers: &answer_service::Settings,
     now: DateTime<Utc>,
 ) -> Result<Value> {
-    create_context_in(tx, job, request, settings, answers, now, false).await
+    create_context_in(
+        tx,
+        job,
+        request,
+        settings,
+        answers,
+        now,
+        CreateMode::Snapshot,
+    )
+    .await
 }
 /// Owner lock and a consistent snapshot must already be held. Queue preparation also
 /// locks current material versions so concurrent updates cannot silently retain older facts.
@@ -448,7 +457,34 @@ pub(crate) async fn create_locked_in(
     answers: &answer_service::Settings,
     now: DateTime<Utc>,
 ) -> Result<Value> {
-    create_context_in(tx, job, request, settings, answers, now, true).await
+    create_context_in(tx, job, request, settings, answers, now, CreateMode::Locked).await
+}
+
+/// The graph inspects the complete saved packet at its separate review step.
+pub(crate) async fn create_graph_draft_in(
+    tx: &mut Transaction<'_, Postgres>,
+    job: Uuid,
+    request: &Prepare,
+    settings: &Settings,
+    answers: &answer_service::Settings,
+    now: DateTime<Utc>,
+) -> Result<Value> {
+    create_context_in(
+        tx,
+        job,
+        request,
+        settings,
+        answers,
+        now,
+        CreateMode::GraphDraft,
+    )
+    .await
+}
+
+enum CreateMode {
+    Snapshot,
+    Locked,
+    GraphDraft,
 }
 async fn create_context_in(
     tx: &mut Transaction<'_, Postgres>,
@@ -457,8 +493,9 @@ async fn create_context_in(
     settings: &Settings,
     answers: &answer_service::Settings,
     now: DateTime<Utc>,
-    locked: bool,
+    mode: CreateMode,
 ) -> Result<Value> {
+    let locked = !matches!(mode, CreateMode::Snapshot);
     // Fetch only identity before checking keys: replay performs no new preparation/question writes.
     let exists: bool = sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM jobs WHERE id=$1)")
         .bind(job)
@@ -489,29 +526,24 @@ async fn create_context_in(
     }
     let preview = preview_context_in(tx, job, request, settings, answers, now, locked).await?;
     let packet = Uuid::new_v4();
-    let inserted:Option<Uuid>=sqlx::query_scalar("INSERT INTO application_packets(id,job_id,candidate_profile_id,candidate_profile_version,resume_resource_id,application_url,platform,lifecycle_state,tracking_state,revision,readiness_state,idempotency_key,request_hash,snapshot) VALUES($1,$2,$3,$4,$5,$6,$7,'created','not_applied',1,$8,$9,$10,$11) ON CONFLICT DO NOTHING RETURNING id")
+    let inserted:Option<Value>=sqlx::query_scalar("INSERT INTO application_packets(id,job_id,candidate_profile_id,candidate_profile_version,resume_resource_id,application_url,platform,lifecycle_state,tracking_state,revision,readiness_state,idempotency_key,request_hash,snapshot) VALUES($1,$2,$3,$4,$5,$6,$7,'created','not_applied',1,$8,$9,$10,$11) ON CONFLICT DO NOTHING RETURNING jsonb_build_object('id',id,'job_id',job_id,'candidate_profile_id',candidate_profile_id,'candidate_profile_version',candidate_profile_version,'revision',revision,'platform',platform,'lifecycle_state',lifecycle_state,'readiness',jsonb_build_object('state',readiness_state))")
         .bind(packet).bind(job).bind(owner).bind(preview["candidate_profile_version"].as_i64().ok_or_else(invalid)? as i32)
         .bind(preview["snapshot"]["resume"]["selected"]["resource_id"].as_str().map(|s|s.parse::<Uuid>().map_err(|_|invalid())).transpose()?)
         .bind(preview["snapshot"]["destination"]["application_url"].as_str())
         .bind(preview["snapshot"]["platform"].as_str().unwrap_or("unsupported"))
         .bind(preview["readiness"]["state"].as_str().ok_or_else(invalid)?)
         .bind(key).bind(&hash).bind(&preview["snapshot"]).fetch_optional(&mut **tx).await.map_err(db)?;
-    if inserted.is_none() {
-        return Err(Failure("packet_storage_conflict"));
+    let inserted = inserted.ok_or(Failure("packet_storage_conflict"))?;
+    if id(&inserted["id"])? != packet {
+        return Err(Failure("packet_write_ack_failed"));
     }
-    for (position, field) in preview["fields"]
-        .as_array()
-        .ok_or_else(invalid)?
-        .iter()
-        .enumerate()
-    {
-        crate::packet_mutation::add_field_in(tx, packet, position, field).await?;
-    }
+    let fields = preview["fields"].as_array().ok_or_else(invalid)?;
+    crate::packet_mutation::add_fields_in(tx, packet, 0, fields).await?;
     crate::packet_mutation::event_in(tx, packet, "packet_created", None, "created", 1).await?;
-    if locked {
-        read_locked_in(tx, packet, settings, now).await
-    } else {
-        read_in(tx, packet, settings, now).await
+    match mode {
+        CreateMode::GraphDraft => Ok(inserted),
+        CreateMode::Locked => read_locked_in(tx, packet, settings, now).await,
+        CreateMode::Snapshot => read_in(tx, packet, settings, now).await,
     }
 }
 async fn replay(
