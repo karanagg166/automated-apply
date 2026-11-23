@@ -1,6 +1,22 @@
 ## Latest local acceptance, 2026-11-23
 
-Release `1302a549cc2658a2b8d60046012ccbd5a26d5f29` is the active local
+Release `85aa361af99636f18f6bc67cd0719b5b58224ca1` is the active local
+runtime and dashboard. Powered run
+`20261123T092437Z-5a176413d76149a09e9584f90548b80a` passed all 37 stages.
+The guarded switch under `rust-plan-b4d8atfr` passed after the owner
+unlocked the Mac. A live selected Naukri draft reached preparation, then
+timed out as `outcome_unknown`. Readback found the lease released and
+zero committed packets by its effect key or for the selected job. The
+original run remains recorded. The coordinator and application queue are
+stopped. See the [selected-job acceptance report](acceptance/local-targeted-workflow-20261123.md).
+
+The dedicated Brave profile had zero Naukri tabs in the post-installation
+check. Its account, resume, listing, and first supervised receipt still
+require fresh live evidence.
+
+## Previous local workflow acceptance, 2026-11-23
+
+Release `1302a549cc2658a2b8d60046012ccbd5a26d5f29` was the previous local
 runtime and dashboard under `rust-plan-h0penzuv`. Exact clean run
 `20261122T220420Z-75cdd24b26ce42ed9be4e97348200220` passed all 37 stages.
 The owner-selected **Prepare draft and review** workflow reached its live
