@@ -1,6 +1,23 @@
-## Latest local acceptance, 2026-11-23
+## Latest local acceptance, 2026-11-24
 
-Release `0e095bda4702d9b15d7c81b3545d4302c081c188` is the active local
+Release `258be9cab6b23104b4a4e38c931ce9aca7912a3e` is the active local runtime
+and dashboard under `rust-plan-tnjvlg1e`. Its clean combined run passed all
+37 stages, including the previously interrupted Brave fixture. The direct
+cutover preserved both STOP revisions, account selection, packets, and all
+three historical reservations and quarantines. The MCP browser read verified
+that the dedicated Brave account link survived. The worker inspected the saved
+Backend Developer listing and held it for applicant-count review. Revision 168
+is stopped with the original three reservations and three quarantines. One
+supervised attempt remains. On November 24 all four launchd Desktop-access
+probes passed and both managed services reached initial readiness. Subsequent
+cutover checks rolled back to the same release in direct-process mode after
+detecting window changes. Both rollbacks matched the retained application
+fingerprints. The latest readiness probe is blocked by PostgreSQL connection
+capacity. See the [supervised queue acceptance report](acceptance/local-supervised-priority-20261123.md).
+
+## Previous local Naukri draft acceptance, 2026-11-23
+
+Release `0e095bda4702d9b15d7c81b3545d4302c081c188` was the previous local
 runtime and dashboard under `rust-plan-iix3gl7r`. The clean fixture run
 `20261123T104844Z-5fbd175c23f94a5889f9a9fe37ed8a47` passed all 37 stages.
 The live selected Naukri run created one new packet and reached its approval
