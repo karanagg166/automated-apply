@@ -12,8 +12,12 @@ supervised attempt remains. On November 24 all four launchd Desktop-access
 probes passed and both managed services reached initial readiness. Subsequent
 cutover checks rolled back to the same release in direct-process mode after
 detecting window changes. Both rollbacks matched the retained application
-fingerprints. The latest readiness probe is blocked by PostgreSQL connection
-capacity. See the [supervised queue acceptance report](acceptance/local-supervised-priority-20261123.md).
+fingerprints. Runtime readiness recovered after PostgreSQL rejected new
+connections. A fresh live read used the existing authenticated runtime
+connection and reused the dedicated Brave tab. Eight further listings showed
+`100+` without an upper bound. None of the additional searches or paused
+queue checks found a new candidate that cleared the applicant rule. See the
+[supervised queue acceptance report](acceptance/local-supervised-priority-20261123.md).
 
 ## Previous local Naukri draft acceptance, 2026-11-23
 
