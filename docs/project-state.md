@@ -1,5 +1,19 @@
 ## Latest local acceptance, 2026-11-24
 
+Release `1afc1b4cfd64c249a048a666805832f8ffb9bdb5` is active locally in
+direct mode under `rust-plan-e_zgm9qh`. It enforces the owner's one-listing
+exception for `100+` applicants without changing the saved applicant rule.
+All 37 stages passed on the exact clean commit after an isolated Brave queue
+fixture retry. The managed start and managed rollback timed out while the Mac
+was locked. The previous release was restored and independently verified,
+then the guarded direct upgrade passed readiness and retained-data checks.
+Queue revision 168 remains stopped, the three reservations and quarantines
+are intact, and one supervised attempt remains. At the latest readback the
+Mac was locked and the selected Brave native profile was offline. See the
+[one-listing acceptance report](acceptance/naukri-supervised-100-plus-20261124.md).
+
+## Previous supervised queue acceptance, 2026-11-24
+
 Release `258be9cab6b23104b4a4e38c931ce9aca7912a3e` is the active local runtime
 and dashboard under `rust-plan-tnjvlg1e`. Its clean combined run passed all
 37 stages, including the previously interrupted Brave fixture. The direct
