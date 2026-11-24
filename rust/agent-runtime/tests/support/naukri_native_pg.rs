@@ -161,6 +161,68 @@ async fn naukri_native_supervised_100_plus_scope_claims_only_its_listing_and_sto
 async fn native_queue_call(c:&mut PgConnection,context:&Value,name:&str,extra:Value,resumes:&automated_apply_agents::private_resume::Settings)->Result<Value>{let mut command=context.clone();command["command"]=json!(name);command["request_id"]=json!(Uuid::new_v4());for(k,v)in extra.as_object().unwrap(){command[k]=v.clone();}let settings=browser_profiles::Settings::from_values(&browser_values()).unwrap();let answers=answer_settings();browser_profiles::dispatch(c,BrowserRoute::Native,"POST",command.to_string().as_bytes(),&settings,&packet_settings(),Some(browser_profiles::form_service::Services{answers:&answers,resumes})).await}
 fn native_queue_step(work:&Value)->Value{json!({"work_id":work["id"],"expected_work_revision":work["revision"],"work_lease_token":work["lease_token"],"tab_id":50})}
 async fn native_queue_fixture()->(PgConnection,Value,Value){let(mut c,inspection)=listing_fixture().await;execution_mutate(&mut c,automated_apply_agents::execution::Route::SyncPolicy,json!({"expected_revision":1,"policy":{"enabled":false}})).await.unwrap();let context=native_queue_context(&inspection);let mut queued=inspection.clone();queued["status"]=json!("queued");queued["lease_token"]=Value::Null;queued["lease_until"]=Value::Null;queued["binding"]=Value::Null;browser_save(&mut c,&format!("apply_work:{}",inspection["id"].as_str().unwrap()),queued).await;(c,context,inspection)}
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn naukri_native_poll_reports_confirmed_owner_fence_rollback() {
+    let (mut c, mut input, inspection) = native_queue_fixture().await;
+    let (url, stop, server) = http_fixture_values(browser_values()).await;
+    let http = client();
+    let endpoint = format!("{url}{}", browser_profiles::NATIVE);
+    input["command"] = json!("poll_naukri_work");
+    input["request_id"] = json!(Uuid::new_v4());
+    let poll = || {
+        http.post(&endpoint)
+            .bearer_auth(HOST_TOKEN)
+            .header("x-agent-client", BROWSER_EXTENSION)
+            .timeout(Duration::from_secs(6))
+            .json(&input)
+    };
+
+    let before = browser_snapshot(&mut c).await;
+    let mut owner = connection().await;
+    let mut held = owner.begin().await.unwrap();
+    sqlx::query("SELECT key FROM owner_preferences WHERE key='agent_conversation:primary' FOR UPDATE")
+        .execute(&mut *held)
+        .await
+        .unwrap();
+    let response = poll().send().await.unwrap();
+    assert_eq!(response.status(), 503);
+    assert_eq!(
+        response
+            .headers()
+            .get("x-automated-apply-transaction")
+            .and_then(|value| value.to_str().ok()),
+        Some("rolled-back"),
+    );
+    assert_eq!(
+        response.json::<Value>().await.unwrap()["detail"],
+        "native_poll_owner_fence_rolled_back"
+    );
+    assert_eq!(browser_snapshot(&mut c).await, before);
+    held.rollback().await.unwrap();
+
+    let response = poll().send().await.unwrap();
+    assert_eq!(response.status(), 200);
+    assert!(!response.headers().contains_key("x-automated-apply-transaction"));
+    let result: Value = response.json().await.unwrap();
+    assert_eq!(result["request_id"], input["request_id"]);
+    assert_eq!(result["data"]["work"]["id"], inspection["id"]);
+    assert_eq!(result["data"]["work"]["status"], "leased");
+    assert_eq!(result["data"]["submitted"], false);
+    let key = format!("apply_work:{}", inspection["id"].as_str().unwrap());
+    assert_eq!(browser_pref(&mut c, &key).await["admitted_actions"], json!([]));
+    let reservations: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM owner_preferences WHERE starts_with(key,'apply_budget:')",
+    )
+    .fetch_one(&mut c)
+    .await
+    .unwrap();
+    assert_eq!(reservations, 0);
+    stop.cancel();
+    server.await.unwrap();
+}
+
 #[tokio::test(flavor="current_thread")]
 #[ignore="requires dedicated disposable PostgreSQL harness"]
 async fn naukri_native_poll_bind_read_admit_check_and_listing_finish_use_actual_authenticated_contract(){

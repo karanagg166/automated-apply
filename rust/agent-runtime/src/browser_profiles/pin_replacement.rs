@@ -81,7 +81,7 @@ fn read_review(path: &Path) -> Result<Review> {
 pub async fn replace(c: &mut PgConnection, review: &Review, apply: bool) -> Result<Value> {
     let mut tx = c.begin().await.map_err(db)?;
     if apply {
-        lock(&mut tx).await?;
+        lock(&mut tx, false).await?;
     } else {
         sqlx::query("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
             .execute(&mut *tx)

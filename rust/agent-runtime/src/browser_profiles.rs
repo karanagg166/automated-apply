@@ -35,6 +35,7 @@ pub(crate) use execution_fence::fence_naukri;
 use storage::*;
 
 pub const NATIVE: &str = "/api/v1/local-agent/chrome";
+pub(crate) const NATIVE_POLL_FENCE_ROLLED_BACK: &str = "native_poll_owner_fence_rolled_back";
 pub const PROFILES: &str = "/api/v1/browser/chrome-profiles";
 pub struct Settings {
     pub(crate) extension: Option<String>,
@@ -371,6 +372,9 @@ pub async fn dispatch(
             .await
             .map_err(db)?;
     }
+    let native_poll = command
+        .as_ref()
+        .is_some_and(|command| command.name() == "poll_naukri_work");
     let result = async {
         match route {
             Route::Tasks => return tasks::listing(&mut tx).await,
@@ -385,9 +389,9 @@ pub async fn dispatch(
             }
         }
         // All lifecycle changes share the legacy owner row; no parallel writer family.
-        lock(&mut tx).await?;
+        lock(&mut tx, native_poll).await?;
         if serializable {
-            lock_snapshot_scope(&mut tx).await?;
+            lock_snapshot_scope(&mut tx, native_poll).await?;
         }
         let now = now(&mut tx).await?;
         match route {

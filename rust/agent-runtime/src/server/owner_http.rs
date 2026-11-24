@@ -1198,6 +1198,17 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
             }
             response
         }
+        Err(error)
+            if path == crate::browser_profiles::NATIVE
+                && error.0 == crate::browser_profiles::NATIVE_POLL_FENCE_ROLLED_BACK =>
+        {
+            let mut response = reply(StatusCode::SERVICE_UNAVAILABLE, json!({"detail":error.0}));
+            response.headers_mut().insert(
+                "x-automated-apply-transaction",
+                axum::http::HeaderValue::from_static("rolled-back"),
+            );
+            response
+        }
         Err(error) => fail(error),
     }
 }

@@ -2,24 +2,38 @@ use super::*;
 pub(super) fn db(_: sqlx::Error) -> Failure {
     Failure("browser_profile_database_error")
 }
-pub(super) async fn lock(tx: &mut Transaction<'_, Postgres>) -> Result<()> {
+
+fn fence_error(error: sqlx::Error, native_poll: bool) -> Failure {
+    let code = error.as_database_error().and_then(|source| source.code());
+    if native_poll && matches!(code.as_deref(), Some("55P03" | "40001")) {
+        // The dispatcher propagates this marker only after rollback succeeds.
+        return Failure(NATIVE_POLL_FENCE_ROLLED_BACK);
+    }
+    db(error)
+}
+
+pub(super) async fn lock(tx: &mut Transaction<'_, Postgres>, native_poll: bool) -> Result<()> {
+    let fence_error = |error| fence_error(error, native_poll);
     // Lock first when present, matching the legacy order; insert only for first bootstrap.
     let key: Option<String> = sqlx::query_scalar(
         "SELECT key FROM owner_preferences WHERE key='agent_conversation:primary' FOR UPDATE",
     )
     .fetch_optional(&mut **tx)
     .await
-    .map_err(db)?;
+    .map_err(fence_error)?;
     if key.is_none() {
-        sqlx::query("INSERT INTO owner_preferences(key,value,created_at,updated_at) VALUES('agent_conversation:primary','{}',clock_timestamp(),clock_timestamp()) ON CONFLICT(key) DO NOTHING").execute(&mut **tx).await.map_err(db)?;
+        sqlx::query("INSERT INTO owner_preferences(key,value,created_at,updated_at) VALUES('agent_conversation:primary','{}',clock_timestamp(),clock_timestamp()) ON CONFLICT(key) DO NOTHING").execute(&mut **tx).await.map_err(fence_error)?;
         let _: String = sqlx::query_scalar(
             "SELECT key FROM owner_preferences WHERE key='agent_conversation:primary' FOR UPDATE",
         )
         .fetch_one(&mut **tx)
         .await
-        .map_err(db)?;
+        .map_err(fence_error)?;
     }
-    if !crate::owner_fence::advance_in(tx).await.map_err(db)? {
+    if !crate::owner_fence::advance_in(tx)
+        .await
+        .map_err(fence_error)?
+    {
         return Err(Failure("browser_profile_write_ack_failed"));
     }
     Ok(())
@@ -34,8 +48,11 @@ pub(super) async fn now(tx: &mut Transaction<'_, Postgres>) -> Result<DateTime<U
 /// SERIALIZABLE forms may establish their snapshot while waiting for the owner row.
 /// Lock the actual authority versions after that wait: a legacy READ COMMITTED Stop,
 /// selection/account/policy edit or heartbeat cannot be read silently from an older snapshot.
-pub(super) async fn lock_snapshot_scope(tx: &mut Transaction<'_, Postgres>) -> Result<()> {
-    let keys:Vec<String>=sqlx::query_scalar("SELECT key FROM owner_preferences WHERE key IN ('application_queue_policy','exec_config:naukri','naukri_automation','naukri_account_binding','phase1_profile_confirmation','chr_selection','chr_fixed_profile','naukri_profile_sync_policy','naukri_extension_maintenance','candidate_configuration_v1') OR starts_with(key,'candidate_project-') OR starts_with(key,'document_project-') OR key='chr_prof:'||(SELECT value->>'profile_binding_id' FROM owner_preferences WHERE key='chr_selection') ORDER BY key LIMIT 10001 FOR UPDATE").fetch_all(&mut **tx).await.map_err(db)?;
+pub(super) async fn lock_snapshot_scope(
+    tx: &mut Transaction<'_, Postgres>,
+    native_poll: bool,
+) -> Result<()> {
+    let keys:Vec<String>=sqlx::query_scalar("SELECT key FROM owner_preferences WHERE key IN ('application_queue_policy','exec_config:naukri','naukri_automation','naukri_account_binding','phase1_profile_confirmation','chr_selection','chr_fixed_profile','naukri_profile_sync_policy','naukri_extension_maintenance','candidate_configuration_v1') OR starts_with(key,'candidate_project-') OR starts_with(key,'document_project-') OR key='chr_prof:'||(SELECT value->>'profile_binding_id' FROM owner_preferences WHERE key='chr_selection') ORDER BY key LIMIT 10001 FOR UPDATE").fetch_all(&mut **tx).await.map_err(|error| fence_error(error, native_poll))?;
     if keys.len() > 10000 {
         return Err(Failure("browser_profile_inventory_limit"));
     }
