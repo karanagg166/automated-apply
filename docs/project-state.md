@@ -1,12 +1,16 @@
 ## Latest local acceptance, 2026-11-24
 
-Release `1afc1b4cfd64c249a048a666805832f8ffb9bdb5` is active locally in
-direct mode under `rust-plan-e_zgm9qh`. It enforces the owner's one-listing
+Release `1afc1b4cfd64c249a048a666805832f8ffb9bdb5` is active under the macOS
+LaunchAgents in `rust-plan-e_zgm9qh`. It enforces the owner's one-listing
 exception for `100+` applicants without changing the saved applicant rule.
 All 37 stages passed on the exact clean commit after an isolated Brave queue
 fixture retry. The managed start and managed rollback timed out while the Mac
 was locked. The previous release was restored and independently verified,
 then the guarded direct upgrade passed readiness and retained-data checks.
+While the Mac was unlocked, all four one-shot launchd probes passed.
+The managed cutover then passed the health, login, dashboard, and retained
+state checks with desktop focus preserved. Both LaunchAgents are configured
+to start at login. No separate login or reboot was exercised.
 Queue revision 168 remains stopped, the three reservations and quarantines
 are intact, and one supervised attempt remains. The Mac is unlocked. The
 dedicated Brave profile now has no windows or tabs according to the launcher
@@ -16,7 +20,7 @@ launcher before the connector and portal account are rechecked. See the
 
 ## Previous supervised queue acceptance, 2026-11-24
 
-Release `258be9cab6b23104b4a4e38c931ce9aca7912a3e` is the active local runtime
+Release `258be9cab6b23104b4a4e38c931ce9aca7912a3e` was the local runtime
 and dashboard under `rust-plan-tnjvlg1e`. Its clean combined run passed all
 37 stages, including the previously interrupted Brave fixture. The direct
 cutover preserved both STOP revisions, account selection, packets, and all
