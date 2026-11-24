@@ -223,6 +223,105 @@ async fn naukri_native_poll_reports_confirmed_owner_fence_rollback() {
     server.await.unwrap();
 }
 
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn naukri_native_terminal_reports_confirmed_owner_fence_rollback() {
+    let (mut c, input, inspection) = native_queue_fixture().await;
+    let resumes = sync_resume_settings();
+    let poll = native_queue_call(&mut c, &input, "poll_naukri_work", json!({}), &resumes)
+        .await
+        .unwrap();
+    let bound = native_queue_call(
+        &mut c,
+        &input,
+        "bind_naukri_work",
+        native_queue_step(&poll["data"]["work"]),
+        &resumes,
+    )
+    .await
+    .unwrap();
+    let admitted = native_queue_call(
+        &mut c,
+        &input,
+        "admit_naukri_work",
+        native_queue_step(&bound["data"]["work"]),
+        &resumes,
+    )
+    .await
+    .unwrap();
+    let work = &admitted["data"]["work"];
+    assert_eq!(work["id"], inspection["id"]);
+    assert_eq!(work["status"], "executing");
+
+    let (url, stop, server) = http_fixture_values(browser_values()).await;
+    let http = client();
+    let endpoint = format!("{url}{}", browser_profiles::NATIVE);
+    let terminal = |name, report| {
+        let mut command = input.clone();
+        for (key, value) in native_queue_step(work).as_object().unwrap() {
+            command[key] = value.clone();
+        }
+        command["command"] = json!(name);
+        command["request_id"] = json!(Uuid::new_v4());
+        command["work_report"] = report;
+        command
+    };
+    let finish = terminal("finish_naukri_work", listing_report(work));
+    let abandon = terminal(
+        "abandon_naukri_work",
+        json!({"kind":"needs_input","reason":"background_observation_failed"}),
+    );
+    let request = |input: &Value| {
+        http.post(&endpoint)
+            .bearer_auth(HOST_TOKEN)
+            .header("x-agent-client", BROWSER_EXTENSION)
+            .timeout(Duration::from_secs(6))
+            .json(input)
+    };
+
+    let before = browser_snapshot(&mut c).await;
+    let mut owner = connection().await;
+    let mut held = owner.begin().await.unwrap();
+    sqlx::query(
+        "SELECT key FROM owner_preferences WHERE key='agent_conversation:primary' FOR UPDATE",
+    )
+    .execute(&mut *held)
+    .await
+    .unwrap();
+    for command in [&finish, &abandon] {
+        let response = request(command).send().await.unwrap();
+        assert_eq!(response.status(), 503);
+        assert_eq!(
+            response
+                .headers()
+                .get("x-automated-apply-transaction")
+                .and_then(|value| value.to_str().ok()),
+            Some("rolled-back"),
+        );
+        assert_eq!(
+            response.json::<Value>().await.unwrap()["detail"],
+            "native_terminal_owner_fence_rolled_back"
+        );
+        assert_eq!(browser_snapshot(&mut c).await, before);
+    }
+    held.rollback().await.unwrap();
+
+    let response = request(&finish).send().await.unwrap();
+    assert_eq!(response.status(), 200);
+    assert!(
+        !response
+            .headers()
+            .contains_key("x-automated-apply-transaction")
+    );
+    let result: Value = response.json().await.unwrap();
+    assert_eq!(result["request_id"], finish["request_id"]);
+    assert_eq!(result["data"]["work"]["id"], inspection["id"]);
+    assert_eq!(result["data"]["work"]["operation"], "prepare");
+    assert_eq!(result["data"]["submitted"], false);
+    stop.cancel();
+    server.await.unwrap();
+}
+
 #[tokio::test(flavor="current_thread")]
 #[ignore="requires dedicated disposable PostgreSQL harness"]
 async fn naukri_native_poll_bind_read_admit_check_and_listing_finish_use_actual_authenticated_contract(){

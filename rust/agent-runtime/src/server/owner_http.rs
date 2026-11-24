@@ -1200,7 +1200,11 @@ pub(super) async fn handle(State(api): State<Arc<Api>>, request: Request) -> Res
         }
         Err(error)
             if path == crate::browser_profiles::NATIVE
-                && error.0 == crate::browser_profiles::NATIVE_POLL_FENCE_ROLLED_BACK =>
+                && matches!(
+                    error.0,
+                    crate::browser_profiles::NATIVE_POLL_FENCE_ROLLED_BACK
+                        | crate::browser_profiles::NATIVE_TERMINAL_FENCE_ROLLED_BACK
+                ) =>
         {
             let mut response = reply(StatusCode::SERVICE_UNAVAILABLE, json!({"detail":error.0}));
             response.headers_mut().insert(

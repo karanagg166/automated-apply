@@ -3,17 +3,22 @@ pub(super) fn db(_: sqlx::Error) -> Failure {
     Failure("browser_profile_database_error")
 }
 
-fn fence_error(error: sqlx::Error, native_poll: bool) -> Failure {
+fn fence_error(error: sqlx::Error, rollback_code: Option<&'static str>) -> Failure {
     let code = error.as_database_error().and_then(|source| source.code());
-    if native_poll && matches!(code.as_deref(), Some("55P03" | "40001")) {
+    if let Some(rollback_code) = rollback_code
+        && matches!(code.as_deref(), Some("55P03" | "40001"))
+    {
         // The dispatcher propagates this marker only after rollback succeeds.
-        return Failure(NATIVE_POLL_FENCE_ROLLED_BACK);
+        return Failure(rollback_code);
     }
     db(error)
 }
 
-pub(super) async fn lock(tx: &mut Transaction<'_, Postgres>, native_poll: bool) -> Result<()> {
-    let fence_error = |error| fence_error(error, native_poll);
+pub(super) async fn lock(
+    tx: &mut Transaction<'_, Postgres>,
+    rollback_code: Option<&'static str>,
+) -> Result<()> {
+    let fence_error = |error| fence_error(error, rollback_code);
     // Lock first when present, matching the legacy order; insert only for first bootstrap.
     let key: Option<String> = sqlx::query_scalar(
         "SELECT key FROM owner_preferences WHERE key='agent_conversation:primary' FOR UPDATE",
@@ -50,9 +55,9 @@ pub(super) async fn now(tx: &mut Transaction<'_, Postgres>) -> Result<DateTime<U
 /// selection/account/policy edit or heartbeat cannot be read silently from an older snapshot.
 pub(super) async fn lock_snapshot_scope(
     tx: &mut Transaction<'_, Postgres>,
-    native_poll: bool,
+    rollback_code: Option<&'static str>,
 ) -> Result<()> {
-    let keys:Vec<String>=sqlx::query_scalar("SELECT key FROM owner_preferences WHERE key IN ('application_queue_policy','exec_config:naukri','naukri_automation','naukri_account_binding','phase1_profile_confirmation','chr_selection','chr_fixed_profile','naukri_profile_sync_policy','naukri_extension_maintenance','candidate_configuration_v1') OR starts_with(key,'candidate_project-') OR starts_with(key,'document_project-') OR key='chr_prof:'||(SELECT value->>'profile_binding_id' FROM owner_preferences WHERE key='chr_selection') ORDER BY key LIMIT 10001 FOR UPDATE").fetch_all(&mut **tx).await.map_err(|error| fence_error(error, native_poll))?;
+    let keys:Vec<String>=sqlx::query_scalar("SELECT key FROM owner_preferences WHERE key IN ('application_queue_policy','exec_config:naukri','naukri_automation','naukri_account_binding','phase1_profile_confirmation','chr_selection','chr_fixed_profile','naukri_profile_sync_policy','naukri_extension_maintenance','candidate_configuration_v1') OR starts_with(key,'candidate_project-') OR starts_with(key,'document_project-') OR key='chr_prof:'||(SELECT value->>'profile_binding_id' FROM owner_preferences WHERE key='chr_selection') ORDER BY key LIMIT 10001 FOR UPDATE").fetch_all(&mut **tx).await.map_err(|error| fence_error(error, rollback_code))?;
     if keys.len() > 10000 {
         return Err(Failure("browser_profile_inventory_limit"));
     }

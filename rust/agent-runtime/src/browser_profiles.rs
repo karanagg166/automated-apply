@@ -36,6 +36,8 @@ use storage::*;
 
 pub const NATIVE: &str = "/api/v1/local-agent/chrome";
 pub(crate) const NATIVE_POLL_FENCE_ROLLED_BACK: &str = "native_poll_owner_fence_rolled_back";
+pub(crate) const NATIVE_TERMINAL_FENCE_ROLLED_BACK: &str =
+    "native_terminal_owner_fence_rolled_back";
 pub const PROFILES: &str = "/api/v1/browser/chrome-profiles";
 pub struct Settings {
     pub(crate) extension: Option<String>,
@@ -372,9 +374,13 @@ pub async fn dispatch(
             .await
             .map_err(db)?;
     }
-    let native_poll = command
-        .as_ref()
-        .is_some_and(|command| command.name() == "poll_naukri_work");
+    let fence_rollback_code = match command.as_ref().map(native::Command::name) {
+        Some("poll_naukri_work") => Some(NATIVE_POLL_FENCE_ROLLED_BACK),
+        Some("finish_naukri_work" | "abandon_naukri_work") => {
+            Some(NATIVE_TERMINAL_FENCE_ROLLED_BACK)
+        }
+        _ => None,
+    };
     let result = async {
         match route {
             Route::Tasks => return tasks::listing(&mut tx).await,
@@ -389,9 +395,9 @@ pub async fn dispatch(
             }
         }
         // All lifecycle changes share the legacy owner row; no parallel writer family.
-        lock(&mut tx, native_poll).await?;
+        lock(&mut tx, fence_rollback_code).await?;
         if serializable {
-            lock_snapshot_scope(&mut tx, native_poll).await?;
+            lock_snapshot_scope(&mut tx, fence_rollback_code).await?;
         }
         let now = now(&mut tx).await?;
         match route {
