@@ -11,12 +11,28 @@ While the Mac was unlocked, all four one-shot launchd probes passed.
 The managed cutover then passed the health, login, dashboard, and retained
 state checks with desktop focus preserved. Both LaunchAgents are configured
 to start at login. No separate login or reboot was exercised.
-Queue revision 168 remains stopped, the three reservations and quarantines
-are intact, and one supervised attempt remains. The Mac is unlocked. The
-dedicated Brave profile now has no windows or tabs according to the launcher
-and browser inventories. The owner can open it with the existing local
-launcher before the connector and portal account are rechecked. See the
-[one-listing acceptance report](acceptance/naukri-supervised-100-plus-20261124.md).
+The dedicated Brave profile was windowless. The guarded launcher opened the
+dedicated window, and the browser's duplicate Naukri tab was reduced to one
+retained inactive profile tab. Native readiness reconnected. The approved
+account and canonical résumé were verified live with the queue stopped. See
+the [one-listing acceptance report](acceptance/naukri-supervised-100-plus-20261124.md).
+
+A new one-listing supervised window reached `READY_TO_APPLY`. Native bridge
+errors and expired leases interrupted the run before admission. The exact
+live database error remains unconfirmed. STOP revision 170 cleared the scope
+with three original reservations and quarantines, zero active leases, and zero
+strict receipts. One supervised admission remains. Brave is connected and
+its commands are disabled.
+
+Source commit `09c51bdc8d80370d647082e41c54ae3a8968e8c3` closes native
+heartbeat ports on timeout and reports a missing window in browser readiness.
+The extension unit suite, Rust readiness tests, and isolated Brave +
+PostgreSQL restart passed. Commit `98d5438bff23836dbc97b6978c1f19301aa347cf`
+adds bounded native poll recovery after a confirmed database rollback. Its
+five PostgreSQL and 16 native transport tests passed. Both changes await
+combined acceptance and installation. The Mac's actual idle sleep on AC and
+platform submission authorization remain separate constraints for continuous
+operation. See the [availability and restart report](acceptance/naukri-always-on-20261124.md).
 
 ## Previous supervised queue acceptance, 2026-11-24
 
