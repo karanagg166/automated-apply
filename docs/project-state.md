@@ -41,7 +41,12 @@ transport cases passed. Combined validation and installation are pending.
 Local source `a42a9de` adds exact prepared-work continuation and keeps
 unrelated quarantines and expired leases out of the scoped poll. It requires
 the queue and work revisions and restarts at read-only profile inspection.
-The combined gate will exercise the continuation fixture and existing checks.
+The first combined gate passed 36 of 37 stages. A missing platform-policy table
+in the new disposable PostgreSQL fixture interrupted the native poll after
+successful CLI resume. The targeted regression passed after adding the table.
+The corrected combined run and a ready dedicated Brave worker are required
+for the live cutover. Readback still shows STOP revision 174, the exact paused
+packet, three quarantines and reservations, and zero selected admissions.
 
 ## Previous local one-listing release, 2026-11-24
 

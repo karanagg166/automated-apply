@@ -41,7 +41,17 @@ packet, checks for an empty admission ledger and absence of form or submission
 evidence, and returns to fresh account and résumé inspection followed by fresh
 listing and application-status checks. Scoped polling leaves unrelated
 quarantines and expired leases untouched. A disposable PostgreSQL regression
-fixture covers that path. Combined validation and installation are pending.
+fixture covers that path.
+
+Combined run `20261124T230657Z-2117d6fd6d4d4fdfacafa6837bef4b18` finished on
+clean commit `057b33e03870359557f1f58336ed02754c5a75cb` with 36 of 37 stages
+passing. The PostgreSQL run passed 1,104 tests. The new regression passed
+through CLI resume and failed at the native poll because its disposable
+schema lacked `agent_policies`. With the fixture table present, the targeted
+test passed the poll, read-only profile claim, and checks that all three
+quarantines, reservations, and an unrelated lease were untouched. The saved
+release is still active. The corrected revision requires a clean combined
+pass and the dedicated Brave worker before local activation.
 
 ## Application execution rules
 

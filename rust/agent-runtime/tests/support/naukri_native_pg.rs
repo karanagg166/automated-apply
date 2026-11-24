@@ -165,7 +165,9 @@ async fn naukri_native_supervised_prepared_resume_preserves_quarantine_and_requi
     use sha2::Digest;
     let (mut connection, job) = packet_service_fixture().await;
     sqlx::raw_sql(
-        "DROP TABLE IF EXISTS private_resumes;
+        "CREATE TABLE IF NOT EXISTS agent_policies(
+            key varchar(20) PRIMARY KEY,version integer NOT NULL,preferences jsonb NOT NULL);
+         DROP TABLE IF EXISTS private_resumes;
          CREATE TABLE private_resumes(id uuid PRIMARY KEY,ciphertext bytea NOT NULL,
             sha256 varchar(64) NOT NULL,confirmed bool NOT NULL,resource_id uuid NOT NULL)",
     )
