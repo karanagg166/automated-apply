@@ -1,7 +1,20 @@
-## Latest local acceptance, 2026-11-24
+## Latest local acceptance, 2026-11-25
 
-Release `1afc1b4cfd64c249a048a666805832f8ffb9bdb5` is active under the macOS
-LaunchAgents in `rust-plan-e_zgm9qh`. It enforces the owner's one-listing
+Managed release `0b3fd4087b7d460520c8b520a80afdc1036d8303` is active on the Mac
+under plan `rust-plan-m9dktwyz`. All 37 stages passed on the exact clean commit.
+The four macOS access probes passed, the services reached verified readiness
+in 12.379 seconds, and both the native host and resident Brave extension match
+the installed release. Brave restored exactly one Naukri tab and retained its
+approved browser binding. The guarded helper returned that inactive tab to the
+profile. Desktop focus and the retained jobs, packets, STOP revisions, three
+reservations, and three quarantines passed cutover checks. The 24-hour local
+observation started. The first strict worker receipt remains pending and one
+supervised admission is available. See the [release acceptance report](acceptance/naukri-bridge-release-20261125.md).
+
+## Previous local one-listing release, 2026-11-24
+
+Release `1afc1b4cfd64c249a048a666805832f8ffb9bdb5` was active under the macOS
+LaunchAgents in `rust-plan-e_zgm9qh`. It enforced the owner's one-listing
 exception for `100+` applicants without changing the saved applicant rule.
 All 37 stages passed on the exact clean commit after an isolated Brave queue
 fixture retry. The managed start and managed rollback timed out while the Mac
@@ -29,8 +42,8 @@ heartbeat ports on timeout and reports a missing window in browser readiness.
 The extension unit suite, Rust readiness tests, and isolated Brave +
 PostgreSQL restart passed. Commit `98d5438bff23836dbc97b6978c1f19301aa347cf`
 adds bounded native poll recovery after a confirmed database rollback. Its
-five PostgreSQL and 16 native transport tests passed. Both changes await
-combined acceptance and installation. The Mac's actual idle sleep on AC and
+five PostgreSQL and 16 native transport tests passed. Both changes subsequently
+passed the combined gate and were installed in `0b3fd40`. The Mac's actual idle sleep on AC and
 platform submission authorization remain separate constraints for continuous
 operation. See the [availability and restart report](acceptance/naukri-always-on-20261124.md).
 
