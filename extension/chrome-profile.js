@@ -4,6 +4,40 @@ const sessionKey = "applicationBrowserSessionV1";
 export const profileAlarm = "connected-chrome-heartbeat";
 const host = "com.automated_apply.agent";
 const codePattern = /^[A-Za-z][A-Za-z0-9_]{1,63}$/;
+const nativeTimeoutMs = 45000;
+
+function heartbeatThroughPort(runtime, request) {
+  return new Promise((resolve, reject) => {
+    const port = runtime.connectNative(host);
+    const timeout = setTimeout(
+      () => finish(reject, Error("backend_timeout")),
+      nativeTimeoutMs,
+    );
+    function finish(settle, value, disconnect = true) {
+      clearTimeout(timeout);
+      port.onMessage.removeListener(onMessage);
+      port.onDisconnect.removeListener(onDisconnect);
+      if (disconnect) port.disconnect();
+      settle(value);
+    }
+    function onMessage(response) {
+      finish(resolve, response);
+    }
+    function onDisconnect() {
+      // Consume lastError without forwarding the browser's raw native error.
+      void runtime.lastError;
+      finish(reject, Error("backend_offline"), false);
+    }
+    port.onMessage.addListener(onMessage);
+    port.onDisconnect.addListener(onDisconnect);
+    try {
+      port.postMessage(request);
+    } catch {
+      finish(reject, Error("backend_offline"));
+    }
+  });
+}
+
 export async function profileContext(api = chrome) {
   const value = (await api.storage.local.get(key))[key];
   const session = (await api.storage.session.get(sessionKey))[sessionKey];
@@ -24,12 +58,20 @@ export async function profileNative(api, command, extra = {}) {
   };
   let timer;
   try {
-    const result = await Promise.race([
-      api.runtime.sendNativeMessage(host, request),
-      new Promise((_, reject) => {
-        timer = setTimeout(() => reject(Error("backend_timeout")), 45000);
-      }),
-    ]);
+    // A timed-out sendNativeMessage leaves the host channel pending. Alarms
+    // would keep spawning helpers if macOS stalls the host before startup.
+    const result =
+      command === "heartbeat_chrome_profile"
+        ? await heartbeatThroughPort(api.runtime, request)
+        : await Promise.race([
+            api.runtime.sendNativeMessage(host, request),
+            new Promise((_, reject) => {
+              timer = setTimeout(
+                () => reject(Error("backend_timeout")),
+                nativeTimeoutMs,
+              );
+            }),
+          ]);
     if (
       result?.version !== 1 ||
       result.request_id !== request.request_id ||

@@ -182,14 +182,14 @@ fn task_terminal(value: &Value) -> bool {
     )
 }
 pub fn online(value: &Value, now: DateTime<Utc>) -> Result<bool> {
-    let connected = value["connected"].as_bool().ok_or_else(invalid)?;
     let window = value["window_id"].as_i64().is_some_and(|n| n >= 0);
+    Ok(heartbeat_current(value, now)? && window)
+}
+fn heartbeat_current(value: &Value, now: DateTime<Utc>) -> Result<bool> {
+    let connected = value["connected"].as_bool().ok_or_else(invalid)?;
     let elapsed = now.signed_duration_since(timestamp(&value["last_heartbeat"])?);
     // A future timestamp is not evidence of an indefinitely live installation.
-    Ok(connected
-        && window
-        && elapsed.num_milliseconds() >= 0
-        && elapsed.num_milliseconds() < 100_000)
+    Ok(connected && (0..100_000).contains(&elapsed.num_milliseconds()))
 }
 pub fn public(value: &Value, selected: &Value, now: DateTime<Utc>) -> Result<Value> {
     let mut result = json!({});

@@ -41,7 +41,8 @@ fn describe_native_profile(
     {
         return Ok(());
     }
-    let connected = online(profile, timestamp(&saved["at"])?)?;
+    let now = timestamp(&saved["at"])?;
+    let connected = online(profile, now)?;
     let account = &saved["account"];
     let account_bound = account["profile_binding_id"] == *selection && account["approved"] == true;
     let commands_enabled = channel_enabled && profile["commands_enabled"] == true;
@@ -50,7 +51,11 @@ fn describe_native_profile(
         "account_bound": account_bound,
         "commands_enabled": commands_enabled,
     });
-    inventory["blocker"] = json!(if !connected {
+    inventory["blocker"] = json!(if profile["window_id"].is_null()
+        && heartbeat_current(profile, now)?
+    {
+        "selected_browser_profile_window_missing"
+    } else if !connected {
         "selected_browser_profile_offline"
     } else if !account_bound {
         "naukri_account_binding_required"
@@ -183,5 +188,30 @@ mod tests {
         evidence["pin"]["browser"] = json!("chrome");
         describe_native_profile(&mut inventory, &evidence, true).unwrap();
         assert_eq!(inventory, before);
+    }
+
+    #[test]
+    fn tool_readiness_distinguishes_windowless_from_stale_or_disconnected() {
+        let mut inventory = Browser::Brave.inventory();
+        let mut evidence = saved();
+        evidence["profile"]["window_id"] = Value::Null;
+        describe_native_profile(&mut inventory, &evidence, true).unwrap();
+        assert_eq!(
+            inventory["blocker"],
+            "selected_browser_profile_window_missing"
+        );
+        assert_eq!(inventory["native_profile"]["connected"], false);
+        assert_eq!(inventory["application_dispatch"], false);
+        assert_eq!(inventory["ready"], false);
+
+        for heartbeat in ["2026-11-23T11:58:20Z", "2026-11-23T12:01:00Z"] {
+            evidence["profile"]["last_heartbeat"] = json!(heartbeat);
+            describe_native_profile(&mut inventory, &evidence, true).unwrap();
+            assert_eq!(inventory["blocker"], "selected_browser_profile_offline");
+        }
+        evidence["profile"]["last_heartbeat"] = saved()["profile"]["last_heartbeat"].clone();
+        evidence["profile"]["connected"] = json!(false);
+        describe_native_profile(&mut inventory, &evidence, true).unwrap();
+        assert_eq!(inventory["blocker"], "selected_browser_profile_offline");
     }
 }

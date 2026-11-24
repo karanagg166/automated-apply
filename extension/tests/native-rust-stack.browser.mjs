@@ -60,18 +60,20 @@ try {
     }),
     { mode: 0o600 },
   );
-  browser = await chromium.launchPersistentContext(profile, {
-    executablePath,
-    env: registry.env,
-    headless: true,
-    timeout: 20_000,
-    args: [
-      `--disable-extensions-except=${extension}`,
-      `--load-extension=${extension}`,
-      "--disable-background-networking",
-      "--host-resolver-rules=MAP * ~NOTFOUND",
-    ],
-  });
+  const launch = () =>
+    chromium.launchPersistentContext(profile, {
+      executablePath,
+      env: registry.env,
+      headless: true,
+      timeout: 20_000,
+      args: [
+        `--disable-extensions-except=${extension}`,
+        `--load-extension=${extension}`,
+        "--disable-background-networking",
+        "--host-resolver-rules=MAP * ~NOTFOUND",
+      ],
+    });
+  browser = await launch();
   let portalReads = 0;
   await browser.route("https://**/*", async (route) => {
     const request = route.request();
@@ -151,10 +153,45 @@ try {
   assert.equal(saved.state, "browser_session_observed");
   assert.equal(saved.submission, "unsupported");
   assert.equal(portalReads, 1);
+
+  const heartbeat = (page) =>
+    page.evaluate(() =>
+      chrome.runtime.sendMessage({
+        command: "chrome_profile",
+        action: "status",
+      }),
+    );
+  const original = await heartbeat(popup);
+  assert.equal(original.ok, true, original.error_code);
+  assert.equal(original.profile.status, "CONNECTED");
+  assert.equal(original.id, connect.id);
+  await listing.close();
+  await browser.close();
+
+  browser = await launch();
+  const reopened = await browser.newPage();
+  await reopened.goto(`${origin}popup.html`);
+  const restored = await heartbeat(reopened);
+  assert.equal(restored.ok, true, restored.error_code);
+  assert.equal(restored.id, original.id);
+  assert.equal(restored.profile.selected, true);
+  assert.equal(restored.profile.status, "CONNECTED");
+  assert.equal(restored.commandsEnabled, false);
+  assert.notEqual(
+    restored.profile.browser_session_id,
+    original.profile.browser_session_id,
+  );
+  assert.ok(restored.profile.browser_session_id);
+  const afterRestart = await reopened.evaluate(() =>
+    chrome.runtime.sendMessage({ command: "naukri_queue", action: "status" }),
+  );
+  assert.equal(afterRestart.ok, true, afterRestart.error_code);
+  assert.deepEqual(afterRestart.queue, status.queue);
   console.log(
     JSON.stringify({
       fixture: "brave_rust_native_stack",
       status: "PASS",
+      browser_restart_reconnected_under_stop: true,
       live_actions: false,
     }),
   );

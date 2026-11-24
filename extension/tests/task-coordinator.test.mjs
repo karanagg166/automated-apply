@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { TaskCoordinator } from "../task-coordinator.js";
+import { fixtureNativePort } from "./native-port.fixture.mjs";
 const app = "11111111-1111-4111-8111-111111111111";
 const taskId = "22222222-2222-4222-8222-222222222222";
 const url = "https://jobs.lever.co/fictional/fictional/apply";
@@ -88,6 +89,7 @@ function fixture() {
       },
     },
     runtime: {
+      connectNative: (host) => fixtureNativePort(api.runtime, host),
       sendNativeMessage: async (_host, request) => {
         calls.push(request);
         if (request.command === "heartbeat_chrome_profile")

@@ -19,6 +19,10 @@ cpSync(
   new URL("../chrome-profile.js", import.meta.url),
   join(root, "chrome-profile.js"),
 );
+cpSync(
+  new URL("./native-port.fixture.mjs", import.meta.url),
+  join(root, "native-port.fixture.mjs"),
+);
 writeFileSync(
   join(root, "manifest.json"),
   JSON.stringify({
@@ -33,6 +37,7 @@ writeFileSync(
   join(root, "fixture.js"),
   `
 import {ChromeProfileConnection} from './chrome-profile.js';
+import {fixtureNativePort} from './native-port.fixture.mjs';
 globalThis.recover = async (allowed) => {
  const before = await chrome.windows.getLastFocused({populate:true});
  const owner = before.tabs.find(t=>t.active);
@@ -44,7 +49,7 @@ globalThis.recover = async (allowed) => {
    get:async(id)=>{if(created?.id===id)return chrome.windows.get(id);throw Error('closed fixture binding');},
    getLastFocused:async()=>{throw Error('fixture windowless profile');},
    create:async(input)=>{created=await chrome.windows.create(input);return created;}
- },runtime:{...chrome.runtime,sendNativeMessage:async(_,input)=>{
+ },runtime:{...chrome.runtime,connectNative:(host)=>fixtureNativePort(api.runtime,host),sendNativeMessage:async(_,input)=>{
    requests.push(input.command);
    return {version:1,request_id:input.request_id,ok:true,data:{submitted:false,background_window_allowed:allowed,profile:{id:value.id,connected:true,selected:true,commands_enabled:true,status:input.window_id===null?'PROFILE_OFFLINE':'CONNECTED'}}};
  }}};

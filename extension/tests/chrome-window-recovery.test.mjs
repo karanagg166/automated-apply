@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ChromeProfileConnection } from "../chrome-profile.js";
+import { fixtureNativePort } from "./native-port.fixture.mjs";
 
 function fixture(overrides = {}) {
   const value = {
@@ -38,6 +39,7 @@ function fixture(overrides = {}) {
       },
     },
     runtime: {
+      connectNative: (host) => fixtureNativePort(api.runtime, host),
       sendNativeMessage: async (_, input) => {
         requests.push(input);
         return {
