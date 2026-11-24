@@ -51,7 +51,8 @@ pub(crate) async fn recover_unknown_in(
     telegram: bool,
     now: DateTime<Utc>,
 ) -> Result<()> {
-    if queue_control::configuration(tx).await?["state"] != "RUNNING" {
+    let config = queue_control::configuration(tx).await?;
+    if config["state"] != "RUNNING" || super::supervised_listing::scoped(&config) {
         return Ok(());
     }
     let rows:Vec<(String,Value)>=sqlx::query_as("SELECT key,value FROM owner_preferences WHERE starts_with(key,'apply_work:') AND value->>'platform'='naukri' AND value->>'stage' NOT IN ('SUBMITTED_RECORDED','SUBMITTED_CONFIRMED','FAILED_FINAL','SKIPPED') AND value->>'status'='unknown' ORDER BY created_at,key LIMIT 10001").fetch_all(&mut **tx).await.map_err(db)?;

@@ -64,7 +64,8 @@ pub(crate) async fn claim_in(
         return Ok(None);
     }
     // Exclude all waiting/closed history in SQL. Current policy caps pending work at500.
-    let mut rows:Vec<(String,Value,DateTime<Utc>)>=sqlx::query_as("SELECT key,value,created_at FROM owner_preferences WHERE starts_with(key,'apply_work:') AND value->>'platform'=$1 AND value->>'stage' NOT IN ('SUBMITTED_RECORDED','SUBMITTED_CONFIRMED','FAILED_FINAL','SKIPPED') AND value->>'status' IN ('queued','leased','executing') ORDER BY created_at,key LIMIT 10001").bind(platform).fetch_all(&mut **tx).await.map_err(db)?;
+    let scope_key = super::supervised_listing::work_key(&current)?;
+    let mut rows:Vec<(String,Value,DateTime<Utc>)>=sqlx::query_as("SELECT key,value,created_at FROM owner_preferences WHERE starts_with(key,'apply_work:') AND value->>'platform'=$1 AND ($2::text IS NULL OR key=$2) AND value->>'stage' NOT IN ('SUBMITTED_RECORDED','SUBMITTED_CONFIRMED','FAILED_FINAL','SKIPPED') AND value->>'status' IN ('queued','leased','executing') ORDER BY created_at,key LIMIT 10001").bind(platform).bind(scope_key).fetch_all(&mut **tx).await.map_err(db)?;
     if rows.len() > 10000 {
         return Err(Failure("execution_active_inventory_limit"));
     }

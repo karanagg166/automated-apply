@@ -59,6 +59,33 @@ async fn run() -> Result<()> {
         )
         .await;
     }
+    if arguments.len() == 9
+        && arguments[0] == "resume-supervised-naukri-listing"
+        && arguments[1] == "--config"
+        && arguments[3] == "--queue-revision"
+        && arguments[5] == "--work-id"
+        && arguments[7] == "--work-revision"
+    {
+        let invalid = Failure("invalid_supervised_listing_scope");
+        let revision = |index: usize| {
+            arguments[index]
+                .to_str()
+                .and_then(|value| value.parse::<i64>().ok())
+                .filter(|revision| *revision >= 0)
+                .ok_or(invalid)
+        };
+        let work_id = arguments[6]
+            .to_str()
+            .and_then(|value| value.parse::<uuid::Uuid>().ok())
+            .ok_or(invalid)?;
+        return automated_apply_agents::execution::supervised_listing::resume(
+            &PathBuf::from(&arguments[2]),
+            revision(4)?,
+            work_id,
+            revision(8)?,
+        )
+        .await;
+    }
     if (arguments.len() == 5 || arguments.len() == 6 && arguments[5] == "--apply")
         && arguments[0] == "replace-fixed-brave-profile"
         && arguments[1] == "--config"

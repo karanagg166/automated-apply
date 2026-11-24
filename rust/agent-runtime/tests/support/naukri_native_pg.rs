@@ -158,6 +158,293 @@ async fn naukri_native_supervised_100_plus_scope_claims_only_its_listing_and_sto
     .unwrap();
     assert_eq!(stale["error_code"], "queue_lease_lost");
 }
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn naukri_native_supervised_prepared_resume_preserves_quarantine_and_requires_fresh_profile_read()
+ {
+    use sha2::Digest;
+    let (mut connection, job) = packet_service_fixture().await;
+    sqlx::raw_sql(
+        "DROP TABLE IF EXISTS private_resumes;
+         CREATE TABLE private_resumes(id uuid PRIMARY KEY,ciphertext bytea NOT NULL,
+            sha256 varchar(64) NOT NULL,confirmed bool NOT NULL,resource_id uuid NOT NULL)",
+    )
+    .execute(&mut connection)
+    .await
+    .unwrap();
+    let corpus: Value = serde_json::from_str(include_str!(
+        "../../../document-worker/tests/fixtures/pdf-corpus.json"
+    ))
+    .unwrap();
+    let pdf: Vec<u8> = serde_json::from_value(
+        corpus["pdfs"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|entry| entry["name"] == "text")
+            .unwrap()["bytes"]
+            .clone(),
+    )
+    .unwrap();
+    let encryption_key = corpus["fernet"]["key"].as_str().unwrap();
+    let hash = format!("{:x}", sha2::Sha256::digest(&pdf));
+    let encrypted = fernet::Fernet::new(encryption_key).unwrap().encrypt(&pdf);
+    let resume = Uuid::new_v4();
+    let resource: Uuid = sqlx::query_scalar(
+        "UPDATE candidate_resources SET source_type='private_upload',url=$1
+         WHERE resource_type='resume' RETURNING id",
+    )
+    .bind(format!("private-resume:{resume}"))
+    .fetch_one(&mut connection)
+    .await
+    .unwrap();
+    sqlx::query("INSERT INTO private_resumes VALUES($1,$2,$3,true,$4)")
+        .bind(resume)
+        .bind(encrypted.as_bytes())
+        .bind(&hash)
+        .bind(resource)
+        .execute(&mut connection)
+        .await
+        .unwrap();
+    sqlx::query(
+        "UPDATE candidate_profiles SET phone='+919876543210',
+            preferences=preferences||'{\"target_titles\":[\"Rust Engineer\"]}'::jsonb
+         WHERE singleton_key='primary'",
+    )
+    .execute(&mut connection)
+    .await
+    .unwrap();
+    sqlx::query(
+        "UPDATE jobs SET date_posted=clock_timestamp()-interval '2 days',
+            discovery_metadata=discovery_metadata||'{\"experience_min_years\":0,\"experience_max_years\":1}'::jsonb
+         WHERE id=$1",
+    ).bind(job).execute(&mut connection).await.unwrap();
+
+    let packet = packet_create(
+        &mut connection,
+        job,
+        "fictional-interrupted-read",
+        json!([]),
+    )
+    .await
+    .unwrap();
+    browser_save(
+        &mut connection,
+        "phase1_profile_confirmation",
+        json!({
+            "profile_id":packet["candidate_profile_id"],
+            "profile_version":packet["candidate_profile_version"],
+            "confirmed_at":"2026-11-16T00:00:00Z"
+        }),
+    )
+    .await;
+    let context = browser_context();
+    browser_connect(&mut connection, &context).await;
+    browser_call(
+        &mut connection,
+        BrowserRoute::Select,
+        json!({
+            "expected_version":0,"profile_binding_id":context["profile_binding_id"]
+        }),
+    )
+    .await
+    .unwrap();
+    browser_native(
+        &mut connection,
+        "heartbeat_chrome_profile",
+        &context,
+        json!({"profile_commands_enabled":true}),
+    )
+    .await
+    .unwrap();
+    let mut config = execution_running(&mut connection).await;
+    execution_mutate(
+        &mut connection,
+        automated_apply_agents::execution::Route::AccountApproval,
+        account_input(&context, &packet),
+    )
+    .await
+    .unwrap();
+    let account = browser_pref(&mut connection, "naukri_account_binding").await;
+    config["state"] = json!("STOPPED");
+    config["policy"]["platforms"]["naukri"]["sources"] = json!(["saved_verified_job"]);
+    browser_save(&mut connection, "application_queue_policy", config.clone()).await;
+    browser_save(
+        &mut connection,
+        "chr_fixed_profile",
+        json!({
+            "profile_binding_id":context["profile_binding_id"],"browser":"brave",
+            "verified_via":"owner_reviewed_dedicated_brave_profile"
+        }),
+    )
+    .await;
+    sqlx::query("UPDATE rust_agent_control SET mode='STOPPED'")
+        .execute(&mut connection)
+        .await
+        .unwrap();
+
+    let mut work = execution_enqueue(&mut connection, "123456789012").await;
+    let work_id = work["id"].as_str().unwrap().to_owned();
+    let work_key = format!("apply_work:{work_id}");
+    let at: Value = sqlx::query_scalar("SELECT to_jsonb(clock_timestamp()-interval '2 days')")
+        .fetch_one(&mut connection)
+        .await
+        .unwrap();
+    work["job_id"] = json!(job);
+    work["packet_id"] = packet["id"].clone();
+    work["packet_revision"] = packet["revision"].clone();
+    work["candidate_profile_id"] = packet["candidate_profile_id"].clone();
+    work["profile_version"] = packet["candidate_profile_version"].clone();
+    work["account_binding_revision"] = account["revision"].clone();
+    work["account_sha256"] = account["account_sha256"].clone();
+    work["title"] = json!("Rust Engineer");
+    work["company"] = json!("Fictional Labs");
+    work["facts"] = json!({"posted_at":at,"applicants_min":100,"applicants_max":null});
+    work["stage"] = json!("PAUSED");
+    work["status"] = json!("waiting");
+    work["reason"] = json!("global_stop");
+    work["operation"] = json!("inspect_profile");
+    work["revision"] = json!(36);
+    work["paused_context"] = json!({
+        "stage":"FAILED_RETRYABLE","status":"executing","operation":"inspect_profile","reason":"lease_expired"
+    });
+    browser_save(&mut connection, &work_key, work.clone()).await;
+
+    let mut historical = Vec::new();
+    let mut reservations = Vec::new();
+    for requisition in ["223456789012", "323456789012", "423456789012"] {
+        let mut quarantine = execution_enqueue(&mut connection, requisition).await;
+        let key = format!("apply_work:{}", quarantine["id"].as_str().unwrap());
+        reservations.push(quarantine["id"].clone());
+        quarantine["stage"] = json!("SUBMISSION_UNKNOWN");
+        quarantine["status"] = json!("unknown");
+        quarantine["account_sha256"] = account["account_sha256"].clone();
+        quarantine["form_pending"] = json!(true);
+        quarantine["admitted_actions"] = json!([
+            {"id":Uuid::new_v4(),"fingerprint":"apply:fictional","at":at}
+        ]);
+        browser_save(&mut connection, &key, quarantine.clone()).await;
+        historical.push((key, quarantine));
+    }
+    let budget_key = "apply_budget:naukri:2000-01-01";
+    let budget = json!({"reservations":reservations});
+    browser_save(&mut connection, budget_key, budget.clone()).await;
+
+    let mut expired = execution_enqueue(&mut connection, "523456789012").await;
+    let expired_key = format!("apply_work:{}", expired["id"].as_str().unwrap());
+    expired["status"] = json!("leased");
+    expired["lease_until"] = at.clone();
+    expired["lease_token"] = json!(Uuid::new_v4());
+    browser_save(&mut connection, &expired_key, expired.clone()).await;
+
+    let mut values = browser_values();
+    values.insert("RESUME_ENCRYPTION_KEY".into(), encryption_key.into());
+    let directory = tempfile::tempdir().unwrap();
+    std::fs::set_permissions(directory.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+    let path = directory.path().join("runtime.env");
+    let input = values
+        .iter()
+        .map(|(key, value)| format!("{key}='{value}'\n"))
+        .collect::<String>();
+    std::fs::write(&path, input).unwrap();
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+    let launch = |queue_revision: i64, work_revision: i64| {
+        let path = &path;
+        let work_id = &work_id;
+        async move {
+            tokio::time::timeout(
+                Duration::from_secs(10),
+                tokio::process::Command::new(env!("CARGO_BIN_EXE_automated-apply-agents"))
+                    .args(["resume-supervised-naukri-listing", "--config"])
+                    .arg(path)
+                    .args([
+                        "--queue-revision",
+                        &queue_revision.to_string(),
+                        "--work-id",
+                        work_id,
+                        "--work-revision",
+                        &work_revision.to_string(),
+                    ])
+                    .env_clear()
+                    .kill_on_drop(true)
+                    .output(),
+            )
+            .await
+            .unwrap()
+            .unwrap()
+        }
+    };
+    let revision = config["revision"].as_i64().unwrap();
+    for (queue_rev, work_rev, expected) in [
+        (revision - 1, 36, "queue_policy_revision_conflict"),
+        (revision, 35, "queue_work_revision_conflict"),
+    ] {
+        let denied = launch(queue_rev, work_rev).await;
+        assert!(!denied.status.success());
+        assert_eq!(String::from_utf8_lossy(&denied.stderr).trim(), expected);
+    }
+    let mut possible_form = work.clone();
+    possible_form["form_binding"] = json!({"tab_id":50});
+    browser_save(&mut connection, &work_key, possible_form.clone()).await;
+    let denied = launch(revision, 36).await;
+    assert!(!denied.status.success());
+    assert_eq!(
+        String::from_utf8_lossy(&denied.stderr).trim(),
+        "interrupted_prepared_supervised_listing_required"
+    );
+    assert_eq!(
+        browser_pref(&mut connection, &work_key).await,
+        possible_form
+    );
+    assert_eq!(
+        browser_pref(&mut connection, "application_queue_policy").await,
+        config
+    );
+    browser_save(&mut connection, &work_key, work.clone()).await;
+
+    let resumed = launch(revision, 36).await;
+    assert!(
+        resumed.status.success(),
+        "{}",
+        String::from_utf8_lossy(&resumed.stderr)
+    );
+    let resumed: Value = serde_json::from_slice(&resumed.stdout).unwrap();
+    assert_eq!(resumed["scope"]["work_id"], work_id);
+    assert_eq!(resumed["revision"], revision + 1);
+    assert_eq!(resumed["application_dispatched"], false);
+    let saved = browser_pref(&mut connection, &work_key).await;
+    assert_eq!(saved["packet_id"], packet["id"]);
+    assert_eq!(saved["packet_revision"], packet["revision"]);
+    assert_eq!(saved["revision"], 37);
+    assert_eq!(saved["upload_preflight"]["sha256"], hash);
+    assert_eq!(saved["stage"], "READY_TO_APPLY");
+    assert_eq!(saved["operation"], "inspect_profile");
+    assert!(saved["account_observation"].is_null());
+
+    let settings = automated_apply_agents::private_resume::Settings::from_values(&values).unwrap();
+    let poll = native_queue_call(
+        &mut connection,
+        &context,
+        "poll_naukri_work",
+        json!({}),
+        &settings,
+    )
+    .await
+    .unwrap();
+    assert_eq!(poll["data"]["work"]["id"], work_id, "{poll}");
+    assert_eq!(poll["data"]["work"]["operation"], "inspect_profile");
+    assert_eq!(poll["data"]["submitted"], false);
+    for (key, quarantine) in historical {
+        assert_eq!(browser_pref(&mut connection, &key).await, quarantine);
+    }
+    assert_eq!(browser_pref(&mut connection, &expired_key).await, expired);
+    assert_eq!(browser_pref(&mut connection, budget_key).await, budget);
+    assert_eq!(
+        browser_pref(&mut connection, &work_key).await["admitted_actions"],
+        json!([])
+    );
+}
+
 async fn native_queue_call(c:&mut PgConnection,context:&Value,name:&str,extra:Value,resumes:&automated_apply_agents::private_resume::Settings)->Result<Value>{let mut command=context.clone();command["command"]=json!(name);command["request_id"]=json!(Uuid::new_v4());for(k,v)in extra.as_object().unwrap(){command[k]=v.clone();}let settings=browser_profiles::Settings::from_values(&browser_values()).unwrap();let answers=answer_settings();browser_profiles::dispatch(c,BrowserRoute::Native,"POST",command.to_string().as_bytes(),&settings,&packet_settings(),Some(browser_profiles::form_service::Services{answers:&answers,resumes})).await}
 fn native_queue_step(work:&Value)->Value{json!({"work_id":work["id"],"expected_work_revision":work["revision"],"work_lease_token":work["lease_token"],"tab_id":50})}
 async fn native_queue_fixture()->(PgConnection,Value,Value){let(mut c,inspection)=listing_fixture().await;execution_mutate(&mut c,automated_apply_agents::execution::Route::SyncPolicy,json!({"expected_revision":1,"policy":{"enabled":false}})).await.unwrap();let context=native_queue_context(&inspection);let mut queued=inspection.clone();queued["status"]=json!("queued");queued["lease_token"]=Value::Null;queued["lease_until"]=Value::Null;queued["binding"]=Value::Null;browser_save(&mut c,&format!("apply_work:{}",inspection["id"].as_str().unwrap()),queued).await;(c,context,inspection)}

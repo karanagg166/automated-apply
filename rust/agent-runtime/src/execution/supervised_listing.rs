@@ -1,18 +1,27 @@
 //! Local operator control for one supervised Naukri listing that shows 100+ applicants.
 use super::{
-    automatic, budgets, contracts, events, filters, intake, preflight, queue, queue_control,
-    storage::*,
+    automatic, broker, budgets, contracts, events, filters, history, intake, preflight, queue,
+    queue_control, storage::*,
 };
 use crate::{Failure, Result, browser_inventory::Browser, configuration::Configuration};
 use chrono::{DateTime, Duration, Utc};
 use serde_json::{Value, json};
 use sqlx::{Connection, Postgres, Transaction};
 use std::{borrow::Cow, path::Path};
+use uuid::Uuid;
 
 const SCOPE: &str = "supervised_100_plus";
 
 pub(super) fn scoped(config: &Value) -> bool {
     config.get(SCOPE).is_some()
+}
+
+pub(super) fn work_key(config: &Value) -> Result<Option<String>> {
+    if !scoped(config) {
+        return Ok(None);
+    }
+    let id = saved_uuid(&config[SCOPE]["work_id"])?;
+    Ok(Some(format!("apply_work:{id}")))
 }
 
 pub(super) fn clear(config: &mut Value) -> Result<()> {
@@ -63,6 +72,19 @@ pub(super) fn policy_for_work<'a>(
 }
 
 pub async fn start(config: &Path, revision: i64, listing: &str) -> Result<()> {
+    run(config, revision, Request::Start(listing)).await
+}
+
+pub async fn resume(config: &Path, revision: i64, work_id: Uuid, work_revision: i64) -> Result<()> {
+    run(config, revision, Request::Resume(work_id, work_revision)).await
+}
+
+enum Request<'a> {
+    Start(&'a str),
+    Resume(Uuid, i64),
+}
+
+async fn run(config: &Path, revision: i64, request: Request<'_>) -> Result<()> {
     let config = Configuration::load(config)?;
     if config.browser != Browser::Brave
         || !config.browser_profiles.native_enabled
@@ -74,7 +96,13 @@ pub async fn start(config: &Path, revision: i64, listing: &str) -> Result<()> {
     crate::server::readiness(&mut connection, &config).await?;
     let mut tx = connection.begin().await.map_err(db)?;
     lock(&mut tx).await?;
-    let result = match start_in(&mut tx, revision, listing).await {
+    let saved = match request {
+        Request::Start(listing) => start_in(&mut tx, revision, listing).await,
+        Request::Resume(id, work_revision) => {
+            resume_in(&mut tx, &config, revision, id, work_revision).await
+        }
+    };
+    let result = match saved {
         Ok(saved) => {
             tx.commit()
                 .await
@@ -92,13 +120,12 @@ pub async fn start(config: &Path, revision: i64, listing: &str) -> Result<()> {
     Ok(())
 }
 
-async fn start_in(
+async fn stopped_context(
     tx: &mut Transaction<'_, Postgres>,
     revision: i64,
-    listing: &str,
-) -> Result<Value> {
-    let at = now(tx).await?;
-    let mut config = queue_control::configuration(tx).await?;
+    at: DateTime<Utc>,
+) -> Result<(Value, Value)> {
+    let config = queue_control::configuration(tx).await?;
     if config["revision"] != revision {
         return Err(Failure("queue_policy_revision_conflict"));
     }
@@ -153,6 +180,17 @@ async fn start_in(
         return Err(Failure("current_supervised_brave_binding_required"));
     }
 
+    Ok((config, account))
+}
+
+async fn start_in(
+    tx: &mut Transaction<'_, Postgres>,
+    revision: i64,
+    listing: &str,
+) -> Result<Value> {
+    let at = now(tx).await?;
+    let (config, account) = stopped_context(tx, revision, at).await?;
+    let setting = &config["policy"]["platforms"]["naukri"];
     let url = filters::naukri_url(listing)?;
     let requisition = url.rsplit('-').next().ok_or_else(invalid)?;
     if intake::protected_in(tx, &[requisition.to_owned()])
@@ -183,26 +221,260 @@ async fn start_in(
     if current_profile["id"] != account["candidate_profile_id"] {
         return Err(Failure("naukri_account_binding_context_changed"));
     }
-    let work_id = work["id"].as_str().ok_or_else(invalid)?.to_owned();
-    let deadline = now(tx).await? + Duration::minutes(15);
-    let revision = next(&config)?;
-    config["revision"] = json!(revision);
-    config["state"] = json!("RUNNING");
-    config[SCOPE] = json!({"work_id":work_id,"expires_at":stamp(deadline)});
-    work["revision"] = json!(next(&work)?);
-    work["policy_revision"] = json!(revision);
     work["stage"] = json!("DISCOVERED");
-    work["status"] = json!("queued");
     work["operation"] = json!("inspect_job");
+    work["profile_version"] = Value::Null;
+    let config = opened(config, &work["id"], now(tx).await?)?;
+    save(tx, config, work, "supervised_100_plus_listing_started", at).await
+}
+
+fn saved_uuid(value: &Value) -> Result<Uuid> {
+    value
+        .as_str()
+        .and_then(|s| s.parse().ok())
+        .ok_or_else(invalid)
+}
+
+fn interrupted_profile_read(work: &Value) -> bool {
+    let paused = &work["paused_context"];
+    work["stage"] == "PAUSED"
+        && work["status"] == "waiting"
+        && work["reason"] == "global_stop"
+        && work["operation"] == "inspect_profile"
+        && paused["operation"] == "inspect_profile"
+        && matches!(
+            paused["status"].as_str(),
+            Some("queued" | "leased" | "executing")
+        )
+        && (paused["stage"] == "READY_TO_APPLY"
+            || paused["stage"] == "FAILED_RETRYABLE" && paused["reason"] == "lease_expired")
+}
+
+fn has_write_evidence(work: &Value) -> bool {
+    work["admitted_actions"] != json!([])
+        || !matches!(work.get("form_pending"), None | Some(Value::Bool(false)))
+        || !work["questionnaire_answers"].is_null() && work["questionnaire_answers"] != json!([])
+        || !work["questionnaire_steps"].is_null() && work["questionnaire_steps"] != 0
+        || [
+            "form_binding",
+            "form_loss_observation",
+            "questionnaire",
+            "questionnaire_answer",
+            "questionnaire_document_id",
+            "questionnaire_completion_observation",
+            "apply_dispatch_observation",
+            "confirmation_observation",
+            "receipt_source",
+            "submission_mode",
+            "permit_expires_at",
+        ]
+        .iter()
+        .any(|field| !work[*field].is_null())
+}
+
+async fn require_unadmitted_history(
+    tx: &mut Transaction<'_, Postgres>,
+    work_id: Uuid,
+    requisition: &str,
+    job: &Value,
+) -> Result<()> {
+    let reserved: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM owner_preferences
+          WHERE starts_with(key,'apply_budget:naukri:')
+          AND (jsonb_typeof(value->'reservations') IS DISTINCT FROM 'array'
+               OR (value->'reservations') ? $1))",
+    )
+    .bind(work_id.to_string())
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(db)?;
+    let prior_work: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM owner_preferences
+          WHERE starts_with(key,'apply_work:') AND key<>$1
+          AND (value->>'requisition'=$2 OR value->>'url' ~ $3))",
+    )
+    .bind(format!("apply_work:{work_id}"))
+    .bind(requisition)
+    .bind(format!("-{requisition}/?([?#].*)?$"))
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(db)?;
+    let prior_submission: bool = sqlx::query_scalar(
+        "SELECT EXISTS(
+           SELECT 1 FROM application_packets p JOIN jobs j ON j.id=p.job_id
+           WHERE j.source_platform='naukri' AND j.job_url ~ $1
+             AND (EXISTS(SELECT 1 FROM application_events e WHERE e.packet_id=p.id
+                         AND e.event_type IN ('naukri_apply_admitted',
+                             'naukri_persistent_ui_confirmed','user_reported_submission'))
+                  OR EXISTS(SELECT 1 FROM application_submission_evidence s WHERE s.packet_id=p.id))
+         ) OR EXISTS(
+           SELECT 1 FROM owner_preferences o JOIN jobs j ON j.id::text=o.value->>'job_id'
+           WHERE starts_with(o.key,'exec:') AND j.source_platform='naukri' AND j.job_url ~ $1
+             AND (o.value->>'state' IN ('SUBMITTING','SUBMISSION_UNKNOWN','SUBMITTED_CONFIRMED')
+                  OR o.value->>'paused_state' IN ('SUBMITTING','SUBMISSION_UNKNOWN','SUBMITTED_CONFIRMED'))
+         ) OR EXISTS(
+           SELECT 1 FROM owner_preferences o
+             JOIN application_packets p ON p.id::text=o.value->>'application_id'
+             JOIN jobs j ON j.id=p.job_id
+           WHERE starts_with(o.key,'ext_task:') AND j.source_platform='naukri' AND j.job_url ~ $1
+             AND (o.value->>'state' IN ('FORM_INSPECTED','ANSWERS_REVIEWED','FILL_AUTHORIZED',
+                                      'FILLING','SUBMISSION_UNKNOWN','SUBMITTED_CONFIRMED')
+                  OR o.value->'verified_receipts' NOT IN ('[]'::jsonb,'null'::jsonb))
+         )",
+    )
+    .bind(format!("-{requisition}/?([?#].*)?$"))
+    .fetch_one(&mut **tx)
+    .await
+    .map_err(db)?;
+    if reserved
+        || prior_work
+        || prior_submission
+        || intake::protected_in(tx, &[requisition.to_owned()])
+            .await?
+            .contains(requisition)
+        || history::previously_applied_in(tx, job).await?
+    {
+        return Err(Failure("prior_application_or_unknown_submission_no_replay"));
+    }
+    Ok(())
+}
+
+async fn resume_in(
+    tx: &mut Transaction<'_, Postgres>,
+    runtime: &Configuration,
+    queue_revision: i64,
+    work_id: Uuid,
+    work_revision: i64,
+) -> Result<Value> {
+    let at = now(tx).await?;
+    let (config, account) = stopped_context(tx, queue_revision, at).await?;
+    let mut work = queue::load_in(tx, work_id).await?;
+    if revision(&work)? != work_revision {
+        return Err(Failure("queue_work_revision_conflict"));
+    }
+    if !interrupted_profile_read(&work)
+        || work["platform"] != "naukri"
+        || !work["lease_token"].is_null()
+        || !work["lease_until"].is_null()
+        || has_write_evidence(&work)
+        || !allows_applicants(&work)
+        || !config["policy"]["platforms"]["naukri"]["sources"]
+            .as_array()
+            .ok_or_else(invalid)?
+            .contains(&work["source"])
+    {
+        return Err(Failure("interrupted_prepared_supervised_listing_required"));
+    }
+    if broker::busy_in(tx, at).await? {
+        return Err(Failure("naukri_browser_lane_busy"));
+    }
+    let url = filters::naukri_url(work["url"].as_str().ok_or_else(invalid)?)?;
+    let req = url.rsplit('-').next().ok_or_else(invalid)?;
+    if work["url"] != url
+        || work["requisition"] != req
+        || work_id != Uuid::new_v5(&Uuid::NAMESPACE_URL, format!("naukri:{req}").as_bytes())
+    {
+        return Err(Failure("queue_job_identity_changed"));
+    }
+    preflight::check_account_in(tx, &work).await?;
+    let packet_id = saved_uuid(&work["packet_id"])?;
+    let job_id = saved_uuid(&work["job_id"])?;
+    let packet = crate::packet_service::read_locked_in(tx, packet_id, &runtime.packets, at).await?;
+    let job: Value = sqlx::query_scalar("SELECT to_jsonb(j) FROM jobs j WHERE id=$1")
+        .bind(job_id)
+        .fetch_optional(&mut **tx)
+        .await
+        .map_err(db)?
+        .ok_or(Failure("queue_job_identity_changed"))?;
+    if job["source_platform"] != "naukri"
+        || filters::naukri_url(job["job_url"].as_str().ok_or_else(invalid)?)? != url
+    {
+        return Err(Failure("queue_job_identity_changed"));
+    }
+    require_unadmitted_history(tx, work_id, req, &job).await?;
+    if packet["id"] != work["packet_id"]
+        || packet["job_id"] != work["job_id"]
+        || packet["platform"] != work["platform"]
+        || packet["revision"] != work["packet_revision"]
+        || packet["candidate_profile_id"] != account["candidate_profile_id"]
+        || packet["candidate_profile_version"] != work["profile_version"]
+        || packet["lifecycle_state"] != "created"
+        || packet["tracking_state"] != "not_applied"
+        || packet["readiness"]["stale"] != false
+        || matches!(
+            packet["readiness"]["state"].as_str(),
+            Some("needs_input" | "needs_resume" | "needs_profile")
+        )
+    {
+        return Err(Failure("queue_packet_context_changed"));
+    }
+    let pdf = preflight::pdf_in(tx, &packet, &runtime.resumes, at).await?;
+    if pdf["state"] != "PDF_VERIFIED_LOCAL" {
+        return Err(Failure("canonical_pdf_unavailable_or_invalid"));
+    }
+    let at = now(tx).await?;
+    let config = opened(config, &work["id"], at)?;
+    let profile = preflight::eligible_in(tx, &mut work, &config, &job, at).await?;
+    if profile["id"] != packet["candidate_profile_id"]
+        || profile["version"] != packet["candidate_profile_version"]
+    {
+        return Err(Failure("verified_profile_context_changed"));
+    }
+    work["stage"] = json!("READY_TO_APPLY");
+    work["upload_preflight"] = pdf;
+    for field in [
+        "binding",
+        "account_observation",
+        "document_id",
+        "control_sha256",
+    ] {
+        work[field] = Value::Null;
+    }
+    for field in [
+        "prior_status",
+        "prior_status_checked_at",
+        "provider_resume_checked_at",
+        "provider_resume_sha256",
+        "provider_resume_source",
+    ] {
+        work["facts"][field] = Value::Null;
+    }
+    save(
+        tx,
+        config,
+        work,
+        "supervised_100_plus_prepared_listing_resumed",
+        at,
+    )
+    .await
+}
+
+fn opened(mut config: Value, work_id: &Value, at: DateTime<Utc>) -> Result<Value> {
+    config["revision"] = json!(next(&config)?);
+    config["state"] = json!("RUNNING");
+    config[SCOPE] = json!({"work_id":work_id,"expires_at":stamp(at + Duration::minutes(15))});
+    Ok(config)
+}
+
+async fn save(
+    tx: &mut Transaction<'_, Postgres>,
+    config: Value,
+    mut work: Value,
+    event: &str,
+    at: DateTime<Utc>,
+) -> Result<Value> {
+    work["revision"] = json!(next(&work)?);
+    work["policy_revision"] = config["revision"].clone();
+    work["status"] = json!("queued");
     work["available_at"] = json!(stamp(at));
     work["updated_at"] = json!(stamp(at));
     work["reason"] = Value::Null;
-    work["profile_version"] = Value::Null;
+    let work_id = work["id"].as_str().ok_or_else(invalid)?;
     put(tx, "application_queue_policy", &config).await?;
     put(tx, &format!("apply_work:{work_id}"), &work).await?;
-    events::queue(tx, &work, "supervised_100_plus_listing_started", at).await?;
+    events::queue(tx, &work, event, at).await?;
     Ok(
-        json!({"state":config["state"],"revision":revision,"scope":config[SCOPE],"application_dispatched":false}),
+        json!({"state":config["state"],"revision":config["revision"],"scope":config[SCOPE],"application_dispatched":false}),
     )
 }
 
