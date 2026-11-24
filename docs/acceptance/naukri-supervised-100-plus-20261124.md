@@ -20,3 +20,11 @@ identity, résumé, eligibility, quota, history, and receipt checks.
 All test listings used fictional fixtures. The live check verified release,
 readiness, and retained state. A strict worker receipt is still required for
 recurring submissions.
+
+The next readback found the dedicated Brave process running without windows
+or tabs. The launcher preflight passed on the active runtime and verified the
+windowless browser. The live queue readback confirmed STOP revision 168,
+three reservations, three quarantines, no leases, and zero worker receipts.
+The owner can open the existing profile with
+`.local/browser-profiles/open-brave-naukri-automation.command` before the
+connector, account, and résumé are verified again.

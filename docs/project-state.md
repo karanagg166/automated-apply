@@ -8,9 +8,10 @@ fixture retry. The managed start and managed rollback timed out while the Mac
 was locked. The previous release was restored and independently verified,
 then the guarded direct upgrade passed readiness and retained-data checks.
 Queue revision 168 remains stopped, the three reservations and quarantines
-are intact, and one supervised attempt remains. The Mac was subsequently
-unlocked and the existing Naukri tab was present. The native profile remains
-offline while macOS checks Desktop-folder access for the bridge. See the
+are intact, and one supervised attempt remains. The Mac is unlocked. The
+dedicated Brave profile now has no windows or tabs according to the launcher
+and browser inventories. The owner can open it with the existing local
+launcher before the connector and portal account are rechecked. See the
 [one-listing acceptance report](acceptance/naukri-supervised-100-plus-20261124.md).
 
 ## Previous supervised queue acceptance, 2026-11-24
