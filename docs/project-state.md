@@ -3,13 +3,45 @@
 Managed release `0b3fd4087b7d460520c8b520a80afdc1036d8303` is active on the Mac
 under plan `rust-plan-m9dktwyz`. All 37 stages passed on the exact clean commit.
 The four macOS access probes passed, the services reached verified readiness
-in 12.379 seconds, and both the native host and resident Brave extension match
-the installed release. Brave restored exactly one Naukri tab and retained its
-approved browser binding. The guarded helper returned that inactive tab to the
+in 12.379 seconds, and the native host and Brave package matched the installed
+release. A later check found five older executing Brave modules. Brave restored
+exactly one Naukri tab and retained its approved browser binding. The guarded
+helper returned that inactive tab to the
 profile. Desktop focus and the retained jobs, packets, STOP revisions, three
 reservations, and three quarantines passed cutover checks. The 24-hour local
 observation started. The first strict worker receipt remains pending and one
 supervised admission is available. See the [release acceptance report](acceptance/naukri-bridge-release-20261125.md).
+
+On the installed release, the next supervised window scoped a single
+listing for inspection at revision 171. The worker scored the listing 64 and
+rejected it at the saved target-role gate. STOP revision 172 cleared the scope.
+The three historical quarantines and reservations remain, with zero new Apply
+admissions and zero strict receipts. The exact approved résumé and account
+passed fresh verification in the retained Brave tab.
+
+At revision 173 a second scoped listing cleared eligibility and packet
+preparation. Its read-only profile checks lost their leases. The browser
+module mismatch was confirmed before Apply. STOP revision 174 cleared the
+scope and left zero active writes, three historical reservations, three
+quarantines, and zero strict receipts. Browser commands were disabled and
+the existing profile tab restored. Brave subsequently disabled the unpacked
+project extension on reload with Developer mode off. The Extensions page is
+open in the dedicated profile's reused neutral tab. The remaining admission
+is available after verified browser recovery and a fresh eligible scope.
+
+Local source `3d77ee1de6b0b54e514ef9ba327f541d2ca0b986` adds confirmed cleanup
+for an exact Apply lease abandoned before admission. The targeted validation
+passed 421 extension tests and four disposable PostgreSQL cases. Combined
+validation and installation are pending for this change.
+
+Local source `b8d1dc0` extends confirmed fence rollback recovery to native
+finish and abandon reports. Two disposable PostgreSQL cases and 16 native
+transport cases passed. Combined validation and installation are pending.
+
+Local source `a42a9de` adds exact prepared-work continuation and keeps
+unrelated quarantines and expired leases out of the scoped poll. It requires
+the queue and work revisions and restarts at read-only profile inspection.
+The combined gate will exercise the continuation fixture and existing checks.
 
 ## Previous local one-listing release, 2026-11-24
 
