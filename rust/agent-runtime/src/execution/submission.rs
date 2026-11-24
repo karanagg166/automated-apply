@@ -80,6 +80,19 @@ pub(crate) async fn recover_unknown_in(
     }
     Ok(())
 }
+pub(super) fn record_failure(work: &mut Value, report: &Value, uncertain: bool) {
+    work["stage"] = json!(if uncertain {
+        "SUBMISSION_UNKNOWN"
+    } else {
+        "BLOCKED_PLATFORM"
+    });
+    work["status"] = json!(if uncertain { "unknown" } else { "waiting" });
+    work["reason"] = report
+        .get("reason")
+        .filter(|s| s.as_str().is_some_and(|s| !s.is_empty()))
+        .cloned()
+        .unwrap_or(json!("provider_execution_unconfirmed"));
+}
 pub(crate) async fn receive_in(
     tx: &mut Transaction<'_, Postgres>,
     work: &mut Value,
@@ -95,17 +108,7 @@ pub(crate) async fn receive_in(
             || work["admitted_actions"]
                 .as_array()
                 .is_some_and(|a| !a.is_empty());
-        work["stage"] = json!(if uncertain {
-            "SUBMISSION_UNKNOWN"
-        } else {
-            "BLOCKED_PLATFORM"
-        });
-        work["status"] = json!(if uncertain { "unknown" } else { "waiting" });
-        work["reason"] = report
-            .get("reason")
-            .filter(|s| s.as_str().is_some_and(|s| !s.is_empty()))
-            .cloned()
-            .unwrap_or(json!("provider_execution_unconfirmed"));
+        record_failure(work, report, uncertain);
         return Ok(false);
     }
     let observation = &report["execution"];

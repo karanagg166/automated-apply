@@ -777,6 +777,160 @@ test("restart abandons the saved read before polling without replaying the old t
     false,
   );
 });
+for (const [outcome, expectedClose] of [
+  ["confirmed", true],
+  ["lost", false],
+  ["denied", false],
+  ["malformed", false],
+  ["other work", false],
+  ["other tab", false],
+  ["other session", false],
+  ["owner adopted", false],
+  ["existing parked form", false],
+]) {
+  test(`cached Apply restart with ${outcome} release preserves tab ownership`, async () => {
+    const pending = {
+      id: "fixture",
+      revision: 4,
+      lease_token: "fixture-token",
+      status: "leased",
+      operation: "apply",
+      url,
+      binding: {
+        tab_id: 55,
+        window_id: 10,
+        profile_binding_id: "fixture-profile",
+        browser_session_id: "fixture-session",
+      },
+      ownedTabId: 55,
+      ownerAdopted: outcome === "owner adopted",
+    };
+    const original = { ...pending, ownerAdopted: true, form_pending: true };
+    const f = fixture({
+      session: {
+        naukriReadInFlightV1: pending,
+        ...(outcome === "existing parked form"
+          ? { naukriParkedQuestionnairesV1: { fixture: original } }
+          : {}),
+      },
+      respond: async (name) => {
+        assert.equal(name, "abandon_naukri_work");
+        if (["lost", "existing parked form"].includes(outcome))
+          throw Error("backend_timeout");
+        if (outcome === "denied") throw Error("queue_lease_lost");
+        return {
+          unadmitted_apply_released: outcome === "malformed" ? "true" : true,
+          continue: false,
+          submitted: false,
+          work: {
+            ...pending,
+            id: outcome === "other work" ? "different" : pending.id,
+            revision: pending.revision + 1,
+            binding: {
+              ...pending.binding,
+              tab_id: outcome === "other tab" ? 56 : 55,
+              browser_session_id:
+                outcome === "other session"
+                  ? "different-session"
+                  : pending.binding.browser_session_id,
+            },
+            status: "waiting",
+            stage: "BLOCKED_PLATFORM",
+            form_pending: false,
+            lease_token: null,
+            lease_until: null,
+          },
+        };
+      },
+    });
+    f.tabs.set(55, { id: 55, url, active: false, windowId: 10 });
+    await f.queue.tick();
+    const calls = f.calls.map(([name]) => name);
+    assert.deepEqual(
+      calls,
+      expectedClose
+        ? ["abandon_naukri_work", "close"]
+        : ["abandon_naukri_work"],
+    );
+    assert.equal(f.tabs.has(55), !expectedClose);
+    assert.equal(f.session.naukriReadInFlightV1, undefined);
+    const parked = f.session.naukriParkedQuestionnairesV1?.fixture;
+    if (
+      [
+        "lost",
+        "denied",
+        "malformed",
+        "other work",
+        "other tab",
+        "other session",
+      ].includes(outcome)
+    )
+      assert.equal(parked.ownedTabId, 55);
+    else if (outcome === "existing parked form")
+      assert.deepEqual(parked, original);
+    else assert.equal(parked, undefined);
+  });
+}
+
+for (const lostAck of [false, true]) {
+  test(`Apply failure after a read preserves the tab when abandon is ${lostAck ? "unconfirmed" : "confirmed"}`, async () => {
+    const f = fixture({
+      work: {
+        operation: "inspect_application",
+        target_url: url,
+        execution: {},
+        binding: {
+          tab_id: null,
+          window_id: 10,
+          profile_binding_id: "fixture-profile",
+          browser_session_id: "fixture-session",
+        },
+      },
+      reports: [
+        { kind: "execution_observation", execution: { state: "NOT_APPLIED" } },
+        { kind: "job_facts" },
+      ],
+      respond: async (name, _, work) => {
+        if (name === "finish_naukri_work")
+          return {
+            continue: true,
+            work: { ...work, operation: "apply", status: "leased" },
+          };
+        if (name === "admit_naukri_work" && work.operation === "apply")
+          throw Error("prepared_application_required");
+        if (name === "abandon_naukri_work") {
+          if (lostAck) throw Error("backend_timeout");
+          return {
+            unadmitted_apply_released: true,
+            continue: false,
+            submitted: false,
+            work: {
+              ...work,
+              revision: work.revision + 1,
+              status: "waiting",
+              stage: "BLOCKED_PLATFORM",
+              form_pending: false,
+              lease_token: null,
+              lease_until: null,
+            },
+          };
+        }
+      },
+    });
+    await f.queue.tick();
+    assert.equal(f.calls.filter(([name]) => name === "inspect").length, 2);
+    assert.deepEqual(
+      f.calls.filter(([name]) => name === "close"),
+      lostAck ? [] : [["close", 44]],
+    );
+    assert.equal(
+      f.session.naukriParkedQuestionnairesV1?.fixture.ownedTabId,
+      lostAck ? 44 : undefined,
+    );
+    assert.equal(f.session.naukriReadInFlightV1, undefined);
+  });
+}
+
 test("concurrent alarms share one consumer run", async () => {
   const f = fixture();
   await Promise.all([f.queue.tick(), f.queue.tick()]);

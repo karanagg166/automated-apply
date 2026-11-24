@@ -284,3 +284,134 @@ async fn naukri_native_automatic_start_still_requires_first_strict_current_worke
 async fn naukri_native_profile_save_still_requires_durable_unknown_intent_and_independent_persistence_read(){
     let(mut c,binding,profile)=sync_fixture(json!(["summary"])).await;let synthetic=json!({"binding":binding});let context=native_queue_context(&synthetic);let resumes=sync_resume_settings();let poll=native_queue_call(&mut c,&context,"poll_naukri_work",json!({}),&resumes).await.unwrap();let work=&poll["data"]["work"];assert_eq!(work["operation"],"inspect_profile_sync");let bound=native_queue_call(&mut c,&context,"bind_naukri_work",native_queue_step(work),&resumes).await.unwrap();let admitted=native_queue_call(&mut c,&context,"admit_naukri_work",native_queue_step(&bound["data"]["work"]),&resumes).await.unwrap();let mut fields=native_queue_step(&admitted["data"]["work"]);fields["work_report"]=sync_report("PROFILE_OBSERVED","fictional-native-profile-one",json!({"summary":"Old fictional summary"}));let proposal=native_queue_call(&mut c,&context,"finish_naukri_work",fields,&resumes).await.unwrap();assert_eq!(proposal["ok"],true,"{proposal}");assert_eq!(proposal["data"]["work"]["operation"],"sync_profile");let save=native_queue_call(&mut c,&context,"admit_naukri_work",native_queue_step(&proposal["data"]["work"]),&resumes).await.unwrap();assert_eq!(save["ok"],true,"{save}");assert_eq!(browser_pref(&mut c,"apply_profile_sync:naukri").await["sync_attempt"]["outcome"],"UNKNOWN");assert_eq!(save["data"]["work"]["execution"]["approved_summary"],profile["summary"]);let mut fields=native_queue_step(&save["data"]["work"]);fields["work_report"]=sync_report("PROFILE_SAVE_ATTEMPTED","fictional-native-profile-one",json!({}));let reloading=native_queue_call(&mut c,&context,"finish_naukri_work",fields,&resumes).await.unwrap();let reading=native_queue_call(&mut c,&context,"admit_naukri_work",native_queue_step(&reloading["data"]["work"]),&resumes).await.unwrap();let mut fields=native_queue_step(&reading["data"]["work"]);fields["work_report"]=sync_report("PROFILE_OBSERVED","fictional-native-profile-two",json!({"summary":profile["summary"]}));let finished=native_queue_call(&mut c,&context,"finish_naukri_work",fields,&resumes).await.unwrap();assert_eq!(finished["ok"],true,"{finished}");assert_eq!(finished["data"]["continue"],false);assert_eq!(browser_pref(&mut c,"apply_profile_sync:naukri").await["previous_verified_attempt"]["outcome"],"SYNC_VERIFIED");assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM owner_preferences WHERE starts_with(key,'apply_budget:') OR starts_with(key,'naukri_worker_receipt:')").fetch_one(&mut c).await.unwrap(),0);
 }
+
+#[tokio::test(flavor = "current_thread")]
+#[ignore = "requires dedicated disposable PostgreSQL harness"]
+async fn naukri_native_abandon_attests_only_a_clean_leased_apply() {
+    let (mut c, context, _) = native_queue_fixture().await;
+    let resumes = sync_resume_settings();
+    let polled = native_queue_call(&mut c, &context, "poll_naukri_work", json!({}), &resumes)
+        .await
+        .unwrap();
+    let bound = native_queue_call(
+        &mut c,
+        &context,
+        "bind_naukri_work",
+        native_queue_step(&polled["data"]["work"]),
+        &resumes,
+    )
+    .await
+    .unwrap();
+    let key = format!(
+        "apply_work:{}",
+        bound["data"]["work"]["id"].as_str().unwrap()
+    );
+    let mut leased = browser_pref(&mut c, &key).await;
+    leased["operation"] = json!("apply");
+    leased["stage"] = json!("READY_TO_APPLY");
+    assert_eq!(leased["status"], "leased");
+    assert_eq!(leased["admitted_actions"], json!([]));
+    browser_save(&mut c, &key, leased.clone()).await;
+
+    let mut report = native_queue_step(&leased);
+    report["work_report"] = json!({"kind":"needs_input","reason":"provider_context_changed"});
+    let finish = native_queue_call(
+        &mut c,
+        &context,
+        "finish_naukri_work",
+        report.clone(),
+        &resumes,
+    )
+    .await
+    .unwrap();
+    assert_eq!(finish["error_code"], "queue_action_not_admitted");
+    let mut stale = report.clone();
+    stale["expected_work_revision"] = leased["revision"]
+        .as_i64()
+        .unwrap()
+        .saturating_sub(1)
+        .into();
+    let denied = native_queue_call(&mut c, &context, "abandon_naukri_work", stale, &resumes)
+        .await
+        .unwrap();
+    assert_eq!(denied["error_code"], "queue_lease_lost");
+    assert_eq!(browser_pref(&mut c, &key).await, leased);
+
+    let released = native_queue_call(
+        &mut c,
+        &context,
+        "abandon_naukri_work",
+        report.clone(),
+        &resumes,
+    )
+    .await
+    .unwrap();
+    assert_eq!(released["ok"], true, "{released}");
+    assert_eq!(released["data"]["unadmitted_apply_released"], true);
+    assert_eq!(released["data"]["continue"], false);
+    let saved = browser_pref(&mut c, &key).await;
+    assert_eq!(saved["stage"], "BLOCKED_PLATFORM");
+    assert_eq!(saved["status"], "waiting");
+    assert_eq!(saved["reason"], "provider_context_changed");
+    assert_eq!(
+        saved["revision"].as_i64().unwrap(),
+        leased["revision"].as_i64().unwrap() + 1
+    );
+    assert_eq!(saved["admitted_actions"], json!([]));
+    assert!(saved["lease_token"].is_null());
+    assert!(saved["lease_until"].is_null());
+
+    for (index, (field, value)) in [
+        ("stage", Some(json!("SUBMISSION_UNKNOWN"))),
+        ("status", Some(json!("executing"))),
+        (
+            "admitted_actions",
+            Some(json!([{"fingerprint":"apply:initial"}])),
+        ),
+        ("admitted_actions", Some(json!({}))),
+        ("admitted_actions", None),
+        ("form_pending", Some(json!(true))),
+        ("form_binding", Some(json!({"tab_id":50}))),
+        (
+            "apply_dispatch_observation",
+            Some(json!({"document_id":"fictional"})),
+        ),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let mut uncertain = leased.clone();
+        uncertain["revision"] = json!(leased["revision"].as_i64().unwrap() + 1 + index as i64);
+        if let Some(value) = value {
+            uncertain[field] = value;
+        } else {
+            uncertain.as_object_mut().unwrap().remove(field);
+        }
+        browser_save(&mut c, &key, uncertain.clone()).await;
+        let mut report = report.clone();
+        report["expected_work_revision"] = uncertain["revision"].clone();
+        let abandoned =
+            native_queue_call(&mut c, &context, "abandon_naukri_work", report, &resumes)
+                .await
+                .unwrap();
+        assert_eq!(abandoned["ok"], true, "{abandoned}");
+        assert!(abandoned["data"].get("unadmitted_apply_released").is_none());
+        let saved = browser_pref(&mut c, &key).await;
+        assert_eq!(saved["stage"], "SUBMISSION_UNKNOWN");
+        assert_eq!(saved["status"], "unknown");
+        assert_eq!(
+            saved.get("admitted_actions"),
+            uncertain.get("admitted_actions")
+        );
+        for evidence in ["form_pending", "form_binding", "apply_dispatch_observation"] {
+            assert_eq!(saved.get(evidence), uncertain.get(evidence));
+        }
+    }
+    let reservations: i64 = sqlx::query_scalar(
+        "SELECT count(*) FROM owner_preferences WHERE starts_with(key,'apply_budget:')",
+    )
+    .fetch_one(&mut c)
+    .await
+    .unwrap();
+    assert_eq!(reservations, 0);
+}

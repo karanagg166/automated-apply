@@ -124,6 +124,17 @@ pub(crate) fn transport(work: &Value) -> Result<Value> {
     }
     Ok(Value::Object(value))
 }
+fn unadmitted_apply(work: &Value) -> bool {
+    work["operation"] == "apply"
+        && work["status"] == "leased"
+        && work["stage"] == "READY_TO_APPLY"
+        && work["admitted_actions"]
+            .as_array()
+            .is_some_and(Vec::is_empty)
+        && matches!(work.get("form_pending"), None | Some(Value::Bool(false)))
+        && work["form_binding"].is_null()
+        && work["apply_dispatch_observation"].is_null()
+}
 fn response(work: Option<&Value>, continuing: Option<bool>) -> Result<Value> {
     let mut value = json!({"work":work.map(transport).transpose()?,"submitted":false});
     if let Some(continuing) = continuing {
@@ -505,7 +516,11 @@ pub(crate) async fn step_in(
         report["kind"] = json!("failed");
         report["execution"] = Value::Null;
     }
-    let continuing = if profile_sync_work::OPERATIONS.contains(&op.as_str()) {
+    let unadmitted_apply_released = name == "abandon_naukri_work" && unadmitted_apply(&work);
+    let continuing = if unadmitted_apply_released {
+        submission::record_failure(&mut work, &report, false);
+        false
+    } else if profile_sync_work::OPERATIONS.contains(&op.as_str()) {
         profile_sync_work::receive_in(tx, &mut work, &report, services.resumes, now).await?
     } else if questionnaire_steps::OPERATIONS.contains(&op.as_str()) {
         questionnaires::receive_in(
@@ -546,7 +561,11 @@ pub(crate) async fn step_in(
         work["lease_until"] = Value::Null;
     }
     put(tx, &key, &work).await?;
-    response(Some(&work), Some(continuing))
+    let mut result = response(Some(&work), Some(continuing))?;
+    if unadmitted_apply_released {
+        result["unadmitted_apply_released"] = json!(true);
+    }
+    Ok(result)
 }
 #[cfg(test)]
 mod tests {

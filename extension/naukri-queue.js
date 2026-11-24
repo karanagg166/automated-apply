@@ -584,20 +584,10 @@ export class NaukriQueue {
         }
       }
       if (work) {
-        // Recovery reconciles local observation only. No submitting operation
-        // exists in this consumer and no old browser action is repeated here.
-        try {
-          await this.command("abandon_naukri_work", work, {
-            work_report: {
-              kind: "needs_input",
-              reason: "browser_worker_restarted",
-            },
-          });
-        } catch {
-          /* The old lease/profile may already be fenced. */
-        }
-        await this.closeOwned(work);
+        await this.abandon(work, "browser_worker_restarted");
         await this.api.storage.session.remove(key);
+        if (work.operation === "apply") return;
+        work = null;
       }
       if (
         !(await this.api.permissions.contains({
@@ -756,33 +746,65 @@ export class NaukriQueue {
       return ["job_facts", "source_candidates"].includes(report.kind);
     } catch (error) {
       work = (await this.api.storage.session.get(key))[key] || work;
-      if (work) {
-        try {
-          await this.command("abandon_naukri_work", work, {
-            work_report: {
-              kind: "needs_input",
-              reason: /^[a-zA-Z][a-zA-Z0-9_]{1,63}$/.test(error.message)
-                ? error.message
-                : "background_observation_failed",
-            },
-          });
-        } catch {
-          /* Expiration/Stop is authoritative; do not retry actions. */
-        }
-        if (
-          (work.form_pending && isFormWork(work)) ||
-          ["apply", "answer_questionnaire"].includes(work.operation)
-        )
-          await this.park(work);
-        else await this.closeOwned(work);
-      }
+      if (work)
+        await this.abandon(
+          work,
+          /^[a-zA-Z][a-zA-Z0-9_]{1,63}$/.test(error.message)
+            ? error.message
+            : "background_observation_failed",
+        );
       await this.api.storage.session.remove(key);
     }
   }
-  async park(work) {
+  async abandon(work, reason) {
+    let result;
+    try {
+      result = await this.command("abandon_naukri_work", work, {
+        work_report: { kind: "needs_input", reason },
+      });
+    } catch {
+      /* Expiration/Stop is authoritative; do not retry actions. */
+    }
+    if (work.operation === "apply") {
+      const released = result?.work;
+      if (
+        result?.unadmitted_apply_released === true &&
+        result.continue === false &&
+        result.submitted === false &&
+        work.status === "leased" &&
+        !work.form_pending &&
+        Number.isInteger(work.ownedTabId) &&
+        work.binding?.tab_id === work.ownedTabId &&
+        released?.id === work.id &&
+        released.revision === work.revision + 1 &&
+        released.operation === "apply" &&
+        released.status === "waiting" &&
+        released.stage === "BLOCKED_PLATFORM" &&
+        released.lease_token === null &&
+        released.lease_until === null &&
+        released.form_pending === false &&
+        released.binding?.tab_id === work.ownedTabId &&
+        released.binding?.window_id === work.binding.window_id &&
+        typeof work.binding.browser_session_id === "string" &&
+        released.binding.browser_session_id ===
+          work.binding.browser_session_id &&
+        typeof work.binding.profile_binding_id === "string" &&
+        released.binding.profile_binding_id === work.binding.profile_binding_id
+      )
+        await this.closeOwned(work);
+      else if (Number.isInteger(work.ownedTabId)) await this.park(work, true);
+    } else if (
+      (work.form_pending && isFormWork(work)) ||
+      work.operation === "answer_questionnaire"
+    )
+      await this.park(work);
+    else await this.closeOwned(work);
+  }
+  async park(work, preserveExisting = false) {
     const forms = {
       ...((await this.api.storage.session.get(parkedKey))[parkedKey] || {}),
     };
+    if (preserveExisting && forms[work.id]) return;
     forms[work.id] = {
       ...work,
       form_pending: true,
