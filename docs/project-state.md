@@ -11,7 +11,10 @@ Brave retained its existing tabs and all six running modules matched the
 candidate. Two later attempts observed further Chrome window changes
 with the foreground app and unlocked screen preserved. The guard rolled
 both back. The installed runtime is healthy at queue STOP revision 178.
-A stable desktop session is needed for the next cutover.
+The idle-desktop watcher qualified another attempt and all four Desktop
+access probes passed. A background VLC window appeared during preflight.
+The installer held before changing services, and the watcher can now
+requalify automatically after a clean preflight hold.
 [Recovery acceptance](acceptance/naukri-bridge-release-20261125.md#recovery-after-an-interrupted-application-status-read)
 
 The continuity verifier now reuses SHA-256 states for shared transcript

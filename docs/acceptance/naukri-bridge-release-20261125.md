@@ -17,6 +17,7 @@ prepared-resume regression. The immutable release was staged under
 | First managed cutover attempt | ROLLED BACK | Candidate readiness returned HTTP 200 after 12.436 seconds and retained the same 3,097 jobs and 39 packets. The foreground app and screen lock state stayed the same. Chrome's window IDs changed before the final snapshot, so the installer restored the previous release. Rollback readiness passed in 12.451 seconds. |
 | Second managed cutover attempt | ROLLED BACK | Chrome stayed the foreground app. Two Chrome window IDs disappeared and another appeared during activation. All previously shared windows stayed in the same relative order. The guard restored the previous release and passed readiness and smoke checks. The cause of the Chrome window changes remains unconfirmed. |
 | Third managed cutover attempt | ROLLED BACK | The desktop held the same snapshot for 35 seconds. Browser window order still matched at quiescence and activation, and candidate readiness passed in 12.407 seconds. The final snapshot showed Chrome's earlier window set again. The prior runtime returned to readiness in 12.389 seconds. |
+| Next idle-desktop attempt | HELD BEFORE CUTOVER | All four Desktop access probes passed again. Between idle qualification and the installer preflight, a background VLC window appeared. The foreground app, unlocked state, and relative order of the three shared windows matched. The guard stopped before any LaunchAgent changes. |
 | Live supervised submission | PENDING | Queue STOP revision 178 retained one available admission, three previous reservations and three quarantines after rollback. |
 
 The first and third attempts reached managed service readiness and verified
@@ -33,6 +34,14 @@ four changes in the all-window inventory, and zero Space-change
 notifications. These samples show the window census can vary outside an
 installation. The same desktop rollback check remains active.
 [Apple window census options](https://developer.apple.com/documentation/coregraphics/window-list-option-constants)
+
+The installer can qualify on any quiet unlocked desktop. It compares that
+exact snapshot immediately before the service changes, at activation,
+at readiness, and after the read-only smoke and retained-data checks.
+If the desktop changes before service changes, the watcher can qualify
+again and reuse the fresh passing access report. An observed mismatch
+during service changes still triggers rollback. Eight local watcher
+qualification and retry cases passed.
 
 ## Prepared application continuation cutover
 
