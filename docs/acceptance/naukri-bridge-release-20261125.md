@@ -49,7 +49,27 @@ the second timeout hold, and explicit continuation of the same packet.
 | Staging and rollback readiness | PASS | The staged artifact inventory matches the accepted commit. The current installation matches rollback snapshot `rust-preinstall-51rlku8l` across nine definitions and 22 references. |
 | Managed activation | PASS | All four macOS access probes passed. The exact listener owners and HTTP readiness were verified in 12.396 seconds. All 16 smoke checks passed, focus was preserved, and the cutover retained 3,097 jobs, 39 packets, three reservations and three quarantines. |
 | Existing Brave instance | PASS | The old and new Brave bundles and native binary matched byte for byte. All six executing modules matched the candidate before and after cutover. The same browser process and tabs stayed open while the native host manifest moved to the new release. |
-| Supervised live receipt on the recovery release | PENDING | Naukri shows sign-in in the existing tab. The earlier packet remains paused at queue revision 176 and work revision 21, with zero admissions for this packet and one supervised admission available. The new read-only stability observation has started. |
+| Supervised live receipt on the recovery release | PENDING | The resumed packet passed fresh listing and résumé checks, then held at the application-status read. STOP revision 178 preserved the packet and its unused admission. |
+
+The signed-in continuation then rechecked the listing, account and canonical
+PDF and restarted the same packet at scoped revision 177. The browser
+captured the PDF in 0.174 seconds and the native profile finish acknowledged
+after 16.846 seconds. Durable work reached `inspect_application` with
+account and résumé evidence. The bridge then reported `backend_not_ready`.
+After the lease expired, the worker reclaimed the listing read with a new
+tab binding. The earlier account proof did not transfer, and the listing
+read held with `provider_account_identity_unverified`. The watchdog
+confirmed STOP revision 178 and browser commands off. The prepared packet
+is paused at revision 32. The queue retains three reservations and three
+quarantines, with zero new Apply admissions and zero strict receipts.
+
+The follow-up source restarts an expired, unadmitted listing read from fresh
+profile verification. A confirmed local transport abandon can return the
+same scoped packet to that read once. The explicit continuation can
+recover the paused stale-proof state with the exact work revision and
+existing proof and history checks. These paths discard the prior tab's
+account, résumé and application-status evidence before claiming another
+read. The follow-up remains pending combined validation and live acceptance.
 
 ## Earlier bridge release and incident
 

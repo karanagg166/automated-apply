@@ -9,10 +9,16 @@ All four macOS access probes and 16 smoke checks passed. Readiness took
 three prior reservations and three quarantines. The Brave bundle and native
 binary were byte-identical across the two releases. The existing browser
 instance stayed open and all six running modules verified before and after
-cutover. A new read-only observation started. Live execution still requires
-sign-in in the dedicated Naukri tab and fresh account, résumé and listing
-proof. The exact timed-out packet is unadmitted at revision 21. The queue
-remains stopped at revision 176.
+cutover. A new read-only observation started. The dedicated Naukri tab
+signed in and verified the canonical PDF and exact listing again. The
+same prepared packet reached the prior-application check at scoped
+revision 177 after acknowledging the profile and résumé proof. A native
+availability failure interrupted the next read. After lease expiry, the
+new tab could not use the previous binding's account proof. The queue
+returned to STOP revision 178 and disabled browser commands. The packet
+is paused at revision 32, with no Apply admission and three quarantines
+retained. The follow-up source requires a fresh profile read before
+reclaiming the exact interrupted listing read. Live receipt remains pending.
 
 The prepared-resume release `cd3f7d16b7beaadea978663ffc25358d49aa881b`
 passed all 37 combined stages on the clean commit and was live on the Mac

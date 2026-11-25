@@ -94,6 +94,7 @@ pub(crate) async fn claim_in(
             && work["operation"]
                 .as_str()
                 .is_some_and(|s| filters::WRITES.contains(&s));
+        super::supervised_listing::rewind_expired_application_read(&current, work, now);
         if work["operation"] == "apply" && !uncertain {
             work["operation"] = json!(if work["account_sha256"]
                 .as_str()

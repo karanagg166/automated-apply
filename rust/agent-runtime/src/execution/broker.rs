@@ -517,9 +517,9 @@ pub(crate) async fn step_in(
         report["execution"] = Value::Null;
     }
     let unadmitted_apply_released = name == "abandon_naukri_work" && unadmitted_apply(&work);
-    let queued_profile_retry = name == "abandon_naukri_work"
-        && super::supervised_listing::retry_profile_transport(&config, &mut work, &report, now);
-    let continuing = if queued_profile_retry {
+    let queued_read_retry = name == "abandon_naukri_work"
+        && super::supervised_listing::retry_pre_apply_transport(&config, &mut work, &report, now);
+    let continuing = if queued_read_retry {
         false
     } else if unadmitted_apply_released {
         submission::record_failure(&mut work, &report, false);

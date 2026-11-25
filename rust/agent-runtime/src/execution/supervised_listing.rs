@@ -235,22 +235,28 @@ fn saved_uuid(value: &Value) -> Result<Uuid> {
         .ok_or_else(invalid)
 }
 
-fn interrupted_profile_read(work: &Value) -> bool {
+fn interrupted_pre_apply_read(work: &Value, at: DateTime<Utc>) -> bool {
     let paused = &work["paused_context"];
+    let operation = work["operation"].as_str();
     let lease_interrupted = matches!(
         paused["status"].as_str(),
         Some("queued" | "leased" | "executing")
     ) && (paused["stage"] == "READY_TO_APPLY"
         || paused["stage"] == "FAILED_RETRYABLE" && paused["reason"] == "lease_expired");
-    let transport_failed = paused["status"] == "waiting"
+    let read_blocked = paused["status"] == "waiting"
         && paused["stage"] == "BLOCKED_PLATFORM"
-        && paused["reason"] == "backend_timeout";
+        && (paused["reason"] == "backend_timeout"
+            || operation == Some("inspect_application")
+                && (paused["reason"] == "backend_not_ready"
+                    || paused["reason"] == "provider_account_identity_unverified"
+                        && work["account_observation"].is_object()
+                        && !preflight::account_current(work, at)));
     work["stage"] == "PAUSED"
         && work["status"] == "waiting"
         && work["reason"] == "global_stop"
-        && work["operation"] == "inspect_profile"
-        && paused["operation"] == "inspect_profile"
-        && (lease_interrupted || transport_failed)
+        && matches!(operation, Some("inspect_profile" | "inspect_application"))
+        && paused["operation"] == work["operation"]
+        && (lease_interrupted || read_blocked)
 }
 
 fn has_write_evidence(work: &Value) -> bool {
@@ -275,32 +281,75 @@ fn has_write_evidence(work: &Value) -> bool {
         .any(|field| !work[*field].is_null())
 }
 
-pub(super) fn retry_profile_transport(
+fn require_fresh_profile_read(work: &mut Value) {
+    work["operation"] = json!("inspect_profile");
+    for field in [
+        "binding",
+        "account_observation",
+        "document_id",
+        "control_sha256",
+    ] {
+        work[field] = Value::Null;
+    }
+    for field in [
+        "prior_status",
+        "prior_status_checked_at",
+        "provider_resume_checked_at",
+        "provider_resume_sha256",
+        "provider_resume_source",
+    ] {
+        work["facts"][field] = Value::Null;
+    }
+}
+
+fn is_unadmitted_scoped_read(config: &Value, work: &Value, at: DateTime<Utc>) -> bool {
+    scoped(config)
+        && permits_work(config, work, at)
+        && matches!(
+            work["stage"].as_str(),
+            Some("READY_TO_APPLY" | "FAILED_RETRYABLE")
+        )
+        && work["packet_id"].is_string()
+        && work["facts"].is_object()
+        && !has_write_evidence(work)
+}
+
+pub(super) fn rewind_expired_application_read(config: &Value, work: &mut Value, at: DateTime<Utc>) {
+    if work["operation"] == "inspect_application" && is_unadmitted_scoped_read(config, work, at) {
+        // A new lease owns a different tab. The old account and résumé proof
+        // cannot follow it, even if their timestamps would still be fresh.
+        require_fresh_profile_read(work);
+    }
+}
+
+pub(super) fn retry_pre_apply_transport(
     config: &Value,
     work: &mut Value,
     report: &Value,
     at: DateTime<Utc>,
 ) -> bool {
-    if !scoped(config)
-        || !permits_work(config, work, at)
-        || report["reason"] != "backend_timeout"
-        || work["operation"] != "inspect_profile"
-        || work["status"] != "executing"
-        || !matches!(
-            work["stage"].as_str(),
-            Some("READY_TO_APPLY" | "FAILED_RETRYABLE")
-        )
-        || work["packet_id"].is_null()
-        || work
-            .get("supervised_profile_transport_retry_used")
-            .is_some()
-        || has_write_evidence(work)
-    {
+    let marker = match (
+        work["operation"].as_str(),
+        work["status"].as_str(),
+        report["reason"].as_str(),
+    ) {
+        (Some("inspect_profile"), Some("executing"), Some("backend_timeout")) => {
+            "supervised_profile_transport_retry_used"
+        }
+        (
+            Some("inspect_application"),
+            Some("leased" | "executing"),
+            Some("backend_timeout" | "backend_not_ready"),
+        ) => "supervised_application_read_retry_used",
+        _ => return false,
+    };
+    if !is_unadmitted_scoped_read(config, work, at) || work.get(marker).is_some() {
         return false;
     }
     // An acknowledged abandon still owns the exact old lease. Successful
     // finish would have changed its revision, so no result can be replayed.
-    work["supervised_profile_transport_retry_used"] = json!(true);
+    require_fresh_profile_read(work);
+    work[marker] = json!(true);
     work["stage"] = json!("FAILED_RETRYABLE");
     work["status"] = json!("queued");
     work["reason"] = report["reason"].clone();
@@ -387,7 +436,7 @@ async fn resume_in(
     if revision(&work)? != work_revision {
         return Err(Failure("queue_work_revision_conflict"));
     }
-    if !interrupted_profile_read(&work)
+    if !interrupted_pre_apply_read(&work, at)
         || work["platform"] != "naukri"
         || !work["lease_token"].is_null()
         || !work["lease_until"].is_null()
@@ -457,23 +506,7 @@ async fn resume_in(
     }
     work["stage"] = json!("READY_TO_APPLY");
     work["upload_preflight"] = pdf;
-    for field in [
-        "binding",
-        "account_observation",
-        "document_id",
-        "control_sha256",
-    ] {
-        work[field] = Value::Null;
-    }
-    for field in [
-        "prior_status",
-        "prior_status_checked_at",
-        "provider_resume_checked_at",
-        "provider_resume_sha256",
-        "provider_resume_source",
-    ] {
-        work["facts"][field] = Value::Null;
-    }
+    require_fresh_profile_read(&mut work);
     save(
         tx,
         config,
@@ -529,11 +562,11 @@ mod tests {
         let work = json!({
             "id":"fixture-work","platform":"naukri","packet_id":"fixture-packet",
             "operation":"inspect_profile","stage":"READY_TO_APPLY","status":"executing",
-            "admitted_actions":[]
+            "admitted_actions":[],"facts":{}
         });
         let timeout = json!({"reason":"backend_timeout"});
         let mut expired = work.clone();
-        assert!(!retry_profile_transport(
+        assert!(!retry_pre_apply_transport(
             &config,
             &mut expired,
             &timeout,
@@ -549,7 +582,7 @@ mod tests {
             let mut changed = work.clone();
             changed[field] = evidence;
             let before = changed.clone();
-            assert!(!retry_profile_transport(
+            assert!(!retry_pre_apply_transport(
                 &config,
                 &mut changed,
                 &timeout,
@@ -558,10 +591,64 @@ mod tests {
             assert_eq!(changed, before);
         }
         let mut retry = work;
-        assert!(retry_profile_transport(&config, &mut retry, &timeout, at));
+        assert!(retry_pre_apply_transport(&config, &mut retry, &timeout, at));
         assert_eq!(retry["status"], "queued");
         assert_eq!(retry["packet_id"], "fixture-packet");
-        assert!(!retry_profile_transport(&config, &mut retry, &timeout, at));
+        assert!(!retry_pre_apply_transport(
+            &config, &mut retry, &timeout, at
+        ));
+    }
+
+    #[test]
+    fn interrupted_application_read_discards_tab_bound_proof_before_recovery() {
+        let at = Utc::now();
+        let config = json!({
+            "state":"RUNNING",
+            "policy":{"platforms":{"naukri":{"mode":"SUPERVISED"}}},
+            SCOPE:{"work_id":"fixture-work","expires_at":stamp(at + Duration::minutes(10))}
+        });
+        let work = json!({
+            "id":"fixture-work","platform":"naukri","packet_id":"fixture-packet",
+            "operation":"inspect_application","stage":"READY_TO_APPLY","status":"leased",
+            "admitted_actions":[],"account_sha256":"fixture-hash",
+            "binding":{"tab_id":50},
+            "account_observation":{"source":"profile_ui","binding":{"tab_id":50},
+                "account_sha256":"fixture-hash","work_id":"fixture-work",
+                "profile_document_id":"old_profile_document","observed_at":stamp(at)},
+            "facts":{"applicants_min":100,"provider_resume_checked_at":stamp(at),"prior_status":"NOT_APPLIED"}
+        });
+        let mut transport = work.clone();
+        assert!(retry_pre_apply_transport(
+            &config,
+            &mut transport,
+            &json!({"reason":"backend_not_ready"}),
+            at
+        ));
+        assert_eq!(transport["operation"], "inspect_profile");
+        assert_eq!(transport["status"], "queued");
+        assert_eq!(transport["supervised_application_read_retry_used"], true);
+        let mut expired = work.clone();
+        rewind_expired_application_read(&config, &mut expired, at);
+        for reset in [&transport, &expired] {
+            assert_eq!(reset["operation"], "inspect_profile");
+            assert_eq!(reset["packet_id"], "fixture-packet");
+            assert_eq!(reset["admitted_actions"], json!([]));
+            assert!(reset["account_observation"].is_null());
+            assert!(reset["facts"]["provider_resume_checked_at"].is_null());
+            assert!(reset["facts"]["prior_status"].is_null());
+            assert_eq!(reset["facts"]["applicants_min"], 100);
+        }
+        let mut paused = work;
+        paused["stage"] = json!("PAUSED");
+        paused["status"] = json!("waiting");
+        paused["reason"] = json!("global_stop");
+        paused["paused_context"] = json!({"operation":"inspect_application","status":"waiting",
+            "stage":"BLOCKED_PLATFORM","reason":"provider_account_identity_unverified"});
+        assert!(!interrupted_pre_apply_read(&paused, at));
+        paused["binding"]["tab_id"] = json!(51);
+        assert!(interrupted_pre_apply_read(&paused, at));
+        paused["paused_context"]["reason"] = json!("provider_challenge_requires_owner");
+        assert!(!interrupted_pre_apply_read(&paused, at));
     }
 
     #[test]

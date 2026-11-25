@@ -517,6 +517,71 @@ async fn naukri_native_supervised_prepared_resume_preserves_quarantine_and_requi
     assert_eq!(saved["packet_id"], packet["id"]);
     assert_eq!(saved["operation"], "inspect_profile");
     assert!(saved["account_observation"].is_null());
+
+    let mut expired_listing_read = saved;
+    expired_listing_read["operation"] = json!("inspect_application");
+    expired_listing_read["status"] = json!("leased");
+    expired_listing_read["binding"] = json!({"tab_id":50});
+    expired_listing_read["lease_token"] = json!(Uuid::new_v4());
+    expired_listing_read["lease_until"] = at.clone();
+    expired_listing_read["account_observation"] = json!({
+        "source":"profile_ui","binding":{"tab_id":50},"work_id":work_id,
+        "account_sha256":account["account_sha256"],"profile_document_id":"expired_fixture_document",
+        "observed_at":at
+    });
+    expired_listing_read["facts"]["provider_resume_checked_at"] = at.clone();
+    browser_save(&mut connection, &work_key, expired_listing_read).await;
+    let recovered = native_queue_call(
+        &mut connection,
+        &context,
+        "poll_naukri_work",
+        json!({}),
+        &settings,
+    )
+    .await
+    .unwrap();
+    assert_eq!(recovered["data"]["work"]["id"], work_id, "{recovered}");
+    assert_eq!(recovered["data"]["work"]["operation"], "inspect_profile");
+    assert_eq!(recovered["data"]["submitted"], false);
+    let recovered = browser_pref(&mut connection, &work_key).await;
+    assert_eq!(recovered["packet_id"], packet["id"]);
+    assert!(recovered["account_observation"].is_null());
+    assert!(recovered["facts"]["provider_resume_checked_at"].is_null());
+    assert_eq!(browser_pref(&mut connection, &expired_key).await, paused_expired);
+
+    let mut stale_proof_hold = recovered;
+    stale_proof_hold["operation"] = json!("inspect_application");
+    stale_proof_hold["stage"] = json!("BLOCKED_PLATFORM");
+    stale_proof_hold["status"] = json!("waiting");
+    stale_proof_hold["reason"] = json!("provider_account_identity_unverified");
+    stale_proof_hold["lease_token"] = Value::Null;
+    stale_proof_hold["lease_until"] = Value::Null;
+    stale_proof_hold["binding"] = json!({"tab_id":51});
+    stale_proof_hold["account_observation"] = json!({
+        "source":"profile_ui","binding":{"tab_id":50},"work_id":work_id,
+        "account_sha256":account["account_sha256"],"profile_document_id":"retained_fixture_document",
+        "observed_at":at
+    });
+    browser_save(&mut connection, &work_key, stale_proof_hold).await;
+    execution_mutate(
+        &mut connection,
+        automated_apply_agents::execution::Route::Control,
+        json!({"action":"stop","expected_revision":revision+3}),
+    )
+    .await
+    .unwrap();
+    let held = browser_pref(&mut connection, &work_key).await;
+    assert_eq!(held["paused_context"]["reason"], "provider_account_identity_unverified");
+    let work_revision = held["revision"].as_i64().unwrap();
+    let stale = launch(revision + 4, work_revision - 1).await;
+    assert_eq!(String::from_utf8_lossy(&stale.stderr).trim(), "queue_work_revision_conflict");
+    let paused_expired = browser_pref(&mut connection, &expired_key).await;
+    let resumed = launch(revision + 4, work_revision).await;
+    assert!(resumed.status.success(), "{}", String::from_utf8_lossy(&resumed.stderr));
+    let resumed = browser_pref(&mut connection, &work_key).await;
+    assert_eq!(resumed["operation"], "inspect_profile");
+    assert_eq!(resumed["packet_id"], packet["id"]);
+    assert!(resumed["account_observation"].is_null());
     for (key, quarantine) in historical {
         assert_eq!(browser_pref(&mut connection, &key).await, quarantine);
     }
