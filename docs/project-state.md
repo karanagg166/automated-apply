@@ -17,7 +17,13 @@ request. Reloading the existing tab restored the verified account and
 100,198-byte canonical PDF proof. The original listing now redirects to
 search, with its packet retained and unadmitted. A replacement was reviewed
 through a fresh provider search under the same one-listing exception. The
-remaining supervised run needs the Mac unlocked and fresh checks at start.
+replacement passed live eligibility and prepared a packet. After profile-read
+lease losses, the worker entered the profile read, then reported
+`backend_timeout`. The watchdog stopped the queue at revision 176, disabled
+browser commands, and kept the prepared packet at revision 21. Live readback
+still shows three reservations, three quarantines and zero worker receipts.
+The new source allows one fresh profile read after a confirmed transport
+timeout before Apply and supports continuing this exact paused packet.
 [Combined and live acceptance evidence](acceptance/naukri-bridge-release-20261125.md)
 
 ## Earlier bridge release, 2026-11-25

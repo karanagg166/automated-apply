@@ -18,11 +18,19 @@ used fixtures.
 | Exact Brave package and profile restoration | PASS | Developer mode and the project extension were re-enabled before cutover. The launcher restored the dedicated profile and one inactive Naukri tab. All six packaged modules match the release. |
 | Exact running Brave modules | PASS | Restart left the running `naukri-queue.js` stale. After the Mac unlocked, one stopped extension reload and independent readback verified all six running modules. A new 24-hour observation started. |
 | Fresh canonical PDF check | PASS | Naukri rejected the Download request with HTTP 401 in the restored tab. An ordinary reload of that same inactive tab returned HTTP 200, and a new Download matched the signed-in account and confirmed 100,198-byte canonical PDF. |
-| Live supervised application and strict receipt | PENDING | The original listing now redirects to a search page. Its work remains paused at revision 36 with the existing packet and no admission, form, or dispatch evidence. A new one-listing observation retained the approved applicant, identity, résumé, and quota rules. |
+| Live supervised application and strict receipt | BLOCKED | The original listing redirects to search. The reviewed replacement passed eligibility and prepared a packet at scoped revision 175. Its worker lost profile-read leases, then reached the profile read and reported `backend_timeout` after read admission. Stop revision 176 confirmed zero Apply admissions, three retained reservations and quarantines, and zero receipts. Browser commands were disabled. |
 
 The stopped reload checked the unlocked session and exact dedicated profile
 before requesting one ordinary extension reload. Reproduce the combined gate
 with `uv run --no-project python scripts/run_acceptance.py --run --keep-going`.
+
+The replacement packet is paused at work revision 21. The browser trace
+observed a successful bind, navigation, and read admission before the
+native timeout. The request that caused the transport timeout has not been
+independently traced inside the backend. The source change allows one
+fresh profile-read lease following a confirmed abandon of the exact lease.
+It also permits an explicit continuation of this paused, unadmitted packet.
+Both paths retain the one-listing, account, résumé, history, and quota checks.
 
 ## Earlier bridge release and incident
 

@@ -334,7 +334,7 @@ async fn checked_in(
     command: &Value,
     binding: &Value,
     now: DateTime<Utc>,
-) -> Result<(String, Value)> {
+) -> Result<(String, Value, Value)> {
     let id = command["work_id"]
         .as_str()
         .and_then(|s| s.parse::<Uuid>().ok())
@@ -365,7 +365,7 @@ async fn checked_in(
         return Err(Failure("queue_lease_lost"));
     }
     operation(&work)?;
-    Ok((key, work))
+    Ok((key, work, config))
 }
 pub(crate) async fn step_in(
     tx: &mut Transaction<'_, Postgres>,
@@ -382,7 +382,7 @@ pub(crate) async fn step_in(
     if name == "bind_naukri_work" {
         let mut unbound = binding.clone();
         unbound["tab_id"] = Value::Null;
-        let (key, mut work) = checked_in(tx, command, &unbound, now).await?;
+        let (key, mut work, _) = checked_in(tx, command, &unbound, now).await?;
         if work["form_pending"] == true
             && work["form_loss_observation"].is_null()
             && questionnaire_steps::OPERATIONS.contains(&operation(&work)?)
@@ -402,7 +402,7 @@ pub(crate) async fn step_in(
         put(tx, &key, &work).await?;
         return response(Some(&work), None);
     }
-    let (key, mut work) = checked_in(tx, command, binding, now).await?;
+    let (key, mut work, config) = checked_in(tx, command, binding, now).await?;
     let op = operation(&work)?.to_owned();
     if name == "check_naukri_work" {
         if profile_sync_work::OPERATIONS.contains(&op.as_str()) {
@@ -517,7 +517,11 @@ pub(crate) async fn step_in(
         report["execution"] = Value::Null;
     }
     let unadmitted_apply_released = name == "abandon_naukri_work" && unadmitted_apply(&work);
-    let continuing = if unadmitted_apply_released {
+    let queued_profile_retry = name == "abandon_naukri_work"
+        && super::supervised_listing::retry_profile_transport(&config, &mut work, &report, now);
+    let continuing = if queued_profile_retry {
+        false
+    } else if unadmitted_apply_released {
         submission::record_failure(&mut work, &report, false);
         false
     } else if profile_sync_work::OPERATIONS.contains(&op.as_str()) {

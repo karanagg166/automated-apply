@@ -436,10 +436,91 @@ async fn naukri_native_supervised_prepared_resume_preserves_quarantine_and_requi
     assert_eq!(poll["data"]["work"]["id"], work_id, "{poll}");
     assert_eq!(poll["data"]["work"]["operation"], "inspect_profile");
     assert_eq!(poll["data"]["submitted"], false);
+    let mut leased = poll["data"]["work"].clone();
+    for (expected_stage, expected_status) in [
+        ("FAILED_RETRYABLE", "queued"),
+        ("BLOCKED_PLATFORM", "waiting"),
+    ] {
+        let bound = native_queue_call(
+            &mut connection,
+            &context,
+            "bind_naukri_work",
+            native_queue_step(&leased),
+            &settings,
+        )
+        .await
+        .unwrap();
+        let admitted = native_queue_call(
+            &mut connection,
+            &context,
+            "admit_naukri_work",
+            native_queue_step(&bound["data"]["work"]),
+            &settings,
+        )
+        .await
+        .unwrap();
+        assert_eq!(admitted["data"]["work"]["status"], "executing", "{admitted}");
+        let mut timeout = native_queue_step(&admitted["data"]["work"]);
+        timeout["work_report"] = json!({"kind":"needs_input","reason":"backend_timeout"});
+        let released = native_queue_call(
+            &mut connection,
+            &context,
+            "abandon_naukri_work",
+            timeout,
+            &settings,
+        )
+        .await
+        .unwrap();
+        let observed = &released["data"]["work"];
+        assert_eq!(observed["stage"], expected_stage, "{released}");
+        assert_eq!(observed["status"], expected_status);
+        assert_eq!(observed["operation"], "inspect_profile");
+        assert!(observed["lease_token"].is_null());
+        assert_eq!(released["data"]["submitted"], false);
+        let next = native_queue_call(
+            &mut connection,
+            &context,
+            "poll_naukri_work",
+            json!({}),
+            &settings,
+        )
+        .await
+        .unwrap();
+        if expected_status == "queued" {
+            assert_eq!(next["data"]["work"]["id"], work_id);
+            assert_eq!(next["data"]["work"]["operation"], "inspect_profile");
+            assert_ne!(next["data"]["work"]["lease_token"], leased["lease_token"]);
+            leased = next["data"]["work"].clone();
+        } else {
+            assert!(next["data"]["work"].is_null(), "{next}");
+        }
+    }
+    assert_eq!(browser_pref(&mut connection, &expired_key).await, expired);
+    execution_mutate(
+        &mut connection,
+        automated_apply_agents::execution::Route::Control,
+        json!({"action":"stop","expected_revision":revision+1}),
+    )
+    .await
+    .unwrap();
+    let paused = browser_pref(&mut connection, &work_key).await;
+    assert_eq!(paused["paused_context"]["reason"], "backend_timeout");
+    assert_eq!(paused["admitted_actions"], json!([]));
+    let paused_expired = browser_pref(&mut connection, &expired_key).await;
+    let resumed = launch(revision + 2, paused["revision"].as_i64().unwrap()).await;
+    assert!(
+        resumed.status.success(),
+        "{}",
+        String::from_utf8_lossy(&resumed.stderr)
+    );
+    let saved = browser_pref(&mut connection, &work_key).await;
+    assert_eq!(saved["packet_id"], packet["id"]);
+    assert_eq!(saved["operation"], "inspect_profile");
+    assert!(saved["account_observation"].is_null());
     for (key, quarantine) in historical {
         assert_eq!(browser_pref(&mut connection, &key).await, quarantine);
     }
-    assert_eq!(browser_pref(&mut connection, &expired_key).await, expired);
+    assert_eq!(browser_pref(&mut connection, &expired_key).await, paused_expired);
     assert_eq!(browser_pref(&mut connection, budget_key).await, budget);
     assert_eq!(
         browser_pref(&mut connection, &work_key).await["admitted_actions"],

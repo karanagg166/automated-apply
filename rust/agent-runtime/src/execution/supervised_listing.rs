@@ -237,17 +237,20 @@ fn saved_uuid(value: &Value) -> Result<Uuid> {
 
 fn interrupted_profile_read(work: &Value) -> bool {
     let paused = &work["paused_context"];
+    let lease_interrupted = matches!(
+        paused["status"].as_str(),
+        Some("queued" | "leased" | "executing")
+    ) && (paused["stage"] == "READY_TO_APPLY"
+        || paused["stage"] == "FAILED_RETRYABLE" && paused["reason"] == "lease_expired");
+    let transport_failed = paused["status"] == "waiting"
+        && paused["stage"] == "BLOCKED_PLATFORM"
+        && paused["reason"] == "backend_timeout";
     work["stage"] == "PAUSED"
         && work["status"] == "waiting"
         && work["reason"] == "global_stop"
         && work["operation"] == "inspect_profile"
         && paused["operation"] == "inspect_profile"
-        && matches!(
-            paused["status"].as_str(),
-            Some("queued" | "leased" | "executing")
-        )
-        && (paused["stage"] == "READY_TO_APPLY"
-            || paused["stage"] == "FAILED_RETRYABLE" && paused["reason"] == "lease_expired")
+        && (lease_interrupted || transport_failed)
 }
 
 fn has_write_evidence(work: &Value) -> bool {
@@ -270,6 +273,38 @@ fn has_write_evidence(work: &Value) -> bool {
         ]
         .iter()
         .any(|field| !work[*field].is_null())
+}
+
+pub(super) fn retry_profile_transport(
+    config: &Value,
+    work: &mut Value,
+    report: &Value,
+    at: DateTime<Utc>,
+) -> bool {
+    if !scoped(config)
+        || !permits_work(config, work, at)
+        || report["reason"] != "backend_timeout"
+        || work["operation"] != "inspect_profile"
+        || work["status"] != "executing"
+        || !matches!(
+            work["stage"].as_str(),
+            Some("READY_TO_APPLY" | "FAILED_RETRYABLE")
+        )
+        || work["packet_id"].is_null()
+        || work
+            .get("supervised_profile_transport_retry_used")
+            .is_some()
+        || has_write_evidence(work)
+    {
+        return false;
+    }
+    // An acknowledged abandon still owns the exact old lease. Successful
+    // finish would have changed its revision, so no result can be replayed.
+    work["supervised_profile_transport_retry_used"] = json!(true);
+    work["stage"] = json!("FAILED_RETRYABLE");
+    work["status"] = json!("queued");
+    work["reason"] = report["reason"].clone();
+    true
 }
 
 async fn require_unadmitted_history(
@@ -481,6 +516,53 @@ async fn save(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn timeout_retry_is_once_and_never_retries_a_provider_write() {
+        let at = Utc::now();
+        let deadline = at + Duration::minutes(15);
+        let config = json!({
+            "state":"RUNNING",
+            "policy":{"platforms":{"naukri":{"mode":"SUPERVISED"}}},
+            SCOPE:{"work_id":"fixture-work","expires_at":stamp(deadline)}
+        });
+        let work = json!({
+            "id":"fixture-work","platform":"naukri","packet_id":"fixture-packet",
+            "operation":"inspect_profile","stage":"READY_TO_APPLY","status":"executing",
+            "admitted_actions":[]
+        });
+        let timeout = json!({"reason":"backend_timeout"});
+        let mut expired = work.clone();
+        assert!(!retry_profile_transport(
+            &config,
+            &mut expired,
+            &timeout,
+            deadline
+        ));
+        for (field, evidence) in [
+            ("id", json!("other-work")),
+            ("operation", json!("apply")),
+            ("status", json!("leased")),
+            ("form_pending", json!(true)),
+            ("admitted_actions", json!([{"id":"earlier-admission"}])),
+        ] {
+            let mut changed = work.clone();
+            changed[field] = evidence;
+            let before = changed.clone();
+            assert!(!retry_profile_transport(
+                &config,
+                &mut changed,
+                &timeout,
+                at
+            ));
+            assert_eq!(changed, before);
+        }
+        let mut retry = work;
+        assert!(retry_profile_transport(&config, &mut retry, &timeout, at));
+        assert_eq!(retry["status"], "queued");
+        assert_eq!(retry["packet_id"], "fixture-packet");
+        assert!(!retry_profile_transport(&config, &mut retry, &timeout, at));
+    }
 
     #[test]
     fn exception_is_bound_to_exact_work_evidence_and_deadline() {
