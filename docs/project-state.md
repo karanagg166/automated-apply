@@ -1,13 +1,19 @@
 ## Latest local acceptance, 2026-11-25
 
+The transport-timeout candidate `7e12fc66c400b24a901af29e3710e5288083c29d`
+has 37 passing combined stages and is staged under `rust-plan-aypdoz7f`.
+After the first runner exited, the release build and artifact inventory were
+run again on the same clean commit, retaining the original 35 passes.
+Cutover is waiting for a signed-in Naukri tab in the reopened dedicated
+Brave profile. The exact timed-out packet is still unadmitted.
+
 The prepared-resume release `cd3f7d16b7beaadea978663ffc25358d49aa881b`
 passed all 37 combined stages on the clean commit and is live on the Mac
 under managed plan `rust-plan-m6op23mi`. All four macOS access probes
 passed. The new runtime and dashboard reached readiness in 12.346 seconds,
 with 3,096 jobs, 38 packets, three prior reservations and three quarantines
-retained. The execution queue remains stopped at revision 174. The exact
-prepared work remains at revision 36 with no lease, no new admission or
-form evidence, and zero worker receipts.
+retained. Cutover preserved STOP at revision 174. The original prepared
+work remained at revision 36 with no lease, admission, or form evidence.
 
 Brave Developer mode is enabled. One stopped extension reload on the
 unlocked Mac recovered the stale `naukri-queue.js`. All six running modules

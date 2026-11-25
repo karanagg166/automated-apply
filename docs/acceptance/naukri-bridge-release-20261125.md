@@ -32,6 +32,24 @@ fresh profile-read lease following a confirmed abandon of the exact lease.
 It also permits an explicit continuation of this paused, unadmitted packet.
 Both paths retain the one-listing, account, résumé, history, and quota checks.
 
+## Profile transport recovery candidate
+
+Exact candidate `7e12fc66c400b24a901af29e3710e5288083c29d` is staged under
+`rust-plan-aypdoz7f`. The original runner recorded 35 passing stages, then
+exited before recording its release build and artifact inventory. The
+recovery preserved that original record and executed those two stages again
+on the same clean commit. The resulting 37-stage evidence
+`20261125T130819Z-635758f8f2e94b679cef256e57b55923` passed release
+validation. It includes 445 Rust workspace passes and 1,105 PostgreSQL
+passes. The regression exercised a matching abandon, one fresh read lease,
+the second timeout hold, and explicit continuation of the same packet.
+
+| Check | Status | Actual Mac evidence |
+| --- | --- | --- |
+| Staging and rollback readiness | PASS | The staged artifact inventory matches the accepted commit. The current installation matches rollback snapshot `rust-preinstall-51rlku8l` across nine definitions and 22 references. |
+| Managed activation | BLOCKED | The stopped cutover preflight found the dedicated Brave process absent. A new launch in the same profile restored Naukri sign-in pages. An authenticated profile and the approved idle tab state are required for cutover. |
+| Supervised live receipt on the recovery release | PENDING | The earlier application remains paused at queue revision 176 and work revision 21. The first strict receipt is still pending, with the fourth admission available. |
+
 ## Earlier bridge release and incident
 
 The combined fixture gate passed for all 37 stages on clean branch `feat/rust-agent-runtime` at `0b3fd4087b7d460520c8b520a80afdc1036d8303`. The managed Mac installation activated that runtime and native bridge. Brave's configured bundle and its packaged resources matched the release. Subsequent inspection found five loaded service-worker modules executing older code. The release closes timed-out native heartbeat ports and retries Naukri polls after confirmed rollback of a pre-dispatch lock or serialization failure. [Reliability changes and prior live evidence](naukri-always-on-20261124.md)
