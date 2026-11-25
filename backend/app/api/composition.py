@@ -7,6 +7,7 @@ def install_routes(app):
         router as application_answers_router,
     )
     from backend.app.api.v1.applications import router as applications_router
+    from backend.app.api.v1.automation_v2 import router as automation_v2_router
     from backend.app.api.v1.contact_enrichment import (
         router as contact_enrichment_router,
     )
@@ -30,6 +31,7 @@ def install_routes(app):
         dashboard_router,
         resume_sync_router,
         automation_router,
+        automation_v2_router,
         local_agent_router,
         agent_command_router,
         application_answers_router,

@@ -10,6 +10,7 @@ APPEND_ONLY = frozenset({
     "company_source_observations", "drive_resume_versions",
     "provider_usage_logs", "startup_shortlist_entries", "agent_policy_events", "agent_operations",
     "rust_agent_events", "rust_agent_control_events",
+    "application_state_events",
 })
 
 
@@ -20,6 +21,9 @@ def runtime_privileges(tables):
             privileges[name].add("UPDATE")
     # Existing privacy/suppression workflows replace contact identity mappings.
     privileges["contact_identities"].add("DELETE")
+    # The dashboard deletes wrong/stale semantic-cache answers (Python v2, migration 004).
+    if "semantic_cache" in privileges:
+        privileges["semantic_cache"].add("DELETE")
     return privileges
 
 

@@ -100,3 +100,9 @@ frontend/test-results-browser/
 # Owner-local runtime data and preserved worktrees never belong in source commits.
 /.local/
 /.worktrees/
+
+# Rolling owner report, repository snapshots and v2 runtime receipts.
+# Receipts/screenshots normally live in ~/Library/Application Support/automated-apply/receipts.
+/LATEST_REPORT.md
+/repomix-output.xml
+backend/screenshots/

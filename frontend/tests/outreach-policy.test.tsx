@@ -33,26 +33,6 @@ beforeEach(() => {
     if (path === `outreach/drafts/${id}`) return draft;
     if (path === "outreach/drafts?limit=100")
       return { drafts: [draft], total: 1 };
-    if (path === "outreach/history")
-      return {
-        messages: [
-          {
-            id: "retained-attempt",
-            status: "outcome_unknown",
-            created_at: "2026-01-01T00:00:00Z",
-          },
-        ],
-      };
-    if (path.startsWith("outreach/send-attempts/"))
-      return {
-        status: "outcome_unknown",
-        reconciliation_required: true,
-        attempted_at: "2026-01-01T00:00:00Z",
-        accepted_at: null,
-        rfc_message_id: "fictional-message@example.com",
-        confirmation_token: "PRIVATE_CONFIRMATION_CANARY",
-        approval_hash: "PRIVATE_HASH_CANARY",
-      };
     if (path === "integrations/gmail/status")
       return {
         status: "connected",
@@ -82,7 +62,11 @@ it("preserves exact local approval while offering no send flow even when legacy 
     name: "Approve exact content",
   });
   await waitFor(() => expect(approve).toBeEnabled());
-  expect(screen.getByText("Reading and drafts only")).toBeInTheDocument();
+  expect(
+    screen.getByRole("status", {
+      name: "Gmail Permission: Read + Draft Only (Sending Disabled)",
+    }),
+  ).toBeInTheDocument();
   expect(
     screen.getByRole("link", { name: "Gmail account and draft workspace" }),
   ).toHaveAttribute("href", "/connections");
@@ -103,20 +87,18 @@ it("preserves exact local approval while offering no send flow even when legacy 
   ).toBe(true);
 });
 
-it("preserves an uncertain historical attempt and renders useful evidence without raw internal fields", async () => {
+it("keeps a draft with a legacy send attempt immutable without calling removed send routes", async () => {
   draft.send_attempt_id = "retained-attempt";
   mount();
-  await screen.findByText("Manual reconciliation is required.");
-  expect(screen.getByLabelText("Subject")).toBeDisabled();
+  expect(await screen.findByLabelText("Subject")).toBeDisabled();
   expect(
     screen.getByRole("button", { name: "Approve exact content" }),
   ).toBeDisabled();
   expect(
-    screen.getByText("Message reference: fictional-message@example.com"),
-  ).toBeInTheDocument();
-  expect(
-    screen.getByText("Provider acceptance recorded: Not observed"),
-  ).toBeInTheDocument();
+    vi
+      .mocked(api)
+      .mock.calls.some(([path]) => path.startsWith("outreach/send-attempts/")),
+  ).toBe(false);
   expect(
     screen.queryByText(/PRIVATE_CONFIRMATION_CANARY|PRIVATE_HASH_CANARY/),
   ).not.toBeInTheDocument();
@@ -124,11 +106,16 @@ it("preserves an uncertain historical attempt and renders useful evidence withou
   expect(patch).not.toHaveBeenCalled();
 });
 
-it("keeps the local draft list and historical uncertainty visible under the read and draft policy", async () => {
+it("keeps the local draft list visible under the locked read and draft policy", async () => {
   mount(false);
   await screen.findByText("Fictional introduction");
   expect(screen.getByText(/Sending is disabled\./)).toBeInTheDocument();
-  expect(await screen.findByText("outcome unknown")).toBeInTheDocument();
+  expect(
+    screen.getByRole("status", {
+      name: "Gmail Permission: Read + Draft Only (Sending Disabled)",
+    }),
+  ).toBeInTheDocument();
+  expect(api).not.toHaveBeenCalledWith("outreach/history");
   expect(post).not.toHaveBeenCalled();
 });
 it("requires review and rechecks the saved revision before preparing a replacement local draft", async () => {

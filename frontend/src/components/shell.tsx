@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   ArrowUpRight,
   Bell,
+  Bot,
   BriefcaseBusiness,
   Building2,
   ChevronRight,
@@ -31,6 +32,7 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui";
 const nav = [
   ["Overview", "/", LayoutDashboard],
+  ["Autopilot", "/autopilot", Bot],
   ["Agent", "/agent", Command],
   ["Workflow", "/workflow", Command],
   ["Discover", "/discover", Compass],
@@ -100,12 +102,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
         </div>
         <span className="nav-caption">WORKSPACE</span>
         <nav aria-label="Main navigation">
-          {nav.map(([name, url, Icon], i) => (
+          {nav.map(([name, url, Icon]) => (
             <Link
               key={url}
               href={url}
               onClick={() => setMobile(false)}
-              className={`${(url === "/" ? path === "/" : path.startsWith(url)) ? "active" : ""} ${i === 9 ? "nav-divider" : ""}`}
+              className={`${(url === "/" ? path === "/" : path.startsWith(url)) ? "active" : ""} ${name === "Needs Input" ? "nav-divider" : ""}`}
               aria-current={
                 (url === "/" ? path === "/" : path.startsWith(url))
                   ? "page"

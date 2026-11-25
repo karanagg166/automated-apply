@@ -202,24 +202,6 @@ async def oauth_bundle(db_session):
 
 
 @pytest_asyncio.fixture
-async def sending_bundle(db_session, phase2_profile):
-    from backend.app.services.gmail_sending import GmailSendingService
-    from backend.tests.phase4b_fakes import (
-        SendFixture,
-        approved_target,
-        bundle,
-        connect_sender,
-    )
-    settings, google = await bundle()
-    async with google.client() as http:
-        connection = await connect_sender(db_session, settings, google, http)
-        draft, contact, evidence, mailbox = await approved_target(db_session, settings)
-        sender = SendFixture()
-        service = GmailSendingService(db_session, settings, connection, sender)
-        yield service, draft, sender, contact, evidence, mailbox
-
-
-@pytest_asyncio.fixture
 async def application_target(db_session, phase2_profile):
     from backend.tests.phase5a_fakes import target
     return await target(db_session, phase2_profile)

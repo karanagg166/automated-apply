@@ -120,14 +120,8 @@ async def connector_registry(session, settings=None):
                 "read_job_alerts": CapabilityStatus.UNSUPPORTED,
                 "create_email_draft": CapabilityStatus.UNSUPPORTED,
                 "prepare_local_draft": CapabilityStatus.AVAILABLE,
-                "send_email": CapabilityStatus.AVAILABLE
-                if settings.GMAIL_SENDING_ENABLED
-                and gmail["send_capability"] == "send_authorized"
-                else CapabilityStatus.UNSUPPORTED
-                if not settings.GMAIL_SENDING_ENABLED
-                else CapabilityStatus.AUTHORIZATION
-                if connected
-                else CapabilityStatus.CONFIGURATION,
+                # Read + draft only: sending is never available.
+                "send_email": CapabilityStatus.UNSUPPORTED,
                 "send_requires_owner_confirmation": True,
                 "submit_application": CapabilityStatus.UNSUPPORTED,
             },

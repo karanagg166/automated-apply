@@ -44,17 +44,36 @@ export async function api<T>(
     const message =
       typeof detail === "string"
         ? detail
-        : detail?.blockers?.join(", ") ||
+        : validationMessages(detail) ||
+          detail?.blockers?.join(", ") ||
           "This operation needs additional configuration or review.";
     throw new ApiError(response.status, message);
   }
+  if (response.status === 204) return undefined as T;
   return response.json();
+}
+/** Joins FastAPI validation errors (`detail: [{loc, msg}]`) into one line. */
+function validationMessages(detail: unknown) {
+  if (!Array.isArray(detail)) return "";
+  return detail
+    .map((item) => {
+      if (!item || typeof item !== "object" || !("msg" in item)) return "";
+      const loc: unknown[] =
+        "loc" in item && Array.isArray(item.loc) ? item.loc : [];
+      const field = loc.filter((part) => part !== "body").join(".");
+      return field ? `${field}: ${String(item.msg)}` : String(item.msg);
+    })
+    .filter(Boolean)
+    .join("; ");
 }
 export function post<T>(path: string, body: unknown = {}) {
   return api<T>(path, { method: "POST", body: JSON.stringify(body) });
 }
 export function patch<T>(path: string, body: unknown) {
   return api<T>(path, { method: "PATCH", body: JSON.stringify(body) });
+}
+export function del(path: string) {
+  return api<void>(path, { method: "DELETE" });
 }
 export function readable(value: string | undefined | null) {
   return value?.replaceAll("_", " ").replaceAll("-", " ") || "Unknown";

@@ -1,4 +1,4 @@
-"""Explicit consent extends the existing encrypted PKCE connection without identity replacement."""
+"""Compose consent extends the PKCE connection; gmail.send upgrades are permanently refused."""
 
 from datetime import timedelta
 from urllib.parse import parse_qs, urlsplit
@@ -13,89 +13,20 @@ from backend.tests.test_gmail_connection import connect
 
 
 @pytest.mark.asyncio
-async def test_metadata_then_explicit_send_upgrade(oauth_bundle):
+async def test_send_upgrade_is_refused_and_metadata_connection_preserved(oauth_bundle):
+    """Gmail is read + draft only: a gmail.send upgrade can never be started."""
     service, fake, _ = oauth_bundle
     before = await connect(service)
     assert before["authorization_state"] == "metadata_connected"
-    assert before["send_capability"] == "send_authorization_required"
-    intent = await service.start(EMAIL, "browser", send=True)
-    params = parse_qs(urlsplit(intent["authorization_url"]).query)
-    assert set(params["scope"][0].split()) == SEND_SCOPES
-    assert "consent" in params["prompt"][0] and params["code_challenge_method"] == [
-        "S256"
-    ]
-    assert (await service.status())["authorization_state"] == "metadata_connected"
-    fake.token["scope"] = " ".join(SEND_SCOPES)
-    result = await service.callback(state_from(intent), "browser", CALLBACK, "upgrade")
-    assert (
-        result["id"] == before["id"]
-        and result["google_subject"] == before["google_subject"]
-    )
-    assert result["authorization_state"] == "send_authorized"
-    assert "fictional-access" not in str(result) and "fictional-refresh" not in str(
-        result
-    )
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "failure",
-    [
-        "no_send_scope",
-        "extra_scope",
-        "different_subject",
-        "different_email",
-        "no_refresh",
-        "revoked",
-        "denied",
-    ],
-)
-async def test_failed_upgrade_preserves_metadata(oauth_bundle, failure):
-    service, fake, _ = oauth_bundle
-    await connect(service)
-    before = await service.account()
-    encrypted = before.encrypted_refresh_token
-    intent = await service.start(EMAIL, "browser", send=True)
-    fake.token["scope"] = " ".join(SEND_SCOPES)
-    if failure == "no_send_scope":
-        fake.token["scope"] = " ".join(SCOPES)
-    elif failure == "extra_scope":
-        fake.token["scope"] += " https://www.googleapis.com/auth/gmail.modify"
-    elif failure == "different_subject":
-        fake.identity["sub"] = "different-subject"
-    elif failure == "different_email":
-        fake.identity["email"] = fake.gmail_email = "other@example.com"
-    elif failure == "no_refresh":
-        del fake.token["refresh_token"]
-    elif failure == "revoked":
-        fake.fail = "/token"
-    with pytest.raises(ConnectionError):
-        await service.callback(
-            state_from(intent),
-            "browser",
-            CALLBACK,
-            "upgrade",
-            error="access_denied" if failure == "denied" else None,
-        )
     account = await service.account()
-    assert (
-        account.encrypted_refresh_token == encrypted
-        and set(account.granted_scopes) == SCOPES
-    )
+    encrypted, scopes = account.encrypted_refresh_token, set(account.granted_scopes)
+    with pytest.raises(ConnectionError, match="gmail_send_scope_disabled"):
+        await service.start(EMAIL, "browser", send=True)
+    account = await service.account()
+    assert account.encrypted_refresh_token == encrypted and set(account.granted_scopes) == scopes == SCOPES
     assert account.status == "connected"
-
-
-@pytest.mark.asyncio
-async def test_concurrent_upgrade_intents_only_latest_can_win(oauth_bundle):
-    service, fake, _ = oauth_bundle
-    await connect(service)
-    first = state_from(await service.start(EMAIL, "browser", send=True))
-    second = state_from(await service.start(EMAIL, "browser", send=True))
-    fake.token["scope"] = " ".join(SEND_SCOPES)
-    with pytest.raises(ConnectionError, match="superseded"):
-        await service.callback(first, "browser", CALLBACK, "first")
-    await service.callback(second, "browser", CALLBACK, "second")
-    assert (await service.status())["send_capability"] == "send_authorized"
+    assert not any(b"gmail.send" in r.url.query or b"gmail.send" in r.content for r in fake.requests)
+    assert (await service.status())["sending_enabled"] is False
 
 
 @pytest.mark.asyncio
@@ -126,8 +57,8 @@ async def test_refresh_never_silently_expands_scopes(oauth_bundle, mode):
 
 
 @pytest.mark.asyncio
-async def test_upgrade_requires_existing_connection(oauth_bundle):
-    with pytest.raises(ConnectionError, match="metadata_connection"):
+async def test_send_refused_even_without_existing_connection(oauth_bundle):
+    with pytest.raises(ConnectionError, match="gmail_send_scope_disabled"):
         await oauth_bundle[0].start(EMAIL, "browser", send=True)
 
 

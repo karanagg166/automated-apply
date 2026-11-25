@@ -100,6 +100,19 @@ export function Badge({
 }) {
   return <span className={`badge ${tone}`}>{children}</span>;
 }
+/** Locked, read-only status: the runtime has no Gmail send path. */
+export function GmailPermissionBadge() {
+  return (
+    <span
+      className="badge green gmail-permission"
+      role="status"
+      aria-label="Gmail Permission: Read + Draft Only (Sending Disabled)"
+      title="Locked by the backend: no send route, OAuth scope or MCP tool exists."
+    >
+      🔒 Gmail Permission: Read + Draft Only (Sending Disabled)
+    </span>
+  );
+}
 export function External({
   href,
   children,

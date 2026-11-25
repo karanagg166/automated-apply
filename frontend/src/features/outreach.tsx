@@ -15,6 +15,7 @@ import {
   Button,
   Empty,
   ErrorState,
+  GmailPermissionBadge,
   Field,
   Input,
   Notice,
@@ -48,13 +49,6 @@ export function Outreach() {
     queryFn: () =>
       api<{ drafts: Draft[]; total: number }>("outreach/drafts?limit=100"),
   });
-  const history = useQuery({
-    queryKey: ["outreach-history"],
-    queryFn: () =>
-      api<{
-        messages: Array<{ id: string; status: string; created_at: string }>;
-      }>("outreach/history"),
-  });
   return (
     <>
       <PageTitle
@@ -68,6 +62,7 @@ export function Outreach() {
           </Link>
         }
       />
+      <GmailPermissionBadge />
       <Notice>
         These drafts are saved locally. Gmail supports reading and unsent draft
         creation through the separate mailbox workspace. Sending is disabled.
@@ -117,30 +112,6 @@ export function Outreach() {
           }
         />
       )}
-      <section className="panel spaced">
-        <div className="panel-header">
-          <h2>Send attempt history</h2>
-          <Badge>NO AUTOMATIC RETRIES</Badge>
-        </div>
-        <div className="panel-body">
-          {history.isError ? (
-            <ErrorState error={history.error} />
-          ) : history.data?.messages?.length ? (
-            history.data.messages.map((a) => (
-              <div className="evidence-item" key={a.id}>
-                <strong>{readable(a.status)}</strong>
-                <p>{dateLabel(a.created_at)}</p>
-              </div>
-            ))
-          ) : (
-            <p className="section-intro">
-              No send attempts are recorded in this view. Unknown attempts must
-              be reconciled manually; provider acceptance is distinct from
-              delivery.
-            </p>
-          )}
-        </div>
-      </section>
     </>
   );
 }
@@ -164,7 +135,6 @@ export function OutreachDetail({ id }: { id: string }) {
   const updated = () => {
     client.invalidateQueries({ queryKey: ["draft", id] });
     client.invalidateQueries({ queryKey: ["drafts"] });
-    client.invalidateQueries({ queryKey: ["outreach-history"] });
   };
   const save = useMutation({
     retry: false,
@@ -219,19 +189,6 @@ export function OutreachDetail({ id }: { id: string }) {
       router.push(`/outreach/${draft.id}`);
     },
     onError: () => client.invalidateQueries({ queryKey: ["draft", id] }),
-  });
-  const attempt = useQuery({
-    queryKey: ["send-attempt", query.data?.send_attempt_id],
-    queryFn: () =>
-      api<{
-        status: string;
-        attempted_at?: string | null;
-        accepted_at?: string | null;
-        failure_category?: string | null;
-        reconciliation_required?: boolean;
-        rfc_message_id?: string | null;
-      }>(`outreach/send-attempts/${query.data!.send_attempt_id}`),
-    enabled: !!query.data?.send_attempt_id,
   });
   if (query.isPending) return <Skeleton />;
   if (query.isError) return <ErrorState error={query.error} />;
@@ -386,7 +343,7 @@ export function OutreachDetail({ id }: { id: string }) {
               <Mail size={17} className="muted" />
             </div>
             <div className="panel-body stack">
-              <Badge>Reading and drafts only</Badge>
+              <GmailPermissionBadge />
               <p className="section-intro">
                 Sending is disabled. Review your account and save unsent Gmail
                 drafts in the separate mailbox workspace.
@@ -397,44 +354,6 @@ export function OutreachDetail({ id }: { id: string }) {
               </Link>
             </div>
           </section>
-          {d.send_attempt_id && (
-            <section className="panel">
-              <div className="panel-header">
-                <h2>Attempt reconciliation</h2>
-              </div>
-              <div className="panel-body">
-                <Notice>
-                  An attempt is already reserved. Do not retry an uncertain
-                  send. Inspect Gmail manually and preserve the attempt record.
-                </Notice>
-                {attempt.isError ? (
-                  <ErrorState error={attempt.error} />
-                ) : attempt.isPending ? (
-                  <Skeleton />
-                ) : (
-                  <div className="stack">
-                    <Badge>{readable(attempt.data?.status)}</Badge>
-                    <p>
-                      Attempt recorded: {dateLabel(attempt.data?.attempted_at)}
-                    </p>
-                    <p>
-                      Provider acceptance recorded:{" "}
-                      {dateLabel(attempt.data?.accepted_at)}
-                    </p>
-                    {attempt.data?.reconciliation_required && (
-                      <Notice>Manual reconciliation is required.</Notice>
-                    )}
-                    {attempt.data?.failure_category && (
-                      <p>{readable(attempt.data.failure_category)}</p>
-                    )}
-                    {attempt.data?.rfc_message_id && (
-                      <p>Message reference: {attempt.data.rfc_message_id}</p>
-                    )}
-                  </div>
-                )}
-              </div>
-            </section>
-          )}
         </aside>
       </div>
     </>

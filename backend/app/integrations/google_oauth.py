@@ -67,6 +67,9 @@ class GoogleOAuth:
         )
 
     def authorization_url(self, state, verifier, expected_email, *, send=False, compose=False, read_body=False, read_draft=False):
+        if send:
+            # Gmail is read + draft only; the gmail.send scope is never requested.
+            raise ConnectionError("gmail_send_scope_disabled")
         if sum(bool(v) for v in (send, compose, read_body, read_draft)) > 1:
             raise ConnectionError("ambiguous_oauth_authorization_mode")
         challenge = (

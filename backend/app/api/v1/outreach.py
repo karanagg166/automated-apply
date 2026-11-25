@@ -1,4 +1,4 @@
-"""Owner draft review and separately confirmed sends. Approval never sends."""
+"""Owner draft review only. Approval never sends; Gmail sending is not exposed."""
 
 from uuid import UUID
 
@@ -8,10 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.core.security import require_api_token
 from backend.app.db.session import get_db_session
-from backend.app.integrations.gmail.schemas import SendRequest
 from backend.app.models.outreach import OutreachLog
 from backend.app.schemas.outreach import DraftDecision, DraftEdit, DraftInput
-from backend.app.services.gmail_sending import GmailSendingService
 from backend.app.services.outreach_drafting import (
     DraftConflict,
     OutreachDraftingService,
@@ -109,32 +107,5 @@ async def eligibility(draft_id: UUID, service=Depends(drafting_service)):
     return await execute(check())
 
 
-# Only this owner-facing router can initiate Gmail; no MCP registration or worker.
-
-
-def sending_service(session: AsyncSession = Depends(get_db_session)):
-    return GmailSendingService(session)
-
-
-@router.post("/drafts/{draft_id}/send-preview")
-async def send_preview(draft_id: UUID, service=Depends(sending_service)):
-    return await execute(service.preview(draft_id, actor="owner"))
-
-
-@router.post("/drafts/{draft_id}/send")
-async def send(draft_id: UUID, data: SendRequest, service=Depends(sending_service)):
-    return await execute(service.send(draft_id, data, actor="owner"))
-
-
-@router.get("/send-attempts/{attempt_id}")
-async def send_status(attempt_id: UUID, service=Depends(sending_service)):
-    return await execute(service.status(attempt_id))
-
-
-@router.get("/history")
-async def outreach_history(
-    limit: int = Query(20, ge=1, le=100),
-    offset: int = Query(0, ge=0, le=100000),
-    service=Depends(sending_service),
-):
-    return await execute(service.history(limit, offset))
+# Gmail is strictly read + draft only. No send, send-preview, send-attempt or
+# send-history route is registered (see test_gmail_no_send_guardrail.py).

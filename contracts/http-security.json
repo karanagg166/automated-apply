@@ -15,7 +15,8 @@
     "/api/v1/outreach",
     "/api/v1/integrations",
     "/api/v1/applications",
-    "/api/v1/application-packets"
+    "/api/v1/application-packets",
+    "/api/v1/v2"
   ],
   "unauthenticated_callbacks": ["/api/v1/integrations/gmail/oauth/callback"],
   "request_limits": {
@@ -36,6 +37,50 @@
     "^application-answers/missing/[a-f0-9-]{32,36}/approve$"
   ],
   "gateway_routes": [
+    {
+      "pattern": "^v2\\/(portal-rules|applications|status|worker)$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^v2\\/portal-rules\\/[a-z][a-z0-9_]{1,39}$",
+      "methods": ["PATCH"]
+    },
+    {
+      "pattern": "^v2\\/screening-profile$",
+      "methods": ["GET", "PATCH"]
+    },
+    {
+      "pattern": "^v2\\/applications\\/[a-f0-9-]{36}\\/events$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^v2\\/worker\\/(start|pause|stop|run-once)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^v2\\/ai\\/status$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^v2\\/semantic-cache$",
+      "methods": ["GET", "POST"]
+    },
+    {
+      "pattern": "^v2\\/semantic-cache\\/[a-f0-9-]{36}$",
+      "methods": ["DELETE"]
+    },
+    {
+      "pattern": "^v2\\/(telegram\\/status|hitl)$",
+      "methods": ["GET"]
+    },
+    {
+      "pattern": "^v2\\/hitl\\/[a-f0-9-]{36}\\/(resolve|skip|retry)$",
+      "methods": ["POST"]
+    },
+    {
+      "pattern": "^v2\\/portal-rules\\/[a-z][a-z0-9_]{1,39}\\/resume-auth$",
+      "methods": ["POST"]
+    },
     {
       "pattern": "^startups\\/discovery\\/runs\\/[a-f0-9-]{36}\\/complete$",
       "methods": ["POST"]
@@ -501,7 +546,7 @@
       "methods": ["POST"]
     },
     {
-      "pattern": "^outreach\\/(drafts|history)$",
+      "pattern": "^outreach\\/drafts$",
       "methods": ["GET", "POST"]
     },
     {
@@ -513,11 +558,11 @@
       "methods": ["GET", "PATCH"]
     },
     {
-      "pattern": "^outreach\\/drafts\\/[a-f0-9-]{36}\\/(approve|reject|send-preview|send)$",
+      "pattern": "^outreach\\/drafts\\/[a-f0-9-]{36}\\/(approve|reject)$",
       "methods": ["POST"]
     },
     {
-      "pattern": "^outreach\\/(send-attempts\\/[a-f0-9-]{36}|drafts\\/[a-f0-9-]{36}\\/eligibility)$",
+      "pattern": "^outreach\\/drafts\\/[a-f0-9-]{36}\\/eligibility$",
       "methods": ["GET"]
     },
     {

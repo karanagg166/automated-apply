@@ -178,6 +178,24 @@ class JobSearchPreferences(ProfileSchema):
     excluded_companies: StringList = Field(default_factory=list)
     excluded_keywords: StringList = Field(default_factory=list)
     prioritize_startups: bool | None = None
+    # Python v2 rules engine + deterministic screening facts (AGENTS.md §5A).
+    # CTC values are INR lakhs per annum (LPA); skill_years maps a skill to years.
+    target_roles: StringList = Field(default_factory=list)
+    keywords_required: StringList = Field(default_factory=list)
+    keywords_excluded: StringList = Field(default_factory=list)
+    tech_stack: StringList = Field(default_factory=list)
+    company_blacklist: StringList = Field(default_factory=list)
+    remote_policy: Literal["any", "remote_only", "hybrid_ok", "onsite_ok"] | None = None
+    skill_match_mode: Literal["any", "all"] | None = None
+    min_match_score: float | None = Field(default=None, ge=0, le=100, allow_inf_nan=False)
+    current_ctc: float | None = Field(default=None, ge=0, le=1000, allow_inf_nan=False)
+    expected_ctc: float | None = Field(default=None, ge=0, le=1000, allow_inf_nan=False)
+    min_ctc: float | None = Field(default=None, ge=0, le=1000, allow_inf_nan=False)
+    total_experience_years: float | None = Field(default=None, ge=0, le=60, allow_inf_nan=False)
+    willing_to_relocate: StrictBool | None = None
+    skill_years: dict[ShortText, Annotated[float, Field(ge=0, le=60, allow_inf_nan=False)]] = Field(
+        default_factory=dict, max_length=100
+    )
 
     @model_validator(mode="after")
     def unique_authorization_countries(self):
