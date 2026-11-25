@@ -94,10 +94,8 @@ jobs:
       - name: Phase 4B lint
         run: >-
           ruff check --isolated --select E9,F,I
-          backend/app/services/gmail_sending.py backend/app/models/outreach_send.py
-          backend/tests/phase4b_fakes.py backend/tests/test_gmail_send*.py
-          backend/tests/test_gmail_mime.py backend/tests/test_phase4b_postgres.py
-          backend/scripts/verify_phase4b_migration.py
+          backend/app/models/outreach_send.py backend/tests/test_gmail_send*.py
+          backend/tests/test_gmail_mime.py
       - name: Phase 7 lint
         run: >-
           ruff check --isolated --select E9,F,I

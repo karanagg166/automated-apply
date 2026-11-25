@@ -226,13 +226,14 @@ def test_legacy_plaintext_oauth_setup_is_retired(capsys):
 
 @pytest.mark.asyncio
 async def test_legacy_scope_reporting_includes_metadata_and_disconnected_permissions(oauth_bundle):
-    from backend.app.integrations.google_oauth import SEND_SCOPES
+    from backend.app.integrations.token_store import (
+        ConnectionError as GmailConnectionError,
+    )
     service, fake, _ = oauth_bundle
-    await connect(service)
-    fake.token["scope"] = " ".join(sorted(SEND_SCOPES))
-    state = state_from(await service.start(EMAIL, "browser", send=True))
-    result = await service.callback(state, "browser", CALLBACK, "code")
-    assert result["permissions"]["read_metadata"] and result["permissions"]["send"]
+    result = await connect(service)
+    assert result["permissions"]["read_metadata"] and not result["permissions"]["send"]
+    with pytest.raises(GmailConnectionError, match="gmail_send_scope_disabled"):
+        await service.start(EMAIL, "browser", send=True)
     await service.disconnect()
     status = await service.status()
     assert status["permissions"]["send"] is False and status["permissions"]["read_metadata"] is False

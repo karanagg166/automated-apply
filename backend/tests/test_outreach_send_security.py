@@ -6,7 +6,6 @@ import pytest
 
 from backend.app.mcp.permissions import TOOL_CAPABILITIES, allowed_capabilities
 from backend.app.mcp.registry import mcp
-from backend.tests.phase4b_fakes import request_from
 
 
 @pytest.mark.asyncio
@@ -50,18 +49,3 @@ async def test_conflicting_bearers_are_rejected(async_client, phase2_auth):
     )
     assert response.status_code == 401
 
-
-@pytest.mark.asyncio
-async def test_no_secret_or_body_logs(sending_bundle, caplog):
-    service, draft, _, *_ = sending_bundle
-    preview = await service.preview(draft["id"])
-    result = await service.send(draft["id"], request_from(preview))
-    for private in (
-        "fictional-access",
-        "fictional-refresh",
-        preview["confirmation_token"],
-        draft["body"],
-    ):
-        assert private not in caplog.text
-        if private != draft["body"]:
-            assert private not in str(result)

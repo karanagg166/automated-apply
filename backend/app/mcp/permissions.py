@@ -17,7 +17,6 @@ class Capability(StrEnum):
     PREPARE_DRAFT = "prepare_draft"
     MUTATE_JOB_STATE = "mutate_job_state"
     EXECUTE_PAID_PROVIDER = "execute_paid_provider"
-    SEND_EMAIL = "send_email"
     SUBMIT_APPLICATION = "submit_application"
 
 

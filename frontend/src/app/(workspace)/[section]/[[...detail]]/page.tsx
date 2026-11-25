@@ -1,5 +1,6 @@
 import { Naukri } from "@/features/naukri";
 import { Agent } from "@/features/agent";
+import { Autopilot } from "@/features/autopilot";
 import { notFound } from "next/navigation";
 import { StartupExplorer } from "@/features/startups";
 import { CompanyDetail } from "@/features/company";
@@ -39,6 +40,8 @@ export default async function Page({
   switch (section) {
     case "naukri":
       return <Naukri />;
+    case "autopilot":
+      return <Autopilot />;
     case "agent":
       return <Agent nativeRuntime={nativeRuntime} />;
     case "startups":

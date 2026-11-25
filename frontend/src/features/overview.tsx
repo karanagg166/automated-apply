@@ -21,6 +21,7 @@ import {
   Button,
   Empty,
   ErrorState,
+  GmailPermissionBadge,
   PageTitle,
   Skeleton,
 } from "@/components/ui";
@@ -71,6 +72,13 @@ export function Overview() {
           </div>
         }
       />
+      <div className="tag-list overview-guards">
+        <GmailPermissionBadge />
+        <Link href="/autopilot" className="external">
+          Open Autopilot controls
+          <ArrowUpRight size={14} />
+        </Link>
+      </div>
       <div className="welcome-banner">
         <div>
           <div className="eyebrow">

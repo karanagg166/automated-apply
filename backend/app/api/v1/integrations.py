@@ -23,7 +23,7 @@ CALLBACK = "/api/v1/integrations/gmail/oauth/callback"
 class ConnectInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     expected_email: EmailStr | None = None
-    authorization_mode: Literal["metadata", "send", "compose"] = "metadata"
+    authorization_mode: Literal["metadata", "compose"] = "metadata"
 
 
 def connection_service(session: AsyncSession = Depends(get_db_session)):
@@ -48,7 +48,7 @@ async def start(
     try:
         result = await service.start(
             str(data.expected_email) if data.expected_email else None, browser,
-            **({"compose": True} if data.authorization_mode == "compose" else {"send": data.authorization_mode == "send"})
+            **({"compose": True} if data.authorization_mode == "compose" else {})
         )
     except ConnectionError as exc:
         if str(exc) == "gmail_compose_schema_update_required":

@@ -1938,3 +1938,235 @@ details[open] > summary {
     min-height: 40px;
   }
 }
+/* Autopilot (Python v2 control plane) */
+.gmail-permission {
+  font-size: 10px;
+  padding: 5px 9px;
+  white-space: normal;
+}
+.overview-guards {
+  align-items: center;
+  gap: 14px;
+  margin: -14px 0 22px;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.notice.warn {
+  background: var(--amber-soft);
+  color: var(--amber);
+}
+.notice.warn a {
+  text-decoration: underline;
+}
+.small-print {
+  font-size: 10px;
+}
+.section-heading {
+  display: grid;
+  gap: 4px;
+}
+.section-heading p {
+  font-size: 11px;
+}
+.worker-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+.worker-facts div {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 11px 13px;
+}
+.worker-facts dt {
+  font-size: 10px;
+  color: var(--muted);
+}
+.worker-facts dd {
+  margin: 3px 0 0;
+  font-size: 13px;
+  font-weight: 560;
+  overflow-wrap: anywhere;
+}
+.portal-grid,
+.rules-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+.rules-grid {
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  margin-top: 16px;
+}
+.portal-status {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 15px;
+}
+.portal-hint {
+  font-size: 11px;
+  color: var(--red);
+}
+.portal-hint code,
+.event-payload {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10px;
+}
+.quota {
+  display: grid;
+  gap: 5px;
+}
+.quota-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 10px;
+  color: var(--muted);
+}
+.quota-label strong {
+  color: var(--ink);
+  font-weight: 560;
+  font-variant-numeric: tabular-nums;
+}
+.quota-bar {
+  height: 6px;
+  border-radius: 99px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.quota-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--green);
+  transition: width 0.3s ease;
+}
+.quota-bar.amber > span {
+  background: var(--amber);
+}
+.quota-bar.red > span {
+  background: var(--red);
+}
+.form-errors {
+  margin: 0;
+  padding: 10px 14px 10px 30px;
+  border-radius: 8px;
+  background: var(--amber-soft);
+  color: var(--amber);
+  font-size: 11px;
+}
+.skill-years {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  margin: 0;
+}
+.skill-years legend {
+  font-size: 11px;
+  font-weight: 550;
+  padding: 0 4px;
+}
+.skill-row {
+  display: grid;
+  grid-template-columns: 1fr 110px auto;
+  gap: 10px;
+  align-items: center;
+}
+.log-toolbar {
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.cache-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-top: 14px;
+}
+.cache-form .notice {
+  grid-column: 1 / -1;
+}
+.provider-model {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  overflow-wrap: anywhere;
+}
+.log-toolbar .field {
+  min-width: 170px;
+}
+.reason-cell {
+  max-width: 340px;
+  overflow-wrap: anywhere;
+}
+.events-row td {
+  background: var(--surface-soft);
+}
+.event-list {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  font-size: 11px;
+}
+.event-payload {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.hitl-list {
+  display: grid;
+  gap: 12px;
+}
+.hitl-item h3 {
+  margin: 0;
+}
+.hitl-question {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.hitl-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.hitl-item .portal-hint code {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 680px) {
+  .cache-form {
+    grid-template-columns: 1fr;
+  }
+  .rules-grid {
+    grid-template-columns: 1fr;
+  }
+  .skill-row {
+    grid-template-columns: 1fr 90px;
+  }
+  .skill-row .button {
+    grid-column: 1/-1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .quota-bar > span {
+    transition: none;
+  }
+}

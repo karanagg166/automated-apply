@@ -23,6 +23,12 @@ from backend.app.core.timing import (
 from backend.app.db.errors import DATABASE_ERRORS
 from backend.app.db.safety import database_connect_args, database_target
 
+# The Supabase runtime role allows 5 connections in total (SQLSTATE 53300 when
+# exceeded). One process keeps at most 3, leaving room for the readiness probe,
+# a migration/inspection client and the owner's psql session.
+POOL_SIZE_CAP = 2
+MAX_OVERFLOW_CAP = 1
+
 _engine: AsyncEngine | None = None
 _readiness_engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
@@ -42,6 +48,18 @@ class TimedSession(AsyncSession):
         return await super().rollback()
 
 
+def pool_limits(settings) -> tuple[int, int]:
+    """Clamp configured pool sizes to the Supabase role connection budget."""
+    pool_size = min(settings.DB_POOL_SIZE, POOL_SIZE_CAP)
+    max_overflow = min(settings.DB_MAX_OVERFLOW, MAX_OVERFLOW_CAP)
+    if (pool_size, max_overflow) != (settings.DB_POOL_SIZE, settings.DB_MAX_OVERFLOW):
+        logger.warning(
+            "Database pool clamped to pool_size=%s max_overflow=%s (role connection limit 5)",
+            pool_size, max_overflow,
+        )
+    return pool_size, max_overflow
+
+
 def get_engine() -> AsyncEngine:
     """Initialize or return the cached async SQLAlchemy engine."""
     global _engine
@@ -52,9 +70,8 @@ def get_engine() -> AsyncEngine:
 
         raise DatabaseConfigurationError("database_target_changed_restart_required")
     if _engine is None:
-        
-        # Dialect specific configuration
         if target.drivername == "postgresql+asyncpg":
+            pool_size, max_overflow = pool_limits(settings)
             _engine = create_async_engine(
                 settings.DATABASE_URL,
                 echo=settings.DB_ECHO,
@@ -62,8 +79,8 @@ def get_engine() -> AsyncEngine:
                 pool_pre_ping=True,
                 pool_recycle=300,
                 poolclass=TimedAsyncAdaptedQueuePool,
-                pool_size=settings.DB_POOL_SIZE,
-                max_overflow=settings.DB_MAX_OVERFLOW,
+                pool_size=pool_size,
+                max_overflow=max_overflow,
                 connect_args=database_connect_args(settings),
                 # Keep a small connection budget without failing queued
                 # dashboard reads during a full remote catalog audit.

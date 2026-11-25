@@ -109,9 +109,12 @@ class ConnectionService:
         return await self.session.scalar(stmt.with_for_update() if lock else stmt)
 
     async def status(self):
-        return account_output(await self.account()) | {"oauth_configured": self.google.configured(), "sending_enabled": self.settings.GMAIL_SENDING_ENABLED}
+        return account_output(await self.account()) | {"oauth_configured": self.google.configured(), "sending_enabled": False}
 
     async def start(self, expected_email, browser_secret, *, send=False, compose=False, read_body=False):
+        if send:
+            # Gmail is read + draft only; never start a gmail.send authorization.
+            raise ConnectionError("gmail_send_scope_disabled")
         if not self.google.configured():
             raise ConnectionError("google_oauth_not_configured")
         if self.read_only and (send or compose):

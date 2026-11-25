@@ -556,6 +556,360 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/v1/v2/portal-rules": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Portal Rules */
+    get: operations["list_portal_rules_api_v1_v2_portal_rules_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/portal-rules/{platform}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Patch Portal Rules */
+    patch: operations["patch_portal_rules_api_v1_v2_portal_rules__platform__patch"];
+    trace?: never;
+  };
+  "/api/v1/v2/screening-profile": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Screening Profile */
+    get: operations["get_screening_profile_api_v1_v2_screening_profile_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** Patch Screening Profile */
+    patch: operations["patch_screening_profile_api_v1_v2_screening_profile_patch"];
+    trace?: never;
+  };
+  "/api/v1/v2/applications": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Applications */
+    get: operations["list_applications_api_v1_v2_applications_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/applications/{application_id}/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Application Events */
+    get: operations["application_events_api_v1_v2_applications__application_id__events_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Automation Status */
+    get: operations["automation_status_api_v1_v2_status_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/worker": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Worker */
+    get: operations["get_worker_api_v1_v2_worker_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/worker/start": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Start Worker */
+    post: operations["start_worker_api_v1_v2_worker_start_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/worker/pause": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Pause Worker */
+    post: operations["pause_worker_api_v1_v2_worker_pause_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/worker/stop": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Stop Worker */
+    post: operations["stop_worker_api_v1_v2_worker_stop_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/worker/run-once": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Run Worker Once */
+    post: operations["run_worker_once_api_v1_v2_worker_run_once_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/ai/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Ai Status */
+    get: operations["ai_status_api_v1_v2_ai_status_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/semantic-cache": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Semantic Cache */
+    get: operations["list_semantic_cache_api_v1_v2_semantic_cache_get"];
+    put?: never;
+    /**
+     * Create Semantic Cache Entry
+     * @description Teach a verified Q&A pair (source='user' outranks profile/LLM answers).
+     */
+    post: operations["create_semantic_cache_entry_api_v1_v2_semantic_cache_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/semantic-cache/{entry_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Delete Semantic Cache Entry */
+    delete: operations["delete_semantic_cache_entry_api_v1_v2_semantic_cache__entry_id__delete"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/telegram/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get Telegram Status
+     * @description Bot config + long-polling state persisted by the worker. Never returns the token.
+     */
+    get: operations["get_telegram_status_api_v1_v2_telegram_status_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/hitl": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Hitl Requests */
+    get: operations["list_hitl_requests_api_v1_v2_hitl_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/hitl/{hitl_id}/resolve": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Resolve Hitl Request
+     * @description Answer & resume: validates options, learns into the semantic cache (cache_answer) and re-enqueues.
+     */
+    post: operations["resolve_hitl_request_api_v1_v2_hitl__hitl_id__resolve_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/hitl/{hitl_id}/skip": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Skip Hitl Request */
+    post: operations["skip_hitl_request_api_v1_v2_hitl__hitl_id__skip_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/hitl/{hitl_id}/retry": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Retry Hitl Request */
+    post: operations["retry_hitl_request_api_v1_v2_hitl__hitl_id__retry_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/v1/v2/portal-rules/{platform}/resume-auth": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Resume Portal Auth
+     * @description Same as Telegram /resume <portal>: auth_status -> UNKNOWN, open AUTH requests resolved.
+     */
+    post: operations["resume_portal_auth_api_v1_v2_portal_rules__platform__resume_auth_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/v1/local-agent/profile-confirmation": {
     parameters: {
       query?: never;
@@ -2405,74 +2759,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/v1/outreach/drafts/{draft_id}/send-preview": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Send Preview */
-    post: operations["send_preview_api_v1_outreach_drafts__draft_id__send_preview_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/outreach/drafts/{draft_id}/send": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    /** Send */
-    post: operations["send_api_v1_outreach_drafts__draft_id__send_post"];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/outreach/send-attempts/{attempt_id}": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Send Status */
-    get: operations["send_status_api_v1_outreach_send_attempts__attempt_id__get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/v1/outreach/history": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /** Outreach History */
-    get: operations["outreach_history_api_v1_outreach_history_get"];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/v1/startups/sources": {
     parameters: {
       query?: never;
@@ -3818,6 +4104,22 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** AIStatusRead */
+    AIStatusRead: {
+      /** Providers */
+      providers: components["schemas"]["ProviderStatusRead"][];
+      /** Chains */
+      chains: {
+        [key: string]: string[];
+      };
+      semantic_cache: components["schemas"]["SemanticCacheStats"];
+      /**
+       * Local Generative Llm
+       * @default disabled
+       * @constant
+       */
+      local_generative_llm: "disabled";
+    };
     /** AccountApproval */
     AccountApproval: {
       /** Expected Revision */
@@ -4147,6 +4449,64 @@ export interface components {
        */
       created_at: string;
     };
+    /** ApplicationPage */
+    ApplicationPage: {
+      /** Items */
+      items: components["schemas"]["ApplicationRead"][];
+      /** Total */
+      total: number;
+      /** Limit */
+      limit: number;
+      /** Offset */
+      offset: number;
+    };
+    /** ApplicationRead */
+    ApplicationRead: {
+      /** Id */
+      id: string;
+      /** Platform */
+      platform: string;
+      /** External Job Id */
+      external_job_id: string;
+      /** Company Name */
+      company_name?: string | null;
+      /** Role Title */
+      role_title?: string | null;
+      /** Job Url */
+      job_url?: string | null;
+      /** State */
+      state: string;
+      /** Reason */
+      reason?: string | null;
+      /**
+       * Attempts
+       * @default 0
+       */
+      attempts: number;
+      /** Applied At */
+      applied_at?: string | null;
+      /** Retry After */
+      retry_after?: string | null;
+      /** Created At */
+      created_at?: string | null;
+      /** Updated At */
+      updated_at?: string | null;
+    };
+    /**
+     * ApplicationState
+     * @enum {string}
+     */
+    ApplicationState:
+      | "DISCOVERED"
+      | "FILTERED_OUT"
+      | "SCORED"
+      | "APPLYING"
+      | "WAITING_FOR_USER"
+      | "APPLIED"
+      | "QUOTA_HIT_PENDING"
+      | "DRAFTED_AND_QUEUED"
+      | "SUBMISSION_UNKNOWN"
+      | "FAILED";
     /** Approval */
     Approval: {
       /** Expected Revision */
@@ -4293,6 +4653,30 @@ export interface components {
       /** Expected Revision */
       expected_revision: number;
       policy: components["schemas"]["AutomationPolicy"];
+    };
+    /** AutomationStatus */
+    AutomationStatus: {
+      /**
+       * Generated At
+       * Format: date-time
+       */
+      generated_at: string;
+      /**
+       * Gmail Permission
+       * @default read_draft_only
+       * @constant
+       */
+      gmail_permission: "read_draft_only";
+      /**
+       * Gmail Permission Label
+       * @default Gmail Permission: Read + Draft Only (Sending Disabled)
+       */
+      gmail_permission_label: string;
+      /** Waiting For User */
+      waiting_for_user: number;
+      worker: components["schemas"]["WorkerControlRead"];
+      /** Portals */
+      portals: components["schemas"]["PortalStatus"][];
     };
     /** BrowserAction */
     BrowserAction: {
@@ -5003,7 +5387,7 @@ export interface components {
        * @default metadata
        * @enum {string}
        */
-      authorization_mode: "metadata" | "send" | "compose";
+      authorization_mode: "metadata" | "compose";
     };
     /** Consent */
     Consent: {
@@ -6001,6 +6385,94 @@ export interface components {
       /** Owner Reviewed */
       owner_reviewed: boolean;
     };
+    /** HitlPage */
+    HitlPage: {
+      /** Items */
+      items: components["schemas"]["HitlRead"][];
+      /** Total */
+      total: number;
+      /** Limit */
+      limit: number;
+      /** Offset */
+      offset: number;
+    };
+    /** HitlRead */
+    HitlRead: {
+      /** Id */
+      id: string;
+      /** Ref */
+      ref: string;
+      /** Application Id */
+      application_id: string | null;
+      /** Platform */
+      platform: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "CAPTCHA" | "OTP" | "AUTH" | "QUESTION" | "ERROR";
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "OPEN" | "ANSWERED" | "EXPIRED" | "CANCELLED";
+      /** Question */
+      question: string;
+      /** Options */
+      options: string[];
+      /** Resolver Reason */
+      resolver_reason: string | null;
+      /** Company */
+      company: string | null;
+      /** Title */
+      title: string | null;
+      /** Job Url */
+      job_url: string | null;
+      /** Application State */
+      application_state: string | null;
+      /** Telegram Msg Id */
+      telegram_msg_id: number | null;
+      /** Answer Text */
+      answer_text: string | null;
+      /** Resolved Via */
+      resolved_via: string | null;
+      /** Created At */
+      created_at: string | null;
+      /** Resolved At */
+      resolved_at: string | null;
+      /** Consumed At */
+      consumed_at: string | null;
+    };
+    /** HitlResolutionRead */
+    HitlResolutionRead: {
+      /** Ok */
+      ok: boolean;
+      /** Code */
+      code: string;
+      /** Message */
+      message: string;
+      /** Answer */
+      answer: string | null;
+      /** Cached */
+      cached: boolean;
+      /** Requeued */
+      requeued: boolean;
+      /** Application State */
+      application_state: string | null;
+      /** Options */
+      options: string[];
+      hitl: components["schemas"]["HitlRead"] | null;
+    };
+    /** HitlResolveInput */
+    HitlResolveInput: {
+      /** Answer */
+      answer: string;
+      /**
+       * Cache Answer
+       * @default true
+       */
+      cache_answer: boolean;
+    };
     /** ImportBatch */
     ImportBatch: {
       /** Jobs */
@@ -6361,6 +6833,37 @@ export interface components {
       excluded_keywords?: string[];
       /** Prioritize Startups */
       prioritize_startups?: boolean | null;
+      /** Target Roles */
+      target_roles?: string[];
+      /** Keywords Required */
+      keywords_required?: string[];
+      /** Keywords Excluded */
+      keywords_excluded?: string[];
+      /** Tech Stack */
+      tech_stack?: string[];
+      /** Company Blacklist */
+      company_blacklist?: string[];
+      /** Remote Policy */
+      remote_policy?:
+        ("any" | "remote_only" | "hybrid_ok" | "onsite_ok") | null;
+      /** Skill Match Mode */
+      skill_match_mode?: ("any" | "all") | null;
+      /** Min Match Score */
+      min_match_score?: number | null;
+      /** Current Ctc */
+      current_ctc?: number | null;
+      /** Expected Ctc */
+      expected_ctc?: number | null;
+      /** Min Ctc */
+      min_ctc?: number | null;
+      /** Total Experience Years */
+      total_experience_years?: number | null;
+      /** Willing To Relocate */
+      willing_to_relocate?: boolean | null;
+      /** Skill Years */
+      skill_years?: {
+        [key: string]: number;
+      };
     };
     /** JobSearchPreferences */
     "JobSearchPreferences-Output": {
@@ -6410,6 +6913,37 @@ export interface components {
       excluded_keywords?: string[];
       /** Prioritize Startups */
       prioritize_startups?: boolean | null;
+      /** Target Roles */
+      target_roles?: string[];
+      /** Keywords Required */
+      keywords_required?: string[];
+      /** Keywords Excluded */
+      keywords_excluded?: string[];
+      /** Tech Stack */
+      tech_stack?: string[];
+      /** Company Blacklist */
+      company_blacklist?: string[];
+      /** Remote Policy */
+      remote_policy?:
+        ("any" | "remote_only" | "hybrid_ok" | "onsite_ok") | null;
+      /** Skill Match Mode */
+      skill_match_mode?: ("any" | "all") | null;
+      /** Min Match Score */
+      min_match_score?: number | null;
+      /** Current Ctc */
+      current_ctc?: number | null;
+      /** Expected Ctc */
+      expected_ctc?: number | null;
+      /** Min Ctc */
+      min_ctc?: number | null;
+      /** Total Experience Years */
+      total_experience_years?: number | null;
+      /** Willing To Relocate */
+      willing_to_relocate?: boolean | null;
+      /** Skill Years */
+      skill_years?: {
+        [key: string]: number;
+      };
     };
     /** JobSearchPreferencesUpdate */
     JobSearchPreferencesUpdate: {
@@ -6459,6 +6993,37 @@ export interface components {
       excluded_keywords?: string[];
       /** Prioritize Startups */
       prioritize_startups?: boolean | null;
+      /** Target Roles */
+      target_roles?: string[];
+      /** Keywords Required */
+      keywords_required?: string[];
+      /** Keywords Excluded */
+      keywords_excluded?: string[];
+      /** Tech Stack */
+      tech_stack?: string[];
+      /** Company Blacklist */
+      company_blacklist?: string[];
+      /** Remote Policy */
+      remote_policy?:
+        ("any" | "remote_only" | "hybrid_ok" | "onsite_ok") | null;
+      /** Skill Match Mode */
+      skill_match_mode?: ("any" | "all") | null;
+      /** Min Match Score */
+      min_match_score?: number | null;
+      /** Current Ctc */
+      current_ctc?: number | null;
+      /** Expected Ctc */
+      expected_ctc?: number | null;
+      /** Min Ctc */
+      min_ctc?: number | null;
+      /** Total Experience Years */
+      total_experience_years?: number | null;
+      /** Willing To Relocate */
+      willing_to_relocate?: boolean | null;
+      /** Skill Years */
+      skill_years?: {
+        [key: string]: number;
+      };
     };
     /**
      * JobStatus
@@ -7551,6 +8116,121 @@ export interface components {
           | "disabled";
       };
     };
+    /**
+     * PortalRulesPatch
+     * @description Partial update. `revision` must equal the current row (optimistic concurrency).
+     */
+    PortalRulesPatch: {
+      /** Revision */
+      revision: number;
+      /** Enabled */
+      enabled?: boolean | null;
+      /** Auto Apply Enabled */
+      auto_apply_enabled?: boolean | null;
+      /** Max Applies Per Day */
+      max_applies_per_day?: number | null;
+      /** Max Applies Per Hour */
+      max_applies_per_hour?: number | null;
+      /** Max Job Age Days */
+      max_job_age_days?: number | null;
+      /** Max Applicants */
+      max_applicants?: number | null;
+      /** Unknown Applicants Policy */
+      unknown_applicants_policy?:
+        ("allow_lower_bound" | "allow" | "skip" | "needs_review") | null;
+      /** Min Delay Sec */
+      min_delay_sec?: number | null;
+      /** Max Delay Sec */
+      max_delay_sec?: number | null;
+      /** Active Hours Start */
+      active_hours_start?: string | null;
+      /** Active Hours End */
+      active_hours_end?: string | null;
+      /** Timezone */
+      timezone?: string | null;
+    };
+    /** PortalRulesRead */
+    PortalRulesRead: {
+      /** Platform */
+      platform: string;
+      /** Enabled */
+      enabled: boolean;
+      /** Auto Apply Enabled */
+      auto_apply_enabled: boolean;
+      /** Max Applies Per Day */
+      max_applies_per_day: number;
+      /** Max Applies Per Hour */
+      max_applies_per_hour: number;
+      /** Max Job Age Days */
+      max_job_age_days: number;
+      /** Max Applicants */
+      max_applicants: number;
+      /**
+       * Unknown Applicants Policy
+       * @enum {string}
+       */
+      unknown_applicants_policy:
+        "allow_lower_bound" | "allow" | "skip" | "needs_review";
+      /** Min Delay Sec */
+      min_delay_sec: number;
+      /** Max Delay Sec */
+      max_delay_sec: number;
+      /**
+       * Active Hours Start
+       * @description HH:MM in `timezone`; null = all day
+       */
+      active_hours_start: string | null;
+      /** Active Hours End */
+      active_hours_end: string | null;
+      /** Timezone */
+      timezone: string;
+      /**
+       * Auth Status
+       * @enum {string}
+       */
+      auth_status: "OK" | "AUTH_REQUIRED" | "UNKNOWN";
+      /** Auth Checked At */
+      auth_checked_at?: string | null;
+      /** Portal Limit Hit At */
+      portal_limit_hit_at?: string | null;
+      /** Revision */
+      revision: number;
+      /** Updated At */
+      updated_at?: string | null;
+    };
+    /** PortalStatus */
+    PortalStatus: {
+      /** Platform */
+      platform: string;
+      /** Enabled */
+      enabled: boolean;
+      /** Auto Apply Enabled */
+      auto_apply_enabled: boolean;
+      /** Auth Status */
+      auth_status: string;
+      /** Auth Checked At */
+      auth_checked_at?: string | null;
+      /** Portal Limit Hit At */
+      portal_limit_hit_at?: string | null;
+      /** Portal Limit Hit Today */
+      portal_limit_hit_today: boolean;
+      /** Applied Today */
+      applied_today: number;
+      /** Max Applies Per Day */
+      max_applies_per_day: number;
+      /** Applied This Hour */
+      applied_this_hour: number;
+      /** Max Applies Per Hour */
+      max_applies_per_hour: number;
+      /** Daily Limit Hit */
+      daily_limit_hit: boolean;
+      /** Hourly Limit Hit */
+      hourly_limit_hit: boolean;
+      /** Within Active Hours */
+      within_active_hours: boolean;
+      /** Waiting For User */
+      waiting_for_user: number;
+    };
     /** PrepareBrowser */
     PrepareBrowser: {
       /** Application Url */
@@ -7768,6 +8448,47 @@ export interface components {
       in_cooldown: boolean;
       /** Cooldown Until */
       cooldown_until?: string | null;
+    };
+    /** ProviderStatusRead */
+    ProviderStatusRead: {
+      /** Provider */
+      provider: string;
+      /** Label */
+      label: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "unconfigured" | "healthy" | "cooldown" | "circuit_open";
+      /** Model */
+      model: string;
+      /** Problem */
+      problem?: string | null;
+      /** Api Style */
+      api_style: string;
+      /** Requests Today */
+      requests_today: number;
+      /** Requests This Minute */
+      requests_this_minute: number;
+      /** Tokens Today */
+      tokens_today: number;
+      /** Rpm Limit */
+      rpm_limit: number;
+      /** Rpd Limit */
+      rpd_limit: number;
+      /** Tpd Limit */
+      tpd_limit?: number | null;
+      /** Circuit Open Until */
+      circuit_open_until?: string | null;
+      /** Last Error */
+      last_error?: string | null;
+      /**
+       * Consecutive Failures
+       * @default 0
+       */
+      consecutive_failures: number;
+      /** Key Envs */
+      key_envs: string[];
     };
     /** PublicPerson */
     PublicPerson: {
@@ -8253,6 +8974,19 @@ export interface components {
         [key: string]: unknown;
       };
     };
+    /** ResumeAuthRead */
+    ResumeAuthRead: {
+      /** Ok */
+      ok: boolean;
+      /** Platform */
+      platform: string;
+      /** Message */
+      message: string;
+      /** Auth Status */
+      auth_status: string | null;
+      /** Resolved Auth Requests */
+      resolved_auth_requests: number;
+    };
     /** ResumeConfirm */
     ResumeConfirm: {
       /**
@@ -8585,6 +9319,97 @@ export interface components {
       expected_version: number;
       configuration: components["schemas"]["ScheduleConfiguration"];
     };
+    /** ScreeningProfilePatch */
+    ScreeningProfilePatch: {
+      /** Target Roles */
+      target_roles?: string[];
+      /** Keywords Required */
+      keywords_required?: string[];
+      /** Keywords Excluded */
+      keywords_excluded?: string[];
+      /** Tech Stack */
+      tech_stack?: string[];
+      /** Company Blacklist */
+      company_blacklist?: string[];
+      /** Remote Policy */
+      remote_policy?:
+        ("any" | "remote_only" | "hybrid_ok" | "onsite_ok") | null;
+      /** Skill Match Mode */
+      skill_match_mode?: ("any" | "all") | null;
+      /** Min Match Score */
+      min_match_score?: number | null;
+      /** Current Ctc */
+      current_ctc?: number | null;
+      /** Expected Ctc */
+      expected_ctc?: number | null;
+      /** Min Ctc */
+      min_ctc?: number | null;
+      /** Notice Period Days */
+      notice_period_days?: number | null;
+      /** Total Experience Years */
+      total_experience_years?: number | null;
+      /** Current Location */
+      current_location?: string | null;
+      /** Willing To Relocate */
+      willing_to_relocate?: boolean | null;
+      /** Skill Years */
+      skill_years?: {
+        [key: string]: number;
+      };
+      /**
+       * Version
+       * @description Current candidate_profiles.version
+       */
+      version: number;
+    };
+    /** ScreeningProfileRead */
+    ScreeningProfileRead: {
+      /** Target Roles */
+      target_roles?: string[];
+      /** Keywords Required */
+      keywords_required?: string[];
+      /** Keywords Excluded */
+      keywords_excluded?: string[];
+      /** Tech Stack */
+      tech_stack?: string[];
+      /** Company Blacklist */
+      company_blacklist?: string[];
+      /** Remote Policy */
+      remote_policy?:
+        ("any" | "remote_only" | "hybrid_ok" | "onsite_ok") | null;
+      /** Skill Match Mode */
+      skill_match_mode?: ("any" | "all") | null;
+      /** Min Match Score */
+      min_match_score?: number | null;
+      /** Current Ctc */
+      current_ctc?: number | null;
+      /** Expected Ctc */
+      expected_ctc?: number | null;
+      /** Min Ctc */
+      min_ctc?: number | null;
+      /** Notice Period Days */
+      notice_period_days?: number | null;
+      /** Total Experience Years */
+      total_experience_years?: number | null;
+      /** Current Location */
+      current_location?: string | null;
+      /** Willing To Relocate */
+      willing_to_relocate?: boolean | null;
+      /** Skill Years */
+      skill_years?: {
+        [key: string]: number;
+      };
+      /**
+       * Version
+       * @description candidate_profiles.version; send back on PATCH
+       */
+      version: number;
+      /**
+       * Has Profile
+       * @default true
+       */
+      has_profile: boolean;
+    };
     /** Search */
     Search: {
       /**
@@ -8646,6 +9471,37 @@ export interface components {
       excluded_keywords?: string[];
       /** Prioritize Startups */
       prioritize_startups?: boolean | null;
+      /** Target Roles */
+      target_roles?: string[];
+      /** Keywords Required */
+      keywords_required?: string[];
+      /** Keywords Excluded */
+      keywords_excluded?: string[];
+      /** Tech Stack */
+      tech_stack?: string[];
+      /** Company Blacklist */
+      company_blacklist?: string[];
+      /** Remote Policy */
+      remote_policy?:
+        ("any" | "remote_only" | "hybrid_ok" | "onsite_ok") | null;
+      /** Skill Match Mode */
+      skill_match_mode?: ("any" | "all") | null;
+      /** Min Match Score */
+      min_match_score?: number | null;
+      /** Current Ctc */
+      current_ctc?: number | null;
+      /** Expected Ctc */
+      expected_ctc?: number | null;
+      /** Min Ctc */
+      min_ctc?: number | null;
+      /** Total Experience Years */
+      total_experience_years?: number | null;
+      /** Willing To Relocate */
+      willing_to_relocate?: boolean | null;
+      /** Skill Years */
+      skill_years?: {
+        [key: string]: number;
+      };
       /** Minimum Experience */
       minimum_experience?: number | null;
       /** Maximum Experience */
@@ -8740,6 +9596,37 @@ export interface components {
       excluded_keywords?: string[];
       /** Prioritize Startups */
       prioritize_startups?: boolean | null;
+      /** Target Roles */
+      target_roles?: string[];
+      /** Keywords Required */
+      keywords_required?: string[];
+      /** Keywords Excluded */
+      keywords_excluded?: string[];
+      /** Tech Stack */
+      tech_stack?: string[];
+      /** Company Blacklist */
+      company_blacklist?: string[];
+      /** Remote Policy */
+      remote_policy?:
+        ("any" | "remote_only" | "hybrid_ok" | "onsite_ok") | null;
+      /** Skill Match Mode */
+      skill_match_mode?: ("any" | "all") | null;
+      /** Min Match Score */
+      min_match_score?: number | null;
+      /** Current Ctc */
+      current_ctc?: number | null;
+      /** Expected Ctc */
+      expected_ctc?: number | null;
+      /** Min Ctc */
+      min_ctc?: number | null;
+      /** Total Experience Years */
+      total_experience_years?: number | null;
+      /** Willing To Relocate */
+      willing_to_relocate?: boolean | null;
+      /** Skill Years */
+      skill_years?: {
+        [key: string]: number;
+      };
       /** Minimum Experience */
       minimum_experience?: number | null;
       /** Maximum Experience */
@@ -8786,21 +9673,67 @@ export interface components {
        */
       duplicate_prevention: true;
     };
-    /** SendRequest */
-    SendRequest: {
-      /** Expected Revision */
-      expected_revision: number;
-      /** Approval Hash */
-      approval_hash: string;
-      /** Confirmation Token */
-      confirmation_token: string;
+    /** SemanticCacheCreate */
+    SemanticCacheCreate: {
       /**
-       * Sender Account Id
-       * Format: uuid
+       * Kind
+       * @default screening_qa
        */
-      sender_account_id: string;
-      /** Idempotency Key */
-      idempotency_key: string;
+      kind: string;
+      /** Question Text */
+      question_text: string;
+      /** Answer Text */
+      answer_text: string;
+    };
+    /** SemanticCacheEntryRead */
+    SemanticCacheEntryRead: {
+      /** Id */
+      id: string;
+      /** Kind */
+      kind: string;
+      /** Question Text */
+      question_text: string;
+      /** Answer Text */
+      answer_text: string;
+      /**
+       * Source
+       * @enum {string}
+       */
+      source: "user" | "profile" | "llm";
+      /** Hits */
+      hits: number;
+      /** Created At */
+      created_at?: string | null;
+      /** Updated At */
+      updated_at?: string | null;
+    };
+    /** SemanticCachePage */
+    SemanticCachePage: {
+      /** Items */
+      items: components["schemas"]["SemanticCacheEntryRead"][];
+      /** Total */
+      total: number;
+      /** Limit */
+      limit: number;
+      /** Offset */
+      offset: number;
+    };
+    /** SemanticCacheStats */
+    SemanticCacheStats: {
+      /** Backend */
+      backend: string;
+      /** Total Entries */
+      total_entries: number;
+      /** Total Hits */
+      total_hits: number;
+      /** Threshold */
+      threshold: number;
+      /** Embedding Model */
+      embedding_model: string;
+      /** Embedding Dimensions */
+      embedding_dimensions: number;
+      /** Embedding Ready */
+      embedding_ready: boolean;
     };
     /** ShortlistInput */
     ShortlistInput: {
@@ -9121,6 +10054,21 @@ export interface components {
       limit: number;
       /** Startups */
       startups: components["schemas"]["StartupRead"][];
+    };
+    /** StateEventRead */
+    StateEventRead: {
+      /** From State */
+      from_state?: string | null;
+      /** To State */
+      to_state: string;
+      /** Event Type */
+      event_type: string;
+      /** Payload */
+      payload?: {
+        [key: string]: unknown;
+      };
+      /** Created At */
+      created_at?: string | null;
     };
     /** Submission */
     Submission: {
@@ -9606,6 +10554,38 @@ export interface components {
        */
       existing: number;
     };
+    /** TelegramStatusRead */
+    TelegramStatusRead: {
+      /** Configured */
+      configured: boolean;
+      /**
+       * Polling State
+       * @enum {string}
+       */
+      polling_state:
+        | "unconfigured"
+        | "starting"
+        | "polling"
+        | "conflict"
+        | "error"
+        | "stopped";
+      /** Stale */
+      stale: boolean;
+      /** Conflict Detected */
+      conflict_detected: boolean;
+      /** Conflict Detected At */
+      conflict_detected_at: string | null;
+      /** Last Poll At */
+      last_poll_at: string | null;
+      /** Last Update Id */
+      last_update_id: number | null;
+      /** Last Error */
+      last_error: string | null;
+      /** Owner Chat Id */
+      owner_chat_id: string | null;
+      /** Open Hitl Count */
+      open_hitl_count: number;
+    };
     /** TokenUsage */
     TokenUsage: {
       /** Input Tokens */
@@ -9747,6 +10727,45 @@ export interface components {
     Version: {
       /** Expected Version */
       expected_version: number;
+    };
+    /** WorkerControlRead */
+    WorkerControlRead: {
+      /**
+       * Desired State
+       * @enum {string}
+       */
+      desired_state: "RUNNING" | "PAUSED" | "STOPPED";
+      /** Dry Run */
+      dry_run: boolean;
+      /** Run Once Requested At */
+      run_once_requested_at?: string | null;
+      /** Observed State */
+      observed_state: string;
+      /** Heartbeat At */
+      heartbeat_at?: string | null;
+      /** Heartbeat Age Sec */
+      heartbeat_age_sec?: number | null;
+      /**
+       * Stale
+       * @description No heartbeat for 5+ minutes (worker process not running)
+       */
+      stale: boolean;
+      /** Current Platform */
+      current_platform?: string | null;
+      /** Last Cycle At */
+      last_cycle_at?: string | null;
+      /** Last Error */
+      last_error?: string | null;
+      /** Revision */
+      revision: number;
+    };
+    /** WorkerStartInput */
+    WorkerStartInput: {
+      /**
+       * Dry Run
+       * @description false = live applications
+       */
+      dry_run?: boolean | null;
     };
     /** DraftInput */
     backend__app__integrations__gmail__drafts__DraftInput: {
@@ -11123,6 +12142,688 @@ export interface operations {
         };
         content: {
           "application/json": unknown;
+        };
+      };
+    };
+  };
+  list_portal_rules_api_v1_v2_portal_rules_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PortalRulesRead"][];
+        };
+      };
+    };
+  };
+  patch_portal_rules_api_v1_v2_portal_rules__platform__patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        platform: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PortalRulesPatch"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PortalRulesRead"];
+        };
+      };
+      /** @description Unknown portal */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Revision conflict; reload and retry */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_screening_profile_api_v1_v2_screening_profile_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScreeningProfileRead"];
+        };
+      };
+    };
+  };
+  patch_screening_profile_api_v1_v2_screening_profile_patch: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ScreeningProfilePatch"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScreeningProfileRead"];
+        };
+      };
+      /** @description Create the candidate profile first */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Profile version conflict */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_applications_api_v1_v2_applications_get: {
+    parameters: {
+      query?: {
+        platform?: string | null;
+        state?: components["schemas"]["ApplicationState"] | null;
+        since?: string | null;
+        until?: string | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ApplicationPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  application_events_api_v1_v2_applications__application_id__events_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        application_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StateEventRead"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  automation_status_api_v1_v2_status_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AutomationStatus"];
+        };
+      };
+    };
+  };
+  get_worker_api_v1_v2_worker_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerControlRead"];
+        };
+      };
+    };
+  };
+  start_worker_api_v1_v2_worker_start_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["WorkerStartInput"] | null;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerControlRead"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  pause_worker_api_v1_v2_worker_pause_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerControlRead"];
+        };
+      };
+    };
+  };
+  stop_worker_api_v1_v2_worker_stop_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerControlRead"];
+        };
+      };
+    };
+  };
+  run_worker_once_api_v1_v2_worker_run_once_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerControlRead"];
+        };
+      };
+    };
+  };
+  ai_status_api_v1_v2_ai_status_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AIStatusRead"];
+        };
+      };
+    };
+  };
+  list_semantic_cache_api_v1_v2_semantic_cache_get: {
+    parameters: {
+      query?: {
+        kind?: string | null;
+        q?: string | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SemanticCachePage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_semantic_cache_entry_api_v1_v2_semantic_cache_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SemanticCacheCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SemanticCacheEntryRead"];
+        };
+      };
+      /** @description Invalid question/answer */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  delete_semantic_cache_entry_api_v1_v2_semantic_cache__entry_id__delete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        entry_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Entry not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_telegram_status_api_v1_v2_telegram_status_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TelegramStatusRead"];
+        };
+      };
+    };
+  };
+  list_hitl_requests_api_v1_v2_hitl_get: {
+    parameters: {
+      query?: {
+        status?: ("OPEN" | "ANSWERED" | "EXPIRED" | "CANCELLED") | null;
+        platform?: string | null;
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HitlPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  resolve_hitl_request_api_v1_v2_hitl__hitl_id__resolve_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        hitl_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["HitlResolveInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HitlResolutionRead"];
+        };
+      };
+      /** @description HITL request not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Already resolved */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Invalid option / empty answer / wrong kind */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  skip_hitl_request_api_v1_v2_hitl__hitl_id__skip_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        hitl_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HitlResolutionRead"];
+        };
+      };
+      /** @description HITL request not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Already resolved */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Invalid option / empty answer / wrong kind */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  retry_hitl_request_api_v1_v2_hitl__hitl_id__retry_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        hitl_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HitlResolutionRead"];
+        };
+      };
+      /** @description HITL request not found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Already resolved */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Invalid option / empty answer / wrong kind */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  resume_portal_auth_api_v1_v2_portal_rules__platform__resume_auth_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        platform: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ResumeAuthRead"];
+        };
+      };
+      /** @description Unknown portal */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };
@@ -14868,135 +16569,6 @@ export interface operations {
       path: {
         draft_id: string;
       };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  send_preview_api_v1_outreach_drafts__draft_id__send_preview_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        draft_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  send_api_v1_outreach_drafts__draft_id__send_post: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        draft_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": components["schemas"]["SendRequest"];
-      };
-    };
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  send_status_api_v1_outreach_send_attempts__attempt_id__get: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        attempt_id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Successful Response */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": unknown;
-        };
-      };
-      /** @description Validation Error */
-      422: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["HTTPValidationError"];
-        };
-      };
-    };
-  };
-  outreach_history_api_v1_outreach_history_get: {
-    parameters: {
-      query?: {
-        limit?: number;
-        offset?: number;
-      };
-      header?: never;
-      path?: never;
       cookie?: never;
     };
     requestBody?: never;
