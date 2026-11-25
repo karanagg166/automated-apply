@@ -1,6 +1,25 @@
 ## Latest local acceptance, 2026-11-25
 
-Managed release `0b3fd4087b7d460520c8b520a80afdc1036d8303` is active on the Mac
+The prepared-resume release `cd3f7d16b7beaadea978663ffc25358d49aa881b`
+passed all 37 combined stages on the clean commit and is live on the Mac
+under managed plan `rust-plan-m6op23mi`. All four macOS access probes
+passed. The new runtime and dashboard reached readiness in 12.346 seconds,
+with 3,096 jobs, 38 packets, three prior reservations and three quarantines
+retained. The execution queue remains stopped at revision 174. The exact
+prepared work remains at revision 36 with no lease, no new admission or
+form evidence, and zero worker receipts.
+
+Brave Developer mode is enabled. The package and dedicated tab restoration
+passed, and running-module verification identified one stale
+`naukri-queue.js`. The first reload preflight found the macOS session locked.
+The private continuation can request one stopped reload once the session is
+unlocked. A fresh signed-in profile and canonical PDF observation and the
+exact listing read are still needed before the fourth supervised admission.
+[Combined and live acceptance evidence](acceptance/naukri-bridge-release-20261125.md)
+
+## Earlier bridge release, 2026-11-25
+
+Managed release `0b3fd4087b7d460520c8b520a80afdc1036d8303` was active on the Mac
 under plan `rust-plan-m9dktwyz`. All 37 stages passed on the exact clean commit.
 The four macOS access probes passed, the services reached verified readiness
 in 12.379 seconds, and the native host and Brave package matched the installed
@@ -44,9 +63,9 @@ the queue and work revisions and restarts at read-only profile inspection.
 The first combined gate passed 36 of 37 stages. A missing platform-policy table
 in the new disposable PostgreSQL fixture interrupted the native poll after
 successful CLI resume. The targeted regression passed after adding the table.
-The corrected combined run and a ready dedicated Brave worker are required
-for the live cutover. Readback still shows STOP revision 174, the exact paused
-packet, three quarantines and reservations, and zero selected admissions.
+That candidate awaited the corrected combined run and a ready dedicated
+Brave worker. Readback showed STOP revision 174, the exact paused packet,
+three quarantines and reservations, and zero selected admissions.
 
 ## Previous local one-listing release, 2026-11-24
 

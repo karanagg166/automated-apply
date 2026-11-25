@@ -1,5 +1,32 @@
 # Naukri bridge release acceptance
 
+## Prepared application continuation cutover
+
+Combined run `20261124T235750Z-6697db7e6f57426688ffb70c5084b74a` passed
+all 37 stages on clean branch `feat/rust-agent-runtime` at
+`cd3f7d16b7beaadea978663ffc25358d49aa881b`. This includes 1,105 PostgreSQL
+cases, 444 Rust workspace cases, 3,433 Python backend passes with one skip,
+422 frontend unit tests, 421 extension unit tests, 26 extension browser
+fixture groups and 48 backend browser cases. The prepared-resume regression
+passed on the corrected fixture. All provider interactions in this gate
+used fixtures.
+
+| Check | Status | Actual Mac evidence |
+| --- | --- | --- |
+| Managed runtime, dashboard and native-host cutover | PASS | Plan `rust-plan-m6op23mi` passed all four Desktop access probes. Startup reached exact listener and HTTP readiness in 12.346 seconds. All 16 readback checks returned their expected status. Focus was preserved and rollback inventory `rust-preinstall-ytkfvy8r` was retained. |
+| Stop controls and retained data | PASS | The queue and preparation stayed stopped at revisions 174 and 106. The cutover retained 3,096 jobs, 38 packets, three previous reservations, three quarantines and zero work in flight. |
+| Exact Brave package and profile restoration | PASS | Developer mode and the project extension were re-enabled before cutover. The launcher restored the dedicated profile and one inactive Naukri tab. All six packaged modules match the release. |
+| Exact running Brave modules | BLOCKED | Five of six running modules match after restart. The running `naukri-queue.js` still differs. The console reported a locked session during the stopped reload preflight, so no reload was dispatched. |
+| Fresh canonical PDF check | PENDING | The previous release verified the account but timed out observing the expected PDF from the Download control. Repeat the read using the restored exact candidate worker before considering Apply. |
+| Live supervised application and strict receipt | PENDING | The selected work remains paused at revision 36 with its existing packet, zero new admission and no live form or dispatch evidence. The selected scope and recurring submission remain off. |
+
+The private recovery waits for an unlocked session, checks STOP and the
+dedicated profile again, requests at most one ordinary extension reload, and
+verifies the running modules independently afterward. Reproduce the combined
+gate with `uv run --no-project python scripts/run_acceptance.py --run --keep-going`.
+
+## Earlier bridge release and incident
+
 The combined fixture gate passed for all 37 stages on clean branch `feat/rust-agent-runtime` at `0b3fd4087b7d460520c8b520a80afdc1036d8303`. The managed Mac installation activated that runtime and native bridge. Brave's configured bundle and its packaged resources matched the release. Subsequent inspection found five loaded service-worker modules executing older code. The release closes timed-out native heartbeat ports and retries Naukri polls after confirmed rollback of a pre-dispatch lock or serialization failure. [Reliability changes and prior live evidence](naukri-always-on-20261124.md)
 
 | Check | Status | Evidence |
@@ -9,7 +36,7 @@ The combined fixture gate passed for all 37 stages on clean branch `feat/rust-ag
 | Managed launchd startup | PASS | Readiness took 12.379 seconds after activation. Health, authenticated readiness, and frontend login returned HTTP 200. Unauthenticated protected reads returned HTTP 401. Local plan `rust-plan-m9dktwyz` used rollback snapshot `rust-preinstall-2w4ap86t` and passed all four macOS access probes. |
 | Dedicated Brave restoration | PASS | Brave restored three tabs, including exactly one Naukri tab. Readback showed one ordinary dedicated window with a neutral active tab and the previous profile binding. The refresh preserved other desktop windows. |
 | STOP and data retention | PASS | The execution queue stayed STOPPED at revision 170, preparation at revision 104, and Rust control at revision 9. Readback retained 3,095 jobs, 37 packets, three historical reservations, and three quarantines, with zero in flight. |
-| 24-hour read-only observation | IN PROGRESS | Through 04:31 IST on November 25, 112 of 114 samples returned HTTP 200 for all six local checks. Health, readiness, and frontend returned HTTP 200 throughout. One sample had no HTTP result for control, and another had control, browser, and queue HTTP 503s. |
+| 24-hour read-only observation | INCOMPLETE | The release was replaced after 8.49 hours and 148 samples. The worker was online in 145 samples. Through 04:31 IST, 112 of 114 samples returned HTTP 200 for all six local checks. |
 | Live supervised inspection | PASS | The broker rejected the Python Developer listing at the saved title gate and restored STOP at revision 172. A second one-listing window at revision 173 passed eligibility and prepared a Backend Developer application packet. |
 | Live Naukri submission | PENDING | The read-only résumé step lost its lease. The operator stopped the scope at revision 174 after detecting older loaded Brave modules. The run admitted zero Apply actions and recorded zero strict receipts. Three historical reservations and quarantines remain. One admission is still available. |
 | Recurring live submission | BLOCKED | A strict worker receipt and verified provider permission remain pending. |
