@@ -1,14 +1,21 @@
 ## Latest local acceptance, 2026-11-25
 
-The transport-timeout candidate `7e12fc66c400b24a901af29e3710e5288083c29d`
-has 37 passing combined stages and is staged under `rust-plan-aypdoz7f`.
+The transport-timeout release `7e12fc66c400b24a901af29e3710e5288083c29d`
+has 37 passing combined stages and is live under `rust-plan-aypdoz7f`.
 After the first runner exited, the release build and artifact inventory were
 run again on the same clean commit, retaining the original 35 passes.
-Cutover is waiting for a signed-in Naukri tab in the reopened dedicated
-Brave profile. The exact timed-out packet is still unadmitted.
+All four macOS access probes and 16 smoke checks passed. Readiness took
+12.396 seconds. The cutover preserved desktop focus, 3,097 jobs, 39 packets,
+three prior reservations and three quarantines. The Brave bundle and native
+binary were byte-identical across the two releases. The existing browser
+instance stayed open and all six running modules verified before and after
+cutover. A new read-only observation started. Live execution still requires
+sign-in in the dedicated Naukri tab and fresh account, résumé and listing
+proof. The exact timed-out packet is unadmitted at revision 21. The queue
+remains stopped at revision 176.
 
 The prepared-resume release `cd3f7d16b7beaadea978663ffc25358d49aa881b`
-passed all 37 combined stages on the clean commit and is live on the Mac
+passed all 37 combined stages on the clean commit and was live on the Mac
 under managed plan `rust-plan-m6op23mi`. All four macOS access probes
 passed. The new runtime and dashboard reached readiness in 12.346 seconds,
 with 3,096 jobs, 38 packets, three prior reservations and three quarantines

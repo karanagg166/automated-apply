@@ -34,8 +34,8 @@ Both paths retain the one-listing, account, résumé, history, and quota checks.
 
 ## Profile transport recovery candidate
 
-Exact candidate `7e12fc66c400b24a901af29e3710e5288083c29d` is staged under
-`rust-plan-aypdoz7f`. The original runner recorded 35 passing stages, then
+Exact release `7e12fc66c400b24a901af29e3710e5288083c29d` is installed
+under `rust-plan-aypdoz7f`. The original runner recorded 35 passing stages, then
 exited before recording its release build and artifact inventory. The
 recovery preserved that original record and executed those two stages again
 on the same clean commit. The resulting 37-stage evidence
@@ -47,8 +47,9 @@ the second timeout hold, and explicit continuation of the same packet.
 | Check | Status | Actual Mac evidence |
 | --- | --- | --- |
 | Staging and rollback readiness | PASS | The staged artifact inventory matches the accepted commit. The current installation matches rollback snapshot `rust-preinstall-51rlku8l` across nine definitions and 22 references. |
-| Managed activation | BLOCKED | The stopped cutover preflight found the dedicated Brave process absent. A new launch in the same profile restored Naukri sign-in pages. An authenticated profile and the approved idle tab state are required for cutover. |
-| Supervised live receipt on the recovery release | PENDING | The earlier application remains paused at queue revision 176 and work revision 21. The first strict receipt is still pending, with the fourth admission available. |
+| Managed activation | PASS | All four macOS access probes passed. The exact listener owners and HTTP readiness were verified in 12.396 seconds. All 16 smoke checks passed, focus was preserved, and the cutover retained 3,097 jobs, 39 packets, three reservations and three quarantines. |
+| Existing Brave instance | PASS | The old and new Brave bundles and native binary matched byte for byte. All six executing modules matched the candidate before and after cutover. The same browser process and tabs stayed open while the native host manifest moved to the new release. |
+| Supervised live receipt on the recovery release | PENDING | Naukri shows sign-in in the existing tab. The earlier packet remains paused at queue revision 176 and work revision 21, with zero admissions for this packet and one supervised admission available. The new read-only stability observation has started. |
 
 ## Earlier bridge release and incident
 
