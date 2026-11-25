@@ -9,12 +9,15 @@ retained. The execution queue remains stopped at revision 174. The exact
 prepared work remains at revision 36 with no lease, no new admission or
 form evidence, and zero worker receipts.
 
-Brave Developer mode is enabled. The package and dedicated tab restoration
-passed, and running-module verification identified one stale
-`naukri-queue.js`. The first reload preflight found the macOS session locked.
-The private continuation can request one stopped reload once the session is
-unlocked. A fresh signed-in profile and canonical PDF observation and the
-exact listing read are still needed before the fourth supervised admission.
+Brave Developer mode is enabled. One stopped extension reload on the
+unlocked Mac recovered the stale `naukri-queue.js`. All six running modules
+match the installed release, and the new 24-hour observation started. A
+restored Naukri profile tab initially returned HTTP 401 on its Download
+request. Reloading the existing tab restored the verified account and
+100,198-byte canonical PDF proof. The original listing now redirects to
+search, with its packet retained and unadmitted. A replacement was reviewed
+through a fresh provider search under the same one-listing exception. The
+remaining supervised run needs the Mac unlocked and fresh checks at start.
 [Combined and live acceptance evidence](acceptance/naukri-bridge-release-20261125.md)
 
 ## Earlier bridge release, 2026-11-25

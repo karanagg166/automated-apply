@@ -16,14 +16,13 @@ used fixtures.
 | Managed runtime, dashboard and native-host cutover | PASS | Plan `rust-plan-m6op23mi` passed all four Desktop access probes. Startup reached exact listener and HTTP readiness in 12.346 seconds. All 16 readback checks returned their expected status. Focus was preserved and rollback inventory `rust-preinstall-ytkfvy8r` was retained. |
 | Stop controls and retained data | PASS | The queue and preparation stayed stopped at revisions 174 and 106. The cutover retained 3,096 jobs, 38 packets, three previous reservations, three quarantines and zero work in flight. |
 | Exact Brave package and profile restoration | PASS | Developer mode and the project extension were re-enabled before cutover. The launcher restored the dedicated profile and one inactive Naukri tab. All six packaged modules match the release. |
-| Exact running Brave modules | BLOCKED | Five of six running modules match after restart. The running `naukri-queue.js` still differs. The console reported a locked session during the stopped reload preflight, so no reload was dispatched. |
-| Fresh canonical PDF check | PENDING | The previous release verified the account but timed out observing the expected PDF from the Download control. Repeat the read using the restored exact candidate worker before considering Apply. |
-| Live supervised application and strict receipt | PENDING | The selected work remains paused at revision 36 with its existing packet, zero new admission and no live form or dispatch evidence. The selected scope and recurring submission remain off. |
+| Exact running Brave modules | PASS | Restart left the running `naukri-queue.js` stale. After the Mac unlocked, one stopped extension reload and independent readback verified all six running modules. A new 24-hour observation started. |
+| Fresh canonical PDF check | PASS | Naukri rejected the Download request with HTTP 401 in the restored tab. An ordinary reload of that same inactive tab returned HTTP 200, and a new Download matched the signed-in account and confirmed 100,198-byte canonical PDF. |
+| Live supervised application and strict receipt | PENDING | The original listing now redirects to a search page. Its work remains paused at revision 36 with the existing packet and no admission, form, or dispatch evidence. A new one-listing observation retained the approved applicant, identity, résumé, and quota rules. |
 
-The private recovery waits for an unlocked session, checks STOP and the
-dedicated profile again, requests at most one ordinary extension reload, and
-verifies the running modules independently afterward. Reproduce the combined
-gate with `uv run --no-project python scripts/run_acceptance.py --run --keep-going`.
+The stopped reload checked the unlocked session and exact dedicated profile
+before requesting one ordinary extension reload. Reproduce the combined gate
+with `uv run --no-project python scripts/run_acceptance.py --run --keep-going`.
 
 ## Earlier bridge release and incident
 
