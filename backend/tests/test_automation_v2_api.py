@@ -38,7 +38,7 @@ async def test_portal_rules_list_and_patch_increments_revision(async_client, pha
     listed = (await async_client.get(f"{BASE}/portal-rules", headers=phase2_auth)).json()
     naukri = next(r for r in listed if r["platform"] == "naukri")
     assert naukri["max_applies_per_day"] == 50 and naukri["active_hours_start"] == "08:00"
-    assert {r["platform"] for r in listed} == {"naukri", "instahyre", "himalayas", "internshala"}
+    assert {r["platform"] for r in listed} == {"naukri", "instahyre", "internshala", "himalayas", "wellfound", "work_at_a_startup", "we_work_remotely", "hiringcafe", "greenhouse", "lever"}
     response = await async_client.patch(f"{BASE}/portal-rules/naukri", headers=phase2_auth, json={
         "revision": naukri["revision"], "max_applies_per_day": 40, "max_job_age_days": 5,
         "unknown_applicants_policy": "needs_review", "min_delay_sec": 60, "max_delay_sec": 120,

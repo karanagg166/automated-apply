@@ -2,7 +2,7 @@
 
 Run: backend/venv/bin/python -m backend.app.browser_v2.cli mcp
 Live applies require the Postgres store so the never-replay guard is durable.
-There is intentionally no email-sending tool here (Gmail is read + draft only),
+There is intentionally no email-delivery tool here (Gmail is read + draft only),
 and no local generative LLM: AI tools use the local embedding cache + free external router.
 """
 
@@ -20,7 +20,12 @@ from backend.app.browser_v2.store import PostgresStore
 mcp = FastMCP("automated-apply-browser")
 TOOL_NAMES = ("check_portal_session", "discover_portal_jobs", "inspect_job_form", "apply_to_job",
               "recycle_browser", "lookup_semantic_cache", "save_semantic_cache_entry", "get_llm_router_status",
-              "list_open_hitl_requests", "resolve_hitl_request", "get_telegram_status")
+              "list_open_hitl_requests", "resolve_hitl_request", "get_telegram_status",
+              "enrich_company_contact", "create_application_gmail_draft", "list_email_drafts",
+              "get_mail_and_enrichment_status")
+# Phase 5 mail tools are READ + DRAFT ONLY (enforced by test_gmail_no_send_guardrail.py).
+DRAFT_ONLY_MAIL_TOOLS = frozenset({"create_application_gmail_draft", "list_email_drafts",
+                                   "get_mail_and_enrichment_status"})
 
 _service: BrowserService | None = None
 _service_lock = asyncio.Lock()
@@ -141,3 +146,60 @@ async def get_telegram_status() -> dict[str, Any]:
     from backend.app.telegram_v2.bot import telegram_status
 
     return plain(await telegram_status((await service()).store))
+
+
+# --- Phase 5: enrichment + Gmail drafts (READ + DRAFT ONLY; there is no delivery tool) -----
+async def quota_processor() -> Any:
+    from backend.app.browser_v2.quota import build_quota_processor
+
+    current = await service()
+    if current.ai is None:
+        current.ai = await ai_runtime()
+    return await build_quota_processor(current)
+
+
+@mcp.tool()
+async def enrich_company_contact(company_name: str | None = None, company_domain: str | None = None,
+                                 job_url: str | None = None, jd_text: str | None = None,
+                                 role_title: str | None = None, allow_paid: bool = False) -> dict[str, Any]:
+    """Find a recruiter email: domain cache -> JD/careers page regex -> (allow_paid) credit-capped
+    Apollo/Apify/SignalHire. Never guesses an address; NO_EMAIL_FOUND is a normal answer."""
+    enrichment = (await quota_processor()).enrichment
+    assert enrichment is not None
+    result = await enrichment.find_recruiter_email(company_name=company_name, company_domain=company_domain,
+                                                   job_url=job_url, jd_text=jd_text, role_title=role_title,
+                                                   allow_paid=allow_paid)
+    return plain(result.public())
+
+
+@mcp.tool()
+async def create_application_gmail_draft(application_id: str) -> dict[str, Any]:
+    """Enrich + save exactly ONE Gmail draft for an application (idempotent). Drafts only — the owner
+    reviews and delivers it manually from Gmail; this server cannot deliver email."""
+    processor = await quota_processor()
+    record = await processor.store.get_application(application_id)
+    if record is None:
+        return {"ok": False, "code": "not_found"}
+    if record.state.value == "APPLYING":
+        return {"ok": False, "code": "application_in_flight"}
+    profile, _ = await processor.store.load_profile()
+    reason, payload = await processor.draft_once(record, profile)
+    draft = await processor.store.get_email_draft(record.id)
+    return plain({"ok": reason in ("quota_hit_drafted_and_queued", "quota_hit_queued_already_drafted"),
+                  "code": reason, "details": payload, "draft": draft.public() if draft else None})
+
+
+@mcp.tool()
+async def list_email_drafts(platform: str | None = None, limit: int = 20) -> dict[str, Any]:
+    """Gmail drafts created by the quota fallback, newest first, with each job's retry status."""
+    rows, total = await (await service()).store.list_email_drafts(platform, max(1, min(limit, 100)))
+    return {"total": total, "items": [plain(row.public()) for row in rows]}
+
+
+@mcp.tool()
+async def get_mail_and_enrichment_status() -> dict[str, Any]:
+    """Mail bridge channel (imap | mail_app | unconfigured, permission READ_AND_DRAFT_ONLY) and
+    enrichment providers' free-credit usage. Never returns secrets."""
+    processor = await quota_processor()
+    assert processor.enrichment is not None and processor.mail is not None
+    return plain({"mail": processor.mail.status(), "enrichment": await processor.enrichment.status()})

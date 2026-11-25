@@ -5,6 +5,7 @@ import { GmailPermissionBadge, PageTitle } from "@/components/ui";
 import { AIRouterPanel, SemanticCacheTable } from "@/features/autopilot-ai";
 import { type PortalRules } from "@/features/autopilot-forms";
 import { HitlInbox } from "@/features/autopilot-hitl";
+import { QuotaFallbackPanel } from "@/features/autopilot-drafts";
 import { ApplicationsLog } from "@/features/autopilot-log";
 import { PortalRulesEditor, RULES_KEY } from "@/features/autopilot-rules";
 import { ScreeningProfileEditor } from "@/features/autopilot-screening";
@@ -25,6 +26,7 @@ export function Autopilot() {
       />
       <WorkerStatusPanel />
       <HitlInbox />
+      <QuotaFallbackPanel />
       <PortalRulesEditor />
       <ScreeningProfileEditor />
       <AIRouterPanel />

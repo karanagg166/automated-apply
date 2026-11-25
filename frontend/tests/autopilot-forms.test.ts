@@ -31,6 +31,9 @@ const rules: PortalRules = {
   timezone: "Asia/Kolkata",
   auth_status: "OK",
   revision: 4,
+  label: "Naukri",
+  adapter_status: "ready",
+  requires_login: true,
 };
 
 const profile: ScreeningProfile = {

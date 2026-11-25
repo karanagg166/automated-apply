@@ -38,7 +38,9 @@ TRANSITIONS: dict[ApplicationState, frozenset[ApplicationState]] = {
                            S.QUOTA_HIT_PENDING, S.FILTERED_OUT, S.FAILED}),
     S.WAITING_FOR_USER: frozenset({S.APPLYING, S.SCORED, S.FILTERED_OUT, S.SUBMISSION_UNKNOWN, S.FAILED}),
     S.QUOTA_HIT_PENDING: frozenset({S.DRAFTED_AND_QUEUED, S.APPLYING, S.FILTERED_OUT}),
-    S.DRAFTED_AND_QUEUED: frozenset({S.APPLYING, S.FILTERED_OUT}),
+    # Phase 5: the next-day retry re-scores a due job (retry_after <= now) before it
+    # applies again; a second quota hit re-parks it without drafting a second email.
+    S.DRAFTED_AND_QUEUED: frozenset({S.SCORED, S.APPLYING, S.FILTERED_OUT}),
     S.FAILED: frozenset({S.APPLYING, S.FILTERED_OUT, S.SCORED}),
     S.APPLIED: frozenset(),
     S.SUBMISSION_UNKNOWN: frozenset(),

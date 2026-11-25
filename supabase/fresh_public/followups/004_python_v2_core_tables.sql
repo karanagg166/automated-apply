@@ -48,11 +48,19 @@ CREATE TABLE IF NOT EXISTS public.portal_rules (
     CONSTRAINT ck_portal_rules_delay_order CHECK (max_delay_sec >= min_delay_sec)
 );
 
+-- Phase 5: the 10-portal roster. Only naukri has a live adapter today; the other
+-- nine are seeded disabled so the dashboard can manage them before Phase 6 wires them.
 INSERT INTO public.portal_rules (platform, enabled) VALUES
     ('naukri', true),
     ('instahyre', false),
+    ('internshala', false),
     ('himalayas', false),
-    ('internshala', false)
+    ('wellfound', false),
+    ('work_at_a_startup', false),
+    ('we_work_remotely', false),
+    ('hiringcafe', false),
+    ('greenhouse', false),
+    ('lever', false)
 ON CONFLICT (platform) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS public.applications (
@@ -146,33 +154,53 @@ CREATE TABLE IF NOT EXISTS public.llm_provider_usage (
     CONSTRAINT uq_llm_provider_usage_window UNIQUE (provider, model, window_type, window_start)
 );
 
+-- Phase 5: recruiter-email domain cache. NO_EMAIL_FOUND rows are a negative cache
+-- (shorter TTL) so dead domains are not re-queried every day.
 CREATE TABLE IF NOT EXISTS public.enrichment_cache (
-    company_domain TEXT PRIMARY KEY,
+    company_domain TEXT PRIMARY KEY CHECK (length(company_domain) BETWEEN 3 AND 253),
     role_family TEXT,
+    status TEXT NOT NULL DEFAULT 'FOUND' CHECK (status IN ('FOUND','NO_EMAIL_FOUND')),
     emails JSONB NOT NULL DEFAULT '[]'::jsonb,
     source TEXT,
     expires_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Daily free-tier credit ledger (period_key = YYYY-MM-DD in Asia/Kolkata). `used` is
+-- reserved atomically BEFORE every external call; cooldown_until parks a provider
+-- (plan-restricted 403/402, 429) without burning retries.
 CREATE TABLE IF NOT EXISTS public.enrichment_credits (
     provider TEXT NOT NULL,
     period_key TEXT NOT NULL,
     used INT NOT NULL DEFAULT 0 CHECK (used >= 0),
     limit_cap INT NOT NULL CHECK (limit_cap >= 0),
+    cooldown_until TIMESTAMPTZ,
+    last_error TEXT CHECK (last_error IS NULL OR length(last_error) <= 200),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     PRIMARY KEY (provider, period_key)
 );
 
+-- One Gmail draft per application, ever (UNIQUE application_id). A PENDING row is
+-- reserved before IMAP/Mail.app is called, so a crash or a dashboard/worker race can
+-- never produce a second draft; an ambiguous outcome stays PENDING (never retried).
 CREATE TABLE IF NOT EXISTS public.email_drafts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     application_id UUID UNIQUE REFERENCES public.applications(id),
+    platform TEXT,
     recipient_email TEXT,
     subject TEXT,
-    body_preview TEXT,
-    channel TEXT NOT NULL CHECK (channel IN ('imap','mail_app')),
+    body_preview TEXT CHECK (body_preview IS NULL OR length(body_preview) <= 600),
+    channel TEXT CHECK (channel IS NULL OR channel IN ('imap','mail_app')),
+    status TEXT NOT NULL DEFAULT 'CREATED' CHECK (status IN ('PENDING','CREATED','FAILED')),
+    composer TEXT CHECK (composer IS NULL OR composer IN ('llm','template')),
+    enrichment_source TEXT,
     external_draft_id TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    last_error TEXT CHECK (last_error IS NULL OR length(last_error) <= 200),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT ck_email_drafts_created_channel CHECK (status <> 'CREATED' OR channel IS NOT NULL)
 );
+CREATE INDEX IF NOT EXISTS ix_email_drafts_created ON public.email_drafts (created_at);
 
 -- Persisted desired worker state (Phase 2). A restarted worker resumes RUNNING
 -- when that was the last owner command, so service restarts never pause the queue.

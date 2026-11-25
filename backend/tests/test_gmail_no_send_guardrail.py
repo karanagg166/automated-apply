@@ -1,6 +1,7 @@
 """Gmail is strictly Read + Draft only in the active Python runtime."""
 
 import ast
+import re
 from pathlib import Path
 
 import pytest
@@ -39,7 +40,12 @@ async def test_no_mcp_tool_or_capability_can_send():
 
     for server in (registry.mcp, browser_mcp.mcp):
         names = {tool.name for tool in await server.list_tools()}
-        assert not any("send" in name or "mail" in name for name in names), names
+        assert not any("send" in name or "deliver" in name or "smtp" in name for name in names), names
+        mail_tools = {name for name in names if "mail" in name}
+        # Phase 5: only the enumerated READ + DRAFT tools may mention mail at all.
+        allowed = browser_mcp.DRAFT_ONLY_MAIL_TOOLS if server is browser_mcp.mcp else frozenset()
+        assert mail_tools <= allowed, mail_tools - allowed
+    assert set(browser_mcp.TOOL_NAMES) == {tool.name for tool in await browser_mcp.mcp.list_tools()}
     assert "send_email" not in {c.value for c in permissions.Capability}
     assert "send_email" not in permissions.allowed_capabilities()
     assert "send_email" not in permissions.TOOL_CAPABILITIES.values()
@@ -90,3 +96,59 @@ def test_no_active_module_imports_the_frozen_send_code():
         if _imports(path) & FROZEN_SEND_MODULES:
             offenders.append(module)
     assert offenders == []
+
+
+# --- Phase 5: the mail_v2 draft bridge is READ + DRAFT ONLY (static + runtime) -------------
+MAIL_V2 = APP / "mail_v2"
+DRAFT_PATH_SOURCES = [*sorted(MAIL_V2.rglob("*.py")), *sorted((APP / "enrichment_v2").rglob("*.py")),
+                      APP / "browser_v2/quota.py", APP / "browser_v2/live_smoke.py"]
+PY_DELIVERY = re.compile(r"\bsmtplib\b|\bsend_message\b|\bsendmail\b|\.send\(|mail\.send|gmail\.send|"
+                         r"\bSMTP(?:_SSL)?\(|gmail\.compose|\bsend_draft\b|drafts\(\)\.send")
+SCRIPT_FORBIDDEN = re.compile(r"\bsend\b|activate|\bdelete\b|do shell script", re.IGNORECASE)
+
+
+def test_mail_v2_package_exists_with_the_expected_modules():
+    names = {path.name for path in MAIL_V2.iterdir()}
+    assert {"imap_drafts.py", "mail_app_drafts.py", "mail_app_drafts.js", "composer.py", "service.py"} <= names
+
+
+@pytest.mark.parametrize("path", DRAFT_PATH_SOURCES, ids=lambda p: str(p.relative_to(APP)))
+def test_draft_path_python_has_no_delivery_code(path):
+    text = path.read_text()
+    assert not PY_DELIVERY.search(text), (path, PY_DELIVERY.search(text).group(0))
+    assert "smtplib" not in _imports(path) and "email.mime" not in " ".join(_imports(path))
+    assert "activate" not in text.lower().replace("deactivate", "")
+
+
+def test_mail_app_script_never_sends_activates_or_shells_out():
+    script = (MAIL_V2 / "mail_app_drafts.js").read_text()
+    assert not SCRIPT_FORBIDDEN.search(script), SCRIPT_FORBIDDEN.search(script).group(0)
+    assert "visible: false" in script and "mail.save(draft)" in script
+    assert "osascript -e" not in (MAIL_V2 / "mail_app_drafts.py").read_text()
+
+
+def test_imap_client_only_appends_to_drafts_with_the_draft_flag():
+    source = (MAIL_V2 / "imap_drafts.py").read_text()
+    calls = set(re.findall(r"imap\.(\w+)\(", source))
+    assert calls <= {"login", "logout", "list", "append", "select", "fetch"}, calls
+    assert r"(\Draft)" in source and "readonly=True" in source
+    assert not re.search(r"imap\.(?:store|expunge|copy|move|uid)\(", source)
+
+
+async def test_mail_draft_service_runtime_surface_has_no_delivery_method():
+    from backend.app.browser_v2.store import MemoryStore
+    from backend.app.mail_v2.config import MailConfig
+    from backend.app.mail_v2.imap_drafts import ImapDraftClient
+    from backend.app.mail_v2.mail_app_drafts import MailAppDraftClient
+    from backend.app.mail_v2.service import MailDraftService
+
+    service = MailDraftService(MemoryStore(), MailConfig())
+    for obj in (service, ImapDraftClient(MailConfig()), MailAppDraftClient(MailConfig())):
+        public = [name for name in dir(obj) if not name.startswith("_")]
+        assert not [name for name in public if "send" in name or "deliver" in name or "smtp" in name], public
+    assert service.status()["permission"] == "READ_AND_DRAFT_ONLY"
+
+
+def test_mail_app_runner_rejects_any_action_but_draft_and_probe():
+    script = (MAIL_V2 / "mail_app_drafts.js").read_text()
+    assert 'request.action !== "draft"' in script and 'throw Error("operation_denied")' in script

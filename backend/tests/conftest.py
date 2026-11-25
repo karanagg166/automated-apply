@@ -24,6 +24,13 @@ for name in ("COHERE_API_KEY", "GEMINI_API_KEY", "LLM_MODEL", "CANDIDATE_RESUME_
              "GMAIL_REFRESH_TOKEN", "MCP_API_TOKEN", "GMAIL_REDIRECT_URI", "GMAIL_EXPECTED_EMAIL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY"):
     os.environ[name] = ""
 
+# Phase 5: never read the owner's IMAP/Mail.app/enrichment config from the private env file.
+for name in ("GMAIL_IMAP_EMAIL", "GMAIL_IMAP_APP_PASSWORD", "MAIL_DRAFT_RESUME_PATH", "MAIL_APP_SENDER",
+             "APIFY_CONTACT_ACTOR_ID", "MAIL_DRAFT_CHANNEL"):
+    os.environ[name] = ""
+os.environ["MAIL_APP_FALLBACK_DISABLED"] = "true"
+os.environ["ENRICHMENT_FETCH_CAREERS_PAGE"] = "false"
+
 os.environ["OAUTH_ENCRYPTION_KEYS"] = "{}"
 os.environ["OAUTH_ACTIVE_KEY_ID"] = ""
 os.environ["GMAIL_SENDING_ENABLED"] = "false"
