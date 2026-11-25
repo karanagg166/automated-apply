@@ -1,5 +1,30 @@
 # Naukri bridge release acceptance
 
+## Recovery after an interrupted application-status read
+
+Combined run `20261125T134317Z-735e41f23d0c4daba6ae8cf552f86297`
+passed 37 of 37 stages in 2,711.244 seconds on clean commit
+`c5e0ab2c530302c4257107311ad110a9c4fae33e`. The run passed 446 Rust
+workspace tests and 1,105 Rust PostgreSQL tests, including the scoped
+prepared-resume regression. The immutable release was staged under
+`rust-plan-61umu_py` with verified rollback `rust-preinstall-vf8z5tvd`.
+
+| Check | Status | Evidence |
+| --- | --- | --- |
+| Combined fixture acceptance and staging | PASS | 37 successful stages on the exact clean commit. |
+| Dedicated Brave extension continuity | PASS | Brave still used the earlier immutable launch directory. Its complete package matched the previous and staged packages byte for byte. All six executing modules matched the candidate. The dedicated browser instance and its existing tabs stayed open. |
+| macOS Desktop access | PASS | All four runtime and dashboard launchd probes passed. Queue and preparation were stopped at revisions 178 and 108. |
+| First managed cutover attempt | ROLLED BACK | Candidate readiness returned HTTP 200 after 12.436 seconds and retained the same 3,097 jobs and 39 packets. The foreground app and screen lock state stayed the same. Chrome's window IDs changed before the final snapshot, so the installer restored the previous release. Rollback readiness passed in 12.451 seconds. |
+| Second managed cutover attempt | ROLLED BACK | Chrome stayed the foreground app. Two Chrome window IDs disappeared and another appeared during activation. All previously shared windows stayed in the same relative order. The guard restored the previous release and passed readiness and smoke checks. The cause of the Chrome window changes remains unconfirmed. |
+| Third managed cutover attempt | ROLLED BACK | The desktop held the same snapshot for 35 seconds. Browser window order still matched at quiescence and activation, and candidate readiness passed in 12.407 seconds. The final snapshot showed Chrome's earlier window set again. The prior runtime returned to readiness in 12.389 seconds. |
+| Live supervised submission | PENDING | Queue STOP revision 178 retained one available admission, three previous reservations and three quarantines after rollback. |
+
+The first and third attempts reached managed service readiness and verified
+retained database state. Both reversed the cutover after the window-order
+check. The overlap between the first and third snapshots shows two recurring
+Chrome window sets. Their cause remains unconfirmed. The next installation
+attempt requires a desktop session stable through the final smoke check.
+
 ## Prepared application continuation cutover
 
 Combined run `20261124T235750Z-6697db7e6f57426688ffb70c5084b74a` passed
@@ -69,7 +94,8 @@ same scoped packet to that read once. The explicit continuation can
 recover the paused stale-proof state with the exact work revision and
 existing proof and history checks. These paths discard the prior tab's
 account, résumé and application-status evidence before claiming another
-read. The follow-up remains pending combined validation and live acceptance.
+read. See the recovery acceptance above for the combined validation and
+live installation evidence.
 
 ## Earlier bridge release and incident
 

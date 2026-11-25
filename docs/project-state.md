@@ -1,7 +1,21 @@
 ## Latest local acceptance, 2026-11-25
 
+The interrupted-read recovery commit
+`c5e0ab2c530302c4257107311ad110a9c4fae33e` passed all 37 combined stages,
+including 446 Rust workspace tests and 1,105 PostgreSQL tests, and staged
+under `rust-plan-61umu_py`. The first managed cutover passed all four Desktop
+access probes, reached readiness in 12.436 seconds, and retained all data.
+The final macOS comparison observed changed Chrome window IDs. The
+installer restored `7e12fc66`, which passed readiness in 12.451 seconds.
+Brave retained its existing tabs and all six running modules matched the
+candidate. Two later attempts observed further Chrome window changes
+with the foreground app and unlocked screen preserved. The guard rolled
+both back. The installed runtime is healthy at queue STOP revision 178.
+A stable desktop session is needed for the next cutover.
+[Recovery acceptance](acceptance/naukri-bridge-release-20261125.md#recovery-after-an-interrupted-application-status-read)
+
 The transport-timeout release `7e12fc66c400b24a901af29e3710e5288083c29d`
-has 37 passing combined stages and is live under `rust-plan-aypdoz7f`.
+passed all 37 combined stages and ran under `rust-plan-aypdoz7f`.
 After the first runner exited, the release build and artifact inventory were
 run again on the same clean commit, retaining the original 35 passes.
 All four macOS access probes and 16 smoke checks passed. Readiness took

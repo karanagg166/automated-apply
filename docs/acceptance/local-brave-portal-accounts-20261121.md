@@ -1,5 +1,17 @@
 # Local Brave portal account acceptance
 
+## Latest verified sign-ins, November 25
+
+Verified sign-ins stand at three of eight. Naukri verified the signed-in
+account and canonical résumé in the existing dedicated Brave tab on
+November 25. Instahyre completed onboarding and opened Opportunities on
+November 23. Wellfound's signed-in session and canonical résumé were
+verified. Its profile completion prompt still appears. HiringCafe confirmed
+the selected email, with its tracker returning HTTP 403. YC Work at a
+Startup, Internshala, Himalayas, and We Work Remotely still lack verified
+account sessions in the dedicated profiles. The Naukri worker receipt is
+tracked separately. [Naukri live status](naukri-bridge-release-20261125.md)
+
 ## November 22 profile follow-up
 
 The saved Wellfound account still matches the owner's sign-in address. An
